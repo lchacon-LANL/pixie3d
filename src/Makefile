@@ -47,6 +47,7 @@ prefix = .
 
 DRIVERDIR = driver
 ifneq ($(strip $(BOPT)),)
+  PETSC_ARCH= linux_absoft_
   include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
   PETSCTRUE = true
@@ -59,9 +60,9 @@ FC = f90
 
 # Flags for Absoft f90
 ifeq ($(FC),f90)
-  OPTIMIZATION = -O2 -cpu:host
-  DEBUG        = -g -et -Rb -Rp
-#  DEBUG        = -g
+  OPTIMIZATION = -O3 -cpu:host
+#  DEBUG        = -g -et -Rb -Rp
+  DEBUG        = -g
   PROFILE      = -P
   STATIC       = -s
   MODPATH      = -p
@@ -70,9 +71,9 @@ ifeq ($(FC),f90)
   VERBOSE      = -v
 
   ifdef PETSCTRUE
-    CPPFLAGS += -Dabsoft -DNVAR=8
+    CPPFLAGS += -Dabsoft_ -DNVAR=8
     LIBS      = 
-    FFLAGS   += -DNVAR=8
+    FFLAGS   += -DNVAR=8 -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
   endif
 
   MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
@@ -105,7 +106,7 @@ ifeq ($(FC),ifort)
   OPTIMIZATION = -O2 -mp -axW
 #  DEBUG = -g
   DEBUG        = -g -check -traceback
-  PROFILE      = -gp
+  PROFILE      = -p
   STATIC       =
   MODPATH      =
   FFLAGS      += -vec_report0
