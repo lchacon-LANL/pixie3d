@@ -249,11 +249,12 @@ cc            nu2 = 0.1
 
 cc            y(ijk) = (1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
 cc     .              + alpha*upwind 
-cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,xarr)
+cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,xarr)
 
 cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
-            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,xarr) !Laplacian includes volume factor
+            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,xarr
+     .                        ,vol=vol_wgt)
 
           enddo
         enddo
@@ -311,7 +312,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      real(8)    :: upwind,nu2
+      real(8)    :: upwind,nu2,dvol
 
       logical    :: fpointers
 
@@ -382,9 +383,17 @@ c Calculate matrix-vector product
 
             upwind = upwind/jac
 
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
+
             y(ijk) = ((1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
-     .            + alpha*upwind )*volume(i,j,k,igrid,igrid,igrid)
-     .            - alpha*chi*laplacian(i,j,k,nnx,nny,nnz,dtmp(:,:,:,1))
+     .            + alpha*upwind )*dvol
+     .            - alpha*chi
+     .                 *laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                           ,dtmp(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -443,7 +452,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: drho
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      real(8)    :: upwind,nu2
+      real(8)    :: upwind,nu2,dvol
 
       logical    :: fpointers
 
@@ -516,9 +525,17 @@ c Calculate matrix-vector product
 
             upwind = upwind/jac
 
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
+
             y(ijk) = ( (1./dt + alpha*mgdivV0(ijkg))*x(ijk)
-     .            + alpha*upwind )*volume(i,j,k,igrid,igrid,igrid)
-     .            - alpha*dd*laplacian(i,j,k,nnx,nny,nnz,drho(:,:,:,1))
+     .            + alpha*upwind )*dvol
+     .            - alpha*dd
+     .                *laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                          ,drho(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -580,7 +597,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: db
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      logical    :: fpointers
+      logical    :: fpointers,alt_eom_b
 
 c External
 
@@ -588,6 +605,8 @@ c External
       external   :: res
 
 c Begin program
+
+      alt_eom_b = .false.
 
       call allocPointers(neq,fpointers)
 
@@ -648,7 +667,12 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            vol    = volume(i,j,k,igrid,igrid,igrid)
+            if (vol_wgt) then
+              vol = volume(i,j,k,igrid,igrid,igrid)
+cc              vol = dxh(ig)*dyh(jg)*dzh(kg)
+            else
+              vol = 1d0
+            endif
 
             etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
 
@@ -697,14 +721,12 @@ c Calculate matrix-vector product
             upwind =  (flxjp-flxjm)/dyh(jg)
      .               +(flxkp-flxkm)/dzh(kg)
 
-            y(neq*(ijk-1)+1) = ( db(i,j,k,1)/dt
-     .               + alpha*upwind )*vol
-     .               - alpha*etal
-cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-cc     .                                                     ,db(:,:,:,2)
-cc     .                                                     ,db(:,:,:,3)
-cc     .                                                 ,ones,.false.,1)
-     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
+            y(neq*(ijk-1)+1) = ( db(i,j,k,1)/dt + alpha*upwind 
+     .                         - alpha*etal
+     .                                *veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                             ,igrid,igrid,igrid,db
+     .                                             ,ones,alt_eom_b,1
+     .                                             ,vol=.false.) )*vol
 
             flxip = 0.5/(jac+jacip)*(
      .           (    (v0_cnv(i,j,k,1)+v0_cnv(ip,j,k,1))
@@ -751,14 +773,12 @@ cc     .                                                 ,ones,.false.,1)
             upwind =  (flxip-flxim)/dxh(ig)
      .               +(flxkp-flxkm)/dzh(kg)
 
-            y(neq*(ijk-1)+2) = ( db(i,j,k,2)/dt
-     .               + alpha*upwind )*vol
-     .               - alpha*etal
-cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-cc     .                                                     ,db(:,:,:,2)
-cc     .                                                     ,db(:,:,:,3)
-cc     .                                                 ,ones,.false.,2)
-     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,2))
+            y(neq*(ijk-1)+2) = ( db(i,j,k,2)/dt + alpha*upwind 
+     .                         - alpha*etal
+     .                                *veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                             ,igrid,igrid,igrid,db
+     .                                             ,ones,alt_eom_b,2
+     .                                             ,vol=.false.) )*vol
 
             flxip = 0.5/(jac+jacip)*(
      .           (    (v0_cnv(i,j,k,1)+v0_cnv(ip,j,k,1))
@@ -805,15 +825,12 @@ cc     .                                                 ,ones,.false.,2)
             upwind =  (flxip-flxim)/dxh(ig)
      .               +(flxjp-flxjm)/dyh(jg)
 
-            y(neq*(ijk-1)+3) = ( db(i,j,k,3)/dt
-     .               + alpha*upwind )*vol
-     .               - alpha*etal
-cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-cc     .                                                     ,db(:,:,:,2)
-cc     .                                                     ,db(:,:,:,3)
-cc     .                                                 ,ones,.false.,3)
-     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,3))
-
+            y(neq*(ijk-1)+3) = ( db(i,j,k,3)/dt + alpha*upwind
+     .                         - alpha*etal
+     .                                *veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                             ,igrid,igrid,igrid,db
+     .                                             ,ones,alt_eom_b,3
+     .                                             ,vol=.false.) )*vol
           enddo
         enddo
       enddo
@@ -873,7 +890,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: dv
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,pp0,b0_cnv,rho0
 
-      real(8)    :: upwind,mul,vol,nabla_vv0(3,3)
+      real(8)    :: upwind,mul,vol(3),nabla_vv0(3,3)
      $             ,flxip,flxim,flxjp,flxjm,flxkp,flxkm
      $             ,psiv(3),psib(3),psit(3),cov(3),cnv(3)
      $             ,divip,divim,divjp,divjm,divkp,divkm
@@ -902,6 +919,10 @@ c Begin program
       call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
+
+cc      igx = igrid
+cc      igy = igrid
+cc      igz = igrid
 
 cc      nxx = MGgrid%nxv(igrid)
 cc      nyy = MGgrid%nyv(igrid)
@@ -959,13 +980,19 @@ c Calculate matrix-vector product
             jacjm  = gmetric%grid(igrid)%jac(i,jm,k)
             jackp  = gmetric%grid(igrid)%jac(i,j,kp)
             jackm  = gmetric%grid(igrid)%jac(i,j,km)
-            jac    = gmetric%grid(igrid)%jac(i,j,k)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             ijkg   = ijk + isig - 1
 
-            vol    = volume(i,j,k,igrid,igrid,igrid)
+            if (vol_wgt) then
+              vol = volume(i,j,k,igrid,igrid,igrid)
+cc              vol = dxh(ig)*dyh(jg)*dzh(kg)
+cc              if (alt_eom) vol(2) = volume(i,j,k,igrid,igrid,igrid)
+            else
+              vol = 1d0
+            endif
 
             mul    = vis(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
 
@@ -978,15 +1005,15 @@ c Calculate matrix-vector product
             if (v0_cnv(i,j,k,2) > 0d0) hey = -1
             if (v0_cnv(i,j,k,3) > 0d0) hez = -1
 
-            nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,dv(:,:,:,1)
-     .                                               ,dv(:,:,:,2)
-     .                                               ,dv(:,:,:,3)
-     .                                               ,hex,hey,hez)
+            nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                             ,dv(:,:,:,1),dv(:,:,:,2),dv(:,:,:,3)
+     .                             ,hex,hey,hez)
 
-            nabla_vv0 = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,v0_cnv(:,:,:,1)
-     .                                                 ,v0_cnv(:,:,:,2)
-     .                                                 ,v0_cnv(:,:,:,3)
-     .                                                 ,0,0,0)
+            nabla_vv0 =fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                              ,v0_cnv(:,:,:,1)
+     .                              ,v0_cnv(:,:,:,2)
+     .                              ,v0_cnv(:,:,:,3)
+     .                              ,0,0,0)
 
             do ieq=1,3
               upwind =( v0_cnv(i,j,k,1)*nabla_v(1,ieq)
@@ -1002,16 +1029,14 @@ c Calculate matrix-vector product
               upwind = upwind
      .            -dt*mgadvdiffV0(ijkg,ieq)*div_upwd(hex)/rho0(i,j,k,1)
 
-              psiv(ieq) = alpha*upwind*vol
+              psiv(ieq) = alpha*upwind
      .                  - alpha*mul
-cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,dv(:,:,:,1)
-cc     .                                                     ,dv(:,:,:,2)
-cc     .                                                     ,dv(:,:,:,3)
-cc     .                                   ,ones,alt_eom,ieq)
-     .                      *laplacian(i,j,k,nxx,nyy,nzz,dv(:,:,:,ieq))
+     .                      *veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                   ,igrid,igrid,igrid,dv
+     .                                   ,ones,alt_eom,ieq,vol=.false.)
             enddo
 
-            psiv = rho0(i,j,k,1)*psiv
+            psiv = rho0(i,j,k,1)*psiv*vol
 
             !P_si^T  ******************************
 
@@ -1132,13 +1157,6 @@ cc     .                                   ,ones,alt_eom,ieq)
 
             !P_si^B  ******************************
 
-c$$$            ip = i+1
-c$$$            im = i-1
-c$$$            jp = j+1
-c$$$            jm = j-1
-c$$$            kp = k+1
-c$$$            km = k-1
-
             !(j0 x a) part; a = curl(dv x B0); UPWIND for diagonal dominance
 cc            hex = 1
 cc            hey = 1
@@ -1177,6 +1195,9 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
             cov(2) = mgj0cnv(ijkg,3)*a10 - mgj0cnv(ijkg,1)*a30
             cov(3) = mgj0cnv(ijkg,1)*a20 - mgj0cnv(ijkg,2)*a10
 
+c diag ***
+cc            cov = 0d0
+c diag ***
             !B0 x curl(a) part
 
             !!Find contravariant components of curl(dv x B0) at faces
@@ -1196,44 +1217,59 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
             call find_curl_vxb(i,j,km,nxx,nyy,nzz,dv,b0_cnv
      .                         ,a1cnvkm,a2cnvkm,a3cnvkm,3,igrid)
 
+cc            a3cnvjp = 0d0
+cc            a3cnvjm = 0d0
+
             !!Find covariant components of curl(dv x B0) at faces
 
             call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covip,a2covip,a3covip
-     .                              ,a1cnvip,a2cnvip,a3cnvip,.false.)
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                              ,a1cnvip,a2cnvip,a3cnvip
+     .                              ,.false.,half_elem=1)
+            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
      .                              ,a1covim,a2covim,a3covim
-     .                              ,a1cnvim,a2cnvim,a3cnvim,.false.)
+     .                              ,a1cnvim,a2cnvim,a3cnvim
+     .                              ,.false.,half_elem=1)
 
             call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covjp,a2covjp,a3covjp
-     .                              ,a1cnvjp,a2cnvjp,a3cnvjp,.false.)
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                              ,a1cnvjp,a2cnvjp,a3cnvjp
+     .                              ,.false.,half_elem=2)
+            call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
      .                              ,a1covjm,a2covjm,a3covjm
-     .                              ,a1cnvjm,a2cnvjm,a3cnvjm,.false.)
+     .                              ,a1cnvjm,a2cnvjm,a3cnvjm
+     .                              ,.false.,half_elem=2)
 
             call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covkp,a2covkp,a3covkp
-     .                              ,a1cnvkp,a2cnvkp,a3cnvkp,.false.)
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                              ,a1cnvkp,a2cnvkp,a3cnvkp
+     .                              ,.false.,half_elem=3)
+            call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
      .                              ,a1covkm,a2covkm,a3covkm
-     .                              ,a1cnvkm,a2cnvkm,a3cnvkm,.false.)
+     .                              ,a1cnvkm,a2cnvkm,a3cnvkm
+     .                              ,.false.,half_elem=3)
 
             !!Assemble B0 x curl(a) and j0 x a
-            cov(1) =-cov(1)+b0_cnv(i,j,k,2)*( (a2covip-a2covim)/dxh(ig)
-     .                                       -(a1covjp-a1covjm)/dyh(jg))
-     .                     +b0_cnv(i,j,k,3)*( (a3covip-a3covim)/dxh(ig)
-     .                                       -(a1covkp-a1covkm)/dzh(kg))
+            cov(1) =-cov(1)
+     .              +b0_cnv(i,j,k,2)*( (a2covip-a2covim)/dxh(ig)
+     .                                -(a1covjp-a1covjm)/dyh(jg))
+     .              +b0_cnv(i,j,k,3)*( (a3covip-a3covim)/dxh(ig)
+     .                                -(a1covkp-a1covkm)/dzh(kg))
 
-            cov(2) =-cov(2)+b0_cnv(i,j,k,1)*( (a1covjp-a1covjm)/dyh(jg)
-     .                                       -(a2covip-a2covim)/dxh(ig))
-     .                     +b0_cnv(i,j,k,3)*( (a3covjp-a3covjm)/dyh(jg)
-     .                                       -(a2covkp-a2covkm)/dzh(kg))
+            cov(2) =-cov(2)
+     .              +b0_cnv(i,j,k,1)*( (a1covjp-a1covjm)/dyh(jg)
+     .                                -(a2covip-a2covim)/dxh(ig))
+     .              +b0_cnv(i,j,k,3)*( (a3covjp-a3covjm)/dyh(jg)
+     .                                -(a2covkp-a2covkm)/dzh(kg))
 
-            cov(3) =-cov(3)+b0_cnv(i,j,k,1)*( (a1covkp-a1covkm)/dzh(kg)
-     .                                       -(a3covip-a3covim)/dxh(ig))
-     .                     +b0_cnv(i,j,k,2)*( (a2covkp-a2covkm)/dzh(kg)
-     .                                       -(a3covjp-a3covjm)/dyh(jg))
+            cov(3) =-cov(3)
+     .              +b0_cnv(i,j,k,1)*( (a1covkp-a1covkm)/dzh(kg)
+     .                                -(a3covip-a3covim)/dxh(ig))
+     .              +b0_cnv(i,j,k,2)*( (a2covkp-a2covkm)/dzh(kg)
+     .                                -(a3covjp-a3covjm)/dyh(jg))
+c diag ****
+cc            cov = -cov
+c diag ****
 
             !Introduce jacobian factor
             cov = cov/jac
@@ -1245,14 +1281,17 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
             !Transform cov to cnv
 
             cov = psib + psit
+c diag ****
+cc            cov = psit
+c diag ****
 
             call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                  ,cov(1),cov(2),cov(3)
      .                                  ,cnv(1),cnv(2),cnv(3),.true.)
 
             do ieq=1,3
-              y(neq*(ijk-1)+ieq) = dv(i,j,k,ieq)/dt*vol*rho0(i,j,k,1)
-     .                            + psiv(ieq) + cnv(ieq)
+              y(neq*(ijk-1)+ieq)=dv(i,j,k,ieq)/dt*vol(ieq)*rho0(i,j,k,1)
+     .                            +psiv(ieq) + cnv(ieq)
             enddo
 
           enddo

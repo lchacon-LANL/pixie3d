@@ -33,7 +33,7 @@ c Call variables
 c Local variables
 
       real(8)    :: xxx(ntot/neqd,neqd),yyy(ntot/neqd,neqd)
-     .             ,rhs(ntot/neqd,neqd),rr(ntot),dxk(ntot),vol
+     .             ,rhs(ntot/neqd,neqd),rr(ntot),dxk(ntot),dvol
 
       real(8),allocatable,dimension(:,:,:,:) :: dv_cnv,db_cnv,dj_cov
 
@@ -97,17 +97,64 @@ c *******************************************************************
 
         xxx = 0d0
 
-c     Set up size of operator split vectors
+c     Scatter residuals
 
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              do ieq=1,neqd
-                iii = ieq + neqd*(ii-1)
+              if (vol_wgt) then  !Volume weighing of residuals
 
-                yyy(ii,ieq) = y(iii)*volume(i,j,k,igx,igy,igz)  !Volume weighing of residuals
-              enddo
+                dvol = volume(i,j,k,igx,igy,igz)
+                do ieq=1,neqd
+                  iii = ieq + neqd*(ii-1)
+                  yyy(ii,ieq) = y(iii)*dvol
+                enddo
+
+cc                !Scalars
+cc                dvol = volume(i,j,k,igx,igy,igz)
+cc
+cc                ieq=IRHO
+cc                iii = ieq + neqd*(ii-1)
+cc                yyy(ii,ieq) = y(iii)*dvol
+cc
+cc                ieq=ITMP
+cc                iii = ieq + neqd*(ii-1)
+cc                yyy(ii,ieq) = y(iii)*dvol
+cc
+cc                !Velocity
+cc                dvol = dvol/gmetric%grid(igrid)%jac(i,j,k)
+cc
+cc                ieq=IVX
+cc                iii = ieq + neqd*(ii-1)
+cc                yyy(ii,ieq) = y(iii)*dvol
+cc
+cc                ieq=IVY
+cc                iii = ieq + neqd*(ii-1)
+cc                if (alt_eom) then
+cc                  yyy(ii,ieq)=y(iii)*dvol*gmetric%grid(igrid)%jac(i,j,k)
+cc                else
+cc                  yyy(ii,ieq)=y(iii)*dvol
+cc                endif
+cc
+cc                ieq=IVZ
+cc                iii = ieq + neqd*(ii-1)
+cc                yyy(ii,ieq) = y(iii)*dvol
+cc
+cc                !Magnetic field
+cc                do ieq=IBX,IBZ
+cc                  iii = ieq + neqd*(ii-1)
+cc                  yyy(ii,ieq) = y(iii)*dvol
+cc                enddo
+
+              else
+
+                do ieq=1,neqd
+                  iii = ieq + neqd*(ii-1)
+                  yyy(ii,ieq) = y(iii)
+                enddo
+
+              endif
             enddo
           enddo
         enddo
@@ -146,6 +193,20 @@ c     SI step
         call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
      .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,v_diag,4
      .           ,.false.)
+
+c diag ****
+        !Solution plot
+       call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+       call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+
+       stop
+c diag ****
 
 c     Store velocity solution in array format
 
@@ -231,18 +292,18 @@ c     Postprocessing of velocity -> momentum
 
 c     Diagnostics
 
-        !Solution plot
 c diag ****
-cc        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-cc        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-cc
-cc        stop
+        !Solution plot
+       call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+       call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+       call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+
+       stop
 c diag ****
 
         !diag B-field divergence
@@ -257,9 +318,10 @@ cc
 cc        do k=1,nz
 cc          do j=1,ny
 cc            do i=1,nx
-cc              debug(i,j,k) = div(i,j,k,nx,ny,nz,db_cnv(:,:,:,1)
-cc     $                                         ,db_cnv(:,:,:,2)
-cc     $                                         ,db_cnv(:,:,:,3))
+cc              debug(i,j,k) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     $                          ,db_cnv(:,:,:,1)
+cc     $                          ,db_cnv(:,:,:,2)
+cc     $                          ,db_cnv(:,:,:,3))
 cc            enddo
 cc          enddo
 cc        enddo
@@ -337,10 +399,10 @@ c       Map residual to individual components (rr --> yyy)
             do j = 1,ny
               do i = 1,nx
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
-                vol = volume(i,j,k,igx,igy,igz)
+                dvol = volume(i,j,k,igx,igy,igz)
                 do ieq=1,neqd
                   iii = ieq + neqd*(ii-1)
-                  yyy(ii,ieq) = rr(iii)*vol !Volume weighing of residuals
+                  yyy(ii,ieq) = rr(iii)*dvol !Volume weighing of residuals
                 enddo
               enddo
             enddo
@@ -407,13 +469,13 @@ c diag ******
             do j = 1,ny
               do i = 1,nx
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
-                vol = volume(i,j,k,igx,igy,igz)
+                dvol = volume(i,j,k,igx,igy,igz)
                 xxx(ii,IRHO)    = 
-     .                       xxx(ii,IRHO)    - vol*alpha*yyy(ii,IRHO)
+     .                       xxx(ii,IRHO)    -dvol*alpha*yyy(ii,IRHO)
                 xxx(ii,ITMP)    =
-     .                       xxx(ii,ITMP)    - vol*alpha*yyy(ii,ITMP)
+     .                       xxx(ii,ITMP)    -dvol*alpha*yyy(ii,ITMP)
                 xxx(ii,IBX:IBZ) =
-     .                       xxx(ii,IBX:IBZ) - vol*alpha*yyy(ii,IBX:IBZ)
+     .                       xxx(ii,IBX:IBZ) -dvol*alpha*yyy(ii,IBX:IBZ)
               enddo
             enddo
           enddo
@@ -567,9 +629,10 @@ cc
 cc        do k=1,nz
 cc          do j=1,ny
 cc            do i=1,nx
-cc              debug(i,j,k) = div(i,j,k,nx,ny,nz,db_cnv(:,:,:,1)
-cc     $                                         ,db_cnv(:,:,:,2)
-cc     $                                         ,db_cnv(:,:,:,3))
+cc              debug(i,j,k) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     $                          ,db_cnv(:,:,:,1)
+cc     $                          ,db_cnv(:,:,:,2)
+cc     $                          ,db_cnv(:,:,:,3))
 cc            enddo
 cc          enddo
 cc        enddo
@@ -667,27 +730,27 @@ c     Initialize solver
 
 c     Upper_level solver options (MG)
 
-      call solverOptionsInit
-
-      solverOptions%tol      = mgtol
-      solverOptions%vcyc     = maxvcyc
-      solverOptions%igridmin = 2
-      solverOptions%orderres = 0
-      solverOptions%orderprol= 2
-      solverOptions%mg_mu    = 2
-      solverOptions%vol_res  = .true.
-      solverOptions%diag     => dg
-      solverOptions%ncolors  = ncolors
-      solverOptions%mg_coarse_solver_depth = 3  !GMRES, as defined below
-
-      !Vertex relaxation
-cc      solverOptions%vertex_based_relax = .true.
-
-      !Plane/line relaxation
-cc      solverOptions%mg_line_relax = line_relax
-      solverOptions%mg_line_nsweep = 1
-
-      call assembleSolverHierarchy('mg')
+cc      call solverOptionsInit
+cc
+cc      solverOptions%tol      = mgtol
+cc      solverOptions%vcyc     = maxvcyc
+cc      solverOptions%igridmin = 2
+cc      solverOptions%orderres = 1
+cc      solverOptions%orderprol= 1
+cc      solverOptions%mg_mu    = 1
+cc      solverOptions%vol_res  = vol_wgt
+cc      solverOptions%diag     => dg
+cc      solverOptions%ncolors  = ncolors
+cc      solverOptions%mg_coarse_solver_depth = 3  !GMRES, as defined below
+cc
+cc      !Vertex relaxation
+cccc      solverOptions%vertex_based_relax = .true.
+cc
+cc      !Plane/line relaxation
+cccc      solverOptions%mg_line_relax = line_relax
+cc      solverOptions%mg_line_nsweep = 1
+cc
+cc      call assembleSolverHierarchy('mg')
 
 c     Next level solver (smoother)
 
@@ -786,8 +849,8 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ii,iig,isig,ivar
-      real(8)    :: dvol,cov(3),cnv(3)
+      integer(4) :: ii,iig,isig,ivar,ip,im
+      real(8)    :: dvol(3),cov(3),cnv(3),idx,idy,idz
      .             ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
       real(8),allocatable,dimension(:,:,:)   :: dpres
@@ -803,9 +866,16 @@ c Find rhs_v
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             iig = ii + isig - 1
-            dvol = volume(i,j,k,igrid,igrid,igrid)
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+cc              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc              dvol = dxh(ig)*dyh(jg)*dzh(kg)
+cc              if (alt_eom) dvol(2) = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
             rhs_si(ii,:) = yyy(ii,:)
-     .                   - dvol*xxx(ii,IRHO)*mgadvdiffV0(iig,:)
+     .                   - dvol(:)*xxx(ii,IRHO)*mgadvdiffV0(iig,:)
 
           enddo
         enddo
@@ -829,9 +899,10 @@ c Find dj* from dB*
         do j = 1,ny
           do i = 1,nx
             do ivar=1,3
-              dj_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz,db_cov(:,:,:,1)
-     .                                               ,db_cov(:,:,:,2)
-     .                                               ,db_cov(:,:,:,3)
+              dj_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                                ,db_cov(:,:,:,1)
+     .                                ,db_cov(:,:,:,2)
+     .                                ,db_cov(:,:,:,3)
      .                                ,ivar)
             enddo
           enddo
@@ -870,26 +941,45 @@ c Find rhs_v'
 
             call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jac    = gmetric%grid(igrid)%jac(i,j,k)
-            dvol   = volume(i,j,k,igrid,igrid,igrid)
+            jac = gmetric%grid(igrid)%jac(i,j,k)
+
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+cc              dvol = dxh(ig)*dyh(jg)*dzh(kg)
+cc              if (alt_eom) dvol(2) = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
+
+            ip = i+1
+            im = i-1
+
+            idx = 0.5/dxh(ig)
+            idy = 0.5/dyh(jg)
+            idz = 0.5/dzh(kg)
+
+            if (isSP(i,j,k,igrid,igrid,igrid)) then
+              idx=1./dx(ig)
+              im = i
+            endif
 
             cov(1) = jy(i,j,k)*db_cnv(i,j,k,3)/jac
      .             - jz(i,j,k)*db_cnv(i,j,k,2)/jac
      .             - by(i,j,k)*dj_cnv(i,j,k,3)/jac
      .             + bz(i,j,k)*dj_cnv(i,j,k,2)/jac
-     .             -(dpres(i+1,j,k)-dpres(i-1,j,k))/dxh(ig)*0.5
+     .             -(dpres(ip,j,k)-dpres(im,j,k))*idx
 
             cov(2) = jz(i,j,k)*db_cnv(i,j,k,1)/jac
      .             - jx(i,j,k)*db_cnv(i,j,k,3)/jac
      .             - bz(i,j,k)*dj_cnv(i,j,k,1)/jac
      .             + bx(i,j,k)*dj_cnv(i,j,k,3)/jac
-     .             -(dpres(i,j+1,k)-dpres(i,j-1,k))/dyh(jg)*0.5
+     .             -(dpres(i,j+1,k)-dpres(i,j-1,k))*idy
 
             cov(3) = jx(i,j,k)*db_cnv(i,j,k,2)/jac
      .             - jy(i,j,k)*db_cnv(i,j,k,1)/jac
      .             - bx(i,j,k)*dj_cnv(i,j,k,2)/jac
      .             + by(i,j,k)*dj_cnv(i,j,k,1)/jac
-     .             -(dpres(i,j,k+1)-dpres(i,j,k-1))/dzh(kg)*0.5
+     .             -(dpres(i,j,k+1)-dpres(i,j,k-1))*idz
 
             !Transform to cov to cnv
             call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
@@ -897,7 +987,7 @@ c Find rhs_v'
      .                                  ,cnv(1),cnv(2),cnv(3),.true.)
 
             !Correct rhs_v
-            rhs_si(ii,:) = rhs_si(ii,:)+alpha*dvol*cnv(:)
+            rhs_si(ii,:) = rhs_si(ii,:)+alpha*dvol(:)*cnv(:)
 
           enddo
         enddo
@@ -948,9 +1038,10 @@ c Evaluate rhs correction: div(rh0*dv)
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            crhs(ii) = div(i,j,k,nx,ny,nz,rhodv_cnv(:,:,:,1)
-     $                                   ,rhodv_cnv(:,:,:,2)
-     $                                   ,rhodv_cnv(:,:,:,3))
+            crhs(ii) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                    ,rhodv_cnv(:,:,:,1)
+     $                    ,rhodv_cnv(:,:,:,2)
+     $                    ,rhodv_cnv(:,:,:,3))
           enddo
         enddo
       enddo
@@ -998,9 +1089,10 @@ c Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
             crhs(ii) = ( (gamma-1)*tmp(i,j,k)
-     $                           *div(i,j,k,nx,ny,nz,dv_cnv(:,:,:,1)
-     $                                              ,dv_cnv(:,:,:,2)
-     $                                              ,dv_cnv(:,:,:,3))
+     $                           *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     $                               ,dv_cnv(:,:,:,1)
+     $                               ,dv_cnv(:,:,:,2)
+     $                               ,dv_cnv(:,:,:,3))
      $                   +dv_cnv(i,j,k,1)/jac
      $                       *(tmp(i+1,j,k)-tmp(i-1,j,k))/dxh(ig)/2.
      $                   +dv_cnv(i,j,k,2)/jac
@@ -1145,15 +1237,18 @@ cc            crhs(ii,3) = a3
             crhs(ii,3) = crhs(ii,3)+a3
 
             !curl(eta dj)
-            a1= curl(i,j,k,nx,ny,nz,dj_cov(:,:,:,1)
-     .                             ,dj_cov(:,:,:,2)
-     .                             ,dj_cov(:,:,:,3),1)
-            a2= curl(i,j,k,nx,ny,nz,dj_cov(:,:,:,1)
-     .                             ,dj_cov(:,:,:,2)
-     .                             ,dj_cov(:,:,:,3),2)
-            a3= curl(i,j,k,nx,ny,nz,dj_cov(:,:,:,1)
-     .                             ,dj_cov(:,:,:,2)
-     .                             ,dj_cov(:,:,:,3),3)
+            a1= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .              ,dj_cov(:,:,:,1)
+     .              ,dj_cov(:,:,:,2)
+     .              ,dj_cov(:,:,:,3),1)
+            a2= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .              ,dj_cov(:,:,:,1)
+     .              ,dj_cov(:,:,:,2)
+     .              ,dj_cov(:,:,:,3),2)
+            a3= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .              ,dj_cov(:,:,:,1)
+     .              ,dj_cov(:,:,:,2)
+     .              ,dj_cov(:,:,:,3),3)
             crhs(ii,1) = crhs(ii,1)+a1
             crhs(ii,2) = crhs(ii,2)+a2
             crhs(ii,3) = crhs(ii,3)+a3

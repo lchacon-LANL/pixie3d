@@ -520,7 +520,7 @@ c ######################################################################
 
         type (mg_array ),target :: gp0,gb0,gv0,grho0
 
-        logical :: form_diag=.true.
+        logical :: form_diag=.true.,vol_wgt=.true.
 
       contains
 
@@ -612,7 +612,7 @@ c     Local variables
         integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar
         real(8)    :: dvol
 
-        real(8), allocatable, dimension(:,:,:,:) :: vector
+        real(8), allocatable, dimension(:,:,:,:) :: vector,vel
 
 c     Begin program
 
@@ -670,7 +670,8 @@ c     Find auxiliary quantities and store them in all grids
         do k=1,nzz
           do j=1,nyy
             do i=1,nxx
-              divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,vx,vy,vz)
+              divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                           ,vx,vy,vz)
             enddo
           enddo
         enddo
@@ -686,16 +687,21 @@ c     Find auxiliary quantities and store them in all grids
         call restrictMGArray(IRHO,1,gp0,bcs(:,IRHO),igrid,order)
 
         !v0/dt+theta(v0.grad(v0)-mu*veclap(v0))
-        allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3))
+        allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .          ,vel   (0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+        vel (:,:,:,1) = vx
+        vel (:,:,:,2) = vy
+        vel (:,:,:,3) = vz
 
         do k = 1,nzz
           do j = 1,nyy
             do i = 1,nxx
               ii  = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              jac    = gmetric%grid(igx)%jac(i,j,k)
-              nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,vx,vy,vz,0)
-              dvol   = volume(i,j,k,igx,igy,igz)
+              jac    = gmetric%grid(igrid)%jac(i,j,k)
+              nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                         ,vx,vy,vz,0)
 
               !Eqn 1
               do ivar=1,3
@@ -705,8 +711,10 @@ c     Find auxiliary quantities and store them in all grids
      .                          + alpha*vy(i,j,k)*nabla_v(2,ivar)/jac
      .                          + alpha*vz(i,j,k)*nabla_v(3,ivar)/jac
      .                          - alpha*veclaplacian(i,j,k,nxx,nyy,nzz
-     .                                              ,vx,vy,vz,nuu
-     .                                              ,alt_eom,ivar)/dvol
+     .                                              ,igrid,igrid,igrid
+     .                                              ,vel,nuu,alt_eom
+     .                                              ,ivar,vol=.false.)
+cc     .                                              ,ivar)/dvol
               enddo
 
             enddo
@@ -720,7 +728,7 @@ c     Find auxiliary quantities and store them in all grids
      .                              ,igrid,order,.false.)
         enddo
 
-        deallocate(vector)
+        deallocate(vector,vel)
 
 c     End program
 
@@ -747,7 +755,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
+        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,igx,igy,igz
         integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
         real(8)    :: idhx,idhy,idhz
@@ -768,6 +776,10 @@ c     Local variables
 
 c     Begin program
 
+        igx = igrid
+        igy = igrid
+        igz = igrid
+
         sing_point = isSP(i,j,k,igx,igy,igz)
 
 c     Defaults
@@ -785,6 +797,8 @@ c     Defaults
         idhy = 0.5/dyh(jg)
         idhz = 0.5/dzh(kg)
 
+        jac  = gmetric%grid(igx)%jac(i,j,k)
+
 c     Exceptions
 
         select case(half_elem)
@@ -792,73 +806,136 @@ c     Exceptions
           idhx = 1./dx(ig)
           im = i
 
-cc          vxx = 0.5*(vv(i,j,k,1)+vv(ip,j,k,1))
-cc          vyy = 0.5*(vv(i,j,k,2)+vv(ip,j,k,2))
-cc          vzz = 0.5*(vv(i,j,k,3)+vv(ip,j,k,3))
+          if (.not.isSP(ip,j,k,igx,igy,igz)) then  !i>0 and/or not a SP at i=0
 
-          vxip = vv(ip,j,k,1)
-          vxim = vv(i ,j,k,1)
-          vyip = vv(ip,j,k,2)
-          vyim = vv(i ,j,k,2)
-          vzip = vv(ip,j,k,3)
-          vzim = vv(i ,j,k,3)
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(i ,j,k)
+            jacjp  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+     .                   +gmetric%grid(igx)%jac(i ,jp,k))
+            jacjm  = 0.5*(gmetric%grid(igx)%jac(ip,jm,k)
+     .                   +gmetric%grid(igx)%jac(i ,jm,k))
+            jackp  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+     .                   +gmetric%grid(igx)%jac(i ,j,kp))
+            jackm  = 0.5*(gmetric%grid(igx)%jac(ip,j,km)
+     .                   +gmetric%grid(igx)%jac(i ,j,km))
 
-          vxjp = (vv(ip,jp,k,1)+vv(i,jp,k,1))*0.5
-          vxjm = (vv(ip,jm,k,1)+vv(i,jm,k,1))*0.5
-          vyjp = (vv(ip,jp,k,2)+vv(i,jp,k,2))*0.5
-          vyjm = (vv(ip,jm,k,2)+vv(i,jm,k,2))*0.5
-          vzjp = (vv(ip,jp,k,3)+vv(i,jp,k,3))*0.5
-          vzjm = (vv(ip,jm,k,3)+vv(i,jm,k,3))*0.5
+            vxip = vv(ip,j,k,1)
+            vxim = vv(i ,j,k,1)
+            vyip = vv(ip,j,k,2)
+            vyim = vv(i ,j,k,2)
+            vzip = vv(ip,j,k,3)
+            vzim = vv(i ,j,k,3)
 
-          vxkp = (vv(ip,j,kp,1)+vv(i,j,kp,1))*0.5
-          vxkm = (vv(ip,j,km,1)+vv(i,j,km,1))*0.5
-          vykp = (vv(ip,j,kp,2)+vv(i,j,kp,2))*0.5
-          vykm = (vv(ip,j,km,2)+vv(i,j,km,2))*0.5
-          vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))*0.5
-          vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))*0.5
+            vxjp = (vv(ip,jp,k,1)+vv(i,jp,k,1))*0.5
+            vxjm = (vv(ip,jm,k,1)+vv(i,jm,k,1))*0.5
+            vyjp = (vv(ip,jp,k,2)+vv(i,jp,k,2))*0.5
+            vyjm = (vv(ip,jm,k,2)+vv(i,jm,k,2))*0.5
+            vzjp = (vv(ip,jp,k,3)+vv(i,jp,k,3))*0.5
+            vzjm = (vv(ip,jm,k,3)+vv(i,jm,k,3))*0.5
 
-cc          bxx = 0.5*(bb(i,j,k,1)+bb(ip,j,k,1))
-cc          byy = 0.5*(bb(i,j,k,2)+bb(ip,j,k,2))
-cc          bzz = 0.5*(bb(i,j,k,3)+bb(ip,j,k,3))
+            vxkp = (vv(ip,j,kp,1)+vv(i,j,kp,1))*0.5
+            vxkm = (vv(ip,j,km,1)+vv(i,j,km,1))*0.5
+            vykp = (vv(ip,j,kp,2)+vv(i,j,kp,2))*0.5
+            vykm = (vv(ip,j,km,2)+vv(i,j,km,2))*0.5
+            vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))*0.5
+            vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))*0.5
 
-          bxip = bb(ip,j,k,1)
-          bxim = bb(i ,j,k,1)
-          byip = bb(ip,j,k,2)
-          byim = bb(i ,j,k,2)
-          bzip = bb(ip,j,k,3)
-          bzim = bb(i ,j,k,3)
+            bxip = bb(ip,j,k,1)
+            bxim = bb(i ,j,k,1)
+            byip = bb(ip,j,k,2)
+            byim = bb(i ,j,k,2)
+            bzip = bb(ip,j,k,3)
+            bzim = bb(i ,j,k,3)
 
-          bxjp = (bb(ip,jp,k,1)+bb(i,jp,k,1))*0.5
-          bxjm = (bb(ip,jm,k,1)+bb(i,jm,k,1))*0.5
-          byjp = (bb(ip,jp,k,2)+bb(i,jp,k,2))*0.5
-          byjm = (bb(ip,jm,k,2)+bb(i,jm,k,2))*0.5
-          bzjp = (bb(ip,jp,k,3)+bb(i,jp,k,3))*0.5
-          bzjm = (bb(ip,jm,k,3)+bb(i,jm,k,3))*0.5
+            bxjp = (bb(ip,jp,k,1)+bb(i,jp,k,1))*0.5
+            bxjm = (bb(ip,jm,k,1)+bb(i,jm,k,1))*0.5
+            byjp = (bb(ip,jp,k,2)+bb(i,jp,k,2))*0.5
+            byjm = (bb(ip,jm,k,2)+bb(i,jm,k,2))*0.5
+            bzjp = (bb(ip,jp,k,3)+bb(i,jp,k,3))*0.5
+            bzjm = (bb(ip,jm,k,3)+bb(i,jm,k,3))*0.5
 
-          bxkp = (bb(ip,j,kp,1)+bb(i,j,kp,1))*0.5
-          bxkm = (bb(ip,j,km,1)+bb(i,j,km,1))*0.5
-          bykp = (bb(ip,j,kp,2)+bb(i,j,kp,2))*0.5
-          bykm = (bb(ip,j,km,2)+bb(i,j,km,2))*0.5
-          bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))*0.5
-          bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))*0.5
+            bxkp = (bb(ip,j,kp,1)+bb(i,j,kp,1))*0.5
+            bxkm = (bb(ip,j,km,1)+bb(i,j,km,1))*0.5
+            bykp = (bb(ip,j,kp,2)+bb(i,j,kp,2))*0.5
+            bykm = (bb(ip,j,km,2)+bb(i,j,km,2))*0.5
+            bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))*0.5
+            bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))*0.5
+
+          else  !i=0 and a SP at i=0: first order differences @ i=0
+
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(i ,j,k)
+            jacjp  = gmetric%grid(igx)%jac(ip,jp,k)
+            jacjm  = gmetric%grid(igx)%jac(ip,jm,k)
+            jackp  = gmetric%grid(igx)%jac(ip,j,kp)
+            jackm  = gmetric%grid(igx)%jac(ip,j,km)
+
+            vxip = vv(ip,j,k,1)
+            vxim = vv(i ,j,k,1)
+            vyip = vv(ip,j,k,2)
+            vyim = vv(i ,j,k,2)
+            vzip = vv(ip,j,k,3)
+            vzim = vv(i ,j,k,3)
+
+            vxjp = vv(ip,jp,k,1)
+            vxjm = vv(ip,jm,k,1)
+            vyjp = vv(ip,jp,k,2)
+            vyjm = vv(ip,jm,k,2)
+            vzjp = vv(ip,jp,k,3)
+            vzjm = vv(ip,jm,k,3)
+
+            vxkp = vv(ip,j,kp,1)
+            vxkm = vv(ip,j,km,1)
+            vykp = vv(ip,j,kp,2)
+            vykm = vv(ip,j,km,2)
+            vzkp = vv(ip,j,kp,3)
+            vzkm = vv(ip,j,km,3)
+
+            bxip = bb(ip,j,k,1)
+            bxim = bb(i ,j,k,1)
+            byip = bb(ip,j,k,2)
+            byim = bb(i ,j,k,2)
+            bzip = bb(ip,j,k,3)
+            bzim = bb(i ,j,k,3)
+
+            bxjp = bb(ip,jp,k,1)
+            bxjm = bb(ip,jm,k,1)
+            byjp = bb(ip,jp,k,2)
+            byjm = bb(ip,jm,k,2)
+            bzjp = bb(ip,jp,k,3)
+            bzjm = bb(ip,jm,k,3)
+
+            bxkp = bb(ip,j,kp,1)
+            bxkm = bb(ip,j,km,1)
+            bykp = bb(ip,j,kp,2)
+            bykm = bb(ip,j,km,2)
+            bzkp = bb(ip,j,kp,3)
+            bzkm = bb(ip,j,km,3)
+          endif
         case (2)
           idhy = 1./dy(jg)
           jm = j
 
-cc          vxx = 0.5*(vv(i,j,k,1)+vv(i,jp,k,1))
-cc          vyy = 0.5*(vv(i,j,k,2)+vv(i,jp,k,2))
-cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
+          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+     .                 +gmetric%grid(igx)%jac(ip,j ,k))
+          jacim  = 0.5*(gmetric%grid(igx)%jac(im,jp,k)
+     .                 +gmetric%grid(igx)%jac(im,j ,k))
+          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+          jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+          jackp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+     .                 +gmetric%grid(igx)%jac(i,j ,kp))
+          jackm  = 0.5*(gmetric%grid(igx)%jac(i,jp,km)
+     .                 +gmetric%grid(igx)%jac(i,j ,km))
 
-          if (sing_point) then
+          if (sing_point) then !We avoid i=0 with first order differences
+            idhx = 1./dx(ig)
+            jacim= gmetric%grid(igx)%jac(i,jp,k)
             vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
-     .            +(vv(i ,j,k,1)+vv(i ,jp,k,1))*0.5
-            vxim = (vv(im,j,k,1)+vv(im,jp,k,1))
+            vxim = (vv(i ,j,k,1)+vv(i ,jp,k,1))*0.5
             vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))*0.5
-     .            +(vv(i ,j,k,2)+vv(i ,jp,k,2))*0.5
-            vyim = (vv(im,j,k,2)+vv(im,jp,k,2))
+            vyim = (vv(i ,j,k,2)+vv(i ,jp,k,2))*0.5
             vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))*0.5
-     .            +(vv(i ,j,k,3)+vv(i ,jp,k,3))*0.5
-            vzim = (vv(im,j,k,3)+vv(im,jp,k,3))
+            vzim = (vv(i ,j,k,3)+vv(i ,jp,k,3))*0.5
           else
             vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
             vxim = (vv(im,j,k,1)+vv(im,jp,k,1))*0.5
@@ -882,20 +959,13 @@ cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
           vzkp = (vv(i,j,kp,3)+vv(i,jp,kp,3))*0.5
           vzkm = (vv(i,j,km,3)+vv(i,jp,km,3))*0.5
 
-cc          bxx = 0.5*(bb(i,j,k,1)+bb(i,jp,k,1))
-cc          byy = 0.5*(bb(i,j,k,2)+bb(i,jp,k,2))
-cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,jp,k,3))
-
-          if (sing_point) then
+          if (sing_point) then !We avoid i=0 with first order differences
             bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
-     .            +(bb(i ,j,k,1)+bb(i ,jp,k,1))*0.5
-            bxim = (bb(im,j,k,1)+bb(im,jp,k,1))
+            bxim = (bb(i ,j,k,1)+bb(i ,jp,k,1))*0.5
             byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))*0.5
-     .            +(bb(i ,j,k,2)+bb(i ,jp,k,2))*0.5
-            byim = (bb(im,j,k,2)+bb(im,jp,k,2))
+            byim = (bb(i ,j,k,2)+bb(i ,jp,k,2))*0.5
             bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))*0.5
-     .            +(bb(i ,j,k,3)+bb(i ,jp,k,3))*0.5
-            bzim = (bb(im,j,k,3)+bb(im,jp,k,3))
+            bzim = (bb(i ,j,k,3)+bb(i ,jp,k,3))*0.5
           else
             bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
             bxim = (bb(im,j,k,1)+bb(im,jp,k,1))*0.5
@@ -923,20 +993,26 @@ cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,jp,k,3))
           idhz = 1./dz(kg)
           km = k
 
-cc          vxx = 0.5*(vv(i,j,k,1)+vv(i,j,kp,1))
-cc          vyy = 0.5*(vv(i,j,k,2)+vv(i,j,kp,2))
-cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
+          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+     .                 +gmetric%grid(igx)%jac(ip,j,k ))
+          jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,kp)
+     .                 +gmetric%grid(igx)%jac(im,j,k ))
+          jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+     .                 +gmetric%grid(igx)%jac(i,jp,k ))
+          jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,kp)
+     .                 +gmetric%grid(igx)%jac(i,jm,k ))
+          jackp  = gmetric%grid(igx)%jac(i,j,kp)
+          jackm  = gmetric%grid(igx)%jac(i,j,km)
 
-          if (sing_point) then
+          if (sing_point) then !We avoid i=0 with first order differences
+            idhx = 1./dx(ig)
+            jacim= gmetric%grid(igx)%jac(i,jp,k)
             vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
-     .            +(vv(i ,j,k,1)+vv(i ,j,kp,1))*0.5
-            vxim = (vv(im,j,k,1)+vv(im,j,kp,1))
+            vxim = (vv(i ,j,k,1)+vv(i ,j,kp,1))*0.5
             vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))*0.5
-     .            +(vv(i ,j,k,2)+vv(i ,j,kp,2))*0.5
-            vyim = (vv(im,j,k,2)+vv(im,j,kp,2))
+            vyim = (vv(i ,j,k,2)+vv(i ,j,kp,2))*0.5
             vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))*0.5
-     .            +(vv(i ,j,k,3)+vv(i ,j,kp,3))*0.5
-            vzim = (vv(im,j,k,3)+vv(im,j,kp,3))
+            vzim = (vv(i ,j,k,3)+vv(i ,j,kp,3))*0.5
           else
             vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
             vxim = (vv(im,j,k,1)+vv(im,j,kp,1))*0.5
@@ -960,20 +1036,13 @@ cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
           vzkp = vv(i,j,kp,3)
           vzkm = vv(i,j,k ,3)
 
-cc          bxx = 0.5*(bb(i,j,k,1)+bb(i,j,kp,1))
-cc          byy = 0.5*(bb(i,j,k,2)+bb(i,j,kp,2))
-cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,j,kp,3))
-
-          if (sing_point) then
+          if (sing_point) then !We avoid i=0 with first order differences
             bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
-     .            +(bb(i ,j,k,1)+bb(i ,j,kp,1))*0.5
-            bxim = (bb(im,j,k,1)+bb(im,j,kp,1))
+            bxim = (bb(i ,j,k,1)+bb(i ,j,kp,1))*0.5
             byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))*0.5
-     .            +(bb(i ,j,k,2)+bb(i ,j,kp,2))*0.5
-            byim = (bb(im,j,k,2)+bb(im,j,kp,2))
+            byim = (bb(i ,j,k,2)+bb(i ,j,kp,2))*0.5
             bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))*0.5
-     .            +(bb(i ,j,k,3)+bb(i ,j,kp,3))*0.5
-            bzim = (bb(im,j,k,3)+bb(im,j,kp,3))
+            bzim = (bb(i ,j,k,3)+bb(i ,j,kp,3))*0.5
           else
             bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
             bxim = (bb(im,j,k,1)+bb(im,j,kp,1))*0.5
@@ -999,11 +1068,14 @@ cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,j,kp,3))
 
         case default
 
-          !Velocity
-cc          vxx = vv(i,j,k,1)
-cc          vyy = vv(i,j,k,2)
-cc          vzz = vv(i,j,k,3)
+          jacip  = gmetric%grid(igx)%jac(ip,j,k)
+          jacim  = gmetric%grid(igx)%jac(im,j,k)
+          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+          jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+          jackp  = gmetric%grid(igx)%jac(i,j,kp)
+          jackm  = gmetric%grid(igx)%jac(i,j,km)
 
+          !Velocity
           if (sing_point) then
             vxip = vv(ip,j,k,1)+vv(i,j,k,1)
             vxim = 2.*vv(im,j,k,1)
@@ -1035,10 +1107,6 @@ cc          vzz = vv(i,j,k,3)
           vzkm = vv(i,j,km,3)
 
           !Magnetic field
-cc          bxx = bb(i,j,k,1)
-cc          byy = bb(i,j,k,2)
-cc          bzz = bb(i,j,k,3)
-
           if (sing_point) then
             bxip = bb(ip,j,k,1)+bb(i,j,k,1)
             bxim = 2.*bb(im,j,k,1)
@@ -1070,17 +1138,6 @@ cc          bzz = bb(i,j,k,3)
           bzkm = bb(i,j,km,3)
 
         end select
-
-c     Grid quantities
-
-        jac    = gmetric%grid(igx)%jac(i,j,k)
-
-        jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,k)+jac)
-        jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,k)+jac)
-        jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,k)+jac)
-        jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,k)+jac)
-        jackp  = 0.5*(gmetric%grid(igx)%jac(i,j,kp)+jac)
-        jackm  = 0.5*(gmetric%grid(igx)%jac(i,j,km)+jac)
 
 c     Components
 
@@ -1118,5 +1175,447 @@ c     Components
      .       +(flxjp-flxjm)*idhy
 
       end subroutine find_curl_vxb
+
+ccc     find_curl_vxb
+ccc     ###################################################################
+cc      subroutine find_curl_vxb(i,j,k,nx,ny,nz,vv,bb,a1,a2,a3
+cc     .                        ,half_elem,igrid)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Finds contravariant components (a1,a2,a3) of -curl(vv x bb) at the
+ccc     grid node (i,j,k). One sided derivatives are employed when half_elem=1
+ccc     (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
+ccc     -------------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        integer(4) :: i,j,k,nx,ny,nz,half_elem,igrid
+cc        real(8)    :: a1,a2,a3,vv(0:nx+1,0:ny+1,0:nz+1,3)
+cc     $                        ,bb(0:nx+1,0:ny+1,0:nz+1,3)
+cc
+ccc     Local variables
+cc
+cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,igx,igy,igz
+cc        integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+cc
+cc        real(8)    :: idhx,idhy,idhz
+cc        real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc
+cc        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
+cc     .               ,jacp,jacm,jach,jac0
+cc
+cc        real(8)    :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
+cc     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
+cc     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+cc
+cc        real(8)    :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
+cc     .               ,byip,byim,byjp,byjm,bykp,bykm
+cc     .               ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
+cc
+cc        logical    :: sing_point
+cc
+ccc     Begin program
+cc
+cc        igx = igrid
+cc        igy = igrid
+cc        igz = igrid
+cc
+cc        sing_point = isSP(i,j,k,igx,igy,igz)
+cc
+ccc     Defaults
+cc
+cc        ip = i+1
+cc        im = i-1
+cc        jp = j+1
+cc        jm = j-1
+cc        kp = k+1
+cc        km = k-1
+cc
+cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc        idhx = 0.5/dxh(ig)
+cc        idhy = 0.5/dyh(jg)
+cc        idhz = 0.5/dzh(kg)
+cc
+cc        jac  = gmetric%grid(igx)%jac(i,j,k)
+cc
+ccc     Exceptions
+cc
+cc        select case(half_elem)
+cc        case (1)
+cc          idhx = 1./dx(ig)
+cc          im = i
+cc
+cc          if (.not.isSP(ip,j,k,igx,igy,igz)) then  !i>0 and/or not a SP at i=0
+cc
+cc            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+cc            jacim  = gmetric%grid(igx)%jac(i ,j,k)
+cc            jacjp  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+cc     .                   +gmetric%grid(igx)%jac(i ,jp,k))
+cc            jacjm  = 0.5*(gmetric%grid(igx)%jac(ip,jm,k)
+cc     .                   +gmetric%grid(igx)%jac(i ,jm,k))
+cc            jackp  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+cc     .                   +gmetric%grid(igx)%jac(i ,j,kp))
+cc            jackm  = 0.5*(gmetric%grid(igx)%jac(ip,j,km)
+cc     .                   +gmetric%grid(igx)%jac(i ,j,km))
+cc
+cc            vxip = vv(ip,j,k,1)
+cc            vxim = vv(i ,j,k,1)
+cc            vyip = vv(ip,j,k,2)
+cc            vyim = vv(i ,j,k,2)
+cc            vzip = vv(ip,j,k,3)
+cc            vzim = vv(i ,j,k,3)
+cc
+cc            vxjp = (vv(ip,jp,k,1)+vv(i,jp,k,1))*0.5
+cc            vxjm = (vv(ip,jm,k,1)+vv(i,jm,k,1))*0.5
+cc            vyjp = (vv(ip,jp,k,2)+vv(i,jp,k,2))*0.5
+cc            vyjm = (vv(ip,jm,k,2)+vv(i,jm,k,2))*0.5
+cc            vzjp = (vv(ip,jp,k,3)+vv(i,jp,k,3))*0.5
+cc            vzjm = (vv(ip,jm,k,3)+vv(i,jm,k,3))*0.5
+cc
+cc            vxkp = (vv(ip,j,kp,1)+vv(i,j,kp,1))*0.5
+cc            vxkm = (vv(ip,j,km,1)+vv(i,j,km,1))*0.5
+cc            vykp = (vv(ip,j,kp,2)+vv(i,j,kp,2))*0.5
+cc            vykm = (vv(ip,j,km,2)+vv(i,j,km,2))*0.5
+cc            vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))*0.5
+cc            vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))*0.5
+cc
+cc            bxip = bb(ip,j,k,1)
+cc            bxim = bb(i ,j,k,1)
+cc            byip = bb(ip,j,k,2)
+cc            byim = bb(i ,j,k,2)
+cc            bzip = bb(ip,j,k,3)
+cc            bzim = bb(i ,j,k,3)
+cc
+cc            bxjp = (bb(ip,jp,k,1)+bb(i,jp,k,1))*0.5
+cc            bxjm = (bb(ip,jm,k,1)+bb(i,jm,k,1))*0.5
+cc            byjp = (bb(ip,jp,k,2)+bb(i,jp,k,2))*0.5
+cc            byjm = (bb(ip,jm,k,2)+bb(i,jm,k,2))*0.5
+cc            bzjp = (bb(ip,jp,k,3)+bb(i,jp,k,3))*0.5
+cc            bzjm = (bb(ip,jm,k,3)+bb(i,jm,k,3))*0.5
+cc
+cc            bxkp = (bb(ip,j,kp,1)+bb(i,j,kp,1))*0.5
+cc            bxkm = (bb(ip,j,km,1)+bb(i,j,km,1))*0.5
+cc            bykp = (bb(ip,j,kp,2)+bb(i,j,kp,2))*0.5
+cc            bykm = (bb(ip,j,km,2)+bb(i,j,km,2))*0.5
+cc            bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))*0.5
+cc            bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))*0.5
+cc
+cc          else  !i=0 and a SP at i=0: first order differences @ i=0
+cc
+cc            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+cc            jacim  = gmetric%grid(igx)%jac(i ,j,k)
+cc            jacjp  = gmetric%grid(igx)%jac(ip,jp,k)
+cc            jacjm  = gmetric%grid(igx)%jac(ip,jm,k)
+cc            jackp  = gmetric%grid(igx)%jac(ip,j,kp)
+cc            jackm  = gmetric%grid(igx)%jac(ip,j,km)
+cc
+cc            vxip = vv(ip,j,k,1)
+cc            vxim = vv(i ,j,k,1)
+cc            vyip = vv(ip,j,k,2)
+cc            vyim = vv(i ,j,k,2)
+cc            vzip = vv(ip,j,k,3)
+cc            vzim = vv(i ,j,k,3)
+cc
+cc            vxjp = vv(ip,jp,k,1)
+cc            vxjm = vv(ip,jm,k,1)
+cc            vyjp = vv(ip,jp,k,2)
+cc            vyjm = vv(ip,jm,k,2)
+cc            vzjp = vv(ip,jp,k,3)
+cc            vzjm = vv(ip,jm,k,3)
+cc
+cc            vxkp = vv(ip,j,kp,1)
+cc            vxkm = vv(ip,j,km,1)
+cc            vykp = vv(ip,j,kp,2)
+cc            vykm = vv(ip,j,km,2)
+cc            vzkp = vv(ip,j,kp,3)
+cc            vzkm = vv(ip,j,km,3)
+cc
+cc            bxip = bb(ip,j,k,1)
+cc            bxim = bb(i ,j,k,1)
+cc            byip = bb(ip,j,k,2)
+cc            byim = bb(i ,j,k,2)
+cc            bzip = bb(ip,j,k,3)
+cc            bzim = bb(i ,j,k,3)
+cc
+cc            bxjp = bb(ip,jp,k,1)
+cc            bxjm = bb(ip,jm,k,1)
+cc            byjp = bb(ip,jp,k,2)
+cc            byjm = bb(ip,jm,k,2)
+cc            bzjp = bb(ip,jp,k,3)
+cc            bzjm = bb(ip,jm,k,3)
+cc
+cc            bxkp = bb(ip,j,kp,1)
+cc            bxkm = bb(ip,j,km,1)
+cc            bykp = bb(ip,j,kp,2)
+cc            bykm = bb(ip,j,km,2)
+cc            bzkp = bb(ip,j,kp,3)
+cc            bzkm = bb(ip,j,km,3)
+cc          endif
+cc        case (2)
+cc          idhy = 1./dy(jg)
+cc          jm = j
+cc
+cc          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+cc     .                 +gmetric%grid(igx)%jac(ip,j ,k))
+cc          jacim  = 0.5*(gmetric%grid(igx)%jac(im,jp,k)
+cc     .                 +gmetric%grid(igx)%jac(im,j ,k))
+cc          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+cc          jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+cc          jackp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+cc     .                 +gmetric%grid(igx)%jac(i,j ,kp))
+cc          jackm  = 0.5*(gmetric%grid(igx)%jac(i,jp,km)
+cc     .                 +gmetric%grid(igx)%jac(i,j ,km))
+cc
+cc          if (sing_point) then !We avoid i=0 with first order differences
+cc            idhx = 1./dx(ig)
+cc            jacim= gmetric%grid(igx)%jac(i,jp,k)
+cc            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
+cc            vxim = (vv(i ,j,k,1)+vv(i ,jp,k,1))*0.5
+cc            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))*0.5
+cc            vyim = (vv(i ,j,k,2)+vv(i ,jp,k,2))*0.5
+cc            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))*0.5
+cc            vzim = (vv(i ,j,k,3)+vv(i ,jp,k,3))*0.5
+cc          else
+cc            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
+cc            vxim = (vv(im,j,k,1)+vv(im,jp,k,1))*0.5
+cc            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))*0.5
+cc            vyim = (vv(im,j,k,2)+vv(im,jp,k,2))*0.5
+cc            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))*0.5
+cc            vzim = (vv(im,j,k,3)+vv(im,jp,k,3))*0.5
+cc          endif
+cc
+cc          vxjp = vv(i,jp,k,1)
+cc          vxjm = vv(i,j ,k,1)
+cc          vyjp = vv(i,jp,k,2)
+cc          vyjm = vv(i,j ,k,2)
+cc          vzjp = vv(i,jp,k,3)
+cc          vzjm = vv(i,j ,k,3)
+cc
+cc          vxkp = (vv(i,j,kp,1)+vv(i,jp,kp,1))*0.5
+cc          vxkm = (vv(i,j,km,1)+vv(i,jp,km,1))*0.5
+cc          vykp = (vv(i,j,kp,2)+vv(i,jp,kp,2))*0.5
+cc          vykm = (vv(i,j,km,2)+vv(i,jp,km,2))*0.5
+cc          vzkp = (vv(i,j,kp,3)+vv(i,jp,kp,3))*0.5
+cc          vzkm = (vv(i,j,km,3)+vv(i,jp,km,3))*0.5
+cc
+cc          if (sing_point) then !We avoid i=0 with first order differences
+cc            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
+cc            bxim = (bb(i ,j,k,1)+bb(i ,jp,k,1))*0.5
+cc            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))*0.5
+cc            byim = (bb(i ,j,k,2)+bb(i ,jp,k,2))*0.5
+cc            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))*0.5
+cc            bzim = (bb(i ,j,k,3)+bb(i ,jp,k,3))*0.5
+cc          else
+cc            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
+cc            bxim = (bb(im,j,k,1)+bb(im,jp,k,1))*0.5
+cc            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))*0.5
+cc            byim = (bb(im,j,k,2)+bb(im,jp,k,2))*0.5
+cc            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))*0.5
+cc            bzim = (bb(im,j,k,3)+bb(im,jp,k,3))*0.5
+cc          endif
+cc
+cc          bxjp = bb(i,jp,k,1)
+cc          bxjm = bb(i,j ,k,1)
+cc          byjp = bb(i,jp,k,2)
+cc          byjm = bb(i,j ,k,2)
+cc          bzjp = bb(i,jp,k,3)
+cc          bzjm = bb(i,j ,k,3)
+cc
+cc          bxkp = (bb(i,j,kp,1)+bb(i,jp,kp,1))*0.5
+cc          bxkm = (bb(i,j,km,1)+bb(i,jp,km,1))*0.5
+cc          bykp = (bb(i,j,kp,2)+bb(i,jp,kp,2))*0.5
+cc          bykm = (bb(i,j,km,2)+bb(i,jp,km,2))*0.5
+cc          bzkp = (bb(i,j,kp,3)+bb(i,jp,kp,3))*0.5
+cc          bzkm = (bb(i,j,km,3)+bb(i,jp,km,3))*0.5
+cc
+cc        case (3)
+cc          idhz = 1./dz(kg)
+cc          km = k
+cc
+cc          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+cc     .                 +gmetric%grid(igx)%jac(ip,j,k ))
+cc          jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,kp)
+cc     .                 +gmetric%grid(igx)%jac(im,j,k ))
+cc          jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+cc     .                 +gmetric%grid(igx)%jac(i,jp,k ))
+cc          jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,kp)
+cc     .                 +gmetric%grid(igx)%jac(i,jm,k ))
+cc          jackp  = gmetric%grid(igx)%jac(i,j,kp)
+cc          jackm  = gmetric%grid(igx)%jac(i,j,km)
+cc
+cc          if (sing_point) then !We avoid i=0 with first order differences
+cc            idhx = 1./dx(ig)
+cc            jacim= gmetric%grid(igx)%jac(i,jp,k)
+cc            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
+cc            vxim = (vv(i ,j,k,1)+vv(i ,j,kp,1))*0.5
+cc            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))*0.5
+cc            vyim = (vv(i ,j,k,2)+vv(i ,j,kp,2))*0.5
+cc            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))*0.5
+cc            vzim = (vv(i ,j,k,3)+vv(i ,j,kp,3))*0.5
+cc          else
+cc            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
+cc            vxim = (vv(im,j,k,1)+vv(im,j,kp,1))*0.5
+cc            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))*0.5
+cc            vyim = (vv(im,j,k,2)+vv(im,j,kp,2))*0.5
+cc            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))*0.5
+cc            vzim = (vv(im,j,k,3)+vv(im,j,kp,3))*0.5
+cc          endif
+cc
+cc          vxjp = (vv(i,jp,k,1)+vv(i,jp,kp,1))*0.5
+cc          vxjm = (vv(i,jm,k,1)+vv(i,jm,kp,1))*0.5
+cc          vyjp = (vv(i,jp,k,2)+vv(i,jp,kp,2))*0.5
+cc          vyjm = (vv(i,jm,k,2)+vv(i,jm,kp,2))*0.5
+cc          vzjp = (vv(i,jp,k,3)+vv(i,jp,kp,3))*0.5
+cc          vzjm = (vv(i,jm,k,3)+vv(i,jm,kp,3))*0.5
+cc
+cc          vxkp = vv(i,j,kp,1)
+cc          vxkm = vv(i,j,k ,1)
+cc          vykp = vv(i,j,kp,2)
+cc          vykm = vv(i,j,k ,2)
+cc          vzkp = vv(i,j,kp,3)
+cc          vzkm = vv(i,j,k ,3)
+cc
+cc          if (sing_point) then !We avoid i=0 with first order differences
+cc            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
+cc            bxim = (bb(i ,j,k,1)+bb(i ,j,kp,1))*0.5
+cc            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))*0.5
+cc            byim = (bb(i ,j,k,2)+bb(i ,j,kp,2))*0.5
+cc            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))*0.5
+cc            bzim = (bb(i ,j,k,3)+bb(i ,j,kp,3))*0.5
+cc          else
+cc            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
+cc            bxim = (bb(im,j,k,1)+bb(im,j,kp,1))*0.5
+cc            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))*0.5
+cc            byim = (bb(im,j,k,2)+bb(im,j,kp,2))*0.5
+cc            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))*0.5
+cc            bzim = (bb(im,j,k,3)+bb(im,j,kp,3))*0.5
+cc          endif
+cc
+cc          bxjp = (bb(i,jp,k,1)+bb(i,jp,kp,1))*0.5
+cc          bxjm = (bb(i,jm,k,1)+bb(i,jm,kp,1))*0.5
+cc          byjp = (bb(i,jp,k,2)+bb(i,jp,kp,2))*0.5
+cc          byjm = (bb(i,jm,k,2)+bb(i,jm,kp,2))*0.5
+cc          bzjp = (bb(i,jp,k,3)+bb(i,jp,kp,3))*0.5
+cc          bzjm = (bb(i,jm,k,3)+bb(i,jm,kp,3))*0.5
+cc
+cc          bxkp = bb(i,j,kp,1)
+cc          bxkm = bb(i,j,k ,1)
+cc          bykp = bb(i,j,kp,2)
+cc          bykm = bb(i,j,k ,2)
+cc          bzkp = bb(i,j,kp,3)
+cc          bzkm = bb(i,j,k ,3)
+cc
+cc        case default
+cc
+cc          jacip  = gmetric%grid(igx)%jac(ip,j,k)
+cc          jacim  = gmetric%grid(igx)%jac(im,j,k)
+cc          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+cc          jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+cc          jackp  = gmetric%grid(igx)%jac(i,j,kp)
+cc          jackm  = gmetric%grid(igx)%jac(i,j,km)
+cc
+cc          !Velocity
+cc          if (sing_point) then
+cc            vxip = vv(ip,j,k,1)+vv(i,j,k,1)
+cc            vxim = 2.*vv(im,j,k,1)
+cc            vyip = vv(ip,j,k,2)+vv(i,j,k,2)
+cc            vyim = 2.*vv(im,j,k,2)
+cc            vzip = vv(ip,j,k,3)+vv(i,j,k,3)
+cc            vzim = 2.*vv(im,j,k,3)
+cc          else
+cc            vxip = vv(ip,j,k,1)
+cc            vxim = vv(im,j,k,1)
+cc            vyip = vv(ip,j,k,2)
+cc            vyim = vv(im,j,k,2)
+cc            vzip = vv(ip,j,k,3)
+cc            vzim = vv(im,j,k,3)
+cc          endif
+cc
+cc          vxjp = vv(i,jp,k,1)
+cc          vxjm = vv(i,jm,k,1)
+cc          vyjp = vv(i,jp,k,2)
+cc          vyjm = vv(i,jm,k,2)
+cc          vzjp = vv(i,jp,k,3)
+cc          vzjm = vv(i,jm,k,3)
+cc
+cc          vxkp = vv(i,j,kp,1)
+cc          vxkm = vv(i,j,km,1)
+cc          vykp = vv(i,j,kp,2)
+cc          vykm = vv(i,j,km,2)
+cc          vzkp = vv(i,j,kp,3)
+cc          vzkm = vv(i,j,km,3)
+cc
+cc          !Magnetic field
+cc          if (sing_point) then
+cc            bxip = bb(ip,j,k,1)+bb(i,j,k,1)
+cc            bxim = 2.*bb(im,j,k,1)
+cc            byip = bb(ip,j,k,2)+bb(i,j,k,2)
+cc            byim = 2.*bb(im,j,k,2)
+cc            bzip = bb(ip,j,k,3)+bb(i,j,k,3)
+cc            bzim = 2.*bb(im,j,k,3)
+cc          else
+cc            bxip = bb(ip,j,k,1)
+cc            bxim = bb(im,j,k,1)
+cc            byip = bb(ip,j,k,2)
+cc            byim = bb(im,j,k,2)
+cc            bzip = bb(ip,j,k,3)
+cc            bzim = bb(im,j,k,3)
+cc          endif
+cc
+cc          bxjp = bb(i,jp,k,1)
+cc          bxjm = bb(i,jm,k,1)
+cc          byjp = bb(i,jp,k,2)
+cc          byjm = bb(i,jm,k,2)
+cc          bzjp = bb(i,jp,k,3)
+cc          bzjm = bb(i,jm,k,3)
+cc
+cc          bxkp = bb(i,j,kp,1)
+cc          bxkm = bb(i,j,km,1)
+cc          bykp = bb(i,j,kp,2)
+cc          bykm = bb(i,j,km,2)
+cc          bzkp = bb(i,j,kp,3)
+cc          bzkm = bb(i,j,km,3)
+cc
+cc        end select
+cc
+ccc     Components
+cc
+cc        !component 1
+cc
+cc        flxjp = ( vyjp*bxjp-vxjp*byjp )/jacjp
+cc        flxjm = ( vyjm*bxjm-vxjm*byjm )/jacjm
+cc
+cc        flxkp = ( vzkp*bxkp-vxkp*bzkp )/jackp
+cc        flxkm = ( vzkm*bxkm-vxkm*bzkm )/jackm
+cc
+cc        a1 =  (flxjp-flxjm)*idhy
+cc     .       +(flxkp-flxkm)*idhz
+cc
+cc        !component 2
+cc
+cc        flxip = ( vxip*byip-vyip*bxip )/jacip
+cc        flxim = ( vxim*byim-vyim*bxim )/jacim
+cc
+cc        flxkp = ( vzkp*bykp-vykp*bzkp )/jackp
+cc        flxkm = ( vzkm*bykm-vykm*bzkm )/jackm
+cc
+cc        a2 =  (flxip-flxim)*idhx
+cc     .       +(flxkp-flxkm)*idhz
+cc
+cc        !component 3
+cc
+cc        flxip = ( vxip*bzip-vzip*bxip )/jacip
+cc        flxim = ( vxim*bzim-vzim*bxim )/jacim
+cc
+cc        flxjp = ( vyjp*bzjp-vzjp*byjp )/jacjp
+cc        flxjm = ( vyjm*bzjm-vzjm*byjm )/jacjm
+cc
+cc        a3 =  (flxip-flxim)*idhx
+cc     .       +(flxjp-flxjm)*idhy
+cc
+cc      end subroutine find_curl_vxb
 
       end module precond_variables
