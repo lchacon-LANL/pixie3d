@@ -13,6 +13,9 @@ c           + bbcs(3) ---> at y0
 c           + bbcs(4) ---> at y1
 c           + bbcs(5) ---> at z0
 c           + bbcs(6) ---> at z1
+c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     a negative BC identifier means that BCs are to be imposed on
+c     covariant components instead of on (default) contravariant comps.
 c--------------------------------------------------------------------
 
       use icond
@@ -33,7 +36,7 @@ c Local variables
 
 c Begin program
 
-c Defaults
+c Default boundary conditions
 
       bcsq = bbcs(:,IRHO)
       where (bcsq == DEF) bcsq = NEU
@@ -44,36 +47,30 @@ c Defaults
       bbcs(:,IVX) = bcsq
 
       bcsq = bbcs(:,IVY)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IVY) = bcsq
 
       bcsq = bbcs(:,IVZ)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IVZ) = bcsq
 
       bcsq = bbcs(:,IBX)
       where (bcsq == DEF) bcsq = DIR
       bbcs(:,IBX) = bcsq
-cc      if (bcs(1,IBX) == NEU) bcs(1,IBX) = DIR
-cc      if (bcs(2,IBX) == NEU) bcs(2,IBX) = DIR
 
       bcsq = bbcs(:,IBY)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IBY) = bcsq
-cc      if (bcs(3,IBY) == NEU) bcs(3,IBY) = DIR
-cc      if (bcs(4,IBY) == NEU) bcs(4,IBY) = DIR
 
       bcsq = bbcs(:,IBZ)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IBZ) = bcsq
-cc      if (bcs(5,IBZ) == NEU) bcs(5,IBZ) = DIR
-cc      if (bcs(6,IBZ) == NEU) bcs(6,IBZ) = DIR
 
       bcsq = bbcs(:,ITMP)
       where (bcsq == DEF) bcsq = NEU !To allow isothermal case
       bbcs(:,ITMP) = bcsq
 
-c Exceptions
+c Exceptions for specific equilibria
 
       select case (equil)
 
@@ -111,1254 +108,25 @@ c####################################################################
 
         use variables
 
-        real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
-
-cc        real(8),allocatable,dimension(:,:) :: rhs
-
-cc        type (var_array) :: varray2
-
         integer(4) :: nnvar,imax,imin,jmax,jmin,kmax,kmin
 
         real(8),allocatable,dimension(:,:) :: rhs
 
+        real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,vzeros
+
       end module BCS
 
-c imposeBoundaryConditions
+c module singularBCinterface
 c####################################################################
-      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
-c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
-c--------------------------------------------------------------------
+      module singularBCinterface
 
-      use BCS
+        use BCS
 
-      implicit none
-
-c Call variables
-
-      integer(4) :: iigx,iigy,iigz
-
-      type (var_array) :: varray
-
-c Local variables
-
-      integer(4) :: neq,ieq,i,j,k
-      integer(4) :: dim,loc,bctype,ibc
-
-      real(8) :: mag
-
-c Begin program
-
-      igx = iigx
-      igy = iigy
-      igz = iigz
-
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-      rho => varray%array_var(IRHO)%array
-      rvx => varray%array_var(IVX )%array
-      rvy => varray%array_var(IVY )%array
-      rvz => varray%array_var(IVZ )%array
-      bx  => varray%array_var(IBX )%array
-      by  => varray%array_var(IBY )%array
-      bz  => varray%array_var(IBZ )%array
-      tmp => varray%array_var(ITMP)%array
-
-c Fill ghost nodes
-
-      call imposeBConScalar(IRHO)
-
-      call imposeBConV
-
-      call imposeBConB
-
-      call imposeBConJ
-
-      call imposeBConScalar(ITMP)
-
-c End
+        INTERFACE singularBC
+          module procedure scalarSingularBC,vectorSingularBC
+        end INTERFACE
 
       contains
-
-c     imposeBConScalar
-c     #################################################################
-      subroutine imposeBConScalar(ieq)
-c     -----------------------------------------------------------------
-c     Imposes BC on density
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ieq
-
-c     Local variables
-
-c     Begin program
-
-c     Impose BCs
-
-      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
-        do dim=1,3
-          do loc=0,1
-            ibc = (1+loc)+2*(dim-1)
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              if (bctype == EQU) then
-                call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                             ,varray%array_var(ieq)%array
-     .                             ,u_0   %array_var(ieq)%array)
-              else
-                call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                             ,varray%array_var(ieq)%array
-     .                             ,zeros)
-              endif
-            endif
-          enddo
-        enddo
-      enddo
-
-c     Singular point boundary condition
-
-      if (bcond(1) == SP)
-     .     call scalarSingularBC(varray%array_var(ieq)%array,2)
-
-c     Synchronize periodic boundaries
-
-      bctype=PER
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                         ,varray%array_var(ieq)%array
-     .                         ,zeros)
-          endif
-        enddo
-      enddo
-
-c     End program
-
-      end subroutine imposeBConScalar
-
-c     imposeBConV
-c     #################################################################
-      subroutine imposeBConV
-c     -----------------------------------------------------------------
-c     Imposes BC on velocity field
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer(4) :: ivar
-      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Begin program
-
-c     Preprocess velocity field
-
-      where (rho /= 0d0)
-        vx = rvx/rho
-        vy = rvy/rho
-        vz = rvz/rho
-      end where
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-     .             ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.false.)
-          enddo
-        enddo
-      enddo
-
-c     Impose BCs
-
-      v_cov(:,:,:,1) = vx_cov
-      v_cov(:,:,:,2) = vy_cov
-      v_cov(:,:,:,3) = vz_cov
-
-      var(:,:,:,1) = varray%array_var(IVX)%array
-      var(:,:,:,2) = varray%array_var(IVY)%array
-      var(:,:,:,3) = varray%array_var(IVZ)%array
-
-      var0 = 0d0
-
-      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
-        do dim=1,3
-          do loc=0,1
-            ibc = (1+loc)+2*(dim-1)
-
-            do ieq = IVX,IVZ
-              ivar = ieq - IVX + 1
-              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-
-                if (bctype == EQU) then
-                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                              ,var(:,:,:,ivar)
-     .                              ,u_0   %array_var(ieq)%array)
-                elseif (bctype == NEU) then
-                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cov
-     .                               ,var0)
-                else
-
-                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,var
-     .                               ,var0)
-                endif
-
-             endif
-
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-      vx_cov = v_cov(:,:,:,1)
-      vy_cov = v_cov(:,:,:,2)
-      vz_cov = v_cov(:,:,:,3)
-
-      varray%array_var(IVX)%array = var(:,:,:,1)
-      varray%array_var(IVY)%array = var(:,:,:,2)
-      varray%array_var(IVZ)%array = var(:,:,:,3)
-
-cc      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
-cc        do dim=1,3
-cc          do loc=0,1
-cc            ibc = (1+loc)+2*(dim-1)
-cc
-cc            do ieq = IVX,IVZ
-cc              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-cc                if (bctype == EQU) then
-cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-cc     .                               ,varray%array_var(ieq)%array
-cc     .                               ,u_0   %array_var(ieq)%array)
-cc                else
-cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-cc     .                               ,varray%array_var(ieq)%array
-cc     .                               ,zeros)
-cc                endif
-cc              endif
-cc            enddo
-cc
-cc          enddo
-cc        enddo
-cc      enddo
-
-c     Impose vector singular point BCs
-
-      if (bcond(1) == SP) call vectorSingularBC(rvx,rvy,rvz,.false.,2)
-
-c     Synchronize periodic boundaries
-
-      bctype=PER
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-          do ieq = IVX,IVZ
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                           ,varray%array_var(ieq)%array
-     .                           ,zeros)
-            endif
-          enddo
-        enddo
-      enddo
-
-c     Synchronize velocity field
-
-      call postProcessV
-
-c     End program
-
-      end subroutine imposeBConV
-
-c     postProcessV
-c     #################################################################
-      subroutine postProcessV
-c     -----------------------------------------------------------------
-c     Synchronizes velocity components (covariant, contravariant)
-c     at boundaries. When coming into this routine, the following
-c     is known at ghost cells:
-c       * Dirichlet BCs: contravariant components of MOMENTUM are known
-c       * Neumann BCs: covariant components of VELOCITY are known
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer(4) :: i,j,k,dim,loc,ig,jg,kg
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
-      logical    :: cartesian,cov_to_cnv
-
-c     Begin program
-
-c     Synchonize periodic boundaries for velocity (not momentum) components
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype=PER
-
-          ieq = IVX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vx,zeros)
-          endif
-
-          ieq = IVY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vy,zeros)
-          endif
-
-          ieq = IVZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vz,zeros)
-          endif
-
-        enddo
-      enddo
-
-c     Determine postprocessing operation
-
-      cov_to_cnv = .false.
-      do dim = 1,3
-        do loc = 0,1
-          ibc = (1+loc)+2*(dim-1)
-          if (    varray%array_var(IVX)%bconds(ibc) == NEU
-     .        .or.varray%array_var(IVY)%bconds(ibc) == NEU
-     .        .or.varray%array_var(IVZ)%bconds(ibc) == NEU) then
-            cov_to_cnv = .true.
-          endif
-        enddo
-      enddo
-
-c     SYNCHRONIZE CONTRAVARIANT COMPONENTS AT BOUNDARY
-      if (cov_to_cnv) then
-
-c     Find covariant velocity NORMAL components at boundaries
-
-      do dim = 1,3
-        do loc = 0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          if (dim == 1) then
-            imin=1  +    loc *(nx-1)
-            imax=nx + (1-loc)*(1-nx)
-            jmin=1
-            jmax=ny
-            kmin=1
-            kmax=nz
-          elseif (dim == 2) then
-            imin=1 
-            imax=nx
-            jmin=1  +    loc *(ny-1)
-            jmax=ny + (1-loc)*(1-ny)
-            kmin=1
-            kmax=nz
-          elseif (dim == 3) then
-            imin=1 
-            imax=nx
-            jmin=1
-            jmax=ny
-            kmin=1  +    loc *(nz-1)
-            kmax=nz + (1-loc)*(1-nz)
-          endif
-
-          select case (ibc)
-          case (1)
-
-            if (bcond(1) == SP) then
-
-              call vectorSingularBC(vx_cov,vy_cov,vz_cov,.true.,2)
-
-            else
-              do i=imin,imax
-                do j=jmin,jmax
-                  do k=kmin,kmax
-
-                    call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-
-                    gsuper = g_super(x1,x2,x3,cartesian)
-
-                    vx_cov(i-1,j,k) = -(gsuper(1,2)*vy_cov(i-1,j,k)
-     .                                 +gsuper(1,3)*vz_cov(i-1,j,k)
-     .                                 -rvx(i-1,j,k)/rho(i-1,j,k)  )
-     .                                 /gsuper(1,1)
-
-                  enddo
-                enddo
-              enddo
-            endif
-
-          case (2)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  vx_cov(i+1,j,k) = -(gsuper(1,2)*vy_cov(i+1,j,k)
-     .                               +gsuper(1,3)*vz_cov(i+1,j,k)
-     .                               -rvx(i+1,j,k)/rho(i+1,j,k)  )
-     .                               /gsuper(1,1)
-                enddo
-              enddo
-            enddo
-
-          case (3)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  vy_cov(i,j-1,k) = -(gsuper(2,1)*vx_cov(i,j-1,k)
-     .                               +gsuper(2,3)*vz_cov(i,j-1,k)
-     .                               -rvy(i,j-1,k)/rho(i,j-1,k)  )
-     .                               /gsuper(2,2)
-
-                enddo
-              enddo
-            enddo
-
-          case (4)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  vy_cov(i,j+1,k) = -(gsuper(2,1)*vx_cov(i,j+1,k)
-     .                               +gsuper(2,3)*vz_cov(i,j+1,k)
-     .                               -rvy(i,j+1,k)/rho(i,j+1,k)  )
-     .                               /gsuper(2,2)
-
-                enddo
-              enddo
-            enddo
-
-          case (5)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  vz_cov(i,j,k-1) = -(gsuper(3,1)*vx_cov(i,j,k-1)
-     .                               +gsuper(3,2)*vy_cov(i,j,k-1)
-     .                               -rvz(i,j,k-1)/rho(i,j,k-1)  )
-     .                               /gsuper(3,3)
-                enddo
-              enddo
-            enddo
-
-          case (6)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  vz_cov(i,j,k+1) = -(gsuper(3,1)*vx_cov(i,j,k+1)
-     .                               +gsuper(3,2)*vy_cov(i,j,k+1)
-     .                               -rvz(i,j,k+1)/rho(i,j,k+1)  )
-     .                               /gsuper(3,3)
-                enddo
-              enddo
-            enddo
-
-          end select
-
-        enddo
-      enddo
-
-c     Enforce PER BC on covariant velocity components
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype=PER
-
-          ieq = IVX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vx_cov,zeros)
-          endif
-
-          ieq = IVY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vy_cov,zeros)
-          endif
-
-          ieq = IVZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vz_cov,zeros)
-          endif
-
-        enddo
-      enddo
-
-c     Find all contravariant velocity and momentum at boundaries
-
-      do dim = 1,3
-        do loc = 0,1
-
-          ibc = (1+loc)+2*(dim-1)
-
-          if (dim == 1) then
-            imin=0 + loc*(nx+1)
-            imax=0 + loc*(nx+1)
-            jmin=0
-            jmax=ny+1
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 2) then
-            imin=0
-            imax=nx+1
-            jmin=0 + loc*(ny+1)
-            jmax=0 + loc*(ny+1)
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 3) then
-            imin=0
-            imax=nx+1
-            jmin=0
-            jmax=ny+1
-            kmin=0 + loc*(nz+1)
-            kmax=0 + loc*(nz+1)
-          endif
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-     .             ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
-
-                rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
-                rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
-                rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
-
-              enddo
-            enddo
-          enddo
-
-        enddo
-      enddo
-
-      endif
-
-c     End program
-
-      end subroutine postProcessV
-
-c     imposeBConB
-c     #################################################################
-      subroutine imposeBConB
-c     -----------------------------------------------------------------
-c     Imposes BC on magnetic field
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer(4) :: ivar
-      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,b_cov(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Begin program
-
-c     Preprocess magnetic field
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .             ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k),.false.)
-          enddo
-        enddo
-      enddo
-
-c     Impose BCs
-
-      b_cov(:,:,:,1) = bx_cov
-      b_cov(:,:,:,2) = by_cov
-      b_cov(:,:,:,3) = bz_cov
-
-      var(:,:,:,1) = varray%array_var(IBX)%array
-      var(:,:,:,2) = varray%array_var(IBY)%array
-      var(:,:,:,3) = varray%array_var(IBZ)%array
-
-      var0 = 0d0
-
-      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
-        do dim=1,3
-          do loc=0,1
-            ibc = (1+loc)+2*(dim-1)
-
-            do ieq = IBX,IBZ
-              ivar = ieq - IBX + 1
-              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-
-                if (bctype == EQU) then
-                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                               ,var(:,:,:,ivar)
-     .                               ,u_0   %array_var(ieq)%array)
-                elseif (bctype == NEU) then
-                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype
-     .                               ,b_cov,var0)
-                else
-                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype
-     .                               ,var,var0)
-                endif
-
-             endif
-
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-      bx_cov = b_cov(:,:,:,1)
-      by_cov = b_cov(:,:,:,2)
-      bz_cov = b_cov(:,:,:,3)
-
-      varray%array_var(IBX)%array = var(:,:,:,1)
-      varray%array_var(IBY)%array = var(:,:,:,2)
-      varray%array_var(IBZ)%array = var(:,:,:,3)
-
-cc      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
-cc        do dim=1,3
-cc          do loc=0,1
-cc            ibc = (1+loc)+2*(dim-1)
-cc
-cc            do ieq = IBX,IBZ
-cc              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-cc                if (bctype == EQU) then
-cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-cc     .                               ,varray%array_var(ieq)%array
-cc     .                               ,u_0   %array_var(ieq)%array)
-cc                else
-cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
-cc     .                               ,varray%array_var(ieq)%array
-cc     .                               ,zeros)
-cc                endif
-cc              endif
-cc            enddo
-cc
-cc          enddo
-cc        enddo
-cc      enddo
-
-c Impose vector singular point BCs
-
-      if (bcond(1) == SP) call vectorSingularBC(bx,by,bz,.false.,2)
-
-c Synchronize periodic boundaries
-
-      bctype=PER
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-          do ieq = IBX,IBZ
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(ieq,1,1,dim,loc,bctype
-     .                           ,varray%array_var(ieq)%array
-     .                           ,zeros)
-            endif
-          enddo
-        enddo
-      enddo
-
-c     Synchronize velocity field
-
-      call postProcessB
-
-c     End program
-
-      end subroutine imposeBConB
-
-c     postProcessB
-c     #################################################################
-      subroutine postProcessB
-c     -----------------------------------------------------------------
-c     Synchronizes magnetic field components (covariant, contravariant)
-c     at boundaries.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer(4) :: i,j,k,dim,loc,ig,jg,kg
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
-      logical    :: cartesian,cov_to_cnv
-
-c     Begin program
-
-c     Determine postprocessing operation
-
-      cov_to_cnv = .false.
-      do dim = 1,3
-        do loc = 0,1
-          ibc = (1+loc)+2*(dim-1)
-          if (    varray%array_var(IBX)%bconds(ibc) == NEU
-     .        .or.varray%array_var(IBY)%bconds(ibc) == NEU
-     .        .or.varray%array_var(IBZ)%bconds(ibc) == NEU) then
-            cov_to_cnv = .true.
-          endif
-        enddo
-      enddo
-
-c     FIND CONTRAVARIANT COMPONENTS AT BOUNDARY
-      if (cov_to_cnv) then
-
-c     Find covariant magnetic field NORMAL components at boundaries
-
-      do dim = 1,3
-        do loc = 0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          if (dim == 1) then
-            imin=1  +    loc *(nx-1)
-            imax=nx + (1-loc)*(1-nx)
-            jmin=1
-            jmax=ny
-            kmin=1
-            kmax=nz
-          elseif (dim == 2) then
-            imin=1 
-            imax=nx
-            jmin=1  +    loc *(ny-1)
-            jmax=ny + (1-loc)*(1-ny)
-            kmin=1
-            kmax=nz
-          elseif (dim == 3) then
-            imin=1 
-            imax=nx
-            jmin=1
-            jmax=ny
-            kmin=1  +    loc *(nz-1)
-            kmax=nz + (1-loc)*(1-nz)
-          endif
-
-          select case (ibc)
-          case (1)
-
-            if (bcond(1) == SP) then
-
-              call vectorSingularBC(bx_cov,by_cov,bz_cov,.true.,2)
-
-            else
-              do i=imin,imax
-                do j=jmin,jmax
-                  do k=kmin,kmax
-
-                    call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-
-                    gsuper = g_super(x1,x2,x3,cartesian)
-
-                    bx_cov(i-1,j,k) = -(gsuper(1,2)*by_cov(i-1,j,k)
-     .                                 +gsuper(1,3)*bz_cov(i-1,j,k)
-     .                                 -bx(i-1,j,k) )/gsuper(1,1)
-
-                  enddo
-                enddo
-              enddo
-            endif
-
-          case (2)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  bx_cov(i+1,j,k) = -(gsuper(1,2)*by_cov(i+1,j,k)
-     .                               +gsuper(1,3)*bz_cov(i+1,j,k)
-     .                               -bx(i+1,j,k) )/gsuper(1,1)
-                enddo
-              enddo
-            enddo
-
-          case (3)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  by_cov(i,j-1,k) = -(gsuper(2,1)*bx_cov(i,j-1,k)
-     .                               +gsuper(2,3)*bz_cov(i,j-1,k)
-     .                               -by(i,j-1,k) )/gsuper(2,2)
-
-                enddo
-              enddo
-            enddo
-
-          case (4)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  by_cov(i,j+1,k) = -(gsuper(2,1)*bx_cov(i,j+1,k)
-     .                               +gsuper(2,3)*bz_cov(i,j+1,k)
-     .                               -by(i,j+1,k) )/gsuper(2,2)
-
-                enddo
-              enddo
-            enddo
-
-          case (5)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  bz_cov(i,j,k-1) = -(gsuper(3,1)*bx_cov(i,j,k-1)
-     .                               +gsuper(3,2)*by_cov(i,j,k-1)
-     .                               -bz(i,j,k-1) )/gsuper(3,3)
-                enddo
-              enddo
-            enddo
-
-          case (6)
-
-            do i=imin,imax
-              do j=jmin,jmax
-                do k=kmin,kmax
-
-                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-     .                               ,x1,x2,x3,cartesian)
-
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  bz_cov(i,j,k+1) = -(gsuper(3,1)*bx_cov(i,j,k+1)
-     .                               +gsuper(3,2)*by_cov(i,j,k+1)
-     .                               -bz(i,j,k+1) )/gsuper(3,3)
-                enddo
-              enddo
-            enddo
-
-          end select
-
-        enddo
-      enddo
-
-c     Enforce PER BC on covariant magnetic field components
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype=PER
-
-          ieq = IBX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,bx_cov,zeros)
-          endif
-
-          ieq = IBY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,by_cov,zeros)
-          endif
-
-          ieq = IBZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,bz_cov,zeros)
-          endif
-
-        enddo
-      enddo
-
-c     Find contravariant magnetic field at boundaries
-
-      do dim = 1,3
-        do loc = 0,1
-          if (dim == 1) then
-            imin=0 + loc*(nx+1)
-            imax=0 + loc*(nx+1)
-            jmin=0
-            jmax=ny+1
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 2) then
-            imin=0
-            imax=nx+1
-            jmin=0 + loc*(ny+1)
-            jmax=0 + loc*(ny+1)
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 3) then
-            imin=0
-            imax=nx+1
-            jmin=0
-            jmax=ny+1
-            kmin=0 + loc*(nz+1)
-            kmax=0 + loc*(nz+1)
-          endif
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .             ,bx(i,j,k),by(i,j,k),bz(i,j,k),.true.)
-              enddo
-            enddo
-          enddo
-
-        enddo
-      enddo
-
-c     FIND COVARIANT COMPONENTS AT BOUNDARY
-      else
-
-      do dim = 1,3
-        do loc = 0,1
-          if (dim == 1) then
-            imin=0 + loc*(nx+1)
-            imax=0 + loc*(nx+1)
-            jmin=0
-            jmax=ny+1
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 2) then
-            imin=0
-            imax=nx+1
-            jmin=0 + loc*(ny+1)
-            jmax=0 + loc*(ny+1)
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 3) then
-            imin=0
-            imax=nx+1
-            jmin=0
-            jmax=ny+1
-            kmin=0 + loc*(nz+1)
-            kmax=0 + loc*(nz+1)
-          endif
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .             ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
-              enddo
-            enddo
-          enddo
-
-        enddo
-      enddo
-
-      endif
-
-c     End program
-
-      end subroutine postProcessB
-
-c     imposeBConJ
-c     #################################################################
-      subroutine imposeBConJ
-c     -----------------------------------------------------------------
-c     Calculates current components (covariant, contravariant).
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer(4) :: ivar
-      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,b_cov(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Externals
-
-      real(8)    :: quad_int
-      external   :: quad_int
-
-c     Begin program
-
-c     Contravariant all current components within the domain [j=curl(B)]
-
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
-            jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
-            jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
-          enddo
-        enddo
-      enddo
-
-c     Correct normal components of J at boundaries by enforcing div(J)=0
-
-      var (:,:,:,1) = jx
-      var (:,:,:,2) = jy
-      var (:,:,:,3) = jz
-
-      var0 = 0d0
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype = DIR
-
-          do ieq = IBX,IBZ
-            ivar = ieq - IBX + 1
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(-ieq,ivar,3,dim,loc,bctype,var,var0)
-            endif
-          enddo
-
-        enddo
-      enddo
-
-      jx = var (:,:,:,1)
-      jy = var (:,:,:,2)
-      jz = var (:,:,:,3)
-
-c     Correct tangential components of J at boundaries (from normal component)
-c     if perfect conductor (bctype=NEU for tangential B-components)
-
-      var (:,:,:,1) = jx
-      var (:,:,:,2) = jy
-      var (:,:,:,3) = jz
-
-      var0 = 0d0
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype = NEU
-
-          do ieq = IBX,IBZ
-            ivar = ieq - IBX + 1
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(-ieq,ivar,3,dim,loc,bctype,var,var0)
-            endif
-          enddo
-
-        enddo
-      enddo
-
-      jx = var (:,:,:,1)
-      jy = var (:,:,:,2)
-      jz = var (:,:,:,3)
-
-c     Impose SP boundary conditions on contravariant components of J
-
-      if (bcond(1) == SP) call vectorSingularBC(jx,jy,jz,.false.,2)
-
-c     Enforce PER BC on contravariant current components
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-
-          bctype=PER
-
-          ieq = IBX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jx,zeros)
-          endif
-
-          ieq = IBY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jy,zeros)
-          endif
-
-          ieq = IBZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jz,zeros)
-          endif
-
-        enddo
-      enddo
-
-c     Find covariant current components
-
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
-     .             ,jx(i,j,k),jy(i,j,k),jz(i,j,k),.false.)
-          enddo
-        enddo
-      enddo
-
-c     End program
-
-      end subroutine imposeBConJ
-
-c     vectorSingularBC
-c     #################################################################
-      subroutine vectorSingularBC(vec1,vec2,vec3,cov,order)
-c     -----------------------------------------------------------------
-c     Averages vector components around singular point and calculates
-c     curvilinear components at singular point.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: order
-      real(8)    :: vec1(0:nx+1,0:ny+1,0:nz+1)
-     .             ,vec2(0:nx+1,0:ny+1,0:nz+1)
-     .             ,vec3(0:nx+1,0:ny+1,0:nz+1)
-      logical    :: cov
-
-c     Local variables
-
-      integer(4) :: i,j,k
-      logical    :: cartesian
-
-      integer(4) :: ic,ig,jg,kg,order1
-      real(8)    :: x0,avg_q,avg_vol,vol
-      real(8)    :: cx1,cy1,cz1
-      real(8),allocatable,dimension(:) :: ax0,ay0,az0,cx,cy,cz
-
-c     External
-
-      real(8) :: quad_int
-      external   quad_int
-
-c     Begin program
-
-      allocate(ax0(nz),ay0(nz),az0(nz))
-
-c     Find average cartesian coordinates
-
-      if (order == 3) then
-        order1 = 3
-      else
-        order1 = order
-      endif
-
-      do k=1,nz
-        ax0(k) = 0d0
-        ay0(k) = 0d0
-        az0(k) = 0d0
-        avg_vol = 0d0
-        do j=1,ny
-          i = 1
-          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          vol = volume(i,j,k,igx,igy,igz)
-          x0  = xx(ig-1)
-
-          allocate(cx(order1+1),cy(order1+1),cz(order1+1))
-          do i=1,order1+1
-            call transformVectorToCartesian(i,j,k,igx,igy,igz
-     .           ,vec1(i,j,k),vec2(i,j,k),vec3(i,j,k),cov
-     .           ,cx(i),cy(i),cz(i))
-          enddo
-
-          call IntDriver1d(order1+1,xx(ig),cx,1,x0,cx1,order)
-          call IntDriver1d(order1+1,xx(ig),cy,1,x0,cy1,order)
-          call IntDriver1d(order1+1,xx(ig),cz,1,x0,cz1,order)
-          deallocate(cx,cy,cz)
-
-          ax0(k)  = ax0(k)  + vol*cx1
-          ay0(k)  = ay0(k)  + vol*cy1
-          az0(k)  = az0(k)  + vol*cz1
-          avg_vol = avg_vol + vol
-        enddo
-        ax0(k) = ax0(k)/avg_vol
-        ay0(k) = ay0(k)/avg_vol
-        az0(k) = az0(k)/avg_vol
-      enddo
-      
-c     Transform to curvilinear components at SP
-
-      i = 0
-      do k=1,nz
-        do j=1,ny
-          call transformVectorToCurvilinear(i,j,k,igx,igy,igz
-     .               ,ax0(k),ay0(k),az0(k),cov
-     .               ,vec1(i,j,k),vec2(i,j,k),vec3(i,j,k))
-        enddo
-      enddo
-
-      deallocate(ax0,ay0,az0)
-
-c     End program
-
-      end subroutine vectorSingularBC
 
 c     scalarSingularBC
 c     #################################################################
@@ -1413,11 +181,104 @@ c     End program
 
       end subroutine scalarSingularBC
 
-      end subroutine imposeBoundaryConditions
+c     vectorSingularBC
+c     #################################################################
+      subroutine vectorSingularBC(vec,cov,order)
+c     -----------------------------------------------------------------
+c     Averages vector components around singular point and calculates
+c     curvilinear components at singular point.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: order
+      real(8)    :: vec(0:nx+1,0:ny+1,0:nz+1,3)
+      logical    :: cov
+
+c     Local variables
+
+      integer(4) :: i,j,k
+      logical    :: cartesian
+
+      integer(4) :: ic,ig,jg,kg,order1
+      real(8)    :: x0,avg_q,avg_vol,vol
+      real(8)    :: cx1,cy1,cz1
+      real(8),allocatable,dimension(:) :: ax0,ay0,az0,cx,cy,cz
+
+c     External
+
+      real(8) :: quad_int
+      external   quad_int
+
+c     Begin program
+
+      allocate(ax0(nz),ay0(nz),az0(nz))
+
+c     Find average cartesian coordinates
+
+      if (order == 3) then
+        order1 = 3
+      else
+        order1 = order
+      endif
+
+      do k=1,nz
+        ax0(k) = 0d0
+        ay0(k) = 0d0
+        az0(k) = 0d0
+        avg_vol = 0d0
+        do j=1,ny
+          i = 1
+          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          vol = volume(i,j,k,igx,igy,igz)
+          x0  = xx(ig-1)
+
+          allocate(cx(order1+1),cy(order1+1),cz(order1+1))
+          do i=1,order1+1
+            call transformVectorToCartesian(i,j,k,igx,igy,igz
+     .           ,vec(i,j,k,1),vec(i,j,k,2),vec(i,j,k,3),cov
+     .           ,cx(i),cy(i),cz(i))
+          enddo
+
+          call IntDriver1d(order1+1,xx(ig),cx,1,x0,cx1,order)
+          call IntDriver1d(order1+1,xx(ig),cy,1,x0,cy1,order)
+          call IntDriver1d(order1+1,xx(ig),cz,1,x0,cz1,order)
+          deallocate(cx,cy,cz)
+
+          ax0(k)  = ax0(k)  + vol*cx1
+          ay0(k)  = ay0(k)  + vol*cy1
+          az0(k)  = az0(k)  + vol*cz1
+          avg_vol = avg_vol + vol
+        enddo
+        ax0(k) = ax0(k)/avg_vol
+        ay0(k) = ay0(k)/avg_vol
+        az0(k) = az0(k)/avg_vol
+      enddo
+      
+c     Transform to curvilinear components at SP
+
+      i = 0
+      do k=1,nz
+        do j=1,ny
+          call transformVectorToCurvilinear(i,j,k,igx,igy,igz
+     .               ,ax0(k),ay0(k),az0(k),cov
+     .               ,vec(i,j,k,1),vec(i,j,k,2),vec(i,j,k,3))
+        enddo
+      enddo
+
+      deallocate(ax0,ay0,az0)
+
+c     End program
+
+      end subroutine vectorSingularBC
+
+      end module singularBCinterface
 
 c module dirichletBCinterface
 c####################################################################
-      module  dirichletBCinterface
+      module dirichletBCinterface
 
         use BCS
 
@@ -1444,7 +305,7 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc,order,ivar
+      integer(4) :: ieq,dim,loc,order
       real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
      .             ,array0(0:nx+1,0:ny+1,0:nz+1)
 
@@ -1500,15 +361,12 @@ c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
 
-cc      write (*,*) 'vectorDirichletBC nvar=',nvar
-
       select case (ieq)
       case (IVX,IVY,IVZ)
 
-        call interpolate(array(:,:,:,ivar),array0(:,:,:,ivar)
-     .                  ,ibc,order)
+        call interpolate(array(:,:,:,ivar),array0(:,:,:,ivar),ibc,order)
 
-      case (IBX,IBY,IBZ,-IBX,-IBY,-IBZ) !Imposes divergence-free constraint on B-field
+      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B-field
 
         if (ivar /= dim) then
 
@@ -1580,6 +438,9 @@ c     End program
 c     interpolate
 c     #######################################################################
       subroutine interpolate(array,array0,ibc,order)
+c     -----------------------------------------------------------------
+c     Fills ghost nodes by extrapolation across relevant boundary.
+c     -----------------------------------------------------------------
 
         implicit none
 
@@ -1656,7 +517,7 @@ c     #################################################################
       real(8) function quad_int(x0,x1,x2,x3,y0,y1,y2,y3,x,order)
      .        result(y)
 c     -----------------------------------------------------------------
-c     Quadratic interpolation (extrapolation).
+c     Interpolation (extrapolation) routine, up to cubic order.
 c     -----------------------------------------------------------------
 
       implicit none
@@ -1685,6 +546,10 @@ c     Begin program
      .     +y1*(x-x0)/(x1-x0)
       case (0)
         y = y0
+      case default
+        write (*,*) 'Order of interpolation not implemented in quad_int'
+        write (*,*) 'Aborting...'
+        stop
       end select
 
 c     End program
@@ -1710,6 +575,7 @@ c     #################################################################
       subroutine scalarNeumannBC(array,ieq,dim,loc)
 c     -----------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
+c        * array -> variable upon which BCs are imposed
 c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
@@ -1733,8 +599,6 @@ c     Local variables
       logical    :: cartesian
 
 c     Begin program
-
-cc      write (*,*) 'scalarNeumannBC nvar=',nnvar
 
       nvar = 1
 
@@ -1929,15 +793,9 @@ c     Local variables
      .             ,hessian2(3,3),hessian3(3,3)
       logical    :: cartesian
 
-cc      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
-
 c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
-
-cc      nvar = nnvar
-
-cc      write (*,*) 'vectorNeumannBC nvar=',nvar
 
       rhs = 0d0
 
@@ -2144,65 +1002,6 @@ cc      write (*,*) 'vectorNeumannBC nvar=',nvar
           enddo
         enddo
 
-      case (-IBX,-IBY,-IBZ) !Finds current components at boundaries
-
-        if (ivar /= dim) then
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-                select case (ibc)
-                case (1)
-                  call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(j,k) = array(1,j,k,ivar)
-     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i-1,j,k,dim)
-                case (2)
-                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(j,k) = -array(nx,j,k,ivar)
-     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i+1,j,k,dim)
-                case (3)
-                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(i,k) = array(i,1,k,ivar)
-     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j-1,k,dim)
-                case (4)
-                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(i,k) =-array(i,ny,k,ivar)
-     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j+1,k,dim)
-                case (5)
-                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(i,j) = array(i,j,1,ivar)
-     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k-1,dim)
-                case (6)
-                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-     .                                 ,x1,x2,x3,cartesian)
-                  gsuper = g_super(x1,x2,x3,cartesian)
-
-                  rhs(i,j) =-array(i,j,nz,ivar)
-     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k+1,dim)
-                end select
-
-              enddo
-            enddo
-          enddo
-
-        endif
-
       case default
 
         write (*,*) 'Error in vectorNeumannBC'
@@ -2233,6 +1032,572 @@ c     End program
 
       end module neumannBCinterface
 
+c imposeBoundaryConditions
+c####################################################################
+      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+c--------------------------------------------------------------------
+c     Sets adequate boundary conditions on array structure varray.
+c--------------------------------------------------------------------
+
+      use BCS
+
+      use singularBCinterface
+
+      implicit none
+
+c Call variables
+
+      integer(4) :: iigx,iigy,iigz
+
+      type (var_array) :: varray
+
+c Local variables
+
+      integer(4) :: neq,ieq,i,j,k,icomp
+      integer(4) :: dim,loc,bctype,ibc
+      integer(4) :: bcnd(6,3)
+
+      real(8) :: mag
+
+c Begin program
+
+      igx = iigx
+      igy = iigy
+      igz = iigz
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
+      allocate(v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
+
+c Density BC
+
+      call imposeBConScalar(IRHO,varray%array_var(IRHO)%array
+     .                          ,u_0   %array_var(IRHO)%array
+     .                          ,varray%array_var(IRHO)%bconds)
+
+c Velocity BC
+
+      vzeros = 0d0
+
+      bcnd(:,1) = varray%array_var(IVX)%bconds
+      bcnd(:,2) = varray%array_var(IVY)%bconds
+      bcnd(:,3) = varray%array_var(IVZ)%bconds
+
+      where (varray%array_var(IRHO)%array /= 0d0)
+        v_cnv(:,:,:,1) = varray%array_var(IVX )%array
+     .                  /varray%array_var(IRHO)%array
+        v_cnv(:,:,:,2) = varray%array_var(IVY )%array
+     .                  /varray%array_var(IRHO)%array
+        v_cnv(:,:,:,3) = varray%array_var(IVZ )%array
+     .                  /varray%array_var(IRHO)%array
+      end where
+
+      call imposeBConVector(IVX,v_cnv,v_cov,vzeros,bcnd)
+
+      vx_cov = v_cov(:,:,:,1)
+      vy_cov = v_cov(:,:,:,2)
+      vz_cov = v_cov(:,:,:,3)
+
+      vx     = v_cnv(:,:,:,1)
+      vy     = v_cnv(:,:,:,2)
+      vz     = v_cnv(:,:,:,3)
+
+      varray%array_var(IVX)%array = v_cnv(:,:,:,1)
+     .                             *varray%array_var(IRHO)%array
+      varray%array_var(IVY)%array = v_cnv(:,:,:,2)
+     .                             *varray%array_var(IRHO)%array
+      varray%array_var(IVZ)%array = v_cnv(:,:,:,3)
+     .                             *varray%array_var(IRHO)%array
+
+c Magnetic field BC
+
+c     BC setup
+
+      bcnd(:,1) = varray%array_var(IBX)%bconds
+      bcnd(:,2) = varray%array_var(IBY)%bconds
+      bcnd(:,3) = varray%array_var(IBZ)%bconds
+
+      v_cnv(:,:,:,1) = varray%array_var(IBX)%array
+      v_cnv(:,:,:,2) = varray%array_var(IBY)%array
+      v_cnv(:,:,:,3) = varray%array_var(IBZ)%array
+
+      vzeros(:,:,:,1) = u_0%array_var(IBX)%array
+      vzeros(:,:,:,2) = u_0%array_var(IBY)%array
+      vzeros(:,:,:,3) = u_0%array_var(IBZ)%array
+
+c     Fill ghost nodes
+
+      call imposeBConVector(IBX,v_cnv,v_cov,vzeros,bcnd)
+
+c     Postprocessing
+
+      bx_cov = v_cov(:,:,:,1)
+      by_cov = v_cov(:,:,:,2)
+      bz_cov = v_cov(:,:,:,3)
+
+      varray%array_var(IBX)%array = v_cnv(:,:,:,1)
+      varray%array_var(IBY)%array = v_cnv(:,:,:,2)
+      varray%array_var(IBZ)%array = v_cnv(:,:,:,3)
+
+c Current BC
+
+c     BC setup
+
+      bcnd(:,1) = varray%array_var(IBX)%bconds
+      bcnd(:,2) = varray%array_var(IBY)%bconds
+      bcnd(:,3) = varray%array_var(IBZ)%bconds
+      where (bcnd == -NEU)
+        bcnd = -DIR  !Use covariant components for tangential dirichlet
+      end where
+
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            do icomp=1,3
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,bx_cov,by_cov,bz_cov,icomp)
+            enddo
+          enddo
+        enddo
+      enddo
+
+      vzeros = v_cnv
+
+c     Fill ghost nodes
+
+      call imposeBConVector(IJX,v_cnv,v_cov,vzeros,bcnd)
+
+c     Postprocessing
+
+      jx_cov = v_cov(:,:,:,1)
+      jy_cov = v_cov(:,:,:,2)
+      jz_cov = v_cov(:,:,:,3)
+
+      jx = v_cnv(:,:,:,1)
+      jy = v_cnv(:,:,:,2)
+      jz = v_cnv(:,:,:,3)
+
+c Temperature BCs
+
+      call imposeBConScalar(ITMP,varray%array_var(ITMP)%array
+     .                          ,u_0   %array_var(ITMP)%array
+     .                          ,varray%array_var(ITMP)%bconds)
+
+c Deallocate variables 
+
+      deallocate(v_cnv,v_cov,vzeros)
+
+c End
+
+      contains
+
+c     imposeBConScalar
+c     #################################################################
+      subroutine imposeBConScalar(ieq,array,array0,bcond)
+c     -----------------------------------------------------------------
+c     Imposes BC on density
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,bcond(6)
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+     .             ,array0(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+c     Begin program
+
+c     Impose BCs
+
+      do bctype=1,4             !Enforces a particular order in the BCs (see grid_mod.f)
+        do dim=1,3
+          do loc=0,1
+            ibc = (1+loc)+2*(dim-1)
+            if (bcond(ibc) == bctype) then
+              call FillGhostNodes(ieq,1,1,dim,loc,bctype,array,array0)
+            endif
+          enddo
+        enddo
+      enddo
+
+c     Singular point boundary condition
+
+      if (bcond(1) == SP) call singularBC(array,2)
+
+c     Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          if (bcond(ibc) == bctype) then
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,array,array0)
+          endif
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine imposeBConScalar
+
+c     imposeBConVector
+c     #################################################################
+      subroutine imposeBConVector(fcomp,v_cnv,v_cov,var0,bcond)
+c     -----------------------------------------------------------------
+c     Imposes BC on velocity field
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: bcond(6,3),fcomp
+      real(8)    :: v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer(4) :: ivar,ieq,ibc,loc,dim,bctype
+      logical    :: cov_to_cnv
+
+c     Begin program
+
+c     Preprocess velocity field
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .            ,v_cov(i,j,k,1),v_cov(i,j,k,2),v_cov(i,j,k,3)
+     .            ,v_cnv(i,j,k,1),v_cnv(i,j,k,2),v_cnv(i,j,k,3),.false.)
+          enddo
+        enddo
+      enddo
+
+c     Impose BCs
+
+      cov_to_cnv = .false.
+
+      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
+        do dim=1,3
+          do loc=0,1
+            ibc = (1+loc)+2*(dim-1)
+
+            do ivar = 1,3
+              ieq = ivar + fcomp - 1
+
+              if (abs(bcond(ibc,ivar)) == bctype) then
+
+                if (bcond(ibc,ivar) < 0) then
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cov
+     .                               ,var0)
+                  cov_to_cnv = .true.
+                else
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cnv
+     .                               ,var0)
+                endif
+
+             endif
+
+            enddo
+
+          enddo
+        enddo
+      enddo
+
+c     Synchronize covariant and contravariant components
+
+      if (cov_to_cnv) call synchronize(v_cnv,v_cov,bcond)
+
+c     Impose vector singular point BCs
+
+      if (bcond(1,1) == SP) call singularBC(v_cnv,.false.,2)
+
+c     Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          do ivar = 1,3
+            ieq = ivar + fcomp - 1
+            if (bcond(ibc,ivar) == bctype) then
+              call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cnv,var0)
+cc              call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cov,var0)
+            endif
+          enddo
+        enddo
+      enddo
+
+c     Find covariant components at ALL boundaries
+
+      do dim = 1,3
+        do loc = 0,1
+          if (dim == 1) then
+            imin=0 + loc*(nx+1)
+            imax=0 + loc*(nx+1)
+            jmin=0
+            jmax=ny+1
+            kmin=0
+            kmax=nz+1
+          elseif (dim == 2) then
+            imin=0
+            imax=nx+1
+            jmin=0 + loc*(ny+1)
+            jmax=0 + loc*(ny+1)
+            kmin=0
+            kmax=nz+1
+          elseif (dim == 3) then
+            imin=0
+            imax=nx+1
+            jmin=0
+            jmax=ny+1
+            kmin=0 + loc*(nz+1)
+            kmax=0 + loc*(nz+1)
+          endif
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .            ,v_cov(i,j,k,1),v_cov(i,j,k,2),v_cov(i,j,k,3)
+     .            ,v_cnv(i,j,k,1),v_cnv(i,j,k,2),v_cnv(i,j,k,3),.false.)
+              enddo
+            enddo
+          enddo
+
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine imposeBConVector
+
+c     synchronize
+c     #################################################################
+      subroutine synchronize(v_cnv,v_cov,bcond)
+c     -----------------------------------------------------------------
+c     Finds all contravariant components at Neumann boundaries.
+c     On input, tangential covariant components and normal contravariant
+c     components are known at ghost cells. On output, all contravarian
+c     components are known at ghost cells.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: bcond(6,3)
+      real(8)    :: v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer(4) :: i,j,k,dim,loc,ig,jg,kg,ivar
+      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
+      logical    :: cartesian
+
+c     Begin program
+
+      do dim = 1,3
+        do loc = 0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          do ivar = 1,3
+            if (ivar == dim) then  !Select tangential components
+              cycle
+            elseif (bcond(ibc,ivar) < 0) then
+              if (dim == 1) then
+                imin=1  +    loc *(nx-1)
+                imax=nx + (1-loc)*(1-nx)
+                jmin=1
+                jmax=ny
+                kmin=1
+                kmax=nz
+              elseif (dim == 2) then
+                imin=1 
+                imax=nx
+                jmin=1  +    loc *(ny-1)
+                jmax=ny + (1-loc)*(1-ny)
+                kmin=1
+                kmax=nz
+              elseif (dim == 3) then
+                imin=1 
+                imax=nx
+                jmin=1
+                jmax=ny
+                kmin=1  +    loc *(nz-1)
+                kmax=nz + (1-loc)*(1-nz)
+              endif
+
+              select case (ibc)
+              case (1)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i-1,j,k,1) = -(gsuper(1,2)*v_cov(i-1,j,k,2)
+     .                                    +gsuper(1,3)*v_cov(i-1,j,k,3)
+     .                                    -v_cnv(i-1,j,k,1))/gsuper(1,1)
+
+                      call transformFromCurvToCurv(i-1,j,k,igx,igy,igz
+     .               ,v_cov(i-1,j,k,1),v_cov(i-1,j,k,2),v_cov(i-1,j,k,3)
+     .               ,v_cnv(i-1,j,k,1),v_cnv(i-1,j,k,2),v_cnv(i-1,j,k,3)
+     .               ,.true.)
+
+                    enddo
+                  enddo
+                enddo
+
+              case (2)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i+1,j,k,1) = -(gsuper(1,2)*v_cov(i+1,j,k,2)
+     .                                    +gsuper(1,3)*v_cov(i+1,j,k,3)
+     .                                    -v_cnv(i+1,j,k,1))/gsuper(1,1)
+
+                      call transformFromCurvToCurv(i+1,j,k,igx,igy,igz
+     .               ,v_cov(i+1,j,k,1),v_cov(i+1,j,k,2),v_cov(i+1,j,k,3)
+     .               ,v_cnv(i+1,j,k,1),v_cnv(i+1,j,k,2),v_cnv(i+1,j,k,3)
+     .               ,.true.)
+
+                    enddo
+                  enddo
+                enddo
+
+              case (3)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i,j-1,k,2) = -(gsuper(2,1)*v_cov(i,j-1,k,1)
+     .                                    +gsuper(2,3)*v_cov(i,j-1,k,3)
+     .                                    -v_cnv(i,j-1,k,2))/gsuper(2,2)
+
+                      call transformFromCurvToCurv(i,j-1,k,igx,igy,igz
+     .               ,v_cov(i,j-1,k,1),v_cov(i,j-1,k,2),v_cov(i,j-1,k,3)
+     .               ,v_cnv(i,j-1,k,1),v_cnv(i,j-1,k,2),v_cnv(i,j-1,k,3)
+     .               ,.true.)
+
+                    enddo
+                  enddo
+                enddo
+
+              case (4)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i,j+1,k,2) = -(gsuper(2,1)*v_cov(i,j+1,k,1)
+     .                                    +gsuper(2,3)*v_cov(i,j+1,k,3)
+     .                                    -v_cnv(i,j+1,k,2))/gsuper(2,2)
+
+                      call transformFromCurvToCurv(i,j+1,k,igx,igy,igz
+     .               ,v_cov(i,j+1,k,1),v_cov(i,j+1,k,2),v_cov(i,j+1,k,3)
+     .               ,v_cnv(i,j+1,k,1),v_cnv(i,j+1,k,2),v_cnv(i,j+1,k,3)
+     .               ,.true.)
+
+                    enddo
+                  enddo
+                enddo
+
+              case (5)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i,j,k-1,3) = -(gsuper(3,1)*v_cov(i,j,k-1,1)
+     .                                    +gsuper(3,2)*v_cov(i,j,k-1,2)
+     .                                    -v_cnv(i,j,k-1,3))/gsuper(3,3)
+
+                      call transformFromCurvToCurv(i,j,k-1,igx,igy,igz
+     .               ,v_cov(i,j,k-1,1),v_cov(i,j,k-1,2),v_cov(i,j,k-1,3)
+     .               ,v_cnv(i,j,k-1,1),v_cnv(i,j,k-1,2),v_cnv(i,j,k-1,3)
+     .               ,.true.)
+                    enddo
+                  enddo
+                enddo
+
+              case (6)
+
+                do i=imin,imax
+                  do j=jmin,jmax
+                    do k=kmin,kmax
+
+                      call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,x2,x3,cartesian)
+
+                      gsuper = g_super(x1,x2,x3,cartesian)
+
+                      v_cov(i,j,k+1,3) = -(gsuper(3,1)*v_cov(i,j,k+1,1)
+     .                                    +gsuper(3,2)*v_cov(i,j,k+1,2)
+     .                                    -v_cnv(i,j,k+1,3))/gsuper(3,3)
+
+                      call transformFromCurvToCurv(i,j,k+1,igx,igy,igz
+     .               ,v_cov(i,j,k+1,1),v_cov(i,j,k+1,2),v_cov(i,j,k+1,3)
+     .               ,v_cnv(i,j,k+1,1),v_cnv(i,j,k+1,2),v_cnv(i,j,k+1,3)
+     .               ,.true.)
+                    enddo
+                  enddo
+                enddo
+
+              end select
+
+            endif
+          enddo
+
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine synchronize
+
+      end subroutine imposeBoundaryConditions
+
+
 c FillGhostNodes
 c####################################################################
       subroutine FillGhostNodes(ieq,ivar,nvar,dim,loc,bctype
@@ -2251,6 +1616,8 @@ c       * array0 -> auxiliary real array
 c--------------------------------------------------------------------
 
       use BCS
+
+      use singularBCinterface
 
       use dirichletBCinterface
 
