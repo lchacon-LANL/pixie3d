@@ -1,0 +1,207 @@
+#!/bin/bash
+
+# Help message
+
+help()
+{
+cat <<HELP
+Usage: 
+
+pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-tar]
+        -- inputfile [options]
+
+where:
+	-h:            gives this message
+	-n host:       indicates the host where code should be remotely run 
+                         (default is localhost)
+	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-r tmax:       indicates that the job should be restarted up to time tmax 
+                         (if tmax=0, final time is not changed)
+	-np procs:     indicates the number of processors to run the job on 
+		         in parallel
+	-nolocal:      indicates that parallel job is not to run on current machine
+	-tar:          runs in background in separate directory and creates 
+                         tarfile inputfile.tar.gz
+	inputfile:     is the input file without the extension .in
+	options:       options passed directly to the executable
+HELP
+exit 0
+}
+
+# Parse command line options
+
+if [ "$#" = 0 ]; then
+  help
+  exit 1
+fi
+
+while [ -n "$1" ]; do
+case $1 in
+	-h) help;shift 1;;
+	-n) node=$2;shift 2;;
+	-x) executable=$2;shift 2;;
+	-r) restart=t;tmax=$2;shift 2;;
+	-np)parallel=t;np=$2;shift 2;;
+	-nolocal)nolocal=$1;shift 1;;
+	-tar)tar=t;shift 1;;
+	--) shift;break;;
+	-*) echo "error: no such option $1. -h for help";exit 1;;
+	*)  break;;
+esac
+done
+
+inputfile=$1
+shift
+
+options=$*
+
+# Select host
+
+if [ "$node" = "" ]; then
+  node=`hostname -s`
+fi
+
+# Select working directory
+
+path=$PWD
+
+if [ "$tar" = "t" ]
+then
+  count=.	
+  dir=$node.scratch
+  while [ -d "$dir" ]; do
+    dir="${dir}${count}"
+  done
+  mkdir $dir
+else
+  dir=.
+fi
+
+# Select executable
+
+if [ "$executable" = "" ]
+then
+  executable=`ls pixie3d.x 2>/dev/null`
+else
+  executable=`ls $executable 2>/dev/null`
+fi
+
+if [ "$executable" = "" ]
+then
+  echo "No executable found. Aborting"
+  exit 1
+fi
+
+# Copy necessary files to working directory
+
+if [ -f $inputfile.in ]; then
+  cp $inputfile.in $dir 2>/dev/null
+elif [ -f infiles/$inputfile.in ]; then
+  cp infiles/$inputfile.in $dir 2>/dev/null
+else
+  echo "No input file found. Aborting"
+  exit 1
+fi
+
+cp $executable $dir 2>/dev/null
+
+cd $dir
+
+# Check for restart
+
+if [ "$restart" = "t" -a "$tar" = "t" ]
+then
+   if [ -d $path/tarfiles ]; then
+     rpath=$path/tarfiles
+   else
+     rpath=$path
+   fi
+   if [ -f "$rpath/$inputfile.tar.gz" ]
+   then
+     tar xzf $rpath/$inputfile.tar.gz
+#     cp $inputfile.log $path/$dir
+#     cp *.bin $path/$dir
+   else
+     echo "Cannot find specified restart file"
+     exit 1 
+   fi
+fi
+
+# Execution preparations
+
+#cd $path/$dir
+
+code_ifile=`echo "$executable" | sed "s/\.x//"`
+
+cp $inputfile.in $code_ifile.in  2>/dev/null
+
+if [ "$restart" = "t" ]
+then
+   sed  -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart   = t' \
+        -e '}' \
+        $code_ifile.in > $code_ifile.out
+   mv $code_ifile.out $code_ifile.in
+else
+   sed  -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart   = f' \
+        -e '}' \
+        $code_ifile.in > $code_ifile.out
+   mv $code_ifile.out $code_ifile.in
+fi
+
+if [ "$tmax" != "" -a "$tmax" != "0" ]
+then
+    sed -e '/tmax/{' \
+        -e 'c\' \
+        -e "    tmax     = $tmax" \
+        -e '}' \
+        $code_ifile.in > $code_ifile.out
+   mv $code_ifile.out $code_ifile.in
+fi
+
+# Execute
+
+#if [ "$tar" = "t" ]
+#then
+#  $time="/usr/bin/time -v -o $inputfile.cpu"
+#else
+#  $time="/usr/bin/time"
+#fi
+
+if [ "$parallel" = "t" ]
+then
+   if [ -f "machines.LINUX" ]
+   then
+     machine="-machinefile machines.LINUX"
+   fi
+   executable="$time mpirun -np $np $nolocal $machine ./$executable -snes_mf $options"
+else
+   executable="$time ./$executable $options"
+fi
+
+if [ "$tar" = "t" ]
+then
+
+  ssh -n $node "cd $path/$dir ; /usr/bin/time -v -o $inputfile.cpu $executable >> $inputfile.log" 
+
+# Package and remove temporary files
+
+  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null`
+
+  tar zcf $inputfile.tar.gz $files
+  if [ -d "$path/tarfiles" ]; then
+    mv $inputfile.tar.gz $path/tarfiles
+  else
+    mv $inputfile.tar.gz $path
+  fi
+  cd $path
+  rm -r $dir
+
+else
+
+  ssh -n $node "cd $path/$dir ; /usr/bin/time $executable" 
+
+fi
