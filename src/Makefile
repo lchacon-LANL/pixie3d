@@ -16,17 +16,22 @@ PROD =	3dmhd.x
 BETA =	3dmhd.beta.x
 PETSCCODE = 3dmhd.petsc.x
 
-SRC  := $(wildcard *.f)
+SRC  := $(wildcard *.[F,c,f])
 
-MODS := $(wildcard *_mod.f)
+MODS := $(wildcard *_mod.[F,f])
+MODS := mhd_mod.f imposeBC_mod.F precond_mod.f
 
-OBJ  := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
+OBJ  := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
+                      $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
+                      $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
 
-OBJMOD := $(MODS:.f=.o)
+OBJMOD := $(filter %.o, $(patsubst %.f,%.o,$(MODS))\
+                        $(patsubst %.F,%.o,$(MODS)))
 
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.[f,F,c])))
 COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
-              $(patsubst %.c,%.o,$(COMMON_SRC))\ $(patsubst %.F,%.o,$(COMMON_SRC)))
+                            $(patsubst %.c,%.o,$(COMMON_SRC))\
+                            $(patsubst %.F,%.o,$(COMMON_SRC)))
 
 prefix = .
 
@@ -34,9 +39,10 @@ prefix = .
 
 DRIVERDIR = driver
 ifneq ($(strip $(BOPT)),)
-  include ${PETSC_DIR}/bmake/${PETSC_ARCH}/base
+  include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
   PETSCTRUE = true
+  FFLAGS    = -Dpetsc
 endif
 
 #Define compiler flags
@@ -46,12 +52,12 @@ FC = f90
 # Flags for Absoft f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
-#  DEBUG = -g -et -Rb -Rp -Rc
-  DEBUG        = -g
+  DEBUG        = -g -et -Rb -Rp -Rc
+#  DEBUG        = -g
   PROFILE      = -P
   STATIC       = -s
   MODPATH      = -p
-  FFLAGS       = -w
+  FFLAGS       += -w
   LIBS         = -llapack_f90 -lblas_f90
 
   ifdef PETSCTRUE
@@ -71,10 +77,16 @@ ifeq ($(FC),lf95)
   PROFILE =
   STATIC = 
   MODPATH = -M
-  FFLAGS =
+  FFLAGS +=
 
   LIBS = -llapackmt -lblasmt
 #  LIBS = -llapack -lblas -lf2c
+
+  ifdef PETSCTRUE
+    CPPFLAGS += -Dlahey -DNVAR=8
+    FFLAGS += -DNVAR=8 --ml cdecl
+    PETSC_ARCH = linux_lahey
+  endif
 
   MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
@@ -87,10 +99,16 @@ ifeq ($(FC),ifort)
   PROFILE = -gp
   STATIC =
   MODPATH =
-  FFLAGS = -vec_report0
+  FFLAGS += -vec_report0
 
   LIBS = -llapack -lblas -lf2c
 #  LIBS = -llapack_intel -lblas_intel
+
+  ifdef PETSCTRUE
+    CPPFLAGS += -Dlahey -DNVAR=8
+    FFLAGS += -DNVAR=8
+    PETSC_ARCH = linux_intel
+  endif
 
   MODDIRS = $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
@@ -174,4 +192,7 @@ $(OBJ):  $(MODS) $(COMMOM_MODS)
 #Define patterns
 
 %.o : %.f
+	$(FC) -c $(MODDIRS) $(FFLAGS) $<
+
+%.o : %.F
 	$(FC) -c $(MODDIRS) $(FFLAGS) $<
