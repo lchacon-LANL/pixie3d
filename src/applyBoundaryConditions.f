@@ -116,7 +116,7 @@ c Call variables
 
 c Local variables
 
-      integer(4)       :: neq,ieq,i,j,k,ig,jg,kg
+      integer(4)       :: neq,ieq,i,j,k
       integer(4)       :: dim,loc,bctype,ibc
 
 c Begin program
@@ -130,7 +130,7 @@ c Begin program
       bz  => varray%array_var(IBZ )%array
       tmp => varray%array_var(ITMP)%array
 
-c Find covariant magnetic field
+c Preprocess magnetic field
 
       do k = 1,nz
         do j = 1,ny
@@ -149,6 +149,16 @@ c Preprocess velocity field
         vy = rvy/rho
         vz = rvz/rho
       end where
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .             ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.false.)
+          enddo
+        enddo
+      enddo
 
 c Fill ghost nodes
 
@@ -220,7 +230,10 @@ c     #################################################################
       subroutine postProcessV
 c     -----------------------------------------------------------------
 c     Synchronizes velocity components (covariant, contravariant)
-c     at boundaries.
+c     at boundaries. When coming into this routine, the following
+c     is known at ghost cells:
+c       * Dirichlet BCs: contravariant components of MOMENTUM are known
+c       * Neumann BCs: covariant components of VELOCITY are known
 c     -----------------------------------------------------------------
 
       implicit none
@@ -229,25 +242,346 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: i,j,k,dim,loc
+      integer(4) :: i,j,k,dim,loc,ig,jg,kg
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,gsub(3,3)
-      logical    :: cartesian
-
-      integer(4) :: ic,ig,jg,kg
-      real(8)    :: x,y,z,xp,yp,zp
-      real(8)    :: avg_q,avg_vol,cx,cy,cz
-      real(8),allocatable,dimension(:) :: ax0,ay0,az0
+      real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
+      logical    :: cartesian,cov_to_cnv
 
 c     Begin program
 
-c     Find velocity field
+c     Synchonize periodic boundaries for velocity (not momentum) components
 
-      where (rho /= 0d0)
-        vx = rvx/rho
-        vy = rvy/rho
-        vz = rvz/rho
-      end where
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          bctype=PER
+
+          ieq = IVX
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vx,zeros)
+          endif
+
+          ieq = IVY
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vy,zeros)
+          endif
+
+          ieq = IVZ
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vz,zeros)
+          endif
+
+        enddo
+      enddo
+
+c     Determine postprocessing operation
+
+      cov_to_cnv = .false.
+      do dim = 1,3
+        do loc = 0,1
+          ibc = (1+loc)+2*(dim-1)
+          if (    varray%array_var(IVX)%bconds(ibc) == NEU
+     .        .or.varray%array_var(IVY)%bconds(ibc) == NEU
+     .        .or.varray%array_var(IVZ)%bconds(ibc) == NEU) then
+            cov_to_cnv = .true.
+          endif
+        enddo
+      enddo
+
+c     SYNCHRONIZE CONTRAVARIANT COMPONENTS AT BOUNDARY
+      if (cov_to_cnv) then
+
+c     Find covariant velocity NORMAL components at boundaries
+
+      do dim = 1,3
+        do loc = 0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          if (dim == 1) then
+            imin=1  +    loc *(nx-1)
+            imax=nx + (1-loc)*(1-nx)
+            jmin=1
+            jmax=ny
+            kmin=1
+            kmax=nz
+          elseif (dim == 2) then
+            imin=1 
+            imax=nx
+            jmin=1  +    loc *(ny-1)
+            jmax=ny + (1-loc)*(1-ny)
+            kmin=1
+            kmax=nz
+          elseif (dim == 3) then
+            imin=1 
+            imax=nx
+            jmin=1
+            jmax=ny
+            kmin=1  +    loc *(nz-1)
+            kmax=nz + (1-loc)*(1-nz)
+          endif
+
+          select case (ibc)
+          case (1)
+
+            if (bcond(1) == SP) then
+
+              call vectorSingularBC(vx_cov,vy_cov,vz_cov,.true.,2)
+
+            else
+              do i=imin,imax
+                do j=jmin,jmax
+                  do k=kmin,kmax
+
+                    call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+
+                    gsuper = g_super(x1,x2,x3,cartesian)
+
+                    vx_cov(i-1,j,k) = -(gsuper(1,2)*vy_cov(i-1,j,k)
+     .                                 +gsuper(1,3)*vz_cov(i-1,j,k)
+     .                                 -rvx(i-1,j,k)/rho(i-1,j,k)  )
+     .                                 /gsuper(1,1)
+
+                  enddo
+                enddo
+              enddo
+            endif
+
+          case (2)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  vx_cov(i+1,j,k) = -(gsuper(1,2)*vy_cov(i+1,j,k)
+     .                               +gsuper(1,3)*vz_cov(i+1,j,k)
+     .                               -rvx(i+1,j,k)/rho(i+1,j,k)  )
+     .                               /gsuper(1,1)
+                enddo
+              enddo
+            enddo
+
+          case (3)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  vy_cov(i,j-1,k) = -(gsuper(2,1)*vx_cov(i,j-1,k)
+     .                               +gsuper(2,3)*vz_cov(i,j-1,k)
+     .                               -rvy(i,j-1,k)/rho(i,j-1,k)  )
+     .                               /gsuper(2,2)
+
+                enddo
+              enddo
+            enddo
+
+          case (4)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  vy_cov(i,j+1,k) = -(gsuper(2,1)*vx_cov(i,j+1,k)
+     .                               +gsuper(2,3)*vz_cov(i,j+1,k)
+     .                               -rvy(i,j+1,k)/rho(i,j+1,k)  )
+     .                               /gsuper(2,2)
+
+                enddo
+              enddo
+            enddo
+
+          case (5)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  vz_cov(i,j,k-1) = -(gsuper(3,1)*vx_cov(i,j,k-1)
+     .                               +gsuper(3,2)*vy_cov(i,j,k-1)
+     .                               -rvz(i,j,k-1)/rho(i,j,k-1)  )
+     .                               /gsuper(3,3)
+                enddo
+              enddo
+            enddo
+
+          case (6)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  vz_cov(i,j,k+1) = -(gsuper(3,1)*vx_cov(i,j,k+1)
+     .                               +gsuper(3,2)*vy_cov(i,j,k+1)
+     .                               -rvz(i,j,k+1)/rho(i,j,k+1)  )
+     .                               /gsuper(3,3)
+                enddo
+              enddo
+            enddo
+
+          end select
+
+        enddo
+      enddo
+
+c     Enforce PER BC on covariant velocity components
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          bctype=PER
+
+          ieq = IVX
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vx_cov,zeros)
+          endif
+
+          ieq = IVY
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vy_cov,zeros)
+          endif
+
+          ieq = IVZ
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,vz_cov,zeros)
+          endif
+
+        enddo
+      enddo
+
+c     Find all contravariant velocity and momentum at boundaries
+
+      do dim = 1,3
+        do loc = 0,1
+
+          ibc = (1+loc)+2*(dim-1)
+
+          if (dim == 1) then
+            imin=0 + loc*(nx+1)
+            imax=0 + loc*(nx+1)
+            jmin=0
+            jmax=ny+1
+            kmin=0
+            kmax=nz+1
+
+cc            if (     varray%array_var(IVY)%bconds(ibc) == NEU
+cc     .          .and.varray%array_var(IVZ)%bconds(ibc) == NEU) then
+cc              do i=imin,imax
+cc                do j=jmin,jmax
+cc                  do k=kmin,kmax
+cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
+cc
+cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
+cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
+cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
+cc
+cc                  enddo
+cc                enddo
+cc              enddo
+cc            endif
+
+          elseif (dim == 2) then
+            imin=0
+            imax=nx+1
+            jmin=0 + loc*(ny+1)
+            jmax=0 + loc*(ny+1)
+            kmin=0
+            kmax=nz+1
+
+cc            if (     varray%array_var(IVX)%bconds(ibc) == NEU
+cc     .          .and.varray%array_var(IVZ)%bconds(ibc) == NEU) then
+cc              do i=imin,imax
+cc                do j=jmin,jmax
+cc                  do k=kmin,kmax
+cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
+cc
+cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
+cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
+cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
+cc
+cc                  enddo
+cc                enddo
+cc              enddo
+cc            endif
+
+          elseif (dim == 3) then
+            imin=0
+            imax=nx+1
+            jmin=0
+            jmax=ny+1
+            kmin=0 + loc*(nz+1)
+            kmax=0 + loc*(nz+1)
+
+cc            if (     varray%array_var(IVX)%bconds(ibc) == NEU
+cc     .          .and.varray%array_var(IVY)%bconds(ibc) == NEU) then
+cc              do i=imin,imax
+cc                do j=jmin,jmax
+cc                  do k=kmin,kmax
+cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
+cc
+cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
+cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
+cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
+cc
+cc                  enddo
+cc                enddo
+cc              enddo
+cc            endif
+
+          endif
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .             ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
+
+                rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
+                rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
+                rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
+
+              enddo
+            enddo
+          enddo
+
+        enddo
+      enddo
+
+      endif
 
 c     End program
 
@@ -267,15 +601,10 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: i,j,k,dim,loc
+      integer(4) :: i,j,k,dim,loc,ig,jg,kg
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
       real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
       logical    :: cartesian,cov_to_cnv
-
-      integer(4) :: ic,ig,jg,kg
-      real(8)    :: x,y,z,xp,yp,zp
-      real(8)    :: avg_q,avg_vol,cx,cy,cz
-      real(8),allocatable,dimension(:) :: ax0,ay0,az0
 
 c     Begin program
 
@@ -1226,8 +1555,8 @@ c     Begin program
      .                    +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
      .                    +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
                 endif
-                rhs(i,k) = -dh(dim)*
-     .              (gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+                rhs(i,k) = -dh(dim)
+     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
      .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
      .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
               elseif (dim == 3) then
@@ -1255,6 +1584,63 @@ c     Begin program
         if (ieq == IVY) icomp = 2
         if (ieq == IVZ) icomp = 3
 
+cc        do i=imin,imax
+cc          do j=jmin,jmax
+cc            do k=kmin,kmax
+cc
+cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cc     .                           ,cartesian)
+cc
+cc              gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cccc              if (loc == 0) then
+cccc                if (dim==1) then
+cccc                  nabla_v = fnabla_v_bc(i-1,j,k,dim)
+cccc                elseif (dim==2) then
+cccc                  nabla_v = fnabla_v_bc(i,j-1,k,dim)
+cccc                else
+cccc                  nabla_v = fnabla_v_bc(i,j,k-1,dim)
+cccc                endif
+cccc              else
+cc                nabla_v = fnabla_v_bc(i,j,k,x1,x2,x3,cartesian,dim)
+cccc              endif
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              if (i == nx) dh(1) = dx(ig-1)
+cc              if (i == 1 ) dh(1) = dx(ig)
+cc
+cc              dh(2) = 2.*dyh(jg)
+cc              if (j == ny) dh(2) = dy(jg-1)
+cc              if (j == 1 ) dh(2) = dy(jg)
+cc
+cc              dh(3) = 2.*dzh(kg)
+cc              if (k == nz) dh(3) = dz(kg-1)
+cc              if (k == 1 ) dh(3) = dz(kg)
+cc
+cc              if (dim == 1) then
+cc                rhs(j,k) = -dh(dim)
+cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cc     .                /gsuper(dim,dim)
+cc              elseif (dim == 2) then
+cc                rhs(i,k) = -dh(dim)
+cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cc     .                /gsuper(dim,dim)
+cc              elseif (dim == 3) then
+cc                rhs(i,j) = -dh(dim)
+cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cc     .                /gsuper(dim,dim)
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+
         do i=imin,imax
           do j=jmin,jmax
             do k=kmin,kmax
@@ -1262,19 +1648,18 @@ c     Begin program
               call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
      .                           ,cartesian)
 
-              gsuper = g_super(x1,x2,x3,cartesian)
+              gsuper   = g_super(x1,x2,x3,cartesian)
 
-cc              if (loc == 0) then
-cc                if (dim==1) then
-cc                  nabla_v = fnabla_v_bc(i-1,j,k,dim)
-cc                elseif (dim==2) then
-cc                  nabla_v = fnabla_v_bc(i,j-1,k,dim)
-cc                else
-cc                  nabla_v = fnabla_v_bc(i,j,k-1,dim)
-cc                endif
-cc              else
-                nabla_v = fnabla_v_bc(i,j,k,x1,x2,x3,cartesian,dim)
-cc              endif
+              hessian1 = hessian(1,x1,x2,x3,cartesian)
+              hessian2 = hessian(2,x1,x2,x3,cartesian)
+              hessian3 = hessian(3,x1,x2,x3,cartesian)
+
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
 
               dh(1) = 2.*dxh(ig)
               if (i == nx) dh(1) = dx(ig-1)
@@ -1288,24 +1673,134 @@ cc              endif
               if (k == nz) dh(3) = dz(kg-1)
               if (k == 1 ) dh(3) = dz(kg)
 
+
               if (dim == 1) then
-                rhs(j,k) = -dh(dim)
-     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-     .                +gsuper(dim,2)*nabla_v(2,icomp)
-     .                +gsuper(dim,3)*nabla_v(3,icomp))
-     .                /gsuper(dim,dim)
+
+                rhs(j,k) = gsuper(dim,1)
+     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+
+                if (icomp == 2) then
+
+                  rhs(j,k) = -dh(dim)
+     .             *(gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
+     .              +gsuper(dim,3)*(vy_cov(i,j,kp)-vy_cov(i,j,km))/dh(3)
+     .              +rhs(j,k))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vy_cov(i-1,j,k) = vy_cov(i,j,k) - rhs(j,k)
+                  else
+                    vy_cov(i+1,j,k) = vy_cov(i,j,k) + rhs(j,k)
+                  endif
+
+                elseif (icomp == 3) then
+
+                  rhs(j,k) = -dh(dim)
+     .             *(gsuper(dim,2)*(vz_cov(i,jp,k)-vz_cov(i,jm,k))/dh(2)
+     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
+     .              +rhs(j,k))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vz_cov(i-1,j,k) = vz_cov(i,j,k) - rhs(j,k)
+                  else
+                    vz_cov(i+1,j,k) = vz_cov(i,j,k) + rhs(j,k)
+                  endif
+                endif
+
               elseif (dim == 2) then
-                rhs(i,k) = -dh(dim)
-     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-     .                +gsuper(dim,2)*nabla_v(2,icomp)
-     .                +gsuper(dim,3)*nabla_v(3,icomp))
-     .                /gsuper(dim,dim)
+
+                rhs(i,k) = gsuper(dim,1)
+     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+
+                if (icomp == 3) then
+
+                  rhs(i,k) = -dh(dim)
+     .             *(gsuper(dim,1)*(vz_cov(ip,j,k)-vz_cov(im,j,k))/dh(1)
+     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
+     .              +rhs(i,k))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vz_cov(i,j-1,k) = vz_cov(i,j,k) - rhs(i,k)
+                  else
+                    vz_cov(i,j+1,k) = vz_cov(i,j,k) + rhs(i,k)
+                  endif
+
+                elseif (icomp == 1) then
+
+                  rhs(i,k) = -dh(dim)
+     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
+     .              +gsuper(dim,3)*(vx_cov(i,j,kp)-vx_cov(i,j,km))/dh(3)
+     .              +rhs(i,k))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vx_cov(i,j-1,k) = vx_cov(i,j,k) - rhs(i,k)
+                  else
+                    vx_cov(i,j+1,k) = vx_cov(i,j,k) + rhs(i,k)
+                  endif
+
+                endif
+
               elseif (dim == 3) then
-                rhs(i,j) = -dh(dim)
-     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-     .                +gsuper(dim,2)*nabla_v(2,icomp)
-     .                +gsuper(dim,3)*nabla_v(3,icomp))
-     .                /gsuper(dim,dim)
+
+                rhs(i,j) = gsuper(dim,1)
+     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+
+                if (icomp == 1) then
+
+                  rhs(i,j) = -dh(dim)
+     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
+     .              +gsuper(dim,2)*(vx_cov(i,jp,k)-vx_cov(i,jm,k))/dh(2)
+     .              +rhs(i,j))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vx_cov(i,j,k-1) = vx_cov(i,j,k) - rhs(i,j)
+                  else
+                    vx_cov(i,j,k+1) = vx_cov(i,j,k) + rhs(i,j)
+                  endif
+
+                elseif (icomp == 2) then
+
+                  rhs(i,j) = -dh(dim)
+     .             *(gsuper(dim,1)*(vy_cov(ip,j,k)-vy_cov(im,j,k))/dh(1)
+     .              +gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
+     .              +rhs(i,j))/gsuper(dim,dim)
+
+                  if (loc == 0) then
+                    vy_cov(i,j,k-1) = vy_cov(i,j,k) - rhs(i,j)
+                  else
+                    vy_cov(i,j,k+1) = vy_cov(i,j,k) + rhs(i,j)
+                  endif
+                endif
+
               endif
 
             enddo
