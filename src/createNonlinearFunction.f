@@ -6,6 +6,8 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
+      use grid_aliases
+
       implicit none
 
 c Call variables
