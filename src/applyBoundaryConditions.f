@@ -1,31 +1,31 @@
 c defineBoundaryConditions
 c####################################################################
-      subroutine defineBoundaryConditions (neq,bcs)
+      subroutine defineBoundaryConditions (neq,bbcs)
 c--------------------------------------------------------------------
 c     Defines boundary conditions of physical quantities.
 c     On input:
 c       * neq -> number of equations
 c     On output:
-c       * bcs -> real array of size (6,neq) containing BC setup:
-c           + bcs(1) ---> at x0
-c           + bcs(2) ---> at x1
-c           + bcs(3) ---> at y0
-c           + bcs(4) ---> at y1
-c           + bcs(5) ---> at z0
-c           + bcs(6) ---> at z1
+c       * bbcs -> real array of size (6,neq) containing BC setup:
+c           + bbcs(1) ---> at x0
+c           + bbcs(2) ---> at x1
+c           + bbcs(3) ---> at y0
+c           + bbcs(4) ---> at y1
+c           + bbcs(5) ---> at z0
+c           + bbcs(6) ---> at z1
 c--------------------------------------------------------------------
 
-      use equilibrium
+      use icond
 
       use grid
 
-      use icond
+      use equilibrium
 
       implicit none
 
 c Call variables
 
-      integer(4) :: neq,bcs(6,neq)
+      integer(4) :: neq,bbcs(6,neq)
 
 c Local variables
 
@@ -35,43 +35,43 @@ c Begin program
 
 c Defaults
 
-      bcsq = bcs(:,IRHO)
+      bcsq = bbcs(:,IRHO)
       where (bcsq == DEF) bcsq = NEU
-      bcs(:,IRHO) = bcsq
+      bbcs(:,IRHO) = bcsq
 
-      bcsq = bcs(:,IVX)
+      bcsq = bbcs(:,IVX)
       where (bcsq == DEF) bcsq = DIR
-      bcs(:,IVX) = bcsq
+      bbcs(:,IVX) = bcsq
 
-      bcsq = bcs(:,IVY)
+      bcsq = bbcs(:,IVY)
       where (bcsq == DEF) bcsq = NEU
-      bcs(:,IVY) = bcsq
+      bbcs(:,IVY) = bcsq
 
-      bcsq = bcs(:,IVZ)
+      bcsq = bbcs(:,IVZ)
       where (bcsq == DEF) bcsq = NEU
-      bcs(:,IVZ) = bcsq
+      bbcs(:,IVZ) = bcsq
 
-      bcsq = bcs(:,IBX)
+      bcsq = bbcs(:,IBX)
       where (bcsq == DEF) bcsq = DIR
-      bcs(:,IBX) = bcsq
+      bbcs(:,IBX) = bcsq
 cc      if (bcs(1,IBX) == NEU) bcs(1,IBX) = DIR
 cc      if (bcs(2,IBX) == NEU) bcs(2,IBX) = DIR
 
-      bcsq = bcs(:,IBY)
+      bcsq = bbcs(:,IBY)
       where (bcsq == DEF) bcsq = NEU
-      bcs(:,IBY) = bcsq
+      bbcs(:,IBY) = bcsq
 cc      if (bcs(3,IBY) == NEU) bcs(3,IBY) = DIR
 cc      if (bcs(4,IBY) == NEU) bcs(4,IBY) = DIR
 
-      bcsq = bcs(:,IBZ)
+      bcsq = bbcs(:,IBZ)
       where (bcsq == DEF) bcsq = NEU
-      bcs(:,IBZ) = bcsq
+      bbcs(:,IBZ) = bcsq
 cc      if (bcs(5,IBZ) == NEU) bcs(5,IBZ) = DIR
 cc      if (bcs(6,IBZ) == NEU) bcs(6,IBZ) = DIR
 
-      bcsq = bcs(:,ITMP)
+      bcsq = bbcs(:,ITMP)
       where (bcsq == DEF) bcsq = NEU !To allow isothermal case
-      bcs(:,ITMP) = bcsq
+      bbcs(:,ITMP) = bcsq
 
 c Exceptions
 
@@ -79,47 +79,77 @@ c Exceptions
 
       case ('rfp1')
 
-        bcs(2,IBY) = EQU  !Imposed by equilibrium
+        bbcs(2,IBY) = EQU  !Imposed by equilibrium
 
-        bcs(2,IBZ) = EQU  !Imposed by equilibrium
+        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
 
       end select
 
 c End
 
-      end subroutine
+      end subroutine defineBoundaryConditions
+
+c module BCS
+c####################################################################
+      module BCS
+
+        use grid
+
+        use grid_aliases
+
+        use auxiliaryVariables
+
+        use operators
+
+        use icond
+
+        use equilibrium
+
+        use transport_params
+
+        use constants
+
+        use variables
+
+        real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
+
+cc        real(8),allocatable,dimension(:,:) :: rhs
+
+cc        type (var_array) :: varray2
+
+      end module BCS
 
 c imposeBoundaryConditions
 c####################################################################
-      subroutine imposeBoundaryConditions (varray)
+      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
 c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
 
-      use equilibrium
-
-      use grid
-
-      use variables
-
-      use nlfunction_setup
-
-      use icond
-
-      use constants
+      use BCS
 
       implicit none
 
 c Call variables
 
+      integer(4) :: iigx,iigy,iigz
+
       type (var_array) :: varray
 
 c Local variables
 
-      integer(4)       :: neq,ieq,i,j,k
-      integer(4)       :: dim,loc,bctype,ibc
+      integer(4) :: neq,ieq,i,j,k
+      integer(4) :: dim,loc,bctype,ibc
 
 c Begin program
+
+      igx = iigx
+      igy = iigy
+      igz = iigz
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
       rho => varray%array_var(IRHO)%array
       rvx => varray%array_var(IVX )%array
@@ -130,19 +160,157 @@ c Begin program
       bz  => varray%array_var(IBZ )%array
       tmp => varray%array_var(ITMP)%array
 
-c Preprocess magnetic field
+c Fill ghost nodes
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .             ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k),.false.)
+      call imposeBConRho
+
+      call imposeBConV
+
+      call imposeBConB
+
+      call imposeBConJ
+
+      call imposeBConT
+
+c End
+
+      contains
+
+c     imposeBConRho
+c     #################################################################
+      subroutine imposeBConRho
+c     -----------------------------------------------------------------
+c     Imposes BC on density
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+cc      real(8) :: rho(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+c     Begin program
+
+c     Impose BCs
+
+      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+        do dim=1,3
+          do loc=0,1
+            ibc = (1+loc)+2*(dim-1)
+
+            ieq = IRHO
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              if (bctype == EQU) then
+                call FillGhostNodes(ieq,dim,loc,bctype
+     .                             ,varray%array_var(ieq)%array
+     .                             ,u_0   %array_var(ieq)%array)
+              else
+                call FillGhostNodes(ieq,dim,loc,bctype
+     .                             ,varray%array_var(ieq)%array
+     .                             ,zeros)
+              endif
+            endif
           enddo
         enddo
       enddo
 
-c Preprocess velocity field
+c Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          ieq = IRHO
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype
+     .                         ,varray%array_var(ieq)%array
+     .                         ,zeros)
+          endif
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine imposeBConRho
+
+c     imposeBConT
+c     #################################################################
+      subroutine imposeBConT
+c     -----------------------------------------------------------------
+c     Imposes BC on temperature (requires knowing velocity at boundaries)
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+c     Begin program
+
+c     Impose BCs
+
+      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+        do dim=1,3
+          do loc=0,1
+            ibc = (1+loc)+2*(dim-1)
+
+            ieq = ITMP
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              if (bctype == EQU) then
+                call FillGhostNodes(ieq,dim,loc,bctype
+     .                             ,varray%array_var(ieq)%array
+     .                             ,u_0   %array_var(ieq)%array)
+              else
+                call FillGhostNodes(ieq,dim,loc,bctype
+     .                             ,varray%array_var(ieq)%array
+     .                             ,zeros)
+              endif
+            endif
+          enddo
+        enddo
+      enddo
+
+c     Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          ieq = ITMP
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype
+     .                         ,varray%array_var(ieq)%array
+     .                         ,zeros)
+          endif
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine imposeBConT
+
+c     imposeBConV
+c     #################################################################
+      subroutine imposeBConV
+c     -----------------------------------------------------------------
+c     Imposes BC on velocity field
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+
+c     Begin program
+
+c     Preprocess velocity field
 
       where (rho /= 0d0)
         vx = rvx/rho
@@ -160,15 +328,14 @@ c Preprocess velocity field
         enddo
       enddo
 
-c Fill ghost nodes
-
-      neq = varray%nvar
+c     Impose BCs
 
       do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
-            do ieq = 1,neq 
+
+            do ieq = IVX,IVZ
               if (varray%array_var(ieq)%bconds(ibc) == bctype) then
                 if (bctype == EQU) then
                   call FillGhostNodes(ieq,dim,loc,bctype
@@ -181,25 +348,23 @@ c Fill ghost nodes
                 endif
               endif
             enddo
+
           enddo
         enddo
       enddo
 
-c Impose vector singular point BCs
+c     Impose vector singular point BCs
 
-      if (bcond(1) == SP) then
-        call vectorSingularBC(rvx,rvy,rvz,.false.,2)
-        call vectorSingularBC(bx ,by ,bz ,.false.,2)
-      endif
+      if (bcond(1) == SP) call vectorSingularBC(rvx,rvy,rvz,.false.,2)
 
-c Synchronize periodic boundaries
+c     Synchronize periodic boundaries
 
       bctype=PER
 
       do dim=1,3
         do loc=0,1
           ibc = (1+loc)+2*(dim-1)
-          do ieq = 1,neq 
+          do ieq = IVX,IVZ
             if (varray%array_var(ieq)%bconds(ibc) == bctype) then
               call FillGhostNodes(ieq,dim,loc,bctype
      .                           ,varray%array_var(ieq)%array
@@ -209,21 +374,13 @@ c Synchronize periodic boundaries
         enddo
       enddo
 
-c Synchronize velocity field
+c     Synchronize velocity field
 
       call postProcessV
 
-c Synchronize magnetic field
+c     End program
 
-      call postProcessB
-
-c Calculate current
-
-      call postProcessJ
-
-c End
-
-      contains
+      end subroutine imposeBConV
 
 c     postProcessV
 c     #################################################################
@@ -490,25 +647,6 @@ c     Find all contravariant velocity and momentum at boundaries
             jmax=ny+1
             kmin=0
             kmax=nz+1
-
-cc            if (     varray%array_var(IVY)%bconds(ibc) == NEU
-cc     .          .and.varray%array_var(IVZ)%bconds(ibc) == NEU) then
-cc              do i=imin,imax
-cc                do j=jmin,jmax
-cc                  do k=kmin,kmax
-cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
-cc
-cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
-cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
-cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
-cc
-cc                  enddo
-cc                enddo
-cc              enddo
-cc            endif
-
           elseif (dim == 2) then
             imin=0
             imax=nx+1
@@ -516,25 +654,6 @@ cc            endif
             jmax=0 + loc*(ny+1)
             kmin=0
             kmax=nz+1
-
-cc            if (     varray%array_var(IVX)%bconds(ibc) == NEU
-cc     .          .and.varray%array_var(IVZ)%bconds(ibc) == NEU) then
-cc              do i=imin,imax
-cc                do j=jmin,jmax
-cc                  do k=kmin,kmax
-cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
-cc
-cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
-cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
-cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
-cc
-cc                  enddo
-cc                enddo
-cc              enddo
-cc            endif
-
           elseif (dim == 3) then
             imin=0
             imax=nx+1
@@ -542,25 +661,6 @@ cc            endif
             jmax=ny+1
             kmin=0 + loc*(nz+1)
             kmax=0 + loc*(nz+1)
-
-cc            if (     varray%array_var(IVX)%bconds(ibc) == NEU
-cc     .          .and.varray%array_var(IVY)%bconds(ibc) == NEU) then
-cc              do i=imin,imax
-cc                do j=jmin,jmax
-cc                  do k=kmin,kmax
-cc                    call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .               ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-cc     .               ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k),.true.)
-cc
-cc                    rvx(i,j,k) = vx(i,j,k)*rho(i,j,k)
-cc                    rvy(i,j,k) = vy(i,j,k)*rho(i,j,k)
-cc                    rvz(i,j,k) = vz(i,j,k)*rho(i,j,k)
-cc
-cc                  enddo
-cc                enddo
-cc              enddo
-cc            endif
-
           endif
 
           do i=imin,imax
@@ -586,6 +686,87 @@ cc            endif
 c     End program
 
       end subroutine postProcessV
+
+c     imposeBConB
+c     #################################################################
+      subroutine imposeBConB
+c     -----------------------------------------------------------------
+c     Imposes BC on magnetic field
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+c     Begin program
+
+c     Preprocess magnetic field
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+     .             ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k),.false.)
+          enddo
+        enddo
+      enddo
+
+c     Impose BCs
+
+      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+        do dim=1,3
+          do loc=0,1
+            ibc = (1+loc)+2*(dim-1)
+
+            do ieq = IBX,IBZ
+              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+                if (bctype == EQU) then
+                  call FillGhostNodes(ieq,dim,loc,bctype
+     .                               ,varray%array_var(ieq)%array
+     .                               ,u_0   %array_var(ieq)%array)
+                else
+                  call FillGhostNodes(ieq,dim,loc,bctype
+     .                               ,varray%array_var(ieq)%array
+     .                               ,zeros)
+                endif
+              endif
+            enddo
+
+          enddo
+        enddo
+      enddo
+
+c Impose vector singular point BCs
+
+      if (bcond(1) == SP) call vectorSingularBC(bx,by,bz,.false.,2)
+
+c Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          do ieq = IBX,IBZ
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              call FillGhostNodes(ieq,dim,loc,bctype
+     .                           ,varray%array_var(ieq)%array
+     .                           ,zeros)
+            endif
+          enddo
+        enddo
+      enddo
+
+c     Synchronize velocity field
+
+      call postProcessB
+
+c     End program
+
+      end subroutine imposeBConB
 
 c     postProcessB
 c     #################################################################
@@ -890,9 +1071,9 @@ c     End program
 
       end subroutine postProcessB
 
-c     postProcessJ
+c     imposeBConJ
 c     #################################################################
-      subroutine postProcessJ
+      subroutine imposeBConJ
 c     -----------------------------------------------------------------
 c     Calculates current components (covariant, contravariant).
 c     -----------------------------------------------------------------
@@ -933,24 +1114,6 @@ c     Contravariant all current components within the domain [j=curl(B)]
           enddo
         enddo
       enddo
-
-cc      do k = 0,nz+1
-cc        do j = 0,ny+1
-cc         do i = 0,nx+1
-cc            if (     i == 0 .or. i==nx+1
-cc     .          .or. j == 0 .or. j==ny+1
-cc     .          .or. k == 0 .or. k==nz+1) then
-cc              jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
-cc              jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
-cc              jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
-cc            else
-cc              jx(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,1)
-cc              jy(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,2)
-cc              jz(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,3)
-cc            endif
-cc          enddo
-cc        enddo
-cc      enddo
 
 c     Correct normal components of J at boundaries by enforcing div(J)=0
 
@@ -1049,7 +1212,7 @@ c     Find covariant current components
 
 c     End program
 
-      end subroutine postProcessJ
+      end subroutine imposeBConJ
 
 c     vectorSingularBC
 c     #################################################################
@@ -1164,11 +1327,7 @@ c       * array  -> real array with ghost-nodes
 c       * array0 -> auxiliary real array
 c--------------------------------------------------------------------
 
-      use grid
-
-      use nlfunction_setup
-
-      use icond
+      use BCS
 
       implicit none       !For safe fortran
 
@@ -1341,7 +1500,7 @@ c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
 c     -----------------------------------------------------------------
 
-      use grid
+cc      use grid
 
       implicit none
 
@@ -1352,7 +1511,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: i,j,k,order1
-      real(8)    :: avg_q,avg_vol,rho0,vol
+      real(8)    :: avg_q,avg_vol,rho0,vol,x0
 
 c     Begin program
 
@@ -1401,8 +1560,6 @@ c     This routine fills up the bi-dimensional array rhs, which
 c     contains the right hand side of the Neumann BC.
 c     -----------------------------------------------------------------
 
-      use grid
-
       implicit none
 
 c     Call variables
@@ -1413,7 +1570,9 @@ c     Local variables
 
       integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3)
+      real(8)    :: x1,x2,x3,dh(3),jac0
+      real(8)    :: gsuper(3,3),hessian1(3,3)
+     .             ,hessian2(3,3),hessian3(3,3)
       logical    :: cartesian
 
 c     Begin program
@@ -2014,8 +2173,6 @@ c     This routine fills up the bi-dimensional array rhs, which
 c     contains the right hand side of the Dirichlet BC.
 c     -----------------------------------------------------------------
 
-      use grid
-
       implicit none
 
 c     Call variables
@@ -2092,22 +2249,22 @@ c     Begin program
               select case (ibc)
               case (1)
                 array(i-1,j,k) = array(i+1,j,k)
-                rhs(j,k) = array(i+1,j,k) + dh(1)*divB(i,j,k)
+                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,by,bz)
               case (2)
                 array(i+1,j,k) = array(i-1,j,k)
-                rhs(j,k) = array(i-1,j,k) - dh(1)*divB(i,j,k)
+                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,by,bz)
               case (3)
                 array(i,j-1,k) = array(i,j+1,k)
-                rhs(i,k) = array(i,j+1,k) + dh(2)*divB(i,j,k)
+                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,bx,array,bz)
               case (4)
                 array(i,j+1,k) = array(i,j-1,k)
-                rhs(i,k) = array(i,j-1,k) - dh(2)*divB(i,j,k)
+                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,bx,array,bz)
               case (5)
                 array(i,j,k-1) = array(i,j,k+1)
-                rhs(i,j) = array(i,j,k+1) + dh(3)*divB(i,j,k)
+                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,bx,by,array)
               case (6)
                 array(i,j,k+1) = array(i,j,k-1)
-                rhs(i,j) = array(i,j,k-1) - dh(3)*divB(i,j,k)
+                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,bx,by,array)
               end select
 
               enddo
@@ -2137,22 +2294,22 @@ c     Begin program
               select case (ibc)
               case (1)
                 array(i-1,j,k) = array(i+1,j,k)
-                rhs(j,k) = array(i+1,j,k) + dh(1)*divJ(i,j,k)
-              case (2)
-                array(i+1,j,k) = array(i-1,j,k)
-                rhs(j,k) = array(i-1,j,k) - dh(1)*divJ(i,j,k)
-              case (3)
-                array(i,j-1,k) = array(i,j+1,k)
-                rhs(i,k) = array(i,j+1,k) + dh(2)*divJ(i,j,k)
-              case (4)
-                array(i,j+1,k) = array(i,j-1,k)
-                rhs(i,k) = array(i,j-1,k) - dh(2)*divJ(i,j,k)
-              case (5)
-                array(i,j,k-1) = array(i,j,k+1)
-                rhs(i,j) = array(i,j,k+1) + dh(3)*divJ(i,j,k)
-              case (6)
-                array(i,j,k+1) = array(i,j,k-1)
-                rhs(i,j) = array(i,j,k-1) - dh(3)*divJ(i,j,k)
+                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,jy,jz)
+              case (2)                                                  
+                array(i+1,j,k) = array(i-1,j,k)                         
+                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,jy,jz)
+              case (3)                                                  
+                array(i,j-1,k) = array(i,j+1,k)                         
+                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,jx,array,jz)
+              case (4)                                                  
+                array(i,j+1,k) = array(i,j-1,k)                         
+                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,jx,array,jz)
+              case (5)                                                  
+                array(i,j,k-1) = array(i,j,k+1)                         
+                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,jx,jy,array)
+              case (6)                                                  
+                array(i,j,k+1) = array(i,j,k-1)                         
+                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,jx,jy,array)
               end select
 
               enddo
@@ -2192,8 +2349,8 @@ c     Local variables
 
 c     Externals
 
-        real(8)    :: quad_int
-        external   :: quad_int
+cc        real(8)    :: quad_int
+cc        external   :: quad_int
 
 c     Begin program
 
@@ -2355,26 +2512,26 @@ cc                deallocate(xint,vint)
 
       end subroutine interpolate
 
-      end subroutine FillGhostNodes
+cc      end subroutine imposeBoundaryConditions
 
-c quad_int
-c #####################################################################
+c     quad_int
+c     #################################################################
       real(8) function quad_int(x0,x1,x2,x3,y0,y1,y2,y3,x,order)
      .        result(y)
-c ---------------------------------------------------------------------
+c     -----------------------------------------------------------------
 c     Quadratic interpolation (extrapolation).
-c ---------------------------------------------------------------------
+c     -----------------------------------------------------------------
 
       implicit none
 
-c Call variables
+c     Call variables
 
       integer(4) :: order
       real(8)    :: x0,x1,x2,x3,y0,y1,y2,y3,x
 
-c Local variables
+c     Local variables
 
-c Begin program
+c     Begin program
 
       select case (order)
       case (3)
@@ -2393,9 +2550,11 @@ c Begin program
         y = y0
       end select
 
-c End program
+c     End program
 
       end function quad_int
+
+      end subroutine FillGhostNodes
 
 c imposeBConFluxes
 c####################################################################
@@ -2405,9 +2564,7 @@ c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on fluxes
 c--------------------------------------------------------------------
 
-      use grid
-
-      use nlfunction_setup
+      use BCS
 
       implicit none
 
@@ -2421,24 +2578,6 @@ c Local variables
 c Begin program
 
       if (i == 1 .and. bconds(1) == SP) flxim = 0d0
-
-cc      if (i == nx .and. bconds(2) == NEU) then
-cc        flxip = 0d0
-cc      elseif (i == 1 .and.(bconds(1) == NEU.or.bconds(1) == SP))then
-cc        flxim = 0d0
-cc      endif
-cc
-cc      if (j == ny .and. bconds(4) == NEU) then
-cc        flxjp = 0d0
-cc      elseif (j == 1 .and. bconds(3) == NEU) then
-cc        flxjm = 0d0
-cc      endif
-cc
-cc      if (k == nz .and. bconds(6) == NEU) then
-cc        flxkp = 0d0
-cc      elseif (k == 1 .and. bconds(5) == NEU) then
-cc        flxkm = 0d0
-cc      endif
 
 c End
 
