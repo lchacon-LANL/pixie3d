@@ -117,6 +117,10 @@ cc        real(8),allocatable,dimension(:,:) :: rhs
 
 cc        type (var_array) :: varray2
 
+        integer(4) :: nnvar,imax,imin,jmax,jmin,kmax,kmin
+
+        real(8),allocatable,dimension(:,:) :: rhs
+
       end module BCS
 
 c imposeBoundaryConditions
@@ -141,6 +145,8 @@ c Local variables
       integer(4) :: neq,ieq,i,j,k
       integer(4) :: dim,loc,bctype,ibc
 
+      real(8) :: mag
+
 c Begin program
 
       igx = iigx
@@ -162,7 +168,7 @@ c Begin program
 
 c Fill ghost nodes
 
-      call imposeBConRho
+      call imposeBConScalar(IRHO)
 
       call imposeBConV
 
@@ -170,15 +176,15 @@ c Fill ghost nodes
 
       call imposeBConJ
 
-      call imposeBConT
+      call imposeBConScalar(ITMP)
 
 c End
 
       contains
 
-c     imposeBConRho
+c     imposeBConScalar
 c     #################################################################
-      subroutine imposeBConRho
+      subroutine imposeBConScalar(ieq)
 c     -----------------------------------------------------------------
 c     Imposes BC on density
 c     -----------------------------------------------------------------
@@ -187,7 +193,7 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-cc      real(8) :: rho(0:nx+1,0:ny+1,0:nz+1)
+      integer(4) :: ieq
 
 c     Local variables
 
@@ -199,15 +205,13 @@ c     Impose BCs
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
-
-            ieq = IRHO
             if (varray%array_var(ieq)%bconds(ibc) == bctype) then
               if (bctype == EQU) then
-                call FillGhostNodes(ieq,dim,loc,bctype
+                call FillGhostNodes(ieq,1,1,dim,loc,bctype
      .                             ,varray%array_var(ieq)%array
      .                             ,u_0   %array_var(ieq)%array)
               else
-                call FillGhostNodes(ieq,dim,loc,bctype
+                call FillGhostNodes(ieq,1,1,dim,loc,bctype
      .                             ,varray%array_var(ieq)%array
      .                             ,zeros)
               endif
@@ -218,7 +222,8 @@ c     Impose BCs
 
 c     Singular point boundary condition
 
-      if (bcond(1) == SP) call scalarSingularBC(rho,2)
+      if (bcond(1) == SP)
+     .     call scalarSingularBC(varray%array_var(ieq)%array,2)
 
 c     Synchronize periodic boundaries
 
@@ -227,9 +232,8 @@ c     Synchronize periodic boundaries
       do dim=1,3
         do loc=0,1
           ibc = (1+loc)+2*(dim-1)
-          ieq = IRHO
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype
      .                         ,varray%array_var(ieq)%array
      .                         ,zeros)
           endif
@@ -238,69 +242,7 @@ c     Synchronize periodic boundaries
 
 c     End program
 
-      end subroutine imposeBConRho
-
-c     imposeBConT
-c     #################################################################
-      subroutine imposeBConT
-c     -----------------------------------------------------------------
-c     Imposes BC on temperature (requires knowing velocity at boundaries)
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-c     Begin program
-
-c     Impose BCs
-
-      do bctype=1,4         !Enforces a particular order in the BCs (see grid_mod.f)
-        do dim=1,3
-          do loc=0,1
-            ibc = (1+loc)+2*(dim-1)
-
-            ieq = ITMP
-            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              if (bctype == EQU) then
-                call FillGhostNodes(ieq,dim,loc,bctype
-     .                             ,varray%array_var(ieq)%array
-     .                             ,u_0   %array_var(ieq)%array)
-              else
-                call FillGhostNodes(ieq,dim,loc,bctype
-     .                             ,varray%array_var(ieq)%array
-     .                             ,zeros)
-              endif
-            endif
-          enddo
-        enddo
-      enddo
-
-c     Singular point boundary condition
-
-      if (bcond(1) == SP) call scalarSingularBC(tmp,2)
-
-c     Synchronize periodic boundaries
-
-      bctype=PER
-
-      do dim=1,3
-        do loc=0,1
-          ibc = (1+loc)+2*(dim-1)
-          ieq = ITMP
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype
-     .                         ,varray%array_var(ieq)%array
-     .                         ,zeros)
-          endif
-        enddo
-      enddo
-
-c     End program
-
-      end subroutine imposeBConT
+      end subroutine imposeBConScalar
 
 c     imposeBConV
 c     #################################################################
@@ -315,6 +257,10 @@ c     Call variables
 
 c     Local variables
 
+      integer(4) :: ivar
+      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Begin program
 
@@ -338,28 +284,76 @@ c     Preprocess velocity field
 
 c     Impose BCs
 
+      v_cov(:,:,:,1) = vx_cov
+      v_cov(:,:,:,2) = vy_cov
+      v_cov(:,:,:,3) = vz_cov
+
+      var(:,:,:,1) = varray%array_var(IVX)%array
+      var(:,:,:,2) = varray%array_var(IVY)%array
+      var(:,:,:,3) = varray%array_var(IVZ)%array
+
+      var0 = 0d0
+
       do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
 
             do ieq = IVX,IVZ
+              ivar = ieq - IVX + 1
               if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+
                 if (bctype == EQU) then
-                  call FillGhostNodes(ieq,dim,loc,bctype
-     .                               ,varray%array_var(ieq)%array
-     .                               ,u_0   %array_var(ieq)%array)
+                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+     .                              ,var(:,:,:,ivar)
+     .                              ,u_0   %array_var(ieq)%array)
+                elseif (bctype == NEU) then
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cov
+     .                               ,var0)
                 else
-                  call FillGhostNodes(ieq,dim,loc,bctype
-     .                               ,varray%array_var(ieq)%array
-     .                               ,zeros)
+
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,var
+     .                               ,var0)
                 endif
-              endif
+
+             endif
+
             enddo
 
           enddo
         enddo
       enddo
+
+      vx_cov = v_cov(:,:,:,1)
+      vy_cov = v_cov(:,:,:,2)
+      vz_cov = v_cov(:,:,:,3)
+
+      varray%array_var(IVX)%array = var(:,:,:,1)
+      varray%array_var(IVY)%array = var(:,:,:,2)
+      varray%array_var(IVZ)%array = var(:,:,:,3)
+
+cc      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
+cc        do dim=1,3
+cc          do loc=0,1
+cc            ibc = (1+loc)+2*(dim-1)
+cc
+cc            do ieq = IVX,IVZ
+cc              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+cc                if (bctype == EQU) then
+cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+cc     .                               ,varray%array_var(ieq)%array
+cc     .                               ,u_0   %array_var(ieq)%array)
+cc                else
+cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+cc     .                               ,varray%array_var(ieq)%array
+cc     .                               ,zeros)
+cc                endif
+cc              endif
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
 
 c     Impose vector singular point BCs
 
@@ -374,7 +368,7 @@ c     Synchronize periodic boundaries
           ibc = (1+loc)+2*(dim-1)
           do ieq = IVX,IVZ
             if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(ieq,dim,loc,bctype
+              call FillGhostNodes(ieq,1,1,dim,loc,bctype
      .                           ,varray%array_var(ieq)%array
      .                           ,zeros)
             endif
@@ -424,17 +418,17 @@ c     Synchonize periodic boundaries for velocity (not momentum) components
 
           ieq = IVX
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vx,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vx,zeros)
           endif
 
           ieq = IVY
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vy,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vy,zeros)
           endif
 
           ieq = IVZ
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vz,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vz,zeros)
           endif
 
         enddo
@@ -625,17 +619,17 @@ c     Enforce PER BC on covariant velocity components
 
           ieq = IVX
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vx_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vx_cov,zeros)
           endif
 
           ieq = IVY
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vy_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vy_cov,zeros)
           endif
 
           ieq = IVZ
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,vz_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,vz_cov,zeros)
           endif
 
         enddo
@@ -708,6 +702,11 @@ c     Call variables
 
 c     Local variables
 
+      integer(4) :: ivar
+      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,b_cov(0:nx+1,0:ny+1,0:nz+1,3)
+
 c     Begin program
 
 c     Preprocess magnetic field
@@ -724,28 +723,75 @@ c     Preprocess magnetic field
 
 c     Impose BCs
 
+      b_cov(:,:,:,1) = bx_cov
+      b_cov(:,:,:,2) = by_cov
+      b_cov(:,:,:,3) = bz_cov
+
+      var(:,:,:,1) = varray%array_var(IBX)%array
+      var(:,:,:,2) = varray%array_var(IBY)%array
+      var(:,:,:,3) = varray%array_var(IBZ)%array
+
+      var0 = 0d0
+
       do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
 
             do ieq = IBX,IBZ
+              ivar = ieq - IBX + 1
               if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+
                 if (bctype == EQU) then
-                  call FillGhostNodes(ieq,dim,loc,bctype
-     .                               ,varray%array_var(ieq)%array
+                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+     .                               ,var(:,:,:,ivar)
      .                               ,u_0   %array_var(ieq)%array)
+                elseif (bctype == NEU) then
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype
+     .                               ,b_cov,var0)
                 else
-                  call FillGhostNodes(ieq,dim,loc,bctype
-     .                               ,varray%array_var(ieq)%array
-     .                               ,zeros)
+                  call FillGhostNodes(ieq,ivar,3,dim,loc,bctype
+     .                               ,var,var0)
                 endif
-              endif
+
+             endif
+
             enddo
 
           enddo
         enddo
       enddo
+
+      bx_cov = b_cov(:,:,:,1)
+      by_cov = b_cov(:,:,:,2)
+      bz_cov = b_cov(:,:,:,3)
+
+      varray%array_var(IBX)%array = var(:,:,:,1)
+      varray%array_var(IBY)%array = var(:,:,:,2)
+      varray%array_var(IBZ)%array = var(:,:,:,3)
+
+cc      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
+cc        do dim=1,3
+cc          do loc=0,1
+cc            ibc = (1+loc)+2*(dim-1)
+cc
+cc            do ieq = IBX,IBZ
+cc              if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+cc                if (bctype == EQU) then
+cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+cc     .                               ,varray%array_var(ieq)%array
+cc     .                               ,u_0   %array_var(ieq)%array)
+cc                else
+cc                  call FillGhostNodes(ieq,1,1,dim,loc,bctype
+cc     .                               ,varray%array_var(ieq)%array
+cc     .                               ,zeros)
+cc                endif
+cc              endif
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
 
 c Impose vector singular point BCs
 
@@ -760,7 +806,7 @@ c Synchronize periodic boundaries
           ibc = (1+loc)+2*(dim-1)
           do ieq = IBX,IBZ
             if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-              call FillGhostNodes(ieq,dim,loc,bctype
+              call FillGhostNodes(ieq,1,1,dim,loc,bctype
      .                           ,varray%array_var(ieq)%array
      .                           ,zeros)
             endif
@@ -976,17 +1022,17 @@ c     Enforce PER BC on covariant magnetic field components
 
           ieq = IBX
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,bx_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,bx_cov,zeros)
           endif
 
           ieq = IBY
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,by_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,by_cov,zeros)
           endif
 
           ieq = IBZ
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,bz_cov,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,bz_cov,zeros)
           endif
 
         enddo
@@ -1092,17 +1138,10 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: i,j,k,dim,loc,order
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,gsub(3,3)
-      real(8),allocatable,dimension(:) :: xint,vint
-      real(8)                          :: xo(2),vo(2)
-      logical    :: cartesian
-
-      integer(4) :: ic,ig,jg,kg
-      real(8)    :: x,y,z,xp,yp,zp
-      real(8)    :: avg_q,avg_vol,cx,cy,cz
-      real(8),allocatable,dimension(:) :: ax0,ay0,az0
+      integer(4) :: ivar
+      real(8)    :: var  (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,var0 (0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,b_cov(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Externals
 
@@ -1125,56 +1164,60 @@ c     Contravariant all current components within the domain [j=curl(B)]
 
 c     Correct normal components of J at boundaries by enforcing div(J)=0
 
+      var (:,:,:,1) = jx
+      var (:,:,:,2) = jy
+      var (:,:,:,3) = jz
+
+      var0 = 0d0
+
       do dim=1,3
         do loc=0,1
           ibc = (1+loc)+2*(dim-1)
 
-          bctype=DIR
+          bctype = DIR
 
-          ieq = IBX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jx,zeros)
-          endif
-
-          ieq = IBY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jy,zeros)
-          endif
-
-          ieq = IBZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jz,zeros)
-          endif
+          do ieq = IBX,IBZ
+            ivar = ieq - IBX + 1
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              call FillGhostNodes(-ieq,ivar,3,dim,loc,bctype,var,var0)
+            endif
+          enddo
 
         enddo
       enddo
+
+      jx = var (:,:,:,1)
+      jy = var (:,:,:,2)
+      jz = var (:,:,:,3)
 
 c     Correct tangential components of J at boundaries (from normal component)
 c     if perfect conductor (bctype=NEU for tangential B-components)
 
+      var (:,:,:,1) = jx
+      var (:,:,:,2) = jy
+      var (:,:,:,3) = jz
+
+      var0 = 0d0
+
       do dim=1,3
         do loc=0,1
           ibc = (1+loc)+2*(dim-1)
 
-          bctype=NEU
+          bctype = NEU
 
-          ieq = IBX
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jx,zeros)
-          endif
-
-          ieq = IBY
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jy,zeros)
-          endif
-
-          ieq = IBZ
-          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(-ieq,dim,loc,bctype,jz,zeros)
-          endif
+          do ieq = IBX,IBZ
+            ivar = ieq - IBX + 1
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              call FillGhostNodes(-ieq,ivar,3,dim,loc,bctype,var,var0)
+            endif
+          enddo
 
         enddo
       enddo
+
+      jx = var (:,:,:,1)
+      jy = var (:,:,:,2)
+      jz = var (:,:,:,3)
 
 c     Impose SP boundary conditions on contravariant components of J
 
@@ -1190,17 +1233,17 @@ c     Enforce PER BC on contravariant current components
 
           ieq = IBX
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,jx,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jx,zeros)
           endif
 
           ieq = IBY
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,jy,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jy,zeros)
           endif
 
           ieq = IBZ
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
-            call FillGhostNodes(ieq,dim,loc,bctype,jz,zeros)
+            call FillGhostNodes(ieq,1,1,dim,loc,bctype,jz,zeros)
           endif
 
         enddo
@@ -1372,759 +1415,21 @@ c     End program
 
       end subroutine imposeBoundaryConditions
 
-c FillGhostNodes
+c module dirichletBCinterface
 c####################################################################
-      subroutine FillGhostNodes(ieq,dim,loc,bctype,array,array0)
+      module  dirichletBCinterface
 
-c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array.
-c
-c     On input:
-c       * ieq    -> equation identifier
-c       * dim    -> dimension (1 -> X, 2 -> Y, 3 -> Z)
-c       * loc    -> location in dimension (0 -> right, 1 -> left)
-c       * bctype -> type of BC (dirichlet, neumann, periodic, etc.)
-c       * array  -> real array with ghost-nodes
-c       * array0 -> auxiliary real array
-c--------------------------------------------------------------------
+        use BCS
 
-      use BCS
-
-      implicit none       !For safe fortran
-
-c Call variables
-
-      integer(4) :: ieq,dim,loc,bctype
-      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
-     .             ,array0(0:nx+1,0:ny+1,0:nz+1)
-
-c Local variables
-
-      integer(4) :: neq,ibc,imax,imin,jmax,jmin,kmax,kmin
-      integer(4) :: i,j,k,ig,jg,kg
-
-      real(8),allocatable,dimension(:,:) :: rhs
-
-c Begin program
-
-c Determine boundary limits
-
-      if (dim == 1) then
-        imin=1  +    loc *(nx-1)
-        imax=nx + (1-loc)*(1-nx)
-        jmin=1
-        jmax=ny
-        kmin=1
-        kmax=nz
-        allocate(rhs(0:ny+1,0:nz+1))
-      elseif (dim == 2) then
-        imin=1 
-        imax=nx
-        jmin=1  +    loc *(ny-1)
-        jmax=ny + (1-loc)*(1-ny)
-        kmin=1
-        kmax=nz
-        allocate(rhs(0:nx+1,0:nz+1))
-      elseif (dim == 3) then
-        imin=1 
-        imax=nx
-        jmin=1
-        jmax=ny
-        kmin=1  +    loc *(nz-1)
-        kmax=nz + (1-loc)*(1-nz)
-        allocate(rhs(0:nx+1,0:ny+1))
-      endif
-
-c Find BC update
-
-      ibc = (1+loc)+2*(dim-1)
-
-      select case(bctype)
-      case(PER)
-        call periodicBC(array,ibc)
-      case(EQU)
-        call dirichletBC(array,array0,ieq,ibc,0)
-      case(DIR)
-        call dirichletBC(array,array0,ieq,ibc,1)
-      case(NEU)
-        call neumannBC(array,ieq,ibc)
-      case default
-        write (*,*) 'BC',bctype,' not implemented'
-        stop
-      end select
-
-c Update BC ghost nodes
-
-      select case (ibc)
-      case (1) !x0
-        array(0   ,:,:) = rhs(:,:)
-      case (2) !x1
-        array(nx+1,:,:) = rhs(:,:)
-      case (3) !y0
-        array(:,0   ,:) = rhs(:,:)
-      case (4) !y1
-        array(:,ny+1,:) = rhs(:,:)
-      case (5) !z0
-        array(:,:,0   ) = rhs(:,:)
-      case (6) !z1
-        array(:,:,nz+1) = rhs(:,:)
-      case default
-        write (*,*) 'Boundary',ibc,' non existent'
-        stop
-      end select
-
-      deallocate(rhs)
-
-c End
+        INTERFACE dirichletBC
+          module procedure scalarDirichletBC,vectorDirichletBC
+        end INTERFACE
 
       contains
 
-c     periodicBC
+c     scalarDirichletBC
 c     #################################################################
-      subroutine periodicBC(array,ibc)
-c     -----------------------------------------------------------------
-c     Imposes singular point BC. On input:
-c        * ieq -> equation number (i.e., vector component)
-c        * dim -> dimension we are imposing BC on (X,Y,Z)
-c        * loc -> boundary location (0 -> left, 1->right)
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ibc
-      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-c     Begin program
-
-      select case (ibc)
-      case (1)
-        rhs(:,:) = array(nx,:,:)
-      case (2)
-        rhs(:,:) = array(1,:,:)
-      case (3)
-        rhs(:,:) = array(:,ny,:)
-      case (4)
-        rhs(:,:) = array(:,1,:)
-      case (5)
-        rhs(:,:) = array(:,:,nz)
-      case (6)
-        rhs(:,:) = array(:,:,1)
-      end select
-
-c     End program
-
-      end subroutine periodicBC
-
-c     neumannBC
-c     #################################################################
-      subroutine neumannBC(array,ieq,ibc)
-c     -----------------------------------------------------------------
-c     Imposes neumann BC for a scalar. On input:
-c        * ieq -> equation number (i.e., vector component)
-c        * dim -> dimension we are imposing BC on (X,Y,Z)
-c        * loc -> boundary location (0 -> left, 1->right)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Neumann BC.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ieq,ibc
-      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
-      real(8)    :: x1,x2,x3,dh(3),jac0
-      real(8)    :: gsuper(3,3),hessian1(3,3)
-     .             ,hessian2(3,3),hessian3(3,3)
-      logical    :: cartesian
-
-c     Begin program
-
-      rhs = 0d0
-
-      select case (ieq)
-      case (IRHO)
-
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
-
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
-
-              gsuper = g_super(x1,x2,x3,cartesian)
-
-              ip = min(i+1,nx)
-              im = max(i-1,1)
-              jp = min(j+1,ny)
-              jm = max(j-1,1)
-              kp = min(k+1,nz)
-              km = max(k-1,1)
-
-              dh(1) = 2.*dxh(ig)
-              if (i == nx) dh(1) = dx(ig-1)
-              if (i == 1 ) dh(1) = dx(ig)
-
-              dh(2) = 2.*dyh(jg)
-              if (j == ny) dh(2) = dy(jg-1)
-              if (j == 1 ) dh(2) = dy(jg)
-
-              dh(3) = 2.*dzh(kg)
-              if (k == nz) dh(3) = dz(kg-1)
-              if (k == 1 ) dh(3) = dz(kg)
-
-              if (dim == 1) then
-                rhs(j,k) = -dh(dim)
-     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
-     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
-     .              /gsuper(dim,dim)
-              elseif (dim == 2) then
-                rhs(i,k) = -dh(dim)*
-     .              (gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
-     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
-     .              /gsuper(dim,dim)
-              elseif (dim == 3) then
-                rhs(i,j) = -dh(dim)
-     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
-     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2))
-     .              /gsuper(dim,dim)
-              endif
-
-            enddo
-          enddo
-        enddo
-
-      case (ITMP)
-
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
-
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
-
-              gsuper = g_super (x1,x2,x3,cartesian)
-              jac0   = jacobian(x1,x2,x3,cartesian)
-
-              hessian1 = hessian(1,x1,x2,x3,cartesian)
-              hessian2 = hessian(2,x1,x2,x3,cartesian)
-              hessian3 = hessian(3,x1,x2,x3,cartesian)
-        
-              ip = min(i+1,nx)
-              im = max(i-1,1)
-              jp = min(j+1,ny)
-              jm = max(j-1,1)
-              kp = min(k+1,nz)
-              km = max(k-1,1)
-
-              dh(1) = 2.*dxh(ig)
-              if (i == nx) dh(1) = dx(ig-1)
-              if (i == 1 ) dh(1) = dx(ig)
-
-              dh(2) = 2.*dyh(jg)
-              if (j == ny) dh(2) = dy(jg-1)
-              if (j == 1 ) dh(2) = dy(jg)
-
-              dh(3) = 2.*dzh(kg)
-              if (k == nz) dh(3) = dz(kg-1)
-              if (k == 1 ) dh(3) = dz(kg)
-
-              if (dim == 1) then
-                if (gamma > 1d0) then
-                  rhs(j,k) =  hessian1(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian1(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian1(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian1(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian1(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian1(2,3)*vy(i,j,k)*vz(i,j,k)
-                endif
-                rhs(j,k) = -dh(dim)
-     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
-     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
-     .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
-              elseif (dim == 2) then
-                if (gamma > 1d0) then
-                  rhs(i,k) =  hessian2(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian2(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian2(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian2(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
-                endif
-                rhs(i,k) = -dh(dim)
-     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
-     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
-     .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
-              elseif (dim == 3) then
-                if (gamma > 1d0) then
-                  rhs(i,j) =  hessian3(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian3(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian3(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian3(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian3(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian3(2,3)*vy(i,j,k)*vz(i,j,k)
-                endif
-                rhs(i,j) = -dh(dim)
-     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
-     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
-     .              -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
-              endif
-
-            enddo
-          enddo
-        enddo
-
-      case (IVX,IVY,IVZ) !Velocity components
-
-        if (ieq == IVX) icomp = 1
-        if (ieq == IVY) icomp = 2
-        if (ieq == IVZ) icomp = 3
-
-cc        do i=imin,imax
-cc          do j=jmin,jmax
-cc            do k=kmin,kmax
-cc
-cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-cc     .                           ,cartesian)
-cc
-cc              gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cccc              if (loc == 0) then
-cccc                if (dim==1) then
-cccc                  nabla_v = fnabla_v_bc(i-1,j,k,dim)
-cccc                elseif (dim==2) then
-cccc                  nabla_v = fnabla_v_bc(i,j-1,k,dim)
-cccc                else
-cccc                  nabla_v = fnabla_v_bc(i,j,k-1,dim)
-cccc                endif
-cccc              else
-cc                nabla_v = fnabla_v_bc(i,j,k,x1,x2,x3,cartesian,dim)
-cccc              endif
-cc
-cc              dh(1) = 2.*dxh(ig)
-cc              if (i == nx) dh(1) = dx(ig-1)
-cc              if (i == 1 ) dh(1) = dx(ig)
-cc
-cc              dh(2) = 2.*dyh(jg)
-cc              if (j == ny) dh(2) = dy(jg-1)
-cc              if (j == 1 ) dh(2) = dy(jg)
-cc
-cc              dh(3) = 2.*dzh(kg)
-cc              if (k == nz) dh(3) = dz(kg-1)
-cc              if (k == 1 ) dh(3) = dz(kg)
-cc
-cc              if (dim == 1) then
-cc                rhs(j,k) = -dh(dim)
-cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
-cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
-cc     .                /gsuper(dim,dim)
-cc              elseif (dim == 2) then
-cc                rhs(i,k) = -dh(dim)
-cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
-cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
-cc     .                /gsuper(dim,dim)
-cc              elseif (dim == 3) then
-cc                rhs(i,j) = -dh(dim)
-cc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
-cc     .                +gsuper(dim,2)*nabla_v(2,icomp)
-cc     .                +gsuper(dim,3)*nabla_v(3,icomp))
-cc     .                /gsuper(dim,dim)
-cc              endif
-cc
-cc            enddo
-cc          enddo
-cc        enddo
-
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
-
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
-
-              gsuper   = g_super(x1,x2,x3,cartesian)
-
-              hessian1 = hessian(1,x1,x2,x3,cartesian)
-              hessian2 = hessian(2,x1,x2,x3,cartesian)
-              hessian3 = hessian(3,x1,x2,x3,cartesian)
-
-              ip = min(i+1,nx)
-              im = max(i-1,1)
-              jp = min(j+1,ny)
-              jm = max(j-1,1)
-              kp = min(k+1,nz)
-              km = max(k-1,1)
-
-              dh(1) = 2.*dxh(ig)
-              if (i == nx) dh(1) = dx(ig-1)
-              if (i == 1 ) dh(1) = dx(ig)
-
-              dh(2) = 2.*dyh(jg)
-              if (j == ny) dh(2) = dy(jg-1)
-              if (j == 1 ) dh(2) = dy(jg)
-
-              dh(3) = 2.*dzh(kg)
-              if (k == nz) dh(3) = dz(kg-1)
-              if (k == 1 ) dh(3) = dz(kg)
-
-
-              if (dim == 1) then
-
-                rhs(j,k) = gsuper(dim,1)
-     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
-     .                    +gsuper(dim,2)
-     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
-     .                    +gsuper(dim,3)
-     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
-
-                if (icomp == 2) then
-
-                  rhs(j,k) = -dh(dim)
-     .             *(gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
-     .              +gsuper(dim,3)*(vy_cov(i,j,kp)-vy_cov(i,j,km))/dh(3)
-     .              +rhs(j,k))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vy_cov(i-1,j,k) = vy_cov(i,j,k) - rhs(j,k)
-                  else
-                    vy_cov(i+1,j,k) = vy_cov(i,j,k) + rhs(j,k)
-                  endif
-
-                elseif (icomp == 3) then
-
-                  rhs(j,k) = -dh(dim)
-     .             *(gsuper(dim,2)*(vz_cov(i,jp,k)-vz_cov(i,jm,k))/dh(2)
-     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
-     .              +rhs(j,k))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vz_cov(i-1,j,k) = vz_cov(i,j,k) - rhs(j,k)
-                  else
-                    vz_cov(i+1,j,k) = vz_cov(i,j,k) + rhs(j,k)
-                  endif
-                endif
-
-              elseif (dim == 2) then
-
-                rhs(i,k) = gsuper(dim,1)
-     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
-     .                    +gsuper(dim,2)
-     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
-     .                    +gsuper(dim,3)
-     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
-
-                if (icomp == 3) then
-
-                  rhs(i,k) = -dh(dim)
-     .             *(gsuper(dim,1)*(vz_cov(ip,j,k)-vz_cov(im,j,k))/dh(1)
-     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
-     .              +rhs(i,k))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vz_cov(i,j-1,k) = vz_cov(i,j,k) - rhs(i,k)
-                  else
-                    vz_cov(i,j+1,k) = vz_cov(i,j,k) + rhs(i,k)
-                  endif
-
-                elseif (icomp == 1) then
-
-                  rhs(i,k) = -dh(dim)
-     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
-     .              +gsuper(dim,3)*(vx_cov(i,j,kp)-vx_cov(i,j,km))/dh(3)
-     .              +rhs(i,k))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vx_cov(i,j-1,k) = vx_cov(i,j,k) - rhs(i,k)
-                  else
-                    vx_cov(i,j+1,k) = vx_cov(i,j,k) + rhs(i,k)
-                  endif
-
-                endif
-
-              elseif (dim == 3) then
-
-                rhs(i,j) = gsuper(dim,1)
-     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
-     .                    +gsuper(dim,2)
-     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
-     .                    +gsuper(dim,3)
-     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
-     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
-     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
-
-                if (icomp == 1) then
-
-                  rhs(i,j) = -dh(dim)
-     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
-     .              +gsuper(dim,2)*(vx_cov(i,jp,k)-vx_cov(i,jm,k))/dh(2)
-     .              +rhs(i,j))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vx_cov(i,j,k-1) = vx_cov(i,j,k) - rhs(i,j)
-                  else
-                    vx_cov(i,j,k+1) = vx_cov(i,j,k) + rhs(i,j)
-                  endif
-
-                elseif (icomp == 2) then
-
-                  rhs(i,j) = -dh(dim)
-     .             *(gsuper(dim,1)*(vy_cov(ip,j,k)-vy_cov(im,j,k))/dh(1)
-     .              +gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
-     .              +rhs(i,j))/gsuper(dim,dim)
-
-                  if (loc == 0) then
-                    vy_cov(i,j,k-1) = vy_cov(i,j,k) - rhs(i,j)
-                  else
-                    vy_cov(i,j,k+1) = vy_cov(i,j,k) + rhs(i,j)
-                  endif
-                endif
-
-              endif
-
-            enddo
-          enddo
-        enddo
-
-      case (IBX,IBY,IBZ) 
-
-        if (ieq == IBX) icomp = 1
-        if (ieq == IBY) icomp = 2
-        if (ieq == IBZ) icomp = 3
-
-        if (icomp == dim) then
-          write (*,*) 'Error in B in neumannBC: icomp = dim=',dim
-          stop
-        endif
-
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
-
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
-
-              gsuper = g_super(x1,x2,x3,cartesian)
-
-              ip = min(i+1,nx)
-              im = max(i-1,1)
-              jp = min(j+1,ny)
-              jm = max(j-1,1)
-              kp = min(k+1,nz)
-              km = max(k-1,1)
-
-              dh(1) = 2.*dxh(ig)
-              if (i == nx) dh(1) = dx(ig-1)
-              if (i == 1 ) dh(1) = dx(ig)
-
-              dh(2) = 2.*dyh(jg)
-              if (j == ny) dh(2) = dy(jg-1)
-              if (j == 1 ) dh(2) = dy(jg)
-
-              dh(3) = 2.*dzh(kg)
-              if (k == nz) dh(3) = dz(kg-1)
-              if (k == 1 ) dh(3) = dz(kg)
-
-              if (dim == 1) then
-
-                jx(i,j,k) = (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
-     .                     -(by_cov(i,j,kp)-by_cov(i,j,km))/dh(3)
-
-                if (icomp == 2) then
-                  rhs(j,k) = dh(dim)
-     .               *( (bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
-     .                 +gsuper(dim,3)*jx(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    by_cov(i-1,j,k) = by_cov(i,j,k) - rhs(j,k)
-                  else
-                    by_cov(i+1,j,k) = by_cov(i,j,k) + rhs(j,k)
-                  endif
-                elseif (icomp == 3) then
-                  rhs(j,k) = dh(dim)
-     .               *( (bx_cov(i,j,kp)-bx_cov(i,j,km))/dh(3)
-     .                 -gsuper(dim,2)*jx(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    bz_cov(i-1,j,k) = bz_cov(i,j,k) - rhs(j,k)
-                  else
-                    bz_cov(i+1,j,k) = bz_cov(i,j,k) + rhs(j,k)
-                  endif
-                endif
-
-              elseif (dim == 2) then
-
-                jy(i,j,k) = (bx_cov(i,j,kp)-bx_cov(i,j,km))/dh(3)
-     .                     -(bz_cov(ip,j,k)-bz_cov(im,j,k))/dh(1)
-
-                if (icomp == 3) then
-                  rhs(i,k) = dh(dim)
-     .               *( (by_cov(i,j,kp)-by_cov(i,j,km))/dh(3)
-     .                 +gsuper(dim,1)*jy(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    bz_cov(i,j-1,k) = bz_cov(i,j,k) - rhs(i,k)
-                  else
-                    bz_cov(i,j+1,k) = bz_cov(i,j,k) + rhs(i,k)
-                  endif
-                elseif (icomp == 1) then
-                  rhs(i,k) = dh(dim)
-     .               *( (by_cov(ip,j,k)-by_cov(im,j,k))/dh(1)
-     .                 -gsuper(dim,3)*jy(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    bx_cov(i,j-1,k) = bx_cov(i,j,k) - rhs(i,k)
-                  else
-                    bx_cov(i,j+1,k) = bx_cov(i,j,k) + rhs(i,k)
-                  endif
-                endif
-
-              elseif (dim == 3) then
-
-                jz(i,j,k) = (by_cov(ip,j,k)-by_cov(im,j,k))/dh(1)
-     .                     -(bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
-
-                if (icomp == 1) then
-                  rhs(i,j) = dh(dim)
-     .               *( (bz_cov(ip,j,k)-bz_cov(im,j,k))/dh(1)
-     .                 +gsuper(dim,2)*jz(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    bx_cov(i,j,k-1) = bx_cov(i,j,k) - rhs(i,j)
-                  else
-                    bx_cov(i,j,k+1) = bx_cov(i,j,k) + rhs(i,j)
-                  endif
-                elseif (icomp == 2) then
-                  rhs(i,j) = dh(dim)
-     .               *( (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
-     .                 -gsuper(dim,1)*jz(i,j,k)/gsuper(dim,dim) )
-                  if (loc == 0) then
-                    by_cov(i,j,k-1) = by_cov(i,j,k) - rhs(i,j)
-                  else
-                    by_cov(i,j,k+1) = by_cov(i,j,k) + rhs(i,j)
-                  endif
-                endif
-
-              endif
-
-            enddo
-          enddo
-        enddo
-
-      case (-IBX,-IBY,-IBZ) !Finds current components at boundaries
-
-        if (ieq == -IBX) icomp = 1
-        if (ieq == -IBY) icomp = 2
-        if (ieq == -IBZ) icomp = 3
-
-        if (icomp /= dim) then !Tangential components
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-              select case (ibc)
-              case (1)
-                call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(j,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jx(i-1,j,k)
-     .                    +array(1,j,k)
-              case (2)
-                call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(j,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jx(i+1,j,k)
-     .                    -array(nx,j,k)
-              case (3)
-                call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(i,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j-1,k)
-     .                    +array(i,1,k)
-              case (4)
-                call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(i,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j+1,k)
-     .                    -array(i,ny,k)
-              case (5)
-                call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(i,j) =-gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k-1)
-     .                    +array(i,j,1)
-              case (6)
-                call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                gsuper = g_super(x1,x2,x3,cartesian)
-
-                rhs(i,j) = gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k+1)
-     .                    -array(i,j,nz)
-              end select
-
-              enddo
-            enddo
-          enddo
-
-        endif
-
-      case default
-
-        write (*,*) 'Error in neumannBC'
-        stop
-
-      end select
-
-c     Assign value
-
-      select case (ibc)
-      case (1)
-        rhs(:,:) = array(1,:,:)  - rhs(:,:)
-      case (2)
-        rhs(:,:) = array(nx,:,:) + rhs(:,:)
-      case (3)
-        rhs(:,:) = array(:,1,:)  - rhs(:,:)
-      case (4)
-        rhs(:,:) = array(:,ny,:) + rhs(:,:)
-      case (5)
-        rhs(:,:) = array(:,:,1)  - rhs(:,:)
-      case (6)
-        rhs(:,:) = array(:,:,nz) + rhs(:,:)
-      end select
-
-c     End program
-
-      end subroutine neumannBC
-
-c     dirichletBC
-c     #################################################################
-      subroutine dirichletBC(array,array0,ieq,ibc,order)
+      subroutine scalarDirichletBC(array,array0,ieq,dim,loc,order)
 c     -----------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -2139,34 +1444,76 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,ibc,order
+      integer(4) :: ieq,dim,loc,order,ivar
       real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
      .             ,array0(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
-      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3),jac
-      logical    :: cartesian
+      integer(4) :: icomp
+      integer(4) :: i,j,k,ig,jg,kg,nvar,ibc
+      real(8)    :: x1,x2,x3,dh(3),diver
+
+c     Begin program
+
+      ibc = (1+loc)+2*(dim-1)
+
+      rhs = 0d0
+
+      call interpolate(array,array0,ibc,order)
+
+c     End program
+
+      end subroutine scalarDirichletBC
+
+c     vectorDirichletBC
+c     #################################################################
+      subroutine vectorDirichletBC(ivar,array,array0,ieq,dim,loc,order)
+c     -----------------------------------------------------------------
+c     Imposes dirichlet BC. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c        * order -> order of extrapolation (when used)
+c     This routine fills up the bi-dimensional array rhs, which 
+c     contains the right hand side of the Dirichlet BC.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,dim,loc,order,ivar
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1,*)
+     .             ,array0(0:nx+1,0:ny+1,0:nz+1,*)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,nvar,ibc
+      real(8)    :: x1,x2,x3,dh(3),diver
 
 c     Begin program
 
       rhs = 0d0
 
+      nvar = nnvar
+
+      ibc = (1+loc)+2*(dim-1)
+
+cc      write (*,*) 'vectorDirichletBC nvar=',nvar
+
       select case (ieq)
-      case (IRHO,ITMP,IVX,IVY,IVZ)
+      case (IVX,IVY,IVZ)
 
-        call interpolate(array,array0,ibc,order)
+        call interpolate(array(:,:,:,ivar),array0(:,:,:,ivar)
+     .                  ,ibc,order)
 
-      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
+      case (IBX,IBY,IBZ,-IBX,-IBY,-IBZ) !Imposes divergence-free constraint on B-field
 
-        if (ieq == IBX) icomp = 1
-        if (ieq == IBY) icomp = 2
-        if (ieq == IBZ) icomp = 3
+        if (ivar /= dim) then
 
-        if (icomp /= dim) then
-
-          call interpolate(array,array0,ibc,order)
+          call interpolate(array (:,:,:,ivar),array0(:,:,:,ivar)
+     .                    ,ibc,order)
 
         else
 
@@ -2174,94 +1521,61 @@ c     Begin program
             do j=jmin,jmax
               do k=kmin,kmax
 
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              dh(1) = 2.*dxh(ig)
-              dh(2) = 2.*dyh(jg)
-              dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
 
-              select case (ibc)
-              case (1)
-                array(i-1,j,k) = array(i+1,j,k)
-                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,by,bz)
-              case (2)
-                array(i+1,j,k) = array(i-1,j,k)
-                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,by,bz)
-              case (3)
-                array(i,j-1,k) = array(i,j+1,k)
-                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,bx,array,bz)
-              case (4)
-                array(i,j+1,k) = array(i,j-1,k)
-                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,bx,array,bz)
-              case (5)
-                array(i,j,k-1) = array(i,j,k+1)
-                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,bx,by,array)
-              case (6)
-                array(i,j,k+1) = array(i,j,k-1)
-                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,bx,by,array)
-              end select
-
-              enddo
-            enddo
-          enddo
-
-        endif
-
-      case (-IBX,-IBY,-IBZ) !Finds current normal components at boundaries
-
-        if (ieq == -IBX) icomp = 1
-        if (ieq == -IBY) icomp = 2
-        if (ieq == -IBZ) icomp = 3
-
-        if (icomp == dim) then !Normal components (div(J)=0)
-
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-              dh(1) = 2.*dxh(ig)
-              dh(2) = 2.*dyh(jg)
-              dh(3) = 2.*dzh(kg)
-
-              select case (ibc)
-              case (1)
-                array(i-1,j,k) = array(i+1,j,k)
-                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,jy,jz)
-              case (2)                                                  
-                array(i+1,j,k) = array(i-1,j,k)                         
-                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,jy,jz)
-              case (3)                                                  
-                array(i,j-1,k) = array(i,j+1,k)                         
-                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,jx,array,jz)
-              case (4)                                                  
-                array(i,j+1,k) = array(i,j-1,k)                         
-                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,jx,array,jz)
-              case (5)                                                  
-                array(i,j,k-1) = array(i,j,k+1)                         
-                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,jx,jy,array)
-              case (6)                                                  
-                array(i,j,k+1) = array(i,j,k-1)                         
-                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,jx,jy,array)
-              end select
+                select case (ibc)
+                case (1)
+                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
+                case (2)
+                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
+                case (3)
+                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
+                case (4)
+                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
+                case (5)
+                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
+                case (6)
+                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
+                  diver = div(i,j,k,array(:,:,:,1)
+     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
+                end select
 
               enddo
             enddo
           enddo
-
         endif
 
       case default
 
-        write (*,*) 'Error in dirichletBC'
+        write (*,*) 'Error in vectorDirichletBC'
+        write (*,*) 'Equation',ieq,'does not exist'
         stop
 
       end select
 
 c     End program
 
-      end subroutine dirichletBC
+      end subroutine vectorDirichletBC
 
 c     interpolate
 c     #######################################################################
@@ -2376,6 +1690,1465 @@ c     Begin program
 c     End program
 
       end function quad_int
+
+      end module dirichletBCinterface
+
+c module neumannBCinterface
+c #####################################################################
+      module neumannBCinterface
+
+       use BCS
+
+        INTERFACE neumannBC
+          module procedure scalarNeumannBC,vectorNeumannBC
+        end INTERFACE
+
+      contains
+
+c     scalarNeumannBC
+c     #################################################################
+      subroutine scalarNeumannBC(array,ieq,dim,loc)
+c     -----------------------------------------------------------------
+c     Imposes neumann BC for a scalar. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     This routine fills up the bi-dimensional array rhs, which 
+c     contains the right hand side of the Neumann BC.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,dim,loc
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
+      real(8)    :: x1,x2,x3,dh(3),jac0
+      real(8)    :: gsuper(3,3),hessian1(3,3)
+     .             ,hessian2(3,3),hessian3(3,3)
+      logical    :: cartesian
+
+c     Begin program
+
+cc      write (*,*) 'scalarNeumannBC nvar=',nnvar
+
+      nvar = 1
+
+      ibc = (1+loc)+2*(dim-1)
+
+      rhs = 0d0
+
+      select case (ieq)
+      case (IRHO)
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                           ,cartesian)
+
+              gsuper = g_super(x1,x2,x3,cartesian)
+
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              if (i == nx) dh(1) = dx(ig-1)
+              if (i == 1 ) dh(1) = dx(ig)
+
+              dh(2) = 2.*dyh(jg)
+              if (j == ny) dh(2) = dy(jg-1)
+              if (j == 1 ) dh(2) = dy(jg)
+
+              dh(3) = 2.*dzh(kg)
+              if (k == nz) dh(3) = dz(kg-1)
+              if (k == 1 ) dh(3) = dz(kg)
+
+              if (dim == 1) then
+                rhs(j,k) = -dh(dim)
+     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
+     .              /gsuper(dim,dim)
+              elseif (dim == 2) then
+                rhs(i,k) = -dh(dim)*
+     .              (gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
+     .              /gsuper(dim,dim)
+              elseif (dim == 3) then
+                rhs(i,j) = -dh(dim)
+     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2))
+     .              /gsuper(dim,dim)
+              endif
+
+            enddo
+          enddo
+        enddo
+
+      case (ITMP)
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                           ,cartesian)
+
+              gsuper = g_super (x1,x2,x3,cartesian)
+              jac0   = jacobian(x1,x2,x3,cartesian)
+
+              hessian1 = hessian(1,x1,x2,x3,cartesian)
+              hessian2 = hessian(2,x1,x2,x3,cartesian)
+              hessian3 = hessian(3,x1,x2,x3,cartesian)
+        
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              if (i == nx) dh(1) = dx(ig-1)
+              if (i == 1 ) dh(1) = dx(ig)
+
+              dh(2) = 2.*dyh(jg)
+              if (j == ny) dh(2) = dy(jg-1)
+              if (j == 1 ) dh(2) = dy(jg)
+
+              dh(3) = 2.*dzh(kg)
+              if (k == nz) dh(3) = dz(kg-1)
+              if (k == 1 ) dh(3) = dz(kg)
+
+              if (dim == 1) then
+                if (gamma > 1d0) then
+                  rhs(j,k) =  hessian1(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                            +hessian1(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                            +hessian1(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian1(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                         +2.*hessian1(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian1(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(j,k) = -dh(dim)
+     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+     .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
+              elseif (dim == 2) then
+                if (gamma > 1d0) then
+                  rhs(i,k) =  hessian2(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                            +hessian2(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                            +hessian2(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian2(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                         +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(i,k) = -dh(dim)
+     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+     .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
+              elseif (dim == 3) then
+                if (gamma > 1d0) then
+                  rhs(i,j) =  hessian3(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                            +hessian3(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                            +hessian3(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian3(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                         +2.*hessian3(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                         +2.*hessian3(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(i,j) = -dh(dim)
+     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+     .              -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
+              endif
+
+            enddo
+          enddo
+        enddo
+
+      case default
+
+        write (*,*) 'Error in scalarNeumannBC'
+        stop
+
+      end select
+
+c     Assign value
+
+      select case (ibc)
+      case (1)
+        rhs(:,:) = array(1,:,:)  - rhs(:,:)
+      case (2)
+        rhs(:,:) = array(nx,:,:) + rhs(:,:)
+      case (3)
+        rhs(:,:) = array(:,1,:)  - rhs(:,:)
+      case (4)
+        rhs(:,:) = array(:,ny,:) + rhs(:,:)
+      case (5)
+        rhs(:,:) = array(:,:,1)  - rhs(:,:)
+      case (6)
+        rhs(:,:) = array(:,:,nz) + rhs(:,:)
+      end select
+
+c     End program
+
+      end subroutine scalarNeumannBC
+
+c     vectorNeumannBC
+c     #################################################################
+      subroutine vectorNeumannBC(ivar,array,ieq,dim,loc)
+c     -----------------------------------------------------------------
+c     Imposes neumann BC for a scalar. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     This routine fills up the bi-dimensional array rhs, which 
+c     contains the right hand side of the Neumann BC.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,dim,loc,ivar
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1,*)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp
+      real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz
+      real(8)    :: gsuper(3,3),hessian1(3,3)
+     .             ,hessian2(3,3),hessian3(3,3)
+      logical    :: cartesian
+
+cc      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+
+c     Begin program
+
+      ibc = (1+loc)+2*(dim-1)
+
+cc      nvar = nnvar
+
+cc      write (*,*) 'vectorNeumannBC nvar=',nvar
+
+      rhs = 0d0
+
+      select case (ieq)
+      case (IVX,IVY,IVZ) !Velocity components
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                           ,cartesian)
+
+              gsuper   = g_super(x1,x2,x3,cartesian)
+
+              hessian1 = hessian(1,x1,x2,x3,cartesian)
+              hessian2 = hessian(2,x1,x2,x3,cartesian)
+              hessian3 = hessian(3,x1,x2,x3,cartesian)
+
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              if (i == nx) dh(1) = dx(ig-1)
+              if (i == 1 ) dh(1) = dx(ig)
+
+              dh(2) = 2.*dyh(jg)
+              if (j == ny) dh(2) = dy(jg-1)
+              if (j == 1 ) dh(2) = dy(jg)
+
+              dh(3) = 2.*dzh(kg)
+              if (k == nz) dh(3) = dz(kg-1)
+              if (k == 1 ) dh(3) = dz(kg)
+
+
+              if (dim == 1) then
+
+                if (ivar /= dim) then
+
+                  rhs(j,k) =
+     .                     gsuper(dim,1)
+     .                      *(hessian1(ivar,1)*array(i,j,k,1)
+     .                       +hessian2(ivar,1)*array(i,j,k,2)
+     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(ivar,2)*array(i,j,k,1)
+     .                       +hessian2(ivar,2)*array(i,j,k,2)
+     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(ivar,3)*array(i,j,k,1)
+     .                       +hessian2(ivar,3)*array(i,j,k,2)
+     .                       +hessian3(ivar,3)*array(i,j,k,3))
+
+                  rhs(j,k) = -dh(dim)
+     .                *(gsuper(dim,2)
+     .                 *(array(i,jp,k,ivar)-array(i,jm,k,ivar))/dh(2)
+     .                +gsuper(dim,3)
+     .                 *(array(i,j,kp,ivar)-array(i,j,km,ivar))/dh(3)
+     .                +rhs(j,k))/gsuper(dim,dim)
+
+                endif
+
+              elseif (dim == 2) then
+
+                if (ivar /= dim) then
+
+                  rhs(i,k) =
+     .                     gsuper(dim,1)
+     .                      *(hessian1(ivar,1)*array(i,j,k,1)
+     .                       +hessian2(ivar,1)*array(i,j,k,2)
+     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(ivar,2)*array(i,j,k,1)
+     .                       +hessian2(ivar,2)*array(i,j,k,2)
+     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(ivar,3)*array(i,j,k,1)
+     .                       +hessian2(ivar,3)*array(i,j,k,2)
+     .                       +hessian3(ivar,3)*array(i,j,k,3))
+
+                  rhs(i,k) = -dh(dim)
+     .                 *(gsuper(dim,1)
+     .                   *(array(ip,j,k,ivar)-array(im,j,k,ivar))/dh(1)
+     .                 +gsuper(dim,3)
+     .                   *(array(i,j,kp,ivar)-array(i,j,km,ivar))/dh(3)
+     .                 +rhs(i,k))/gsuper(dim,dim)
+                endif
+
+              elseif (dim == 3) then
+
+                if (ivar /= dim) then
+
+                  rhs(i,j) =
+     .                     gsuper(dim,1)
+     .                      *(hessian1(ivar,1)*array(i,j,k,1)
+     .                       +hessian2(ivar,1)*array(i,j,k,2)
+     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                    +gsuper(dim,2)
+     .                      *(hessian1(ivar,2)*array(i,j,k,1)
+     .                       +hessian2(ivar,2)*array(i,j,k,2)
+     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                    +gsuper(dim,3)
+     .                      *(hessian1(ivar,3)*array(i,j,k,1)
+     .                       +hessian2(ivar,3)*array(i,j,k,2)
+     .                       +hessian3(ivar,3)*array(i,j,k,3))
+
+                  rhs(i,j) = -dh(dim)
+     .               *(gsuper(dim,1)
+     .                 *(array(ip,j,k,ivar)-array(im,j,k,ivar))/dh(1)
+     .               +gsuper(dim,2)
+     .                 *(array(i,jp,k,ivar)-array(i,jm,k,ivar))/dh(2)
+     .               +rhs(i,j))/gsuper(dim,dim)
+
+                endif
+
+              endif
+
+            enddo
+          enddo
+        enddo
+
+      case (IBX,IBY,IBZ) 
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                           ,cartesian)
+
+              gsuper = g_super(x1,x2,x3,cartesian)
+
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              if (i == nx) dh(1) = dx(ig-1)
+              if (i == 1 ) dh(1) = dx(ig)
+
+              dh(2) = 2.*dyh(jg)
+              if (j == ny) dh(2) = dy(jg-1)
+              if (j == 1 ) dh(2) = dy(jg)
+
+              dh(3) = 2.*dzh(kg)
+              if (k == nz) dh(3) = dz(kg-1)
+              if (k == 1 ) dh(3) = dz(kg)
+
+              if (dim == 1) then
+
+                jxx = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
+     .               -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
+
+                if (ivar == 2) then
+                  rhs(j,k) = dh(dim)
+     .               *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                 +gsuper(dim,3)*jxx/gsuper(dim,dim) )
+                elseif (ivar == 3) then
+                  rhs(j,k) = dh(dim)
+     .               *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                 -gsuper(dim,2)*jxx/gsuper(dim,dim) )
+                endif
+
+              elseif (dim == 2) then
+
+                jyy = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
+     .               -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
+
+                if (ivar == 3) then
+                  rhs(i,k) = dh(dim)
+     .               *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                 +gsuper(dim,1)*jyy/gsuper(dim,dim) )
+                elseif (ivar == 1) then
+                  rhs(i,k) = dh(dim)
+     .               *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                 -gsuper(dim,3)*jyy/gsuper(dim,dim) )
+                endif
+
+              elseif (dim == 3) then
+
+                jzz = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
+     .               -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
+
+                if (ivar == 1) then
+                  rhs(i,j) = dh(dim)
+     .               *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                 +gsuper(dim,2)*jzz/gsuper(dim,dim) )
+                elseif (ivar == 2) then
+                  rhs(i,j) = dh(dim)
+     .               *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                 -gsuper(dim,1)*jzz/gsuper(dim,dim) )
+                endif
+
+              endif
+
+            enddo
+          enddo
+        enddo
+
+      case (-IBX,-IBY,-IBZ) !Finds current components at boundaries
+
+        if (ivar /= dim) then
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+
+                select case (ibc)
+                case (1)
+                  call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(j,k) = array(1,j,k,ivar)
+     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i-1,j,k,dim)
+                case (2)
+                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(j,k) = -array(nx,j,k,ivar)
+     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i+1,j,k,dim)
+                case (3)
+                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(i,k) = array(i,1,k,ivar)
+     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j-1,k,dim)
+                case (4)
+                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(i,k) =-array(i,ny,k,ivar)
+     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j+1,k,dim)
+                case (5)
+                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(i,j) = array(i,j,1,ivar)
+     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k-1,dim)
+                case (6)
+                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  rhs(i,j) =-array(i,j,nz,ivar)
+     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k+1,dim)
+                end select
+
+              enddo
+            enddo
+          enddo
+
+        endif
+
+      case default
+
+        write (*,*) 'Error in vectorNeumannBC'
+        stop
+
+      end select
+
+c     Assign value
+
+      select case (ibc)
+      case (1)
+        rhs(:,:) = array(1,:,:,ivar)  - rhs(:,:)
+      case (2)
+        rhs(:,:) = array(nx,:,:,ivar) + rhs(:,:)
+      case (3)
+        rhs(:,:) = array(:,1,:,ivar)  - rhs(:,:)
+      case (4)
+        rhs(:,:) = array(:,ny,:,ivar) + rhs(:,:)
+      case (5)
+        rhs(:,:) = array(:,:,1,ivar)  - rhs(:,:)
+      case (6)
+        rhs(:,:) = array(:,:,nz,ivar) + rhs(:,:)
+      end select
+
+c     End program
+
+      end subroutine vectorNeumannBC
+
+      end module neumannBCinterface
+
+c FillGhostNodes
+c####################################################################
+      subroutine FillGhostNodes(ieq,ivar,nvar,dim,loc,bctype
+     .                         ,array,array0)
+
+c--------------------------------------------------------------------
+c     Sets adequate boundary conditions on array.
+c
+c     On input:
+c       * ieq    -> equation identifier
+c       * dim    -> dimension (1 -> X, 2 -> Y, 3 -> Z)
+c       * loc    -> location in dimension (0 -> right, 1 -> left)
+c       * bctype -> type of BC (dirichlet, neumann, periodic, etc.)
+c       * array  -> real array with ghost-nodes
+c       * array0 -> auxiliary real array
+c--------------------------------------------------------------------
+
+      use BCS
+
+      use dirichletBCinterface
+
+      use neumannBCinterface
+
+      implicit none       !For safe fortran
+
+c Call variables
+
+      integer(4) :: ieq,dim,loc,bctype,nvar,ivar
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1,nvar)
+     .             ,array0(0:nx+1,0:ny+1,0:nz+1,nvar)
+
+c Local variables
+
+      integer(4) :: neq,ibc
+      integer(4) :: i,j,k,ig,jg,kg
+
+c Begin program
+
+      nnvar = nvar
+
+cc      write (*,*) 'FillGhostNodes, nvar=',nvar
+
+c Determine boundary limits
+
+      if (dim == 1) then
+        imin=1  +    loc *(nx-1)
+        imax=nx + (1-loc)*(1-nx)
+        jmin=1
+        jmax=ny
+        kmin=1
+        kmax=nz
+        allocate(rhs(0:ny+1,0:nz+1))
+      elseif (dim == 2) then
+        imin=1 
+        imax=nx
+        jmin=1  +    loc *(ny-1)
+        jmax=ny + (1-loc)*(1-ny)
+        kmin=1
+        kmax=nz
+        allocate(rhs(0:nx+1,0:nz+1))
+      elseif (dim == 3) then
+        imin=1 
+        imax=nx
+        jmin=1
+        jmax=ny
+        kmin=1  +    loc *(nz-1)
+        kmax=nz + (1-loc)*(1-nz)
+        allocate(rhs(0:nx+1,0:ny+1))
+      endif
+
+c Find BC update
+
+      ibc = (1+loc)+2*(dim-1)
+
+      if (nvar == 1) then
+        ivar = nvar
+        select case(bctype)
+        case(PER)
+          call periodicBC(array(:,:,:,ivar),ibc)
+        case(EQU)
+          call dirichletBC(array(:,:,:,ivar),array0(:,:,:,ivar)
+     .                    ,ieq,dim,loc,0)
+        case(DIR)
+          call dirichletBC(array(:,:,:,ivar),array0(:,:,:,ivar)
+     .                    ,ieq,dim,loc,1)
+        case(NEU)
+          call neumannBC(array(:,:,:,ivar),ieq,dim,loc)
+        case default
+          write (*,*) 'BC',bctype,' not implemented'
+          stop
+        end select
+      else
+        select case(bctype)
+        case(PER)
+          call periodicBC(array(:,:,:,ivar),ibc)
+        case(EQU)
+          call dirichletBC(ivar,array,array0,ieq,dim,loc,0)
+        case(DIR)
+          call dirichletBC(ivar,array,array0,ieq,dim,loc,1)
+        case(NEU)
+          call neumannBC(ivar,array,ieq,dim,loc)
+        case default
+          write (*,*) 'BC',bctype,' not implemented'
+          stop
+        end select
+      endif
+
+c Update BC ghost nodes
+
+      select case (ibc)
+      case (1)                  !x0
+        array(0   ,:,:,ivar) = rhs(:,:)
+      case (2)                  !x1
+        array(nx+1,:,:,ivar) = rhs(:,:)
+      case (3)                  !y0
+        array(:,0   ,:,ivar) = rhs(:,:)
+      case (4)                  !y1
+        array(:,ny+1,:,ivar) = rhs(:,:)
+      case (5)                  !z0
+        array(:,:,0   ,ivar) = rhs(:,:)
+      case (6)                  !z1
+        array(:,:,nz+1,ivar) = rhs(:,:)
+      case default
+        write (*,*) 'Boundary',ibc,' non existent'
+        stop
+      end select
+
+      deallocate(rhs)
+
+c End
+
+      contains
+
+c     periodicBC
+c     #################################################################
+      subroutine periodicBC(array,ibc)
+c     -----------------------------------------------------------------
+c     Imposes singular point BC. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ibc,ivar
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+c     Begin program
+
+      select case (ibc)
+      case (1)
+        rhs(:,:) = array(nx,:,:)
+      case (2)
+        rhs(:,:) = array(1,:,:)
+      case (3)
+        rhs(:,:) = array(:,ny,:)
+      case (4)
+        rhs(:,:) = array(:,1,:)
+      case (5)
+        rhs(:,:) = array(:,:,nz)
+      case (6)
+        rhs(:,:) = array(:,:,1)
+      end select
+
+c     End program
+
+      end subroutine periodicBC
+
+ccc     neumannBC
+ccc     #################################################################
+cc      subroutine neumannBC(array,ieq,ibc)
+ccc     -----------------------------------------------------------------
+ccc     Imposes neumann BC for a scalar. On input:
+ccc        * ieq -> equation number (i.e., vector component)
+ccc        * dim -> dimension we are imposing BC on (X,Y,Z)
+ccc        * loc -> boundary location (0 -> left, 1->right)
+ccc     This routine fills up the bi-dimensional array rhs, which 
+ccc     contains the right hand side of the Neumann BC.
+ccc     -----------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer(4) :: ieq,ibc
+cc      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
+cc      real(8)    :: x1,x2,x3,dh(3),jac0
+cc      real(8)    :: gsuper(3,3),hessian1(3,3)
+cc     .             ,hessian2(3,3),hessian3(3,3)
+cc      logical    :: cartesian
+cc
+ccc     Begin program
+cc
+cc      rhs = 0d0
+cc
+cc      select case (ieq)
+cc      case (IRHO)
+cc
+cc        do i=imin,imax
+cc          do j=jmin,jmax
+cc            do k=kmin,kmax
+cc
+cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cc     .                           ,cartesian)
+cc
+cc              gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc              ip = min(i+1,nx)
+cc              im = max(i-1,1)
+cc              jp = min(j+1,ny)
+cc              jm = max(j-1,1)
+cc              kp = min(k+1,nz)
+cc              km = max(k-1,1)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              if (i == nx) dh(1) = dx(ig-1)
+cc              if (i == 1 ) dh(1) = dx(ig)
+cc
+cc              dh(2) = 2.*dyh(jg)
+cc              if (j == ny) dh(2) = dy(jg-1)
+cc              if (j == 1 ) dh(2) = dy(jg)
+cc
+cc              dh(3) = 2.*dzh(kg)
+cc              if (k == nz) dh(3) = dz(kg-1)
+cc              if (k == 1 ) dh(3) = dz(kg)
+cc
+cc              if (dim == 1) then
+cc                rhs(j,k) = -dh(dim)
+cc     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+cc     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
+cc     .              /gsuper(dim,dim)
+cc              elseif (dim == 2) then
+cc                rhs(i,k) = -dh(dim)*
+cc     .              (gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+cc     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3))
+cc     .              /gsuper(dim,dim)
+cc              elseif (dim == 3) then
+cc                rhs(i,j) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+cc     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2))
+cc     .              /gsuper(dim,dim)
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      case (ITMP)
+cc
+cc        do i=imin,imax
+cc          do j=jmin,jmax
+cc            do k=kmin,kmax
+cc
+cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cc     .                           ,cartesian)
+cc
+cc              gsuper = g_super (x1,x2,x3,cartesian)
+cc              jac0   = jacobian(x1,x2,x3,cartesian)
+cc
+cc              hessian1 = hessian(1,x1,x2,x3,cartesian)
+cc              hessian2 = hessian(2,x1,x2,x3,cartesian)
+cc              hessian3 = hessian(3,x1,x2,x3,cartesian)
+cc        
+cc              ip = min(i+1,nx)
+cc              im = max(i-1,1)
+cc              jp = min(j+1,ny)
+cc              jm = max(j-1,1)
+cc              kp = min(k+1,nz)
+cc              km = max(k-1,1)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              if (i == nx) dh(1) = dx(ig-1)
+cc              if (i == 1 ) dh(1) = dx(ig)
+cc
+cc              dh(2) = 2.*dyh(jg)
+cc              if (j == ny) dh(2) = dy(jg-1)
+cc              if (j == 1 ) dh(2) = dy(jg)
+cc
+cc              dh(3) = 2.*dzh(kg)
+cc              if (k == nz) dh(3) = dz(kg-1)
+cc              if (k == 1 ) dh(3) = dz(kg)
+cc
+cc              if (dim == 1) then
+cc                if (gamma > 1d0) then
+cc                  rhs(j,k) =  hessian1(1,1)*vx(i,j,k)*vx(i,j,k)
+cc     .                       +hessian1(2,2)*vy(i,j,k)*vy(i,j,k)
+cc     .                       +hessian1(3,3)*vz(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian1(1,2)*vx(i,j,k)*vy(i,j,k)
+cc     .                    +2.*hessian1(1,3)*vx(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian1(2,3)*vy(i,j,k)*vz(i,j,k)
+cc                endif
+cc                rhs(j,k) = -dh(dim)
+cc     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+cc     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+cc     .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
+cc              elseif (dim == 2) then
+cc                if (gamma > 1d0) then
+cc                  rhs(i,k) =  hessian2(1,1)*vx(i,j,k)*vx(i,j,k)
+cc     .                       +hessian2(2,2)*vy(i,j,k)*vy(i,j,k)
+cc     .                       +hessian2(3,3)*vz(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian2(1,2)*vx(i,j,k)*vy(i,j,k)
+cc     .                    +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
+cc                endif
+cc                rhs(i,k) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+cc     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+cc     .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
+cc              elseif (dim == 3) then
+cc                if (gamma > 1d0) then
+cc                  rhs(i,j) =  hessian3(1,1)*vx(i,j,k)*vx(i,j,k)
+cc     .                       +hessian3(2,2)*vy(i,j,k)*vy(i,j,k)
+cc     .                       +hessian3(3,3)*vz(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian3(1,2)*vx(i,j,k)*vy(i,j,k)
+cc     .                    +2.*hessian3(1,3)*vx(i,j,k)*vz(i,j,k)
+cc     .                    +2.*hessian3(2,3)*vy(i,j,k)*vz(i,j,k)
+cc                endif
+cc                rhs(i,j) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+cc     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+cc     .              -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      case (IVX,IVY,IVZ) !Velocity components
+cc
+cc        if (ieq == IVX) icomp = 1
+cc        if (ieq == IVY) icomp = 2
+cc        if (ieq == IVZ) icomp = 3
+cc
+cccc        do i=imin,imax
+cccc          do j=jmin,jmax
+cccc            do k=kmin,kmax
+cccc
+cccc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cccc     .                           ,cartesian)
+cccc
+cccc              gsuper = g_super(x1,x2,x3,cartesian)
+cccc
+cccccc              if (loc == 0) then
+cccccc                if (dim==1) then
+cccccc                  nabla_v = fnabla_v_bc(i-1,j,k,dim)
+cccccc                elseif (dim==2) then
+cccccc                  nabla_v = fnabla_v_bc(i,j-1,k,dim)
+cccccc                else
+cccccc                  nabla_v = fnabla_v_bc(i,j,k-1,dim)
+cccccc                endif
+cccccc              else
+cccc                nabla_v = fnabla_v_bc(i,j,k,x1,x2,x3,cartesian,dim)
+cccccc              endif
+cccc
+cccc              dh(1) = 2.*dxh(ig)
+cccc              if (i == nx) dh(1) = dx(ig-1)
+cccc              if (i == 1 ) dh(1) = dx(ig)
+cccc
+cccc              dh(2) = 2.*dyh(jg)
+cccc              if (j == ny) dh(2) = dy(jg-1)
+cccc              if (j == 1 ) dh(2) = dy(jg)
+cccc
+cccc              dh(3) = 2.*dzh(kg)
+cccc              if (k == nz) dh(3) = dz(kg-1)
+cccc              if (k == 1 ) dh(3) = dz(kg)
+cccc
+cccc              if (dim == 1) then
+cccc                rhs(j,k) = -dh(dim)
+cccc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cccc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cccc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cccc     .                /gsuper(dim,dim)
+cccc              elseif (dim == 2) then
+cccc                rhs(i,k) = -dh(dim)
+cccc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cccc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cccc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cccc     .                /gsuper(dim,dim)
+cccc              elseif (dim == 3) then
+cccc                rhs(i,j) = -dh(dim)
+cccc     .               *(gsuper(dim,1)*nabla_v(1,icomp)
+cccc     .                +gsuper(dim,2)*nabla_v(2,icomp)
+cccc     .                +gsuper(dim,3)*nabla_v(3,icomp))
+cccc     .                /gsuper(dim,dim)
+cccc              endif
+cccc
+cccc            enddo
+cccc          enddo
+cccc        enddo
+cc
+cc        do i=imin,imax
+cc          do j=jmin,jmax
+cc            do k=kmin,kmax
+cc
+cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cc     .                           ,cartesian)
+cc
+cc              gsuper   = g_super(x1,x2,x3,cartesian)
+cc
+cc              hessian1 = hessian(1,x1,x2,x3,cartesian)
+cc              hessian2 = hessian(2,x1,x2,x3,cartesian)
+cc              hessian3 = hessian(3,x1,x2,x3,cartesian)
+cc
+cc              ip = min(i+1,nx)
+cc              im = max(i-1,1)
+cc              jp = min(j+1,ny)
+cc              jm = max(j-1,1)
+cc              kp = min(k+1,nz)
+cc              km = max(k-1,1)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              if (i == nx) dh(1) = dx(ig-1)
+cc              if (i == 1 ) dh(1) = dx(ig)
+cc
+cc              dh(2) = 2.*dyh(jg)
+cc              if (j == ny) dh(2) = dy(jg-1)
+cc              if (j == 1 ) dh(2) = dy(jg)
+cc
+cc              dh(3) = 2.*dzh(kg)
+cc              if (k == nz) dh(3) = dz(kg-1)
+cc              if (k == 1 ) dh(3) = dz(kg)
+cc
+cc
+cc              if (dim == 1) then
+cc
+cc                rhs(j,k) = gsuper(dim,1)
+cc     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,2)
+cc     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,3)
+cc     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+cc
+cc                if (icomp == 2) then
+cc
+cc                  rhs(j,k) = -dh(dim)
+cc     .             *(gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
+cc     .              +gsuper(dim,3)*(vy_cov(i,j,kp)-vy_cov(i,j,km))/dh(3)
+cc     .              +rhs(j,k))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vy_cov(i-1,j,k) = vy_cov(i,j,k) - rhs(j,k)
+cc                  else
+cc                    vy_cov(i+1,j,k) = vy_cov(i,j,k) + rhs(j,k)
+cc                  endif
+cc
+cc                elseif (icomp == 3) then
+cc
+cc                  rhs(j,k) = -dh(dim)
+cc     .             *(gsuper(dim,2)*(vz_cov(i,jp,k)-vz_cov(i,jm,k))/dh(2)
+cc     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
+cc     .              +rhs(j,k))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vz_cov(i-1,j,k) = vz_cov(i,j,k) - rhs(j,k)
+cc                  else
+cc                    vz_cov(i+1,j,k) = vz_cov(i,j,k) + rhs(j,k)
+cc                  endif
+cc                endif
+cc
+cc              elseif (dim == 2) then
+cc
+cc                rhs(i,k) = gsuper(dim,1)
+cc     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,2)
+cc     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,3)
+cc     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+cc
+cc                if (icomp == 3) then
+cc
+cc                  rhs(i,k) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(vz_cov(ip,j,k)-vz_cov(im,j,k))/dh(1)
+cc     .              +gsuper(dim,3)*(vz_cov(i,j,kp)-vz_cov(i,j,km))/dh(3)
+cc     .              +rhs(i,k))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vz_cov(i,j-1,k) = vz_cov(i,j,k) - rhs(i,k)
+cc                  else
+cc                    vz_cov(i,j+1,k) = vz_cov(i,j,k) + rhs(i,k)
+cc                  endif
+cc
+cc                elseif (icomp == 1) then
+cc
+cc                  rhs(i,k) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
+cc     .              +gsuper(dim,3)*(vx_cov(i,j,kp)-vx_cov(i,j,km))/dh(3)
+cc     .              +rhs(i,k))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vx_cov(i,j-1,k) = vx_cov(i,j,k) - rhs(i,k)
+cc                  else
+cc                    vx_cov(i,j+1,k) = vx_cov(i,j,k) + rhs(i,k)
+cc                  endif
+cc
+cc                endif
+cc
+cc              elseif (dim == 3) then
+cc
+cc                rhs(i,j) = gsuper(dim,1)
+cc     .                      *(hessian1(icomp,1)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,1)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,1)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,2)
+cc     .                      *(hessian1(icomp,2)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,2)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,2)*vz_cov(i,j,k))
+cc     .                    +gsuper(dim,3)
+cc     .                      *(hessian1(icomp,3)*vx_cov(i,j,k)
+cc     .                       +hessian2(icomp,3)*vy_cov(i,j,k)
+cc     .                       +hessian3(icomp,3)*vz_cov(i,j,k))
+cc
+cc                if (icomp == 1) then
+cc
+cc                  rhs(i,j) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(vx_cov(ip,j,k)-vx_cov(im,j,k))/dh(1)
+cc     .              +gsuper(dim,2)*(vx_cov(i,jp,k)-vx_cov(i,jm,k))/dh(2)
+cc     .              +rhs(i,j))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vx_cov(i,j,k-1) = vx_cov(i,j,k) - rhs(i,j)
+cc                  else
+cc                    vx_cov(i,j,k+1) = vx_cov(i,j,k) + rhs(i,j)
+cc                  endif
+cc
+cc                elseif (icomp == 2) then
+cc
+cc                  rhs(i,j) = -dh(dim)
+cc     .             *(gsuper(dim,1)*(vy_cov(ip,j,k)-vy_cov(im,j,k))/dh(1)
+cc     .              +gsuper(dim,2)*(vy_cov(i,jp,k)-vy_cov(i,jm,k))/dh(2)
+cc     .              +rhs(i,j))/gsuper(dim,dim)
+cc
+cc                  if (loc == 0) then
+cc                    vy_cov(i,j,k-1) = vy_cov(i,j,k) - rhs(i,j)
+cc                  else
+cc                    vy_cov(i,j,k+1) = vy_cov(i,j,k) + rhs(i,j)
+cc                  endif
+cc                endif
+cc
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      case (IBX,IBY,IBZ) 
+cc
+cc        if (ieq == IBX) icomp = 1
+cc        if (ieq == IBY) icomp = 2
+cc        if (ieq == IBZ) icomp = 3
+cc
+cc        if (icomp == dim) then
+cc          write (*,*) 'Error in B in neumannBC: icomp = dim=',dim
+cc          stop
+cc        endif
+cc
+cc        do i=imin,imax
+cc          do j=jmin,jmax
+cc            do k=kmin,kmax
+cc
+cc              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cc     .                           ,cartesian)
+cc
+cc              gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc              ip = min(i+1,nx)
+cc              im = max(i-1,1)
+cc              jp = min(j+1,ny)
+cc              jm = max(j-1,1)
+cc              kp = min(k+1,nz)
+cc              km = max(k-1,1)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              if (i == nx) dh(1) = dx(ig-1)
+cc              if (i == 1 ) dh(1) = dx(ig)
+cc
+cc              dh(2) = 2.*dyh(jg)
+cc              if (j == ny) dh(2) = dy(jg-1)
+cc              if (j == 1 ) dh(2) = dy(jg)
+cc
+cc              dh(3) = 2.*dzh(kg)
+cc              if (k == nz) dh(3) = dz(kg-1)
+cc              if (k == 1 ) dh(3) = dz(kg)
+cc
+cc              if (dim == 1) then
+cc
+cc                jx(i,j,k) = (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
+cc     .                     -(by_cov(i,j,kp)-by_cov(i,j,km))/dh(3)
+cc
+cc                if (icomp == 2) then
+cc                  rhs(j,k) = dh(dim)
+cc     .               *( (bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
+cc     .                 +gsuper(dim,3)*jx(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    by_cov(i-1,j,k) = by_cov(i,j,k) - rhs(j,k)
+cc                  else
+cc                    by_cov(i+1,j,k) = by_cov(i,j,k) + rhs(j,k)
+cc                  endif
+cc                elseif (icomp == 3) then
+cc                  rhs(j,k) = dh(dim)
+cc     .               *( (bx_cov(i,j,kp)-bx_cov(i,j,km))/dh(3)
+cc     .                 -gsuper(dim,2)*jx(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    bz_cov(i-1,j,k) = bz_cov(i,j,k) - rhs(j,k)
+cc                  else
+cc                    bz_cov(i+1,j,k) = bz_cov(i,j,k) + rhs(j,k)
+cc                  endif
+cc                endif
+cc
+cc              elseif (dim == 2) then
+cc
+cc                jy(i,j,k) = (bx_cov(i,j,kp)-bx_cov(i,j,km))/dh(3)
+cc     .                     -(bz_cov(ip,j,k)-bz_cov(im,j,k))/dh(1)
+cc
+cc                if (icomp == 3) then
+cc                  rhs(i,k) = dh(dim)
+cc     .               *( (by_cov(i,j,kp)-by_cov(i,j,km))/dh(3)
+cc     .                 +gsuper(dim,1)*jy(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    bz_cov(i,j-1,k) = bz_cov(i,j,k) - rhs(i,k)
+cc                  else
+cc                    bz_cov(i,j+1,k) = bz_cov(i,j,k) + rhs(i,k)
+cc                  endif
+cc                elseif (icomp == 1) then
+cc                  rhs(i,k) = dh(dim)
+cc     .               *( (by_cov(ip,j,k)-by_cov(im,j,k))/dh(1)
+cc     .                 -gsuper(dim,3)*jy(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    bx_cov(i,j-1,k) = bx_cov(i,j,k) - rhs(i,k)
+cc                  else
+cc                    bx_cov(i,j+1,k) = bx_cov(i,j,k) + rhs(i,k)
+cc                  endif
+cc                endif
+cc
+cc              elseif (dim == 3) then
+cc
+cc                jz(i,j,k) = (by_cov(ip,j,k)-by_cov(im,j,k))/dh(1)
+cc     .                     -(bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
+cc
+cc                if (icomp == 1) then
+cc                  rhs(i,j) = dh(dim)
+cc     .               *( (bz_cov(ip,j,k)-bz_cov(im,j,k))/dh(1)
+cc     .                 +gsuper(dim,2)*jz(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    bx_cov(i,j,k-1) = bx_cov(i,j,k) - rhs(i,j)
+cc                  else
+cc                    bx_cov(i,j,k+1) = bx_cov(i,j,k) + rhs(i,j)
+cc                  endif
+cc                elseif (icomp == 2) then
+cc                  rhs(i,j) = dh(dim)
+cc     .               *( (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
+cc     .                 -gsuper(dim,1)*jz(i,j,k)/gsuper(dim,dim) )
+cc                  if (loc == 0) then
+cc                    by_cov(i,j,k-1) = by_cov(i,j,k) - rhs(i,j)
+cc                  else
+cc                    by_cov(i,j,k+1) = by_cov(i,j,k) + rhs(i,j)
+cc                  endif
+cc                endif
+cc
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      case (-IBX,-IBY,-IBZ) !Finds current components at boundaries
+cc
+cc        if (ieq == -IBX) icomp = 1
+cc        if (ieq == -IBY) icomp = 2
+cc        if (ieq == -IBZ) icomp = 3
+cc
+cc        if (icomp /= dim) then !Tangential components
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc              select case (ibc)
+cc              case (1)
+cc                call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(j,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jx(i-1,j,k)
+cc     .                    +array(1,j,k)
+cc              case (2)
+cc                call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(j,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jx(i+1,j,k)
+cc     .                    -array(nx,j,k)
+cc              case (3)
+cc                call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(i,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j-1,k)
+cc     .                    +array(i,1,k)
+cc              case (4)
+cc                call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(i,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j+1,k)
+cc     .                    -array(i,ny,k)
+cc              case (5)
+cc                call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(i,j) =-gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k-1)
+cc     .                    +array(i,j,1)
+cc              case (6)
+cc                call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                rhs(i,j) = gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k+1)
+cc     .                    -array(i,j,nz)
+cc              end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc      case default
+cc
+cc        write (*,*) 'Error in neumannBC'
+cc        stop
+cc
+cc      end select
+cc
+ccc     Assign value
+cc
+cc      select case (ibc)
+cc      case (1)
+cc        rhs(:,:) = array(1,:,:)  - rhs(:,:)
+cc      case (2)
+cc        rhs(:,:) = array(nx,:,:) + rhs(:,:)
+cc      case (3)
+cc        rhs(:,:) = array(:,1,:)  - rhs(:,:)
+cc      case (4)
+cc        rhs(:,:) = array(:,ny,:) + rhs(:,:)
+cc      case (5)
+cc        rhs(:,:) = array(:,:,1)  - rhs(:,:)
+cc      case (6)
+cc        rhs(:,:) = array(:,:,nz) + rhs(:,:)
+cc      end select
+cc
+ccc     End program
+cc
+cc      end subroutine neumannBC
+
+ccc     dirichletBC
+ccc     #################################################################
+cc      subroutine dirichletBC(array,array0,ieq,ibc,order)
+ccc     -----------------------------------------------------------------
+ccc     Imposes dirichlet BC. On input:
+ccc        * ieq -> equation number (i.e., vector component)
+ccc        * dim -> dimension we are imposing BC on (X,Y,Z)
+ccc        * loc -> boundary location (0 -> left, 1->right)
+ccc        * order -> order of extrapolation (when used)
+ccc     This routine fills up the bi-dimensional array rhs, which 
+ccc     contains the right hand side of the Dirichlet BC.
+ccc     -----------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer(4) :: ieq,ibc,order
+cc      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+cc     .             ,array0(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
+cc      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3),jac
+cc      logical    :: cartesian
+cc
+ccc     Begin program
+cc
+cc      rhs = 0d0
+cc
+cc      select case (ieq)
+cc      case (IRHO,ITMP,IVX,IVY,IVZ)
+cc
+cc        call interpolate(array,array0,ibc,order)
+cc
+cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
+cc
+cc        if (ieq == IBX) icomp = 1
+cc        if (ieq == IBY) icomp = 2
+cc        if (ieq == IBZ) icomp = 3
+cc
+cc        if (icomp /= dim) then
+cc
+cc          call interpolate(array,array0,ibc,order)
+cc
+cc        else
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              dh(2) = 2.*dyh(jg)
+cc              dh(3) = 2.*dzh(kg)
+cc
+cc              select case (ibc)
+cc              case (1)
+cc                array(i-1,j,k) = array(i+1,j,k)
+cc                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,by,bz)
+cc              case (2)
+cc                array(i+1,j,k) = array(i-1,j,k)
+cc                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,by,bz)
+cc              case (3)
+cc                array(i,j-1,k) = array(i,j+1,k)
+cc                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,bx,array,bz)
+cc              case (4)
+cc                array(i,j+1,k) = array(i,j-1,k)
+cc                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,bx,array,bz)
+cc              case (5)
+cc                array(i,j,k-1) = array(i,j,k+1)
+cc                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,bx,by,array)
+cc              case (6)
+cc                array(i,j,k+1) = array(i,j,k-1)
+cc                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,bx,by,array)
+cc              end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc      case (-IBX,-IBY,-IBZ) !Finds current normal components at boundaries
+cc
+cc        if (ieq == -IBX) icomp = 1
+cc        if (ieq == -IBY) icomp = 2
+cc        if (ieq == -IBZ) icomp = 3
+cc
+cc        if (icomp == dim) then !Normal components (div(J)=0)
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              dh(1) = 2.*dxh(ig)
+cc              dh(2) = 2.*dyh(jg)
+cc              dh(3) = 2.*dzh(kg)
+cc
+cc              select case (ibc)
+cc              case (1)
+cc                array(i-1,j,k) = array(i+1,j,k)
+cc                rhs(j,k) = array(i+1,j,k) + dh(1)*div(i,j,k,array,jy,jz)
+cc              case (2)                                                  
+cc                array(i+1,j,k) = array(i-1,j,k)                         
+cc                rhs(j,k) = array(i-1,j,k) - dh(1)*div(i,j,k,array,jy,jz)
+cc              case (3)                                                  
+cc                array(i,j-1,k) = array(i,j+1,k)                         
+cc                rhs(i,k) = array(i,j+1,k) + dh(2)*div(i,j,k,jx,array,jz)
+cc              case (4)                                                  
+cc                array(i,j+1,k) = array(i,j-1,k)                         
+cc                rhs(i,k) = array(i,j-1,k) - dh(2)*div(i,j,k,jx,array,jz)
+cc              case (5)                                                  
+cc                array(i,j,k-1) = array(i,j,k+1)                         
+cc                rhs(i,j) = array(i,j,k+1) + dh(3)*div(i,j,k,jx,jy,array)
+cc              case (6)                                                  
+cc                array(i,j,k+1) = array(i,j,k-1)                         
+cc                rhs(i,j) = array(i,j,k-1) - dh(3)*div(i,j,k,jx,jy,array)
+cc              end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc      case default
+cc
+cc        write (*,*) 'Error in dirichletBC'
+cc        stop
+cc
+cc      end select
+cc
+ccc     End program
+cc
+cc      end subroutine dirichletBC
 
       end subroutine FillGhostNodes
 
