@@ -8,12 +8,19 @@
 # and the fortran compiler variable $(FC):
 #     + FC = f90 (default) uses Absoft f90 
 #     + FC = lf95 uses Lahey lf95.
+# When PETSc is employed, the optimization level should be specified by
+# the variable $(BOPT).
+#
 # A call example that uses lf95 in debugging mode is:
 #
-#        make FC='lf95' OPT='g'
+#        make FC=lf95 OPT=g
+#
+# A call example that employs PETSc is:
+#
+#        make BOPT=g petsc
 
-PROD =	3dmhd.x
-BETA =	3dmhd.beta.x
+PROD      = 3dmhd.x
+BETA      = 3dmhd.beta.x
 PETSCCODE = 3dmhd.petsc.x
 
 SRC  := $(wildcard *.[F,c,f])
@@ -28,6 +35,7 @@ OBJ  := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
 OBJMOD := $(filter %.o, $(patsubst %.f,%.o,$(MODS))\
                         $(patsubst %.F,%.o,$(MODS)))
 
+COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F]))
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.[f,F,c])))
 COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
@@ -52,18 +60,19 @@ FC = f90
 # Flags for Absoft f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
-  DEBUG        = -g -et -Rb -Rp -Rc
+  DEBUG        = -g -et -Rb -Rp
 #  DEBUG        = -g
   PROFILE      = -P
   STATIC       = -s
   MODPATH      = -p
-  FFLAGS       += -w
+  FFLAGS      += -w
   LIBS         = -llapack_f90 -lblas_f90
+  VERBOSE      = -v
 
   ifdef PETSCTRUE
     CPPFLAGS += -Dabsoft -DNVAR=8
-    LIBS    = 
-    FFLAGS += -DNVAR=8
+    LIBS      = 
+    FFLAGS   += -DNVAR=8
   endif
 
   MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
@@ -72,19 +81,19 @@ endif
 # Flags for Lahey lf95
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
-#  DEBUG = -g --chkglobal
-  DEBUG = -g --chk ase
-  PROFILE =
-  STATIC = 
-  MODPATH = -M
-  FFLAGS +=
-
-  LIBS = -llapackmt -lblasmt
-#  LIBS = -llapack -lblas -lf2c
+#  DEBUG        = -g --chkglobal
+  DEBUG        = -g --chk ase
+  PROFILE      =
+  STATIC       = 
+  MODPATH      = -M
+  FFLAGS      +=
+  LIBS         = -llapackmt -lblasmt
+#  LIBS         = -llapack -lblas -lf2c
+  VERBOSE      = --verbose
 
   ifdef PETSCTRUE
-    CPPFLAGS += -Dlahey -DNVAR=8
-    FFLAGS += -DNVAR=8 --ml cdecl
+    CPPFLAGS  += -DNVAR=8 -Dlahey 
+    FFLAGS    += -DNVAR=8 --ml cdecl
     PETSC_ARCH = linux_lahey
   endif
 
@@ -95,18 +104,18 @@ endif
 ifeq ($(FC),ifort)
   OPTIMIZATION = -O2 -mp -axW
 #  DEBUG = -g
-  DEBUG = -g -check -traceback
-  PROFILE = -gp
-  STATIC =
-  MODPATH =
-  FFLAGS += -vec_report0
-
-  LIBS = -llapack -lblas -lf2c
-#  LIBS = -llapack_intel -lblas_intel
+  DEBUG        = -g -check -traceback
+  PROFILE      = -gp
+  STATIC       =
+  MODPATH      =
+  FFLAGS      += -vec_report0
+  LIBS         = -llapack -lblas -lf2c
+#  LIBS         = -llapack_intel -lblas_intel
+  VERBOSE      = -v
 
   ifdef PETSCTRUE
-    CPPFLAGS += -Dlahey -DNVAR=8
-    FFLAGS += -DNVAR=8
+    CPPFLAGS  += -DNVAR=8
+    FFLAGS    += -DNVAR=8
     PETSC_ARCH = linux_intel
   endif
 
@@ -128,6 +137,9 @@ FFLAGS += $(PROFILE)
 endif
 ifneq (,$(findstring s,$(OPT)))
 FFLAGS += $(STATIC)
+endif
+ifneq (,$(findstring v,$(OPT)))
+FFLAGS += $(VERBOSE)
 endif
 
 export FC FFLAGS CPPFLAGS
@@ -154,35 +166,39 @@ SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 
 #Define targets
 
+.PHONY: clean recclean common beta production petsc $(SUBDIRS)
+
 beta: common $(BETA)
 
-$(BETA):  $(OBJMOD) $(OBJ)  $(COMMON_SRC)
-	@echo 'Linking BETA 3DMHD code'
+$(BETA):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+	@echo ''
+	@echo 'Linking ' $@ ' code'
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
 
 production: common $(PROD)
 
-$(PROD):  $(OBJMOD) $(OBJ)  $(COMMON_SRC)
+$(PROD):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
-	@echo 'Linking PRODUCTION 3DMHD code'
+	@echo 'Linking ' $@ ' code'
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
 
 petsc: common $(PETSCCODE)
 
-$(PETSCCODE): $(OBJMOD) $(OBJ)  $(COMMON_SRC)
+$(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
-	@echo 'Linking PETSC code'
+	@echo 'Linking ' $@ ' code'
 	-${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
 
-common: ;
-	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -e -C $$subdir target; done
+common: $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -e -C $@ target
 
 clean:
 	-rm -f *.o *.mod
 
 recclean: clean
-	for subdir in $(SUBDIRS) ; do \
+	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir clean;  done
 
 #Define dependencies
