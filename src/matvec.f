@@ -702,11 +702,11 @@ c Calculate matrix-vector product
             y(neq*(ijk-1)+1) = ( db(i,j,k,1)/dt
      .               + alpha*upwind )*vol
      .               - alpha*etal
-     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-     .                                                     ,db(:,:,:,2)
-     .                                                     ,db(:,:,:,3)
-     .                                                 ,ones,.false.,1)
-cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
+cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
+cc     .                                                     ,db(:,:,:,2)
+cc     .                                                     ,db(:,:,:,3)
+cc     .                                                 ,ones,.false.,1)
+     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
 
             flxip = 0.5/(jac+jacip)*(
      .           (    (v0_cnv(i,j,k,1)+v0_cnv(ip,j,k,1))
@@ -756,11 +756,11 @@ cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
             y(neq*(ijk-1)+2) = ( db(i,j,k,2)/dt
      .               + alpha*upwind )*vol
      .               - alpha*etal
-     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-     .                                                     ,db(:,:,:,2)
-     .                                                     ,db(:,:,:,3)
-     .                                                 ,ones,.false.,2)
-cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,2))
+cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
+cc     .                                                     ,db(:,:,:,2)
+cc     .                                                     ,db(:,:,:,3)
+cc     .                                                 ,ones,.false.,2)
+     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,2))
 
             flxip = 0.5/(jac+jacip)*(
      .           (    (v0_cnv(i,j,k,1)+v0_cnv(ip,j,k,1))
@@ -810,11 +810,11 @@ cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,2))
             y(neq*(ijk-1)+3) = ( db(i,j,k,3)/dt
      .               + alpha*upwind )*vol
      .               - alpha*etal
-     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-     .                                                     ,db(:,:,:,2)
-     .                                                     ,db(:,:,:,3)
-     .                                                 ,ones,.false.,3)
-cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,3))
+cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
+cc     .                                                     ,db(:,:,:,2)
+cc     .                                                     ,db(:,:,:,3)
+cc     .                                                 ,ones,.false.,3)
+     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,3))
 
           enddo
         enddo
@@ -970,7 +970,7 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            ijkg   = i  + nxx*(j -1) + nxx*nyy*(k -1) + isig - 1
+            ijkg   = ijk + isig - 1
 
             vol    = volume(i,j,k,igx,igy,igz)
 
@@ -1011,10 +1011,11 @@ c Calculate matrix-vector product
 
               psiv(ieq) = alpha*upwind*vol
      .                  - alpha*mul
-     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,dv(:,:,:,1)
-     .                                                     ,dv(:,:,:,2)
-     .                                                     ,dv(:,:,:,3)
-     .                                   ,ones,alt_eom,ieq)
+cc     .                      *veclaplacian(i,j,k,nxx,nyy,nzz,dv(:,:,:,1)
+cc     .                                                     ,dv(:,:,:,2)
+cc     .                                                     ,dv(:,:,:,3)
+cc     .                                   ,ones,alt_eom,ieq)
+     .                      *laplacian(i,j,k,nxx,nyy,nzz,dv(:,:,:,ieq))
             enddo
 
             psiv = rho0(i,j,k,1)*psiv
@@ -1148,12 +1149,7 @@ cc            km = max(k-1,1)
             cov(2) = (flxjp - flxjm)/dyh(jg)
             cov(3) = (flxkp - flxkm)/dzh(kg)
 
-            !Transform cov to cnv
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .                                  ,cov(1),cov(2),cov(3)
-     .                                  ,cnv(1),cnv(2),cnv(3),.true.)
-
-            psit = -dt*alpha**2*cnv*vol
+            psit = -dt*alpha**2*cov*vol
 
             !P_si^B  ******************************
 
@@ -1263,19 +1259,22 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
             !Introduce jacobian factor
             cov = cov/jac
 
+            psib = -dt*alpha**2*cov*vol
+
+            !Add all contributions to form matvec ***********************
+
             !Transform cov to cnv
+
+            cov = psib + psit
 
             call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                  ,cov(1),cov(2),cov(3)
      .                                  ,cnv(1),cnv(2),cnv(3),.true.)
 
-            psib = -dt*alpha**2*cnv*vol
-
-            !Add all contributions to form matvec ***********************
-
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = dv(i,j,k,ieq)/dt*vol*rho0(i,j,k,1)
-     .                         + psiv(ieq) + psit(ieq) + psib(ieq)
+     .                         + psiv(ieq) + cnv(ieq)
+cc     .                         + psiv(ieq) + psit(ieq) + psib(ieq)
             enddo
 
           enddo
