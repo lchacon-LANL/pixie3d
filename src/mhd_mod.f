@@ -7,6 +7,8 @@ c     Give Cartesian coordinates corresponding to node (i,j,k) at grid
 c     level (igx,igy,igz).
 c ---------------------------------------------------------------------
 
+      use error
+
       implicit none
 
 c Input variables
@@ -19,9 +21,8 @@ c Local variables
 
 c Begin program
 
-      write (*,*) 'Error: subroutine map called!'
-      write (*,*) 'Aborting...'
-      stop
+      messg = 'This subroutine should not be called here'
+      call pstop('map',messg)
 
       end subroutine map
 
@@ -44,6 +45,78 @@ c ######################################################################
       module transport_params
 
         real(8) :: nu,eta,dd,chi,gamma
+
+      contains
+
+c     res
+c     #############################################################
+      function res(i,j,k,nx,ny,nz,igx,igy,igz)
+c     -------------------------------------------------------------
+c     This function computes the resistivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: res
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+c     Local variables
+
+      integer(4) :: nn,ig,jg,kg
+      real(8)    :: x1,y1,z1,aa
+      logical    :: cartsn
+
+c     Begin program
+
+c     Resistivity profile eta*(1 + aa*x^nn)
+c       Coefficient aa is set so that res = 20*eta at wall
+c       and nn so that res=??*eta at sing. surf. xs ~ 0.33
+
+cc      select case (equil)
+cc      case ('rfp1')
+cc
+cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc        nn = 4
+cc        aa = 19.
+cc        res = eta*(1. + aa*grid_params%xx(ig)**nn)
+cc
+cc      case default
+
+        res = eta
+
+cc      end select
+
+c     End program
+
+      end function res
+
+c     vis
+c     #############################################################
+      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
+c     -------------------------------------------------------------
+c     This function computes the viscosity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: vis
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+c     Local variables
+
+c     Begin program
+
+      vis = nu
+
+c     End program
+
+      end function vis
 
       end module transport_params
 
@@ -85,7 +158,7 @@ c ######################################################################
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
      .         ,eeta,nuu,ejx,ejy,ejz
 
-        real(8),target,allocatable,dimension(:,:,:,:) :: bcnv
+        real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,vcnv
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_car,by_car,bz_car
@@ -93,7 +166,7 @@ c ######################################################################
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgV,divrgJ,Pflux,qfactor,p_tot
 
-        real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
+        logical :: alt_eom
 
       end module auxiliaryVariables
 
@@ -105,7 +178,11 @@ c ######################################################################
 
         use grid_aliases
 
-        real(8),pointer,dimension(:,:,:,:) :: vec
+        use error
+
+        real(8),pointer,dimension(:,:,:,:) :: vec,vec1,vec2
+
+        logical  :: zip_eom_b
 
       contains
 
@@ -128,7 +205,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ig,jg,kg,igrid
-      real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jac0,jach
+      real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jacm,jac0,jach
 
 c     Begin program
 
@@ -138,22 +215,32 @@ c     Begin program
 
       jac0 = gmetric%grid(igrid)%jac(i,j,k)
 
-      dxx = dxh(ig)
-      dyy = dyh(jg)
-      dzz = dzh(kg)
+      dxx = 2*dxh(ig)
+      dyy = 2*dyh(jg)
+      dzz = 2*dzh(kg)
 
       if (isSP(i,j,k,igx,igy,igz)) then
         jacp = gmetric%grid(igrid)%jac(i+1,j,k)
         jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
 
         div =  ((ax(i+1,j  ,k  )/jacp
-     .          +ax(i  ,j  ,k  )/jac0)*jach)    /2./dxx
-     .        +(ay(i  ,j+1,k  )-ay(i  ,j-1,k  ))/2./dyy
-     .        +(az(i  ,j  ,k+1)-az(i  ,j  ,k-1))/2./dzz
+     .          +ax(i  ,j  ,k  )/jac0)*jach
+     .        -2*ax(i-1,j  ,k  )               )/dxx
+     .        +(ay(i  ,j+1,k  )-ay(i  ,j-1,k  ))/dyy
+     .        +(az(i  ,j  ,k+1)-az(i  ,j  ,k-1))/dzz
+cc      elseif (isSP(i-1,j,k,igx,igy,igz)) then
+cc        jacm = gmetric%grid(igrid)%jac(i-1,j,k)
+cc        jach = 0.5*(jacm+jac0)   !Only good for cylindrical-like geom.
+cc
+cc        div =  ((ax(i+1,j  ,k  )+ax(i  ,j  ,k  ))
+cc     .         -(ax(i-1,j  ,k  )/jacm
+cc     .          +ax(i  ,j  ,k  )/jac0)*jach    )/dxx
+cc     .        +(ay(i  ,j+1,k  )-ay(i  ,j-1,k  ))/dyy
+cc     .        +(az(i  ,j  ,k+1)-az(i  ,j  ,k-1))/dzz
       else
-        div =  (ax(i+1,j  ,k  )-ax(i-1,j  ,k  ))/2./dxx
-     .        +(ay(i  ,j+1,k  )-ay(i  ,j-1,k  ))/2./dyy
-     .        +(az(i  ,j  ,k+1)-az(i  ,j  ,k-1))/2./dzz
+        div =  (ax(i+1,j  ,k  )-ax(i-1,j  ,k  ))/dxx
+     .        +(ay(i  ,j+1,k  )-ay(i  ,j-1,k  ))/dyy
+     .        +(az(i  ,j  ,k+1)-az(i  ,j  ,k-1))/dzz
       endif
 
       div = div/jac0
@@ -751,18 +838,13 @@ c     Begin program
 
         jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
      .               +gmetric%grid(igrid)%jac (i ,j,k))
+cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
+cc     .               *gmetric%grid(igrid)%jac (ip,j,k)
+cc     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:)
+cc     .               *gmetric%grid(igrid)%jac (i ,j,k))
+cc     .          /jac
         gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
      .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
-
-        if (i + grid_params%ilo(igrid)-1 < grid_params%nxgl(igrid)
-     .      .and. bcond(1) == SP
-     .      .and. flag /= 0) then
-          jacp = gmetric%grid(igrid)%jac(ip,j,k)
-          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
-        else
-          jacp = jac
-          jac0 = jac
-        endif
 
         if (flag /= 0) then
           nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
@@ -1235,9 +1317,8 @@ c1st          daxdy = (ax(i,j,k)-ax(i,jm,k))/dy1
 
       case default
 
-        write (*,*) 'Error in component in curl'
-        write (*,*) 'Aborting...'
-        stop
+        messg = 'Error in component in curl'
+        call pstop('curl2',messg)
 
       end select
 
@@ -1609,6 +1690,398 @@ ccc     End program
 cc
 cc      end function curlcurl
 
+ccc     fnabla_v
+ccc     #############################################################
+cc      function fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,half_elem)
+cc     .         result(tensor)
+ccc     -------------------------------------------------------------
+ccc     Calculates the tensor nabla(vec v) at the following positions:
+ccc       + half_elem=0 --> i,j,k
+ccc       + half_elem=1 --> i+1/2,j,k
+ccc       + half_elem=2 --> i,j+1/2,k
+ccc       + half_elem=3 --> i,j,k+1/2
+ccc     -------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        integer(4) :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
+cc        real(8)    :: tensor(3,3)
+cc        real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
+cc     .               ,ay(0:nx+1,0:ny+1,0:nz+1)
+cc     .               ,az(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+cc        real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
+cc        real(8)    :: vxx,vyy,vzz
+cc     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
+cc     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
+cc     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+cc        real(8)    :: tsrc(3,3)
+cc        logical    :: sing_point
+cc
+ccc     Begin program
+cc
+cc        igrid = igx
+cc
+cc        sing_point = isSP(i,j,k,igx,igy,igz)
+cc
+cc        !Defaults
+cc
+cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc        dhx = 2.*dxh(ig)
+cc        dhy = 2.*dyh(jg)
+cc        dhz = 2.*dzh(kg)
+cc
+cc        ip = i+1
+cc        im = i-1
+cc        jp = j+1
+cc        jm = j-1
+cc        kp = k+1
+cc        km = k-1
+cc
+cc        !Exceptions
+cc
+cc        select case(half_elem)
+cc        case (1)
+cc          dhx = dx(ig)
+cc
+cc          vxip = ax(ip,j,k)
+cc          vxim = ax(i ,j,k)
+cc          vyip = ay(ip,j,k)
+cc          vyim = ay(i ,j,k)
+cc          vzip = az(ip,j,k)
+cc          vzim = az(i ,j,k)
+cc
+cc          vxjp = (ax(ip,jp,k)+ax(i,jp,k))/2.
+cc          vxjm = (ax(ip,jm,k)+ax(i,jm,k))/2.
+cc          vyjp = (ay(ip,jp,k)+ay(i,jp,k))/2.
+cc          vyjm = (ay(ip,jm,k)+ay(i,jm,k))/2.
+cc          vzjp = (az(ip,jp,k)+az(i,jp,k))/2.
+cc          vzjm = (az(ip,jm,k)+az(i,jm,k))/2.
+cc
+cc          vxkp = (ax(ip,j,kp)+ax(i,j,kp))/2.
+cc          vxkm = (ax(ip,j,km)+ax(i,j,km))/2.
+cc          vykp = (ay(ip,j,kp)+ay(i,j,kp))/2.
+cc          vykm = (ay(ip,j,km)+ay(i,j,km))/2.
+cc          vzkp = (az(ip,j,kp)+az(i,j,kp))/2.
+cc          vzkm = (az(ip,j,km)+az(i,j,km))/2.
+cc
+cc          tsrc = 0.5*(nabla_v_src(ip,j,k)
+cc     .               +nabla_v_src(i ,j,k))
+cc
+cc        case (2)
+cc          dhy = dy(jg)
+cc
+cc          if (sing_point) then
+cc            vxip = (ax(ip,j,k)+ax(ip,jp,k))/2.
+cc     .            +(ax(i ,j,k)+ax(i ,jp,k))/2.
+cc            vxim = (ax(im,j,k)+ax(im,jp,k))
+cc            vyip = (ay(ip,j,k)+ay(ip,jp,k))/2.
+cc     .            +(ay(i ,j,k)+ay(i ,jp,k))/2.
+cc            vyim = (ay(im,j,k)+ay(im,jp,k))
+cc            vzip = (az(ip,j,k)+az(ip,jp,k))/2
+cc     .            +(az(i ,j,k)+az(i ,jp,k))/2.
+cc            vzim = (az(im,j,k)+az(im,jp,k))
+cc          else
+cc            vxip = (ax(ip,j,k)+ax(ip,jp,k))/2.
+cc            vxim = (ax(im,j,k)+ax(im,jp,k))/2.
+cc            vyip = (ay(ip,j,k)+ay(ip,jp,k))/2.
+cc            vyim = (ay(im,j,k)+ay(im,jp,k))/2.
+cc            vzip = (az(ip,j,k)+az(ip,jp,k))/2.
+cc            vzim = (az(im,j,k)+az(im,jp,k))/2.
+cc          endif
+cc
+cc          vxjp = ax(i,jp,k)
+cc          vxjm = ax(i,j ,k)
+cc          vyjp = ay(i,jp,k)
+cc          vyjm = ay(i,j ,k)
+cc          vzjp = az(i,jp,k)
+cc          vzjm = az(i,j ,k)
+cc
+cc          vxkp = (ax(i,j,kp)+ax(i,jp,kp))/2.
+cc          vxkm = (ax(i,j,km)+ax(i,jp,km))/2.
+cc          vykp = (ay(i,j,kp)+ay(i,jp,kp))/2.
+cc          vykm = (ay(i,j,km)+ay(i,jp,km))/2.
+cc          vzkp = (az(i,j,kp)+az(i,jp,kp))/2.
+cc          vzkm = (az(i,j,km)+az(i,jp,km))/2.
+cc
+cc          tsrc = 0.5*(nabla_v_src(i,jp,k)
+cc     .               +nabla_v_src(i,j ,k))
+cc
+cc        case (3)
+cc          dhz = dz(kg)
+cc
+cc          if (sing_point) then
+cc            vxip = (ax(ip,j,k)+ax(ip,j,kp))/2.
+cc     .            +(ax(i ,j,k)+ax(i ,j,kp))/2.
+cc            vxim = (ax(im,j,k)+ax(im,j,kp))
+cc            vyip = (ay(ip,j,k)+ay(ip,j,kp))/2.
+cc     .            +(ay(i ,j,k)+ay(i ,j,kp))/2.
+cc            vyim = (ay(im,j,k)+ay(im,j,kp))
+cc            vzip = (az(ip,j,k)+az(ip,j,kp))/2.
+cc     .            +(az(i ,j,k)+az(i ,j,kp))/2.
+cc            vzim = (az(im,j,k)+az(im,j,kp))
+cc          else
+cc            vxip = (ax(ip,j,k)+ax(ip,j,kp))/2.
+cc            vxim = (ax(im,j,k)+ax(im,j,kp))/2.
+cc            vyip = (ay(ip,j,k)+ay(ip,j,kp))/2.
+cc            vyim = (ay(im,j,k)+ay(im,j,kp))/2.
+cc            vzip = (az(ip,j,k)+az(ip,j,kp))/2.
+cc            vzim = (az(im,j,k)+az(im,j,kp))/2.
+cc          endif
+cc
+cc          vxjp = (ax(i,jp,k)+ax(i,jp,kp))/2.
+cc          vxjm = (ax(i,jm,k)+ax(i,jm,kp))/2.
+cc          vyjp = (ay(i,jp,k)+ay(i,jp,kp))/2.
+cc          vyjm = (ay(i,jm,k)+ay(i,jm,kp))/2.
+cc          vzjp = (az(i,jp,k)+az(i,jp,kp))/2.
+cc          vzjm = (az(i,jm,k)+az(i,jm,kp))/2.
+cc
+cc          vxkp = ax(i,j,kp)
+cc          vxkm = ax(i,j,k )
+cc          vykp = ay(i,j,kp)
+cc          vykm = ay(i,j,k )
+cc          vzkp = az(i,j,kp)
+cc          vzkm = az(i,j,k )
+cc
+cc          tsrc = 0.5*(nabla_v_src(i,j,kp)
+cc     .               +nabla_v_src(i,j,k ))
+cc
+cc        case default
+cc
+cc          if (sing_point) then
+cc            vxip = ax(ip,j,k)+ax(i,j,k)
+cc            vxim = 2.*ax(im,j,k)
+cc            vyip = ay(ip,j,k)+ay(i,j,k)
+cc            vyim = 2.*ay(im,j,k)
+cc            vzip = az(ip,j,k)+az(i,j,k)
+cc            vzim = 2.*az(im,j,k)
+cc          else
+cc            vxip = ax(ip,j,k)
+cc            vxim = ax(im,j,k)
+cc            vyip = ay(ip,j,k)
+cc            vyim = ay(im,j,k)
+cc            vzip = az(ip,j,k)
+cc            vzim = az(im,j,k)
+cc          endif
+cc
+cc          vxjp = ax(i,jp,k)
+cc          vxjm = ax(i,jm,k)
+cc          vyjp = ay(i,jp,k)
+cc          vyjm = ay(i,jm,k)
+cc          vzjp = az(i,jp,k)
+cc          vzjm = az(i,jm,k)
+cc
+cc          vxkp = ax(i,j,kp)
+cc          vxkm = ax(i,j,km)
+cc          vykp = ay(i,j,kp)
+cc          vykm = ay(i,j,km)
+cc          vzkp = az(i,j,kp)
+cc          vzkm = az(i,j,km)
+cc
+cc          tsrc = nabla_v_src(i,j,k)
+cc
+cc        end select
+cc
+cc        idhx = 1./dhx
+cc        idhy = 1./dhy
+cc        idhz = 1./dhz
+cc
+cc      ! l = 1, m = 1
+cc        tensor(1,1) = (vxip-vxim)*idhx
+cc
+cc      ! l = 1, m = 2
+cc        tensor(1,2) = (vyip-vyim)*idhx
+cc
+cc      ! l = 1, m = 3
+cc        tensor(1,3) = (vzip-vzim)*idhx
+cc
+cc      ! l = 2, m = 1
+cc        tensor(2,1) = (vxjp-vxjm)*idhy
+cc
+cc      ! l = 2, m = 2
+cc        tensor(2,2) = (vyjp-vyjm)*idhy
+cc
+cc      ! l = 2, m = 3
+cc        tensor(2,3) = (vzjp-vzjm)*idhy
+cc
+cc      ! l = 3, m = 1
+cc        tensor(3,1) = (vxkp-vxkm)*idhz
+cc
+cc      ! l = 3, m = 2
+cc        tensor(3,2) = (vykp-vykm)*idhz
+cc
+cc      ! l = 3, m = 3
+cc        tensor(3,3) = (vzkp-vzkm)*idhz
+cc
+cc      ! Add geometric source
+cc
+cc        tensor = tensor - tsrc
+cc
+ccc     End program
+cc
+cc      contains
+cc
+ccc     nabla_v_src
+ccc     #############################################################
+cc      function nabla_v_src(i,j,k) result(tensor)
+cc
+ccc     -------------------------------------------------------------
+ccc     Finds geometric source of tensor nabla(v) at cell (i,j,k)
+ccc     -------------------------------------------------------------
+cc
+cc        implicit none
+cc
+cc        integer(4) :: i,j,k
+cc        real(8)    :: tensor(3,3)
+cc
+cc        real(8)    :: vxx,vyy,vzz,hessian(3,3,3)
+cc
+ccc     Begin program
+cc
+cccc        vxx = ax(i,j,k)
+cccc        vyy = ay(i,j,k)
+cccc        vzz = az(i,j,k)
+cc
+cc        hessian = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+cc
+cccc      ! l = 1, m = 1
+cccc        tensor(1,1) =  vxx*(hessian(1,1,1)
+cccc     .                    + hessian(2,2,1)
+cccc     .                    + hessian(3,3,1))
+cccc     .               - vxx *hessian(1,1,1)
+cccc     .               - vyy *hessian(1,2,1)
+cccc     .               - vzz *hessian(1,3,1)
+cccc
+cccc      ! l = 1, m = 2
+cccc        tensor(1,2) =  vyy*(hessian(1,1,1)
+cccc     .                    + hessian(2,2,1)
+cccc     .                    + hessian(3,3,1))
+cccc     .               - vxx* hessian(2,1,1)
+cccc     .               - vyy* hessian(2,2,1)
+cccc     .               - vzz* hessian(2,3,1)
+cccc
+cccc      ! l = 1, m = 3
+cccc        tensor(1,3) =  vzz*(hessian(1,1,1)
+cccc     .                    + hessian(2,2,1)
+cccc     .                    + hessian(3,3,1))
+cccc     .               - vxx* hessian(3,1,1)
+cccc     .               - vyy* hessian(3,2,1)
+cccc     .               - vzz* hessian(3,3,1)
+cccc
+cccc      ! l = 2, m = 1
+cccc        tensor(2,1) =  vxx*(hessian(1,1,2)
+cccc     .                    + hessian(2,2,2)
+cccc     .                    + hessian(3,3,2))
+cccc     .               - vxx* hessian(1,1,2)
+cccc     .               - vyy* hessian(1,2,2)
+cccc     .               - vzz* hessian(1,3,2)
+cccc
+cccc      ! l = 2, m = 2
+cccc        tensor(2,2) =  vyy*(hessian(1,1,2)
+cccc     .                    + hessian(2,2,2)
+cccc     .                    + hessian(3,3,2))
+cccc     .               - vxx* hessian(2,1,2)
+cccc     .               - vyy* hessian(2,2,2)
+cccc     .               - vzz* hessian(2,3,2)
+cccc
+cccc      ! l = 2, m = 3
+cccc        tensor(2,3) =  vzz*(hessian(1,1,2)
+cccc     .                    + hessian(2,2,2)
+cccc     .                    + hessian(3,3,2))
+cccc     .               - vxx* hessian(3,1,2)
+cccc     .               - vyy* hessian(3,2,2)
+cccc     .               - vzz* hessian(3,3,2)
+cccc
+cccc      ! l = 3, m = 1
+cccc        tensor(3,1) =  vxx*(hessian(1,1,3)
+cccc     .                    + hessian(2,2,3)
+cccc     .                    + hessian(3,3,3))
+cccc     .               - vxx* hessian(1,1,3)
+cccc     .               - vyy* hessian(1,2,3)
+cccc     .               - vzz* hessian(1,3,3)
+cccc
+cccc      ! l = 3, m = 2
+cccc        tensor(3,2) =  vyy*(hessian(1,1,3)
+cccc     .                    + hessian(2,2,3)
+cccc     .                    + hessian(3,3,3))
+cccc     .               - vxx* hessian(2,1,3)
+cccc     .               - vyy* hessian(2,2,3)
+cccc     .               - vzz* hessian(2,3,3)
+cccc
+cccc      ! l = 3, m = 3
+cccc        tensor(3,3) =  vzz*(hessian(1,1,3)
+cccc     .                    + hessian(2,2,3)
+cccc     .                    + hessian(3,3,3))
+cccc     .               - vxx* hessian(3,1,3)
+cccc     .               - vyy* hessian(3,2,3)
+cccc     .               - vzz* hessian(3,3,3)
+cc
+cc      ! l = 1, m = 1
+cc        tensor(1,1) =  ax(i,j,k)*(hessian(2,2,1)
+cc     .                          + hessian(3,3,1))
+cc     .               - ay(i,j,k) *hessian(1,2,1)
+cc     .               - az(i,j,k) *hessian(1,3,1)
+cc
+cc      ! l = 1, m = 2
+cc        tensor(1,2) =  ay(i,j,k)*(hessian(1,1,1)
+cc     .                          + hessian(3,3,1))
+cc     .               - ax(i,j,k)* hessian(2,1,1)
+cc     .               - az(i,j,k)* hessian(2,3,1)
+cc
+cc      ! l = 1, m = 3
+cc        tensor(1,3) =  az(i,j,k)*(hessian(1,1,1)
+cc     .                          + hessian(2,2,1))
+cc     .               - ax(i,j,k)* hessian(3,1,1)
+cc     .               - ay(i,j,k)* hessian(3,2,1)
+cc
+cc      ! l = 2, m = 1
+cc        tensor(2,1) =  ax(i,j,k)*(hessian(2,2,2)
+cc     .                          + hessian(3,3,2))
+cc     .               - ay(i,j,k)* hessian(1,2,2)
+cc     .               - az(i,j,k)* hessian(1,3,2)
+cc
+cc      ! l = 2, m = 2
+cc        tensor(2,2) =  ay(i,j,k)*(hessian(1,1,2)
+cc     .                          + hessian(3,3,2))
+cc     .               - ax(i,j,k)* hessian(2,1,2)
+cc     .               - az(i,j,k)* hessian(2,3,2)
+cc
+cc      ! l = 2, m = 3
+cc        tensor(2,3) =  az(i,j,k)*(hessian(1,1,2)
+cc     .                          + hessian(2,2,2))
+cc     .               - ax(i,j,k)* hessian(3,1,2)
+cc     .               - ay(i,j,k)* hessian(3,2,2)
+cc
+cc      ! l = 3, m = 1
+cc        tensor(3,1) =  ax(i,j,k)*(hessian(2,2,3)
+cc     .                          + hessian(3,3,3))
+cc     .               - ay(i,j,k)* hessian(1,2,3)
+cc     .               - az(i,j,k)* hessian(1,3,3)
+cc
+cc      ! l = 3, m = 2
+cc        tensor(3,2) =  ay(i,j,k)*(hessian(1,1,3)
+cc     .                          + hessian(3,3,3))
+cc     .               - ax(i,j,k)* hessian(2,1,3)
+cc     .               - az(i,j,k)* hessian(2,3,3)
+cc
+cc      ! l = 3, m = 3
+cc        tensor(3,3) =  az(i,j,k)*(hessian(1,1,3)
+cc     .                          + hessian(2,2,3))
+cc     .               - ax(i,j,k)* hessian(3,1,3)
+cc     .               - ay(i,j,k)* hessian(3,2,3)
+cc
+ccc     End program
+cc
+cc      end function nabla_v_src
+cc
+cc      end function fnabla_v
+
 c     fnabla_v
 c     #############################################################
       function fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,half_elem)
@@ -1639,7 +2112,8 @@ c     Local variables
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
      .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
-        real(8)    :: tsrc(3,3)
+        real(8)    :: tsrc(3,3),jacip,jacjp,jacjm,jackp,jackm
+     .               ,jacipkp,jacipkm,jacipjp,jacipjm,jac
         logical    :: sing_point
 
 c     Begin program
@@ -1676,19 +2150,64 @@ c     Begin program
           vzip = az(ip,j,k)
           vzim = az(i ,j,k)
 
-          vxjp = (ax(ip,jp,k)+ax(i,jp,k))/2.
-          vxjm = (ax(ip,jm,k)+ax(i,jm,k))/2.
-          vyjp = (ay(ip,jp,k)+ay(i,jp,k))/2.
-          vyjm = (ay(ip,jm,k)+ay(i,jm,k))/2.
-          vzjp = (az(ip,jp,k)+az(i,jp,k))/2.
-          vzjm = (az(ip,jm,k)+az(i,jm,k))/2.
+          if (isSP(ip,j,k,igrid,igrid,igrid)) ip = i
 
-          vxkp = (ax(ip,j,kp)+ax(i,j,kp))/2.
-          vxkm = (ax(ip,j,km)+ax(i,j,km))/2.
-          vykp = (ay(ip,j,kp)+ay(i,j,kp))/2.
-          vykm = (ay(ip,j,km)+ay(i,j,km))/2.
-          vzkp = (az(ip,j,kp)+az(i,j,kp))/2.
-          vzkm = (az(ip,j,km)+az(i,j,km))/2.
+          if (sing_point) then
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k )
+            jacipjp= gmetric%grid(igrid)%jac(ip,jp,k)
+            jacipjm= gmetric%grid(igrid)%jac(ip,jm,k)
+            jacjp  = gmetric%grid(igrid)%jac(i ,jp,k)
+            jacjm  = gmetric%grid(igrid)%jac(i ,jm,k)
+            jacipkp= gmetric%grid(igrid)%jac(ip,j,kp)
+            jacipkm= gmetric%grid(igrid)%jac(ip,j,km)
+            jackp  = gmetric%grid(igrid)%jac(i ,j,kp)
+            jackm  = gmetric%grid(igrid)%jac(i ,j,km)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
+
+            vxjp = 0.5*(ax(ip,jp,k)/jacipjp+ax(i,jp,k)/jacjp)
+     .            *0.5*(jacipjp+jacjp)
+            vxjm = 0.5*(ax(ip,jm,k)/jacipjm+ax(i,jm,k)/jacjm)
+     .            *0.5*(jacipjm+jacjm)
+            vyjp = 0.5*(ay(ip,jp,k)+ay(i,jp,k))
+            vyjm = 0.5*(ay(ip,jm,k)+ay(i,jm,k))
+            vzjp = 0.5*(az(ip,jp,k)/jacipjp+az(i,jp,k)/jacjp)
+     .            *0.5*(jacipjp+jacjp)
+            vzjm = 0.5*(az(ip,jm,k)/jacipjm+az(i,jm,k)/jacjm)
+     .            *0.5*(jacipjm+jacjm)
+
+            vxkp = 0.5*(ax(ip,j,kp)/jacipkp+ax(i,j,kp)/jackp)
+     .            *0.5*(jacipkp+jackp)
+            vxkm = 0.5*(ax(ip,j,km)/jacipkm+ax(i,j,km)/jackm)
+     .            *0.5*(jacipkm+jackm)
+            vykp = 0.5*(ay(ip,j,kp)+ay(i,j,kp))
+            vykm = 0.5*(ay(ip,j,km)+ay(i,j,km))
+            vzkp = 0.5*(az(ip,j,kp)/jacipkp+az(i,j,kp)/jackp)
+     .            *0.5*(jacipkp+jackp)
+            vzkm = 0.5*(az(ip,j,km)/jacipkm+az(i,j,km)/jackm)
+     .            *0.5*(jacipkm+jackm)
+
+cc            tsrc = 0.5*(nabla_v_src(ip,j,k)/jacip
+cc     .                 +nabla_v_src(i ,j,k)/jac)
+cc     .            *0.5*(jacip+jac)
+
+          else
+            vxjp = 0.5*(ax(ip,jp,k)+ax(i,jp,k))
+            vxjm = 0.5*(ax(ip,jm,k)+ax(i,jm,k))
+            vyjp = 0.5*(ay(ip,jp,k)+ay(i,jp,k))
+            vyjm = 0.5*(ay(ip,jm,k)+ay(i,jm,k))
+            vzjp = 0.5*(az(ip,jp,k)+az(i,jp,k))
+            vzjm = 0.5*(az(ip,jm,k)+az(i,jm,k))
+
+            vxkp = 0.5*(ax(ip,j,kp)+ax(i,j,kp))
+            vxkm = 0.5*(ax(ip,j,km)+ax(i,j,km))
+            vykp = 0.5*(ay(ip,j,kp)+ay(i,j,kp))
+            vykm = 0.5*(ay(ip,j,km)+ay(i,j,km))
+            vzkp = 0.5*(az(ip,j,kp)+az(i,j,kp))
+            vzkm = 0.5*(az(ip,j,km)+az(i,j,km))
+
+cc            tsrc = 0.5*(nabla_v_src(ip,j,k)
+cc     .                 +nabla_v_src(i ,j,k))
+          endif
 
           tsrc = 0.5*(nabla_v_src(ip,j,k)
      .               +nabla_v_src(i ,j,k))
@@ -1697,22 +2216,31 @@ c     Begin program
           dhy = dy(jg)
 
           if (sing_point) then
-            vxip = (ax(ip,j,k)+ax(ip,jp,k))/2.
-     .            +(ax(i ,j,k)+ax(i ,jp,k))/2.
-            vxim = (ax(im,j,k)+ax(im,jp,k))
-            vyip = (ay(ip,j,k)+ay(ip,jp,k))/2.
-     .            +(ay(i ,j,k)+ay(i ,jp,k))/2.
-            vyim = (ay(im,j,k)+ay(im,jp,k))
-            vzip = (az(ip,j,k)+az(ip,jp,k))/2
-     .            +(az(i ,j,k)+az(i ,jp,k))/2.
-            vzim = (az(im,j,k)+az(im,jp,k))
+            dhx  = dxh(ig)
+
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k )
+            jacipjp= gmetric%grid(igrid)%jac(ip,jp,k)
+            jacjp  = gmetric%grid(igrid)%jac(i ,jp,k)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
+
+            vxip = 0.25*(ax(ip,j,k)/jacip+ax(ip,jp,k)/jacipjp
+     .                  +ax(i ,j,k)/jac  +ax(i ,jp,k)/jacjp  )
+     .            *0.25*(jacip+jacipjp+jac+jacjp)
+            vxim = 0.5*(ax(im,j,k)+ax(im,jp,k))
+            vyip = 0.25*(ay(ip,j,k)+ay(ip,jp,k)
+     .                  +ay(i ,j,k)+ay(i ,jp,k))
+            vyim = 0.5*(ay(im,j,k)+ay(im,jp,k))
+            vzip = 0.25*(az(ip,j,k)/jacip+az(ip,jp,k)/jacipjp
+     .                  +az(i ,j,k)/jac  +az(i ,jp,k)/jacjp  )
+     .            *0.25*(jacip+jacipjp+jac+jacjp)
+            vzim = 0.5*(az(im,j,k)+az(im,jp,k))
           else
-            vxip = (ax(ip,j,k)+ax(ip,jp,k))/2.
-            vxim = (ax(im,j,k)+ax(im,jp,k))/2.
-            vyip = (ay(ip,j,k)+ay(ip,jp,k))/2.
-            vyim = (ay(im,j,k)+ay(im,jp,k))/2.
-            vzip = (az(ip,j,k)+az(ip,jp,k))/2.
-            vzim = (az(im,j,k)+az(im,jp,k))/2.
+            vxip = 0.5*(ax(ip,j,k)+ax(ip,jp,k))
+            vxim = 0.5*(ax(im,j,k)+ax(im,jp,k))
+            vyip = 0.5*(ay(ip,j,k)+ay(ip,jp,k))
+            vyim = 0.5*(ay(im,j,k)+ay(im,jp,k))
+            vzip = 0.5*(az(ip,j,k)+az(ip,jp,k))
+            vzim = 0.5*(az(im,j,k)+az(im,jp,k))
           endif
 
           vxjp = ax(i,jp,k)
@@ -1722,12 +2250,12 @@ c     Begin program
           vzjp = az(i,jp,k)
           vzjm = az(i,j ,k)
 
-          vxkp = (ax(i,j,kp)+ax(i,jp,kp))/2.
-          vxkm = (ax(i,j,km)+ax(i,jp,km))/2.
-          vykp = (ay(i,j,kp)+ay(i,jp,kp))/2.
-          vykm = (ay(i,j,km)+ay(i,jp,km))/2.
-          vzkp = (az(i,j,kp)+az(i,jp,kp))/2.
-          vzkm = (az(i,j,km)+az(i,jp,km))/2.
+          vxkp = 0.5*(ax(i,j,kp)+ax(i,jp,kp))
+          vxkm = 0.5*(ax(i,j,km)+ax(i,jp,km))
+          vykp = 0.5*(ay(i,j,kp)+ay(i,jp,kp))
+          vykm = 0.5*(ay(i,j,km)+ay(i,jp,km))
+          vzkp = 0.5*(az(i,j,kp)+az(i,jp,kp))
+          vzkm = 0.5*(az(i,j,km)+az(i,jp,km))
 
           tsrc = 0.5*(nabla_v_src(i,jp,k)
      .               +nabla_v_src(i,j ,k))
@@ -1736,30 +2264,39 @@ c     Begin program
           dhz = dz(kg)
 
           if (sing_point) then
-            vxip = (ax(ip,j,k)+ax(ip,j,kp))/2.
-     .            +(ax(i ,j,k)+ax(i ,j,kp))/2.
-            vxim = (ax(im,j,k)+ax(im,j,kp))
-            vyip = (ay(ip,j,k)+ay(ip,j,kp))/2.
-     .            +(ay(i ,j,k)+ay(i ,j,kp))/2.
-            vyim = (ay(im,j,k)+ay(im,j,kp))
-            vzip = (az(ip,j,k)+az(ip,j,kp))/2.
-     .            +(az(i ,j,k)+az(i ,j,kp))/2.
-            vzim = (az(im,j,k)+az(im,j,kp))
+            dhx  = dxh(ig)
+
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k )
+            jacipkp= gmetric%grid(igrid)%jac(ip,j,kp)
+            jackp  = gmetric%grid(igrid)%jac(i ,j,kp)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
+
+            vxip = 0.25*(ax(ip,j,k)/jacip+ax(ip,j,kp)/jacipkp
+     .                 + ax(i ,j,k)/jac  +ax(i ,j,kp)/jackp  )
+     .            *0.25*(jacip+jacipkp+jackp+jac)
+            vxim = 0.5*(ax(im,j,k)+ax(im,j,kp))
+            vyip = 0.25*(ay(ip,j,k)+ay(ip,j,kp)
+     .                  +ay(i ,j,k)+ay(i ,j,kp))
+            vyim = 0.5*(ay(im,j,k)+ay(im,j,kp))
+            vzip = 0.25*(az(ip,j,k)/jacip+az(ip,j,kp)/jacipkp
+     .                  +az(i ,j,k)/jac  +az(i ,j,kp)/jackp  )
+     .            *0.25*(jacip+jacipkp+jackp+jac)
+            vzim = 0.5*(az(im,j,k)+az(im,j,kp))
           else
-            vxip = (ax(ip,j,k)+ax(ip,j,kp))/2.
-            vxim = (ax(im,j,k)+ax(im,j,kp))/2.
-            vyip = (ay(ip,j,k)+ay(ip,j,kp))/2.
-            vyim = (ay(im,j,k)+ay(im,j,kp))/2.
-            vzip = (az(ip,j,k)+az(ip,j,kp))/2.
-            vzim = (az(im,j,k)+az(im,j,kp))/2.
+            vxip = 0.5*(ax(ip,j,k)+ax(ip,j,kp))
+            vxim = 0.5*(ax(im,j,k)+ax(im,j,kp))
+            vyip = 0.5*(ay(ip,j,k)+ay(ip,j,kp))
+            vyim = 0.5*(ay(im,j,k)+ay(im,j,kp))
+            vzip = 0.5*(az(ip,j,k)+az(ip,j,kp))
+            vzim = 0.5*(az(im,j,k)+az(im,j,kp))
           endif
 
-          vxjp = (ax(i,jp,k)+ax(i,jp,kp))/2.
-          vxjm = (ax(i,jm,k)+ax(i,jm,kp))/2.
-          vyjp = (ay(i,jp,k)+ay(i,jp,kp))/2.
-          vyjm = (ay(i,jm,k)+ay(i,jm,kp))/2.
-          vzjp = (az(i,jp,k)+az(i,jp,kp))/2.
-          vzjm = (az(i,jm,k)+az(i,jm,kp))/2.
+          vxjp = 0.5*(ax(i,jp,k)+ax(i,jp,kp))
+          vxjm = 0.5*(ax(i,jm,k)+ax(i,jm,kp))
+          vyjp = 0.5*(ay(i,jp,k)+ay(i,jp,kp))
+          vyjm = 0.5*(ay(i,jm,k)+ay(i,jm,kp))
+          vzjp = 0.5*(az(i,jp,k)+az(i,jp,kp))
+          vzjm = 0.5*(az(i,jm,k)+az(i,jm,kp))
 
           vxkp = ax(i,j,kp)
           vxkm = ax(i,j,k )
@@ -1774,12 +2311,19 @@ c     Begin program
         case default
 
           if (sing_point) then
-            vxip = ax(ip,j,k)+ax(i,j,k)
-            vxim = 2.*ax(im,j,k)
-            vyip = ay(ip,j,k)+ay(i,j,k)
-            vyim = 2.*ay(im,j,k)
-            vzip = az(ip,j,k)+az(i,j,k)
-            vzim = 2.*az(im,j,k)
+            dhx  = dxh(ig)
+
+            jacip= gmetric%grid(igrid)%jac(ip,j,k)
+            jac  = gmetric%grid(igrid)%jac(i,j,k )
+
+            vxip = 0.5*(ax(ip,j,k)/jacip+ax(i,j,k)/jac)
+     .            *0.5*(jacip+jac)
+            vxim = ax(im,j,k)
+            vyip = 0.5*(ay(ip,j,k)+ay(i,j,k))
+            vyim = ay(im,j,k)
+            vzip = 0.5*(az(ip,j,k)/jacip+az(i,j,k)/jac)
+     .            *0.5*(jacip+jac)
+            vzim = az(im,j,k)
           else
             vxip = ax(ip,j,k)
             vxim = ax(im,j,k)
@@ -1860,141 +2404,64 @@ c     -------------------------------------------------------------
         real(8)    :: tensor(3,3)
 
         real(8)    :: hessian(3,3,3)
-     .               ,vxx,vyy,vzz
 
 c     Begin program
 
-        vxx = ax(i,j,k)
-        vyy = ay(i,j,k)
-        vzz = az(i,j,k)
-
         hessian = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
 
-cc      ! l = 1, m = 1
-cc        tensor(1,1) =  vxx*(hessian(1,1,1)
-cc     .                    + hessian(2,2,1)
-cc     .                    + hessian(3,3,1))
-cc     .               - vxx *hessian(1,1,1)
-cc     .               - vyy *hessian(1,2,1)
-cc     .               - vzz *hessian(1,3,1)
-cc
-cc      ! l = 1, m = 2
-cc        tensor(1,2) =  vyy*(hessian(1,1,1)
-cc     .                    + hessian(2,2,1)
-cc     .                    + hessian(3,3,1))
-cc     .               - vxx* hessian(2,1,1)
-cc     .               - vyy* hessian(2,2,1)
-cc     .               - vzz* hessian(2,3,1)
-cc
-cc      ! l = 1, m = 3
-cc        tensor(1,3) =  vzz*(hessian(1,1,1)
-cc     .                    + hessian(2,2,1)
-cc     .                    + hessian(3,3,1))
-cc     .               - vxx* hessian(3,1,1)
-cc     .               - vyy* hessian(3,2,1)
-cc     .               - vzz* hessian(3,3,1)
-cc
-cc      ! l = 2, m = 1
-cc        tensor(2,1) =  vxx*(hessian(1,1,2)
-cc     .                    + hessian(2,2,2)
-cc     .                    + hessian(3,3,2))
-cc     .               - vxx* hessian(1,1,2)
-cc     .               - vyy* hessian(1,2,2)
-cc     .               - vzz* hessian(1,3,2)
-cc
-cc      ! l = 2, m = 2
-cc        tensor(2,2) =  vyy*(hessian(1,1,2)
-cc     .                    + hessian(2,2,2)
-cc     .                    + hessian(3,3,2))
-cc     .               - vxx* hessian(2,1,2)
-cc     .               - vyy* hessian(2,2,2)
-cc     .               - vzz* hessian(2,3,2)
-cc
-cc      ! l = 2, m = 3
-cc        tensor(2,3) =  vzz*(hessian(1,1,2)
-cc     .                    + hessian(2,2,2)
-cc     .                    + hessian(3,3,2))
-cc     .               - vxx* hessian(3,1,2)
-cc     .               - vyy* hessian(3,2,2)
-cc     .               - vzz* hessian(3,3,2)
-cc
-cc      ! l = 3, m = 1
-cc        tensor(3,1) =  vxx*(hessian(1,1,3)
-cc     .                    + hessian(2,2,3)
-cc     .                    + hessian(3,3,3))
-cc     .               - vxx* hessian(1,1,3)
-cc     .               - vyy* hessian(1,2,3)
-cc     .               - vzz* hessian(1,3,3)
-cc
-cc      ! l = 3, m = 2
-cc        tensor(3,2) =  vyy*(hessian(1,1,3)
-cc     .                    + hessian(2,2,3)
-cc     .                    + hessian(3,3,3))
-cc     .               - vxx* hessian(2,1,3)
-cc     .               - vyy* hessian(2,2,3)
-cc     .               - vzz* hessian(2,3,3)
-cc
-cc      ! l = 3, m = 3
-cc        tensor(3,3) =  vzz*(hessian(1,1,3)
-cc     .                    + hessian(2,2,3)
-cc     .                    + hessian(3,3,3))
-cc     .               - vxx* hessian(3,1,3)
-cc     .               - vyy* hessian(3,2,3)
-cc     .               - vzz* hessian(3,3,3)
-
       ! l = 1, m = 1
-        tensor(1,1) =  vxx*(hessian(2,2,1)
-     .                    + hessian(3,3,1))
-     .               - vyy *hessian(1,2,1)
-     .               - vzz *hessian(1,3,1)
+        tensor(1,1) =  ax(i,j,k)*(hessian(2,2,1)
+     .                          + hessian(3,3,1))
+     .               - ay(i,j,k) *hessian(1,2,1)
+     .               - az(i,j,k) *hessian(1,3,1)
 
       ! l = 1, m = 2
-        tensor(1,2) =  vyy*(hessian(1,1,1)
-     .                    + hessian(3,3,1))
-     .               - vxx* hessian(2,1,1)
-     .               - vzz* hessian(2,3,1)
+        tensor(1,2) =  ay(i,j,k)*(hessian(1,1,1)
+     .                          + hessian(3,3,1))
+     .               - ax(i,j,k)* hessian(2,1,1)
+     .               - az(i,j,k)* hessian(2,3,1)
 
       ! l = 1, m = 3
-        tensor(1,3) =  vzz*(hessian(1,1,1)
-     .                    + hessian(2,2,1))
-     .               - vxx* hessian(3,1,1)
-     .               - vyy* hessian(3,2,1)
+        tensor(1,3) =  az(i,j,k)*(hessian(1,1,1)
+     .                          + hessian(2,2,1))
+     .               - ax(i,j,k)* hessian(3,1,1)
+     .               - ay(i,j,k)* hessian(3,2,1)
 
       ! l = 2, m = 1
-        tensor(2,1) =  vxx*(hessian(2,2,2)
-     .                    + hessian(3,3,2))
-     .               - vyy* hessian(1,2,2)
-     .               - vzz* hessian(1,3,2)
+        tensor(2,1) =  ax(i,j,k)*(hessian(2,2,2)
+     .                          + hessian(3,3,2))
+     .               - ay(i,j,k)* hessian(1,2,2)
+     .               - az(i,j,k)* hessian(1,3,2)
 
       ! l = 2, m = 2
-        tensor(2,2) =  vyy*(hessian(1,1,2)
-     .                    + hessian(3,3,2))
-     .               - vxx* hessian(2,1,2)
-     .               - vzz* hessian(2,3,2)
+        tensor(2,2) =  ay(i,j,k)*(hessian(1,1,2)
+     .                          + hessian(3,3,2))
+     .               - ax(i,j,k)* hessian(2,1,2)
+     .               - az(i,j,k)* hessian(2,3,2)
 
       ! l = 2, m = 3
-        tensor(2,3) =  vzz*(hessian(1,1,2)
-     .                    + hessian(2,2,2))
-     .               - vxx* hessian(3,1,2)
-     .               - vyy* hessian(3,2,2)
+        tensor(2,3) =  az(i,j,k)*(hessian(1,1,2)
+     .                          + hessian(2,2,2))
+     .               - ax(i,j,k)* hessian(3,1,2)
+     .               - ay(i,j,k)* hessian(3,2,2)
 
       ! l = 3, m = 1
-        tensor(3,1) =  vxx*(hessian(2,2,3)
-     .                    + hessian(3,3,3))
-     .               - vyy* hessian(1,2,3)
-     .               - vzz* hessian(1,3,3)
+        tensor(3,1) =  ax(i,j,k)*(hessian(2,2,3)
+     .                          + hessian(3,3,3))
+     .               - ay(i,j,k)* hessian(1,2,3)
+     .               - az(i,j,k)* hessian(1,3,3)
 
       ! l = 3, m = 2
-        tensor(3,2) =  vyy*(hessian(1,1,3)
-     .                    + hessian(3,3,3))
-     .               - vxx* hessian(2,1,3)
-     .               - vzz* hessian(2,3,3)
+        tensor(3,2) =  ay(i,j,k)*(hessian(1,1,3)
+     .                          + hessian(3,3,3))
+     .               - ax(i,j,k)* hessian(2,1,3)
+     .               - az(i,j,k)* hessian(2,3,3)
 
       ! l = 3, m = 3
-        tensor(3,3) =  vzz*(hessian(1,1,3)
-     .                    + hessian(2,2,3))
-     .               - vxx* hessian(3,1,3)
-     .               - vyy* hessian(3,2,3)
+        tensor(3,3) =  az(i,j,k)*(hessian(1,1,3)
+     .                          + hessian(2,2,3))
+     .               - ax(i,j,k)* hessian(3,1,3)
+     .               - ay(i,j,k)* hessian(3,2,3)
 
 c     End program
 
@@ -2207,6 +2674,683 @@ c     End program
 
       end function fnabla_v_upwd
 
+c     btensor_x
+c     #############################################################
+      subroutine btensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t11,t12,t13,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t11,t12,t13
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,ip
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp,ptot,vis
+
+        logical    :: sing_point
+
+c     Begin program
+
+        sing_point = isSP(i,j,k,igx,igy,igz)
+
+        ip = i+1
+        if (flag == 0 .or. isSP(ip,j,k,igx,igy,igz)) ip = i
+
+        jacp = gmetric%grid(igx)%jac(ip,j,k)
+        jac0 = gmetric%grid(igx)%jac(i ,j,k)
+        jac  = 0.5*(jacp+jac0)
+
+        t11 = 0d0
+
+        if (.not.zip_eom_b) then
+          t12 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,2)/jac0
+     .               +vec1(ip,j,k,1)*vec2(ip,j,k,2)/jacp)*jac
+     .         -0.5*( vec1(i ,j,k,2)*vec2(i ,j,k,1)/jac0
+     .               +vec1(ip,j,k,2)*vec2(ip,j,k,1)/jacp)*jac
+
+          if (sing_point .and. flag == 1) then
+            t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)/jac0**2
+     .                 +vec1(ip,j,k,1)*vec2(ip,j,k,3)/jacp**2)*jac**2
+     .           -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)/jac0**2
+     .                 +vec1(ip,j,k,3)*vec2(ip,j,k,1)/jacp**2)*jac**2
+          else
+            t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)/jac0
+     .                 +vec1(ip,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
+     .           -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)/jac0
+     .                 +vec1(ip,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
+          endif
+        else
+          t12 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)/jacp
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)/jac0)*jac
+     .         -0.5*( vec1(ip,j,k,2)*vec2(i ,j,k,1)/jac0
+     .               +vec1(i ,j,k,2)*vec2(ip,j,k,1)/jacp)*jac
+
+          t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)/jac0
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
+     .         -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)/jac0
+     .               +vec1(i ,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
+        endif
+
+c$$$        if (.not.zip_eom_b) then
+c$$$          t12 = 0.5*( vx(i ,j,k)*by(i ,j,k)/jac0
+c$$$     .               +vx(ip,j,k)*by(ip,j,k)/jacp)*jac
+c$$$     .         -0.5*( vy(i ,j,k)*bx(i ,j,k)/jac0
+c$$$     .               +vy(ip,j,k)*bx(ip,j,k)/jacp)*jac
+c$$$
+c$$$          if (sing_point .and. flag == 1) then
+c$$$            t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0**2
+c$$$     .                 +vx(ip,j,k)*bz(ip,j,k)/jacp**2)*jac**2
+c$$$     .           -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0**2
+c$$$     .                 +vz(ip,j,k)*bx(ip,j,k)/jacp**2)*jac**2
+c$$$          else
+c$$$            t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0
+c$$$     .                 +vx(ip,j,k)*bz(ip,j,k)/jacp)*jac
+c$$$     .           -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0
+c$$$     .                 +vz(ip,j,k)*bx(ip,j,k)/jacp)*jac
+c$$$          endif
+c$$$        else
+c$$$          t12 = 0.5*( vx(ip,j,k)*by(i ,j,k)/jacp
+c$$$     .               +vx(i ,j,k)*by(ip,j,k)/jac0)*jac
+c$$$     .         -0.5*( vy(ip,j,k)*bx(i ,j,k)/jac0
+c$$$     .               +vy(i ,j,k)*bx(ip,j,k)/jacp)*jac
+c$$$
+c$$$          t13 = 0.5*( vx(ip,j,k)*bz(i ,j,k)/jac0
+c$$$     .               +vx(i ,j,k)*bz(ip,j,k)/jacp)*jac
+c$$$     .         -0.5*( vz(ip,j,k)*bx(i ,j,k)/jac0
+c$$$     .               +vz(i ,j,k)*bx(ip,j,k)/jacp)*jac
+c$$$        endif
+
+        if (flag /= 0) then
+          t11 = t11/jac
+          if (.not.alt_eom) t12 = t12/jac
+          t13 = t13/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_x
+
+c     btensor_y
+c     #############################################################
+      subroutine btensor_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t21,t22,t23,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t21,t22,t23
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,jp
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp
+
+c     Begin program
+
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jacp = gmetric%grid(igx)%jac(i,jp,k)
+        jac0 = gmetric%grid(igx)%jac(i,j ,k)
+        jac  = 0.5*(jacp+jac0)
+
+c$$$        if (.not.zip_eom_b) then
+c$$$          t21 = 0.5*( vy(i,j ,k)*bx(i,j ,k)/jac0
+c$$$     .               +vy(i,jp,k)*bx(i,jp,k)/jacp)*jac
+c$$$     .         -0.5*( vx(i,j ,k)*by(i,j ,k)/jac0
+c$$$     .               +vx(i,jp,k)*by(i,jp,k)/jacp)*jac
+c$$$
+c$$$          t22 = 0d0
+c$$$
+c$$$          t23 = 0.5*( vy(i,j ,k)*bz(i,j ,k)/jac0
+c$$$     .               +vy(i,jp,k)*bz(i,jp,k)/jacp)*jac
+c$$$     .         -0.5*( vz(i,j ,k)*by(i,j ,k)/jac0
+c$$$     .               +vz(i,jp,k)*by(i,jp,k)/jacp)*jac
+c$$$        else
+c$$$          t21 = 0.5*( vy(i,jp,k)*bx(i,j ,k)/jac0
+c$$$     .               +vy(i,j ,k)*bx(i,jp,k)/jacp)*jac
+c$$$     .         -0.5*( vx(i,jp,k)*by(i,j ,k)/jacp
+c$$$     .               +vx(i,j ,k)*by(i,jp,k)/jac0)*jac
+c$$$
+c$$$          t22 = 0d0
+c$$$
+c$$$          t23 = 0.5*( vy(i,jp,k)*bz(i,j ,k)/jac0
+c$$$     .               +vy(i,j ,k)*bz(i,jp,k)/jacp)*jac
+c$$$     .         -0.5*( vz(i,jp,k)*by(i,j ,k)/jacp
+c$$$     .               +vz(i,j ,k)*by(i,jp,k)/jac0)*jac
+c$$$        endif
+
+        if (.not.zip_eom_b) then
+          t21 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,1)/jac0
+     .               +vec1(i,jp,k,2)*vec2(i,jp,k,1)/jacp)*jac
+     .         -0.5*( vec1(i,j ,k,1)*vec2(i,j ,k,2)/jac0
+     .               +vec1(i,jp,k,1)*vec2(i,jp,k,2)/jacp)*jac
+
+          t22 = 0d0
+
+          t23 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,3)/jac0
+     .               +vec1(i,jp,k,2)*vec2(i,jp,k,3)/jacp)*jac
+     .         -0.5*( vec1(i,j ,k,3)*vec2(i,j ,k,2)/jac0
+     .               +vec1(i,jp,k,3)*vec2(i,jp,k,2)/jacp)*jac
+        else
+          t21 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)/jac0
+     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)/jacp)*jac
+     .         -0.5*( vec1(i,jp,k,1)*vec2(i,j ,k,2)/jacp
+     .               +vec1(i,j ,k,1)*vec2(i,jp,k,2)/jac0)*jac
+
+          t22 = 0d0
+
+          t23 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)/jac0
+     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)/jacp)*jac
+     .         -0.5*( vec1(i,jp,k,3)*vec2(i,j ,k,2)/jac0
+     .               +vec1(i,j ,k,3)*vec2(i,jp,k,2)/jacp)*jac
+        endif
+
+        if (flag /= 0) then
+          t21 = t21/jac
+          if (.not.alt_eom) t22 = t22/jac
+          t23 = t23/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_y
+
+c     btensor_z
+c     #############################################################
+      subroutine btensor_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t31,t32,t33,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t31,t32,t33
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,kp
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp
+
+c     Begin program
+
+        kp = k+1
+        if (flag == 0) kp = k
+
+        jacp = gmetric%grid(igx)%jac(i,j,kp)
+        jac0 = gmetric%grid(igx)%jac(i,j,k )
+        jac  = 0.5*(jacp+jac0)
+
+        if (.not.zip_eom_b) then
+          t31 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,1)/jac0
+     .               +vec1(i,j,kp,3)*vec2(i,j,kp,1)/jacp)*jac
+     .         -0.5*( vec1(i,j,k ,1)*vec2(i,j,k ,3)/jac0
+     .               +vec1(i,j,kp,1)*vec2(i,j,kp,3)/jacp)*jac
+
+          t32 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,2)/jac0
+     .               +vec1(i,j,kp,3)*vec2(i,j,kp,2)/jacp)*jac
+     .         -0.5*( vec1(i,j,k ,2)*vec2(i,j,k ,3)/jac0
+     .               +vec1(i,j,kp,2)*vec2(i,j,kp,3)/jacp)*jac
+        else
+          t31 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)/jac0
+     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)/jacp)*jac
+     .         -0.5*( vec1(i,j,kp,1)*vec2(i,j,k ,3)/jac0
+     .               +vec1(i,j,k ,1)*vec2(i,j,kp,3)/jacp)*jac
+
+          t32 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)/jac0
+     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)/jacp)*jac
+     .         -0.5*( vec1(i,j,kp,2)*vec2(i,j,k ,3)/jac0
+     .               +vec1(i,j,k ,2)*vec2(i,j,kp,3)/jacp)*jac
+        endif
+
+c$$$        if (.not.zip_eom_b) then
+c$$$          t31 = 0.5*( vz(i,j,k )*bx(i,j,k )/jac0
+c$$$     .               +vz(i,j,kp)*bx(i,j,kp)/jacp)*jac
+c$$$     .         -0.5*( vx(i,j,k )*bz(i,j,k )/jac0
+c$$$     .               +vx(i,j,kp)*bz(i,j,kp)/jacp)*jac
+c$$$
+c$$$          t32 = 0.5*( vz(i,j,k )*by(i,j,k )/jac0
+c$$$     .               +vz(i,j,kp)*by(i,j,kp)/jacp)*jac
+c$$$     .         -0.5*( vy(i,j,k )*bz(i,j,k )/jac0
+c$$$     .               +vy(i,j,kp)*bz(i,j,kp)/jacp)*jac
+c$$$        else
+c$$$          t31 = 0.5*( vz(i,j,kp)*bx(i,j,k )/jac0
+c$$$     .               +vz(i,j,k )*bx(i,j,kp)/jacp)*jac
+c$$$     .         -0.5*( vx(i,j,kp)*bz(i,j,k )/jac0
+c$$$     .               +vx(i,j,k )*bz(i,j,kp)/jacp)*jac
+c$$$
+c$$$          t32 = 0.5*( vz(i,j,kp)*by(i,j,k )/jacp
+c$$$     .               +vz(i,j,k )*by(i,j,kp)/jac0)*jac
+c$$$     .         -0.5*( vy(i,j,kp)*bz(i,j,k )/jac0
+c$$$     .               +vy(i,j,k )*bz(i,j,kp)/jacp)*jac
+c$$$        endif
+
+        t33 = 0d0
+
+        if (flag /= 0) then
+          t31 = t31/jac
+          if (.not.alt_eom) t32 = t32/jac
+          t33 = t33/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_z
+
+c     lf_x
+c     #############################################################
+      subroutine lf_x(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
+     .               ,t11,t12,t13,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for linearized Lorentz
+c     force term in conservative form.
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        real(8)    :: t11,t12,t13
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ip,igrid
+        real(8)    :: jac,jac0,jacp,gsuper(3,3),scalar_prod
+     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
+        logical    :: spoint
+
+c     Begin program
+
+        spoint = isSP(i,j,k,igx,igy,igz)
+
+        igrid = igx
+
+        ip = i+1
+        if (flag == 0 .or. isSP(ip,j,k,igx,igy,igz) ) ip = i
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
+     .               +gmetric%grid(igrid)%jac (i ,j,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
+
+        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
+     .      .and. bcond(1) == SP
+     .      .and. flag /= 0           ) then
+cc        if (spoint) then
+          jacp = gmetric%grid(igrid)%jac(ip,j,k)
+          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
+        else
+          jacp = jac
+          jac0 = jac
+        endif
+
+cc        acnv(1) = 0.5*(vec1(ip,j,k,1)/jacp+vec1(i,j,k,1)/jac0)*jac
+cc        acnv(2) = 0.5*(vec1(ip,j,k,2)     +vec1(i,j,k,2))
+cc        acnv(3) = 0.5*(vec1(ip,j,k,3)/jacp+vec1(i,j,k,3)/jac0)*jac
+cc
+cc        bcnv(1) = 0.5*(vec2(ip,j,k,1)/jacp+vec2(i,j,k,1)/jac0)*jac
+cc        bcnv(2) = 0.5*(vec2(ip,j,k,2)     +vec2(i,j,k,2))
+cc        bcnv(3) = 0.5*(vec2(ip,j,k,3)/jacp+vec2(i,j,k,3)/jac0)*jac
+cc
+cc        if (flag /= 0) then
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=1)
+cc        else
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=0)
+cc        endif
+cc
+cc        scalar_prod = dot_product(acnv,bcov)
+cc
+cc        t11 =( acnv(1)*bcnv(1)
+cc     .        +acnv(1)*bcnv(1)
+cc     .        -gsuper(1,1)*scalar_prod )
+cc
+cc        t12 =( acnv(1)*bcnv(2)
+cc     .        +acnv(2)*bcnv(1)
+cc     .        -gsuper(1,2)*scalar_prod )
+cc
+cc        t13 =( acnv(1)*bcnv(3)
+cc     .        +acnv(3)*bcnv(1)
+cc     .        -gsuper(1,3)*scalar_prod )
+
+        acnv(1) = vec1(i,j,k,1)/jac0*jac
+        acnv(2) = vec1(i,j,k,2)
+        acnv(3) = vec1(i,j,k,3)/jac0*jac
+
+        acnvp(1) = vec1(ip,j,k,1)/jacp*jac
+        acnvp(2) = vec1(ip,j,k,2)
+        acnvp(3) = vec1(ip,j,k,3)/jacp*jac
+
+cc        bcnv(1) = vec2(i,j,k,1)/jac0*jac
+cc        bcnv(2) = vec2(i,j,k,2)
+cc        bcnv(3) = vec2(i,j,k,3)/jac0*jac
+cc
+cc        bcnvp(1) = vec2(ip,j,k,1)/jacp*jac
+cc        bcnvp(2) = vec2(ip,j,k,2)
+cc        bcnvp(3) = vec2(ip,j,k,3)/jacp*jac
+
+        bcnv(1) = vec2(i,j,k,1)
+        bcnv(2) = vec2(i,j,k,2)
+        bcnv(3) = vec2(i,j,k,3)
+
+        bcnvp(1) = vec2(ip,j,k,1)
+        bcnvp(2) = vec2(ip,j,k,2)
+        bcnvp(3) = vec2(ip,j,k,3)
+
+        call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                        ,bcov(1),bcov(2),bcov(3)
+     .                        ,bcnv(1),bcnv(2),bcnv(3)
+     .                        ,.false.,half_elem=0)
+
+        call transformFromCurvToCurv(ip,j,k,igx,igy,igz
+     .                        ,bcovp(1),bcovp(2),bcovp(3)
+     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
+     .                        ,.false.,half_elem=0)
+
+        bcnv(1) = bcnv(1)/jac0*jac
+        bcnv(3) = bcnv(3)/jac0*jac
+
+        bcnvp(1) = bcnvp(1)/jacp*jac
+        bcnvp(3) = bcnvp(3)/jacp*jac
+
+        bcov (2) = bcov (2)/jac0*jac
+        bcovp(2) = bcovp(2)/jacp*jac
+
+        scalar_prod = dot_product(acnvp,bcov)
+     .               +dot_product(acnv,bcovp)
+
+        t11 =0.5*( 2*acnvp(1)*bcnv(1)
+     .            +2*acnv(1)*bcnvp(1)
+     .            -gsuper(1,1)*scalar_prod )
+
+        t12 =0.5*( acnvp(1)*bcnv(2) + acnv(1)*bcnvp(2)
+     .            +acnvp(2)*bcnv(1) + acnv(2)*bcnvp(1)
+     .            -gsuper(1,2)*scalar_prod )
+
+        t13 =0.5*( acnvp(1)*bcnv(3) + acnv(1)*bcnvp(3)
+     .            +acnvp(3)*bcnv(1) + acnv(3)*bcnvp(1)
+     .            -gsuper(1,3)*scalar_prod )
+
+        if (flag /= 0) then
+          t11 = t11/jac
+          if (.not.alt_eom) t12 = t12/jac
+          t13 = t13/jac
+        endif
+
+c     End program
+
+      end subroutine lf_x
+
+c     lf_y
+c     #############################################################
+      subroutine lf_y(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
+     .               ,t21,t22,t23,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t21-t23 for linearized Lorentz
+c     force term in conservative form.
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        real(8)    :: t21,t22,t23
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: jp,igrid
+        real(8)    :: jac,gsuper(3,3),scalar_prod
+     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
+
+c     Begin program
+
+        igrid = igx
+
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,jp,k)
+     .               +gmetric%grid(igrid)%jac (i,j ,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,jp,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j ,k,:,:))
+
+cc        acnv(1) = 0.5*(vec1(i,jp,k,1)+vec1(i,j,k,1))
+cc        acnv(2) = 0.5*(vec1(i,jp,k,2)+vec1(i,j,k,2))
+cc        acnv(3) = 0.5*(vec1(i,jp,k,3)+vec1(i,j,k,3))
+cc                                
+cc        bcnv(1) = 0.5*(vec2(i,jp,k,1)+vec2(i,j,k,1))
+cc        bcnv(2) = 0.5*(vec2(i,jp,k,2)+vec2(i,j,k,2))
+cc        bcnv(3) = 0.5*(vec2(i,jp,k,3)+vec2(i,j,k,3))
+cc
+cc        if (flag /= 0) then
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=2)
+cc        else
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=0)
+cc        endif
+cc
+cc
+cc        scalar_prod = dot_product(acnv,bcov)
+cc
+cc        t21 =( acnv(2)*bcnv(1)
+cc     .        +acnv(1)*bcnv(2)
+cc     .        -gsuper(2,1)*scalar_prod )
+cc
+cc        t22 =( acnv(2)*bcnv(2)
+cc     .        +acnv(2)*bcnv(2)
+cc     .        -gsuper(2,2)*scalar_prod )
+cc
+cc        t23 =( acnv(2)*bcnv(3)
+cc     .        +acnv(3)*bcnv(2)
+cc     .        -gsuper(2,3)*scalar_prod )
+
+        acnv(1) = vec1(i,j,k,1)
+        acnv(2) = vec1(i,j,k,2)
+        acnv(3) = vec1(i,j,k,3)
+
+        acnvp(1) = vec1(i,jp,k,1)
+        acnvp(2) = vec1(i,jp,k,2)
+        acnvp(3) = vec1(i,jp,k,3)
+
+        bcnv(1) = vec2(i,j,k,1)
+        bcnv(2) = vec2(i,j,k,2)
+        bcnv(3) = vec2(i,j,k,3)
+
+        bcnvp(1) = vec2(i,jp,k,1)
+        bcnvp(2) = vec2(i,jp,k,2)
+        bcnvp(3) = vec2(i,jp,k,3)
+
+        call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                        ,bcov(1),bcov(2),bcov(3)
+     .                        ,bcnv(1),bcnv(2),bcnv(3)
+     .                        ,.false.,half_elem=0)
+
+        call transformFromCurvToCurv(i,jp,k,igx,igy,igz
+     .                        ,bcovp(1),bcovp(2),bcovp(3)
+     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
+     .                        ,.false.,half_elem=0)
+
+        scalar_prod = dot_product(acnvp,bcov)
+     .               +dot_product(acnv,bcovp)
+
+        t21 =0.5*( acnvp(2)*bcnv(1) + acnv(2)*bcnvp(1)
+     .            +acnvp(1)*bcnv(2) + acnv(1)*bcnvp(2)
+     .            -gsuper(2,1)*scalar_prod )
+
+        t22 =0.5*( 2*acnvp(2)*bcnv(2) + 2*acnv(2)*bcnvp(2)
+     .            -gsuper(2,2)*scalar_prod )
+
+        t23 =0.5*( acnvp(2)*bcnv(3) + acnv(2)*bcnvp(3)
+     .            +acnvp(3)*bcnv(2) + acnv(3)*bcnvp(2)
+     .            -gsuper(2,3)*scalar_prod )
+
+        if (flag /= 0) then
+          t21 = t21/jac
+          if (.not.alt_eom) t22 = t22/jac
+          t23 = t23/jac
+        endif
+
+
+c     End program
+
+      end subroutine lf_y
+
+c     lf_z
+c     #############################################################
+      subroutine lf_z(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
+     .                   ,t31,t32,t33,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t31-t33 for linearized Lorentz
+c     force term in conservative form.
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        real(8)    :: t31,t32,t33
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: kp,igrid
+        real(8)    :: jac,gsuper(3,3),scalar_prod
+     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
+
+c     Begin program
+
+        igrid = igx
+
+        kp=k+1
+        if (flag == 0) kp = k
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,j,kp)
+     .               +gmetric%grid(igrid)%jac (i,j,k ))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,j,kp,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j,k ,:,:))
+
+cc        acnv(1) = 0.5*(vec1(i,j,kp,1)+vec1(i,j,k,1))
+cc        acnv(2) = 0.5*(vec1(i,j,kp,2)+vec1(i,j,k,2))
+cc        acnv(3) = 0.5*(vec1(i,j,kp,3)+vec1(i,j,k,3))
+cc                                  
+cc        bcnv(1) = 0.5*(vec2(i,j,kp,1)+vec2(i,j,k,1))
+cc        bcnv(2) = 0.5*(vec2(i,j,kp,2)+vec2(i,j,k,2))
+cc        bcnv(3) = 0.5*(vec2(i,j,kp,3)+vec2(i,j,k,3))
+cc
+cc        if (flag /= 0) then
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=3)
+cc        else
+cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,bcov(1),bcov(2),bcov(3)
+cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
+cc     .                        ,.false.,half_elem=0)
+cc        endif
+cc
+cc        scalar_prod = dot_product(acnv,bcov)
+cc
+cc        t31 =( acnv(3)*bcnv(1)
+cc     .        +acnv(1)*bcnv(3)
+cc     .        -gsuper(3,1)*scalar_prod )
+cc
+cc        t32 =( acnv(3)*bcnv(2)
+cc     .        +acnv(2)*bcnv(3)
+cc     .        -gsuper(3,2)*scalar_prod )
+cc
+cc        t33 =( acnv(3)*bcnv(3)
+cc     .        +acnv(3)*bcnv(3)
+cc     .        -gsuper(3,3)*scalar_prod )
+
+        acnv(1) = vec1(i,j,k,1)
+        acnv(2) = vec1(i,j,k,2)
+        acnv(3) = vec1(i,j,k,3)
+
+        acnvp(1) = vec1(i,j,kp,1)
+        acnvp(2) = vec1(i,j,kp,2)
+        acnvp(3) = vec1(i,j,kp,3)
+
+        bcnv(1) = vec2(i,j,k,1)
+        bcnv(2) = vec2(i,j,k,2)
+        bcnv(3) = vec2(i,j,k,3)
+
+        bcnvp(1) = vec2(i,j,kp,1)
+        bcnvp(2) = vec2(i,j,kp,2)
+        bcnvp(3) = vec2(i,j,kp,3)
+
+        call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                        ,bcov(1),bcov(2),bcov(3)
+     .                        ,bcnv(1),bcnv(2),bcnv(3)
+     .                        ,.false.,half_elem=0)
+
+        call transformFromCurvToCurv(i,j,kp,igx,igy,igz
+     .                        ,bcovp(1),bcovp(2),bcovp(3)
+     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
+     .                        ,.false.,half_elem=0)
+
+        scalar_prod = dot_product(acnvp,bcov)
+     .               +dot_product(acnv,bcovp)
+
+        t31 =0.5*( acnvp(3)*bcnv(1) + acnv(3)*bcnvp(1)
+     .            +acnvp(1)*bcnv(3) + acnv(1)*bcnvp(3)
+     .            -gsuper(3,1)*scalar_prod )
+
+        t32 =0.5*( acnvp(3)*bcnv(2) + acnv(3)*bcnvp(2)
+     .            +acnvp(2)*bcnv(3) + acnv(2)*bcnvp(3)
+     .            -gsuper(3,2)*scalar_prod )
+
+        t33 =0.5*( 2*acnvp(3)*bcnv(3)
+     .           + 2*acnv(3)*bcnvp(3)
+     .            -gsuper(3,3)*scalar_prod )
+
+        if (flag /= 0) then
+          t31 = t31/jac
+          if (.not.alt_eom) t32 = t32/jac
+          t33 = t33/jac
+        endif
+
+c     End program
+
+      end subroutine lf_z
+
       end module operators
 
 c module nlfunction_setup
@@ -2227,7 +3371,7 @@ c ######################################################################
 
         use operators
 
-        logical :: alt_eom
+        real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
 
       contains
 
@@ -2451,86 +3595,6 @@ cc      end function joule_jpkp
 cc
 cc      end function jouleHeating
 
-c     res
-c     #############################################################
-      function res(i,j,k,nx,ny,nz,igx,igy,igz)
-c     -------------------------------------------------------------
-c     This function computes the resistivity on the grid level
-c     igrid.
-c     -------------------------------------------------------------
-
-      use grid
-
-      use transport_params
-
-      use equilibrium
-
-      implicit none
-
-c     Call variables
-
-      real(8)    :: res
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
-
-c     Local variables
-
-      integer(4) :: nn,ig,jg,kg
-      real(8)    :: x1,y1,z1,aa
-      logical    :: cartsn
-
-c     Begin program
-
-c     Resistivity profile eta*(1 + aa*x^nn)
-c       Coefficient aa is set so that res = 20*eta at wall
-c       and nn so that res=??*eta at sing. surf. xs ~ 0.33
-
-      select case (equil)
-      case ('rfp1')
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-        nn = 4
-        aa = 19.
-        res = eta*(1. + aa*grid_params%xx(ig)**nn)
-
-      case default
-
-        res = eta
-
-      end select
-
-c     End program
-
-      end function res
-
-c     vis
-c     #############################################################
-      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
-c     -------------------------------------------------------------
-c     This function computes the viscosity on the grid level
-c     igrid.
-c     -------------------------------------------------------------
-
-      use grid
-
-      use transport_params
-
-      implicit none
-
-c     Call variables
-
-      real(8)    :: vis
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
-
-c     Local variables
-
-c     Begin program
-
-      vis = nu
-
-c     End program
-
-      end function vis
-
 c     vtensor_x
 c     #############################################################
       subroutine vtensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
@@ -2691,7 +3755,7 @@ cc     .             +rho(i,j ,k)*tmp(i,j ,k))
      .             +rho(i,j ,k)*tmp(i,jp,k))
      .       +(bx(i,jp,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,jp,k)
      .        +by(i,jp,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,jp,k)
-     .        +bz(i,jp,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,jp,k))/4.
+     .        +bz(i,jp,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,jp,k))*0.25
 
         vis = 2./(1./rho(i,jp,k)/nuu(i,jp,k)
      .          + 1./rho(i,j ,k)/nuu(i,j ,k))
@@ -2781,7 +3845,7 @@ cc     .             +rho(i,j,k )*tmp(i,j,k ))
      .             +rho(i,j,k )*tmp(i,j,kp))
      .       +(bx(i,j,kp)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,kp)
      .        +by(i,j,kp)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,kp)
-     .        +bz(i,j,kp)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,kp))/4.
+     .        +bz(i,j,kp)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,kp))*0.25
 
         vis = 2./(1./rho(i,j,kp)/nuu(i,j,kp)
      .          + 1./rho(i,j,k )/nuu(i,j,k ))
@@ -2825,197 +3889,6 @@ cc     .             +rho(i,j,k )*tmp(i,j,k ))
 c     End program
 
       end subroutine vtensor_z
-
-c     btensor_x
-c     #############################################################
-      subroutine btensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t11,t12,t13,flag)
-c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-        real(8)    :: t11,t12,t13
-        logical    :: alt_eom
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg,ip
-        real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp,ptot,vis
-
-        logical    :: sing_point
-
-c     Begin program
-
-cc        if (flag == 0) then
-cc          t11 = 0d0
-cc          t12 = 0d0
-cc          t13 = 0d0
-cc          return
-cc        endif
-
-        sing_point = isSP(i,j,k,igx,igy,igz)
-
-        ip = i+1
-        if (flag == 0 .or. isSP(ip,j,k,igx,igy,igz)) ip = i
-
-        jacp = gmetric%grid(igx)%jac(ip,j,k)
-        jac0 = gmetric%grid(igx)%jac(i ,j,k)
-        jac  = 0.5*(jacp+jac0)
-
-        t11 = 0d0
-
-        t12 = 0.5*( vx(i ,j,k)*by(i ,j,k)/jac0
-     .             +vx(ip,j,k)*by(ip,j,k)/jacp)*jac
-     .       -0.5*( vy(i ,j,k)*bx(i ,j,k)/jac0
-     .             +vy(ip,j,k)*bx(ip,j,k)/jacp)*jac
-
-        if (sing_point .and. flag == 1) then
-          t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0**2
-     .               +vx(ip,j,k)*bz(ip,j,k)/jacp**2)*jac**2
-     .         -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0**2
-     .               +vz(ip,j,k)*bx(ip,j,k)/jacp**2)*jac**2
-        else
-          t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0
-     .               +vx(ip,j,k)*bz(ip,j,k)/jacp)*jac
-     .         -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0
-     .               +vz(ip,j,k)*bx(ip,j,k)/jacp)*jac
-        endif
-
-        if (flag /= 0) then
-          t11 = t11/jac
-          if (.not.alt_eom) t12 = t12/jac
-          t13 = t13/jac
-        endif
-
-c     End program
-
-      end subroutine btensor_x
-
-c     btensor_y
-c     #############################################################
-      subroutine btensor_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t21,t22,t23,flag)
-c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-        real(8)    :: t21,t22,t23
-        logical    :: alt_eom
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg,jp
-        real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp
-
-c     Begin program
-
-cc        if (flag == 0) then
-cc          t21 = 0d0
-cc          t22 = 0d0
-cc          t23 = 0d0
-cc          return
-cc        endif
-
-        jp = j+1
-        if (flag == 0) jp = j
-
-        jacp = gmetric%grid(igx)%jac(i,jp,k)
-        jac0 = gmetric%grid(igx)%jac(i,j ,k)
-        jac  = 0.5*(jacp+jac0)
-
-        t21 = 0.5*( vy(i,j ,k)*bx(i,j ,k)/jac0
-     .             +vy(i,jp,k)*bx(i,jp,k)/jacp)*jac
-     .       -0.5*( vx(i,j ,k)*by(i,j ,k)/jac0
-     .             +vx(i,jp,k)*by(i,jp,k)/jacp)*jac
-
-        t22 = 0d0
-
-        t23 = 0.5*( vy(i,j ,k)*bz(i,j ,k)/jac0
-     .             +vy(i,jp,k)*bz(i,jp,k)/jacp)*jac
-     .       -0.5*( vz(i,j ,k)*by(i,j ,k)/jac0
-     .             +vz(i,jp,k)*by(i,jp,k)/jacp)*jac
-
-        if (flag /= 0) then
-          t21 = t21/jac
-          if (.not.alt_eom) t22 = t22/jac
-          t23 = t23/jac
-        endif
-
-c     End program
-
-      end subroutine btensor_y
-
-c     btensor_z
-c     #############################################################
-      subroutine btensor_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                    ,t31,t32,t33,flag)
-c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-        real(8)    :: t31,t32,t33
-        logical    :: alt_eom
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg,kp
-        real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp
-
-c     Begin program
-
-cc        if (flag == 0) then
-cc          t31 = 0d0
-cc          t32 = 0d0
-cc          t33 = 0d0
-cc          return
-cc        endif
-
-        kp = k+1
-        if (flag == 0) kp = k
-
-        jacp = gmetric%grid(igx)%jac(i,j,kp)
-        jac0 = gmetric%grid(igx)%jac(i,j,k )
-        jac  = 0.5*(jacp+jac0)
-
-        t31 = 0.5*( vz(i,j,k )*bx(i,j,k )/jac0
-     .             +vz(i,j,kp)*bx(i,j,kp)/jacp)*jac
-     .       -0.5*( vx(i,j,k )*bz(i,j,k )/jac0
-     .             +vx(i,j,kp)*bz(i,j,kp)/jacp)*jac
-
-        t32 = 0.5*( vz(i,j,k )*by(i,j,k )/jac0
-     .             +vz(i,j,kp)*by(i,j,kp)/jacp)*jac
-     .       -0.5*( vy(i,j,k )*bz(i,j,k )/jac0
-     .             +vy(i,j,kp)*bz(i,j,kp)/jacp)*jac
-
-        t33 = 0d0
-
-        if (flag /= 0) then
-          t31 = t31/jac
-          if (.not.alt_eom) t32 = t32/jac
-          t33 = t33/jac
-        endif
-
-c     End program
-
-      end subroutine btensor_z
 
       end module nlfunction_setup
 
