@@ -38,8 +38,8 @@ FC = f90
 # Flags for Absoft f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
-#  DEBUG        = -g -et -Rb -Rp
-  DEBUG        = -g
+  DEBUG        = -g -et -Rb -Rp -Rc
+#  DEBUG        = -g -en
   PROFILE      = -P
   STATIC       = -s
   MODFLAG      = -p
@@ -60,8 +60,8 @@ endif
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
 #  DEBUG        = -g --chkglobal
-  DEBUG        = -g --chk aseu
-  DEBUG        = -g
+  DEBUG        = -g --chk aseu --warn --f95
+#  DEBUG        = -g --f95
   PROFILE      =
   STATIC       = 
   MODFLAG      = -M
