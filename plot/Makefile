@@ -36,7 +36,7 @@ prefix = .
 
 #Define subdirectories for common code
 
-COMMONDIR = ./commondirs
+COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/grid\
 	  $(COMMONDIR)/interpolation/1d_int\
