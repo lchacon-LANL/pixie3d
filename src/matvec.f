@@ -39,6 +39,9 @@ c Define variables for BC routines
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
+cc      nx = MGgrid%nxv(igx)
+cc      ny = MGgrid%nyv(igy)
+cc      nz = MGgrid%nzv(igz)
 
       if (nx /= nnx .or. ny /= nny .or. nz /= nnz) then
         write (*,*) 'Grid sizes do not agree in setMGBC'
@@ -46,7 +49,7 @@ c Define variables for BC routines
         stop
       endif
 
-c Find loop limits for BC (passed to BC routines via imposeBCinterface module)
+c Find grid node position
 
 c$$$      imin = 1
 c$$$      imax = nnx
@@ -55,7 +58,7 @@ c$$$      jmax = nny
 c$$$      kmin = 1
 c$$$      kmax = nnz
 
-      call limits(gpos,nnx,nny,nnz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(gpos,nnx,nny,nnz,iig,imin,imax,jmin,jmax,kmin,kmax)
 
 c Check limits (return if not close to boundaries)
 
@@ -63,7 +66,7 @@ c Check limits (return if not close to boundaries)
      .    .and.(jmin > 1 .and. jmax < nny)
      .    .and.(kmin > 1 .and. kmax < nnz)) return
 
-c Offset limits to cover stencil
+c Find loop limits for BC (passed to BC routines via imposeBCinterface module)
 
       offset = 1
 
@@ -116,12 +119,19 @@ c End
 
 c test_mtvc
 c####################################################################
-      subroutine test_mtvc(gpos,ntot,x,y,igrid,bcnd)
+      subroutine test_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine is a matvec test, y = A.x.
 c     In call:
 c      * gpos: vector index of position on the numerical grid
-c             gpos = i + nx*(j-1) + ny*nx*(k-1)
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
 c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
@@ -133,18 +143,18 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use mlsolverSetup
+      use mg_internal
 
       implicit none
 
 c Call variables
 
-      integer*4    ntot,igrid,gpos,bcnd(6,*)
+      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
       real*8       x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,neq
+      integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
       integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
       integer(4) :: iimin,iimax,jjmin,jjmax,kkmin,kkmax
 
@@ -153,6 +163,8 @@ c Local variables
 
       real(8)    :: upwind,nu2
 
+      logical    :: fpointers
+
 c External
 
       real*8       vis
@@ -160,31 +172,37 @@ c External
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      call allocPointers(neq,MGgrid,fpointers)
+
+      isig = MGgrid%istartp(igrid)
 
       igx = igrid
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-      neq = ntot/nx/ny/nz
+cc      nxx = MGgrid%nxv(igx)
+cc      nyy = MGgrid%nyv(igy)
+cc      nzz = MGgrid%nzv(igz)
+      nxx = grid_params%nxv(igx)
+      nyy = grid_params%nyv(igy)
+      nzz = grid_params%nzv(igz)
 
 c Find limits for loops
 
-      call limits(gpos,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
-      allocate(xarr(0:nx+1,0:ny+1,0:nz+1,neq))
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
-      !Set grid=1 because x is NOT a MG vector
-      call mapMGVectorToArray(gpos,neq,x,nx,ny,nz,xarr,1)
+      xarr = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
+     .                       ,.false.)
 
       icomp = IRHO
-      call setMGBC(gpos,neq,nx,ny,nz,igrid,xarr,bcnd)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd)
 
 c Map velocity components
 
@@ -200,30 +218,32 @@ c Calculate matrix-vector product
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
 
-            ijk    = i + nx*(j-1) + nx*ny*(k-1)
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
             ijkg   = ijk + isig - 1
 
-            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
-     .                 *( xarr(i  ,j,k,1) - xarr(i-1,j,k,1) )/dx(ig-1)
-     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
-     .                 *( xarr(i+1,j,k,1) - xarr(i  ,j,k,1) )/dx(ig)
-     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
-     .                 *( xarr(i,j  ,k,1) - xarr(i,j-1,k,1) )/dy(jg-1)
-     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
-     .                 *( xarr(i,j+1,k,1) - xarr(i,j  ,k,1) )/dy(jg)
-     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
-     .                 *( xarr(i,j,k  ,1) - xarr(i,j,k-1,1) )/dz(kg-1)
-     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
-     .                 *( xarr(i,j,k+1,1) - xarr(i,j,k  ,1) )/dz(kg)
-
-            upwind = upwind/jac
+cc            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
+cc     .                 *( xarr(i  ,j,k,1) - xarr(i-1,j,k,1) )/dx(ig-1)
+cc     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
+cc     .                 *( xarr(i+1,j,k,1) - xarr(i  ,j,k,1) )/dx(ig)
+cc     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
+cc     .                 *( xarr(i,j  ,k,1) - xarr(i,j-1,k,1) )/dy(jg-1)
+cc     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
+cc     .                 *( xarr(i,j+1,k,1) - xarr(i,j  ,k,1) )/dy(jg)
+cc     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
+cc     .                 *( xarr(i,j,k  ,1) - xarr(i,j,k-1,1) )/dz(kg-1)
+cc     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
+cc     .                 *( xarr(i,j,k+1,1) - xarr(i,j,k  ,1) )/dz(kg)
+cc
+cc            upwind = upwind/jac
 cc            nu2 = 0.1
 
-            y(ijk) = (1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
-     .              + alpha*upwind 
-cc     .              - alpha*nu2*laplacian(i,j,k,nx,ny,nz,xarr)
+cc            y(ijk) = (1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
+cc     .              + alpha*upwind 
+cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,xarr)
 
-            y(ijk) = y(ijk)*volume(i,j,k,igx,igy,igz)
+cc            y(ijk) = y(ijk)*volume(i,j,k,igx,igy,igz)
+
+            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,xarr) !Laplacian includes volume factor
 
           enddo
         enddo
@@ -233,11 +253,13 @@ c End program
 
       deallocate(xarr)
 
+      call deallocPointers(fpointers)
+
       end subroutine test_mtvc
 
 c tmp_mtvc
 c####################################################################
-      subroutine tmp_mtvc(gpos,ntot,x,y,igrid,bcnd)
+      subroutine tmp_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
 c     for the energy equation.
@@ -250,6 +272,7 @@ c            + If gpos = 0, all the grid is considered.
 c            + If gpos < 0, all grid is mapped, but operations are 
 c              restricted to stencil of abs(gpos) (useful for
 c              matrix-light GS)
+c      * neq: number of coupled equations
 c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
@@ -261,24 +284,26 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use mlsolverSetup
+      use mg_internal
 
       implicit none
 
 c Call variables
 
-      integer*4    ntot,igrid,gpos,bcnd(6,*)
+      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
       real*8       x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,neq
+      integer(4) :: isig,ijk,ijkg
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
       real(8)    :: upwind,nu2
+
+      logical    :: fpointers
 
 c External
 
@@ -287,21 +312,25 @@ c External
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      call allocPointers(neq,MGgrid,fpointers)
+
+      isig = MGgrid%istartp(igrid)
 
       igx = igrid
       igy = igrid
       igz = igrid
 
+cc      nx = MGgrid%nxv(igx)
+cc      ny = MGgrid%nyv(igy)
+cc      nz = MGgrid%nzv(igz)
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-      neq = ntot/nx/ny/nz
-
 c Find limits for loops
 
-      call limits(abs(gpos),nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(abs(gpos),nx,ny,nz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
@@ -309,8 +338,8 @@ c Map vector x to array for processing
 
       dtmp = 0d0
 
-      !Set grid=1 because x is NOT a MG vector
-      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,dtmp,1)
+      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,dtmp,igrid
+     .                       ,.false.)
 
       icomp = ITMP
       call setMGBC(max(0,gpos),neq,nx,ny,nz,igrid,dtmp,bcnd)
@@ -360,11 +389,13 @@ c End program
       deallocate(dtmp)
       nullify(v0_cnv)
 
+      call deallocPointers(fpointers)
+
       end subroutine tmp_mtvc
 
 c rho_mtvc
 c####################################################################
-      subroutine rho_mtvc(gpos,ntot,x,y,igrid,bcnd)
+      subroutine rho_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A.x  matrix-free
 c     for the continuity equation.
@@ -377,6 +408,7 @@ c            + If gpos = 0, all the grid is considered.
 c            + If gpos < 0, all grid is mapped, but operations are 
 c              restricted to stencil of abs(gpos) (useful for
 c              matrix-light GS)
+c      * neq: number of coupled equations
 c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
@@ -388,24 +420,26 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use mlsolverSetup
+      use mg_internal
 
       implicit none
 
 c Call variables
 
-      integer*4    ntot,igrid,gpos,bcnd(6,*)
-      real*8       x(ntot),y(ntot)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,*)
+      real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,neq
+      integer(4) :: isig,ijk,ijkg
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: drho
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
       real(8)    :: upwind,nu2
+
+      logical    :: fpointers
 
 c External
 
@@ -414,21 +448,25 @@ c External
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      call allocPointers(neq,MGgrid,fpointers)
+
+      isig = MGgrid%istartp(igrid)
 
       igx = igrid
       igy = igrid
       igz = igrid
 
+cc      nx = MGgrid%nxv(igx)
+cc      ny = MGgrid%nyv(igy)
+cc      nz = MGgrid%nzv(igz)
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-      neq = ntot/nx/ny/nz
-
 c Find limits for loops
 
-      call limits(abs(gpos),nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(abs(gpos),nx,ny,nz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
@@ -436,10 +474,10 @@ c Map vector x to array for processing
 
       drho = 0d0
 
-      !Set grid=1 because x is NOT a MG vector
       !For GS, gpos < 0 so that the whole vector x is mapped
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,drho,1)
+      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,drho,igrid
+     .                       ,.false.)
 
       icomp = IRHO
       call setMGBC(max(0,gpos),1,nx,ny,nz,igrid,drho,bcnd)
@@ -489,11 +527,13 @@ c End program
       deallocate(drho)
       nullify(v0_cnv)
 
+      call deallocPointers(fpointers)
+
       end subroutine rho_mtvc
 
 c b_mtvc
 c####################################################################
-      subroutine b_mtvc(gpos,ntot,x,y,igrid,bcnd)
+      subroutine b_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
 c     for Faraday's law.
@@ -506,6 +546,7 @@ c            + If gpos = 0, all the grid is considered.
 c            + If gpos < 0, all grid is mapped, but operations are 
 c              restricted to stencil of abs(gpos) (useful for
 c              matrix-light GS)
+c      * neq: number of coupled equations
 c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
@@ -517,18 +558,18 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use mlsolverSetup
+      use mg_internal
 
       implicit none
 
 c Call variables
 
-      integer*4    ntot,igrid,gpos,bcnd(6,*)
+      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
       real*8       x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,neq,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer(4) :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
       integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
@@ -537,6 +578,8 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: db
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
+      logical    :: fpointers
+
 c External
 
       real(8)    :: res
@@ -544,21 +587,25 @@ c External
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      call allocPointers(neq,MGgrid,fpointers)
+
+      isig = MGgrid%istartp(igrid)
 
       igx = igrid
       igy = igrid
       igz = igrid
 
+cc      nxx = MGgrid%nxv(igx)
+cc      nyy = MGgrid%nyv(igy)
+cc      nzz = MGgrid%nzv(igz)
       nxx = grid_params%nxv(igx)
       nyy = grid_params%nyv(igy)
       nzz = grid_params%nzv(igz)
 
-      neq = ntot/nxx/nyy/nzz
-
 c Find limits for loops
 
-      call limits(abs(gpos),nxx,nyy,nzz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(abs(gpos),nxx,nyy,nzz
+     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
@@ -566,10 +613,10 @@ c Map vector x to array for processing
 
       db = 0d0
 
-      !Set grid=1 because x is NOT a MG vector
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,1)
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
+     .                       ,.false.)
 
       icomp = IBX
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd)
@@ -791,11 +838,13 @@ c End program
       deallocate(db)
       nullify(v0_cnv)
 
+      call deallocPointers(fpointers)
+
       end subroutine b_mtvc
 
 c v_mtvc
 c####################################################################
-      subroutine v_mtvc(gpos,ntot,x,y,igrid,bcnd)
+      subroutine v_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
 c     for the velocity SI system.
@@ -808,6 +857,7 @@ c            + If gpos = 0, all the grid is considered.
 c            + If gpos < 0, all grid is mapped, but operations are 
 c              restricted to stencil of abs(gpos) (useful for
 c              matrix-light GS)
+c      * neq: number of coupled equations
 c      * ntot: total number of unknowns: neq*nx*ny*nz
 c      * x(ntot): input vector
 c      * y(ntot): output vector
@@ -819,7 +869,7 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use mlsolverSetup
+      use mg_internal
 
       use nlfunction_setup
 
@@ -827,12 +877,12 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    ntot,igrid,gpos,bcnd(6,*)
+      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
       real*8       x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,neq,ip,im,jp,jm,kp,km,hex,hey,hez,icompsave
+      integer(4) :: isig,ip,im,jp,jm,kp,km,hex,hey,hez,icompsave
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax,nxx,nyy,nzz,ijk,ijkg
 
       real(8),allocatable,dimension(:,:,:,:) :: dv
@@ -855,6 +905,8 @@ c Local variables
      .             ,a1cnvjp,a2cnvjp,a3cnvjp,a1cnvjm,a2cnvjm,a3cnvjm
      .             ,a1cnvkp,a2cnvkp,a3cnvkp,a1cnvkm,a2cnvkm,a3cnvkm
 
+      logical    :: fpointers
+
 c External
 
       real(8)    :: vis
@@ -862,21 +914,26 @@ c External
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      call allocPointers(neq,MGgrid,fpointers)
+
+      isig = MGgrid%istartp(igrid)
 
       igx = igrid
       igy = igrid
       igz = igrid
 
+cc      nxx = MGgrid%nxv(igx)
+cc      nyy = MGgrid%nyv(igy)
+cc      nzz = MGgrid%nzv(igz)
       nxx = grid_params%nxv(igx)
       nyy = grid_params%nyv(igy)
       nzz = grid_params%nzv(igz)
 
-      neq = ntot/nxx/nyy/nzz
-
 c Find limits for loops
 
-      call limits(abs(gpos),nxx,nyy,nzz,imin,imax,jmin,jmax,kmin,kmax)
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+cc      write (*,*) 'v_mtvc Loop limits:',imin,imax,jmin,jmax,kmin,kmax
 
 c Map vector x to array for processing
 
@@ -884,8 +941,8 @@ c Map vector x to array for processing
 
       dv = 0d0
 
-      !Set grid=1 because x is NOT a MG vector
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,1)
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
+     .                       ,.false.)
 
       icomp = IVX
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd)
@@ -1278,6 +1335,8 @@ c End program
       nullify(pp0,rho0)
       nullify(b0_cnv)
       nullify(v0_cnv)
+
+      call deallocPointers(fpointers)
 
       contains
 
