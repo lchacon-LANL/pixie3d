@@ -67,7 +67,7 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
 
 BINDIR = ../bin
 
-COMMONDIR = ./commondirs
+COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 	  $(COMMONDIR)/grid\
