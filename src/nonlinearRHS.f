@@ -34,7 +34,7 @@ c Local variables
 
       integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
 
-      real(8)    :: dvol,dS1,dS2,dS3,dxx,dyy,dzz,xhm,yhm,zhm
+      real(8)    :: dvol,ivol,dS1,dS2,dS3,dxx,dyy,dzz,xhm,yhm,zhm
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,dummy
 
@@ -91,6 +91,8 @@ c     Grid parameters
       dS3 = dxx*dyy
 
       dvol = dxx*dyy*dzz
+
+      ivol = 1d0/volume(i,j,k,igx,igy,igz)
 
       sing_point = .false.
       if (i == 1 .and. bcond(1) == SP) sing_point = .true.
@@ -551,6 +553,10 @@ c     Vz
       ff(IVZ) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
      .              + dS3*(flxkp - flxkm) ) - msource
+
+c     Divide by cell volume factor
+
+      ff = ff*ivol
 
 c End
 
