@@ -1353,7 +1353,6 @@ c     Begin program
               cycle
             elseif (bcond(ibc,ivar) < 0) then
 
-cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
               call findLoopLimits(dim,loc,iimin,iimax
      .                                   ,jjmin,jjmax
      .                                   ,kkmin,kkmax)
@@ -1716,7 +1715,19 @@ c Begin program
 c Determine boundary limits
 
 cc      call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
-      call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+cc      call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+cc      call findLoopLimits(dim,loc,iimin-1,iimax+1
+cc     .                           ,jjmin-1,jjmax+1
+cc     .                           ,kkmin-1,kkmax+1)
+
+      select case(bctype)
+      case(DIR,EQU)
+        call findLoopLimits(dim,loc,iimin-1,iimax+1
+     .                             ,jjmin-1,jjmax+1
+     .                             ,kkmin-1,kkmax+1)
+      case default
+        call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+      end select
 
 c Allocate rhs
 
