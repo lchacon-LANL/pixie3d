@@ -115,6 +115,11 @@ c####################################################################
 
         real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
 
+        type :: curv_vector
+          real(8),pointer,dimension(:,:,:,:) :: vcomp
+          logical :: cov
+        end type curv_vector
+
       contains
 
 c     findLoopLimits
@@ -133,8 +138,7 @@ c     Begin program
 
       select case(dim)
       case (1)
-cc        imin = min(1,iimin) + loc*(max(nx,iimax)-min(1,iimin))
-        imin = iimin + loc*(iimax-iimin)
+        imin = 1 + loc*(nx-1)
         imax = imin
 
         jmin = jjmin
@@ -143,30 +147,15 @@ cc        imin = min(1,iimin) + loc*(max(nx,iimax)-min(1,iimin))
         kmin = kkmin
         kmax = kkmax
 
-        !Check if limits are acceptable, otherwise set them up to do nothing
-        if (imin > 1 .and. imax < nx) then
-          imin = imax + 1
-          jmin = jmax + 1
-          kmin = kmax + 1
-        endif
-
       case(2)
         imin = iimin
         imax = iimax
 
-cc        jmin = min(1,jjmin) + loc*(max(ny,jjmax)-min(1,jjmin))
-        jmin = jjmin + loc*(jjmax-jjmin)
+        jmin = 1 + loc*(ny-1)
         jmax = jmin
 
         kmin = kkmin
         kmax = kkmax
-
-        !Check if limits are acceptable, otherwise set them up to do nothing
-        if (jmin > 1 .and. jmax < ny) then
-          imin = imax + 1
-          jmin = jmax + 1
-          kmin = kmax + 1
-        endif
 
       case(3)
         imin = iimin
@@ -175,16 +164,8 @@ cc        jmin = min(1,jjmin) + loc*(max(ny,jjmax)-min(1,jjmin))
         jmin = jjmin
         jmax = jjmax
 
-cc        kmin = min(1,kkmin) + loc*(max(nz,kkmax)-min(1,kkmin))
-        kmin = kkmin + loc*(kkmax-kkmin)
+        kmin = 1 + loc*(nz-1)
         kmax = kmin
-
-        !Check if limits are acceptable, otherwise set them up to do nothing
-        if (kmin > 1 .and. kmax < nz) then
-          imin = imax + 1
-          jmin = jmax + 1
-          kmin = kmax + 1
-        endif
 
       end select
 
@@ -214,8 +195,6 @@ c     Imposes singular point BC. On input:
 c        * array: contains variable on which singular BC is imposed
 c        * order: order of interpolation towards singular point
 c     -----------------------------------------------------------------
-
-cc      use grid
 
       implicit none
 
@@ -286,9 +265,6 @@ c     Local variables
       real(8),allocatable,dimension(:) :: ax0,ay0,az0,cx,cy,cz
 
 c     External
-
-      real(8) :: quad_int
-      external   quad_int
 
 c     Begin program
 
@@ -473,32 +449,32 @@ cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
                 select case (ibc)
                 case (1)
                   array(i-1,j,k,dim) = array(i+1,j,k,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
                 case (2)
                   array(i+1,j,k,dim) = array(i-1,j,k,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
                 case (3)
                   array(i,j-1,k,dim) = array(i,j+1,k,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
                 case (4)
                   array(i,j+1,k,dim) = array(i,j-1,k,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
                 case (5)
                   array(i,j,k-1,dim) = array(i,j,k+1,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
                 case (6)
                   array(i,j,k+1,dim) = array(i,j,k-1,dim)
-                  diver = jac0*div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
                 end select
@@ -582,32 +558,32 @@ cc
 cc                select case (ibc)
 cc                case (1)
 cc                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
 cc                case (2)
 cc                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
 cc                case (3)
 cc                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
 cc                case (4)
 cc                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
 cc                case (5)
 cc                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
 cc                case (6)
 cc                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
-cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
 cc                end select
@@ -944,18 +920,45 @@ c     Assign value
 
       select case (ibc)
       case (1)
-        rhs(:,:) = array(1,:,:)  - rhs(:,:)
+        rhs(jmin-1:jmax+1,kmin-1:kmax+1) =
+     .                             array(1,jmin-1:jmax+1,kmin-1:kmax+1)
+     $                           - rhs(jmin-1:jmax+1,kmin-1:kmax+1)
       case (2)
-        rhs(:,:) = array(nx,:,:) + rhs(:,:)
+        rhs(jmin-1:jmax+1,kmin-1:kmax+1) =
+     .                             array(nx,jmin-1:jmax+1,kmin-1:kmax+1)
+     $                           + rhs(jmin-1:jmax+1,kmin-1:kmax+1)
       case (3)
-        rhs(:,:) = array(:,1,:)  - rhs(:,:)
+        rhs(imin-1:imax+1,kmin-1:kmax+1) =
+     .                             array(imin-1:imax+1,1,kmin-1:kmax+1)
+     $                           - rhs(imin-1:imax+1,kmin-1:kmax+1)
       case (4)
-        rhs(:,:) = array(:,ny,:) + rhs(:,:)
+        rhs(imin-1:imax+1,kmin-1:kmax+1) =
+     .                             array(imin-1:imax+1,ny,kmin-1:kmax+1)
+     $                           + rhs(imin-1:imax+1,kmin-1:kmax+1)
       case (5)
-        rhs(:,:) = array(:,:,1)  - rhs(:,:)
+        rhs(imin-1:imax+1,jmin-1:jmax+1) =
+     .                             array(imin-1:imax+1,jmin-1:jmax+1,1)
+     $                           - rhs(imin-1:imax+1,jmin-1:jmax+1)
       case (6)
-        rhs(:,:) = array(:,:,nz) + rhs(:,:)
+        rhs(imin-1:imax+1,jmin-1:jmax+1) =
+     .                             array(imin-1:imax+1,jmin-1:jmax+1,nz)
+     $                           + rhs(imin-1:imax+1,jmin-1:jmax+1)
       end select
+
+cc      select case (ibc)
+cc      case (1)
+cc        rhs(:,:) = array(1,:,:)  - rhs(:,:)
+cc      case (2)
+cc        rhs(:,:) = array(nx,:,:) + rhs(:,:)
+cc      case (3)
+cc        rhs(:,:) = array(:,1,:)  - rhs(:,:)
+cc      case (4)
+cc        rhs(:,:) = array(:,ny,:) + rhs(:,:)
+cc      case (5)
+cc        rhs(:,:) = array(:,:,1)  - rhs(:,:)
+cc      case (6)
+cc        rhs(:,:) = array(:,:,nz) + rhs(:,:)
+cc      end select
 
 c     End program
 
@@ -1208,18 +1211,45 @@ c     Assign value
 
       select case (ibc)
       case (1)
-        rhs(:,:) = array(1,:,:,ivar)  - rhs(:,:)
+        rhs(jmin-1:jmax+1,kmin-1:kmax+1) =
+     .                        array(1,jmin-1:jmax+1,kmin-1:kmax+1,ivar)
+     $                      - rhs(jmin-1:jmax+1,kmin-1:kmax+1)
       case (2)
-        rhs(:,:) = array(nx,:,:,ivar) + rhs(:,:)
+        rhs(jmin-1:jmax+1,kmin-1:kmax+1) =
+     .                        array(nx,jmin-1:jmax+1,kmin-1:kmax+1,ivar)
+     $                      + rhs(jmin-1:jmax+1,kmin-1:kmax+1)
       case (3)
-        rhs(:,:) = array(:,1,:,ivar)  - rhs(:,:)
+        rhs(imin-1:imax+1,kmin-1:kmax+1) =
+     .                        array(imin-1:imax+1,1,kmin-1:kmax+1,ivar)
+     $                      - rhs(imin-1:imax+1,kmin-1:kmax+1)
       case (4)
-        rhs(:,:) = array(:,ny,:,ivar) + rhs(:,:)
+        rhs(imin-1:imax+1,kmin-1:kmax+1) =
+     .                        array(imin-1:imax+1,ny,kmin-1:kmax+1,ivar)
+     $                      + rhs(imin-1:imax+1,kmin-1:kmax+1)
       case (5)
-        rhs(:,:) = array(:,:,1,ivar)  - rhs(:,:)
+        rhs(imin-1:imax+1,jmin-1:jmax+1) =
+     .                        array(imin-1:imax+1,jmin-1:jmax+1,1,ivar)
+     $                      - rhs(imin-1:imax+1,jmin-1:jmax+1)
       case (6)
-        rhs(:,:) = array(:,:,nz,ivar) + rhs(:,:)
+        rhs(imin-1:imax+1,jmin-1:jmax+1) =
+     .                        array(imin-1:imax+1,jmin-1:jmax+1,nz,ivar)
+     $                      + rhs(imin-1:imax+1,jmin-1:jmax+1)
       end select
+
+cc      select case (ibc)
+cc      case (1)
+cc        rhs(:,:) = array(1,:,:,ivar) - rhs(:,:)
+cc      case (2)
+cc        rhs(:,:) = array(nx,:,:,ivar)+ rhs(:,:)
+cc      case (3)
+cc        rhs(:,:) = array(:,1,:,ivar) - rhs(:,:)
+cc      case (4)
+cc        rhs(:,:) = array(:,ny,:,ivar)+ rhs(:,:)
+cc      case (5)
+cc        rhs(:,:) = array(:,:,1,ivar) - rhs(:,:)
+cc      case (6)
+cc        rhs(:,:) = array(:,:,nz,ivar)+ rhs(:,:)
+cc      end select
 
 c     End program
 
@@ -1319,7 +1349,7 @@ c     Local variables
 
 c     Begin program
 
-c     Preprocess velocity field
+c     Find cov components (we assume cnv components are defined)
 
       do k = 1,nz
         do j = 1,ny
@@ -1747,7 +1777,8 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         do j = 0,ny+1
           do i = 0,nx+1
             do icomp=1,3
-              v_cnv(i,j,k,icomp)=curl2(i,j,k,bx_cov,by_cov,bz_cov,icomp)
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz
+     .                                ,bx_cov,by_cov,bz_cov,icomp)
             enddo
           enddo
         enddo
@@ -1845,17 +1876,16 @@ c Find BC update
       ibc = (1+loc)+2*(dim-1)
 
       if (nvar == 1) then
-        ivar = nvar
         select case(bctype)
         case(PER)
-          call periodicBC(array(:,:,:,ivar),ibc)
+          call periodicBC(array(:,:,:,nvar),ibc)
         case(EQU)
-          call dirichletBC(array(:,:,:,ivar),array0(:,:,:,ivar)
+          call dirichletBC(array(:,:,:,nvar),array0(:,:,:,nvar)
      .                    ,ieq,dim,loc,0)
         case(DIR)
-          call dirichletBC(array(:,:,:,ivar),zeros,ieq,dim,loc,1)
+          call dirichletBC(array(:,:,:,nvar),zeros,ieq,dim,loc,1)
         case(NEU)
-          call neumannBC(array(:,:,:,ivar),ieq,dim,loc)
+          call neumannBC(array(:,:,:,nvar),ieq,dim,loc)
         case default
           write (*,*) 'BC',bctype,' not implemented'
           stop
@@ -1877,6 +1907,24 @@ c Find BC update
       endif
 
 c Update BC ghost nodes
+
+cc      select case (ibc)
+cc      case (1)                  !x0
+cc        array(0   ,jmin:jmax,kmin:kmax,ivar) = rhs(jmin:jmax,kmin:kmax)
+cc      case (2)                  !x1
+cc        array(nx+1,jmin:jmax,kmin:kmax,ivar) = rhs(jmin:jmax,kmin:kmax)
+cc      case (3)                  !y0
+cc        array(imin:imax,0   ,kmin:kmax,ivar) = rhs(imin:imax,kmin:kmax)
+cc      case (4)                  !y1
+cc        array(imin:imax,ny+1,kmin:kmax,ivar) = rhs(imin:imax,kmin:kmax)
+cc      case (5)                  !z0
+cc        array(imin:imax,jmin:jmax,0   ,ivar) = rhs(imin:imax,jmin:jmax)
+cc      case (6)                  !z1
+cc        array(imin:imax,jmin:jmax,nz+1,ivar) = rhs(imin:imax,jmin:jmax)
+cc      case default
+cc        write (*,*) 'Boundary',ibc,' non existent'
+cc        stop
+cc      end select
 
       select case (ibc)
       case (1)                  !x0
