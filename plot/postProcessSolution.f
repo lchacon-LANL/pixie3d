@@ -21,6 +21,8 @@ c--------------------------------------------------------------------
 
       use equilibrium
 
+      use nlfunction_setup
+
       use imposeBCinterface
 
       implicit none
@@ -154,9 +156,9 @@ c Divergence diagnostics
       !Average divergence around singular point (we consider whole control volume)
       if (bcond(1) == SP) then
         do k = 1,nz
-          divrgJ(1,:,k) = sum(divrgJ(1,1:ny,k))/ny
-          divrgB(1,:,k) = sum(divrgB(1,1:ny,k))/ny
-          divrgV(1,:,k) = sum(divrgV(1,1:ny,k))/ny
+          divrgJ(1,:,k) = divrgJ(0,:,k)
+          divrgB(1,:,k) = divrgB(0,:,k)
+          divrgV(1,:,k) = divrgV(0,:,k)
         enddo
       endif
 
@@ -174,6 +176,17 @@ c Total pressure (use graphics limits)
      .                      +by(i,j,k)*by_cov(i,j,k)
      .                      +bz(i,j,k)*bz_cov(i,j,k))/2./jac
 
+          enddo
+        enddo
+      enddo
+
+c Transport coefficients
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
+            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
           enddo
         enddo
       enddo
