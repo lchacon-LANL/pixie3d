@@ -121,11 +121,58 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         do k = 1,nzd
           do j = 1,nyd
             do i = 1,nxd
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
               var(i,j,k,IRHO) = 1d0
+cc     .                         + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+cc     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
               var(i,j,k,IBZ)  = 1d0
+cc     .                         + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+cc     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
+
+              var(i,j,k,IVX)  = 0d0
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,ITMP) = 1d0
+            enddo
+          enddo
+        enddo
+
+      case ('mswsn') !Magnetosonic wave
+
+        gamma = 1d0
+
+c     Check coordinates
+
+        if (coords /= 'sin') then
+          write (*,*) 'Wrong coordinates for equilibrium ',equil
+          write (*,*) 'Aborting...'
+          stop
+        endif
+
+c     Uniform medium with constant magnetic field in cartesian coordinates
+
+        do k = 1,nzd
+          do j = 1,nyd
+            do i = 1,nxd
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              jac1 = jacobian(x1,y1,z1,.true.)
+
+              var(i,j,k,IRHO) = 1d0
+cc     .                        + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+cc     .                                  +2*pi*(y1-ymin)/(ymax-ymin))
+
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = 0d0
+              var(i,j,k,IBZ)  = jac1*1d0
+cc     .                        + jac1*1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+cc     .                                       +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -214,50 +261,6 @@ cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
         var(:,:,:,ITMP) = 1d0
 
-      case ('dfcyl')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
-
-c     Check coordinates
-
-        if (coords /= 'cyl') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-          stop
-        endif
-
-c     Dipolar flow in cylindrical coordinates
-
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-              r = grid_params%xx(ig)
-
-              var(i,j,k,IRHO) = 1d0
-cc              var(i,j,k,IRHO) = 1.+0.1*exp(-(r/0.25)**2)
-cc              var(i,j,k,IRHO) = 1d0+0.5*sin(grid_params%xx(ig))
-
-cc              var(i,j,k,IBX)=0d0
-cc              var(i,j,k,IBY)=0d0
-cc              var(i,j,k,IBZ)= r
-
-              var(i,j,k,IBX)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IBY)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
-              var(i,j,k,IBZ)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
-
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
-
-              var(i,j,k,ITMP) = 1d0
-
-            enddo
-          enddo
-        enddo
-
       case ('tmsin')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
@@ -309,6 +312,50 @@ cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
               var(i,j,k,IVZ)  = 0d0
 
               var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 1d0
+
+            enddo
+          enddo
+        enddo
+
+      case ('dfcyl')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          write (*,*) 'Wrong coordinates for equilibrium ',equil
+          write (*,*) 'Aborting...'
+          stop
+        endif
+
+c     Dipolar flow in cylindrical coordinates
+
+        do k = 1,nzd
+          do j = 1,nyd
+            do i = 1,nxd
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+              r = grid_params%xx(ig)
+
+              var(i,j,k,IRHO) = 1d0
+cc              var(i,j,k,IRHO) = 1.+0.1*exp(-(r/0.25)**2)
+cc              var(i,j,k,IRHO) = 1d0+0.5*sin(grid_params%xx(ig))
+
+cc              var(i,j,k,IBX)=0d0
+cc              var(i,j,k,IBY)=0d0
+cc              var(i,j,k,IBZ)= r
+
+              var(i,j,k,IBX)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IBY)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IBZ)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
+
+              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
 
               var(i,j,k,ITMP) = 1d0
 
