@@ -28,38 +28,11 @@ c Local variables
 
       integer(4) :: ncolors
 
-c Debug
-
-      real(8)    :: mag,debug(0:nx+1,0:ny+1,0:nz+1)
-      integer(4) :: nt,ii
-      real(8),allocatable,dimension(:,:) :: v_mat,debug2
-
 c Externals
 
       external   v_mtvc,b_mtvc,rho_mtvc,tmp_mtvc
 
 c Begin program
-
-c diag ******* NUMERICAL GRID QUANTITIES
-cc      open(unit=110,file='debug.bin',form='unformatted'
-cc     .    ,status='replace')
-cc      igx = 1
-cc      do i=1,3
-cc        do j=1,3
-cc          nx = grid_params%nxv(igx)
-cc          ny = grid_params%nyv(igx)
-cc          nz = grid_params%nzv(igx)
-cc          debug = gmetric%grid(igx)%cnv(0:nx+1,0:ny+1,0:nz+1,i,j)
-cccc          debug = gmetric%grid(igx)%Gamma(0:nx+1,0:ny+1,0:nz+1,1,i,j)
-cccc     .           *gmetric%grid(igx)%jac
-cc
-cc          call contour(debug(0:nx+1,0:ny+1,1),nx+2,ny+2,0d0
-cc     .                ,xmax,0d0,ymax,i+j-2,110)
-cc        enddo
-cc      enddo
-cc      close(110)
-cc      stop
-c diag *******
 
       if (precon == 'id') return
 
@@ -70,6 +43,9 @@ c diag *******
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
+
+cc      si_car = .false.
+      si_car = .not.(coords == 'car')
 
 c Unpack vector x
 
@@ -108,6 +84,8 @@ c Find required diagonals in all grids
       ncolors = 4
 
       if (jit == 1) then
+        form_diag = .true.
+
         call find_mf_diag_colored(1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
      .                           ,rho_diag,ncolors)
 
