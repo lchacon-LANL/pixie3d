@@ -32,7 +32,6 @@ c--------------------------------------------------------------------
 c Call variables
 
       real(8)       :: var(0:nxdp,0:nydp,0:nzdp,neqd)
-      real(8)       :: bx,by,bz
 
       character*(5) :: label(neqd)
 
@@ -42,8 +41,11 @@ c Local variables
 
       integer(4)    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz
       real(8)       :: ldaflow,xx,yy,zz,car(3)
+      real(8)       :: bx,by,bz
 
       logical       :: covariant,to_cartesian
+
+      real(8)       :: bz0
 
 c Externals
 
@@ -79,31 +81,14 @@ c Set initial guess (in Cartesian coordinates)
 
       select case (trim(equil))
 
-      case ('kh/tm')
+      case ('kh')
 
-c     Mixed perp. tearing/K-H (perturb PSI and/or VOR)
+c     Kelvin-Helmholtz with constant magnetic field
 
         do k = 1,nzd
           do j = 1,nyd
             do i = 1,nxd
               var(i,j,k,IRHO) = 1d0
-
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-              xx = grid_params%xx(ig)
-              yy = grid_params%yy(jg)
-              zz = grid_params%zz(kg)
-
-              car = inverse_map(xx,yy,zz)
-
-              xx = car(1)
-              yy = car(2)
-              zz = car(3)
-
-cc              call curl(i,j,k,igx,igy,igz,Ax,Ay,Az,bx,by,bz)
-cc              var(i,j,k,IBX)  = bx
-cc              var(i,j,k,IBY)  = by
-cc              var(i,j,k,IBZ)  = bz
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
@@ -114,11 +99,36 @@ cc              var(i,j,k,IBZ)  = bz
               var(i,j,k,IVY)  = vperflow*by
               var(i,j,k,IVZ)  = vperflow*bz
 
-cc              var(i,j,k,IVX)  = vperflow*tanh((yy-0.5)/dlambda)
-cc              var(i,j,k,IVY)  = 0d0
-cc              var(i,j,k,IVZ)  = 0d0
+              var(i,j,k,ITMP) = 1d0
+            enddo
+          enddo
+        enddo
+
+      case ('tm')
+
+        bz0 = 1d0
+
+c     Kelvin-Helmholtz/Tearing mode
+
+        do k = 1,nzd
+          do j = 1,nyd
+            do i = 1,nxd
+
+              call curl(i,j,k,igx,igy,igz,Ax,Ay,Az,bx,by,bz)
+              var(i,j,k,IBX)  = bx
+              var(i,j,k,IBY)  = by
+cc              var(i,j,k,IBX)  = 1d0
+cc              var(i,j,k,IBY)  = 0d0
+              var(i,j,k,IBZ)  = sqrt(bz0**2 - bx**2)
+
+              var(i,j,k,IVX)  = 0d0
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = 1d0
 
               var(i,j,k,ITMP) = 1d0
+
             enddo
           enddo
         enddo
@@ -360,7 +370,7 @@ c Find vector components at edges
 
       select case (trim(equil))
 
-      case ('kh/tm')
+      case default
 
         ax = 0d0
 
@@ -411,7 +421,7 @@ c Find vector components at edges
 
       select case (trim(equil))
 
-      case ('kh/tm')
+      case default
 
         ay = 0d0
 
@@ -462,7 +472,7 @@ c Find vector components at edges
 
       select case (trim(equil))
 
-      case ('kh/tm')
+      case default
 
         select case (coords)
         case ('car')
