@@ -20,6 +20,8 @@ c------------------------------------------------------------------
 
       use debug
 
+      use error
+
       implicit none
 
 c Call variables
@@ -44,6 +46,11 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+c Decide whether to use ZIP differencing in Faraday's law
+
+      zip_eom_b = .false.
+cc      zip_eom_b = .true.
+
 c Impose boundary conditions and find auxiliary quantities
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
@@ -62,22 +69,13 @@ c Set aliases
 c Safeguards
 
       if (minval(rho) < 0d0) then
-        write (*,*) 'Warning: negative densities are occurring'
-cc        write (*,*) rho(:,:,:)
-#if defined(petsc)
-        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-        call MPI_Finalize(mpierr)
-#endif
-        stop
+        call pstop('setupNonlinearFunction',
+     .             'Warning: negative densities are occurring')
       endif
 
       if (minval(tmp) < 0d0) then
-        write (*,*) 'Warning: negative temperatures are occurring'
-#if defined(petsc)
-        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-        call MPI_Finalize(mpierr)
-#endif
-        stop
+        call pstop('setupNonlinearFunction',
+     .             'Warning: negative temperatures are occurring')
       endif
 
 c Transport parameters
@@ -98,6 +96,10 @@ c Transport parameters
       bcnv(:,:,:,1) = bx
       bcnv(:,:,:,2) = by
       bcnv(:,:,:,3) = bz
+
+      vcnv(:,:,:,1) = vx
+      vcnv(:,:,:,2) = vy
+      vcnv(:,:,:,3) = vz
 
 c End program
 
