@@ -113,14 +113,6 @@ c Begin program
         dx => grid_params%dx
         dy => grid_params%dy
         dz => grid_params%dz
-
-        igx = 1
-        igy = 1
-        igz = 1
-
-        nx = grid_params%nxv(igx)
-        ny = grid_params%nyv(igy)
-        nz = grid_params%nzv(igz)
       endif
 
 c End
