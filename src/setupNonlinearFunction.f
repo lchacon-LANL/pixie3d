@@ -39,6 +39,14 @@ c Externals
 
 c Begin program
 
+      igx = 1
+      igy = 1
+      igz = 1
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
 c Impose boundary conditions and find auxiliary quantities
 
       call imposeBoundaryConditions(varray)
