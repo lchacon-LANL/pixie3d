@@ -111,8 +111,8 @@ c Set defaults
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
       method   = 0             ! Constant forcing parameter for inexact Newton
-                               !        (see NewtonGmres doc)
-      global   = 0             ! Do not use globalization (see NewtonGmres doc)
+                               !        (see etak_meth in NewtonGmres doc)
+      global   = 0             ! Do not use globalization (see global in NewtonGmres doc)
       damp     = 1d0           ! Damping parameter in Newton (see NewtonGmres doc))
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 1             ! Whether preconditioner is used to give initial
