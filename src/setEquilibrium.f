@@ -57,10 +57,10 @@ c Local variables
 c Functions
 
       !q-profile
-cc      qq (rr) = 0.6125*(1 - 1.8748*rr**2 + 0.8323*rr**4)
-cc      qqp(rr) = 0.6125*( -2*1.8748*rr   +4*0.8323*rr**3)
-      qq(rr)  = 0.3*(1 - 1.8748*rr**2 + 0.8323*rr**4)
-      qqp(rr) = 0.3*( -2*1.8748*rr   +4*0.8323*rr**3)
+      qq (rr) = 0.6125*(1 - 1.8748*rr**2 + 0.8323*rr**4)
+      qqp(rr) = 0.6125*( -2*1.8748*rr   +4*0.8323*rr**3)
+cc      qq(rr)  = 0.3*(1 - 1.8748*rr**2 + 0.8323*rr**4)
+cc      qqp(rr) = 0.3*( -2*1.8748*rr   +4*0.8323*rr**3)
 
       ff(rr) = rr**2 + qq(rr)**2
 
@@ -407,11 +407,12 @@ c     Check coordinates
 c     RFP equilibria (analytical)
 
         mm = grid_params%params(1)
-        nn = grid_params%params(2)
-        aa = grid_params%params(3)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        aa = grid_params%params(4)
 
-        nh2 = mm    !To set the right perturbation wavelength
-        nh3 = nn    !To set the right perturbation wavelength
+        nh2 = mm       !To set the right perturbation wavelength
+        nh3 = kk*RR    !To set the right perturbation wavelength
 
         !Build equilibrium
         do k = 1,nzd
