@@ -1,14 +1,3 @@
-c module precond_setup
-c ######################################################################
-      module precond_setup
-
-        integer(4)    ::  precpass,nsweep,maxvcyc,ndiagdp
-        parameter (ndiagdp=3)
-
-        character*(10)::  precon
-
-      end module precond_setup
-
 c  module matvec
 c ###################################################################
       module matvec
@@ -18,51 +7,6 @@ c ###################################################################
         use mg_internal
 
       contains
-
-c     limits
-c     ###############################################################
-      subroutine limits(elem,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax)
-      implicit none
-c     ---------------------------------------------------------------
-c     Finds limits on loops for matvec routines. Used in finding 
-c     diagonal from matvec.
-c     ---------------------------------------------------------------
-
-c     Call variables
-
-      integer(4) :: elem,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax
-
-c     Local variables
-
-      integer(4) :: el1
-
-c     Begin program
-
-      if (elem.eq.0) then
-        imin = 1
-        imax = nx
-        jmin = 1
-        jmax = ny
-        kmin = 1
-        kmax = nz
-      else
-        el1  = mod(elem,nx*ny)
-        if (el1 == 0) el1 = nx*ny
-
-        imin = mod(el1 ,nx)
-        if (imin == 0) imin = nx
-        imax = imin
-
-        jmin = 1 + (el1 - imin)/nx
-        jmax = jmin
-
-        kmin = 1 + (elem - imin - nx*(jmin-1))/nx*ny
-        kmax = kmin
-      endif
-
-c     End program
-
-      end subroutine limits
 
 c     restrictArray
 c     #################################################################
@@ -362,14 +306,15 @@ c ######################################################################
 
         real(8), allocatable, dimension(:,:) :: bcnv,vcnv
 
-        real(8), allocatable, dimension(:) :: divV
-
-cc        real(8), allocatable, dimension(:,:,:) :: pp
+        real(8), allocatable, dimension(:)   :: divV
 
         integer(4), allocatable, dimension(:,:) :: bcs
+        real(8),allocatable,dimension(:,:):: rho_diag,tmp_diag
+     .                                      ,b_diag,v_diag
 
+cc        real(8), allocatable, dimension(:,:,:) :: pp
+cc
 cc        real(8), allocatable, dimension(:):: diag_mu
-cc        real(8),allocatable,dimension(:,:):: d_sc,d_bc,d_pc,d_bh,d_alf
 cc
 cc        logical :: formdiag
 cc
