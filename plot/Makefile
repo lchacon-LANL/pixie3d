@@ -94,11 +94,12 @@ COMMONDIR = ./commondirs
 
 
 SUBDIRS = $(COMMONDIR)/grid\
-	  $(COMMONDIR)/interpolation/1d_spline\
-	  $(COMMONDIR)/interpolation/2d_spline\
-	  $(COMMONDIR)/interpolation/3d_spline\
-	  $(COMMONDIR)/interpolation/spline_common\
-	  $(COMMONDIR)/interpolation/xerror\
+	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/interpolation/slatec/1d_spline\
+	  $(COMMONDIR)/interpolation/slatec/2d_spline\
+	  $(COMMONDIR)/interpolation/slatec/3d_spline\
+	  $(COMMONDIR)/interpolation/slatec/spline_common\
+	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/3dplot
 
 #Define targets
