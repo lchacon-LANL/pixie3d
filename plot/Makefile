@@ -35,35 +35,39 @@ FC = f90
 ifeq ($(FC),f90)
 
 # Flags for Absoft f90
-OPTIMIZATION = -O -B101 -cpu:host
-#DEBUG = -g -et
-#DEBUG = -g -et -trap=ALL
-DEBUG = -g
+OPTIMIZATION = -O1
+DEBUG = -g -et -Rp
+#DEBUG = -g -et --trace=ALL -Rb
+#DEBUG = -g
 PROFILE = -P
 STATIC = -s
 MODPATH = -p
+FFLAGS = -w
 
-LIBS = -llapack_f90 -lblas_f90 -lU77
+LIBS = -lU77 -llapack_f90 -lblas_f90
+
+MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
 
 else
 
 # Flags for Lahey lf95
 OPTIMIZATION = -O --tpp
-DEBUG = -g --trace --trap
-#DEBUG = -g 
+DEBUG = -g --chkglobal
+#DEBUG = -g --trace --trap
 PROFILE =
 STATIC =
 MODPATH = -M
+FFLAGS =
 
-LIBS = -llapack_lf95 -lblas_lf95
+LIBS = 
+
+MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 
 endif
 
 #Setup compiler options
 
 OPT = O 
-
-FFLAGS =
 
 ifneq (,$(findstring O,$(OPT)))
 FFLAGS += $(OPTIMIZATION)
@@ -88,21 +92,23 @@ LDFLAGS =
 
 COMMONDIR = ./commondirs
 
-SUBDIRS = $(COMMONDIR)/3dplot \
-	  $(COMMONDIR)/grid \
-	  $(COMMONDIR)/interpolation/1d_spline \
-	  $(COMMONDIR)/interpolation/xerror
 
-MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH) $(COMMONDIR)%,$(SUBDIRS))
+SUBDIRS = $(COMMONDIR)/grid\
+	  $(COMMONDIR)/interpolation/1d_spline\
+	  $(COMMONDIR)/interpolation/2d_spline\
+	  $(COMMONDIR)/interpolation/3d_spline\
+	  $(COMMONDIR)/interpolation/spline_common\
+	  $(COMMONDIR)/interpolation/xerror\
+	  $(COMMONDIR)/3dplot
 
 #Define targets
 
 production: common $(PROD)
 
-$(PROD):  $(OBJMOD) $(OBJS) $(COMMON_SRC)
+$(PROD):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
 	@echo ''
-	@echo 'Linking 3DMHD plot code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS) $(OBJMOD) $(LIBS)
+	@echo 'Linking 3DPLOT code'
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
 
 common: ;
 	-for subdir in $(SUBDIRS) ; do \
@@ -117,7 +123,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):   $(MODS) $(COMMOM_MODS)
+$(OBJS):  $(MODS) $(COMMOM_MODS)
 
 #Define patterns
 
