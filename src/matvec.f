@@ -143,7 +143,7 @@ c Select operation
         allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,1))
 
         if (PRESENT(arr0)) then
-          v0(:,:,:,1) = arr0(:,:,:,1)
+          v0 = arr0
         else
           v0 = 0d0
         endif
@@ -211,7 +211,7 @@ cc
 
         endif
 
-        call setBC(ivar,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd
+        call setBC(ivar,neq,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd
      .            ,iig,iig,iig
      .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg
      .            ,is_cnv=iscnv,is_vec=.true.,iorder=order)
