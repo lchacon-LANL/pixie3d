@@ -260,9 +260,7 @@ c     ##################################################################
         debugfile    = 'debug.bin'
         udebug       = 40
 
-#if defined(hdf5)
         hdf5_fname   = 'pixie3d.h5'
-#endif
 
         drawgraph(1) = 'drawcnv.in'
         drawgraph(2) = 'drawcov.in'

@@ -35,7 +35,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg
+      integer(4) :: i,j,k,ig,jg,kg,ieq
       real(8)    :: mm,kk,RR,ll,x1,y1,z1
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
@@ -67,9 +67,10 @@ c (finds all covariant and contravariant components of interest)
       bz  => varray%array_var(IBZ )%array
       tmp => varray%array_var(ITMP)%array
 
-c Find perturbed quantities
+c Find perturbed quantities (u_graph = varray - u_ic)
 
-      u_graph = varray - u_ic
+      call substractDerivedType(varray,u_ic,u_graph)
+cc      u_graph = varray - u_ic
 
 c Find Cartesian components of ALL vectors
 
@@ -115,6 +116,7 @@ c Poloidal flux diagnostics  (use graphics limits)
 
 c Poloidally averaged q-factor (use graphics limits)
 
+      qfactor = 0d0
       if (coords == 'hel') then
         mm = grid_params%params(1)
         kk = grid_params%params(2)
@@ -133,8 +135,6 @@ c Poloidally averaged q-factor (use graphics limits)
           enddo
           qfactor(iming,:,k) = qfactor(iming+1,:,k)
         enddo
-      else
-        qfactor = 0d0
       endif
 
 c Divergence diagnostics
