@@ -35,28 +35,61 @@ c ######################################################################
      .          bx_cov,by_cov,bz_cov,bx_car,by_car,bz_car
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov,jx_car,jy_car,jz_car
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov,vx_car,vy_car,vz_car
-     .         ,eeta,nuu,divrgB,divrgV,Pflux,qfactor
+     .         ,eeta,nuu,divrgB,divrgV,divrgJ,Pflux,qfactor,p_tot
 
         real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
         real(8),pointer,dimension(:)    :: xx,yy,zz,dxh,dyh,dzh,dx,dy,dz
 
         integer(4) :: igx,igy,igz,nx,ny,nz
 
-        real(8)    :: x0,y0,z0,xim,yim,zim,xip,yip,zip
-     .                        ,xjm,yjm,zjm,xjp,yjp,zjp
-     .                        ,xkm,ykm,zkm,xkp,ykp,zkp
+        real(8)    :: xim,yim,zim,xip,yip,zip
+     .               ,xjm,yjm,zjm,xjp,yjp,zjp
+     .               ,xkm,ykm,zkm,xkp,ykp,zkp
+
+        real(8)    :: x0,y0,z0,xh,yh,zh
+
+        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .               ,jacp,jacm,jach,jac0
 
         real(8)    :: gsub(3,3),gsuper(3,3)
-     .               ,cnv1(3),cnv2(3),cnv3(3)
-     .               ,cov1(3),cov2(3),cov3(3),jac
+     .               ,cnv1(3),cnv2(3),cnv3(3),jac
 
         real(8)    :: nabla_v(3,3),hessian1(3,3)
      .               ,hessian2(3,3),hessian3(3,3)
      .               ,cov_tnsr(3,3),cnv_tnsr(3,3)
 
-        logical    :: sing_point,cartesian
+        logical    :: sing_point,cartesian,alt_eom
 
       contains
+
+c     div
+c     ###############################################################
+      real(8) function div(i,j,k,axp,axm,ayp,aym,azp,azm)
+      implicit none
+c     ---------------------------------------------------------------
+c     Calculates divergence of magnetic field at grid vertices.
+c     ---------------------------------------------------------------
+
+c     Call variables
+
+      integer(4) :: i,j,k
+      real(8)    :: axp,axm,ayp,aym,azp,azm
+
+c     Local variables
+
+      integer(4) :: ig,jg,kg
+
+c     Begin program
+
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      div =(axp-axm)/2./dxh(ig)
+     .    +(ayp-aym)/2./dyh(jg)
+     .    +(azp-azm)/2./dzh(kg)
+
+c     End 
+
+      end function div
 
 c     divB
 c     ###############################################################
@@ -73,26 +106,92 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ig,jg,kg
+      real(8)    :: dxx,dyy,dzz
 
 c     Begin program
 
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
 
-cc      if (i == 1 .and. bcond(1) == SP) then
-cc        divB =
-cc     .       (bx(i+1,j  ,k  )+bx(i  ,j  ,k  ))/2./dxh(ig)
-cc     .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
-cc     .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
-cc      else
-        divB =
-     .       (bx(i+1,j  ,k  )-bx(i-1,j  ,k  ))/2./dxh(ig)
-     .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
-     .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
-cc      endif
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
+
+      if (i == 1 .and. bcond(1) == SP) then
+        call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
+     .                     ,cartesian)
+
+        jacp = jacobian(xip,yip,zip,cartesian)
+        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc        xh = (xip+x0)/2.
+cc        yh = (yip+y0)/2.
+cc        zh = (zip+z0)/2.
+cc        jach = jacobian(xh ,yh ,zh ,cartesian)
+        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
+
+        divB = ((bx(i+1,j  ,k  )/jacp
+     .          +bx(i  ,j  ,k  )/jac0)*jach)    /2./dxx
+     .        +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyy
+     .        +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzz
+      else
+        divB = (bx(i+1,j  ,k  )-bx(i-1,j  ,k  ))/2./dxx
+     .        +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyy
+     .        +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzz
+      endif
 
 c     End 
 
       end function divB
+
+c     divJ
+c     ###############################################################
+      real(8) function divJ(i,j,k)
+      implicit none
+c     ---------------------------------------------------------------
+c     Calculates divergence of magnetic field at grid vertices.
+c     ---------------------------------------------------------------
+
+c     Call variables
+
+      integer(4) :: i,j,k
+
+c     Local variables
+
+      integer(4) :: ig,jg,kg
+      real(8)    :: dxx,dyy,dzz
+
+c     Begin program
+
+      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
+
+      if (i == 1 .and. bcond(1) == SP) then
+        call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
+     .                     ,cartesian)
+
+        jacp = jacobian(xip,yip,zip,cartesian)
+        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc        xh = (xip+x0)/2.
+cc        yh = (yip+y0)/2.
+cc        zh = (zip+z0)/2.
+cc        jach = jacobian(xh ,yh ,zh ,cartesian)
+        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
+
+        divJ = (jx(i+1,j  ,k  )/jacp
+     .         +jx(i  ,j  ,k  )/jac0 )*jach/2./dxx
+     .        +(jy(i  ,j+1,k  )-jy(i  ,j-1,k  ))/2./dyy
+     .        +(jz(i  ,j  ,k+1)-jz(i  ,j  ,k-1))/2./dzz
+      else
+        divJ = (jx(i+1,j  ,k  )-jx(i-1,j  ,k  ))/2./dxx
+     .        +(jy(i  ,j+1,k  )-jy(i  ,j-1,k  ))/2./dyy
+     .        +(jz(i  ,j  ,k+1)-jz(i  ,j  ,k-1))/2./dzz
+      endif
+
+c     End 
+
+      end function divJ
 
 c     divV
 c     ###############################################################
@@ -109,27 +208,58 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ig,jg,kg
+      real(8)    :: dxx,dyy,dzz
 
 c     Begin program
 
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
 
       if (i == 1 .and. bcond(1) == SP) then
+        call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
+     .                     ,cartesian)
+        jacp = jacobian(xip,yip,zip,cartesian)
+        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc        xh = (xip+x0)/2.
+cc        yh = (yip+y0)/2.
+cc        zh = (zip+z0)/2.
+cc        jach = jacobian(xh ,yh ,zh ,cartesian)
+        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
+
         divV =
-     .       (rvx(i+1,j  ,k  )/rho(i+1,j  ,k  )
-     .       +rvx(i  ,j  ,k  )/rho(i  ,j  ,k  ))/2./dxh(ig)
-     .      +(rvy(i  ,j+1,k  )/rho(i  ,j+1,k  )
-     .       -rvy(i  ,j-1,k  )/rho(i  ,j-1,k  ))/2./dyh(jg)
-     .      +(rvz(i  ,j  ,k+1)/rho(i  ,j  ,k+1)
-     .       -rvz(i  ,j  ,k-1)/rho(i  ,j  ,k-1))/2./dzh(kg)
+     .       (rvx(i+1,j  ,k  )/jacp
+     .       +rvx(i  ,j  ,k  )/jac0)*jach/2./dxx
+     .      +(rvy(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  ))/2./dyy
+     .      +(rvz(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1))/2./dzz
+cc      elseif (i == 2 .and. bcond(1) == SP) then
+cc        call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
+cc     .                     ,cartesian)
+cc        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc        jacm = jacobian(xim,yim,zim,cartesian)
+cc        jach = dxx
+cc
+cc        divV =
+cc     .       (rvx(i+1,j  ,k  )
+cc     .       +rvx(i  ,j  ,k  )
+cc     .     -((rvx(i  ,j  ,k  )/jac0
+cc     .       +rvx(i-1,j  ,k  )/jacm)*jach))/2./dxx
+cc     .      +(rvy(i  ,j+1,k  )
+cc     .       -rvy(i  ,j-1,k  ))/2./dyy
+cc     .      +(rvz(i  ,j  ,k+1)
+cc     .       -rvz(i  ,j  ,k-1))/2./dzz
       else
         divV =
-     .       (rvx(i+1,j  ,k  )/rho(i+1,j  ,k  )
-     .       -rvx(i-1,j  ,k  )/rho(i-1,j  ,k  ))/2./dxh(ig)
-     .      +(rvy(i  ,j+1,k  )/rho(i  ,j+1,k  )
-     .       -rvy(i  ,j-1,k  )/rho(i  ,j-1,k  ))/2./dyh(jg)
-     .      +(rvz(i  ,j  ,k+1)/rho(i  ,j  ,k+1)
-     .       -rvz(i  ,j  ,k-1)/rho(i  ,j  ,k-1))/2./dzh(kg)
+     .       (rvx(i+1,j  ,k  )
+     .       -rvx(i-1,j  ,k  ))/2./dxx
+     .      +(rvy(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  ))/2./dyy
+     .      +(rvz(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1))/2./dzz
       endif
 
 c     End 
@@ -356,6 +486,196 @@ cc      end function joule_jpkp
 cc
 cc      end function jouleHeating
 
+ccc     fnabla_v
+ccc     #############################################################
+cc      function fnabla_v(i,j,k,x,y,z,half_elem) result(tensor)
+ccc     -------------------------------------------------------------
+ccc     Calculates the tensor nabla(vec v) at the following positions:
+ccc       + half_elem =/ 1,2,3 => i,j,k
+ccc       + half_elem=1 --> i+1/2,j,k
+ccc       + half_elem=2 --> i,j+1/2,k
+ccc       + half_elem=3 --> i,j,k+1/2
+ccc     -------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        integer(4) :: i,j,k,half_elem
+cc        real(8)    :: tensor(3,3),x,y,z
+cc
+ccc     Local variables
+cc
+cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
+cc        real(8)    :: jx,jy,jz
+cc        real(8)    :: dhx,dhy,dhz,vxx,vyy,vzz
+cc
+ccc     Begin program
+cc
+cc        !Defaults
+cc
+cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc        dhx = 2.*dxh(ig)
+cc        dhy = 2.*dyh(jg)
+cc        dhz = 2.*dzh(kg)
+cc
+cc        vxx = vx(i,j,k)
+cc        vyy = vy(i,j,k)
+cc        vzz = vz(i,j,k)
+cc
+cc        ip = i+1
+cc        im = i-1
+cc        jp = j+1
+cc        jm = j-1
+cc        kp = k+1
+cc        km = k-1
+cc
+cc        !Exceptions
+cc
+cc        select case(half_elem)
+cc        case (1)
+cc          dhx = dx(ig)
+cc          im  = i
+cc          vxx = 0.5*(vx(i,j,k)+vx(ip,j,k))
+cc          vyy = 0.5*(vy(i,j,k)+vy(ip,j,k))
+cc          vzz = 0.5*(vz(i,j,k)+vz(ip,j,k))
+cc        case (2)
+cc          dhy = dy(jg)
+cc          jm  = j
+cc          vxx = 0.5*(vx(i,j,k)+vx(i,jp,k))
+cc          vyy = 0.5*(vy(i,j,k)+vy(i,jp,k))
+cc          vzz = 0.5*(vz(i,j,k)+vz(i,jp,k))
+cc        case (3)
+cc          dhz = dz(kg)
+cc          km  = k
+cc          vxx = 0.5*(vx(i,j,k)+vx(i,j,kp))
+cc          vyy = 0.5*(vy(i,j,k)+vy(i,j,kp))
+cc          vzz = 0.5*(vz(i,j,k)+vz(i,j,kp))
+cc        end select
+cc
+ccc     !Calculate nabla_v tensor
+cc
+cc        hessian1 = hessian(1,x,y,z,cartesian)
+cc        hessian2 = hessian(2,x,y,z,cartesian)
+cc        hessian3 = hessian(3,x,y,z,cartesian)
+cc
+cc      ! l = 1, m = 1
+cc        if (sing_point .and. half_elem /= 1) then
+cc          tensor(1,1) = (vx(ip,j,k)+vx(i,j,k)-2.*vx(im,j,k))/dhx
+cc     .                 + vxx*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian1(1,1)
+cc     .                 - vyy*hessian1(2,1)
+cc     .                 - vzz*hessian1(3,1)
+cc        else
+cc          tensor(1,1) = (vx(ip,j,k)-vx(im,j,k))/dhx
+cc     .                 + vxx*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian1(1,1)
+cc     .                 - vyy*hessian1(2,1)
+cc     .                 - vzz*hessian1(3,1)
+cc        endif
+cc
+cc      ! l = 1, m = 2
+cc        if (sing_point .and. half_elem /= 1) then
+cc          tensor(1,2) = (vy(ip,j,k)+vy(i,j,k)-2.*vy(im,j,k))/dhx
+cc     .                 + vyy*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian2(1,1)
+cc     .                 - vyy*hessian2(2,1)
+cc     .                 - vzz*hessian2(3,1)
+cc
+cc        else
+cc          tensor(1,2) = (vy(ip,j,k)-vy(im,j,k))/dhx
+cc     .                 + vyy*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian2(1,1)
+cc     .                 - vyy*hessian2(2,1)
+cc     .                 - vzz*hessian2(3,1)
+cc        endif
+cc
+cc      ! l = 1, m = 3
+cc        if (sing_point .and. half_elem /= 1) then
+cc          tensor(1,3) = (vz(ip,j,k)+vz(i,j,k)-2.*vz(im,j,k))/dhx
+cc     .                 + vzz*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian3(1,1)
+cc     .                 - vyy*hessian3(2,1)
+cc     .                 - vzz*hessian3(3,1)
+cc        else
+cc          tensor(1,3) = (vz(ip,j,k)-vz(im,j,k))/dhx
+cc     .                 + vzz*(hessian1(1,1)
+cc     .                      + hessian2(2,1)
+cc     .                      + hessian3(3,1))
+cc     .                 - vxx*hessian3(1,1)
+cc     .                 - vyy*hessian3(2,1)
+cc     .                 - vzz*hessian3(3,1)
+cc        endif
+cc
+cc      ! l = 2, m = 1
+cc        tensor(2,1) = (vx(i,jp,k)-vx(i,jm,k))/dhy
+cc     .               + vxx*(hessian1(1,2)
+cc     .                    + hessian2(2,2)
+cc     .                    + hessian3(3,2))
+cc     .               - vxx*hessian1(1,2)
+cc     .               - vyy*hessian1(2,2)
+cc     .               - vzz*hessian1(3,2)
+cc
+cc      ! l = 2, m = 2
+cc        tensor(2,2) = (vy(i,jp,k)-vy(i,jm,k))/dhy
+cc     .               + vyy*(hessian1(1,2)
+cc     .                    + hessian2(2,2)
+cc     .                    + hessian3(3,2))
+cc     .               - vxx*hessian2(1,2)
+cc     .               - vyy*hessian2(2,2)
+cc     .               - vzz*hessian2(3,2)
+cc
+cc      ! l = 2, m = 3
+cc        tensor(2,3) = (vz(i,jp,k)-vz(i,jm,k))/dhy
+cc     .               + vzz*(hessian1(1,2)
+cc     .                    + hessian2(2,2)
+cc     .                    + hessian3(3,2))
+cc     .               - vxx*hessian3(1,2)
+cc     .               - vyy*hessian3(2,2)
+cc     .               - vzz*hessian3(3,2)
+cc
+cc      ! l = 3, m = 1
+cc        tensor(3,1) = (vx(i,j,kp)-vx(i,j,km))/dhz
+cc     .               + vxx*(hessian1(1,3)
+cc     .                    + hessian2(2,3)
+cc     .                    + hessian3(3,3))
+cc     .               - vxx*hessian1(1,3)
+cc     .               - vyy*hessian1(2,3)
+cc     .               - vzz*hessian1(3,3)
+cc
+cc      ! l = 3, m = 2
+cc        tensor(3,2) = (vy(i,j,kp)-vy(i,j,km))/dhz
+cc     .               + vyy*(hessian1(1,3)
+cc     .                    + hessian2(2,3)
+cc     .                    + hessian3(3,3))
+cc     .               - vxx*hessian2(1,3)
+cc     .               - vyy*hessian2(2,3)
+cc     .               - vzz*hessian2(3,3)
+cc
+cc      ! l = 3, m = 3
+cc        tensor(3,3) = (vz(i,j,kp)-vz(i,j,km))/dhz
+cc     .               + vzz*(hessian1(1,3)
+cc     .                    + hessian2(2,3)
+cc     .                    + hessian3(3,3))
+cc     .               - vxx*hessian3(1,3)
+cc     .               - vyy*hessian3(2,3)
+cc     .               - vzz*hessian3(3,3)
+cc
+ccc     End program
+cc
+cc      end function fnabla_v
+
 c     fnabla_v
 c     #############################################################
       function fnabla_v(i,j,k,x,y,z,half_elem) result(tensor)
@@ -377,9 +697,11 @@ c     Call variables
 c     Local variables
 
         integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
-        real(8)    :: jx,jy,jz
-        real(8)    :: dhx,dhy,dhz,vxx,vyy,vzz
-cc        logical    :: cartesian
+        real(8)    :: dhx,dhy,dhz
+        real(8)    :: vxx,vyy,vzz
+     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
 
 c     Begin program
 
@@ -387,21 +709,9 @@ c     Begin program
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-cc        x = xx(ig)
-cc        y = yy(jg)
-cc        z = zz(kg)
-cc
-cc        cartesian = .false.
-
-cc        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x,y,z,cartesian)
-
         dhx = 2.*dxh(ig)
         dhy = 2.*dyh(jg)
         dhz = 2.*dzh(kg)
-
-        vxx = vx(i,j,k)
-        vyy = vy(i,j,k)
-        vzz = vz(i,j,k)
 
         ip = i+1
         im = i-1
@@ -415,25 +725,146 @@ cc        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x,y,z,cartesian)
         select case(half_elem)
         case (1)
           dhx = dx(ig)
-cc          x   = (xx(ig) + xx(ig+1))/2.
-          im  = i
+
           vxx = 0.5*(vx(i,j,k)+vx(ip,j,k))
           vyy = 0.5*(vy(i,j,k)+vy(ip,j,k))
           vzz = 0.5*(vz(i,j,k)+vz(ip,j,k))
+
+          vxip = vx(ip,j,k)
+          vxim = vx(i ,j,k)
+          vyip = vy(ip,j,k)
+          vyim = vy(i ,j,k)
+          vzip = vz(ip,j,k)
+          vzim = vz(i ,j,k)
+
+          vxjp = (vx(ip,jp,k)+vx(i,jp,k))/2.
+          vxjm = (vx(ip,jm,k)+vx(i,jm,k))/2.
+          vyjp = (vy(ip,jp,k)+vy(i,jp,k))/2.
+          vyjm = (vy(ip,jm,k)+vy(i,jm,k))/2.
+          vzjp = (vz(ip,jp,k)+vz(i,jp,k))/2.
+          vzjm = (vz(ip,jm,k)+vz(i,jm,k))/2.
+
+          vxkp = (vx(ip,j,kp)+vx(i,j,kp))/2.
+          vxkm = (vx(ip,j,km)+vx(i,j,km))/2.
+          vykp = (vy(ip,j,kp)+vy(i,j,kp))/2.
+          vykm = (vy(ip,j,km)+vy(i,j,km))/2.
+          vzkp = (vz(ip,j,kp)+vz(i,j,kp))/2.
+          vzkm = (vz(ip,j,km)+vz(i,j,km))/2.
         case (2)
           dhy = dy(jg)
-cc          y   = (yy(jg) + yy(jg+1))/2.
-          jm  = j
+
           vxx = 0.5*(vx(i,j,k)+vx(i,jp,k))
           vyy = 0.5*(vy(i,j,k)+vy(i,jp,k))
           vzz = 0.5*(vz(i,j,k)+vz(i,jp,k))
+
+          if (sing_point) then
+            vxip = (vx(ip,j,k)+vx(ip,jp,k))/2.
+     .            +(vx(i ,j,k)+vx(i ,jp,k))/2.
+            vxim = (vx(im,j,k)+vx(im,jp,k))
+            vyip = (vy(ip,j,k)+vy(ip,jp,k))/2.
+     .            +(vy(i ,j,k)+vy(i ,jp,k))/2.
+            vyim = (vy(im,j,k)+vy(im,jp,k))
+            vzip = (vz(ip,j,k)+vz(ip,jp,k))/2
+     .            +(vz(i ,j,k)+vz(i ,jp,k))/2.
+            vzim = (vz(im,j,k)+vz(im,jp,k))
+          else
+            vxip = (vx(ip,j,k)+vx(ip,jp,k))/2.
+            vxim = (vx(im,j,k)+vx(im,jp,k))/2.
+            vyip = (vy(ip,j,k)+vy(ip,jp,k))/2.
+            vyim = (vy(im,j,k)+vy(im,jp,k))/2.
+            vzip = (vz(ip,j,k)+vz(ip,jp,k))/2.
+            vzim = (vz(im,j,k)+vz(im,jp,k))/2.
+          endif
+
+	  vxjp = vx(i,jp,k)
+	  vxjm = vx(i,j ,k)
+	  vyjp = vy(i,jp,k)
+	  vyjm = vy(i,j ,k)
+	  vzjp = vz(i,jp,k)
+	  vzjm = vz(i,j ,k)
+
+          vxkp = (vx(i,j,kp)+vx(i,jp,kp))/2.
+          vxkm = (vx(i,j,km)+vx(i,jp,km))/2.
+          vykp = (vy(i,j,kp)+vy(i,jp,kp))/2.
+          vykm = (vy(i,j,km)+vy(i,jp,km))/2.
+          vzkp = (vz(i,j,kp)+vz(i,jp,kp))/2.
+          vzkm = (vz(i,j,km)+vz(i,jp,km))/2.
         case (3)
           dhz = dz(kg)
-cc          z   = (zz(kg) + zz(kg+1))/2.
-          km  = k
+
           vxx = 0.5*(vx(i,j,k)+vx(i,j,kp))
           vyy = 0.5*(vy(i,j,k)+vy(i,j,kp))
           vzz = 0.5*(vz(i,j,k)+vz(i,j,kp))
+
+          if (sing_point) then
+            vxip = (vx(ip,j,k)+vx(ip,j,kp))/2.
+     .            +(vx(i ,j,k)+vx(i ,j,kp))/2.
+            vxim = (vx(im,j,k)+vx(im,j,kp))
+            vyip = (vy(ip,j,k)+vy(ip,j,kp))/2.
+     .            +(vy(i ,j,k)+vy(i ,j,kp))/2.
+            vyim = (vy(im,j,k)+vy(im,j,kp))
+            vzip = (vz(ip,j,k)+vz(ip,j,kp))/2.
+     .            +(vz(i ,j,k)+vz(i ,j,kp))/2.
+            vzim = (vz(im,j,k)+vz(im,j,kp))
+          else
+            vxip = (vx(ip,j,k)+vx(ip,j,kp))/2.
+            vxim = (vx(im,j,k)+vx(im,j,kp))/2.
+            vyip = (vy(ip,j,k)+vy(ip,j,kp))/2.
+            vyim = (vy(im,j,k)+vy(im,j,kp))/2.
+            vzip = (vz(ip,j,k)+vz(ip,j,kp))/2.
+            vzim = (vz(im,j,k)+vz(im,j,kp))/2.
+          endif
+
+          vxjp = (vx(i,jp,k)+vx(i,jp,kp))/2.
+          vxjm = (vx(i,jm,k)+vx(i,jm,kp))/2.
+          vyjp = (vy(i,jp,k)+vy(i,jp,kp))/2.
+          vyjm = (vy(i,jm,k)+vy(i,jm,kp))/2.
+          vzjp = (vz(i,jp,k)+vz(i,jp,kp))/2.
+          vzjm = (vz(i,jm,k)+vz(i,jm,kp))/2.
+
+	  vxkp = vx(i,j,kp)
+	  vxkm = vx(i,j,k )
+	  vykp = vy(i,j,kp)
+	  vykm = vy(i,j,k )
+	  vzkp = vz(i,j,kp)
+	  vzkm = vz(i,j,k )
+
+        case default
+
+          vxx = vx(i,j,k)
+          vyy = vy(i,j,k)
+          vzz = vz(i,j,k)
+
+          if (sing_point) then
+            vxip = vx(ip,j,k)+vx(i,j,k)
+            vxim = 2.*vx(i ,j,k)
+            vyip = vy(ip,j,k)+vy(i,j,k)
+            vyim = 2.*vy(im,j,k)
+            vzip = vz(ip,j,k)+vz(i,j,k)
+            vzim = 2.*vz(im,j,k)
+          else
+            vxip = vx(ip,j,k)
+            vxim = vx(im,j,k)
+            vyip = vy(ip,j,k)
+            vyim = vy(im,j,k)
+            vzip = vz(ip,j,k)
+            vzim = vz(im,j,k)
+          endif
+
+	  vxjp = vx(i,jp,k)
+	  vxjm = vx(i,jm,k)
+	  vyjp = vy(i,jp,k)
+	  vyjm = vy(i,jm,k)
+	  vzjp = vz(i,jp,k)
+	  vzjm = vz(i,jm,k)
+
+	  vxkp = vx(i,j,kp)
+	  vxkm = vx(i,j,km)
+	  vykp = vy(i,j,kp)
+	  vykm = vy(i,j,km)
+	  vzkp = vz(i,j,kp)
+	  vzkm = vz(i,j,km)
+
         end select
 
 c     !Calculate nabla_v tensor
@@ -443,7 +874,7 @@ c     !Calculate nabla_v tensor
         hessian3 = hessian(3,x,y,z,cartesian)
 
       ! l = 1, m = 1
-        tensor(1,1) = (vx(ip,j,k)-vx(im,j,k))/dhx
+        tensor(1,1) = (vxip-vxim)/dhx
      .               + vxx*(hessian1(1,1)
      .                    + hessian2(2,1)
      .                    + hessian3(3,1))
@@ -452,7 +883,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian1(3,1)
 
       ! l = 1, m = 2
-        tensor(1,2) = (vy(ip,j,k)-vy(im,j,k))/dhx
+        tensor(1,2) = (vyip-vyim)/dhx
      .               + vyy*(hessian1(1,1)
      .                    + hessian2(2,1)
      .                    + hessian3(3,1))
@@ -461,7 +892,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian2(3,1)
 
       ! l = 1, m = 3
-        tensor(1,3) = (vz(ip,j,k)-vz(im,j,k))/dhx
+        tensor(1,3) = (vzip-vzim)/dhx
      .               + vzz*(hessian1(1,1)
      .                    + hessian2(2,1)
      .                    + hessian3(3,1))
@@ -470,7 +901,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian3(3,1)
 
       ! l = 2, m = 1
-        tensor(2,1) = (vx(i,jp,k)-vx(i,jm,k))/dhy
+        tensor(2,1) = (vxjp-vxjm)/dhy
      .               + vxx*(hessian1(1,2)
      .                    + hessian2(2,2)
      .                    + hessian3(3,2))
@@ -479,7 +910,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian1(3,2)
 
       ! l = 2, m = 2
-        tensor(2,2) = (vy(i,jp,k)-vy(i,jm,k))/dhy
+        tensor(2,2) = (vyjp-vyjm)/dhy
      .               + vyy*(hessian1(1,2)
      .                    + hessian2(2,2)
      .                    + hessian3(3,2))
@@ -488,7 +919,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian2(3,2)
 
       ! l = 2, m = 3
-        tensor(2,3) = (vz(i,jp,k)-vz(i,jm,k))/dhy
+        tensor(2,3) = (vzjp-vzjm)/dhy
      .               + vzz*(hessian1(1,2)
      .                    + hessian2(2,2)
      .                    + hessian3(3,2))
@@ -497,7 +928,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian3(3,2)
 
       ! l = 3, m = 1
-        tensor(3,1) = (vx(i,j,kp)-vx(i,j,km))/dhz
+        tensor(3,1) = (vxkp-vxkm)/dhz
      .               + vxx*(hessian1(1,3)
      .                    + hessian2(2,3)
      .                    + hessian3(3,3))
@@ -506,7 +937,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian1(3,3)
 
       ! l = 3, m = 2
-        tensor(3,2) = (vy(i,j,kp)-vy(i,j,km))/dhz
+        tensor(3,2) = (vykp-vykm)/dhz
      .               + vyy*(hessian1(1,3)
      .                    + hessian2(2,3)
      .                    + hessian3(3,3))
@@ -515,7 +946,7 @@ c     !Calculate nabla_v tensor
      .               - vzz*hessian2(3,3)
 
       ! l = 3, m = 3
-        tensor(3,3) = (vz(i,j,kp)-vz(i,j,km))/dhz
+        tensor(3,3) = (vzkp-vzkm)/dhz
      .               + vzz*(hessian1(1,3)
      .                    + hessian2(2,3)
      .                    + hessian3(3,3))
@@ -783,25 +1214,11 @@ c     Local variables
 
         integer(4) :: ig,jg,kg,ip
         real(8)    :: x,y,z
-        real(8)    :: jac,ptot,vis
-cc        logical    :: cartesian
+        real(8)    :: jac,jac0,jacp,ptot,vis
 
 c     Begin program
 
         ip = i+1
-
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        x = (xx(ig) + xx(ig+1))/2.
-cc        y =  yy(jg)
-cc        z =  zz(kg)
-cc
-cc        if (flag == 0) then
-cc          ip = i
-cc          x = xx(ig)
-cc        endif
-cc
-cc        cartesian = .false.
 
         if (flag == 0) then
           ip = i
@@ -813,18 +1230,44 @@ cc        cartesian = .false.
           y = (yip+y0)/2.
           z = (zip+z0)/2.
         else
-          x = (xim+x0)/2.
-          y = (yim+y0)/2.
-          z = (zim+z0)/2.
+          if (.not.alt_eom .and. sing_point) then
+            ip = i
+            x = xim
+            y = yim
+            z = zim
+          else
+            x = (xim+x0)/2.
+            y = (yim+y0)/2.
+            z = (zim+z0)/2.
+          endif
         endif
-
-        if (x == 0d0 .and. sing_point) x = 1d-5
 
         jac    = jacobian(x,y,z,cartesian)
 
         gsuper = g_super (x,y,z,cartesian)
 
-        if (flag /= 0 .or. sing_point) then
+cc        if (i == 1 .and. bcond(1) == SP .and. flag == 1) then
+cc          jacp = jacobian(xip,yip,zip,cartesian)
+cc          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc        elseif (i == 2 .and. bcond(1) == SP .and. flag == -1) then
+cc          jacp = jacobian(x0 ,y0 ,z0 ,cartesian)
+cc          jac0 = jacobian(xim,yim,zim,cartesian)
+cc        else
+cc          jacp = jac
+cc          jac0 = jac
+cc        endif
+        if (i < nx .and. bcond(1) == SP .and. flag == 1) then
+          jacp = jacobian(xip,yip,zip,cartesian)
+          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+        elseif (i < nx .and. bcond(1) == SP .and. flag == -1) then
+          jacp = jacobian(x0 ,y0 ,z0 ,cartesian)
+          jac0 = jacobian(xim,yim,zim,cartesian)
+        else
+          jacp = jac
+          jac0 = jac
+        endif
+
+        if (flag /= 0) then
           nabla_v = fnabla_v(i,j,k,x,y,z,1)
         else
           nabla_v = fnabla_v(i,j,k,x,y,z,0)
@@ -833,48 +1276,59 @@ cc        cartesian = .false.
         !Recall p=2nT
         ptot = jac*(rho(ip,j,k)*tmp(ip,j,k)
      .             +rho(i ,j,k)*tmp(i ,j,k))
+     .       +jac*(bx(ip,j,k)*bx_cov(i ,j,k)/jacp
+     .            +bx(i ,j,k)*bx_cov(ip,j,k)/jac0
+     .            +by(ip,j,k)*by_cov(i ,j,k)/jac0
+     .            +by(i ,j,k)*by_cov(ip,j,k)/jacp
+     .            +bz(ip,j,k)*bz_cov(i ,j,k)/jacp
+     .            +bz(i ,j,k)*bz_cov(ip,j,k)/jac0)/4.
 cc        ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
 cc     .             +rho(i ,j,k)*tmp(ip,j,k))
-     .       +(bx(ip,j,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(ip,j,k)
-     .        +by(ip,j,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(ip,j,k)
-     .        +bz(ip,j,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(ip,j,k))/4.
+cc     .       +(bx(ip,j,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(ip,j,k)
+cc     .        +by(ip,j,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(ip,j,k)
+cc     .        +bz(ip,j,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(ip,j,k))/4.
 
         vis = 2./(1./rho(ip,j,k)/nuu(ip,j,k)
      .          + 1./rho(i ,j,k)/nuu(i ,j,k))
 
         t11 =
-     .     0.25*( rvx(ip,j,k)*vx (i ,j,k) +rvx(i ,j,k)*vx (ip,j,k)
-     .           + vx(i ,j,k)*rvx(ip,j,k) +vx (ip,j,k)*rvx(i ,j,k))
-     .     -0.5*( bx(ip,j,k)*bx(i ,j,k)
-     .           +bx(i ,j,k)*bx(ip,j,k) )
+     .      0.5*( rvx(ip,j,k)*vx (i ,j,k)/jacp/jac0
+     .           +rvx(i ,j,k)*vx (ip,j,k)/jacp/jac0)*jac**2
+     .     -    ( bx(ip,j,k)*bx(i ,j,k)/jacp/jac0 )*jac**2
      .     +gsuper(1,1)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,1)
      .           +gsuper(1,2)*nabla_v(2,1)
      .           +gsuper(1,3)*nabla_v(3,1) )
 
         t12 =
-     .     0.25*( rvx(ip,j,k)*vy (i ,j,k) +rvx(i ,j,k)*vy (ip,j,k)
-     .           + vx(i ,j,k)*rvy(ip,j,k) +vx (ip,j,k)*rvy(i ,j,k))
-     .     -0.5*( bx(ip,j,k)*by(i ,j,k)
-     .           +bx(i ,j,k)*by(ip,j,k) )
+     .     0.25*( rvx(ip,j,k)*vy (i ,j,k)/jacp
+     .           +rvx(i ,j,k)*vy (ip,j,k)/jac0
+     .           + vx(i ,j,k)*rvy(ip,j,k)/jac0
+     .           + vx(ip,j,k)*rvy(i ,j,k)/jacp)*jac
+     .     -0.5*( bx(ip,j,k)*by(i ,j,k)/jacp
+     .           +bx(i ,j,k)*by(ip,j,k)/jac0 )*jac
      .     +gsuper(1,2)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,2)
      .           +gsuper(1,2)*nabla_v(2,2)
      .           +gsuper(1,3)*nabla_v(3,2) )
 
         t13 =
-     .     0.25*( rvx(ip,j,k)*vz (i ,j,k) +rvx(i ,j,k)*vz (ip,j,k)
-     .           + vx(i ,j,k)*rvz(ip,j,k) +vx (ip,j,k)*rvz(i ,j,k))
-     .     -0.5*( bx(ip,j,k)*bz(i ,j,k)
-     .           +bx(i ,j,k)*bz(ip,j,k) )
+     .      0.25*( rvx(ip,j,k)*vz (i ,j,k)/jacp/jac0
+     .            +rvx(i ,j,k)*vz (ip,j,k)/jacp/jac0
+     .            + vx(i ,j,k)*rvz(ip,j,k)/jacp/jac0
+     .            + vx(ip,j,k)*rvz(i ,j,k)/jacp/jac0)*jac**2
+     .     -0.5*( bx(ip,j,k)*bz(i ,j,k)/jacp/jac0
+     .           +bx(i ,j,k)*bz(ip,j,k)/jacp/jac0)*jac**2
      .     +gsuper(1,3)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,3)
      .           +gsuper(1,2)*nabla_v(2,3)
      .           +gsuper(1,3)*nabla_v(3,3) )
 
-        t11 = t11/jac
-        t12 = t12/jac
-        t13 = t13/jac
+        if (flag /= 0) then
+          t11 = t11/jac
+          if (.not.alt_eom) t12 = t12/jac
+          t13 = t13/jac
+        endif
 
 c     End program
 
@@ -899,24 +1353,10 @@ c     Local variables
         integer(4) :: ig,jg,kg,jp
         real(8)    :: x,y,z
         real(8)    :: jac,ptot,vis
-cc        logical    :: cartesian
 
 c     Begin program
 
         jp = j+1
-
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        x =  xx(ig)
-cc        y = (yy(jg) + yy(jg+1))/2.
-cc        z =  zz(kg)
-cc
-cc        cartesian = .false.
-cc
-cc        if (flag == 0) then
-cc          jp = j
-cc          y = yy(jg)
-cc        endif
 
         if (flag == 0) then
           jp = j
@@ -985,9 +1425,11 @@ cc     .             +rho(i,j ,k)*tmp(i,jp,k))
      .           +gsuper(2,2)*nabla_v(2,3)
      .           +gsuper(2,3)*nabla_v(3,3) )
 
-        t21 = t21/jac
-        t22 = t22/jac
-        t23 = t23/jac
+        if (flag /= 0) then
+          t21 = t21/jac
+          if (.not.alt_eom) t22 = t22/jac
+          t23 = t23/jac
+        endif
 
 c     End program
 
@@ -1017,19 +1459,6 @@ cc        logical    :: cartesian
 c     Begin program
 
         kp=k+1
-
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        cartesian = .false.
-cc
-cc        x =  xx(ig)
-cc        y =  yy(jg)
-cc        z = (zz(kg) + zz(kg+1))/2.
-cc
-cc        if (flag == 0) then
-cc          kp = k
-cc          z = zz(kg)
-cc        endif
 
         if (flag == 0) then
           kp = k
@@ -1091,255 +1520,22 @@ cc     .             +rho(i,j,k )*tmp(i,j,kp))
         t33 =
      .     0.25*( rvz(i,j,kp)*vz(i,j,k) + rvz(i,j,k)*vz(i,j,kp)
      .           +rvz(i,j,kp)*vz(i,j,k) + rvz(i,j,k)*vz(i,j,kp) )
-     .     -0.5*( bz(i,j,kp)*bz(i  ,j,k)
-     .           +bz(i  ,j,k)*bz(i,j,kp) )
+     .     -0.5*( bz(i,j,kp)*bz(i,j,k )
+     .           +bz(i,j,k )*bz(i,j,kp) )
      .     +gsuper(3,3)*ptot
      .     -vis*( gsuper(3,1)*nabla_v(1,3)
      .           +gsuper(3,2)*nabla_v(2,3)
      .           +gsuper(3,3)*nabla_v(3,3) )
 
-        t31 = t31/jac
-        t32 = t32/jac
-        t33 = t33/jac
+        if (flag /= 0) then
+          t31 = t31/jac
+          if (.not.alt_eom) t32 = t32/jac
+          t33 = t33/jac
+        endif
 
 c     End program
 
       end subroutine vtensor_z
-
-ccc     vflx_x2
-ccc     #############################################################
-cc      function vflx_x2(i,j,k,t11,t12,t13,cov,flag) result(flx_x)
-ccc     -------------------------------------------------------------
-ccc     Calculates fluxes in X-direction for EOM
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,flag
-cc        real(8)    :: flx_x,cov(3),t11,t12,t13
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg
-cc        real(8)    :: x,y,z,jac,jacp,ptot
-cc        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
-cc        logical    :: cartesian
-cc
-ccc     Begin program
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        cartesian = .false.
-cc
-cc        x = (xx(ig) + xx(ig+1))/2.
-cc        y =  yy(jg)
-cc        z =  zz(kg)
-cc
-cc        jac = 1d0
-cc        if (.not.conserv) then
-cc          if (flag == 1) then
-cc            x = xx(ig)
-cc          else
-cc            x = xx(ig+1)
-cc          endif
-cc          jac = jacobian(x,y,z,cartesian)
-cc        endif
-cc
-cc        cnv1   = contravariantVector(1,x,y,z,cartesian)
-cc        cnv2   = contravariantVector(2,x,y,z,cartesian)
-cc        cnv3   = contravariantVector(3,x,y,z,cartesian)
-cc
-cc        flx_x =  t11*dot_product(cnv1,cov)*jac
-cc     .          +t12*dot_product(cnv2,cov)*jac
-cc     .          +t13*dot_product(cnv3,cov)*jac
-cc
-ccc     End program
-cc
-cc      end function vflx_x2
-
-c     vflx_x
-c     #############################################################
-      function vflx_x(t11,t12,t13,cov) result(flx_x)
-c     -------------------------------------------------------------
-c     Calculates fluxes in X-direction for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,flag
-        real(8)    :: x,y,z,flx_x,cov(3),t11,t12,t13
-
-c     Local variables
-
-c     Begin program
-
-        flx_x =  t11*dot_product(cnv1,cov)*jac
-     .          +t12*dot_product(cnv2,cov)*jac
-     .          +t13*dot_product(cnv3,cov)*jac
-
-c     End program
-
-      end function vflx_x
-
-ccc     vflx_y2
-ccc     #############################################################
-cc      function vflx_y2(i,j,k,t21,t22,t23,cov,flag) result(flx_y)
-ccc     -------------------------------------------------------------
-ccc     Calculates fluxes in Y-direction for EOM
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,flag
-cc        real(8)    :: flx_y,cov(3),t21,t22,t23
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg
-cc        real(8)    :: x,y,z,jac,jacp,ptot
-cc        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
-cc        logical    :: cartesian
-cc
-ccc     Begin program
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        cartesian = .false.
-cc
-cc        x =  xx(ig)
-cc        y = (yy(jg) + yy(jg+1))/2.
-cc        z =  zz(kg)
-cc
-cc        jac = 1d0
-cc        if (.not.conserv) then
-cc          if (flag == 1) then
-cc            y = yy(jg)
-cc          else
-cc            y = yy(jg+1)
-cc          endif
-cc          jac = jacobian(x,y,z,cartesian)
-cc        endif
-cc
-cc        cnv1   = contravariantVector(1,x,y,z,cartesian)
-cc        cnv2   = contravariantVector(2,x,y,z,cartesian)
-cc        cnv3   = contravariantVector(3,x,y,z,cartesian)
-cc
-cc        flx_y =  t21*dot_product(cnv1,cov)*jac
-cc     .          +t22*dot_product(cnv2,cov)*jac
-cc     .          +t23*dot_product(cnv3,cov)*jac
-cc
-ccc     End program
-cc
-cc      end function vflx_y2
-
-c     vflx_y
-c     #############################################################
-      function vflx_y(t21,t22,t23,cov) result(flx_y)
-c     -------------------------------------------------------------
-c     Calculates fluxes in Y-direction for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8)    :: flx_y,cov(3),t21,t22,t23
-
-c     Local variables
-
-c     Begin program
-
-        flx_y =  t21*dot_product(cnv1,cov)*jac
-     .          +t22*dot_product(cnv2,cov)*jac
-     .          +t23*dot_product(cnv3,cov)*jac
-
-c     End program
-
-      end function vflx_y
-
-ccc     vflx_z2
-ccc     #############################################################
-cc      function vflx_z2(i,j,k,t31,t32,t33,cov,flag) result(flx_z)
-ccc     -------------------------------------------------------------
-ccc     Calculates fluxes in Z-direction for EOM
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,flag
-cc        real(8)    :: flx_z,cov(3),t31,t32,t33
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg
-cc        real(8)    :: x,y,z,ptot,jac,jacp
-cc        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
-cc        logical    :: cartesian
-cc
-ccc     Begin program
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        cartesian = .false.
-cc
-cc        x =  xx(ig)
-cc        y =  yy(jg)
-cc        z = (zz(kg) + zz(kg+1))/2.
-cc
-cc        jac = 1d0
-cc        if (.not.conserv) then
-cc          if (flag == 1) then
-cc            z = zz(kg)
-cc          else
-cc            z = zz(kg+1)
-cc          endif
-cc          jac = jacobian(x,y,z,cartesian)
-cc        endif
-cc
-cc        cnv1 = contravariantVector(1,x,y,z,cartesian)
-cc        cnv2 = contravariantVector(2,x,y,z,cartesian)
-cc        cnv3 = contravariantVector(3,x,y,z,cartesian)
-cc
-cc        flx_z =  t31*dot_product(cnv1,cov)*jac
-cc     .          +t32*dot_product(cnv2,cov)*jac
-cc     .          +t33*dot_product(cnv3,cov)*jac
-cc
-ccc     End program
-cc
-cc      end function vflx_z2
-
-c     vflx_z
-c     #############################################################
-      function vflx_z(t31,t32,t33,cov) result(flx_z)
-c     -------------------------------------------------------------
-c     Calculates fluxes in Z-direction for EOM
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8)    :: flx_z,cov(3),t31,t32,t33
-
-c     Local variables
-
-c     Begin program
-
-        flx_z =  t31*dot_product(cnv1,cov)*jac
-     .          +t32*dot_product(cnv2,cov)*jac
-     .          +t33*dot_product(cnv3,cov)*jac
-
-c     End program
-
-      end function vflx_z
 
 c     laplacian
 c     ###############################################################
@@ -1534,10 +1730,16 @@ c     Local variables
 
       integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
       real(8)    :: dx,dy,dz,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+      real(8)    :: dS1,dS2,dS3,x0,y0,z0,jac
+      logical    :: cartesian
 
 c     Begin program
 
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+
+      jac = jacobian(x0,y0,z0,cartesian)
 
       dx = grid_params%dxh(ig)
       dy = grid_params%dyh(jg)
@@ -1568,7 +1770,11 @@ c     Begin program
         flxjm = 0d0
 
         flxip =-0.5*(az(ip,j,k)+az(i,j,k))
-        flxim =-0.5*(az(im,j,k)+az(i,j,k))
+        if (i == 1 .and. bcond(1) == SP) then
+          flxim =-az(im,j,k)
+        else
+          flxim =-0.5*(az(im,j,k)+az(i,j,k))
+        endif
 
         flxkp = 0.5*(ax(i,j,kp)+ax(i,j,k))
         flxkm = 0.5*(ax(i,j,km)+ax(i,j,k))
@@ -1578,8 +1784,36 @@ c     Begin program
         flxkp = 0d0
         flxkm = 0d0
 
-        flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
-        flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
+        if (i == 1 .and. bcond(1) == SP) then
+          call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
+     .                       ,cartesian)
+          jacp = jacobian(xip,yip,zip,cartesian)
+
+cc          xh = (xip+x0)/2.
+cc          yh = (yip+y0)/2.
+cc          zh = (zip+z0)/2.
+cc          jach = jacobian(xh ,yh ,zh ,cartesian)
+          jach = 0.5*(jacp+jac) !Only good for cylindrical-like geom.
+
+          flxip = 0.5*(ay(ip,j,k)/jacp+ay(i,j,k)/jac)*jach
+          flxim = ay(im,j,k)
+
+cc        elseif (i == 2 .and. bcond(1) == SP) then
+cc          call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
+cc     .                       ,cartesian)
+cc          xh = (xim+x0)/2.
+cc          yh = (yim+y0)/2.
+cc          zh = (zim+z0)/2.
+cc          jacm = jacobian(xim,yim,zim,cartesian)
+cc          jach = jacobian(xh ,yh ,zh ,cartesian)
+cc
+cc          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
+cc          flxim = 0.5*(ay(im,j,k)/jacm+ay(i,j,k)/jac)*jach
+cccc          flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
+        else
+          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
+          flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
+        endif
 
         flxjp =-0.5*(ax(i,jp,k)+ax(i,j,k))
         flxjm =-0.5*(ax(i,jm,k)+ax(i,j,k))
@@ -1591,9 +1825,6 @@ c     Begin program
         stop
 
       end select
-
-cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
-cc     .                      ,bcond)
 
       curl = (flxip-flxim)/dx
      .      +(flxjp-flxjm)/dy
@@ -1630,10 +1861,10 @@ c     Local variables
       integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
       real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
+      real(8)    :: jac0,jacp,jacm,x0,y0,z0,xp,yp,zp,xm,ym,zm
+      logical    :: cartesian
 
 c     Begin program
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       ip = i+1
       im = i-1
@@ -1641,6 +1872,24 @@ c     Begin program
       jm = j-1
       kp = k+1
       km = k-1
+
+      if (i == 1 .and. bcond(1) == SP) then
+
+        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0
+     .                     ,cartesian)
+        call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xp,yp,zp
+     .                     ,cartesian)
+        xm = 0.5*(x0+xp)
+        ym = 0.5*(y0+yp)
+        zm = 0.5*(z0+zp)
+
+        jacp = jacobian(xp,yp,zp,cartesian)
+        jac0 = jacobian(x0,y0,z0,cartesian)
+        jacm = jacobian(xm,ym,zm,cartesian)
+
+      else
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      endif
 
       select case(comp)
       case(1)
@@ -1683,7 +1932,6 @@ c     Begin program
 
       case(2)
 
-cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
         if (i==0) then
           dx1=grid_params%dx(ig)
           dx2=grid_params%dx(ig+1)
@@ -1696,6 +1944,9 @@ cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
           dazdx = -(-az(i-2,j,k)*dx1/dx2/(dx1+dx2)
      .              +az(i-1,j,k)*(dx1+dx2)/dx1/dx2
      .              -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
+        elseif (i == 1 .and. bcond(1) == SP) then
+          dx = grid_params%dxh(ig)
+          dazdx = ((az(ip,j,k)+az(i,j,k))/2.-az(im,j,k))/dx
         else
           dx = grid_params%dxh(ig)
           dazdx = (az(ip,j,k)-az(im,j,k))/2./dx
@@ -1722,19 +1973,22 @@ cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
 
       case(3)
 
-cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
         if (i==0) then
           dx1=grid_params%dx(ig)
           dx2=grid_params%dx(ig+1)
           daydx = (-ay(i+2,j,k)*dx1/dx2/(dx1+dx2)
      .             +ay(i+1,j,k)*(dx1+dx2)/dx1/dx2
-     .             -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
+     .             -ay(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
         elseif (i==nx+1) then
           dx1=grid_params%dx(ig-1)
           dx2=grid_params%dx(ig-2)
           daydx =-(-ay(i-2,j,k)*dx1/dx2/(dx1+dx2)
      .             +ay(i-1,j,k)*(dx1+dx2)/dx1/dx2
      .             -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
+        elseif (i == 1 .and. bcond(1) == SP) then
+          dx = grid_params%dxh(ig)
+          daydx = ((ay(ip,j,k)/jacp+ay(i,j,k)/jac0)/2.*jacm
+     .            - ay(im,j,k))/dx
         else
           dx = grid_params%dxh(ig)
           daydx = (ay(ip,j,k)-ay(im,j,k))/2./dx
@@ -2130,178 +2384,9 @@ c     Begin program
 
       curlcurl = dwa+dwb+dwc+dwd+dwe+dwf+dwg+dwh+dwi+dwj+dwk
 
-cc      if (i == 0 .or. j == 0 .or. k == 0 ) then
-cc        write (*,*) 'Error in laplace; i,j,k=0'
-cc      elseif (i == nx+1 .or. j == ny+1 .or. k == nz+1) then
-cc        write (*,*) 'Error in laplace; i,j,k=nmax+1'
-cc      elseif (.not.sing_point) then
-cc        d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg))
-cc        d_xx_im = g_super_elem(1,1,0.5*(xx(ig-1)+xx(ig)),yy(jg),zz(kg))
-cc        d_yy_jp = g_super_elem(2,2,xx(ig),0.5*(yy(jg+1)+yy(jg)),zz(kg))
-cc        d_yy_jm = g_super_elem(2,2,xx(ig),0.5*(yy(jg-1)+yy(jg)),zz(kg))
-cc        d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg)))
-cc        d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg)))
-cc
-cc        d_xy_ipjp = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-cc     .                              ,0.5*(yy(jg+1)+yy(jg)),zz(kg))
-cc        d_xy_ipjm = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-cc     .                              ,0.5*(yy(jg-1)+yy(jg)),zz(kg))
-cc        d_xy_imjp = g_super_elem(1,2,0.5*(xx(ig-1)+xx(ig))
-cc     .                              ,0.5*(yy(jg+1)+yy(jg)),zz(kg))
-cc        d_xy_imjm = g_super_elem(1,2,0.5*(xx(ig-1)+xx(ig))
-cc     .                              ,0.5*(yy(jg-1)+yy(jg)),zz(kg))
-cc                 
-cc        d_xz_ipkp = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_xz_ipkm = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg-1)+zz(kg)))
-cc        d_xz_imkp = g_super_elem(1,3,0.5*(xx(ig-1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_xz_imkm = g_super_elem(1,3,0.5*(xx(ig-1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg-1)+zz(kg)))
-cc                 
-cc        d_yz_jpkp = g_super_elem(2,3,xx(ig),0.5*(yy(jg+1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_yz_jpkm = g_super_elem(2,3,xx(ig),0.5*(yy(jg+1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg-1)+zz(kg)))
-cc        d_yz_jmkp = g_super_elem(2,3,xx(ig),0.5*(yy(jg-1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_yz_jmkm = g_super_elem(2,3,xx(ig),0.5*(yy(jg-1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg-1)+zz(kg)))
-cc
-cc      else
-cc
-cc        d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg))
-cc        d_xx_im = 0d0
-cc        d_yy_jp = 0d0
-cc        d_yy_jm = 0d0
-cc        d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg)))
-cc        d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg)))
-cc
-cc        d_xy_ipjp = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-cc     .                              ,0.5*(yy(jg+1)+yy(jg)),zz(kg))
-cc        d_xy_ipjm = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-cc     .                              ,0.5*(yy(jg-1)+yy(jg)),zz(kg))
-cc        d_xy_imjp = 0d0
-cc        d_xy_imjm = 0d0
-cc                 
-cc        d_xz_ipkp = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_xz_ipkm = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-cc     .                              ,0.5*(zz(kg-1)+zz(kg)))
-cc        d_xz_imkp = 0d0
-cc        d_xz_imkm = 0d0
-cc                 
-cc        d_yz_jpkp = g_super_elem(2,3,xx(ig),0.5*(yy(jg+1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_yz_jpkm = g_super_elem(2,3,xx(ig),0.5*(yy(jg+1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg-1)+zz(kg)))
-cc        d_yz_jmkp = g_super_elem(2,3,xx(ig),0.5*(yy(jg-1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg+1)+zz(kg)))
-cc        d_yz_jmkm = g_super_elem(2,3,xx(ig),0.5*(yy(jg-1)+yy(jg))
-cc     .                                     ,0.5*(zz(kg-1)+zz(kg)))
-cc
-cc      endif
-cc
-cc      curlcurl =
-cc     .     dyh(jg)*dzh(kg)*( d_xx_ip*(arr(ip,j,k)-arr(i,j,k))/dx(ig)
-cc     .                      +d_xx_im*(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
-cc     .    +dxh(ig)*dzh(kg)*( d_yy_jp*(arr(i,jp,k)-arr(i,j,k))/dy(jg)
-cc     .                      +d_yy_jm*(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
-cc     .    +dxh(ig)*dyh(jg)*( d_zz_kp*(arr(i,j,kp)-arr(i,j,k))/dz(kg)
-cc     .                      +d_zz_km*(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
-cc     .    +0.5*
-cc     .      ( dzh(kg)*( d_xy_ipjp*(arr(ip,jp,k)-arr(i,j,k))
-cc     .                 +d_xy_imjm*(arr(im,jm,k)-arr(i,j,k))
-cc     .                 -d_xy_ipjm*(arr(ip,jm,k)-arr(i,j,k))
-cc     .                 -d_xy_imjp*(arr(im,jp,k)-arr(i,j,k)) )
-cc     .       +dyh(jg)*( d_xz_ipkp*(arr(ip,j,kp)-arr(i,j,k))
-cc     .                 +d_xz_imkm*(arr(im,j,km)-arr(i,j,k))
-cc     .                 -d_xz_ipkm*(arr(ip,j,km)-arr(i,j,k))
-cc     .                 -d_xz_imkp*(arr(im,j,kp)-arr(i,j,k)) )
-cc     .       +dxh(jg)*( d_yz_jpkp*(arr(i,jp,kp)-arr(i,j,k))
-cc     .                 +d_yz_jmkm*(arr(i,jm,km)-arr(i,j,k))
-cc     .                 -d_yz_jpkm*(arr(i,jp,km)-arr(i,j,k))
-cc     .                 -d_yz_jmkp*(arr(i,jm,kp)-arr(i,j,k)) ) )
-
 c     End program
 
       end function curlcurl
-
-c     curlcurl2
-c     ###############################################################
-      real*8 function curlcurl2(i,j,k,ax,ay,az,comp)
-
-c     ---------------------------------------------------------------
-c     Calculates curl(eta curl(A)) in general non-orthogonal
-c     coordinates, preserving the SPD property. The vector A is
-c     covariant, and returns the contravariant component "comp".
-c     ---------------------------------------------------------------
-
-      use grid
-
-      implicit none           !For safe fortran
-
-c     Call variables
-
-      integer(4) :: i,j,k,comp
-
-      real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
-     .             ,ay(0:nx+1,0:ny+1,0:nz+1)
-     .             ,az(0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
-
-      real(8)    :: x0,xp,xm,y0,yp,ym,z0,zp,zm
-
-c     Begin program
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      ip = i+1
-      im = i-1
-      jp = j+1
-      jm = j-1
-      kp = k+1
-      km = k-1
-
-      select case(comp)
-      case(1)
-
-        curlcurl2 = dzh(kg)*(ay(ip,jp,k)-ay(im,jp,k)
-     .                      -ay(ip,jm,k)+ay(im,jm,k))/4.
-     .             -dxh(ig)*dzh(kg)
-     .                     *(ax(i,jp,k)-2*ax(i,j,k)+ax(i,jm,k))/dyh(jg)
-
-      case(2)
-
-        curlcurl2 = dzh(kg)*(ax(ip,jp,k)-ax(im,jp,k)
-     .                      -ax(ip,jm,k)+ax(im,jm,k))/4.
-     .             -dyh(jg)*dzh(kg)
-     .                     *(ay(ip,j,k)-2*ay(i,j,k)+ay(im,j,k))/dxh(ig)
-
-      case(3)
-
-        curlcurl2 =-dyh(jg)*dzh(kg)
-     .                     *(az(ip,j,k)-2*az(i,j,k)+az(im,j,k))/dxh(ig)
-     .             -dxh(ig)*dzh(kg)
-     .                     *(az(i,jp,k)-2*az(i,j,k)+az(i,jm,k))/dyh(jg)
-
-      case default
-
-        write (*,*) 'Error in component in curlcurl'
-        write (*,*) 'Aborting...'
-        stop
-
-      end select
-
-      curlcurl2 = eeta(i,j,k)*curlcurl2
-
-c     End program
-
-      end function curlcurl2
 
       end module nlfunction_setup
 
