@@ -36,6 +36,8 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
+      use precond_variables
+
       implicit none
 
 c Call variables
@@ -64,6 +66,8 @@ c Begin program
 
         allocate (eeta  (0:nxdp,0:nydp,0:nzdp)
      .           ,nuu   (0:nxdp,0:nydp,0:nzdp))
+
+        call allocPrecVariables
 
 c End program
 
