@@ -26,7 +26,7 @@ cc      integer*4   i,j,ig,ieq,ii,iii,isig,ip,jp,jj,jjj,dd,neq
 
 cc      integer,allocatable,dimension(:,:) :: bbcond
 
-      type (var_array),target :: varray
+cc      type (var_array),target :: varray
 
 c Externals
 
@@ -139,8 +139,7 @@ cc      call deallocateDerivedType(varray)
 
 c End program
 
-      return
-      end
+      end subroutine setupPreconditioner
 
 ccc buildDiagBlocks
 ccc###################################################################
