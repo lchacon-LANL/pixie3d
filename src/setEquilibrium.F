@@ -99,8 +99,7 @@ c Define boundary conditions
 
 c Decide whether to use the alternative EOM formulation
 
-      alt_eom = .false.
-      if (bcond(1) == SP) alt_eom=.true.
+      alt_eom = alt__eom()
       
 c Set initial guess
 
@@ -205,12 +204,8 @@ c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-             var(i,j,k,IVX)=vperflow
-     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IVY)=vperflow
-     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IVZ)=vperflow
-     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
+             var(i,j,k,IVX:IVZ)=vperflow
+     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3)
             enddo
           enddo
         enddo
@@ -247,9 +242,9 @@ c     Tearing mode in cartesian coordinates
           do j = jlo,jhi
             do i = ilo,ihi
               !X-Y equilibrium
-              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-              var(i,j,k,IBY)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-              var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
 cc              var(i,j,k,IBX)  = 0d0
 cc              var(i,j,k,IBY)  = 1d1
@@ -299,40 +294,40 @@ c     Tearing mode in sinusoidal coordinates
             do i = ilo,ihi
 
               !X-Y equilibrium
-              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-              var(i,j,k,IBY)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-              var(i,j,k,IBZ)=0d0
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=0d0
 
-              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
-              jac1 = gmetric%grid(igx)%jac (i,j,k)
+             gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
+             jac1 = gmetric%grid(igx)%jac (i,j,k)
 
-              bnorm= vectorNorm(i,j,k,igx,igy,igz
+             bnorm= vectorNorm(i,j,k,igx,igy,igz
      .                         ,var(i,j,k,IBX)
      .                         ,var(i,j,k,IBY)
      .                         ,var(i,j,k,IBZ),.false.)
 
-              ccc = jac1*(bz0**2 - bnorm)
-              bbb = gsub(3,2)*var(i,j,k,IBY) + gsub(3,1)*var(i,j,k,IBX)
-              aaa = gsub(3,3)
+             ccc = jac1*(bz0**2 - bnorm)
+             bbb = gsub(3,2)*var(i,j,k,IBY) + gsub(3,1)*var(i,j,k,IBX)
+             aaa = gsub(3,3)
 
-              var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
+             var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
               !X-Z equilibrium
 cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
 cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
 cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
+             var(i,j,k,IVX)  = 0d0
+             var(i,j,k,IVY)  = 0d0
+             var(i,j,k,IVZ)  = 0d0
 
-              var(i,j,k,IRHO) = 1d0
+             var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,ITMP) = 1d0
+             var(i,j,k,ITMP) = 1d0
 
-              if (bbb**2+4*aaa*ccc < 0d0) then
-                write (*,*) var(i,j,k,IBZ),bnorm,aaa,bbb**2+4*aaa*ccc
-              endif
+             if (bbb**2+4*aaa*ccc < 0d0) then
+               write (*,*) var(i,j,k,IBZ),bnorm,aaa,bbb**2+4*aaa*ccc
+             endif
             enddo
           enddo
         enddo
@@ -448,7 +443,7 @@ c     RFP equilibria (analytical)
 c diag ****
 cc              var(i,j,k,IBX)  = 0d0
 cc              var(i,j,k,IBY)  = 0d0
-cc              var(i,j,k,IBZ)  = x1*0d0
+cc              var(i,j,k,IBZ)  = x1*1d0
 c diag ****
 
               var(i,j,k,IVX)  = 0d0
@@ -575,6 +570,46 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
               var(i,j,k,IRHO) = 1d0
 
               var(i,j,k,ITMP) = 1d-3
+
+            enddo
+          enddo
+        enddo
+
+      case ('rhots')
+
+c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
+
+        if (coords /= 'cyl') then
+          write (*,*) 'Wrong coordinates for equilibrium ',equil
+          write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
+          stop
+        endif
+
+        !Build equilibrium
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              !X-Y equilibrium
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = 0d0
+              var(i,j,k,IBZ)  = 0d0
+
+              var(i,j,k,IVX)  = x1*cos(y1)
+              var(i,j,k,IVY)  = -sin(y1)
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = 1d0
+     .                      +1d-1*x1*exp(-(x1-0.3)**2/dlambda**2)
+
+              var(i,j,k,ITMP) = 0d0
 
             enddo
           enddo
