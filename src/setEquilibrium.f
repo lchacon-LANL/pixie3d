@@ -456,7 +456,7 @@ c     RFP equilibria (analytical)
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBZ)  = bzz
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
