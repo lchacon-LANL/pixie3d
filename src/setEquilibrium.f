@@ -46,11 +46,20 @@ c Local variables
 
       logical       :: covariant,to_cartsn,cartsn
 
-      real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc
+      real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc,qq,rr,ff
+     .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,rint(nxd+1)
 
       real(8)       :: a1(0:nxdp,0:nydp,0:nzdp)
      .                ,a2(0:nxdp,0:nydp,0:nzdp)
      .                ,a3(0:nxdp,0:nydp,0:nzdp)
+
+c Functions
+
+      !q-profile
+cc      qq(rr) = 0.6125*(1-1.8748*rr**2+0.8323*rr**4)
+      qq(rr) = 0.3*(1-1.8748*rr**2+0.8323*rr**4)
+
+      ff(rr) = rr**2 + qq(rr)**2
 
 c Begin program
 
@@ -231,6 +240,58 @@ cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
           enddo
         enddo
 
+      case ('tmhel')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+
+c     Tearing mode in sinusoidal coordinates
+
+        coords = 'hel'
+
+        !Integral in r
+        rint(nxd+1) = 0d0
+        do i=nxd,1,-1
+          call getCoordinates(i,1,1,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                       ,cartsn)
+
+          rint(i) = rint(i+1) + dxh(ig)*x1/ff(x1)
+        enddo
+
+        !Determine Iz so that Bz(r=0)=1 (x1 known from previous loop)
+cc        call getCoordinates(1,1,1,igx,igy,igz,ig,jg,kg,x1,y1,z1,cartsn)
+
+        btheta = 1./2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(1))
+        Iz = x1/btheta/qq(x1)
+
+        !Build equilibrium
+        do k = 1,nzd
+          do j = 1,nyd
+            do i = 1,nxd+1
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                           ,cartsn)
+
+              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
+              bzz    = qq(x1)*btheta/x1
+
+              !X-Y equilibrium
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
+              var(i,j,k,IBZ)  = x1/mm*bzz
+
+              var(i,j,k,IVX)  = 0d0
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 0d-0
+
+            enddo
+          enddo
+        enddo
+
       case default
 
         write (*,*)
@@ -331,11 +392,13 @@ cc              zz = grid_params%zz(kg)
         do k=0,nzdp
           do j=0,nydp
             do i=0,nxdp
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-              xx = grid_params%xx(ig)
-              yy = grid_params%yy(jg)
-              zz = grid_params%zz(kg)
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,xx,yy,zz)
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              xx = grid_params%xx(ig)
+cc              yy = grid_params%yy(jg)
+cc              zz = grid_params%zz(kg)
 
               a1(i,j,k) = 0d0
               a2(i,j,k) = 0d0
@@ -348,13 +411,6 @@ cc              a3(i,j,k) = 0d0
             enddo
           enddo
         enddo
-
-      case default
-
-        write (*,*)
-        write (*,*) 'Equilibrium ',trim(equil),' undefined'
-        write (*,*) 'Aborting...'
-        stop
 
       end select
 

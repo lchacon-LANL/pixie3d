@@ -111,6 +111,10 @@ cc      cartesian = .false.
       cnv2   = contravariantVector(2,x0,y0,z0,cartesian)
       cnv3   = contravariantVector(3,x0,y0,z0,cartesian)
 
+      cov1   = covariantVector(1,x0,y0,z0,cartesian)
+      cov2   = covariantVector(2,x0,y0,z0,cartesian)
+      cov3   = covariantVector(3,x0,y0,z0,cartesian)
+
 c     Rho
 
       flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
@@ -131,7 +135,8 @@ c     Rho
 
 cc      diffus = dd*laplacian(i,j,k,rho)
 
-      ff(IRHO) = advec - diffus
+      ff(IRHO) = advec
+cc     .         - diffus
 
 c     Bx
 
@@ -178,9 +183,6 @@ cc      flxkm =-Ey_km
 cc     .       +0.5*(vz(i,j,km)*bx(i,j,k) + vz(i,j,k)*bx(i,j,km))
 cc     .       -0.5*(vx(i,j,km)*bz(i,j,k) + vx(i,j,k)*bz(i,j,km))
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IBX)%bconds)
-
       ff(IBX) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
      .               +dS3*(flxkp-flxkm) )
@@ -189,6 +191,30 @@ c     By
 
       flxjp = 0d0
       flxjm = 0d0
+
+      !Ideal contribution
+      flxip = 0.5*(vx(ip,j,k)*by(ip,j,k) + vx(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(ip,j,k)*bx(ip,j,k) + vy(i,j,k)*bx(i,j,k))
+      flxim = 0.5*(vx(im,j,k)*by(im,j,k) + vx(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(im,j,k)*bx(im,j,k) + vy(i,j,k)*bx(i,j,k))
+
+      flxkp = 0.5*(vz(i,j,kp)*by(i,j,kp) + vz(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(i,j,kp)*bz(i,j,kp) + vy(i,j,k)*bz(i,j,k))
+      flxkm = 0.5*(vz(i,j,km)*by(i,j,km) + vz(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(i,j,km)*bz(i,j,km) + vy(i,j,k)*bz(i,j,k))
+
+cc      flxip =+0.5*(vx(ip,j,k)*by(i,j,k) + vx(i,j,k)*by(ip,j,k))
+cc     .       -0.5*(vy(ip,j,k)*bx(i,j,k) + vy(i,j,k)*bx(ip,j,k))
+cc      flxim =+0.5*(vx(im,j,k)*by(i,j,k) + vx(i,j,k)*by(im,j,k))
+cc     .       -0.5*(vy(im,j,k)*bx(i,j,k) + vy(i,j,k)*bx(im,j,k))
+cc
+cc      flxkp =+0.5*(vz(i,j,kp)*by(i,j,k) + vz(i,j,k)*by(i,j,kp))
+cc     .       -0.5*(vy(i,j,kp)*bz(i,j,k) + vy(i,j,k)*bz(i,j,kp))
+cc      flxkm =+0.5*(vz(i,j,km)*by(i,j,k) + vz(i,j,k)*by(i,j,km))
+cc     .       -0.5*(vy(i,j,km)*bz(i,j,k) + vy(i,j,k)*bz(i,j,km))
+
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IBY)%bconds)
 
       !Resistive contribution
       Ez_ip = 0.5*(eeta(ip,j,k)*jz_cov(ip,j,k)
@@ -201,37 +227,11 @@ c     By
       Ex_km = 0.5*(eeta(i,j,km)*jx_cov(i,j,km)
      .           + eeta(i,j,k )*jx_cov(i,j,k ))
 
-      !Ideal contribution
-      flxip =-Ez_ip
-     .       +0.5*(vx(ip,j,k)*by(ip,j,k) + vx(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(ip,j,k)*bx(ip,j,k) + vy(i,j,k)*bx(i,j,k))
-      flxim =-Ez_im
-     .       +0.5*(vx(im,j,k)*by(im,j,k) + vx(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(im,j,k)*bx(im,j,k) + vy(i,j,k)*bx(i,j,k))
+      flxip = flxip - Ez_ip
+      flxim = flxim - Ez_im
 
-      flxkp = Ex_kp
-     .       +0.5*(vz(i,j,kp)*by(i,j,kp) + vz(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i,j,kp)*bz(i,j,kp) + vy(i,j,k)*bz(i,j,k))
-      flxkm = Ex_km
-     .       +0.5*(vz(i,j,km)*by(i,j,km) + vz(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i,j,km)*bz(i,j,km) + vy(i,j,k)*bz(i,j,k))
-
-cc      flxip =-Ez_ip
-cc     .       +0.5*(vx(ip,j,k)*by(i,j,k) + vx(i,j,k)*by(ip,j,k))
-cc     .       -0.5*(vy(ip,j,k)*bx(i,j,k) + vy(i,j,k)*bx(ip,j,k))
-cc      flxim =-Ez_im
-cc     .       +0.5*(vx(im,j,k)*by(i,j,k) + vx(i,j,k)*by(im,j,k))
-cc     .       -0.5*(vy(im,j,k)*bx(i,j,k) + vy(i,j,k)*bx(im,j,k))
-cc
-cc      flxkp = Ex_kp
-cc     .       +0.5*(vz(i,j,kp)*by(i,j,k) + vz(i,j,k)*by(i,j,kp))
-cc     .       -0.5*(vy(i,j,kp)*bz(i,j,k) + vy(i,j,k)*bz(i,j,kp))
-cc      flxkm = Ex_km
-cc     .       +0.5*(vz(i,j,km)*by(i,j,k) + vz(i,j,k)*by(i,j,km))
-cc     .       -0.5*(vy(i,j,km)*bz(i,j,k) + vy(i,j,k)*bz(i,j,km))
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IBY)%bconds)
+      flxkp = flxkp + Ex_kp
+      flxkm = flxkm + Ex_km
 
       ff(IBY) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
@@ -241,6 +241,20 @@ c     Bz
 
       flxkp = 0d0
       flxkm = 0d0
+
+      !Ideal contribution
+      flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k) + vx(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(ip,j,k)*bx(ip,j,k) + vz(i,j,k)*bx(i,j,k))
+      flxim = 0.5*(vx(im,j,k)*bz(im,j,k) + vx(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(im,j,k)*bx(im,j,k) + vz(i,j,k)*bx(i,j,k))
+
+      flxjp = 0.5*(vy(i,jp,k)*bz(i,jp,k) + vy(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(i,jp,k)*by(i,jp,k) + vz(i,j,k)*by(i,j,k))
+      flxjm = 0.5*(vy(i,jm,k)*bz(i,jm,k) + vy(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(i,jm,k)*by(i,jm,k) + vz(i,j,k)*by(i,j,k))
+
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IBZ)%bconds)
 
       !Resistive contribution
       Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)
@@ -253,23 +267,11 @@ c     Bz
       Ex_jm = 0.5*(eeta(i,jm,k)*jx_cov(i,jm,k)
      .           + eeta(i,j ,k)*jx_cov(i,j ,k))
 
-      !Ideal contribution
-      flxip = Ey_ip
-     .       +0.5*(vx(ip,j,k)*bz(ip,j,k) + vx(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(ip,j,k)*bx(ip,j,k) + vz(i,j,k)*bx(i,j,k))
-      flxim = Ey_im
-     .       +0.5*(vx(im,j,k)*bz(im,j,k) + vx(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(im,j,k)*bx(im,j,k) + vz(i,j,k)*bx(i,j,k))
+      flxip = flxip + Ey_ip
+      flxim = flxim + Ey_im
 
-      flxjp =-Ex_jp
-     .       +0.5*(vy(i,jp,k)*bz(i,jp,k) + vy(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i,jp,k)*by(i,jp,k) + vz(i,j,k)*by(i,j,k))
-      flxjm =-Ex_jm
-     .       +0.5*(vy(i,jm,k)*bz(i,jm,k) + vy(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i,jm,k)*by(i,jm,k) + vz(i,j,k)*by(i,j,k))
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IBZ)%bconds)
+      flxjp = flxjp - Ex_jp
+      flxjm = flxjm - Ex_jm
 
       ff(IBZ) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
@@ -305,7 +307,7 @@ cc      joule = jouleHeating(i,j,k)
       !Viscous heating
       if (sing_point) then
         nabla_v = fnabla_v(i,j,k,0.5*(xip+x0),0.5*(yip+y0)
-     .                    ,0.5*(zip+z0),1)
+     .                                       ,0.5*(zip+z0),1)
       else
         nabla_v = fnabla_v(i,j,k,x0,y0,z0,0)
       endif
@@ -330,29 +332,27 @@ c     Vx
 
       call vtensor_x(i  ,j,k,t11p,t12p,t13p, 1)
       call vtensor_x(i-1,j,k,t11m,t12m,t13m,-1)
-      if (coords /= 'car') call vtensor_x(i  ,j,k,t11o,t12o,t13o, 0)
+      if (coords /= 'car') call vtensor_x(i,j,k,t11o,t12o,t13o, 0)
 
       call vtensor_y(i,j  ,k,t21p,t22p,t23p, 1)
       call vtensor_y(i,j-1,k,t21m,t22m,t23m,-1)
-      if (coords /= 'car') call vtensor_y(i,j  ,k,t21o,t22o,t23o, 0)
+      if (coords /= 'car') call vtensor_y(i,j,k,t21o,t22o,t23o, 0)
 
       call vtensor_z(i,j,k  ,t31p,t32p,t33p, 1)
       call vtensor_z(i,j,k-1,t31m,t32m,t33m,-1)
-      if (coords /= 'car') call vtensor_z(i,j,k  ,t31o,t32o,t33o, 0)
+      if (coords /= 'car') call vtensor_z(i,j,k,t31o,t32o,t33o, 0)
 
-      cov   = covariantVector(1,x0,y0,z0,cartesian)
+      flxip = vflx_x(t11p,t12p,t13p,cov1)
+      flxim = vflx_x(t11m,t12m,t13m,cov1)
 
-      flxip = vflx_x(t11p,t12p,t13p,cov)
-      flxim = vflx_x(t11m,t12m,t13m,cov)
+      flxjp = vflx_y(t21p,t22p,t23p,cov1)
+      flxjm = vflx_y(t21m,t22m,t23m,cov1)
 
-      flxjp = vflx_y(t21p,t22p,t23p,cov)
-      flxjm = vflx_y(t21m,t22m,t23m,cov)
+      flxkp = vflx_z(t31p,t32p,t33p,cov1)
+      flxkm = vflx_z(t31m,t32m,t33m,cov1)
 
-      flxkp = vflx_z(t31p,t32p,t33p,cov)
-      flxkm = vflx_z(t31m,t32m,t33m,cov)
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
 
       if (coords == 'car') then
         msource = 0d0
@@ -370,19 +370,17 @@ c     Vx
 
 c     Vy
 
-      cov   = covariantVector(2,x0,y0,z0,cartesian)
+      flxip = vflx_x(t11p,t12p,t13p,cov2)
+      flxim = vflx_x(t11m,t12m,t13m,cov2)
 
-      flxip = vflx_x(t11p,t12p,t13p,cov)
-      flxim = vflx_x(t11m,t12m,t13m,cov)
+      flxjp = vflx_y(t21p,t22p,t23p,cov2)
+      flxjm = vflx_y(t21m,t22m,t23m,cov2)
 
-      flxjp = vflx_y(t21p,t22p,t23p,cov)
-      flxjm = vflx_y(t21m,t22m,t23m,cov)
+      flxkp = vflx_z(t31p,t32p,t33p,cov2)
+      flxkm = vflx_z(t31m,t32m,t33m,cov2)
 
-      flxkp = vflx_z(t31p,t32p,t33p,cov)
-      flxkm = vflx_z(t31m,t32m,t33m,cov)
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
 
       if (coords == 'car') then
         msource = 0d0
@@ -400,19 +398,17 @@ c     Vy
 
 c     Vz
 
-      cov   = covariantVector(3,x0,y0,z0,cartesian)
+      flxip = vflx_x(t11p,t12p,t13p,cov3)
+      flxim = vflx_x(t11m,t12m,t13m,cov3)
 
-      flxip = vflx_x(t11p,t12p,t13p,cov)
-      flxim = vflx_x(t11m,t12m,t13m,cov)
+      flxjp = vflx_y(t21p,t22p,t23p,cov3)
+      flxjm = vflx_y(t21m,t22m,t23m,cov3)
 
-      flxjp = vflx_y(t21p,t22p,t23p,cov)
-      flxjm = vflx_y(t21m,t22m,t23m,cov)
+      flxkp = vflx_z(t31p,t32p,t33p,cov3)
+      flxkm = vflx_z(t31m,t32m,t33m,cov3)
 
-      flxkp = vflx_z(t31p,t32p,t33p,cov)
-      flxkm = vflx_z(t31m,t32m,t33m,cov)
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
 
       if (coords == 'car') then
         msource = 0d0

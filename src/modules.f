@@ -35,7 +35,7 @@ c ######################################################################
      .          bx_cov,by_cov,bz_cov,bx_car,by_car,bz_car
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov,jx_car,jy_car,jz_car
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov,vx_car,vy_car,vz_car
-     .         ,eeta,nuu,divrgB
+     .         ,eeta,nuu,divrgB,divrgV,Pflux,qfactor
 
         real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
         real(8),pointer,dimension(:)    :: xx,yy,zz,dxh,dyh,dzh,dx,dy,dz
@@ -47,7 +47,8 @@ c ######################################################################
      .                        ,xkm,ykm,zkm,xkp,ykp,zkp
 
         real(8)    :: gsub(3,3),gsuper(3,3)
-     .               ,cnv1(3),cnv2(3),cnv3(3),cov(3),jac
+     .               ,cnv1(3),cnv2(3),cnv3(3)
+     .               ,cov1(3),cov2(3),cov3(3),jac
 
         real(8)    :: nabla_v(3,3),hessian1(3,3)
      .               ,hessian2(3,3),hessian3(3,3)
@@ -77,17 +78,17 @@ c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      if (i == 1 .and. bcond(1) == SP) then
-        divB =
-     .       (bx(i+1,j  ,k  )+bx(i  ,j  ,k  ))/2./dxh(ig)
-     .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
-     .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
-      else
+cc      if (i == 1 .and. bcond(1) == SP) then
+cc        divB =
+cc     .       (bx(i+1,j  ,k  )+bx(i  ,j  ,k  ))/2./dxh(ig)
+cc     .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
+cc     .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
+cc      else
         divB =
      .       (bx(i+1,j  ,k  )-bx(i-1,j  ,k  ))/2./dxh(ig)
      .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
      .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
-      endif
+cc      endif
 
 c     End 
 
@@ -817,9 +818,11 @@ cc        cartesian = .false.
           z = (zim+z0)/2.
         endif
 
-        gsuper = g_super (x,y,z,cartesian)
+        if (x == 0d0 .and. sing_point) x = 1d-5
 
         jac    = jacobian(x,y,z,cartesian)
+
+        gsuper = g_super (x,y,z,cartesian)
 
         if (flag /= 0 .or. sing_point) then
           nabla_v = fnabla_v(i,j,k,x,y,z,1)
@@ -858,8 +861,6 @@ cc     .             +rho(i ,j,k)*tmp(ip,j,k))
      .     -vis*( gsuper(1,1)*nabla_v(1,2)
      .           +gsuper(1,2)*nabla_v(2,2)
      .           +gsuper(1,3)*nabla_v(3,2) )
-
-cc        t12 = 0d0
 
         t13 =
      .     0.25*( rvx(ip,j,k)*vz (i ,j,k) +rvx(i ,j,k)*vz (ip,j,k)
@@ -945,6 +946,8 @@ cc        endif
         !Recall p=2nT
         ptot = jac*(rho(i,jp,k)*tmp(i,jp,k)
      .             +rho(i,j ,k)*tmp(i,j ,k))
+cc        ptot = jac*(rho(i,jp,k)*tmp(i,j ,k)
+cc     .             +rho(i,j ,k)*tmp(i,jp,k))
      .       +(bx(i,jp,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,jp,k)
      .        +by(i,jp,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,jp,k)
      .        +bz(i,jp,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,jp,k))/4.
@@ -1056,6 +1059,8 @@ cc        endif
         !Recall p=2nT
         ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
      .             +rho(i,j,k )*tmp(i,j,k ))
+cc        ptot = jac*(rho(i,j,kp)*tmp(i,j,k )
+cc     .             +rho(i,j,k )*tmp(i,j,kp))
      .       +(bx(i,j,kp)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,kp)
      .        +by(i,j,kp)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,kp)
      .        +bz(i,j,kp)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,kp))/4.
@@ -1587,8 +1592,8 @@ c     Begin program
 
       end select
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
-     .                      ,bcond)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc     .                      ,bcond)
 
       curl = (flxip-flxim)/dx
      .      +(flxjp-flxjm)/dy
@@ -1623,20 +1628,12 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
-      real(8)    :: dx,dy,dz,dx1,dx2
+      real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
+      real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
 
 c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      dx = grid_params%dxh(ig)
-      dy = grid_params%dyh(jg)
-      dz = grid_params%dzh(kg)
-
-      if (i == 1 .and. bcond(1) == SP) then
-        dx1=grid_params%dx(ig)
-        dx2=grid_params%dx(ig+1)
-      endif
 
       ip = i+1
       im = i-1
@@ -1648,32 +1645,119 @@ c     Begin program
       select case(comp)
       case(1)
 
-        curl2 = (az(i,jp,k)-az(i,jm,k))/2./dy
-     .         -(ay(i,j,kp)-ay(i,j,km))/2./dz
+        if (j==0) then
+          dy1=grid_params%dy(jg)
+          dy2=grid_params%dy(jg+1)
+          dazdy = (-az(i,j+2,k)*dy1/dy2/(dy1+dy2)
+     .             +az(i,j+1,k)*(dy1+dy2)/dy1/dy2
+     .             -az(i,j  ,k)*(1./dy1+1./(dy1+dy2)))
+        elseif (j==ny+1) then
+          dy1=grid_params%dy(jg-1)
+          dy2=grid_params%dy(jg-2)
+          dazdy = -(-az(i,j-2,k)*dy1/dy2/(dy1+dy2)
+     .              +az(i,j-1,k)*(dy1+dy2)/dy1/dy2
+     .              -az(i,j  ,k)*(1./dy1+1./(dy1+dy2)))
+        else
+          dy = grid_params%dyh(jg)
+          dazdy = (az(i,jp,k)-az(i,jm,k))/2./dy
+        endif
+
+        if (k==0) then
+          dz1=grid_params%dz(kg)
+          dz2=grid_params%dz(kg+1)
+          daydz = (-ay(i,j,k+2)*dz1/dz2/(dz1+dz2)
+     .             +ay(i,j,k+1)*(dz1+dz2)/dz1/dz2
+     .             -ay(i,j,k  )*(1./dz1+1./(dz1+dz2)))
+        elseif (k==nz+1) then
+          dz1=grid_params%dz(kg-1)
+          dz2=grid_params%dz(kg-2)
+          daydz = -(-ay(i,j,k-2)*dz1/dz2/(dz1+dz2)
+     .              +ay(i,j,k-1)*(dz1+dz2)/dz1/dz2
+     .              -ay(i,j,k  )*(1./dz1+1./(dz1+dz2)))
+        else
+          dz = grid_params%dzh(kg)
+          daydz = (ay(i,j,kp)-ay(i,j,km))/2./dz
+        endif
+
+        curl2 = dazdy - daydz
 
       case(2)
 
-        if (i == 1 .and. bcond(1) == SP) then
-          curl2 = (ax(i,j,kp)-ax(i,j,km))/2./dz
-     .          -(-az(i+2,j,k)*dx1/dx2/(dx1+dx2)
-     .            +az(i+1,j,k)*(dx1+dx2)/dx1/dx2
-     .            -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
+cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
+        if (i==0) then
+          dx1=grid_params%dx(ig)
+          dx2=grid_params%dx(ig+1)
+          dazdx = (-az(i+2,j,k)*dx1/dx2/(dx1+dx2)
+     .             +az(i+1,j,k)*(dx1+dx2)/dx1/dx2
+     .             -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
+        elseif (i==nx+1) then
+          dx1=grid_params%dx(ig-1)
+          dx2=grid_params%dx(ig-2)
+          dazdx = -(-az(i-2,j,k)*dx1/dx2/(dx1+dx2)
+     .              +az(i-1,j,k)*(dx1+dx2)/dx1/dx2
+     .              -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
         else
-          curl2 = (ax(i,j,kp)-ax(i,j,km))/2./dz
-     .           -(az(ip,j,k)-az(im,j,k))/2./dx
+          dx = grid_params%dxh(ig)
+          dazdx = (az(ip,j,k)-az(im,j,k))/2./dx
         endif
+
+        if (k==0) then
+          dz1=grid_params%dz(kg)
+          dz2=grid_params%dz(kg+1)
+          daxdz = (-ax(i,j,k+2)*dz1/dz2/(dz1+dz2)
+     .             +ax(i,j,k+1)*(dz1+dz2)/dz1/dz2
+     .             -ax(i,j,k  )*(1./dz1+1./(dz1+dz2)))
+        elseif (k==nz+1) then
+          dz1=grid_params%dz(kg-1)
+          dz2=grid_params%dz(kg-2)
+          daxdz = -(-ax(i,j,k-2)*dz1/dz2/(dz1+dz2)
+     .              +ax(i,j,k-1)*(dz1+dz2)/dz1/dz2
+     .              -ax(i,j,k  )*(1./dz1+1./(dz1+dz2)))
+        else
+          dz = grid_params%dzh(kg)
+          daxdz = (ax(i,j,kp)-ax(i,j,km))/2./dz
+        endif
+
+        curl2 = daxdz - dazdx
 
       case(3)
 
-        if (i == 1 .and. bcond(1) == SP) then
-          curl2 = (-ay(i+2,j,k)*dx1/dx2/(dx1+dx2)
+cc        if ((i == 1 .and. bcond(1) == SP).or.(i==0)) then
+        if (i==0) then
+          dx1=grid_params%dx(ig)
+          dx2=grid_params%dx(ig+1)
+          daydx = (-ay(i+2,j,k)*dx1/dx2/(dx1+dx2)
      .             +ay(i+1,j,k)*(dx1+dx2)/dx1/dx2
      .             -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
-     .            -(ax(i,jp,k)-ax(i,jm,k))/2./dy
+        elseif (i==nx+1) then
+          dx1=grid_params%dx(ig-1)
+          dx2=grid_params%dx(ig-2)
+          daydx =-(-ay(i-2,j,k)*dx1/dx2/(dx1+dx2)
+     .             +ay(i-1,j,k)*(dx1+dx2)/dx1/dx2
+     .             -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
         else
-          curl2 = (ay(ip,j,k)-ay(im,j,k))/2./dx
-     .           -(ax(i,jp,k)-ax(i,jm,k))/2./dy
+          dx = grid_params%dxh(ig)
+          daydx = (ay(ip,j,k)-ay(im,j,k))/2./dx
         endif
+
+        if (j==0) then
+          dy1=grid_params%dy(jg)
+          dy2=grid_params%dy(jg+1)
+          daxdy = (-ax(i,j+2,k)*dy1/dy2/(dy1+dy2)
+     .             +ax(i,j+1,k)*(dy1+dy2)/dy1/dy2
+     .             -ax(i,j  ,k)*(1./dy1+1./(dy1+dy2)))
+        elseif (j==ny+1) then
+          dy1=grid_params%dy(jg-1)
+          dy2=grid_params%dy(jg-2)
+          daxdy = -(-ax(i,j-2,k)*dy1/dy2/(dy1+dy2)
+     .              +ax(i,j-1,k)*(dy1+dy2)/dy1/dy2
+     .              -ax(i,j  ,k)*(1./dy1+1./(dy1+dy2)))
+        else
+          dy = grid_params%dyh(jg)
+          daxdy = (ax(i,jp,k)-ax(i,jm,k))/2./dy
+        endif
+
+        curl2 = daydx - daxdy
 
       case default
 

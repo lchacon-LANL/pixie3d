@@ -71,7 +71,10 @@ c Begin program
 
         allocate (eeta  (0:nxdp,0:nydp,0:nzdp)
      .           ,nuu   (0:nxdp,0:nydp,0:nzdp)
-     .           ,divrgB(0:nxdp,0:nydp,0:nzdp))
+     .           ,divrgB(0:nxdp,0:nydp,0:nzdp)
+     .           ,divrgV(0:nxdp,0:nydp,0:nzdp)
+     .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
+     .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
 
 c End program
 

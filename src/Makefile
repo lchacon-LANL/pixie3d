@@ -20,7 +20,7 @@ SRC  := $(wildcard *.f)
 SRC  := modules.f \
 	explicit.f \
 	readInput.f \
-	allocateSpecificVariables.f \
+	createNonlinearFunction.f \
 	initialize3Dplots.f \
 	evaluateDiagnostics.f \
 	output.f \
@@ -53,9 +53,9 @@ ifeq ($(FC),f90)
 
 # Flags for Absoft f90
 OPTIMIZATION = -O -B101 -cpu:host
-DEBUG = -g -et
+#DEBUG = -g -et
 #DEBUG = -g -et -trap=ALL
-#DEBUG = -g
+DEBUG = -g
 PROFILE = -P
 STATIC = -s
 

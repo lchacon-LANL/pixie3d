@@ -16,10 +16,95 @@ c####################################################################
 
         implicit none
 
-        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0
-        real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et
+        integer(4) :: ulineplot
+        character*(20) :: lineplotfile
+
+        integer(4) :: ndiag
+
+        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0
+        real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
 
       end module diag_setup
+
+c initializeDiagnostics
+c####################################################################
+      subroutine initializeDiagnostics
+
+c--------------------------------------------------------------------
+c     Initializes diagnostics.
+c--------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+      logical :: initialize
+
+c Begin program
+
+c Define diagnostics
+
+      call defineDiagnostics
+
+c Initialize diagnostic references
+
+      initialize = .true.
+      call evaluateDiagnostics(u_0,initialize)
+
+c Calculate initial diagnostics
+
+      initialize = .false.
+      if (.not.restart) then
+        call evaluateDiagnostics(u_n,initialize)
+      else
+        call dumpDiagnostics
+      endif
+
+c Create draw*.in file
+
+      ndiag = count (sel_diag /= 0)
+
+      call createDrawInGfile(ndiag,lineplotfile,'Time histories'
+     .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
+     .           ,'drawgamma.in',.false.)
+
+c End 
+
+      end subroutine initializeDiagnostics
+
+c finalizeDiagnostics
+c####################################################################
+      subroutine finalizeDiagnostics
+
+c--------------------------------------------------------------------
+c     Close diagnostic files
+c--------------------------------------------------------------------
+
+        use diag_setup
+
+        implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+c Finalize time traces output (separator)
+
+        write(ulineplot)
+
+c Close time traces file
+
+        close(unit=ulineplot)
+
+c End program
+
+      end subroutine finalizeDiagnostics
 
 c defineDiagnostics
 c####################################################################
@@ -39,6 +124,19 @@ c Local variables
 
 c Begin program
 
+c Open files
+
+      lineplotfile = 'timeplots.bin'
+      ulineplot    = 10
+
+      if (.not.restart) then
+        open(unit=ulineplot,file=lineplotfile,form='unformatted'
+     .      ,status='replace')
+      else
+        open(unit=ulineplot,file=lineplotfile,form='unformatted'
+     .      ,status='old',position='append')
+      endif
+
 c Define diagnostics
 
       diag_desc(IRHO)   = '||drho||'       
@@ -55,15 +153,17 @@ c Define diagnostics
       diag_desc(neqd+4) = 'Total energy'   
       diag_desc(neqd+5) = 'Time step'      
       diag_desc(neqd+6) = 'Growth rate'    
-      diag_desc(neqd+7) = 'local div(B)'
+      diag_desc(neqd+7) = '|div(B)|'
       diag_desc(neqd+8) = 'Conservation of flux'      
       diag_desc(neqd+9) = 'Total particles'
       diag_desc(neqd+10)= 'Total X momentum'
       diag_desc(neqd+11)= 'Total Y momentum'
       diag_desc(neqd+12)= 'Total Z momentum'
       diag_desc(neqd+13)= 'Vflux at boundaries'
+      diag_desc(neqd+14)= 'Toroidal current Iz'
+      diag_desc(neqd+15)= 'Toroidal flux'
 
-      diag_desc(neqd+14:ngraph) = ''
+      diag_desc(neqd+16:ngraph) = ''
 
 c Define corresponding independent variables
 
@@ -122,6 +222,8 @@ c Begin program
         Em0   = 0d0
         Ek0   = 0d0
         Et0   = 0d0
+        Iz0   = 0d0
+        Tflux0= 0d0
       endif
 
 c Transform auxiliary vector fields to cartesian coordinates
@@ -140,30 +242,30 @@ c Find maximum velocity and magnetic field components (cartesian)
 
 c Particle diagnostics
 
-      Npar = integral(nxd,nyd,nzd,rho,igx,igy,igz) - Npar0
+      Npar = integral(nxd,nyd,nzd,rho,igx,igy,igz,.false.) - Npar0
 
 c Momentum diagnostics (in Cartesian coords.)
 
       array = rho*vx_car
-      px = integral(nxd,nyd,nzd,array,igx,igy,igz) - px0
+      px = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - px0
                                                         
       array = rho*vy_car
-      py = integral(nxd,nyd,nzd,array,igx,igy,igz) - py0
+      py = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - py0
                                                         
       array = rho*vz_car
-      pz = integral(nxd,nyd,nzd,array,igx,igy,igz) - pz0
+      pz = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - pz0
 
 c Energy diagnostics
 
       !Magnetic energy
 
       array = rho*(bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nxd,nyd,nzd,array,igx,igy,igz) - Em0
+      Em = 0.5*integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - Em0
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nxd,nyd,nzd,array,igx,igy,igz) - Ek0
+      Ek = 0.5*integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - Ek0
 
       !Thermal energy
 
@@ -172,11 +274,21 @@ c Energy diagnostics
       else
         array = 0d0
       endif
-      Et = integral(nxd,nyd,nzd,array,igx,igy,igz) - Et0
+      Et = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.) - Et0
 
       !Total energy
 
       energy = Ek + Em + Et
+
+c Current diagnostics
+
+      Iz = integral(nxd,nyd,1,jz_car,igx,igy,igz,.false.) - Iz0
+
+c Toroidal flux diagnostics
+
+      Tflux = integral(nxd,nyd,1,bz_car,igx,igy,igz,.false.) - Tflux0
+
+c Initial assignments
 
       if (init) then
         Npar0 = Npar
@@ -186,6 +298,8 @@ c Energy diagnostics
         Em0   = Em  
         Ek0   = Ek  
         Et0   = Et 
+        Iz0   = Iz
+        Tflux0= Tflux
         return
       endif
 
@@ -198,20 +312,20 @@ c Divergence diagnostics
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
             divrgB(i,j,k) = divB(i,j,k)/jac
-            array (i,j,k) = divV(i,j,k)/jac
+            divrgV(i,j,k) = divV(i,j,k)/jac
           enddo
         enddo
       enddo
 
       !Total B divergence (conservation of flux)
-      Bflux = integral(nxd,nyd,nzd,divrgB,igx,igy,igz)
+      Bflux  = integral(nxd,nyd,nzd,divrgB,igx,igy,igz,.false.)
 
       !Local divergence (statement of numerical accuracy)
-      divrgB  = abs(divrgB)
-      diverB = integral(nxd,nyd,nzd,divrgB,igx,igy,igz)
+      divrgB = abs(divrgB)
+      diverB = integral(nxd,nyd,nzd,divrgB,igx,igy,igz,.true.)
 
       !Total flow divergence (conservation of flow)
-      Vflux = integral(nxd,nyd,nzd,array,igx,igy,igz)
+      Vflux  = integral(nxd,nyd,nzd,divrgV,igx,igy,igz,.false.)
 
 c Growth rate diagnostics
 
@@ -220,7 +334,7 @@ c Growth rate diagnostics
         array = (varray%array_var(ieq)%array
      .          -u_0   %array_var(ieq)%array )**2
 
-        dpert(ieq) = integral(nxd,nyd,nzd,array,igx,igy,igz)
+        dpert(ieq) = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
 
 cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
         if (dpert(ieq).eq.0d0) then
@@ -238,15 +352,15 @@ c Calculation of local growth rate for CN
         array = (u_n%array_var(ieq)%array
      .          -u_0%array_var(ieq)%array )**2
 
-        dmag1 = integral(nxd,nyd,nzd,array,igx,igy,igz)
+        dmag1 = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
 
         array = (varray%array_var(ieq)%array
      .          +u_n   %array_var(ieq)%array
      .       -2.*u_0   %array_var(ieq)%array )**2
 
-        dmag2 = integral(nxd,nyd,nzd,array,igx,igy,igz)
+        dmag2 = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
 
-        if (dpert(ieq).ne.0d0) then
+        if (dpert(ieq) /= 0d0.and.dmag2 /= 0d0) then
 cc          mag(ieq) = .5*dt*sqrt(dmag2)/(exp(dpert(ieq))-sqrt(dmag1))
           mag(ieq) = .5*dt*sqrt(dmag2)/(dpert(ieq)-sqrt(dmag1))
         else
@@ -273,18 +387,48 @@ c Diagnostic assignment
       diagnostics(neqd+11)= py
       diagnostics(neqd+12)= pz
       diagnostics(neqd+13)= Vflux
+      diagnostics(neqd+14)= Iz
+      diagnostics(neqd+15)= Tflux
 
-cc      do i=1,20
+cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)
 cc      enddo
+
+c Dump diagnostics
+
+      call dumpDiagnostics
 
 c End 
 
       end subroutine evaluateDiagnostics
 
+c dumpDiagnostics
+c######################################################################
+      subroutine dumpDiagnostics
+
+c -------------------------------------------------------------------
+c     Dumps time plots
+c -------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+c Local variables
+ 
+c Begin program
+
+      write(ulineplot) real(time),real(diagnostics)
+
+c End program
+
+      end subroutine dumpDiagnostics
+
 c integral
 c ####################################################################
-      real(8) function integral(nx,ny,nz,array,igx,igy,igz)
+      real(8) function integral(nx,ny,nz,array,igx,igy,igz,avg)
 
 c -------------------------------------------------------------------
 c     Integrates array(i,j) on domain (nx)x(ny) and returns result.
@@ -298,6 +442,7 @@ c Call variables
 
       integer(4) :: igx,igy,igz,nx,ny,nz
       real(8)    :: array(0:nx+1,0:ny+1,0:nz+1)
+      logical    :: avg
 
 c Local variables
 
@@ -334,7 +479,7 @@ c Integrate
         enddo
       enddo
 
-      integral = integral/tvolume
+      if (avg) integral = integral/tvolume
 
 c End 
 

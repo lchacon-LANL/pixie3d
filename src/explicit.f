@@ -155,7 +155,7 @@ c Calculate maximum sound speed on grid
             !Maximum magnetic field norm
             norm = vectorNorm(x1,x2,x3,bx(i,j,k),by(i,j,k),bz(i,j,k)
      .                        ,.false.,cartsn)
-            bnorm = max(bnorm,norm)
+            bnorm = max(bnorm,norm/rho(i,j,k))
 
             !Maximum kk
             idx  = 1./dx(ig)

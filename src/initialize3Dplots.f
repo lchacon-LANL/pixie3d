@@ -150,7 +150,16 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(3)%array => divrgB
       graph(4)%array_graph(3)%descr = 'local div(B)'
 
-      graph(4)%array_graph(4:ngraph)%descr = ''
+      graph(4)%array_graph(4)%array => divrgV
+      graph(4)%array_graph(4)%descr = 'local div(V)'
+
+      graph(4)%array_graph(5)%array => Pflux
+      graph(4)%array_graph(5)%descr = 'Poloidal flux'
+
+      graph(4)%array_graph(6)%array => qfactor
+      graph(4)%array_graph(6)%descr = 'q factor'
+
+      graph(4)%array_graph(7:ngraph)%descr = ''
 
 c Define graphics group #5: Perturbations
 
@@ -196,9 +205,6 @@ c     ##################################################################
         profilefile(5)= 'pert-profiles.bin'
         uprofile(5)   = 34
 
-        lineplotfile = 'timeplots.bin'
-        ulineplot    = 10
-
         debugfile    = 'debug.bin'
         udebug       = 40
         
@@ -218,3 +224,80 @@ c     ##################################################################
 
       end subroutine defineGraphics
 
+c prepareTimeStepPlots
+c####################################################################
+      subroutine prepareTimeStepPlots
+
+c--------------------------------------------------------------------
+c     Set graphics files and dumping intervals
+c--------------------------------------------------------------------
+
+      use variables
+
+      use graphics
+
+      use nlfunction_setup
+
+      use timeStepping
+
+      use constants
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg
+      real(8)    :: mm,kk,RR,ll
+
+c Begin program
+
+c Find perturbed quantities
+
+      u_graph = u_np - u_0
+
+cdiag ******
+cc      if (source) u_graph = fsrc
+cdiag ******
+
+c Poloidal flux diagnostics (use same limits as plotting routines)
+
+      do k = kmin,kmax
+        do i = imin,imax
+          j = jmin
+          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          if (i == imin) then
+            Pflux(i,j,k) = 0d0
+          else
+            Pflux(i,j,k) = Pflux(i-1,j,k) - by(i,j,k)*dxh(ig)
+          endif
+          do j = jmin+1,jmax
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            Pflux(i,j,k) = Pflux(i,j-1,k) + bx(i,j,k)*dyh(jg)
+          enddo
+        enddo
+      enddo
+
+c Poloidally averaged q-factor (use same limits as plotting routines)
+
+      mm = grid_params%params(1)
+      kk = grid_params%params(2)
+      RR = grid_params%params(3)
+      do k = kmin,kmax
+        do i = imin,imax
+          qfactor(i,0,k) = 0d0
+          ll = 0d0
+          do j = jmin,jmax
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            qfactor(i,j,k) = qfactor(i,j-1,k)
+     .                + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+            ll = ll + dyh(jg)
+          enddo
+          qfactor(i,:,k) = qfactor(i,jmax,k)/ll
+        enddo
+      enddo
+
+c End program
+
+      end subroutine prepareTimeStepPlots

@@ -36,6 +36,7 @@ c Call variables
 
 c Local variables
 
+      integer(4) :: dim(1),loc(1)
       real(8)    :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)    :: prndtl,hrtmn
       character*(3) :: bcs(6)
@@ -49,7 +50,7 @@ c Namelist
      .                ,tolnewt,maxitnwt,tolgm,maxksp,iguess,maxitgm
      .                   ,global,method
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
-     .                ,nh,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,odd
+     .                ,nh,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,odd,random
      .                ,precon,maxvcyc,nsweep,precpass,iguess
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
@@ -87,12 +88,11 @@ c Set defaults
                                !   + 'per' = periodic
                                !   + 'spt' = singular point
                                !   + 'sym' = symmetry (homogeneous Neumann)
-                               !   + 'equ' = imposed by equilibrium
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
       tmax     = 0d0           ! Target time, in Alfven times.
-      numtime  = 0             ! Number of time steps
+      numtime  = -1            ! Number of time steps
       ndstep   = 0             ! # time steps between plots (if zero,
                                !        ndstep is calculated in code)
       dstep    = 0.            ! Time interval between plots (if zero,
@@ -149,6 +149,7 @@ c Set defaults
       ptemp    = 0d0           ! Temperature perturbation
       nh       = 1             ! Harmonic number for perturbation
       odd      = .false.       ! Symmetry of perturbation
+      random   = .false.       ! Random initialization if true
 
       !I/O parameters
       restart  = .false.       ! Restarting flag
@@ -180,7 +181,8 @@ c Set defaults
                                !    19-> 'Total Y momentum'
                                !    20-> 'Total Z momentum'
                                !    21-> 'Flow flux at boundaries'
-
+                               !    22-> 'Toroidal current Iz'
+                               !    23-> 'Toroidal flux'
 
       sel_graph = (/ 1,-15,-18,-9,11,14,0,0,0 /) 
                                ! Selects diagnostics for xdraw output
@@ -225,25 +227,47 @@ c Map perturbations
 
 c Translate boundary conditions
 
+cc      where (bcs == 'def')
+cc        bcond = DEF
+cc      end where
+cc
+cc      where (bcs == 'per')
+cc        bcond = PER
+cc      end where
+cc
+cc      where (bcs == 'spt')
+cc        bcond = SP
+cc      end where
+cc
+cc      where (bcs == 'sym')
+cc        bcond = NEU
+cc      end where
+cc
+cc      where (bcs == 'equ')
+cc        bcond = EQU
+cc      end where
+
+      bcond = -1
+
       where (bcs == 'def')
         bcond = DEF
-      end where
-
-      where (bcs == 'per')
+      elsewhere (bcs == 'per')
         bcond = PER
-      end where
-
-      where (bcs == 'spt')
+      elsewhere (bcs == 'spt')
         bcond = SP
-      end where
-
-      where (bcs == 'sym')
+      elsewhere (bcs == 'sym')
         bcond = NEU
       end where
 
-      where (bcs == 'equ')
-        bcond = EQU
-      end where
+      if (minval(bcond) < 0) then
+        loc = 1 - mod(minloc(bcond),2)
+        dim = 1+(minloc(bcond) - (1+loc))/2
+        write (*,*) 'Error in defining boundary conditions'
+        write (*,*) 'Undefined boundary condition in axis',dim,
+     .              ', location',loc
+        write (*,*) 'Aborting'
+        stop
+      endif
 
 c End program
 

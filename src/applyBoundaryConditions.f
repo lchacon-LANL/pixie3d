@@ -33,6 +33,8 @@ c Local variables
 
 c Begin program
 
+c Defaults
+
       bcsq = bcs(:,IRHO)
       where (bcsq == DEF) bcsq = NEU
       bcs(:,IRHO) = bcsq
@@ -52,24 +54,36 @@ c Begin program
       bcsq = bcs(:,IBX)
       where (bcsq == DEF) bcsq = DIR
       bcs(:,IBX) = bcsq
-      if (bcs(1,IBX) == NEU) bcs(1,IBX) = DIR
-      if (bcs(2,IBX) == NEU) bcs(2,IBX) = DIR
+cc      if (bcs(1,IBX) == NEU) bcs(1,IBX) = DIR
+cc      if (bcs(2,IBX) == NEU) bcs(2,IBX) = DIR
 
       bcsq = bcs(:,IBY)
       where (bcsq == DEF) bcsq = NEU
       bcs(:,IBY) = bcsq
-      if (bcs(3,IBY) == NEU) bcs(3,IBY) = DIR
-      if (bcs(4,IBY) == NEU) bcs(4,IBY) = DIR
+cc      if (bcs(3,IBY) == NEU) bcs(3,IBY) = DIR
+cc      if (bcs(4,IBY) == NEU) bcs(4,IBY) = DIR
 
       bcsq = bcs(:,IBZ)
       where (bcsq == DEF) bcsq = NEU
       bcs(:,IBZ) = bcsq
-      if (bcs(5,IBZ) == NEU) bcs(5,IBZ) = DIR
-      if (bcs(6,IBZ) == NEU) bcs(6,IBZ) = DIR
+cc      if (bcs(5,IBZ) == NEU) bcs(5,IBZ) = DIR
+cc      if (bcs(6,IBZ) == NEU) bcs(6,IBZ) = DIR
 
       bcsq = bcs(:,ITMP)
       where (bcsq == DEF) bcsq = NEU !To allow isothermal case
       bcs(:,ITMP) = bcsq
+
+c Exceptions
+
+      select case (equil)
+
+      case ('tmhel')
+
+cc        bcs(2,IBY) = EQU  !Imposed by equilibrium
+
+cc        bcs(2,IBZ) = EQU  !Imposed by equilibrium
+
+      end select
 
 c End
 
@@ -123,7 +137,7 @@ c Find covariant magnetic field
           do i = 1,nx
             call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .             ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
+     .             ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k),.false.)
           enddo
         enddo
       enddo
@@ -153,7 +167,24 @@ c Fill ghost nodes
         enddo
       enddo
 
-c Postprocess velocity field
+c Synchronize periodic boundaries
+
+      bctype=PER
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+          do ieq = 1,neq 
+            if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+              call FillGhostNodes(ieq,dim,loc,bctype
+     .                           ,varray%array_var(ieq)%array
+     .                           ,zeros)
+            endif
+          enddo
+        enddo
+      enddo
+
+c Find velocity field
 
       where (rho /= 0d0)
         vx = rvx/rho
@@ -161,11 +192,11 @@ c Postprocess velocity field
         vz = rvz/rho
       end where
 
-c Postprocess magnetic field
+c Synchronize magnetic field
 
       call postProcessB
 
-c Postprocess current
+c Synchronize current
 
       call postProcessJ
 
@@ -190,14 +221,33 @@ c     Local variables
       integer(4) :: i,j,k,dim,loc
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
       real(8)    :: x1,x2,x3
-      logical    :: cartesian
+      logical    :: cartesian,cov_to_cnv
 
 c     Begin program
+
+c     Determine postprocessing operation
+
+      cov_to_cnv = .false.
+      do dim = 1,3
+        do loc = 0,1
+          ibc = (1+loc)+2*(dim-1)
+          if (    varray%array_var(IBX)%bconds(ibc) == NEU
+     .        .or.varray%array_var(IBY)%bconds(ibc) == NEU
+     .        .or.varray%array_var(IBZ)%bconds(ibc) == NEU) then
+            cov_to_cnv = .true.
+          endif
+        enddo
+      enddo
+
+c     FIND CONTRAVARIANT COMPONENTS AT BOUNDARY
+      if (cov_to_cnv) then
 
 c     Find covariant magnetic field NORMAL components at boundaries
 
       do dim = 1,3
         do loc = 0,1
+          ibc = (1+loc)+2*(dim-1)
+
           if (dim == 1) then
             imin=1  +    loc *(nx-1)
             imax=nx + (1-loc)*(1-nx)
@@ -221,85 +271,237 @@ c     Find covariant magnetic field NORMAL components at boundaries
             kmax=nz + (1-loc)*(1-nz)
           endif
 
-          do i=imin,imax
-            do j=jmin,jmax
-              do k=kmin,kmax
+          select case (ibc)
+          case (1)
 
-                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            if (varray%array_var(IBX)%bconds(ibc) == SP) then
+              !Analytic continuation for contravariant variables,
+              !need to find covariant components at sing-point boundary
+              do i=imin,imax
+                do j=jmin,jmax
+                  do k=kmin,kmax
+                    call transformFromCurvToCurv(i-1,j,k,igx,igy,igz
+     .                 ,bx_cov(i-1,j,k),by_cov(i-1,j,k),bz_cov(i-1,j,k)
+     .                 ,bx(i-1,j,k),by(i-1,j,k),bz(i-1,j,k),.false.)
+                  enddo
+                enddo
+              enddo
+            else
+              do i=imin,imax
+                do j=jmin,jmax
+                  do k=kmin,kmax
 
-cc                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-cc     .                             ,cartesian)
+cc                  call getMGmap(i-1,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
 
-                if (dim == 1) then
+                    call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+     .                                 ,x1,x2,x3,cartesian)
 
-                  if (loc == 0) then
-
-                    gsuper = g_super(xx(ig-1),yy(jg),zz(kg),.false.)
+                    gsuper = g_super(x1,x2,x3,cartesian)
 
                     bx_cov(i-1,j,k) = -(gsuper(1,2)*by_cov(i-1,j,k)
      .                                 +gsuper(1,3)*bz_cov(i-1,j,k)
-     .                                 -bx(i-1,j,k) )
-     .                                 /gsuper(1,1)
-                  else
+     .                                 -bx(i-1,j,k) )/gsuper(1,1)
 
-                    gsuper = g_super(xx(ig+1),yy(jg),zz(kg),.false.)
+                  enddo
+                enddo
+              enddo
+            endif
 
-                    bx_cov(i+1,j,k) = -(gsuper(1,2)*by_cov(i+1,j,k)
-     .                                 +gsuper(1,3)*bz_cov(i+1,j,k)
-     .                                 -bx(i+1,j,k) )
-     .                                 /gsuper(1,1)
-                  endif
+          case (2)
 
-                elseif (dim == 2) then
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
 
-                  if (loc == 0) then
+cc                  call getMGmap(i+1,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
 
-                    gsuper = g_super(xx(ig),yy(jg-1),zz(kg),.false.)
+                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
 
-                    by_cov(i,j-1,k) = -(gsuper(2,1)*bx_cov(i,j-1,k)
-     .                                 +gsuper(2,3)*bz_cov(i,j-1,k)
-     .                                 -by(i,j-1,k) )
-     .                                 /gsuper(2,2)
-                  else
+                  gsuper = g_super(x1,x2,x3,cartesian)
 
-                    gsuper = g_super(xx(ig),yy(jg+1),zz(kg),.false.)
-
-                    by_cov(i,j+1,k) = -(gsuper(2,1)*bx_cov(i,j+1,k)
-     .                                 +gsuper(2,3)*bz_cov(i,j+1,k)
-     .                                 -by(i,j+1,k) )
-     .                                 /gsuper(2,2)
-                  endif
-
-                elseif (dim == 3) then
-
-                  if (loc == 0) then
-
-                    gsuper = g_super(xx(ig),yy(jg),zz(kg-1),.false.)
-
-                    bz_cov(i,j,k-1) = -(gsuper(3,1)*bx_cov(i,j,k-1)
-     .                                 +gsuper(3,2)*by_cov(i,j,k-1)
-     .                                 -bz(i,j,k-1) )
-     .                                 /gsuper(3,3)
-                  else
-
-                    gsuper = g_super(xx(ig),yy(jg),zz(kg+1),.false.)
-
-                    bz_cov(i,j,k+1) = -(gsuper(3,1)*bx_cov(i,j,k+1)
-     .                                 +gsuper(3,2)*by_cov(i,j,k+1)
-     .                                 -bz(i,j,k+1) )
-     .                                 /gsuper(3,3)
-                  endif
-
-                endif
-
+                  bx_cov(i+1,j,k) = -(gsuper(1,2)*by_cov(i+1,j,k)
+     .                               +gsuper(1,3)*bz_cov(i+1,j,k)
+     .                               -bx(i+1,j,k) )/gsuper(1,1)
+                enddo
               enddo
             enddo
-          enddo
+
+          case (3)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+cc                  call getMGmap(i,j-1,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
+
+                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  by_cov(i,j-1,k) = -(gsuper(2,1)*bx_cov(i,j-1,k)
+     .                               +gsuper(2,3)*bz_cov(i,j-1,k)
+     .                               -by(i,j-1,k) )/gsuper(2,2)
+
+                enddo
+              enddo
+            enddo
+
+          case (4)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+cc                  call getMGmap(i,j+1,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
+
+                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  by_cov(i,j+1,k) = -(gsuper(2,1)*bx_cov(i,j+1,k)
+     .                               +gsuper(2,3)*bz_cov(i,j+1,k)
+     .                               -by(i,j+1,k) )/gsuper(2,2)
+
+                enddo
+              enddo
+            enddo
+
+          case (5)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+cc                  call getMGmap(i,j,k-1,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
+
+                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  bz_cov(i,j,k-1) = -(gsuper(3,1)*bx_cov(i,j,k-1)
+     .                               +gsuper(3,2)*by_cov(i,j,k-1)
+     .                               -bz(i,j,k-1) )/gsuper(3,3)
+                enddo
+              enddo
+            enddo
+
+          case (6)
+
+            do i=imin,imax
+              do j=jmin,jmax
+                do k=kmin,kmax
+
+cc                  call getMGmap(i,j,k+1,igx,igy,igz,ig,jg,kg)
+cc
+cc                  gsuper = g_super(xx(ig),yy(jg),zz(kg),.false.)
+
+                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+     .                               ,x1,x2,x3,cartesian)
+
+                  gsuper = g_super(x1,x2,x3,cartesian)
+
+                  bz_cov(i,j,k+1) = -(gsuper(3,1)*bx_cov(i,j,k+1)
+     .                               +gsuper(3,2)*by_cov(i,j,k+1)
+     .                               -bz(i,j,k+1) )/gsuper(3,3)
+                enddo
+              enddo
+            enddo
+
+          end select
+
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cccc                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+cccc     .                             ,cartesian)
+cc
+cc                if (dim == 1) then
+cc
+cc                  if (loc == 0) then
+cc
+cc                    gsuper = g_super(xx(ig-1),yy(jg),zz(kg),.false.)
+cc
+cc                    bx_cov(i-1,j,k) = -(gsuper(1,2)*by_cov(i-1,j,k)
+cc     .                                 +gsuper(1,3)*bz_cov(i-1,j,k)
+cc     .                                 -bx(i-1,j,k) )
+cc     .                                 /gsuper(1,1)
+cc                  else
+cc
+cc                    gsuper = g_super(xx(ig+1),yy(jg),zz(kg),.false.)
+cc
+cc                    bx_cov(i+1,j,k) = -(gsuper(1,2)*by_cov(i+1,j,k)
+cc     .                                 +gsuper(1,3)*bz_cov(i+1,j,k)
+cc     .                                 -bx(i+1,j,k) )
+cc     .                                 /gsuper(1,1)
+cc                  endif
+cc
+cc                elseif (dim == 2) then
+cc
+cc                  if (loc == 0) then
+cc
+cc                    gsuper = g_super(xx(ig),yy(jg-1),zz(kg),.false.)
+cc
+cc                    by_cov(i,j-1,k) = -(gsuper(2,1)*bx_cov(i,j-1,k)
+cc     .                                 +gsuper(2,3)*bz_cov(i,j-1,k)
+cc     .                                 -by(i,j-1,k) )
+cc     .                                 /gsuper(2,2)
+cc                  else
+cc
+cc                    gsuper = g_super(xx(ig),yy(jg+1),zz(kg),.false.)
+cc
+cc                    by_cov(i,j+1,k) = -(gsuper(2,1)*bx_cov(i,j+1,k)
+cc     .                                 +gsuper(2,3)*bz_cov(i,j+1,k)
+cc     .                                 -by(i,j+1,k) )
+cc     .                                 /gsuper(2,2)
+cc                  endif
+cc
+cc                elseif (dim == 3) then
+cc
+cc                  if (loc == 0) then
+cc
+cc                    gsuper = g_super(xx(ig),yy(jg),zz(kg-1),.false.)
+cc
+cc                    bz_cov(i,j,k-1) = -(gsuper(3,1)*bx_cov(i,j,k-1)
+cc     .                                 +gsuper(3,2)*by_cov(i,j,k-1)
+cc     .                                 -bz(i,j,k-1) )
+cc     .                                 /gsuper(3,3)
+cc                  else
+cc
+cc                    gsuper = g_super(xx(ig),yy(jg),zz(kg+1),.false.)
+cc
+cc                    bz_cov(i,j,k+1) = -(gsuper(3,1)*bx_cov(i,j,k+1)
+cc     .                                 +gsuper(3,2)*by_cov(i,j,k+1)
+cc     .                                 -bz(i,j,k+1) )
+cc     .                                 /gsuper(3,3)
+cc                  endif
+cc
+cc                endif
+cc
+cc              enddo
+cc            enddo
+cc          enddo
 
         enddo
       enddo
 
-c     Enforce periodic BC on covariant magnetic field components
+c     Enforce PER BC on covariant magnetic field components
 
       do dim=1,3
         do loc=0,1
@@ -327,25 +529,9 @@ c     Enforce periodic BC on covariant magnetic field components
 
 c     Find contravariant magnetic field at boundaries
 
-cc      do k = 0,nz+1
-cc        do j = 0,ny+1
-cc          do i = 0,nx+1
-cc            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-cc     .             ,bx(i,j,k),by(i,j,k),bz(i,j,k),.true.)
-cc          enddo
-cc        enddo
-cc      enddo
-
       do dim = 1,3
         do loc = 0,1
           if (dim == 1) then
-cc            imin=1  +    loc *(nx-1)
-cc            imax=nx + (1-loc)*(1-nx)
-cc            jmin=1
-cc            jmax=ny
-cc            kmin=1
-cc            kmax=nz
             imin=0 + loc*(nx+1)
             imax=0 + loc*(nx+1)
             jmin=0
@@ -353,12 +539,6 @@ cc            kmax=nz
             kmin=0
             kmax=nz+1
           elseif (dim == 2) then
-cc            imin=1
-cc            imax=nx
-cc            jmin=1  +    loc *(ny-1)
-cc            jmax=ny + (1-loc)*(1-ny)
-cc            kmin=1
-cc            kmax=nz
             imin=0
             imax=nx+1
             jmin=0 + loc*(ny+1)
@@ -366,12 +546,6 @@ cc            kmax=nz
             kmin=0
             kmax=nz+1
           elseif (dim == 3) then
-cc            imin=1 
-cc            imax=nx
-cc            jmin=1
-cc            jmax=ny
-cc            kmin=1  +    loc *(nz-1)
-cc            kmax=nz + (1-loc)*(1-nz)
             imin=0
             imax=nx+1
             jmin=0
@@ -392,6 +566,49 @@ cc            kmax=nz + (1-loc)*(1-nz)
 
         enddo
       enddo
+
+c     FIND COVARIANT COMPONENTS AT BOUNDARY
+      else
+
+      do dim = 1,3
+        do loc = 0,1
+          if (dim == 1) then
+            imin=0 + loc*(nx+1)
+            imax=0 + loc*(nx+1)
+            jmin=0
+            jmax=ny+1
+            kmin=0
+            kmax=nz+1
+          elseif (dim == 2) then
+            imin=0
+            imax=nx+1
+            jmin=0 + loc*(ny+1)
+            jmax=0 + loc*(ny+1)
+            kmin=0
+            kmax=nz+1
+          elseif (dim == 3) then
+            imin=0
+            imax=nx+1
+            jmin=0
+            jmax=ny+1
+            kmin=0 + loc*(nz+1)
+            kmax=0 + loc*(nz+1)
+          endif
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+     .             ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
+              enddo
+            enddo
+          enddo
+
+        enddo
+      enddo
+
+      endif
 
 c     End program
 
@@ -418,9 +635,9 @@ c     Begin program
 
 c     Contravariant current
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
             jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
             jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
             jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
@@ -428,7 +645,7 @@ c     Contravariant current
         enddo
       enddo
 
-c     Enforce periodic BC on covariant magnetic field components
+c     Enforce PER and SP BC on contravariant current components
 
       do dim=1,3
         do loc=0,1
@@ -529,7 +746,7 @@ c     X0
       case(EQU)
         array(0,:,:) = array0(0,:,:)
       case(SP)
-cc        call singularBC(ieq,dim,loc)
+        call singularBC(ieq,dim,loc)
       case(DIR)
         call dirichletBC(ieq,dim,loc)
         array(0,:,:) = rhs(:,:)
@@ -681,80 +898,198 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp,ibc
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3)
-      real(8)    :: avg_q,avg_vol
+      integer(4) :: i,j,k
+      real(8)    :: avg_q,avg_vol,cx,cy,cz
+      real(8),allocatable,dimension(:) :: ax0,ay0,az0
+
+      integer(4) :: ic,ig,jg,kg
+      real(8)    :: x,y,z,xp,yp,zp
+      logical    :: cartesian
 
 c     Begin program
 
       select case (ieq)
-      case (IRHO,ITMP) !Imposes uniqueness of scalars
+      case (IRHO,ITMP)
 
+        array(0,:,:) = array0(0,:,:)  !Save values of array0 at SP
+
+        do k=1,nz
+          avg_q = 0d0
+          avg_vol = 0d0
+          do j=1,ny
+            avg_q   = avg_q   + volume(1,j,k,igx,igy,igz)*array(1,j,k)
+            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
+          enddo
+          array0(0,:,k) = avg_q/avg_vol
+        enddo
+
+        call dirichletBC(ieq,dim,loc)
+
+        array0(0,:,:) = array(0,:,:)  !Recover values of array0 at SP
+
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
+
+      case (IBX,IBZ)
+
+        call dirichletBC(ieq,dim,loc)
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
+
+      case (IBY)
+
+cc        allocate(bx0(nz),by0(nz),bz0(nz))
+cc
+cc        !Find average cartesian coordinates
 cc        do k=1,nz
-cc          avg_q = 0d0
+cc          bx0(k) = 0d0
+cc          by0(k) = 0d0
+cc          bz0(k) = 0d0
 cc          avg_vol = 0d0
 cc          do j=1,ny
-cc            avg_q   = avg_q   + volume(1,j,k,igx,igy,igz)*array(1,j,k)
+cc            call transformVectorToCartesian(1,j,k,igx,igy,igz
+cc     .            ,bx(1,j,k),by(1,j,k),bz(1,j,k),.false.,cx,cy,cz)
+cc            bx0(k)  = bx0(k)  + volume(1,j,k,igx,igy,igz)*cx
+cc            by0(k)  = by0(k)  + volume(1,j,k,igx,igy,igz)*cy
+cc            bz0(k)  = bz0(k)  + volume(1,j,k,igx,igy,igz)*cz
 cc            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
 cc          enddo
-cc          array(1,:,k) = avg_q/avg_vol
+cc          bx0(k) = bx0(k)/avg_vol
+cc          by0(k) = by0(k)/avg_vol
+cc          bz0(k) = bz0(k)/avg_vol
 cc        enddo
-
-      case (IBX) !Imposes divergence-free constraint at SP
-
-cc        call dirichletBC(ieq,dim,loc)
-cc        array(0,:,:) = rhs(:,:)
-cc        deallocate(rhs)
 cc
-cc      case (IBY,IBZ)
+cc        !Save values of array0 at SP
+cc        array(0,:,:) = array0(0,:,:)
 cc
-cc        call neumannBC(ieq,dim,loc)
-cc        array(0,:,:) = array(1,:,:) - rhs(:,:)
-cc        deallocate(rhs)
-
-      case (IVX) !Imposes divergence-free constraint at SP
-
-cc        imin=1
-cc        imax=1
-cc        jmin=1
-cc        jmax=ny
-cc        kmin=1
-cc        kmax=nz
+cc        !Transform to contravariant coordinates at SP and store in array0
 cc
-cc        do i=imin,imax
-cc          do j=jmin,jmax
-cc            do k=kmin,kmax
-cc
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              vx(i,j,k) = -vx(i+1,j,k) - 2.*dxh(ig)*
-cc     .               ((rvy(i,j+1,k)/rho(i,j+1,k)
-cc     .                -rvy(i,j-1,k)/rho(i,j-1,k))/2./dyh(jg)
-cc     .               +(rvz(i,j,k+1)/rho(i,j,k+1)
-cc     .                -rvz(i,j,k-1)/rho(i,j,k-1))/2./dzh(kg))
-cc              array(i,j,k) = rho(i,j,k)*vx(i,j,k)
-cc            enddo
-cc          enddo
-cc        enddo
-
 cc        do k=1,nz
-cc          avg_q = 0d0
-cc          avg_vol = 0d0
 cc          do j=1,ny
-cc            avg_q   = avg_q   + volume(1,j,k,igx,igy,igz)
-cc     .                         *array(1,j,k)/rho(1,j,k)
-cc            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
+cc            call getCoordinates(1,j,k,igx,igy,igz,ig,jg,kg,xp,yp,zp
+cc     .                         ,cartesian)
+cc            call getCoordinates(0,j,k,igx,igy,igz,ig,jg,kg,x,y,z
+cc     .                         ,cartesian)
+cc            x = 1d-15
+cc            y = 0.5*(yp+y)
+cc            z = 0.5*(zp+z)
+cc
+cc            call  transformVec2Curv(x,y,z,cartesian,bx0(k),by0(k),bz0(k)
+cc     .                             ,cx,array0(0,j,k),cz,.false.)
 cc          enddo
-cccc          write (*,*) avg_q
-cccc          array(1,:,k) = array(1,:,k)-rho(1,:,k)*avg_q/avg_vol
 cc        enddo
+cc
+cc        deallocate(bx0,by0,bz0)
 
-      case (IVY,IVZ)
+        allocate(ax0(nz),ay0(nz),az0(nz))
 
-cc        call neumannBC(ieq,dim,loc)
-cc        array(0,:,:) = array(1,:,:) - rhs(:,:)
-cc        deallocate(rhs)
+        !Find average cartesian coordinates
+        do k=1,nz
+          ax0(k) = 0d0
+          ay0(k) = 0d0
+          az0(k) = 0d0
+          avg_vol = 0d0
+          do j=1,ny
+            call transformVectorToCartesian(1,j,k,igx,igy,igz
+     .            ,bx(1,j,k),by(1,j,k),bz(1,j,k),.false.,cx,cy,cz)
+            ax0(k)  = ax0(k)  + volume(1,j,k,igx,igy,igz)*cx
+            ay0(k)  = ay0(k)  + volume(1,j,k,igx,igy,igz)*cy
+            az0(k)  = az0(k)  + volume(1,j,k,igx,igy,igz)*cz
+            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
+          enddo
+          ax0(k) = ax0(k)/avg_vol
+          ay0(k) = ay0(k)/avg_vol
+          az0(k) = az0(k)/avg_vol
+        enddo
+
+        !Save values of array0 at SP
+        array(0,:,:) = array0(0,:,:)
+
+        !Transform to contravariant coordinates at SP and store in array0
+
+        do k=1,nz
+          do j=1,ny
+            call getCoordinates(1,j,k,igx,igy,igz,ig,jg,kg,xp,yp,zp
+     .                         ,cartesian)
+            call getCoordinates(0,j,k,igx,igy,igz,ig,jg,kg,x,y,z
+     .                         ,cartesian)
+            x = 1d-15
+            y = 0.5*(yp+y)
+            z = 0.5*(zp+z)
+
+            call  transformVec2Curv(x,y,z,cartesian,ax0(k),ay0(k),az0(k)
+     .                             ,cx,array0(0,j,k),cz,.false.)
+          enddo
+        enddo
+
+        deallocate(ax0,ay0,az0)
+
+        !Extrapolate to ghost cell
+        call dirichletBC(ieq,dim,loc)
+
+        array0(0,:,:) = array(0,:,:)  !Recover values of array0 at SP
+
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
+
+      case (IVX,IVZ)
+
+        call dirichletBC(ieq,dim,loc)
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
+
+      case (IVY)
+
+        allocate(ax0(nz),ay0(nz),az0(nz))
+
+        !Find average cartesian coordinates
+        do k=1,nz
+          ax0(k) = 0d0
+          ay0(k) = 0d0
+          az0(k) = 0d0
+          avg_vol = 0d0
+          do j=1,ny
+            call transformVectorToCartesian(1,j,k,igx,igy,igz
+     .            ,vx(1,j,k),vy(1,j,k),vz(1,j,k),.false.,cx,cy,cz)
+            ax0(k)  = ax0(k)  + volume(1,j,k,igx,igy,igz)*cx
+            ay0(k)  = ay0(k)  + volume(1,j,k,igx,igy,igz)*cy
+            az0(k)  = az0(k)  + volume(1,j,k,igx,igy,igz)*cz
+            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
+          enddo
+          ax0(k) = ax0(k)/avg_vol
+          ay0(k) = ay0(k)/avg_vol
+          az0(k) = az0(k)/avg_vol
+        enddo
+
+        !Save values of array0 at SP
+        array(0,:,:) = array0(0,:,:)
+
+        !Transform to contravariant coordinates at SP and store in array0
+
+        do k=1,nz
+          do j=1,ny
+            call getCoordinates(1,j,k,igx,igy,igz,ig,jg,kg,xp,yp,zp
+     .                         ,cartesian)
+            call getCoordinates(0,j,k,igx,igy,igz,ig,jg,kg,x,y,z
+     .                         ,cartesian)
+            x = 1d-5
+            y = 0.5*(yp+y)
+            z = 0.5*(zp+z)
+
+            call  transformVec2Curv(x,y,z,cartesian,ax0(k),ay0(k),az0(k)
+     .                             ,cx,array0(0,j,k),cz,.false.)
+          enddo
+        enddo
+
+        deallocate(ax0,ay0,az0)
+
+        !Extrapolate to ghost cell
+        call dirichletBC(ieq,dim,loc)
+
+        array0(0,:,:) = array(0,:,:)  !Recover values of array0 at SP
+
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
 
       end select
 
@@ -1100,6 +1435,7 @@ c     Local variables
 c     Begin program
 
       quadratic = .false.
+cc      quadratic = .true.
 
       ibc = (1+loc)+2*(dim-1)
 
@@ -1110,6 +1446,12 @@ c     Begin program
         jmax=ny
         kmin=1
         kmax=nz
+cc        imin=0 + loc*(nx+1)
+cc        imax=0 + loc*(nx+1)
+cc        jmin=0
+cc        jmax=ny+1
+cc        kmin=0
+cc        kmax=nz+1
         allocate(rhs(0:ny+1,0:nz+1))
       elseif (dim == 2) then
         imin=1 
@@ -1118,6 +1460,12 @@ c     Begin program
         jmax=ny + (1-loc)*(1-ny)
         kmin=1
         kmax=nz
+cc        imin=0
+cc        imax=nx+1
+cc        jmin=0 + loc*(ny+1)
+cc        jmax=0 + loc*(ny+1)
+cc        kmin=0
+cc        kmax=nz+1
         allocate(rhs(0:nx+1,0:nz+1))
       elseif (dim == 3) then
         imin=1 
@@ -1126,6 +1474,12 @@ c     Begin program
         jmax=ny
         kmin=1  +    loc *(nz-1)
         kmax=nz + (1-loc)*(1-nz)
+cc        imin=0
+cc        imax=nx+1
+cc        jmin=0
+cc        jmax=ny+1
+cc        kmin=0 + loc*(nz+1)
+cc        kmax=0 + loc*(nz+1)
         allocate(rhs(0:nx+1,0:ny+1))
       endif
 
@@ -1177,14 +1531,55 @@ c     Begin program
         if (ieq == IBY) icomp = 2
         if (ieq == IBZ) icomp = 3
 
-        if (icomp /= dim) then
-          write (*,*) 'Error in dirichletBC: icomp <> dim'
-          stop
-        endif
+cc        if (icomp /= dim) then
+cc          write (*,*) 'Error in dirichletBC: icomp <> dim'
+cc          stop
+cc        endif
 
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
+        if (icomp /= dim) then
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              select case (ibc)
+              case (1)
+                rhs(j,k) = quad_int(xx(ig-1)+dxh(ig-1),xx(ig),xx(ig+1)
+     .                     ,array0(i-1,j,k),array(i,j,k),array(i+1,j,k)
+     .                     ,xx(ig-1),quadratic )
+              case (2)
+                rhs(j,k) = quad_int(xx(ig+1)-dxh(ig+1),xx(ig),xx(ig-1)
+     .                     ,array0(i+1,j,k),array(i,j,k),array(i-1,j,k)
+     .                     ,xx(ig+1),quadratic )
+              case (3)
+                rhs(i,k) = quad_int(yy(jg-1)+dyh(jg-1),yy(jg),yy(jg+1)
+     .                     ,array0(i,j-1,k),array(i,j,k),array(i,j+1,k)
+     .                     ,yy(jg-1),quadratic )
+              case (4)
+                rhs(i,k) = quad_int(yy(jg+1)-dyh(jg+1),yy(jg),yy(jg-1)
+     .                     ,array0(i,j+1,k),array(i,j,k),array(i,j-1,k)
+     .                     ,yy(jg+1),quadratic )
+              case (5)
+                rhs(i,j) = quad_int(zz(kg-1)+dzh(kg-1),zz(kg),zz(kg+1)
+     .                     ,array0(i,j,k-1),array(i,j,k),array(i,j,k+1)
+     .                     ,zz(kg-1),quadratic )
+              case (6)
+                rhs(i,j) = quad_int(zz(kg+1)-dzh(kg+1),zz(kg),zz(kg-1)
+     .                     ,array0(i,j,k+1),array(i,j,k),array(i,j,k-1)
+     .                     ,zz(kg+1),quadratic )
+              end select
+
+              enddo
+            enddo
+          enddo
+
+        else
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
 
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -1213,9 +1608,11 @@ c     Begin program
                 rhs(i,j) = array(i,j,k-1) - dh(3)*divB(i,j,k)
               end select
 
+              enddo
             enddo
           enddo
-        enddo
+
+        endif
 
       case default
 
