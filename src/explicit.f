@@ -120,11 +120,6 @@ c Local variables
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
       logical    :: cartsn
 
-c Externals
-
-      real(8) :: res,vis
-      external   res,vis
-
 c Begin program
 
 c Calculate maximum transport coefficient on grid
