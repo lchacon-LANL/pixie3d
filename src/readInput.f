@@ -177,6 +177,15 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
 
+c Consistency check
+
+cc      if (precon == 'id') iguess = 0
+
+      !Adequate BCs for collapsed dimension
+      if (nxd == 1) bcs(1:2) = 'per'
+      if (nyd == 1) bcs(3:4) = 'per'
+      if (nzd == 1) bcs(5:6) = 'per'
+
 c Map perturbations
 
       pert(IRHO)= prho
