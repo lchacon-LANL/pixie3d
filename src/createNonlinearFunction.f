@@ -48,14 +48,18 @@ c Begin program
 
         allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip))
+     .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
+     $           ,bcnv(ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jz    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,jy_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip))
+     .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,ejx   (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,vy    (ilom:ihip,jlom:jhip,klom:khip)
