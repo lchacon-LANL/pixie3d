@@ -1,0 +1,19 @@
+PROD      = pixie3d.x
+BETA      = pixie3d.beta.x
+PETSCCODE = pixie3d.petsc.x
+
+MODS := mhd_mod.f imposeBC_mod.F precond_mod.f
+
+COMMONDIR = ../common
+
+SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
+	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/interpolation/slatec/1d_spline\
+	  $(COMMONDIR)/interpolation/slatec/2d_spline\
+	  $(COMMONDIR)/interpolation/slatec/3d_spline\
+	  $(COMMONDIR)/interpolation/slatec/spline_common\
+	  $(COMMONDIR)/interpolation/slatec/xerror\
+	  $(COMMONDIR)/matrixLightSolver\
+	  $(COMMONDIR)/MG

@@ -19,16 +19,17 @@
 #
 #        make BOPT=g petsc
 
+-include make.inc
+
 # Source files
 
-PROD      = pixie3d.x
-BETA      = pixie3d.beta.x
-PETSCCODE = pixie3d.petsc.x
+ifndef SRC
+  SRC = $(wildcard *.[F,c,f])
+endif
 
-SRC  := $(wildcard *.[F,c,f])
-
-MODS := $(wildcard *_mod.[F,f])
-MODS := mhd_mod.f imposeBC_mod.F precond_mod.f
+ifndef MODS
+  MODS = $(wildcard *_mod.[F,f])
+endif
 
 prefix = .
 
@@ -41,7 +42,7 @@ ifdef BOPT
   SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
 endif
 
-#Objects
+# Objects
 
 OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
@@ -66,20 +67,6 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
 #Define relevant directories
 
 BINDIR = ../bin
-
-COMMONDIR = ../common
-
-SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
-	  $(COMMONDIR)/grid\
-	  $(COMMONDIR)/newtonGMRES\
-	  $(COMMONDIR)/interpolation/1d_int\
-	  $(COMMONDIR)/interpolation/slatec/1d_spline\
-	  $(COMMONDIR)/interpolation/slatec/2d_spline\
-	  $(COMMONDIR)/interpolation/slatec/3d_spline\
-	  $(COMMONDIR)/interpolation/slatec/spline_common\
-	  $(COMMONDIR)/interpolation/slatec/xerror\
-	  $(COMMONDIR)/matrixLightSolver\
-	  $(COMMONDIR)/MG
 
 #Module search path
 
