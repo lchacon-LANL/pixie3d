@@ -19,9 +19,17 @@
 #
 #        make BOPT=g petsc
 
-PROD      = 3dmhd.x
-BETA      = 3dmhd.beta.x
-PETSCCODE = 3dmhd.petsc.x
+# System-dependent variables
+
+PETSC_DIR=/usr/local/petsc-2.2.0
+PETSC_ARCH=linux_absoft_
+HDF5_HOME=/usr/local
+
+# Source files
+
+PROD      = pixie3d.x
+BETA      = pixie3d.beta.x
+PETSCCODE = pixie3d.petsc.x
 
 SRC  := $(wildcard *.[F,c,f])
 
@@ -34,11 +42,9 @@ prefix = .
 
 DRIVERDIR = driver
 ifneq ($(strip $(BOPT)),)
-  PETSC_ARCH= linux_absoft_
   include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
   PETSCTRUE = true
-  FFLAGS    = -Dpetsc
   SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
 endif
 
@@ -70,14 +76,15 @@ ifeq ($(FC),f90)
   STATIC       = -s
   MODPATH      = -p
   ADDMODPATH   = -p
-  FFLAGS      += -w
+  FFLAGS       = -w
   LIBS         = -llapack_f90 -lblas_f90
   VERBOSE      = -v
 
   ifdef PETSCTRUE
-    CPPFLAGS += -Dabsoft_ -DNVAR=8
-    LIBS      = 
-    FFLAGS   += -DNVAR=8 -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+    CPPFLAGS += -Dabsoft_ -Dpetsc -DNVAR=8 -I$(HDF5_HOME)/include
+    LIBS      = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz \
+                -I$(MPI_HOME)/include -L$(MPI_HOME)/lib -lmpichf90 -lmpich -lpmpich 
+    GMODPATH  = -p$(HDF5_HOME)/lib
     FC        = $(MPI_HOME)/bin/mpif90
   endif
 endif
@@ -146,13 +153,15 @@ ifneq (,$(findstring v,$(OPT)))
 FFLAGS += $(VERBOSE)
 endif
 
-export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH
+export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH PETSC_DIR PETSC_ARCH
 
 #Define linker flags
 
 LDFLAGS = 
 
-#Define subdirectories for common code
+#Define relevant directories
+
+BINDIR = ../bin
 
 COMMONDIR = ./commondirs
 
@@ -174,7 +183,7 @@ MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBD
 
 #Define targets
 
-.PHONY: clean recclean common beta production petsc $(SUBDIRS)
+.PHONY: clean distclean common beta production petsc $(SUBDIRS)
 
 beta: common $(BETA)
 
@@ -182,21 +191,27 @@ $(BETA):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo $(COMMON_MODS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	@echo ''
+	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	@mv $@ $(BINDIR)
 
 production: common $(PROD)
 
 $(PROD):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	@echo ''
+	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE)
 
 $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
+	@echo ''
+	@${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
+	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
 
@@ -206,7 +221,7 @@ $(SUBDIRS):
 clean:
 	-rm -f *.o *.mod
 
-recclean: clean
+distclean: clean
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir clean;  done
 
@@ -217,7 +232,9 @@ $(OBJ):  $(MODS) $(COMMON_MODS)
 #Define patterns
 
 %.o : %.f
+	@echo 'Compiling' $@
 	$(FC) -c $(MODDIRS) $(FFLAGS) $<
 
 %.o : %.F
-	$(FC) -c $(MODDIRS) $(FFLAGS) $<
+	@echo 'Compiling' $@
+	$(FC) -c $(MODDIRS) $(FFLAGS) $(CPPFLAGS) $<
