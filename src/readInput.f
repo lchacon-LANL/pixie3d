@@ -50,7 +50,7 @@ c Namelist
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random
-     .                ,precon,maxvcyc,nsweep,mgtol,iguess
+     .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
 
@@ -120,6 +120,7 @@ c Set defaults
       maxvcyc  = 1             ! Maximum number of V-cycles
       mgtol    = 1d-3          ! MG convergence tolerance
       precon   = 'si'          ! Type of preconditioner
+      precpass = 1             ! Number of SI iterations in preconditioner
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
