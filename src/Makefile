@@ -36,8 +36,8 @@ FC = f90
 # Flags for Absoft f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
-  DEBUG = -g -et -Rb
-  #DEBUG = -g
+#  DEBUG = -g -et -Rb -Rp -Rc
+  DEBUG = -g
   PROFILE = -P
   STATIC = -s
   MODPATH = -p
@@ -52,14 +52,14 @@ endif
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
 #  DEBUG = -g --chkglobal
-  DEBUG = -g --chk s
+  DEBUG = -g --chk ase
   PROFILE =
   STATIC = 
   MODPATH = -M
   FFLAGS =
 
-#  LIBS = -llapackmt -lblasmt
-  LIBS = -llapack -lblas -lf2c
+  LIBS = -llapackmt -lblasmt
+#  LIBS = -llapack -lblas -lf2c
 
   MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
@@ -110,11 +110,12 @@ COMMONDIR = ./commondirs
 SUBDIRS = $(COMMONDIR)/driver\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/newtonGMRES\
-	  $(COMMONDIR)/interpolation/1d_spline\
-	  $(COMMONDIR)/interpolation/2d_spline\
-	  $(COMMONDIR)/interpolation/3d_spline\
-	  $(COMMONDIR)/interpolation/spline_common\
-	  $(COMMONDIR)/interpolation/xerror\
+	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/interpolation/slatec/1d_spline\
+	  $(COMMONDIR)/interpolation/slatec/2d_spline\
+	  $(COMMONDIR)/interpolation/slatec/3d_spline\
+	  $(COMMONDIR)/interpolation/slatec/spline_common\
+	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG
 
