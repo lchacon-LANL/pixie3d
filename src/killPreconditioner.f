@@ -4,16 +4,22 @@ c###################################################################
 
       use precond_variables
 
+      use newton_gmres
+
 c     Deallocate variables
 
-      deallocate (bcnv,vcnv)
-      deallocate (divrgV,divV)
+      if (precon == 'id') return
+
+      deallocate (mgj0cnv)
+      deallocate (mgdivV0)
+      deallocate (mgadvdiffV0)
       deallocate (bcs)
-      deallocate (rho_diag,tmp_diag,b_diag,v_diag)
-cc      deallocate (pp)
-cc      deallocate (diag_mu)
-cc      deallocate (idiagp,bcs)
-cc      deallocate (ue)
-cc      deallocate (d_sc,d_bc,d_pc,d_bh,d_alf)
+
+      call deallocateMGArray(gp0)
+      call deallocateMGArray(grho0)
+      call deallocateMGArray(gb0)
+      call deallocateMGArray(gv0)
+
+      call deallocateDerivedType(varray)
 
       end subroutine killPreconditioner
