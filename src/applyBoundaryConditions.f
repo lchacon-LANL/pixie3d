@@ -353,6 +353,9 @@ c     Local variables
       integer(4) :: i,j,k,ig,jg,kg,nvar,ibc
       real(8)    :: x1,x2,x3,dh(3),diver
 
+      real(8)    :: gsuper(3,3)
+      logical    :: cartesian
+
 c     Begin program
 
       rhs = 0d0
@@ -366,6 +369,7 @@ c     Begin program
 
         call interpolate(array(:,:,:,ivar),array0(:,:,:,ivar),ibc,order)
 
+cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
       case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B-field
 
         if (ivar /= dim) then
@@ -422,6 +426,114 @@ c     Begin program
             enddo
           enddo
         endif
+
+cc      case (IJX,IJY,IJZ) !Finds current components at boundaries
+cc
+cc        if (ivar /= dim) then
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc                select case (ibc)
+cc                case (1)
+cc                  call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(j,k) = array(1,j,k,ivar)
+cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i-1,j,k,dim)
+cc                case (2)
+cc                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(j,k) = -array(nx,j,k,ivar)
+cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i+1,j,k,dim)
+cc                case (3)
+cc                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(i,k) = array(i,1,k,ivar)
+cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j-1,k,dim)
+cc                case (4)
+cc                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(i,k) =-array(i,ny,k,ivar)
+cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j+1,k,dim)
+cc                case (5)
+cc                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(i,j) = array(i,j,1,ivar)
+cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k-1,dim)
+cc                case (6)
+cc                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+cc     .                                 ,x1,x2,x3,cartesian)
+cc                  gsuper = g_super(x1,x2,x3,cartesian)
+cc
+cc                  rhs(i,j) =-array(i,j,nz,ivar)
+cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k+1,dim)
+cc                end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        else
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                dh(1) = 2.*dxh(ig)
+cc                dh(2) = 2.*dyh(jg)
+cc                dh(3) = 2.*dzh(kg)
+cc
+cc                select case (ibc)
+cc                case (1)
+cc                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
+cc                case (2)
+cc                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
+cc                case (3)
+cc                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
+cc                case (4)
+cc                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
+cc                case (5)
+cc                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
+cc                case (6)
+cc                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
+cc                  diver = div(i,j,k,array(:,:,:,1)
+cc     .                             ,array(:,:,:,2),array(:,:,:,3))
+cc                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
+cc                end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
 
       case default
 
@@ -1494,7 +1606,7 @@ c Density BC
 
 c Velocity BC
 
-      vzeros = 0d0
+c     BC setup
 
       bcnd(:,1) = varray%array_var(IVX)%bconds
       bcnd(:,2) = varray%array_var(IVY)%bconds
@@ -1509,7 +1621,13 @@ c Velocity BC
      .                  /varray%array_var(IRHO)%array
       end where
 
+      vzeros = v_cnv
+
+c     Fill ghost nodes
+
       call setBC(IVX,v_cnv,v_cov,vzeros,bcnd)
+
+c     Postprocessing
 
       vx_cov = v_cov(:,:,:,1)
       vy_cov = v_cov(:,:,:,2)
@@ -1564,6 +1682,7 @@ c     BC setup
       bcnd(:,2) = varray%array_var(IBY)%bconds
       bcnd(:,3) = varray%array_var(IBZ)%bconds
       where (bcnd == -NEU)
+cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         bcnd = -DIR  !Use covariant components for tangential dirichlet
       end where
 
@@ -1680,9 +1799,9 @@ c End
 
       end subroutine setMGBC
 
-c FillGhostNodes
+c fillGhostNodes
 c####################################################################
-      subroutine FillGhostNodes(ieq,ivar,nvar,dim,loc,bctype
+      subroutine fillGhostNodes(ieq,ivar,nvar,dim,loc,bctype
      .                         ,array,array0)
 
 c--------------------------------------------------------------------
@@ -1715,8 +1834,8 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: neq,ibc
-      integer(4) :: i,j,k,ig,jg,kg
+      integer(4) :: neq,ibc,i,j,k,ig,jg,kg
+      real(8)    :: v0(0:nx+1,0:ny+1,0:nz+1,nvar)
 
 c Begin program
 
@@ -1763,8 +1882,7 @@ c Find BC update
           call dirichletBC(array(:,:,:,ivar),array0(:,:,:,ivar)
      .                    ,ieq,dim,loc,0)
         case(DIR)
-          call dirichletBC(array(:,:,:,ivar),array0(:,:,:,ivar)
-     .                    ,ieq,dim,loc,1)
+          call dirichletBC(array(:,:,:,ivar),zeros,ieq,dim,loc,1)
         case(NEU)
           call neumannBC(array(:,:,:,ivar),ieq,dim,loc)
         case default
@@ -1778,7 +1896,8 @@ c Find BC update
         case(EQU)
           call dirichletBC(ivar,array,array0,ieq,dim,loc,0)
         case(DIR)
-          call dirichletBC(ivar,array,array0,ieq,dim,loc,1)
+          v0 = 0d0
+          call dirichletBC(ivar,array,v0    ,ieq,dim,loc,1)
         case(NEU)
           call neumannBC(ivar,array,ieq,dim,loc)
         case default
@@ -1853,7 +1972,7 @@ c     End program
 
       end subroutine periodicBC
 
-      end subroutine FillGhostNodes
+      end subroutine fillGhostNodes
 
 c imposeBConFluxes
 c####################################################################
