@@ -35,9 +35,6 @@ c Local variables
 
 c Externals
 
-      real(8) :: laplace
-      external   laplace
-
 c Begin program
 
       iter = 0
