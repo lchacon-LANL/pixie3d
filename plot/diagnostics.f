@@ -29,7 +29,14 @@ c####################################################################
         integer(4) :: ulineplot
         character*(20) :: lineplotfile
 
+        character*(20) :: diag_desc(ngraph)
+
+        integer(4)     :: diag_ivar(ngraph)
+     .                   ,diag_log(ngraph)
+
         integer(4) :: ndiag
+
+        real(8) :: diagnostics(ngraph)
 
         real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0
         real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
