@@ -26,8 +26,6 @@ c----------------------------------------------------------------------
 
       use transport_params
 
-      use graphics
-
       use icond
 
       implicit none
@@ -36,16 +34,16 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: dim(1),loc(1)
-      real(8)    :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-      real(8)    :: prndtl,hrtmn
+      integer(4)    :: dim(1),loc(1)
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+      real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
 
 c Namelist
 
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio
-     .                ,plot,ilevel,debug
+     .                ,ilevel
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,rtol,atol,maxitnwt,tolgm,maxksp,iguess,maxitgm
      .                   ,global,method,damp,dt0
@@ -55,7 +53,6 @@ c Namelist
      .                ,precon,maxvcyc,nsweep,precpass,iguess
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
-     .                ,sel_diag,sel_graph
 
 c ******************************************************************
 
@@ -69,7 +66,7 @@ c Set defaults
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
 
-      coords   = 'car'         ! Coordinate system (car,cyl,tor)
+      coords   = 'car'         ! Coordinate system (see grid_mod.f)
 
       xmax     = 1d0           ! Length in x-direction
       ymax     = 1d0           ! Length in y-direction
@@ -159,55 +156,9 @@ c Set defaults
 
       !I/O parameters
       restart  = .false.       ! Restarting flag
-      debug    = .false.       ! Debugging flag
-      plot     = .true.        ! Plots ouput
       ilevel   = 0             ! Level of solver output information
 
-      sel_diag = (/ 2,5,15,16,17,18,19,12,20/) 
-                               ! Selects diagnostics for xdraw output
-                               ! Currently:
-                               !    1 -> 'ln(drho)'       
-                               !    2 -> 'ln(dvx)'        
-                               !    3 -> 'ln(dvy)'        
-                               !    4 -> 'ln(dvz)'        
-                               !    5 -> 'ln(dbx)'        
-                               !    6 -> 'ln(dby)'        
-                               !    7 -> 'ln(dbz)'        
-                               !    8 -> 'ln(dtmp)'       
-                               !    9 -> 'Magnetic energy'
-                               !    10-> 'Kinetic energy' 
-                               !    11-> 'Thermal energy' 
-                               !    12-> 'Total energy'   
-                               !    13-> 'Time step'      
-                               !    14-> 'Growth rate'    
-                               !    15-> 'div(B)'
-                               !    16-> 'Conservation of flux'
-                               !    17-> 'Total particles'
-                               !    18-> 'Total X momentum'
-                               !    19-> 'Total Y momentum'
-                               !    20-> 'Total Z momentum'
-                               !    21-> 'Flow flux at boundaries'
-                               !    22-> 'Toroidal current Iz'
-                               !    23-> 'Toroidal flux'
-
-      sel_graph = (/ 1,-15,-18,-9,11,14,0,0,0 /) 
-                               ! Selects diagnostics for xdraw output
-                               ! A negative value -i indicates to construct
-                               !    a vector plot with the i and i+1 arrays.
-                               ! Currently:
-                               !    1 -> rho
-                               !    2 -> Px
-                               !    3 -> Py
-                               !    4 -> Pz
-                               !    5 -> Bx
-                               !    6 -> By
-                               !    7 -> Bz
-                               !    8 -> Temp
-                               !    9 -> jx
-                               !    10-> jy
-                               !    11-> jz
-
-c Open input file
+c Read initialization parameters
 
       open(unit=25,file='3dmhd.in',status='old')
       read(25,datin)
