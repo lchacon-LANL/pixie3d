@@ -58,6 +58,7 @@ OPTIMIZATION = -O -B101 -cpu:host
 DEBUG = -g
 PROFILE = -P
 STATIC = -s
+MODPATH = -p
 
 else
 
@@ -67,6 +68,7 @@ DEBUG = -g --trace --trap
 #DEBUG = -g 
 PROFILE =
 STATIC =
+MODPATH = -M
 
 endif
 
@@ -105,6 +107,8 @@ SUBDIRS = $(COMMONDIR)/driver \
 	  $(COMMONDIR)/interpolation/1d_spline \
 	  $(COMMONDIR)/interpolation/xerror
 
+MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH) $(COMMONDIR)%,$(SUBDIRS))
+
 #Define targets
 
 beta: common $(BETA)
@@ -122,8 +126,9 @@ $(PROD):  $(OBJS)  $(COMMON_SRC)
 
 common: ;
 	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -e -C $$subdir ; \
-		cp $$subdir/*.mod $(prefix) >& /dev/null ; done
+		$(MAKE) -e -C $$subdir ; done
+#		$(MAKE) -e -C $$subdir ; \
+#		cp $$subdir/*.mod $(prefix) >& /dev/null ; done
 
 clean:
 	-rm -f *.o *.mod
@@ -139,4 +144,4 @@ $(OBJS):  modules.f $(COMMOM_MODS)
 #Define patterns
 
 %.o : %.f
-	$(FC) -c $(FFLAGS) $<
+	$(FC) -c $(MODDIRS) $(FFLAGS) $<
