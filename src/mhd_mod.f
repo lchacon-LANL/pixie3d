@@ -28,13 +28,29 @@ c ######################################################################
 
         integer(4) :: igx,igy,igz,nx,ny,nz
 
+        real(8)    :: xim,yim,zim,xip,yip,zip
+     .               ,xjm,yjm,zjm,xjp,yjp,zjp
+     .               ,xkm,ykm,zkm,xkp,ykp,zkp
+
+        real(8)    :: x0,y0,z0,xh,yh,zh
+
+        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .               ,jacp,jacm,jach,jac0
+
+        real(8)    :: gsub(3,3),gsuper(3,3)
+     .               ,cnv1(3),cnv2(3),cnv3(3),jac
+
+        real(8)    :: nabla_v(3,3),hessian1(3,3)
+     .               ,hessian2(3,3),hessian3(3,3)
+     .               ,cov_tnsr(3,3),cnv_tnsr(3,3)
+
+        logical    :: sing_point,cartesian
+
       end module grid_aliases
 
 c module auxiliaryVariables
 c ######################################################################
       module auxiliaryVariables
-
-cc        use grid_aliases
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -66,7 +82,7 @@ c ######################################################################
 
 c     div
 c     ###############################################################
-      real(8) function div(i,j,k,ax,ay,az)
+      real(8) function div(i,j,k,nx,ny,nz,ax,ay,az)
       implicit none
 c     ---------------------------------------------------------------
 c     Calculates divergence of vector field at cell centers in
@@ -75,7 +91,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k
+      integer(4) :: i,j,k,nx,ny,nz
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
      .             ,az(0:nx+1,0:ny+1,0:nz+1)
@@ -127,7 +143,7 @@ c     End
 
 c     laplacian
 c     ###############################################################
-      real*8 function laplacian(i,j,k,arr)
+      real*8 function laplacian(i,j,k,nx,ny,nz,arr)
 
 c     ---------------------------------------------------------------
 c     Calculates dvol*lap(arr) at cell centers in general non-orthog.
@@ -138,7 +154,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k
+      integer(4) :: i,j,k,nx,ny,nz
 
       real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1)
 
@@ -292,7 +308,7 @@ c     End program
 
 c     veclaplacian
 c     ###############################################################
-      function veclaplacian(i,j,k,ax,ay,az,diff,alteom,icomp)
+      function veclaplacian(i,j,k,nx,ny,nz,ax,ay,az,diff,alteom,icomp)
      .         result (vlap)
 
 c     ---------------------------------------------------------------
@@ -304,7 +320,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,icomp
+      integer(4) :: i,j,k,icomp,nx,ny,nz
 
       real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
      .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
@@ -541,12 +557,12 @@ c     Begin program
         gsuper = g_super (x,y,z,cartesian)
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,1)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
         endif
 
-        vis = 2./( 1./diff(ip,j,k) + 1./diff(i,j,k) )
+        vis = 2d0/( 1d0/diff(ip,j,k) + 1d0/diff(i,j,k) )
 
         t11 =vis*( gsuper(1,1)*nabla_v(1,1)
      .            +gsuper(1,2)*nabla_v(2,1)
@@ -566,9 +582,6 @@ c     Begin program
           t13 = t13/jac
         endif
 
-cc        t11 = 0d0
-cc        t12 = 0d0
-cc        t13 = 0d0
 c     End program
 
       end subroutine nabtensor_x
@@ -616,9 +629,9 @@ c     Begin program
         jac    = jacobian(x,y,z,cartesian)
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,2)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
         endif
 
         vis = 2./( 1./diff(i,jp,k) + 1./diff(i,j,k) )
@@ -641,9 +654,6 @@ c     Begin program
           t23 = t23/jac
         endif
 
-cc        t21 = 0d0
-cc        t22 = 0d0
-cc        t23 = 0d0
 c     End program
 
       end subroutine nabtensor_y
@@ -691,9 +701,9 @@ c     Begin program
         jac    = jacobian(x,y,z,cartesian)
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,3)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
         endif
 
         vis = 2./( 1./diff(i,j,kp) + 1./diff(i,j,k) )
@@ -716,10 +726,6 @@ c     Begin program
           t33 = t33/jac
         endif
 
-cc        t31 = 0d0
-cc        t32 = 0d0
-cc        t33 = 0d0
-
 c     End program
 
       end subroutine nabtensor_z
@@ -728,7 +734,7 @@ c     End program
 
 c     curl
 c     ###############################################################
-      real*8 function curl(i,j,k,ax,ay,az,comp)
+      real*8 function curl(i,j,k,nx,ny,nz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A) at cell centers in general non-orthogonal
@@ -740,7 +746,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,comp
+      integer(4) :: i,j,k,comp,nx,ny,nz
 
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -854,7 +860,7 @@ c     End program
 
 c     curl2
 c     ###############################################################
-      real*8 function curl2(i,j,k,ax,ay,az,comp)
+      real*8 function curl2(i,j,k,nx,ny,nz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A)) in general non-orthogonal
@@ -866,11 +872,11 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,comp
+      integer(4) :: i,j,k,comp,nx,ny,nz
 
-      real(8)       :: ax(0:nx+1,0:ny+1,0:nz+1)
-     .                ,ay(0:nx+1,0:ny+1,0:nz+1)
-     .                ,az(0:nx+1,0:ny+1,0:nz+1)
+      real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
+     .             ,ay(0:nx+1,0:ny+1,0:nz+1)
+     .             ,az(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -1419,8 +1425,8 @@ c     End program
 
 c     fnabla_v
 c     #############################################################
-      function fnabla_v(i,j,k,x,y,z,ax,ay,az,cartesian,half_elem)
-     .         result(tensor)
+      function fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian
+     .                 ,half_elem) result(tensor)
 c     -------------------------------------------------------------
 c     Calculates the tensor nabla(vec v) at the following positions:
 c       + half_elem /= 1,2,3 => i,j,k
@@ -1433,7 +1439,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,half_elem
+        integer(4) :: i,j,k,half_elem,nx,ny,nz
         real(8)    :: tensor(3,3),x,y,z
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -1459,6 +1465,8 @@ c     Begin program
         !Defaults
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x,y,z
+cc     .                     ,cartsn)
 
         dhx = 2.*dxh(ig)
         dhy = 2.*dyh(jg)
@@ -1588,7 +1596,7 @@ c     Begin program
 
           if (sing_point) then
             vxip = ax(ip,j,k)+ax(i,j,k)
-            vxim = 2.*ax(i ,j,k)
+            vxim = 2.*ax(im,j,k)
             vyip = ay(ip,j,k)+ay(i,j,k)
             vyim = 2.*ay(im,j,k)
             vzip = az(ip,j,k)+az(i,j,k)
@@ -1709,6 +1717,213 @@ c     End program
 
       end function fnabla_v
 
+c     fnabla_v_upwd
+c     #############################################################
+      function fnabla_v_upwd(i,j,k,nx,ny,nz,ax,ay,az,hex,hey,hez)
+     $         result(tensor)
+c     -------------------------------------------------------------
+c     Calculates the tensor nabla(vec v) at the following positions:
+c       + hex,hey,hez = 0 => i,j,k
+c       + hex=+-1 --> i+-1/2
+c       + hey=+-1 --> j+-1/2
+c       + hez=+-1 --> k+-1/2
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,hex,hey,hez,nx,ny,nz
+        real(8)    :: tensor(3,3)
+        real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
+     .               ,ay(0:nx+1,0:ny+1,0:nz+1)
+     .               ,az(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
+        real(8)    :: dhx,dhy,dhz
+        real(8)    :: vxx,vyy,vzz
+     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+        real(8)    :: hessian1(3,3),hessian2(3,3),hessian3(3,3)
+        logical    :: sing_point,cartsn
+
+c     Begin program
+
+        sing_point = .false.
+        if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+
+c     Defaults
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0
+     .                     ,cartsn)
+
+        dhx = 2.*dxh(ig)
+        dhy = 2.*dyh(jg)
+        dhz = 2.*dzh(kg)
+
+        hessian1 = hessian(1,x0,y0,z0,cartsn)
+        hessian2 = hessian(2,x0,y0,z0,cartsn)
+        hessian3 = hessian(3,x0,y0,z0,cartsn)
+
+c     Exceptions
+
+        if (hex == 1) then
+          im = i
+          dhx = dx(ig)
+        elseif (hex == -1) then
+          ip = i
+          dhx = dx(ig-1)
+        endif
+
+        if (hey == 1) then
+          jm = j
+          dhy = dy(jg)
+        elseif (hey == -1) then
+          jp = j
+          dhy = dy(jg-1)
+        endif
+
+        if (hez == 1) then
+          km = k
+          dhz = dz(kg)
+        elseif (hez == -1) then
+          kp = k
+          dhz = dz(kg-1)
+        endif
+
+c     Vectors
+
+        vxx = ax(i,j,k)
+        vyy = ay(i,j,k)
+        vzz = az(i,j,k)
+
+        if (sing_point) then
+          vxip = ax(ip,j,k)+ax(i,j,k)
+          vxim = 2.*ax(im,j,k)
+          vyip = ay(ip,j,k)+ay(i,j,k)
+          vyim = 2.*ay(im,j,k)
+          vzip = az(ip,j,k)+az(i,j,k)
+          vzim = 2.*az(im,j,k)
+        else
+          vxip = ax(ip,j,k)
+          vxim = ax(im,j,k)
+          vyip = ay(ip,j,k)
+          vyim = ay(im,j,k)
+          vzip = az(ip,j,k)
+          vzim = az(im,j,k)
+        endif
+
+        vxjp = ax(i,jp,k)
+        vxjm = ax(i,jm,k)
+        vyjp = ay(i,jp,k)
+        vyjm = ay(i,jm,k)
+        vzjp = az(i,jp,k)
+        vzjm = az(i,jm,k)
+
+        vxkp = ax(i,j,kp)
+        vxkm = ax(i,j,km)
+        vykp = ay(i,j,kp)
+        vykm = ay(i,j,km)
+        vzkp = az(i,j,kp)
+        vzkm = az(i,j,km)
+
+c     Calculate nabla_v tensor
+
+      ! l = 1, m = 1
+        tensor(1,1) = (vxip-vxim)/dhx
+     .               + vxx*(hessian1(1,1)
+     .                    + hessian2(2,1)
+     .                    + hessian3(3,1))
+     .               - vxx*hessian1(1,1)
+     .               - vyy*hessian1(2,1)
+     .               - vzz*hessian1(3,1)
+
+      ! l = 1, m = 2
+        tensor(1,2) = (vyip-vyim)/dhx
+     .               + vyy*(hessian1(1,1)
+     .                    + hessian2(2,1)
+     .                    + hessian3(3,1))
+     .               - vxx*hessian2(1,1)
+     .               - vyy*hessian2(2,1)
+     .               - vzz*hessian2(3,1)
+
+      ! l = 1, m = 3
+        tensor(1,3) = (vzip-vzim)/dhx
+     .               + vzz*(hessian1(1,1)
+     .                    + hessian2(2,1)
+     .                    + hessian3(3,1))
+     .               - vxx*hessian3(1,1)
+     .               - vyy*hessian3(2,1)
+     .               - vzz*hessian3(3,1)
+
+      ! l = 2, m = 1
+        tensor(2,1) = (vxjp-vxjm)/dhy
+     .               + vxx*(hessian1(1,2)
+     .                    + hessian2(2,2)
+     .                    + hessian3(3,2))
+     .               - vxx*hessian1(1,2)
+     .               - vyy*hessian1(2,2)
+     .               - vzz*hessian1(3,2)
+
+      ! l = 2, m = 2
+        tensor(2,2) = (vyjp-vyjm)/dhy
+     .               + vyy*(hessian1(1,2)
+     .                    + hessian2(2,2)
+     .                    + hessian3(3,2))
+     .               - vxx*hessian2(1,2)
+     .               - vyy*hessian2(2,2)
+     .               - vzz*hessian2(3,2)
+
+      ! l = 2, m = 3
+        tensor(2,3) = (vzjp-vzjm)/dhy
+     .               + vzz*(hessian1(1,2)
+     .                    + hessian2(2,2)
+     .                    + hessian3(3,2))
+     .               - vxx*hessian3(1,2)
+     .               - vyy*hessian3(2,2)
+     .               - vzz*hessian3(3,2)
+
+      ! l = 3, m = 1
+        tensor(3,1) = (vxkp-vxkm)/dhz
+     .               + vxx*(hessian1(1,3)
+     .                    + hessian2(2,3)
+     .                    + hessian3(3,3))
+     .               - vxx*hessian1(1,3)
+     .               - vyy*hessian1(2,3)
+     .               - vzz*hessian1(3,3)
+
+      ! l = 3, m = 2
+        tensor(3,2) = (vykp-vykm)/dhz
+     .               + vyy*(hessian1(1,3)
+     .                    + hessian2(2,3)
+     .                    + hessian3(3,3))
+     .               - vxx*hessian2(1,3)
+     .               - vyy*hessian2(2,3)
+     .               - vzz*hessian2(3,3)
+
+      ! l = 3, m = 3
+        tensor(3,3) = (vzkp-vzkm)/dhz
+     .               + vzz*(hessian1(1,3)
+     .                    + hessian2(2,3)
+     .                    + hessian3(3,3))
+     .               - vxx*hessian3(1,3)
+     .               - vyy*hessian3(2,3)
+     .               - vzz*hessian3(3,3)
+
+c     End program
+
+      end function fnabla_v_upwd
+
       end module operators
 
 c module nlfunction_setup
@@ -1729,23 +1944,7 @@ c ######################################################################
 
         use operators
 
-        real(8)    :: xim,yim,zim,xip,yip,zip
-     .               ,xjm,yjm,zjm,xjp,yjp,zjp
-     .               ,xkm,ykm,zkm,xkp,ykp,zkp
-
-        real(8)    :: x0,y0,z0,xh,yh,zh
-
-        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
-     .               ,jacp,jacm,jach,jac0
-
-        real(8)    :: gsub(3,3),gsuper(3,3)
-     .               ,cnv1(3),cnv2(3),cnv3(3),jac
-
-        real(8)    :: nabla_v(3,3),hessian1(3,3)
-     .               ,hessian2(3,3),hessian3(3,3)
-     .               ,cov_tnsr(3,3),cnv_tnsr(3,3)
-
-        logical    :: sing_point,cartesian,alt_eom
+        logical :: alt_eom
 
       contains
 
@@ -2621,9 +2820,9 @@ cc        endif
         endif
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,1)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
         endif
 
         !Recall p=2nT
@@ -2731,9 +2930,9 @@ c     Begin program
         jac    = jacobian(x,y,z,cartesian)
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,2)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
         endif
 
         !Recall p=2nT
@@ -2832,9 +3031,9 @@ c     Begin program
         jac    = jacobian(x,y,z,cartesian)
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,3)
         else
-          nabla_v = fnabla_v(i,j,k,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
         endif
 
         !Recall p=2nT
@@ -2895,7 +3094,7 @@ c module precond_setup
 c ######################################################################
       module precond_setup
 
-        integer(4)    :: nsweep,maxvcyc
+        integer(4)    :: nsweep,maxvcyc,precpass
         real(8)       :: mgtol
 
         character*(10):: precon
