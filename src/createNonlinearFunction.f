@@ -49,7 +49,8 @@ c Begin program
         allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
-     $           ,bcnv(ilom:ihip,jlom:jhip,klom:khip,3))
+     $           ,bcnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,vcnv(ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
