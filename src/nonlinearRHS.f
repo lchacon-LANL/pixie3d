@@ -32,9 +32,9 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ig,jg,kg
+      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
 
-      real(8)    :: dS1,dS2,dS3,jac
+      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz,jac,xxx,yyy,zzz
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,dummy
 
@@ -42,9 +42,6 @@ c Local variables
       real(8)    :: advec,diffus
 
       ! Faraday's law
-      real(8)    :: Ez_ipjp,Ez_imjp,Ez_ipjm,Ez_imjm
-     .             ,Ey_ipkp,Ey_imkp,Ey_ipkm,Ey_imkm
-     .             ,Ex_jpkp,Ex_jmkp,Ex_jpkm,Ex_jmkm
       real(8)    :: Ez_jp,Ez_jm,Ey_kp,Ey_km,Ex_kp,Ex_km
      .             ,Ez_ip,Ez_im,Ey_ip,Ey_im,Ex_jp,Ex_jm
 
@@ -63,36 +60,51 @@ c     Grid parameters
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      dS1 = dyh(jg)*dzh(kg)
-      dS2 = dxh(ig)*dzh(kg)
-      dS3 = dxh(ig)*dyh(jg)
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
 
-      gsub   = g_sub  (xx(ig),yy(jg),zz(kg))
-      gsuper = g_super(xx(ig),yy(jg),zz(kg))
+      dS1 = dyy*dzz
+      dS2 = dxx*dzz
+      dS3 = dxx*dyy
 
-      jac = jacobian(xx(ig),yy(jg),zz(kg))
+      xxx = xx(ig)
+      yyy = yy(jg)
+      zzz = zz(kg)
+
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
 
       sing_point = .false.
-
-      if (jac == 0d0) then
-        jac = jacobian(dxh(ig)/2.,yy(jg),zz(kg)) !To get volume right
-                                                 !at singular point
+      if (i == 1 .and. bcond(1) == SP) then
+cc        xxx = dxh(ig)/2.
         sing_point = .true.
+cc        im = i
       endif
+
+      gsub   = g_sub   (xxx,yyy,zzz)
+      gsuper = g_super (xxx,yyy,zzz)
+      jac    = jacobian(xxx,yyy,zzz)
 
 c     Rho
 
-      flxip = 0.5*(vx(i+1,j,k)*rho(i,j,k) + vx(i,j,k)*rho(i+1,j,k))
-      flxim = 0.5*(vx(i-1,j,k)*rho(i,j,k) + vx(i,j,k)*rho(i-1,j,k))
+      flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
+      flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
 
-      flxjp = 0.5*(vy(i,j+1,k)*rho(i,j,k) + vy(i,j,k)*rho(i,j+1,k))
-      flxjm = 0.5*(vy(i,j-1,k)*rho(i,j,k) + vy(i,j,k)*rho(i,j-1,k))
+      flxjp = 0.5*(vy(i,jp,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jp,k))
+      flxjm = 0.5*(vy(i,jm,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jm,k))
 
-      flxkp = 0.5*(vz(i,j,k+1)*rho(i,j,k) + vz(i,j,k)*rho(i,j,k+1))
-      flxkm = 0.5*(vz(i,j,k-1)*rho(i,j,k) + vz(i,j,k)*rho(i,j,k-1))
+      flxkp = 0.5*(vz(i,j,kp)*rho(i,j,k) + vz(i,j,k)*rho(i,j,kp))
+      flxkm = 0.5*(vz(i,j,km)*rho(i,j,k) + vz(i,j,k)*rho(i,j,km))
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IRHO)%bconds)
+      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+     .                      ,varray%array_var(IRHO)%bconds)
+
+cc      if (sing_point) write (*,*) flxim
 
       advec = dS1*(flxip - flxim)
      .      + dS2*(flxjp - flxjm)
@@ -104,330 +116,134 @@ c     Rho
 
 c     Bx
 
-      if (.not.sing_point) then
-
-        Ez_ipjp = fEz_ipjp(i  ,j  ,k)
-        Ez_imjp = fEz_ipjp(i-1,j  ,k)
-        Ez_ipjm = fEz_ipjp(i  ,j-1,k)
-        Ez_imjm = fEz_ipjp(i-1,j-1,k)
-
-        Ez_jp = 0.5*(Ez_ipjp + Ez_imjp)
-        Ez_jm = 0.5*(Ez_ipjm + Ez_imjm)
-
-        Ey_ipkp = fEy_ipkp(i  ,j,k  )
-        Ey_imkp = fEy_ipkp(i-1,j,k  )
-        Ey_ipkm = fEy_ipkp(i  ,j,k-1)
-        Ey_imkm = fEy_ipkp(i-1,j,k-1)
-
-        Ey_kp = 0.5*(Ey_ipkp + Ey_imkp)
-        Ey_km = 0.5*(Ey_ipkm + Ey_imkm)
-
-cc        ff(IBX) = jac*( dS2*( Ez_jp - Ez_jm ) - dS3*( Ey_kp - Ey_km ) )
-
-        Ez_ip = 0d0
-
-      else
-
-        Ez_ipjp = fEz_ipjp(i,1,k)
-        Ez_ipjm = fEz_ipjp(i,0,k)
-
-        Ez_ip = 0.5*(Ez_ipjp + Ez_ipjm)*sin(yy(jg))
-
-        Ey_ipkp = fEy_ipkp(i,1,k  )
-        Ey_ipkm = fEy_ipkp(i,1,k-1)
-
-        Ey_kp = Ey_ipkp
-        Ey_km = Ey_ipkm
-
-cc        ff(IBX) = jac*( dS1*( Ez_ip ) )
-cc     .                - dS3*( Ey_kp - Ey_km ) )
-      endif
-
-cc      call imposeBConfluxes (i,j,k,Ez_ip,flxim,Ez_jp,Ez_jm
-cc     .                      ,Ey_kp,Ey_km,varray%array_var(IBX)%bconds)
-
-cc      ff(IBX) = jac*(  dS1*( Ez_ip )
-cc     .               + dS2*( Ez_jp - Ez_jm ) - dS3*( Ey_kp - Ey_km ) )
-
       flxip = 0d0
       flxim = 0d0
 
       !Resistive contribution
-      Ez_jp = 0.5*(eeta(i,j+1,k)*jz_cov(i,j+1,k)
-     .           + eeta(i,j  ,k)*jz_cov(i,j  ,k))
-      Ez_jm = 0.5*(eeta(i,j-1,k)*jz_cov(i,j-1,k)
-     .           + eeta(i,j  ,k)*jz_cov(i,j  ,k))
+      Ez_jp = 0.5*(eeta(i,jp,k)*jz_cov(i,jp,k)
+     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
+      Ez_jm = 0.5*(eeta(i,jm,k)*jz_cov(i,jm,k)
+     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
 
-      Ey_kp = 0.5*(eeta(i,j,k+1)*jy_cov(i,j,k+1)
-     .           + eeta(i,j,k  )*jy_cov(i,j,k  ))
-      Ey_km = 0.5*(eeta(i,j,k-1)*jy_cov(i,j,k-1)
-     .           + eeta(i,j,k  )*jy_cov(i,j,k  ))
-
-cc      Ez_jp = 2./(1./eeta(i,j+1,k)+1./eeta(i,j,k))*fj_jp(i,j  ,k,3)
-cc      Ez_jm = 2./(1./eeta(i,j-1,k)+1./eeta(i,j,k))*fj_jp(i,j-1,k,3)
-cc
-cc      Ey_kp = 2./(1./eeta(i,j,k+1)+1./eeta(i,j,k))*fj_kp(i,j,k  ,2)
-cc      Ey_km = 2./(1./eeta(i,j,k-1)+1./eeta(i,j,k))*fj_kp(i,j,k-1,2)
-cc
-cc      Ez_jp = 0d0
-cc      Ez_jm = 0d0
-cc
-cc      Ey_kp = 0d0
-cc      Ey_km = 0d0
+      Ey_kp = 0.5*(eeta(i,j,kp)*jy_cov(i,j,kp)
+     .           + eeta(i,j,k )*jy_cov(i,j,k ))
+      Ey_km = 0.5*(eeta(i,j,km)*jy_cov(i,j,km)
+     .           + eeta(i,j,k )*jy_cov(i,j,k ))
 
       !Ideal contribution
       flxjp = Ez_jp
-     .       +0.5*(vy(i,j+1,k)*bx(i,j+1,k) + vy(i,j,k)*bx(i,j,k))
-     .       -0.5*(vx(i,j+1,k)*by(i,j+1,k) + vx(i,j,k)*by(i,j,k))
+     .       +0.5*(vy(i,jp,k)*bx(i,jp,k) + vy(i,j,k)*bx(i,j,k))
+     .       -0.5*(vx(i,jp,k)*by(i,jp,k) + vx(i,j,k)*by(i,j,k))
       flxjm = Ez_jm
-     .       +0.5*(vy(i,j-1,k)*bx(i,j-1,k) + vy(i,j,k)*bx(i,j,k))
-     .       -0.5*(vx(i,j-1,k)*by(i,j-1,k) + vx(i,j,k)*by(i,j,k))
+     .       +0.5*(vy(i,jm,k)*bx(i,jm,k) + vy(i,j,k)*bx(i,j,k))
+     .       -0.5*(vx(i,jm,k)*by(i,jm,k) + vx(i,j,k)*by(i,j,k))
 
       flxkp =-Ey_kp
-     .       +0.5*(vz(i,j,k+1)*bx(i,j,k+1) + vz(i,j,k)*bx(i,j,k))
-     .       -0.5*(vx(i,j,k+1)*bz(i,j,k+1) + vx(i,j,k)*bz(i,j,k))
+     .       +0.5*(vz(i,j,kp)*bx(i,j,kp) + vz(i,j,k)*bx(i,j,k))
+     .       -0.5*(vx(i,j,kp)*bz(i,j,kp) + vx(i,j,k)*bz(i,j,k))
       flxkm =-Ey_km
-     .       +0.5*(vz(i,j,k-1)*bx(i,j,k-1) + vz(i,j,k)*bx(i,j,k))
-     .       -0.5*(vx(i,j,k-1)*bz(i,j,k-1) + vx(i,j,k)*bz(i,j,k))
+     .       +0.5*(vz(i,j,km)*bx(i,j,km) + vz(i,j,k)*bx(i,j,k))
+     .       -0.5*(vx(i,j,km)*bz(i,j,km) + vx(i,j,k)*bz(i,j,k))
 
-cc      flxjp = Ez_jp
-cc     .       +0.5*(vy(i,j+1,k)*bx(i,j,k) + vy(i,j,k)*bx(i,j+1,k))
-cc     .       -0.5*(vx(i,j+1,k)*by(i,j,k) + vx(i,j,k)*by(i,j+1,k))
-cc      flxjm = Ez_jm
-cc     .       +0.5*(vy(i,j-1,k)*bx(i,j,k) + vy(i,j,k)*bx(i,j-1,k))
-cc     .       -0.5*(vx(i,j-1,k)*by(i,j,k) + vx(i,j,k)*by(i,j-1,k))
-cc
-cc      flxkp =-Ey_kp
-cc     .       +0.5*(vz(i,j,k+1)*bx(i,j,k) + vz(i,j,k)*bx(i,j,k+1))
-cc     .       -0.5*(vx(i,j,k+1)*bz(i,j,k) + vx(i,j,k)*bz(i,j,k+1))
-cc      flxkm =-Ey_km
-cc     .       +0.5*(vz(i,j,k-1)*bx(i,j,k) + vz(i,j,k)*bx(i,j,k-1))
-cc     .       -0.5*(vx(i,j,k-1)*bz(i,j,k) + vx(i,j,k)*bz(i,j,k-1))
-
-cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-cc     .                      ,flxkp,flxkm,varray%array_var(IBX)%bconds)
+      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+     .                      ,flxkp,flxkm,varray%array_var(IBX)%bconds)
 
       ff(IBX) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
      .               +dS3*(flxkp-flxkm) )
-cc     .         -jac*gradivB(i,j,k,1)
-cc     .         +jac*curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,1)
-cc     .         +jac*curlcurl(i,j,k,bx_cov,by_cov,bz_cov,1)
-     .         -kdiv*laplacian(i,j,k,bx)
-cc     .         -eta*laplacian(i,j,k,bx)
 
 c     By
-
-      if (.not.sing_point) then
-        Ex_jpkp = fEx_jpkp(i,j  ,k  )
-        Ex_jmkp = fEx_jpkp(i,j-1,k  )
-        Ex_jpkm = fEx_jpkp(i,j  ,k-1)
-        Ex_jmkm = fEx_jpkp(i,j-1,k-1)
-
-        Ex_kp = 0.5*(Ex_jpkp + Ex_jmkp)
-        Ex_km = 0.5*(Ex_jpkm + Ex_jmkm)
-
-        Ez_ip = 0.5*(Ez_ipjp + Ez_ipjm)
-        Ez_im = 0.5*(Ez_imjp + Ez_imjm)
-
-cc        ff(IBY) = jac*( dS3*( Ex_kp - Ex_km ) - dS1*( Ez_ip - Ez_im ) )
-      else
-cc        Ex_jpkp = fEx_jpkp(i,1,k  )
-cc        Ex_jpkm = fEx_jpkp(i,1,k-1)
-cc
-cc        Ex_kp = Ex_jpkp
-cc        Ex_km = Ex_jpkm
-
-        Ex_jpkp = fEx_jpkp(i,1,k  )
-        Ex_jmkp = fEx_jpkp(i,0,k  )
-        Ex_jpkm = fEx_jpkp(i,1,k-1)
-        Ex_jmkm = fEx_jpkp(i,0,k-1)
-
-        Ex_kp = 0.5*(Ex_jpkp + Ex_jmkp)
-        Ex_km = 0.5*(Ex_jpkm + Ex_jmkm)
-
-        Ez_ip = 0.5*(Ez_ipjp + Ez_ipjm)*cos(yy(jg))
-
-cc        ff(IBY) = jac*( dS3*( Ex_kp - Ex_km )
-cc     .                - dS1*( Ez_ip*cos(yy(jg))) )
-      endif
-
-cc      call imposeBConfluxes (i,j,k,Ez_ip,Ez_im,flxjp,flxjm
-cc     .                      ,Ex_kp,Ex_km,varray%array_var(IBY)%bconds)
-
-cc      ff(IBY) = jac*( dS3*( Ex_kp - Ex_km ) - dS1*( Ez_ip - Ez_im ) )
 
       flxjp = 0d0
       flxjm = 0d0
 
       !Resistive contribution
-      Ez_ip = 0.5*(eeta(i+1,j,k)*jz_cov(i+1,j,k)
-     .           + eeta(i  ,j,k)*jz_cov(i  ,j,k))
-      Ez_im = 0.5*(eeta(i-1,j,k)*jz_cov(i-1,j,k)
-     .           + eeta(i  ,j,k)*jz_cov(i  ,j,k))
+      Ez_ip = 0.5*(eeta(ip,j,k)*jz_cov(ip,j,k)
+     .           + eeta(i ,j,k)*jz_cov(i ,j,k))
+      Ez_im = 0.5*(eeta(im,j,k)*jz_cov(im,j,k)
+     .           + eeta(i ,j,k)*jz_cov(i ,j,k))
 
-      Ex_kp = 0.5*(eeta(i,j,k+1)*jx_cov(i,j,k+1)
-     .           + eeta(i,j,k  )*jx_cov(i,j,k  ))
-      Ex_km = 0.5*(eeta(i,j,k-1)*jx_cov(i,j,k-1)
-     .           + eeta(i,j,k  )*jx_cov(i,j,k  ))
-
-cc      Ez_ip = 2./(1./eeta(i+1,j,k)+1./eeta(i,j,k))*fj_ip(i  ,j,k,3)
-cc      Ez_im = 2./(1./eeta(i-1,j,k)+1./eeta(i,j,k))*fj_ip(i-1,j,k,3)
-cc
-cc      Ex_kp = 2./(1./eeta(i,j,k+1)+1./eeta(i,j,k))*fj_kp(i,j,k  ,1)
-cc      Ex_km = 2./(1./eeta(i,j,k-1)+1./eeta(i,j,k))*fj_kp(i,j,k-1,1)
-cc
-cc      Ez_ip = 0d0
-cc      Ez_im = 0d0
-cc
-cc      Ex_kp = 0d0
-cc      Ex_km = 0d0
+      Ex_kp = 0.5*(eeta(i,j,kp)*jx_cov(i,j,kp)
+     .           + eeta(i,j,k )*jx_cov(i,j,k ))
+      Ex_km = 0.5*(eeta(i,j,km)*jx_cov(i,j,km)
+     .           + eeta(i,j,k )*jx_cov(i,j,k ))
 
       !Ideal contribution
       flxip =-Ez_ip
-     .       +0.5*(vx(i+1,j,k)*by(i+1,j,k) + vx(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i+1,j,k)*bx(i+1,j,k) + vy(i,j,k)*bx(i,j,k))
+     .       +0.5*(vx(ip,j,k)*by(ip,j,k) + vx(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(ip,j,k)*bx(ip,j,k) + vy(i,j,k)*bx(i,j,k))
       flxim =-Ez_im
-     .       +0.5*(vx(i-1,j,k)*by(i-1,j,k) + vx(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i-1,j,k)*bx(i-1,j,k) + vy(i,j,k)*bx(i,j,k))
+     .       +0.5*(vx(im,j,k)*by(im,j,k) + vx(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(im,j,k)*bx(im,j,k) + vy(i,j,k)*bx(i,j,k))
 
       flxkp = Ex_kp
-     .       +0.5*(vz(i,j,k+1)*by(i,j,k+1) + vz(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i,j,k+1)*bz(i,j,k+1) + vy(i,j,k)*bz(i,j,k))
+     .       +0.5*(vz(i,j,kp)*by(i,j,kp) + vz(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(i,j,kp)*bz(i,j,kp) + vy(i,j,k)*bz(i,j,k))
       flxkm = Ex_km
-     .       +0.5*(vz(i,j,k-1)*by(i,j,k-1) + vz(i,j,k)*by(i,j,k))
-     .       -0.5*(vy(i,j,k-1)*bz(i,j,k-1) + vy(i,j,k)*bz(i,j,k))
+     .       +0.5*(vz(i,j,km)*by(i,j,km) + vz(i,j,k)*by(i,j,k))
+     .       -0.5*(vy(i,j,km)*bz(i,j,km) + vy(i,j,k)*bz(i,j,k))
 
-cc      flxip = -Ez_ip
-cc     .       +0.5*(vx(i+1,j,k)*by(i,j,k) + vx(i,j,k)*by(i+1,j,k))
-cc     .       -0.5*(vy(i+1,j,k)*bx(i,j,k) + vy(i,j,k)*bx(i+1,j,k))
-cc      flxim = -Ez_im
-cc     .       +0.5*(vx(i-1,j,k)*by(i,j,k) + vx(i,j,k)*by(i-1,j,k))
-cc     .       -0.5*(vy(i-1,j,k)*bx(i,j,k) + vy(i,j,k)*bx(i-1,j,k))
-cc
-cc      flxkp = Ex_kp
-cc     .       +0.5*(vz(i,j,k+1)*by(i,j,k) + vz(i,j,k)*by(i,j,k+1))
-cc     .       -0.5*(vy(i,j,k+1)*bz(i,j,k) + vy(i,j,k)*bz(i,j,k+1))
-cc      flxkm = Ex_km
-cc     .       +0.5*(vz(i,j,k-1)*by(i,j,k) + vz(i,j,k)*by(i,j,k-1))
-cc     .       -0.5*(vy(i,j,k-1)*bz(i,j,k) + vy(i,j,k)*bz(i,j,k-1))
-
-cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-cc     .                      ,flxkp,flxkm,varray%array_var(IBY)%bconds)
+      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+     .                      ,flxkp,flxkm,varray%array_var(IBY)%bconds)
 
       ff(IBY) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
      .               +dS3*(flxkp-flxkm) )
-cc     .         -jac*gradivB(i,j,k,2)
-cc     .         +jac*curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,2)
-cc     .         +jac*curlcurl(i,j,k,bx_cov,by_cov,bz_cov,2)
-     .         -kdiv*laplacian(i,j,k,by)
-cc     .         -eta*laplacian(i,j,k,by)
 
 c     Bz
-
-      if (.not.sing_point) then
-        Ey_ip = 0.5*(Ey_ipkp + Ey_ipkm)
-        Ey_im = 0.5*(Ey_imkp + Ey_imkm)
-
-        Ex_jp = 0.5*(Ex_jpkp + Ex_jpkm)
-        Ex_jm = 0.5*(Ex_jmkp + Ex_jmkm)
-
-cc        ff(IBZ) = jac*( dS1*( Ey_ip - Ey_im ) - dS2*( Ex_jp - Ex_jm ) )
-      else
-        Ey_ip = 0.5*(Ey_ipkp + Ey_ipkm)
-
-cc        ff(IBZ) = jac*( dS1*( Ey_ip )  )
-      endif
-
-cc      call imposeBConfluxes (i,j,k,Ey_ip,Ey_im,Ex_jp,Ex_jm
-cc     .                      ,flxkp,flxkm,varray%array_var(IBZ)%bconds)
-
-cc      ff(IBZ) = jac*( dS1*( Ey_ip - Ey_im ) - dS2*( Ex_jp - Ex_jm ) )
 
       flxkp = 0d0
       flxkm = 0d0
 
       !Resistive contribution
-      Ey_ip = 0.5*(eeta(i+1,j,k)*jy_cov(i+1,j,k)
-     .           + eeta(i  ,j,k)*jy_cov(i  ,j,k))
-      Ey_im = 0.5*(eeta(i-1,j,k)*jy_cov(i-1,j,k)
-     .           + eeta(i  ,j,k)*jy_cov(i  ,j,k))
+      Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)
+     .           + eeta(i ,j,k)*jy_cov(i ,j,k))
+      Ey_im = 0.5*(eeta(im,j,k)*jy_cov(im,j,k)
+     .           + eeta(i ,j,k)*jy_cov(i ,j,k))
 
-      Ex_jp = 0.5*(eeta(i,j+1,k)*jx_cov(i,j+1,k)
-     .           + eeta(i,j  ,k)*jx_cov(i,j  ,k))
-      Ex_jm = 0.5*(eeta(i,j-1,k)*jx_cov(i,j-1,k)
-     .           + eeta(i,j  ,k)*jx_cov(i,j  ,k))
-
-cc      Ey_ip = 2./(1./eeta(i+1,j,k)+1./eeta(i,j,k))*fj_ip(i  ,j,k,2)
-cc      Ey_im = 2./(1./eeta(i-1,j,k)+1./eeta(i,j,k))*fj_ip(i-1,j,k,2)
-cc
-cc      Ex_jp = 2./(1./eeta(i,j+1,k)+1./eeta(i,j,k))*fj_jp(i,j  ,k,1)
-cc      Ex_jm = 2./(1./eeta(i,j-1,k)+1./eeta(i,j,k))*fj_jp(i,j-1,k,1)
-cc
-cc      Ey_ip = 0d0
-cc      Ey_im = 0d0
-cc
-cc      Ex_jp = 0d0
-cc      Ex_jm = 0d0
+      Ex_jp = 0.5*(eeta(i,jp,k)*jx_cov(i,jp,k)
+     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
+      Ex_jm = 0.5*(eeta(i,jm,k)*jx_cov(i,jm,k)
+     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
 
       !Ideal contribution
       flxip = Ey_ip
-     .       +0.5*(vx(i+1,j,k)*bz(i+1,j,k) + vx(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i+1,j,k)*bx(i+1,j,k) + vz(i,j,k)*bx(i,j,k))
+     .       +0.5*(vx(ip,j,k)*bz(ip,j,k) + vx(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(ip,j,k)*bx(ip,j,k) + vz(i,j,k)*bx(i,j,k))
       flxim = Ey_im
-     .       +0.5*(vx(i-1,j,k)*bz(i-1,j,k) + vx(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i-1,j,k)*bx(i-1,j,k) + vz(i,j,k)*bx(i,j,k))
+     .       +0.5*(vx(im,j,k)*bz(im,j,k) + vx(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(im,j,k)*bx(im,j,k) + vz(i,j,k)*bx(i,j,k))
 
       flxjp =-Ex_jp
-     .       +0.5*(vy(i,j+1,k)*bz(i,j+1,k) + vy(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i,j+1,k)*by(i,j+1,k) + vz(i,j,k)*by(i,j,k))
+     .       +0.5*(vy(i,jp,k)*bz(i,jp,k) + vy(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(i,jp,k)*by(i,jp,k) + vz(i,j,k)*by(i,j,k))
       flxjm =-Ex_jm
-     .       +0.5*(vy(i,j-1,k)*bz(i,j-1,k) + vy(i,j,k)*bz(i,j,k))
-     .       -0.5*(vz(i,j-1,k)*by(i,j-1,k) + vz(i,j,k)*by(i,j,k))
+     .       +0.5*(vy(i,jm,k)*bz(i,jm,k) + vy(i,j,k)*bz(i,j,k))
+     .       -0.5*(vz(i,jm,k)*by(i,jm,k) + vz(i,j,k)*by(i,j,k))
 
-cc      flxip = Ey_ip
-cc     .       +0.5*(vx(i+1,j,k)*bz(i,j,k) + vx(i,j,k)*bz(i+1,j,k))
-cc     .       -0.5*(vz(i+1,j,k)*bx(i,j,k) + vz(i,j,k)*bx(i+1,j,k))
-cc      flxim = Ey_im
-cc     .       +0.5*(vx(i-1,j,k)*bz(i,j,k) + vx(i,j,k)*bz(i-1,j,k))
-cc     .       -0.5*(vz(i-1,j,k)*bx(i,j,k) + vz(i,j,k)*bx(i-1,j,k))
-cc
-cc      flxjp =-Ex_jp
-cc     .       +0.5*(vy(i,j+1,k)*bz(i,j,k) + vy(i,j,k)*bz(i,j+1,k))
-cc     .       -0.5*(vz(i,j+1,k)*by(i,j,k) + vz(i,j,k)*by(i,j+1,k))
-cc      flxjm =-Ex_jm
-cc     .       +0.5*(vy(i,j-1,k)*bz(i,j,k) + vy(i,j,k)*bz(i,j-1,k))
-cc     .       -0.5*(vz(i,j-1,k)*by(i,j,k) + vz(i,j,k)*by(i,j-1,k))
-
-cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-cc     .                      ,flxkp,flxkm,varray%array_var(IBZ)%bconds)
+      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+     .                      ,flxkp,flxkm,varray%array_var(IBZ)%bconds)
 
       ff(IBZ) = jac*( dS1*(flxip-flxim)
      .               +dS2*(flxjp-flxjm)
      .               +dS3*(flxkp-flxkm) )
-cc     .         -jac*gradivB(i,j,k,3)
-cc     .         +jac*curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,3)
-cc     .         +jac*curlcurl(i,j,k,bx_cov,by_cov,bz_cov,3)
-     .         -kdiv*laplacian(i,j,k,bz)
-cc     .        -eta*laplacian(i,j,k,bz)
 
 c     Temperature
 
-      flxip = (vx(i+1,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(i+1,j,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vx(i+1,j,k)+vx(i,j,k))/2.
-      flxim = (vx(i-1,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(i-1,j,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vx(i-1,j,k)+vx(i,j,k))/2.
+      flxip = (vx(ip,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(ip,j,k))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vx(ip,j,k)+vx(i,j,k))/2.
+      flxim = (vx(im,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(im,j,k))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vx(im,j,k)+vx(i,j,k))/2.
 
-      flxjp = (vy(i,j+1,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,j+1,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,j+1,k)+vy(i,j,k))/2.
-      flxjm = (vy(i,j-1,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,j-1,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,j-1,k)+vy(i,j,k))/2.
+      flxjp = (vy(i,jp,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,jp,k))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,jp,k)+vy(i,j,k))/2.
+      flxjm = (vy(i,jm,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,jm,k))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,jm,k)+vy(i,j,k))/2.
 
-      flxkp = (vz(i,j,k+1)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,k+1))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,k+1)+vz(i,j,k))/2.
-      flxkm = (vz(i,j,k-1)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,k-1))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,k-1)+vz(i,j,k))/2.
+      flxkp = (vz(i,j,kp)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,kp))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,kp)+vz(i,j,k))/2.
+      flxkm = (vz(i,j,km)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,km))/2.
+     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,km)+vz(i,j,k))/2.
 
       !Heat flux
       heat_flx = -chi*laplacian(i,j,k,tmp)
@@ -473,16 +289,16 @@ c     Vx
       call vtensor_z(i,j,k  ,t31p,t32p,t33p)
       call vtensor_z(i,j,k-1,t31m,t32m,t33m)
 
-      cov   = covariantVector(1,xx(ig),yy(ig),zz(ig))
+      cov   = covariantVector(1,xxx,yyy,zzz)
 
-      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov,1)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov,0)
 
-      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov,1)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov,0)
 
-      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov,1)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov,0)
 
       call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
      .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
@@ -493,16 +309,16 @@ c     Vx
 
 c     Vy
 
-      cov   = covariantVector(2,xx(ig),yy(ig),zz(ig))
+      cov   = covariantVector(2,xxx,yyy,zzz)
 
-      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov,1)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov,0)
 
-      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov,1)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov,0)
 
-      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov,1)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov,0)
 
       call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
      .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
@@ -513,16 +329,16 @@ c     Vy
 
 c     Vz
 
-      cov   = covariantVector(3,xx(ig),yy(ig),zz(ig))
+      cov   = covariantVector(3,xxx,yyy,zzz)
 
-      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov,1)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov,0)
 
-      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov,1)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov,0)
 
-      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov,1)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov,0)
 
       call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
      .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
