@@ -1441,13 +1441,13 @@ c Find BC update
 
       select case(bctype)
       case(PER)
-        call periodicBC(ibc)
+        call periodicBC(array,ibc)
       case(EQU)
-        call equilBC(ibc)
+        call dirichletBC(array,array0,ieq,ibc,0)
       case(DIR)
-        call dirichletBC(ieq,ibc,1)
+        call dirichletBC(array,array0,ieq,ibc,1)
       case(NEU)
-        call neumannBC(ieq,ibc)
+        call neumannBC(array,ieq,ibc)
       case default
         write (*,*) 'BC',bctype,' not implemented'
         stop
@@ -1481,7 +1481,7 @@ c End
 
 c     periodicBC
 c     #################################################################
-      subroutine periodicBC(ibc)
+      subroutine periodicBC(array,ibc)
 c     -----------------------------------------------------------------
 c     Imposes singular point BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -1494,6 +1494,7 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer(4) :: ibc
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -1518,35 +1519,9 @@ c     End program
 
       end subroutine periodicBC
 
-c     equilBC
-c     #################################################################
-      subroutine equilBC(ibc)
-c     -----------------------------------------------------------------
-c     Imposes singular point BC. On input:
-c        * ieq -> equation number (i.e., vector component)
-c        * dim -> dimension we are imposing BC on (X,Y,Z)
-c        * loc -> boundary location (0 -> left, 1->right)
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ibc
-
-c     Local variables
-
-c     Begin program
-
-      call interpolate(array0,ibc,0)
-
-c     End program
-
-      end subroutine equilBC
-
 c     neumannBC
 c     #################################################################
-      subroutine neumannBC(ieq,ibc)
+      subroutine neumannBC(array,ieq,ibc)
 c     -----------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -1561,6 +1536,7 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer(4) :: ieq,ibc
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -2148,7 +2124,7 @@ c     End program
 
 c     dirichletBC
 c     #################################################################
-      subroutine dirichletBC(ieq,ibc,order)
+      subroutine dirichletBC(array,array0,ieq,ibc,order)
 c     -----------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -2164,6 +2140,8 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer(4) :: ieq,ibc,order
+      real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+     .             ,array0(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -2178,7 +2156,7 @@ c     Begin program
       select case (ieq)
       case (IRHO,ITMP,IVX,IVY,IVZ)
 
-        call interpolate(array0,ibc,order)
+        call interpolate(array,array0,ibc,order)
 
       case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
 
@@ -2188,7 +2166,7 @@ c     Begin program
 
         if (icomp /= dim) then
 
-          call interpolate(array0,ibc,order)
+          call interpolate(array,array0,ibc,order)
 
         else
 
@@ -2287,14 +2265,15 @@ c     End program
 
 c     interpolate
 c     #######################################################################
-      subroutine interpolate(array0,ibc,order)
+      subroutine interpolate(array,array0,ibc,order)
 
         implicit none
 
 c     Call variables
 
         integer(4) :: order,ibc
-        real(8)    :: array0(0:nx+1,0:ny+1,0:nz+1)
+        real(8)    :: array (0:nx+1,0:ny+1,0:nz+1)
+     .               ,array0(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
