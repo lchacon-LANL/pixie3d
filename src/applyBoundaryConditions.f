@@ -124,15 +124,16 @@ c####################################################################
 
 c     findLoopLimits
 c     ##############################################################
-      subroutine findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax
-     .                         ,kkmin,kkmax)
+      subroutine findLoopLimits(dim,loc,i1,i2,j1,j2,k1,k2)
 c     --------------------------------------------------------------
-c     Finds limits for BC loops 
+c     Finds limits for BC loops. On input, it takes (i1,i2),
+c     (j1,j2), (k1,k2) and outputs loop limits (imin,imax),
+c     (jmin,jmax), (kmin,kmax) (defined in BCS module)
 c     --------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+      integer(4),intent(IN) :: dim,loc,i1,i2,j1,j2,k1,k2
 
 c     Begin program
 
@@ -141,28 +142,28 @@ c     Begin program
         imin = 1 + loc*(nx-1)
         imax = imin
 
-        jmin = jjmin
-        jmax = jjmax
+        jmin = j1
+        jmax = j2
 
-        kmin = kkmin
-        kmax = kkmax
+        kmin = k1
+        kmax = k2
 
       case(2)
-        imin = iimin
-        imax = iimax
+        imin = i1
+        imax = i2
 
         jmin = 1 + loc*(ny-1)
         jmax = jmin
 
-        kmin = kkmin
-        kmax = kkmax
+        kmin = k1
+        kmax = k2
 
       case(3)
-        imin = iimin
-        imax = iimax
+        imin = i1
+        imax = i2
 
-        jmin = jjmin
-        jmax = jjmax
+        jmin = j1
+        jmax = j2
 
         kmin = 1 + loc*(nz-1)
         kmax = kmin
