@@ -52,7 +52,6 @@ cc     .          ,d_alf(1, ntotd2p))
 cc
 ccc Unpack vector x, taking BCs from t=n solution
 cc
-cccc      call mapVectorToStructure(varray,x)
 cc      varray = x
 cc
 ccc Extract arrays and BC's
@@ -133,6 +132,10 @@ cc      else
 cc        neq = 1
 cc        call find_mf_diag_neq(neq,neq*ntotdp,alf_mtvc,ngrd,bc_sc,d_alf)
 cc      endif
+cc
+ccc Deallocate variables
+cc
+cc      call deallocateDerivedType(varray)
 
 c End program
 
