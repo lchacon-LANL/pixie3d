@@ -1,6 +1,6 @@
 c defineGraphics
 c####################################################################
-      subroutine defineGraphics(igx,igy,igz)
+      subroutine defineGraphics
 
 c--------------------------------------------------------------------
 c     Set graphics files and dumping intervals
@@ -20,17 +20,11 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: igx,igy,igz
-
 c Local variables
 
-      integer(4) :: ieq,i,nx,ny,nz
+      integer(4) :: ieq,i
 
 c Begin program
-
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
 
 c Allocate auxiliary graphics variables
 
