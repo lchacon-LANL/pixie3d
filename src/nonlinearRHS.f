@@ -27,7 +27,7 @@ c Call variables
       real(8) :: ff(neqd)
 
       integer :: i,j,k
-      
+
       type (var_array),target :: varray
 
 c Local variables
@@ -597,6 +597,8 @@ c------------------------------------------------------------------
 
       use transport_params
 
+      use equilibrium
+
       implicit none
 
 c Call variables
@@ -613,19 +615,18 @@ c Begin program
 
       call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1,cartsn)
 
-c Coefficient aa is set so that res = 10*eta at wall
+c Resistivity profile eta*(1 + aa*x^nn)
+c     Coefficient aa is set so that res = 20*eta at wall
+c     and nn so that res=??*eta at sing. surf. xs ~ 0.33
 
-cc      nn = 4
-cc
-cccc      aa = 5*eta/(1.-ll)**nn
-cc      aa = 9.
-cccc      aa = 0d0
-cc
-cc      if (coords == 'hel') then
-cc        res = eta*(1. + aa*grid_params%xx(ig)**nn)
-cc      else
+      select case (equil)
+      case ('rfp1')
+        nn = 4
+        aa = 19.
+        res = eta*(1. + aa*grid_params%xx(ig)**nn)
+      case default
         res = eta
-cc      endif
+      end select
 
 c End program
 
