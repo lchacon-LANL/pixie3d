@@ -21,15 +21,14 @@
 
 # System-dependent variables
 
-PETSC_DIR=/usr/local/petsc-2.2.0
-PETSC_ARCH=linux_absoft_
-HDF5_HOME=/usr/local
+PETSC_DIR =/usr/local/petsc-2.2.0
+HDF5_HOME =/usr/local
 
 # Petsc include
 
-ifneq ($(strip $(BOPT)),)
-  PETSCTRUE = true
-  include ${PETSC_DIR}/bmake/common/base
+ifdef BOPT
+  PETSCTARGET = petsc
+  HDF5 = true
 endif
 
 #Define compiler flags
@@ -40,20 +39,20 @@ FC = f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
 #  DEBUG        = -g -et -Rb -Rp
-  DEBUG        = -g -ggdb
+  DEBUG        = -g
   PROFILE      = -P
   STATIC       = -s
-  MODPATH      = -p
-  ADDMODPATH   = -p
+  MODFLAG      = -p
+  ADDMODFLAG   = -p
   FFLAGS       = -w
-  LIBS         = -llapack_f90 -lblas_f90 -lU77 -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz
+  LIBS        += -llapack_f90 -lblas_f90 -lU77
   VERBOSE      = -v
-  GMODPATH  = -p$(HDF5_HOME)/lib -p$(MPI_HOME)/include
 
-  ifdef PETSCTRUE
-    CPPFLAGS += -Dabsoft_ -Dpetsc -DNVAR=8 -I$(HDF5_HOME)/include
-    LIBS      = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz 
-    FC        = $(MPI_HOME)/bin/mpif90
+  ifdef BOPT
+    PETSC_ARCH = linux_absoft_
+    CPPFLAGS  += -Dabsoft_ 
+    include ${PETSC_DIR}/bmake/common/base
+    FC         = $(MPI_HOME)/bin/mpif90
   endif
 endif
 
@@ -61,43 +60,46 @@ endif
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
 #  DEBUG        = -g --chkglobal
-  DEBUG        = -g --chk ase
+  DEBUG        = -g --chk aseu
+  DEBUG        = -g
   PROFILE      =
   STATIC       = 
-  MODPATH      = -M
-  ADDMODPATH   = -I
-  FFLAGS      +=
-  LIBS         = -llapackmt -lblasmt
-#  LIBS         = -llapack -lblas -lf2c
+  MODFLAG      = -M
+  ADDMODFLAG   = -I
+  FFLAGS      += -X9
+#  LIBS         = -llapackmt -lblasmt
+  LIBS         = -llapack -lblas -lf2c
   VERBOSE      = --verbose
 
-  ifdef PETSCTRUE
-    CPPFLAGS  += -DNVAR=8 -Dlahey 
-    FFLAGS    += -DNVAR=8 --ml cdecl
+  ifdef BOPT
+    CPPFLAGS  += -Dlahey 
+    FFLAGS    += --ml cdecl
     PETSC_ARCH = linux_lahey
-    FC        = $(MPI_HOME)/bin/mpif90
+    include ${PETSC_DIR}/bmake/common/base
+    FC         = $(MPI_HOME)/bin/mpif90
   endif
 endif
 
 # Flags for Intel ifort
 ifeq ($(FC),ifort)
   OPTIMIZATION = -O2 -mp -axW
-#  DEBUG = -g
-  DEBUG        = -g -check -traceback
+  DEBUG = -g
+#  DEBUG        = -g -check -traceback
   PROFILE      = -p
   STATIC       =
-  MODPATH      = -I
-  ADDMODPATH   = -I
-  FFLAGS      += -vec_report0
+  MODFLAG      = -I
+  ADDMODFLAG   = -I
+  FFLAGS      += -vec_report0 -w
   LIBS         = -llapack -lblas -lf2c
 #  LIBS         = -llapack_intel -lblas_intel
   VERBOSE      = -v
 
-  ifdef PETSCTRUE
+  ifdef BOPT
     CPPFLAGS  += -DNVAR=8
     FFLAGS    += -DNVAR=8
     PETSC_ARCH = linux_intel
-    FC        = $(MPI_HOME)/bin/mpif90
+    include ${PETSC_DIR}/bmake/common/base
+    FC         = $(MPI_HOME)/bin/mpif90
   endif
 endif
 
@@ -129,10 +131,27 @@ LDFLAGS =
 
 SUBDIRS = src plot
 
+MODPATH = $(MODFLAG).
+
+# HDF5 setup
+
+ifdef HDF5
+  LIBS     += -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz 
+  CPPFLAGS += -Dhdf5 -I$(HDF5_HOME)/include
+  MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
+endif
+
+# Petsc setup
+
+ifdef BOPT
+  CPPFLAGS += -Dpetsc -DNVAR=8
+  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
+endif
+
 #Export required variables
 
-export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH LIBS HDF5_HOME \
-       PETSC_DIR PETSC_ARCH PETSCTRUE
+export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
+       BOPT PETSC_DIR PETSC_ARCH
 
 #Define targets
 
@@ -143,10 +162,7 @@ pixie3d: src
 pixplot: plot
 
 $(SUBDIRS):
-	$(MAKE) -e -C $@ 
-
-petsc:
-	$(MAKE) -e -C src petsc
+	$(MAKE) -e -C $@ $(PETSCTARGET)
 
 distclean: 
 	-for subdir in $(SUBDIRS) ; do \
