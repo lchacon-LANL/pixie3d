@@ -81,5 +81,4 @@ c     Store solution in "x"
 
 c End program
 
-      return
-      end
+      end subroutine applyPreconditioner
