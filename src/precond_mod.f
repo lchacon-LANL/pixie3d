@@ -487,11 +487,9 @@ c ######################################################################
         real(8)    :: x1,y1,z1
         logical    :: cartsn,covariant,to_cartsn,to_cnv
 
-        real(8), allocatable, dimension(:,:,:,:,:) :: nabla_v0
+        integer(4) :: ntotd2p
 
-        real(8), allocatable, dimension(:,:,:,:)   :: p0
-
-        real(8), allocatable, dimension(:,:,:)  :: mgnablaV0
+        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
      .                                            ,b_diag,v_diag
@@ -506,7 +504,211 @@ c ######################################################################
 
         type (mg_array ),target :: gp0,gb0,gv0,grho0
 
+        logical :: form_diag=.true.
+
       contains
+
+c     allocPrecVariables
+c     ###################################################################
+      subroutine allocPrecVariables
+
+c     -------------------------------------------------------------------
+c     Allocates preconditioner variables.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+c     Local variables
+
+        integer(4) :: alloc_stat
+
+c     Begin program
+
+        ntotd2p = 2*ntotd/neqd
+
+        allocate (mgj0cnv    (ntotd2p,3))
+        allocate (mgadvdiffV0(ntotd2p,3))
+        allocate (mgdivV0    (ntotd2p))
+        allocate (bcs(6,neqd+3))
+
+        allocate (rho_diag(1,  ntotd2p)
+     .           ,tmp_diag(1,  ntotd2p)
+     .           ,  b_diag(3,3*ntotd2p)
+     .           ,  v_diag(3,3*ntotd2p),STAT=alloc_stat)
+
+        call allocateMGArray(1,gp0)
+        call allocateMGArray(1,grho0)
+        call allocateMGArray(3,gv0)
+        call allocateMGArray(3,gb0)
+
+c     End program
+
+      end subroutine allocPrecVariables
+
+c     deallocPrecVariables
+c     ###################################################################
+      subroutine deallocPrecVariables
+
+c     -------------------------------------------------------------------
+c     Deallocates preconditioner variables.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+c     Local variables
+
+c     Begin program
+
+        deallocate (mgj0cnv)
+        deallocate (mgdivV0)
+        deallocate (mgadvdiffV0)
+        deallocate (bcs)
+
+        call deallocateMGArray(gp0)
+        call deallocateMGArray(grho0)
+        call deallocateMGArray(gb0)
+        call deallocateMGArray(gv0)
+
+        call deallocateDerivedType(varray)
+
+c     End program
+
+      end subroutine deallocPrecVariables
+
+c     findCoeffs
+c     ###################################################################
+      subroutine findCoeffs
+
+c     -------------------------------------------------------------------
+c     Finds coefficients for linearized systems in preconditioner
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+c     Local variables
+
+        integer(4) :: order,nxx,nyy,nzz,igrid,ii
+        real(8)    :: dvol
+
+        real(8), allocatable, dimension(:,:,:,:) :: vector
+
+c     Begin program
+
+        nxx = grid_params%nxv(igx)
+        nyy = grid_params%nyv(igy)
+        nzz = grid_params%nzv(igz)
+
+        nx = nxx
+        ny = nyy
+        nz = nzz
+
+        igrid = igx
+
+        order=0
+
+c     Store density in all grids (w/o BCs)
+
+cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,rho,mgrho0,igrid,order
+cc     .                            ,.false.)
+
+        grho0%grid(igrid)%array(:,:,:,1) = rho
+
+        call restrictMGArray(IRHO,1,grho0,bcs(:,IRHO),igrid,order)
+
+c     Store magnetic field components in all grids (w/ BCs)
+
+        gb0%grid(igrid)%array(:,:,:,1) = bx
+        gb0%grid(igrid)%array(:,:,:,2) = by
+        gb0%grid(igrid)%array(:,:,:,3) = bz
+
+        call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
+
+c     Store ion velocity components in all grids (w/ BCs)
+
+        gv0%grid(igrid)%array(:,:,:,1) = vx
+        gv0%grid(igrid)%array(:,:,:,2) = vy
+        gv0%grid(igrid)%array(:,:,:,3) = vz
+
+        call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
+
+c     Store current components in all grids (w/o BCs)
+
+        call restrictArrayToMGVector(1,nxx,nyy,nzz,jx,mgj0cnv(:,1),igrid
+     .                  ,order,.false.)
+        call restrictArrayToMGVector(1,nxx,nyy,nzz,jy,mgj0cnv(:,2),igrid
+     .                  ,order,.false.)
+        call restrictArrayToMGVector(1,nxx,nyy,nzz,jz,mgj0cnv(:,3),igrid
+     .                  ,order,.false.)
+
+c     Find auxiliary quantities and store them in all grids
+
+        !Velocity divergence (w/o BCs)
+        allocate(divrgV(0:nxx+1,0:nyy+1,0:nzz+1))
+
+        do k=1,nzz
+          do j=1,nyy
+            do i=1,nxx
+              divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,vx,vy,vz)
+            enddo
+          enddo
+        enddo
+
+        call restrictArrayToMGVector(1,nxx,nyy,nzz,divrgV,mgdivV0,igrid
+     .                            ,order,.false.)
+
+        deallocate(divrgV)
+
+        !pressure (w/ BCs)
+        gp0%grid(igrid)%array(:,:,:,1) = 2.*rho*tmp
+
+        call restrictMGArray(IRHO,1,gp0,bcs(:,IRHO),igrid,order)
+
+        !v0/dt+theta(v0.grad(v0)-mu*veclap(v0))
+        allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+        do k = 1,nzz
+          do j = 1,nyy
+            do i = 1,nxx
+              ii  = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+              jac    = gmetric%grid(igx)%jac(i,j,k)
+              nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,vx,vy,vz,0)
+              dvol   = volume(i,j,k,igx,igy,igz)
+
+              !Eqn 1
+              do icomp=1,3
+                vector(i,j,k,icomp) = 
+     .                            gv0%grid(igrid)%array(i,j,k,icomp)/dt
+     .                          + alpha*vx(i,j,k)*nabla_v(1,icomp)/jac
+     .                          + alpha*vy(i,j,k)*nabla_v(2,icomp)/jac
+     .                          + alpha*vz(i,j,k)*nabla_v(3,icomp)/jac
+     .                          - alpha*veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                              ,vx,vy,vz,nuu
+     .                                              ,alt_eom,icomp)/dvol
+              enddo
+
+            enddo
+          enddo
+        enddo
+
+        do icomp=1,3
+          call restrictArrayToMGVector(1,nxx,nyy,nzz
+     .                              ,vector(:,:,:,icomp)
+     .                              ,mgadvdiffV0(:,icomp)
+     .                              ,igrid,order,.false.)
+        enddo
+
+        deallocate(vector)
+
+c     End program
+
+      end subroutine findCoeffs
 
 c     find_curl_vxb
 c     ###################################################################
@@ -532,28 +734,19 @@ c     Local variables
         integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
         integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
-        real(8)    :: dhx,dhy,dhz
+        real(8)    :: idhx,idhy,idhz
         real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-
-        real(8)    :: xim,yim,zim,xip,yip,zip
-     .               ,xjm,yjm,zjm,xjp,yjp,zjp
-     .               ,xkm,ykm,zkm,xkp,ykp,zkp
-     .               ,x0,y0,z0
 
         real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
      .               ,jacp,jacm,jach,jac0
 
-        real(8)    :: vxx,vyy,vzz
-     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
+        real(8)    :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
      .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
 
-        real(8)    :: bxx,byy,bzz
-     .               ,bxip,bxim,bxjp,bxjm,bxkp,bxkm
+        real(8)    :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
      .               ,byip,byim,byjp,byjm,bykp,bykm
      .               ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
-
-        real(8),allocatable,dimension(:,:,:,:) :: b0_cnv
 
         logical    :: sing_point
 
@@ -573,37 +766,20 @@ c     Defaults
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-        jac = gmetric%grid(igx)%jac(i,j,k)
-
-        dhx = 2.*dxh(ig)
-        dhy = 2.*dyh(jg)
-        dhz = 2.*dzh(kg)
+        idhx = 0.5/dxh(ig)
+        idhy = 0.5/dyh(jg)
+        idhz = 0.5/dzh(kg)
 
 c     Exceptions
 
-cc        if (hex == 1) then
-cc          im = i
-cc          dhx = dx(ig)
-cc        endif
-cc
-cc        if (hey == 1) then
-cc          jm = j
-cc          dhy = dy(jg)
-cc        endif
-cc
-cc        if (hez == 1) then
-cc          km = k
-cc          dhz = dz(kg)
-cc        endif
-
         select case(half_elem)
         case (1)
-          dhx = dx(ig)
+          idhx = 1./dx(ig)
           im = i
 
-          vxx = 0.5*(vv(i,j,k,1)+vv(ip,j,k,1))
-          vyy = 0.5*(vv(i,j,k,2)+vv(ip,j,k,2))
-          vzz = 0.5*(vv(i,j,k,3)+vv(ip,j,k,3))
+cc          vxx = 0.5*(vv(i,j,k,1)+vv(ip,j,k,1))
+cc          vyy = 0.5*(vv(i,j,k,2)+vv(ip,j,k,2))
+cc          vzz = 0.5*(vv(i,j,k,3)+vv(ip,j,k,3))
 
           vxip = vv(ip,j,k,1)
           vxim = vv(i ,j,k,1)
@@ -626,9 +802,9 @@ cc        endif
           vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))*0.5
           vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))*0.5
 
-          bxx = 0.5*(bb(i,j,k,1)+bb(ip,j,k,1))
-          byy = 0.5*(bb(i,j,k,2)+bb(ip,j,k,2))
-          bzz = 0.5*(bb(i,j,k,3)+bb(ip,j,k,3))
+cc          bxx = 0.5*(bb(i,j,k,1)+bb(ip,j,k,1))
+cc          byy = 0.5*(bb(i,j,k,2)+bb(ip,j,k,2))
+cc          bzz = 0.5*(bb(i,j,k,3)+bb(ip,j,k,3))
 
           bxip = bb(ip,j,k,1)
           bxim = bb(i ,j,k,1)
@@ -651,12 +827,12 @@ cc        endif
           bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))*0.5
           bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))*0.5
         case (2)
-          dhy = dy(jg)
+          idhy = 1./dy(jg)
           jm = j
 
-          vxx = 0.5*(vv(i,j,k,1)+vv(i,jp,k,1))
-          vyy = 0.5*(vv(i,j,k,2)+vv(i,jp,k,2))
-          vzz = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
+cc          vxx = 0.5*(vv(i,j,k,1)+vv(i,jp,k,1))
+cc          vyy = 0.5*(vv(i,j,k,2)+vv(i,jp,k,2))
+cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
 
           if (sing_point) then
             vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
@@ -691,9 +867,9 @@ cc        endif
           vzkp = (vv(i,j,kp,3)+vv(i,jp,kp,3))*0.5
           vzkm = (vv(i,j,km,3)+vv(i,jp,km,3))*0.5
 
-          bxx = 0.5*(bb(i,j,k,1)+bb(i,jp,k,1))
-          byy = 0.5*(bb(i,j,k,2)+bb(i,jp,k,2))
-          bzz = 0.5*(bb(i,j,k,3)+bb(i,jp,k,3))
+cc          bxx = 0.5*(bb(i,j,k,1)+bb(i,jp,k,1))
+cc          byy = 0.5*(bb(i,j,k,2)+bb(i,jp,k,2))
+cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,jp,k,3))
 
           if (sing_point) then
             bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
@@ -729,12 +905,12 @@ cc        endif
           bzkm = (bb(i,j,km,3)+bb(i,jp,km,3))*0.5
 
         case (3)
-          dhz = dz(kg)
+          idhz = 1./dz(kg)
           km = k
 
-          vxx = 0.5*(vv(i,j,k,1)+vv(i,j,kp,1))
-          vyy = 0.5*(vv(i,j,k,2)+vv(i,j,kp,2))
-          vzz = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
+cc          vxx = 0.5*(vv(i,j,k,1)+vv(i,j,kp,1))
+cc          vyy = 0.5*(vv(i,j,k,2)+vv(i,j,kp,2))
+cc          vzz = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
 
           if (sing_point) then
             vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
@@ -769,9 +945,9 @@ cc        endif
           vzkp = vv(i,j,kp,3)
           vzkm = vv(i,j,k ,3)
 
-          bxx = 0.5*(bb(i,j,k,1)+bb(i,j,kp,1))
-          byy = 0.5*(bb(i,j,k,2)+bb(i,j,kp,2))
-          bzz = 0.5*(bb(i,j,k,3)+bb(i,j,kp,3))
+cc          bxx = 0.5*(bb(i,j,k,1)+bb(i,j,kp,1))
+cc          byy = 0.5*(bb(i,j,k,2)+bb(i,j,kp,2))
+cc          bzz = 0.5*(bb(i,j,k,3)+bb(i,j,kp,3))
 
           if (sing_point) then
             bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
@@ -809,9 +985,9 @@ cc        endif
         case default
 
           !Velocity
-          vxx = vv(i,j,k,1)
-          vyy = vv(i,j,k,2)
-          vzz = vv(i,j,k,3)
+cc          vxx = vv(i,j,k,1)
+cc          vyy = vv(i,j,k,2)
+cc          vzz = vv(i,j,k,3)
 
           if (sing_point) then
             vxip = vv(ip,j,k,1)+vv(i,j,k,1)
@@ -844,9 +1020,9 @@ cc        endif
           vzkm = vv(i,j,km,3)
 
           !Magnetic field
-          bxx = bb(i,j,k,1)
-          byy = bb(i,j,k,2)
-          bzz = bb(i,j,k,3)
+cc          bxx = bb(i,j,k,1)
+cc          byy = bb(i,j,k,2)
+cc          bzz = bb(i,j,k,3)
 
           if (sing_point) then
             bxip = bb(ip,j,k,1)+bb(i,j,k,1)
@@ -882,54 +1058,49 @@ cc        endif
 
 c     Grid quantities
 
-cc        jacip  = jacobian(xip,yip,zip,cartsn)
-cc        jacim  = jacobian(xim,yim,zim,cartsn)
-cc        jacjp  = jacobian(xjp,yjp,zjp,cartsn)
-cc        jacjm  = jacobian(xjm,yjm,zjm,cartsn)
-cc        jackp  = jacobian(xkp,ykp,zkp,cartsn)
-cc        jackm  = jacobian(xkm,ykm,zkm,cartsn)
+        jac    = gmetric%grid(igx)%jac(i,j,k)
 
-        jacip  = gmetric%grid(igx)%jac(ip,j,k)
-        jacim  = gmetric%grid(igx)%jac(im,j,k)
-        jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-        jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-        jackp  = gmetric%grid(igx)%jac(i,j,kp)
-        jackm  = gmetric%grid(igx)%jac(i,j,km)
+        jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,k)+jac)
+        jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,k)+jac)
+        jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,k)+jac)
+        jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,k)+jac)
+        jackp  = 0.5*(gmetric%grid(igx)%jac(i,j,kp)+jac)
+        jackm  = 0.5*(gmetric%grid(igx)%jac(i,j,km)+jac)
 
 c     Components
 
         !component 1
 
-        flxjp = ( vyjp*bxjp-vxjp*byjp )/(jac+jacjp)*2
-        flxjm = ( vyjm*bxjm-vxjm*byjm )/(jac+jacjm)*2
+        flxjp = ( vyjp*bxjp-vxjp*byjp )/jacjp
+        flxjm = ( vyjm*bxjm-vxjm*byjm )/jacjm
 
-        flxkp = ( vzkp*bxkp-vxkp*bzkp )/(jac+jackp)*2
-        flxkm = ( vzkm*bxkm-vxkm*bzkm )/(jac+jackm)*2
+        flxkp = ( vzkp*bxkp-vxkp*bzkp )/jackp
+        flxkm = ( vzkm*bxkm-vxkm*bzkm )/jackm
 
-        a1 =  (flxjp-flxjm)/dhy
-     .       +(flxkp-flxkm)/dhz
+        a1 =  (flxjp-flxjm)*idhy
+     .       +(flxkp-flxkm)*idhz
 
         !component 2
 
-        flxip = ( vxip*byip-vyip*bxip )/(jac+jacip)*2
-        flxim = ( vxim*byim-vyim*bxim )/(jac+jacim)*2
+        flxip = ( vxip*byip-vyip*bxip )/jacip
+        flxim = ( vxim*byim-vyim*bxim )/jacim
 
-        flxkp = ( vzkp*bykp-vykp*bzkp )/(jac+jackp)*2
-        flxkm = ( vzkm*bykm-vykm*bzkm )/(jac+jackm)*2
+        flxkp = ( vzkp*bykp-vykp*bzkp )/jackp
+        flxkm = ( vzkm*bykm-vykm*bzkm )/jackm
 
-        a2 =  (flxip-flxim)/dhx
-     .       +(flxkp-flxkm)/dhz
+        a2 =  (flxip-flxim)*idhx
+     .       +(flxkp-flxkm)*idhz
 
         !component 3
 
-        flxip = ( vxip*bzip-vzip*bxip )/(jac+jacip)*2
-        flxim = ( vxim*bzim-vzim*bxim )/(jac+jacim)*2
+        flxip = ( vxip*bzip-vzip*bxip )/jacip
+        flxim = ( vxim*bzim-vzim*bxim )/jacim
 
-        flxjp = ( vyjp*bzjp-vzjp*byjp )/(jac+jacjp)*2
-        flxjm = ( vyjm*bzjm-vzjm*byjm )/(jac+jacjm)*2
+        flxjp = ( vyjp*bzjp-vzjp*byjp )/jacjp
+        flxjm = ( vyjm*bzjm-vzjm*byjm )/jacjm
 
-        a3 =  (flxip-flxim)/dhx
-     .       +(flxjp-flxjm)/dhy
+        a3 =  (flxip-flxim)*idhx
+     .       +(flxjp-flxjm)*idhy
 
       end subroutine find_curl_vxb
 
