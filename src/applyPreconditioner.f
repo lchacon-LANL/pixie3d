@@ -51,8 +51,8 @@ c Interface
 
       INTERFACE
         subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                    ,icmp,matvec,dg,ncolors,line_relax)
-         integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,icmp,guess
+     $                    ,matvec,dg,ncolors,line_relax)
+         integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,guess
      $                ,ncolors
          real(8)    :: x(ntotp,neq),b(ntotp,neq)
          real(8), target :: dg(neq,2*neq*ntotp)
@@ -125,15 +125,15 @@ c     Predictor step
 
         !Temperature
         call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
+     .              ,igrid,iout,guess,tmp_mtvc,tmp_diag,2,.false.)
 
         !Density
         call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
+     .              ,igrid,iout,guess,rho_mtvc,rho_diag,2,.false.)
 
         !Magnetic field
         call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,b_diag,4
      .           ,.false.)
 
 c     SI step
@@ -144,8 +144,8 @@ c     SI step
 
         !Solve Schur-complement SI system
         call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4
-     .           ,.true.)
+     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,v_diag,4
+     .           ,.false.)
 
 c     Store velocity solution in array format
 
@@ -155,8 +155,7 @@ c     Store velocity solution in array format
      .                           ,dv_cnv(:,:,:,ieq),igrid,.false.)
         enddo
 
-        icomp = IVX
-        call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ))
+        call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ),icomp=IVX)
 
 c     Corrector step
 
@@ -189,15 +188,15 @@ cc        enddo
 cc
 cc        !Temperature
 cc        call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
+cc     .              ,igrid,iout,guess,tmp_mtvc,tmp_diag,2,.false.)
 cc
 cc        !Density
 cc        call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
+cc     .              ,igrid,iout,guess,rho_mtvc,rho_diag,2,.false.)
 cc
 cc        !Magnetic field
 cc        call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,b_diag,2
 cc     .           ,.false.)
 
 c     Postprocessing of magnetic field: divergence cleaning
@@ -234,16 +233,16 @@ c     Diagnostics
 
         !Solution plot
 c diag ****
-c$$$        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-c$$$        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-c$$$
-c$$$        stop
+cc        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+cc        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+cc
+cc        stop
 c diag ****
 
         !diag B-field divergence
@@ -253,8 +252,7 @@ cc          call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
 cc     .                           ,db_cnv(:,:,:,ieq),igrid,.false.)
 cc        enddo
 cc
-cc        icomp = IBX
-cc        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ))
+cc        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ),icomp=IBX)
 cc
 cc        do k=1,nz
 cc          do j=1,ny
@@ -365,7 +363,7 @@ c       SI step: Deltav --> xxx(:,IVX:IVZ)
 
           !Solve Schur-complement SI system ---> xxx(:,IVX:IVZ)
           call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4
+     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,v_diag,4
      .           ,.true.)
 
 c       Store velocity solution in array format --> dv_cnv
@@ -376,8 +374,8 @@ c       Store velocity solution in array format --> dv_cnv
      .                             ,dv_cnv(:,:,:,ieq),igrid,.false.)
           enddo
 
-          icomp = IVX
-          call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ))
+          call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ)
+     .                ,icomp=IVX)
 
 c       Correct rx to find Deltax (correction for rho, B, T)
 
@@ -513,8 +511,7 @@ cc          call mapMGVectorToArray(0,1,xxx(:,IVX+ieq-1),nx,ny,nz
 cc     .                           ,dv_cnv(:,:,:,ieq),1)
 cc        enddo
 cc
-cc        icomp = IVX
-cc        call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ))
+cc        call setMGBC(0,3,nx,ny,nz,igrid,dv_cnv,bcs(:,IVX:IVZ),icomp=IVX)
 cc
 ccc     Corrector step
 cc
@@ -547,15 +544,15 @@ cc        enddo
 cc
 cc        !Temperature
 cc        call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
+cc     .              ,igrid,iout,guess,tmp_mtvc,tmp_diag,2,.false.)
 cc
 cc        !Density
 cc        call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
+cc     .              ,igrid,iout,guess,rho_mtvc,rho_diag,2,.false.)
 cc
 cc        !Magnetic field
 cc        call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,b_diag,2
 cc     .           ,.false.)
 
 c diag B-field divergence
@@ -565,8 +562,7 @@ cc          call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
 cc     .                           ,db_cnv(:,:,:,ieq),1)
 cc        enddo
 cc
-cc        icomp = IBX
-cc        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ))
+cc        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ),icomp=IBX)
 cc
 cc        do k=1,nz
 cc          do j=1,ny
@@ -604,7 +600,7 @@ c End program
 c cSolver
 c #########################################################################
       subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                  ,icmp,matvec,dg,ncolors,line_relax)
+     $                  ,matvec,dg,ncolors,line_relax)
 c--------------------------------------------------------------------
 c     This subroutine solves a coupled system of neq equations. 
 c     In call sequence:
@@ -617,8 +613,6 @@ c       * igrid: MG grid level (igrid=1 is finest level)
 c       * out: level of output information
 c       * guess: whether a non-trivial initial guess is provided
 c               (iguess=1) or not (iguess=0)
-c       * icmp: defines magnitudes that are being solved. Relevant
-c               for boundary condition subroutine.
 c       * matvec (external): matrix-vector product definition.
 c       * dg: matrix neq*neq diagonal block (for stationary its).
 c       * ncolors: number of colors in grid (for GS).
@@ -632,7 +626,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,icmp,guess,ncolors
+      integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,guess,ncolors
       real(8)    :: x(ntotp,neq),b(ntotp,neq)
       real(8), target :: dg(neq,2*neq*ntotp)
 
@@ -649,8 +643,6 @@ c Local variables
       external   :: drand
 
 c Begin program
-
-      icomp = icmp  !Define icomp for appropriate BC treatment in setMGBC
 
 c Interlace variables for coupled solve
 
@@ -675,12 +667,6 @@ c     Initialize solver
 
 c     Upper_level solver options (MG)
 
-c$$$      call solverOptionsInit
-c$$$
-c$$$      solverOptions%tol      = mgtol
-c$$$
-c$$$      call assembleSolverHierarchy('gm')
-
       call solverOptionsInit
 
       solverOptions%tol      = mgtol
@@ -688,9 +674,10 @@ c$$$      call assembleSolverHierarchy('gm')
       solverOptions%igridmin = 2
       solverOptions%orderres = 0
       solverOptions%orderprol= 2
-      solverOptions%mg_mu    = 1
+      solverOptions%mg_mu    = 2
       solverOptions%vol_res  = .true.
       solverOptions%diag     => dg
+      solverOptions%ncolors  = ncolors
       solverOptions%mg_coarse_solver_depth = 3  !GMRES, as defined below
 
       !Vertex relaxation
@@ -799,7 +786,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ii,iig,isig
+      integer(4) :: ii,iig,isig,ivar
       real(8)    :: dvol,cov(3),cnv(3)
      .             ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
@@ -816,7 +803,7 @@ c Find rhs_v
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             iig = ii + isig - 1
-            dvol   = volume(i,j,k,igx,igy,igz)
+            dvol = volume(i,j,k,igrid,igrid,igrid)
             rhs_si(ii,:) = yyy(ii,:)
      .                   - dvol*xxx(ii,IRHO)*mgadvdiffV0(iig,:)
 
@@ -833,41 +820,33 @@ c Find dj* from dB*
       enddo
 
       !Find covariant components of db with BCs
-      iimin = 1
-      iimax = nx
-      jjmin = 1
-      jjmax = ny
-      kkmin = 1
-      kkmax = nz
-      call setBC(IBX,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ))
+      call setBC(IBX,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
+     .          ,igrid,igrid,igrid)
 
       !Find contravariant current (without BCs)
+      dj_cnv = 0d0
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            do icomp=1,3
-              dj_cnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,db_cov(:,:,:,1)
-     .                                                ,db_cov(:,:,:,2)
-     .                                                ,db_cov(:,:,:,3)
-     .                                 ,icomp)
+            do ivar=1,3
+              dj_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz,db_cov(:,:,:,1)
+     .                                               ,db_cov(:,:,:,2)
+     .                                               ,db_cov(:,:,:,3)
+     .                                ,ivar)
             enddo
           enddo
         enddo
       enddo
 
       !Find covariant components of dj with BCs
-      iimin = 1
-      iimax = nx
-      jjmin = 1
-      jjmax = ny
-      kkmin = 1
-      kkmax = nz
-      call setBC(IJX,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ))
+      call setBC(IJX,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
+     .          ,igrid,igrid,igrid)
 
 c Find dpres array with BCs
 
       allocate(dpres(0:nx+1,0:ny+1,0:nz+1))
 
+      dpres = 0d0
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
@@ -879,13 +858,8 @@ c Find dpres array with BCs
       enddo
 
       !Find BCs
-      iimin = 1
-      iimax = nx
-      jjmin = 1
-      jjmax = ny
-      kkmin = 1
-      kkmax = nz
-      call setBC(IRHO,dpres,zeros,bcs(:,IRHO))
+      call setBC(IRHO,nx,ny,nz,dpres,zeros,bcs(:,IRHO)
+     .          ,igrid,igrid,igrid)
 
 c Find rhs_v'
 
@@ -894,10 +868,10 @@ c Find rhs_v'
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jac    = gmetric%grid(igx)%jac(i,j,k)
-            dvol   = volume(i,j,k,igx,igy,igz)
+            jac    = gmetric%grid(igrid)%jac(i,j,k)
+            dvol   = volume(i,j,k,igrid,igrid,igrid)
 
             cov(1) = jy(i,j,k)*db_cnv(i,j,k,3)/jac
      .             - jz(i,j,k)*db_cnv(i,j,k,2)/jac
@@ -918,7 +892,7 @@ c Find rhs_v'
      .             -(dpres(i,j,k+1)-dpres(i,j,k-1))/dzh(kg)*0.5
 
             !Transform to cov to cnv
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                  ,cov(1),cov(2),cov(3)
      .                                  ,cnv(1),cnv(2),cnv(3),.true.)
 
@@ -1126,7 +1100,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ii
+      integer(4) :: ii,ivar
       real(8)    :: a1,a2,a3,etal
 
 c Externals
@@ -1141,10 +1115,8 @@ c Evaluate eta*dj
       do k = 0,nz+1
         do j = 0,ny+1
           do i = 0,nx+1
-            do icomp=1,3
-              etal = res(i,j,k,nx,ny,nz,igx,igy,igz)
+              etal = res(i,j,k,nx,ny,nz,igrid,igrid,igrid)
               dj_cov(i,j,k,:) = etal*dj_cov(i,j,k,:)
-            enddo
           enddo
         enddo
       enddo
@@ -1214,12 +1186,11 @@ c Call variables
 c Local variables
 
       integer(4) :: ii,iii,iig,isig
-      real(8)    :: dummy(neq)
       logical    :: fpointers
 
 c Begin program
 
-      call allocPointers(neq,grid_params,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = istart(igrid)
 
@@ -1228,7 +1199,6 @@ c Begin program
         iii = neq*(ii-1)
         iig = iii + isig - 1
 
-cc        dummy = y(ii,:)
         x(ii,:) = matmul(idiag(:,iig+1:iig+neq),y(ii,:))
 
       enddo
