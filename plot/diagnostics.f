@@ -1,0 +1,489 @@
+c module diag_setup
+c####################################################################
+      module diag_setup
+
+        use parameters
+
+        use variables
+
+        use timeStepping
+
+        use equilibrium
+
+        use graphics
+
+        use icond
+
+        use auxiliaryVariables
+
+        use constants
+
+        use transport_params
+
+        use operators
+
+        implicit none
+
+        integer(4) :: ulineplot
+        character*(20) :: lineplotfile
+
+        integer(4) :: ndiag
+
+        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0,jac
+        real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
+
+      end module diag_setup
+
+c initializeDiagnostics
+c####################################################################
+      subroutine initializeDiagnostics(varray,iigx,iigy,iigz)
+
+c--------------------------------------------------------------------
+c     Initializes diagnostics.
+c--------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+      integer(4)       :: iigx,iigy,iigz
+      type (var_array) :: varray
+
+c Local variables
+
+      logical :: initialize
+
+c Begin program
+
+c Define diagnostics
+
+      call defineDiagnostics
+
+c Initialize diagnostic references
+
+      initialize = .true.
+      call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
+
+c Create draw*.in file
+
+      ndiag = count (sel_diag /= 0)
+
+      call createDrawInGfile(ndiag,lineplotfile,'Time histories'
+     .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
+     .           ,'drawgamma.in',.false.)
+
+c End 
+
+      end subroutine initializeDiagnostics
+
+c finalizeDiagnostics
+c####################################################################
+      subroutine finalizeDiagnostics
+
+c--------------------------------------------------------------------
+c     Close diagnostic files
+c--------------------------------------------------------------------
+
+        use diag_setup
+
+        implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+c Finalize time traces output (separator)
+
+        write(ulineplot)
+
+c Close time traces file
+
+        close(unit=ulineplot)
+
+c End program
+
+      end subroutine finalizeDiagnostics
+
+c defineDiagnostics
+c####################################################################
+      subroutine defineDiagnostics
+
+c--------------------------------------------------------------------
+c     Defines and sets up diagnostics
+c--------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+c Open files
+
+      lineplotfile = 'drawtplots.bin'
+      ulineplot    = 10
+
+      open(unit=ulineplot,file=lineplotfile,form='unformatted'
+     .    ,status='replace')
+
+c Define diagnostics
+
+      diag_desc(IRHO)   = '||drho||'       
+      diag_desc(IVX)    = '||dpx||'        
+      diag_desc(IVY)    = '||dpy||'        
+      diag_desc(IVZ)    = '||dpz||'        
+      diag_desc(IBX)    = '||dbx||'        
+      diag_desc(IBY)    = '||dby||'        
+      diag_desc(IBZ)    = '||dbz||'        
+      diag_desc(ITMP)   = '||dtmp||'       
+      diag_desc(neqd+1) = 'Magnetic energy'
+      diag_desc(neqd+2) = 'Kinetic energy' 
+      diag_desc(neqd+3) = 'Thermal energy' 
+      diag_desc(neqd+4) = 'Total energy'   
+      diag_desc(neqd+5) = 'Time step'      
+      diag_desc(neqd+6) = 'Growth rate'    
+      diag_desc(neqd+7) = '|div(B)|'
+      diag_desc(neqd+8) = 'Conservation of flux'      
+      diag_desc(neqd+9) = 'Total particles'
+      diag_desc(neqd+10)= 'Total X momentum'
+      diag_desc(neqd+11)= 'Total Y momentum'
+      diag_desc(neqd+12)= 'Total Z momentum'
+      diag_desc(neqd+13)= 'Vflux at boundaries'
+      diag_desc(neqd+14)= 'Toroidal current Iz'
+      diag_desc(neqd+15)= 'Toroidal flux'
+
+      diag_desc(neqd+16:ngraph) = ''
+
+c Define corresponding independent variables
+
+      diag_ivar(:) = 0  !This means that the independent variable is time
+                        !for all variables
+
+c Specify log plots (log_plot = 1)
+
+      diag_log(1:neqd) = 1  !Log scale for perturbations of dependent variables
+
+      diag_log(neqd+1:ngraph) = 0
+
+c End program
+
+      end subroutine defineDiagnostics
+
+c evaluateDiagnostics
+c####################################################################
+      subroutine evaluateDiagnostics(varray,iigx,iigy,iigz,init)
+
+c--------------------------------------------------------------------
+c     Calculates diagnostics.
+c--------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+      integer(4)       :: iigx,iigy,iigz
+      logical          :: init
+
+      type (var_array) :: varray
+
+c Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,ieq
+      real(8)    :: array(0:nxdp,0:nydp,0:nzdp)
+
+      real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
+      logical    :: cartsn
+
+c Begin program
+
+      igx = iigx
+      igy = iigy
+      igz = iigz
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
+      if (init) then
+        Npar0 = 0d0
+        px0   = 0d0
+        py0   = 0d0
+        pz0   = 0d0
+        Em0   = 0d0
+        Ek0   = 0d0
+        Et0   = 0d0
+        Iz0   = 0d0
+        Tflux0= 0d0
+      endif
+
+c Particle diagnostics
+
+      Npar = integral(nx,ny,nz,rho,igx,igy,igz,.false.) - Npar0
+
+c Momentum diagnostics (in Cartesian coords.)
+
+      array = rho*vx_car
+      px = integral(nx,ny,nz,array,igx,igy,igz,.false.) - px0
+                                                        
+      array = rho*vy_car
+      py = integral(nx,ny,nz,array,igx,igy,igz,.false.) - py0
+                                                        
+      array = rho*vz_car
+      pz = integral(nx,ny,nz,array,igx,igy,igz,.false.) - pz0
+
+c Energy diagnostics
+
+      !Magnetic energy
+
+      array = rho*(bx_car**2 + by_car**2 + bz_car**2)
+      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Em0
+
+      !Ion kinetic energy
+
+      array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
+      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ek0
+
+      !Thermal energy
+
+      if (gamma /= 1d0) then
+        array = 2*rho*tmp/(gamma-1.)
+      else
+        array = 0d0
+      endif
+      Et = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Et0
+
+      !Total energy
+
+      energy = Ek + Em + Et
+
+c Current diagnostics
+
+      Iz = integral(nx,ny,1,jz_car,igx,igy,igz,.false.) - Iz0
+
+c Toroidal flux diagnostics
+
+      Tflux = integral(nx,ny,1,bz_car,igx,igy,igz,.false.) - Tflux0
+
+c Initial assignments
+
+      if (init) then
+        Npar0 = Npar
+        px0   = px  
+        py0   = py  
+        pz0   = pz  
+        Em0   = Em  
+        Ek0   = Ek  
+        Et0   = Et 
+        Iz0   = Iz
+        Tflux0= Tflux
+        return
+      endif
+
+c Magnetic divergence diagnostics
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                         ,cartsn)
+            jac = jacobian(x1,y1,z1,cartsn)
+            array(i,j,k) = div(i,j,k,bx,by,bz)/jac
+          enddo
+        enddo
+      enddo
+
+      !Take care of singular point
+      if (bcond(1) == SP) then
+cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
+cc        array(1,:,:) = array(0,:,:)
+        array(1,:,:) = 0d0
+      endif
+
+      !Total B divergence (conservation of flux)
+      Bflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
+
+      !Local divergence (statement of numerical accuracy)
+      array = abs(array)
+      diverB = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
+
+c Velocity divergence diagnostics
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                         ,cartsn)
+            jac = jacobian(x1,y1,z1,cartsn)
+            array(i,j,k) = div(i,j,k,vx,vy,vz)/jac
+          enddo
+        enddo
+      enddo
+
+      !Take care of singular point
+cc      if (bcond(1) == SP) then
+cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
+cc        array(1,:,:) = array(0,:,:)
+cc      endif
+
+      !Total flow divergence (conservation of flow)
+      Vflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
+
+c Growth rate diagnostics
+
+      do ieq=1,neqd
+
+        array = (varray%array_var(ieq)%array
+     .          -u_0   %array_var(ieq)%array )**2
+
+        dpert(ieq) = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
+
+cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
+        if (dpert(ieq).eq.0d0) then
+          dpert(ieq) = 0.1*maxval(abs(pert))
+        else
+          dpert(ieq) = sqrt(dpert(ieq))
+        endif
+
+      enddo
+
+c Diagnostic assignment
+
+      diagnostics(1:neqd) = dpert(:)
+      diagnostics(neqd+1) = Em
+      diagnostics(neqd+2) = Ek
+      diagnostics(neqd+3) = Et
+      diagnostics(neqd+4) = energy
+      diagnostics(neqd+5) = dt
+      diagnostics(neqd+6) = gammat
+      diagnostics(neqd+7) = diverB
+      diagnostics(neqd+8) = Bflux
+      diagnostics(neqd+9) = Npar
+      diagnostics(neqd+10)= px
+      diagnostics(neqd+11)= py
+      diagnostics(neqd+12)= pz
+      diagnostics(neqd+13)= Vflux
+      diagnostics(neqd+14)= Iz
+      diagnostics(neqd+15)= Tflux
+
+cc      do i=1,count(diag_desc /= "")
+cc        write (*,*) diag_desc(i),diagnostics(i)
+cc      enddo
+
+c Dump diagnostics
+
+      call dumpDiagnostics
+
+c End 
+
+      end subroutine evaluateDiagnostics
+
+c dumpDiagnostics
+c######################################################################
+      subroutine dumpDiagnostics
+
+c -------------------------------------------------------------------
+c     Dumps time plots
+c -------------------------------------------------------------------
+
+      use diag_setup
+
+      implicit none
+
+c Call variables
+
+c Local variables
+ 
+c Begin program
+
+      write(ulineplot) real(time),real(diagnostics)
+
+c End program
+
+      end subroutine dumpDiagnostics
+
+c transformVector
+c######################################################################
+      subroutine transformVector(igx,igy,igz
+     .                          ,imin,imax,jmin,jmax,kmin,kmax
+     .                          ,arr1,arr2,arr3,covariant,to_cartsn)
+
+c----------------------------------------------------------------------
+c     Transforms vectors components in arrays arr1,arr2,arr3
+c     from Cartesian to curvilinear (to_cartesian=.false.)
+c     and viceversa, either with covariant (covariant=.true.) or 
+c     contravariant curvilinear vectors.
+c----------------------------------------------------------------------
+
+      use grid
+
+      implicit none
+
+c     Input variables
+
+        integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+        integer(4) :: igx,igy,igz
+        logical    :: covariant,to_cartsn
+        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
+
+c     Local variables
+
+        integer(4) :: i,j,k
+        real(8)    :: vec(3)
+
+c     Begin program
+
+        if (to_cartsn) then
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCartesian
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        else
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCurvilinear
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        endif
+
+      end subroutine transformVector
