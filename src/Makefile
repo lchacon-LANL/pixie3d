@@ -113,7 +113,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) ${PETSC_FORTRAN_LIB} ${PETSC_SNES_LIB}
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
