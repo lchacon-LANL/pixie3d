@@ -5,8 +5,11 @@ c###################################################################
       use precond_variables
 
 c     Deallocate variables
-cc
-cc      deallocate (bxx,byy,vxx,vyy,vxe,vye)
+
+      deallocate (bcnv,vcnv)
+      deallocate (divrgV,divV)
+      deallocate (bcs)
+      deallocate (rho_diag,tmp_diag,b_diag,v_diag)
 cc      deallocate (pp)
 cc      deallocate (diag_mu)
 cc      deallocate (idiagp,bcs)

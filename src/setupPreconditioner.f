@@ -13,12 +13,16 @@ c--------------------------------------------------------------------
 
       use variables
 
+      use matvec
+
+      use operators
+
       implicit none
 
 c Call variables
 
-      integer ::  ntot
-      real*8      x(ntot)
+      integer(4) :: ntot
+      real(8)    :: x(ntot)
 
 c Local variables
 
@@ -26,7 +30,7 @@ cc      integer*4   i,j,ig,ieq,ii,iii,isig,ip,jp,jj,jjj,dd,neq
 
 cc      integer,allocatable,dimension(:,:) :: bbcond
 
-cc      type (var_array),target :: varray
+      type (var_array),target :: varray
 
 c Externals
 
@@ -37,35 +41,44 @@ c Begin program
 
 c Allocate variables
 
-cc      allocate (bxx(ntotd2p),byy(ntotd2p))
-cc      allocate (vxx(ntotd2p),vyy(ntotd2p))
-cc      allocate (vxe(ntotd2p),vye(ntotd2p))
+      allocate (bcnv(ntotd2p,3))
+      allocate (vcnv(ntotd2p,3))
+      allocate (divV(ntotd2p))
+      allocate (bcs(6,neqd))
+      allocate (rho_diag(1,ntotd2p)
+     .         ,tmp_diag(1,ntotd2p)
+     .         ,  b_diag(3,ntotd2p)
+     .         ,  v_diag(3,ntotd2p))
+
 cc      allocate (pp(ndiagdp,ntotd2p,neqd))
-cc      allocate (diag_mu(ntotd2p))
-cc      allocate (idiagp(ndiagdp,10),bcs(4,neqd))
 cc      allocate (ue(0:nxdp,0:nydp))
 cc      allocate ( d_sc(1,  ntotd2p)
 cc     .          ,d_bc(2,2*ntotd2p)
 cc     .          ,d_pc(2,2*ntotd2p)
 cc     .          ,d_bh(2,2*ntotd2p)
 cc     .          ,d_alf(1, ntotd2p))
-cc
-ccc Unpack vector x, taking BCs from t=n solution
-cc
-cc      varray = x
-cc
-ccc Extract arrays and BC's
-cc
-cc      uu => varray%array_var(PHI)%array
-cc      vv => varray%array_var(VOR)%array
-cc      tt => varray%array_var(PSI)%array
-cc      ww => varray%array_var(IVZ)%array
-cc      nn => varray%array_var(IBZ)%array
-cc
-cc      do ieq=1,neqd
-cc        bcs(:,ieq) = varray%array_var(PSI)%bconds
-cc      enddo
-cc
+
+c Unpack vector x, taking BCs from t=n solution
+
+      varray = x
+
+      call imposeBoundaryConditions(varray,igx,igy,igz)
+
+c Extract arrays and BC's
+
+      rho => varray%array_var(IRHO)%array
+      rvx => varray%array_var(IVX )%array
+      rvy => varray%array_var(IVY )%array
+      rvz => varray%array_var(IVZ )%array
+      bx  => varray%array_var(IBX )%array
+      by  => varray%array_var(IBY )%array
+      bz  => varray%array_var(IBZ )%array
+      tmp => varray%array_var(ITMP)%array
+
+      do ieq=1,neqd
+        bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
+      enddo
+
 ccc Build preconditioning matrix pp
 cc
 ccc     Stencil mapping
@@ -81,16 +94,35 @@ cc
 ccc     Compute the diagonal blocks of the jacobian in all grids
 cc
 cc      call buildDiagBlocks(varray)
-cc
-ccc Calculate magnetic field components (for SI operators) 
-ccc PROBLEM: Setting order=1 here destroys symmetry in whistler matvec.
-cc
-cc      call restrictVectorFieldFromSF(nxd,nyd,tt,bxx,byy,0,bcs(:,PSI))
-cc
-ccc Find ion velocity components in all grids
-cc
-cc      call restrictVectorFieldFromSF(nxd,nyd,uu,vxx,vyy,0,bcs(:,PHI))
-cc
+
+c Find auxiliary quantities
+
+      allocate(divrgV(0:nx+1,0:ny+1,0:nz+1))
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)
+          enddo
+        enddo
+      enddo
+
+c Store div(V) in all grids
+
+      call restrictArray(1,1,nx,ny,nz,divrgV,divV,1,0,.false.)
+
+c Store magnetic field components in all grids
+
+      call restrictArray(1,1,nx,ny,nz,bx,bcnv(:,1),1,0,.false.)
+      call restrictArray(1,1,nx,ny,nz,by,bcnv(:,2),1,0,.false.)
+      call restrictArray(1,1,nx,ny,nz,bz,bcnv(:,3),1,0,.false.)
+
+c Store ion velocity components in all grids
+
+      call restrictArray(1,1,nx,ny,nz,vx,vcnv(:,1),1,0,.false.)
+      call restrictArray(1,1,nx,ny,nz,vy,vcnv(:,2),1,0,.false.)
+      call restrictArray(1,1,nx,ny,nz,vz,vcnv(:,3),1,0,.false.)
+
 ccc Find electron velocity components in all grids
 cc
 cc      call restrictVectorFieldFromSF(nxd,nyd,ue,vxe,vye,0,bcs(:,PHI))
@@ -132,10 +164,10 @@ cc      else
 cc        neq = 1
 cc        call find_mf_diag_neq(neq,neq*ntotdp,alf_mtvc,ngrd,bc_sc,d_alf)
 cc      endif
-cc
-ccc Deallocate variables
-cc
-cc      call deallocateDerivedType(varray)
+
+c Deallocate variables
+
+      call deallocateDerivedType(varray)
 
 c End program
 
