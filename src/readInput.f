@@ -106,7 +106,7 @@ c Set defaults
       tolgm    = 5.0d-2        ! Inexact Newton parameter (GMRES conv. tolerance)
       rtol     = 1.0d-4        ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
-      maxitnwt  = 0            ! Maximum number of Newton its. (if zero, maxitnwt
+      maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
