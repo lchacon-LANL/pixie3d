@@ -212,3 +212,45 @@ c Translate boundary conditions
 c End program
 
       end subroutine readInput
+
+c readGraphicsInput
+c######################################################################
+      subroutine readGraphicsInput(sel_diag,sel_graph,ndplot,dplot)
+
+c----------------------------------------------------------------------
+c     Initializes MG and creates grid
+c----------------------------------------------------------------------
+
+cc      use graphics
+
+      implicit none
+
+c Call variables
+
+      integer(4)    :: sel_diag(9),sel_graph(9),ndplot
+      real(8)       :: dplot
+
+c Local variables
+
+      namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot
+
+c Begin program
+
+c Read computation initializations (external)
+
+      call readInput
+
+c Graphics defaults
+
+      ndplot = 0
+      dplot  = 0d0
+
+c Read graphics initialization parameters
+
+      open(unit=25,file='3dmhd.in',status='old')
+      read(25,graphdef)
+      close(unit=25)
+
+c End program
+
+      end subroutine readGraphicsInput
