@@ -34,8 +34,8 @@ c Local variables
 
 c Externals
 
-      real*8       vis,res
-      external     vis,res
+      real(8)    :: vis,res
+      external      vis,res
 
 c Begin program
 
@@ -67,6 +67,10 @@ c Safeguards
       if (minval(rho) < 0d0) then
         write (*,*) 'Warning: negative densities are occurring'
 cc        write (*,*) rho(:,:,:)
+#if defined(petsc)
+        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+        call MPI_Finalize(mpierr)
+#endif
         stop
       endif
 
