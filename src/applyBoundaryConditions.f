@@ -258,7 +258,6 @@ c     Call variables
 c     Local variables
 
       integer(4) :: i,j,k
-      logical    :: cartesian
 
       integer(4) :: ic,ig,jg,kg,order1
       real(8)    :: x0,avg_q,avg_vol,vol
@@ -409,7 +408,6 @@ c     Local variables
       real(8)    :: x1,x2,x3,dh(3),diver
 
       real(8)    :: gsuper(3,3),jac0
-      logical    :: cartesian
 
 c     Begin program
 
@@ -424,8 +422,7 @@ c     Begin program
 
         call interpolate(array(:,:,:,ivar),array0(:,:,:,ivar),ibc,order)
 
-cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
-      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B-field
+      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B and J
 
         if (ivar /= dim) then
 
@@ -438,10 +435,8 @@ cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
             do j=jmin,jmax
               do k=kmin,kmax
 
-cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                             ,x1,x2,x3,cartesian)
-                jac0 = jacobian(x1,x2,x3,cartesian)
+                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+                jac0 = gmetric%grid(igx)%jac(i,j,k)
 
                 dh(1) = 2.*dxh(ig)
                 dh(2) = 2.*dyh(jg)
@@ -484,116 +479,6 @@ cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
             enddo
           enddo
         endif
-
-cc      case (IJX,IJY,IJZ) !Finds current components at boundaries
-cc
-cc        if (ivar /= dim) then
-cc
-cc          do i=imin,imax
-cc            do j=jmin,jmax
-cc              do k=kmin,kmax
-cc
-cc                select case (ibc)
-cc                case (1)
-cc                  call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(j,k) = array(1,j,k,ivar)
-cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i-1,j,k,dim)
-cc                case (2)
-cc                  call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(j,k) = -array(nx,j,k,ivar)
-cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i+1,j,k,dim)
-cc                case (3)
-cc                  call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(i,k) = array(i,1,k,ivar)
-cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j-1,k,dim)
-cc                case (4)
-cc                  call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(i,k) =-array(i,ny,k,ivar)
-cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j+1,k,dim)
-cc                case (5)
-cc                  call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(i,j) = array(i,j,1,ivar)
-cc     .              -gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k-1,dim)
-cc                case (6)
-cc                  call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-cc     .                                 ,x1,x2,x3,cartesian)
-cc                  gsuper = g_super(x1,x2,x3,cartesian)
-cc
-cc                  rhs(i,j) =-array(i,j,nz,ivar)
-cc     .              +gsuper(dim,ivar)/gsuper(dim,dim)*array(i,j,k+1,dim)
-cc                end select
-cc
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        else
-cc
-cc          do i=imin,imax
-cc            do j=jmin,jmax
-cc              do k=kmin,kmax
-cc
-cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                             ,x1,x2,x3,cartesian)
-cc                jac0 = jacobian(x1,x2,x3,cartesian)
-cc                dh(1) = 2.*dxh(ig)
-cc                dh(2) = 2.*dyh(jg)
-cc                dh(3) = 2.*dzh(kg)
-cc
-cc                select case (ibc)
-cc                case (1)
-cc                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
-cc                case (2)
-cc                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
-cc                case (3)
-cc                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
-cc                case (4)
-cc                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
-cc                case (5)
-cc                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
-cc                case (6)
-cc                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
-cc                  diver = jac0*div(i,j,k,nx,ny,nz,array(:,:,:,1)
-cc     .                             ,array(:,:,:,2),array(:,:,:,3))
-cc                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
-cc                end select
-cc
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        endif
 
       case default
 
@@ -766,9 +651,7 @@ c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),jac0
-      real(8)    :: gsuper(3,3),hessian1(3,3)
-     .             ,hessian2(3,3),hessian3(3,3)
-      logical    :: cartesian
+      real(8)    :: gsuper(3,3),hessian(3,3,3)
 
 c     Begin program
 
@@ -785,10 +668,9 @@ c     Begin program
           do j=jmin,jmax
             do k=kmin,kmax
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              gsuper = g_super(x1,x2,x3,cartesian)
+              gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
 
               ip = min(i+1,nx)
               im = max(i-1,1)
@@ -836,16 +718,13 @@ c     Begin program
           do j=jmin,jmax
             do k=kmin,kmax
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              gsuper = g_super (x1,x2,x3,cartesian)
-              jac0   = jacobian(x1,x2,x3,cartesian)
+              gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
+              jac0   = gmetric%grid(igx)%jac (i,j,k)
 
-              hessian1 = hessian(1,x1,x2,x3,cartesian)
-              hessian2 = hessian(2,x1,x2,x3,cartesian)
-              hessian3 = hessian(3,x1,x2,x3,cartesian)
-        
+              hessian = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+
               ip = min(i+1,nx)
               im = max(i-1,1)
               jp = min(j+1,ny)
@@ -867,12 +746,12 @@ c     Begin program
 
               if (dim == 1) then
                 if (gamma > 1d0) then
-                  rhs(j,k) =  hessian1(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                            +hessian1(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                            +hessian1(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian1(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                         +2.*hessian1(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian1(2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(j,k) =  hessian(1,1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian(1,2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian(1,3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(1,1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian(1,1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(1,2,3)*vy(i,j,k)*vz(i,j,k)
                 endif
                 rhs(j,k) = -dh(dim)
      .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
@@ -880,12 +759,12 @@ c     Begin program
      .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
               elseif (dim == 2) then
                 if (gamma > 1d0) then
-                  rhs(i,k) =  hessian2(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                            +hessian2(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                            +hessian2(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian2(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                         +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(i,k) =  hessian(2,1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian(2,2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian(2,3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(2,1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian(2,1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(2,2,3)*vy(i,j,k)*vz(i,j,k)
                 endif
                 rhs(i,k) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
@@ -893,12 +772,12 @@ c     Begin program
      .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
               elseif (dim == 3) then
                 if (gamma > 1d0) then
-                  rhs(i,j) =  hessian3(1,1)*vx(i,j,k)*vx(i,j,k)
-     .                            +hessian3(2,2)*vy(i,j,k)*vy(i,j,k)
-     .                            +hessian3(3,3)*vz(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian3(1,2)*vx(i,j,k)*vy(i,j,k)
-     .                         +2.*hessian3(1,3)*vx(i,j,k)*vz(i,j,k)
-     .                         +2.*hessian3(2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(i,j) =  hessian(3,1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian(3,2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian(3,3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(3,1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian(3,1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian(3,2,3)*vy(i,j,k)*vz(i,j,k)
                 endif
                 rhs(i,j) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
@@ -988,9 +867,7 @@ c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz
-      real(8)    :: gsuper(3,3),hessian1(3,3)
-     .             ,hessian2(3,3),hessian3(3,3)
-      logical    :: cartesian
+      real(8)    :: gsuper(3,3),hessian(3,3,3)
 
 c     Begin program
 
@@ -1005,15 +882,12 @@ c     Begin program
           do j=jmin,jmax
             do k=kmin,kmax
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              gsuper   = g_super(x1,x2,x3,cartesian)
+              gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
 
-              hessian1 = hessian(1,x1,x2,x3,cartesian)
-              hessian2 = hessian(2,x1,x2,x3,cartesian)
-              hessian3 = hessian(3,x1,x2,x3,cartesian)
-
+              hessian = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+  
               ip = min(i+1,nx)
               im = max(i-1,1)
               jp = min(j+1,ny)
@@ -1040,17 +914,17 @@ c     Begin program
 
                   rhs(j,k) =
      .                     gsuper(dim,1)
-     .                      *(hessian1(ivar,1)*array(i,j,k,1)
-     .                       +hessian2(ivar,1)*array(i,j,k,2)
-     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,1)*array(i,j,k,1)
+     .                       +hessian(2,ivar,1)*array(i,j,k,2)
+     .                       +hessian(3,ivar,1)*array(i,j,k,3))
      .                    +gsuper(dim,2)
-     .                      *(hessian1(ivar,2)*array(i,j,k,1)
-     .                       +hessian2(ivar,2)*array(i,j,k,2)
-     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,2)*array(i,j,k,1)
+     .                       +hessian(2,ivar,2)*array(i,j,k,2)
+     .                       +hessian(3,ivar,2)*array(i,j,k,3))
      .                    +gsuper(dim,3)
-     .                      *(hessian1(ivar,3)*array(i,j,k,1)
-     .                       +hessian2(ivar,3)*array(i,j,k,2)
-     .                       +hessian3(ivar,3)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,3)*array(i,j,k,1)
+     .                       +hessian(2,ivar,3)*array(i,j,k,2)
+     .                       +hessian(3,ivar,3)*array(i,j,k,3))
 
                   rhs(j,k) = -dh(dim)
      .                *(gsuper(dim,2)
@@ -1067,17 +941,17 @@ c     Begin program
 
                   rhs(i,k) =
      .                     gsuper(dim,1)
-     .                      *(hessian1(ivar,1)*array(i,j,k,1)
-     .                       +hessian2(ivar,1)*array(i,j,k,2)
-     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,1)*array(i,j,k,1)
+     .                       +hessian(2,ivar,1)*array(i,j,k,2)
+     .                       +hessian(3,ivar,1)*array(i,j,k,3))
      .                    +gsuper(dim,2)
-     .                      *(hessian1(ivar,2)*array(i,j,k,1)
-     .                       +hessian2(ivar,2)*array(i,j,k,2)
-     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,2)*array(i,j,k,1)
+     .                       +hessian(2,ivar,2)*array(i,j,k,2)
+     .                       +hessian(3,ivar,2)*array(i,j,k,3))
      .                    +gsuper(dim,3)
-     .                      *(hessian1(ivar,3)*array(i,j,k,1)
-     .                       +hessian2(ivar,3)*array(i,j,k,2)
-     .                       +hessian3(ivar,3)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,3)*array(i,j,k,1)
+     .                       +hessian(2,ivar,3)*array(i,j,k,2)
+     .                       +hessian(3,ivar,3)*array(i,j,k,3))
 
                   rhs(i,k) = -dh(dim)
      .                 *(gsuper(dim,1)
@@ -1093,17 +967,17 @@ c     Begin program
 
                   rhs(i,j) =
      .                     gsuper(dim,1)
-     .                      *(hessian1(ivar,1)*array(i,j,k,1)
-     .                       +hessian2(ivar,1)*array(i,j,k,2)
-     .                       +hessian3(ivar,1)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,1)*array(i,j,k,1)
+     .                       +hessian(2,ivar,1)*array(i,j,k,2)
+     .                       +hessian(3,ivar,1)*array(i,j,k,3))
      .                    +gsuper(dim,2)
-     .                      *(hessian1(ivar,2)*array(i,j,k,1)
-     .                       +hessian2(ivar,2)*array(i,j,k,2)
-     .                       +hessian3(ivar,2)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,2)*array(i,j,k,1)
+     .                       +hessian(2,ivar,2)*array(i,j,k,2)
+     .                       +hessian(3,ivar,2)*array(i,j,k,3))
      .                    +gsuper(dim,3)
-     .                      *(hessian1(ivar,3)*array(i,j,k,1)
-     .                       +hessian2(ivar,3)*array(i,j,k,2)
-     .                       +hessian3(ivar,3)*array(i,j,k,3))
+     .                      *(hessian(1,ivar,3)*array(i,j,k,1)
+     .                       +hessian(2,ivar,3)*array(i,j,k,2)
+     .                       +hessian(3,ivar,3)*array(i,j,k,3))
 
                   rhs(i,j) = -dh(dim)
      .               *(gsuper(dim,1)
@@ -1126,10 +1000,9 @@ c     Begin program
           do j=jmin,jmax
             do k=kmin,kmax
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                           ,cartesian)
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              gsuper = g_super(x1,x2,x3,cartesian)
+              gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
 
               ip = min(i+1,nx)
               im = max(i-1,1)
@@ -1467,7 +1340,6 @@ c     Local variables
 
       integer(4) :: i,j,k,dim,loc,ig,jg,kg,ivar
       real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
-      logical    :: cartesian
 
 c     Begin program
 
@@ -1476,6 +1348,7 @@ c     Begin program
           ibc = (1+loc)+2*(dim-1)
 
           do ivar = 1,3
+
             if (ivar == dim) then  !Select tangential components
               cycle
             elseif (bcond(ibc,ivar) < 0) then
@@ -1492,10 +1365,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i-1,j,k,:,:)
 
                       v_cov(i-1,j,k,1) = -(gsuper(1,2)*v_cov(i-1,j,k,2)
      .                                    +gsuper(1,3)*v_cov(i-1,j,k,3)
@@ -1516,10 +1386,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i+1,j,k,:,:)
 
                       v_cov(i+1,j,k,1) = -(gsuper(1,2)*v_cov(i+1,j,k,2)
      .                                    +gsuper(1,3)*v_cov(i+1,j,k,3)
@@ -1540,10 +1407,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i,j-1,k,:,:)
 
                       v_cov(i,j-1,k,2) = -(gsuper(2,1)*v_cov(i,j-1,k,1)
      .                                    +gsuper(2,3)*v_cov(i,j-1,k,3)
@@ -1564,10 +1428,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i,j+1,k,:,:)
 
                       v_cov(i,j+1,k,2) = -(gsuper(2,1)*v_cov(i,j+1,k,1)
      .                                    +gsuper(2,3)*v_cov(i,j+1,k,3)
@@ -1588,10 +1449,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i,j,k-1,:,:)
 
                       v_cov(i,j,k-1,3) = -(gsuper(3,1)*v_cov(i,j,k-1,1)
      .                                    +gsuper(3,2)*v_cov(i,j,k-1,2)
@@ -1611,10 +1469,7 @@ cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
                   do j=jmin,jmax
                     do k=kmin,kmax
 
-                      call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,x2,x3,cartesian)
-
-                      gsuper = g_super(x1,x2,x3,cartesian)
+                      gsuper = gmetric%grid(igx)%gsup(i,j,k+1,:,:)
 
                       v_cov(i,j,k+1,3) = -(gsuper(3,1)*v_cov(i,j,k+1,1)
      .                                    +gsuper(3,2)*v_cov(i,j,k+1,2)
@@ -1825,6 +1680,8 @@ c     Sets adequate boundary conditions on array.
 c
 c     On input:
 c       * ieq    -> equation identifier
+c       * ivar   -> vector component
+c       * nvar   -> vector dimension
 c       * dim    -> dimension (1 -> X, 2 -> Y, 3 -> Z)
 c       * loc    -> location in dimension (0 -> right, 1 -> left)
 c       * bctype -> type of BC (dirichlet, neumann, periodic, etc.)
