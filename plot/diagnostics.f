@@ -294,9 +294,7 @@ c Magnetic divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
+            jac = gmetric%grid(igx)%jac(i,j,k)
             array(i,j,k) = div(i,j,k,nx,ny,nz,bx,by,bz)/jac
           enddo
         enddo
@@ -321,9 +319,7 @@ c Velocity divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
+            jac = gmetric%grid(igx)%jac(i,j,k)
             array(i,j,k) = div(i,j,k,nx,ny,nz,vx,vy,vz)/jac
           enddo
         enddo
