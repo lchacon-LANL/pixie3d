@@ -1390,7 +1390,7 @@ c     Call variables
 c     Local variables
 
         integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
-        real(8)    :: dhx,dhy,dhz
+        real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
@@ -1562,32 +1562,36 @@ c     Begin program
 
         end select
 
+        idhx = 1./dhx
+        idhy = 1./dhy
+        idhz = 1./dhz
+
       ! l = 1, m = 1
-        tensor(1,1) = (vxip-vxim)/dhx
+        tensor(1,1) = (vxip-vxim)*idhx
 
       ! l = 1, m = 2
-        tensor(1,2) = (vyip-vyim)/dhx
+        tensor(1,2) = (vyip-vyim)*idhx
 
       ! l = 1, m = 3
-        tensor(1,3) = (vzip-vzim)/dhx
+        tensor(1,3) = (vzip-vzim)*idhx
 
       ! l = 2, m = 1
-        tensor(2,1) = (vxjp-vxjm)/dhy
+        tensor(2,1) = (vxjp-vxjm)*idhy
 
       ! l = 2, m = 2
-        tensor(2,2) = (vyjp-vyjm)/dhy
+        tensor(2,2) = (vyjp-vyjm)*idhy
 
       ! l = 2, m = 3
-        tensor(2,3) = (vzjp-vzjm)/dhy
+        tensor(2,3) = (vzjp-vzjm)*idhy
 
       ! l = 3, m = 1
-        tensor(3,1) = (vxkp-vxkm)/dhz
+        tensor(3,1) = (vxkp-vxkm)*idhz
 
       ! l = 3, m = 2
-        tensor(3,2) = (vykp-vykm)/dhz
+        tensor(3,2) = (vykp-vykm)*idhz
 
       ! l = 3, m = 3
-        tensor(3,3) = (vzkp-vzkm)/dhz
+        tensor(3,3) = (vzkp-vzkm)*idhz
 
       ! Add geometric source
 
@@ -1621,76 +1625,131 @@ c     Begin program
 
         hessian = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
 
-        tensor(1,1) =  vxx*(hessian(1,1,1)
-     .                    + hessian(2,2,1)
+cc      ! l = 1, m = 1
+cc        tensor(1,1) =  vxx*(hessian(1,1,1)
+cc     .                    + hessian(2,2,1)
+cc     .                    + hessian(3,3,1))
+cc     .               - vxx *hessian(1,1,1)
+cc     .               - vyy *hessian(1,2,1)
+cc     .               - vzz *hessian(1,3,1)
+cc
+cc      ! l = 1, m = 2
+cc        tensor(1,2) =  vyy*(hessian(1,1,1)
+cc     .                    + hessian(2,2,1)
+cc     .                    + hessian(3,3,1))
+cc     .               - vxx* hessian(2,1,1)
+cc     .               - vyy* hessian(2,2,1)
+cc     .               - vzz* hessian(2,3,1)
+cc
+cc      ! l = 1, m = 3
+cc        tensor(1,3) =  vzz*(hessian(1,1,1)
+cc     .                    + hessian(2,2,1)
+cc     .                    + hessian(3,3,1))
+cc     .               - vxx* hessian(3,1,1)
+cc     .               - vyy* hessian(3,2,1)
+cc     .               - vzz* hessian(3,3,1)
+cc
+cc      ! l = 2, m = 1
+cc        tensor(2,1) =  vxx*(hessian(1,1,2)
+cc     .                    + hessian(2,2,2)
+cc     .                    + hessian(3,3,2))
+cc     .               - vxx* hessian(1,1,2)
+cc     .               - vyy* hessian(1,2,2)
+cc     .               - vzz* hessian(1,3,2)
+cc
+cc      ! l = 2, m = 2
+cc        tensor(2,2) =  vyy*(hessian(1,1,2)
+cc     .                    + hessian(2,2,2)
+cc     .                    + hessian(3,3,2))
+cc     .               - vxx* hessian(2,1,2)
+cc     .               - vyy* hessian(2,2,2)
+cc     .               - vzz* hessian(2,3,2)
+cc
+cc      ! l = 2, m = 3
+cc        tensor(2,3) =  vzz*(hessian(1,1,2)
+cc     .                    + hessian(2,2,2)
+cc     .                    + hessian(3,3,2))
+cc     .               - vxx* hessian(3,1,2)
+cc     .               - vyy* hessian(3,2,2)
+cc     .               - vzz* hessian(3,3,2)
+cc
+cc      ! l = 3, m = 1
+cc        tensor(3,1) =  vxx*(hessian(1,1,3)
+cc     .                    + hessian(2,2,3)
+cc     .                    + hessian(3,3,3))
+cc     .               - vxx* hessian(1,1,3)
+cc     .               - vyy* hessian(1,2,3)
+cc     .               - vzz* hessian(1,3,3)
+cc
+cc      ! l = 3, m = 2
+cc        tensor(3,2) =  vyy*(hessian(1,1,3)
+cc     .                    + hessian(2,2,3)
+cc     .                    + hessian(3,3,3))
+cc     .               - vxx* hessian(2,1,3)
+cc     .               - vyy* hessian(2,2,3)
+cc     .               - vzz* hessian(2,3,3)
+cc
+cc      ! l = 3, m = 3
+cc        tensor(3,3) =  vzz*(hessian(1,1,3)
+cc     .                    + hessian(2,2,3)
+cc     .                    + hessian(3,3,3))
+cc     .               - vxx* hessian(3,1,3)
+cc     .               - vyy* hessian(3,2,3)
+cc     .               - vzz* hessian(3,3,3)
+
+      ! l = 1, m = 1
+        tensor(1,1) =  vxx*(hessian(2,2,1)
      .                    + hessian(3,3,1))
-     .               - vxx *hessian(1,1,1)
      .               - vyy *hessian(1,2,1)
      .               - vzz *hessian(1,3,1)
 
       ! l = 1, m = 2
         tensor(1,2) =  vyy*(hessian(1,1,1)
-     .                    + hessian(2,2,1)
      .                    + hessian(3,3,1))
      .               - vxx* hessian(2,1,1)
-     .               - vyy* hessian(2,2,1)
      .               - vzz* hessian(2,3,1)
 
       ! l = 1, m = 3
         tensor(1,3) =  vzz*(hessian(1,1,1)
-     .                    + hessian(2,2,1)
-     .                    + hessian(3,3,1))
+     .                    + hessian(2,2,1))
      .               - vxx* hessian(3,1,1)
      .               - vyy* hessian(3,2,1)
-     .               - vzz* hessian(3,3,1)
 
       ! l = 2, m = 1
-        tensor(2,1) =  vxx*(hessian(1,1,2)
-     .                    + hessian(2,2,2)
+        tensor(2,1) =  vxx*(hessian(2,2,2)
      .                    + hessian(3,3,2))
-     .               - vxx* hessian(1,1,2)
      .               - vyy* hessian(1,2,2)
      .               - vzz* hessian(1,3,2)
 
       ! l = 2, m = 2
         tensor(2,2) =  vyy*(hessian(1,1,2)
-     .                    + hessian(2,2,2)
      .                    + hessian(3,3,2))
      .               - vxx* hessian(2,1,2)
-     .               - vyy* hessian(2,2,2)
      .               - vzz* hessian(2,3,2)
 
       ! l = 2, m = 3
         tensor(2,3) =  vzz*(hessian(1,1,2)
-     .                    + hessian(2,2,2)
-     .                    + hessian(3,3,2))
+     .                    + hessian(2,2,2))
      .               - vxx* hessian(3,1,2)
      .               - vyy* hessian(3,2,2)
-     .               - vzz* hessian(3,3,2)
 
       ! l = 3, m = 1
-        tensor(3,1) =  vxx*(hessian(1,1,3)
-     .                    + hessian(2,2,3)
+        tensor(3,1) =  vxx*(hessian(2,2,3)
      .                    + hessian(3,3,3))
-     .               - vxx* hessian(1,1,3)
      .               - vyy* hessian(1,2,3)
      .               - vzz* hessian(1,3,3)
 
       ! l = 3, m = 2
         tensor(3,2) =  vyy*(hessian(1,1,3)
-     .                    + hessian(2,2,3)
      .                    + hessian(3,3,3))
      .               - vxx* hessian(2,1,3)
-     .               - vyy* hessian(2,2,3)
      .               - vzz* hessian(2,3,3)
 
       ! l = 3, m = 3
         tensor(3,3) =  vzz*(hessian(1,1,3)
-     .                    + hessian(2,2,3)
-     .                    + hessian(3,3,3))
+     .                    + hessian(2,2,3))
      .               - vxx* hessian(3,1,3)
      .               - vyy* hessian(3,2,3)
-     .               - vzz* hessian(3,3,3)
 
 c     End program
 
