@@ -1,6 +1,6 @@
 c output
 c######################################################################
-      subroutine output(itime)
+      subroutine output
 
 c----------------------------------------------------------------------
 c     Writes program output to standard output
@@ -25,8 +25,6 @@ c----------------------------------------------------------------------
       implicit none
 
 c Call variables
-
-      integer     :: itime
 
 c Local variables
 
