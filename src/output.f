@@ -78,6 +78,6 @@ cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  Numerical grid............',l4)
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
- 110  format (i7,f9.2,1x,1pe8.1,1x,0p3f7.3,2i6,3x,f7.3)
+ 110  format (i7,f9.2,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
 
       end subroutine

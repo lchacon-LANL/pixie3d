@@ -84,10 +84,10 @@ c Corrector
 c End program
 
  200  format (/,' New_it   Av_updt    Rel_res    Damping  GMRES')
- 210  format (i4,3x,1p3e11.3,i4)
- 220  format ('Max newton its. exceeded; relative residual: ',1p1e10.2)
+ 210  format (i4,3x,1p,3e11.3,i4)
+ 220  format ('Max newton its. exceeded; relative residual: ',1p,1e10.2)
  230  format ('    Relative residual =',f7.2,' > 1.0')
- 320  format ('residual vor, sf, t, vpar, n =',1p5e10.2)
+ 320  format ('residual vor, sf, t, vpar, n =',1p,5e10.2)
 
       end subroutine explicit
 

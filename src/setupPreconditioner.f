@@ -36,7 +36,7 @@ c Debug
 
 c Externals
 
-      external   :: v_mtvc,b_mtvc,rho_mtvc,tmp_mtvc
+      external   v_mtvc,b_mtvc,rho_mtvc,tmp_mtvc
 
 c Begin program
 
