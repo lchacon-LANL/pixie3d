@@ -22,7 +22,7 @@ c####################################################################
 
         use operators
 
-        use generalOperators
+        use generalPurposeFunctions
 
         implicit none
 
