@@ -3,7 +3,8 @@ c####################################################################
       subroutine postProcessSolution(varray,iigx,iigy,iigz)
 
 c--------------------------------------------------------------------
-c     Set graphics files and dumping intervals
+c     Postprocess solution in varray to find derived quantities 
+c     for plotting.
 c--------------------------------------------------------------------
 
       use variables
@@ -166,10 +167,8 @@ c Total pressure (use graphics limits)
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
-            
+            jac = gmetric%grid(igx)%jac(i,j,k)
+
             p_tot(i,j,k) = (2.*rho(i,j,k)*tmp(i,j,k))
      .                     +(bx(i,j,k)*bx_cov(i,j,k)
      .                      +by(i,j,k)*by_cov(i,j,k)
