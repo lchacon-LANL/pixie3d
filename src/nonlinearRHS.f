@@ -45,12 +45,12 @@ c Local variables
       real(8)    :: Ez_jp,Ez_jm,Ey_kp,Ey_km,Ex_kp,Ex_km
      .             ,Ez_ip,Ez_im,Ey_ip,Ey_im,Ex_jp,Ex_jm
 
+      logical    :: alt_eom_b
+
       ! EOM
       real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
      .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
      .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
-
-      real(8)    :: hess(3,3,3),msource
 
       ! tmp equation
       real(8)    :: heat_flx,heat_src,joule,viscous
@@ -92,10 +92,6 @@ c     Grid parameters
       jackm  = gmetric%grid(igx)%jac(i,j,km)
 
       ivol = 1d0/jac/dvol
-
-      if (coords /= 'car') then
-        hess = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
-      endif
 
 c     Rho
 
@@ -187,164 +183,174 @@ cc      endif
 
       ff(IRHO) = advec - diffus
 
+c     Faraday's law
+
+      alt_eom_b = .false.
+
+      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom_b
+     .                       ,btensor_x,btensor_y,btensor_z)
+     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
+cc     $           - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
+cc     $                                     ,bcnv,alt_eom_b)
+
 c     Bx
 
-      flxip = 0d0
-      flxim = 0d0
-
-      flxjp = 0.5*(vy(i,jp,k)*bx(i,jp,k)/jacjp
-     .           + vy(i,j ,k)*bx(i,j ,k)/jac  )
-     .       -0.5*(vx(i,jp,k)*by(i,jp,k)/jacjp
-     .           + vx(i,j ,k)*by(i,j ,k)/jac  )
-      flxjm = 0.5*(vy(i,jm,k)*bx(i,jm,k)/jacjm
-     .           + vy(i,j ,k)*bx(i,j ,k)/jac  )
-     .       -0.5*(vx(i,jm,k)*by(i,jm,k)/jacjm
-     .           + vx(i,j ,k)*by(i,j ,k)/jac  )
-      Ez_jp = 0.5*(eeta(i,jp,k)*jz_cov(i,jp,k)
-     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
-      Ez_jm = 0.5*(eeta(i,jm,k)*jz_cov(i,jm,k)
-     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
-
-      flxkp = 0.5*(vz(i,j,kp)*bx(i,j,kp)/jackp
-     .           + vz(i,j,k )*bx(i,j,k )/jac  )
-     .       -0.5*(vx(i,j,kp)*bz(i,j,kp)/jackp
-     .           + vx(i,j,k )*bz(i,j,k )/jac  )
-      flxkm = 0.5*(vz(i,j,km)*bx(i,j,km)/jackm
-     .           + vz(i,j,k )*bx(i,j,k )/jac  )
-     .       -0.5*(vx(i,j,km)*bz(i,j,km)/jackm
-     .           + vx(i,j,k )*bz(i,j,k )/jac  )
-      Ey_kp = 0.5*(eeta(i,j,kp)*jy_cov(i,j,kp)
-     .           + eeta(i,j,k )*jy_cov(i,j,k ))
-      Ey_km = 0.5*(eeta(i,j,km)*jy_cov(i,j,km)
-     .           + eeta(i,j,k )*jy_cov(i,j,k ))
-
-      !Add resistive contribution
-      flxjp = flxjp + Ez_jp
-      flxjm = flxjm + Ez_jm
-      flxkp = flxkp - Ey_kp
-      flxkm = flxkm - Ey_km
-
-      !Group fluxes
-      ff(IBX) = jac*( dS1*(flxip-flxim)
-     .               +dS2*(flxjp-flxjm)
-     .               +dS3*(flxkp-flxkm) )
-
-c     By
-
-      flxjp = 0d0
-      flxjm = 0d0
-
-      !Ideal contribution
-      flxip = 0.5*(vx(ip,j,k)*by(ip,j,k)/jacip
-     .            +vx(i ,j,k)*by(i ,j,k)/jac  )
-     .       -0.5*(vy(ip,j,k)*bx(ip,j,k)/jacip
-     .            +vy(i ,j,k)*bx(i ,j,k)/jac  )
-      Ez_ip = 0.5*(eeta(ip,j,k)*jz_cov(ip,j,k)
-     .           + eeta(i ,j,k)*jz_cov(i ,j,k))
-      if (.not.sing_point) then
-        flxim = 0.5*(vx(im,j,k)*by(im,j,k)/jacim
-     .             + vx(i ,j,k)*by(i ,j,k)/jac  )
-     .         -0.5*(vy(im,j,k)*bx(im,j,k)/jacim
-     .             + vy(i ,j,k)*bx(i ,j,k)/jac  )
-        Ez_im = 0.5*(eeta(im,j,k)*jz_cov(im,j,k)
-     .             + eeta(i ,j,k)*jz_cov(i ,j,k))
-      else
-        flxim = vx(im,j,k)*by(im,j,k)/jacim
-     .         -vy(im,j,k)*bx(im,j,k)/jacim
-        Ez_im = eeta(im,j,k)*jz_cov(im,j,k)
-      endif
-
-
-      flxkp = 0.5*(vz(i,j,kp)*by(i,j,kp)/jackp
-     .           + vz(i,j,k )*by(i,j,k )/jac  )
-     .       -0.5*(vy(i,j,kp)*bz(i,j,kp)/jackp
-     .           + vy(i,j,k )*bz(i,j,k )/jac  )
-      flxkm = 0.5*(vz(i,j,km)*by(i,j,km)/jackm
-     .           + vz(i,j,k )*by(i,j,k )/jac  )
-     .       -0.5*(vy(i,j,km)*bz(i,j,km)/jackm
-     .           + vy(i,j,k )*bz(i,j,k )/jac)
-      Ex_kp = 0.5*(eeta(i,j,kp)*jx_cov(i,j,kp)
-     .           + eeta(i,j,k )*jx_cov(i,j,k ))
-      Ex_km = 0.5*(eeta(i,j,km)*jx_cov(i,j,km)
-     .           + eeta(i,j,k )*jx_cov(i,j,k ))
-
-      !Add resistive contribution
-      flxip = flxip - Ez_ip
-      flxim = flxim - Ez_im
-
-      flxkp = flxkp + Ex_kp
-      flxkm = flxkm + Ex_km
-
-      !Group fluxes
-      ff(IBY) = jac*( dS1*(flxip-flxim)
-     .               +dS2*(flxjp-flxjm)
-     .               +dS3*(flxkp-flxkm) )
-
-c     Bz
-
-      flxkp = 0d0
-      flxkm = 0d0
-
-      if (sing_point) then
-        jach = 0.5*(jac+jacip)
-
-        flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip**2
-     .             + vx(i ,j,k)*bz(i ,j,k)/jac**2  )*jach
-     .         -0.5*(vz(ip,j,k)*bx(ip,j,k)/jacip**2
-     .             + vz(i ,j,k)*bx(i ,j,k)/jac**2  )*jach
+cc      flxip = 0d0
+cc      flxim = 0d0
+cc
+cc      flxjp = 0.5*(vy(i,jp,k)*bx(i,jp,k)/jacjp
+cc     .           + vy(i,j ,k)*bx(i,j ,k)/jac  )
+cc     .       -0.5*(vx(i,jp,k)*by(i,jp,k)/jacjp
+cc     .           + vx(i,j ,k)*by(i,j ,k)/jac  )
+cc      flxjm = 0.5*(vy(i,jm,k)*bx(i,jm,k)/jacjm
+cc     .           + vy(i,j ,k)*bx(i,j ,k)/jac  )
+cc     .       -0.5*(vx(i,jm,k)*by(i,jm,k)/jacjm
+cc     .           + vx(i,j ,k)*by(i,j ,k)/jac  )
+cc      Ez_jp = 0.5*(eeta(i,jp,k)*jz_cov(i,jp,k)
+cc     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
+cc      Ez_jm = 0.5*(eeta(i,jm,k)*jz_cov(i,jm,k)
+cc     .           + eeta(i,j ,k)*jz_cov(i,j ,k))
+cc
+cc      flxkp = 0.5*(vz(i,j,kp)*bx(i,j,kp)/jackp
+cc     .           + vz(i,j,k )*bx(i,j,k )/jac  )
+cc     .       -0.5*(vx(i,j,kp)*bz(i,j,kp)/jackp
+cc     .           + vx(i,j,k )*bz(i,j,k )/jac  )
+cc      flxkm = 0.5*(vz(i,j,km)*bx(i,j,km)/jackm
+cc     .           + vz(i,j,k )*bx(i,j,k )/jac  )
+cc     .       -0.5*(vx(i,j,km)*bz(i,j,km)/jackm
+cc     .           + vx(i,j,k )*bz(i,j,k )/jac  )
+cc      Ey_kp = 0.5*(eeta(i,j,kp)*jy_cov(i,j,kp)
+cc     .           + eeta(i,j,k )*jy_cov(i,j,k ))
+cc      Ey_km = 0.5*(eeta(i,j,km)*jy_cov(i,j,km)
+cc     .           + eeta(i,j,k )*jy_cov(i,j,k ))
+cc
+cc      !Add resistive contribution
+cc      flxjp = flxjp + Ez_jp
+cc      flxjm = flxjm + Ez_jm
+cc      flxkp = flxkp - Ey_kp
+cc      flxkm = flxkm - Ey_km
+cc
+cc      !Group fluxes
+cc      ff(IBX) = jac*( dS1*(flxip-flxim)
+cc     .               +dS2*(flxjp-flxjm)
+cc     .               +dS3*(flxkp-flxkm) )
+cc
+ccc     By
+cc
+cc      flxjp = 0d0
+cc      flxjm = 0d0
+cc
+cc      !Ideal contribution
+cc      flxip = 0.5*(vx(ip,j,k)*by(ip,j,k)/jacip
+cc     .            +vx(i ,j,k)*by(i ,j,k)/jac  )
+cc     .       -0.5*(vy(ip,j,k)*bx(ip,j,k)/jacip
+cc     .            +vy(i ,j,k)*bx(i ,j,k)/jac  )
+cc      Ez_ip = 0.5*(eeta(ip,j,k)*jz_cov(ip,j,k)
+cc     .           + eeta(i ,j,k)*jz_cov(i ,j,k))
+cc      if (.not.sing_point) then
+cc        flxim = 0.5*(vx(im,j,k)*by(im,j,k)/jacim
+cc     .             + vx(i ,j,k)*by(i ,j,k)/jac  )
+cc     .         -0.5*(vy(im,j,k)*bx(im,j,k)/jacim
+cc     .             + vy(i ,j,k)*bx(i ,j,k)/jac  )
+cc        Ez_im = 0.5*(eeta(im,j,k)*jz_cov(im,j,k)
+cc     .             + eeta(i ,j,k)*jz_cov(i ,j,k))
+cc      else
+cc        flxim = vx(im,j,k)*by(im,j,k)/jacim
+cc     .         -vy(im,j,k)*bx(im,j,k)/jacim
+cc        Ez_im = eeta(im,j,k)*jz_cov(im,j,k)
+cc      endif
+cc
+cc
+cc      flxkp = 0.5*(vz(i,j,kp)*by(i,j,kp)/jackp
+cc     .           + vz(i,j,k )*by(i,j,k )/jac  )
+cc     .       -0.5*(vy(i,j,kp)*bz(i,j,kp)/jackp
+cc     .           + vy(i,j,k )*bz(i,j,k )/jac  )
+cc      flxkm = 0.5*(vz(i,j,km)*by(i,j,km)/jackm
+cc     .           + vz(i,j,k )*by(i,j,k )/jac  )
+cc     .       -0.5*(vy(i,j,km)*bz(i,j,km)/jackm
+cc     .           + vy(i,j,k )*bz(i,j,k )/jac)
+cc      Ex_kp = 0.5*(eeta(i,j,kp)*jx_cov(i,j,kp)
+cc     .           + eeta(i,j,k )*jx_cov(i,j,k ))
+cc      Ex_km = 0.5*(eeta(i,j,km)*jx_cov(i,j,km)
+cc     .           + eeta(i,j,k )*jx_cov(i,j,k ))
+cc
+cc      !Add resistive contribution
+cc      flxip = flxip - Ez_ip
+cc      flxim = flxim - Ez_im
+cc
+cc      flxkp = flxkp + Ex_kp
+cc      flxkm = flxkm + Ex_km
+cc
+cc      !Group fluxes
+cc      ff(IBY) = jac*( dS1*(flxip-flxim)
+cc     .               +dS2*(flxjp-flxjm)
+cc     .               +dS3*(flxkp-flxkm) )
+cc
+ccc     Bz
+cc
+cc      flxkp = 0d0
+cc      flxkm = 0d0
+cc
+cc      if (sing_point) then
+cc        jach = 0.5*(jac+jacip)
+cc
+cc        flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip**2
+cc     .             + vx(i ,j,k)*bz(i ,j,k)/jac**2  )*jach
+cc     .         -0.5*(vz(ip,j,k)*bx(ip,j,k)/jacip**2
+cc     .             + vz(i ,j,k)*bx(i ,j,k)/jac**2  )*jach
+cccc        flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip
+cccc     .             + vx(i ,j,k)*bz(i ,j,k)/jac  )
+cccc     .         -0.5*(vz(ip,j,k)*bx(ip,j,k)/jacip
+cccc     .             + vz(i ,j,k)*bx(i ,j,k)/jac  )
+cc        Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)/jacip
+cc     .             + eeta(i ,j,k)*jy_cov(i ,j,k)/jac  )*jach
+cc
+cccc        flxim = 0d0 !SP BC on ideal flux (since flx_x ~ r)
+cc        flxim = vx(im,j,k)*bz(im,j,k)/jacim
+cc     .         -vz(im,j,k)*bx(im,j,k)/jacim
+cc        Ey_im = eeta(im,j,k)*jy_cov(im,j,k) !Current at SP
+cc      else
 cc        flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip
 cc     .             + vx(i ,j,k)*bz(i ,j,k)/jac  )
 cc     .         -0.5*(vz(ip,j,k)*bx(ip,j,k)/jacip
 cc     .             + vz(i ,j,k)*bx(i ,j,k)/jac  )
-        Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)/jacip
-     .             + eeta(i ,j,k)*jy_cov(i ,j,k)/jac  )*jach
-
-cc        flxim = 0d0 !SP BC on ideal flux (since fxl_x ~ r)
-        flxim = vx(im,j,k)*bz(im,j,k)/jacim
-     .         -vz(im,j,k)*bx(im,j,k)/jacim
-        Ey_im = eeta(im,j,k)*jy_cov(im,j,k) !Current at SP
-      else
-        flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip
-     .             + vx(i ,j,k)*bz(i ,j,k)/jac  )
-     .         -0.5*(vz(ip,j,k)*bx(ip,j,k)/jacip
-     .             + vz(i ,j,k)*bx(i ,j,k)/jac  )
-        flxim = 0.5*(vx(im,j,k)*bz(im,j,k)/jacim
-     .             + vx(i ,j,k)*bz(i ,j,k)/jac  )
-     .         -0.5*(vz(im,j,k)*bx(im,j,k)/jacim
-     .             + vz(i ,j,k)*bx(i ,j,k)/jac  )
-
-        Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)
-     .             + eeta(i ,j,k)*jy_cov(i ,j,k))
-        Ey_im = 0.5*(eeta(im,j,k)*jy_cov(im,j,k)
-     .             + eeta(i ,j,k)*jy_cov(i ,j,k))
-      endif
-
-
-      flxjp = 0.5*(vy(i,jp,k)*bz(i,jp,k)/jacjp
-     .           + vy(i,j ,k)*bz(i,j ,k)/jac  )
-     .       -0.5*(vz(i,jp,k)*by(i,jp,k)/jacjp
-     .           + vz(i,j ,k)*by(i,j ,k)/jac  )
-      flxjm = 0.5*(vy(i,jm,k)*bz(i,jm,k)/jacjm
-     .           + vy(i,j ,k)*bz(i,j ,k)/jac  )
-     .       -0.5*(vz(i,jm,k)*by(i,jm,k)/jacjm
-     .           + vz(i,j ,k)*by(i,j ,k)/jac  )
-
-      Ex_jp = 0.5*(eeta(i,jp,k)*jx_cov(i,jp,k)
-     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
-      Ex_jm = 0.5*(eeta(i,jm,k)*jx_cov(i,jm,k)
-     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
-
-      !Add resistive contribution
-      flxip = flxip + Ey_ip
-      flxim = flxim + Ey_im
-
-      flxjp = flxjp - Ex_jp
-      flxjm = flxjm - Ex_jm
-
-      !Group fluxes
-      ff(IBZ) = jac*( dS1*(flxip-flxim)
-     .               +dS2*(flxjp-flxjm)
-     .               +dS3*(flxkp-flxkm) )
+cc        flxim = 0.5*(vx(im,j,k)*bz(im,j,k)/jacim
+cc     .             + vx(i ,j,k)*bz(i ,j,k)/jac  )
+cc     .         -0.5*(vz(im,j,k)*bx(im,j,k)/jacim
+cc     .             + vz(i ,j,k)*bx(i ,j,k)/jac  )
+cc
+cc        Ey_ip = 0.5*(eeta(ip,j,k)*jy_cov(ip,j,k)
+cc     .             + eeta(i ,j,k)*jy_cov(i ,j,k))
+cc        Ey_im = 0.5*(eeta(im,j,k)*jy_cov(im,j,k)
+cc     .             + eeta(i ,j,k)*jy_cov(i ,j,k))
+cc      endif
+cc
+cc
+cc      flxjp = 0.5*(vy(i,jp,k)*bz(i,jp,k)/jacjp
+cc     .           + vy(i,j ,k)*bz(i,j ,k)/jac  )
+cc     .       -0.5*(vz(i,jp,k)*by(i,jp,k)/jacjp
+cc     .           + vz(i,j ,k)*by(i,j ,k)/jac  )
+cc      flxjm = 0.5*(vy(i,jm,k)*bz(i,jm,k)/jacjm
+cc     .           + vy(i,j ,k)*bz(i,j ,k)/jac  )
+cc     .       -0.5*(vz(i,jm,k)*by(i,jm,k)/jacjm
+cc     .           + vz(i,j ,k)*by(i,j ,k)/jac  )
+cc
+cc      Ex_jp = 0.5*(eeta(i,jp,k)*jx_cov(i,jp,k)
+cc     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
+cc      Ex_jm = 0.5*(eeta(i,jm,k)*jx_cov(i,jm,k)
+cc     .           + eeta(i,j ,k)*jx_cov(i,j ,k))
+cc
+cc      !Add resistive contribution
+cc      flxip = flxip + Ey_ip
+cc      flxim = flxim + Ey_im
+cc
+cc      flxjp = flxjp - Ex_jp
+cc      flxjm = flxjm - Ex_jm
+cc
+cc      !Group fluxes
+cc      ff(IBZ) = jac*( dS1*(flxip-flxim)
+cc     .               +dS2*(flxjp-flxjm)
+cc     .               +dS3*(flxkp-flxkm) )
 
 c     Temperature
 
@@ -421,112 +427,120 @@ cc      heat_src = joule/rho(i,j,k) + viscous
 cc     .          +(gamma-1.)*heat_flx
 cc     .          -(gamma-1.)*heat_src
 
-c     Vx
+c     EOM
 
-      call vtensor_x(i ,j,k,t11p,t12p,t13p, 1)
-      call vtensor_x(im,j,k,t11m,t12m,t13m,-1)
-      if (coords /= 'car') call vtensor_x(i,j,k,t11o,t12o,t13o, 0)
+      ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                        ,vtensor_x,vtensor_y,vtensor_z)
 
-      call vtensor_y(i,j ,k,t21p,t22p,t23p, 1)
-      call vtensor_y(i,jm,k,t21m,t22m,t23m,-1)
-      if (coords /= 'car') call vtensor_y(i,j,k,t21o,t22o,t23o, 0)
-
-      call vtensor_z(i,j,k ,t31p,t32p,t33p, 1)
-      call vtensor_z(i,j,km,t31m,t32m,t33m,-1)
-      if (coords /= 'car') call vtensor_z(i,j,k,t31o,t32o,t33o, 0)
-
-      flxip = t11p
-      flxim = t11m
-
-      flxjp = t21p
-      flxjm = t21m
-
-      flxkp = t31p
-      flxkm = t31m
-
-      if (sing_point) flxim = 0d0
-
-      if (coords == 'car') then
-        msource = 0d0
-      else
-        msource =dvol
-     .          *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
-     .           +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
-     .           +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
-      endif
-
-      ff(IVX) = jac*( dS1*(flxip - flxim)
-     .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) ) + msource
-
-c     Vy
-
-      flxip = t12p
-      flxim = t12m
-
-      flxjp = t22p
-      flxjm = t22m
-
-      flxkp = t32p
-      flxkm = t32m
-
-      if (coords == 'car') then
-        ff(IVY) =  dS1*(flxip - flxim)
-     .           + dS2*(flxjp - flxjm)
-     .           + dS3*(flxkp - flxkm)
-      else
-        if (alt_eom) then
-
-          if (sing_point) flxim = 0d0
-
-          msource=dvol
-     .           *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-     .            +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-     .            +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
-     .            -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
-     .            -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
-     .            -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
-
-          ff(IVY) =   dS1*(flxip - flxim)
-     .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) + msource
-        else
-          msource=dvol
-     .            *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-     .             +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-     .             +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
-
-          ff(IVY) = jac*( dS1*(flxip - flxim)
-     .                  + dS2*(flxjp - flxjm)
-     .                  + dS3*(flxkp - flxkm) ) + msource
-        endif
-      endif
-
-c     Vz
-
-      flxip = t13p
-      flxim = t13m
-
-      flxjp = t23p
-      flxjm = t23m
-
-      flxkp = t33p
-      flxkm = t33m
-
-      if (sing_point) flxim = 0d0
-
-      if (coords == 'car') then
-        msource = 0d0
-      else
-        msource =dvol
-     .          *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
-     .           +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
-     .           +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
-      endif
-
-      ff(IVZ) = jac*( dS1*(flxip - flxim)
-     .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) ) + msource
+ccc     Vx
+cc
+cc      call vtensor_x(i ,j,k,igx,igy,igz,t11p,t12p,t13p, 1)
+cc      call vtensor_x(im,j,k,igx,igy,igz,t11m,t12m,t13m,-1)
+cc      if (coords /= 'car')
+cc     .     call vtensor_x(i,j,k,igx,igy,igz,t11o,t12o,t13o, 0)
+cc
+cc      call vtensor_y(i,j ,k,igx,igy,igz,t21p,t22p,t23p, 1)
+cc      call vtensor_y(i,jm,k,igx,igy,igz,t21m,t22m,t23m,-1)
+cc      if (coords /= 'car')
+cc     .     call vtensor_y(i,j,k,igx,igy,igz,t21o,t22o,t23o, 0)
+cc
+cc      call vtensor_z(i,j,k ,igx,igy,igz,t31p,t32p,t33p, 1)
+cc      call vtensor_z(i,j,km,igx,igy,igz,t31m,t32m,t33m,-1)
+cc      if (coords /= 'car')
+cc     .     call vtensor_z(i,j,k,igx,igy,igz,t31o,t32o,t33o, 0)
+cc
+cc      flxip = t11p
+cc      flxim = t11m
+cc
+cc      flxjp = t21p
+cc      flxjm = t21m
+cc
+cc      flxkp = t31p
+cc      flxkm = t31m
+cc
+cc      if (sing_point) flxim = 0d0
+cc
+cc      if (coords == 'car') then
+cc        msource = 0d0
+cc      else
+cc        msource =dvol
+cc     .          *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+cc     .           +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+cc     .           +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
+cc      endif
+cc
+cc      ff(IVX) = jac*( dS1*(flxip - flxim)
+cc     .              + dS2*(flxjp - flxjm)
+cc     .              + dS3*(flxkp - flxkm) ) + msource
+cc
+ccc     Vy
+cc
+cc      flxip = t12p
+cc      flxim = t12m
+cc
+cc      flxjp = t22p
+cc      flxjm = t22m
+cc
+cc      flxkp = t32p
+cc      flxkm = t32m
+cc
+cc      if (coords == 'car') then
+cc        ff(IVY) =  dS1*(flxip - flxim)
+cc     .           + dS2*(flxjp - flxjm)
+cc     .           + dS3*(flxkp - flxkm)
+cc      else
+cc        if (alt_eom) then
+cc
+cc          if (sing_point) flxim = 0d0
+cc
+cc          msource=dvol
+cc     .           *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+cc     .            +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+cc     .            +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+cc     .            -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+cc     .            -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+cc     .            -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
+cc
+cc          ff(IVY) =   dS1*(flxip - flxim)
+cc     .              + dS2*(flxjp - flxjm)
+cc     .              + dS3*(flxkp - flxkm) + msource
+cc        else
+cc          msource=dvol
+cc     .            *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+cc     .             +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+cc     .             +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
+cc
+cc          ff(IVY) = jac*( dS1*(flxip - flxim)
+cc     .                  + dS2*(flxjp - flxjm)
+cc     .                  + dS3*(flxkp - flxkm) ) + msource
+cc        endif
+cc      endif
+cc
+ccc     Vz
+cc
+cc      flxip = t13p
+cc      flxim = t13m
+cc
+cc      flxjp = t23p
+cc      flxjm = t23m
+cc
+cc      flxkp = t33p
+cc      flxkm = t33m
+cc
+cc      if (sing_point) flxim = 0d0
+cc
+cc      if (coords == 'car') then
+cc        msource = 0d0
+cc      else
+cc        msource =dvol
+cc     .          *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+cc     .           +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+cc     .           +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
+cc      endif
+cc
+cc      ff(IVZ) = jac*( dS1*(flxip - flxim)
+cc     .              + dS2*(flxjp - flxjm)
+cc     .              + dS3*(flxkp - flxkm) ) + msource
 
 c     Divide by cell volume factor
 
@@ -564,84 +578,4 @@ c Begin program
 
 c End program
 
-      end subroutine
-
-c res
-c##################################################################
-      function res(i,j,k,nx,ny,nz,igx,igy,igz)
-c------------------------------------------------------------------
-c     This function computes the resistivity on the grid level
-c     igrid.
-c------------------------------------------------------------------
-
-      use grid
-
-      use transport_params
-
-      use equilibrium
-
-      implicit none
-
-c Call variables
-
-      real(8)    :: res
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
-
-c Local variables
-
-      integer(4) :: nn,ig,jg,kg
-      real(8)    :: x1,y1,z1,aa
-      logical    :: cartsn
-
-c Begin program
-
-c Resistivity profile eta*(1 + aa*x^nn)
-c     Coefficient aa is set so that res = 20*eta at wall
-c     and nn so that res=??*eta at sing. surf. xs ~ 0.33
-
-      select case (equil)
-      case ('rfp1')
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-        nn = 4
-        aa = 19.
-        res = eta*(1. + aa*grid_params%xx(ig)**nn)
-
-      case default
-
-        res = eta
-
-      end select
-
-c End program
-
-      end function res
-
-c vis
-c##################################################################
-      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
-c------------------------------------------------------------------
-c     This function computes the viscosity on the grid level
-c     igrid.
-c------------------------------------------------------------------
-
-      use grid
-
-      use transport_params
-
-      implicit none
-
-c Call variables
-
-      real(8)    :: vis
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
-
-c Local variables
-
-c Begin program
-
-      vis = nu
-
-c End program
-
-      end function vis
+      end subroutine defineTSParameters
