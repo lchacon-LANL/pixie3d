@@ -26,8 +26,7 @@ c Call variables
 
 c Local variables
 
-cc      integer(4) :: order,nxx,nyy,nzz,igrid
-cc      real(8)    :: dvol
+      integer(4) :: ncolors
 
 c Debug
 
@@ -102,21 +101,24 @@ c Extract arrays and BC's
 c Find coefficients for linearized systems
 
       if (jit == 1) call findCoeffs
+cc      call findCoeffs
 
 c Find required diagonals in all grids
 
+      ncolors = 4
+
       if (jit == 1) then
-        icomp = IRHO
-        call find_mf_diag_std(1,ntotdp,rho_mtvc,1,bcs(:,IRHO),rho_diag)
+        call find_mf_diag_colored(1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
+     .                           ,rho_diag,ncolors)
 
-        icomp = ITMP
-        call find_mf_diag_std(1,ntotdp,tmp_mtvc,1,bcs(:,ITMP),tmp_diag)
+        call find_mf_diag_colored(1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
+     .                           ,tmp_diag,ncolors)
 
-        icomp = IBX
-        call find_mf_diag_std(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ),b_diag)
+        call find_mf_diag_colored(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
+     .                           ,b_diag,ncolors)
 
-        icomp = IVX
-        call find_mf_diag_std(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
+        call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                           ,v_diag,ncolors)
 
         form_diag = .false.
       endif
