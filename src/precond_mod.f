@@ -288,7 +288,7 @@ c     Local variables
 
 c     Begin program
 
-      call allocPointers(neq,fpointers)
+      call allocPointers(neq,grid_params,fpointers)
 
 c     Consistency check
 
@@ -358,8 +358,8 @@ c       Restrict vector
 
 c     Map vector to array
 
-      !Set grid=1 because vecc is NOT a MG vector
-      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,1)
+      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igridc
+     .                       ,.false.)
 
       icomp=icmp                !Define icomp for BCs
       call setMGBC(0,neq,nxc,nyc,nzc,igc,arrayc,bcnd)
@@ -400,7 +400,7 @@ c     Local variables
 
 c     Begin program
 
-      call allocPointers(neq,fpointers)
+      call allocPointers(neq,grid_params,fpointers)
 
 c     Consistency check
 
