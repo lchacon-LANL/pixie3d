@@ -38,13 +38,12 @@ c Define diagnostics
       diag_desc(neqd+4) = 'Total energy'   
       diag_desc(neqd+5) = 'Time step'      
       diag_desc(neqd+6) = 'Growth rate'    
-      diag_desc(neqd+7) = 'div(B)'         
-      diag_desc(neqd+8) = 'Total particles'
-      diag_desc(neqd+9) = 'Total X momentum'
-      diag_desc(neqd+10)= 'Total Y momentum'
-      diag_desc(neqd+11)= 'Total Z momentum'
-
-      diag_desc(neqd+12:20) = ''
+      diag_desc(neqd+7) = 'local div(B)'
+      diag_desc(neqd+8) = 'Conservation of flux'      
+      diag_desc(neqd+9) = 'Total particles'
+      diag_desc(neqd+10)= 'Total X momentum'
+      diag_desc(neqd+11)= 'Total Y momentum'
+      diag_desc(neqd+12)= 'Total Z momentum'
 
 c Define corresponding independent variables
 

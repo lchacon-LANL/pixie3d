@@ -28,7 +28,7 @@ c Local variables
      .             ,vz0  (0:nxdp,0:nydp,0:nzdp)
 cc      real(8)    :: cs(1,nxd-1),sn(1,nxd-1)
 
-      real(8)    :: Em,Ek,Et,energy,diverB,Npar,px,py,pz
+      real(8)    :: Em,Ek,Et,energy,Bflux,diverB,Npar,px,py,pz
 
       real(8),pointer,dimension(:,:,:) :: rho0,rvx0,rvy0,rvz0
      .                                   ,bx0,by0,bz0,tmp0
@@ -122,20 +122,26 @@ c Energy diagnostics
 
 c div(B) diagnostics
 
-      !Do NOT change to 0:nx+1, etc.
-      do k = 1,nz-1
-        do j = 1,ny-1
-          do i = 1,nx-1
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
             divrgB(i,j,k) = divB(i,j,k)
+cc              divrgB(i,j,k) = curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,1)
+cc     .                       +eta*laplacian(i,j,k,bx)
+cc              divrgB(i,j,k) = curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,2)
+cc     .                       +eta*laplacian(i,j,k,by)
+cc              divrgB(i,j,k) = curlcurl2(i,j,k,bx_cov,by_cov,bz_cov,3)
+cc     .                       +eta*laplacian(i,j,k,bz)
           enddo
         enddo
       enddo
 
-      divrgB = divrgB**2
+      !Total divergence (conservation of flux)
+      Bflux = integral(nxd,nyd,nzd,divrgB,igx,igy,igz)
 
+      !Local divergence (statement of numerical accuracy)
+      divrgB  = abs(divrgB)
       diverB = integral(nxd,nyd,nzd,divrgB,igx,igy,igz)
-
-      diverB = sqrt(diverB)
 
 cc      do k = 0,nz+1
 cc        do j = 0,ny+1
@@ -236,12 +242,11 @@ c Diagnostic assignment
       diagnostics(neqd+5) = dt
       diagnostics(neqd+6) = gammat
       diagnostics(neqd+7) = diverB
-      diagnostics(neqd+8) = Npar
-      diagnostics(neqd+9) = px
-      diagnostics(neqd+10)= py
-      diagnostics(neqd+11)= pz
-
-      diagnostics(neqd+12:20) = 0d0
+      diagnostics(neqd+8) = Bflux
+      diagnostics(neqd+9) = Npar
+      diagnostics(neqd+10)= px
+      diagnostics(neqd+11)= py
+      diagnostics(neqd+12)= pz
 
 cc      do i=1,20
 cc        write (*,*) diag_desc(i),diagnostics(i)
@@ -316,6 +321,8 @@ c Local variables
       integer(4) :: i,j,k
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
 
+      real(8)    :: tvolume
+
 c Begin program
 
 c Find integral limits
@@ -367,15 +374,19 @@ cc      endif
 c Integrate
 
       integral = 0d0
+      tvolume  = 0d0
 
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
             integral = integral
      .               + array(i,j,k)*volume(i,j,k,igx,igy,igz)
+            tvolume = tvolume + volume(i,j,k,igx,igy,igz)
           enddo
         enddo
       enddo
+
+      integral = integral/tvolume
 
 c End 
 

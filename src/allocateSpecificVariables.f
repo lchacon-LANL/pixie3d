@@ -25,7 +25,10 @@ c Begin program
 
         allocate (jx(0:nxdp,0:nydp,0:nzdp)
      .           ,jy(0:nxdp,0:nydp,0:nzdp)
-     .           ,jz(0:nxdp,0:nydp,0:nzdp))
+     .           ,jz(0:nxdp,0:nydp,0:nzdp)
+     .           ,jx_cov(0:nxdp,0:nydp,0:nzdp)
+     .           ,jy_cov(0:nxdp,0:nydp,0:nzdp)
+     .           ,jz_cov(0:nxdp,0:nydp,0:nzdp))
 
         allocate (vx(0:nxdp,0:nydp,0:nzdp)
      .           ,vy(0:nxdp,0:nydp,0:nzdp)

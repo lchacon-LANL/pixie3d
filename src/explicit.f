@@ -60,6 +60,7 @@ cc      call evaluateNonlinearFunction(vnp,ftemp)
      .             vn%array_var(ieq)%array(i,j,k) 
      .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
      .                /volume(i,j,k,1,1,1)
+cc              vnp%array_var(ieq)%array(i,j,k) = fsrc(ii+ieq)
             enddo
 
           enddo
@@ -146,7 +147,7 @@ c Begin program
 
 c Calculate maximum transport coefficient on grid
 
-      diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
+      diffmax = max(maxval(eeta+kdiv),maxval(rho*nuu),dd,chi)
 
 c Calculate maximum sound speed on grid
 
@@ -177,10 +178,9 @@ c Calculate maximum sound speed on grid
       tmp_max= maxval(abs(tmp))
 
       cs = sqrt(2*gamma*tmp_max)
-cc        cs = sqrt(gamma/2.*beta/bnorm)
 
       v_alf = sqrt(bnorm)
-      
+
 c Calculate corresponding CFL
 
       kk = 2*sqrt(1./dxx**2 + 1./dyy**2 + 1./dzz**2)
@@ -189,17 +189,22 @@ c Calculate corresponding CFL
       kv_par = vx_max/dxx + vy_max/dyy + vz_max/dzz
 
       dt_cfl  = kv_par + sqrt(cs**2 + v_alf**2)*kk
+cc      dt_cfl  = kv_par + kb_par + sqrt(cs**2 + v_alf**2)*kk
 cc      dt_cfl  = sqrt(kv_par**2 + (cs**2 + 1.)*kk**2)
       dt_cour = diffmax*kk**2
 
-cc      write (*,*) 'sound speed',cs,' alfven speed',v_alf
+cc      write (*,*) 'Sound speed',cs,' Alfven speed',v_alf
+cc     .           ,' Max. diff',diffmax
 cc      stop
 
       if (dt_cfl <= dt_cour) then
         dt = 0.8/dt_cour
+cc        write (*,*) 'Courant'
       else
         dt = 0.8*(2*dt_cour**2 + dt_cfl**2 - dt_cour*dt_cfl)/
      .             (dt_cour**3 + dt_cfl**3)
+cc        dt = 0.8/dt_cfl
+cc        write (*,*) 'CFL'
       endif
 
       dt = min(dt,dtbase)

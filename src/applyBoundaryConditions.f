@@ -182,6 +182,22 @@ c Begin program
 
       call setupNonlinearFunction(varray)
 
+c Covariant magnetic field
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            gsub = G_sub(xx(ig),yy(jg),zz(kg))
+            cnv = (/ bx(i,j,k),by(i,j,k),bz(i,j,k) /)
+            cov = matmul(gsub,cnv)
+            bx_cov(i,j,k) = cov(1)
+            by_cov(i,j,k) = cov(2)
+            bz_cov(i,j,k) = cov(3)
+          enddo
+        enddo
+      enddo
+
 c Fill ghost nodes
 
       neq = varray%nvar
@@ -205,11 +221,16 @@ c Postprocess magnetic field
 
       call postProcessB
 
+c Postprocess current
+
+      call postProcessJ
+
 c Take care of vector components at singular point
 
       if (varray%array_var(1)%bconds(1) == SP) then
         call singularBCvector(rvx,rvy,rvz)
         call singularBCvector(bx,by,bz)
+        call singularBCvector(jx,jy,jz)
       endif
 
 c End
@@ -299,7 +320,7 @@ c     Local variables
 
 c     Begin program
 
-c     Find covariant magnetic field components at Neumann boundaries
+c     Find covariant magnetic field components at Dirichlet boundaries
 
       do dim = 1,3
         do loc = 0,1
@@ -335,9 +356,6 @@ c     Find covariant magnetic field components at Neumann boundaries
                 if (dim == 1) then
 
                   if (loc == 0) then
-cc
-cc                    by_cov(i-1,j,k) = by(i-1,j,k)
-cc                    bz_cov(i-1,j,k) = bz(i-1,j,k)
 
                     gsuper = g_super(xx(ig-1),yy(jg),zz(kg))
 
@@ -346,9 +364,6 @@ cc                    bz_cov(i-1,j,k) = bz(i-1,j,k)
      .                                 -bx(i-1,j,k) )
      .                                 /gsuper(1,1)
                   else
-cc
-cc                    by_cov(i+1,j,k) = by(i+1,j,k)
-cc                    bz_cov(i+1,j,k) = bz(i+1,j,k)
 
                     gsuper = g_super(xx(ig+1),yy(jg),zz(kg))
 
@@ -361,9 +376,6 @@ cc                    bz_cov(i+1,j,k) = bz(i+1,j,k)
                 elseif (dim == 2) then
 
                   if (loc == 0) then
-cc
-cc                    bx_cov(i,j-1,k) = bx(i,j-1,k)
-cc                    bz_cov(i,j-1,k) = bz(i,j-1,k)
 
                     gsuper = g_super(xx(ig),yy(jg-1),zz(kg))
 
@@ -372,9 +384,6 @@ cc                    bz_cov(i,j-1,k) = bz(i,j-1,k)
      .                                 -by(i,j-1,k) )
      .                                 /gsuper(2,2)
                   else
-cc
-cc                    bx_cov(i,j+1,k) = bx(i,j+1,k)
-cc                    bz_cov(i,j+1,k) = bz(i,j+1,k)
 
                     gsuper = g_super(xx(ig),yy(jg+1),zz(kg))
 
@@ -387,9 +396,6 @@ cc                    bz_cov(i,j+1,k) = bz(i,j+1,k)
                 elseif (dim == 3) then
 
                   if (loc == 0) then
-cc
-cc                    bx_cov(i,j,k-1) = bx(i,j,k-1)
-cc                    by_cov(i,j,k-1) = by(i,j,k-1)
 
                     gsuper = g_super(xx(ig),yy(jg),zz(kg-1))
 
@@ -398,9 +404,6 @@ cc                    by_cov(i,j,k-1) = by(i,j,k-1)
      .                                 -bz(i,j,k-1) )
      .                                 /gsuper(3,3)
                   else
-cc
-cc                    bx_cov(i,j,k+1) = bx(i,j,k+1)
-cc                    by_cov(i,j,k+1) = by(i,j,k+1)
 
                     gsuper = g_super(xx(ig),yy(jg),zz(kg+1))
 
@@ -465,6 +468,89 @@ c     End program
 
       end subroutine postProcessB
 
+c     postProcessJ
+c     #################################################################
+      subroutine postProcessJ
+c     -----------------------------------------------------------------
+c     Synchronizes current components (covariant, contravariant)
+c     at boundaries.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer(4) :: i,j,k,dim,loc
+      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+
+c     Begin program
+
+c     Contravariant current
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            jx(i,j,k) = (bz_cov(i,j+1,k)-bz_cov(i,j-1,k))/2./dyh(jg)
+     .                 -(by_cov(i,j,k+1)-by_cov(i,j,k-1))/2./dzh(kg)
+            jy(i,j,k) = (bx_cov(i,j,k+1)-bx_cov(i,j,k-1))/2./dzh(kg)
+     .                 -(bz_cov(i+1,j,k)-bz_cov(i-1,j,k))/2./dxh(ig)
+            jz(i,j,k) = (by_cov(i+1,j,k)-by_cov(i-1,j,k))/2./dxh(ig)
+     .                 -(bx_cov(i,j+1,k)-bx_cov(i,j-1,k))/2./dyh(jg)
+          enddo
+        enddo
+      enddo
+
+c     Enforce periodic BC on covariant magnetic field components
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          bctype=PER
+
+          ieq = IBX
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,jx,zeros)
+          endif
+
+          ieq = IBY
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,jy,zeros)
+          endif
+
+          ieq = IBZ
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(ieq,dim,loc,bctype,jz,zeros)
+          endif
+
+        enddo
+      enddo
+
+c     Find covariant current
+
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            gsub = G_sub(xx(ig),yy(jg),zz(kg))
+            cnv = (/ jx(i,j,k),jy(i,j,k),jz(i,j,k) /)
+            cov = matmul(gsub,cnv)
+            jx_cov(i,j,k) = cov(1)
+            jy_cov(i,j,k) = cov(2)
+            jz_cov(i,j,k) = cov(3)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine postProcessJ
+
       end subroutine imposeBoundaryConditions
 
 c FillGhostNodes
@@ -508,7 +594,7 @@ c Local variables
 
 c Begin program
 
-      quadratic = .false.
+      quadratic = .true.
 
       ibc = (1+loc)+2*(dim-1)
 
@@ -524,19 +610,10 @@ c     X0
       case(SP)
         call singularBC(array(1,:,:))
       case(DIR)
-cc        array(0,:,:) = array0(0,:,:)
-        i = 0
-        do j=0,ny+1
-          do k=0,nz+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(xx(ig)+dxh(ig),xx(ig+1),xx(ig+2)
-     .                     ,array0(i,j,k),array(i+1,j,k),array(i+2,j,k)
-     .                     ,xx(ig),quadratic )
-          enddo
-        enddo
-
+        call dirichletBC(ieq,dim,loc)
+        array(0,:,:) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(0,:,:) = array(1,:,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(0,:,:) = array(2,:,:) - rhs(:,:)
         array(0,:,:) = array(1,:,:) - rhs(:,:)
@@ -554,20 +631,10 @@ c     X1
       case(PER)
         array(nx+1,:,:) = array(1,:,:)
       case(DIR)
-cc        array(nx+1,:,:) = array0(nx+1,:,:)
-
-        i = nx+1
-        do j=0,ny+1
-          do k=0,nz+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(xx(ig)-dxh(ig),xx(ig-1),xx(ig-2)
-     .                     ,array0(i,j,k),array(i-1,j,k),array(i-2,j,k)
-     .                     ,xx(ig),quadratic )
-          enddo
-        enddo
-
+        call dirichletBC(ieq,dim,loc)
+        array(nx+1,:,:) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(nx+1,:,:) = array(nx,:,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(nx+1,:,:) = array(nx-1,:,:) + rhs(:,:)
         array(nx+1,:,:) = array(nx,:,:) + rhs(:,:)
@@ -585,18 +652,10 @@ c     Y0
       case(PER)
         array(:,0,:) = array(:,ny,:)
       case(DIR)
-cc        array(:,0,:) = array0(:,0,:)
-        j = 0
-        do i=0,nx+1
-          do k=0,nz+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(yy(jg)+dyh(jg),yy(jg+1),yy(jg+2)
-     .                     ,array0(i,j,k),array(i,j+1,k),array(i,j+2,k)
-     .                     ,yy(jg),quadratic )
-          enddo
-        enddo
+        call dirichletBC(ieq,dim,loc)
+        array(:,0,:) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(:,0,:) = array(:,1,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(:,0,:) = array(:,2,:) - rhs(:,:)
         array(:,0,:) = array(:,1,:) - rhs(:,:)
@@ -614,18 +673,10 @@ c     Y1
       case(PER)
         array(:,ny+1,:) = array(:,1,:)
       case(DIR)
-cc        array(:,ny+1,:) = array0(:,ny+1,:)
-        j = ny+1
-        do i=0,nx+1
-          do k=0,nz+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(yy(jg)-dyh(jg),yy(jg-1),yy(jg-2)
-     .                     ,array0(i,j,k),array(i,j-1,k),array(i,j-2,k)
-     .                     ,yy(jg),quadratic )
-          enddo
-        enddo
+        call dirichletBC(ieq,dim,loc)
+        array(:,ny+1,:) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(:,ny+1,:) = array(:,ny,:)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(:,ny+1,:) = array(:,ny-1,:) + rhs(:,:)
         array(:,ny+1,:) = array(:,ny,:) + rhs(:,:)
@@ -643,18 +694,10 @@ c     Z0
       case(PER)
         array(:,:,0) = array(:,:,nz)
       case(DIR)
-cc        array(:,:,0) = array0(:,:,0)
-        k = 0
-        do i=0,nx+1
-          do j=0,ny+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(zz(kg)+dzh(kg),zz(kg+1),zz(kg+2)
-     .                     ,array0(i,j,k),array(i,j,k+1),array(i,j,k+2)
-     .                     ,zz(kg),quadratic )
-          enddo
-        enddo
+        call dirichletBC(ieq,dim,loc)
+        array(:,:,0) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(:,:,0) = array(:,:,1)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(:,:,0) = array(:,:,2) - rhs(:,:)
         array(:,:,0) = array(:,:,1) - rhs(:,:)
@@ -672,18 +715,10 @@ c     Z1
       case(PER)
         array(:,:,nz+1) = array(:,:,1)
       case(DIR)
-cc        array(:,:,nz+1) = array0(:,:,nz+1)
-        k = nz+1
-        do i=0,nx+1
-          do j=0,ny+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            array(i,j,k) = quad_int(zz(kg)-dzh(kg),zz(kg-1),zz(kg-2)
-     .                     ,array0(i,j,k),array(i,j,k-1),array(i,j,k-2)
-     .                     ,zz(kg),quadratic )
-          enddo
-        enddo
+        call dirichletBC(ieq,dim,loc)
+        array(:,:,nz+1) = rhs(:,:)
+        deallocate(rhs)
       case(NEU)
-cc        array(:,:,nz+1) = array(:,:,nz)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
 c2nd        array(:,:,nz+1) = array(:,:,nz-1) + rhs(:,:)
         array(:,:,nz+1) = array(:,:,nz) + rhs(:,:)
@@ -1013,8 +1048,9 @@ cc                  stop
 
               if (dim == 1) then
 
-                jx(i,j,k) = (bz_cov(i,jp,k)-bz_cov(i,jp,k))/dh(2)
+                jx(i,j,k) = (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
      .                     -(by_cov(i,j,kp)-by_cov(i,j,km))/dh(3)
+
                 if (icomp == 2) then
                   rhs(j,k) = dh(dim)
      .               *( (bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
@@ -1064,10 +1100,11 @@ cc                  stop
 
                 jz(i,j,k) = (by_cov(ip,j,k)-by_cov(im,j,k))/dh(1)
      .                     -(bx_cov(i,jp,k)-bx_cov(i,jm,k))/dh(2)
+
                 if (icomp == 1) then
                   rhs(i,j) = dh(dim)
      .               *( (bz_cov(ip,j,k)-bz_cov(im,j,k))/dh(1)
-     .                 +gsuper(dim,2)*jy(i,j,k)/gsuper(dim,dim) )
+     .                 +gsuper(dim,2)*jz(i,j,k)/gsuper(dim,dim) )
                   if (loc == 0) then
                     bx_cov(i,j,k-1) = bx_cov(i,j,k) - rhs(i,j)
                   else
@@ -1076,7 +1113,7 @@ cc                  stop
                 elseif (icomp == 2) then
                   rhs(i,j) = dh(dim)
      .               *( (bz_cov(i,jp,k)-bz_cov(i,jm,k))/dh(2)
-     .                 -gsuper(dim,1)*jy(i,j,k)/gsuper(dim,dim) )
+     .                 -gsuper(dim,1)*jz(i,j,k)/gsuper(dim,dim) )
                   if (loc == 0) then
                     by_cov(i,j,k-1) = by_cov(i,j,k) - rhs(i,j)
                   else
@@ -1100,6 +1137,170 @@ cc                  stop
 c     End program
 
       end subroutine neumannBC
+
+c     dirichletBC
+c     #################################################################
+      subroutine dirichletBC(ieq,dim,loc)
+c     -----------------------------------------------------------------
+c     Imposes dirichlet BC. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     This routine fills up the bi-dimensional array rhs, which 
+c     contains the right hand side of the Neumann BC.
+c     -----------------------------------------------------------------
+
+      use grid
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,dim,loc
+
+c     Local variables
+
+      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp,ibc
+      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3)
+
+c     Begin program
+
+      quadratic = .true.
+
+      ibc = (1+loc)+2*(dim-1)
+
+      if (dim == 1) then
+        imin=1  +    loc *(nx-1)
+        imax=nx + (1-loc)*(1-nx)
+        jmin=1
+        jmax=ny
+        kmin=1
+        kmax=nz
+        allocate(rhs(0:ny+1,0:nz+1))
+      elseif (dim == 2) then
+        imin=1 
+        imax=nx
+        jmin=1  +    loc *(ny-1)
+        jmax=ny + (1-loc)*(1-ny)
+        kmin=1
+        kmax=nz
+        allocate(rhs(0:nx+1,0:nz+1))
+      elseif (dim == 3) then
+        imin=1 
+        imax=nx
+        jmin=1
+        jmax=ny
+        kmin=1  +    loc *(nz-1)
+        kmax=nz + (1-loc)*(1-nz)
+        allocate(rhs(0:nx+1,0:ny+1))
+      endif
+
+      rhs = 0d0
+
+      select case (ieq)
+      case (IRHO,ITMP,IVX,IVY,IVZ)
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              select case (ibc)
+              case (1)
+                rhs(j,k) = quad_int(xx(ig-1)+dxh(ig-1),xx(ig),xx(ig+1)
+     .                     ,array0(i-1,j,k),array(i,j,k),array(i+1,j,k)
+     .                     ,xx(ig-1),quadratic )
+              case (2)
+                rhs(j,k) = quad_int(xx(ig+1)-dxh(ig+1),xx(ig),xx(ig-1)
+     .                     ,array0(i+1,j,k),array(i,j,k),array(i-1,j,k)
+     .                     ,xx(ig+1),quadratic )
+              case (3)
+                rhs(i,k) = quad_int(yy(jg-1)+dyh(jg-1),yy(jg),yy(jg+1)
+     .                     ,array0(i,j-1,k),array(i,j,k),array(i,j+1,k)
+     .                     ,yy(jg-1),quadratic )
+              case (4)
+                rhs(i,k) = quad_int(yy(jg+1)-dyh(jg+1),yy(jg),yy(jg-1)
+     .                     ,array0(i,j+1,k),array(i,j,k),array(i,j-1,k)
+     .                     ,yy(jg+1),quadratic )
+              case (5)
+                rhs(i,j) = quad_int(zz(kg-1)+dzh(kg-1),zz(kg),zz(kg+1)
+     .                     ,array0(i,j,k-1),array(i,j,k),array(i,j,k+1)
+     .                     ,zz(kg-1),quadratic )
+              case (6)
+                rhs(i,j) = quad_int(zz(kg+1)-dzh(kg+1),zz(kg),zz(kg-1)
+     .                     ,array0(i,j,k+1),array(i,j,k),array(i,j,k-1)
+     .                     ,zz(kg+1),quadratic )
+              end select
+
+            enddo
+          enddo
+        enddo
+
+      case (IBX,IBY,IBZ) !Imposes divergence-free constraint at boundary
+
+        if (ieq == IBX) icomp = 1
+        if (ieq == IBY) icomp = 2
+        if (ieq == IBZ) icomp = 3
+
+        if (icomp /= dim) then
+          write (*,*) 'Error in dirichletBC: icomp <> dim'
+          stop
+        endif
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              dh(2) = 2.*dyh(jg)
+              dh(3) = 2.*dzh(kg)
+
+              select case (ibc)
+              case (1)
+                array(i-1,j,k) = array(i+1,j,k)
+                rhs(j,k) = array(i+1,j,k) + dh(1)*divB(i,j,k)
+              case (2)
+                array(i+1,j,k) = array(i-1,j,k)
+                rhs(j,k) = array(i-1,j,k) - dh(1)*divB(i,j,k)
+              case (3)
+                array(i,j-1,k) = array(i,j+1,k)
+                rhs(i,k) = array(i,j+1,k) + dh(2)*divB(i,j,k)
+              case (4)
+                array(i,j+1,k) = array(i,j-1,k)
+                rhs(i,k) = array(i,j-1,k) - dh(2)*divB(i,j,k)
+              case (5)
+                array(i,j,k-1) = array(i,j,k+1)
+                rhs(i,j) = array(i,j,k+1) + dh(3)*divB(i,j,k)
+              case (6)
+                array(i,j+1,k) = array(i,j-1,k)
+                rhs(i,j) = array(i,j,k-1) - dh(3)*divB(i,j,k)
+              end select
+
+            enddo
+          enddo
+        enddo
+
+      case default
+
+        write (*,*) 'Error in dirichletBC'
+        stop
+
+      end select
+
+c     End program
+
+      end subroutine dirichletBC
 
       end subroutine FillGhostNodes
 

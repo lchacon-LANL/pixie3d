@@ -52,7 +52,8 @@ cc     .          ,d_alf(1, ntotd2p))
 cc
 ccc Unpack vector x, taking BCs from t=n solution
 cc
-cc      call mapVectorToStructure(x,varray)
+cccc      call mapVectorToStructure(varray,x)
+cc      varray = x
 cc
 ccc Extract arrays and BC's
 cc

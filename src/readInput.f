@@ -47,8 +47,8 @@ c Namelist
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,tolnewt,maxitnwt,tolgm,maxksp,iguess,maxitgm
      .                   ,global,method
-     .                ,equil,dlambda,rshear,vparflow,vperflow
-     .                   ,source,nh,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                ,equil,dlambda,rshear,vparflow,vperflow,source
+     .                ,nh,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,odd
      .                ,precon,maxvcyc,nsweep,precpass,iguess
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
@@ -135,6 +135,7 @@ c Set defaults
       pbz      = 0d0           ! Bz perturbation
       ptemp    = 0d0           ! Temperature perturbation
       nh       = 1             ! Harmonic number for perturbation
+      odd      = .false.       ! Symmetry of perturbation
 
       !I/O parameters
       restart  = .false.       ! Restarting flag
@@ -142,7 +143,7 @@ c Set defaults
       plot     = .true.        ! Plots ouput
       ilevel   = 0             ! Level of solver output information
 
-      sel_diag = (/ 2,5,15,16,17,18,19,12,0/) 
+      sel_diag = (/ 2,5,15,16,17,18,19,12,20/) 
                                ! Selects diagnostics for xdraw output
                                ! Currently:
                                !    1 -> 'ln(drho)'       
@@ -159,11 +160,12 @@ c Set defaults
                                !    12-> 'Total energy'   
                                !    13-> 'Time step'      
                                !    14-> 'Growth rate'    
-                               !    15-> 'div(B)'         
-                               !    16-> 'Total particles'
-                               !    17-> 'Total X momentum'
-                               !    18-> 'Total Y momentum'
-                               !    19-> 'Total Z momentum'
+                               !    15-> 'div(B)'
+                               !    16-> 'Conservation of flux'
+                               !    17-> 'Total particles'
+                               !    18-> 'Total X momentum'
+                               !    19-> 'Total Y momentum'
+                               !    20-> 'Total Z momentum'
 
 
       sel_graph = (/ 1,-15,-18,-9,11,14,0,0,0 /) 
@@ -204,20 +206,6 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         nu  = sqrt(prndtl)/hrtmn
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
-
-c Check for autoinitializing parameters
-
-      if (maxitnwt.eq.0) 
-     .      maxitnwt = max(floor(1.5*log(tolnewt)/log(tolgm)),10)
-
-      alpha = 1. - cnfactor
-
-      dtbase = dt   
-
-      sm_flag= 0
-      if (cnfactor.lt.0d0) sm_flag= 1
-
-      cnf_d = 1d0
 
 c Map perturbations
 

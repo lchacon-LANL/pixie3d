@@ -54,8 +54,9 @@ ifeq ($(FC),f90)
 
 # Flags for Absoft f90
 OPTIMIZATION = -O -B101 -cpu:host
+DEBUG = -g -et
 #DEBUG = -g -et -trap=ALL
-DEBUG = -g
+#DEBUG = -g
 PROFILE = -P
 STATIC = -s
 
