@@ -27,6 +27,8 @@ c####################################################################
 
         real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
 
+        logical    :: do_nothing
+
         type :: curv_vector
           real(8),pointer,dimension(:,:,:,:) :: vcomp
           logical :: cov
@@ -52,7 +54,8 @@ c     Begin program
       select case(dim)
       case (1)
 
-        call selectLimits(i1,i2,nx,grid_params%nxgl(igx),imin,imax)
+        call selectLimits(i1,i2,grid_params%ilo(igx)
+     .                   ,nx,grid_params%nxgl(igx),imin,imax)
 
         jmin = j1 - grid_params%jlo(igy) + 1
         jmax = j2 - grid_params%jlo(igy) + 1
@@ -64,7 +67,8 @@ c     Begin program
         imin = i1 - grid_params%ilo(igx) + 1
         imax = i2 - grid_params%ilo(igx) + 1
 
-        call selectLimits(j1,j2,ny,grid_params%nygl(igy),jmin,jmax)
+        call selectLimits(j1,j2,grid_params%jlo(igy)
+     .                   ,ny,grid_params%nygl(igy),jmin,jmax)
 
         kmin = k1 - grid_params%klo(igz) + 1
         kmax = k2 - grid_params%klo(igz) + 1
@@ -76,7 +80,8 @@ c     Begin program
         jmin = j1 - grid_params%jlo(igy) + 1
         jmax = j2 - grid_params%jlo(igy) + 1
 
-        call selectLimits(k1,k2,nz,grid_params%nzgl(igz),kmin,kmax)
+        call selectLimits(k1,k2,grid_params%klo(igz)
+     .                   ,nz,grid_params%nzgl(igz),kmin,kmax)
 
       end select
 
@@ -86,33 +91,27 @@ c     End program
 
 c     selectLimits
 c     #####################################################################
-      subroutine selectLimits(i1,i2,nxl,nxg,imin,imax)
+      subroutine selectLimits(igl,igr,igmin,nxl,nxg,ill,ilr)
 
         implicit none
 
-        integer(4) :: i1,i2,nxl,nxg,imin,imax
+        integer(4) :: igl,igr,igmin,nxl,nxg,ill,ilr
 
 c     Begin program
 
+        do_nothing = .false.
+
         select case(loc)
         case(0)
-          if (i1 > 1) then
-            !Do nothing: imin > imax
-            imin = 1
-            imax = 0
-          else
-            imin = 1
-            imax = imin
-          endif
+          if (igl > 1) do_nothing = .true.
+          ill = min(igl - igmin + 1,1)
+cc          ill = 1
+          ilr = ill
         case(1)
-          if (i2 < nxg) then
-            !Do nothing: imin > imax
-            imin = 1
-            imax = 0
-          else
-            imin = nxl
-            imax = imin
-          endif
+          if (igr < nxg) do_nothing = .true.
+          ill = max(igr - igmin + 1,nxl)
+cc          ill = nxl
+          ilr = ill
         end select
 
 cc        imin = 1 + loc*(nxg-1)
@@ -199,6 +198,7 @@ c       Perform local sum
 c       Perform global sum (and broadcast it to all processors)
 
 #if defined(petsc)
+
         call MPI_Allreduce(lavg_q  ,avg_q  ,1,MPI_DOUBLE_PRECISION
      .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
         call MPI_Allreduce(lavg_vol,avg_vol,1,MPI_DOUBLE_PRECISION
@@ -278,10 +278,10 @@ c       Perform local sum
           x0  = xx(ig-1)
 
           allocate(cx(order1+1),cy(order1+1),cz(order1+1))
-          do i=1,order1+1
-            call transformVectorToCartesian(i,j,k,igx,igy,igz
-     .           ,vec(i,j,k,1),vec(i,j,k,2),vec(i,j,k,3),cov
-     .           ,cx(i),cy(i),cz(i))
+          do ic=1,order1+1
+            call transformVectorToCartesian(ic,j,k,igx,igy,igz
+     .           ,vec(ic,j,k,1),vec(ic,j,k,2),vec(ic,j,k,3),cov
+     .           ,cx(ic),cy(ic),cz(ic))
           enddo
 
           call IntDriver1d(order1+1,xx(ig),cx,1,x0,cx1,order)
@@ -1217,13 +1217,13 @@ c     Find cov components (we assume cnv components are defined)
       call fromGlobalToLocalLimits(iimin,jjmin,kkmin,ilmin,jlmin,klmin)
       call fromGlobalToLocalLimits(iimax,jjmax,kkmax,ilmax,jlmax,klmax)
 
-      do k=klmin,klmax
-        do j=jlmin,jlmax
-          do i=ilmin,ilmax
+      do k=klmin-1,klmax+1
+        do j=jlmin-1,jlmax+1
+          do i=ilmin-1,ilmax+1
 #else
-      do k=kkmin,kkmax
-        do j=jjmin,jjmax
-          do i=iimin,iimax
+      do k=kkmin-1,kkmax+1
+        do j=jjmin-1,jjmax+1
+          do i=iimin-1,iimax+1
 #endif
             call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .            ,v_cov(i,j,k,1),v_cov(i,j,k,2),v_cov(i,j,k,3)
@@ -1263,7 +1263,7 @@ c     Impose BCs
         enddo
       enddo
 
-c     Synchronize covariant and contravariant components
+c     Synchronize covariant and contravariant components => contravariant
 
       if (cov_to_cnv) call synchronize_cnv(v_cnv,v_cov,bcond)
 
@@ -1307,7 +1307,7 @@ cc          enddo
 cc        enddo
 cc      enddo
 
-c     Find covariant components at ALL boundaries
+c     Find covariant components at ALL boundary ghost cells
 
       do dim = 1,3
         do loc = 0,1
@@ -1337,7 +1337,9 @@ c     synchronize_cnv
 c     #################################################################
       subroutine synchronize_cnv(v_cnv,v_cov,bcond)
 c     -----------------------------------------------------------------
-c     Finds all contravariant components at Neumann boundaries.
+c     Finds all contravariant components at boundaries with BC in terms
+c     of covariant components.
+c
 c     On input, tangential covariant components and normal contravariant
 c     components are known at ghost cells. On output, all contravariant
 c     components are known at ghost cells.
@@ -1371,6 +1373,8 @@ c     Begin program
               call findLoopLimits(dim,loc,iimin,iimax
      .                                   ,jjmin,jjmax
      .                                   ,kkmin,kkmax)
+
+              if (do_nothing) exit
 
               select case (ibc)
               case (1)
@@ -1547,6 +1551,8 @@ c     Begin program
 c     Determine boundary limits
 
       call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+
+      if (do_nothing) return
 
 c     Allocate rhs
 
@@ -1746,6 +1752,8 @@ c     Begin program
 c     Determine boundary limits
 
       call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+
+      if (do_nothing) return
 
 c     Select edge (nnodes initialized in module header)
 
@@ -2019,6 +2027,8 @@ c     Begin program
 c     Determine boundary limits
 
       call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+
+      if (do_nothing) return
 
 c     Select edge (nnodes initialized in module header)
 
