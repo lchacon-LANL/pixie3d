@@ -752,8 +752,7 @@ c     Local variables
 
 c     Begin program
 
-        sing_point = .false.
-        if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+        sing_point = isSP(i,j,k,igx,igy,igz)
 
 c     Defaults
 
