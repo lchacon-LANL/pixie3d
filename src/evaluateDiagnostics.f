@@ -12,7 +12,11 @@ c####################################################################
 
         use graphics
 
+        use icond
+
         use nlfunction_setup
+
+        use constants
 
         implicit none
 
@@ -303,7 +307,7 @@ c Initial assignments
         return
       endif
 
-c Divergence diagnostics
+c Magnetic divergence diagnostics
 
       do k = 1,nz
         do j = 1,ny
@@ -311,21 +315,45 @@ c Divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            divrgB(i,j,k) = divB(i,j,k)/jac
-            divrgV(i,j,k) = divV(i,j,k)/jac
+            array(i,j,k) = divB(i,j,k)/jac
           enddo
         enddo
       enddo
 
+      !Take care of singular point
+      if (bcond(1) == SP) then
+        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
+        array(1,:,:) = array(0,:,:)
+      endif
+
       !Total B divergence (conservation of flux)
-      Bflux  = integral(nxd,nyd,nzd,divrgB,igx,igy,igz,.false.)
+      Bflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
 
       !Local divergence (statement of numerical accuracy)
-      divrgB = abs(divrgB)
-      diverB = integral(nxd,nyd,nzd,divrgB,igx,igy,igz,.true.)
+      array = abs(array)
+      diverB = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
+
+c Velocity divergence diagnostics
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                         ,cartsn)
+            jac = jacobian(x1,y1,z1,cartsn)
+            array(i,j,k) = divV(i,j,k)/jac
+          enddo
+        enddo
+      enddo
+
+      !Take care of singular point
+cc      if (bcond(1) == SP) then
+cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
+cc        array(1,:,:) = array(0,:,:)
+cc      endif
 
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(nxd,nyd,nzd,divrgV,igx,igy,igz,.false.)
+      Vflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
 
 c Growth rate diagnostics
 
@@ -338,7 +366,7 @@ c Growth rate diagnostics
 
 cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
         if (dpert(ieq).eq.0d0) then
-          dpert(ieq) = 1d-20
+          dpert(ieq) = 0.1*maxval(abs(pert))
         else
           dpert(ieq) = sqrt(dpert(ieq))
         endif
@@ -361,8 +389,8 @@ c Calculation of local growth rate for CN
         dmag2 = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
 
         if (dpert(ieq) /= 0d0.and.dmag2 /= 0d0) then
-cc          mag(ieq) = .5*dt*sqrt(dmag2)/(exp(dpert(ieq))-sqrt(dmag1))
-          mag(ieq) = .5*dt*sqrt(dmag2)/(dpert(ieq)-sqrt(dmag1))
+          mag(ieq) = .5*dt*sqrt(dmag2)/(exp(dpert(ieq))-sqrt(dmag1))
+cc          mag(ieq) = .5*dt*sqrt(dmag2)/(dpert(ieq)-sqrt(dmag1))
         else
           mag(ieq) = 1e30
         endif
