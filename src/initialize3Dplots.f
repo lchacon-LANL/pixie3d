@@ -37,22 +37,22 @@ c Define graphics group #1: Contravariant variables
       enddo
 
       graph(1)%array_graph(neqd+1)%array => jx
-      graph(1)%array_graph(neqd+1)%descr = 'Jx (cnv)'
+      graph(1)%array_graph(neqd+1)%descr = 'J^1'
 
       graph(1)%array_graph(neqd+2)%array => jy
-      graph(1)%array_graph(neqd+2)%descr = 'Jy (cnv)'
+      graph(1)%array_graph(neqd+2)%descr = 'J^2'
 
       graph(1)%array_graph(neqd+3)%array => jz
-      graph(1)%array_graph(neqd+3)%descr = 'Jz (cnv)'
+      graph(1)%array_graph(neqd+3)%descr = 'J^3'
 
       graph(1)%array_graph(neqd+4)%array => vx
-      graph(1)%array_graph(neqd+4)%descr = 'Vx (cnv)'
+      graph(1)%array_graph(neqd+4)%descr = 'V^1'
 
       graph(1)%array_graph(neqd+5)%array => vy
-      graph(1)%array_graph(neqd+5)%descr = 'Vy (cnv)'
+      graph(1)%array_graph(neqd+5)%descr = 'V^2'
 
       graph(1)%array_graph(neqd+6)%array => vz
-      graph(1)%array_graph(neqd+6)%descr = 'Vz (cnv)'
+      graph(1)%array_graph(neqd+6)%descr = 'V^3'
 
       graph(1)%array_graph(neqd+7:ngraph)%descr = ''
 
@@ -68,31 +68,31 @@ c Define graphics group #2: Cov variables
       graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
       graph(2)%array_graph(IVX)%array => vx_cov
-      graph(2)%array_graph(IVX)%descr = 'Vx (cov)'
+      graph(2)%array_graph(IVX)%descr = 'V_1'
 
       graph(2)%array_graph(IVY)%array => vy_cov
-      graph(2)%array_graph(IVY)%descr = 'Vy (cov)'
+      graph(2)%array_graph(IVY)%descr = 'V_2'
 
       graph(2)%array_graph(IVZ)%array => vz_cov
-      graph(2)%array_graph(IVZ)%descr = 'Vz (cov)'
+      graph(2)%array_graph(IVZ)%descr = 'V_3'
 
       graph(2)%array_graph(IBX)%array => bx_cov
-      graph(2)%array_graph(IBX)%descr = 'Bx (cov)'
+      graph(2)%array_graph(IBX)%descr = 'B_1'
 
       graph(2)%array_graph(IBY)%array => by_cov
-      graph(2)%array_graph(IBY)%descr = 'By (cov)'
+      graph(2)%array_graph(IBY)%descr = 'B_2'
 
       graph(2)%array_graph(IBZ)%array => bz_cov
-      graph(2)%array_graph(IBZ)%descr = 'Bz (cov)'
+      graph(2)%array_graph(IBZ)%descr = 'B_3'
 
       graph(2)%array_graph(neqd+1)%array => jx_cov
-      graph(2)%array_graph(neqd+1)%descr = 'Jx (cov)'
+      graph(2)%array_graph(neqd+1)%descr = 'J_1'
 
       graph(2)%array_graph(neqd+2)%array => jy_cov
-      graph(2)%array_graph(neqd+2)%descr = 'Jy (cov)'
+      graph(2)%array_graph(neqd+2)%descr = 'J_2'
 
       graph(2)%array_graph(neqd+3)%array => jz_cov
-      graph(2)%array_graph(neqd+3)%descr = 'Jz (cov)'
+      graph(2)%array_graph(neqd+3)%descr = 'J_3'
 
       graph(2)%array_graph(neqd+4:ngraph)%descr = ''
 
@@ -108,31 +108,31 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
       graph(3)%array_graph(IVX)%array => vx_car
-      graph(3)%array_graph(IVX)%descr = 'Vx (car)'
+      graph(3)%array_graph(IVX)%descr = 'Vx'
 
       graph(3)%array_graph(IVY)%array => vy_car
-      graph(3)%array_graph(IVY)%descr = 'Vy (car)'
+      graph(3)%array_graph(IVY)%descr = 'Vy'
 
       graph(3)%array_graph(IVZ)%array => vz_car
-      graph(3)%array_graph(IVZ)%descr = 'Vz (car)'
+      graph(3)%array_graph(IVZ)%descr = 'Vz'
 
       graph(3)%array_graph(IBX)%array => bx_car
-      graph(3)%array_graph(IBX)%descr = 'Bx (car)'
+      graph(3)%array_graph(IBX)%descr = 'Bx'
 
       graph(3)%array_graph(IBY)%array => by_car
-      graph(3)%array_graph(IBY)%descr = 'By (car)'
+      graph(3)%array_graph(IBY)%descr = 'By'
 
       graph(3)%array_graph(IBZ)%array => bz_car
-      graph(3)%array_graph(IBZ)%descr = 'Bz (car)'
+      graph(3)%array_graph(IBZ)%descr = 'Bz'
 
       graph(3)%array_graph(neqd+1)%array => jx_car
-      graph(3)%array_graph(neqd+1)%descr = 'Jx (car)'
+      graph(3)%array_graph(neqd+1)%descr = 'Jx'
 
       graph(3)%array_graph(neqd+2)%array => jy_car
-      graph(3)%array_graph(neqd+2)%descr = 'Jy (car)'
+      graph(3)%array_graph(neqd+2)%descr = 'Jy'
 
       graph(3)%array_graph(neqd+3)%array => jz_car
-      graph(3)%array_graph(neqd+3)%descr = 'Jz (car)'
+      graph(3)%array_graph(neqd+3)%descr = 'Jz'
 
       graph(3)%array_graph(neqd+4:ngraph)%descr = ''
 
@@ -153,13 +153,19 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(4)%array => divrgV
       graph(4)%array_graph(4)%descr = 'local div(V)'
 
-      graph(4)%array_graph(5)%array => Pflux
-      graph(4)%array_graph(5)%descr = 'Poloidal flux'
+      graph(4)%array_graph(5)%array => divrgJ
+      graph(4)%array_graph(5)%descr = 'local div(J)'
 
-      graph(4)%array_graph(6)%array => qfactor
-      graph(4)%array_graph(6)%descr = 'q factor'
+      graph(4)%array_graph(6)%array => Pflux
+      graph(4)%array_graph(6)%descr = 'Poloidal flux'
 
-      graph(4)%array_graph(7:ngraph)%descr = ''
+      graph(4)%array_graph(7)%array => qfactor
+      graph(4)%array_graph(7)%descr = 'q factor'
+
+      graph(4)%array_graph(8)%array => p_tot
+      graph(4)%array_graph(8)%descr = 'Total pressure'
+
+      graph(4)%array_graph(9:ngraph)%descr = ''
 
 c Define graphics group #5: Perturbations
 
@@ -168,7 +174,8 @@ c Define graphics group #5: Perturbations
 
       do ieq = 1,neqd
         graph(5)%array_graph(ieq)%array => u_graph%array_var(ieq)%array
-        graph(5)%array_graph(ieq)%descr =  u_graph%array_var(ieq)%descr
+        graph(5)%array_graph(ieq)%descr =
+     $       trim(u_graph%array_var(ieq)%descr) // ' pert'
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
@@ -249,19 +256,48 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
-      real(8)    :: mm,kk,RR,ll
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1
+      logical    :: cartsn
 
 c Begin program
+
+c Allocate variables
+
+cc        allocate (divrgB(0:nxdp,0:nydp,0:nzdp)
+cc     .           ,divrgV(0:nxdp,0:nydp,0:nzdp)
+cc     .           ,divrgJ(0:nxdp,0:nydp,0:nzdp)
+cc     .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
+cc     .           ,p_tot (0:nxdp,0:nydp,0:nzdp)
+cc     .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
 
 c Find perturbed quantities
 
       u_graph = u_np - u_0
 
 cdiag ******
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+cc     .                         ,cartsn)
+cc            jac = jacobian(x1,y1,z1,cartsn)
+cc
+cc            u_graph%array_var(IBZ)%array(i,j,k) =
+cccc     .           u_graph%array_var(IBZ)%array(i,j,k)/jac
+cccc     .          *u_0    %array_var(IBZ)%array(i,j,k)/jac
+cc     .           u_np%array_var(IBZ)%array(i,j,k)
+cc     .          *u_np%array_var(IBX)%array(i,j,k)/jac
+cccc            u_graph%array_var(IRHO)%array(i,j,k) =
+cccc     .           u_graph%array_var(IRHO)%array(i,j,k)/jac**2
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      call imposeBoundaryConditions(u_graph)
 cc      if (source) u_graph = fsrc
 cdiag ******
 
-c Poloidal flux diagnostics (use same limits as plotting routines)
+c Poloidal flux diagnostics  (use graphics limits)
 
       do k = kmin,kmax
         do i = imin,imax
@@ -279,22 +315,73 @@ c Poloidal flux diagnostics (use same limits as plotting routines)
         enddo
       enddo
 
-c Poloidally averaged q-factor (use same limits as plotting routines)
+c Poloidally averaged q-factor (use graphics limits)
 
-      mm = grid_params%params(1)
-      kk = grid_params%params(2)
-      RR = grid_params%params(3)
-      do k = kmin,kmax
-        do i = imin,imax
-          qfactor(i,0,k) = 0d0
-          ll = 0d0
-          do j = jmin,jmax
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            qfactor(i,j,k) = qfactor(i,j-1,k)
-     .                + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
-            ll = ll + dyh(jg)
+      if (coords == 'hel') then
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        do k = kmin,kmax
+          do i = imax,imin+1,-1
+            qfactor(i,jmin-1,k) = 0d0
+            ll = 0d0
+            do j = jmin,jmax
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+              qfactor(i,j,k) = qfactor(i,j-1,k)
+     .             + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+              ll = ll + dyh(jg)
+            enddo
+            qfactor(i,:,k) = qfactor(i,jmax,k)/ll
           enddo
-          qfactor(i,:,k) = qfactor(i,jmax,k)/ll
+          qfactor(imin,:,k) = qfactor(imin+1,:,k)
+        enddo
+      else
+        qfactor = 0d0
+      endif
+
+c Divergence diagnostics
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                         ,cartsn)
+            jac = jacobian(x1,y1,z1,cartsn)
+            divrgJ(i,j,k) = divJ(i,j,k)/jac
+            divrgB(i,j,k) = divB(i,j,k)/jac
+            divrgV(i,j,k) = divV(i,j,k)/jac
+          enddo
+        enddo
+      enddo
+
+      if (bcond(1) == SP) then
+      !Find div at singular point
+        call FillGhostNodes(IRHO,1,0,SP,divrgJ,zeros)
+        call FillGhostNodes(IRHO,1,0,SP,divrgB,zeros)
+        call FillGhostNodes(IRHO,1,0,SP,divrgV,zeros)
+
+      !Replace div at innermost radius with value at SP
+        divrgJ(1,:,:) = divrgJ(0,:,:)
+        divrgB(1,:,:) = divrgB(0,:,:)
+cc        divrgV(1,:,:) = divrgV(0,:,:)
+      endif
+
+c Total pressure (use graphics limits)
+
+      p_tot = 0d0
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
+     .                         ,cartsn)
+            jac = jacobian(x1,y1,z1,cartsn)
+            
+            p_tot(i,j,k) = (2.*rho(i,j,k)*tmp(i,j,k))
+     .                     +(bx(i,j,k)*bx_cov(i,j,k)
+     .                      +by(i,j,k)*by_cov(i,j,k)
+     .                      +bz(i,j,k)*bz_cov(i,j,k))/2./jac
+
+          enddo
         enddo
       enddo
 
