@@ -55,7 +55,6 @@ cc      call evaluateNonlinearFunction(vnp,ftemp)
               vnp%array_var(ieq)%array(i,j,k) = 
      .             vn%array_var(ieq)%array(i,j,k) 
      .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-     .                /volume(i,j,k,1,1,1)
             enddo
 
           enddo
@@ -76,7 +75,6 @@ c Corrector
               vnp%array_var(ieq)%array(i,j,k) = 
      .              vn%array_var(ieq)%array(i,j,k) 
      .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-     .                /volume(i,j,k,1,1,1)
             enddo
 
           enddo
@@ -145,12 +143,12 @@ c Calculate maximum sound speed on grid
         do j=1,nyd
           do i=1,nxd
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
-     .                         ,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
             !Maximum magnetic field norm and maximum beta
-            norm = vectorNorm(x1,x2,x3,bx(i,j,k),by(i,j,k),bz(i,j,k)
-     .                        ,.false.,cartsn)
+            norm = vectorNorm(i,j,k,igx,igy,igz
+     .                       ,bx(i,j,k),by(i,j,k),bz(i,j,k)
+     .                        ,.false.)
             beta = max(beta,4*rho(i,j,k)*tmp(i,j,k)/norm)
             bnorm = max(bnorm,norm/rho(i,j,k))
 
@@ -158,19 +156,19 @@ c Calculate maximum sound speed on grid
             idx  = 1./dx(ig)
             idy  = 1./dy(jg)
             idz  = 1./dz(kg)
-            norm = vectorNorm(x1,x2,x3,idz,idy,idz,.true.,cartsn)
+            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
             kk   = max(kk,norm)
 
             !Maximum k.v
             vxx = rvx(i,j,k)/rho(i,j,k)
             vyy = rvy(i,j,k)/rho(i,j,k)
             vzz = rvz(i,j,k)/rho(i,j,k)
-            norm = scalarProduct(x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
-     .                          ,cartsn)
+            norm = scalarProduct(i,j,k,igx,igy,igz
+     .                          ,idx,idy,idz,vxx,vyy,vzz)
             kv_par = max(kv_par,norm)
 
             !Maximum velocity field norm
-            norm = vectorNorm(x1,x2,x3,vxx,vyy,vzz,.false.,cartsn)
+            norm = vectorNorm(i,j,k,igx,igy,igz,vxx,vyy,vzz,.false.)
             vnorm = max(vnorm,norm)
 
           enddo
