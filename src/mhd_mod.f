@@ -25,6 +25,53 @@ c Begin program
 
       end subroutine map
 
+c module debug
+c ######################################################################
+      module debug
+
+        real(8) :: lxmax,lxmin,lymax,lymin
+
+      contains
+
+c     contour
+c     #####################################################################
+      subroutine contour(arr,nx,ny,xmin,xmax,ymin,ymax,iopt,nunit)
+      implicit none               !For safe fortran
+c     ---------------------------------------------------------------------
+c     Contours 2D array in xdraw format. In call:
+c       * arr: 2D array to be plotted
+c       * nx,ny: dimensions of array
+c       * xmin,xmax,ymin,ymax: 2D domain limits
+c       * iopt: whether to initialize xdraw plot (iopt=0) or not.
+c       * nunit: integer file identifier.
+c     ---------------------------------------------------------------------
+
+c     Call variables
+
+      integer(4) :: nx,ny,iopt,nunit
+      real(8)    :: arr(nx,ny),xmin,xmax,ymin,ymax
+
+c     Local variables
+
+      integer(4) :: i,j
+
+c     Begin program
+
+      if(iopt == 0) then
+        write(nunit) nx-1,ny-1,0
+        write(nunit) real(xmin,4),real(xmax,4)
+     .              ,real(ymin,4),real(ymax,4) 
+      endif
+      write(nunit) ((real(arr(i,j),4),i=1,nx),j=1,ny)
+cc      write (*,*) ((real(arr(i,j),4),i=1,nx),j=1,ny)
+cc      write (*,*)
+
+c     End program
+
+      end subroutine contour
+
+      end module debug
+
 c module equilibrium
 c ######################################################################
       module equilibrium
@@ -136,7 +183,7 @@ c     Begin program
       dyy = dyh(jg)
       dzz = dzh(kg)
 
-      if (i == 1 .and. bcond(1) == SP) then
+      if (isSP(i,j,k,igx,igy,igz)) then
         jacp = gmetric%grid(igx)%jac(i+1,j,k)
         jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
 
@@ -186,8 +233,7 @@ c     Local variables
 
 c     Begin program
 
-      sing_point = .false.
-      if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+      sing_point = isSP(i,j,k,igx,igy,igz)
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -379,8 +425,7 @@ c     Begin program
       kp = k+1
       km = k-1
 
-      sing_point = .false.
-      if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+      sing_point = isSP(i,j,k,igx,igy,igz)
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -539,7 +584,9 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
      .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 
-        if (i < nx .and. bcond(1) == SP .and. flag /= 0) then
+        if (      i < grid_params%nxgl(igx)
+     .      .and. bcond(1) == SP
+     .      .and. flag /= 0) then
           jacp = gmetric%grid(igx)%jac(ip,j,k)
           jac0 = gmetric%grid(igx)%jac(i ,j,k)
         else
@@ -724,6 +771,8 @@ c     Local variables
       real(8)    :: dS1,dS2,dS3,x0,y0,z0,jac
      .             ,xip,yip,zip,jacp,xh,yh,zh,jach
 
+      logical    :: sing_point
+
 c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
@@ -738,6 +787,8 @@ c     Begin program
       jm = j-1
       kp = k+1
       km = k-1
+
+      sing_point = isSP(i,j,k,igx,igy,igz)
 
       select case(comp)
       case(1)
@@ -757,7 +808,7 @@ c     Begin program
         flxjm = 0d0
 
         flxip =-0.5*(az(ip,j,k)+az(i,j,k))
-        if (i == 1 .and. bcond(1) == SP) then
+        if (sing_point) then
           flxim =-az(im,j,k)
         else
           flxim =-0.5*(az(im,j,k)+az(i,j,k))
@@ -771,7 +822,7 @@ c     Begin program
         flxkp = 0d0
         flxkm = 0d0
 
-        if (i == 1 .and. bcond(1) == SP) then
+        if (sing_point) then
           jacp = gmetric%grid(igx)%jac(ip,j,k)
           jac  = gmetric%grid(igx)%jac(i ,j,k)
           jach = 0.5*(jacp+jac)
@@ -837,6 +888,8 @@ c     Local variables
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
       real(8)    :: jac0,jacp,jacm
 
+      logical    :: sing_point
+
 c     Begin program
 
       ip = i+1
@@ -847,6 +900,8 @@ c     Begin program
       km = k-1
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      sing_point = isSP(i,j,k,igx,igy,igz)
 
       select case(comp)
       case(1)
@@ -907,7 +962,7 @@ c1st          dazdx = (az(ip,j,k)-az(i,j,k))/dx1
      .              +az(i-1,j,k)*(dx1+dx2)/dx1/dx2
      .              -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
 c1st          dazdx = (az(i,j,k)-az(im,j,k))/dx1
-        elseif (i == 1 .and. bcond(1) == SP) then
+        elseif (sing_point) then
           dx = grid_params%dxh(ig)
           dazdx = ((az(ip,j,k)+az(i,j,k))/2.-az(im,j,k))/dx
         else
@@ -952,7 +1007,7 @@ c1st          daydx = (ay(ip,j,k)-ay(i,j,k))/dx1
      .             +ay(i-1,j,k)*(dx1+dx2)/dx1/dx2
      .             -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
 c1st          daydx = (ay(i,j,k)-ay(im,j,k))/dx1
-        elseif (i == 1 .and. bcond(1) == SP) then
+        elseif (sing_point) then
           dx = grid_params%dxh(ig)
 
           jacp = gmetric%grid(igx)%jac(ip,j,k)
@@ -1398,8 +1453,7 @@ c     Local variables
 
 c     Begin program
 
-        sing_point = .false.
-        if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+        sing_point = isSP(i,j,k,igx,igy,igz)
 
         !Defaults
 
@@ -1790,8 +1844,7 @@ c     Local variables
 
 c     Begin program
 
-        sing_point = .false.
-        if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+        sing_point = isSP(i,j,k,igx,igy,igz)
 
 c     Defaults
 
@@ -2233,7 +2286,9 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
      .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 
-        if (i < nx .and. bcond(1) == SP .and. flag /= 0) then
+        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
+     .      .and. bcond(1) == SP
+     .      .and. flag /= 0           ) then
           jacp = gmetric%grid(igx)%jac(ip,j,k)
           jac0 = gmetric%grid(igx)%jac(i ,j,k)
         else
