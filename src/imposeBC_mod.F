@@ -648,27 +648,6 @@ c     Begin program
 
 c     Assign value
 
-cc      select case (ibc)
-cc      case (1)
-cc        rhs(jmin:jmax,kmin:kmax) = array(1,jmin:jmax,kmin:kmax)
-cc     $                           - rhs(jmin:jmax,kmin:kmax)
-cc      case (2)
-cc        rhs(jmin:jmax,kmin:kmax) = array(nxbc,jmin:jmax,kmin:kmax)
-cc     $                           + rhs(jmin:jmax,kmin:kmax)
-cc      case (3)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,1,kmin:kmax)
-cc     $                           - rhs(imin:imax,kmin:kmax)
-cc      case (4)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,nybc,kmin:kmax)
-cc     $                           + rhs(imin:imax,kmin:kmax)
-cc      case (5)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,1)
-cc     $                           - rhs(imin:imax,jmin:jmax)
-cc      case (6)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,nzbc)
-cc     $                           + rhs(imin:imax,jmin:jmax)
-cc      end select
-
       select case (ibc)
       case (1)
         array(0     ,jmin:jmax,kmin:kmax)
@@ -965,27 +944,6 @@ c     Assign value
      $                           = array(imin:imax,jmin:jmax,nzbc,ivar)
      $                           + rhs(imin:imax,jmin:jmax)
       end select
-
-cc      select case (ibc)
-cc      case (1)
-cc        rhs(jmin:jmax,kmin:kmax) = array(1,jmin:jmax,kmin:kmax,ivar)
-cc     $                           - rhs(jmin:jmax,kmin:kmax)
-cc      case (2)
-cc        rhs(jmin:jmax,kmin:kmax) = array(nxbc,jmin:jmax,kmin:kmax,ivar)
-cc     $                           + rhs(jmin:jmax,kmin:kmax)
-cc      case (3)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,1,kmin:kmax,ivar)
-cc     $                           - rhs(imin:imax,kmin:kmax)
-cc      case (4)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,nybc,kmin:kmax,ivar)
-cc     $                           + rhs(imin:imax,kmin:kmax)
-cc      case (5)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,1,ivar)
-cc     $                           - rhs(imin:imax,jmin:jmax)
-cc      case (6)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,nzbc,ivar)
-cc     $                           + rhs(imin:imax,jmin:jmax)
-cc      end select
 
 c     End program
 
