@@ -1017,7 +1017,7 @@ c #####################################################################
           module procedure imposeBConScalar,imposeBConVector
         end INTERFACE
 
-        integer(4),private :: bctype,dim,loc,ibc,i,j,k
+        integer(4),private :: bctype,dim,loc,ibc,i,j,k,nnodes=2
 
       contains
 
@@ -1073,8 +1073,8 @@ c     Fill corners
         enddo
       enddo
 
-c     Synchronize periodic boundaries
-
+ccc     Synchronize periodic boundaries
+cc
 cc      bctype=PER
 cc
 cc      do dim=1,3
@@ -1115,9 +1115,9 @@ c     Begin program
 
 c     Find cov components (we assume cnv components are defined)
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
+      do i=iimin,iimax
+        do j=jjmin,jjmax
+          do k=kkmin,kkmax
             call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .            ,v_cov(i,j,k,1),v_cov(i,j,k,2),v_cov(i,j,k,3)
      .            ,v_cnv(i,j,k,1),v_cnv(i,j,k,2),v_cnv(i,j,k,3),.false.)
@@ -1184,8 +1184,8 @@ c     Fill corners
         enddo
       enddo
 
-c     Synchronize periodic boundaries
-
+ccc     Synchronize periodic boundaries
+cc
 cc      bctype=PER
 cc
 cc      do dim=1,3
@@ -1572,6 +1572,21 @@ c     Begin program
         rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,1)
       end select
 
+cc      select case (ibc)
+cc      case (1)
+cc        rhs(:,:) = array(nx,:,:)
+cc      case (2)
+cc        rhs(:,:) = array(1,:,:)
+cc      case (3)
+cc        rhs(:,:) = array(:,ny,:)
+cc      case (4)
+cc        rhs(:,:) = array(:,1,:)
+cc      case (5)
+cc        rhs(:,:) = array(:,:,nz)
+cc      case (6)
+cc        rhs(:,:) = array(:,:,1)
+cc      end select
+
 #else !Do nothing
 
       select case (ibc)
@@ -1615,7 +1630,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ito,jto,kto,ifrom,jfrom,kfrom
-     .             ,imn,imx,jmn,jmx,kmn,kmx,nnodes,ibc
+     .             ,imn,imx,jmn,jmx,kmn,kmx,ibc
 
 c     Begin program
 
@@ -1625,9 +1640,7 @@ c     Determine boundary limits
 
       call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
 
-c     Select edge
-
-      nnodes = 3
+c     Select edge (nnodes initialized in module header)
 
       select case (ibc)
       case (1) !On face #1, fill edges y=jmin-1,y=jmax+1, vary z
@@ -1890,7 +1903,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ito,jto,kto,ifrom,jfrom,kfrom
-     .             ,imn,imx,jmn,jmx,kmn,kmx,nnodes,ibc
+     .             ,imn,imx,jmn,jmx,kmn,kmx,ibc
 
 c     Begin program
 
@@ -1900,9 +1913,7 @@ c     Determine boundary limits
 
       call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
 
-c     Select edge
-
-      nnodes = 3
+c     Select edge (nnodes initialized in module header)
 
       if     (imin == 1  .and. jmin == 1  .and. kmin == 1) then
         ifrom = min(imin+nnodes,nx)
