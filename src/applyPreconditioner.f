@@ -21,6 +21,8 @@ c-------------------------------------------------------------------
 
       use newton_gmres
 
+      use mg_internal
+
       implicit none
 
 c Call variables
@@ -40,11 +42,10 @@ c Local variables
 c Debug
 
       real(8)    :: debug(0:nxd+1,0:nyd+1,0:nzd+1),mag,mag2
-      character*(1) :: plot
 
 c Externals
 
-      external   :: tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc
+      external   :: tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,test_mtvc
 
 c Interface
 
@@ -145,10 +146,10 @@ c     SI step
 
 c     Store velocity solution in array format
 
-        !Set grid=1 because xxx is NOT a MG vector
+        !xxx is NOT a MG vector
         do ieq=1,3
           call mapMGVectorToArray(0,1,xxx(:,IVX+ieq-1),nx,ny,nz
-     .                           ,dv_cnv(:,:,:,ieq),1)
+     .                           ,dv_cnv(:,:,:,ieq),igrid,.false.)
         enddo
 
         icomp = IVX
@@ -227,21 +228,21 @@ c     Postprocessing of velocity -> momentum
 
 cc        open(unit=110,file='debug.bin',form='unformatted'
 cc     .       ,status='replace')
-cc        call mapMGVectorToArray(0,1,xxx(:,IRHO),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IRHO),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVX),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IVX),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVY),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IVY),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVZ),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IVZ),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBX),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IBX),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBY),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IBY),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBZ),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,IBZ),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,ITMP),nx,ny,nz,debug,1)
+cc        call mapMGVectorToArray(0,1,xxx(:,ITMP),nx,ny,nz,debug,igrid,.false.)
 cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
 cc        close(110)
 cc        stop
@@ -250,7 +251,7 @@ c diag B-field divergence
 
         do ieq=1,3
           call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
-     .                           ,db_cnv(:,:,:,ieq),1)
+     .                           ,db_cnv(:,:,:,ieq),igrid,.false.)
         enddo
 
         icomp = IBX
@@ -359,19 +360,25 @@ c       SI step: Deltav --> xxx(:,IVX:IVZ)
           call formSIrhs(ntotp,xxx,yyy(:,IVX:IVZ),rhs(:,IVX:IVZ)
      .                  ,db_cnv,dj_cov,igrid)
 
+          !Laplacian test
+cc          bcs(1,IRHO) = DIR
+cc          bcs(2,IRHO) = DIR
+cc          bcs(3,IRHO) = DIR
+cc          bcs(4,IRHO) = DIR
+          call cSolver(1,ntotp,rhs(:,IRHO),xxx(:,IRHO)
+     .          ,bcs(:,IRHO),igrid,iout,guess,IRHO,test_mtvc,rho_diag,2)
+          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+          stop
+
           !Solve Schur-complement SI system ---> xxx(:,IVX:IVZ)
           call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
      .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4)
 
-        open(unit=110,file='debug.bin',form='unformatted'
-     .       ,status='replace')
-        call mapMGVectorToArray(0,1,xxx(:,IVX),nx,ny,nz,debug,1)
-        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-        call mapMGVectorToArray(0,1,xxx(:,IVY),nx,ny,nz,debug,1)
-        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-        call mapMGVectorToArray(0,1,xxx(:,IVZ),nx,ny,nz,debug,1)
-        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-        close(110)
+
+        call MGplot(1,xxx(:,IVX),igrid,0,'debug.bin')
+        call MGplot(1,xxx(:,IVY),igrid,1,'debug.bin')
+        call MGplot(1,xxx(:,IVZ),igrid,1,'debug.bin')
+
         stop
 
 c       Store velocity solution in array format --> dv_cnv
@@ -379,7 +386,7 @@ c       Store velocity solution in array format --> dv_cnv
           !Set grid=1 because xxx is NOT a MG vector
           do ieq=1,3
             call mapMGVectorToArray(0,1,xxx(:,IVX+ieq-1),nx,ny,nz
-     .                             ,dv_cnv(:,:,:,ieq),1)
+     .                             ,dv_cnv(:,:,:,ieq),igrid,.false.)
           enddo
 
           icomp = IVX
@@ -675,7 +682,7 @@ c     Initialize solver
 c     Upper_level solver options
 
 c$$$      call solverOptionsInit
-
+c$$$
 c$$$      solverOptions%tol      = mgtol
 c$$$
 c$$$      call assembleSolverHierarchy('gm')
@@ -684,13 +691,15 @@ c$$$      call assembleSolverHierarchy('gm')
 
       solverOptions%tol      = mgtol
       solverOptions%vcyc     = maxvcyc
-      solverOptions%igridmin = 2
+      solverOptions%igridmin = 3
       solverOptions%orderres = 0
       solverOptions%orderprol= 2
-      solverOptions%mg_mu    = 2
+      solverOptions%mg_mu    = 1
       solverOptions%vol_res  = .true.
-      solverOptions%diag     => dg
+cc      solverOptions%diag     => dg
       solverOptions%mg_coarse_solver_depth = 3
+cc      solverOptions%vertex_based_relax = .true.
+      solverOptions%mg_line_relax = .true.
 
       call assembleSolverHierarchy('mg')
 
@@ -711,34 +720,47 @@ c     Next level solver (preconditioner for GMRES)
 
       call solverOptionsInit
 
-cccc      solverOptions%iter    = 3
-cc      solverOptions%iter    = nsweep
-cc      solverOptions%omega   = 1d0
+      solverOptions%iter    = nsweep
+      solverOptions%omega   = 1d0
+      solverOptions%tol     = mgtol
+cc      solverOptions%ncolors = ncolors
+cc      solverOptions%diag    => dg
+cc      solverOptions%vertex_based_relax = .false.
+
+      call assembleSolverHierarchy('gs')
+
+cc      solverOptions%omega   = 0.7
+cc      solverOptions%iter    = 2*nsweep/solverOptions%omega
 cc      solverOptions%tol     = mgtol
-cc      solverOptions%ncolors = 1
-cccc      solverOptions%ncolors = ncolors
 cccc      solverOptions%diag    => dg
 cc
-cc      call assembleSolverHierarchy('gs')
+cc      call assembleSolverHierarchy('jb')
 
-      solverOptions%iter    = nsweep
-      solverOptions%omega   = 0.8
-      solverOptions%tol     = mgtol
-cc      solverOptions%diag    => dg
-
-      call assembleSolverHierarchy('jb')
-
-c     Next level solver (coarsest grid solve)
+c     Coarsest grid solve for outer MG
 
       call solverOptionsInit
 
-      solverOptions%tol             = 1d-5
-      solverOptions%krylov_subspace = 100
-      solverOptions%iter            = 100
+      solverOptions%tol             = 1d-10
+      solverOptions%krylov_subspace = 1000
+      solverOptions%iter            = 1000
       solverOptions%stp_test        = 1 
 
       call assembleSolverHierarchy('gm')
       call assembleSolverHierarchy('id') !GMRES preconditioner
+
+c     Coarsest grid solve for line MG
+
+      call solverOptionsInit
+
+      solverOptions%iter    = 1000
+      solverOptions%omega   = 1d0
+      solverOptions%tol     = 1d-4
+      solverOptions%ncolors = 1
+cc      solverOptions%ncolors = ncolors
+cc      solverOptions%diag    => dg
+cc      solverOptions%vertex_based_relax = .false.
+
+      call assembleSolverHierarchy('jb')
 
 c     Invoke solver
 
@@ -818,10 +840,10 @@ c Find rhs_v
 
 c Find dj* from dB*
 
-      !Set grid=1 because xxx is NOT a MG vector
+      !xxx is NOT a MG vector
       do ieq=1,3
         call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
-     .                         ,db_cnv(:,:,:,ieq),1)
+     .                         ,db_cnv(:,:,:,ieq),igrid,.false.)
       enddo
 
       !Find covariant components of db with BCs
@@ -1193,40 +1215,6 @@ c End program
 
       end subroutine findDivfreeRHS
 
-c contour
-c #########################################################################
-      subroutine contour(arr,nx,ny,xmin,xmax,ymin,ymax,iopt,nunit)
-      implicit none               !For safe fortran
-c -------------------------------------------------------------------------
-c     Contours arr in xdraw format
-c     Notes:
-c      put the next 2 lines in main
-c      open(unit=nunit,file='contour.bin',form='unformatted') before
-c      close(unit=nunit) after
-c -------------------------------------------------------------------------
-
-c Call variables
-
-      integer(4) :: nx,ny,iopt,nunit
-      real(8)    :: arr(nx,ny),xmin,xmax,ymin,ymax
-
-c Local variables
-
-      integer(4) :: i,j
-
-c Begin program
-
-      if(iopt.eq.0) then
-        write(nunit) nx-1,ny-1,0
-        write(nunit) real(xmin,4),real(xmax,4)
-     .              ,real(ymin,4),real(ymax,4) 
-      endif
-      write(nunit) ((real(arr(i,j),4),i=1,nx),j=1,ny)
-
-c End program
-
-      end subroutine contour
-
 c diagonalScaling
 c #########################################################################
       subroutine diagonalScaling(neq,ntotp,idiag,y,x,igrid)
@@ -1252,7 +1240,7 @@ c Local variables
 
 c Begin program
 
-      call allocPointers(neq,fpointers)
+      call allocPointers(neq,grid_params,fpointers)
 
       isig = istart(igrid)
 
