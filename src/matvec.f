@@ -1,19 +1,20 @@
 c setMGBC
 c####################################################################
-      subroutine setMGBC(gpos,neq,nnx,nny,nnz,iig,array,bcnd)
+      subroutine setMGBC(gpos,neq,nnx,nny,nnz,iig,array,bcnd,icomp)
+cc     .                  ,array0)
 c--------------------------------------------------------------------
 c     Interfaces BC routines with MG code, for preconditioning.
 c     NOTE: we assume that array, when representing a vector quantity,
 c           is in the contravariant representation.
+c     WARNING: if call sequence is modified, the INTERFACE block 
+c           in module mg_internal needs to be updated accordingly.
 c--------------------------------------------------------------------
 
-      use imposeBCinterface
-
-      use precond_variables
-
-      use constants
+      use grid
 
       use mg_internal
+
+      use imposeBCinterface
 
       implicit none
 
@@ -23,90 +24,102 @@ c Call variables
 
       real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
 
+      integer(4),optional,intent(IN) :: icomp
+
+cc      real(8),optional,intent(IN) :: array0(0:nnx+1,0:nny+1,0:nnz+1,neq)
+
 c Local variables
 
-      integer(4) :: offset
+      integer(4) :: stencil_width,imn,imx,jmn,jmx,kmn,kmx
+
+      integer(4),save :: ivar  !Needed to "remember' ivar from previous calls
+                               !when icomp is not provided.
+
+cc      real(8)    :: dummy(0:nnx+1,0:nny+1,0:nnz+1,neq)
 
 c Begin program
 
-c Define variables for BC routines
+c Consistency check
 
-      !igx,igy,igz,nx,ny,nz are needed for internal BC routines
-      igx = iig
-      igy = iig
-      igz = iig
+      if (PRESENT(icomp)) ivar = icomp
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-cc      nx = MGgrid%nxv(igx)
-cc      ny = MGgrid%nyv(igy)
-cc      nz = MGgrid%nzv(igz)
+cc      if (PRESENT(array0)) then
+cc        dummy = array0
+cc      else
+cc        dummy = 0d0
+cc      endif
 
-      if (nx /= nnx .or. ny /= nny .or. nz /= nnz) then
+      if (     grid_params%nxv(iig) /= nnx
+     .    .or. grid_params%nyv(iig) /= nny
+     .    .or. grid_params%nzv(iig) /= nnz) then
         write (*,*) 'Grid sizes do not agree in setMGBC'
         write (*,*) 'Aborting...'
         stop
       endif
 
-c Find grid node position
+c Find grid node LOCAL position (if gpos > 0, else return local domain limits)
 
-c$$$      imin = 1
-c$$$      imax = nnx
-c$$$      jmin = 1
-c$$$      jmax = nny
-c$$$      kmin = 1
-c$$$      kmax = nnz
+      call limits(gpos,nnx,nny,nnz,iig,imn,imx,jmn,jmx,kmn,kmx)
 
-c FIX PARALLEL
-      call limits(gpos,nnx,nny,nnz,iig,imin,imax,jmin,jmax,kmin,kmax)
+c Check LOCAL limits (return if not close to local domain boundaries)
 
-c Check limits (return if not close to boundaries)
+      if (     (imn > 1 .and. imx < nnx)
+     .    .and.(jmn > 1 .and. jmx < nny)
+     .    .and.(kmn > 1 .and. kmx < nnz)) return
 
-      if (     (imin > 1 .and. imax < nnx)
-     .    .and.(jmin > 1 .and. jmax < nny)
-     .    .and.(kmin > 1 .and. kmax < nnz)) return
+c Find GLOBAL limits (required for BC routine setBC)
 
-c Find loop limits for BC (passed to BC routines via imposeBCinterface module)
+      stencil_width = 1
 
-      offset = 1
-
-      iimin = max(imin-offset,1)
-      iimax = min(imax+offset,nnx)
-      jjmin = max(jmin-offset,1)  
-      jjmax = min(jmax+offset,nny)
-      kkmin = max(kmin-offset,1)  
-      kkmax = min(kmax+offset,nnz)
+      imn = max(imn-stencil_width,1)   + grid_params%ilo(iig)-1
+      imx = min(imx+stencil_width,nnx) + grid_params%ilo(iig)-1
+      jmn = max(jmn-stencil_width,1)   + grid_params%jlo(iig)-1
+      jmx = min(jmx+stencil_width,nny) + grid_params%jlo(iig)-1
+      kmn = max(kmn-stencil_width,1)   + grid_params%klo(iig)-1
+      kmx = min(kmx+stencil_width,nnz) + grid_params%klo(iig)-1
 
 c Select operation
 
       select case (neq)
       case(1)
 
-        call setBC(IRHO,array(:,:,:,neq),zeros,bcnd(:,1))
+cc        call setBC(IRHO,nnx,nny,nnz,array(:,:,:,neq),dummy(:,:,:,neq)
+        call setBC(IRHO,nnx,nny,nnz,array(:,:,:,neq),zeros
+     .            ,bcnd(:,neq),iig,iig,iig
+     .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
 
-cc        call setBC(icomp,array(:,:,:,neq),zeros,bcnd(:,1)) !Velocities for T BC unknown
+cc        !Warning: Velocities for T BC unknown
+cc        call setBC(ivar,nnx,nny,nnz,array(:,:,:,neq),dummy(:,:,:,neq)
+cc     .            ,bcnd(:,1),iig,iig,iig
+cc     .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
 
       case(3)
 
         allocate(v_cov (0:nnx+1,0:nny+1,0:nnz+1,neq))
 
-        select case (icomp)  !'icomp' is passed by the module precond_variables
+        select case (ivar)
         case(IVX,IVY,IVZ)
-          call setBC(IVX,array,v_cov,vzeros,bcnd)
+cc          call setBC(IVX,nnx,nny,nnz,array,v_cov,dummy,bcnd
+          call setBC(IVX,nnx,nny,nnz,array,v_cov,vzeros,bcnd
+     .              ,iig,iig,iig
+     .              ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
         case(IBX,IBY,IBZ)
-          call setBC(IBX,array,v_cov,vzeros,bcnd)
+cc          call setBC(IBX,nnx,nny,nnz,array,v_cov,dummy,bcnd
+          call setBC(IBX,nnx,nny,nnz,array,v_cov,vzeros,bcnd
+     .              ,iig,iig,iig
+     .              ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
         case(IJX,IJY,IJZ)
-          call setBC(IJX,array,v_cov,vzeros,bcnd)
+cc          call setBC(IJX,nnx,nny,nnz,array,v_cov,dummy,bcnd
+          call setBC(IJX,nnx,nny,nnz,array,v_cov,vzeros,bcnd
+     .              ,iig,iig,iig
+     .              ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
         case default
-          write (*,*) 'icomp undefined in setMGBC'
+          write (*,*) 'Undefined variable in setMGBC'
           write (*,*) 'Aborting...'
           stop
         end select
 
         deallocate(v_cov)
-
-cc        if (gpos == 0) icomp = -1  !Set icomp to -1 for safety, to capture undefined instances
 
       case default
         write (*,*) 'Number of equations not implemented in setMGBC'
@@ -173,20 +186,16 @@ c External
 
 c Begin program
 
-      call allocPointers(neq,MGgrid,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 cc      nxx = MGgrid%nxv(igx)
 cc      nyy = MGgrid%nyv(igy)
 cc      nzz = MGgrid%nzv(igz)
-      nxx = grid_params%nxv(igx)
-      nyy = grid_params%nyv(igy)
-      nzz = grid_params%nzv(igz)
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
 
 c Find limits for loops
 
@@ -202,8 +211,8 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
-      icomp = IRHO
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+     .            ,icomp=IRHO)
 
 c Map velocity components
 
@@ -215,9 +224,9 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jac = gmetric%grid(igx)%jac(i,j,k)
+            jac = gmetric%grid(igrid)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
             ijkg   = ijk + isig - 1
@@ -242,7 +251,7 @@ cc            y(ijk) = (1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
 cc     .              + alpha*upwind 
 cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,xarr)
 
-cc            y(ijk) = y(ijk)*volume(i,j,k,igx,igy,igz)
+cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,xarr) !Laplacian includes volume factor
 
@@ -296,7 +305,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg
+      integer(4) :: isig,ijk,ijkg,nnx,nny,nnz
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
@@ -313,37 +322,33 @@ c External
 
 c Begin program
 
-      call allocPointers(neq,MGgrid,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 cc      nx = MGgrid%nxv(igx)
 cc      ny = MGgrid%nyv(igy)
 cc      nz = MGgrid%nzv(igz)
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nnx = grid_params%nxv(igrid)
+      nny = grid_params%nyv(igrid)
+      nnz = grid_params%nzv(igrid)
 
 c Find limits for loops
 
-      call limits(abs(gpos),nx,ny,nz,igrid
+      call limits(abs(gpos),nnx,nny,nnz,igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
-      allocate(dtmp(0:nx+1,0:ny+1,0:nz+1,neq))
+      allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq))
 
       dtmp = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,dtmp,igrid
+      call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,dtmp,igrid
      .                       ,.false.)
 
-      icomp = ITMP
-      call setMGBC(max(0,gpos),neq,nx,ny,nz,igrid,dtmp,bcnd)
+      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dtmp,bcnd
+     .            ,icomp=ITMP)
 
 c Map velocity components
 
@@ -355,11 +360,11 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jac = gmetric%grid(igx)%jac(i,j,k)
+            jac = gmetric%grid(igrid)%jac(i,j,k)
 
-            ijk    = i + nx*(j-1) + nx*ny*(k-1)
+            ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
             upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
@@ -377,9 +382,9 @@ c Calculate matrix-vector product
 
             upwind = upwind/jac
 
-            y(ijk) = ((1./dt + 0*alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
-     .               + alpha*upwind )*volume(i,j,k,igx,igy,igz)
-     .               - alpha*chi*laplacian(i,j,k,nx,ny,nz,dtmp(:,:,:,1))
+            y(ijk) = ((1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
+     .            + alpha*upwind )*volume(i,j,k,igrid,igrid,igrid)
+     .            - alpha*chi*laplacian(i,j,k,nnx,nny,nnz,dtmp(:,:,:,1))
 
           enddo
         enddo
@@ -432,7 +437,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg
+      integer(4) :: isig,ijk,ijkg,nnx,nny,nnz
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: drho
@@ -449,39 +454,35 @@ c External
 
 c Begin program
 
-      call allocPointers(neq,MGgrid,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 cc      nx = MGgrid%nxv(igx)
 cc      ny = MGgrid%nyv(igy)
 cc      nz = MGgrid%nzv(igz)
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nnx = grid_params%nxv(igrid)
+      nny = grid_params%nyv(igrid)
+      nnz = grid_params%nzv(igrid)
 
 c Find limits for loops
 
-      call limits(abs(gpos),nx,ny,nz,igrid
+      call limits(abs(gpos),nnx,nny,nnz,igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
 
 c Map vector x to array for processing
 
-      allocate(drho(0:nx+1,0:ny+1,0:nz+1,neq))
+      allocate(drho(0:nnx+1,0:nny+1,0:nnz+1,neq))
 
       drho = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nx,ny,nz,drho,igrid
+      call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,drho,igrid
      .                       ,.false.)
 
-      icomp = IRHO
-      call setMGBC(max(0,gpos),1,nx,ny,nz,igrid,drho,bcnd)
+      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
+     .            ,icomp=IRHO)
 
 c Map velocity components
 
@@ -493,11 +494,11 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jac = gmetric%grid(igx)%jac(i,j,k)
+            jac = gmetric%grid(igrid)%jac(i,j,k)
 
-            ijk    = i + nx*(j-1) + nx*ny*(k-1)
+            ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
             upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
@@ -516,8 +517,8 @@ c Calculate matrix-vector product
             upwind = upwind/jac
 
             y(ijk) = ( (1./dt + alpha*mgdivV0(ijkg))*x(ijk)
-     .               + alpha*upwind )*volume(i,j,k,igx,igy,igz)
-     .               - alpha*dd*laplacian(i,j,k,nx,ny,nz,drho(:,:,:,1))
+     .            + alpha*upwind )*volume(i,j,k,igrid,igrid,igrid)
+     .            - alpha*dd*laplacian(i,j,k,nnx,nny,nnz,drho(:,:,:,1))
 
           enddo
         enddo
@@ -588,20 +589,16 @@ c External
 
 c Begin program
 
-      call allocPointers(neq,MGgrid,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 cc      nxx = MGgrid%nxv(igx)
 cc      nyy = MGgrid%nyv(igy)
 cc      nzz = MGgrid%nzv(igz)
-      nxx = grid_params%nxv(igx)
-      nyy = grid_params%nyv(igy)
-      nzz = grid_params%nzv(igz)
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
 
 c Find limits for loops
 
@@ -619,8 +616,8 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
      .                       ,.false.)
 
-      icomp = IBX
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
+     .            ,icomp=IBX)
 
 c Velocity field (including BCs)
 
@@ -639,21 +636,21 @@ c Calculate matrix-vector product
             kp = k+1
             km = k-1
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jacip  = gmetric%grid(igx)%jac(ip,j,k)
-            jacim  = gmetric%grid(igx)%jac(im,j,k)
-            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-            jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-            jackp  = gmetric%grid(igx)%jac(i,j,kp)
-            jackm  = gmetric%grid(igx)%jac(i,j,km)
-            jac    = gmetric%grid(igx)%jac(i,j,k)
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k)
+            jacim  = gmetric%grid(igrid)%jac(im,j,k)
+            jacjp  = gmetric%grid(igrid)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igrid)%jac(i,jm,k)
+            jackp  = gmetric%grid(igrid)%jac(i,j,kp)
+            jackm  = gmetric%grid(igrid)%jac(i,j,km)
+            jac    = gmetric%grid(igrid)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            vol    = volume(i,j,k,igx,igy,igz)
+            vol    = volume(i,j,k,igrid,igrid,igrid)
 
-            etal   = res(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
 
             flxjp = 0.5/(jac+jacjp)*(
      .           (    (v0_cnv(i,j,k,2)+v0_cnv(i,jp,k,2))
@@ -870,7 +867,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: isig,ip,im,jp,jm,kp,km,hex,hey,hez,icompsave
+      integer(4) :: isig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax,nxx,nyy,nzz,ijk,ijkg
 
       real(8),allocatable,dimension(:,:,:,:) :: dv
@@ -902,26 +899,21 @@ c External
 
 c Begin program
 
-      call allocPointers(neq,MGgrid,fpointers)
+      call allocPointers(neq,fpointers)
 
       isig = MGgrid%istartp(igrid)
 
-      igx = igrid
-      igy = igrid
-      igz = igrid
-
-cc      nxx = MGgrid%nxv(igx)
-cc      nyy = MGgrid%nyv(igy)
-cc      nzz = MGgrid%nzv(igz)
-      nxx = grid_params%nxv(igx)
-      nyy = grid_params%nyv(igy)
-      nzz = grid_params%nzv(igz)
+cc      nxx = MGgrid%nxv(igrid)
+cc      nyy = MGgrid%nyv(igrid)
+cc      nzz = MGgrid%nzv(igrid)
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
 
 c Find limits for loops
 
       call limits(abs(gpos),nxx,nyy,nzz,igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
-cc      write (*,*) 'v_mtvc Loop limits:',imin,imax,jmin,jmax,kmin,kmax
 
 c Map vector x to array for processing
 
@@ -932,8 +924,8 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      icomp = IVX
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+     .            ,icomp=IVX)
 
 c Define pointers to MG arrays
 
@@ -959,23 +951,23 @@ c Calculate matrix-vector product
             kp = k+1
             km = k-1
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            jacip  = gmetric%grid(igx)%jac(ip,j,k)
-            jacim  = gmetric%grid(igx)%jac(im,j,k)
-            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-            jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-            jackp  = gmetric%grid(igx)%jac(i,j,kp)
-            jackm  = gmetric%grid(igx)%jac(i,j,km)
-            jac    = gmetric%grid(igx)%jac(i,j,k)
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k)
+            jacim  = gmetric%grid(igrid)%jac(im,j,k)
+            jacjp  = gmetric%grid(igrid)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igrid)%jac(i,jm,k)
+            jackp  = gmetric%grid(igrid)%jac(i,j,kp)
+            jackm  = gmetric%grid(igrid)%jac(i,j,km)
+            jac    = gmetric%grid(igrid)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             ijkg   = ijk + isig - 1
 
-            vol    = volume(i,j,k,igx,igy,igz)
+            vol    = volume(i,j,k,igrid,igrid,igrid)
 
-            mul    = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+            mul    = vis(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
 
             !P_si^v  ******************************
 
@@ -1081,21 +1073,7 @@ cc     .                                   ,ones,alt_eom,ieq)
      .                  *(pp0(i,j,k ,1)-pp0(i,j,km,1))/dz(kg-1) )
      $              /(jac+jackm)
 
-c$$$            flxip = 0d0
-c$$$            flxim = 0d0
-c$$$            flxjp = 0d0
-c$$$            flxjm = 0d0
-c$$$            flxkp = 0d0
-c$$$            flxkm = 0d0
-
             !Fluxes at faces for calculation of grad(gamma*p0*div(dv))
-cc
-cc            ip = min(i+1,nx)
-cc            im = max(i-1,1)
-cc            jp = min(j+1,ny)
-cc            jm = max(j-1,1)
-cc            kp = min(k+1,nz)
-cc            km = max(k-1,1)
 
             !!Divergence at faces i+-1/2, etc.
             divip = (dv(ip,j ,k,1)-dv(i ,j ,k,1))/dx(ig)
@@ -1220,24 +1198,24 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
 
             !!Find covariant components of curl(dv x B0) at faces
 
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covip,a2covip,a3covip
      .                              ,a1cnvip,a2cnvip,a3cnvip,.false.)
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covim,a2covim,a3covim
      .                              ,a1cnvim,a2cnvim,a3cnvim,.false.)
 
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covjp,a2covjp,a3covjp
      .                              ,a1cnvjp,a2cnvjp,a3cnvjp,.false.)
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covjm,a2covjm,a3covjm
      .                              ,a1cnvjm,a2cnvjm,a3cnvjm,.false.)
 
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covkp,a2covkp,a3covkp
      .                              ,a1cnvkp,a2cnvkp,a3cnvkp,.false.)
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                              ,a1covkm,a2covkm,a3covkm
      .                              ,a1cnvkm,a2cnvkm,a3cnvkm,.false.)
 
@@ -1268,14 +1246,13 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
 
             cov = psib + psit
 
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                  ,cov(1),cov(2),cov(3)
      .                                  ,cnv(1),cnv(2),cnv(3),.true.)
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = dv(i,j,k,ieq)/dt*vol*rho0(i,j,k,1)
-     .                         + psiv(ieq) + cnv(ieq)
-cc     .                         + psiv(ieq) + psit(ieq) + psib(ieq)
+     .                            + psiv(ieq) + cnv(ieq)
             enddo
 
           enddo

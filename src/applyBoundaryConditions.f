@@ -107,59 +107,29 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,icomp,bcnd(6,3)
+      integer(4) :: i,j,k,icomp,bcnd(6,3),nnx,nny,nnz
 
 c Begin program
 
-      igx = iigx
-      igy = iigy
-      igz = iigz
+c Local grid sizes
 
-      !Local grid sizes
-      nx = grid_params%nxv(igx) 
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-c Set global limits for impose BC
-
-c$$$      iimin = 1
-c$$$      iimax = nx
-c$$$      jjmin = 1
-c$$$      jjmax = ny
-c$$$      kkmin = 1
-c$$$      kkmax = nz
-
-      iimin = grid_params%ilo(igx)
-      iimax = grid_params%ihi(igx)
-      jjmin = grid_params%jlo(igy)
-      jjmax = grid_params%jhi(igy)
-      kkmin = grid_params%klo(igz)
-      kkmax = grid_params%khi(igz)
-
-cc      iimin = ilog
-cc      iimax = ihig
-cc      jjmin = jlog
-cc      jjmax = jhig
-cc      kkmin = klog
-cc      kkmax = khig
-
-c Check local vs. global domain limits (return if not close to physical boundaries)
-c WRONG! We need to calculate derived quantities!!
-cc      if (     (iimin > 1 .and. iimax < grid_params%nxgl(igx))
-cc     .    .and.(jjmin > 1 .and. jjmax < grid_params%nygl(igy))
-cc     .    .and.(kkmin > 1 .and. kkmax < grid_params%nzgl(igz))) return
+      nnx = grid_params%nxv(iigx) 
+      nny = grid_params%nyv(iigy)
+      nnz = grid_params%nzv(iigz)
 
 c Allocate auxiliary variables in local domain
 
-      allocate(v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,v0   (0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(v_cnv(0:nnx+1,0:nny+1,0:nnz+1,3)
+     .        ,v_cov(0:nnx+1,0:nny+1,0:nnz+1,3)
+     .        ,v0   (0:nnx+1,0:nny+1,0:nnz+1,3))
 
 c Density BC
 
-      call setBC(IRHO,varray%array_var(IRHO)%array
+      call setBC(IRHO,nnx,nny,nnz
+     .               ,varray%array_var(IRHO)%array
      .               ,u_0   %array_var(IRHO)%array
-     .               ,varray%array_var(IRHO)%bconds)
+     .               ,varray%array_var(IRHO)%bconds
+     .               ,iigx,iigy,iigz)
 
 c Velocity BC
 
@@ -182,7 +152,7 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IVX,v_cnv,v_cov,v0,bcnd)
+      call setBC(IVX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
 
 c     Postprocessing
 
@@ -219,7 +189,7 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IBX,v_cnv,v_cov,v0,bcnd)
+      call setBC(IBX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
 
 c     Postprocessing
 
@@ -230,29 +200,6 @@ c     Postprocessing
       varray%array_var(IBX)%array = v_cnv(:,:,:,1)
       varray%array_var(IBY)%array = v_cnv(:,:,:,2)
       varray%array_var(IBZ)%array = v_cnv(:,:,:,3)
-
-cc      if (my_rank == 0) then
-cc        open(unit=110,file='debug0.bin'
-cc     .           ,form='unformatted',status='replace')
-cc      else
-cc        open(unit=110,file='debug1.bin'
-cc     .           ,form='unformatted',status='replace')
-cc      endif
-cc      lxmin = xmin
-cc     .     + (grid_params%ilo(igx)-1)*(xmax-xmin)/grid_params%nxgl(igx)
-cc      lxmax = xmin
-cc     .     + (grid_params%ihi(igx)  )*(xmax-xmin)/grid_params%nxgl(igx)
-cc      lymin = ymin
-cc     .     + (grid_params%jlo(igy)-1)*(ymax-ymin)/grid_params%nygl(igy)
-cc      lymax = ymin
-cc     .     + (grid_params%jhi(igy)  )*(ymax-ymin)/grid_params%nxgl(igy)
-cc      do i=1,3
-cc          call contour(v_cov(:,:,2,i),nx+2,ny+2
-cc     .                ,lxmin,lxmax,lymin,lymax,i-1,110)
-cc      enddo
-cc      close(110)
-cc      call MPI_Finalize(mpierr)
-cc      stop
 
 c Current BC
 
@@ -266,11 +213,11 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         bcnd = -DIR  !Use covariant components for tangential dirichlet
       end where
 
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
+      do k = 0,nnz+1
+        do j = 0,nny+1
+          do i = 0,nnx+1
             do icomp=1,3
-              v_cnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz
      .                                ,bx_cov,by_cov,bz_cov,icomp)
             enddo
           enddo
@@ -281,7 +228,7 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
 
 c     Fill ghost nodes
 
-      call setBC(IJX,v_cnv,v_cov,v0,bcnd)
+      call setBC(IJX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
 
 c     Postprocessing
 
@@ -295,9 +242,11 @@ c     Postprocessing
 
 c Temperature BCs
 
-      call setBC(ITMP,varray%array_var(ITMP)%array
+      call setBC(ITMP,nnx,nny,nnz
+     .               ,varray%array_var(ITMP)%array
      .               ,u_0   %array_var(ITMP)%array
-     .               ,varray%array_var(ITMP)%bconds)
+     .               ,varray%array_var(ITMP)%bconds
+     .               ,iigx,iigy,iigz)
 
 c Deallocate variables 
 
