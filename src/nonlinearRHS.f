@@ -78,8 +78,7 @@ c     Grid parameters
 
       dvol = dxx*dyy*dzz
 
-      sing_point = .false.
-      if (i == 1 .and. bcond(1) == SP) sing_point = .true.
+      sing_point = isSP(i,j,k,igx,igy,igz)
 
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
@@ -135,14 +134,14 @@ cc     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
 cc     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
 cc     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
 cc        elseif (i < nx) then
-        if (i < nx) then
+        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
           jach = 0.5*(jac+jacip)
           flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
      .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
           jach = 0.5*(jac+jacim)
           flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
      .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
-        elseif (i == nx) then
+        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
           flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
 
           jach = 0.5*(jac+jacim)
@@ -157,7 +156,7 @@ cc        elseif (i < nx) then
         flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
       endif
 
-cc      if (i == 1 .and. bcond(1) == SP) then  !Upwind around singular point
+cc      if (sing_point) then  !Upwind around singular point
 cc        flxjp = 0.25*( (    (vy(i,j,k)+vy(i,jp,k))
 cc     .                  +abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,j ,k)
 cc     .                +(    (vy(i,j,k)+vy(i,jp,k))
@@ -174,8 +173,7 @@ cc      endif
       flxkp = 0.5*(vz(i,j,kp)*rho(i,j,k) + vz(i,j,k)*rho(i,j,kp))
       flxkm = 0.5*(vz(i,j,km)*rho(i,j,k) + vz(i,j,k)*rho(i,j,km))
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
-     .                      ,varray%array_var(IRHO)%bconds)
+      if (sing_point) flxim = 0d0
 
       advec = dS1*(flxip - flxim)
      .      + dS2*(flxjp - flxjm)
@@ -287,7 +285,7 @@ c     Bz
       flxkp = 0d0
       flxkm = 0d0
 
-      if (i == 1 .and. bcond(1) == SP) then
+      if (sing_point) then
         jach = 0.5*(jac+jacip)
 
         flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip**2
@@ -351,7 +349,7 @@ cc        flxim = 0d0 !SP BC on ideal flux (since fxl_x ~ r)
 c     Temperature
 
       if (bcond(1) == SP) then
-        if (i < nx) then
+        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
           jach = 0.5*(jac+jacip)
           flxip = (vx(ip,j,k)*tmp(i ,j,k)/jacip
      .           + vx(i ,j,k)*tmp(ip,j,k)/jac  )*jach/2.
@@ -362,7 +360,7 @@ c     Temperature
      .           + vx(i ,j,k)*tmp(im,j,k)/jac  )*jach/2.
      .           +(gamma-2.)*tmp(i,j,k)*(vx(im,j,k)/jacim
      .                                  +vx(i ,j,k)/jac  )*jach/2.
-        elseif (i == nx) then
+        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
           flxip = (vx(ip,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(ip,j,k))/2.
      .              +(gamma-2.)*tmp(i,j,k)*(vx(ip,j,k)+vx(i,j,k))/2.
 
@@ -415,8 +413,7 @@ cc
 cc      !Heat source
 cc      heat_src = joule/rho(i,j,k) + viscous
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(ITMP)%bconds)
+      if (sing_point) flxim = 0d0
 
       ff(ITMP) = dS1*(flxip-flxim)
      .          +dS2*(flxjp-flxjm)
@@ -447,8 +444,7 @@ c     Vx
       flxkp = t31p
       flxkm = t31m
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
+      if (sing_point) flxim = 0d0
 
       if (coords == 'car') then
         msource = 0d0
@@ -481,8 +477,7 @@ c     Vy
       else
         if (alt_eom) then
 
-          call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
+          if (sing_point) flxim = 0d0
 
           msource=dvol
      .           *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
@@ -518,8 +513,7 @@ c     Vz
       flxkp = t33p
       flxkm = t33m
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
+      if (sing_point) flxim = 0d0
 
       if (coords == 'car') then
         msource = 0d0
