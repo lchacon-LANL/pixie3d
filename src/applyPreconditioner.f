@@ -41,7 +41,7 @@ c Local variables
 
 c Debug
 
-      real(8)    :: debug(0:nxd+1,0:nyd+1,0:nzd+1),mag,mag2
+      real(8)    :: mag,mag2,mag0
 
 c Externals
 
@@ -51,11 +51,12 @@ c Interface
 
       INTERFACE
         subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                    ,icmp,matvec,dg,ncolors)
+     $                    ,icmp,matvec,dg,ncolors,line_relax)
          integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,icmp,guess
      $                ,ncolors
          real(8)    :: x(ntotp,neq),b(ntotp,neq)
          real(8), target :: dg(neq,2*neq*ntotp)
+         logical    :: line_relax
          external   :: matvec
         end subroutine cSolver
       END INTERFACE
@@ -124,15 +125,16 @@ c     Predictor step
 
         !Temperature
         call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2)
+     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
 
         !Density
         call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2)
+     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
 
         !Magnetic field
         call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2)
+     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+     .           ,.false.)
 
 c     SI step
 
@@ -142,7 +144,8 @@ c     SI step
 
         !Solve Schur-complement SI system
         call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4)
+     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4
+     .           ,.true.)
 
 c     Store velocity solution in array format
 
@@ -186,21 +189,22 @@ cc        enddo
 cc
 cc        !Temperature
 cc        call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2)
+cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
 cc
 cc        !Density
 cc        call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2)
+cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
 cc
 cc        !Magnetic field
 cc        call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2)
+cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+cc     .           ,.false.)
 
 c     Postprocessing of magnetic field: divergence cleaning
 
 cc        call findDivfreeRHS(dv_cnv,db_cnv,dj_cov,rhs(:,IBX:IBZ),igrid)
 cc
-cc        !Divergence-free correction for magnetic field (needs changes in correctBflRHS)
+cc        !Divergence-free correction for magnetic field
 cc        do k = 1,nz
 cc          do j = 1,ny
 cc            do i = 1,nx
@@ -226,50 +230,45 @@ c     Postprocessing of velocity -> momentum
           enddo
         enddo
 
-cc        open(unit=110,file='debug.bin',form='unformatted'
-cc     .       ,status='replace')
-cc        call mapMGVectorToArray(0,1,xxx(:,IRHO),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVX),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVY),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IVZ),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBX),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBY),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,IBZ),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        call mapMGVectorToArray(0,1,xxx(:,ITMP),nx,ny,nz,debug,igrid,.false.)
-cc        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-cc        close(110)
+c     Diagnostics
+
+        !Solution plot
+c diag ****
+cc        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+cc        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+cc        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+cc
 cc        stop
+c diag ****
 
-c diag B-field divergence
-
-        do ieq=1,3
-          call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
-     .                           ,db_cnv(:,:,:,ieq),igrid,.false.)
-        enddo
-
-        icomp = IBX
-        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ))
-
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-              debug(i,j,k) = div(i,j,k,nx,ny,nz,db_cnv(:,:,:,1)
-     $                                         ,db_cnv(:,:,:,2)
-     $                                         ,db_cnv(:,:,:,3))
-            enddo
-          enddo
-        enddo
-
-        mag = sqrt(sum(debug(1:nx,1:ny,1:nz)**2))
-        write (*,*) mag
-
+        !diag B-field divergence
+c diag ****
+cc        do ieq=1,3
+cc          call mapMGVectorToArray(0,1,xxx(:,IBX+ieq-1),nx,ny,nz
+cc     .                           ,db_cnv(:,:,:,ieq),igrid,.false.)
+cc        enddo
+cc
+cc        icomp = IBX
+cc        call setMGBC(0,3,nx,ny,nz,igrid,db_cnv,bcs(:,IBX:IBZ))
+cc
+cc        do k=1,nz
+cc          do j=1,ny
+cc            do i=1,nx
+cc              debug(i,j,k) = div(i,j,k,nx,ny,nz,db_cnv(:,:,:,1)
+cc     $                                         ,db_cnv(:,:,:,2)
+cc     $                                         ,db_cnv(:,:,:,3))
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        mag = sqrt(sum(debug(1:nx,1:ny,1:nz)**2))
+cc        write (*,*) mag
+cc
 cc        write (*,*) 'plot div(b)?'
 cc        read (*,'(a)') plot
 cc        if (plot == 'y') then
@@ -279,6 +278,9 @@ cc          call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
 cc          close(110)
 cc          stop
 cc        endif
+c diag ****
+
+c     Deallocate variables
 
         deallocate(dv_cnv,db_cnv,dj_cov)
 
@@ -326,7 +328,8 @@ c       Form residual vector rr=y-Ax
             rr = y - rr
 
             mag = sqrt(sum(rr*rr))
-            mag = mag/sqrt(sum(y*y))
+            mag0=sqrt(sum(y*y))
+            mag = mag/mag0
             write (*,*) si_it-1,mag
           endif
 
@@ -360,26 +363,10 @@ c       SI step: Deltav --> xxx(:,IVX:IVZ)
           call formSIrhs(ntotp,xxx,yyy(:,IVX:IVZ),rhs(:,IVX:IVZ)
      .                  ,db_cnv,dj_cov,igrid)
 
-          !Laplacian test
-cc          bcs(1,IRHO) = DIR
-cc          bcs(2,IRHO) = DIR
-cc          bcs(3,IRHO) = DIR
-cc          bcs(4,IRHO) = DIR
-          call cSolver(1,ntotp,rhs(:,IRHO),xxx(:,IRHO)
-     .          ,bcs(:,IRHO),igrid,iout,guess,IRHO,test_mtvc,rho_diag,2)
-          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-          stop
-
           !Solve Schur-complement SI system ---> xxx(:,IVX:IVZ)
           call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4)
-
-
-        call MGplot(1,xxx(:,IVX),igrid,0,'debug.bin')
-        call MGplot(1,xxx(:,IVY),igrid,1,'debug.bin')
-        call MGplot(1,xxx(:,IVZ),igrid,1,'debug.bin')
-
-        stop
+     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,IVX,v_mtvc,v_diag,4
+     .           ,.true.)
 
 c       Store velocity solution in array format --> dv_cnv
 
@@ -407,6 +394,16 @@ c       Correct rx to find Deltax (correction for rho, B, T)
           call diagonalScaling(1,ntotp,tmp_diag,rhs(:,ITMP)
      .                        ,yyy(:,ITMP)   ,igrid)
 
+c diag ******
+cc          call MGplot(1,rhs(:,IBX),igrid,0,'debug.bin')
+cc          call MGplot(1,rhs(:,IBY),igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBZ),igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBX),igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBY),igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBZ),igrid,1,'debug.bin')
+cc          stop
+c diag ******
+
           !Find Deltax = xxx - yyy
           do k = 1,nz
             do j = 1,ny
@@ -422,6 +419,7 @@ c       Correct rx to find Deltax (correction for rho, B, T)
               enddo
             enddo
           enddo
+
 
 c       Postprocessing of velocity -> momentum
 
@@ -475,45 +473,36 @@ c diag ******
         rr = y - rr
 
         mag = sqrt(sum(rr*rr))
-        mag = mag/sqrt(sum(y*y))
+        mag = mag/mag0
         write (*,*) si_it-1,mag
 c diag ******
 
 c plot ************
-c$$$        if (mag > 1d0) then
-c$$$        do k = 1,nz
-c$$$          do j = 1,ny
-c$$$            do i = 1,nx
-c$$$              ii  = i + nx*(j-1) + nx*ny*(k-1)
-c$$$              do ieq=1,neqd
-c$$$                iii = ieq + neqd*(ii-1)
-c$$$                xxx(ii,ieq) = y(iii)
-c$$$              enddo
-c$$$            enddo
-c$$$          enddo
-c$$$        enddo
-c$$$
-c$$$        open(unit=110,file='debug.bin',form='unformatted'
-c$$$     .       ,status='replace')
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IRHO),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IVX),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IVY),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IVZ),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IBX),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IBY),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,IBZ),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        call mapMGVectorToArray(0,1,xxx(:,ITMP),nx,ny,nz,debug,1)
-c$$$        call contour(debug(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
-c$$$        close(110)
-c$$$        stop
-c$$$        endif
+cc        if (mag > 1d0) then
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
+                do ieq=1,neqd
+                  iii = ieq + neqd*(ii-1)
+crhs                  xxx(ii,ieq) = y(iii)
+                  xxx(ii,ieq) = x(iii)
+                enddo
+              enddo
+            enddo
+          enddo
+          
+          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+          call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+
+          stop
+cc        endif
 c plot *************
 
 ccc     Store velocity solution in array format
@@ -558,15 +547,16 @@ cc        enddo
 cc
 cc        !Temperature
 cc        call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2)
+cc     .              ,igrid,iout,guess,ITMP,tmp_mtvc,tmp_diag,2,.false.)
 cc
 cc        !Density
 cc        call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2)
+cc     .              ,igrid,iout,guess,IRHO,rho_mtvc,rho_diag,2,.false.)
 cc
 cc        !Magnetic field
 cc        call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2)
+cc     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,IBX,b_mtvc,b_diag,2
+cc     .           ,.false.)
 
 c diag B-field divergence
 
@@ -601,6 +591,8 @@ cc          close(110)
 cc          stop
 cc        endif
 
+c     Deallocate variables
+
         deallocate(dv_cnv,db_cnv,dj_cov)
 
       endif
@@ -612,7 +604,7 @@ c End program
 c cSolver
 c #########################################################################
       subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                  ,icmp,matvec,dg,ncolors)
+     $                  ,icmp,matvec,dg,ncolors,line_relax)
 c--------------------------------------------------------------------
 c     This subroutine solves a coupled system of neq equations. 
 c     In call sequence:
@@ -644,6 +636,8 @@ c Call variables
       real(8)    :: x(ntotp,neq),b(ntotp,neq)
       real(8), target :: dg(neq,2*neq*ntotp)
 
+      logical    :: line_relax
+
       external   :: matvec
 
 c Local variables
@@ -656,21 +650,21 @@ c Local variables
 
 c Begin program
 
-      icomp = icmp  !Define icomp for setMGBC
+      icomp = icmp  !Define icomp for appropriate BC treatment in setMGBC
 
 c Interlace variables for coupled solve
 
-cc      do i=1,ntotp
-cc        do ieq=1,neq
-cc          xi(neq*(i-1)+ieq) = x(i,ieq)
-cc          bi(neq*(i-1)+ieq) = b(i,ieq)
-cc        enddo
-cc      enddo
+      do i=1,ntotp
+        do ieq=1,neq
+          xi(neq*(i-1)+ieq) = x(i,ieq)
+          bi(neq*(i-1)+ieq) = b(i,ieq)
+        enddo
+      enddo
 
 c diag *** Convergence test
-      bi = 0d0
-      call random_number(xi)
-      guess = 1
+cc      bi = 0d0
+cc      call random_number(xi)
+cc      guess = 1
 c diag ***
 
 c Solve coupled MG
@@ -679,7 +673,7 @@ c     Initialize solver
 
       call solverInit
 
-c     Upper_level solver options
+c     Upper_level solver options (MG)
 
 c$$$      call solverOptionsInit
 c$$$
@@ -691,56 +685,52 @@ c$$$      call assembleSolverHierarchy('gm')
 
       solverOptions%tol      = mgtol
       solverOptions%vcyc     = maxvcyc
-      solverOptions%igridmin = 3
+      solverOptions%igridmin = 2
       solverOptions%orderres = 0
       solverOptions%orderprol= 2
       solverOptions%mg_mu    = 1
       solverOptions%vol_res  = .true.
-cc      solverOptions%diag     => dg
-      solverOptions%mg_coarse_solver_depth = 3
+      solverOptions%diag     => dg
+      solverOptions%mg_coarse_solver_depth = 3  !GMRES, as defined below
+
+      !Vertex relaxation
 cc      solverOptions%vertex_based_relax = .true.
-      solverOptions%mg_line_relax = .true.
+
+      !Plane/line relaxation
+cc      solverOptions%mg_line_relax = line_relax
+      solverOptions%mg_line_nsweep = 1
 
       call assembleSolverHierarchy('mg')
 
 c     Next level solver (smoother)
 
-cc      call solverOptionsInit
-cc
-cc      solverOptions%tol             = mgtol
-cc      solverOptions%stp_test        = 1 
-cc      solverOptions%krylov_subspace = nsweep
-cc      solverOptions%iter            = nsweep
-cccc      solverOptions%krylov_subspace = 100
-cccc      solverOptions%iter            = 100
-cc
-cc      call assembleSolverHierarchy('gm')
-
-c     Next level solver (preconditioner for GMRES)
-
       call solverOptionsInit
 
       solverOptions%iter    = nsweep
-      solverOptions%omega   = 1d0
       solverOptions%tol     = mgtol
-cc      solverOptions%ncolors = ncolors
 cc      solverOptions%diag    => dg
-cc      solverOptions%vertex_based_relax = .false.
 
-      call assembleSolverHierarchy('gs')
+cc      if (.not.solverOptions%mg_line_relax) then
 
-cc      solverOptions%omega   = 0.7
-cc      solverOptions%iter    = 2*nsweep/solverOptions%omega
-cc      solverOptions%tol     = mgtol
-cccc      solverOptions%diag    => dg
+cc        solverOptions%omega   = 1d0
+cc        solverOptions%ncolors = ncolors
+cccc        solverOptions%vertex_based_relax = .true.
 cc
-cc      call assembleSolverHierarchy('jb')
+cc        call assembleSolverHierarchy('gs')
+
+cc      else
+
+        solverOptions%omega   = 0.8
+
+        call assembleSolverHierarchy('jb')
+
+cc      endif
 
 c     Coarsest grid solve for outer MG
 
       call solverOptionsInit
 
-      solverOptions%tol             = 1d-10
+      solverOptions%tol             = 1d-5
       solverOptions%krylov_subspace = 1000
       solverOptions%iter            = 1000
       solverOptions%stp_test        = 1 
@@ -748,17 +738,13 @@ c     Coarsest grid solve for outer MG
       call assembleSolverHierarchy('gm')
       call assembleSolverHierarchy('id') !GMRES preconditioner
 
-c     Coarsest grid solve for line MG
+c     Coarsest grid solve for inner line/plane MG
 
       call solverOptionsInit
 
-      solverOptions%iter    = 1000
-      solverOptions%omega   = 1d0
+      solverOptions%omega   = 0.75
+      solverOptions%iter    = 100
       solverOptions%tol     = 1d-4
-      solverOptions%ncolors = 1
-cc      solverOptions%ncolors = ncolors
-cc      solverOptions%diag    => dg
-cc      solverOptions%vertex_based_relax = .false.
 
       call assembleSolverHierarchy('jb')
 
@@ -775,7 +761,7 @@ c     Kill solver
 
       call solverKill
 
-c Unravel solution for output
+c Unpack solution for output
 
       do i = 1,ntotp
         do ieq=1,neq
@@ -960,8 +946,6 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use imposeBCinterface
-
       use mg_internal
 
       implicit none
@@ -1012,8 +996,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-      use imposeBCinterface
 
       use mg_internal
 
@@ -1070,8 +1052,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-      use imposeBCinterface
 
       use mg_internal
 
@@ -1131,8 +1111,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-      use imposeBCinterface
 
       use mg_internal
 
@@ -1250,8 +1228,8 @@ c Begin program
         iii = neq*(ii-1)
         iig = iii + isig - 1
 
-        dummy = y(ii,:)
-        x(ii,:) = matmul(idiag(:,iig+1:iig+neq),dummy)
+cc        dummy = y(ii,:)
+        x(ii,:) = matmul(idiag(:,iig+1:iig+neq),y(ii,:))
 
       enddo
 
