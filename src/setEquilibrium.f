@@ -116,7 +116,7 @@ c     Check coordinates
           stop
         endif
 
-c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
+c     Uniform medium with constant magnetic field in cartesian coordinates
 
         do k = 1,nzd
           do j = 1,nyd
@@ -155,20 +155,20 @@ c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
         do k = 1,nzd
           do j = 1,nyd
             do i = 1,nxd
-              var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,IBX)=0d0
-              var(i,j,k,IBY)=0d0
-              var(i,j,k,IBZ)=1d0
+              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
 
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,a1,a2,a3,3)
-
-              var(i,j,k,ITMP) = 1d0
             enddo
           enddo
         enddo
+
+        var(:,:,:,IRHO) = 1d0
+        var(:,:,:,IBX)  = 0d0
+        var(:,:,:,IBY)  = 0d0
+        var(:,:,:,IBZ)  = 1d0
+        var(:,:,:,ITMP) = 1d0
 
       case ('tmcar')
 
@@ -193,26 +193,26 @@ c     Tearing mode in cartesian coordinates
             do i = 1,nxd
 
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,a1,a2,a3,2)
+              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IBY)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
               var(i,j,k,IBZ)  = sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,a1,a2,a3,2)
+cc              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
 cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
-              var(i,j,k,ITMP) = 1d0
 
             enddo
           enddo
         enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
 
       case ('dfcyl')
 
@@ -244,13 +244,13 @@ cc              var(i,j,k,IBX)=0d0
 cc              var(i,j,k,IBY)=0d0
 cc              var(i,j,k,IBZ)= r
 
-              var(i,j,k,IBX)=curl(i,j,k,a1,a2,a3,1)
-              var(i,j,k,IBY)=curl(i,j,k,a1,a2,a3,2)
-              var(i,j,k,IBZ)=curl(i,j,k,a1,a2,a3,3)
+              var(i,j,k,IBX)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IBY)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IBZ)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
 
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,a1,a2,a3,3)
+              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
 
               var(i,j,k,ITMP) = 1d0
 
@@ -284,8 +284,8 @@ c     Tearing mode in sinusoidal coordinates
      .                           ,cartsn)
 
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,a1,a2,a3,2)
+              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+              var(i,j,k,IBY)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
               var(i,j,k,IBZ)  = 0d0
 
               gsub = G_sub   (x1,y1,z1,cartsn)
@@ -300,8 +300,8 @@ c     Tearing mode in sinusoidal coordinates
               var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,a1,a2,a3,2)
+cc              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
 cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
               var(i,j,k,IVX)  = 0d0
@@ -605,12 +605,6 @@ c Begin program
 
               call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,xx,yy,zz
      .                           ,cartsn)
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              xx = grid_params%xx(ig)
-cc              yy = grid_params%yy(jg)
-cc              zz = grid_params%zz(kg)
-
               a1(i,j,k) = 0d0
               a2(i,j,k) = 0d0
               a3(i,j,k) = dlambda*dlog(dcosh((xx-0.5d0)/dlambda)) 
