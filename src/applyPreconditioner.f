@@ -41,7 +41,7 @@ c *******************************************************************
 
       if (precon.eq.'id') then
 
-        x = y
+        x = y*dt   !Diagonal scaling
 
       else
 
