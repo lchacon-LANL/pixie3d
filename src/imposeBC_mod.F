@@ -1057,19 +1057,6 @@ c     Singular point boundary condition
 
       if (bcond(1) == SP) call singularBC(array,2)
 
-c     Synchronize periodic boundaries
-
-cc      bctype=PER
-cc
-cc      do dim=1,3
-cc        do loc=0,1
-cc          ibc = (1+loc)+2*(dim-1)
-cc          if (bcond(ibc) == bctype) then
-cc            call FillGhostNodes(ieq,1,1,dim,loc,bctype,array,array0)
-cc          endif
-cc        enddo
-cc      enddo
-
 c     Fill edges
 
       do dim=1,3
@@ -1085,6 +1072,19 @@ c     Fill corners
           call fillCorners(array,dim,loc)
         enddo
       enddo
+
+c     Synchronize periodic boundaries
+
+cc      bctype=PER
+cc
+cc      do dim=1,3
+cc        do loc=0,1
+cc          ibc = (1+loc)+2*(dim-1)
+cc          if (bcond(ibc) == bctype) then
+cc            call FillGhostNodes(ieq,1,1,dim,loc,bctype,array,array0)
+cc          endif
+cc        enddo
+cc      enddo
 
 c     End program
 
@@ -1164,22 +1164,6 @@ c     Impose vector singular point BCs
 
       if (bcond(1,1) == SP) call singularBC(v_cnv,.false.,2)
 
-c     Synchronize periodic boundaries
-
-cc      bctype=PER
-cc
-cc      do dim=1,3
-cc        do loc=0,1
-cc          ibc = (1+loc)+2*(dim-1)
-cc          do ivar = 1,3
-cc            ieq = ivar + fcomp - 1
-cc            if (bcond(ibc,ivar) == bctype) then
-cc              call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cnv,var0)
-cc            endif
-cc          enddo
-cc        enddo
-cc      enddo
-
 c     Fill edges
 
       do dim=1,3
@@ -1199,6 +1183,22 @@ c     Fill corners
           enddo
         enddo
       enddo
+
+c     Synchronize periodic boundaries
+
+cc      bctype=PER
+cc
+cc      do dim=1,3
+cc        do loc=0,1
+cc          ibc = (1+loc)+2*(dim-1)
+cc          do ivar = 1,3
+cc            ieq = ivar + fcomp - 1
+cc            if (bcond(ibc,ivar) == bctype) then
+cc              call FillGhostNodes(ieq,ivar,3,dim,loc,bctype,v_cnv,var0)
+cc            endif
+cc          enddo
+cc        enddo
+cc      enddo
 
 c     Find covariant components at ALL boundaries
 
@@ -1555,22 +1555,7 @@ c     Local variables
 
 c     Begin program
 
-cc#if !defined(petsc)
-
-cc      select case (ibc)
-cc      case (1)
-cc        rhs(:,:) = array(nx,:,:)
-cc      case (2)
-cc        rhs(:,:) = array(1,:,:)
-cc      case (3)
-cc        rhs(:,:) = array(:,ny,:)
-cc      case (4)
-cc        rhs(:,:) = array(:,1,:)
-cc      case (5)
-cc        rhs(:,:) = array(:,:,nz)
-cc      case (6)
-cc        rhs(:,:) = array(:,:,1)
-cc      end select
+#if !defined(petsc)
 
       select case (ibc)
       case (1)
@@ -1587,39 +1572,24 @@ cc      end select
         rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,1)
       end select
 
-cc#else !Do nothing
+#else !Do nothing
 
-cc      select case (ibc)
-cc      case (1)
-cc        rhs(jmin:jmax,kmin:kmax) = array(0   ,jmin:jmax,kmin:kmax)
-cc      case (2)
-cc        rhs(jmin:jmax,kmin:kmax) = array(nx+1,jmin:jmax,kmin:kmax)
-cc      case (3)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,0   ,kmin:kmax)
-cc      case (4)
-cc        rhs(imin:imax,kmin:kmax) = array(imin:imax,ny+1,kmin:kmax)
-cc      case (5)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,0   )
-cc      case (6)
-cc        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,nz+1)
-cc      end select
+      select case (ibc)
+      case (1)
+        rhs(jmin:jmax,kmin:kmax) = array(0   ,jmin:jmax,kmin:kmax)
+      case (2)
+        rhs(jmin:jmax,kmin:kmax) = array(nx+1,jmin:jmax,kmin:kmax)
+      case (3)
+        rhs(imin:imax,kmin:kmax) = array(imin:imax,0   ,kmin:kmax)
+      case (4)
+        rhs(imin:imax,kmin:kmax) = array(imin:imax,ny+1,kmin:kmax)
+      case (5)
+        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,0   )
+      case (6)
+        rhs(imin:imax,jmin:jmax) = array(imin:imax,jmin:jmax,nz+1)
+      end select
 
-cccc      select case (ibc)
-cccc      case (1)
-cccc        rhs(:,:) = array(0,:,:)
-cccc      case (2)
-cccc        rhs(:,:) = array(nx+1,:,:)
-cccc      case (3)
-cccc        rhs(:,:) = array(:,0,:)
-cccc      case (4)
-cccc        rhs(:,:) = array(:,ny+1,:)
-cccc      case (5)
-cccc        rhs(:,:) = array(:,:,0)
-cccc      case (6)
-cccc        rhs(:,:) = array(:,:,nz+1)
-cccc      end select
-cc
-cc#endif
+#endif
 
 c     End program
 
