@@ -34,6 +34,18 @@ c Begin program
 
       ngrd = (/ grid_params%ngrdx,grid_params%ngrdy,grid_params%ngrdz /)
 
+ccc Find maximum velocity and magnetic field components (cartesian)
+cc
+cc      vx_max = maxval(abs(vx_car))
+cc      vy_max = maxval(abs(vy_car))
+cc      vz_max = maxval(abs(vz_car))
+cc
+cc      bx_max = maxval(abs(bx_car))
+cc      by_max = maxval(abs(by_car))
+cc      bz_max = maxval(abs(bz_car))
+
+c Output
+
       if (itime.lt.inewtime) then
 
 cc        write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
