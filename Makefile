@@ -37,9 +37,9 @@ FC = f90
 
 # Flags for Absoft f90
 ifeq ($(FC),f90)
-  OPTIMIZATION = -O2 -cpu:host
-  DEBUG        = -g -et -Rb -Rp -Rc
-#  DEBUG        = -g -en
+  OPTIMIZATION = -O3 -cpu:host
+#  DEBUG        = -g -et -Rb -Rp -Rc
+  DEBUG        = -g -en -et -trap=DIVBYZERO,INVALID
   PROFILE      = -P
   STATIC       = -s
   MODFLAG      = -p
@@ -141,10 +141,16 @@ ifdef HDF5
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
 endif
 
+# XDRAW setup
+
+ifdef NOBC
+  CPPFLAGS += -Dnobc
+endif
+
 # Petsc setup
 
 ifdef BOPT
-  CPPFLAGS += -Dpetsc -DNVAR=8
+  CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
   MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
 endif
 
