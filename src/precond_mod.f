@@ -358,7 +358,7 @@ c       Restrict vector
 
 c     Map vector to array
 
-      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igridc
+      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igc
      .                       ,.false.)
 
       if (icmp /= 0) then
