@@ -45,7 +45,10 @@ c Begin program
       nz = grid_params%nzv(igz)
 
 cc      si_car = .false.
-      si_car = .not.(coords == 'car')
+cc      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)
+      if (si_car) si_car = .not.(coords == 'car')
+
+cc      call allocPrecVariables
 
 c Unpack vector x
 
@@ -160,6 +163,8 @@ c###################################################################
 c     Deallocate variables
 
       if (precon == 'id') return
+
+cc      nullify(rho,rvx,rvy,rvz,bx,by,bz,tmp)
 
 cc      call deallocPrecVariables
 
