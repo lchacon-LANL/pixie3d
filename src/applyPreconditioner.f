@@ -908,9 +908,9 @@ c Find rhs_v'
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                         ,x1,y1,z1,cartsn)
-            jac    = jacobian(x1,y1,z1,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            jac    = gmetric%grid(igx)%jac(i,j,k)
             dvol   = volume(i,j,k,igx,igy,igz)
 
             cov(1) = jy(i,j,k)*db_cnv(i,j,k,3)/jac
@@ -1036,9 +1036,10 @@ c Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            call getCoordinates(i,j,k,igrid,igrid,igrid,ig,jg,kg
-     .                         ,x0,y0,z0,cartsn)
-            jac = jacobian(x0,y0,z0,cartsn)
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            jac = gmetric%grid(igrid)%jac(i,j,k)
 
             crhs(ii) = ( (gamma-1)*tmp(i,j,k)
      $                           *div(i,j,k,nx,ny,nz,dv_cnv(:,:,:,1)
