@@ -48,12 +48,11 @@ ifeq ($(FC),f90)
   FFLAGS       = -w
   LIBS         = -llapack_f90 -lblas_f90 -lU77 -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz
   VERBOSE      = -v
-  GMODPATH  = -p$(HDF5_HOME)/lib
+  GMODPATH  = -p$(HDF5_HOME)/lib -p$(MPI_HOME)/include
 
   ifdef PETSCTRUE
     CPPFLAGS += -Dabsoft_ -Dpetsc -DNVAR=8 -I$(HDF5_HOME)/include
-    LIBS      = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz \
-                -I$(MPI_HOME)/include -L$(MPI_HOME)/lib -lmpichf90 -lmpich -lpmpich 
+    LIBS      = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz 
     FC        = $(MPI_HOME)/bin/mpif90
   endif
 endif
@@ -137,7 +136,7 @@ export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH LIBS HDF5_HOME \
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean $(SUBDIRS)
+.PHONY: pixie3d pixplot distclean petsc $(SUBDIRS)
 
 pixie3d: src
 
