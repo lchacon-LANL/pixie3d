@@ -289,7 +289,7 @@ c End
 
 c defineTSParameters
 c####################################################################
-      subroutine defineTSParameters(cnf,one_over_dt)
+      subroutine defineTSParameters
 c--------------------------------------------------------------------
 c     Calculates nonlinear residuals. 
 c--------------------------------------------------------------------
@@ -303,8 +303,6 @@ c--------------------------------------------------------------------
       implicit none
 
 c Call variables
-
-      real(8) :: cnf(neqd),one_over_dt(neqd)
 
 c Local variables
 
