@@ -121,8 +121,8 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         do k = 1,nzd
           do j = 1,nyd
             do i = 1,nxd
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
 
               var(i,j,k,IRHO) = 1d0
 cc     .                         + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
@@ -160,9 +160,10 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         do k = 1,nzd
           do j = 1,nyd
             do i = 1,nxd
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-              jac1 = jacobian(x1,y1,z1,.true.)
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+
+              jac1 = gmetric%grid(igx)%jac(i,j,k)
 
               var(i,j,k,IRHO) = 1d0
 cc     .                        + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
@@ -283,18 +284,18 @@ c     Tearing mode in sinusoidal coordinates
           do j = 1,nyd
             do i = 1,nxd
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                           ,cartsn)
-
               !X-Y equilibrium
               var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
               var(i,j,k,IBY)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
               var(i,j,k,IBZ)  = 0d0
 
-              gsub = G_sub   (x1,y1,z1,cartsn)
-              jac1 = jacobian(x1,y1,z1,cartsn)
-              bnorm= vectorNorm(x1,y1,z1,var(i,j,k,IBX),var(i,j,k,IBY)
-     .                         ,var(i,j,k,IBZ),.false.,cartsn)
+              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
+              jac1 = gmetric%grid(igx)%jac (i,j,k)
+
+              bnorm= vectorNorm(i,j,k,igx,igy,igz
+     .                         ,var(i,j,k,IBX)
+     .                         ,var(i,j,k,IBY)
+     .                         ,var(i,j,k,IBZ),.false.)
 
               ccc = jac1*(bz0**2 - bnorm)
               bbb = gsub(3,2)*var(i,j,k,IBY) + gsub(3,1)*var(i,j,k,IBX)
@@ -315,6 +316,9 @@ cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
               var(i,j,k,ITMP) = 1d0
 
+              if (bbb**2+4*aaa*ccc < 0d0) then
+                write (*,*) var(i,j,k,IBZ),bnorm,aaa,bbb**2+4*aaa*ccc
+              endif
             enddo
           enddo
         enddo
@@ -384,8 +388,8 @@ c     RFP equilibria (Caramana et al, PoP, 1983)
         !Integral in r
         rint(nxd+1) = 0d0
         do i=nxd,1,-1
-          call getCoordinates(i,1,1,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                       ,cartsn)
+          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
+     .                                  ,x1,y1,z1)
 c1          rint(i) = rint(i+1) + dxh(ig)*x1/ff(x1)
           rint(i) = rint(i+1) + dxh(ig)*qq(x1)*qqp(x1)/ff(x1)
         enddo
@@ -401,8 +405,8 @@ c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
           do j = 1,nyd
             do i = 1,nxd+1
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                           ,cartsn)
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
 c1              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
               btheta = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(i))
@@ -449,8 +453,8 @@ c     RFP equilibria (analytical)
           do j = 1,nyd
             do i = 1,nxd+1
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                           ,cartsn)
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -499,8 +503,8 @@ c     RFP equilibria (analytical)
           do j = 1,nyd
             do i = 1,nxd
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                           ,cartsn)
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -547,8 +551,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
           do j = 1,nyd
             do i = 1,nxd+1
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                           ,cartsn)
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               bzz    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
@@ -650,8 +654,8 @@ c Begin program
           do j=0,nydp
             do i=0,nxdp
 
-              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,xx,yy,zz
-     .                           ,cartsn)
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,xx,yy,zz)
               a1(i,j,k) = 0d0
               a2(i,j,k) = 0d0
               a3(i,j,k) = dlambda*dlog(dcosh((xx-0.5d0)/dlambda)) 
@@ -666,11 +670,6 @@ c Begin program
             do i=0,nxdp
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,xx,yy,zz)
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              xx = grid_params%xx(ig)
-cc              yy = grid_params%yy(jg)
-cc              zz = grid_params%zz(kg)
 
               a1(i,j,k) = 0d0
               a2(i,j,k) = 0d0
