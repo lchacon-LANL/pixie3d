@@ -49,13 +49,15 @@ SUBDIRS = $(COMMONDIR)/grid\
 
 #Module search path
 
-MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBDIRS))
+MODDIRS =  $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDIRS))
 
 #Define targets
 
-.PHONY: clean distclean common $(SUBDIRS)
+.PHONY: production petsc clean distclean common $(SUBDIRS)
 
 production: common $(PROD)
+
+petsc: production
 
 $(PROD):  $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
@@ -78,7 +80,8 @@ distclean: clean
 
 #Define dependencies
 
-$(OBJS):  $(MODS) $(COMMON_MODS)
+$(OBJS):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/imposeBCinterface_mod.F
+imposeBC_mod.o: $(COMMONDIR)/BC/imposeBCinterface_mod.F
 
 #Define patterns
 
