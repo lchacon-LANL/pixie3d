@@ -274,6 +274,7 @@ c     By
         Ez_im = eeta(im,j,k)*jz_cov(im,j,k)
       endif
 
+
       flxkp = 0.5*(vz(i,j,kp)*by(i,j,kp)/jackp
      .           + vz(i,j,k )*by(i,j,k )/jac  )
      .       -0.5*(vy(i,j,kp)*bz(i,j,kp)/jackp
@@ -282,7 +283,6 @@ c     By
      .           + vz(i,j,k )*by(i,j,k )/jac  )
      .       -0.5*(vy(i,j,km)*bz(i,j,km)/jackm
      .           + vy(i,j,k )*bz(i,j,k )/jac)
-
       Ex_kp = 0.5*(eeta(i,j,kp)*jx_cov(i,j,kp)
      .           + eeta(i,j,k )*jx_cov(i,j,k ))
       Ex_km = 0.5*(eeta(i,j,km)*jx_cov(i,j,km)
@@ -306,11 +306,11 @@ c     Bz
       flxkm = 0d0
 
       if (i == 1 .and. bcond(1) == SP) then
-cc        xh = (xip+x0)/2.
-cc        yh = (yip+y0)/2.
-cc        zh = (zip+z0)/2.
-cc        jach = jacobian(xh ,yh ,zh ,cartesian)
-        jach = 0.5*(jac+jacip)
+        xh = (xip+x0)/2.
+        yh = (yip+y0)/2.
+        zh = (zip+z0)/2.
+        jach = jacobian(xh ,yh ,zh ,cartesian)
+cc        jach = 0.5*(jac+jacip)
 
         flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip**2
      .             + vx(i ,j,k)*bz(i ,j,k)/jac**2  )*jach
@@ -342,6 +342,7 @@ cc        flxim = 0d0 !SP BC on ideal flux (since fxl_x ~ r)
         Ey_im = 0.5*(eeta(im,j,k)*jy_cov(im,j,k)
      .             + eeta(i ,j,k)*jy_cov(i ,j,k))
       endif
+
 
       flxjp = 0.5*(vy(i,jp,k)*bz(i,jp,k)/jacjp
      .           + vy(i,j ,k)*bz(i,j ,k)/jac  )
@@ -613,19 +614,22 @@ c Local variables
 
 c Begin program
 
-      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1,cartsn)
-
 c Resistivity profile eta*(1 + aa*x^nn)
 c     Coefficient aa is set so that res = 20*eta at wall
 c     and nn so that res=??*eta at sing. surf. xs ~ 0.33
 
       select case (equil)
       case ('rfp1')
+
+        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1,cartsn)
         nn = 4
         aa = 19.
         res = eta*(1. + aa*grid_params%xx(ig)**nn)
+
       case default
+
         res = eta
+
       end select
 
 c End program
