@@ -20,109 +20,21 @@ c####################################################################
 
         use variables
 
+        use error
+
+        use generalPurposeFunctions
+
         integer(4) :: nnvar,imax,imin,jmax,jmin,kmax,kmin
-        integer(4) :: iimax,iimin,jjmax,jjmin,kkmax,kkmin
         integer(4) :: nxbc,nybc,nzbc,igxbc,igybc,igzbc
 
         real(8),allocatable,dimension(:,:) :: rhs
 
         real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
 
-        logical    :: do_nothing
-
         type :: curv_vector
           real(8),pointer,dimension(:,:,:,:) :: vcomp
           logical :: cov
         end type curv_vector
-
-      contains
-
-c     findLoopLimits
-c     ##############################################################
-      subroutine findLoopLimits(dim,loc,i1 ,i2 ,j1 ,j2 ,k1 ,k2
-     .                                 ,imn,imx,jmn,jmx,kmn,kmx)
-c     --------------------------------------------------------------
-c     Finds local limits for BC loops. On input, it takes global 
-c     limits (i1,i2), (j1,j2), (k1,k2) and outputs local loop limits
-c     (imn,imx), (jmn,jmx), (kmn,kmx).
-c     --------------------------------------------------------------
-
-c     Call variables
-
-      integer(4),intent(IN) :: dim,loc,i1,i2,j1,j2,k1,k2
-      integer(4),intent(OUT):: imn,imx,jmn,jmx,kmn,kmx
-
-c     Begin program
-
-      select case(dim)
-      case (1)
-
-        call selectLimits(i1,i2,grid_params%ilo(igxbc)
-     .                   ,nxbc,grid_params%nxgl(igxbc),imn,imx)
-
-        jmn = j1 - grid_params%jlo(igybc) + 1
-        jmx = j2 - grid_params%jlo(igybc) + 1
-
-        kmn = k1 - grid_params%klo(igzbc) + 1
-        kmx = k2 - grid_params%klo(igzbc) + 1
-
-      case(2)
-        imn = i1 - grid_params%ilo(igxbc) + 1
-        imx = i2 - grid_params%ilo(igxbc) + 1
-
-        call selectLimits(j1,j2,grid_params%jlo(igybc)
-     .                   ,nybc,grid_params%nygl(igybc),jmn,jmx)
-
-        kmn = k1 - grid_params%klo(igzbc) + 1
-        kmx = k2 - grid_params%klo(igzbc) + 1
-
-      case(3)
-        imn = i1 - grid_params%ilo(igxbc) + 1
-        imx = i2 - grid_params%ilo(igxbc) + 1
-
-        jmn = j1 - grid_params%jlo(igybc) + 1
-        jmx = j2 - grid_params%jlo(igybc) + 1
-
-        call selectLimits(k1,k2,grid_params%klo(igzbc)
-     .                   ,nzbc,grid_params%nzgl(igzbc),kmn,kmx)
-
-      end select
-
-c     End program
-
-      contains
-
-c     selectLimits
-c     #####################################################################
-      subroutine selectLimits(igl,igr,igmin,nxl,nxg,ill,ilr)
-
-c     ---------------------------------------------------------------------
-c     Selects LOCAL limits for BC treatment at boundary location determined
-c     by (dim,loc).
-c     ---------------------------------------------------------------------
-
-        implicit none
-
-        integer(4) :: igl,igr,igmin,nxl,nxg,ill,ilr
-
-c     Begin program
-
-        do_nothing = .false.
-
-        select case(loc)
-        case(0)
-          if (igl > 1) do_nothing = .true.
-          ill = min(igl - igmin + 1,1)
-          ilr = ill
-        case(1)
-          if (igr < nxg) do_nothing = .true.
-          ill = max(igr - igmin + 1,nxl)
-          ilr = ill
-        end select
-
-      end subroutine selectLimits
-
-      end subroutine findLoopLimits
 
       end module BCS_variables
 
@@ -303,17 +215,16 @@ c       Update BC ghost nodes
           case (6)              !z1
           array(imin:imax,jmin:jmax,nzbc+1,dim)=rhs(imin:imax,jmin:jmax)
           case default
-            write (*,*) 'Boundary',ibc,' non existent'
-            stop
+            messg = 'Boundary'//int2char(ibc)//' non existent'
+            call pstop('vectorDirichletBC',messg)
           end select
 
         endif
 
       case default
 
-        write (*,*) 'Error in vectorDirichletBC'
-        write (*,*) 'Equation',ieq,'does not exist'
-        stop
+        messg = 'Equation'//int2char(ieq)//' does not exist'
+        call pstop('vectorDirichletBC',messg)
 
       end select
 
@@ -413,8 +324,8 @@ c       Update BC ghost nodes
         case (6)                !z1
          array(imin:imax,jmin:jmax,nzbc+1) = rhs(imin:imax,jmin:jmax)
         case default
-         write (*,*) 'Boundary',ibc,' non existent'
-         stop
+         messg = 'Boundary'//int2char(ibc)//' non existent'
+         call pstop('interpolate',messg)
         end select
 
       end subroutine interpolate
@@ -454,9 +365,8 @@ c     Begin program
       case (0)
         y = y0
       case default
-        write (*,*) 'Order of interpolation not implemented in quad_int'
-        write (*,*) 'Aborting...'
-        stop
+        messg = 'Order of interpolation not implemented'
+        call pstop('quad_int',messg)
       end select
 
 c     End program
@@ -641,8 +551,7 @@ c     Begin program
 
       case default
 
-        write (*,*) 'Error in scalarNeumannBC'
-        stop
+        call pstop('scalarNeumannBC','Variable not implemented')
 
       end select
 
@@ -911,8 +820,7 @@ c     Begin program
 
       case default
 
-        write (*,*) 'Error in vectorNeumannBC'
-        stop
+        call pstop('vectorNeumanBC','Variable not implemented')
 
       end select
 
