@@ -821,7 +821,7 @@ c     Begin program
                 rhs(j,k) = -dh(dim)
      .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
      .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
-     .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
+     .             -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
               elseif (dim == 2) then
                 if (gamma > 1d0) then
                   rhs(i,k) =  hessian(2,1,1)*vx(i,j,k)*vx(i,j,k)
@@ -834,7 +834,7 @@ c     Begin program
                 rhs(i,k) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
      .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
-     .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
+     .             -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
               elseif (dim == 3) then
                 if (gamma > 1d0) then
                   rhs(i,j) =  hessian(3,1,1)*vx(i,j,k)*vx(i,j,k)
@@ -847,7 +847,7 @@ c     Begin program
                 rhs(i,j) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
      .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
-     .              -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
+     .             -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
               endif
 
             enddo
