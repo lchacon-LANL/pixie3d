@@ -46,12 +46,11 @@ c Local variables
      .             ,Ez_ip,Ez_im,Ey_ip,Ey_im,Ex_jp,Ex_jm
 
       ! EOM
-
       real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
      .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
      .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
 
-      real(8)    :: hess1(3,3),hess2(3,3),hess3(3,3),msource
+      real(8)    :: hess(3,3,3),msource
 
       ! tmp equation
       real(8)    :: heat_flx,heat_src,joule,viscous
@@ -67,20 +66,7 @@ c Begin program
 
 c     Grid parameters
 
-      call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-     .                   ,cartesian)
-      call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                   ,cartesian)
-      call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-     .                   ,cartesian)
-      call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-     .                   ,cartesian)
-      call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-     .                   ,cartesian)
-      call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-     .                   ,cartesian)
-
-      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       dxx = dxh(ig)
       dyy = dyh(jg)
@@ -92,30 +78,24 @@ c     Grid parameters
 
       dvol = dxx*dyy*dzz
 
-      ivol = 1d0/volume(i,j,k,igx,igy,igz)
-
       sing_point = .false.
       if (i == 1 .and. bcond(1) == SP) sing_point = .true.
 
-      gsub   = g_sub   (x0,y0,z0,cartesian)
-      gsuper = g_super (x0,y0,z0,cartesian)
-      jac    = jacobian(x0,y0,z0,cartesian)
+      gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
+      gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
+      jac    = gmetric%grid(igx)%jac (i,j,k)
 
-      jacip  = jacobian(xip,yip,zip,cartesian)
-      jacim  = jacobian(xim,yim,zim,cartesian)
-      jacjp  = jacobian(xjp,yjp,zjp,cartesian)
-      jacjm  = jacobian(xjm,yjm,zjm,cartesian)
-      jackp  = jacobian(xkp,ykp,zkp,cartesian)
-      jackm  = jacobian(xkm,ykm,zkm,cartesian)
+      jacip  = gmetric%grid(igx)%jac(ip,j,k)
+      jacim  = gmetric%grid(igx)%jac(im,j,k)
+      jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+      jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+      jackp  = gmetric%grid(igx)%jac(i,j,kp)
+      jackm  = gmetric%grid(igx)%jac(i,j,km)
 
-      cnv1   = contravariantVector(1,x0,y0,z0,cartesian)
-      cnv2   = contravariantVector(2,x0,y0,z0,cartesian)
-      cnv3   = contravariantVector(3,x0,y0,z0,cartesian)
+      ivol = 1d0/jac/dvol
 
       if (coords /= 'car') then
-        hess1 = hessian(1,x0,y0,z0,cartesian)
-        hess2 = hessian(2,x0,y0,z0,cartesian)
-        hess3 = hessian(3,x0,y0,z0,cartesian)
+        hess = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
       endif
 
 c     Rho
@@ -308,11 +288,7 @@ c     Bz
       flxkm = 0d0
 
       if (i == 1 .and. bcond(1) == SP) then
-        xh = (xip+x0)/2.
-        yh = (yip+y0)/2.
-        zh = (zip+z0)/2.
-        jach = jacobian(xh ,yh ,zh ,cartesian)
-cc        jach = 0.5*(jac+jacip)
+        jach = 0.5*(jac+jacip)
 
         flxip = 0.5*(vx(ip,j,k)*bz(ip,j,k)/jacip**2
      .             + vx(i ,j,k)*bz(i ,j,k)/jac**2  )*jach
@@ -477,14 +453,15 @@ c     Vx
       if (coords == 'car') then
         msource = 0d0
       else
-        msource =dvol*(t11o*hess1(1,1)+t12o*hess1(1,2)+t13o*hess1(1,3)
-     .                +t21o*hess1(2,1)+t22o*hess1(2,2)+t23o*hess1(2,3)
-     .                +t31o*hess1(3,1)+t32o*hess1(3,2)+t33o*hess1(3,3))
+        msource =dvol
+     .          *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+     .           +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+     .           +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
       endif
 
       ff(IVX) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) ) - msource
+     .              + dS3*(flxkp - flxkm) ) + msource
 
 c     Vy
 
@@ -507,24 +484,26 @@ c     Vy
           call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
      .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
 
-          msource=dvol*(t11o*hess2(1,1)+t12o*hess2(1,2)+t13o*hess2(1,3)
-     .                 +t21o*hess2(2,1)+t22o*hess2(2,2)+t23o*hess2(2,3)
-     .                 +t31o*hess2(3,1)+t32o*hess2(3,2)+t33o*hess2(3,3)
-     .                 -t12o*(hess1(1,1)+hess2(1,2)+hess3(1,3))
-     .                 -t22o*(hess1(2,1)+hess2(2,2)+hess3(2,3))
-     .                 -t32o*(hess1(3,1)+hess2(3,2)+hess3(3,3)))
+          msource=dvol
+     .           *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .            +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .            +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+     .            -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+     .            -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+     .            -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
 
           ff(IVY) =   dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) - msource
+     .              + dS3*(flxkp - flxkm) + msource
         else
-          msource=dvol*(t11o*hess2(1,1)+t12o*hess2(1,2)+t13o*hess2(1,3)
-     .                 +t21o*hess2(2,1)+t22o*hess2(2,2)+t23o*hess2(2,3)
-     .                 +t31o*hess2(3,1)+t32o*hess2(3,2)+t33o*hess2(3,3))
+          msource=dvol
+     .            *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .             +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .             +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
 
           ff(IVY) = jac*( dS1*(flxip - flxim)
      .                  + dS2*(flxjp - flxjm)
-     .                  + dS3*(flxkp - flxkm) ) - msource
+     .                  + dS3*(flxkp - flxkm) ) + msource
         endif
       endif
 
@@ -545,14 +524,15 @@ c     Vz
       if (coords == 'car') then
         msource = 0d0
       else
-        msource =dvol*(t11o*hess3(1,1)+t12o*hess3(1,2)+t13o*hess3(1,3)
-     .                +t21o*hess3(2,1)+t22o*hess3(2,2)+t23o*hess3(2,3)
-     .                +t31o*hess3(3,1)+t32o*hess3(3,2)+t33o*hess3(3,3))
+        msource =dvol
+     .          *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+     .           +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+     .           +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
       endif
 
       ff(IVZ) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
-     .              + dS3*(flxkp - flxkm) ) - msource
+     .              + dS3*(flxkp - flxkm) ) + msource
 
 c     Divide by cell volume factor
 
@@ -627,7 +607,7 @@ c     and nn so that res=??*eta at sing. surf. xs ~ 0.33
       select case (equil)
       case ('rfp1')
 
-        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1,cartsn)
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
         nn = 4
         aa = 19.
         res = eta*(1. + aa*grid_params%xx(ig)**nn)
