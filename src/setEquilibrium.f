@@ -658,7 +658,8 @@ c Begin program
      .                                    ,xx,yy,zz)
               a1(i,j,k) = 0d0
               a2(i,j,k) = 0d0
-              a3(i,j,k) = dlambda*dlog(dcosh((xx-0.5d0)/dlambda)) 
+              a3(i,j,k) = dlambda
+     .             *dlog(dcosh((xx-0.5d0*(xmax-xmin))/dlambda)) 
             enddo
           enddo
         enddo
