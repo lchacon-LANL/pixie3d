@@ -1,45 +1,73 @@
- $datin
-    ilevel   = 0
+ &datin
+    ilevel   = 2
 
     nxd      = 32
     nyd      = 32
     nzd      = 1
 
-    xlength  = 2.5
-    ylength  = 1.
-    zlength  = 1.
+    numerical_grid = t
 
-    coords   = 'car'
+    xmax     = 1.
+    ymax     = 4.
+    zmax     = 1.
 
-    major_r  = 10.
- 
-    eta      = 0d-3
-    nu       = 0d-4
-    dd       = 0d-2
+    bcs      = 'def','def','per','per','per','per'
+
+    eta      = 1d-2
+    nu       = 1d-3
+    dd       = 0d-1
     chi      = 0d-2
     
-    equil    = 'kh/tm'
+    equil    = 'tmcar'
+    coords   = 'car'
+    gparams  = 0.05,0d0,0d0,0d0,0d0
 
     dlambda  = .2
     rshear   = 1.
-    vperflow = 0.5
+    vperflow = 0.
 
-    dt       = .1
-    tmax     = 15.
-    dstep    = .5
+    dt       = 1d-0
+    tmax     = 1d+0
+    dstep    = 1d-0
 
-    pvy      = 1d-4
+    prho     = 1d-3
+    odd      = f
 
-    cnfactor = 1d0
+    cnfactor = 0.5
 
-    plot      = t
-    restart   = f
-    timecorr  = t
+    restart  = f
+    timecorr = f
 
-    source    = t
+    source   = t
 
-    debug     = f
+    precon   = 's1'
+    mgtol    = 1d-2
+    maxvcyc  = 2
+    nsweep   = 4
+    precpass = 4
 
-    sel_diag =  1,3,7,12,15,16,17,18,19
+    iguess   = 1
+
+    maxksp   = 30
+    maxitgm  = 30
+    tolgm    = 1d-1
+    rtol     = 1d-4
+    method   = 1
+
+ /
+ &graphdef
+    sel_diag  = 2,12,15,16,17,18,19,20,21
     sel_graph = 1,2,3,4,5,6,7,8,11
- $
+    dplot = 1d-2
+ /
+
+    sel_graph = 1,2,3,4,5,6,7,8,14
+    sel_graph = 1,8,14,15,16,17,18,19,20
+    sel_graph = 1,8,11,14,-15,17,-18,20,0
+
+    equil    = 'tmcar'
+    coords   = 'car'
+
+    maxitnwt = 1
+    tolgm    = 1d-4
+    rtol     = 1d-3
