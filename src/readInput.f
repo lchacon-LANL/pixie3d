@@ -38,11 +38,12 @@ c Local variables
 
       real(8)    :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)    :: prndtl,hrtmn
+      character*(3) :: bcs(6)
 
 c Namelist
 
-      namelist /datin/ neqd,nxd,nyd,nzd,coords,xlength,ylength,zlength
-     .                   ,major_r,mg_ratio
+      namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+     .                   ,xmin,ymin,zmin,gparams,mg_ratio
      .                ,plot,ilevel,debug
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,tolnewt,maxitnwt,tolgm,maxksp,iguess,maxitgm
@@ -68,18 +69,30 @@ c Set defaults
 
       coords   = 'car'         ! Coordinate system (car,cyl,tor)
 
-      xlength  = 1d0           ! Length in x-direction
-      ylength  = 1d0           ! Length in y-direction
-      zlength  = 1d0           ! Length in z-direction
+      xmax     = 1d0           ! Length in x-direction
+      ymax     = 1d0           ! Length in y-direction
+      zmax     = 1d0           ! Length in z-direction
 
-      major_r  = 0d0           ! Major radius in toroidal coords.
+      xmin     = 0d0           ! Length in x-direction
+      ymin     = 0d0           ! Length in y-direction
+      zmin     = 0d0           ! Length in z-direction
+
+      gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
 
       mg_ratio = 2             ! MG coarsening ratio
+
+      bcs      = (/ 'def','def','per','per','per','per' /) 
+                               ! Defines topological constraints. Convention:
+                               !   + 'def' = default (set in code)
+                               !   + 'per' = periodic
+                               !   + 'spt' = singular point
+                               !   + 'sym' = symmetry (homogeneous Neumann)
+                               !   + 'equ' = imposed by equilibrium
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
       tmax     = 0d0           ! Target time, in Alfven times.
-      numtime  = ntimemax      ! Number of time steps
+      numtime  = 0             ! Number of time steps
       ndstep   = 0             ! # time steps between plots (if zero,
                                !        ndstep is calculated in code)
       dstep    = 0.            ! Time interval between plots (if zero,
@@ -166,6 +179,7 @@ c Set defaults
                                !    18-> 'Total X momentum'
                                !    19-> 'Total Y momentum'
                                !    20-> 'Total Z momentum'
+                               !    21-> 'Flow flux at boundaries'
 
 
       sel_graph = (/ 1,-15,-18,-9,11,14,0,0,0 /) 
@@ -174,9 +188,9 @@ c Set defaults
                                !    a vector plot with the i and i+1 arrays.
                                ! Currently:
                                !    1 -> rho
-                               !    2 -> rho*Vx
-                               !    3 -> rho*Vy
-                               !    4 -> rho*Vz
+                               !    2 -> Px
+                               !    3 -> Py
+                               !    4 -> Pz
                                !    5 -> Bx
                                !    6 -> By
                                !    7 -> Bz
@@ -184,15 +198,6 @@ c Set defaults
                                !    9 -> jx
                                !    10-> jy
                                !    11-> jz
-                               !    12-> Nu
-                               !    13-> Eta
-                               !    14-> Divergence B
-                               !    15-> Vx cartesian
-                               !    16-> Vy cartesian
-                               !    17-> Vz cartesian
-                               !    18-> Bx cartesian
-                               !    19-> By cartesian
-                               !    20-> Bz cartesian
 
 c Open input file
 
@@ -218,35 +223,27 @@ c Map perturbations
       pert(IBZ) = pbz
       pert(ITMP)= ptemp
 
-c Define topological constraints (i.e., singular points, periodic)
+c Translate boundary conditions
 
-      select case (coords)
-      case ('car','scl')
-        bcond(1) = PER          !x1
-        bcond(2) = PER          !x2
-        bcond(3) = OTH          !y1
-        bcond(4) = OTH          !y2
-        bcond(5) = PER          !z1
-        bcond(6) = PER          !z2
-      case ('cyl')
-        bcond(1) = SP           !x1
-        bcond(2) = OTH          !x2
-        bcond(3) = PER          !y1
-        bcond(4) = PER          !y2
-        bcond(5) = PER          !z1
-        bcond(6) = PER          !z2
-      case ('tor')
-        bcond(1) = SP           !x1
-        bcond(2) = OTH          !x2
-        bcond(3) = PER          !y1
-        bcond(4) = PER          !y2
-        bcond(5) = PER          !z1
-        bcond(6) = PER          !z2
-      case default
-        write (*,*) 'Could not define topological constraints for grid'
-        write (*,*) 'Aborting...'
-        stop
-      end select
+      where (bcs == 'def')
+        bcond = DEF
+      end where
+
+      where (bcs == 'per')
+        bcond = PER
+      end where
+
+      where (bcs == 'spt')
+        bcond = SP
+      end where
+
+      where (bcs == 'sym')
+        bcond = NEU
+      end where
+
+      where (bcs == 'equ')
+        bcond = EQU
+      end where
 
 c End program
 

@@ -21,6 +21,7 @@ c--------------------------------------------------------------------
       use constants
 
       use equilibrium
+
       implicit none
 
 c Call variables
@@ -60,16 +61,11 @@ cc      call evaluateNonlinearFunction(vnp,ftemp)
      .             vn%array_var(ieq)%array(i,j,k) 
      .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
      .                /volume(i,j,k,1,1,1)
-cc              vnp%array_var(ieq)%array(i,j,k) = fsrc(ii+ieq)
             enddo
 
           enddo
         enddo
       enddo
-
-c Set BCs
-
-      call imposeBoundaryConditions(vnp)
 
 c Corrector
 
@@ -91,10 +87,6 @@ c Corrector
           enddo
         enddo
       enddo
-
-c Set BCs
-
-      call imposeBoundaryConditions(vnp)
 
 c End program
 
@@ -129,10 +121,11 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,ig,jg,kg
-      real(8) :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm
-      real(8) :: kk,kv_par,kb_par,dt_cfl,dt_cour,cs,tmp_max,v_alf
-      real(8) :: x1,x2,x3
+      integer(4) :: i,j,k,ig,jg,kg
+      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm
+      real(8)    :: kk,kv_par,kb_par,dt_cfl,dt_cour,cs,tmp_max,v_alf
+      real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
+      logical    :: cartsn
 
 c Externals
 
@@ -141,34 +134,45 @@ c Externals
 
 c Begin program
 
-      dxx = minval(grid_params%dx(1:nxd))
-      dyy = minval(grid_params%dy(1:nyd))
-      dzz = minval(grid_params%dz(1:nzd))
-
 c Calculate maximum transport coefficient on grid
 
-      diffmax = max(maxval(eeta+kdiv),maxval(rho*nuu),dd,chi)
+      diffmax = max(maxval(eeta),maxval(rho*nuu),dd,chi)
 
 c Calculate maximum sound speed on grid
 
-      beta = 0d0
+      beta  = 0d0
       bnorm = 0d0
+      kk    = 0d0
+      kv_par= 0d0
 
       do k=1,nzd
         do j=1,nyd
           do i=1,nxd
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                         ,cartsn)
 
-            x1 = grid_params%xx(ig)
-            x2 = grid_params%yy(jg)
-            x3 = grid_params%zz(kg)
+            !Maximum magnetic field norm
+            norm = vectorNorm(x1,x2,x3,bx(i,j,k),by(i,j,k),bz(i,j,k)
+     .                        ,.false.,cartsn)
+            bnorm = max(bnorm,norm)
 
-            bnorm = max(bnorm,(bx_cov(i,j,k)*bx(i,j,k)
-     .                        +by_cov(i,j,k)*by(i,j,k)
-     .                        +bz_cov(i,j,k)*bz(i,j,k))
-     .                        /jacobian(x1,x2,x3))
+            !Maximum kk
+            idx  = 1./dx(ig)
+            idy  = 1./dy(jg)
+            idz  = 1./dz(kg)
+            norm = vectorNorm(x1,x2,x3,idz,idy,idz,.true.,cartsn)
+            kk   = max(kk,norm)
 
+            !Maximum k.v
+            vxx = rvx(i,j,k)/rho(i,j,k)
+            vyy = rvy(i,j,k)/rho(i,j,k)
+            vzz = rvz(i,j,k)/rho(i,j,k)
+            norm = scalarProduct(x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
+     .                          ,cartsn)
+            kv_par = max(kv_par,norm)
+
+            !Maximum beta
             beta = max(beta,2*rho(i,j,k)*tmp(i,j,k))
 
           enddo
@@ -181,20 +185,16 @@ c Calculate maximum sound speed on grid
 
       v_alf = sqrt(bnorm)
 
+      kk = 2*sqrt(kk)
+
 c Calculate corresponding CFL
 
-      kk = 2*sqrt(1./dxx**2 + 1./dyy**2 + 1./dzz**2)
-
-      kb_par = bx_max/dxx + by_max/dyy + bz_max/dzz
-      kv_par = vx_max/dxx + vy_max/dyy + vz_max/dzz
-
       dt_cfl  = kv_par + sqrt(cs**2 + v_alf**2)*kk
-cc      dt_cfl  = kv_par + kb_par + sqrt(cs**2 + v_alf**2)*kk
-cc      dt_cfl  = sqrt(kv_par**2 + (cs**2 + 1.)*kk**2)
       dt_cour = diffmax*kk**2
 
 cc      write (*,*) 'Sound speed',cs,' Alfven speed',v_alf
 cc     .           ,' Max. diff',diffmax
+cc      write (*,*) 'dx',dxx,'dy',dyy,'kk',kk
 cc      stop
 
       if (dt_cfl <= dt_cour) then
@@ -213,5 +213,4 @@ cc        write (*,*) 'CFL'
 
 c End program
 
-      return
-      end
+      end subroutine findExplicitDt

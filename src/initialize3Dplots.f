@@ -1,6 +1,6 @@
-c initialize3Dplots
+c defineGraphics
 c####################################################################
-      subroutine initialize3Dplots
+      subroutine defineGraphics
 
 c--------------------------------------------------------------------
 c     Set graphics files and dumping intervals
@@ -24,53 +24,197 @@ c Local variables
 
 c Begin program
 
-cc      do ieq = 1,neqd
-cc        array_graph(ieq)%array => u_np%array_var(ieq)%array
-cc        array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
-cc      enddo
+      call defineGraphicsIO
+
+c Define graphics group #1: Contravariant variables
+
+      graph(1)%cartesian=.false.
+      graph(1)%descr='Cnv variables'
+
       do ieq = 1,neqd
-        array_graph(ieq)%array => u_graph%array_var(ieq)%array
-        array_graph(ieq)%descr =  u_graph%array_var(ieq)%descr
+        graph(1)%array_graph(ieq)%array => u_np%array_var(ieq)%array
+        graph(1)%array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
       enddo
 
-      array_graph(neqd+1)%array => jx
-      array_graph(neqd+1)%descr = 'Jx'
+      graph(1)%array_graph(neqd+1)%array => jx
+      graph(1)%array_graph(neqd+1)%descr = 'Jx (cnv)'
 
-      array_graph(neqd+2)%array => jy
-      array_graph(neqd+2)%descr = 'Jy'
+      graph(1)%array_graph(neqd+2)%array => jy
+      graph(1)%array_graph(neqd+2)%descr = 'Jy (cnv)'
 
-      array_graph(neqd+3)%array => jz
-      array_graph(neqd+3)%descr = 'Jz'
+      graph(1)%array_graph(neqd+3)%array => jz
+      graph(1)%array_graph(neqd+3)%descr = 'Jz (cnv)'
 
-      array_graph(neqd+4)%array => nuu
-      array_graph(neqd+4)%descr = 'nu'
+      graph(1)%array_graph(neqd+4)%array => vx
+      graph(1)%array_graph(neqd+4)%descr = 'Vx (cnv)'
 
-      array_graph(neqd+5)%array => eeta
-      array_graph(neqd+5)%descr = 'eta'
+      graph(1)%array_graph(neqd+5)%array => vy
+      graph(1)%array_graph(neqd+5)%descr = 'Vy (cnv)'
 
-      array_graph(neqd+6)%array => divrgB
-      array_graph(neqd+6)%descr = 'local div(B)'
+      graph(1)%array_graph(neqd+6)%array => vz
+      graph(1)%array_graph(neqd+6)%descr = 'Vz (cnv)'
 
-      array_graph(neqd+7)%array => vx
-      array_graph(neqd+7)%descr = 'Vx (car)'
+      graph(1)%array_graph(neqd+7:ngraph)%descr = ''
 
-      array_graph(neqd+8)%array => vy
-      array_graph(neqd+8)%descr = 'Vy (car)'
+c Define graphics group #2: Cov variables
 
-      array_graph(neqd+9)%array => vz
-      array_graph(neqd+9)%descr = 'Vz (car)'
+      graph(2)%cartesian=.false.
+      graph(2)%descr='Cov variables'
 
-      array_graph(neqd+10)%array => bx_cov
-      array_graph(neqd+10)%descr = 'Bx (car)'
+      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
 
-      array_graph(neqd+11)%array => by_cov
-      array_graph(neqd+11)%descr = 'By (car)'
+      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
-      array_graph(neqd+12)%array => bz_cov
-      array_graph(neqd+12)%descr = 'Bz (car)'
+      graph(2)%array_graph(IVX)%array => vx_cov
+      graph(2)%array_graph(IVX)%descr = 'Vx (cov)'
 
-cc      array_graph(neqd+13:20)%descr = ''
+      graph(2)%array_graph(IVY)%array => vy_cov
+      graph(2)%array_graph(IVY)%descr = 'Vy (cov)'
+
+      graph(2)%array_graph(IVZ)%array => vz_cov
+      graph(2)%array_graph(IVZ)%descr = 'Vz (cov)'
+
+      graph(2)%array_graph(IBX)%array => bx_cov
+      graph(2)%array_graph(IBX)%descr = 'Bx (cov)'
+
+      graph(2)%array_graph(IBY)%array => by_cov
+      graph(2)%array_graph(IBY)%descr = 'By (cov)'
+
+      graph(2)%array_graph(IBZ)%array => bz_cov
+      graph(2)%array_graph(IBZ)%descr = 'Bz (cov)'
+
+      graph(2)%array_graph(neqd+1)%array => jx_cov
+      graph(2)%array_graph(neqd+1)%descr = 'Jx (cov)'
+
+      graph(2)%array_graph(neqd+2)%array => jy_cov
+      graph(2)%array_graph(neqd+2)%descr = 'Jy (cov)'
+
+      graph(2)%array_graph(neqd+3)%array => jz_cov
+      graph(2)%array_graph(neqd+3)%descr = 'Jz (cov)'
+
+      graph(2)%array_graph(neqd+4:ngraph)%descr = ''
+
+c Define graphics group #3: Cartesian variables
+
+      graph(3)%cartesian=.true.
+      graph(3)%descr='Car variables'
+
+      graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+      graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+
+      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+
+      graph(3)%array_graph(IVX)%array => vx_car
+      graph(3)%array_graph(IVX)%descr = 'Vx (car)'
+
+      graph(3)%array_graph(IVY)%array => vy_car
+      graph(3)%array_graph(IVY)%descr = 'Vy (car)'
+
+      graph(3)%array_graph(IVZ)%array => vz_car
+      graph(3)%array_graph(IVZ)%descr = 'Vz (car)'
+
+      graph(3)%array_graph(IBX)%array => bx_car
+      graph(3)%array_graph(IBX)%descr = 'Bx (car)'
+
+      graph(3)%array_graph(IBY)%array => by_car
+      graph(3)%array_graph(IBY)%descr = 'By (car)'
+
+      graph(3)%array_graph(IBZ)%array => bz_car
+      graph(3)%array_graph(IBZ)%descr = 'Bz (car)'
+
+      graph(3)%array_graph(neqd+1)%array => jx_car
+      graph(3)%array_graph(neqd+1)%descr = 'Jx (car)'
+
+      graph(3)%array_graph(neqd+2)%array => jy_car
+      graph(3)%array_graph(neqd+2)%descr = 'Jy (car)'
+
+      graph(3)%array_graph(neqd+3)%array => jz_car
+      graph(3)%array_graph(neqd+3)%descr = 'Jz (car)'
+
+      graph(3)%array_graph(neqd+4:ngraph)%descr = ''
+
+c Define graphics group #4: Diagnostics
+
+      graph(4)%cartesian=.true.
+      graph(4)%descr='Diagnostics'
+
+      graph(4)%array_graph(1)%array => nuu
+      graph(4)%array_graph(1)%descr = 'nu'
+
+      graph(4)%array_graph(2)%array => eeta
+      graph(4)%array_graph(2)%descr = 'eta'
+
+      graph(4)%array_graph(3)%array => divrgB
+      graph(4)%array_graph(3)%descr = 'local div(B)'
+
+      graph(4)%array_graph(4:ngraph)%descr = ''
+
+c Define graphics group #5: Perturbations
+
+      graph(5)%cartesian=.false.
+      graph(5)%descr='Perturbations'
+
+      do ieq = 1,neqd
+        graph(5)%array_graph(ieq)%array => u_graph%array_var(ieq)%array
+        graph(5)%array_graph(ieq)%descr =  u_graph%array_var(ieq)%descr
+      enddo
+
+      graph(5)%array_graph(neqd+1:ngraph)%descr = ''
 
 c End program
 
-      end subroutine
+      contains
+
+c     defineGraphicsIO
+c     ##################################################################
+      subroutine defineGraphicsIO
+
+        implicit none
+
+        graphfile(1) = 'cnv.bin'
+        ugraph(1)    = 20
+        graphfile(2) = 'cov.bin'
+        ugraph(2)    = 21
+        graphfile(3) = 'car.bin'
+        ugraph(3)    = 22
+        graphfile(4) = 'diag.bin'
+        ugraph(4)    = 23
+        graphfile(5) = 'pert.bin'
+        ugraph(5)    = 24
+
+        profilefile(1)= 'cnv-profiles.bin'
+        uprofile(1)   = 30
+        profilefile(2)= 'cov-profiles.bin'
+        uprofile(2)   = 31
+        profilefile(3)= 'car-profiles.bin'
+        uprofile(3)   = 32
+        profilefile(4)= 'diag-profiles.bin'
+        uprofile(4)   = 33
+        profilefile(5)= 'pert-profiles.bin'
+        uprofile(5)   = 34
+
+        lineplotfile = 'timeplots.bin'
+        ulineplot    = 10
+
+        debugfile    = 'debug.bin'
+        udebug       = 40
+        
+        drawgraph(1) = 'drawcnv.in'
+        drawgraph(2) = 'drawcov.in'
+        drawgraph(3) = 'drawcar.in'
+        drawgraph(4) = 'drawdiag.in'
+        drawgraph(5) = 'drawpert.in'
+
+        drawprof(1)  = 'drawcnvprof.in'
+        drawprof(2)  = 'drawcovprof.in'
+        drawprof(3)  = 'drawcarprof.in'
+        drawprof(4)  = 'drawdiagprof.in'
+        drawprof(5)  = 'drawpertprof.in'
+
+      end subroutine defineGraphicsIO
+
+      end subroutine defineGraphics
+

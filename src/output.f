@@ -34,14 +34,6 @@ c Local variables
 
 c Begin program
 
-      vx_max = maxval(abs(vx))
-      vy_max = maxval(abs(vy))
-      vz_max = maxval(abs(vz))
-
-      bx_max = maxval(abs(bx))
-      by_max = maxval(abs(by))
-      bz_max = maxval(abs(bz))
-
       ngrd = (/ grid_params%ngrdx,grid_params%ngrdy,grid_params%ngrdz /)
 
       if (itime.lt.inewtime) then

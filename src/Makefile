@@ -21,7 +21,6 @@ SRC  := modules.f \
 	explicit.f \
 	readInput.f \
 	allocateSpecificVariables.f \
-	initializeTimePlots.f \
 	initialize3Dplots.f \
 	evaluateDiagnostics.f \
 	output.f \
@@ -42,7 +41,7 @@ COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(d
 COMMON_OBJS = $(COMMON_SRC:.f=.o)
 #COMMON_OBJS = $(patsubst %.f,%.o,$(filter-out test.f,$(COMMON_SRC)))
 
-LIBS = 
+LIBS = -llapack_f90 -lblas_f90
 
 prefix = .
 
