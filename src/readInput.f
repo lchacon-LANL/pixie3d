@@ -43,7 +43,7 @@ c Namelist
 
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                ,ilevel
+     .                ,ilevel,debug
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,rtol,atol,maxitnwt,tolgm,maxksp,iguess,maxitgm
      .                   ,global,method,damp,dt0
@@ -161,6 +161,7 @@ c Set defaults
       !I/O parameters
       restart  = .false.       ! Restarting flag
       ilevel   = 0             ! Level of solver output information
+      debug    = .false.       ! Debugging flag
 
 c Read initialization parameters
 
