@@ -852,7 +852,7 @@ c Find dB* (w/ BCs)
       enddo
 
       !Find covariant components of db with BCs
-      call setBC(IBX,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
+      call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
      .          ,igrid,igrid,igrid,iorder=1)
 
 c Find dj* from dB*
@@ -878,7 +878,7 @@ cc        enddo
 cc      enddo
 cc
 cc      !Find covariant components of dj with BCs
-cc      call setBC(IJX,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
+cc      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
 cc     .          ,igrid,igrid,igrid,iorder=2)
 
 c Find dpres array with BCs
@@ -1226,7 +1226,7 @@ c Find dB* (w/ BCs)
       enddo
 
       !Find covariant components of db with BCs
-      call setBC(IBX,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
+      call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
      .          ,igrid,igrid,igrid,iorder=2)
 
 c Find dj* from dB*
@@ -1252,7 +1252,7 @@ cc     .                                ,db_cov(:,:,:,3))
       enddo
 
       !Find covariant components of dj with BCs
-      call setBC(IJX,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
+      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
      .          ,igrid,igrid,igrid,iorder=2)
 
 c Evaluate eta*dj

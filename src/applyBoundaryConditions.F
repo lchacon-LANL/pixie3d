@@ -154,7 +154,7 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IVX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+      call setBC(IVX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
      .          ,iorder=order)
 
 c     Postprocessing
@@ -192,7 +192,7 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IBX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+      call setBC(IBX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
      .          ,iorder=order)
 
 c     Postprocessing
@@ -238,7 +238,7 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
 
 c     Fill ghost nodes
 
-      call setBC(IJX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+      call setBC(IJX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
      .          ,iorder=order)
 
 c     Postprocessing
