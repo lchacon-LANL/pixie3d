@@ -33,7 +33,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      real(8)       :: var(0:nxdp,0:nydp,0:nzdp,neqd)
+      real(8)       :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
 
       character*(20):: label(neqd)
 
@@ -50,9 +50,9 @@ c Local variables
      .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,rint(0:nxd+1)
      .                ,r1,bb,aa,nn
 
-      real(8)       :: a1(0:nxdp,0:nydp,0:nzdp)
-     .                ,a2(0:nxdp,0:nydp,0:nzdp)
-     .                ,a3(0:nxdp,0:nydp,0:nzdp)
+      real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
+     .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
+     .                ,a3(ilom:ihip,jlom:jhip,klom:khip)
 
 c Functions
 
@@ -70,15 +70,15 @@ c Begin program
 
       var = 0d0
 
-c Initialize required grid information
+c Initialize required local grid information
 
       igx = 1
       igy = 1
       igz = 1
 
-      nx = nxd
-      ny = nyd
-      nz = nzd
+      nx = nxl
+      ny = nyl
+      nz = nzl
 
 c Label variables
      
@@ -118,21 +118,15 @@ c     Check coordinates
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
 
               var(i,j,k,IRHO) = 1d0
-cc     .                         + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-cc     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
               var(i,j,k,IBZ)  = 1d0
-cc     .                         + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-cc     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -157,23 +151,17 @@ c     Check coordinates
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
 
               jac1 = gmetric%grid(igx)%jac(i,j,k)
 
               var(i,j,k,IRHO) = 1d0
-cc     .                        + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-cc     .                                  +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
               var(i,j,k,IBZ)  = jac1*1d0
-cc     .                        + jac1*1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-cc     .                                       +2*pi*(y1-ymin)/(ymax-ymin))
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -200,14 +188,12 @@ c     Check coordinates
 
 c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
-
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              var(i,j,k,IVX)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
+              var(i,j,k,IVY)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
+              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,3)
             enddo
           enddo
         enddo
@@ -236,18 +222,17 @@ c     Tearing mode in cartesian coordinates
 
         bz0 = 1d0
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
+              var(i,j,k,IBY)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
               var(i,j,k,IBZ)  = sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+cc              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
 cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
             enddo
@@ -280,13 +265,13 @@ c     Tearing mode in sinusoidal coordinates
 
         bz0 = 1d0
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
 
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
+              var(i,j,k,IBY)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
               var(i,j,k,IBZ)  = 0d0
 
               gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -304,8 +289,8 @@ c     Tearing mode in sinusoidal coordinates
               var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
+cc              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
 cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
               var(i,j,k,IVX)  = 0d0
@@ -319,50 +304,6 @@ cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
               if (bbb**2+4*aaa*ccc < 0d0) then
                 write (*,*) var(i,j,k,IBZ),bnorm,aaa,bbb**2+4*aaa*ccc
               endif
-            enddo
-          enddo
-        enddo
-
-      case ('dfcyl')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
-
-c     Check coordinates
-
-        if (coords /= 'cyl') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-          stop
-        endif
-
-c     Dipolar flow in cylindrical coordinates
-
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-              r = grid_params%xx(ig)
-
-              var(i,j,k,IRHO) = 1d0
-cc              var(i,j,k,IRHO) = 1.+0.1*exp(-(r/0.25)**2)
-cc              var(i,j,k,IRHO) = 1d0+0.5*sin(grid_params%xx(ig))
-
-cc              var(i,j,k,IBX)=0d0
-cc              var(i,j,k,IBY)=0d0
-cc              var(i,j,k,IBZ)= r
-
-              var(i,j,k,IBX)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IBY)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
-              var(i,j,k,IBZ)=curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
-
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nxd,nyd,nzd,a1,a2,a3,3)
-
-              var(i,j,k,ITMP) = 1d0
-
             enddo
           enddo
         enddo
@@ -449,9 +390,9 @@ c     RFP equilibria (analytical)
         nh2 = mm !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd+1
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -499,9 +440,9 @@ c     RFP equilibria (analytical)
         nh3 = kk*RR    !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -547,9 +488,9 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         endif
 
         !Build equilibrium
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd+1
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -583,27 +524,6 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
       end select
 
-c Transform vectors to curvilinear coordinates
-
-cc      to_cartsn = .false.
-cc      covariant    = .false.
-
-      !Velocity
-
-cc      call transformVector(igx,igy,igz,0,nxdp,0,nydp,0,nzdp
-cc     .                    ,var(:,:,:,IVX)
-cc     .                    ,var(:,:,:,IVY)
-cc     .                    ,var(:,:,:,IVZ)
-cc     .                    ,covariant,to_cartsn)
-
-      !Magnetic field
-
-cc      call transformVector(igx,igy,igz,0,nxdp,0,nydp,0,nzdp
-cc     .                    ,var(:,:,:,IBX)
-cc     .                    ,var(:,:,:,IBY)
-cc     .                    ,var(:,:,:,IBZ)
-cc     .                    ,covariant,to_cartsn)
-
 c Find momentum components
 
       var(:,:,:,IVX) = var(:,:,:,IRHO)*var(:,:,:,IVX)
@@ -634,9 +554,9 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer(4) :: igx,igy,igz
-      real(8)    :: a1(0:nxdp,0:nydp,0:nzdp)
-     .             ,a2(0:nxdp,0:nydp,0:nzdp)
-     .             ,a3(0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: a1(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,a2(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,a3(ilom:ihip,jlom:jhip,klom:khip)
 
 c Local variables
 
@@ -650,9 +570,9 @@ c Begin program
 
       case ('khcar','tmcar','tmsin')
 
-        do k=0,nzdp
-          do j=0,nydp
-            do i=0,nxdp
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,xx,yy,zz)
@@ -660,26 +580,6 @@ c Begin program
               a2(i,j,k) = 0d0
               a3(i,j,k) = dlambda
      .             *dlog(dcosh((xx-0.5d0*(xmax-xmin))/dlambda)) 
-            enddo
-          enddo
-        enddo
-
-      case ('dfcyl')
-
-        do k=0,nzdp
-          do j=0,nydp
-            do i=0,nxdp
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,xx,yy,zz)
-
-              a1(i,j,k) = 0d0
-              a2(i,j,k) = 0d0
-cc              a3(i,j,k) = sin(yy)*(xx**2-1.)**3
-              a3(i,j,k) = sin(yy)*(xx**2-1.)**3*xx**2
-cc              a3(i,j,k) = -xx*sin(yy)
-cc              a3(i,j,k) = (xx**2-1.)**3*xx**2
-cc              a3(i,j,k) = xx*sin(yy)*(1.-1./xx**2)
-cc              a3(i,j,k) = 0d0
             enddo
           enddo
         enddo

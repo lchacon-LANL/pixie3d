@@ -28,6 +28,22 @@ SRC  := $(wildcard *.[F,c,f])
 MODS := $(wildcard *_mod.[F,f])
 MODS := mhd_mod.f imposeBC_mod.F precond_mod.f
 
+prefix = .
+
+# Petsc include
+
+DRIVERDIR = driver
+ifneq ($(strip $(BOPT)),)
+  PETSC_ARCH= linux_absoft_
+  include ${PETSC_DIR}/bmake/common/base
+  DRIVERDIR = driver-petsc
+  PETSCTRUE = true
+  FFLAGS    = -Dpetsc
+  SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
+endif
+
+#Objects
+
 OBJ  := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                       $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
                       $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
@@ -41,26 +57,13 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
                             $(patsubst %.F,%.o,$(COMMON_SRC)))
 
-prefix = .
-
-# Petsc include
-
-DRIVERDIR = driver
-ifneq ($(strip $(BOPT)),)
-  PETSC_ARCH= linux_absoft_
-  include ${PETSC_DIR}/bmake/common/base
-  DRIVERDIR = driver-petsc
-  PETSCTRUE = true
-  FFLAGS    = -Dpetsc
-endif
-
 #Define compiler flags
 
 FC = f90
 
 # Flags for Absoft f90
 ifeq ($(FC),f90)
-  OPTIMIZATION = -O3 -cpu:host
+  OPTIMIZATION = -O2 -cpu:host
 #  DEBUG        = -g -et -Rb -Rp
   DEBUG        = -g
   PROFILE      = -P
@@ -172,6 +175,7 @@ SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 beta: common $(BETA)
 
 $(BETA):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+	@echo $(COMMON_MODS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
@@ -188,7 +192,7 @@ petsc: common $(PETSCCODE)
 $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
-	-${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
 
 common: $(SUBDIRS)
 
@@ -204,7 +208,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJ):  $(MODS) $(COMMOM_MODS)
+$(OBJ):  $(MODS) $(COMMON_MODS)
 
 #Define patterns
 

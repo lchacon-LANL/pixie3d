@@ -38,9 +38,9 @@ c     findLoopLimits
 c     ##############################################################
       subroutine findLoopLimits(dim,loc,i1,i2,j1,j2,k1,k2)
 c     --------------------------------------------------------------
-c     Finds limits for BC loops. On input, it takes (i1,i2),
-c     (j1,j2), (k1,k2) and outputs loop limits (imin,imax),
-c     (jmin,jmax), (kmin,kmax) (defined in BCS module)
+c     Finds local limits for BC loops. On input, it takes global 
+c     limits (i1,i2), (j1,j2), (k1,k2) and outputs local loop limits
+c     (imin,imax), (jmin,jmax), (kmin,kmax) (declared in BCS module)
 c     --------------------------------------------------------------
 
 c     Call variables
@@ -51,43 +51,80 @@ c     Begin program
 
       select case(dim)
       case (1)
-        imin = 1 + loc*(nx-1)
-        imax = imin
 
-        jmin = j1
-        jmax = j2
+        call selectLimits(i1,i2,nx,grid_params%nxgl(igx),imin,imax)
 
-        kmin = k1
-        kmax = k2
+        jmin = j1 - grid_params%jlo(igy) + 1
+        jmax = j2 - grid_params%jlo(igy) + 1
+
+        kmin = k1 - grid_params%klo(igz) + 1
+        kmax = k2 - grid_params%klo(igz) + 1
 
       case(2)
-        imin = i1
-        imax = i2
+        imin = i1 - grid_params%ilo(igx) + 1
+        imax = i2 - grid_params%ilo(igx) + 1
 
-        jmin = 1 + loc*(ny-1)
-        jmax = jmin
+        call selectLimits(j1,j2,ny,grid_params%nygl(igy),jmin,jmax)
 
-        kmin = k1
-        kmax = k2
+        kmin = k1 - grid_params%klo(igz) + 1
+        kmax = k2 - grid_params%klo(igz) + 1
 
       case(3)
-        imin = i1
-        imax = i2
+        imin = i1 - grid_params%ilo(igx) + 1
+        imax = i2 - grid_params%ilo(igx) + 1
 
-        jmin = j1
-        jmax = j2
+        jmin = j1 - grid_params%jlo(igy) + 1
+        jmax = j2 - grid_params%jlo(igy) + 1
 
-        kmin = 1 + loc*(nz-1)
-        kmax = kmin
+        call selectLimits(k1,k2,nz,grid_params%nzgl(igz),kmin,kmax)
 
       end select
 
 c     End program
 
+      contains
+
+c     selectLimits
+c     #####################################################################
+      subroutine selectLimits(i1,i2,nxl,nxg,imin,imax)
+
+        implicit none
+
+        integer(4) :: i1,i2,nxl,nxg,imin,imax
+
+c     Begin program
+
+        select case(loc)
+        case(0)
+          if (i1 > 1) then
+            !Do nothing: imin > imax
+            imin = 1
+            imax = 0
+          else
+            imin = 1
+            imax = imin
+          endif
+        case(1)
+          if (i2 < nxg) then
+            !Do nothing: imin > imax
+            imin = 1
+            imax = 0
+          else
+            imin = nxl
+            imax = imin
+          endif
+        end select
+
+cc        imin = 1 + loc*(nxg-1)
+cc        imax = imin
+
+      end subroutine selectLimits
+
       end subroutine findLoopLimits
 
       end module BCS
 
+c FIX PARALLEL
 c module singularBCinterface
 c####################################################################
       module singularBCinterface
@@ -241,6 +278,7 @@ c     End program
       end subroutine vectorSingularBC
 
       end module singularBCinterface
+c FIX PARALLEL
 
 c module dirichletBCinterface
 c####################################################################
@@ -2128,9 +2166,34 @@ c     Identify directions for extrapolation.
       flgx = .true.
       flgy = .true.
       flgz = .true.
+
+      !Do not interpolate across direction if
+      !   1) not enough points,
       if (inx == 0) flgx = .false.
       if (iny == 0) flgy = .false.
       if (inz == 0) flgz = .false.
+
+      !or 2) it aligns with a periodic boundary
+      if (bcond(1) == PER .and. flgx) then
+        flgy = .false.
+        flgz = .false.
+      endif
+      if (bcond(3) == PER .and. flgy) then
+        flgx = .false.
+        flgz = .false.
+      endif
+      if (bcond(5) == PER .and. flgz) then
+        flgx = .false.
+        flgy = .false.
+      endif
+
+c$$$      !Check some direction for interpolation exists
+c$$$      if ((.not.flgx).and.(.not.flgy).and.(.not.flgz)) then
+c$$$        write (*,*) 'Error in extrapolateToCorner:'
+c$$$        write (*,*) 'No extrapolation directions left'
+c$$$        write (*,*) 'Aborting...'
+c$$$        stop
+c$$$      endif
 
 c     Allocate spatial coordinate vectors.
 

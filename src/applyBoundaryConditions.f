@@ -113,22 +113,38 @@ c Begin program
       igy = iigy
       igz = iigz
 
-      nx = grid_params%nxv(igx)
+      !Local grid sizes
+      nx = grid_params%nxv(igx) 
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
+
+c Set global limits for impose BC
+
+c$$$      iimin = 1
+c$$$      iimax = nx
+c$$$      jjmin = 1
+c$$$      jjmax = ny
+c$$$      kkmin = 1
+c$$$      kkmax = nz
+
+      iimin = grid_params%ilo(igx)
+      iimax = grid_params%ihi(igx)
+      jjmin = grid_params%jlo(igy)
+      jjmax = grid_params%jhi(igy)
+      kkmin = grid_params%klo(igz)
+      kkmax = grid_params%khi(igz)
+
+c Check local vs. global domain limits (return if not close to physical boundaries)
+
+      if (     (iimin > 1 .and. iimax < grid_params%nxgl(igx))
+     .    .and.(jjmin > 1 .and. jjmax < grid_params%nygl(igy))
+     .    .and.(kkmin > 1 .and. kkmax < grid_params%nzgl(igz))) return
+
+c Allocate auxiliary variables in local domain
 
       allocate(v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,v0   (0:nx+1,0:ny+1,0:nz+1,3))
-
-c Set global limits for impose BC
-
-      iimin = 1
-      iimax = nx
-      jjmin = 1
-      jjmax = ny
-      kkmin = 1
-      kkmax = nz
 
 c Density BC
 
@@ -280,7 +296,8 @@ c Local variables
 
 c Begin program
 
-      if (i == 1 .and. bconds(1) == SP) flxim = 0d0
+      if (i+ilog-1 == 1 .and. bconds(1) == SP) flxim = 0d0
+cc      if (i == 1 .and. bconds(1) == SP) flxim = 0d0
 
 c End
 

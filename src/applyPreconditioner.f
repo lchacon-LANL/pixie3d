@@ -234,16 +234,16 @@ c     Diagnostics
 
         !Solution plot
 c diag ****
-cc        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-cc        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-cc        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-cc
-cc        stop
+c$$$        call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+c$$$        call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+c$$$
+c$$$        stop
 c diag ****
 
         !diag B-field divergence

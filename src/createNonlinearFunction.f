@@ -46,26 +46,26 @@ c Local variables
 
 c Begin program
 
-        allocate (bx_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,by_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,bz_cov(0:nxdp,0:nydp,0:nzdp))
+        allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip))
 
-        allocate (jx    (0:nxdp,0:nydp,0:nzdp)
-     .           ,jy    (0:nxdp,0:nydp,0:nzdp)
-     .           ,jz    (0:nxdp,0:nydp,0:nzdp)
-     .           ,jx_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,jy_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,jz_cov(0:nxdp,0:nydp,0:nzdp))
+        allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,jz    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,jx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,jy_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip))
 
-        allocate (vx    (0:nxdp,0:nydp,0:nzdp)
-     .           ,vy    (0:nxdp,0:nydp,0:nzdp)
-     .           ,vz    (0:nxdp,0:nydp,0:nzdp)
-     .           ,vx_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,vy_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,vz_cov(0:nxdp,0:nydp,0:nzdp))
+        allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,vy    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,vz    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,vx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,vy_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .           ,vz_cov(ilom:ihip,jlom:jhip,klom:khip))
 
-        allocate (eeta  (0:nxdp,0:nydp,0:nzdp)
-     .           ,nuu   (0:nxdp,0:nydp,0:nzdp))
+        allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
 
         call allocPrecVariables
 

@@ -58,6 +58,7 @@ c$$$      jmax = nny
 c$$$      kmin = 1
 c$$$      kmax = nnz
 
+c FIX PARALLEL
       call limits(gpos,nnx,nny,nnz,iig,imin,imax,jmin,jmax,kmin,kmax)
 
 c Check limits (return if not close to boundaries)
