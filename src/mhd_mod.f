@@ -789,7 +789,7 @@ c     End program
 
 c     curl
 c     ###############################################################
-      real*8 function curl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
+      function curl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A) at cell centers in general non-orthogonal
@@ -800,6 +800,8 @@ c     ---------------------------------------------------------------
       implicit none           !For safe fortran
 
 c     Call variables
+
+      real(8)    :: curl
 
       integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
@@ -908,7 +910,7 @@ c     End program
 
 c     curl2
 c     ###############################################################
-      real*8 function curl2(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
+      function curl2(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A)) in general non-orthogonal
@@ -919,6 +921,8 @@ c     ---------------------------------------------------------------
       implicit none           !For safe fortran
 
 c     Call variables
+
+      real(8)    :: curl2
 
       integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
@@ -1571,12 +1575,12 @@ c     Begin program
             vzim = (az(im,j,k)+az(im,jp,k))/2.
           endif
 
-	  vxjp = ax(i,jp,k)
-	  vxjm = ax(i,j ,k)
-	  vyjp = ay(i,jp,k)
-	  vyjm = ay(i,j ,k)
-	  vzjp = az(i,jp,k)
-	  vzjm = az(i,j ,k)
+          vxjp = ax(i,jp,k)
+          vxjm = ax(i,j ,k)
+          vyjp = ay(i,jp,k)
+          vyjm = ay(i,j ,k)
+          vzjp = az(i,jp,k)
+          vzjm = az(i,j ,k)
 
           vxkp = (ax(i,j,kp)+ax(i,jp,kp))/2.
           vxkm = (ax(i,j,km)+ax(i,jp,km))/2.
@@ -1617,12 +1621,12 @@ c     Begin program
           vzjp = (az(i,jp,k)+az(i,jp,kp))/2.
           vzjm = (az(i,jm,k)+az(i,jm,kp))/2.
 
-	  vxkp = ax(i,j,kp)
-	  vxkm = ax(i,j,k )
-	  vykp = ay(i,j,kp)
-	  vykm = ay(i,j,k )
-	  vzkp = az(i,j,kp)
-	  vzkm = az(i,j,k )
+          vxkp = ax(i,j,kp)
+          vxkm = ax(i,j,k )
+          vykp = ay(i,j,kp)
+          vykm = ay(i,j,k )
+          vzkp = az(i,j,kp)
+          vzkm = az(i,j,k )
 
           tsrc = 0.5*(nabla_v_src(i,j,kp)
      .               +nabla_v_src(i,j,k ))
@@ -1645,19 +1649,19 @@ c     Begin program
             vzim = az(im,j,k)
           endif
 
-	  vxjp = ax(i,jp,k)
-	  vxjm = ax(i,jm,k)
-	  vyjp = ay(i,jp,k)
-	  vyjm = ay(i,jm,k)
-	  vzjp = az(i,jp,k)
-	  vzjm = az(i,jm,k)
+          vxjp = ax(i,jp,k)
+          vxjm = ax(i,jm,k)
+          vyjp = ay(i,jp,k)
+          vyjm = ay(i,jm,k)
+          vzjp = az(i,jp,k)
+          vzjm = az(i,jm,k)
 
-	  vxkp = ax(i,j,kp)
-	  vxkm = ax(i,j,km)
-	  vykp = ay(i,j,kp)
-	  vykm = ay(i,j,km)
-	  vzkp = az(i,j,kp)
-	  vzkm = az(i,j,km)
+          vxkp = ax(i,j,kp)
+          vxkm = ax(i,j,km)
+          vykp = ay(i,j,kp)
+          vykm = ay(i,j,km)
+          vzkp = az(i,j,kp)
+          vzkm = az(i,j,km)
 
           tsrc = nabla_v_src(i,j,k)
 
