@@ -31,6 +31,8 @@ c####################################################################
 
         real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
 
+        logical :: symm=.false.
+
         type :: curv_vector
           real(8),pointer,dimension(:,:,:,:) :: vcomp
           logical :: cov
