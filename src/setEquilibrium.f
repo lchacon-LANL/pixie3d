@@ -233,6 +233,10 @@ c     Tearing mode in cartesian coordinates
               var(i,j,k,IBY)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
               var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
+cc              var(i,j,k,IBX)  = 0d0
+cc              var(i,j,k,IBY)  = 1d1
+cc              var(i,j,k,IBZ)  = 1d1
+
               !X-Z equilibrium
 cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
 cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
@@ -411,13 +415,21 @@ c     RFP equilibria (analytical)
               var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
               var(i,j,k,IBZ)  = x1*bzz
 
+c diag ****
+cc              var(i,j,k,IBX)  = 0d0
+cc              var(i,j,k,IBY)  = 0d0
+cc              var(i,j,k,IBZ)  = x1*0d0
+c diag ****
+
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
               var(i,j,k,IVZ)  = 0d0
 
               var(i,j,k,IRHO) = 1d0
 
+c diag ****
 cc              var(i,j,k,ITMP) = 1d0
+c diag ****
               var(i,j,k,ITMP) = 1d-5
 
             enddo
@@ -459,7 +471,7 @@ c     RFP equilibria (analytical)
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = bzz
+              var(i,j,k,IBZ)  = x1*bzz
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
