@@ -481,7 +481,7 @@ c Local variables
 
 c Begin program
 
-c Find integral limits
+c Find integral limits (do not include ghost nodes)
 
       imin = 1
       imax = nx
