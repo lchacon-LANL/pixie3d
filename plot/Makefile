@@ -14,17 +14,23 @@
 
 PROD =	3dplot.x
 
-SRC  := $(wildcard *.f) 
+SRC  := $(wildcard *.[F,c,f])
 
-MODS := $(wildcard *_mod.f)
+MODS := $(wildcard *_mod.[F,f])
+MODS := mhd_mod.f imposeBC_mod.F
 
-OBJS := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
+OBJS := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
+                      $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
+                      $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
 
-OBJMOD := $(MODS:.f=.o)
+OBJMOD := $(filter %.o, $(patsubst %.f,%.o,$(MODS))\
+                        $(patsubst %.F,%.o,$(MODS)))
 
-COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
-COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
-COMMON_OBJS = $(COMMON_SRC:.f=.o)
+COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F]))
+COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.[f,F,c])))
+COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
+                            $(patsubst %.c,%.o,$(COMMON_SRC))\
+                            $(patsubst %.F,%.o,$(COMMON_SRC)))
 
 prefix = .
 
@@ -92,7 +98,6 @@ LDFLAGS =
 
 COMMONDIR = ./commondirs
 
-
 SUBDIRS = $(COMMONDIR)/grid\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/interpolation/slatec/1d_spline\
@@ -104,16 +109,19 @@ SUBDIRS = $(COMMONDIR)/grid\
 
 #Define targets
 
+.PHONY: clean recclean common petsc $(SUBDIRS)
+
 production: common $(PROD)
 
-$(PROD):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
+$(PROD):  $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking 3DPLOT code'
 	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
 
-common: ;
-	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -e -C $$subdir ; done
+common: $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -e -C $@ target
 
 clean:
 	-rm -f *.o *.mod
@@ -129,4 +137,7 @@ $(OBJS):  $(MODS) $(COMMOM_MODS)
 #Define patterns
 
 %.o : %.f
+	$(FC) -c $(MODDIRS) $(FFLAGS) $<
+
+%.o : %.F
 	$(FC) -c $(MODDIRS) $(FFLAGS) $<
