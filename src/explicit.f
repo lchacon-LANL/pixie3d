@@ -149,8 +149,12 @@ c Calculate maximum sound speed on grid
 
             !Maximum kk
             idx  = 1./dx(ig)
+            if (nxd == 1) idx = 1d-2
             idy  = 1./dy(jg)
+            if (nyd == 1) idy = 1d-2
             idz  = 1./dz(kg)
+            if (nzd == 1) idz = 1d-2
+
             norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
             kk   = max(kk,norm)
 
