@@ -1,3 +1,30 @@
+c map
+c #####################################################################
+      subroutine map(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+
+c ---------------------------------------------------------------------
+c     Give Cartesian coordinates corresponding to node (i,j,k) at grid
+c     level (igx,igy,igz).
+c ---------------------------------------------------------------------
+
+      implicit none
+
+c Input variables
+
+      integer(4) :: i,j,k,igx,igy,igz,ig,jg,kg
+
+c Local variables
+
+      real(8)    :: x1,y1,z1
+
+c Begin program
+
+      write (*,*) 'Error: subroutine map called!'
+      write (*,*) 'Aborting...'
+      stop
+
+      end subroutine map
+
 c module equilibrium
 c ######################################################################
       module equilibrium
@@ -24,6 +51,8 @@ c module grid_aliases
 c ######################################################################
       module grid_aliases
 
+        use grid
+
         real(8),pointer,dimension(:) :: xx,yy,zz,dxh,dyh,dzh,dx,dy,dz
 
         integer(4) :: igx,igy,igz,nx,ny,nz
@@ -37,11 +66,9 @@ c ######################################################################
         real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
      .               ,jacp,jacm,jach,jac0
 
-        real(8)    :: gsub(3,3),gsuper(3,3)
-     .               ,cnv1(3),cnv2(3),cnv3(3),jac
+        real(8)    :: gsub(3,3),gsuper(3,3),jac
 
-        real(8)    :: nabla_v(3,3),hessian1(3,3)
-     .               ,hessian2(3,3),hessian3(3,3)
+        real(8)    :: nabla_v(3,3),hessian(3,3,3)
      .               ,cov_tnsr(3,3),cnv_tnsr(3,3)
 
         logical    :: sing_point,cartesian
@@ -99,31 +126,21 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ig,jg,kg
-      real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jac0,xh,yh,zh,jach
-     .             ,xip,yip,zip
-      logical    :: cartesian
+      real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jac0,jach
 
 c     Begin program
 
-      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+      jac0 = gmetric%grid(igx)%jac(i,j,k)
 
       dxx = dxh(ig)
       dyy = dyh(jg)
       dzz = dzh(kg)
 
       if (i == 1 .and. bcond(1) == SP) then
-        call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                     ,cartesian)
-
-        jacp = jacobian(xip,yip,zip,cartesian)
-
-        xh = (xip+x0)/2.
-        yh = (yip+y0)/2.
-        zh = (zip+z0)/2.
-        jach = jacobian(xh ,yh ,zh ,cartesian)
-cc        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
+        jacp = gmetric%grid(igx)%jac(i+1,j,k)
+        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
 
         div =  ((ax(i+1,j  ,k  )/jacp
      .          +ax(i  ,j  ,k  )/jac0)*jach)    /2./dxx
@@ -188,99 +205,107 @@ c     Begin program
       elseif (i == nx+1 .or. j == ny+1 .or. k == nz+1) then
         write (*,*) 'Error in laplace; i,j,k=nmax+1'
       elseif (.not.sing_point) then
-        d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg)
-     .                        ,.false.)
-        d_xx_im = g_super_elem(1,1,0.5*(xx(ig-1)+xx(ig)),yy(jg),zz(kg)
-     .                        ,.false.)
-        d_yy_jp = g_super_elem(2,2,xx(ig),0.5*(yy(jg+1)+yy(jg)),zz(kg)
-     .                        ,.false.)
-        d_yy_jm = g_super_elem(2,2,xx(ig),0.5*(yy(jg-1)+yy(jg)),zz(kg)
-     .                        ,.false.)
-        d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg))
-     .                        ,.false.)
-        d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg))
-     .                        ,.false.)
+        d_xx_ip = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igx)%gsup(ip,j,k,1,1))
+        d_xx_im = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igx)%gsup(im,j,k,1,1))
+        d_yy_jp = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igx)%gsup(i,jp,k,2,2))
+        d_yy_jm = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igx)%gsup(i,jm,k,2,2))
+        d_zz_kp = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igx)%gsup(i,j,kp,3,3))
+        d_zz_km = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igx)%gsup(i,j,km,3,3))
 
-        d_xy_ipjp = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,zz(kg),.false.)
-        d_xy_ipjm = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,zz(kg),.false.)
-        d_xy_imjp = g_super_elem(1,2,0.5*(xx(ig-1)+xx(ig))
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,zz(kg),.false.)
-        d_xy_imjm = g_super_elem(1,2,0.5*(xx(ig-1)+xx(ig))
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,zz(kg),.false.)
+        d_xy_ipjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
+        d_xy_ipjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
+        d_xy_imjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(im,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
+        d_xy_imjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(im,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
                  
-        d_xz_ipkp = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_xz_ipkm = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
-        d_xz_imkp = g_super_elem(1,3,0.5*(xx(ig-1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_xz_imkm = g_super_elem(1,3,0.5*(xx(ig-1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
+        d_xz_ipkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,kp,1,3))
+        d_xz_ipkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
+        d_xz_imkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
+        d_xz_imkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(im,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
                  
-        d_yz_jpkp = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_yz_jpkm = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
-        d_yz_jmkp = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_yz_jmkm = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
-
       else
 
-        d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg)
-     .                        ,.false.)
+        d_xx_ip = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igx)%gsup(ip,j,k,1,1))
         d_xx_im = 0d0
+        d_yy_jp = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igx)%gsup(i,jp,k,2,2))
+        d_yy_jm = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igx)%gsup(i,jm,k,2,2))
+        d_zz_kp = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igx)%gsup(i,j,kp,3,3))
+        d_zz_km = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igx)%gsup(i,j,km,3,3))
 
-        d_yy_jp = g_super_elem(2,2,xx(ig),0.5*(yy(jg+1)+yy(jg)),zz(kg)
-     .                        ,.false.)
-        d_yy_jm = g_super_elem(2,2,xx(ig),0.5*(yy(jg-1)+yy(jg)),zz(kg)
-     .                        ,.false.)
-        d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg))
-     .                        ,.false.)
-        d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg))
-     .                        ,.false.)
-
-        d_xy_ipjp = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,zz(kg),.false.)
-        d_xy_ipjm = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,zz(kg),.false.)
+        d_xy_ipjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
+        d_xy_ipjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
         d_xy_imjp = 0d0
         d_xy_imjm = 0d0
-                 
-        d_xz_ipkp = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_xz_ipkm = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
+
+        d_xz_ipkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,kp,1,3))
+        d_xz_ipkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
         d_xz_imkp = 0d0
         d_xz_imkm = 0d0
-                 
-        d_yz_jpkp = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_yz_jpkm = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg+1)+yy(jg))
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
-        d_yz_jmkp = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
-        d_yz_jmkm = g_super_elem(2,3,xx(ig)
-     .                              ,0.5*(yy(jg-1)+yy(jg))
-     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
 
       endif
+
+      d_yz_jpkp = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,jp,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,kp,2,3))
+      d_yz_jpkm = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,jp,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,km,2,3))
+      d_yz_jmkp = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,jm,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,kp,2,3))
+      d_yz_jmkm = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,jm,k,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igx)%gsup(i,j,km,2,3))
 
       laplacian = 
      .     dyh(jg)*dzh(kg)*( d_xx_ip*(arr(ip,j,k)-arr(i,j,k))/dx(ig)
@@ -335,11 +360,7 @@ c     Local variables
 
       integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
 
-      real(8)    :: xim,yim,zim,xip,yip,zip
-     .             ,xjm,yjm,zjm,xjp,yjp,zjp
-     .             ,xkm,ykm,zkm,xkp,ykp,zkp
-
-      real(8)    :: dvol,dS1,dS2,dS3,dxx,dyy,dzz,x0,y0,z0,jac
+      real(8)    :: dvol,dS1,dS2,dS3,dxx,dyy,dzz,jac
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
@@ -347,10 +368,9 @@ c     Local variables
      .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
      .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
 
-      real(8)    :: nabla_v(3,3),gsuper(3,3)
-     .             ,hess1(3,3),hess2(3,3),hess3(3,3),msource
+      real(8)    :: nabla_v(3,3),gsuper(3,3),hess(3,3,3),msource
 
-      logical    :: sing_point,cartesian
+      logical    :: sing_point
 
 c     Begin program
 
@@ -364,20 +384,7 @@ c     Begin program
       sing_point = .false.
       if (i == 1 .and. bcond(1) == SP) sing_point = .true.
 
-      call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-     .                   ,cartesian)
-      call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                   ,cartesian)
-      call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-     .                   ,cartesian)
-      call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-     .                   ,cartesian)
-      call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-     .                   ,cartesian)
-      call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-     .                   ,cartesian)
-
-      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       dxx = dxh(ig)
       dyy = dyh(jg)
@@ -389,12 +396,10 @@ c     Begin program
 
       dvol = dxx*dyy*dzz
 
-      jac  = jacobian(x0,y0,z0,cartesian)
+      jac  = gmetric%grid(igx)%jac(i,j,k)
 
       if (coords /= 'car') then
-        hess1 = hessian(1,x0,y0,z0,cartesian)
-        hess2 = hessian(2,x0,y0,z0,cartesian)
-        hess3 = hessian(3,x0,y0,z0,cartesian)
+        hess = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
       endif
 
       call nabtensor_x(i ,j,k,t11p,t12p,t13p, 1)
@@ -428,9 +433,9 @@ c     Begin program
 
         if (coords /= 'car') then
           msource =dvol
-     .            *(t11o*hess1(1,1)+t12o*hess1(1,2)+t13o*hess1(1,3)
-     .             +t21o*hess1(2,1)+t22o*hess1(2,2)+t23o*hess1(2,3)
-     .             +t31o*hess1(3,1)+t32o*hess1(3,2)+t33o*hess1(3,3))
+     .            *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
         endif
 
       case(2)
@@ -452,12 +457,12 @@ c     Begin program
      .                                  ,flxkp,flxkm,bcond)
 
             msource=dvol
-     .             *(t11o*hess2(1,1)+t12o*hess2(1,2)+t13o*hess2(1,3)
-     .              +t21o*hess2(2,1)+t22o*hess2(2,2)+t23o*hess2(2,3)
-     .              +t31o*hess2(3,1)+t32o*hess2(3,2)+t33o*hess2(3,3)
-     .              -t12o*(hess1(1,1)+hess2(1,2)+hess3(1,3))
-     .              -t22o*(hess1(2,1)+hess2(2,2)+hess3(2,3))
-     .              -t32o*(hess1(3,1)+hess2(3,2)+hess3(3,3)))
+     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
 
             flxip = flxip/jac
             flxim = flxim/jac
@@ -470,9 +475,9 @@ c     Begin program
 
           else
             msource=dvol
-     .             *(t11o*hess2(1,1)+t12o*hess2(1,2)+t13o*hess2(1,3)
-     .              +t21o*hess2(2,1)+t22o*hess2(2,2)+t23o*hess2(2,3)
-     .              +t31o*hess2(3,1)+t32o*hess2(3,2)+t33o*hess2(3,3))
+     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
           endif
         endif
 
@@ -492,16 +497,16 @@ c     Begin program
 
         if (coords /= 'car') then
           msource =dvol
-     .           *(t11o*hess3(1,1)+t12o*hess3(1,2)+t13o*hess3(1,3)
-     .            +t21o*hess3(2,1)+t22o*hess3(2,2)+t23o*hess3(2,3)
-     .            +t31o*hess3(3,1)+t32o*hess3(3,2)+t33o*hess3(3,3))
+     .           *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
         endif
 
       end select
 
       vlap = jac*( dS1*(flxip - flxim)
      .           + dS2*(flxjp - flxjm)
-     .           + dS3*(flxkp - flxkm) ) -msource
+     .           + dS3*(flxkp - flxkm) ) + msource
 
 c     End program
 
@@ -529,37 +534,25 @@ c     Local variables
 c     Begin program
 
         ip = i+1
+        if (flag == 0 .or. (.not.alteom .and. sing_point) ) ip = i
 
-        if (flag == 0) then
-          ip = i
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xip+x0)/2.
-          y = (yip+y0)/2.
-          z = (zip+z0)/2.
+        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
+     .               +gmetric%grid(igx)%jac (i ,j,k))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
+     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
+
+        if (i < nx .and. bcond(1) == SP .and. flag /= 0) then
+          jacp = gmetric%grid(igx)%jac(ip,j,k)
+          jac0 = gmetric%grid(igx)%jac(i ,j,k)
         else
-          if (.not.alteom .and. sing_point) then
-            ip = i
-            x = xim
-            y = yim
-            z = zim
-          else
-            x = (xim+x0)/2.
-            y = (yim+y0)/2.
-            z = (zim+z0)/2.
-          endif
+          jacp = jac
+          jac0 = jac
         endif
 
-        jac    = jacobian(x,y,z,cartesian)
-
-        gsuper = g_super (x,y,z,cartesian)
-
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,1)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
         endif
 
         vis = 2d0/( 1d0/diff(ip,j,k) + 1d0/diff(i,j,k) )
@@ -608,30 +601,17 @@ c     Local variables
 c     Begin program
 
         jp = j+1
+        if (flag == 0) jp = j
 
-        if (flag == 0) then
-          jp = j
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xjp+x0)/2.
-          y = (yjp+y0)/2.
-          z = (zjp+z0)/2.
-        else
-          x = (xjm+x0)/2.
-          y = (yjm+y0)/2.
-          z = (zjm+z0)/2.
-        endif
-
-        gsuper = g_super (x,y,z,cartesian)
-
-        jac    = jacobian(x,y,z,cartesian)
+        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
+     .               +gmetric%grid(igx)%jac (i,j ,k))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
+     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,2)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
         endif
 
         vis = 2./( 1./diff(i,jp,k) + 1./diff(i,j,k) )
@@ -680,30 +660,17 @@ c     Local variables
 c     Begin program
 
         kp=k+1
+        if (flag == 0) kp = k
 
-        if (flag == 0) then
-          kp = k
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xkp+x0)/2.
-          y = (ykp+y0)/2.
-          z = (zkp+z0)/2.
-        else
-          x = (xkm+x0)/2.
-          y = (ykm+y0)/2.
-          z = (zkm+z0)/2.
-        endif
-
-        gsuper = g_super (x,y,z,cartesian)
-
-        jac    = jacobian(x,y,z,cartesian)
+        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
+     .               +gmetric%grid(igx)%jac (i,j,k ))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
+     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,3)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
         endif
 
         vis = 2./( 1./diff(i,j,kp) + 1./diff(i,j,k) )
@@ -758,11 +725,10 @@ c     Local variables
       real(8)    :: dx,dy,dz,flxip,flxim,flxjp,flxjm,flxkp,flxkm
       real(8)    :: dS1,dS2,dS3,x0,y0,z0,jac
      .             ,xip,yip,zip,jacp,xh,yh,zh,jach
-      logical    :: cartesian
 
 c     Begin program
 
-      call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartesian)
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       dx = grid_params%dxh(ig)
       dy = grid_params%dyh(jg)
@@ -808,32 +774,20 @@ c     Begin program
         flxkm = 0d0
 
         if (i == 1 .and. bcond(1) == SP) then
-          call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                       ,cartesian)
-          jacp = jacobian(xip,yip,zip,cartesian)
-          jac  = jacobian(x0 ,y0 ,z0 ,cartesian)
-
-          xh = (xip+x0)/2.
-          yh = (yip+y0)/2.
-          zh = (zip+z0)/2.
-          jach = jacobian(xh ,yh ,zh ,cartesian)
-cc          jach = 0.5*(jacp+jac) !Only good for cylindrical-like geom.
+          jacp = gmetric%grid(igx)%jac(ip,j,k)
+          jac  = gmetric%grid(igx)%jac(i ,j,k)
+          jach = 0.5*(jacp+jac)
 
           flxip = 0.5*(ay(ip,j,k)/jacp+ay(i,j,k)/jac)*jach
           flxim = ay(im,j,k)
 
 cc        elseif (i == 2 .and. bcond(1) == SP) then
-cc          call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-cc     .                       ,cartesian)
-cc          xh = (xim+x0)/2.
-cc          yh = (yim+y0)/2.
-cc          zh = (zim+z0)/2.
-cc          jacm = jacobian(xim,yim,zim,cartesian)
-cc          jach = jacobian(xh ,yh ,zh ,cartesian)
+cc          jacm = gmetric%grid(igx)%jac(im,j,k)
+cc          jac  = gmetric%grid(igx)%jac(i ,j,k)
+cc          jach = 0.5*(jacm+jac)
 cc
 cc          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
 cc          flxim = 0.5*(ay(im,j,k)/jacm+ay(i,j,k)/jac)*jach
-cccc          flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
         else
           flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
           flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
@@ -883,8 +837,7 @@ c     Local variables
       integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
       real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
-      real(8)    :: jac0,jacp,jacm,x0,y0,z0,xp,yp,zp,xm,ym,zm
-      logical    :: cartesian
+      real(8)    :: jac0,jacp,jacm
 
 c     Begin program
 
@@ -895,23 +848,7 @@ c     Begin program
       kp = k+1
       km = k-1
 
-      if (i == 1 .and. bcond(1) == SP) then
-
-        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0
-     .                     ,cartesian)
-        call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xp,yp,zp
-     .                     ,cartesian)
-        xm = 0.5*(x0+xp)
-        ym = 0.5*(y0+yp)
-        zm = 0.5*(z0+zp)
-
-        jacp = jacobian(xp,yp,zp,cartesian)
-        jac0 = jacobian(x0,y0,z0,cartesian)
-        jacm = jacobian(xm,ym,zm,cartesian)
-
-      else
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-      endif
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       select case(comp)
       case(1)
@@ -1019,6 +956,11 @@ c1st          daydx = (ay(ip,j,k)-ay(i,j,k))/dx1
 c1st          daydx = (ay(i,j,k)-ay(im,j,k))/dx1
         elseif (i == 1 .and. bcond(1) == SP) then
           dx = grid_params%dxh(ig)
+
+          jacp = gmetric%grid(igx)%jac(ip,j,k)
+          jac0 = gmetric%grid(igx)%jac(i ,j,k)
+          jacm = 0.5*(jacp+jac0)
+
           daydx = ((ay(ip,j,k)/jacp+ay(i,j,k)/jac0)/2.*jacm
      .            - ay(im,j,k))/dx
         else
@@ -1059,377 +1001,377 @@ c     End program
 
       end function curl2
 
-c     curlcurl
-c     ###############################################################
-      real*8 function curlcurl(i,j,k,ax,ay,az,diff,comp)
-
-c     ---------------------------------------------------------------
-c     Calculates curl(eta curl(A)) in general non-orthogonal
-c     coordinates, preserving the SPD property. The vector A is
-c     covariant, and returns the contravariant component "comp".
-c     ---------------------------------------------------------------
-
-      use grid
-
-      implicit none           !For safe fortran
-
-c     Call variables
-
-      integer(4) :: i,j,k,comp
-
-      real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
-     .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
-     .             ,az  (0:nx+1,0:ny+1,0:nz+1)
-     .             ,diff(0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
-
-      real(8)    :: x0,xp,xm,y0,yp,ym,z0,zp,zm
-      real(8)    :: dwa,dwb,dwc,dwd,dwe,dwf,dwg,dwh,dwi,dwj,dwk
-
-      !Component one
-      real(8)    :: d_yy_kp,d_yy_km,d_zz_jp,d_zz_jm
-     .             ,d_xy_kp,d_xy_km,d_yz_kp,d_yz_km
-     .             ,d_xz_jp,d_xz_jm,d_yz_jp,d_yz_jm
-     .             ,d_yz_jpkp,d_yz_jpkm,d_yz_jmkp,d_yz_jmkm
-
-      !Component two
-      real(8)    :: d_zz_ip,d_zz_im,d_xx_kp,d_xx_km
-     .             ,d_xz_kp,d_xz_km
-     .             ,d_xz_ip,d_xz_im,d_yz_ip,d_yz_im
-     .             ,d_xz_ipkp,d_xz_ipkm,d_xz_imkp,d_xz_imkm
-
-      !Component three
-      real(8)    :: d_yy_ip,d_yy_im,d_xx_jp,d_xx_jm
-     .             ,d_xy_jp,d_xy_jm,d_xy_ip,d_xy_im
-cc     .             ,d_xz_jp,d_xz_jm,d_yz_ip,d_yz_im
-     .             ,d_xy_ipjp,d_xy_ipjm,d_xy_imjp,d_xy_imjm
-
-c     Begin program
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      ip = i+1
-      im = i-1
-      jp = j+1
-      jm = j-1
-      kp = k+1
-      km = k-1
-
-      x0 = xx(ig)
-      xp = 0.5*(xx(ig+1)+xx(ig))
-      xm = 0.5*(xx(ig-1)+xx(ig))
-
-      y0 = yy(jg)
-      yp = 0.5*(yy(jg+1)+yy(jg))
-      ym = 0.5*(yy(jg-1)+yy(jg))
-
-      z0 = zz(kg)
-      zp = 0.5*(zz(kg+1)+zz(kg))
-      zm = 0.5*(zz(kg-1)+zz(kg))
-
-      select case(comp)
-      case(1)
-
-        d_yy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(2,2,x0,y0,zp,.false.)
-        d_yy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(2,2,x0,y0,zm,.false.)
-
-        d_zz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(3,3,x0,yp,z0,.false.)
-        d_zz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(3,3,x0,ym,z0,.false.)
-
-        d_yz_jpkp = 4./(1./diff(i,jp,kp)+1./diff(i,jp,k )
-     .                 +1./diff(i,j ,kp)+1./diff(i,j ,k ))
-     .             *g_sub_elem(2,3,x0,yp,zp,.false.)
-        d_yz_jpkm = 4./(1./diff(i,jp,km)+1./diff(i,jp,k )
-     .                 +1./diff(i,j ,km)+1./diff(i,j ,k ))
-     .             *g_sub_elem(2,3,x0,yp,zm,.false.)
-        d_yz_jmkp = 4./(1./diff(i,jm,kp)+1./diff(i,jm,k )
-     .                 +1./diff(i,j ,kp)+1./diff(i,j ,k ))
-     .             *g_sub_elem(2,3,x0,ym,zp,.false.)
-        d_yz_jmkm = 4./(1./diff(i,jm,km)+1./diff(i,jm,k )
-     .                 +1./diff(i,j ,km)+1./diff(i,j ,k ))
-     .             *g_sub_elem(2,3,x0,ym,zm,.false.)
-
-        d_xy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,y0,zp,.false.)
-        d_xy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,y0,zm,.false.)
-
-        d_yz_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,x0,y0,zp,.false.)
-        d_yz_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,x0,y0,zm,.false.)
-
-        d_xz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,yp,z0,.false.)
-        d_xz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,ym,z0,.false.)
-
-        d_yz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,x0,yp,z0,.false.)
-        d_yz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,x0,ym,z0,.false.)
-
-        dwa = -dxh(ig)*dyh(jg)
-     .              *(d_yy_kp*(ax(i,j,kp)-ax(i,j,k ))/dz(kg  )
-     .               -d_yy_km*(ax(i,j,k )-ax(i,j,km))/dz(kg-1) )
-        dwb = -dxh(ig)*dzh(kg)
-     .              *(d_zz_jp*(ax(i,jp,k)-ax(i,j ,k))/dy(jg  )
-     .               -d_zz_jm*(ax(i,j ,k)-ax(i,jm,k))/dy(jg-1) )
-        dwc = -dxh(ig)/2.
-     .              *(-d_yz_jpkp*(ax(i,jp,kp)-ax(i,j ,k ))
-     .                +d_yz_jmkm*(ax(i,j ,k )-ax(i,jm,km))
-     .                +d_yz_jpkm*(ax(i,jp,km)-ax(i,j ,k ))
-     .                -d_yz_jmkp*(ax(i,j ,k )-ax(i,jm,kp)))
-        dwd =  dyh(jg)/4.
-     .              *(d_yy_kp*(az(ip,j,kp)-az(im,j,kp)
-     .                        +az(ip,j,k )-az(im,j,k ))
-     .               -d_yy_km*(az(ip,j,km)-az(im,j,km)
-     .                        +az(ip,j,k )-az(im,j,k )))
-        dwe = -dxh(ig)/4.
-     .              *(d_xy_kp*(az(i,jp,kp)-az(i,jm,kp)
-     .                        +az(i,jp,k )-az(i,jm,k ))
-     .               -d_xy_km*(az(i,jp,km)-az(i,jm,km)
-     .                        +az(i,jp,k )-az(i,jm,k )))
-        dwf =  dxh(ig)*dyh(jg)
-     .              *(d_xy_kp*(ay(i,j,kp)-ay(i,j,k ))/dz(kg)
-     .               -d_xy_km*(ay(i,j,k )-ay(i,j,km))/dz(kg-1))
-        dwg = -dyh(jg)/4.
-     .              *(d_yz_kp*(ay(ip,j,kp)-ay(im,j,kp)
-     .                        +ay(ip,j,k )-ay(im,j,k ))
-     .               -d_yz_km*(ay(ip,j,km)-ay(im,j,km)
-     .                        +ay(ip,j,k )-ay(im,j,k )))
-        dwh =  dzh(kg)/4.
-     .              *(d_zz_jp*(ay(ip,jp,k)-ay(im,jp,k)
-     .                        +ay(ip,j ,k)-ay(im,j ,k))
-     .               -d_zz_jm*(ay(ip,jm,k)-ay(im,jm,k)
-     .                        +ay(ip,j ,k)-ay(im,j ,k)))
-        dwi =  dxh(ig)*dzh(kg)
-     .              *(d_xz_jp*(az(i,jp,k)-az(i,j ,k))/dy(jg  )
-     .               -d_xz_jm*(az(i,j ,k)-az(i,jm,k))/dy(jg-1))
-        dwj = -dxh(ig)/4.
-     .              *(d_xz_jp*(ay(i,jp,kp)-ay(i,jp,km)
-     .                        +ay(i,j ,kp)-ay(i,j ,km))
-     .               -d_xz_jm*(ay(i,jm,kp)-ay(i,jm,km)
-     .                        +ay(i,j ,kp)-ay(i,j ,km)))
-        dwk = -dzh(kg)/4.
-     .              *(d_yz_jp*(az(ip,jp,k)-az(im,jp,k)
-     .                        +az(ip,j ,k)-az(im,j ,k))
-     .               -d_yz_jm*(az(ip,jm,k)-az(im,jm,k)
-     .                        +az(ip,j ,k)-az(im,j ,k)))
-
-      case(2)
-
-        d_xx_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(1,1,x0,y0,zp,.false.)
-        d_xx_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(1,1,x0,y0,zm,.false.)
-
-        d_zz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(3,3,xp,y0,z0,.false.)
-        d_zz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(3,3,xm,y0,z0,.false.)
-
-        d_xz_ipkp = 4./(1./diff(ip,j,kp)+1./diff(ip,j,k )
-     .                 +1./diff(i ,j,kp)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,3,xp,y0,zp,.false.)
-        d_xz_ipkm = 4./(1./diff(ip,j,km)+1./diff(ip,j,k )
-     .                 +1./diff(i ,j,km)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,3,xp,y0,zm,.false.)
-        d_xz_imkp = 4./(1./diff(im,j,kp)+1./diff(im,j,k )
-     .                 +1./diff(i ,j,kp)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,3,xm,y0,zp,.false.)
-        d_xz_imkm = 4./(1./diff(im,j,km)+1./diff(im,j,k )
-     .                 +1./diff(i ,j,km)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,3,xm,y0,zm,.false.)
-
-        d_xy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,y0,zp,.false.)
-        d_xy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,y0,zm,.false.)
-
-        d_yz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,xp,y0,z0,.false.)
-        d_yz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,xm,y0,z0,.false.)
-
-        d_xz_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,y0,zp,.false.)
-        d_xz_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,y0,zm,.false.)
-
-        d_xz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,xp,y0,z0,.false.)
-        d_xz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,xm,y0,z0,.false.)
-
-        dwa = -dzh(kg)*dyh(jg)
-     .              *(d_zz_ip*(ay(ip,j,k)-ay(i ,j,k))/dx(ig  )
-     .               -d_zz_im*(ay(i ,j,k)-ay(im,j,k))/dx(ig-1) )
-        dwb = -dxh(ig)*dyh(jg)
-     .              *(d_xx_kp*(ay(i,j,kp)-ay(i,j,k ))/dz(kg  )
-     .               -d_xx_km*(ay(i,j,k )-ay(i,j,km))/dz(kg-1) )
-        dwc = -dyh(jg)/2.
-     .              *(-d_xz_ipkp*(ay(ip,j,kp)-ay(i ,j,k ))
-     .                +d_xz_imkm*(ay(i ,j,k )-ay(im,j,km))
-     .                +d_xz_ipkm*(ay(ip,j,km)-ay(i ,j,k ))
-     .                -d_xz_imkp*(ay(i ,j,k )-ay(im,j,kp)))
-        dwd =  dxh(ig)/4.
-     .              *(d_xx_kp*(az(i,jp,kp)-az(i,jm,kp)
-     .                        +az(i,jp,k )-az(i,jm,k ))
-     .               -d_xx_km*(az(i,jp,km)-az(i,jm,km)
-     .                        +az(i,jp,k )-az(i,jm,k )))
-        dwe = -dyh(jg)/4.
-     .              *(d_xy_kp*(az(ip,j,kp)-az(im,j,kp)
-     .                        +az(ip,j,k )-az(im,j,k ))
-     .               -d_xy_km*(az(ip,j,km)-az(im,j,km)
-     .                        +az(ip,j,k )-az(im,j,k )))
-        dwf =  dxh(ig)*dyh(jg)
-     .              *(d_xy_kp*(ax(i,j,kp)-ax(i,j,k ))/dz(kg)
-     .               -d_xy_km*(ax(i,j,k )-ax(i,j,km))/dz(kg-1))
-        dwg = -dxh(ig)/4.
-     .              *(d_xz_kp*(ax(i,jp,kp)-ax(i,jm,kp)
-     .                        +ax(i,jp,k )-ax(i,jm,k ))
-     .               -d_xz_km*(ax(i,jp,km)-ax(i,jm,km)
-     .                        +ax(i,jp,k )-ax(i,jm,k )))
-        dwh =  dzh(kg)/4.
-     .              *(d_zz_ip*(ax(ip,jp,k)-ax(ip,jm,k)
-     .                        +ax(i ,jp,k)-ax(i ,jm,k))
-     .               -d_zz_im*(ax(im,jp,k)-ax(im,jm,k)
-     .                        +ax(i ,jp,k)-ax(i ,jm,k)))
-        dwi =  dyh(jg)*dzh(kg)
-     .              *(d_yz_ip*(az(ip,j,k)-az(i ,j,k))/dx(ig  )
-     .               -d_yz_im*(az(i ,j,k)-az(im,j,k))/dx(ig-1))
-        dwj = -dzh(kg)/4.
-     .              *(d_xz_ip*(az(ip,jp,k)-az(ip,jm,k)
-     .                        +az(i ,jp,k)-az(i ,jm,k))
-     .               -d_xz_im*(az(im,jp,k)-az(im,jm,k)
-     .                        +az(i ,jp,k)-az(i ,jm,k)))
-        dwk = -dyh(jg)/4.
-     .              *(d_yz_ip*(ax(ip,j,kp)-ax(ip,j,km)
-     .                        +ax(i ,j,kp)-ax(i ,j,km))
-     .               -d_yz_im*(ax(im,j,kp)-ax(im,j,km)
-     .                        +ax(i ,j,kp)-ax(i ,j,km)))
-
-      case(3)
-
-        d_xx_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,1,x0,yp,z0,.false.)
-        d_xx_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,1,x0,ym,z0,.false.)
-
-        d_yy_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,2,xp,y0,z0,.false.)
-        d_yy_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,2,xm,y0,z0,.false.)
-
-        d_xy_ipjp = 4./(1./diff(ip,jp,k)+1./diff(ip,j,k )
-     .                 +1./diff(i ,jp,k)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,2,xp,yp,z0,.false.)
-        d_xy_ipjm = 4./(1./diff(ip,jm,k)+1./diff(ip,j,k )
-     .                 +1./diff(i ,jm,k)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,2,xp,ym,z0,.false.)
-        d_xy_imjp = 4./(1./diff(im,jp,k)+1./diff(im,j,k )
-     .                 +1./diff(i ,jp,k)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,2,xm,yp,z0,.false.)
-        d_xy_imjm = 4./(1./diff(im,jm,k)+1./diff(im,j,k )
-     .                 +1./diff(i ,jm,k)+1./diff(i ,j,k ))
-     .             *g_sub_elem(1,2,xm,ym,z0,.false.)
-
-        d_xy_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,yp,z0,.false.)
-        d_xy_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,x0,ym,z0,.false.)
-
-        d_yz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,xp,y0,z0,.false.)
-        d_yz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(2,3,xm,y0,z0,.false.)
-
-        d_xy_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,xp,y0,z0,.false.)
-        d_xy_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,2,xm,y0,z0,.false.)
-
-        d_xz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,yp,z0,.false.)
-        d_xz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
-     .           *g_sub_elem(1,3,x0,ym,z0,.false.)
-
-        dwa = -dzh(kg)*dyh(jg)
-     .              *(d_yy_ip*(az(ip,j,k)-az(i ,j,k))/dx(ig  )
-     .               -d_yy_im*(az(i ,j,k)-az(im,j,k))/dx(ig-1) )
-        dwb = -dxh(ig)*dzh(kg)
-     .              *(d_xx_jp*(az(i,jp,k)-az(i,j ,k))/dy(jg  )
-     .               -d_xx_jm*(az(i,j ,k)-az(i,jm,k))/dy(jg-1) )
-        dwc = -dzh(kg)/2.
-     .              *(-d_xy_ipjp*(az(ip,jp,k)-az(i ,j ,k))
-     .                +d_xy_imjm*(az(i ,j ,k)-az(im,jm,k))
-     .                +d_xy_ipjm*(az(ip,jm,k)-az(i ,j ,k))
-     .                -d_xy_imjp*(az(i ,j ,k)-az(im,jp,k)))
-        dwd =  dxh(ig)/4.
-     .              *(d_xx_jp*(ay(i,jp,kp)-ay(i,jp,km)
-     .                        +ay(i,j ,kp)-ay(i,j ,km))
-     .               -d_xx_jm*(ay(i,jm,kp)-ay(i,jm,km)
-     .                        +ay(i,j ,kp)-ay(i,j ,km)))
-        dwe=  -dxh(ig)/4.
-     .              *(d_xy_jp*(ax(i,jp,kp)-ax(i,jp,km)
-     .                        +ax(i,j ,kp)-ax(i,j ,km))
-     .               -d_xy_jm*(ax(i,jm,kp)-ax(i,jm,km)
-     .                        +ax(i,j ,kp)-ax(i,j ,km)))
-        dwf =  dxh(ig)*dzh(kg)
-     .              *(d_xz_jp*(ax(i,jp,k)-ax(i,j ,k))/dy(jg)
-     .               -d_xz_jm*(ax(i,j ,k)-ax(i,jm,k))/dy(jg-1))
-        dwg = -dzh(kg)/4.
-     .              *(d_xz_jp*(ay(ip,jp,k)-ay(im,jp,k)
-     .                        +ay(ip,j ,k)-ay(im,j ,k))
-     .               -d_xz_jm*(ay(ip,jm,k)-ay(im,jm,k)
-     .                        +ay(ip,j ,k)-ay(im,j ,k)))
-        dwh =  dyh(jg)/4.
-     .              *(d_yy_ip*(ax(ip,j,kp)-ax(ip,j,km)
-     .                        +ax(i ,j,kp)-ax(i ,j,km))
-     .               -d_yy_im*(ax(im,j,kp)-ax(im,j,km)
-     .                        +ax(i ,j,kp)-ax(i ,j,km)))
-        dwi =  dyh(jg)*dzh(kg)
-     .              *(d_yz_ip*(ay(ip,j,k)-ay(i ,j,k))/dx(ig  )
-     .               -d_yz_im*(ay(i ,j,k)-ay(im,j,k))/dx(ig-1))
-        dwj = -dzh(kg)/4.
-     .              *(d_yz_ip*(ax(ip,jp,k)-ax(ip,jm,k)
-     .                        +ax(i ,jp,k)-ax(i ,jm,k))
-     .               -d_yz_im*(ax(im,jp,k)-ax(im,jm,k)
-     .                        +ax(i ,jp,k)-ax(i ,jm,k)))
-        dwk = -dyh(jg)/4.
-     .              *(d_xy_ip*(ay(ip,j,kp)-ay(ip,j,km)
-     .                        +ay(i ,j,kp)-ay(i ,j,km))
-     .               -d_xy_im*(ay(im,j,kp)-ay(im,j,km)
-     .                        +ay(i ,j,kp)-ay(i ,j,km)))
-      case default
-
-        write (*,*) 'Error in component in curlcurl'
-        write (*,*) 'Aborting...'
-        stop
-
-      end select
-
-      curlcurl = dwa+dwb+dwc+dwd+dwe+dwf+dwg+dwh+dwi+dwj+dwk
-
-c     End program
-
-      end function curlcurl
+ccc     curlcurl
+ccc     ###############################################################
+cc      real*8 function curlcurl(i,j,k,ax,ay,az,diff,comp)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Calculates curl(eta curl(A)) in general non-orthogonal
+ccc     coordinates, preserving the SPD property. The vector A is
+ccc     covariant, and returns the contravariant component "comp".
+ccc     ---------------------------------------------------------------
+cc
+cc      use grid
+cc
+cc      implicit none           !For safe fortran
+cc
+ccc     Call variables
+cc
+cc      integer(4) :: i,j,k,comp
+cc
+cc      real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
+cc     .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
+cc     .             ,az  (0:nx+1,0:ny+1,0:nz+1)
+cc     .             ,diff(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+cc
+cc      real(8)    :: x0,xp,xm,y0,yp,ym,z0,zp,zm
+cc      real(8)    :: dwa,dwb,dwc,dwd,dwe,dwf,dwg,dwh,dwi,dwj,dwk
+cc
+cc      !Component one
+cc      real(8)    :: d_yy_kp,d_yy_km,d_zz_jp,d_zz_jm
+cc     .             ,d_xy_kp,d_xy_km,d_yz_kp,d_yz_km
+cc     .             ,d_xz_jp,d_xz_jm,d_yz_jp,d_yz_jm
+cc     .             ,d_yz_jpkp,d_yz_jpkm,d_yz_jmkp,d_yz_jmkm
+cc
+cc      !Component two
+cc      real(8)    :: d_zz_ip,d_zz_im,d_xx_kp,d_xx_km
+cc     .             ,d_xz_kp,d_xz_km
+cc     .             ,d_xz_ip,d_xz_im,d_yz_ip,d_yz_im
+cc     .             ,d_xz_ipkp,d_xz_ipkm,d_xz_imkp,d_xz_imkm
+cc
+cc      !Component three
+cc      real(8)    :: d_yy_ip,d_yy_im,d_xx_jp,d_xx_jm
+cc     .             ,d_xy_jp,d_xy_jm,d_xy_ip,d_xy_im
+cccc     .             ,d_xz_jp,d_xz_jm,d_yz_ip,d_yz_im
+cc     .             ,d_xy_ipjp,d_xy_ipjm,d_xy_imjp,d_xy_imjm
+cc
+ccc     Begin program
+cc
+cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc      ip = i+1
+cc      im = i-1
+cc      jp = j+1
+cc      jm = j-1
+cc      kp = k+1
+cc      km = k-1
+cc
+cc      x0 = xx(ig)
+cc      xp = 0.5*(xx(ig+1)+xx(ig))
+cc      xm = 0.5*(xx(ig-1)+xx(ig))
+cc
+cc      y0 = yy(jg)
+cc      yp = 0.5*(yy(jg+1)+yy(jg))
+cc      ym = 0.5*(yy(jg-1)+yy(jg))
+cc
+cc      z0 = zz(kg)
+cc      zp = 0.5*(zz(kg+1)+zz(kg))
+cc      zm = 0.5*(zz(kg-1)+zz(kg))
+cc
+cc      select case(comp)
+cc      case(1)
+cc
+cc        d_yy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,2,x0,y0,zp,.false.)
+cc        d_yy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,2,x0,y0,zm,.false.)
+cc
+cc        d_zz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(3,3,x0,yp,z0,.false.)
+cc        d_zz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(3,3,x0,ym,z0,.false.)
+cc
+cc        d_yz_jpkp = 4./(1./diff(i,jp,kp)+1./diff(i,jp,k )
+cc     .                 +1./diff(i,j ,kp)+1./diff(i,j ,k ))
+cc     .             *g_sub_elem(2,3,x0,yp,zp,.false.)
+cc        d_yz_jpkm = 4./(1./diff(i,jp,km)+1./diff(i,jp,k )
+cc     .                 +1./diff(i,j ,km)+1./diff(i,j ,k ))
+cc     .             *g_sub_elem(2,3,x0,yp,zm,.false.)
+cc        d_yz_jmkp = 4./(1./diff(i,jm,kp)+1./diff(i,jm,k )
+cc     .                 +1./diff(i,j ,kp)+1./diff(i,j ,k ))
+cc     .             *g_sub_elem(2,3,x0,ym,zp,.false.)
+cc        d_yz_jmkm = 4./(1./diff(i,jm,km)+1./diff(i,jm,k )
+cc     .                 +1./diff(i,j ,km)+1./diff(i,j ,k ))
+cc     .             *g_sub_elem(2,3,x0,ym,zm,.false.)
+cc
+cc        d_xy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,y0,zp,.false.)
+cc        d_xy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,y0,zm,.false.)
+cc
+cc        d_yz_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,x0,y0,zp,.false.)
+cc        d_yz_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,x0,y0,zm,.false.)
+cc
+cc        d_xz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,yp,z0,.false.)
+cc        d_xz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,ym,z0,.false.)
+cc
+cc        d_yz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,x0,yp,z0,.false.)
+cc        d_yz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,x0,ym,z0,.false.)
+cc
+cc        dwa = -dxh(ig)*dyh(jg)
+cc     .              *(d_yy_kp*(ax(i,j,kp)-ax(i,j,k ))/dz(kg  )
+cc     .               -d_yy_km*(ax(i,j,k )-ax(i,j,km))/dz(kg-1) )
+cc        dwb = -dxh(ig)*dzh(kg)
+cc     .              *(d_zz_jp*(ax(i,jp,k)-ax(i,j ,k))/dy(jg  )
+cc     .               -d_zz_jm*(ax(i,j ,k)-ax(i,jm,k))/dy(jg-1) )
+cc        dwc = -dxh(ig)/2.
+cc     .              *(-d_yz_jpkp*(ax(i,jp,kp)-ax(i,j ,k ))
+cc     .                +d_yz_jmkm*(ax(i,j ,k )-ax(i,jm,km))
+cc     .                +d_yz_jpkm*(ax(i,jp,km)-ax(i,j ,k ))
+cc     .                -d_yz_jmkp*(ax(i,j ,k )-ax(i,jm,kp)))
+cc        dwd =  dyh(jg)/4.
+cc     .              *(d_yy_kp*(az(ip,j,kp)-az(im,j,kp)
+cc     .                        +az(ip,j,k )-az(im,j,k ))
+cc     .               -d_yy_km*(az(ip,j,km)-az(im,j,km)
+cc     .                        +az(ip,j,k )-az(im,j,k )))
+cc        dwe = -dxh(ig)/4.
+cc     .              *(d_xy_kp*(az(i,jp,kp)-az(i,jm,kp)
+cc     .                        +az(i,jp,k )-az(i,jm,k ))
+cc     .               -d_xy_km*(az(i,jp,km)-az(i,jm,km)
+cc     .                        +az(i,jp,k )-az(i,jm,k )))
+cc        dwf =  dxh(ig)*dyh(jg)
+cc     .              *(d_xy_kp*(ay(i,j,kp)-ay(i,j,k ))/dz(kg)
+cc     .               -d_xy_km*(ay(i,j,k )-ay(i,j,km))/dz(kg-1))
+cc        dwg = -dyh(jg)/4.
+cc     .              *(d_yz_kp*(ay(ip,j,kp)-ay(im,j,kp)
+cc     .                        +ay(ip,j,k )-ay(im,j,k ))
+cc     .               -d_yz_km*(ay(ip,j,km)-ay(im,j,km)
+cc     .                        +ay(ip,j,k )-ay(im,j,k )))
+cc        dwh =  dzh(kg)/4.
+cc     .              *(d_zz_jp*(ay(ip,jp,k)-ay(im,jp,k)
+cc     .                        +ay(ip,j ,k)-ay(im,j ,k))
+cc     .               -d_zz_jm*(ay(ip,jm,k)-ay(im,jm,k)
+cc     .                        +ay(ip,j ,k)-ay(im,j ,k)))
+cc        dwi =  dxh(ig)*dzh(kg)
+cc     .              *(d_xz_jp*(az(i,jp,k)-az(i,j ,k))/dy(jg  )
+cc     .               -d_xz_jm*(az(i,j ,k)-az(i,jm,k))/dy(jg-1))
+cc        dwj = -dxh(ig)/4.
+cc     .              *(d_xz_jp*(ay(i,jp,kp)-ay(i,jp,km)
+cc     .                        +ay(i,j ,kp)-ay(i,j ,km))
+cc     .               -d_xz_jm*(ay(i,jm,kp)-ay(i,jm,km)
+cc     .                        +ay(i,j ,kp)-ay(i,j ,km)))
+cc        dwk = -dzh(kg)/4.
+cc     .              *(d_yz_jp*(az(ip,jp,k)-az(im,jp,k)
+cc     .                        +az(ip,j ,k)-az(im,j ,k))
+cc     .               -d_yz_jm*(az(ip,jm,k)-az(im,jm,k)
+cc     .                        +az(ip,j ,k)-az(im,j ,k)))
+cc
+cc      case(2)
+cc
+cc        d_xx_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,1,x0,y0,zp,.false.)
+cc        d_xx_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,1,x0,y0,zm,.false.)
+cc
+cc        d_zz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(3,3,xp,y0,z0,.false.)
+cc        d_zz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(3,3,xm,y0,z0,.false.)
+cc
+cc        d_xz_ipkp = 4./(1./diff(ip,j,kp)+1./diff(ip,j,k )
+cc     .                 +1./diff(i ,j,kp)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,3,xp,y0,zp,.false.)
+cc        d_xz_ipkm = 4./(1./diff(ip,j,km)+1./diff(ip,j,k )
+cc     .                 +1./diff(i ,j,km)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,3,xp,y0,zm,.false.)
+cc        d_xz_imkp = 4./(1./diff(im,j,kp)+1./diff(im,j,k )
+cc     .                 +1./diff(i ,j,kp)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,3,xm,y0,zp,.false.)
+cc        d_xz_imkm = 4./(1./diff(im,j,km)+1./diff(im,j,k )
+cc     .                 +1./diff(i ,j,km)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,3,xm,y0,zm,.false.)
+cc
+cc        d_xy_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,y0,zp,.false.)
+cc        d_xy_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,y0,zm,.false.)
+cc
+cc        d_yz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,xp,y0,z0,.false.)
+cc        d_yz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,xm,y0,z0,.false.)
+cc
+cc        d_xz_kp = 2./(1./diff(i,j,kp)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,y0,zp,.false.)
+cc        d_xz_km = 2./(1./diff(i,j,km)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,y0,zm,.false.)
+cc
+cc        d_xz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,xp,y0,z0,.false.)
+cc        d_xz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,xm,y0,z0,.false.)
+cc
+cc        dwa = -dzh(kg)*dyh(jg)
+cc     .              *(d_zz_ip*(ay(ip,j,k)-ay(i ,j,k))/dx(ig  )
+cc     .               -d_zz_im*(ay(i ,j,k)-ay(im,j,k))/dx(ig-1) )
+cc        dwb = -dxh(ig)*dyh(jg)
+cc     .              *(d_xx_kp*(ay(i,j,kp)-ay(i,j,k ))/dz(kg  )
+cc     .               -d_xx_km*(ay(i,j,k )-ay(i,j,km))/dz(kg-1) )
+cc        dwc = -dyh(jg)/2.
+cc     .              *(-d_xz_ipkp*(ay(ip,j,kp)-ay(i ,j,k ))
+cc     .                +d_xz_imkm*(ay(i ,j,k )-ay(im,j,km))
+cc     .                +d_xz_ipkm*(ay(ip,j,km)-ay(i ,j,k ))
+cc     .                -d_xz_imkp*(ay(i ,j,k )-ay(im,j,kp)))
+cc        dwd =  dxh(ig)/4.
+cc     .              *(d_xx_kp*(az(i,jp,kp)-az(i,jm,kp)
+cc     .                        +az(i,jp,k )-az(i,jm,k ))
+cc     .               -d_xx_km*(az(i,jp,km)-az(i,jm,km)
+cc     .                        +az(i,jp,k )-az(i,jm,k )))
+cc        dwe = -dyh(jg)/4.
+cc     .              *(d_xy_kp*(az(ip,j,kp)-az(im,j,kp)
+cc     .                        +az(ip,j,k )-az(im,j,k ))
+cc     .               -d_xy_km*(az(ip,j,km)-az(im,j,km)
+cc     .                        +az(ip,j,k )-az(im,j,k )))
+cc        dwf =  dxh(ig)*dyh(jg)
+cc     .              *(d_xy_kp*(ax(i,j,kp)-ax(i,j,k ))/dz(kg)
+cc     .               -d_xy_km*(ax(i,j,k )-ax(i,j,km))/dz(kg-1))
+cc        dwg = -dxh(ig)/4.
+cc     .              *(d_xz_kp*(ax(i,jp,kp)-ax(i,jm,kp)
+cc     .                        +ax(i,jp,k )-ax(i,jm,k ))
+cc     .               -d_xz_km*(ax(i,jp,km)-ax(i,jm,km)
+cc     .                        +ax(i,jp,k )-ax(i,jm,k )))
+cc        dwh =  dzh(kg)/4.
+cc     .              *(d_zz_ip*(ax(ip,jp,k)-ax(ip,jm,k)
+cc     .                        +ax(i ,jp,k)-ax(i ,jm,k))
+cc     .               -d_zz_im*(ax(im,jp,k)-ax(im,jm,k)
+cc     .                        +ax(i ,jp,k)-ax(i ,jm,k)))
+cc        dwi =  dyh(jg)*dzh(kg)
+cc     .              *(d_yz_ip*(az(ip,j,k)-az(i ,j,k))/dx(ig  )
+cc     .               -d_yz_im*(az(i ,j,k)-az(im,j,k))/dx(ig-1))
+cc        dwj = -dzh(kg)/4.
+cc     .              *(d_xz_ip*(az(ip,jp,k)-az(ip,jm,k)
+cc     .                        +az(i ,jp,k)-az(i ,jm,k))
+cc     .               -d_xz_im*(az(im,jp,k)-az(im,jm,k)
+cc     .                        +az(i ,jp,k)-az(i ,jm,k)))
+cc        dwk = -dyh(jg)/4.
+cc     .              *(d_yz_ip*(ax(ip,j,kp)-ax(ip,j,km)
+cc     .                        +ax(i ,j,kp)-ax(i ,j,km))
+cc     .               -d_yz_im*(ax(im,j,kp)-ax(im,j,km)
+cc     .                        +ax(i ,j,kp)-ax(i ,j,km)))
+cc
+cc      case(3)
+cc
+cc        d_xx_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,1,x0,yp,z0,.false.)
+cc        d_xx_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,1,x0,ym,z0,.false.)
+cc
+cc        d_yy_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,2,xp,y0,z0,.false.)
+cc        d_yy_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,2,xm,y0,z0,.false.)
+cc
+cc        d_xy_ipjp = 4./(1./diff(ip,jp,k)+1./diff(ip,j,k )
+cc     .                 +1./diff(i ,jp,k)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,2,xp,yp,z0,.false.)
+cc        d_xy_ipjm = 4./(1./diff(ip,jm,k)+1./diff(ip,j,k )
+cc     .                 +1./diff(i ,jm,k)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,2,xp,ym,z0,.false.)
+cc        d_xy_imjp = 4./(1./diff(im,jp,k)+1./diff(im,j,k )
+cc     .                 +1./diff(i ,jp,k)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,2,xm,yp,z0,.false.)
+cc        d_xy_imjm = 4./(1./diff(im,jm,k)+1./diff(im,j,k )
+cc     .                 +1./diff(i ,jm,k)+1./diff(i ,j,k ))
+cc     .             *g_sub_elem(1,2,xm,ym,z0,.false.)
+cc
+cc        d_xy_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,yp,z0,.false.)
+cc        d_xy_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,x0,ym,z0,.false.)
+cc
+cc        d_yz_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,xp,y0,z0,.false.)
+cc        d_yz_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(2,3,xm,y0,z0,.false.)
+cc
+cc        d_xy_ip = 2./(1./diff(ip,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,xp,y0,z0,.false.)
+cc        d_xy_im = 2./(1./diff(im,j,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,2,xm,y0,z0,.false.)
+cc
+cc        d_xz_jp = 2./(1./diff(i,jp,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,yp,z0,.false.)
+cc        d_xz_jm = 2./(1./diff(i,jm,k)+1./diff(i,j,k))
+cc     .           *g_sub_elem(1,3,x0,ym,z0,.false.)
+cc
+cc        dwa = -dzh(kg)*dyh(jg)
+cc     .              *(d_yy_ip*(az(ip,j,k)-az(i ,j,k))/dx(ig  )
+cc     .               -d_yy_im*(az(i ,j,k)-az(im,j,k))/dx(ig-1) )
+cc        dwb = -dxh(ig)*dzh(kg)
+cc     .              *(d_xx_jp*(az(i,jp,k)-az(i,j ,k))/dy(jg  )
+cc     .               -d_xx_jm*(az(i,j ,k)-az(i,jm,k))/dy(jg-1) )
+cc        dwc = -dzh(kg)/2.
+cc     .              *(-d_xy_ipjp*(az(ip,jp,k)-az(i ,j ,k))
+cc     .                +d_xy_imjm*(az(i ,j ,k)-az(im,jm,k))
+cc     .                +d_xy_ipjm*(az(ip,jm,k)-az(i ,j ,k))
+cc     .                -d_xy_imjp*(az(i ,j ,k)-az(im,jp,k)))
+cc        dwd =  dxh(ig)/4.
+cc     .              *(d_xx_jp*(ay(i,jp,kp)-ay(i,jp,km)
+cc     .                        +ay(i,j ,kp)-ay(i,j ,km))
+cc     .               -d_xx_jm*(ay(i,jm,kp)-ay(i,jm,km)
+cc     .                        +ay(i,j ,kp)-ay(i,j ,km)))
+cc        dwe=  -dxh(ig)/4.
+cc     .              *(d_xy_jp*(ax(i,jp,kp)-ax(i,jp,km)
+cc     .                        +ax(i,j ,kp)-ax(i,j ,km))
+cc     .               -d_xy_jm*(ax(i,jm,kp)-ax(i,jm,km)
+cc     .                        +ax(i,j ,kp)-ax(i,j ,km)))
+cc        dwf =  dxh(ig)*dzh(kg)
+cc     .              *(d_xz_jp*(ax(i,jp,k)-ax(i,j ,k))/dy(jg)
+cc     .               -d_xz_jm*(ax(i,j ,k)-ax(i,jm,k))/dy(jg-1))
+cc        dwg = -dzh(kg)/4.
+cc     .              *(d_xz_jp*(ay(ip,jp,k)-ay(im,jp,k)
+cc     .                        +ay(ip,j ,k)-ay(im,j ,k))
+cc     .               -d_xz_jm*(ay(ip,jm,k)-ay(im,jm,k)
+cc     .                        +ay(ip,j ,k)-ay(im,j ,k)))
+cc        dwh =  dyh(jg)/4.
+cc     .              *(d_yy_ip*(ax(ip,j,kp)-ax(ip,j,km)
+cc     .                        +ax(i ,j,kp)-ax(i ,j,km))
+cc     .               -d_yy_im*(ax(im,j,kp)-ax(im,j,km)
+cc     .                        +ax(i ,j,kp)-ax(i ,j,km)))
+cc        dwi =  dyh(jg)*dzh(kg)
+cc     .              *(d_yz_ip*(ay(ip,j,k)-ay(i ,j,k))/dx(ig  )
+cc     .               -d_yz_im*(ay(i ,j,k)-ay(im,j,k))/dx(ig-1))
+cc        dwj = -dzh(kg)/4.
+cc     .              *(d_yz_ip*(ax(ip,jp,k)-ax(ip,jm,k)
+cc     .                        +ax(i ,jp,k)-ax(i ,jm,k))
+cc     .               -d_yz_im*(ax(im,jp,k)-ax(im,jm,k)
+cc     .                        +ax(i ,jp,k)-ax(i ,jm,k)))
+cc        dwk = -dyh(jg)/4.
+cc     .              *(d_xy_ip*(ay(ip,j,kp)-ay(ip,j,km)
+cc     .                        +ay(i ,j,kp)-ay(i ,j,km))
+cc     .               -d_xy_im*(ay(im,j,kp)-ay(im,j,km)
+cc     .                        +ay(i ,j,kp)-ay(i ,j,km)))
+cc      case default
+cc
+cc        write (*,*) 'Error in component in curlcurl'
+cc        write (*,*) 'Aborting...'
+cc        stop
+cc
+cc      end select
+cc
+cc      curlcurl = dwa+dwb+dwc+dwd+dwe+dwf+dwg+dwh+dwi+dwj+dwk
+cc
+ccc     End program
+cc
+cc      end function curlcurl
 
 c     fnabla_v
 c     #############################################################
-      function fnabla_v(i,j,k,nx,ny,nz,x,y,z,ax,ay,az,cartesian
-     .                 ,half_elem) result(tensor)
+      function fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,half_elem)
+     .         result(tensor)
 c     -------------------------------------------------------------
 c     Calculates the tensor nabla(vec v) at the following positions:
-c       + half_elem /= 1,2,3 => i,j,k
+c       + half_elem=0 --> i,j,k
 c       + half_elem=1 --> i+1/2,j,k
 c       + half_elem=2 --> i,j+1/2,k
 c       + half_elem=3 --> i,j,k+1/2
@@ -1440,11 +1382,10 @@ c     -------------------------------------------------------------
 c     Call variables
 
         integer(4) :: i,j,k,half_elem,nx,ny,nz
-        real(8)    :: tensor(3,3),x,y,z
+        real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
      .               ,az(0:nx+1,0:ny+1,0:nz+1)
-        logical    :: cartesian
 
 c     Local variables
 
@@ -1454,7 +1395,7 @@ c     Local variables
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
      .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
-        real(8)    :: hessian1(3,3),hessian2(3,3),hessian3(3,3)
+        real(8)    :: tsrc(3,3)
         logical    :: sing_point
 
 c     Begin program
@@ -1465,8 +1406,6 @@ c     Begin program
         !Defaults
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x,y,z
-cc     .                     ,cartsn)
 
         dhx = 2.*dxh(ig)
         dhy = 2.*dyh(jg)
@@ -1484,10 +1423,6 @@ cc     .                     ,cartsn)
         select case(half_elem)
         case (1)
           dhx = dx(ig)
-
-          vxx = 0.5*(ax(i,j,k)+ax(ip,j,k))
-          vyy = 0.5*(ay(i,j,k)+ay(ip,j,k))
-          vzz = 0.5*(az(i,j,k)+az(ip,j,k))
 
           vxip = ax(ip,j,k)
           vxim = ax(i ,j,k)
@@ -1509,12 +1444,12 @@ cc     .                     ,cartsn)
           vykm = (ay(ip,j,km)+ay(i,j,km))/2.
           vzkp = (az(ip,j,kp)+az(i,j,kp))/2.
           vzkm = (az(ip,j,km)+az(i,j,km))/2.
+
+          tsrc = 0.5*(nabla_v_src(ip,j,k)
+     .               +nabla_v_src(i ,j,k))
+
         case (2)
           dhy = dy(jg)
-
-          vxx = 0.5*(ax(i,j,k)+ax(i,jp,k))
-          vyy = 0.5*(ay(i,j,k)+ay(i,jp,k))
-          vzz = 0.5*(az(i,j,k)+az(i,jp,k))
 
           if (sing_point) then
             vxip = (ax(ip,j,k)+ax(ip,jp,k))/2.
@@ -1548,12 +1483,12 @@ cc     .                     ,cartsn)
           vykm = (ay(i,j,km)+ay(i,jp,km))/2.
           vzkp = (az(i,j,kp)+az(i,jp,kp))/2.
           vzkm = (az(i,j,km)+az(i,jp,km))/2.
+
+          tsrc = 0.5*(nabla_v_src(i,jp,k)
+     .               +nabla_v_src(i,j ,k))
+
         case (3)
           dhz = dz(kg)
-
-          vxx = 0.5*(ax(i,j,k)+ax(i,j,kp))
-          vyy = 0.5*(ay(i,j,k)+ay(i,j,kp))
-          vzz = 0.5*(az(i,j,k)+az(i,j,kp))
 
           if (sing_point) then
             vxip = (ax(ip,j,k)+ax(ip,j,kp))/2.
@@ -1588,11 +1523,10 @@ cc     .                     ,cartsn)
 	  vzkp = az(i,j,kp)
 	  vzkm = az(i,j,k )
 
-        case default
+          tsrc = 0.5*(nabla_v_src(i,j,kp)
+     .               +nabla_v_src(i,j,k ))
 
-          vxx = ax(i,j,k)
-          vyy = ay(i,j,k)
-          vzz = az(i,j,k)
+        case default
 
           if (sing_point) then
             vxip = ax(ip,j,k)+ax(i,j,k)
@@ -1624,96 +1558,143 @@ cc     .                     ,cartsn)
 	  vzkp = az(i,j,kp)
 	  vzkm = az(i,j,km)
 
+          tsrc = nabla_v_src(i,j,k)
+
         end select
-
-c     !Calculate nabla_v tensor
-
-        hessian1 = hessian(1,x,y,z,cartesian)
-        hessian2 = hessian(2,x,y,z,cartesian)
-        hessian3 = hessian(3,x,y,z,cartesian)
 
       ! l = 1, m = 1
         tensor(1,1) = (vxip-vxim)/dhx
-     .               + vxx*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian1(1,1)
-     .               - vyy*hessian1(2,1)
-     .               - vzz*hessian1(3,1)
 
       ! l = 1, m = 2
         tensor(1,2) = (vyip-vyim)/dhx
-     .               + vyy*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian2(1,1)
-     .               - vyy*hessian2(2,1)
-     .               - vzz*hessian2(3,1)
 
       ! l = 1, m = 3
         tensor(1,3) = (vzip-vzim)/dhx
-     .               + vzz*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian3(1,1)
-     .               - vyy*hessian3(2,1)
-     .               - vzz*hessian3(3,1)
 
       ! l = 2, m = 1
         tensor(2,1) = (vxjp-vxjm)/dhy
-     .               + vxx*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian1(1,2)
-     .               - vyy*hessian1(2,2)
-     .               - vzz*hessian1(3,2)
 
       ! l = 2, m = 2
         tensor(2,2) = (vyjp-vyjm)/dhy
-     .               + vyy*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian2(1,2)
-     .               - vyy*hessian2(2,2)
-     .               - vzz*hessian2(3,2)
 
       ! l = 2, m = 3
         tensor(2,3) = (vzjp-vzjm)/dhy
-     .               + vzz*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian3(1,2)
-     .               - vyy*hessian3(2,2)
-     .               - vzz*hessian3(3,2)
 
       ! l = 3, m = 1
         tensor(3,1) = (vxkp-vxkm)/dhz
-     .               + vxx*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian1(1,3)
-     .               - vyy*hessian1(2,3)
-     .               - vzz*hessian1(3,3)
 
       ! l = 3, m = 2
         tensor(3,2) = (vykp-vykm)/dhz
-     .               + vyy*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian2(1,3)
-     .               - vyy*hessian2(2,3)
-     .               - vzz*hessian2(3,3)
 
       ! l = 3, m = 3
         tensor(3,3) = (vzkp-vzkm)/dhz
-     .               + vzz*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian3(1,3)
-     .               - vyy*hessian3(2,3)
-     .               - vzz*hessian3(3,3)
+
+      ! Add geometric source
+
+        tensor = tensor - tsrc
 
 c     End program
+
+      contains
+
+c     nabla_v_src
+c     #############################################################
+      function nabla_v_src(i,j,k) result(tensor)
+
+c     -------------------------------------------------------------
+c     Finds geometric source of tensor nabla(v) at cell (i,j,k)
+c     -------------------------------------------------------------
+
+        implicit none
+
+        integer(4) :: i,j,k
+        real(8)    :: tensor(3,3)
+
+        real(8)    :: hessian(3,3,3)
+     .               ,vxx,vyy,vzz
+
+c     Begin program
+
+        vxx = ax(i,j,k)
+        vyy = ay(i,j,k)
+        vzz = az(i,j,k)
+
+        hessian = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+
+        tensor(1,1) =  vxx*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx *hessian(1,1,1)
+     .               - vyy *hessian(1,2,1)
+     .               - vzz *hessian(1,3,1)
+
+      ! l = 1, m = 2
+        tensor(1,2) =  vyy*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx* hessian(2,1,1)
+     .               - vyy* hessian(2,2,1)
+     .               - vzz* hessian(2,3,1)
+
+      ! l = 1, m = 3
+        tensor(1,3) =  vzz*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx* hessian(3,1,1)
+     .               - vyy* hessian(3,2,1)
+     .               - vzz* hessian(3,3,1)
+
+      ! l = 2, m = 1
+        tensor(2,1) =  vxx*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(1,1,2)
+     .               - vyy* hessian(1,2,2)
+     .               - vzz* hessian(1,3,2)
+
+      ! l = 2, m = 2
+        tensor(2,2) =  vyy*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(2,1,2)
+     .               - vyy* hessian(2,2,2)
+     .               - vzz* hessian(2,3,2)
+
+      ! l = 2, m = 3
+        tensor(2,3) =  vzz*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(3,1,2)
+     .               - vyy* hessian(3,2,2)
+     .               - vzz* hessian(3,3,2)
+
+      ! l = 3, m = 1
+        tensor(3,1) =  vxx*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(1,1,3)
+     .               - vyy* hessian(1,2,3)
+     .               - vzz* hessian(1,3,3)
+
+      ! l = 3, m = 2
+        tensor(3,2) =  vyy*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(2,1,3)
+     .               - vyy* hessian(2,2,3)
+     .               - vzz* hessian(2,3,3)
+
+      ! l = 3, m = 3
+        tensor(3,3) =  vzz*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(3,1,3)
+     .               - vyy* hessian(3,2,3)
+     .               - vzz* hessian(3,3,3)
+
+c     End program
+
+      end function nabla_v_src
 
       end function fnabla_v
 
@@ -1747,7 +1728,7 @@ c     Local variables
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
      .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
-        real(8)    :: hessian1(3,3),hessian2(3,3),hessian3(3,3)
+        real(8)    :: hessian(3,3,3)
         logical    :: sing_point,cartsn
 
 c     Begin program
@@ -1764,16 +1745,13 @@ c     Defaults
         kp = k+1
         km = k-1
 
-        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0
-     .                     ,cartsn)
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
         dhx = 2.*dxh(ig)
         dhy = 2.*dyh(jg)
         dhz = 2.*dzh(kg)
 
-        hessian1 = hessian(1,x0,y0,z0,cartsn)
-        hessian2 = hessian(2,x0,y0,z0,cartsn)
-        hessian3 = hessian(3,x0,y0,z0,cartsn)
+        hessian = -gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
 
 c     Exceptions
 
@@ -1841,84 +1819,84 @@ c     Calculate nabla_v tensor
 
       ! l = 1, m = 1
         tensor(1,1) = (vxip-vxim)/dhx
-     .               + vxx*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian1(1,1)
-     .               - vyy*hessian1(2,1)
-     .               - vzz*hessian1(3,1)
+     .               + vxx*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx* hessian(1,1,1)
+     .               - vyy* hessian(1,2,1)
+     .               - vzz* hessian(1,3,1)
 
       ! l = 1, m = 2
         tensor(1,2) = (vyip-vyim)/dhx
-     .               + vyy*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian2(1,1)
-     .               - vyy*hessian2(2,1)
-     .               - vzz*hessian2(3,1)
+     .               + vyy*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx* hessian(2,1,1)
+     .               - vyy* hessian(2,2,1)
+     .               - vzz* hessian(2,3,1)
 
       ! l = 1, m = 3
         tensor(1,3) = (vzip-vzim)/dhx
-     .               + vzz*(hessian1(1,1)
-     .                    + hessian2(2,1)
-     .                    + hessian3(3,1))
-     .               - vxx*hessian3(1,1)
-     .               - vyy*hessian3(2,1)
-     .               - vzz*hessian3(3,1)
+     .               + vzz*(hessian(1,1,1)
+     .                    + hessian(2,2,1)
+     .                    + hessian(3,3,1))
+     .               - vxx* hessian(3,1,1)
+     .               - vyy* hessian(3,2,1)
+     .               - vzz* hessian(3,3,1)
 
       ! l = 2, m = 1
         tensor(2,1) = (vxjp-vxjm)/dhy
-     .               + vxx*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian1(1,2)
-     .               - vyy*hessian1(2,2)
-     .               - vzz*hessian1(3,2)
+     .               + vxx*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(1,1,2)
+     .               - vyy* hessian(1,2,2)
+     .               - vzz* hessian(1,3,2)
 
       ! l = 2, m = 2
         tensor(2,2) = (vyjp-vyjm)/dhy
-     .               + vyy*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian2(1,2)
-     .               - vyy*hessian2(2,2)
-     .               - vzz*hessian2(3,2)
+     .               + vyy*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(2,1,2)
+     .               - vyy* hessian(2,2,2)
+     .               - vzz* hessian(2,3,2)
 
       ! l = 2, m = 3
         tensor(2,3) = (vzjp-vzjm)/dhy
-     .               + vzz*(hessian1(1,2)
-     .                    + hessian2(2,2)
-     .                    + hessian3(3,2))
-     .               - vxx*hessian3(1,2)
-     .               - vyy*hessian3(2,2)
-     .               - vzz*hessian3(3,2)
+     .               + vzz*(hessian(1,1,2)
+     .                    + hessian(2,2,2)
+     .                    + hessian(3,3,2))
+     .               - vxx* hessian(3,1,2)
+     .               - vyy* hessian(3,2,2)
+     .               - vzz* hessian(3,3,2)
 
       ! l = 3, m = 1
         tensor(3,1) = (vxkp-vxkm)/dhz
-     .               + vxx*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian1(1,3)
-     .               - vyy*hessian1(2,3)
-     .               - vzz*hessian1(3,3)
+     .               + vxx*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(1,1,3)
+     .               - vyy* hessian(1,2,3)
+     .               - vzz* hessian(1,3,3)
 
       ! l = 3, m = 2
         tensor(3,2) = (vykp-vykm)/dhz
-     .               + vyy*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian2(1,3)
-     .               - vyy*hessian2(2,3)
-     .               - vzz*hessian2(3,3)
+     .               + vyy*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(2,1,3)
+     .               - vyy* hessian(2,2,3)
+     .               - vzz* hessian(2,3,3)
 
       ! l = 3, m = 3
         tensor(3,3) = (vzkp-vzkm)/dhz
-     .               + vzz*(hessian1(1,3)
-     .                    + hessian2(2,3)
-     .                    + hessian3(3,3))
-     .               - vxx*hessian3(1,3)
-     .               - vyy*hessian3(2,3)
-     .               - vzz*hessian3(3,3)
+     .               + vzz*(hessian(1,1,3)
+     .                    + hessian(2,2,3)
+     .                    + hessian(3,3,3))
+     .               - vxx* hessian(3,1,3)
+     .               - vyy* hessian(3,2,3)
+     .               - vzz* hessian(3,3,3)
 
 c     End program
 
@@ -2168,478 +2146,6 @@ cc      end function joule_jpkp
 cc
 cc      end function jouleHeating
 
-ccc     fnabla_v
-ccc     #############################################################
-cc      function fnabla_v(i,j,k,x,y,z,half_elem) result(tensor)
-ccc     -------------------------------------------------------------
-ccc     Calculates the tensor nabla(vec v) at the following positions:
-ccc       + half_elem /= 1,2,3 => i,j,k
-ccc       + half_elem=1 --> i+1/2,j,k
-ccc       + half_elem=2 --> i,j+1/2,k
-ccc       + half_elem=3 --> i,j,k+1/2
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,half_elem
-cc        real(8)    :: tensor(3,3),x,y,z
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
-cc        real(8)    :: jx,jy,jz
-cc        real(8)    :: dhx,dhy,dhz,vxx,vyy,vzz
-cc
-ccc     Begin program
-cc
-cc        !Defaults
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        dhx = 2.*dxh(ig)
-cc        dhy = 2.*dyh(jg)
-cc        dhz = 2.*dzh(kg)
-cc
-cc        vxx = vx(i,j,k)
-cc        vyy = vy(i,j,k)
-cc        vzz = vz(i,j,k)
-cc
-cc        ip = i+1
-cc        im = i-1
-cc        jp = j+1
-cc        jm = j-1
-cc        kp = k+1
-cc        km = k-1
-cc
-cc        !Exceptions
-cc
-cc        select case(half_elem)
-cc        case (1)
-cc          dhx = dx(ig)
-cc          im  = i
-cc          vxx = 0.5*(vx(i,j,k)+vx(ip,j,k))
-cc          vyy = 0.5*(vy(i,j,k)+vy(ip,j,k))
-cc          vzz = 0.5*(vz(i,j,k)+vz(ip,j,k))
-cc        case (2)
-cc          dhy = dy(jg)
-cc          jm  = j
-cc          vxx = 0.5*(vx(i,j,k)+vx(i,jp,k))
-cc          vyy = 0.5*(vy(i,j,k)+vy(i,jp,k))
-cc          vzz = 0.5*(vz(i,j,k)+vz(i,jp,k))
-cc        case (3)
-cc          dhz = dz(kg)
-cc          km  = k
-cc          vxx = 0.5*(vx(i,j,k)+vx(i,j,kp))
-cc          vyy = 0.5*(vy(i,j,k)+vy(i,j,kp))
-cc          vzz = 0.5*(vz(i,j,k)+vz(i,j,kp))
-cc        end select
-cc
-ccc     !Calculate nabla_v tensor
-cc
-cc        hessian1 = hessian(1,x,y,z,cartesian)
-cc        hessian2 = hessian(2,x,y,z,cartesian)
-cc        hessian3 = hessian(3,x,y,z,cartesian)
-cc
-cc      ! l = 1, m = 1
-cc        if (sing_point .and. half_elem /= 1) then
-cc          tensor(1,1) = (vx(ip,j,k)+vx(i,j,k)-2.*vx(im,j,k))/dhx
-cc     .                 + vxx*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian1(1,1)
-cc     .                 - vyy*hessian1(2,1)
-cc     .                 - vzz*hessian1(3,1)
-cc        else
-cc          tensor(1,1) = (vx(ip,j,k)-vx(im,j,k))/dhx
-cc     .                 + vxx*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian1(1,1)
-cc     .                 - vyy*hessian1(2,1)
-cc     .                 - vzz*hessian1(3,1)
-cc        endif
-cc
-cc      ! l = 1, m = 2
-cc        if (sing_point .and. half_elem /= 1) then
-cc          tensor(1,2) = (vy(ip,j,k)+vy(i,j,k)-2.*vy(im,j,k))/dhx
-cc     .                 + vyy*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian2(1,1)
-cc     .                 - vyy*hessian2(2,1)
-cc     .                 - vzz*hessian2(3,1)
-cc
-cc        else
-cc          tensor(1,2) = (vy(ip,j,k)-vy(im,j,k))/dhx
-cc     .                 + vyy*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian2(1,1)
-cc     .                 - vyy*hessian2(2,1)
-cc     .                 - vzz*hessian2(3,1)
-cc        endif
-cc
-cc      ! l = 1, m = 3
-cc        if (sing_point .and. half_elem /= 1) then
-cc          tensor(1,3) = (vz(ip,j,k)+vz(i,j,k)-2.*vz(im,j,k))/dhx
-cc     .                 + vzz*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian3(1,1)
-cc     .                 - vyy*hessian3(2,1)
-cc     .                 - vzz*hessian3(3,1)
-cc        else
-cc          tensor(1,3) = (vz(ip,j,k)-vz(im,j,k))/dhx
-cc     .                 + vzz*(hessian1(1,1)
-cc     .                      + hessian2(2,1)
-cc     .                      + hessian3(3,1))
-cc     .                 - vxx*hessian3(1,1)
-cc     .                 - vyy*hessian3(2,1)
-cc     .                 - vzz*hessian3(3,1)
-cc        endif
-cc
-cc      ! l = 2, m = 1
-cc        tensor(2,1) = (vx(i,jp,k)-vx(i,jm,k))/dhy
-cc     .               + vxx*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian1(1,2)
-cc     .               - vyy*hessian1(2,2)
-cc     .               - vzz*hessian1(3,2)
-cc
-cc      ! l = 2, m = 2
-cc        tensor(2,2) = (vy(i,jp,k)-vy(i,jm,k))/dhy
-cc     .               + vyy*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian2(1,2)
-cc     .               - vyy*hessian2(2,2)
-cc     .               - vzz*hessian2(3,2)
-cc
-cc      ! l = 2, m = 3
-cc        tensor(2,3) = (vz(i,jp,k)-vz(i,jm,k))/dhy
-cc     .               + vzz*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian3(1,2)
-cc     .               - vyy*hessian3(2,2)
-cc     .               - vzz*hessian3(3,2)
-cc
-cc      ! l = 3, m = 1
-cc        tensor(3,1) = (vx(i,j,kp)-vx(i,j,km))/dhz
-cc     .               + vxx*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian1(1,3)
-cc     .               - vyy*hessian1(2,3)
-cc     .               - vzz*hessian1(3,3)
-cc
-cc      ! l = 3, m = 2
-cc        tensor(3,2) = (vy(i,j,kp)-vy(i,j,km))/dhz
-cc     .               + vyy*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian2(1,3)
-cc     .               - vyy*hessian2(2,3)
-cc     .               - vzz*hessian2(3,3)
-cc
-cc      ! l = 3, m = 3
-cc        tensor(3,3) = (vz(i,j,kp)-vz(i,j,km))/dhz
-cc     .               + vzz*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian3(1,3)
-cc     .               - vyy*hessian3(2,3)
-cc     .               - vzz*hessian3(3,3)
-cc
-ccc     End program
-cc
-cc      end function fnabla_v
-
-ccc     fnabla_v
-ccc     #############################################################
-cc      function fnabla_v(i,j,k,x,y,z,half_elem) result(tensor)
-ccc     -------------------------------------------------------------
-ccc     Calculates the tensor nabla(vec v) at the following positions:
-ccc       + half_elem /= 1,2,3 => i,j,k
-ccc       + half_elem=1 --> i+1/2,j,k
-ccc       + half_elem=2 --> i,j+1/2,k
-ccc       + half_elem=3 --> i,j,k+1/2
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,half_elem
-cc        real(8)    :: tensor(3,3),x,y,z
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
-cc        real(8)    :: dhx,dhy,dhz
-cc        real(8)    :: vxx,vyy,vzz
-cc     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
-cc     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
-cc     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
-cc
-ccc     Begin program
-cc
-cc        !Defaults
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        dhx = 2.*dxh(ig)
-cc        dhy = 2.*dyh(jg)
-cc        dhz = 2.*dzh(kg)
-cc
-cc        ip = i+1
-cc        im = i-1
-cc        jp = j+1
-cc        jm = j-1
-cc        kp = k+1
-cc        km = k-1
-cc
-cc        !Exceptions
-cc
-cc        select case(half_elem)
-cc        case (1)
-cc          dhx = dx(ig)
-cc
-cc          vxx = 0.5*(vx(i,j,k)+vx(ip,j,k))
-cc          vyy = 0.5*(vy(i,j,k)+vy(ip,j,k))
-cc          vzz = 0.5*(vz(i,j,k)+vz(ip,j,k))
-cc
-cc          vxip = vx(ip,j,k)
-cc          vxim = vx(i ,j,k)
-cc          vyip = vy(ip,j,k)
-cc          vyim = vy(i ,j,k)
-cc          vzip = vz(ip,j,k)
-cc          vzim = vz(i ,j,k)
-cc
-cc          vxjp = (vx(ip,jp,k)+vx(i,jp,k))/2.
-cc          vxjm = (vx(ip,jm,k)+vx(i,jm,k))/2.
-cc          vyjp = (vy(ip,jp,k)+vy(i,jp,k))/2.
-cc          vyjm = (vy(ip,jm,k)+vy(i,jm,k))/2.
-cc          vzjp = (vz(ip,jp,k)+vz(i,jp,k))/2.
-cc          vzjm = (vz(ip,jm,k)+vz(i,jm,k))/2.
-cc
-cc          vxkp = (vx(ip,j,kp)+vx(i,j,kp))/2.
-cc          vxkm = (vx(ip,j,km)+vx(i,j,km))/2.
-cc          vykp = (vy(ip,j,kp)+vy(i,j,kp))/2.
-cc          vykm = (vy(ip,j,km)+vy(i,j,km))/2.
-cc          vzkp = (vz(ip,j,kp)+vz(i,j,kp))/2.
-cc          vzkm = (vz(ip,j,km)+vz(i,j,km))/2.
-cc        case (2)
-cc          dhy = dy(jg)
-cc
-cc          vxx = 0.5*(vx(i,j,k)+vx(i,jp,k))
-cc          vyy = 0.5*(vy(i,j,k)+vy(i,jp,k))
-cc          vzz = 0.5*(vz(i,j,k)+vz(i,jp,k))
-cc
-cc          if (sing_point) then
-cc            vxip = (vx(ip,j,k)+vx(ip,jp,k))/2.
-cc     .            +(vx(i ,j,k)+vx(i ,jp,k))/2.
-cc            vxim = (vx(im,j,k)+vx(im,jp,k))
-cc            vyip = (vy(ip,j,k)+vy(ip,jp,k))/2.
-cc     .            +(vy(i ,j,k)+vy(i ,jp,k))/2.
-cc            vyim = (vy(im,j,k)+vy(im,jp,k))
-cc            vzip = (vz(ip,j,k)+vz(ip,jp,k))/2
-cc     .            +(vz(i ,j,k)+vz(i ,jp,k))/2.
-cc            vzim = (vz(im,j,k)+vz(im,jp,k))
-cc          else
-cc            vxip = (vx(ip,j,k)+vx(ip,jp,k))/2.
-cc            vxim = (vx(im,j,k)+vx(im,jp,k))/2.
-cc            vyip = (vy(ip,j,k)+vy(ip,jp,k))/2.
-cc            vyim = (vy(im,j,k)+vy(im,jp,k))/2.
-cc            vzip = (vz(ip,j,k)+vz(ip,jp,k))/2.
-cc            vzim = (vz(im,j,k)+vz(im,jp,k))/2.
-cc          endif
-cc
-cc	  vxjp = vx(i,jp,k)
-cc	  vxjm = vx(i,j ,k)
-cc	  vyjp = vy(i,jp,k)
-cc	  vyjm = vy(i,j ,k)
-cc	  vzjp = vz(i,jp,k)
-cc	  vzjm = vz(i,j ,k)
-cc
-cc          vxkp = (vx(i,j,kp)+vx(i,jp,kp))/2.
-cc          vxkm = (vx(i,j,km)+vx(i,jp,km))/2.
-cc          vykp = (vy(i,j,kp)+vy(i,jp,kp))/2.
-cc          vykm = (vy(i,j,km)+vy(i,jp,km))/2.
-cc          vzkp = (vz(i,j,kp)+vz(i,jp,kp))/2.
-cc          vzkm = (vz(i,j,km)+vz(i,jp,km))/2.
-cc        case (3)
-cc          dhz = dz(kg)
-cc
-cc          vxx = 0.5*(vx(i,j,k)+vx(i,j,kp))
-cc          vyy = 0.5*(vy(i,j,k)+vy(i,j,kp))
-cc          vzz = 0.5*(vz(i,j,k)+vz(i,j,kp))
-cc
-cc          if (sing_point) then
-cc            vxip = (vx(ip,j,k)+vx(ip,j,kp))/2.
-cc     .            +(vx(i ,j,k)+vx(i ,j,kp))/2.
-cc            vxim = (vx(im,j,k)+vx(im,j,kp))
-cc            vyip = (vy(ip,j,k)+vy(ip,j,kp))/2.
-cc     .            +(vy(i ,j,k)+vy(i ,j,kp))/2.
-cc            vyim = (vy(im,j,k)+vy(im,j,kp))
-cc            vzip = (vz(ip,j,k)+vz(ip,j,kp))/2.
-cc     .            +(vz(i ,j,k)+vz(i ,j,kp))/2.
-cc            vzim = (vz(im,j,k)+vz(im,j,kp))
-cc          else
-cc            vxip = (vx(ip,j,k)+vx(ip,j,kp))/2.
-cc            vxim = (vx(im,j,k)+vx(im,j,kp))/2.
-cc            vyip = (vy(ip,j,k)+vy(ip,j,kp))/2.
-cc            vyim = (vy(im,j,k)+vy(im,j,kp))/2.
-cc            vzip = (vz(ip,j,k)+vz(ip,j,kp))/2.
-cc            vzim = (vz(im,j,k)+vz(im,j,kp))/2.
-cc          endif
-cc
-cc          vxjp = (vx(i,jp,k)+vx(i,jp,kp))/2.
-cc          vxjm = (vx(i,jm,k)+vx(i,jm,kp))/2.
-cc          vyjp = (vy(i,jp,k)+vy(i,jp,kp))/2.
-cc          vyjm = (vy(i,jm,k)+vy(i,jm,kp))/2.
-cc          vzjp = (vz(i,jp,k)+vz(i,jp,kp))/2.
-cc          vzjm = (vz(i,jm,k)+vz(i,jm,kp))/2.
-cc
-cc	  vxkp = vx(i,j,kp)
-cc	  vxkm = vx(i,j,k )
-cc	  vykp = vy(i,j,kp)
-cc	  vykm = vy(i,j,k )
-cc	  vzkp = vz(i,j,kp)
-cc	  vzkm = vz(i,j,k )
-cc
-cc        case default
-cc
-cc          vxx = vx(i,j,k)
-cc          vyy = vy(i,j,k)
-cc          vzz = vz(i,j,k)
-cc
-cc          if (sing_point) then
-cc            vxip = vx(ip,j,k)+vx(i,j,k)
-cc            vxim = 2.*vx(i ,j,k)
-cc            vyip = vy(ip,j,k)+vy(i,j,k)
-cc            vyim = 2.*vy(im,j,k)
-cc            vzip = vz(ip,j,k)+vz(i,j,k)
-cc            vzim = 2.*vz(im,j,k)
-cc          else
-cc            vxip = vx(ip,j,k)
-cc            vxim = vx(im,j,k)
-cc            vyip = vy(ip,j,k)
-cc            vyim = vy(im,j,k)
-cc            vzip = vz(ip,j,k)
-cc            vzim = vz(im,j,k)
-cc          endif
-cc
-cc	  vxjp = vx(i,jp,k)
-cc	  vxjm = vx(i,jm,k)
-cc	  vyjp = vy(i,jp,k)
-cc	  vyjm = vy(i,jm,k)
-cc	  vzjp = vz(i,jp,k)
-cc	  vzjm = vz(i,jm,k)
-cc
-cc	  vxkp = vx(i,j,kp)
-cc	  vxkm = vx(i,j,km)
-cc	  vykp = vy(i,j,kp)
-cc	  vykm = vy(i,j,km)
-cc	  vzkp = vz(i,j,kp)
-cc	  vzkm = vz(i,j,km)
-cc
-cc        end select
-cc
-ccc     !Calculate nabla_v tensor
-cc
-cc        hessian1 = hessian(1,x,y,z,cartesian)
-cc        hessian2 = hessian(2,x,y,z,cartesian)
-cc        hessian3 = hessian(3,x,y,z,cartesian)
-cc
-cc      ! l = 1, m = 1
-cc        tensor(1,1) = (vxip-vxim)/dhx
-cc     .               + vxx*(hessian1(1,1)
-cc     .                    + hessian2(2,1)
-cc     .                    + hessian3(3,1))
-cc     .               - vxx*hessian1(1,1)
-cc     .               - vyy*hessian1(2,1)
-cc     .               - vzz*hessian1(3,1)
-cc
-cc      ! l = 1, m = 2
-cc        tensor(1,2) = (vyip-vyim)/dhx
-cc     .               + vyy*(hessian1(1,1)
-cc     .                    + hessian2(2,1)
-cc     .                    + hessian3(3,1))
-cc     .               - vxx*hessian2(1,1)
-cc     .               - vyy*hessian2(2,1)
-cc     .               - vzz*hessian2(3,1)
-cc
-cc      ! l = 1, m = 3
-cc        tensor(1,3) = (vzip-vzim)/dhx
-cc     .               + vzz*(hessian1(1,1)
-cc     .                    + hessian2(2,1)
-cc     .                    + hessian3(3,1))
-cc     .               - vxx*hessian3(1,1)
-cc     .               - vyy*hessian3(2,1)
-cc     .               - vzz*hessian3(3,1)
-cc
-cc      ! l = 2, m = 1
-cc        tensor(2,1) = (vxjp-vxjm)/dhy
-cc     .               + vxx*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian1(1,2)
-cc     .               - vyy*hessian1(2,2)
-cc     .               - vzz*hessian1(3,2)
-cc
-cc      ! l = 2, m = 2
-cc        tensor(2,2) = (vyjp-vyjm)/dhy
-cc     .               + vyy*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian2(1,2)
-cc     .               - vyy*hessian2(2,2)
-cc     .               - vzz*hessian2(3,2)
-cc
-cc      ! l = 2, m = 3
-cc        tensor(2,3) = (vzjp-vzjm)/dhy
-cc     .               + vzz*(hessian1(1,2)
-cc     .                    + hessian2(2,2)
-cc     .                    + hessian3(3,2))
-cc     .               - vxx*hessian3(1,2)
-cc     .               - vyy*hessian3(2,2)
-cc     .               - vzz*hessian3(3,2)
-cc
-cc      ! l = 3, m = 1
-cc        tensor(3,1) = (vxkp-vxkm)/dhz
-cc     .               + vxx*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian1(1,3)
-cc     .               - vyy*hessian1(2,3)
-cc     .               - vzz*hessian1(3,3)
-cc
-cc      ! l = 3, m = 2
-cc        tensor(3,2) = (vykp-vykm)/dhz
-cc     .               + vyy*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian2(1,3)
-cc     .               - vyy*hessian2(2,3)
-cc     .               - vzz*hessian2(3,3)
-cc
-cc      ! l = 3, m = 3
-cc        tensor(3,3) = (vzkp-vzkm)/dhz
-cc     .               + vzz*(hessian1(1,3)
-cc     .                    + hessian2(2,3)
-cc     .                    + hessian3(3,3))
-cc     .               - vxx*hessian3(1,3)
-cc     .               - vyy*hessian3(2,3)
-cc     .               - vzz*hessian3(3,3)
-cc
-ccc     End program
-cc
-cc      end function fnabla_v
-
 c     vtensor_x
 c     #############################################################
       subroutine vtensor_x(i,j,k,t11,t12,t13,flag)
@@ -2663,63 +2169,32 @@ c     Local variables
 c     Begin program
 
         ip = i+1
+        if (flag == 0 .or. (.not.alt_eom .and. sing_point) ) ip = i
 
-        if (flag == 0) then
-          ip = i
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xip+x0)/2.
-          y = (yip+y0)/2.
-          z = (zip+z0)/2.
-        else
-          if (.not.alt_eom .and. sing_point) then
-            ip = i
-            x = xim
-            y = yim
-            z = zim
-          else
-            x = (xim+x0)/2.
-            y = (yim+y0)/2.
-            z = (zim+z0)/2.
-          endif
-        endif
+        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
+     .               +gmetric%grid(igx)%jac (i ,j,k))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
+     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 
-        jac    = jacobian(x,y,z,cartesian)
-
-        gsuper = g_super (x,y,z,cartesian)
-
-cc        if (i == 1 .and. bcond(1) == SP .and. flag == 1) then
-cc          jacp = jacobian(xip,yip,zip,cartesian)
-cc          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
-cc        elseif (i == 2 .and. bcond(1) == SP .and. flag == -1) then
-cc          jacp = jacobian(x0 ,y0 ,z0 ,cartesian)
-cc          jac0 = jacobian(xim,yim,zim,cartesian)
-cc        else
-cc          jacp = jac
-cc          jac0 = jac
-cc        endif
-        if (i < nx .and. bcond(1) == SP .and. flag == 1) then
-          jacp = jacobian(xip,yip,zip,cartesian)
-          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
-        elseif (i < nx .and. bcond(1) == SP .and. flag == -1) then
-          jacp = jacobian(x0 ,y0 ,z0 ,cartesian)
-          jac0 = jacobian(xim,yim,zim,cartesian)
+        if (i < nx .and. bcond(1) == SP .and. flag /= 0) then
+          jacp = gmetric%grid(igx)%jac(ip,j,k)
+          jac0 = gmetric%grid(igx)%jac(i ,j,k)
         else
           jacp = jac
           jac0 = jac
         endif
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,1)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT
         ptot = jac*(rho(ip,j,k)*tmp(ip,j,k)
      .             +rho(i ,j,k)*tmp(i ,j,k))
+cc        ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
+cc     .             +rho(i ,j,k)*tmp(ip,j,k))
      .       +jac*(bx(ip,j,k)*bx_cov(i ,j,k)/jacp
      .            +bx(i ,j,k)*bx_cov(ip,j,k)/jac0
      .            +by(ip,j,k)*by_cov(i ,j,k)/jac0
@@ -2801,30 +2276,17 @@ c     Local variables
 c     Begin program
 
         jp = j+1
+        if (flag == 0) jp = j
 
-        if (flag == 0) then
-          jp = j
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xjp+x0)/2.
-          y = (yjp+y0)/2.
-          z = (zjp+z0)/2.
-        else
-          x = (xjm+x0)/2.
-          y = (yjm+y0)/2.
-          z = (zjm+z0)/2.
-        endif
-
-        gsuper = g_super (x,y,z,cartesian)
-
-        jac    = jacobian(x,y,z,cartesian)
+        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
+     .               +gmetric%grid(igx)%jac (i,j ,k))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
+     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,2)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT
@@ -2902,30 +2364,17 @@ c     Local variables
 c     Begin program
 
         kp=k+1
+        if (flag == 0) kp = k
 
-        if (flag == 0) then
-          kp = k
-          x = x0
-          y = y0
-          z = z0
-        elseif (flag == 1) then
-          x = (xkp+x0)/2.
-          y = (ykp+y0)/2.
-          z = (zkp+z0)/2.
-        else
-          x = (xkm+x0)/2.
-          y = (ykm+y0)/2.
-          z = (zkm+z0)/2.
-        endif
-
-        gsuper = g_super (x,y,z,cartesian)
-
-        jac    = jacobian(x,y,z,cartesian)
+        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
+     .               +gmetric%grid(igx)%jac (i,j,k ))
+        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
+     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,3)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,x,y,z,vx,vy,vz,cartesian,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT
