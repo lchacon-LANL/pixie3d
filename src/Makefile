@@ -131,7 +131,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):  modules.f $(DRIVERDIR)/3d_driver_mod.f $(DRIVERDIR)/graphics_mod.f
+$(OBJS):  modules.f $(DRIVERDIR)/3d_driver_mod.f $(DRIVERDIR)/graphics_mod.f $(DRIVERDIR)/grid_mod.f
 
 #Define patterns
 

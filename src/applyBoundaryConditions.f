@@ -194,7 +194,7 @@ c Fill ghost nodes
               if (varray%array_var(ieq)%bconds(ibc) == bctype) then
                 call FillGhostNodes(ieq,dim,loc,bctype
      .                             ,varray%array_var(ieq)%array
-     .                             ,u_n   %array_var(ieq)%array)
+     .                             ,u_0   %array_var(ieq)%array)
               endif
             enddo
           enddo
@@ -500,11 +500,15 @@ c Call variables
 c Local variables
 
       integer(4) :: neq,ibc
-      integer(4) :: ig,jg,kg
+      integer(4) :: i,j,k,ig,jg,kg
+
+      logical    :: quadratic
 
       real(8),allocatable,dimension(:,:) :: rhs
 
 c Begin program
+
+      quadratic = .false.
 
       ibc = (1+loc)+2*(dim-1)
 
@@ -520,7 +524,17 @@ c     X0
       case(SP)
         call singularBC(array(1,:,:))
       case(DIR)
-        array(0,:,:) = array0(0,:,:)
+cc        array(0,:,:) = array0(0,:,:)
+        i = 0
+        do j=0,ny+1
+          do k=0,nz+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(xx(ig)+dxh(ig),xx(ig+1),xx(ig+2)
+     .                     ,array0(i,j,k),array(i+1,j,k),array(i+2,j,k)
+     .                     ,xx(ig),quadratic )
+          enddo
+        enddo
+
       case(NEU)
 cc        array(0,:,:) = array(1,:,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -540,7 +554,18 @@ c     X1
       case(PER)
         array(nx+1,:,:) = array(1,:,:)
       case(DIR)
-        array(nx+1,:,:) = array0(nx+1,:,:)
+cc        array(nx+1,:,:) = array0(nx+1,:,:)
+
+        i = nx+1
+        do j=0,ny+1
+          do k=0,nz+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(xx(ig)-dxh(ig),xx(ig-1),xx(ig-2)
+     .                     ,array0(i,j,k),array(i-1,j,k),array(i-2,j,k)
+     .                     ,xx(ig),quadratic )
+          enddo
+        enddo
+
       case(NEU)
 cc        array(nx+1,:,:) = array(nx,:,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -560,7 +585,16 @@ c     Y0
       case(PER)
         array(:,0,:) = array(:,ny,:)
       case(DIR)
-        array(:,0,:) = array0(:,0,:)
+cc        array(:,0,:) = array0(:,0,:)
+        j = 0
+        do i=0,nx+1
+          do k=0,nz+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(yy(jg)+dyh(jg),yy(jg+1),yy(jg+2)
+     .                     ,array0(i,j,k),array(i,j+1,k),array(i,j+2,k)
+     .                     ,yy(jg),quadratic )
+          enddo
+        enddo
       case(NEU)
 cc        array(:,0,:) = array(:,1,:)        !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -580,7 +614,16 @@ c     Y1
       case(PER)
         array(:,ny+1,:) = array(:,1,:)
       case(DIR)
-        array(:,ny+1,:) = array0(:,ny+1,:)
+cc        array(:,ny+1,:) = array0(:,ny+1,:)
+        j = ny+1
+        do i=0,nx+1
+          do k=0,nz+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(yy(jg)-dyh(jg),yy(jg-1),yy(jg-2)
+     .                     ,array0(i,j,k),array(i,j-1,k),array(i,j-2,k)
+     .                     ,yy(jg),quadratic )
+          enddo
+        enddo
       case(NEU)
 cc        array(:,ny+1,:) = array(:,ny,:)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -600,7 +643,16 @@ c     Z0
       case(PER)
         array(:,:,0) = array(:,:,nz)
       case(DIR)
-        array(:,:,0) = array0(:,:,0)
+cc        array(:,:,0) = array0(:,:,0)
+        k = 0
+        do i=0,nx+1
+          do j=0,ny+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(zz(kg)+dzh(kg),zz(kg+1),zz(kg+2)
+     .                     ,array0(i,j,k),array(i,j,k+1),array(i,j,k+2)
+     .                     ,zz(kg),quadratic )
+          enddo
+        enddo
       case(NEU)
 cc        array(:,:,0) = array(:,:,1)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -620,7 +672,16 @@ c     Z1
       case(PER)
         array(:,:,nz+1) = array(:,:,1)
       case(DIR)
-        array(:,:,nz+1) = array0(:,:,nz+1)
+cc        array(:,:,nz+1) = array0(:,:,nz+1)
+        k = nz+1
+        do i=0,nx+1
+          do j=0,ny+1
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            array(i,j,k) = quad_int(zz(kg)-dzh(kg),zz(kg-1),zz(kg-2)
+     .                     ,array0(i,j,k),array(i,j,k-1),array(i,j,k-2)
+     .                     ,zz(kg),quadratic )
+          enddo
+        enddo
       case(NEU)
 cc        array(:,:,nz+1) = array(:,:,nz)         !Required for proper initialization
         call neumannBC(ieq,dim,loc)
@@ -637,6 +698,37 @@ c2nd        array(:,:,nz+1) = array(:,:,nz-1) + rhs(:,:)
 c End
 
       contains
+
+c     quad_int
+c     #################################################################
+      real(8) function quad_int(x0,x1,x2,y0,y1,y2,x,quadratic) result(y)
+c     -----------------------------------------------------------------
+c     Quadratic interpolation (extrapolation).
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: x0,x1,x2,y0,y1,y2,x
+      logical    :: quadratic
+
+c     Local variables
+
+c     Begin program
+
+      if (quadratic) then
+        y = y0*(x-x1)*(x-x2)/(x0-x1)/(x0-x2)
+     .     +y1*(x-x0)*(x-x2)/(x1-x0)/(x1-x2)
+     .     +y2*(x-x0)*(x-x1)/(x2-x0)/(x2-x1)
+      else
+        y = y0*(x-x1)/(x0-x1)
+     .     +y1*(x-x0)/(x1-x0)
+      endif
+
+c     End program
+
+      end function quad_int
 
 c     singularBC
 c     #################################################################
@@ -1048,15 +1140,15 @@ c Begin program
         endif
       endif
 
-cc      if (j == ny) then
-cc        if (bcond(4) == NEU) then
-cc          flxjp = 0d0
-cc        endif
-cc      elseif (j == 1) then
-cc        if (bcond(3) == NEU) then
-cc          flxjm = 0d0
-cc        endif
-cc      endif
+      if (j == ny) then
+        if (bcond(4) == NEU) then
+          flxjp = 0d0
+        endif
+      elseif (j == 1) then
+        if (bcond(3) == NEU) then
+          flxjm = 0d0
+        endif
+      endif
 
       if (k == nz) then
         if (bcond(6) == NEU) then

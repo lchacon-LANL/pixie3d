@@ -24,14 +24,14 @@ c Local variables
 
 c Begin program
 
-cc      do ieq = 1,neqd
-cc        array_graph(ieq)%array => u_np%array_var(ieq)%array
-cc        array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
-cc      enddo
       do ieq = 1,neqd
-        array_graph(ieq)%array => utmp%array_var(ieq)%array
-        array_graph(ieq)%descr =  utmp%array_var(ieq)%descr
+        array_graph(ieq)%array => u_np%array_var(ieq)%array
+        array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
       enddo
+cc      do ieq = 1,neqd
+cc        array_graph(ieq)%array => utmp%array_var(ieq)%array
+cc        array_graph(ieq)%descr =  utmp%array_var(ieq)%descr
+cc      enddo
 
       array_graph(neqd+1)%array => jx
       array_graph(neqd+1)%descr = 'Jx'

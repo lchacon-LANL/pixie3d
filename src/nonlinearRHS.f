@@ -59,11 +59,16 @@ c Local variables
 
 c Begin program
 
+c     Grid parameters
+
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
       dS1 = dyh(jg)*dzh(kg)
       dS2 = dxh(ig)*dzh(kg)
       dS3 = dxh(ig)*dyh(jg)
+
+      gsub   = g_sub  (xx(ig),yy(jg),zz(kg))
+      gsuper = g_super(xx(ig),yy(jg),zz(kg))
 
       jac = jacobian(xx(ig),yy(jg),zz(kg))
 
@@ -95,17 +100,8 @@ cc      flxkm = 0.5*(vz(i,j,k-1)*rho(i,j,k) + vz(i,j,k)*rho(i,j,k-1))
       flxkp = 0.5*(rvz(i,j,k+1) + rvz(i,j,k))
       flxkm = 0.5*(rvz(i,j,k-1) + rvz(i,j,k))
 
-cc      if (.not.sing_point) then
-cc        advec = dS1*(flxip - flxim)
-cc     .        + dS2*(flxjp - flxjm)
-cc     .        + dS3*(flxkp - flxkm)
-cc      else
-cc        advec = dS1*(flxip)
-cc     .        + dS3*(flxkp - flxkm)
-cc      endif
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IRHO)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IRHO)%bconds)
 
       advec = dS1*(flxip - flxim)
      .      + dS2*(flxjp - flxjm)
@@ -226,10 +222,38 @@ cc        ff(IBZ) = jac*( dS1*( Ey_ip )  )
 
 c     Temperature
 
-      heat_flx = -chi*laplacian(i,j,k,tmp)
+cc      flxip = vx(i,j,k)*(tmp(i+1,j,k)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vx(i+1,j,k)+vx(i,j,k))/2.
+cc      flxim = vx(i,j,k)*(tmp(i-1,j,k)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vx(i-1,j,k)+vx(i,j,k))/2.
+cc
+cc      flxjp = vy(i,j,k)*(tmp(i,j+1,k)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vy(i,j+1,k)+vy(i,j,k))/2.
+cc      flxjm = vy(i,j,k)*(tmp(i,j-1,k)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vy(i,j-1,k)+vy(i,j,k))/2.
+cc
+cc      flxkp = vz(i,j,k)*(tmp(i,j,k+1)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vz(i,j,k+1)+vz(i,j,k))/2.
+cc      flxkm = vz(i,j,k)*(tmp(i,j,k-1)+tmp(i,j,k))/2.
+cc     .              +(gamma-1.)*tmp(i,j,k)*(vz(i,j,k-1)+vz(i,j,k))/2.
 
-      gsub   = g_sub  (xx(ig),yy(jg),zz(kg))
-      gsuper = g_super(xx(ig),yy(jg),zz(kg))
+      flxip = 0.5*(vx(i+1,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(i+1,j,k))
+     .              +(gamma-2.)*tmp(i,j,k)*(vx(i+1,j,k)+vx(i,j,k))/2.
+      flxim = 0.5*(vx(i-1,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(i-1,j,k))
+     .              +(gamma-2.)*tmp(i,j,k)*(vx(i-1,j,k)+vx(i,j,k))/2.
+
+      flxjp = 0.5*(vy(i,j+1,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,j+1,k))
+     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,j+1,k)+vy(i,j,k))/2.
+      flxjm = 0.5*(vy(i,j-1,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,j-1,k))
+     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,j-1,k)+vy(i,j,k))/2.
+
+      flxkp = 0.5*(vz(i,j,k+1)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,k+1))
+     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,k+1)+vz(i,j,k))/2.
+      flxkm = 0.5*(vz(i,j,k-1)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,k-1))
+     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,k-1)+vz(i,j,k))/2.
+
+      !Heat flux
+      heat_flx = -chi*laplacian(i,j,k,tmp)
 
       !Joule heating
       cnv = (/ jx(i,j,k), jy(i,j,k), jz(i,j,k) /)
@@ -237,59 +261,22 @@ c     Temperature
       joule = dxh(ig)*dyh(jg)*dzh(kg)*eeta(i,j,k)*sum(cov*cnv)
 cc      joule = jouleHeating(i,j,k)
 
-
-      flxip = vx(i,j,k)*(tmp(i+1,j,k)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vx(i+1,j,k)+vx(i,j,k))/2.
-      flxim = vx(i,j,k)*(tmp(i-1,j,k)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vx(i-1,j,k)+vx(i,j,k))/2.
-
-      flxjp = vy(i,j,k)*(tmp(i,j+1,k)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vy(i,j+1,k)+vy(i,j,k))/2.
-      flxjm = vy(i,j,k)*(tmp(i,j-1,k)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vy(i,j-1,k)+vy(i,j,k))/2.
-
-      flxkp = vz(i,j,k)*(tmp(i,j,k+1)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vz(i,j,k+1)+vz(i,j,k))/2.
-      flxkm = vz(i,j,k)*(tmp(i,j,k-1)+tmp(i,j,k))/2.
-     .              +(gamma-1.)*tmp(i,j,k)*(vz(i,j,k-1)+vz(i,j,k))/2.
-
-      if (.not.sing_point) then
-
-        !Viscous heating
-        nabla_v = fnabla_v(i,j,k,0)
-        cov_tnsr =           matmul(gsub  ,nabla_v)
-        cnv_tnsr = transpose(matmul(gsuper,nabla_v))
-        viscous = dxh(ig)*dyh(jg)*dzh(kg)
-     .           *nuu(i,j,k)/jac*sum(cov_tnsr*cnv_tnsr)
-
-        heat_src = joule/rho(i,j,k) + viscous
-
-cc        ff(ITMP) = dS1*(flxip-flxim)
-cc     .            +dS2*(flxjp-flxjm)
-cc     .            +dS3*(flxkp-flxkm)
-cc     .            +(gamma-1.)*heat_flx
-cc     .            -(gamma-1.)*heat_src
-
-      else
-
-        !Viscous heating
+      !Viscous heating
+      if (sing_point) then
         nabla_v = fnabla_v(i,j,k,1)
-        cov_tnsr =           matmul(gsub  ,nabla_v)
-        cnv_tnsr = transpose(matmul(gsuper,nabla_v))
-        viscous = dxh(ig)*dyh(jg)*dzh(kg)
-     .           *nuu(i,j,k)/jac*sum(cov_tnsr*cnv_tnsr)
-
-        heat_src = joule/rho(i,j,k) + viscous
-
-cc        ff(ITMP) = dS1*(flxip)
-cc     .            +dS3*(flxkp-flxkm)
-cc     .            +(gamma-1.)*heat_flx
-cc     .            -(gamma-1.)*heat_src
-
+      else
+        nabla_v = fnabla_v(i,j,k,0)
       endif
+      cov_tnsr =           matmul(gsub  ,nabla_v)
+      cnv_tnsr = transpose(matmul(gsuper,nabla_v))
+      viscous = dxh(ig)*dyh(jg)*dzh(kg)
+     .         *nuu(i,j,k)/jac*sum(cov_tnsr*cnv_tnsr)
 
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(ITMP)%bconds)
+      !Heat source
+      heat_src = joule/rho(i,j,k) + viscous
+
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(ITMP)%bconds)
 
       ff(ITMP) = dS1*(flxip-flxim)
      .          +dS2*(flxjp-flxjm)
@@ -310,28 +297,17 @@ c     Vx
 
       cov   = covariantVector(1,xx(ig),yy(ig),zz(ig))
 
-      if (.not.sing_point) then
-        flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-        flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
 
-        flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-        flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
 
-        flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
-      else
-        flxip = vflx_x(i,1,k,t11p,t12p,t13p,cov)
-        flxim = 0d0
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
 
-        flxjp = 0d0
-        flxjm = 0d0
-
-        flxkp = vflx_z(i,1,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,1,k-1,t31m,t32m,t33m,cov)
-      endif
-      
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVX)%bconds)
 
       ff(IVX) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
@@ -341,28 +317,17 @@ c     Vy
 
       cov   = covariantVector(2,xx(ig),yy(ig),zz(ig))
 
-      if (.not.sing_point) then
-        flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-        flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
 
-        flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-        flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
 
-        flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
-      else
-        flxip = vflx_x(i,1,k,t11p,t12p,t13p,cov)
-        flxim = 0d0
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
 
-        flxjp = 0d0
-        flxjm = 0d0
-
-        flxkp = vflx_z(i,1,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,1,k-1,t31m,t32m,t33m,cov)
-      endif
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVY)%bconds)
 
       ff(IVY) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)
@@ -372,29 +337,17 @@ c     Vz
 
       cov   = covariantVector(3,xx(ig),yy(ig),zz(ig))
 
-      if (.not.sing_point) then
-        flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
-        flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
+      flxip = vflx_x(i  ,j,k,t11p,t12p,t13p,cov)
+      flxim = vflx_x(i-1,j,k,t11m,t12m,t13m,cov)
 
-        flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
-        flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
+      flxjp = vflx_y(i,j  ,k,t21p,t22p,t23p,cov)
+      flxjm = vflx_y(i,j-1,k,t21m,t22m,t23m,cov)
 
-        flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
-      else
-        flxip = vflx_x(i,1,k,t11p,t12p,t13p,cov)
-        flxim = 0d0
+      flxkp = vflx_z(i,j,k  ,t31p,t32p,t33p,cov)
+      flxkm = vflx_z(i,j,k-1,t31m,t32m,t33m,cov)
 
-        flxjp = 0d0
-        flxjm = 0d0
-
-        flxkp = vflx_z(i,1,k  ,t31p,t32p,t33p,cov)
-        flxkm = vflx_z(i,1,k-1,t31m,t32m,t33m,cov)
-      endif
-
-
-      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
+cc      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
+cc     .                      ,flxkp,flxkm,varray%array_var(IVZ)%bconds)
 
       ff(IVZ) = jac*( dS1*(flxip - flxim)
      .              + dS2*(flxjp - flxjm)

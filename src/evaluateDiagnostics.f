@@ -303,8 +303,6 @@ c -------------------------------------------------------------------
 
       use grid
 
-      use icond
-
       implicit none
 
 c Call variables
@@ -321,40 +319,49 @@ c Begin program
 
 c Find integral limits
 
-      if (bcond(1) == PER) then
-        imin = 1
-        imax = nx
-      elseif (bcond(1) == SP) then
-        imin = 1
-        imax = nx+1
-      else
-        imin = 0
-        imax = nx+1
-      endif
+      imin = 1
+      imax = nx
 
-      if (bcond(3) == PER) then
-        jmin = 1
-        jmax = ny
-      elseif (bcond(3) == SP) then
-        jmin = 1
-        jmax = ny+1
-      else
-cc        jmin = 0
+      jmin = 1
+      jmax = ny
+
+      kmin = 1
+      kmax = nz
+
+cc      if (bcond(1) == PER) then
+cc        imin = 1
+cc        imax = nx
+cc      elseif (bcond(1) == SP) then
+cc        imin = 1
+cc        imax = nx+1
+cc      else
+cc        imin = 0
+cc        imax = nx+1
+cc      endif
+cc
+cc      if (bcond(3) == PER) then
+cc        jmin = 1
+cc        jmax = ny
+cc      elseif (bcond(3) == SP) then
+cc        jmin = 1
 cc        jmax = ny+1
-        jmin = 1
-        jmax = ny
-      endif
-
-      if (bcond(5) == PER) then
-        kmin = 1
-        kmax = nz
-      elseif (bcond(5) == SP) then
-        kmin = 1
-        kmax = nz+1
-      else
-        kmin = 0
-        kmax = nz+1
-      endif
+cc      else
+cccc        jmin = 0
+cccc        jmax = ny+1
+cc        jmin = 1
+cc        jmax = ny
+cc      endif
+cc
+cc      if (bcond(5) == PER) then
+cc        kmin = 1
+cc        kmax = nz
+cc      elseif (bcond(5) == SP) then
+cc        kmin = 1
+cc        kmax = nz+1
+cc      else
+cc        kmin = 0
+cc        kmax = nz+1
+cc      endif
 
 c Integrate
 

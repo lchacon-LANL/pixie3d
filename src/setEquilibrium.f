@@ -114,15 +114,6 @@ cc              var(i,j,k,IBZ)  = bz
               var(i,j,k,IVY)  = vperflow*by
               var(i,j,k,IVZ)  = vperflow*bz
 
-cc              var(i,j,k,IBX)  = 1d0
-cc              var(i,j,k,IBY)  = 0d0
-cc              var(i,j,k,IBZ)  = 0d0
-cc
-cc              call curl(i,j,k,igx,igy,igz,Ax,Ay,Az,bx,by,bz)
-cc              var(i,j,k,IVX)  = vperflow*bz
-cc              var(i,j,k,IVY)  = vperflow*by
-cc              var(i,j,k,IVZ)  = vperflow*bx
-
 cc              var(i,j,k,IVX)  = vperflow*tanh((yy-0.5)/dlambda)
 cc              var(i,j,k,IVY)  = 0d0
 cc              var(i,j,k,IVZ)  = 0d0
