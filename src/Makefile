@@ -35,7 +35,7 @@ prefix = .
 # Petsc include
 
 DRIVERDIR = driver
-ifdef PETSCTRUE
+ifdef BOPT
   include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
   SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
@@ -83,7 +83,7 @@ SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 
 #Module search path
 
-MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBDIRS))
+MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDIRS))
 
 #Define targets
 
@@ -92,7 +92,6 @@ MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBD
 beta: common $(BETA)
 
 $(BETA):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
-	@echo $(COMMON_MODS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
@@ -131,7 +130,8 @@ distclean: clean
 
 #Define dependencies
 
-$(OBJ):  $(MODS) $(COMMON_MODS)
+$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/imposeBCinterface_mod.F
+imposeBC_mod.o: $(COMMONDIR)/BC/imposeBCinterface_mod.F
 
 #Define patterns
 
