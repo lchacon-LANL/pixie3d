@@ -25,53 +25,6 @@ c Begin program
 
       end subroutine map
 
-c module debug
-c ######################################################################
-      module debug
-
-        real(8) :: lxmax,lxmin,lymax,lymin
-
-      contains
-
-c     contour
-c     #####################################################################
-      subroutine contour(arr,nx,ny,xmin,xmax,ymin,ymax,iopt,nunit)
-      implicit none               !For safe fortran
-c     ---------------------------------------------------------------------
-c     Contours 2D array in xdraw format. In call:
-c       * arr: 2D array to be plotted
-c       * nx,ny: dimensions of array
-c       * xmin,xmax,ymin,ymax: 2D domain limits
-c       * iopt: whether to initialize xdraw plot (iopt=0) or not.
-c       * nunit: integer file identifier.
-c     ---------------------------------------------------------------------
-
-c     Call variables
-
-      integer(4) :: nx,ny,iopt,nunit
-      real(8)    :: arr(nx,ny),xmin,xmax,ymin,ymax
-
-c     Local variables
-
-      integer(4) :: i,j
-
-c     Begin program
-
-      if(iopt == 0) then
-        write(nunit) nx-1,ny-1,0
-        write(nunit) real(xmin,4),real(xmax,4)
-     .              ,real(ymin,4),real(ymax,4) 
-      endif
-      write(nunit) ((real(arr(i,j),4),i=1,nx),j=1,ny)
-cc      write (*,*) ((real(arr(i,j),4),i=1,nx),j=1,ny)
-cc      write (*,*)
-
-c     End program
-
-      end subroutine contour
-
-      end module debug
-
 c module equilibrium
 c ######################################################################
       module equilibrium
@@ -130,7 +83,9 @@ c ######################################################################
      .          bx_cov,by_cov,bz_cov
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
-     .         ,eeta,nuu
+     .         ,eeta,nuu,ejx,ejy,ejz
+
+        real(8),target,allocatable,dimension(:,:,:,:) :: bcnv
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_car,by_car,bz_car
@@ -150,11 +105,13 @@ c ######################################################################
 
         use grid_aliases
 
+        real(8),pointer,dimension(:,:,:,:) :: vec
+
       contains
 
 c     div
 c     ###############################################################
-      real(8) function div(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az)
+      function div(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az)
       implicit none
 c     ---------------------------------------------------------------
 c     Calculates divergence of vector field at cell centers in
@@ -166,7 +123,7 @@ c     Call variables
       integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
-     .             ,az(0:nx+1,0:ny+1,0:nz+1)
+     .             ,az(0:nx+1,0:ny+1,0:nz+1),div
 
 c     Local variables
 
@@ -386,13 +343,13 @@ c     End program
 
       end function laplacian
 
-c     veclaplacian
+c     div_tensor
 c     ###############################################################
-      function veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vec,diff
-     .                     ,alteom,icomp,vol) result (vlap)
+      function div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                   ,tsrx,tsry,tsrz,vol) result (divt)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
+c     Calculates div(tensor) at cell centers in general non-orthogonal
 c     coordinates.
 c     ---------------------------------------------------------------
 
@@ -400,22 +357,21 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,icomp,nx,ny,nz,igx,igy,igz
+      real(8)    :: divt(3)
 
-      real(8)    :: vec (0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,diff(0:nx+1,0:ny+1,0:nz+1)
+      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
 
-      real(8)    :: vlap
+      logical    :: alt_eom
 
-      logical    :: alteom
+      external   tsrx,tsry,tsrz
 
       logical,optional,intent(IN) :: vol
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
+      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
 
-      real(8)    :: dvol,dS1,dS2,dS3,dxx,dyy,dzz,jac
+      real(8)    :: jac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
@@ -423,7 +379,7 @@ c     Local variables
      .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
      .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
 
-      real(8)    :: nabla_v(3,3),gsuper(3,3),hess(3,3,3),msource
+      real(8)    :: hess(3,3,3),msource
 
       logical    :: sing_point,vol_wgt
 
@@ -431,12 +387,6 @@ c     Begin program
 
       vol_wgt = .true.
       if (PRESENT(vol)) vol_wgt = vol
-
-      if (coords == 'car') then
-        vlap=laplacian(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,icomp)
-     .                ,vol=vol_wgt)
-        return
-      endif
 
       igrid = igx
 
@@ -451,6 +401,10 @@ c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
+      jac = gmetric%grid(igrid)%jac(i,j,k)
+
+      hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+
       dxx = dxh(ig)
       dyy = dyh(jg)
       dzz = dzh(kg)
@@ -461,134 +415,315 @@ c     Begin program
 
       dvol = dxx*dyy*dzz
 
-      jac  = gmetric%grid(igrid)%jac(i,j,k)
-
       if (coords /= 'car') then
         hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
       endif
 
-      call nabtensor_x(i ,j,k,t11p,t12p,t13p, 1)
-      call nabtensor_x(im,j,k,t11m,t12m,t13m,-1)
-      if (coords /= 'car') call nabtensor_x(i,j,k,t11o,t12o,t13o, 0)
+      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11p,t12p,t13p, 1)
+      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11m,t12m,t13m,-1)
+      if (coords /= 'car')
+     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11o,t12o,t13o,0)
 
-      call nabtensor_y(i,j ,k,t21p,t22p,t23p, 1)
-      call nabtensor_y(i,jm,k,t21m,t22m,t23m,-1)
-      if (coords /= 'car') call nabtensor_y(i,j,k,t21o,t22o,t23o, 0)
+      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,alt_eom,t21p,t22p,t23p, 1)
+      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,alt_eom,t21m,t22m,t23m,-1)
+      if (coords /= 'car')
+     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t21o,t22o,t23o,0)
 
-      call nabtensor_z(i,j,k ,t31p,t32p,t33p, 1)
-      call nabtensor_z(i,j,km,t31m,t32m,t33m,-1)
-      if (coords /= 'car') call nabtensor_z(i,j,k,t31o,t32o,t33o, 0)
+      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,alt_eom,t31p,t32p,t33p, 1)
+      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,alt_eom,t31m,t32m,t33m,-1)
+      if (coords /= 'car')
+     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t31o,t32o,t33o,0)
 
       msource = 0d0
 
-      select case (icomp)
-      case(1)
+      !Component 1
+      flxip = t11p
+      flxim = t11m
 
-        flxip = t11p
-        flxim = t11m
+      flxjp = t21p
+      flxjm = t21m
 
-        flxjp = t21p
-        flxjm = t21m
+      flxkp = t31p
+      flxkm = t31m
 
-        flxkp = t31p
-        flxkm = t31m
+      if (sing_point) flxim = 0d0
 
-        if (sing_point) flxim = 0d0
-
-        if (coords /= 'car') then
-          msource =dvol
-     .            *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+      if (coords /= 'car') then
+        msource =  (t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
      .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
      .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
-        endif
+      endif
 
-      case(2)
+      divt(1) =  (flxip - flxim)/dxx
+     .          +(flxjp - flxjm)/dyy
+     .          +(flxkp - flxkm)/dzz + msource/jac
 
-        flxip = t12p
-        flxim = t12m
+      !Component 2
+      flxip = t12p
+      flxim = t12m
 
-        flxjp = t22p
-        flxjm = t22m
+      flxjp = t22p
+      flxjm = t22m
 
-        flxkp = t32p
-        flxkm = t32m
+      flxkp = t32p
+      flxkm = t32m
 
-        if (coords /= 'car') then
-          if (alteom) then
+      if (coords /= 'car') then
+        if (alt_eom) then
 
-            if (sing_point) flxim = 0d0
+          if (sing_point) flxim = 0d0
 
-            msource=dvol
-     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
      .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
      .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
      .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
      .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
      .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
 
-            flxip = flxip/jac
-            flxim = flxim/jac
+          flxip = flxip/jac
+          flxim = flxim/jac
                          
-            flxjp = flxjp/jac
-            flxjm = flxjm/jac
+          flxjp = flxjp/jac
+          flxjm = flxjm/jac
                          
-            flxkp = flxkp/jac
-            flxkm = flxkm/jac
+          flxkp = flxkp/jac
+          flxkm = flxkm/jac
 
-          else
-            msource=dvol
-     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+        else
+          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
      .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
      .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
-          endif
         endif
+      endif
 
-cc        flxip = 0d0
-cc        flxim = 0d0
-cc
-cc        flxjp = 0d0
-cc        flxjm = 0d0
-cc
-cc        flxkp = 0d0
-cc        flxkm = 0d0
-cc
-cc        msource = 0d0
+      divt(2) =  (flxip - flxim)/dxx
+     .          +(flxjp - flxjm)/dyy
+     .          +(flxkp - flxkm)/dzz  + msource/jac
 
-      case(3)
+      !Component 3
+      flxip = t13p
+      flxim = t13m
 
-        flxip = t13p
-        flxim = t13m
+      flxjp = t23p
+      flxjm = t23m
 
-        flxjp = t23p
-        flxjm = t23m
+      flxkp = t33p
+      flxkm = t33m
 
-        flxkp = t33p
-        flxkm = t33m
+      if (sing_point) flxim = 0d0
 
-        if (sing_point) flxim = 0d0
-
-        if (coords /= 'car') then
-          msource =dvol
-     .           *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+      if (coords /= 'car') then
+        msource = (t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
      .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
      .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
-        endif
+      endif
 
-      end select
+      divt(3) = ( (flxip - flxim)/dxx
+     .           +(flxjp - flxjm)/dyy
+     .           +(flxkp - flxkm)/dzz ) + msource/jac
 
-      vlap = jac*( dS1*(flxip - flxim)
-     .           + dS2*(flxjp - flxjm)
-     .           + dS3*(flxkp - flxkm) ) + msource
-
-      if (.not.vol_wgt) vlap=vlap/volume(i,j,k,igx,igy,igz)
+      !Volume factor
+      if (vol_wgt) divt=divt*volume(i,j,k,igx,igy,igz)
 
 c     End program
 
-      contains
+      end function div_tensor
+
+c     veclaplacian
+c     ###############################################################
+      function veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vfield
+     .                     ,alteom,vol) result (vlap)
+
+c     ---------------------------------------------------------------
+c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
+c     coordinates. Vector is assumed in contravariant representation.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+      real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
+
+      real(8)    :: vlap(3)
+
+      logical    :: alteom
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer(4) :: icomp
+
+      logical    :: vol_wgt
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      if (coords == 'car') then
+        do icomp=1,3
+          vlap(icomp)=laplacian(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,vfield(:,:,:,icomp),vol=vol_wgt)
+        enddo
+        return
+      else
+        vec => vfield !Pointer passed to nabtensor routines
+        vlap = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alteom
+     .                   ,nabtensor_x,nabtensor_y,nabtensor_z
+     $                   ,vol=vol_wgt)
+      endif
+
+c$$$      igrid = igx
+c$$$
+c$$$      ip = i+1
+c$$$      im = i-1
+c$$$      jp = j+1
+c$$$      jm = j-1
+c$$$      kp = k+1
+c$$$      km = k-1
+c$$$
+c$$$      sing_point = isSP(i,j,k,igx,igy,igz)
+c$$$
+c$$$      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+c$$$
+c$$$      dxx = dxh(ig)
+c$$$      dyy = dyh(jg)
+c$$$      dzz = dzh(kg)
+c$$$
+c$$$      dS1 = dyy*dzz
+c$$$      dS2 = dxx*dzz
+c$$$      dS3 = dxx*dyy
+c$$$
+c$$$      dvol = dxx*dyy*dzz
+c$$$
+c$$$      jac  = gmetric%grid(igrid)%jac(i,j,k)
+c$$$
+c$$$      hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+c$$$
+c$$$      call nabtensor_x(i ,j,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t11p,t12p,t13p, 1)
+c$$$      call nabtensor_x(im,j,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t11m,t12m,t13m,-1)
+c$$$      call nabtensor_x(i ,j,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t11o,t12o,t13o, 0)
+c$$$
+c$$$      call nabtensor_y(i,j ,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t21p,t22p,t23p, 1)
+c$$$      call nabtensor_y(i,jm,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t21m,t22m,t23m,-1)
+c$$$      call nabtensor_y(i,j ,k,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t21o,t22o,t23o, 0)
+c$$$
+c$$$      call nabtensor_z(i,j,k ,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t31p,t32p,t33p, 1)
+c$$$      call nabtensor_z(i,j,km,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t31m,t32m,t33m,-1)
+c$$$      call nabtensor_z(i,j,k ,nx,ny,nz,igx,igy,igz,alteom
+c$$$     .                ,t31o,t32o,t33o, 0)
+c$$$
+c$$$      msource = 0d0
+c$$$
+c$$$      !Component 1
+c$$$
+c$$$      flxip = t11p
+c$$$      flxim = t11m
+c$$$
+c$$$      flxjp = t21p
+c$$$      flxjm = t21m
+c$$$
+c$$$      flxkp = t31p
+c$$$      flxkm = t31m
+c$$$
+c$$$      if (sing_point) flxim = 0d0
+c$$$
+c$$$      msource =dvol
+c$$$     .            *(t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+c$$$     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+c$$$     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
+c$$$
+c$$$      vlap(1) = jac*( dS1*(flxip - flxim)
+c$$$     .              + dS2*(flxjp - flxjm)
+c$$$     .              + dS3*(flxkp - flxkm) ) + msource
+c$$$
+c$$$      !Component 2
+c$$$
+c$$$      flxip = t12p
+c$$$      flxim = t12m
+c$$$
+c$$$      flxjp = t22p
+c$$$      flxjm = t22m
+c$$$
+c$$$      flxkp = t32p
+c$$$      flxkm = t32m
+c$$$
+c$$$      if (alteom) then
+c$$$
+c$$$        if (sing_point) flxim = 0d0
+c$$$
+c$$$        msource=dvol
+c$$$     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+c$$$     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+c$$$     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+c$$$     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+c$$$     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+c$$$     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))
+c$$$
+c$$$        flxip = flxip/jac
+c$$$        flxim = flxim/jac
+c$$$                         
+c$$$        flxjp = flxjp/jac
+c$$$        flxjm = flxjm/jac
+c$$$                         
+c$$$        flxkp = flxkp/jac
+c$$$        flxkm = flxkm/jac
+c$$$
+c$$$      else
+c$$$        msource=dvol
+c$$$     .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+c$$$     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+c$$$     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
+c$$$      endif
+c$$$
+c$$$      vlap(2) = jac*( dS1*(flxip - flxim)
+c$$$     .              + dS2*(flxjp - flxjm)
+c$$$     .              + dS3*(flxkp - flxkm) ) + msource
+c$$$
+c$$$      !Component 3
+c$$$      flxip = t13p
+c$$$      flxim = t13m
+c$$$
+c$$$      flxjp = t23p
+c$$$      flxjm = t23m
+c$$$
+c$$$      flxkp = t33p
+c$$$      flxkm = t33m
+c$$$
+c$$$      if (sing_point) flxim = 0d0
+c$$$
+c$$$      msource =dvol
+c$$$     .           *(t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+c$$$     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+c$$$     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
+c$$$
+c$$$      vlap(3) = jac*( dS1*(flxip - flxim)
+c$$$     .              + dS2*(flxjp - flxjm)
+c$$$     .              + dS3*(flxkp - flxkm) ) + msource
+c$$$
+c$$$      !Volume factor
+c$$$      if (.not.vol_wgt) vlap=vlap/volume(i,j,k,igx,igy,igz)
+
+c     End program
+
+      end function veclaplacian
 
 c     nabtensor_x
 c     #############################################################
-      subroutine nabtensor_x(i,j,k,t11,t12,t13,flag)
+      subroutine nabtensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alteom
+     .                      ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for EOM
 c     -------------------------------------------------------------
@@ -597,18 +732,22 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
+        logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip
-        real(8)    :: x,y,z,jac,jac0,jacp,vis
+        integer(4) :: ig,jg,kg,ip,igrid
+        real(8)    :: x,y,z,jac,jac0,jacp
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
 
 c     Begin program
 
+        igrid = igx
+
         ip = i+1
-        if (flag == 0 .or. (.not.alteom .and. sing_point) ) ip = i
+        if (flag == 0 .or. isSP(ip,j,k,igx,igy,igz) ) ip = i
 
         jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
      .               +gmetric%grid(igrid)%jac (i ,j,k))
@@ -635,19 +774,17 @@ c     Begin program
      .                                                 ,vec(:,:,:,3),0)
         endif
 
-        vis = 2d0/( 1d0/diff(ip,j,k) + 1d0/diff(i,j,k) )
+        t11 =( gsuper(1,1)*nabla_v(1,1)
+     .        +gsuper(1,2)*nabla_v(2,1)
+     .        +gsuper(1,3)*nabla_v(3,1) )
 
-        t11 =vis*( gsuper(1,1)*nabla_v(1,1)
-     .            +gsuper(1,2)*nabla_v(2,1)
-     .            +gsuper(1,3)*nabla_v(3,1) )
+        t12 =( gsuper(1,1)*nabla_v(1,2)
+     .        +gsuper(1,2)*nabla_v(2,2)
+     .        +gsuper(1,3)*nabla_v(3,2) )
 
-        t12 =vis*( gsuper(1,1)*nabla_v(1,2)
-     .            +gsuper(1,2)*nabla_v(2,2)
-     .            +gsuper(1,3)*nabla_v(3,2) )
-
-        t13 =vis*( gsuper(1,1)*nabla_v(1,3)
-     .            +gsuper(1,2)*nabla_v(2,3)
-     .            +gsuper(1,3)*nabla_v(3,3) )
+        t13 =( gsuper(1,1)*nabla_v(1,3)
+     .        +gsuper(1,2)*nabla_v(2,3)
+     .        +gsuper(1,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           t11 = t11/jac
@@ -661,7 +798,8 @@ c     End program
 
 c     nabtensor_y
 c     #############################################################
-      subroutine nabtensor_y(i,j,k,t21,t22,t23,flag)
+      subroutine nabtensor_y(i,j,k,nx,ny,nz,igx,igy,igz,alteom
+     .                      ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t21-t23 for EOM
 c     -------------------------------------------------------------
@@ -670,15 +808,19 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
+        logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp
-        real(8)    :: x,y,z,jac,vis
+        integer(4) :: ig,jg,kg,jp,igrid
+        real(8)    :: x,y,z,jac
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
 
 c     Begin program
+
+        igrid = igx
 
         jp = j+1
         if (flag == 0) jp = j
@@ -698,19 +840,17 @@ c     Begin program
      .                                                 ,vec(:,:,:,3),0)
         endif
 
-        vis = 2./( 1./diff(i,jp,k) + 1./diff(i,j,k) )
+        t21 =( gsuper(2,1)*nabla_v(1,1)
+     .        +gsuper(2,2)*nabla_v(2,1)
+     .        +gsuper(2,3)*nabla_v(3,1) )
 
-        t21 =vis*( gsuper(2,1)*nabla_v(1,1)
-     .            +gsuper(2,2)*nabla_v(2,1)
-     .            +gsuper(2,3)*nabla_v(3,1) )
+        t22 =( gsuper(2,1)*nabla_v(1,2)
+     .        +gsuper(2,2)*nabla_v(2,2)
+     .        +gsuper(2,3)*nabla_v(3,2) )
 
-        t22 =vis*( gsuper(2,1)*nabla_v(1,2)
-     .            +gsuper(2,2)*nabla_v(2,2)
-     .            +gsuper(2,3)*nabla_v(3,2) )
-
-        t23 =vis*( gsuper(2,1)*nabla_v(1,3)
-     .            +gsuper(2,2)*nabla_v(2,3)
-     .            +gsuper(2,3)*nabla_v(3,3) )
+        t23 =( gsuper(2,1)*nabla_v(1,3)
+     .        +gsuper(2,2)*nabla_v(2,3)
+     .        +gsuper(2,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           t21 = t21/jac
@@ -724,7 +864,8 @@ c     End program
 
 c     nabtensor_z
 c     #############################################################
-      subroutine nabtensor_z(i,j,k,t31,t32,t33,flag)
+      subroutine nabtensor_z(i,j,k,nx,ny,nz,igx,igy,igz,alteom
+     .                      ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t31-t33 for EOM
 c     -------------------------------------------------------------
@@ -733,15 +874,19 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
+        logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp
-        real(8)    :: x,y,z,jac,vis
+        integer(4) :: ig,jg,kg,kp,igrid
+        real(8)    :: x,y,z,jac
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
 
 c     Begin program
+
+        igrid = igx
 
         kp=k+1
         if (flag == 0) kp = k
@@ -761,19 +906,17 @@ c     Begin program
      .                                                 ,vec(:,:,:,3),0)
         endif
 
-        vis = 2./( 1./diff(i,j,kp) + 1./diff(i,j,k) )
+        t31 =( gsuper(3,1)*nabla_v(1,1)
+     .        +gsuper(3,2)*nabla_v(2,1)
+     .        +gsuper(3,3)*nabla_v(3,1) )
 
-        t31 =vis*( gsuper(3,1)*nabla_v(1,1)
-     .            +gsuper(3,2)*nabla_v(2,1)
-     .            +gsuper(3,3)*nabla_v(3,1) )
+        t32 =( gsuper(3,1)*nabla_v(1,2)
+     .        +gsuper(3,2)*nabla_v(2,2)
+     .        +gsuper(3,3)*nabla_v(3,2) )
 
-        t32 =vis*( gsuper(3,1)*nabla_v(1,2)
-     .            +gsuper(3,2)*nabla_v(2,2)
-     .            +gsuper(3,3)*nabla_v(3,2) )
-
-        t33 =vis*( gsuper(3,1)*nabla_v(1,3)
-     .            +gsuper(3,2)*nabla_v(2,3)
-     .            +gsuper(3,3)*nabla_v(3,3) )
+        t33 =( gsuper(3,1)*nabla_v(1,3)
+     .        +gsuper(3,2)*nabla_v(2,3)
+     .        +gsuper(3,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           t31 = t31/jac
@@ -785,11 +928,9 @@ c     End program
 
       end subroutine nabtensor_z
 
-      end function veclaplacian
-
 c     curl
 c     ###############################################################
-      function curl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
+      function curl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az) result(crl)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A) at cell centers in general non-orthogonal
@@ -801,7 +942,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      real(8)    :: curl
+      real(8)    :: crl(3)
 
       integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
@@ -837,45 +978,52 @@ c     Begin program
 
       sing_point = isSP(i,j,k,igx,igy,igz)
 
-      select case(comp)
-      case(1)
+      !X comp
 
-        flxip = 0d0
-        flxim = 0d0
+      flxip = 0d0
+      flxim = 0d0
 
-        flxjp = 0.5*(az(i,jp,k)+az(i,j,k))
-        flxjm = 0.5*(az(i,jm,k)+az(i,j,k))
+      flxjp = 0.5*(az(i,jp,k)+az(i,j,k))
+      flxjm = 0.5*(az(i,jm,k)+az(i,j,k))
 
-        flxkp =-0.5*(ay(i,j,kp)+ay(i,j,k))
-        flxkm =-0.5*(ay(i,j,km)+ay(i,j,k))
+      flxkp =-0.5*(ay(i,j,kp)+ay(i,j,k))
+      flxkm =-0.5*(ay(i,j,km)+ay(i,j,k))
 
-      case(2)
+      crl(1) = (flxip-flxim)/dx
+     .        +(flxjp-flxjm)/dy
+     .        +(flxkp-flxkm)/dz
 
-        flxjp = 0d0
-        flxjm = 0d0
+      !Y comp
 
-        flxip =-0.5*(az(ip,j,k)+az(i,j,k))
-        if (sing_point) then
-          flxim =-az(im,j,k)
-        else
-          flxim =-0.5*(az(im,j,k)+az(i,j,k))
-        endif
+      flxjp = 0d0
+      flxjm = 0d0
 
-        flxkp = 0.5*(ax(i,j,kp)+ax(i,j,k))
-        flxkm = 0.5*(ax(i,j,km)+ax(i,j,k))
+      flxip =-0.5*(az(ip,j,k)+az(i,j,k))
+      if (sing_point) then
+        flxim =-az(im,j,k)
+      else
+        flxim =-0.5*(az(im,j,k)+az(i,j,k))
+      endif
 
-      case(3)
+      flxkp = 0.5*(ax(i,j,kp)+ax(i,j,k))
+      flxkm = 0.5*(ax(i,j,km)+ax(i,j,k))
 
-        flxkp = 0d0
-        flxkm = 0d0
+      crl(2) = (flxip-flxim)/dx
+     .        +(flxjp-flxjm)/dy
+     .        +(flxkp-flxkm)/dz
 
-        if (sing_point) then
-          jacp = gmetric%grid(igrid)%jac(ip,j,k)
-          jac  = gmetric%grid(igrid)%jac(i ,j,k)
-          jach = 0.5*(jacp+jac)
+      !Z comp
 
-          flxip = 0.5*(ay(ip,j,k)/jacp+ay(i,j,k)/jac)*jach
-          flxim = ay(im,j,k)
+      flxkp = 0d0
+      flxkm = 0d0
+
+      if (sing_point) then
+        jacp = gmetric%grid(igrid)%jac(ip,j,k)
+        jac  = gmetric%grid(igrid)%jac(i ,j,k)
+        jach = 0.5*(jacp+jac)
+
+        flxip = 0.5*(ay(ip,j,k)/jacp+ay(i,j,k)/jac)*jach
+        flxim = ay(im,j,k)
 
 cc        elseif (i == 2 .and. bcond(1) == SP) then
 cc          jacm = gmetric%grid(igrid)%jac(im,j,k)
@@ -884,25 +1032,17 @@ cc          jach = 0.5*(jacm+jac)
 cc
 cc          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
 cc          flxim = 0.5*(ay(im,j,k)/jacm+ay(i,j,k)/jac)*jach
-        else
-          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
-          flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
-        endif
+      else
+        flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
+        flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
+      endif
 
-        flxjp =-0.5*(ax(i,jp,k)+ax(i,j,k))
-        flxjm =-0.5*(ax(i,jm,k)+ax(i,j,k))
+      flxjp =-0.5*(ax(i,jp,k)+ax(i,j,k))
+      flxjm =-0.5*(ax(i,jm,k)+ax(i,j,k))
 
-      case default
-
-        write (*,*) 'Error in component in curl'
-        write (*,*) 'Aborting...'
-        stop
-
-      end select
-
-      curl = (flxip-flxim)/dx
-     .      +(flxjp-flxjm)/dy
-     .      +(flxkp-flxkm)/dz
+      crl(3) = (flxip-flxim)/dx
+     .        +(flxjp-flxjm)/dy
+     .        +(flxkp-flxkm)/dz
 
 c     End program
 
@@ -2311,9 +2451,90 @@ cc      end function joule_jpkp
 cc
 cc      end function jouleHeating
 
+c     res
+c     #############################################################
+      function res(i,j,k,nx,ny,nz,igx,igy,igz)
+c     -------------------------------------------------------------
+c     This function computes the resistivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      use grid
+
+      use transport_params
+
+      use equilibrium
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: res
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+c     Local variables
+
+      integer(4) :: nn,ig,jg,kg
+      real(8)    :: x1,y1,z1,aa
+      logical    :: cartsn
+
+c     Begin program
+
+c     Resistivity profile eta*(1 + aa*x^nn)
+c       Coefficient aa is set so that res = 20*eta at wall
+c       and nn so that res=??*eta at sing. surf. xs ~ 0.33
+
+      select case (equil)
+      case ('rfp1')
+
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        nn = 4
+        aa = 19.
+        res = eta*(1. + aa*grid_params%xx(ig)**nn)
+
+      case default
+
+        res = eta
+
+      end select
+
+c     End program
+
+      end function res
+
+c     vis
+c     #############################################################
+      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
+c     -------------------------------------------------------------
+c     This function computes the viscosity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      use grid
+
+      use transport_params
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: vis
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+c     Local variables
+
+c     Begin program
+
+      vis = nu
+
+c     End program
+
+      end function vis
+
 c     vtensor_x
 c     #############################################################
-      subroutine vtensor_x(i,j,k,t11,t12,t13,flag)
+      subroutine vtensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for EOM
 c     -------------------------------------------------------------
@@ -2322,8 +2543,9 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
+        logical    :: alt_eom
 
 c     Local variables
 
@@ -2331,10 +2553,14 @@ c     Local variables
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ptot,vis
 
+        logical    :: sing_point
+
 c     Begin program
 
+        sing_point = isSP(i,j,k,igx,igy,igz)
+
         ip = i+1
-        if (flag == 0 .or. (.not.alt_eom .and. sing_point) ) ip = i
+        if (flag == 0.or.isSP(ip,j,k,igx,igy,igz)) ip = i
 
         jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
      .               +gmetric%grid(igx)%jac (i ,j,k))
@@ -2358,10 +2584,10 @@ c     Begin program
         endif
 
         !Recall p=2nT
-        ptot = jac*(rho(ip,j,k)*tmp(ip,j,k)
-     .             +rho(i ,j,k)*tmp(i ,j,k))
-cc        ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
-cc     .             +rho(i ,j,k)*tmp(ip,j,k))
+cc        ptot = jac*(rho(ip,j,k)*tmp(ip,j,k)
+cc     .             +rho(i ,j,k)*tmp(i ,j,k))
+        ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
+     .             +rho(i ,j,k)*tmp(ip,j,k))
      .       +jac*(bx(ip,j,k)*bx_cov(i ,j,k)/jacp
      .            +bx(i ,j,k)*bx_cov(ip,j,k)/jac0
      .            +by(ip,j,k)*by_cov(i ,j,k)/jac0
@@ -2422,7 +2648,8 @@ c     End program
 
 c     vtensor_y
 c     #############################################################
-      subroutine vtensor_y(i,j,k,t21,t22,t23,flag)
+      subroutine vtensor_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t21-t23 for EOM
 c     -------------------------------------------------------------
@@ -2431,8 +2658,9 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
+        logical    :: alt_eom
 
 c     Local variables
 
@@ -2457,10 +2685,10 @@ c     Begin program
         endif
 
         !Recall p=2nT
-        ptot = jac*(rho(i,jp,k)*tmp(i,jp,k)
-     .             +rho(i,j ,k)*tmp(i,j ,k))
-cc        ptot = jac*(rho(i,jp,k)*tmp(i,j ,k)
-cc     .             +rho(i,j ,k)*tmp(i,jp,k))
+cc        ptot = jac*(rho(i,jp,k)*tmp(i,jp,k)
+cc     .             +rho(i,j ,k)*tmp(i,j ,k))
+        ptot = jac*(rho(i,jp,k)*tmp(i,j ,k)
+     .             +rho(i,j ,k)*tmp(i,jp,k))
      .       +(bx(i,jp,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,jp,k)
      .        +by(i,jp,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,jp,k)
      .        +bz(i,jp,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,jp,k))/4.
@@ -2510,7 +2738,8 @@ c     End program
 
 c     vtensor_z
 c     #############################################################
-      subroutine vtensor_z(i,j,k,t31,t32,t33,flag)
+      subroutine vtensor_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t31-t33 for EOM
 c     -------------------------------------------------------------
@@ -2519,8 +2748,9 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
+        logical    :: alt_eom
 
 c     Local variables
 
@@ -2545,10 +2775,10 @@ c     Begin program
         endif
 
         !Recall p=2nT
-        ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
-     .             +rho(i,j,k )*tmp(i,j,k ))
-cc        ptot = jac*(rho(i,j,kp)*tmp(i,j,k )
-cc     .             +rho(i,j,k )*tmp(i,j,kp))
+cc        ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
+cc     .             +rho(i,j,k )*tmp(i,j,k ))
+        ptot = jac*(rho(i,j,kp)*tmp(i,j,k )
+     .             +rho(i,j,k )*tmp(i,j,kp))
      .       +(bx(i,j,kp)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,kp)
      .        +by(i,j,kp)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,kp)
      .        +bz(i,j,kp)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,kp))/4.
@@ -2595,6 +2825,197 @@ cc     .             +rho(i,j,k )*tmp(i,j,kp))
 c     End program
 
       end subroutine vtensor_z
+
+c     btensor_x
+c     #############################################################
+      subroutine btensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t11,t12,t13,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t11,t12,t13
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,ip
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp,ptot,vis
+
+        logical    :: sing_point
+
+c     Begin program
+
+cc        if (flag == 0) then
+cc          t11 = 0d0
+cc          t12 = 0d0
+cc          t13 = 0d0
+cc          return
+cc        endif
+
+        sing_point = isSP(i,j,k,igx,igy,igz)
+
+        ip = i+1
+        if (flag == 0 .or. isSP(ip,j,k,igx,igy,igz)) ip = i
+
+        jacp = gmetric%grid(igx)%jac(ip,j,k)
+        jac0 = gmetric%grid(igx)%jac(i ,j,k)
+        jac  = 0.5*(jacp+jac0)
+
+        t11 = 0d0
+
+        t12 = 0.5*( vx(i ,j,k)*by(i ,j,k)/jac0
+     .             +vx(ip,j,k)*by(ip,j,k)/jacp)*jac
+     .       -0.5*( vy(i ,j,k)*bx(i ,j,k)/jac0
+     .             +vy(ip,j,k)*bx(ip,j,k)/jacp)*jac
+
+        if (sing_point .and. flag == 1) then
+          t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0**2
+     .               +vx(ip,j,k)*bz(ip,j,k)/jacp**2)*jac**2
+     .         -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0**2
+     .               +vz(ip,j,k)*bx(ip,j,k)/jacp**2)*jac**2
+        else
+          t13 = 0.5*( vx(i ,j,k)*bz(i ,j,k)/jac0
+     .               +vx(ip,j,k)*bz(ip,j,k)/jacp)*jac
+     .         -0.5*( vz(i ,j,k)*bx(i ,j,k)/jac0
+     .               +vz(ip,j,k)*bx(ip,j,k)/jacp)*jac
+        endif
+
+        if (flag /= 0) then
+          t11 = t11/jac
+          if (.not.alt_eom) t12 = t12/jac
+          t13 = t13/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_x
+
+c     btensor_y
+c     #############################################################
+      subroutine btensor_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t21,t22,t23,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t21,t22,t23
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,jp
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp
+
+c     Begin program
+
+cc        if (flag == 0) then
+cc          t21 = 0d0
+cc          t22 = 0d0
+cc          t23 = 0d0
+cc          return
+cc        endif
+
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jacp = gmetric%grid(igx)%jac(i,jp,k)
+        jac0 = gmetric%grid(igx)%jac(i,j ,k)
+        jac  = 0.5*(jacp+jac0)
+
+        t21 = 0.5*( vy(i,j ,k)*bx(i,j ,k)/jac0
+     .             +vy(i,jp,k)*bx(i,jp,k)/jacp)*jac
+     .       -0.5*( vx(i,j ,k)*by(i,j ,k)/jac0
+     .             +vx(i,jp,k)*by(i,jp,k)/jacp)*jac
+
+        t22 = 0d0
+
+        t23 = 0.5*( vy(i,j ,k)*bz(i,j ,k)/jac0
+     .             +vy(i,jp,k)*bz(i,jp,k)/jacp)*jac
+     .       -0.5*( vz(i,j ,k)*by(i,j ,k)/jac0
+     .             +vz(i,jp,k)*by(i,jp,k)/jacp)*jac
+
+        if (flag /= 0) then
+          t21 = t21/jac
+          if (.not.alt_eom) t22 = t22/jac
+          t23 = t23/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_y
+
+c     btensor_z
+c     #############################################################
+      subroutine btensor_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t31,t32,t33,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t31,t32,t33
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,kp
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp
+
+c     Begin program
+
+cc        if (flag == 0) then
+cc          t31 = 0d0
+cc          t32 = 0d0
+cc          t33 = 0d0
+cc          return
+cc        endif
+
+        kp = k+1
+        if (flag == 0) kp = k
+
+        jacp = gmetric%grid(igx)%jac(i,j,kp)
+        jac0 = gmetric%grid(igx)%jac(i,j,k )
+        jac  = 0.5*(jacp+jac0)
+
+        t31 = 0.5*( vz(i,j,k )*bx(i,j,k )/jac0
+     .             +vz(i,j,kp)*bx(i,j,kp)/jacp)*jac
+     .       -0.5*( vx(i,j,k )*bz(i,j,k )/jac0
+     .             +vx(i,j,kp)*bz(i,j,kp)/jacp)*jac
+
+        t32 = 0.5*( vz(i,j,k )*by(i,j,k )/jac0
+     .             +vz(i,j,kp)*by(i,j,kp)/jacp)*jac
+     .       -0.5*( vy(i,j,k )*bz(i,j,k )/jac0
+     .             +vy(i,j,kp)*bz(i,j,kp)/jacp)*jac
+
+        t33 = 0d0
+
+        if (flag /= 0) then
+          t31 = t31/jac
+          if (.not.alt_eom) t32 = t32/jac
+          t33 = t33/jac
+        endif
+
+c     End program
+
+      end subroutine btensor_z
 
       end module nlfunction_setup
 
