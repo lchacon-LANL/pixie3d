@@ -67,7 +67,7 @@ c (finds all covariant and contravariant components of interest)
 
 c Find perturbed quantities
 
-      u_graph = varray - u_0
+      u_graph = varray - u_ic
 
 c Find Cartesian components of ALL vectors
 
@@ -147,9 +147,9 @@ c Divergence diagnostics
         enddo
       enddo
 
-      call imposeBConScalar(IRHO,divrgJ,zeros,bcond)
-      call imposeBConScalar(IRHO,divrgB,zeros,bcond)
-      call imposeBConScalar(IRHO,divrgV,zeros,bcond)
+      call setBC(IRHO,nx,ny,nz,divrgJ,zeros,bcond,igx,igy,igz)
+      call setBC(IRHO,nx,ny,nz,divrgB,zeros,bcond,igx,igy,igz)
+      call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
 
       !Average divergence around singular point (we consider whole control volume)
       if (bcond(1) == SP) then
