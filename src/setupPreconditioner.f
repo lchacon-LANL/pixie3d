@@ -11,11 +11,11 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use variables
-
       use matvec
 
       use operators
+
+      use newton_gmres
 
       implicit none
 
@@ -26,41 +26,69 @@ c Call variables
 
 c Local variables
 
-cc      integer*4   i,j,ig,ieq,ii,iii,isig,ip,jp,jj,jjj,dd,neq
+      integer(4) :: ntotd2p,order,nxx,nyy,nzz,igrid,alloc_stat
+      real(8)    :: dvol
 
-cc      integer,allocatable,dimension(:,:) :: bbcond
+      real(8), allocatable, dimension(:,:,:,:) :: vector
 
-      type (var_array),target :: varray
+c Debug
+
+      real(8)    :: mag,debug(0:nx+1,0:ny+1,0:nz+1)
+      integer(4) :: nt,ii
+      real(8),allocatable,dimension(:,:) :: v_mat,debug2
 
 c Externals
 
-cc      external    bihar_mtvc,bihar_mtvc_cpl,psi_mtvc_cpl,bz_mtvc_cpl
-cc     .           ,alf_mtvc
+      external   :: v_mtvc,b_mtvc,rho_mtvc,tmp_mtvc
 
 c Begin program
 
+      if (precon == 'id') return
+
+      igx = 1
+      igy = 1
+      igz = 1
+
+      nxx = grid_params%nxv(igx)
+      nyy = grid_params%nyv(igy)
+      nzz = grid_params%nzv(igz)
+
+      nx = nxx
+      ny = nyy
+      nz = nzz
+
+      ngrid = grid_params%ngrid
+
+      igrid = igx
+
+      ntotd2p = 2*ntot/neqd
+
+      order=0
+
 c Allocate variables
 
-      allocate (bcnv(ntotd2p,3))
-      allocate (vcnv(ntotd2p,3))
-      allocate (divV(ntotd2p))
-      allocate (bcs(6,neqd))
-      allocate (rho_diag(1,ntotd2p)
-     .         ,tmp_diag(1,ntotd2p)
-     .         ,  b_diag(3,ntotd2p)
-     .         ,  v_diag(3,ntotd2p))
+      allocate (mgj0cnv(ntotd2p,3))
+      allocate (mgadvdiffV0(ntotd2p,3))
+      allocate (mgdivV0(ntotd2p))
+      allocate (bcs(6,neqd+3))
 
-cc      allocate (pp(ndiagdp,ntotd2p,neqd))
-cc      allocate (ue(0:nxdp,0:nydp))
-cc      allocate ( d_sc(1,  ntotd2p)
-cc     .          ,d_bc(2,2*ntotd2p)
-cc     .          ,d_pc(2,2*ntotd2p)
-cc     .          ,d_bh(2,2*ntotd2p)
-cc     .          ,d_alf(1, ntotd2p))
+      if (jit == 1) then  !Only allocate at the beginning of Newton iteration
+        deallocate (rho_diag,tmp_diag,b_diag,v_diag,STAT=alloc_stat)
+
+        allocate (rho_diag(1,ntotd2p)
+     .           ,tmp_diag(1,ntotd2p)
+     .           ,  b_diag(3,3*ntotd2p)
+     .           ,  v_diag(3,3*ntotd2p),STAT=alloc_stat)
+      endif
+
+      call allocateMGArray(1,gp0)
+      call allocateMGArray(1,grho0)
+      call allocateMGArray(3,gv0)
+      call allocateMGArray(3,gb0)
 
 c Unpack vector x, taking BCs from t=n solution
 
-      varray = x
+      varray = x  !This allocates varray; overloaded assignment
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
@@ -78,518 +106,170 @@ c Extract arrays and BC's
       do ieq=1,neqd
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
+      !Current boundary conditions
+      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
+      where (bcs(:,IJX:IJZ) == -NEU)
+        bcs(:,IJX:IJZ) = -DIR  !Use covariant components for tangential dirichlet
+      end where
 
-ccc Build preconditioning matrix pp
-cc
-ccc     Stencil mapping
-cc
-cc      do i = 1,ngrd
-cc        idiagp(1,i) = -nxvp(i)
-cc        idiagp(2,i) = -1
-cc        idiagp(3,i) = 0
-cc        idiagp(4,i) = 1
-cc        idiagp(5,i) = nxvp(i)
-cc      enddo
-cc
-ccc     Compute the diagonal blocks of the jacobian in all grids
-cc
-cc      call buildDiagBlocks(varray)
+c Store density in all grids (w/o BCs)
 
-c Find auxiliary quantities
+cc      call restrictArrayToMGVector(1,nxx,nyy,nzz,rho,mgrho0,igrid,order
+cc     .                            ,.false.)
 
-      allocate(divrgV(0:nx+1,0:ny+1,0:nz+1))
+      grho0%grid(igrid)%array(:,:,:,1) = rho
 
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)
+      call restrictMGArray(IRHO,1,grho0,bcs(:,IRHO),igrid,order)
+
+c Store magnetic field components in all grids (w/ BCs)
+
+      gb0%grid(igrid)%array(:,:,:,1) = bx
+      gb0%grid(igrid)%array(:,:,:,2) = by
+      gb0%grid(igrid)%array(:,:,:,3) = bz
+
+      call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
+
+c Store ion velocity components in all grids (w/ BCs)
+
+      gv0%grid(igrid)%array(:,:,:,1) = vx
+      gv0%grid(igrid)%array(:,:,:,2) = vy
+      gv0%grid(igrid)%array(:,:,:,3) = vz
+
+      call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
+
+c Store current components in all grids (w/o BCs)
+
+      call restrictArrayToMGVector(1,nxx,nyy,nzz,jx,mgj0cnv(:,1),igrid
+     .                  ,order,.false.)
+      call restrictArrayToMGVector(1,nxx,nyy,nzz,jy,mgj0cnv(:,2),igrid
+     .                  ,order,.false.)
+      call restrictArrayToMGVector(1,nxx,nyy,nzz,jz,mgj0cnv(:,3),igrid
+     .                  ,order,.false.)
+
+c Find auxiliary quantities and store them in all grids
+
+      !Velocity divergence (w/o BCs)
+      allocate(divrgV(0:nxx+1,0:nyy+1,0:nzz+1))
+
+      do k=1,nzz
+        do j=1,nyy
+          do i=1,nxx
+            divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,vx,vy,vz)
           enddo
         enddo
       enddo
 
-c Store div(V) in all grids
+      call restrictArrayToMGVector(1,nxx,nyy,nzz,divrgV,mgdivV0,igrid
+     .                            ,order,.false.)
 
-      call restrictArray(1,1,nx,ny,nz,divrgV,divV,1,0,.false.)
+      deallocate(divrgV)
 
-c Store magnetic field components in all grids
+      !pressure (w/ BCs)
+      gp0%grid(igrid)%array(:,:,:,1) = 2.*rho*tmp
 
-      call restrictArray(1,1,nx,ny,nz,bx,bcnv(:,1),1,0,.false.)
-      call restrictArray(1,1,nx,ny,nz,by,bcnv(:,2),1,0,.false.)
-      call restrictArray(1,1,nx,ny,nz,bz,bcnv(:,3),1,0,.false.)
+      call restrictMGArray(IRHO,1,gp0,bcs(:,IRHO),igrid,order)
 
-c Store ion velocity components in all grids
+      !v0/dt+theta(v0.grad(v0)-mu*veclap(v0))
 
-      call restrictArray(1,1,nx,ny,nz,vx,vcnv(:,1),1,0,.false.)
-      call restrictArray(1,1,nx,ny,nz,vy,vcnv(:,2),1,0,.false.)
-      call restrictArray(1,1,nx,ny,nz,vz,vcnv(:,3),1,0,.false.)
+      allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-ccc Find electron velocity components in all grids
-cc
-cc      call restrictVectorFieldFromSF(nxd,nyd,ue,vxe,vye,0,bcs(:,PHI))
-cc
-ccc Store appropriate boundary conditions
-cc
-cc      bc_sc(:,1) = bcs(:,PSI)
-cc
-cc      bc_cpld(:,1) = bcs(:,PSI)
-cc      bc_cpld(1,2) = 3          !Bottom: linear extrapolation
-cc      bc_cpld(2,2) = 3          !Top
-cc      bc_cpld(3,2) = 0          !Left: periodic
-cc      bc_cpld(4,2) = 0          !Right
-cc
-ccc Find required diagonals in all grids
-cc
-cc      diag_mu(:) = pp(3,:,VOR)
-cc
-cc      if (di > 0d0) then
-cc        neq = 1
-cc        call find_mf_diag_neq(neq,neq*ntotdp,bihar_mtvc,ngrd,bc_sc,d_sc)
-cc
-cc
-cc        if (precon == 'bc') then
-cc          neq = 2
-cc          call find_mf_diag_neq(neq,neq*ntotdp,bz_mtvc_cpl,ngrd,bc_cpld
-cc     .                         ,d_bc)
-cc          call find_mf_diag_neq(neq,neq*ntotdp,bihar_mtvc_cpl,ngrd
-cc     .                         ,bc_cpld,d_bh)
-cc
-cc        elseif (precon == 'pc') then
-cc          neq = 2
-cc          call find_mf_diag_neq(neq,neq*ntotdp,psi_mtvc_cpl,ngrd
-cc     .                         ,bc_cpld,d_pc)
-cc          call find_mf_diag_neq(neq,neq*ntotdp,bihar_mtvc_cpl,ngrd
-cc     .                         ,bc_cpld,d_bh)
-cc        endif
-cc      else
-cc        neq = 1
-cc        call find_mf_diag_neq(neq,neq*ntotdp,alf_mtvc,ngrd,bc_sc,d_alf)
-cc      endif
+      do k = 1,nzz
+        do j = 1,nyy
+          do i = 1,nxx
+            ii  = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-c Deallocate variables
+            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                         ,x1,y1,z1,cartsn)
+            jac    = jacobian(x1,y1,z1,cartsn)
+            nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,x1,y1,z1
+     .                       ,vx,vy,vz,cartsn,0)
+            dvol   = volume(i,j,k,igx,igy,igz)
 
-      call deallocateDerivedType(varray)
+            !Eqn 1
+            do icomp=1,3
+              vector(i,j,k,icomp) = 
+     .                            gv0%grid(igrid)%array(i,j,k,icomp)/dt
+     .                          + alpha*vx(i,j,k)*nabla_v(1,icomp)/jac
+     .                          + alpha*vy(i,j,k)*nabla_v(2,icomp)/jac
+     .                          + alpha*vz(i,j,k)*nabla_v(3,icomp)/jac
+     .                          - alpha*veclaplacian(i,j,k,nxx,nyy,nzz
+     .                                              ,vx,vy,vz,nuu
+     .                                              ,alt_eom,icomp)/dvol
+            enddo
 
-c End program
+          enddo
+        enddo
+      enddo
 
-      end subroutine setupPreconditioner
+      do icomp=1,3
+        call restrictArrayToMGVector(1,nxx,nyy,nzz
+     .                              ,vector(:,:,:,icomp)
+     .                              ,mgadvdiffV0(:,icomp)
+     .                              ,igrid,order,.false.)
+      enddo
 
-ccc buildDiagBlocks
-ccc###################################################################
-cc      subroutine buildDiagBlocks(varray)
-ccc-------------------------------------------------------------------
-ccc    This subroutine computes the diagonal blocks of the Jacobian.
-ccc
-ccc     Boundary conditions are imposed via bcond(4):
-ccc        * bcond(1)  -- > bottom
-ccc        * bcond(2)  -- > top
-ccc        * bcond(3)  -- > left
-ccc        * bcond(4)  -- > right
-ccc     If bcond = 0, BC's --> periodic
-ccc     If bcond = 1, BC's --> dirichlet
-ccc     If bcond = 2, BC's --> neumann (natural)
-ccc-------------------------------------------------------------------
-cc
-cc      use grid
-cc
-cc      use parameters
-cc
-cc      use precond_variables
-cc
-cc      use variable_setup
-cc
-cc      use nlfunction_setup
-cc
-cc      implicit none
-cc
-ccc Call variables
-cc
-cc      type (var_array),target :: varray
-cc
-ccc Local variables
-cc
-cc      integer*4     i,j
-cc
-cc      real*8        diff2(0:nxd+1,0:nyd+1),sf(0:nxd+1,0:nyd+1)
-cc
-cc      integer, pointer,dimension(:) :: bcond
-cc
-ccc Begin program
-cc
-ccc Stream function block
-cc
-cc      diff2 = -1d0
-cc      sf    = 0d0
-cc
-cc      call createMatrix(pp(:,:,PHI),1d30,1d0,sf,diff2,bcs(:,PHI),2d0)
-cc
-ccc Vorticity block
-cc
-cc      sf = uu
-cc
-cc      call createMatrix(pp(:,:,VOR),dt,alpha,sf,nuu,bcs(:,VOR),1d0)
-cc
-ccc Poloidal flux block
-cc
-cc      diff2 = eeta + de**2/dt/alpha
-cc
-cc      sf = ue
-cc
-cc      call createMatrix(pp(:,:,PSI),dt,alpha,sf,diff2,bcs(:,PSI),1d0)
-cc
-ccc vz block
-cc
-cc      sf = uu
-cc
-cc      call createMatrix(pp(:,:,IVZ),dt,alpha,sf,nuu,bcs(:,IVZ),1d0)
-cc
-ccc Bz block
-cc
-cc      call createMatrix(pp(:,:,IBZ),dt,alpha,sf,diff2,bcs(:,IBZ),1d0)
-cc
-ccc End program
-cc
-cc      return
-cc      end
-cc
-ccc createMatrix
-ccc####################################################################
-cc      subroutine createMatrix(p1,dtt,coeff,phi,diff,bcond,rscale)
-cc
-ccc--------------------------------------------------------------------
-ccc     Computes and stores discretization matrix for a convection
-ccc     diffusion equation with stream function phi, diffusion
-ccc     coefficient diff, and SI constant si, in all grids.
-ccc
-ccc     Boundary conditions are stored in bcond(4):
-ccc        * bcond(1)  -- > bottom
-ccc        * bcond(2)  -- > top
-ccc        * bcond(3)  -- > left
-ccc        * bcond(4)  -- > right
-ccc     If bcond = 0, BC's --> periodic
-ccc     If bcond = 1, BC's --> dirichlet
-ccc     If bcond = 2, BC's --> neumann (natural)
-ccc--------------------------------------------------------------------
-cc
-cc      use parameters
-cc
-cc      use grid
-cc
-cc      use timeStepping
-cc
-cc      implicit none    !For safe fortran
-cc
-ccc Call variables
-cc
-cc      real*8       dtt,coeff,rscale
-cc      real*8       p1(ndiagdp,ntotd2p)
-cc      real*8       phi(0:nxdp,0:nydp)
-cc      real*8       diff(0:nxdp,0:nydp)
-cc      integer*4    bcond(4)
-cc
-ccc Local variables
-cc
-cc      integer*4    i,j,ii,isig
-cc      real*8       uvel,vvel,constx,consty
-cc      real*8       nuvel,nvvel,theta_x,theta_y
-cc
-ccc Begin program
-cc
-cc      isig = istartp(ngrd) - 1
-cc
-cc      do j = 1,nyd
-cc        do i = 1,nxd
-cc
-cc          ii  = i + nxd*(j-1) + isig
-cc
-ccc     Define uvel and vvel from the stream function
-cc
-cc          uvel = -(phi(i,j+1)-phi(i,j-1))/dy(ngrd)/2.0d0
-cc          vvel =  (phi(i+1,j)-phi(i-1,j))/dx(ngrd)/2.0d0
-cc
-ccc     Center
-cc
-cc          constx = 2d0
-cc          consty = 2d0
-cc          if (bcond(1).eq.2.and.j.eq.1  ) constx = 1d0
-cc          if (bcond(2).eq.2.and.j.eq.nyd) constx = 1d0
-cc          if (bcond(3).eq.2.and.i.eq.1  ) consty = 1d0
-cc          if (bcond(4).eq.2.and.i.eq.nxd) consty = 1d0
-cc
-cc          p1(3,ii) = dy(ngrd)*dx(ngrd)/coeff/dtt
-cc     &             + diff(i,j)*constx*dx(ngrd)/dy(ngrd)
-cc     &             + diff(i,j)*consty*dy(ngrd)/dx(ngrd)
-cccc     &             + dx(ngrd)*abs(vvel) + dy(ngrd)*abs(uvel)
-cc
-cc          theta_x = 0d0
-cc          if (uvel.ne.0d0)
-cc     .       theta_x = min(dabs(p1(3,ii)*2.*dx(ngrd)/uvel),1d0)
-cc
-cc          theta_y = 0d0
-cc          if (vvel.ne.0d0)
-cc     .       theta_y = min(dabs(p1(3,ii)*2.*dy(ngrd)/vvel),1d0)
-cc
-cc          nuvel = (1.-theta_x)*uvel
-cc          nvvel = (1.-theta_y)*vvel
-cc
-cc          p1(3,ii) = p1(3,ii)
-cc     &             + dx(ngrd)*abs(nvvel) + dy(ngrd)*abs(nuvel)
-cc
-ccc     South
-cc
-cc          if( j .eq. 1.and.bcond(1).ne.0)then
-cc            p1(1,ii) = 0.0d0
-cc          else
-cc            p1(1,ii) = -diff(i,j)*dx(ngrd)/dy(ngrd)
-cc     &                 -dx(ngrd)*theta_y*vvel/2d0
-cc     &                 -dx(ngrd)*max(0d0,nvvel)
-cc          endif
-cc
-ccc     West
-cc
-cc          if( i .eq. 1.and.bcond(3).ne.0)then
-cc            p1(2,ii) = 0.0d0
-cc          else
-cc            p1(2,ii) = -diff(i,j)*dy(ngrd)/dx(ngrd)
-cc     &                 -dy(ngrd)*theta_x*uvel/2d0
-cc     &                 -dy(ngrd)*max(0d0,nuvel)
-cc          endif
-cc
-ccc     East
-cc
-cc          if( i .eq. nxd.and.bcond(4).ne.0)then
-cc            p1(4,ii) = 0.0d0
-cc          else
-cc            p1(4,ii) = -diff(i,j)*dy(ngrd)/dx(ngrd)
-cc     &                 +dy(ngrd)*theta_x*uvel/2d0
-cc     &                 +dy(ngrd)*min(0d0,nuvel)
-cc          endif
-cc
-ccc     North
-cc
-cc          if( j .eq. nyd.and.bcond(2).ne.0)then
-cc            p1(5,ii) = 0.0d0
-cc          else
-cc            p1(5,ii) = -diff(i,j)*dx(ngrd)/dy(ngrd)
-cc     &                 +dx(ngrd)*theta_y*vvel/2d0
-cc     &                 +dx(ngrd)*min(0d0,nvvel)
-cc          endif
-cc
-cc        enddo
-cc      enddo
-cc
-ccc Normalization
-cc
-cc      p1 = coeff*p1
-cc
-ccc Piece-wise constant operator restriction to all grids.
-cc
-cc      call restrict5ptMatrix(p1,rscale,bcond)
-cc
-ccc End program
-cc
-cc      return
-cc      end
-cc
-ccc restrict5ptMatrix
-ccc##################################################################
-cc      subroutine restrict5ptMatrix(p1,rscasf,bcond)
-cc
-ccc------------------------------------------------------------------
-ccc     This is a routine to build coarse grid 5pt-stencil jacobians
-ccc     from fine grid 5pt-stencil jacobians
-ccc------------------------------------------------------------------
-cc
-cc      use parameters
-cc
-cc      use grid
-cc
-cc      implicit none    !For safe fortran
-cc
-ccc Call variables
-cc
-cc      real*8       p1(ndiagdp,ntotd2p),rscasf
-cc      integer*4    bcond(4)
-cc
-ccc Local variables
-cc
-cc      integer*4    i,j,if,jf,ic,jc,ii,isig,isigf,isigc,ig
-cc      integer*4    nxc,nxf,nyc,nyf
-cc      integer*4    iuf4,iuf3,iuf2,iuf1,iuc
-cc
-ccc Begin program
-cc
-cc      do ig = ngrd-1,1,-1
-cc
-cc        nxc = nxvp(ig)
-cc        nyc = nyvp(ig)
-cc
-cc        nxf = nxvp(ig+1)
-cc        nyf = nyvp(ig+1)
-cc
-cc        isigc = istartp(ig  ) - 1
-cc        isigf = istartp(ig+1) - 1
-cc
-cc        do ic = 1,nxc
-cc          do jc = 1,nyc
-cc
-cc            if = 2*ic
-cc            jf = 2*jc
-cc
-cc            iuc  = ic     + nxc*(jc-1) + isigc
-cc            iuf4 = if     + nxf*(jf-1) + isigf
-cc            iuf3 = if - 1 + nxf*(jf-1) + isigf
-cc            iuf2 = if     + nxf*(jf-2) + isigf
-cc            iuf1 = if - 1 + nxf*(jf-2) + isigf
-cc
-ccc        south
-cc
-cc            if( jc .eq. 1.and.bcond(1).ne.0)then
-cc              p1(1,iuc) = 0.0d0
-cc            else
-cc              p1(1,iuc) = (p1(1,iuf2) + p1(1,iuf1))/rscasf
-cc            endif
-cc
-ccc        west
-cc
-cc            if( ic .eq. 1.and.bcond(3).ne.0)then
-cc              p1(2,iuc) = 0.0d0
-cc            else
-cc              p1(2,iuc) = (p1(2,iuf3) + p1(2,iuf1))/rscasf
-cc            endif
-cc
-ccc        center
-cc
-cc            p1(3,iuc)=(p1(3,iuf1)+p1(3,iuf2)+p1(3,iuf3)+p1(3,iuf4)
-cc     .               + p1(1,iuf4) + p1(2,iuf4)
-cc     .               + p1(1,iuf3) + p1(4,iuf3)
-cc     .               + p1(2,iuf2) + p1(5,iuf2)
-cc     .               + p1(4,iuf1) + p1(5,iuf1))/rscasf
-cc
-ccc        east
-cc
-cc            if( ic .eq. nxc .and.bcond(4).ne.0)then
-cc              p1(4,iuc) = 0.0d0
-cc            else
-cc              p1(4,iuc) = (p1(4,iuf2) + p1(4,iuf4))/rscasf
-cc            endif
-cc
-ccc        north
-cc
-cc            if( jc .eq. nyc .and.bcond(2).ne.0)then
-cc              p1(5,iuc) = 0.0d0
-cc            else
-cc              p1(5,iuc) = (p1(5,iuf3) + p1(5,iuf4))/rscasf
-cc            endif
-cc
+      deallocate(vector)
+
+c Find required diagonals in all grids
+
+      if (jit == 1) then
+        icomp = IRHO
+        call find_mf_diag(1,ntotdp,rho_mtvc,1,bcs(:,IRHO),rho_diag)
+
+        icomp = ITMP
+        call find_mf_diag(1,ntotdp,tmp_mtvc,1,bcs(:,ITMP),tmp_diag)
+
+        icomp = IBX
+        call find_mf_diag(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ),b_diag)
+
+        icomp = IVX
+        call find_mf_diag(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
+      endif
+
+c diag
+c DIAGONAL GENERATION FOR XDRAW PLOTTING
+cc      do k=1,nzz
+cc        do j=1,nyy
+cc          do i=1,nxx
+cc            ii = i + nxx*(j-1)+nxx*nyy*(k-1)
+cc            debug(i,j,k) = 1./sqrt(sum(v_diag(3,3*ii-2:3*ii)**2)
 cc          enddo
 cc        enddo
 cc      enddo
 cc
-ccc End 
+cc      open(unit=110,file='debug.bin',form='unformatted'
+cc     .    ,status='replace')
+cc      call contour(debug(1:nxx,1:nyy,1),nxx,nyy,0d0,xmax,0d0,ymax,0,110)
+cc      close(110)
+cc      stop
+
+c diag ***************
+c MATRIX GENERATION FOR MATLAB PROCESSING
+cc      igrid = 1
 cc
-cc      return
-cc      end
+cc      nxx = grid_params%nxv(igrid)
+cc      nyy = grid_params%nyv(igrid)
+cc      nzz = grid_params%nzv(igrid)
 cc
-ccc restrictVectorFieldFromSF
-ccc####################################################################
-cc      subroutine restrictVectorFieldFromSF(nx,ny,sf,vxx,vyy,order,bcond)
-ccc-------------------------------------------------------------------
-ccc     Finds vector components from stream function psi in all grids,
-ccc     and maps them into MG vectors.
-ccc-------------------------------------------------------------------
+cc      nt = 3*nxx*nyy*nzz
 cc
-cc      use grid
+cc      allocate(v_mat(nt,nt))
 cc
-cc      implicit none
+cc      icomp = IVX
+cc      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
 cc
-ccc Call variables
+cccc      open(unit=110,file='debug.bin',form='unformatted'
+cccc     .       ,status='replace')
+cccc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
+cccc      close(110)
 cc
-cc      integer         nx,ny,order,bcond(4)
-cc      real*8          sf(0:nx+1,0:ny+1)
-cc     .               ,vx(0:nx+1,0:ny+1),vy(0:nx+1,0:ny+1)
-cc      real*8          vxx(2*nx*ny),vyy(2*nx*ny)
-cc
-ccc Local variables
-cc
-cc      integer*4       nxf,nyf,nxc,nyc,igrid,igridf
-cc
-cc      real*8          dx1,dy1,coeff,coeff1,coeff2
-cc
-cc      double precision, allocatable,dimension(:,:)::sff,sfc,vxc,vyc
-cc
-ccc Begin program
-cc
-ccc Map vector components in finest grid onto MG vector
-cc
-cc      dx1 = dx(ngrd)
-cc      dy1 = dy(ngrd)
-cc
-cc      nxf  = nxvp(ngrd)
-cc      nyf  = nyvp(ngrd)
-cc
-cc      call vec_find(nxf,nyf,dx1,dy1,sf,vx,vy)
-cc
-cc      call mapArrayToMGVector(nxf,nyf,vx,vxx,ngrd)
-cc      call mapArrayToMGVector(nxf,nyf,vy,vyy,ngrd)
-cc
-cc      allocate(sff(0:nxf+1,0:nyf+1))
-cc
-cc      sff = sf
-cc
-cc      igridf = ngrd
-cc
-ccc Restrict stream function and find vector components in coarser grids
-cc
-cc      do igrid = ngrd-1,2,-1
-cc
-ccc     Characterize coarse grid and define arrays
-cc
-cc        dx1 = dx(igrid)
-cc        dy1 = dy(igrid)
-cc
-cc        nxc  = nxvp(igrid)
-cc        nyc  = nyvp(igrid)
-cc
-cc        allocate(sfc(0:nxc+1,0:nyc+1))
-cc        allocate(vxc (0:nxc+1,0:nyc+1))
-cc        allocate(vyc (0:nxc+1,0:nyc+1))
-cc
-ccc     Restrict array sff -> sfc
-cc
-cc        call restrictArraytoArray(nxf,nyf,sff,igridf
-cc     .                           ,nxc,nyc,sfc,igrid ,order,bcond)
-cc
-ccc     Form vector components in coarse grid
-cc
-cc        call vec_find(nxc,nyc,dx1,dy1,sfc,vxc,vyc)
-cc
-ccc     Map vector components onto MG vector
-cc
-cc        call mapArrayToMGVector(nxc,nyc,vxc,vxx,igrid)
-cc        call mapArrayToMGVector(nxc,nyc,vyc,vyy,igrid)
-cc
-ccc     Transfer grid information
-cc
-cc        if (order.eq.0) then
-cc          igridf = igrid
-cc          nxf = nxc
-cc          nyf = nyc
-cc
-cc          deallocate(sff)
-cc          allocate(sff(0:nxf+1,0:nyf+1))
-cc
-cc          sff = sfc
-cc        endif
-cc
-ccc     Deallocate variables
-cc
-cc        deallocate(sfc,vxc,vyc)
-cc
+cc      open(unit=110,file='debug.mat',status='replace')
+cc      do i=1,nt
+cc        write (110,*) (v_mat(i,j),j=1,nt)
 cc      enddo
-cc
-ccc End program
-cc
-cc      deallocate(sff)
-cc
-cc      return
-cc      end
+cc      close(110)
+cc      stop
+
+c End program
+
+      end subroutine setupPreconditioner
