@@ -103,7 +103,15 @@ else
   exit 1
 fi
 
+if [ -f "machines.LINUX" ]; then
+    cp machines.LINUX $dir 2>/dev/null
+fi
+
 cp $executable $dir 2>/dev/null
+
+if [ "$executable" = "pixie3d.x" ]; then
+  cp pixplot.x $dir 2>/dev/null
+fi
 
 cd $dir
 
@@ -189,7 +197,7 @@ then
 
 # Package and remove temporary files
 
-  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null`
+  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null ; ls *.x 2>/dev/null`
 
   tar zcf $inputfile.tar.gz $files
   if [ -d "$path/tarfiles" ]; then
