@@ -171,6 +171,7 @@ c Define graphics group #3: Cartesian variables
 c Define graphics group #4: Diagnostics
 
       graph(4)%cartesian=.true.
+cc      graph(4)%cartesian=.false.
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
