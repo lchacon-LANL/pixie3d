@@ -1,6 +1,6 @@
 c defineGraphics
 c####################################################################
-      subroutine defineGraphics
+      subroutine defineGraphics(igx,igy,igz)
 
 c--------------------------------------------------------------------
 c     Set graphics files and dumping intervals
@@ -12,17 +12,43 @@ c--------------------------------------------------------------------
 
       use graphics
 
-      use nlfunction_setup
+      use auxiliaryVariables
+
+      use equilibrium
 
       implicit none
 
 c Call variables
 
+      integer(4) :: igx,igy,igz
+
 c Local variables
 
-      integer  :: ieq,i
+      integer(4) :: ieq,i,nx,ny,nz
 
 c Begin program
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
+c Allocate auxiliary graphics variables
+
+      allocate (bx_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,by_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,bz_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,jx_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,jy_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,jz_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,vx_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,vy_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,vz_car(0:nx+1,0:ny+1,0:nz+1)
+     .         ,divrgB(0:nx+1,0:ny+1,0:nz+1)
+     .         ,divrgV(0:nx+1,0:ny+1,0:nz+1)
+     .         ,divrgJ(0:nx+1,0:ny+1,0:nz+1)
+     .         ,Pflux (0:nx+1,0:ny+1,0:nz+1)
+     .         ,p_tot (0:nx+1,0:ny+1,0:nz+1)
+     .         ,qfactor(0:nx+1,0:ny+1,0:nz+1))
 
 c Define number of graphics groups
 
@@ -273,7 +299,7 @@ c     ##################################################################
 
 c prepareTimeStepPlots
 c####################################################################
-      subroutine prepareTimeStepPlots
+      subroutine prepareTimeStepPlots(iigx,iigy,iigz)
 
 c--------------------------------------------------------------------
 c     Set graphics files and dumping intervals
@@ -283,63 +309,54 @@ c--------------------------------------------------------------------
 
       use graphics
 
-      use nlfunction_setup
+      use auxiliaryVariables
 
       use timeStepping
 
       use constants
 
+      use operators
+
+      use equilibrium
+
       implicit none
 
 c Call variables
 
+      integer(4) :: iigx,iigy,iigz
+
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
-      real(8)    :: mm,kk,RR,ll,x1,y1,z1
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1,jac
       logical    :: cartsn
 
 c Begin program
 
-c Allocate variables
+      igx = iigx
+      igy = iigy
+      igz = iigz
 
-cc        allocate (divrgB(0:nxdp,0:nydp,0:nzdp)
-cc     .           ,divrgV(0:nxdp,0:nydp,0:nzdp)
-cc     .           ,divrgJ(0:nxdp,0:nydp,0:nzdp)
-cc     .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
-cc     .           ,p_tot (0:nxdp,0:nydp,0:nzdp)
-cc     .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
 c Impose boundary conditions
 
-      call imposeBoundaryConditions(u_np)
+      call imposeBoundaryConditions(u_np,igx,igy,igz)
+
+      rho => u_np%array_var(IRHO)%array
+      rvx => u_np%array_var(IVX )%array
+      rvy => u_np%array_var(IVY )%array
+      rvz => u_np%array_var(IVZ )%array
+      bx  => u_np%array_var(IBX )%array
+      by  => u_np%array_var(IBY )%array
+      bz  => u_np%array_var(IBZ )%array
+      tmp => u_np%array_var(ITMP)%array
 
 c Find perturbed quantities
 
       u_graph = u_np - u_0
-
-cdiag ******
-cc      do k = 1,nz
-cc        do j = 1,ny
-cc          do i = 1,nx
-cc            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-cc     .                         ,cartsn)
-cc            jac = jacobian(x1,y1,z1,cartsn)
-cc
-cc            u_graph%array_var(IBZ)%array(i,j,k) =
-cccc     .           u_graph%array_var(IBZ)%array(i,j,k)/jac
-cccc     .          *u_0    %array_var(IBZ)%array(i,j,k)/jac
-cc     .           u_np%array_var(IBZ)%array(i,j,k)
-cc     .          *u_np%array_var(IBX)%array(i,j,k)/jac
-cccc            u_graph%array_var(IRHO)%array(i,j,k) =
-cccc     .           u_graph%array_var(IRHO)%array(i,j,k)/jac**2
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      call imposeBoundaryConditions(u_graph)
-cc      if (source) u_graph = fsrc
-cdiag ******
 
 c Poloidal flux diagnostics  (use graphics limits)
 
@@ -391,22 +408,26 @@ c Divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            divrgJ(i,j,k) = divJ(i,j,k)/jac
-            divrgB(i,j,k) = divB(i,j,k)/jac
-            divrgV(i,j,k) = divV(i,j,k)/jac
+            divrgJ(i,j,k) = div(i,j,k,jx,jy,jz)/jac
+            divrgB(i,j,k) = div(i,j,k,bx,by,bz)/jac
+            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)/jac
           enddo
         enddo
       enddo
 
       if (bcond(1) == SP) then
       !Find div at singular point
-        call FillGhostNodes(IRHO,1,0,SP,divrgJ,zeros)
-        call FillGhostNodes(IRHO,1,0,SP,divrgB,zeros)
-        call FillGhostNodes(IRHO,1,0,SP,divrgV,zeros)
+cc        call FillGhostNodes(IRHO,1,0,SP,divrgJ,zeros)
+cc        call FillGhostNodes(IRHO,1,0,SP,divrgB,zeros)
+cc        call FillGhostNodes(IRHO,1,0,SP,divrgV,zeros)
 
       !Replace div at innermost radius with value at SP
-        divrgJ(1,:,:) = divrgJ(0,:,:)
-        divrgB(1,:,:) = divrgB(0,:,:)
+cc        divrgJ(1,:,:) = divrgJ(0,:,:)
+cc        divrgB(1,:,:) = divrgB(0,:,:)
+cc        divrgV(1,:,:) = divrgV(0,:,:)
+
+        divrgJ(1,:,:) = 0d0
+        divrgB(1,:,:) = 0d0
 cc        divrgV(1,:,:) = divrgV(0,:,:)
       endif
 

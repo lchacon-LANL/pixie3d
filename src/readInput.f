@@ -233,26 +233,6 @@ c Map perturbations
 
 c Translate boundary conditions
 
-cc      where (bcs == 'def')
-cc        bcond = DEF
-cc      end where
-cc
-cc      where (bcs == 'per')
-cc        bcond = PER
-cc      end where
-cc
-cc      where (bcs == 'spt')
-cc        bcond = SP
-cc      end where
-cc
-cc      where (bcs == 'sym')
-cc        bcond = NEU
-cc      end where
-cc
-cc      where (bcs == 'equ')
-cc        bcond = EQU
-cc      end where
-
       bcond = -1
 
       where (bcs == 'def')

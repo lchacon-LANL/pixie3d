@@ -35,13 +35,8 @@ SRC  := modules.f \
 OBJS := $(SRC:.f=.o)
 
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
-#COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*.f))
 COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
-#COMMON_OBJS = $(patsubst %.f,%.o,$(filter-out $(COMMON_MODS),$(COMMON_SRC)))
 COMMON_OBJS = $(COMMON_SRC:.f=.o)
-#COMMON_OBJS = $(patsubst %.f,%.o,$(filter-out test.f,$(COMMON_SRC)))
-
-LIBS = -llapack_f90 -lblas_f90
 
 prefix = .
 
@@ -60,6 +55,8 @@ PROFILE = -P
 STATIC = -s
 MODPATH = -p
 
+LIBS = -llapack_f90 -lblas_f90
+
 else
 
 # Flags for Lahey lf95
@@ -69,6 +66,8 @@ DEBUG = -g --trace --trap
 PROFILE =
 STATIC =
 MODPATH = -M
+
+LIBS = -llapack_lf95 -lblas_lf95
 
 endif
 
@@ -127,8 +126,6 @@ $(PROD):  $(OBJS)  $(COMMON_SRC)
 common: ;
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -e -C $$subdir ; done
-#		$(MAKE) -e -C $$subdir ; \
-#		cp $$subdir/*.mod $(prefix) >& /dev/null ; done
 
 clean:
 	-rm -f *.o *.mod

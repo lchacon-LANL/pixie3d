@@ -14,9 +14,13 @@ c####################################################################
 
         use icond
 
-        use nlfunction_setup
+        use auxiliaryVariables
 
         use constants
+
+        use transport_params
+
+        use operators
 
         implicit none
 
@@ -25,7 +29,7 @@ c####################################################################
 
         integer(4) :: ndiag
 
-        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0
+        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0,jac
         real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
 
       end module diag_setup
@@ -315,15 +319,16 @@ c Magnetic divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            array(i,j,k) = divB(i,j,k)/jac
+            array(i,j,k) = div(i,j,k,bx,by,bz)/jac
           enddo
         enddo
       enddo
 
       !Take care of singular point
       if (bcond(1) == SP) then
-        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
-        array(1,:,:) = array(0,:,:)
+cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
+cc        array(1,:,:) = array(0,:,:)
+        array(1,:,:) = 0d0
       endif
 
       !Total B divergence (conservation of flux)
@@ -341,7 +346,7 @@ c Velocity divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            array(i,j,k) = divV(i,j,k)/jac
+            array(i,j,k) = div(i,j,k,vx,vy,vz)/jac
           enddo
         enddo
       enddo
@@ -536,9 +541,11 @@ c Local variables
 
 c Begin program
 
-      call imposeBoundaryConditions(varray)
-
       to_cartsn = .true.
+
+c Update BCs
+
+      call imposeBoundaryConditions(varray,igx,igy,igz)
 
 c Find cartesian velocity components
 
@@ -550,20 +557,6 @@ c Find cartesian velocity components
       call transformVector(igx,igy,igz
      .                    ,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
-
-c Find covariant velocity components
-
-      to_cnv = .false.
-
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-     .             ,vx(i,j,k),vy(i,j,k),vz(i,j,k),to_cnv)
-          enddo
-        enddo
-      enddo
 
 c Find magnetic field components in cartesian coordinates
 
@@ -591,3 +584,79 @@ c End
 
       end subroutine postProcessSolution
 
+c transformVector
+c######################################################################
+      subroutine transformVector(igx,igy,igz
+     .                          ,imin,imax,jmin,jmax,kmin,kmax
+     .                          ,arr1,arr2,arr3,covariant,to_cartsn)
+
+c----------------------------------------------------------------------
+c     Transforms vectors components in arrays arr1,arr2,arr3
+c     from Cartesian to curvilinear (to_cartesian=.false.)
+c     and viceversa, either with covariant (covariant=.true.) or 
+c     contravariant curvilinear vectors.
+c----------------------------------------------------------------------
+
+      use grid
+
+      implicit none
+
+c     Input variables
+
+        integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+        integer(4) :: igx,igy,igz
+        logical    :: covariant,to_cartsn
+        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
+
+c     Local variables
+
+        integer(4) :: i,j,k
+        real(8)    :: vec(3)
+
+c     Begin program
+
+        if (to_cartsn) then
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCartesian
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        else
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCurvilinear
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        endif
+
+      end subroutine transformVector

@@ -44,39 +44,24 @@ c Begin program
 
         allocate (bx_cov(0:nxdp,0:nydp,0:nzdp)
      .           ,by_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,bz_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,bx_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,by_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,bz_car(0:nxdp,0:nydp,0:nzdp))
+     .           ,bz_cov(0:nxdp,0:nydp,0:nzdp))
 
         allocate (jx    (0:nxdp,0:nydp,0:nzdp)
      .           ,jy    (0:nxdp,0:nydp,0:nzdp)
      .           ,jz    (0:nxdp,0:nydp,0:nzdp)
      .           ,jx_cov(0:nxdp,0:nydp,0:nzdp)
      .           ,jy_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,jz_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,jx_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,jy_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,jz_car(0:nxdp,0:nydp,0:nzdp))
+     .           ,jz_cov(0:nxdp,0:nydp,0:nzdp))
 
         allocate (vx    (0:nxdp,0:nydp,0:nzdp)
      .           ,vy    (0:nxdp,0:nydp,0:nzdp)
      .           ,vz    (0:nxdp,0:nydp,0:nzdp)
      .           ,vx_cov(0:nxdp,0:nydp,0:nzdp)
      .           ,vy_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,vz_cov(0:nxdp,0:nydp,0:nzdp)
-     .           ,vx_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,vy_car(0:nxdp,0:nydp,0:nzdp)
-     .           ,vz_car(0:nxdp,0:nydp,0:nzdp))
+     .           ,vz_cov(0:nxdp,0:nydp,0:nzdp))
 
         allocate (eeta  (0:nxdp,0:nydp,0:nzdp)
-     .           ,nuu   (0:nxdp,0:nydp,0:nzdp)
-     .           ,divrgB(0:nxdp,0:nydp,0:nzdp)
-     .           ,divrgV(0:nxdp,0:nydp,0:nzdp)
-     .           ,divrgJ(0:nxdp,0:nydp,0:nzdp)
-     .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
-     .           ,p_tot (0:nxdp,0:nydp,0:nzdp)
-     .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
+     .           ,nuu   (0:nxdp,0:nydp,0:nzdp))
 
 c End program
 
@@ -91,7 +76,7 @@ c--------------------------------------------------------------------
 
       use grid
 
-      use nlfunction_setup
+      use grid_aliases
 
       implicit none
 

@@ -49,7 +49,18 @@ c Begin program
 
 c Impose boundary conditions and find auxiliary quantities
 
-      call imposeBoundaryConditions(varray)
+      call imposeBoundaryConditions(varray,igx,igy,igz)
+
+c Set aliases
+
+      rho => varray%array_var(IRHO)%array
+      rvx => varray%array_var(IVX )%array
+      rvy => varray%array_var(IVY )%array
+      rvz => varray%array_var(IVZ )%array
+      bx  => varray%array_var(IBX )%array
+      by  => varray%array_var(IBY )%array
+      bz  => varray%array_var(IBZ )%array
+      tmp => varray%array_var(ITMP)%array
 
 c Safeguards
 
