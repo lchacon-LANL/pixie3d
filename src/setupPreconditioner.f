@@ -238,8 +238,8 @@ c Find required diagonals in all grids
         icomp = IBX
         call find_mf_diag_std(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ),b_diag)
 
-cc        icomp = IVX
-cc        call find_mf_diag_std(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
+        icomp = IVX
+        call find_mf_diag_std(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
       endif
 
 c diag
