@@ -50,7 +50,7 @@ c Namelist
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random
-     .                ,precon,maxvcyc,nsweep,precpass,iguess
+     .                ,precon,maxvcyc,nsweep,mgtol,iguess
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
 
@@ -116,10 +116,10 @@ c Set defaults
                                !        guess to GMRES (1)
 
       !Preconditioner parameters
-      nsweep   = 4             ! Number of SGS sweeps
+      nsweep   = 5             ! Number of SGS sweeps
       maxvcyc  = 1             ! Maximum number of V-cycles
-      precpass = 4             ! Number of jacobi passes in MHD preconditioner
-      precon   = '4o'          ! Type of preconditioner
+      mgtol    = 1d-3          ! MG convergence tolerance
+      precon   = 'si'          ! Type of preconditioner
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
