@@ -214,9 +214,9 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            jac = gmetric%grid(igx)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
             ijkg   = ijk + isig - 1
@@ -354,9 +354,9 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            jac = gmetric%grid(igx)%jac(i,j,k)
 
             ijk    = i + nx*(j-1) + nx*ny*(k-1)
             ijkg   = ijk + isig - 1
@@ -492,9 +492,9 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            jac = gmetric%grid(igx)%jac(i,j,k)
 
             ijk    = i + nx*(j-1) + nx*ny*(k-1)
             ijkg   = ijk + isig - 1
@@ -638,34 +638,21 @@ c Calculate matrix-vector product
             kp = k+1
             km = k-1
 
-            call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-     .                         ,cartsn)
-            call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                         ,cartsn)
-            call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-     .                         ,cartsn)
-            call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-     .                         ,cartsn)
-            call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-     .                         ,cartsn)
-            call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-     .                         ,cartsn)
-            call getCoordinates(i,j,k ,igx,igy,igz,ig,jg,kg,x0,y0,z0
-     .                         ,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-            jacip  = jacobian(xip,yip,zip,cartsn)
-            jacim  = jacobian(xim,yim,zim,cartsn)
-            jacjp  = jacobian(xjp,yjp,zjp,cartsn)
-            jacjm  = jacobian(xjm,yjm,zjm,cartsn)
-            jackp  = jacobian(xkp,ykp,zkp,cartsn)
-            jackm  = jacobian(xkm,ykm,zkm,cartsn)
-            jac    = jacobian(x0 ,y0 ,z0 ,cartsn)
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(im,j,k)
+            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+            jackp  = gmetric%grid(igx)%jac(i,j,kp)
+            jackm  = gmetric%grid(igx)%jac(i,j,km)
+            jac    = gmetric%grid(igx)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            vol = volume(i,j,k,igx,igy,igz)
+            vol    = volume(i,j,k,igx,igy,igz)
 
-            etal = res(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+            etal   = res(i,j,k,nxx,nyy,nzz,igx,igy,igz)
 
             flxjp = 0.5/(jac+jacjp)*(
      .           (    (v0_cnv(i,j,k,2)+v0_cnv(i,jp,k,2))
@@ -716,9 +703,9 @@ c Calculate matrix-vector product
      .               + alpha*upwind )*vol
      .               - alpha*etal
      .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-     .                                                  ,db(:,:,:,2)
-     .                                                  ,db(:,:,:,3)
-     .                                                  ,ones,.false.,1)
+     .                                                     ,db(:,:,:,2)
+     .                                                     ,db(:,:,:,3)
+     .                                                 ,ones,.false.,1)
 cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
 
             flxip = 0.5/(jac+jacip)*(
@@ -770,9 +757,9 @@ cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1))
      .               + alpha*upwind )*vol
      .               - alpha*etal
      .                      *veclaplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,1)
-     .                                                  ,db(:,:,:,2)
-     .                                                  ,db(:,:,:,3)
-     .                                                  ,ones,.false.,2)
+     .                                                     ,db(:,:,:,2)
+     .                                                     ,db(:,:,:,3)
+     .                                                 ,ones,.false.,2)
 cc     .                      *laplacian(i,j,k,nxx,nyy,nzz,db(:,:,:,2))
 
             flxip = 0.5/(jac+jacip)*(
@@ -971,36 +958,23 @@ c Calculate matrix-vector product
             kp = k+1
             km = k-1
 
-            call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-     .                         ,cartsn)
-            call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                         ,cartsn)
-            call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-     .                         ,cartsn)
-            call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-     .                         ,cartsn)
-            call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-     .                         ,cartsn)
-            call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-     .                         ,cartsn)
-            call getCoordinates(i,j,k ,igx,igy,igz,ig,jg,kg,x0,y0,z0
-     .                         ,cartsn)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-            jacip  = jacobian(xip,yip,zip,cartsn)
-            jacim  = jacobian(xim,yim,zim,cartsn)
-            jacjp  = jacobian(xjp,yjp,zjp,cartsn)
-            jacjm  = jacobian(xjm,yjm,zjm,cartsn)
-            jackp  = jacobian(xkp,ykp,zkp,cartsn)
-            jackm  = jacobian(xkm,ykm,zkm,cartsn)
-            jac    = jacobian(x0 ,y0 ,z0 ,cartsn)
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(im,j,k)
+            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+            jackp  = gmetric%grid(igx)%jac(i,j,kp)
+            jackm  = gmetric%grid(igx)%jac(i,j,km)
+            jac    = gmetric%grid(igx)%jac(i,j,k)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             ijkg   = i  + nxx*(j -1) + nxx*nyy*(k -1) + isig - 1
 
-            vol = volume(i,j,k,igx,igy,igz)
+            vol    = volume(i,j,k,igx,igy,igz)
 
-            mul = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+            mul    = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
 
             !P_si^v  ******************************
 
@@ -1248,45 +1222,25 @@ cc            cov(3) = cov(3) + mgj0cnv(ijkg,2)*a10
      .                         ,a1cnvkm,a2cnvkm,a3cnvkm,3,igrid)
 
             !!Find covariant components of curl(dv x B0) at faces
-            xiph = (xip+x0)*0.5
-            ximh = (xim+x0)*0.5
-            xjph = (xjp+x0)*0.5
-            xjmh = (xjm+x0)*0.5
-            xkph = (xkp+x0)*0.5
-            xkmh = (xkm+x0)*0.5
 
-            yiph = (yip+y0)*0.5
-            yimh = (yim+y0)*0.5
-            yjph = (yjp+y0)*0.5
-            yjmh = (yjm+y0)*0.5
-            ykph = (ykp+y0)*0.5
-            ykmh = (ykm+y0)*0.5
-
-            ziph = (zip+z0)*0.5
-            zimh = (zim+z0)*0.5
-            zjph = (zjp+z0)*0.5
-            zjmh = (zjm+z0)*0.5
-            zkph = (zkp+z0)*0.5
-            zkmh = (zkm+z0)*0.5
-
-            call transformCurvToCurv(xiph,yiph,ziph,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covip,a2covip,a3covip
      .                              ,a1cnvip,a2cnvip,a3cnvip,.false.)
-            call transformCurvToCurv(ximh,yimh,zimh,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covim,a2covim,a3covim
      .                              ,a1cnvim,a2cnvim,a3cnvim,.false.)
 
-            call transformCurvToCurv(xjph,yjph,zjph,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covjp,a2covjp,a3covjp
      .                              ,a1cnvjp,a2cnvjp,a3cnvjp,.false.)
-            call transformCurvToCurv(xjmh,yjmh,zjmh,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covjm,a2covjm,a3covjm
      .                              ,a1cnvjm,a2cnvjm,a3cnvjm,.false.)
 
-            call transformCurvToCurv(xkph,ykph,zkph,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covkp,a2covkp,a3covkp
      .                              ,a1cnvkp,a2cnvkp,a3cnvkp,.false.)
-            call transformCurvToCurv(xkmh,ykmh,zkmh,cartsn
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,a1covkm,a2covkm,a3covkm
      .                              ,a1cnvkm,a2cnvkm,a3cnvkm,.false.)
 
