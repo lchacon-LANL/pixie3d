@@ -12,44 +12,49 @@ c##########################################################################
 
       use iosetup
 
+      use timeStepping
+
       use equilibrium
+
+      use slatec_splines
 
       implicit none
 
 c Local variables
 
-      integer(4)     :: i,j,k,ig,jg,kg,itime
+      integer(4)     :: i,j,k,ig,jg,kg,nx,ny,nz
       integer(4)     :: ierr,system,nplot,igx,igy,igz
-      character*(40) :: command
 
-      real(8)        :: mag,time,dt
+      real(8)        :: mag,mag0,jac
       real(8),allocatable,dimension(:,:,:,:) :: pos 
       real(8),pointer,dimension(:,:,:) :: array
 
-      type (var_array),target :: v256,vcur
+      type (var_array),target :: vref,vsol
 
 c Interpolation
 
-      real(8)    :: xp,yp,zp,ff
-
+      real(8)    :: xp,yp,zp,interp
       real(8),allocatable,dimension(:) :: xx,yy,zz
 
-      integer(4) ::  kx,ky,kz,nx,ny,nz,dim,flg,order
-      real(8), dimension(:),allocatable:: tx,ty,tz,work,q
-      real(8), dimension(:,:,:),allocatable:: bcoef
-
-      real(8)    :: db3val
-      external      db3val
+cc      integer(4) :: kx,ky,kz,nx,ny,nz,dim,flg,order
+cc
+cc      real(8), dimension(:),allocatable:: tx,ty,tz,work
+cc      real(8), dimension(:,:,:),allocatable:: bcoef
+cc
+cc      real(8)    :: db2val,db3val
+cc      external      db2val,db3val
 
 c Begin program
 
-      write (*,*) 'Start order test'
+      write (*,*)
+      write (*,*) ' Starting convergence test...'
 
       igx = 1
       igy = 1
       igz = 1
 
       call deallocateGridStructure(grid_params)
+      call deallocateGridMetric(gmetric)
 
 c Read reference grid info
 
@@ -60,39 +65,47 @@ c Read reference grid info
       read (urecord) nyd
       read (urecord) nzd
 
+      write (*,*)
+      write (*,*) ' Reading reference file...'
+      write (*,*) ' Grid: ',nxd,'x',nyd,'x',nzd
+
+      call setVectorDimensions
+
       !Create grid
       call createGrid(nxd,nyd,nzd)
 
       !Read solutions
-      call allocateDerivedType(v256)
+      call allocateDerivedType(vref)
 
-      write (*,*) ' Reading reference file...'
-      write (*,*) ' Grid: ',nxd,'x',nyd,'x',nzd
 
       do
-        call readRecord(urecord,itime,time,dt,v256,ierr)
+        call readRecord(urecord,itime,time,dt,vref,ierr)
 
         if (ierr /= 0) exit
       enddo
 
       close (urecord)
 
+      array => vref%array_var(IVX)%array
+
 c Spline reference solution
 
       order = 2
 
-      allocate(xx(nxd+2),yy(nxd+2),zz(nxd+2))
-
-      call getMGmap(1,1,1,igx,igy,igz,ig,jg,kg)
-
-      xx(1:nxd+2) = grid_params%xx(ig-1:ig+nxd)
-      yy(1:nyd+2) = grid_params%yy(jg-1:jg+nyd)
-      zz(1:nzd+2) = grid_params%zz(kg-1:kg+nzd)
-
-      flg = 0
       nx = nxd+2
       ny = nyd+2
       nz = nzd+2
+
+      allocate(xx(nx),yy(ny),zz(nz))
+
+      call getMGmap(1,1,1,igx,igy,igz,ig,jg,kg)
+
+      xx(1:nx) = grid_params%xx(ig-1:ig+nxd)
+      yy(1:ny) = grid_params%yy(jg-1:jg+nyd)
+      zz(1:nz) = grid_params%zz(kg-1:kg+nzd)
+
+      flg = 0
+
       kx = min(order+1,nx-1)
       ky = min(order+1,ny-1)
       kz = min(order+1,nz-1)
@@ -105,14 +118,17 @@ c Spline reference solution
       allocate(work(dim))
       allocate(bcoef(nx,ny,nz))
 
-      array => v256%array_var(IVX)%array
-
       call db3ink(xx,nx,yy,ny,zz,nz,array(0:nxd+1,0:nyd+1,0:nzd+1)
      .           ,nx,ny,kx,ky,kz,tx,ty,tz,bcoef,work,flg)
 
+      call deallocateGridMetric(gmetric)
       call deallocateGridStructure(grid_params)
 
 c Initialize current grid info and read current grid solution
+
+      igx = 1
+      igy = 1
+      igz = 1
 
       open(urecord,file=recordfile,form='unformatted',status='unknown')
 
@@ -120,27 +136,29 @@ c Initialize current grid info and read current grid solution
       read (urecord) nyd
       read (urecord) nzd
 
+      write (*,*)
+      write (*,*) ' Reading solution file...'
+      write (*,*) ' Grid: ',nxd,'x',nyd,'x',nzd
+
       call setVectorDimensions
 
       call createGrid(nxd,nyd,nzd)
 
-      call allocateDerivedType(vcur)
-
-      write (*,*) ' Reading solution file...'
-      write (*,*) ' Grid: ',nxd,'x',nyd,'x',nzd
+      call allocateDerivedType(vsol)
 
       do
-        call readRecord(urecord,itime,time,dt,vcur,ierr)
+        call readRecord(urecord,itime,time,dt,vsol,ierr)
 
         if (ierr /= 0) exit
       enddo
 
       close (urecord)
 
-      array => vcur%array_var(IVX)%array
+      array => vsol%array_var(IVX)%array
 
 c Calculate difference
 
+      mag0= 0d0
       mag = 0d0
 
       do k = 1,nzd
@@ -152,21 +170,26 @@ c Calculate difference
             yp = grid_params%yy(jg)
             zp = grid_params%zz(kg)
 
-            mag = mag +
-     .            (array(i,j,k)
-     .            -db3val(xp,yp,zp,0,0,0,tx,ty,tz,nx,ny,nz
-     .                   ,kx,ky,kz,bcoef,work))**2
+            jac = gmetric%grid(igx)%jac(i,j,k)
+
+            interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nx,ny,nz
+     .                     ,kx,ky,kz,bcoef,work)
+
+cc            mag0 = mag0 + jac* array(i,j,k)**2
+            mag0 = mag0 + jac* interp**2
+            mag  = mag  + jac*(array(i,j,k)-interp)**2
 
           enddo
         enddo
       enddo
 
-      deallocate(tx,ty,tz,work,bcoef,xx,yy,zz)
+      mag = sqrt(mag/mag0)
 
-      mag = sqrt(mag/nxd/nyd/nzd)
-
-      write (*,*) ' L2-norm error:',mag
+      write (*,*)
+      write (*,*) ' L2-norm relative error:',mag
 
 c End program
+
+      deallocate(tx,ty,tz,work,bcoef,xx,yy,zz)
 
       end subroutine order_tst
