@@ -45,7 +45,7 @@ c Debug
 
 c Externals
 
-      external   :: tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,test_mtvc
+      external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,test_mtvc
 
 c Begin program
 
@@ -1031,7 +1031,7 @@ c Local variables
 c Externals
 
       real(8)    :: res
-      external   :: res
+      external      res
 
 c Begin program
 
@@ -1093,7 +1093,7 @@ c Local variables
 c Externals
 
       real(8)    :: res
-      external   :: res
+      external      res
 
 c Begin program
 
