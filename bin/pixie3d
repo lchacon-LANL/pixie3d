@@ -7,7 +7,7 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-tar]
+pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar]
         -- inputfile [options]
 
 where:
@@ -20,13 +20,21 @@ where:
 	-np procs:     indicates the number of processors to run the job on 
 		         in parallel
 	-nolocal:      indicates that parallel job is not to run on current machine
-	-tar:          runs in background in separate directory and creates 
-                         tarfile inputfile.tar.gz
+                         (default is local)
+	-ntar:         runs in foreground in current directory (default: runs in 
+                         background in separate directory and creates 
+                         tarfile inputfile.tar.gz)
 	inputfile:     is the input file without the extension .in
 	options:       options passed directly to the executable
 HELP
 exit 0
 }
+
+# Defaults
+
+restart=f
+parallel=f
+tar=t
 
 # Parse command line options
 
@@ -43,7 +51,7 @@ case $1 in
 	-r) restart=t;tmax=$2;shift 2;;
 	-np)parallel=t;np=$2;shift 2;;
 	-nolocal)nolocal=$1;shift 1;;
-	-tar)tar=t;shift 1;;
+	-ntar)tar=f;shift 1;;
 	--) shift;break;;
 	-*) echo "error: no such option $1. -h for help";exit 1;;
 	*)  break;;
