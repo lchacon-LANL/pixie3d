@@ -43,6 +43,25 @@ c Externals
 
 c Begin program
 
+cc      open(unit=110,file='debug.bin',form='unformatted'
+cc     .    ,status='replace')
+cc      igx = 1
+cc      do i=1,3
+cc        do j=1,3
+cc          nx = grid_params%nxv(igx)
+cc          ny = grid_params%nyv(igx)
+cc          nz = grid_params%nzv(igx)
+cc          debug = gmetric%grid(igx)%jac(0:nx+1,0:ny+1,0:nz+1)
+cccc          debug = gmetric%grid(igx)%Gamma(0:nx+1,0:ny+1,0:nz+1,1,i,j)
+cccc     .           *gmetric%grid(igx)%jac
+cc
+cc          call contour(debug(0:nx+1,0:ny+1,1),nx+2,ny+2,0d0
+cc     .                ,xmax,0d0,ymax,i+j-2,110)
+cc        enddo
+cc      enddo
+cc      close(110)
+cc      stop
+
       if (precon == 'id') return
 
       igx = 1
@@ -178,11 +197,8 @@ c Find auxiliary quantities and store them in all grids
           do i = 1,nxx
             ii  = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                         ,x1,y1,z1,cartsn)
-            jac    = jacobian(x1,y1,z1,cartsn)
-            nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,x1,y1,z1
-     .                       ,vx,vy,vz,cartsn,0)
+            jac    = gmetric%grid(igx)%jac(i,j,k)
+            nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,vx,vy,vz,0)
             dvol   = volume(i,j,k,igx,igy,igz)
 
             !Eqn 1
