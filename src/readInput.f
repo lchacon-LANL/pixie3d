@@ -47,7 +47,7 @@ c Namelist
      .                   ,xmin,ymin,zmin,gparams,mg_ratio
      .                ,plot,ilevel,debug
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
-     .                ,tolnewt,maxitnwt,tolgm,maxksp,iguess,maxitgm
+     .                ,rtol,atol,maxitnwt,tolgm,maxksp,iguess,maxitgm
      .                   ,global,method,damp,dt0
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
@@ -104,7 +104,8 @@ c Set defaults
 
       !NK parameters
       tolgm    = 5.0d-2        ! Inexact Newton parameter (GMRES conv. tolerance)
-      tolnewt  = 1.0d-4        ! Newton convergence tolerance
+      rtol     = 1.0d-4        ! Newton relative convergence tolerance
+      atol     = 0d0           ! Newton absolute convergence tolerance
       maxitnwt  = 0            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
