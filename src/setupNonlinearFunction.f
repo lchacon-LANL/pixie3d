@@ -68,6 +68,16 @@ c Aliases
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+c Safeguards
+
+      if (minval(rho) < 0d0) then
+        write (*,*) 'Warning: negative densities are occurring'
+      endif
+
+      if (minval(tmp) < 0d0) then
+        write (*,*) 'Warning: negative temperatures are occurring'
+      endif
+
 c Calculate auxiliary quantities
 
       !Covariant magnetic field
