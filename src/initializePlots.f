@@ -20,9 +20,19 @@ c Call variables
 
 c Local variables
 
-      integer  :: ieq
+      integer  :: ieq,i
 
 c Begin program
+
+c Define number of graphics groups
+
+      ngroups = 5
+
+c Allocate graphics arrays
+
+      call allocateGraphicsVariables(ngroups)
+
+c Define I/O
 
       call defineGraphicsIO
 
@@ -55,6 +65,12 @@ c Define graphics group #1: Contravariant variables
       graph(1)%array_graph(neqd+6)%descr = 'V^3'
 
       graph(1)%array_graph(neqd+7:ngraph)%descr = ''
+
+      sel_gr(1,:) = sel_graph
+
+      prof_ivar(1,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (1,:) = 0        !No log scales
+      prof_spline(1) = .false.  !No splines
 
 c Define graphics group #2: Cov variables
 
@@ -96,6 +112,12 @@ c Define graphics group #2: Cov variables
 
       graph(2)%array_graph(neqd+4:ngraph)%descr = ''
 
+      sel_gr(2,:) = sel_graph
+
+      prof_ivar(2,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (2,:) = 0        !No log scales
+      prof_spline(2) = .false.  !No splines
+
 c Define graphics group #3: Cartesian variables
 
       graph(3)%cartesian=.true.
@@ -136,6 +158,12 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+4:ngraph)%descr = ''
 
+      sel_gr(3,:) = sel_graph
+
+      prof_ivar(3,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (3,:) = 0        !No log scales
+      prof_spline(3) = .false.  !No splines
+
 c Define graphics group #4: Diagnostics
 
       graph(4)%cartesian=.true.
@@ -167,6 +195,12 @@ c Define graphics group #4: Diagnostics
 
       graph(4)%array_graph(9:ngraph)%descr = ''
 
+      sel_gr(4,:) = (/ (i,i=1,8),0 /)
+
+      prof_ivar(4,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (4,:) = 0        !No log scales
+      prof_spline(4) = .false.  !No splines
+
 c Define graphics group #5: Perturbations
 
       graph(5)%cartesian=.false.
@@ -179,6 +213,12 @@ c Define graphics group #5: Perturbations
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
+
+      sel_gr(5,:) = (/ (i,i=1,neqd),(0,i=neqd+1,9) /)
+
+      prof_ivar(5,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (5,:) = 0        !No log scales
+      prof_spline(5) = .false.  !No splines
 
 c End program
 
@@ -269,6 +309,10 @@ cc     .           ,divrgJ(0:nxdp,0:nydp,0:nzdp)
 cc     .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
 cc     .           ,p_tot (0:nxdp,0:nydp,0:nzdp)
 cc     .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
+
+c Impose boundary conditions
+
+      call imposeBoundaryConditions(u_np)
 
 c Find perturbed quantities
 

@@ -208,7 +208,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ig,jg,kg
-      real(8)    :: dxx,dyy,dzz
+      real(8)    :: dxx,dyy,dzz,jachp,jachm
 
 c     Begin program
 
@@ -218,40 +218,60 @@ c     Begin program
       dyy = dyh(jg)
       dzz = dzh(kg)
 
-      if (i == 1 .and. bcond(1) == SP) then
-        call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
+      if (bcond(1) == SP) then
+        if (i == 1) then
+          call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
      .                     ,cartesian)
-        jacp = jacobian(xip,yip,zip,cartesian)
-        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+          jacp = jacobian(xip,yip,zip,cartesian)
+          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
 cc        xh = (xip+x0)/2.
 cc        yh = (yip+y0)/2.
 cc        zh = (zip+z0)/2.
 cc        jach = jacobian(xh ,yh ,zh ,cartesian)
-        jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
+          jach = 0.5*(jacp+jac0) !Only good for cylindrical-like geom.
 
-        divV =
-     .       (rvx(i+1,j  ,k  )/jacp
-     .       +rvx(i  ,j  ,k  )/jac0)*jach/2./dxx
+          divV =
+     .      ((rvx(i+1,j  ,k  )/jacp
+     .       +rvx(i  ,j  ,k  )/jac0)*jach )/2./dxx
      .      +(rvy(i  ,j+1,k  )
      .       -rvy(i  ,j-1,k  ))/2./dyy
      .      +(rvz(i  ,j  ,k+1)
      .       -rvz(i  ,j  ,k-1))/2./dzz
-cc      elseif (i == 2 .and. bcond(1) == SP) then
-cc        call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-cc     .                     ,cartesian)
-cc        jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
-cc        jacm = jacobian(xim,yim,zim,cartesian)
-cc        jach = dxx
-cc
-cc        divV =
-cc     .       (rvx(i+1,j  ,k  )
-cc     .       +rvx(i  ,j  ,k  )
-cc     .     -((rvx(i  ,j  ,k  )/jac0
-cc     .       +rvx(i-1,j  ,k  )/jacm)*jach))/2./dxx
-cc     .      +(rvy(i  ,j+1,k  )
-cc     .       -rvy(i  ,j-1,k  ))/2./dyy
-cc     .      +(rvz(i  ,j  ,k+1)
-cc     .       -rvz(i  ,j  ,k-1))/2./dzz
+        elseif (i < nx ) then
+          call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
+     .                     ,cartesian)
+          jacp = jacobian(xip,yip,zip,cartesian)
+          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+          jacm = jacobian(xim,yim,zim,cartesian)
+          jachp = 0.5*(jacp+jac0) !Only good for cylindrical-like geom.
+          jachm = 0.5*(jacm+jac0) !Only good for cylindrical-like geom.
+
+          divV =
+     .      ((rvx(i+1,j  ,k  )/jacp
+     .       +rvx(i  ,j  ,k  )/jac0)*jachp
+     .      -(rvx(i  ,j  ,k  )/jac0
+     .       +rvx(i-1,j  ,k  )/jacm)*jachm)/2./dxx
+     .      +(rvy(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  ))/2./dyy
+     .      +(rvz(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1))/2./dzz
+        else
+          call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
+     .                     ,cartesian)
+          jac0 = jacobian(x0 ,y0 ,z0 ,cartesian)
+          jacm = jacobian(xim,yim,zim,cartesian)
+          jach = 0.5*(jacm+jac0) !Only good for cylindrical-like geom.
+          
+          divV =
+     .       (rvx(i+1,j  ,k  )
+     .       +rvx(i  ,j  ,k  )
+     .     -((rvx(i  ,j  ,k  )/jac0
+     .       +rvx(i-1,j  ,k  )/jacm)*jach))/2./dxx
+     .      +(rvy(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  ))/2./dyy
+     .      +(rvz(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1))/2./dzz
+        endif
       else
         divV =
      .       (rvx(i+1,j  ,k  )
@@ -1631,10 +1651,13 @@ c     Begin program
       else
 
         d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg)
-     .                         ,.false.)
+     .                        ,.false.)
         d_xx_im = 0d0
-        d_yy_jp = 0d0
-        d_yy_jm = 0d0
+
+        d_yy_jp = g_super_elem(2,2,xx(ig),0.5*(yy(jg+1)+yy(jg)),zz(kg)
+     .                        ,.false.)
+        d_yy_jm = g_super_elem(2,2,xx(ig),0.5*(yy(jg-1)+yy(jg)),zz(kg)
+     .                        ,.false.)
         d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg))
      .                        ,.false.)
         d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg))
@@ -1669,6 +1692,45 @@ c     Begin program
      .                              ,0.5*(yy(jg-1)+yy(jg))
      .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
 
+cc        d_xx_ip = g_super_elem(1,1,0.5*(xx(ig+1)+xx(ig)),yy(jg),zz(kg)
+cc     .                         ,.false.)
+cc        d_xx_im = 0d0
+cc        d_yy_jp = 0d0
+cc        d_yy_jm = 0d0
+cc        d_zz_kp = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg+1)+zz(kg))
+cc     .                        ,.false.)
+cc        d_zz_km = g_super_elem(3,3,xx(ig),yy(jg),0.5*(zz(kg-1)+zz(kg))
+cc     .                        ,.false.)
+cc
+cc        d_xy_ipjp = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
+cc     .                              ,0.5*(yy(jg+1)+yy(jg))
+cc     .                              ,zz(kg),.false.)
+cc        d_xy_ipjm = g_super_elem(1,2,0.5*(xx(ig+1)+xx(ig))
+cc     .                              ,0.5*(yy(jg-1)+yy(jg))
+cc     .                              ,zz(kg),.false.)
+cc        d_xy_imjp = 0d0
+cc        d_xy_imjm = 0d0
+cc                 
+cc        d_xz_ipkp = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
+cc     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
+cc        d_xz_ipkm = g_super_elem(1,3,0.5*(xx(ig+1)+xx(ig)),yy(jg)
+cc     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
+cc        d_xz_imkp = 0d0
+cc        d_xz_imkm = 0d0
+cc                 
+cc        d_yz_jpkp = g_super_elem(2,3,xx(ig)
+cc     .                              ,0.5*(yy(jg+1)+yy(jg))
+cc     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
+cc        d_yz_jpkm = g_super_elem(2,3,xx(ig)
+cc     .                              ,0.5*(yy(jg+1)+yy(jg))
+cc     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
+cc        d_yz_jmkp = g_super_elem(2,3,xx(ig)
+cc     .                              ,0.5*(yy(jg-1)+yy(jg))
+cc     .                              ,0.5*(zz(kg+1)+zz(kg)),.false.)
+cc        d_yz_jmkm = g_super_elem(2,3,xx(ig)
+cc     .                              ,0.5*(yy(jg-1)+yy(jg))
+cc     .                              ,0.5*(zz(kg-1)+zz(kg)),.false.)
+
       endif
 
       laplacian =
@@ -1691,14 +1753,6 @@ c     Begin program
      .                 +d_yz_jmkm*(arr(i,jm,km)-arr(i,j,k))
      .                 -d_yz_jpkm*(arr(i,jp,km)-arr(i,j,k))
      .                 -d_yz_jmkp*(arr(i,jm,kp)-arr(i,j,k)) ) )
-
-cc      laplacian =
-cc     .     dyh(jg)*dzh(kg)*( (arr(ip,j,k)-arr(i,j,k))/dx(ig)
-cc     .                      +(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
-cc     .    +dxh(ig)*dzh(kg)*( (arr(i,jp,k)-arr(i,j,k))/dy(jg)
-cc     .                      +(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
-cc     .    +dxh(ig)*dyh(jg)*( (arr(i,j,kp)-arr(i,j,k))/dz(kg)
-cc     .                      +(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
 
 c     End program
 

@@ -48,9 +48,10 @@ c Namelist
      .                ,plot,ilevel,debug
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,tolnewt,maxitnwt,tolgm,maxksp,iguess,maxitgm
-     .                   ,global,method
+     .                   ,global,method,damp,dt0
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
-     .                ,nh,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,odd,random
+     .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,odd,random
      .                ,precon,maxvcyc,nsweep,precpass,iguess
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
@@ -111,6 +112,8 @@ c Set defaults
       method   = 0             ! Constant forcing parameter for inexact Newton
                                !        (see NewtonGmres doc)
       global   = 0             ! Do not use globalization (see NewtonGmres doc)
+      damp     = 1d0           ! Damping parameter in Newton (see NewtonGmres doc))
+      dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 1             ! Whether preconditioner is used to give initial
                                !        guess to GMRES (1)
 
@@ -147,7 +150,9 @@ c Set defaults
       pby      = 0d0           ! By perturbation
       pbz      = 0d0           ! Bz perturbation
       ptemp    = 0d0           ! Temperature perturbation
-      nh       = 1             ! Harmonic number for perturbation
+      nh1      = 1             ! Harmonic number for perturbation in axis 1
+      nh2      = 1             ! Harmonic number for perturbation in axis 2
+      nh3      = 1             ! Harmonic number for perturbation in axis 3
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
@@ -257,6 +262,8 @@ cc      end where
         bcond = SP
       elsewhere (bcs == 'sym')
         bcond = NEU
+      elsewhere (bcs == 'equ')
+        bcond = EQU
       end where
 
       if (minval(bcond) < 0) then

@@ -73,7 +73,9 @@ c Begin program
      .           ,nuu   (0:nxdp,0:nydp,0:nzdp)
      .           ,divrgB(0:nxdp,0:nydp,0:nzdp)
      .           ,divrgV(0:nxdp,0:nydp,0:nzdp)
+     .           ,divrgJ(0:nxdp,0:nydp,0:nzdp)
      .           ,Pflux (0:nxdp,0:nydp,0:nzdp)
+     .           ,p_tot (0:nxdp,0:nydp,0:nzdp)
      .           ,qfactor(0:nxdp,0:nydp,0:nzdp))
 
 c End program

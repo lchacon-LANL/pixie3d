@@ -170,7 +170,7 @@ c Fill ghost nodes
 c Impose vector singular point BCs
 
       if (bcond(1) == SP) then
-        call vectorSingularBC(rvx,rvy,rvz,.false.,3)
+        call vectorSingularBC(rvx,rvy,rvz,.false.,2)
         call vectorSingularBC(bx ,by ,bz ,.false.,2)
       endif
 
@@ -869,7 +869,7 @@ c     X0
       case(EQU)
         array(0,:,:) = array0(0,:,:)
       case(SP)
-        call singularBC(ieq,dim,loc,3)
+        call singularBC(ieq,dim,loc,2)
       case(DIR)
         call dirichletBC(ieq,dim,loc,1)
         array(0,:,:) = rhs(:,:)
@@ -1038,7 +1038,7 @@ cc          array(0,:,k) = avg_q/avg_vol
 cc        enddo
 
       if (order == 3) then
-        order1 = 6
+        order1 = 3
       else
         order1 = order
       endif

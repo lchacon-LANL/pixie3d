@@ -47,7 +47,7 @@ c Safeguards
 
       if (minval(rho) < 0d0) then
         write (*,*) 'Warning: negative densities are occurring'
-        write (*,*) rho(:,:,:)
+cc        write (*,*) rho(:,:,:)
         stop
       endif
 
@@ -69,3 +69,25 @@ c Transport parameters
 c End program
 
       end subroutine setupNonlinearFunction
+
+c killNonlinearFunction
+c#################################################################
+      subroutine killNonlinearFunction
+c------------------------------------------------------------------
+c     This function calculates auxiliary quantities for the
+c     Jacobian-free product
+c------------------------------------------------------------------
+
+      use nlfunction_setup
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+c End program
+
+      end subroutine killNonlinearFunction

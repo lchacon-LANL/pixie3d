@@ -65,8 +65,8 @@ c End program
 cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4)
- 100  format ('  itime   time    dt   vx_max vy_max vz_max GMRES',
+ 100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
- 110  format (i5,1x,f8.3,1x,f7.4,3f7.3,2i6,3x,f7.3)
+ 110  format (i7,f9.2,1x,1pe8.1,1x,0p3f7.3,2i6,3x,f7.3)
 
       end subroutine

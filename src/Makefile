@@ -21,7 +21,7 @@ SRC  := modules.f \
 	explicit.f \
 	readInput.f \
 	createNonlinearFunction.f \
-	initialize3Dplots.f \
+	initializePlots.f \
 	evaluateDiagnostics.f \
 	output.f \
 	setupNonlinearFunction.f \
@@ -36,7 +36,7 @@ OBJS := $(SRC:.f=.o)
 
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
 #COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*.f))
-#COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
+COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
 #COMMON_OBJS = $(patsubst %.f,%.o,$(filter-out $(COMMON_MODS),$(COMMON_SRC)))
 COMMON_OBJS = $(COMMON_SRC:.f=.o)
 #COMMON_OBJS = $(patsubst %.f,%.o,$(filter-out test.f,$(COMMON_SRC)))
@@ -72,7 +72,7 @@ endif
 
 #Setup compiler options
 
-OPT = O s
+OPT = O 
 
 FFLAGS =
 
@@ -97,10 +97,13 @@ LDFLAGS =
 
 #Define subdirectories for common code
 
-DRIVERDIR = ../../3d_driver
+COMMONDIR = ./commondirs
 
-SUBDIRS = $(DRIVERDIR) \
-	  $(DRIVERDIR)/newtonGMRES \
+SUBDIRS = $(COMMONDIR)/driver \
+	  $(COMMONDIR)/grid \
+	  $(COMMONDIR)/newtonGMRES \
+	  $(COMMONDIR)/interpolation/1d_spline \
+	  $(COMMONDIR)/interpolation/xerror
 
 #Define targets
 
@@ -131,7 +134,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):  modules.f $(DRIVERDIR)/3d_driver_mod.f $(DRIVERDIR)/graphics_mod.f $(DRIVERDIR)/grid_mod.f
+$(OBJS):  modules.f $(COMMOM_MODS)
 
 #Define patterns
 

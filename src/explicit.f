@@ -4,8 +4,6 @@ c####################################################################
 
 c--------------------------------------------------------------------
 c     Performs first-order predictor-corrector explicit integration.
-c     Elliptic coupling vorticity/stream-function is performed after
-c     corrector iteration with MG-preconditioned CG.
 c--------------------------------------------------------------------
 
       use parameters
@@ -122,7 +120,7 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
-      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm
+      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm,vnorm
       real(8)    :: kk,kv_par,kb_par,dt_cfl,dt_cour,cs,tmp_max,v_alf
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
       logical    :: cartsn
@@ -142,6 +140,7 @@ c Calculate maximum sound speed on grid
 
       beta  = 0d0
       bnorm = 0d0
+      vnorm = 0d0
       kk    = 0d0
       kv_par= 0d0
 
@@ -152,9 +151,10 @@ c Calculate maximum sound speed on grid
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
      .                         ,cartsn)
 
-            !Maximum magnetic field norm
+            !Maximum magnetic field norm and maximum beta
             norm = vectorNorm(x1,x2,x3,bx(i,j,k),by(i,j,k),bz(i,j,k)
      .                        ,.false.,cartsn)
+            beta = max(beta,4*rho(i,j,k)*tmp(i,j,k)/norm)
             bnorm = max(bnorm,norm/rho(i,j,k))
 
             !Maximum kk
@@ -172,8 +172,9 @@ c Calculate maximum sound speed on grid
      .                          ,cartsn)
             kv_par = max(kv_par,norm)
 
-            !Maximum beta
-            beta = max(beta,2*rho(i,j,k)*tmp(i,j,k))
+            !Maximum velocity field norm
+            norm = vectorNorm(x1,x2,x3,vxx,vyy,vzz,.false.,cartsn)
+            vnorm = max(vnorm,norm)
 
           enddo
         enddo
@@ -183,19 +184,13 @@ c Calculate maximum sound speed on grid
 
       cs = sqrt(2*gamma*tmp_max)
 
-      v_alf = sqrt(bnorm)
-
       kk = 2*sqrt(kk)
 
 c Calculate corresponding CFL
 
-      dt_cfl  = kv_par + sqrt(cs**2 + v_alf**2)*kk
+cc      dt_cfl  = kv_par + sqrt(cs**2 + bnorm)*kk
+      dt_cfl  = sqrt(vnorm + cs**2 + bnorm)*kk
       dt_cour = diffmax*kk**2
-
-cc      write (*,*) 'Sound speed',cs,' Alfven speed',v_alf
-cc     .           ,' Max. diff',diffmax
-cc      write (*,*) 'dx',dxx,'dy',dyy,'kk',kk
-cc      stop
 
       if (dt_cfl <= dt_cour) then
         dt = 0.8/dt_cour
@@ -203,9 +198,14 @@ cc        write (*,*) 'Courant'
       else
         dt = 0.8*(2*dt_cour**2 + dt_cfl**2 - dt_cour*dt_cfl)/
      .             (dt_cour**3 + dt_cfl**3)
-cc        dt = 0.8/dt_cfl
 cc        write (*,*) 'CFL'
       endif
+
+cc      write (*,*) 'Sound speed',cs,' Alfven speed',v_alf
+cc     .           ,' Max. diff',diffmax
+cc      write (*,*) 'dx',dxx,'dy',dyy,'kk',kk
+cc      write (*,*) 'dt',dt
+cc      stop
 
       dt = min(dt,dtbase)
 
