@@ -15,18 +15,6 @@
 PROD =	3dmhd.x
 BETA =	3dmhd.beta.x
 
-SRC  := explicit.f \
-	readInput.f \
-	createNonlinearFunction.f \
-	output.f \
-	setupNonlinearFunction.f \
-	nonlinearRHS.f \
-	applyBoundaryConditions.f \
-	setupPreconditioner.f \
-	applyPreconditioner.f \
-	killPreconditioner.f \
-	setEquilibrium.f
-
 SRC  := $(wildcard *.f) 
 
 MODS := $(wildcard *_mod.f)
@@ -34,8 +22,6 @@ MODS := $(wildcard *_mod.f)
 OBJS := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
 
 OBJMOD := $(MODS:.f=.o)
-
-#OBJS := $(SRC:.f=.o)
 
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
 COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
@@ -47,38 +33,56 @@ prefix = .
 
 FC = f90
 
-ifeq ($(FC),f90)
-
 # Flags for Absoft f90
-OPTIMIZATION = -O -B101 -cpu:host
-#DEBUG = -g -et
-#DEBUG = -g -et -trap=ALL
-DEBUG = -g
-PROFILE = -P
-STATIC = -s
-MODPATH = -p
+ifeq ($(FC),f90)
+  OPTIMIZATION = -O2 -cpu:host
+  DEBUG = -g -et -Rb
+  #DEBUG = -g
+  PROFILE = -P
+  STATIC = -s
+  MODPATH = -p
+  FFLAGS = -w
 
-LIBS = -llapack_f90 -lblas_f90
+  LIBS = -llapack_f90 -lblas_f90
 
-else
+  MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
+endif
 
 # Flags for Lahey lf95
-OPTIMIZATION = -O --tpp
-DEBUG = -g --trace --trap
-#DEBUG = -g 
-PROFILE =
-STATIC =
-MODPATH = -M
+ifeq ($(FC),lf95)
+  OPTIMIZATION = -O
+#  DEBUG = -g --chkglobal
+  DEBUG = -g --chk s
+  PROFILE =
+  STATIC = 
+  MODPATH = -M
+  FFLAGS =
 
-LIBS = -llapack_lf95 -lblas_lf95
+#  LIBS = -llapackmt -lblasmt
+  LIBS = -llapack -lblas -lf2c
 
+  MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
+endif
+
+# Flags for Intel ifort
+ifeq ($(FC),ifort)
+  OPTIMIZATION = -O2 -mp -axW
+#  DEBUG = -g
+  DEBUG = -g -check -traceback
+  PROFILE = -gp
+  STATIC =
+  MODPATH =
+  FFLAGS = -vec_report0
+
+  LIBS = -llapack -lblas -lf2c
+#  LIBS = -llapack_intel -lblas_intel
+
+  MODDIRS = $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
 
 #Setup compiler options
 
 OPT = O 
-
-FFLAGS =
 
 ifneq (,$(findstring O,$(OPT)))
 FFLAGS += $(OPTIMIZATION)
@@ -103,16 +107,16 @@ LDFLAGS =
 
 COMMONDIR = ./commondirs
 
-SUBDIRS = $(COMMONDIR)/driver \
-	  $(COMMONDIR)/grid \
-	  $(COMMONDIR)/newtonGMRES \
-	  $(COMMONDIR)/interpolation/1d_spline \
-	  $(COMMONDIR)/interpolation/3d_spline \
-	  $(COMMONDIR)/interpolation/xerror \
-	  $(COMMONDIR)/matrixLightSolver \
+SUBDIRS = $(COMMONDIR)/driver\
+	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/interpolation/1d_spline\
+	  $(COMMONDIR)/interpolation/2d_spline\
+	  $(COMMONDIR)/interpolation/3d_spline\
+	  $(COMMONDIR)/interpolation/spline_common\
+	  $(COMMONDIR)/interpolation/xerror\
+	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG
-
-MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH) $(COMMONDIR)%,$(SUBDIRS))
 
 #Define targets
 
