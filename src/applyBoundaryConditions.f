@@ -95,6 +95,8 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
+      use debug
+
       implicit none
 
 c Call variables
@@ -142,10 +144,10 @@ cc      kkmin = klog
 cc      kkmax = khig
 
 c Check local vs. global domain limits (return if not close to physical boundaries)
-
-      if (     (iimin > 1 .and. iimax < grid_params%nxgl(igx))
-     .    .and.(jjmin > 1 .and. jjmax < grid_params%nygl(igy))
-     .    .and.(kkmin > 1 .and. kkmax < grid_params%nzgl(igz))) return
+c WRONG! We need to calculate derived quantities!!
+cc      if (     (iimin > 1 .and. iimax < grid_params%nxgl(igx))
+cc     .    .and.(jjmin > 1 .and. jjmax < grid_params%nygl(igy))
+cc     .    .and.(kkmin > 1 .and. kkmax < grid_params%nzgl(igz))) return
 
 c Allocate auxiliary variables in local domain
 
@@ -229,6 +231,29 @@ c     Postprocessing
       varray%array_var(IBY)%array = v_cnv(:,:,:,2)
       varray%array_var(IBZ)%array = v_cnv(:,:,:,3)
 
+cc      if (my_rank == 0) then
+cc        open(unit=110,file='debug0.bin'
+cc     .           ,form='unformatted',status='replace')
+cc      else
+cc        open(unit=110,file='debug1.bin'
+cc     .           ,form='unformatted',status='replace')
+cc      endif
+cc      lxmin = xmin
+cc     .     + (grid_params%ilo(igx)-1)*(xmax-xmin)/grid_params%nxgl(igx)
+cc      lxmax = xmin
+cc     .     + (grid_params%ihi(igx)  )*(xmax-xmin)/grid_params%nxgl(igx)
+cc      lymin = ymin
+cc     .     + (grid_params%jlo(igy)-1)*(ymax-ymin)/grid_params%nygl(igy)
+cc      lymax = ymin
+cc     .     + (grid_params%jhi(igy)  )*(ymax-ymin)/grid_params%nxgl(igy)
+cc      do i=1,3
+cc          call contour(v_cov(:,:,2,i),nx+2,ny+2
+cc     .                ,lxmin,lxmax,lymin,lymax,i-1,110)
+cc      enddo
+cc      close(110)
+cc      call MPI_Finalize(mpierr)
+cc      stop
+
 c Current BC
 
 c     BC setup
@@ -290,7 +315,7 @@ c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on fluxes
 c--------------------------------------------------------------------
 
-      use BCS
+      use singularBCinterface
 
       implicit none
 
@@ -303,7 +328,8 @@ c Local variables
 
 c Begin program
 
-      if (i+ilog-1 == 1 .and. bconds(1) == SP) flxim = 0d0
+      if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
+cc      if (i+ilog-1 == 1 .and. bcond(1) == SP) flxim = 0d0
 cc      if (i == 1 .and. bconds(1) == SP) flxim = 0d0
 
 c End
