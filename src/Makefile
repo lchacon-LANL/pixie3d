@@ -15,14 +15,9 @@
 PROD =	3dmhd.x
 BETA =	3dmhd.beta.x
 
-SRC  := $(wildcard *.f) 
-
-SRC  := modules.f \
-	explicit.f \
+SRC  := explicit.f \
 	readInput.f \
 	createNonlinearFunction.f \
-	initializePlots.f \
-	evaluateDiagnostics.f \
 	output.f \
 	setupNonlinearFunction.f \
 	nonlinearRHS.f \
@@ -32,7 +27,15 @@ SRC  := modules.f \
 	killPreconditioner.f \
 	setEquilibrium.f
 
-OBJS := $(SRC:.f=.o)
+SRC  := $(wildcard *.f) 
+
+MODS := $(wildcard *_mod.f)
+
+OBJS := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
+
+OBJMOD := $(MODS:.f=.o)
+
+#OBJS := $(SRC:.f=.o)
 
 COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
 COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
@@ -104,7 +107,10 @@ SUBDIRS = $(COMMONDIR)/driver \
 	  $(COMMONDIR)/grid \
 	  $(COMMONDIR)/newtonGMRES \
 	  $(COMMONDIR)/interpolation/1d_spline \
-	  $(COMMONDIR)/interpolation/xerror
+	  $(COMMONDIR)/interpolation/3d_spline \
+	  $(COMMONDIR)/interpolation/xerror \
+	  $(COMMONDIR)/matrixLightSolver \
+	  $(COMMONDIR)/MG
 
 MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH) $(COMMONDIR)%,$(SUBDIRS))
 
@@ -112,16 +118,16 @@ MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH) $(COMMONDIR)%,$(SUBDIRS))
 
 beta: common $(BETA)
 
-$(BETA):  $(OBJS)  $(COMMON_SRC)
+$(BETA):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
 	@echo 'Linking BETA 3DMHD code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS) $(LIBS)
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
 
 production: common $(PROD)
 
-$(PROD):  $(OBJS)  $(COMMON_SRC)
+$(PROD):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
 	@echo ''
 	@echo 'Linking PRODUCTION 3DMHD code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS) $(LIBS)
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
 
 common: ;
 	-for subdir in $(SUBDIRS) ; do \
@@ -136,7 +142,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):  modules.f $(COMMOM_MODS)
+$(OBJS):  $(MODS) $(COMMOM_MODS)
 
 #Define patterns
 
