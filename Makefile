@@ -59,8 +59,8 @@ endif
 # Flags for Lahey lf95
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
-#  DEBUG        = -g --chkglobal
-  DEBUG        = -g --chk aseu --warn --f95
+  DEBUG        = -g --chkglobal --warn --f95
+#  DEBUG        = -g --chk asex --warn --f95
 #  DEBUG        = -g --f95
   PROFILE      =
   STATIC       = 
@@ -151,7 +151,7 @@ endif
 
 ifdef BOPT
   CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
-  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
+#  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
 endif
 
 #Export required variables
