@@ -47,20 +47,6 @@ c Externals
 
       external   :: tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,test_mtvc
 
-c Interface
-
-      INTERFACE
-        subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                    ,matvec,dg,ncolors,line_relax)
-         integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,guess
-     $                ,ncolors
-         real(8)    :: x(ntotp,neq),b(ntotp,neq)
-         real(8), target :: dg(neq,2*neq*ntotp)
-         logical    :: line_relax
-         external   :: matvec
-        end subroutine cSolver
-      END INTERFACE
-
 c Begin program
 
       igx = 1
@@ -161,6 +147,21 @@ cc                enddo
 
         guess = 0
 
+c diag ****
+cc        if (jit == 4) then
+cc        !Solution plot
+cc          call MGplot(1,yyy(:,IRHO),igrid,0,'debug.bin')
+cc          call MGplot(1,yyy(:,IVX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IVY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IVZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,IBZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,yyy(:,ITMP),igrid,1,'debug.bin')
+cc          stop
+cc        endif
+c diag ****
+
 c     Create auxiliary arrays
 
         allocate(dv_cnv(0:nx+1,0:ny+1,0:nz+1,3))
@@ -172,16 +173,16 @@ c     Predictor step
 
         !Temperature
         call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
-     .              ,igrid,iout,guess,tmp_mtvc,tmp_diag,2,.false.)
+     .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag,ncolors=2)
 
         !Density
         call cSolver(1,ntotp,yyy(:,IRHO),xxx(:,IRHO),bcs(:,IRHO)
-     .              ,igrid,iout,guess,rho_mtvc,rho_diag,2,.false.)
+     .              ,igrid,iout,guess,rho_mtvc,dg=rho_diag,ncolors=2)
 
         !Magnetic field
         call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
-     .           ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,b_diag,4
-     .           ,.false.)
+     .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+     .              ,ncolors=4)
 
 c     SI step
 
@@ -190,22 +191,29 @@ c     SI step
      .                ,db_cnv,dj_cov,igrid)
 
         !Solve Schur-complement SI system
-        call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,v_diag,4
-     .           ,.false.)
+        if (gm_smooth) then
+          call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
+     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc
+     .                ,ncolors=4,gm_smth=gm_smooth,line_relax=.false.)
+        else
+          call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
+     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+     .                ,ncolors=4,line_relax=.false.)
+        endif
 
 c diag ****
-        !Solution plot
-       call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-       call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-
-       stop
+cc        !Solution plot
+c         if (debug) then
+cc          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+cc          call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+cc          stop
+cc        endif
 c diag ****
 
 c     Store velocity solution in array format
@@ -229,6 +237,16 @@ c     Corrector step
         xxx(:,IRHO)    = xxx(:,IRHO)    - dt*alpha*rhs(:,IRHO)
         xxx(:,ITMP)    = xxx(:,ITMP)    - dt*alpha*rhs(:,ITMP)
         xxx(:,IBX:IBZ) = xxx(:,IBX:IBZ) - dt*alpha*rhs(:,IBX:IBZ)
+
+c diag ****
+cc        if (jit == 4.and.debug) then
+cc          call MGplot(1,rhs(:,IRHO),igrid,0,'debug.bin')
+cc          call MGplot(1,rhs(:,IBX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBZ) ,igrid,1,'debug.bin')
+cc          stop
+cc        endif
+c diag ****
 
 cc        guess = 1
 cc
@@ -286,6 +304,12 @@ c     Postprocessing of velocity -> momentum
               xxx(ii,IVX) =rho(i,j,k)*xxx(ii,IVX)+xxx(ii,IRHO)*vx(i,j,k)
               xxx(ii,IVY) =rho(i,j,k)*xxx(ii,IVY)+xxx(ii,IRHO)*vy(i,j,k)
               xxx(ii,IVZ) =rho(i,j,k)*xxx(ii,IVZ)+xxx(ii,IRHO)*vz(i,j,k)
+cc              xxx(ii,IVX)=(rho(i,j,k)+xxx(ii,IRHO))
+cc     .                   *(xxx(ii,IVX)+vx(i,j,k)) - rho(i,j,k)*vx(i,j,k)
+cc              xxx(ii,IVY)=(rho(i,j,k)+xxx(ii,IRHO))
+cc     .                   *(xxx(ii,IVY)+vy(i,j,k)) - rho(i,j,k)*vy(i,j,k)
+cc              xxx(ii,IVZ)=(rho(i,j,k)+xxx(ii,IRHO))
+cc     .                   *(xxx(ii,IVZ)+vz(i,j,k)) - rho(i,j,k)*vz(i,j,k)
             enddo
           enddo
         enddo
@@ -293,17 +317,21 @@ c     Postprocessing of velocity -> momentum
 c     Diagnostics
 
 c diag ****
+        if (jit == 1.and.debug) then
         !Solution plot
-       call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-       call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-       call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-
-       stop
+          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+          call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IBZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+          stop
+        endif
 c diag ****
 
         !diag B-field divergence
@@ -425,8 +453,8 @@ c       SI step: Deltav --> xxx(:,IVX:IVZ)
 
           !Solve Schur-complement SI system ---> xxx(:,IVX:IVZ)
           call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,v_diag,4
-     .           ,.true.)
+     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+     .           ,ncolors=4,line_relax=.true.)
 
 c       Store velocity solution in array format --> dv_cnv
 
@@ -660,169 +688,6 @@ c End program
 
       end subroutine applyPreconditioner
 
-c cSolver
-c #########################################################################
-      subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     $                  ,matvec,dg,ncolors,line_relax)
-c--------------------------------------------------------------------
-c     This subroutine solves a coupled system of neq equations. 
-c     In call sequence:
-c       * neq: number of coupled equations
-c       * ntotp: number of mesh points
-c       * b: rhs
-c       * x: solution
-c       * bcnd: boundary condition defs.
-c       * igrid: MG grid level (igrid=1 is finest level)
-c       * out: level of output information
-c       * guess: whether a non-trivial initial guess is provided
-c               (iguess=1) or not (iguess=0)
-c       * matvec (external): matrix-vector product definition.
-c       * dg: matrix neq*neq diagonal block (for stationary its).
-c       * ncolors: number of colors in grid (for GS).
-c--------------------------------------------------------------------
-
-      use precond_variables
-
-      use mlsolverSetup
-
-      implicit none
-
-c Call variables
-
-      integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,guess,ncolors
-      real(8)    :: x(ntotp,neq),b(ntotp,neq)
-      real(8), target :: dg(neq,2*neq*ntotp)
-
-      logical    :: line_relax
-
-      external   :: matvec
-
-c Local variables
-
-      integer(4) :: ntot
-      real(8)    :: xi(ntotp*neq),bi(ntotp*neq)
-
-      real(8)    :: drand
-      external   :: drand
-
-c Begin program
-
-c Interlace variables for coupled solve
-
-      do i=1,ntotp
-        do ieq=1,neq
-          xi(neq*(i-1)+ieq) = x(i,ieq)
-          bi(neq*(i-1)+ieq) = b(i,ieq)
-        enddo
-      enddo
-
-c diag *** Convergence test
-cc      bi = 0d0
-cc      call random_number(xi)
-cc      guess = 1
-c diag ***
-
-c Solve coupled MG
-
-c     Initialize solver
-
-      call solverInit
-
-c     Upper_level solver options (MG)
-
-cc      call solverOptionsInit
-cc
-cc      solverOptions%tol      = mgtol
-cc      solverOptions%vcyc     = maxvcyc
-cc      solverOptions%igridmin = 2
-cc      solverOptions%orderres = 1
-cc      solverOptions%orderprol= 1
-cc      solverOptions%mg_mu    = 1
-cc      solverOptions%vol_res  = vol_wgt
-cc      solverOptions%diag     => dg
-cc      solverOptions%ncolors  = ncolors
-cc      solverOptions%mg_coarse_solver_depth = 3  !GMRES, as defined below
-cc
-cc      !Vertex relaxation
-cccc      solverOptions%vertex_based_relax = .true.
-cc
-cc      !Plane/line relaxation
-cccc      solverOptions%mg_line_relax = line_relax
-cc      solverOptions%mg_line_nsweep = 1
-cc
-cc      call assembleSolverHierarchy('mg')
-
-c     Next level solver (smoother)
-
-      call solverOptionsInit
-
-      solverOptions%iter    = nsweep
-      solverOptions%tol     = mgtol
-cc      solverOptions%diag    => dg
-
-cc      if (.not.solverOptions%mg_line_relax) then
-
-cc        solverOptions%omega   = 1d0
-cc        solverOptions%ncolors = ncolors
-cccc        solverOptions%vertex_based_relax = .true.
-cc
-cc        call assembleSolverHierarchy('gs')
-
-cc      else
-
-        solverOptions%omega   = 0.8
-
-        call assembleSolverHierarchy('jb')
-
-cc      endif
-
-c     Coarsest grid solve for outer MG
-
-      call solverOptionsInit
-
-      solverOptions%tol             = 1d-5
-      solverOptions%krylov_subspace = 1000
-      solverOptions%iter            = 1000
-      solverOptions%stp_test        = 1 
-
-      call assembleSolverHierarchy('gm')
-      call assembleSolverHierarchy('id') !GMRES preconditioner
-
-c     Coarsest grid solve for inner line/plane MG
-
-      call solverOptionsInit
-
-      solverOptions%omega   = 0.75
-      solverOptions%iter    = 100
-      solverOptions%tol     = 1d-4
-
-      call assembleSolverHierarchy('jb')
-
-c     Invoke solver
-
-      ntot=neq*ntotp
-      call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
-
-c     Get output data
-
-cc      call getSolverOptions(1)
-
-c     Kill solver
-
-      call solverKill
-
-c Unpack solution for output
-
-      do i = 1,ntotp
-        do ieq=1,neq
-          x(i,ieq) = xi(neq*(i-1)+ieq)
-        enddo
-      enddo
-
-c End program
-
-      end subroutine cSolver
-
 c formSIrhs
 c #########################################################################
       subroutine formSIrhs(ntotp,xxx,yyy,rhs_si,db_cnv,dj_cov,igrid)
@@ -1021,8 +886,8 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ii,iig
-      real(8)    :: rhodv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+      integer(4) :: ii,iig,ip,im,jp,jm,kp,km
+      real(8)    :: rhodv_cnv(0:nx+1,0:ny+1,0:nz+1,3),dh(3)
 
 c Begin program
 
@@ -1038,10 +903,40 @@ c Evaluate rhs correction: div(rh0*dv)
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
+
             crhs(ii) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                    ,rhodv_cnv(:,:,:,1)
      $                    ,rhodv_cnv(:,:,:,2)
      $                    ,rhodv_cnv(:,:,:,3))
+
+cc            ip = i+1
+cc            im = i-1
+cc            jp = j+1
+cc            jm = j-1
+cc            kp = k+1
+cc            km = k-1
+cc
+cc            jac = gmetric%grid(igrid)%jac(i,j,k)
+cc
+cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc
+cc            dh(1) = dxh(ig)
+cc            dh(2) = dyh(jg)
+cc            dh(3) = dzh(kg)
+cc
+cc            if (isSP(i,j,k,igx,igy,igz)) then
+cc              dh(1) = dx(ig)
+cc              im = i
+cc            endif
+cc
+cc            crhs(ii) = rho(i,j,k)
+cc     .                *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                    ,dv_cnv(:,:,:,1)
+cc     $                    ,dv_cnv(:,:,:,2)
+cc     $                    ,dv_cnv(:,:,:,3))
+cc     .              +dv_cnv(i,j,k,1)*(rho(ip,j,k)-rho(im,j,k))/dh(1)/jac
+cc     .              +dv_cnv(i,j,k,2)*(rho(i,jp,k)-rho(i,jm,k))/dh(2)/jac
+cc     .              +dv_cnv(i,j,k,3)*(rho(i,j,kp)-rho(i,j,km))/dh(3)/jac
           enddo
         enddo
       enddo
