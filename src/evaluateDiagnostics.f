@@ -108,7 +108,8 @@ c Energy diagnostics
       !Thermal energy
 
       if (gamma /= 1d0) then
-        array = 2*(rho*tmp-rho0*tmp0)/(gamma-1.)
+        array = 2*rho *tmp /(gamma-1.)
+     .         -2*rho0*tmp0/(gamma-1.)
       else
         array = 0d0
       endif
@@ -122,9 +123,9 @@ c Energy diagnostics
 c div(B) diagnostics
 
       !Do NOT change to 0:nx+1, etc.
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
+      do k = 1,nz-1
+        do j = 1,ny-1
+          do i = 1,nx-1
             divrgB(i,j,k) = divB(i,j,k)
           enddo
         enddo
@@ -255,7 +256,7 @@ c ####################################################################
       real(8) function vectorNorm(i,j,k,igx,igy,igz,ax,ay,az)
 
 c -------------------------------------------------------------------
-c     Finds norm of vector A given its contravariant components..
+c     Finds norm of vector A given its contravariant components.
 c -------------------------------------------------------------------
 
       use grid
