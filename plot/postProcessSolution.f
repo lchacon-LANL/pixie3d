@@ -139,12 +139,9 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
-     .                         ,cartsn)
-            jac = jacobian(x1,y1,z1,cartsn)
-            divrgJ(i,j,k) = div(i,j,k,jx,jy,jz)/jac
-            divrgB(i,j,k) = div(i,j,k,bx,by,bz)/jac
-            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)/jac
+            divrgJ(i,j,k) = div(i,j,k,jx,jy,jz)
+            divrgB(i,j,k) = div(i,j,k,bx,by,bz)
+            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)
           enddo
         enddo
       enddo
@@ -165,6 +162,7 @@ c Divergence diagnostics
 c Total pressure (use graphics limits)
 
       p_tot = 0d0
+
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
