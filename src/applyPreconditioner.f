@@ -33,7 +33,7 @@ c Call variables
 c Local variables
 
       real(8)    :: xxx(ntot/neqd,neqd),yyy(ntot/neqd,neqd)
-     .             ,rhs(ntot/neqd,neqd),rr(ntot),dxk(ntot),dvol
+     .             ,rhs(ntot/neqd,neqd),rr(ntot),dxk(ntot),dvol,car(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: dv_cnv,db_cnv,dj_cov
 
@@ -97,42 +97,6 @@ c     Scatter residuals
                   yyy(ii,ieq) = y(iii)*dvol
                 enddo
 
-cc                !Scalars
-cc                dvol = volume(i,j,k,igx,igy,igz)
-cc
-cc                ieq=IRHO
-cc                iii = ieq + neqd*(ii-1)
-cc                yyy(ii,ieq) = y(iii)*dvol
-cc
-cc                ieq=ITMP
-cc                iii = ieq + neqd*(ii-1)
-cc                yyy(ii,ieq) = y(iii)*dvol
-cc
-cc                !Velocity
-cc                dvol = dvol/gmetric%grid(igrid)%jac(i,j,k)
-cc
-cc                ieq=IVX
-cc                iii = ieq + neqd*(ii-1)
-cc                yyy(ii,ieq) = y(iii)*dvol
-cc
-cc                ieq=IVY
-cc                iii = ieq + neqd*(ii-1)
-cc                if (alt_eom) then
-cc                  yyy(ii,ieq)=y(iii)*dvol*gmetric%grid(igrid)%jac(i,j,k)
-cc                else
-cc                  yyy(ii,ieq)=y(iii)*dvol
-cc                endif
-cc
-cc                ieq=IVZ
-cc                iii = ieq + neqd*(ii-1)
-cc                yyy(ii,ieq) = y(iii)*dvol
-cc
-cc                !Magnetic field
-cc                do ieq=IBX,IBZ
-cc                  iii = ieq + neqd*(ii-1)
-cc                  yyy(ii,ieq) = y(iii)*dvol
-cc                enddo
-
               else
 
                 do ieq=1,neqd
@@ -171,6 +135,7 @@ c     Create auxiliary arrays
 
 c     Predictor step
 
+        if (.not.debug) then
         !Temperature
         call cSolver(1,ntotp,yyy(:,ITMP),xxx(:,ITMP),bcs(:,ITMP)
      .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag,ncolors=2)
@@ -183,6 +148,7 @@ c     Predictor step
         call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
      .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
      .              ,ncolors=4)
+        endif
 
 c     SI step
 
@@ -196,24 +162,53 @@ c     SI step
      .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc
      .                ,ncolors=4,gm_smth=gm_smooth,line_relax=.false.)
         else
-          call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
+          if (.not.debug) then
+            call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
      .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
      .                ,ncolors=4,line_relax=.false.)
+          else
+cc            call cSolver(3,ntotp,yyy(:,IBX:IBZ),xxx(:,IBX:IBZ)
+cc     .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+cc     .              ,ncolors=4,cvrg_tst=.true.)
+            call cSolver(3,ntotp,rhs(:,IVX:IVZ),xxx(:,IVX:IVZ)
+     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+cc     .                ,ncolors=4,line_relax=.true.,cvrg_tst=.true.)
+     .                ,ncolors=4,line_relax=.false.,cvrg_tst=.true.)
+          endif
+        endif
+
+        if (si_car) then
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
+                car = xxx(ii,IVX:IVZ)
+                call transformVectorToCurvilinear
+     .               (i,j,k,igrid,igrid,igrid
+     .               ,car(1),car(2),car(3)
+     .               ,.false.
+     .               ,xxx(ii,IVX),xxx(ii,IVY),xxx(ii,IVZ))
+              enddo
+            enddo
+          enddo
         endif
 
 c diag ****
-cc        !Solution plot
-c         if (debug) then
-cc          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
-cc          call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
-cc          call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
-cc          stop
-cc        endif
+        !Solution plot
+        if (debug) then
+          call MGplot(1,xxx(:,IRHO),igrid,0,'debug.bin')
+          call MGplot(1,xxx(:,IVX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IVZ) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IVX) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IVY) ,igrid,1,'debug.bin')
+cc          call MGplot(1,rhs(:,IVZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBX) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBY) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,IBZ) ,igrid,1,'debug.bin')
+          call MGplot(1,xxx(:,ITMP),igrid,1,'debug.bin')
+          stop
+        endif
 c diag ****
 
 c     Store velocity solution in array format
@@ -854,6 +849,19 @@ cc              if (alt_eom) dvol(2) = volume(i,j,k,igrid,igrid,igrid)
             !Correct rhs_v
             rhs_si(ii,:) = rhs_si(ii,:)+alpha*dvol(:)*cnv(:)
 
+            !Transform to cartesian
+            if (si_car) then  
+
+              cnv(:) = rhs_si(ii,:)
+
+              call transformVectorToCartesian
+     .               (i,j,k,igrid,igrid,igrid
+     .               ,cnv(1),cnv(2),cnv(3)
+     .               ,.false.
+     .               ,rhs_si(ii,1),rhs_si(ii,2),rhs_si(ii,3))
+
+            endif
+
           enddo
         enddo
       enddo
@@ -1028,11 +1036,6 @@ c Local variables
       integer(4) :: ii
       real(8)    :: a1,a2,a3,etal
 
-c Externals
-
-      real(8)    :: res
-      external      res
-
 c Begin program
 
       do k = 1,nz
@@ -1090,11 +1093,6 @@ c Local variables
       integer(4) :: ii,ivar
       real(8)    :: a1,a2,a3,etal
 
-c Externals
-
-      real(8)    :: res
-      external      res
-
 c Begin program
 
 c Evaluate eta*dj
@@ -1132,15 +1130,15 @@ cc            crhs(ii,3) = a3
             crhs(ii,3) = crhs(ii,3)+a3
 
             !curl(eta dj)
-            a1= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            a1= curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .              ,dj_cov(:,:,:,1)
      .              ,dj_cov(:,:,:,2)
      .              ,dj_cov(:,:,:,3),1)
-            a2= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            a2= curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .              ,dj_cov(:,:,:,1)
      .              ,dj_cov(:,:,:,2)
      .              ,dj_cov(:,:,:,3),2)
-            a3= curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            a3= curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .              ,dj_cov(:,:,:,1)
      .              ,dj_cov(:,:,:,2)
      .              ,dj_cov(:,:,:,3),3)
