@@ -132,7 +132,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):  $(MODS) $(COMMOM_MODS)
+$(OBJS):  $(MODS) $(COMMON_MODS)
 
 #Define patterns
 
