@@ -154,7 +154,7 @@ c ######################################################################
 
 c     div
 c     ###############################################################
-      real(8) function div(i,j,k,nx,ny,nz,ax,ay,az)
+      real(8) function div(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az)
       implicit none
 c     ---------------------------------------------------------------
 c     Calculates divergence of vector field at cell centers in
@@ -163,28 +163,30 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
      .             ,az(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg
+      integer(4) :: ig,jg,kg,igrid
       real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jac0,jach
 
 c     Begin program
 
+      igrid = igx
+
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      jac0 = gmetric%grid(igx)%jac(i,j,k)
+      jac0 = gmetric%grid(igrid)%jac(i,j,k)
 
       dxx = dxh(ig)
       dyy = dyh(jg)
       dzz = dzh(kg)
 
       if (isSP(i,j,k,igx,igy,igz)) then
-        jacp = gmetric%grid(igx)%jac(i+1,j,k)
+        jacp = gmetric%grid(igrid)%jac(i+1,j,k)
         jach = 0.5*(jacp+jac0)   !Only good for cylindrical-like geom.
 
         div =  ((ax(i+1,j  ,k  )/jacp
@@ -205,10 +207,10 @@ c     End
 
 c     laplacian
 c     ###############################################################
-      real*8 function laplacian(i,j,k,nx,ny,nz,arr)
+      function laplacian(i,j,k,nx,ny,nz,igx,igy,igz,arr,vol)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(arr) at cell centers in general non-orthog.
+c     Calculates lap(arr) at cell centers in general non-orthog.
 c     coordinates, preserving the SPD property.
 c     ---------------------------------------------------------------
 
@@ -216,22 +218,29 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
 
-      real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1)
+      real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),laplacian
+
+      logical,optional,intent(IN) :: vol
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
 
       real(8)    :: d_xx_ip,d_xx_im,d_yy_jp,d_yy_jm,d_zz_kp,d_zz_km
      .             ,d_xy_ipjp,d_xy_ipjm,d_xy_imjp,d_xy_imjm
      .             ,d_xz_ipkp,d_xz_ipkm,d_xz_imkp,d_xz_imkm
      .             ,d_yz_jpkp,d_yz_jpkm,d_yz_jmkp,d_yz_jmkm
 
-      logical    :: sing_point
+      logical    :: sing_point,vol_wgt
 
 c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      igrid = igx
 
       sing_point = isSP(i,j,k,igx,igy,igz)
 
@@ -249,107 +258,107 @@ c     Begin program
       elseif (i == nx+1 .or. j == ny+1 .or. k == nz+1) then
         write (*,*) 'Error in laplace; i,j,k=nmax+1'
       elseif (.not.sing_point) then
-        d_xx_ip = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
-     .                +gmetric%grid(igx)%gsup(ip,j,k,1,1))
-        d_xx_im = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
-     .                +gmetric%grid(igx)%gsup(im,j,k,1,1))
-        d_yy_jp = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
-     .                +gmetric%grid(igx)%gsup(i,jp,k,2,2))
-        d_yy_jm = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
-     .                +gmetric%grid(igx)%gsup(i,jm,k,2,2))
-        d_zz_kp = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
-     .                +gmetric%grid(igx)%gsup(i,j,kp,3,3))
-        d_zz_km = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
-     .                +gmetric%grid(igx)%gsup(i,j,km,3,3))
+        d_xx_ip = 0.5*(gmetric%grid(igrid)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igrid)%gsup(ip,j,k,1,1))
+        d_xx_im = 0.5*(gmetric%grid(igrid)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igrid)%gsup(im,j,k,1,1))
+        d_yy_jp = 0.5*(gmetric%grid(igrid)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igrid)%gsup(i,jp,k,2,2))
+        d_yy_jm = 0.5*(gmetric%grid(igrid)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igrid)%gsup(i,jm,k,2,2))
+        d_zz_kp = 0.5*(gmetric%grid(igrid)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igrid)%gsup(i,j,kp,3,3))
+        d_zz_km = 0.5*(gmetric%grid(igrid)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igrid)%gsup(i,j,km,3,3))
 
-        d_xy_ipjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
-        d_xy_ipjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
-        d_xy_imjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(im,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
-        d_xy_imjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(im,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
+        d_xy_ipjp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jp,k,1,2))
+        d_xy_ipjm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jm,k,1,2))
+        d_xy_imjp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(im,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jp,k,1,2))
+        d_xy_imjm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(im,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jm,k,1,2))
                  
-        d_xz_ipkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,kp,1,3))
-        d_xz_ipkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
-        d_xz_imkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
-        d_xz_imkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(im,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
+        d_xz_ipkp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,kp,1,3))
+        d_xz_ipkm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,km,1,3))
+        d_xz_imkp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,km,1,3))
+        d_xz_imkm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(im,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,km,1,3))
                  
       else
 
-        d_xx_ip = 0.5*(gmetric%grid(igx)%gsup(i ,j,k,1,1)
-     .                +gmetric%grid(igx)%gsup(ip,j,k,1,1))
+        d_xx_ip = 0.5*(gmetric%grid(igrid)%gsup(i ,j,k,1,1)
+     .                +gmetric%grid(igrid)%gsup(ip,j,k,1,1))
         d_xx_im = 0d0
-        d_yy_jp = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
-     .                +gmetric%grid(igx)%gsup(i,jp,k,2,2))
-        d_yy_jm = 0.5*(gmetric%grid(igx)%gsup(i,j ,k,2,2)
-     .                +gmetric%grid(igx)%gsup(i,jm,k,2,2))
-        d_zz_kp = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
-     .                +gmetric%grid(igx)%gsup(i,j,kp,3,3))
-        d_zz_km = 0.5*(gmetric%grid(igx)%gsup(i,j,k ,3,3)
-     .                +gmetric%grid(igx)%gsup(i,j,km,3,3))
+        d_yy_jp = 0.5*(gmetric%grid(igrid)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igrid)%gsup(i,jp,k,2,2))
+        d_yy_jm = 0.5*(gmetric%grid(igrid)%gsup(i,j ,k,2,2)
+     .                +gmetric%grid(igrid)%gsup(i,jm,k,2,2))
+        d_zz_kp = 0.5*(gmetric%grid(igrid)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igrid)%gsup(i,j,kp,3,3))
+        d_zz_km = 0.5*(gmetric%grid(igrid)%gsup(i,j,k ,3,3)
+     .                +gmetric%grid(igrid)%gsup(i,j,km,3,3))
 
-        d_xy_ipjp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jp,k,1,2))
-        d_xy_ipjm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,j ,k,1,2)
-     .                   +gmetric%grid(igx)%gsup(i,jm,k,1,2))
+        d_xy_ipjp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jp,k,1,2))
+        d_xy_ipjm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,j ,k,1,2)
+     .                   +gmetric%grid(igrid)%gsup(i,jm,k,1,2))
         d_xy_imjp = 0d0
         d_xy_imjm = 0d0
 
-        d_xz_ipkp = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,kp,1,3))
-        d_xz_ipkm = 0.25*(gmetric%grid(igx)%gsup(i ,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(ip,j,k,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,k ,1,3)
-     .                   +gmetric%grid(igx)%gsup(i,j,km,1,3))
+        d_xz_ipkp = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,kp,1,3))
+        d_xz_ipkm = 0.25*(gmetric%grid(igrid)%gsup(i ,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(ip,j,k,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,k ,1,3)
+     .                   +gmetric%grid(igrid)%gsup(i,j,km,1,3))
         d_xz_imkp = 0d0
         d_xz_imkm = 0d0
 
       endif
 
-      d_yz_jpkp = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,jp,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,kp,2,3))
-      d_yz_jpkm = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,jp,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,km,2,3))
-      d_yz_jmkp = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,jm,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,kp,2,3))
-      d_yz_jmkm = 0.25*(gmetric%grid(igx)%gsup(i,j ,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,jm,k,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,k ,2,3)
-     .                 +gmetric%grid(igx)%gsup(i,j,km,2,3))
+      d_yz_jpkp = 0.25*(gmetric%grid(igrid)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,jp,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,kp,2,3))
+      d_yz_jpkm = 0.25*(gmetric%grid(igrid)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,jp,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,km,2,3))
+      d_yz_jmkp = 0.25*(gmetric%grid(igrid)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,jm,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,kp,2,3))
+      d_yz_jmkm = 0.25*(gmetric%grid(igrid)%gsup(i,j ,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,jm,k,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,k ,2,3)
+     .                 +gmetric%grid(igrid)%gsup(i,j,km,2,3))
 
       laplacian = 
      .     dyh(jg)*dzh(kg)*( d_xx_ip*(arr(ip,j,k)-arr(i,j,k))/dx(ig)
@@ -371,14 +380,16 @@ c     Begin program
      .                    -d_yz_jpkm*(arr(i,jp,km)-arr(i,j,k))
      .                    -d_yz_jmkp*(arr(i,jm,kp)-arr(i,j,k)) ) )
 
+      if (.not.vol_wgt) laplacian=laplacian/volume(i,j,k,igx,igy,igz)
+
 c     End program
 
       end function laplacian
 
 c     veclaplacian
 c     ###############################################################
-      function veclaplacian(i,j,k,nx,ny,nz,ax,ay,az,diff,alteom,icomp)
-     .         result (vlap)
+      function veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vec,diff
+     .                     ,alteom,icomp,vol) result (vlap)
 
 c     ---------------------------------------------------------------
 c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
@@ -389,20 +400,20 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,icomp,nx,ny,nz
+      integer(4) :: i,j,k,icomp,nx,ny,nz,igx,igy,igz
 
-      real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
-     .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
-     .             ,az  (0:nx+1,0:ny+1,0:nz+1)
+      real(8)    :: vec (0:nx+1,0:ny+1,0:nz+1,3)
      .             ,diff(0:nx+1,0:ny+1,0:nz+1)
 
       real(8)    :: vlap
 
       logical    :: alteom
 
+      logical,optional,intent(IN) :: vol
+
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
 
       real(8)    :: dvol,dS1,dS2,dS3,dxx,dyy,dzz,jac
 
@@ -414,9 +425,20 @@ c     Local variables
 
       real(8)    :: nabla_v(3,3),gsuper(3,3),hess(3,3,3),msource
 
-      logical    :: sing_point
+      logical    :: sing_point,vol_wgt
 
 c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      if (coords == 'car') then
+        vlap=laplacian(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,icomp)
+     .                ,vol=vol_wgt)
+        return
+      endif
+
+      igrid = igx
 
       ip = i+1
       im = i-1
@@ -439,10 +461,10 @@ c     Begin program
 
       dvol = dxx*dyy*dzz
 
-      jac  = gmetric%grid(igx)%jac(i,j,k)
+      jac  = gmetric%grid(igrid)%jac(i,j,k)
 
       if (coords /= 'car') then
-        hess = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
       endif
 
       call nabtensor_x(i ,j,k,t11p,t12p,t13p, 1)
@@ -471,8 +493,7 @@ c     Begin program
         flxkp = t31p
         flxkm = t31m
 
-        call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                              ,flxkp,flxkm,bcond)
+        if (sing_point) flxim = 0d0
 
         if (coords /= 'car') then
           msource =dvol
@@ -495,9 +516,7 @@ c     Begin program
         if (coords /= 'car') then
           if (alteom) then
 
-            call imposeBConfluxes (i,j,k,flxip,flxim
-     .                                  ,flxjp,flxjm
-     .                                  ,flxkp,flxkm,bcond)
+            if (sing_point) flxim = 0d0
 
             msource=dvol
      .             *(t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
@@ -524,6 +543,17 @@ c     Begin program
           endif
         endif
 
+cc        flxip = 0d0
+cc        flxim = 0d0
+cc
+cc        flxjp = 0d0
+cc        flxjm = 0d0
+cc
+cc        flxkp = 0d0
+cc        flxkm = 0d0
+cc
+cc        msource = 0d0
+
       case(3)
 
         flxip = t13p
@@ -535,8 +565,7 @@ c     Begin program
         flxkp = t33p
         flxkm = t33m
 
-        call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm
-     .                              ,flxkp,flxkm,bcond)
+        if (sing_point) flxim = 0d0
 
         if (coords /= 'car') then
           msource =dvol
@@ -550,6 +579,8 @@ c     Begin program
       vlap = jac*( dS1*(flxip - flxim)
      .           + dS2*(flxjp - flxjm)
      .           + dS3*(flxkp - flxkm) ) + msource
+
+      if (.not.vol_wgt) vlap=vlap/volume(i,j,k,igx,igy,igz)
 
 c     End program
 
@@ -579,25 +610,29 @@ c     Begin program
         ip = i+1
         if (flag == 0 .or. (.not.alteom .and. sing_point) ) ip = i
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
-     .               +gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
-     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
+        jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
+     .               +gmetric%grid(igrid)%jac (i ,j,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
 
-        if (      i < grid_params%nxgl(igx)
+        if (i + grid_params%ilo(igrid)-1 < grid_params%nxgl(igrid)
      .      .and. bcond(1) == SP
      .      .and. flag /= 0) then
-          jacp = gmetric%grid(igx)%jac(ip,j,k)
-          jac0 = gmetric%grid(igx)%jac(i ,j,k)
+          jacp = gmetric%grid(igrid)%jac(ip,j,k)
+          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
         else
           jacp = jac
           jac0 = jac
         endif
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),1)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),0)
         endif
 
         vis = 2d0/( 1d0/diff(ip,j,k) + 1d0/diff(i,j,k) )
@@ -648,15 +683,19 @@ c     Begin program
         jp = j+1
         if (flag == 0) jp = j
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
-     .               +gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
-     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,jp,k)
+     .               +gmetric%grid(igrid)%jac (i,j ,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,jp,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j ,k,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),2)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),0)
         endif
 
         vis = 2./( 1./diff(i,jp,k) + 1./diff(i,j,k) )
@@ -707,15 +746,19 @@ c     Begin program
         kp=k+1
         if (flag == 0) kp = k
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
-     .               +gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
-     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,j,kp)
+     .               +gmetric%grid(igrid)%jac (i,j,k ))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,j,kp,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j,k ,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),3)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vec(:,:,:,1)
+     .                                                 ,vec(:,:,:,2)
+     .                                                 ,vec(:,:,:,3),0)
         endif
 
         vis = 2./( 1./diff(i,j,kp) + 1./diff(i,j,k) )
@@ -746,7 +789,7 @@ c     End program
 
 c     curl
 c     ###############################################################
-      real*8 function curl(i,j,k,nx,ny,nz,ax,ay,az,comp)
+      real*8 function curl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A) at cell centers in general non-orthogonal
@@ -758,7 +801,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,comp,nx,ny,nz
+      integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -766,7 +809,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
       real(8)    :: dx,dy,dz,flxip,flxim,flxjp,flxjm,flxkp,flxkm
       real(8)    :: dS1,dS2,dS3,x0,y0,z0,jac
      .             ,xip,yip,zip,jacp,xh,yh,zh,jach
@@ -774,6 +817,8 @@ c     Local variables
       logical    :: sing_point
 
 c     Begin program
+
+      igrid = igx
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -823,16 +868,16 @@ c     Begin program
         flxkm = 0d0
 
         if (sing_point) then
-          jacp = gmetric%grid(igx)%jac(ip,j,k)
-          jac  = gmetric%grid(igx)%jac(i ,j,k)
+          jacp = gmetric%grid(igrid)%jac(ip,j,k)
+          jac  = gmetric%grid(igrid)%jac(i ,j,k)
           jach = 0.5*(jacp+jac)
 
           flxip = 0.5*(ay(ip,j,k)/jacp+ay(i,j,k)/jac)*jach
           flxim = ay(im,j,k)
 
 cc        elseif (i == 2 .and. bcond(1) == SP) then
-cc          jacm = gmetric%grid(igx)%jac(im,j,k)
-cc          jac  = gmetric%grid(igx)%jac(i ,j,k)
+cc          jacm = gmetric%grid(igrid)%jac(im,j,k)
+cc          jac  = gmetric%grid(igrid)%jac(i ,j,k)
 cc          jach = 0.5*(jacm+jac)
 cc
 cc          flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
@@ -863,7 +908,7 @@ c     End program
 
 c     curl2
 c     ###############################################################
-      real*8 function curl2(i,j,k,nx,ny,nz,ax,ay,az,comp)
+      real*8 function curl2(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,comp)
 
 c     ---------------------------------------------------------------
 c     Calculates curl(A)) in general non-orthogonal
@@ -875,7 +920,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,comp,nx,ny,nz
+      integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -883,7 +928,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
       real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
       real(8)    :: jac0,jacp,jacm
@@ -891,6 +936,8 @@ c     Local variables
       logical    :: sing_point
 
 c     Begin program
+
+      igrid = igx
 
       ip = i+1
       im = i-1
@@ -1010,8 +1057,8 @@ c1st          daydx = (ay(i,j,k)-ay(im,j,k))/dx1
         elseif (sing_point) then
           dx = grid_params%dxh(ig)
 
-          jacp = gmetric%grid(igx)%jac(ip,j,k)
-          jac0 = gmetric%grid(igx)%jac(i ,j,k)
+          jacp = gmetric%grid(igrid)%jac(ip,j,k)
+          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
           jacm = 0.5*(jacp+jac0)
 
           daydx = ((ay(ip,j,k)/jacp+ay(i,j,k)/jac0)/2.*jacm
@@ -1420,7 +1467,7 @@ cc      end function curlcurl
 
 c     fnabla_v
 c     #############################################################
-      function fnabla_v(i,j,k,nx,ny,nz,ax,ay,az,half_elem)
+      function fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az,half_elem)
      .         result(tensor)
 c     -------------------------------------------------------------
 c     Calculates the tensor nabla(vec v) at the following positions:
@@ -1434,7 +1481,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,half_elem,nx,ny,nz
+        integer(4) :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
         real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -1442,7 +1489,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
+        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
         real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
@@ -1452,6 +1499,8 @@ c     Local variables
         logical    :: sing_point
 
 c     Begin program
+
+        igrid = igx
 
         sing_point = isSP(i,j,k,igx,igy,igz)
 
@@ -1675,7 +1724,7 @@ c     Begin program
         vyy = ay(i,j,k)
         vzz = az(i,j,k)
 
-        hessian = gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+        hessian = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
 
 cc      ! l = 1, m = 1
 cc        tensor(1,1) =  vxx*(hessian(1,1,1)
@@ -1811,8 +1860,8 @@ c     End program
 
 c     fnabla_v_upwd
 c     #############################################################
-      function fnabla_v_upwd(i,j,k,nx,ny,nz,ax,ay,az,hex,hey,hez)
-     $         result(tensor)
+      function fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
+     .                      ,hex,hey,hez) result(tensor)
 c     -------------------------------------------------------------
 c     Calculates the tensor nabla(vec v) at the following positions:
 c       + hex,hey,hez = 0 => i,j,k
@@ -1825,7 +1874,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,hex,hey,hez,nx,ny,nz
+        integer(4) :: i,j,k,hex,hey,hez,nx,ny,nz,igx,igy,igz
         real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -1833,7 +1882,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
+        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
         real(8)    :: dhx,dhy,dhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
@@ -1843,6 +1892,8 @@ c     Local variables
         logical    :: sing_point,cartsn
 
 c     Begin program
+
+        igrid = igx
 
         sing_point = isSP(i,j,k,igx,igy,igz)
 
@@ -1861,7 +1912,7 @@ c     Defaults
         dhy = 2.*dyh(jg)
         dhz = 2.*dzh(kg)
 
-        hessian = -gmetric%grid(igx)%Gamma(i,j,k,:,:,:)
+        hessian = -gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
 
 c     Exceptions
 
@@ -2297,9 +2348,9 @@ c     Begin program
         endif
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,1)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,1)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT
@@ -2396,9 +2447,9 @@ c     Begin program
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,2)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,2)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT
@@ -2484,9 +2535,9 @@ c     Begin program
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
         if (flag /= 0) then
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,3)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,3)
         else
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,vx,vy,vz,0)
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
         !Recall p=2nT

@@ -217,7 +217,7 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         do j = 0,nny+1
           do i = 0,nnx+1
             do icomp=1,3
-              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
      .                                ,bx_cov,by_cov,bz_cov,icomp)
             enddo
           enddo

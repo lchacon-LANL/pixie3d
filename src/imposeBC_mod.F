@@ -456,33 +456,45 @@ c     Begin program
                 select case (ibc)
                 case (1)
                   array(i-1,j,k,dim) = array(i+1,j,k,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                            ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
                 case (2)
                   array(i+1,j,k,dim) = array(i-1,j,k,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
                 case (3)
                   array(i,j-1,k,dim) = array(i,j+1,k,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
                 case (4)
                   array(i,j+1,k,dim) = array(i,j-1,k,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
                 case (5)
                   array(i,j,k-1,dim) = array(i,j,k+1,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
                 case (6)
                   array(i,j,k+1,dim) = array(i,j,k-1,dim)
-                  diver = jac0*div(i,j,k,nxbc,nybc,nzbc,array(:,:,:,1)
-     .                             ,array(:,:,:,2),array(:,:,:,3))
+                  diver =jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                            ,array(:,:,:,1)
+     .                            ,array(:,:,:,2)
+     .                            ,array(:,:,:,3))
                   rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
                 end select
 

@@ -180,7 +180,7 @@ cc      endif
      .      + dS3*(flxkp - flxkm)
 
       if (dd /= 0d0) then
-        diffus = dd*laplacian(i,j,k,nx,ny,nz,rho)
+        diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
       else
         diffus = 0d0
       endif
@@ -388,7 +388,7 @@ c     Temperature
      .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,km)+vz(i,j,k))/2.
 
       !Heat flux
-cc      heat_flx = -chi*laplacian(i,j,k,nx,ny,nz,tmp)
+cc      heat_flx = -chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
 
       !Joule heating
 cc      joule = dxh(ig)*dyh(jg)*dzh(kg)*eeta(i,j,k)

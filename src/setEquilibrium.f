@@ -191,9 +191,12 @@ c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-              var(i,j,k,IVX)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
-              var(i,j,k,IVY)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
-              var(i,j,k,IVZ)=vperflow*curl(i,j,k,nx,ny,nz,a1,a2,a3,3)
+             var(i,j,k,IVX)=vperflow
+     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IVY)=vperflow
+     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IVZ)=vperflow
+     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
             enddo
           enddo
         enddo
@@ -226,14 +229,14 @@ c     Tearing mode in cartesian coordinates
           do j = jlo,jhi
             do i = ilo,ihi
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
-              var(i,j,k,IBZ)  = sqrt(bz0**2 - var(i,j,k,IBY)**2)
+              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+              var(i,j,k,IBY)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+              var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
-cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
             enddo
           enddo
@@ -270,9 +273,9 @@ c     Tearing mode in sinusoidal coordinates
             do i = ilo,ihi
 
               !X-Y equilibrium
-              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
-              var(i,j,k,IBY)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
-              var(i,j,k,IBZ)  = 0d0
+              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+              var(i,j,k,IBY)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+              var(i,j,k,IBZ)=0d0
 
               gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
               jac1 = gmetric%grid(igx)%jac (i,j,k)
@@ -289,9 +292,9 @@ c     Tearing mode in sinusoidal coordinates
               var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
               !X-Z equilibrium
-cc              var(i,j,k,IBX)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)  = curl(i,j,k,nx,ny,nz,a1,a2,a3,2)
-cc              var(i,j,k,IBY)  = sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
