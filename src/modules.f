@@ -15,7 +15,7 @@ c module transport_params
 c ######################################################################
       module transport_params
 
-        real(8) :: nu,eta,dd,chi,gamma,kdiv
+        real(8) :: nu,eta,dd,chi,gamma
 
       end module transport_params
 
@@ -50,439 +50,6 @@ c ######################################################################
 
       contains
 
-c     fj_ip
-c     #############################################################
-      real*8 function fj_ip(i,j,k,comp)
-c     -------------------------------------------------------------
-c     Calculates comp-component of covariant current at (i+1/2,j,k)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,comp
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x = 0.5*(xx(ig)+xx(ig+1))
-        y =      yy(jg)
-        z =      zz(kg)
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i  ,j+1,k) - bz_cov(i  ,j-1,k)
-     .       +bz_cov(i+1,j+1,k) - bz_cov(i+1,j-1,k) )/4./dyh(jg)
-     .      -(by_cov(i  ,j,k+1) - by_cov(i  ,j,k-1)
-     .       +by_cov(i+1,j,k+1) - by_cov(i+1,j,k-1) )/4./dzh(kg)
-
-        jy = (bx_cov(i  ,j,k+1) - bx_cov(i  ,j,k-1)
-     .       +bx_cov(i+1,j,k+1) - bx_cov(i+1,j,k-1) )/4./dzh(kg)
-     .      -(bz_cov(i+1,j  ,k) - bz_cov(i  ,j,k  ) )   /dx (ig)
-
-        jz = (by_cov(i+1,j  ,k) - by_cov(i  ,j  ,k) )   /dx (ig)
-     .      -(bx_cov(i  ,j+1,k) - bx_cov(i  ,j-1,k)
-     .       +bx_cov(i+1,j+1,k) - bx_cov(i+1,j-1,k) )/4./dyh(jg)
-
-        fj_ip = gsub(comp,1)*jx + gsub(comp,2)*jy + gsub(comp,3)*jz
-
-c     End program
-
-      end function fj_ip
-
-c     fj_jp
-c     #############################################################
-      real*8 function fj_jp(i,j,k,comp)
-c     -------------------------------------------------------------
-c     Calculates comp-component of covariant current at (i,j+1/2,k)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,comp
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x =      xx(ig)
-        y = 0.5*(yy(jg)+yy(jg+1))
-        z =      zz(kg)
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i,j+1,k  ) - bz_cov(i,j  ,k  ) )   /dy(jg)
-     .      -(by_cov(i,j  ,k+1) - by_cov(i,j  ,k-1)
-     .       +by_cov(i,j+1,k+1) - by_cov(i,j+1,k-1) )/4./dzh(kg)
-
-        jy = (bx_cov(i,j  ,k+1) - bx_cov(i,j  ,k-1)
-     .       +bx_cov(i,j+1,k+1) - bx_cov(i,j+1,k-1) )/4./dzh(kg)
-     .      -(bz_cov(i+1,j  ,k) - bz_cov(i-1,j  ,k)
-     .       +bz_cov(i+1,j+1,k) - bz_cov(i-1,j+1,k) )/4./dxh(ig)
-
-        jz = (by_cov(i+1,j  ,k) - by_cov(i-1,j  ,k)
-     .       +by_cov(i+1,j+1,k) - by_cov(i-1,j+1,k) )/4./dxh(ig)
-     .      -(bx_cov(i  ,j+1,k) - bx_cov(i  ,j  ,k) )   /dy(jg)
-
-        fj_jp = gsub(comp,1)*jx + gsub(comp,2)*jy + gsub(comp,3)*jz
-
-c     End program
-
-      end function fj_jp
-
-c     fj_kp
-c     #############################################################
-      real*8 function fj_kp(i,j,k,comp)
-c     -------------------------------------------------------------
-c     Calculates comp-component of covariant current at (i,j,k+1/2)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k,comp
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x =      xx(ig)
-        y =      yy(jg)
-        z = 0.5*(zz(kg)+zz(kg+1))
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i,j+1,k  ) - bz_cov(i,j-1,k  )
-     .       +bz_cov(i,j+1,k+1) - bz_cov(i,j-1,k+1) )/4./dyh(jg)
-     .      -(by_cov(i,j  ,k+1) - by_cov(i,j  ,k  ) )   /dz (kg)
-
-        jy = (bx_cov(i,j  ,k+1) - bx_cov(i,j  ,k  ) )   /dz (kg)
-     .      -(bz_cov(i+1,j,k  ) - bz_cov(i-1,j,k  )
-     .       +bz_cov(i+1,j,k+1) - bz_cov(i-1,j,k+1) )/4./dxh(ig)
-
-        jz = (by_cov(i+1,j,k  ) - by_cov(i-1,j,k  )
-     .       +by_cov(i+1,j,k+1) - by_cov(i-1,j,k+1) )/4./dxh(ig)
-     .      -(bx_cov(i,j+1,k  ) - bx_cov(i,j-1,k  )
-     .       +bx_cov(i,j+1,k+1) - bx_cov(i,j-1,k+1) )/4./dyh(jg)
-
-        fj_kp = gsub(comp,1)*jx + gsub(comp,2)*jy + gsub(comp,3)*jz
-
-c     End program
-
-      end function fj_kp
-
-c     fjz_ipjp
-c     #############################################################
-      real*8 function fjz_ipjp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates z-component of covariant current at (i+1/2,j+1/2,k)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x = 0.5*(xx(ig)+xx(ig+1))
-        y = 0.5*(yy(jg)+yy(jg+1))
-        z = zz(kg)
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i  ,j+1,k) - bz_cov(i  ,j,k)
-     .       +bz_cov(i+1,j+1,k) - bz_cov(i+1,j,k) )/2./dy(jg)
-     .      -(by_cov(i,j+1,k+1) + by_cov(i  ,j  ,k+1)
-     .       +by_cov(i+1,j,k+1) + by_cov(i+1,j+1,k+1)
-     .       -by_cov(i,j+1,k-1) - by_cov(i  ,j  ,k-1)
-     .       -by_cov(i+1,j,k-1) - by_cov(i+1,j+1,k-1))/8./dzh(kg)
-
-        jy = (bx_cov(i,j+1,k+1) + bx_cov(i  ,j  ,k+1)
-     .       +bx_cov(i+1,j,k+1) + bx_cov(i+1,j+1,k+1)
-     .       -bx_cov(i,j+1,k-1) - bx_cov(i  ,j  ,k-1)
-     .       -bx_cov(i+1,j,k-1) - bx_cov(i+1,j+1,k-1))/8./dzh(kg)
-     .      -(bz_cov(i+1,j  ,k) - bz_cov(i,j  ,k)
-     .       +bz_cov(i+1,j+1,k) - bz_cov(i,j+1,k) )/2./dx(ig)
-
-        jz = (by_cov(i+1,j  ,k) - by_cov(i,j  ,k)
-     .       +by_cov(i+1,j+1,k) - by_cov(i,j+1,k) )/2./dx(ig)
-     .      -(bx_cov(i  ,j+1,k) - bx_cov(i  ,j,k)
-     .       +bx_cov(i+1,j+1,k) - bx_cov(i+1,j,k) )/2./dy(jg)
-
-        fjz_ipjp = gsub(3,1)*jx + gsub(3,2)*jy + gsub(3,3)*jz
-
-c     End program
-
-      end function fjz_ipjp
-
-c     fjy_ipkp
-c     #############################################################
-      real*8 function fjy_ipkp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates y-component of covariant current at (i+1/2,j,k+1/2)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x = 0.5*(xx(ig)+xx(ig+1))
-        y =      yy(jg)
-        z = 0.5*(zz(kg)+zz(kg+1))
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i  ,j+1,k+1) + bz_cov(i  ,j+1,k  )
-     .       +bz_cov(i+1,j+1,k  ) + bz_cov(i+1,j+1,k+1)
-     .       -bz_cov(i  ,j-1,k+1) - bz_cov(i  ,j-1,k  )
-     .       -bz_cov(i+1,j-1,k  ) - bz_cov(i+1,j-1,k+1))/8./dyh(jg)
-     .      -(by_cov(i  ,j,k+1) - by_cov(i  ,j,k)
-     .       +by_cov(i+1,j,k+1) - by_cov(i+1,j,k) )/2./dz(kg)
-
-        jy = (bx_cov(i  ,j,k+1) - bx_cov(i  ,j,k)
-     .       +bx_cov(i+1,j,k+1) - bx_cov(i+1,j,k) )/2./dz(kg)
-     .      -(bz_cov(i+1,j,k  ) - bz_cov(i,j,k  )
-     .       +bz_cov(i+1,j,k+1) - bz_cov(i,j,k+1) )/2./dx(ig)
-
-        jz = (by_cov(i+1,j,k  ) - by_cov(i  ,j,k  )
-     .       +by_cov(i+1,j,k+1) - by_cov(i  ,j,k+1) )/2./dx(ig)
-     .      -(bx_cov(i  ,j+1,k+1) + bx_cov(i  ,j+1,k  )
-     .       +bx_cov(i+1,j+1,k  ) + bx_cov(i+1,j+1,k+1)
-     .       -bx_cov(i  ,j-1,k+1) - bx_cov(i  ,j-1,k  )
-     .       -bx_cov(i+1,j-1,k  ) - bx_cov(i+1,j-1,k+1))/8./dyh(jg)
-
-        fjy_ipkp = gsub(2,1)*jx + gsub(2,2)*jy + gsub(2,3)*jz
-
-c     End program
-
-      end function fjy_ipkp
-
-c     fjx_jpkp
-c     #############################################################
-      real*8 function fjx_jpkp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates x-component of covariant current at (i,j+1/2,k+1/2)
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-
-c     Local variables
-
-        integer(4) :: ig,jg,kg
-        real(8)    :: jx,jy,jz,x,y,z,gsub(3,3)
-
-c     Begin program
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        x = 0.5*(xx(ig)+xx(ig+1))
-        y =      yy(jg)
-        z = 0.5*(zz(kg)+zz(kg+1))
-
-        gsub = g_sub(x,y,z)
-
-        jx = (bz_cov(i,j+1,k  ) - bz_cov(i,j,k  )
-     .       +bz_cov(i,j+1,k+1) - bz_cov(i,j,k+1) )/2./dy(jg)
-     .      -(by_cov(i,j  ,k+1) - by_cov(i,j  ,k)
-     .       +by_cov(i,j+1,k+1) - by_cov(i,j+1,k) )/2./dz(kg)
-
-        jy = (bx_cov(i,j  ,k+1) - bx_cov(i,j  ,k)
-     .       +bx_cov(i,j+1,k+1) - bx_cov(i,j+1,k) )/2./dz(kg)
-     .      -(bz_cov(i+1,j  ,k+1) + bz_cov(i+1,j+1,k  )
-     .       +bz_cov(i+1,j+1,k+1) + bz_cov(i+1,j  ,k  )
-     .       -bz_cov(i-1,j  ,k+1) + bz_cov(i-1,j+1,k  )
-     .       +bz_cov(i-1,j+1,k+1) + bz_cov(i-1,j  ,k  ))/8./dxh(ig)
-
-        jz = (by_cov(i+1,j  ,k+1) + by_cov(i+1,j+1,k  )
-     .       +by_cov(i+1,j+1,k+1) + by_cov(i+1,j  ,k  )
-     .       -by_cov(i-1,j  ,k+1) + by_cov(i-1,j+1,k  )
-     .       +by_cov(i-1,j+1,k+1) + by_cov(i-1,j  ,k  ))/8./dxh(ig)
-     .      -(bx_cov(i,j+1,k  ) - bx_cov(i,j,k  )
-     .       +bx_cov(i,j+1,k+1) - bx_cov(i,j,k+1) )/2./dy(jg)
-
-        fjx_jpkp = gsub(1,1)*jx + gsub(1,2)*jy + gsub(1,3)*jz
-
-c     End program
-
-      end function fjx_jpkp
-
-c     fEz_ipjp
-c     #############################################################
-      real*8 function fEz_ipjp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates z-component of covariant MHD electric field 
-c     at (i+1/2,j+1/2,k).
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-        real(8)    :: eta_ipjp,jz_ipjp
-
-c     Local variables
-
-c     Begin program
-
-        eta_ipjp = 4./(1./eeta(i+1,j+1,k) + 1./eeta(i,j+1,k)
-     .                +1./eeta(i+1,j  ,k) + 1./eeta(i,j  ,k))
-
-        jz_ipjp = fjz_ipjp(i,j,k)
-
-        fEz_ipjp = eta_ipjp*jz_ipjp
-cc     .     -(vx(i+1,j+1,k)*by(i  ,j,k) + vx(i  ,j,k)*by(i+1,j+1,k))/2.
-cc     .     +(vy(i+1,j+1,k)*bx(i  ,j,k) + vy(i  ,j,k)*bx(i+1,j+1,k))/2.
-cc     .     -(vx(i+1,j+1,k)*by(i+1,j+1,k) + vx(i+1,j,k)*by(i+1,j,k)
-cc     .      +vx(i  ,j+1,k)*by(i  ,j+1,k) + vx(i  ,j,k)*by(i  ,j,k))/4.
-cc     .     +(vy(i+1,j+1,k)*bx(i+1,j+1,k) + vy(i+1,j,k)*bx(i+1,j,k)
-cc     .      +vy(i  ,j+1,k)*bx(i  ,j+1,k) + vy(i  ,j,k)*bx(i  ,j,k))/4.
-cc     .     -(vx(i+1,j+1,k)*by(i+1,j,k) + vx(i+1,j,k)*by(i+1,j+1,k)
-cc     .      +vx(i  ,j+1,k)*by(i  ,j,k) + vx(i  ,j,k)*by(i  ,j+1,k))/4.
-cc     .     +(vy(i+1,j+1,k)*bx(i+1,j,k) + vy(i+1,j,k)*bx(i+1,j+1,k)
-cc     .      +vy(i  ,j+1,k)*bx(i  ,j,k) + vy(i  ,j,k)*bx(i  ,j+1,k))/4.
-cc     .     -(vx(i+1,j+1,k)*by(i  ,j,k) + vx(i  ,j,k)*by(i+1,j+1,k)
-cc     .      +vx(i  ,j+1,k)*by(i+1,j,k) + vx(i+1,j,k)*by(i  ,j+1,k))/4.
-cc     .     +(vy(i+1,j+1,k)*bx(i  ,j,k) + vy(i  ,j,k)*bx(i+1,j+1,k)
-cc     .      +vy(i  ,j+1,k)*bx(i+1,j,k) + vy(i+1,j,k)*bx(i  ,j+1,k))/4.
-
-
-c     End program
-
-      end function fEz_ipjp
-
-c     fEy_ipkp
-c     #############################################################
-      real*8 function fEy_ipkp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates y-component of covariant ideal MHD electric field 
-c     at (i+1/2,j,k+1/2).
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-        real(8)    :: eta_ipkp,jy_ipkp
-
-c     Local variables
-
-c     Begin program
-
-        eta_ipkp = 4./(1./eeta(i+1,j,k+1) + 1./eeta(i,j,k+1)
-     .                +1./eeta(i+1,j,k  ) + 1./eeta(i,j,k  ))
-
-        jy_ipkp = fjy_ipkp(i,j,k)
-
-        fEy_ipkp = eta_ipkp*jy_ipkp
-cc     .     -(vz(i+1,j,k+1)*bx(i  ,j,k) + vz(i  ,j,k)*bx(i+1,j,k+1))/2.
-cc     .     +(vx(i+1,j,k+1)*bz(i  ,j,k) + vx(i  ,j,k)*bz(i+1,j,k+1))/2.
-cc     .     -(vz(i+1,j,k+1)*bx(i+1,j,k+1) + vz(i+1,j,k)*bx(i+1,j,k)
-cc     .      +vz(i  ,j,k+1)*bx(i  ,j,k+1) + vz(i  ,j,k)*bx(i  ,j,k))/4.
-cc     .     +(vx(i+1,j,k+1)*bz(i+1,j,k+1) + vx(i+1,j,k)*bz(i+1,j,k)
-cc     .      +vx(i  ,j,k+1)*bz(i  ,j,k+1) + vx(i  ,j,k)*bz(i  ,j,k))/4.
-cc     .     -(vz(i+1,j,k+1)*bx(i+1,j,k) + vz(i+1,j,k)*bx(i+1,j,k+1)
-cc     .      +vz(i  ,j,k+1)*bx(i  ,j,k) + vz(i  ,j,k)*bx(i  ,j,k+1))/4.
-cc     .     +(vx(i+1,j,k+1)*bz(i+1,j,k) + vx(i+1,j,k)*bz(i+1,j,k+1)
-cc     .      +vx(i  ,j,k+1)*bz(i  ,j,k) + vx(i  ,j,k)*bz(i  ,j,k+1))/4.
-cc     .     -(vz(i+1,j,k+1)*bx(i  ,j,k) + vz(i  ,j,k)*bx(i+1,j,k+1)
-cc     .      +vz(i  ,j,k+1)*bx(i+1,j,k) + vz(i+1,j,k)*bx(i  ,j,k+1))/4.
-cc     .     +(vx(i+1,j,k+1)*bz(i  ,j,k) + vx(i  ,j,k)*bz(i+1,j,k+1)
-cc     .      +vx(i  ,j,k+1)*bz(i+1,j,k) + vx(i+1,j,k)*bz(i  ,j,k+1))/4.
-
-c     End program
-
-      end function fEy_ipkp
-
-c     fEx_jpkp
-c     #############################################################
-      real*8 function fEx_jpkp(i,j,k)
-c     -------------------------------------------------------------
-c     Calculates x-component of covariant ideal MHD electric field 
-c     at (i,j+1/2,k+1/2).
-c     -------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer(4) :: i,j,k
-        real(8)    :: eta_jpkp,jx_jpkp
-
-c     Local variables
-
-c     Begin program
-
-        eta_jpkp = 4./(1./eeta(i,j+1,k+1) + 1./eeta(i,j,k+1)
-     .                +1./eeta(i,j+1,k  ) + 1./eeta(i,j,k  ))
-
-        jx_jpkp = fjx_jpkp(i,j,k)
-
-        fEx_jpkp = eta_jpkp*jx_jpkp
-cc     .     -(vy(i,j+1,k+1)*bz(i,j,k  ) + vy(i,j,k  )*bz(i,j+1,k+1))/2.
-cc     .     +(vz(i,j+1,k+1)*by(i,j,k  ) + vz(i,j,k  )*by(i,j+1,k+1))/2.
-cc     .     -(vy(i,j+1,k+1)*bz(i,j+1,k+1) + vy(i,j,k+1)*bz(i,j,k+1)
-cc     .      +vy(i,j+1,k  )*bz(i,j+1,k  ) + vy(i,j,k  )*bz(i,j,k  ))/4.
-cc     .     +(vz(i,j+1,k+1)*by(i,j+1,k+1) + vz(i,j,k+1)*by(i,j,k+1)
-cc     .      +vz(i,j+1,k  )*by(i,j+1,k  ) + vz(i,j,k  )*by(i,j,k  ))/4.
-cc     .     -(vy(i,j+1,k+1)*bz(i,j,k+1) + vy(i,j,k+1)*bz(i,j+1,k+1)
-cc     .      +vy(i,j+1,k  )*bz(i,j,k  ) + vy(i,j,k  )*bz(i,j+1,k  ))/4.
-cc     .     +(vz(i,j+1,k+1)*by(i,j,k+1) + vz(i,j,k+1)*by(i,j+1,k+1)
-cc     .      +vz(i,j+1,k  )*by(i,j,k  ) + vz(i,j,k  )*by(i,j+1,k  ))/4.
-cc     .     -(vy(i,j+1,k+1)*bz(i,j,k  ) + vy(i,j,k  )*bz(i,j+1,k+1)
-cc     .      +vy(i,j+1,k  )*bz(i,j,k+1) + vy(i,j,k+1)*bz(i,j+1,k  ))/4.
-cc     .     +(vz(i,j+1,k+1)*by(i,j,k  ) + vz(i,j,k  )*by(i,j+1,k+1)
-cc     .      +vz(i,j+1,k  )*by(i,j,k+1) + vz(i,j,k+1)*by(i,j+1,k  ))/4.
-
-c     End program
-
-      end function fEx_jpkp
-
 c     divB
 c     ###############################################################
       real(8) function divB(i,j,k)
@@ -497,43 +64,34 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg
+      integer(4) :: ig,jg,kg,jm
 
 c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc      divB =
-cc     .      ((bx(i+1,j  ,k  )-bx(i,j  ,k  ))
-cc     .      +(bx(i+1,j+1,k  )-bx(i,j+1,k  ))
-cc     .      +(bx(i+1,j  ,k+1)-bx(i,j  ,k+1))
-cc     .      +(bx(i+1,j+1,k+1)-bx(i,j+1,k+1)))/dx(ig)
-cc     .     +((by(i  ,j+1,k  )-by(i  ,j,k  ))
-cc     .      +(by(i+1,j+1,k  )-by(i+1,j,k  ))
-cc     .      +(by(i  ,j+1,k+1)-by(i  ,j,k+1))
-cc     .      +(by(i+1,j+1,k+1)-by(i+1,j,k+1)))/dy(jg)
-cc     .     +((bz(i  ,j  ,k+1)-bz(i  ,j  ,k))
-cc     .      +(bz(i  ,j+1,k+1)-bz(i  ,j+1,k))
-cc     .      +(bz(i+1,j  ,k+1)-bz(i+1,j  ,k))
-cc     .      +(bz(i+1,j+1,k+1)-bz(i+1,j+1,k)))/dz(kg)
-cc
-cc      divB = divB/4.
 
-      divB =
+      if (i == 1 .and. bcond(1) == SP) then
+        divB =
+     .       (bx(i+1,j  ,k  )+bx(i  ,j  ,k  ))/2./dxh(ig)
+     .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
+     .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
+      else
+        divB =
      .       (bx(i+1,j  ,k  )-bx(i-1,j  ,k  ))/2./dxh(ig)
      .      +(by(i  ,j+1,k  )-by(i  ,j-1,k  ))/2./dyh(jg)
      .      +(bz(i  ,j  ,k+1)-bz(i  ,j  ,k-1))/2./dzh(kg)
-      
+      endif
+
 c End 
 
       end function divB
 
-c     etadivB
+c     divV
 c     ###############################################################
-      real(8) function etadivB(i,j,k)
+      real(8) function divV(i,j,k)
       implicit none
 c     ---------------------------------------------------------------
-c     Calculates product of eta*div(B) at corners.
+c     Calculates divergence of velocity field at grid vertices.
 c     ---------------------------------------------------------------
 
 c     Call variables
@@ -542,69 +100,33 @@ c     Call variables
 
 c     Local variables
 
-      real(8)    :: eta_ipjpkp
-
-c     Begin program
-
-      eta_ipjpkp = 8./(1./eeta(i+1,j+1,k+1) + 1./eeta(i,j+1,k+1)
-     .                +1./eeta(i+1,j  ,k+1) + 1./eeta(i,j  ,k+1)
-     .                +1./eeta(i+1,j+1,k  ) + 1./eeta(i,j+1,k  )
-     .                +1./eeta(i+1,j  ,k  ) + 1./eeta(i,j  ,k  ))
-
-      etadivB = eta_ipjpkp*divB(i,j,k)
-      
-c End 
-
-      end function etadivB
-
-c     gradivB
-c     ###############################################################
-      real(8) function gradivB(i,j,k,comp)
-      implicit none
-c     ---------------------------------------------------------------
-c     Calculates grad(eta div(B))
-c     ---------------------------------------------------------------
-
-c     Call variables
-
-      integer(4) :: i,j,k,comp
-
-c     Local variables
-
-      integer(4) :: ig,jg,kg
-      real(8)    :: gradivBx,gradivBy,gradivBz,gsuper(3,3)
+      integer(4) :: ig,jg,kg,jm
 
 c     Begin program
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      gsuper = g_super(xx(ig),yy(jg),zz(kg))
-
-      gradivBx =
-     .     dy(jg  )*dz(kg  )*(etadivB(i  ,j  ,k  )-etadivB(i-1,j  ,k  ))
-     .    *dy(jg  )*dz(kg-1)*(etadivB(i  ,j  ,k-1)-etadivB(i-1,j  ,k-1))
-     .    *dy(jg-1)*dz(kg  )*(etadivB(i  ,j-1,k  )-etadivB(i-1,j-1,k  ))
-     .    *dy(jg-1)*dz(kg-1)*(etadivB(i  ,j-1,k-1)-etadivB(i-1,j-1,k-1))
-
-      gradivBy =
-     .     dx(ig  )*dz(kg  )*(etadivB(i  ,j  ,k  )-etadivB(i  ,j-1,k  ))
-     .    *dx(ig  )*dz(kg-1)*(etadivB(i  ,j  ,k-1)-etadivB(i  ,j-1,k-1))
-     .    *dx(ig-1)*dz(kg  )*(etadivB(i-1,j  ,k  )-etadivB(i-1,j-1,k  ))
-     .    *dx(ig-1)*dz(kg-1)*(etadivB(i-1,j  ,k-1)-etadivB(i-1,j-1,k-1))
-
-      gradivBz=
-     .     dx(ig  )*dy(jg  )*(etadivB(i  ,j  ,k  )-etadivB(i  ,j  ,k-1))
-     .    *dx(ig  )*dy(jg-1)*(etadivB(i  ,j-1,k  )-etadivB(i  ,j-1,k-1))
-     .    *dx(ig-1)*dy(jg  )*(etadivB(i-1,j  ,k  )-etadivB(i-1,j  ,k-1))
-     .    *dx(ig-1)*dy(jg-1)*(etadivB(i-1,j-1,k  )-etadivB(i-1,j-1,k-1))
-
-      gradivB =( gsuper(comp,1)*gradivBx
-     .          +gsuper(comp,2)*gradivBy
-     .          +gsuper(comp,3)*gradivBz )/4.
+      if (i == 1 .and. bcond(1) == SP) then
+        divV =
+     .       (rvx(i+1,j  ,k  )/rho(i+1,j  ,k  )
+     .       +rvx(i  ,j  ,k  )/rho(i  ,j  ,k  ))/2./dxh(ig)
+     .      +(rvy(i  ,j+1,k  )/rho(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  )/rho(i  ,j-1,k  ))/2./dyh(jg)
+     .      +(rvz(i  ,j  ,k+1)/rho(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1)/rho(i  ,j  ,k-1))/2./dzh(kg)
+      else
+        divV =
+     .       (rvx(i+1,j  ,k  )/rho(i+1,j  ,k  )
+     .       -rvx(i-1,j  ,k  )/rho(i-1,j  ,k  ))/2./dxh(ig)
+     .      +(rvy(i  ,j+1,k  )/rho(i  ,j+1,k  )
+     .       -rvy(i  ,j-1,k  )/rho(i  ,j-1,k  ))/2./dyh(jg)
+     .      +(rvz(i  ,j  ,k+1)/rho(i  ,j  ,k+1)
+     .       -rvz(i  ,j  ,k-1)/rho(i  ,j  ,k-1))/2./dzh(kg)
+      endif
 
 c End 
 
-      end function gradivB
+      end function divV
 
 c     jouleHeating
 c     #############################################################
@@ -1025,6 +547,12 @@ c     Begin program
         vxx = rvx(i,j,k)/rho(i,j,k)
         vyy = rvy(i,j,k)/rho(i,j,k)
         vzz = rvz(i,j,k)/rho(i,j,k)
+cc
+cc        vxx = vx(i,j,k)
+cc        vyy = vy(i,j,k)
+cc        vzz = vz(i,j,k)
+cc
+cc        write (*,*) vxx,vyy,vzz
 
         ip = i+1
         im = i-1
@@ -1212,7 +740,7 @@ c     vtensor_x
 c     #############################################################
       subroutine vtensor_x(i,j,k,t11,t12,t13)
 c     -------------------------------------------------------------
-c     Calculates fluxes in X-direction for EOM
+c     Calculates tensor components t11-t13 for EOM
 c     -------------------------------------------------------------
 
         implicit none
@@ -1224,11 +752,13 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg
+        integer(4) :: ig,jg,kg,ip
         real(8)    :: x,y,z
         real(8)    :: jac,ptot,vis
 
 c     Begin program
+
+        ip = i+1
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -1243,54 +773,40 @@ c     Begin program
         nabla_v = fnabla_v(i,j,k,1)
 
         !Recall p=2nT
-cc        ptot = jac*(rho(i+1,j,k)*tmp(i  ,j,k)
-cc     .             +rho(i  ,j,k)*tmp(i+1,j,k))
-        ptot = jac*(rho(i+1,j,k)*tmp(i+1,j,k)
-     .             +rho(i  ,j,k)*tmp(i  ,j,k))
-     .       +(bx(i+1,j,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i+1,j,k)
-     .        +by(i+1,j,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i+1,j,k)
-     .        +bz(i+1,j,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i+1,j,k))/4.
+        ptot = jac*(rho(ip,j,k)*tmp(ip,j,k)
+     .             +rho(i ,j,k)*tmp(i ,j,k))
+     .       +(bx(ip,j,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(ip,j,k)
+     .        +by(ip,j,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(ip,j,k)
+     .        +bz(ip,j,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(ip,j,k))/4.
 
-cc        ptot = jac*(rho(i+1,j,k)*tmp(i+1,j,k)
-cc     .             +rho(i  ,j,k)*tmp(i  ,j,k))
-cc     .       +(bx(i+1,j,k)*bx_cov(i+1,j,k)+bx(i,j,k)*bx_cov(i,j,k)
-cc     .        +by(i+1,j,k)*by_cov(i+1,j,k)+by(i,j,k)*by_cov(i,j,k)
-cc     .        +bz(i+1,j,k)*bz_cov(i+1,j,k)+bz(i,j,k)*bz_cov(i,j,k))/4.
-
-        vis = 2./(1./rho(i+1,j,k)/nuu(i+1,j,k)
-     .          + 1./rho(i  ,j,k)/nuu(i  ,j,k))
+        vis = 2./(1./rho(ip,j,k)/nuu(ip,j,k)
+     .          + 1./rho(i ,j,k)/nuu(i ,j,k))
 
         t11 =
-     .     0.25*( rvx(i+1,j,k)*vx (i  ,j,k) +rvx(i  ,j,k)*vx (i+1,j,k)
-     .           + vx(i  ,j,k)*rvx(i+1,j,k) +vx (i+1,j,k)*rvx(i  ,j,k))
-     .     -0.5*( bx(i+1,j,k)*bx(i  ,j,k)
-     .           +bx(i  ,j,k)*bx(i+1,j,k) )
-cc     .     -0.5*( bx(i+1,j,k)*bx(i+1,j,k)
-cc     .           +bx(i  ,j,k)*bx(i  ,j,k) )
+     .     0.25*( rvx(ip,j,k)*vx (i ,j,k) +rvx(i ,j,k)*vx (ip,j,k)
+     .           + vx(i ,j,k)*rvx(ip,j,k) +vx (ip,j,k)*rvx(i ,j,k))
+     .     -0.5*( bx(ip,j,k)*bx(i ,j,k)
+     .           +bx(i ,j,k)*bx(ip,j,k) )
      .     +gsuper(1,1)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,1)
      .           +gsuper(1,2)*nabla_v(2,1)
      .           +gsuper(1,3)*nabla_v(3,1) )
 
         t12 =
-     .     0.25*( rvx(i+1,j,k)*vy (i  ,j,k) +rvx(i  ,j,k)*vy (i+1,j,k)
-     .           + vx(i  ,j,k)*rvy(i+1,j,k) +vx (i+1,j,k)*rvy(i  ,j,k))
-     .     -0.5*( bx(i+1,j,k)*by(i  ,j,k)
-     .           +bx(i  ,j,k)*by(i+1,j,k) )
-cc     .     -0.5*( bx(i+1,j,k)*by(i+1,j,k)
-cc     .           +bx(i  ,j,k)*by(i  ,j,k) )
+     .     0.25*( rvx(ip,j,k)*vy (i ,j,k) +rvx(i ,j,k)*vy (ip,j,k)
+     .           + vx(i ,j,k)*rvy(ip,j,k) +vx (ip,j,k)*rvy(i ,j,k))
+     .     -0.5*( bx(ip,j,k)*by(i ,j,k)
+     .           +bx(i ,j,k)*by(ip,j,k) )
      .     +gsuper(1,2)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,2)
      .           +gsuper(1,2)*nabla_v(2,2)
      .           +gsuper(1,3)*nabla_v(3,2) )
 
         t13 =
-     .     0.25*( rvx(i+1,j,k)*vz (i  ,j,k) +rvx(i  ,j,k)*vz (i+1,j,k)
-     .           + vx(i  ,j,k)*rvz(i+1,j,k) +vx (i+1,j,k)*rvz(i  ,j,k))
-     .     -0.5*( bx(i+1,j,k)*bz(i  ,j,k)
-     .           +bx(i  ,j,k)*bz(i+1,j,k) )
-cc     .     -0.5*( bx(i+1,j,k)*bz(i+1,j,k)
-cc     .           +bx(i  ,j,k)*bz(i  ,j,k) )
+     .     0.25*( rvx(ip,j,k)*vz (i ,j,k) +rvx(i ,j,k)*vz (ip,j,k)
+     .           + vx(i ,j,k)*rvz(ip,j,k) +vx (ip,j,k)*rvz(i ,j,k))
+     .     -0.5*( bx(ip,j,k)*bz(i ,j,k)
+     .           +bx(i ,j,k)*bz(ip,j,k) )
      .     +gsuper(1,3)*ptot
      .     -vis*( gsuper(1,1)*nabla_v(1,3)
      .           +gsuper(1,2)*nabla_v(2,3)
@@ -1304,7 +820,7 @@ c     vtensor_y
 c     #############################################################
       subroutine vtensor_y(i,j,k,t21,t22,t23)
 c     -------------------------------------------------------------
-c     Calculates fluxes in Y-direction for EOM
+c     Calculates tensor components t21-t23 for EOM
 c     -------------------------------------------------------------
 
         implicit none
@@ -1335,19 +851,11 @@ c     Begin program
         nabla_v = fnabla_v(i,j,k,2)
 
         !Recall p=2nT
-cc        ptot = jac*(rho(i,j+1,k)*tmp(i,j  ,k)
-cc     .             +rho(i,j  ,k)*tmp(i,j+1,k))
         ptot = jac*(rho(i,j+1,k)*tmp(i,j+1,k)
      .             +rho(i,j  ,k)*tmp(i,j  ,k))
      .       +(bx(i,j+1,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j+1,k)
      .        +by(i,j+1,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j+1,k)
      .        +bz(i,j+1,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j+1,k))/4.
-
-cc        ptot = jac*(rho(i,j+1,k)*tmp(i,j+1,k)
-cc     .             +rho(i,j  ,k)*tmp(i,j  ,k))
-cc     .       +(bx(i,j+1,k)*bx_cov(i,j+1,k)+bx(i,j,k)*bx_cov(i,j,k)
-cc     .        +by(i,j+1,k)*by_cov(i,j+1,k)+by(i,j,k)*by_cov(i,j,k)
-cc     .        +bz(i,j+1,k)*bz_cov(i,j+1,k)+bz(i,j,k)*bz_cov(i,j,k))/4.
 
         vis = 2./(1./rho(i,j+1,k)/nuu(i,j+1,k)
      .          + 1./rho(i,j  ,k)/nuu(i,j  ,k))
@@ -1357,8 +865,6 @@ cc     .        +bz(i,j+1,k)*bz_cov(i,j+1,k)+bz(i,j,k)*bz_cov(i,j,k))/4.
      .           +rvx(i,j+1,k)*vy(i,j,k) + rvx(i,j,k)*vy(i,j+1,k))
      .     -0.5*( by(i,j+1,k)*bx(i,j  ,k)
      .           +by(i,j  ,k)*bx(i,j+1,k) )
-cc     .     -0.5*( by(i,j+1,k)*bx(i,j+1,k)
-cc     .           +by(i,j  ,k)*bx(i,j  ,k) )
      .     +gsuper(2,1)*ptot
      .     -vis*( gsuper(2,1)*nabla_v(1,1)
      .           +gsuper(2,2)*nabla_v(2,1)
@@ -1369,8 +875,6 @@ cc     .           +by(i,j  ,k)*bx(i,j  ,k) )
      .           +rvy(i,j+1,k)*vy(i,j,k) + rvy(i,j,k)*vy(i,j+1,k))
      .     -0.5*( by(i,j+1,k)*by(i,j  ,k)
      .           +by(i,j  ,k)*by(i,j+1,k) )
-cc     .     -0.5*( by(i,j+1,k)*by(i,j+1,k)
-cc     .           +by(i,j  ,k)*by(i,j  ,k) )
      .     +gsuper(2,2)*ptot
      .     -vis*( gsuper(2,1)*nabla_v(1,2)
      .           +gsuper(2,2)*nabla_v(2,2)
@@ -1381,8 +885,6 @@ cc     .           +by(i,j  ,k)*by(i,j  ,k) )
      .           +rvz(i,j+1,k)*vy(i,j,k) + rvz(i,j,k)*vy(i,j+1,k))
      .     -0.5*( by(i,j+1,k)*bz(i,j  ,k)
      .           +by(i,j  ,k)*bz(i,j+1,k) )
-cc     .     -0.5*( by(i,j+1,k)*bz(i,j+1,k)
-cc     .           +by(i,j  ,k)*bz(i,j  ,k) )
      .     +gsuper(2,3)*ptot
      .     -vis*( gsuper(2,1)*nabla_v(1,3)
      .           +gsuper(2,2)*nabla_v(2,3)
@@ -1396,7 +898,7 @@ c     vtensor_z
 c     #############################################################
       subroutine vtensor_z(i,j,k,t31,t32,t33)
 c     -------------------------------------------------------------
-c     Calculates fluxes in Z-direction for EOM
+c     Calculates tensor components t31-t33 for EOM
 c     -------------------------------------------------------------
 
         implicit none
@@ -1427,19 +929,11 @@ c     Begin program
         nabla_v = fnabla_v(i,j,k,3)
 
         !Recall p=2nT
-cc        ptot = jac*(rho(i,j,k+1)*tmp(i,j,k  )
-cc     .             +rho(i,j,k  )*tmp(i,j,k+1))
         ptot = jac*(rho(i,j,k+1)*tmp(i,j,k+1)
      .             +rho(i,j,k  )*tmp(i,j,k  ))
      .       +(bx(i,j,k+1)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,k+1)
      .        +by(i,j,k+1)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,k+1)
      .        +bz(i,j,k+1)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,k+1))/4.
-
-cc        ptot = jac*(rho(i,j,k+1)*tmp(i,j,k+1)
-cc     .             +rho(i,j,k  )*tmp(i,j,k  ))
-cc     .       +(bx(i,j,k+1)*bx_cov(i,j,k+1)+bx(i,j,k)*bx_cov(i,j,k)
-cc     .        +by(i,j,k+1)*by_cov(i,j,k+1)+by(i,j,k)*by_cov(i,j,k)
-cc     .        +bz(i,j,k+1)*bz_cov(i,j,k+1)+bz(i,j,k)*bz_cov(i,j,k))/4.
 
         vis = 2./(1./rho(i,j,k+1)/nuu(i,j,k+1)
      .          + 1./rho(i,j,k  )/nuu(i,j,k  ))
@@ -1449,8 +943,6 @@ cc     .        +bz(i,j,k+1)*bz_cov(i,j,k+1)+bz(i,j,k)*bz_cov(i,j,k))/4.
      .           +rvx(i,j,k+1)*vz(i,j,k) + rvx(i,j,k)*vz(i,j,k+1) )
      .     -0.5*( bz(i,j,k+1)*bx(i,j,k  )
      .           +bz(i,j,k  )*bx(i,j,k+1) )
-cc     .     -0.5*( bz(i,j,k+1)*bx(i,j,k+1)
-cc     .           +bz(i,j,k  )*bx(i,j,k  ) )
      .     +gsuper(3,1)*ptot
      .     -vis*( gsuper(3,1)*nabla_v(1,1)
      .           +gsuper(3,2)*nabla_v(2,1)
@@ -1461,8 +953,6 @@ cc     .           +bz(i,j,k  )*bx(i,j,k  ) )
      .           +rvy(i,j,k+1)*vz(i,j,k) + rvy(i,j,k)*vz(i,j,k+1) )
      .     -0.5*( bz(i,j,k+1)*by(i,j,k  )
      .           +bz(i,j,k  )*by(i,j,k+1) )
-cc     .     -0.5*( bz(i,j,k+1)*by(i,j,k+1)
-cc     .           +bz(i,j,k  )*by(i,j,k  ) )
      .     +gsuper(3,2)*ptot
      .     -vis*( gsuper(3,1)*nabla_v(1,2)
      .           +gsuper(3,2)*nabla_v(2,2)
@@ -1473,8 +963,6 @@ cc     .           +bz(i,j,k  )*by(i,j,k  ) )
      .           +rvz(i,j,k+1)*vz(i,j,k) + rvz(i,j,k)*vz(i,j,k+1) )
      .     -0.5*( bz(i,j,k+1)*bz(i  ,j,k)
      .           +bz(i  ,j,k)*bz(i,j,k+1) )
-cc     .     -0.5*( bz(i,j,k+1)*bz(i,j,k+1)
-cc     .           +bz(i,j,k  )*bz(i,j,k  ) )
      .     +gsuper(3,3)*ptot
      .     -vis*( gsuper(3,1)*nabla_v(1,3)
      .           +gsuper(3,2)*nabla_v(2,3)
@@ -1486,7 +974,7 @@ c     End program
 
 c     vflx_x
 c     #############################################################
-      function vflx_x(i,j,k,t11,t12,t13,cov) result(flx_x)
+      function vflx_x(i,j,k,t11,t12,t13,cov,flag) result(flx_x)
 c     -------------------------------------------------------------
 c     Calculates fluxes in X-direction for EOM
 c     -------------------------------------------------------------
@@ -1495,14 +983,14 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k
+        integer(4) :: i,j,k,flag
         real(8)    :: flx_x,cov(3),t11,t12,t13
 
 c     Local variables
 
         integer(4) :: ig,jg,kg
-        real(8)    :: x,y,z
-        real(8)    :: cnv1(3),cnv2(3),cnv3(3)
+        real(8)    :: x,y,z,jac,jacp,ptot
+        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
 
 c     Begin program
 
@@ -1520,13 +1008,40 @@ c     Begin program
      .          +t12*dot_product(cnv2,cov)
      .          +t13*dot_product(cnv3,cov)
 
+cc        jacp = jacobian(x,y,z)
+cc
+ccc     Pressure contribution
+cc
+cc        if (flag == 1) then
+cc          x = xx(ig)
+cc        else
+cc          x = xx(ig+1)
+cc        endif
+cc
+cc        cov1 = covariantVector(1,x,y,z)
+cc
+cc        jac = jacobian(x,y,z)
+cc
+cccc        ptot = (jacobian(xx(ig  ),y,z)*rho(i+1,j,k)*tmp(i+1,j,k)
+cccc     .         +jacobian(xx(ig+1),y,z)*rho(i  ,j,k)*tmp(i  ,j,k))
+cccc        ptot = jac*(rho(i+1,j,k)*tmp(i ,j,k)
+cccc     .             +rho(i  ,j,k)*tmp(i+1,j,k))
+cc        ptot = (rho(i+1,j,k)*tmp(i+1,j,k)
+cc     .         +rho(i  ,j,k)*tmp(i  ,j,k))
+cc     .       +(bx(i+1,j,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i+1,j,k)
+cc     .        +by(i+1,j,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i+1,j,k)
+cc     .        +bz(i+1,j,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i+1,j,k))/4.
+cc     .        /jacp
+cc
+cc        flx_x = flx_x + jac*dot_product(cov1,cov)*ptot
+
 c     End program
 
       end function vflx_x
 
 c     vflx_y
 c     #############################################################
-      function vflx_y(i,j,k,t21,t22,t23,cov) result(flx_y)
+      function vflx_y(i,j,k,t21,t22,t23,cov,flag) result(flx_y)
 c     -------------------------------------------------------------
 c     Calculates fluxes in Y-direction for EOM
 c     -------------------------------------------------------------
@@ -1535,14 +1050,14 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k
+        integer(4) :: i,j,k,flag
         real(8)    :: flx_y,cov(3),t21,t22,t23
 
 c     Local variables
 
         integer(4) :: ig,jg,kg
-        real(8)    :: x,y,z
-        real(8)    :: cnv1(3),cnv2(3),cnv3(3)
+        real(8)    :: x,y,z,jac,jacp,ptot
+        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
 
 c     Begin program
 
@@ -1560,13 +1075,38 @@ c     Begin program
      .          +t22*dot_product(cnv2,cov)
      .          +t23*dot_product(cnv3,cov)
 
+cc        jacp = jacobian(x,y,z)
+cc
+ccc     Pressure contribution
+cc
+cc        if (flag == 1) then
+cc          y = yy(jg)
+cc        else
+cc          y = yy(jg+1)
+cc        endif
+cc
+cc        cov1 = covariantVector(2,x,y,z)
+cc
+cc        jac = jacobian(x,y,z)
+cc
+cccc        ptot = jac*(rho(i,j+1,k)*tmp(i,j  ,k)
+cccc     .             +rho(i,j  ,k)*tmp(i,j+1,k))
+cc        ptot = (rho(i,j+1,k)*tmp(i,j+1,k)
+cc     .         +rho(i,j  ,k)*tmp(i,j  ,k))
+cc     .       +(bx(i,j+1,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j+1,k)
+cc     .        +by(i,j+1,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j+1,k)
+cc     .        +bz(i,j+1,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j+1,k))/4.
+cc     .        /jacp
+cc
+cc        flx_y = flx_y + jac*dot_product(cov1,cov)*ptot
+
 c     End program
 
       end function vflx_y
 
 c     vflx_z
 c     #############################################################
-      function vflx_z(i,j,k,t31,t32,t33,cov) result(flx_z)
+      function vflx_z(i,j,k,t31,t32,t33,cov,flag) result(flx_z)
 c     -------------------------------------------------------------
 c     Calculates fluxes in Z-direction for EOM
 c     -------------------------------------------------------------
@@ -1575,14 +1115,14 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k
+        integer(4) :: i,j,k,flag
         real(8)    :: flx_z,cov(3),t31,t32,t33
 
 c     Local variables
 
         integer(4) :: ig,jg,kg
-        real(8)    :: x,y,z
-        real(8)    :: cnv1(3),cnv2(3),cnv3(3)
+        real(8)    :: x,y,z,ptot,jac,jacp
+        real(8)    :: cnv1(3),cnv2(3),cnv3(3),cov1(3)
 
 c     Begin program
 
@@ -1599,6 +1139,31 @@ c     Begin program
         flx_z =  t31*dot_product(cnv1,cov)
      .          +t32*dot_product(cnv2,cov)
      .          +t33*dot_product(cnv3,cov)
+
+cc        jacp = jacobian(x,y,z)
+cc
+ccc     Pressure contribution
+cc
+cc        if (flag == 1) then
+cc          z = zz(kg)
+cc        else
+cc          z = zz(kg+1)
+cc        endif
+cc
+cc        cov1 = covariantVector(3,x,y,z)
+cc
+cc        jac = jacobian(x,y,z)
+cc
+cccc        ptot = jac*(rho(i,j,k+1)*tmp(i,j,k  )
+cccc     .             +rho(i,j,k  )*tmp(i,j,k+1))
+cc        ptot = (rho(i,j,k+1)*tmp(i,j,k+1)
+cc     .         +rho(i,j,k  )*tmp(i,j,k  ))
+cc     .       +(bx(i,j,k+1)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,k+1)
+cc     .        +by(i,j,k+1)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,k+1)
+cc     .        +bz(i,j,k+1)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,k+1))/4.
+cc     .        /jacp
+cc
+cc        flx_z = flx_z + jac*dot_product(cov1,cov)*ptot
 
 c     End program
 
@@ -1736,17 +1301,202 @@ c     Begin program
      .                 -d_yz_jpkm*(arr(i,jp,km)-arr(i,j,k))
      .                 -d_yz_jmkp*(arr(i,jm,kp)-arr(i,j,k)) ) )
 
-      laplacian =
-     .     dyh(jg)*dzh(kg)*( (arr(ip,j,k)-arr(i,j,k))/dx(ig)
-     .                      +(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
-     .    +dxh(ig)*dzh(kg)*( (arr(i,jp,k)-arr(i,j,k))/dy(jg)
-     .                      +(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
-     .    +dxh(ig)*dyh(jg)*( (arr(i,j,kp)-arr(i,j,k))/dz(kg)
-     .                      +(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
+cc      laplacian =
+cc     .     dyh(jg)*dzh(kg)*( (arr(ip,j,k)-arr(i,j,k))/dx(ig)
+cc     .                      +(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
+cc     .    +dxh(ig)*dzh(kg)*( (arr(i,jp,k)-arr(i,j,k))/dy(jg)
+cc     .                      +(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
+cc     .    +dxh(ig)*dyh(jg)*( (arr(i,j,kp)-arr(i,j,k))/dz(kg)
+cc     .                      +(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
 
 c     End program
 
       end function laplacian
+
+c     curl
+c     ###############################################################
+      real*8 function curl(i,j,k,ax,ay,az,comp)
+
+c     ---------------------------------------------------------------
+c     Calculates curl(A)) in general non-orthogonal
+c     coordinates, preserving the SPD property. The vector A is
+c     covariant, and returns the contravariant component "comp".
+c     ---------------------------------------------------------------
+
+      use grid
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer(4) :: i,j,k,comp
+
+      real(8)       :: ax(0:nx+1,0:ny+1,0:nz+1)
+     .                ,ay(0:nx+1,0:ny+1,0:nz+1)
+     .                ,az(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      real(8)    :: dx,dy,dz
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+c     Begin program
+
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      dx = grid_params%dxh(ig)
+      dy = grid_params%dyh(jg)
+      dz = grid_params%dzh(kg)
+
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
+
+      select case(comp)
+      case(1)
+
+        flxip = 0d0
+        flxim = 0d0
+
+        flxjp = 0.5*(az(i,jp,k)+az(i,j,k))
+        flxjm = 0.5*(az(i,jm,k)+az(i,j,k))
+
+        flxkp =-0.5*(ay(i,j,kp)+ay(i,j,k))
+        flxkm =-0.5*(ay(i,j,km)+ay(i,j,k))
+
+      case(2)
+
+        flxjp = 0d0
+        flxjm = 0d0
+
+        flxip =-0.5*(az(ip,j,k)+az(i,j,k))
+        flxim =-0.5*(az(im,j,k)+az(i,j,k))
+
+        flxkp = 0.5*(ax(i,j,kp)+ax(i,j,k))
+        flxkm = 0.5*(ax(i,j,km)+ax(i,j,k))
+
+      case(3)
+
+        flxkp = 0d0
+        flxkm = 0d0
+
+        flxip = 0.5*(ay(ip,j,k)+ay(i,j,k))
+        flxim = 0.5*(ay(im,j,k)+ay(i,j,k))
+
+        flxjp =-0.5*(ax(i,jp,k)+ax(i,j,k))
+        flxjm =-0.5*(ax(i,jm,k)+ax(i,j,k))
+
+      case default
+
+        write (*,*) 'Error in component in curl'
+        write (*,*) 'Aborting...'
+        stop
+
+      end select
+
+      call imposeBConfluxes (i,j,k,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+     .                      ,bcond)
+
+      curl = (flxip-flxim)/dx
+     .      +(flxjp-flxjm)/dy
+     .      +(flxkp-flxkm)/dz
+
+c     End program
+
+      end function curl
+
+c     curl2
+c     ###############################################################
+      real*8 function curl2(i,j,k,ax,ay,az,comp)
+
+c     ---------------------------------------------------------------
+c     Calculates curl(A)) in general non-orthogonal
+c     coordinates, preserving the SPD property. The vector A is
+c     covariant, and returns the contravariant component "comp".
+c     ---------------------------------------------------------------
+
+      use grid
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer(4) :: i,j,k,comp
+
+      real(8)       :: ax(0:nx+1,0:ny+1,0:nz+1)
+     .                ,ay(0:nx+1,0:ny+1,0:nz+1)
+     .                ,az(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      real(8)    :: dx,dy,dz,dx1,dx2
+
+c     Begin program
+
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      dx = grid_params%dxh(ig)
+      dy = grid_params%dyh(jg)
+      dz = grid_params%dzh(kg)
+
+      if (i == 1 .and. bcond(1) == SP) then
+        dx1=grid_params%dx(ig)
+        dx2=grid_params%dx(ig+1)
+      endif
+
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
+
+      select case(comp)
+      case(1)
+
+        curl2 = (az(i,jp,k)-az(i,jm,k))/2./dy
+     .        -(ay(i,j,kp)-ay(i,j,km))/2./dz
+
+      case(2)
+
+        if (i == 1 .and. bcond(1) == SP) then
+          curl2 = (ax(i,j,kp)-ax(i,j,km))/2./dz
+     .          -(-az(i+2,j,k)*dx1/dx2/(dx1+dx2)
+     .            +az(i+1,j,k)*(dx1+dx2)/dx1/dx2
+     .            -az(i  ,j,k)*(1./dx1+1./(dx1+dx2)))
+        else
+          curl2 = (ax(i,j,kp)-ax(i,j,km))/2./dz
+     .          -(az(ip,j,k)-az(im,j,k))/2./dx
+        endif
+
+      case(3)
+
+        if (i == 1 .and. bcond(1) == SP) then
+          curl2 = (-ay(i+2,j,k)*dx1/dx2/(dx1+dx2)
+     .            +ay(i+1,j,k)*(dx1+dx2)/dx1/dx2
+     .            -ay(i  ,j,k)*(1./dx1+1/(dx1+dx2)))
+     .          -(ax(i,jp,k)-ax(i,jm,k))/2./dy
+        else
+          curl2 = (ay(ip,j,k)-ay(im,j,k))/2./dx
+     .          -(ax(i,jp,k)-ax(i,jm,k))/2./dy
+        endif
+
+      case default
+
+        write (*,*) 'Error in component in curl'
+        write (*,*) 'Aborting...'
+        stop
+
+      end select
+
+c     End program
+
+      end function curl2
 
 c     curlcurl
 c     ###############################################################
