@@ -117,8 +117,10 @@ c Find required diagonals in all grids
         call find_mf_diag_colored(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
      .                           ,b_diag,ncolors)
 
-        call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                           ,v_diag,ncolors)
+        if (.not.gm_smooth) then
+          call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                             ,v_diag,ncolors)
+        endif
 
         form_diag = .false.
       endif
