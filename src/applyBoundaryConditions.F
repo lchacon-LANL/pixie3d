@@ -107,9 +107,11 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,icomp,bcnd(6,3),nnx,nny,nnz
+      integer(4) :: i,j,k,icomp,bcnd(6,3),nnx,nny,nnz,order
 
 c Begin program
+
+      order = 2   !Order of extrapolation in BCs
 
 c Local grid sizes
 
@@ -129,7 +131,7 @@ c Density BC
      .               ,varray%array_var(IRHO)%array
      .               ,u_0   %array_var(IRHO)%array
      .               ,varray%array_var(IRHO)%bconds
-     .               ,iigx,iigy,iigz)
+     .               ,iigx,iigy,iigz,iorder=order)
 
 c Velocity BC
 
@@ -152,7 +154,8 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IVX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
+      call setBC(IVX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,iorder=order)
 
 c     Postprocessing
 
@@ -189,7 +192,8 @@ c     BC setup
 
 c     Fill ghost nodes
 
-      call setBC(IBX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
+      call setBC(IBX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,iorder=order)
 
 c     Postprocessing
 
@@ -224,11 +228,18 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         enddo
       enddo
 
+#if defined(petsc) 
+      do icomp=1,3
+        call fillPetscGhostCells(v_cnv(:,:,:,icomp))
+      enddo
+#endif
+
       v0 = v_cnv
 
 c     Fill ghost nodes
 
-      call setBC(IJX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz)
+      call setBC(IJX,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,iorder=order)
 
 c     Postprocessing
 
@@ -246,7 +257,7 @@ c Temperature BCs
      .               ,varray%array_var(ITMP)%array
      .               ,u_0   %array_var(ITMP)%array
      .               ,varray%array_var(ITMP)%bconds
-     .               ,iigx,iigy,iigz)
+     .               ,iigx,iigy,iigz,iorder=order)
 
 c Deallocate variables 
 
