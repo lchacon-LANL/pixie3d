@@ -29,6 +29,8 @@ c--------------------------------------------------------------------
 
       use nlfunction_setup
 
+      use error
+
       implicit none
 
 c Call variables
@@ -100,7 +102,7 @@ c Define boundary conditions
 c Decide whether to use the alternative EOM formulation
 
       alt_eom = alt__eom()
-      
+
 c Set initial guess
 
       select case (trim(equil))
@@ -112,13 +114,8 @@ c Set initial guess
 c     Check coordinates
 
         if (coords /= 'car') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -149,13 +146,8 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 c     Check coordinates
 
         if (coords /= 'sin') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
@@ -190,13 +182,8 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 c     Check coordinates
 
         if (coords /= 'car') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
@@ -225,13 +212,8 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 c     Check coordinates
 
         if (coords /= 'car') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     Tearing mode in cartesian coordinates
@@ -276,13 +258,8 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 c     Check coordinates
 
         if (coords /= 'sin') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     Tearing mode in sinusoidal coordinates
@@ -343,13 +320,8 @@ cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
 c     Check coordinates
 
         if (coords /= 'hel') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (Caramana et al, PoP, 1983)
@@ -405,13 +377,8 @@ c1              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
 c     Check coordinates
 
         if (coords /= 'hel') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (analytical)
@@ -443,7 +410,7 @@ c     RFP equilibria (analytical)
 c diag ****
 cc              var(i,j,k,IBX)  = 0d0
 cc              var(i,j,k,IBY)  = 0d0
-cc              var(i,j,k,IBZ)  = x1*1d0
+cc              var(i,j,k,IBZ)  = x1*0d0
 c diag ****
 
               var(i,j,k,IVX)  = 0d0
@@ -454,6 +421,7 @@ c diag ****
 
 c diag ****
 cc              var(i,j,k,ITMP) = 1d0
+cc              var(i,j,k,ITMP) = 0d0
 c diag ****
               var(i,j,k,ITMP) = 1d-5
 
@@ -471,23 +439,13 @@ c diag ****
 c     Check coordinates
 
         if (coords /= 'cyl') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
         if (abs(RR-zmax/2./pi) > 1d-5) then
-          write (*,*) 'Major radius and zmax do not agree.'
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Finalize(mpierr)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-#endif
-          stop
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
         endif
 
 c     RFP equilibria (analytical)
@@ -538,13 +496,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         bb = dlambda/RR/q0
 
         if (coords /= 'hel') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -580,13 +533,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
         if (coords /= 'cyl') then
-          write (*,*) 'Wrong coordinates for equilibrium ',equil
-          write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-          stop
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
         endif
 
         !Build equilibrium
@@ -617,14 +565,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
       case default
 
-        write (*,*)
-        write (*,*) 'Equilibrium ',trim(equil),' undefined'
-        write (*,*) 'Aborting...'
-#if defined(petsc)
-          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-          call MPI_Finalize(mpierr)
-#endif
-        stop
+        messg = 'Equilibrium '//trim(equil)//' undefined'
+        call pstop('setEquilibrium',messg)
 
       end select
 
