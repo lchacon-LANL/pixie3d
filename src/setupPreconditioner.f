@@ -214,16 +214,16 @@ c Find required diagonals in all grids
 
       if (jit == 1) then
         icomp = IRHO
-        call find_mf_diag(1,ntotdp,rho_mtvc,1,bcs(:,IRHO),rho_diag)
+        call find_mf_diag_std(1,ntotdp,rho_mtvc,1,bcs(:,IRHO),rho_diag)
 
         icomp = ITMP
-        call find_mf_diag(1,ntotdp,tmp_mtvc,1,bcs(:,ITMP),tmp_diag)
+        call find_mf_diag_std(1,ntotdp,tmp_mtvc,1,bcs(:,ITMP),tmp_diag)
 
         icomp = IBX
-        call find_mf_diag(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ),b_diag)
+        call find_mf_diag_std(3,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ),b_diag)
 
-        icomp = IVX
-        call find_mf_diag(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
+cc        icomp = IVX
+cc        call find_mf_diag_std(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ),v_diag)
       endif
 
 c diag
