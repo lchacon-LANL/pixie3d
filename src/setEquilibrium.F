@@ -1,6 +1,6 @@
 c setEquilibrium
 c####################################################################
-      subroutine setEquilibrium(var,bcs,label)
+      subroutine setEquilibrium(iigx,iigy,iigz,var,bcs,label)
 
 c--------------------------------------------------------------------
 c     Set initial conditions for initial value calculation, define
@@ -32,6 +32,8 @@ c--------------------------------------------------------------------
       implicit none
 
 c Call variables
+
+      integer(4)    :: iigx,iigy,iigz
 
       real(8)       :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
 
@@ -72,13 +74,13 @@ c Begin program
 
 c Initialize required local grid information
 
-      igx = 1
-      igy = 1
-      igz = 1
+      igx = iigx
+      igy = iigy
+      igz = iigz
 
-      nx = nxl
-      ny = nyl
-      nz = nzl
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
 c Label variables
      
@@ -113,6 +115,10 @@ c     Check coordinates
         if (coords /= 'car') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -146,6 +152,10 @@ c     Check coordinates
         if (coords /= 'sin') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -183,6 +193,10 @@ c     Check coordinates
         if (coords /= 'car') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -218,6 +232,10 @@ c     Check coordinates
         if (coords /= 'car') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -265,6 +283,10 @@ c     Check coordinates
         if (coords /= 'sin') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -328,6 +350,10 @@ c     Check coordinates
         if (coords /= 'hel') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -386,6 +412,10 @@ c     Check coordinates
         if (coords /= 'hel') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -438,20 +468,34 @@ c diag ****
 
       case ('rfp3d')
 
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        aa = grid_params%params(4)
+
 c     Check coordinates
 
         if (coords /= 'cyl') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
+          stop
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          write (*,*) 'Major radius and zmax do not agree.'
+          write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Finalize(mpierr)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+#endif
           stop
         endif
 
 c     RFP equilibria (analytical)
-
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        aa = grid_params%params(4)
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
@@ -501,6 +545,10 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         if (coords /= 'hel') then
           write (*,*) 'Wrong coordinates for equilibrium ',equil
           write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
           stop
         endif
 
@@ -537,6 +585,10 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         write (*,*)
         write (*,*) 'Equilibrium ',trim(equil),' undefined'
         write (*,*) 'Aborting...'
+#if defined(petsc)
+          call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+          call MPI_Finalize(mpierr)
+#endif
         stop
 
       end select
