@@ -19,12 +19,6 @@
 #
 #        make BOPT=g petsc
 
-# System-dependent variables
-
-PETSC_DIR=/usr/local/petsc-2.2.0
-PETSC_ARCH=linux_absoft_
-HDF5_HOME=/usr/local
-
 # Source files
 
 PROD      = pixie3d.x
@@ -41,10 +35,9 @@ prefix = .
 # Petsc include
 
 DRIVERDIR = driver
-ifneq ($(strip $(BOPT)),)
+ifdef PETSCTRUE
   include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
-  PETSCTRUE = true
   SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
 endif
 
@@ -63,101 +56,12 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
                             $(patsubst %.F,%.o,$(COMMON_SRC)))
 
-#Define compiler flags
 
-FC = f90
-
-# Flags for Absoft f90
-ifeq ($(FC),f90)
-  OPTIMIZATION = -O2 -cpu:host
-#  DEBUG        = -g -et -Rb -Rp
-  DEBUG        = -g -ggdb
-  PROFILE      = -P
-  STATIC       = -s
-  MODPATH      = -p
-  ADDMODPATH   = -p
-  FFLAGS       = -w
-  LIBS         = -llapack_f90 -lblas_f90
-  VERBOSE      = -v
-
-  ifdef PETSCTRUE
-    CPPFLAGS += -Dabsoft_ -Dpetsc -DNVAR=8 -I$(HDF5_HOME)/include
-    LIBS      = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz \
-                -I$(MPI_HOME)/include -L$(MPI_HOME)/lib -lmpichf90 -lmpich -lpmpich 
-    GMODPATH  = -p$(HDF5_HOME)/lib
-    FC        = $(MPI_HOME)/bin/mpif90
-  endif
-endif
-
-# Flags for Lahey lf95
-ifeq ($(FC),lf95)
-  OPTIMIZATION = -O
-#  DEBUG        = -g --chkglobal
-  DEBUG        = -g --chk ase
-  PROFILE      =
-  STATIC       = 
-  MODPATH      = -M
-  ADDMODPATH   = -I
-  FFLAGS      +=
-  LIBS         = -llapackmt -lblasmt
-#  LIBS         = -llapack -lblas -lf2c
-  VERBOSE      = --verbose
-
-  ifdef PETSCTRUE
-    CPPFLAGS  += -DNVAR=8 -Dlahey 
-    FFLAGS    += -DNVAR=8 --ml cdecl
-    PETSC_ARCH = linux_lahey
-    FC        = $(MPI_HOME)/bin/mpif90
-  endif
-endif
-
-# Flags for Intel ifort
-ifeq ($(FC),ifort)
-  OPTIMIZATION = -O2 -mp -axW
-#  DEBUG = -g
-  DEBUG        = -g -check -traceback
-  PROFILE      = -p
-  STATIC       =
-  MODPATH      = -I
-  ADDMODPATH   = -I
-  FFLAGS      += -vec_report0
-  LIBS         = -llapack -lblas -lf2c
-#  LIBS         = -llapack_intel -lblas_intel
-  VERBOSE      = -v
-
-  ifdef PETSCTRUE
-    CPPFLAGS  += -DNVAR=8
-    FFLAGS    += -DNVAR=8
-    PETSC_ARCH = linux_intel
-    FC        = $(MPI_HOME)/bin/mpif90
-  endif
-endif
-
-#Assemble compiler options
-
-OPT = O 
-
-ifneq (,$(findstring O,$(OPT)))
-FFLAGS += $(OPTIMIZATION)
-endif
-ifneq (,$(findstring g,$(OPT)))
-FFLAGS += $(DEBUG)
-endif
-ifneq (,$(findstring p,$(OPT)))
-FFLAGS += $(PROFILE)
-endif
-ifneq (,$(findstring s,$(OPT)))
-FFLAGS += $(STATIC)
-endif
-ifneq (,$(findstring v,$(OPT)))
-FFLAGS += $(VERBOSE)
-endif
-
-export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH PETSC_DIR PETSC_ARCH
+#export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH PETSC_DIR PETSC_ARCH
 
 #Define linker flags
 
-LDFLAGS = 
+#LDFLAGS = 
 
 #Define relevant directories
 
@@ -210,7 +114,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	@${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
