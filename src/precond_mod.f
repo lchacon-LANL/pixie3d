@@ -4,7 +4,11 @@ c ###################################################################
 
         use grid
 
+        use setMGBC_interface
+
         use mg_internal
+
+        use constants
 
       contains
 
@@ -120,7 +124,9 @@ c ######################################################################
 
         use grid_aliases
 
-        integer(4) :: icomp   !Passed to setMGBC to define appropriate BC operation
+        use matvec
+
+cc        integer(4) :: icmp   !Passed to setMGBC to define appropriate BC operation
 
         type :: garray
           real(8),pointer,dimension(:,:,:,:) :: array
@@ -151,17 +157,24 @@ c     Begin program
 
         if (.not.associated(mgarray%grid)) then
           allocate(mgarray%grid(grid_params%ngrid))
-        endif
-
-        do igrid=1,grid_params%ngrid
-          if (.not.associated(mgarray%grid(igrid)%array)) then
+          do igrid=1,grid_params%ngrid
             nxp = grid_params%nxv(igrid)+1
             nyp = grid_params%nyv(igrid)+1
             nzp = grid_params%nzv(igrid)+1
             allocate(mgarray%grid(igrid)%array(0:nxp,0:nyp,0:nzp,neq))
             mgarray%grid(igrid)%array = 0d0
-          endif
-        enddo
+          enddo
+        endif
+
+cc        do igrid=1,grid_params%ngrid
+cc          if (.not.associated(mgarray%grid(igrid)%array)) then
+cc            nxp = grid_params%nxv(igrid)+1
+cc            nyp = grid_params%nyv(igrid)+1
+cc            nzp = grid_params%nzv(igrid)+1
+cc            allocate(mgarray%grid(igrid)%array(0:nxp,0:nyp,0:nzp,neq))
+cc            mgarray%grid(igrid)%array = 0d0
+cc          endif
+cc        enddo
 
 c     End program
 
@@ -282,13 +295,14 @@ c     Local variables
 
       integer(4) :: igridf,igridc,isigf,isigc,i,j,k,ii,ieq
      .             ,nxxf,nyyf,nzzf,nxxc,nyyc,nzzc,ntotc,ntotf
+     .             ,bcmod(6,neq)
 
       real(8),allocatable,dimension(:) :: vecf,vecc
       logical    :: fpointers
 
 c     Begin program
 
-      call allocPointers(neq,grid_params,fpointers)
+      call allocPointers(neq,fpointers)
 
 c     Consistency check
 
@@ -358,12 +372,14 @@ c       Restrict vector
 
 c     Map vector to array
 
-      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igc
-     .                       ,.false.)
+      call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igc,.false.)
 
       if (icmp /= 0) then
-        icomp=icmp              !Define icomp for BCs
-        call setMGBC(0,neq,nxc,nyc,nzc,igc,arrayc,bcnd)
+        bcmod = bcnd
+        where (bcnd == EQU)
+          bcmod = EXT
+        end where
+        call setMGBC(0,neq,nxc,nyc,nzc,igc,arrayc,bcmod,icomp=icmp)
       endif
 
 c     Deallocate vectors
@@ -402,7 +418,7 @@ c     Local variables
 
 c     Begin program
 
-      call allocPointers(neq,grid_params,fpointers)
+      call allocPointers(neq,fpointers)
 
 c     Consistency check
 
@@ -593,7 +609,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: order,nxx,nyy,nzz,igrid,ii
+        integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar
         real(8)    :: dvol
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
@@ -682,25 +698,25 @@ c     Find auxiliary quantities and store them in all grids
               dvol   = volume(i,j,k,igx,igy,igz)
 
               !Eqn 1
-              do icomp=1,3
-                vector(i,j,k,icomp) = 
-     .                            gv0%grid(igrid)%array(i,j,k,icomp)/dt
-     .                          + alpha*vx(i,j,k)*nabla_v(1,icomp)/jac
-     .                          + alpha*vy(i,j,k)*nabla_v(2,icomp)/jac
-     .                          + alpha*vz(i,j,k)*nabla_v(3,icomp)/jac
+              do ivar=1,3
+                vector(i,j,k,ivar) = 
+     .                            gv0%grid(igrid)%array(i,j,k,ivar)/dt
+     .                          + alpha*vx(i,j,k)*nabla_v(1,ivar)/jac
+     .                          + alpha*vy(i,j,k)*nabla_v(2,ivar)/jac
+     .                          + alpha*vz(i,j,k)*nabla_v(3,ivar)/jac
      .                          - alpha*veclaplacian(i,j,k,nxx,nyy,nzz
      .                                              ,vx,vy,vz,nuu
-     .                                              ,alt_eom,icomp)/dvol
+     .                                              ,alt_eom,ivar)/dvol
               enddo
 
             enddo
           enddo
         enddo
 
-        do icomp=1,3
+        do ivar=1,3
           call restrictArrayToMGVector(1,nxx,nyy,nzz
-     .                              ,vector(:,:,:,icomp)
-     .                              ,mgadvdiffV0(:,icomp)
+     .                              ,vector(:,:,:,ivar)
+     .                              ,mgadvdiffV0(:,ivar)
      .                              ,igrid,order,.false.)
         enddo
 
