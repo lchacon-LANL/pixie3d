@@ -568,7 +568,7 @@ c End program
 
 c res
 c##################################################################
-      real*8 function res(i,j,k,nx,ny,nz,igx,igy,igz)
+      function res(i,j,k,nx,ny,nz,igx,igy,igz)
 c------------------------------------------------------------------
 c     This function computes the resistivity on the grid level
 c     igrid.
@@ -584,6 +584,7 @@ c------------------------------------------------------------------
 
 c Call variables
 
+      real(8)    :: res
       integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
 
 c Local variables
@@ -618,7 +619,7 @@ c End program
 
 c vis
 c##################################################################
-      real*8 function vis(i,j,k,nx,ny,nz,igx,igy,igz)
+      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
 c------------------------------------------------------------------
 c     This function computes the viscosity on the grid level
 c     igrid.
@@ -632,7 +633,8 @@ c------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    i,j,k,nx,ny,nz,igx,igy,igz
+      real(8)    :: vis
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
 
 c Local variables
 
