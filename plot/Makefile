@@ -12,7 +12,7 @@
 #
 #        make FC='lf95' OPT='g'
 
-PROD =	3dplot.x
+PROD =	pixplot.x
 
 SRC  := $(wildcard *.[F,c,f])
 
@@ -145,24 +145,26 @@ MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBD
 
 #Define targets
 
-.PHONY: clean recclean common petsc $(SUBDIRS)
+.PHONY: clean distclean common petsc $(SUBDIRS)
 
 production: common $(PROD)
 
 $(PROD):  $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
-	@echo 'Linking 3DPLOT code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
+	@echo 'Linking' $@ 'code'
+	@echo ''
+	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
+	@mv $@ ../bin
 
 common: $(SUBDIRS)
 
 $(SUBDIRS):
-	$(MAKE) -e -C $@ target
+	$(MAKE) -e -s -C $@ target
 
 clean:
 	-rm -f *.o *.mod
 
-recclean: clean
+distclean: clean
 	for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir clean;  done
 
@@ -173,7 +175,9 @@ $(OBJS):  $(MODS) $(COMMON_MODS)
 #Define patterns
 
 %.o : %.f
+	@echo 'Compiling' $@
 	$(FC) -c $(MODDIRS) $(FFLAGS) $<
 
 %.o : %.F
-	$(FC) -c $(MODDIRS) $(FFLAGS) $<
+	@echo 'Compiling' $@
+	$(FC) -c $(MODDIRS) $(FFLAGS) $(CPPFLAGS) $<
