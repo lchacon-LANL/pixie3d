@@ -1631,8 +1631,8 @@ c     #################################################################
 c     -----------------------------------------------------------------
 c     Fills ghost cells in edges (12 in 3D). On input:
 c        * array -> 3D array to impose BC's on.
-c        * ibc   -> integer boundary identifier
-c                   (1->X1, 2->X2, 3->y1, 4->y2, 5->z1, 6->z2)
+c        * dim    -> dimension (1 -> X, 2 -> Y, 3 -> Z)
+c        * loc    -> location in dimension (0 -> right, 1 -> left)
 c     -----------------------------------------------------------------
 
       implicit none
@@ -1660,7 +1660,7 @@ c     Select edge
       nnodes = 3
 
       select case (ibc)
-      case (1) !Fill edges y=jmin-1,y=jmax+1, vary z
+      case (1) !On face #1, fill edges y=jmin-1,y=jmax+1, vary z
 
         if (imin == 1) then
           ito   = imin-1
@@ -1697,7 +1697,7 @@ c     Select edge
 
         endif
 
-      case (2) !Fill edges y=jmin-1,y=jmax+1, vary z
+      case (2) !On face #2, fill edges y=jmin-1,y=jmax+1, vary z
 
         if (imax == nx) then
           ito   = imax+1
@@ -1734,7 +1734,7 @@ c     Select edge
 
         endif
 
-      case (3) !Fill edges z=kmin-1,z=kmax+1, vary x
+      case (3) !On face #3, fill edges z=kmin-1,z=kmax+1, vary x
 
         if (jmin == 1) then
 
@@ -1774,7 +1774,7 @@ c     Select edge
 
         endif
 
-      case (4) !Fill edges z=kmin-1,z=kmax+1, vary x
+      case (4) !On face #4, fill edges z=kmin-1,z=kmax+1, vary x
 
         if (jmax == ny) then
 
@@ -1814,7 +1814,7 @@ c     Select edge
 
         endif
 
-      case (5) !Fill edges x=imin-1,x=imax+1, vary y
+      case (5) !On face #5, fill edges x=imin-1,x=imax+1, vary y
 
         if (kmin == 1) then
 
@@ -1854,7 +1854,7 @@ c     Select edge
 
         endif
 
-      case (6) !Fill edges x=imin-1,x=imax+1, vary y
+      case (6) !On face #6, fill edges x=imin-1,x=imax+1, vary y
 
         if (kmax == nz) then
 
@@ -1906,8 +1906,8 @@ c     #################################################################
 c     -----------------------------------------------------------------
 c     Imposes ghost cells in corners (8 in 3D). On input:
 c        * array -> 3D array to impose BC's on.
-c        * ibc   -> integer boundary identifier
-c                   (0 -> X1, 1->X2, 2->y1, 3->y2, 4->z1, 5->z2)
+c        * dim    -> dimension (1 -> X, 2 -> Y, 3 -> Z)
+c        * loc    -> location in dimension (0 -> right, 1 -> left)
 c     -----------------------------------------------------------------
 
       implicit none
@@ -2103,7 +2103,16 @@ c     #################################################################
       subroutine extrapolateToCorner(ito,jto,kto,imn,jmn,kmn,imx,jmx,kmx
      .                              ,array)
 c     -----------------------------------------------------------------
-
+c     Routine that extrapolates information to edge or vertex corners.
+c     It is the workhorse of the fillEdge and fillCorner routines.
+c     In the call sequence:
+c        * ito,jto,kto: coordinates of ghost cell to be filled.
+c        * imn,jmn,kmn: node coordinates identifying start of
+c                       interpolation region
+c        * imx,jmx,kmx: node coordinates identifying end of interpolation
+c                       region
+c        * array: local array defined on interpolation region, including
+c                 ghost cell (ito,jto,kto).
 c     -----------------------------------------------------------------
 
       implicit none
@@ -2129,6 +2138,8 @@ c     Extrapolation
 
 c     Begin program
 
+c     Identify directions for extrapolation.
+
       inx = imx-imn
       iny = jmx-jmn
       inz = kmx-kmn
@@ -2140,7 +2151,11 @@ c     Begin program
       if (iny == 0) flgy = .false.
       if (inz == 0) flgz = .false.
 
+c     Allocate spatial coordinate vectors.
+
       allocate(xx(inx),yy(iny),zz(inz))
+
+c     Initialize accumulators
 
       valx = 0d0
       valy = 0d0
@@ -2225,17 +2240,8 @@ c     Z extrapolation
         num = num + 1
       endif
 
-c     Average results
+c     Average extrapolation results and fill ghost cell
 
-cc      write (*,*) ito,jto,kto
-cc      write (*,*) ito,jto,kto,valx,valy,valz,num
-cc      do k=kmn,kmx
-cc        do j=jmn,jmx
-cc          do i=imn,imx
-cc            write (*,*) i,j,k,array(i,j,k)
-cc          enddo
-cc        enddo
-cc      enddo
       array(ito,jto,kto) = (valx + valy + valz)/num
 
 c     End program
