@@ -61,9 +61,9 @@ c Read reference grid info
       open(unit=urecord,file='record-256x256.bin'
      .    ,form='unformatted',status='old')
 
-      read (urecord) nxd
-      read (urecord) nyd
-      read (urecord) nzd
+      read (urecord) nxd,ilog,ihig
+      read (urecord) nyd,jlog,jhig
+      read (urecord) nzd,klog,khig
 
       write (*,*)
       write (*,*) ' Reading reference file...'
@@ -79,7 +79,7 @@ c Read reference grid info
 
 
       do
-        call readRecord(urecord,itime,time,dt,vref,ierr)
+        call readRecordFile(urecord,itime,time,dt,vref,ierr)
 
         if (ierr /= 0) exit
       enddo
@@ -132,9 +132,9 @@ c Initialize current grid info and read current grid solution
 
       open(urecord,file=recordfile,form='unformatted',status='unknown')
 
-      read (urecord) nxd
-      read (urecord) nyd
-      read (urecord) nzd
+      read (urecord) nxd,ilog,ihig
+      read (urecord) nyd,jlog,jhig
+      read (urecord) nzd,klog,khig
 
       write (*,*)
       write (*,*) ' Reading solution file...'
@@ -147,7 +147,7 @@ c Initialize current grid info and read current grid solution
       call allocateDerivedType(vsol)
 
       do
-        call readRecord(urecord,itime,time,dt,vsol,ierr)
+        call readRecordFile(urecord,itime,time,dt,vsol,ierr)
 
         if (ierr /= 0) exit
       enddo
