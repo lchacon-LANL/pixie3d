@@ -49,7 +49,7 @@ c Output
       if (itime.lt.inewtime) then
 
 cc        write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
-        write (*,10) nxd,nyd,nzd,ngrd,timecorr,source
+        write (*,10) nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid
 
         write (*,*) 
         write (*,100)
@@ -74,7 +74,8 @@ c End program
      .        /,'  Number of grid levels:....',i4,',',i2,',',i2
 cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  Time correction...........',l4,
-     .        /,'  External source...........',l4)
+     .        /,'  External source...........',l4,
+     .        /,'  Numerical grid............',l4)
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
  110  format (i7,f9.2,1x,1pe8.1,1x,0p3f7.3,2i6,3x,f7.3)
