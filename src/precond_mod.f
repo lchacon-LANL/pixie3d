@@ -361,8 +361,10 @@ c     Map vector to array
       call mapMGVectorToArray(0,neq,vecc,nxc,nyc,nzc,arrayc,igridc
      .                       ,.false.)
 
-      icomp=icmp                !Define icomp for BCs
-      call setMGBC(0,neq,nxc,nyc,nzc,igc,arrayc,bcnd)
+      if (icmp /= 0) then
+        icomp=icmp              !Define icomp for BCs
+        call setMGBC(0,neq,nxc,nyc,nzc,igc,arrayc,bcnd)
+      endif
 
 c     Deallocate vectors
 
@@ -569,9 +571,9 @@ c     Defaults
         kp = k+1
         km = k-1
 
-        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartsn)
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-        jac = jacobian(x0,y0,z0,cartsn)
+        jac = gmetric%grid(igx)%jac(i,j,k)
 
         dhx = 2.*dxh(ig)
         dhy = 2.*dyh(jg)
@@ -610,19 +612,19 @@ cc        endif
           vzip = vv(ip,j,k,3)
           vzim = vv(i ,j,k,3)
 
-          vxjp = (vv(ip,jp,k,1)+vv(i,jp,k,1))/2.
-          vxjm = (vv(ip,jm,k,1)+vv(i,jm,k,1))/2.
-          vyjp = (vv(ip,jp,k,2)+vv(i,jp,k,2))/2.
-          vyjm = (vv(ip,jm,k,2)+vv(i,jm,k,2))/2.
-          vzjp = (vv(ip,jp,k,3)+vv(i,jp,k,3))/2.
-          vzjm = (vv(ip,jm,k,3)+vv(i,jm,k,3))/2.
+          vxjp = (vv(ip,jp,k,1)+vv(i,jp,k,1))*0.5
+          vxjm = (vv(ip,jm,k,1)+vv(i,jm,k,1))*0.5
+          vyjp = (vv(ip,jp,k,2)+vv(i,jp,k,2))*0.5
+          vyjm = (vv(ip,jm,k,2)+vv(i,jm,k,2))*0.5
+          vzjp = (vv(ip,jp,k,3)+vv(i,jp,k,3))*0.5
+          vzjm = (vv(ip,jm,k,3)+vv(i,jm,k,3))*0.5
 
-          vxkp = (vv(ip,j,kp,1)+vv(i,j,kp,1))/2.
-          vxkm = (vv(ip,j,km,1)+vv(i,j,km,1))/2.
-          vykp = (vv(ip,j,kp,2)+vv(i,j,kp,2))/2.
-          vykm = (vv(ip,j,km,2)+vv(i,j,km,2))/2.
-          vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))/2.
-          vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))/2.
+          vxkp = (vv(ip,j,kp,1)+vv(i,j,kp,1))*0.5
+          vxkm = (vv(ip,j,km,1)+vv(i,j,km,1))*0.5
+          vykp = (vv(ip,j,kp,2)+vv(i,j,kp,2))*0.5
+          vykm = (vv(ip,j,km,2)+vv(i,j,km,2))*0.5
+          vzkp = (vv(ip,j,kp,3)+vv(i,j,kp,3))*0.5
+          vzkm = (vv(ip,j,km,3)+vv(i,j,km,3))*0.5
 
           bxx = 0.5*(bb(i,j,k,1)+bb(ip,j,k,1))
           byy = 0.5*(bb(i,j,k,2)+bb(ip,j,k,2))
@@ -635,19 +637,19 @@ cc        endif
           bzip = bb(ip,j,k,3)
           bzim = bb(i ,j,k,3)
 
-          bxjp = (bb(ip,jp,k,1)+bb(i,jp,k,1))/2.
-          bxjm = (bb(ip,jm,k,1)+bb(i,jm,k,1))/2.
-          byjp = (bb(ip,jp,k,2)+bb(i,jp,k,2))/2.
-          byjm = (bb(ip,jm,k,2)+bb(i,jm,k,2))/2.
-          bzjp = (bb(ip,jp,k,3)+bb(i,jp,k,3))/2.
-          bzjm = (bb(ip,jm,k,3)+bb(i,jm,k,3))/2.
+          bxjp = (bb(ip,jp,k,1)+bb(i,jp,k,1))*0.5
+          bxjm = (bb(ip,jm,k,1)+bb(i,jm,k,1))*0.5
+          byjp = (bb(ip,jp,k,2)+bb(i,jp,k,2))*0.5
+          byjm = (bb(ip,jm,k,2)+bb(i,jm,k,2))*0.5
+          bzjp = (bb(ip,jp,k,3)+bb(i,jp,k,3))*0.5
+          bzjm = (bb(ip,jm,k,3)+bb(i,jm,k,3))*0.5
 
-          bxkp = (bb(ip,j,kp,1)+bb(i,j,kp,1))/2.
-          bxkm = (bb(ip,j,km,1)+bb(i,j,km,1))/2.
-          bykp = (bb(ip,j,kp,2)+bb(i,j,kp,2))/2.
-          bykm = (bb(ip,j,km,2)+bb(i,j,km,2))/2.
-          bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))/2.
-          bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))/2.
+          bxkp = (bb(ip,j,kp,1)+bb(i,j,kp,1))*0.5
+          bxkm = (bb(ip,j,km,1)+bb(i,j,km,1))*0.5
+          bykp = (bb(ip,j,kp,2)+bb(i,j,kp,2))*0.5
+          bykm = (bb(ip,j,km,2)+bb(i,j,km,2))*0.5
+          bzkp = (bb(ip,j,kp,3)+bb(i,j,kp,3))*0.5
+          bzkm = (bb(ip,j,km,3)+bb(i,j,km,3))*0.5
         case (2)
           dhy = dy(jg)
           jm = j
@@ -657,22 +659,22 @@ cc        endif
           vzz = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
 
           if (sing_point) then
-            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))/2.
-     .            +(vv(i ,j,k,1)+vv(i ,jp,k,1))/2.
+            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
+     .            +(vv(i ,j,k,1)+vv(i ,jp,k,1))*0.5
             vxim = (vv(im,j,k,1)+vv(im,jp,k,1))
-            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))/2.
-     .            +(vv(i ,j,k,2)+vv(i ,jp,k,2))/2.
+            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))*0.5
+     .            +(vv(i ,j,k,2)+vv(i ,jp,k,2))*0.5
             vyim = (vv(im,j,k,2)+vv(im,jp,k,2))
-            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))/2
-     .            +(vv(i ,j,k,3)+vv(i ,jp,k,3))/2.
+            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))*0.5
+     .            +(vv(i ,j,k,3)+vv(i ,jp,k,3))*0.5
             vzim = (vv(im,j,k,3)+vv(im,jp,k,3))
           else
-            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))/2.
-            vxim = (vv(im,j,k,1)+vv(im,jp,k,1))/2.
-            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))/2.
-            vyim = (vv(im,j,k,2)+vv(im,jp,k,2))/2.
-            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))/2.
-            vzim = (vv(im,j,k,3)+vv(im,jp,k,3))/2.
+            vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
+            vxim = (vv(im,j,k,1)+vv(im,jp,k,1))*0.5
+            vyip = (vv(ip,j,k,2)+vv(ip,jp,k,2))*0.5
+            vyim = (vv(im,j,k,2)+vv(im,jp,k,2))*0.5
+            vzip = (vv(ip,j,k,3)+vv(ip,jp,k,3))*0.5
+            vzim = (vv(im,j,k,3)+vv(im,jp,k,3))*0.5
           endif
 
           vxjp = vv(i,jp,k,1)
@@ -682,34 +684,34 @@ cc        endif
           vzjp = vv(i,jp,k,3)
           vzjm = vv(i,j ,k,3)
 
-          vxkp = (vv(i,j,kp,1)+vv(i,jp,kp,1))/2.
-          vxkm = (vv(i,j,km,1)+vv(i,jp,km,1))/2.
-          vykp = (vv(i,j,kp,2)+vv(i,jp,kp,2))/2.
-          vykm = (vv(i,j,km,2)+vv(i,jp,km,2))/2.
-          vzkp = (vv(i,j,kp,3)+vv(i,jp,kp,3))/2.
-          vzkm = (vv(i,j,km,3)+vv(i,jp,km,3))/2.
+          vxkp = (vv(i,j,kp,1)+vv(i,jp,kp,1))*0.5
+          vxkm = (vv(i,j,km,1)+vv(i,jp,km,1))*0.5
+          vykp = (vv(i,j,kp,2)+vv(i,jp,kp,2))*0.5
+          vykm = (vv(i,j,km,2)+vv(i,jp,km,2))*0.5
+          vzkp = (vv(i,j,kp,3)+vv(i,jp,kp,3))*0.5
+          vzkm = (vv(i,j,km,3)+vv(i,jp,km,3))*0.5
 
           bxx = 0.5*(bb(i,j,k,1)+bb(i,jp,k,1))
           byy = 0.5*(bb(i,j,k,2)+bb(i,jp,k,2))
           bzz = 0.5*(bb(i,j,k,3)+bb(i,jp,k,3))
 
           if (sing_point) then
-            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))/2.
-     .            +(bb(i ,j,k,1)+bb(i ,jp,k,1))/2.
+            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
+     .            +(bb(i ,j,k,1)+bb(i ,jp,k,1))*0.5
             bxim = (bb(im,j,k,1)+bb(im,jp,k,1))
-            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))/2.
-     .            +(bb(i ,j,k,2)+bb(i ,jp,k,2))/2.
+            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))*0.5
+     .            +(bb(i ,j,k,2)+bb(i ,jp,k,2))*0.5
             byim = (bb(im,j,k,2)+bb(im,jp,k,2))
-            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))/2
-     .            +(bb(i ,j,k,3)+bb(i ,jp,k,3))/2.
+            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))*0.5
+     .            +(bb(i ,j,k,3)+bb(i ,jp,k,3))*0.5
             bzim = (bb(im,j,k,3)+bb(im,jp,k,3))
           else
-            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))/2.
-            bxim = (bb(im,j,k,1)+bb(im,jp,k,1))/2.
-            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))/2.
-            byim = (bb(im,j,k,2)+bb(im,jp,k,2))/2.
-            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))/2.
-            bzim = (bb(im,j,k,3)+bb(im,jp,k,3))/2.
+            bxip = (bb(ip,j,k,1)+bb(ip,jp,k,1))*0.5
+            bxim = (bb(im,j,k,1)+bb(im,jp,k,1))*0.5
+            byip = (bb(ip,j,k,2)+bb(ip,jp,k,2))*0.5
+            byim = (bb(im,j,k,2)+bb(im,jp,k,2))*0.5
+            bzip = (bb(ip,j,k,3)+bb(ip,jp,k,3))*0.5
+            bzim = (bb(im,j,k,3)+bb(im,jp,k,3))*0.5
           endif
 
           bxjp = bb(i,jp,k,1)
@@ -719,12 +721,12 @@ cc        endif
           bzjp = bb(i,jp,k,3)
           bzjm = bb(i,j ,k,3)
 
-          bxkp = (bb(i,j,kp,1)+bb(i,jp,kp,1))/2.
-          bxkm = (bb(i,j,km,1)+bb(i,jp,km,1))/2.
-          bykp = (bb(i,j,kp,2)+bb(i,jp,kp,2))/2.
-          bykm = (bb(i,j,km,2)+bb(i,jp,km,2))/2.
-          bzkp = (bb(i,j,kp,3)+bb(i,jp,kp,3))/2.
-          bzkm = (bb(i,j,km,3)+bb(i,jp,km,3))/2.
+          bxkp = (bb(i,j,kp,1)+bb(i,jp,kp,1))*0.5
+          bxkm = (bb(i,j,km,1)+bb(i,jp,km,1))*0.5
+          bykp = (bb(i,j,kp,2)+bb(i,jp,kp,2))*0.5
+          bykm = (bb(i,j,km,2)+bb(i,jp,km,2))*0.5
+          bzkp = (bb(i,j,kp,3)+bb(i,jp,kp,3))*0.5
+          bzkm = (bb(i,j,km,3)+bb(i,jp,km,3))*0.5
 
         case (3)
           dhz = dz(kg)
@@ -735,30 +737,30 @@ cc        endif
           vzz = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
 
           if (sing_point) then
-            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))/2.
-     .            +(vv(i ,j,k,1)+vv(i ,j,kp,1))/2.
+            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
+     .            +(vv(i ,j,k,1)+vv(i ,j,kp,1))*0.5
             vxim = (vv(im,j,k,1)+vv(im,j,kp,1))
-            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))/2.
-     .            +(vv(i ,j,k,2)+vv(i ,j,kp,2))/2.
+            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))*0.5
+     .            +(vv(i ,j,k,2)+vv(i ,j,kp,2))*0.5
             vyim = (vv(im,j,k,2)+vv(im,j,kp,2))
-            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))/2
-     .            +(vv(i ,j,k,3)+vv(i ,j,kp,3))/2.
+            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))*0.5
+     .            +(vv(i ,j,k,3)+vv(i ,j,kp,3))*0.5
             vzim = (vv(im,j,k,3)+vv(im,j,kp,3))
           else
-            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))/2.
-            vxim = (vv(im,j,k,1)+vv(im,j,kp,1))/2.
-            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))/2.
-            vyim = (vv(im,j,k,2)+vv(im,j,kp,2))/2.
-            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))/2.
-            vzim = (vv(im,j,k,3)+vv(im,j,kp,3))/2.
+            vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
+            vxim = (vv(im,j,k,1)+vv(im,j,kp,1))*0.5
+            vyip = (vv(ip,j,k,2)+vv(ip,j,kp,2))*0.5
+            vyim = (vv(im,j,k,2)+vv(im,j,kp,2))*0.5
+            vzip = (vv(ip,j,k,3)+vv(ip,j,kp,3))*0.5
+            vzim = (vv(im,j,k,3)+vv(im,j,kp,3))*0.5
           endif
 
-          vxjp = (vv(i,jp,k,1)+vv(i,jp,kp,1))/2.
-          vxjm = (vv(i,jm,k,1)+vv(i,jm,kp,1))/2.
-          vyjp = (vv(i,jp,k,2)+vv(i,jp,kp,2))/2.
-          vyjm = (vv(i,jm,k,2)+vv(i,jm,kp,2))/2.
-          vzjp = (vv(i,jp,k,3)+vv(i,jp,kp,3))/2.
-          vzjm = (vv(i,jm,k,3)+vv(i,jm,kp,3))/2.
+          vxjp = (vv(i,jp,k,1)+vv(i,jp,kp,1))*0.5
+          vxjm = (vv(i,jm,k,1)+vv(i,jm,kp,1))*0.5
+          vyjp = (vv(i,jp,k,2)+vv(i,jp,kp,2))*0.5
+          vyjm = (vv(i,jm,k,2)+vv(i,jm,kp,2))*0.5
+          vzjp = (vv(i,jp,k,3)+vv(i,jp,kp,3))*0.5
+          vzjm = (vv(i,jm,k,3)+vv(i,jm,kp,3))*0.5
 
           vxkp = vv(i,j,kp,1)
           vxkm = vv(i,j,k ,1)
@@ -772,30 +774,30 @@ cc        endif
           bzz = 0.5*(bb(i,j,k,3)+bb(i,j,kp,3))
 
           if (sing_point) then
-            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))/2.
-     .            +(bb(i ,j,k,1)+bb(i ,j,kp,1))/2.
+            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
+     .            +(bb(i ,j,k,1)+bb(i ,j,kp,1))*0.5
             bxim = (bb(im,j,k,1)+bb(im,j,kp,1))
-            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))/2.
-     .            +(bb(i ,j,k,2)+bb(i ,j,kp,2))/2.
+            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))*0.5
+     .            +(bb(i ,j,k,2)+bb(i ,j,kp,2))*0.5
             byim = (bb(im,j,k,2)+bb(im,j,kp,2))
-            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))/2
-     .            +(bb(i ,j,k,3)+bb(i ,j,kp,3))/2.
+            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))*0.5
+     .            +(bb(i ,j,k,3)+bb(i ,j,kp,3))*0.5
             bzim = (bb(im,j,k,3)+bb(im,j,kp,3))
           else
-            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))/2.
-            bxim = (bb(im,j,k,1)+bb(im,j,kp,1))/2.
-            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))/2.
-            byim = (bb(im,j,k,2)+bb(im,j,kp,2))/2.
-            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))/2.
-            bzim = (bb(im,j,k,3)+bb(im,j,kp,3))/2.
+            bxip = (bb(ip,j,k,1)+bb(ip,j,kp,1))*0.5
+            bxim = (bb(im,j,k,1)+bb(im,j,kp,1))*0.5
+            byip = (bb(ip,j,k,2)+bb(ip,j,kp,2))*0.5
+            byim = (bb(im,j,k,2)+bb(im,j,kp,2))*0.5
+            bzip = (bb(ip,j,k,3)+bb(ip,j,kp,3))*0.5
+            bzim = (bb(im,j,k,3)+bb(im,j,kp,3))*0.5
           endif
 
-          bxjp = (bb(i,jp,k,1)+bb(i,jp,kp,1))/2.
-          bxjm = (bb(i,jm,k,1)+bb(i,jm,kp,1))/2.
-          byjp = (bb(i,jp,k,2)+bb(i,jp,kp,2))/2.
-          byjm = (bb(i,jm,k,2)+bb(i,jm,kp,2))/2.
-          bzjp = (bb(i,jp,k,3)+bb(i,jp,kp,3))/2.
-          bzjm = (bb(i,jm,k,3)+bb(i,jm,kp,3))/2.
+          bxjp = (bb(i,jp,k,1)+bb(i,jp,kp,1))*0.5
+          bxjm = (bb(i,jm,k,1)+bb(i,jm,kp,1))*0.5
+          byjp = (bb(i,jp,k,2)+bb(i,jp,kp,2))*0.5
+          byjm = (bb(i,jm,k,2)+bb(i,jm,kp,2))*0.5
+          bzjp = (bb(i,jp,k,3)+bb(i,jp,kp,3))*0.5
+          bzjm = (bb(i,jm,k,3)+bb(i,jm,kp,3))*0.5
 
           bxkp = bb(i,j,kp,1)
           bxkm = bb(i,j,k ,1)
@@ -880,25 +882,19 @@ cc        endif
 
 c     Grid quantities
 
-        call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-     .                         ,cartsn)
-        call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-     .                         ,cartsn)
-        call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-     .                         ,cartsn)
-        call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-     .                         ,cartsn)
-        call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-     .                         ,cartsn)
-        call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-     .                         ,cartsn)
+cc        jacip  = jacobian(xip,yip,zip,cartsn)
+cc        jacim  = jacobian(xim,yim,zim,cartsn)
+cc        jacjp  = jacobian(xjp,yjp,zjp,cartsn)
+cc        jacjm  = jacobian(xjm,yjm,zjm,cartsn)
+cc        jackp  = jacobian(xkp,ykp,zkp,cartsn)
+cc        jackm  = jacobian(xkm,ykm,zkm,cartsn)
 
-        jacip  = jacobian(xip,yip,zip,cartsn)
-        jacim  = jacobian(xim,yim,zim,cartsn)
-        jacjp  = jacobian(xjp,yjp,zjp,cartsn)
-        jacjm  = jacobian(xjm,yjm,zjm,cartsn)
-        jackp  = jacobian(xkp,ykp,zkp,cartsn)
-        jackm  = jacobian(xkm,ykm,zkm,cartsn)
+        jacip  = gmetric%grid(igx)%jac(ip,j,k)
+        jacim  = gmetric%grid(igx)%jac(im,j,k)
+        jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+        jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+        jackp  = gmetric%grid(igx)%jac(i,j,kp)
+        jackm  = gmetric%grid(igx)%jac(i,j,km)
 
 c     Components
 
@@ -936,160 +932,5 @@ c     Components
      .       +(flxjp-flxjm)/dhy
 
       end subroutine find_curl_vxb
-
-ccc     find_curl_vxb
-ccc     ###################################################################
-cc      subroutine find_curl_vxb(i,j,k,nx,ny,nz,vv,bb,a1,a2,a3
-cc     .                        ,hex,hey,hez,igrid)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Finds contravariant components (a1,a2,a3) of -curl(vv x bb) at the
-ccc     grid node (i,j,k). One sided derivatives are employed when hex=1
-ccc     (i,i+1) or hex=-1 (i-1,i), and similarly with hey, hez.
-ccc     -------------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer(4) :: i,j,k,nx,ny,nz,hex,hey,hez,igrid
-cc        real(8)    :: a1,a2,a3,vv(0:nx+1,0:ny+1,0:nz+1,3)
-cc     $                        ,bb(0:nx+1,0:ny+1,0:nz+1,3)
-cc
-ccc     Local variables
-cc
-cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,isig,ieq
-cc        integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
-cc
-cc        real(8)    :: dhx,dhy,dhz
-cc        real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-cc
-cc        real(8)    :: xim,yim,zim,xip,yip,zip
-cc     .               ,xjm,yjm,zjm,xjp,yjp,zjp
-cc     .               ,xkm,ykm,zkm,xkp,ykp,zkp
-cc     .               ,x0,y0,z0
-cc
-cc        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
-cc     .               ,jacp,jacm,jach,jac0
-cc
-cc        real(8),allocatable,dimension(:,:,:,:) :: b0_cnv
-cc
-ccc     Begin program
-cc
-cc        isig = grid_params%istartp(igrid)
-cc
-ccc     Defaults
-cc
-cc        ip = i+1
-cc        im = i-1
-cc        jp = j+1
-cc        jm = j-1
-cc        kp = k+1
-cc        km = k-1
-cc
-cc        call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x0,y0,z0,cartsn)
-cc
-cc        jac = jacobian(x0,y0,z0,cartsn)
-cc
-cc        dhx = 2.*dxh(ig)
-cc        dhy = 2.*dyh(jg)
-cc        dhz = 2.*dzh(kg)
-cc
-ccc     Exceptions
-cc
-cc        if (hex == 1) then
-cc          im = i
-cc          dhx = dx(ig)
-cc        elseif (hex == -1) then
-cc          ip = i
-cc          dhx = dx(ig-1)
-cc        endif
-cc
-cc        if (hey == 1) then
-cc          jm = j
-cc          dhy = dy(jg)
-cc        elseif (hey == -1) then
-cc          jp = j
-cc          dhy = dy(jg-1)
-cc        endif
-cc
-cc        if (hez == 1) then
-cc          km = k
-cc          dhz = dz(kg)
-cc        elseif (hez == -1) then
-cc          kp = k
-cc          dhz = dz(kg-1)
-cc        endif
-cc
-ccc     Grid quantities
-cc
-cc        call getCoordinates(im,j,k,igx,igy,igz,ig,jg,kg,xim,yim,zim
-cc     .                         ,cartsn)
-cc        call getCoordinates(ip,j,k,igx,igy,igz,ig,jg,kg,xip,yip,zip
-cc     .                         ,cartsn)
-cc        call getCoordinates(i,jm,k,igx,igy,igz,ig,jg,kg,xjm,yjm,zjm
-cc     .                         ,cartsn)
-cc        call getCoordinates(i,jp,k,igx,igy,igz,ig,jg,kg,xjp,yjp,zjp
-cc     .                         ,cartsn)
-cc        call getCoordinates(i,j,km,igx,igy,igz,ig,jg,kg,xkm,ykm,zkm
-cc     .                         ,cartsn)
-cc        call getCoordinates(i,j,kp,igx,igy,igz,ig,jg,kg,xkp,ykp,zkp
-cc     .                         ,cartsn)
-cc
-cc        jacip  = jacobian(xip,yip,zip,cartsn)
-cc        jacim  = jacobian(xim,yim,zim,cartsn)
-cc        jacjp  = jacobian(xjp,yjp,zjp,cartsn)
-cc        jacjm  = jacobian(xjm,yjm,zjm,cartsn)
-cc        jackp  = jacobian(xkp,ykp,zkp,cartsn)
-cc        jackm  = jacobian(xkm,ykm,zkm,cartsn)
-cc
-ccc     Components
-cc
-cc        !component 1
-cc
-cc        flxjp = ( vv(i,jp,k,2)*bb(i,jp,k,1)
-cc     .           -vv(i,jp,k,1)*bb(i,jp,k,2) )/jacjp
-cc        flxjm = ( vv(i,jm,k,2)*bb(i,jm,k,1)
-cc     .           -vv(i,jm,k,1)*bb(i,jm,k,2) )/jacjm
-cc
-cc        flxkp = ( vv(i,j,kp,3)*bb(i,j,kp,1)
-cc     .           -vv(i,j,kp,1)*bb(i,j,kp,3) )/jackp
-cc        flxkm = ( vv(i,j,km,3)*bb(i,j,km,1)
-cc     .           -vv(i,j,km,1)*bb(i,j,km,3) )/jackm
-cc
-cc        a1 =  (flxjp-flxjm)/dhy
-cc     .       +(flxkp-flxkm)/dhz
-cc
-cc        !component 2
-cc
-cc        flxip = ( vv(ip,j,k,1)*bb(ip,j,k,2)
-cc     .           -vv(ip,j,k,2)*bb(ip,j,k,1) )/jacip
-cc        flxim = ( vv(im,j,k,1)*bb(im,j,k,2)
-cc     .           -vv(im,j,k,2)*bb(im,j,k,1) )/jacim
-cc
-cc        flxkp = ( vv(i,j,kp,3)*bb(i,j,kp,2)
-cc     .           -vv(i,j,kp,2)*bb(i,j,kp,3) )/jackp
-cc        flxkm = ( vv(i,j,km,3)*bb(i,j,km,2)
-cc     .           -vv(i,j,km,2)*bb(i,j,km,3) )/jackm
-cc
-cc        a2 =  (flxip-flxim)/dhx
-cc     .       +(flxkp-flxkm)/dhz
-cc
-cc        !component 3
-cc
-cc        flxip = ( vv(ip,j,k,1)*bb(ip,j,k,3)
-cc     .           -vv(ip,j,k,3)*bb(ip,j,k,1) )/jacip
-cc        flxim = ( vv(im,j,k,1)*bb(im,j,k,3)
-cc     .           -vv(im,j,k,3)*bb(im,j,k,1) )/jacim
-cc
-cc        flxjp = ( vv(i,jp,k,2)*bb(i,jp,k,3)
-cc     .           -vv(i,jp,k,3)*bb(i,jp,k,2) )/jacjp
-cc        flxjm = ( vv(i,jm,k,2)*bb(i,jm,k,3)
-cc     .           -vv(i,jm,k,3)*bb(i,jm,k,2) )/jacjm
-cc
-cc        a3 =  (flxip-flxim)/dhx
-cc     .       +(flxjp-flxjm)/dhy
-cc
-cc      end subroutine find_curl_vxb
 
       end module precond_variables
