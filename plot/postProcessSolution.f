@@ -181,3 +181,80 @@ c Total pressure (use graphics limits)
 c End program
 
       end subroutine postProcessSolution
+
+c transformVector
+c######################################################################
+      subroutine transformVector(igx,igy,igz
+     .                          ,imin,imax,jmin,jmax,kmin,kmax
+     .                          ,arr1,arr2,arr3,covariant,to_cartsn)
+
+c----------------------------------------------------------------------
+c     Transforms vectors components in arrays arr1,arr2,arr3
+c     from Cartesian to curvilinear (to_cartesian=.false.)
+c     and viceversa, either with covariant (covariant=.true.) or 
+c     contravariant curvilinear vectors.
+c----------------------------------------------------------------------
+
+      use grid
+
+      implicit none
+
+c     Input variables
+
+        integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+        integer(4) :: igx,igy,igz
+        logical    :: covariant,to_cartsn
+        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
+     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
+
+c     Local variables
+
+        integer(4) :: i,j,k
+        real(8)    :: vec(3)
+
+c     Begin program
+
+        if (to_cartsn) then
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCartesian
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        else
+
+          do k=kmin,kmax
+            do j=jmin,jmax
+              do i=imin,imax
+
+                call transformVectorToCurvilinear
+     .               (i,j,k,igx,igy,igz
+     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+     .               ,covariant
+     .               ,vec(1),vec(2),vec(3))
+
+                arr1(i,j,k) = vec(1)
+                arr2(i,j,k) = vec(2)
+                arr3(i,j,k) = vec(3)
+                
+              enddo
+            enddo
+          enddo
+
+        endif
+
+      end subroutine transformVector
