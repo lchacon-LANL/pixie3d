@@ -29,7 +29,7 @@ c####################################################################
 
         integer(4) :: ndiag
 
-        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0,jac
+        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0
         real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
 
       end module diag_setup
@@ -297,7 +297,7 @@ c Magnetic divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            array(i,j,k) = div(i,j,k,bx,by,bz)/jac
+            array(i,j,k) = div(i,j,k,nx,ny,nz,bx,by,bz)/jac
           enddo
         enddo
       enddo
@@ -324,7 +324,7 @@ c Velocity divergence diagnostics
             call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,y1,z1
      .                         ,cartsn)
             jac = jacobian(x1,y1,z1,cartsn)
-            array(i,j,k) = div(i,j,k,vx,vy,vz)/jac
+            array(i,j,k) = div(i,j,k,nx,ny,nz,vx,vy,vz)/jac
           enddo
         enddo
       enddo
