@@ -208,7 +208,7 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ieq
-      real(8)    :: array(0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: array(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
       logical    :: cartsn
@@ -317,11 +317,11 @@ cc        array(1,:,:) = array(0,:,:)
       endif
 
       !Total B divergence (conservation of flux)
-      Bflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
+      Bflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Local divergence (statement of numerical accuracy)
       array = abs(array)
-      diverB = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
+      diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
 c Velocity divergence diagnostics
 
@@ -341,7 +341,7 @@ cc        array(1,:,:) = array(0,:,:)
 cc      endif
 
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(nxd,nyd,nzd,array,igx,igy,igz,.false.)
+      Vflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
 c Growth rate diagnostics
 
@@ -350,7 +350,7 @@ c Growth rate diagnostics
         array = (varray%array_var(ieq)%array
      .          -u_0   %array_var(ieq)%array )**2
 
-        dpert(ieq) = integral(nxd,nyd,nzd,array,igx,igy,igz,.true.)
+        dpert(ieq) = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
 cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
         if (dpert(ieq).eq.0d0) then

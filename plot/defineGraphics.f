@@ -265,11 +265,11 @@ c     ##################################################################
         drawgraph(4) = 'drawdiag.in'
         drawgraph(5) = 'drawpert.in'
 
-        drawprof(1)  = 'drawcnvprof.in'
-        drawprof(2)  = 'drawcovprof.in'
-        drawprof(3)  = 'drawcarprof.in'
-        drawprof(4)  = 'drawdiagprof.in'
-        drawprof(5)  = 'drawpertprof.in'
+        drawprof(1)  = 'drawcnv-prof.in'
+        drawprof(2)  = 'drawcov-prof.in'
+        drawprof(3)  = 'drawcar-prof.in'
+        drawprof(4)  = 'drawdiag-prof.in'
+        drawprof(5)  = 'drawpert-prof.in'
 
       end subroutine defineGraphicsIO
 
