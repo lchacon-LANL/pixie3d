@@ -24,6 +24,8 @@ c####################################################################
 
         use generalPurposeFunctions
 
+        use nlfunction_setup
+
         implicit none
 
         integer(4) :: ulineplot
@@ -68,7 +70,13 @@ c Begin program
 
 c Define diagnostics
 
+#if defined(petsc) 
+      if (my_rank == 0) then
+#endif
       call defineDiagnostics
+#if defined(petsc) 
+      endif
+#endif
 
 c Initialize diagnostic references
 
@@ -79,9 +87,15 @@ c Create draw*.in file
 
       ndiag = count (sel_diag /= 0)
 
+#if defined(petsc) 
+      if (my_rank == 0) then
+#endif
       call createDrawInGfile(ndiag,lineplotfile,'Time histories'
      .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
      .           ,'drawgamma.in',.false.)
+#if defined(petsc) 
+      endif
+#endif
 
 c End 
 
@@ -104,6 +118,10 @@ c Call variables
 c Local variables
 
 c Begin program
+
+#if defined(petsc) 
+        if (my_rank > 0) return
+#endif
 
 c Finalize time traces output (separator)
 
@@ -235,6 +253,15 @@ c Begin program
         Tflux0= 0d0
       endif
 
+      rho => varray%array_var(IRHO)%array
+      rvx => varray%array_var(IVX )%array
+      rvy => varray%array_var(IVY )%array
+      rvz => varray%array_var(IVZ )%array
+      bx  => varray%array_var(IBX )%array
+      by  => varray%array_var(IBY )%array
+      bz  => varray%array_var(IBZ )%array
+      tmp => varray%array_var(ITMP)%array
+
 c Particle diagnostics
 
       Npar = integral(nx,ny,nz,rho,igx,igy,igz,.false.) - Npar0
@@ -312,8 +339,8 @@ c Magnetic divergence diagnostics
       !Take care of singular point
       if (bcond(1) == SP) then
 cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
-cc        array(1,:,:) = array(0,:,:)
-        array(1,:,:) = 0d0
+        array(1,:,:) = array(0,:,:)
+cc        array(1,:,:) = 0d0
       endif
 
       !Total B divergence (conservation of flux)
@@ -410,7 +437,12 @@ c Local variables
  
 c Begin program
 
+#if defined(petsc) 
+      if (my_rank > 0) return
+#endif
+
       write(ulineplot) real(time),real(diagnostics)
+cc      write(*,*) real(time),real(diagnostics)
 
 c End program
 
