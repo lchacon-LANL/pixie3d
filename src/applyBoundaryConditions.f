@@ -109,10 +109,88 @@ c####################################################################
         use variables
 
         integer(4) :: nnvar,imax,imin,jmax,jmin,kmax,kmin
+        integer(4) :: iimax,iimin,jjmax,jjmin,kkmax,kkmin
 
         real(8),allocatable,dimension(:,:) :: rhs
 
-        real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,vzeros
+        real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
+
+      contains
+
+c     findLoopLimits
+c     ##############################################################
+      subroutine findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax
+     .                         ,kkmin,kkmax)
+c     --------------------------------------------------------------
+c     Finds limits for BC loops 
+c     --------------------------------------------------------------
+
+c     Call variables
+
+      integer(4) :: dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+
+c     Begin program
+
+      select case(dim)
+      case (1)
+cc        imin = min(1,iimin) + loc*(max(nx,iimax)-min(1,iimin))
+        imin = iimin + loc*(iimax-iimin)
+        imax = imin
+
+        jmin = jjmin
+        jmax = jjmax
+
+        kmin = kkmin
+        kmax = kkmax
+
+        !Check if limits are acceptable, otherwise set them up to do nothing
+        if (imin > 1 .and. imax < nx) then
+          imin = imax + 1
+          jmin = jmax + 1
+          kmin = kmax + 1
+        endif
+
+      case(2)
+        imin = iimin
+        imax = iimax
+
+cc        jmin = min(1,jjmin) + loc*(max(ny,jjmax)-min(1,jjmin))
+        jmin = jjmin + loc*(jjmax-jjmin)
+        jmax = jmin
+
+        kmin = kkmin
+        kmax = kkmax
+
+        !Check if limits are acceptable, otherwise set them up to do nothing
+        if (jmin > 1 .and. jmax < ny) then
+          imin = imax + 1
+          jmin = jmax + 1
+          kmin = kmax + 1
+        endif
+
+      case(3)
+        imin = iimin
+        imax = iimax
+
+        jmin = jjmin
+        jmax = jjmax
+
+cc        kmin = min(1,kkmin) + loc*(max(nz,kkmax)-min(1,kkmin))
+        kmin = kkmin + loc*(kkmax-kkmin)
+        kmax = kmin
+
+        !Check if limits are acceptable, otherwise set them up to do nothing
+        if (kmin > 1 .and. kmax < nz) then
+          imin = imax + 1
+          jmin = jmax + 1
+          kmin = kmax + 1
+        endif
+
+      end select
+
+c     End program
+
+      end subroutine findLoopLimits
 
       end module BCS
 
@@ -353,7 +431,7 @@ c     Local variables
       integer(4) :: i,j,k,ig,jg,kg,nvar,ibc
       real(8)    :: x1,x2,x3,dh(3),diver
 
-      real(8)    :: gsuper(3,3)
+      real(8)    :: gsuper(3,3),jac0
       logical    :: cartesian
 
 c     Begin program
@@ -383,7 +461,10 @@ cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
             do j=jmin,jmax
               do k=kmin,kmax
 
-                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                jac0 = jacobian(x1,x2,x3,cartesian)
 
                 dh(1) = 2.*dxh(ig)
                 dh(2) = 2.*dyh(jg)
@@ -392,32 +473,32 @@ cc      case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
                 select case (ibc)
                 case (1)
                   array(i-1,j,k,dim) = array(i+1,j,k,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
                 case (2)
                   array(i+1,j,k,dim) = array(i-1,j,k,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
                 case (3)
                   array(i,j-1,k,dim) = array(i,j+1,k,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
                 case (4)
                   array(i,j+1,k,dim) = array(i,j-1,k,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
                 case (5)
                   array(i,j,k-1,dim) = array(i,j,k+1,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
                 case (6)
                   array(i,j,k+1,dim) = array(i,j,k-1,dim)
-                  diver = div(i,j,k,array(:,:,:,1)
+                  diver = jac0*div(i,j,k,array(:,:,:,1)
      .                             ,array(:,:,:,2),array(:,:,:,3))
                   rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
                 end select
@@ -490,8 +571,10 @@ cc          do i=imin,imax
 cc            do j=jmin,jmax
 cc              do k=kmin,kmax
 cc
-cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
+cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc                call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                             ,x1,x2,x3,cartesian)
+cc                jac0 = jacobian(x1,x2,x3,cartesian)
 cc                dh(1) = 2.*dxh(ig)
 cc                dh(2) = 2.*dyh(jg)
 cc                dh(3) = 2.*dzh(kg)
@@ -499,32 +582,32 @@ cc
 cc                select case (ibc)
 cc                case (1)
 cc                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
 cc                case (2)
 cc                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
 cc                case (3)
 cc                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
 cc                case (4)
 cc                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
 cc                case (5)
 cc                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
 cc                case (6)
 cc                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
-cc                  diver = div(i,j,k,array(:,:,:,1)
+cc                  diver = jac0*div(i,j,k,array(:,:,:,1)
 cc     .                             ,array(:,:,:,2),array(:,:,:,3))
 cc                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
 cc                end select
@@ -1281,7 +1364,7 @@ c     Impose BCs
 
 c     Synchronize covariant and contravariant components
 
-      if (cov_to_cnv) call synchronize(v_cnv,v_cov,bcond)
+      if (cov_to_cnv) call synchronize_cnv(v_cnv,v_cov,bcond)
 
 c     Impose vector singular point BCs
 
@@ -1308,28 +1391,11 @@ c     Find covariant components at ALL boundaries
 
       do dim = 1,3
         do loc = 0,1
-          if (dim == 1) then
-            imin=0 + loc*(nx+1)
-            imax=0 + loc*(nx+1)
-            jmin=0
-            jmax=ny+1
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 2) then
-            imin=0
-            imax=nx+1
-            jmin=0 + loc*(ny+1)
-            jmax=0 + loc*(ny+1)
-            kmin=0
-            kmax=nz+1
-          elseif (dim == 3) then
-            imin=0
-            imax=nx+1
-            jmin=0
-            jmax=ny+1
-            kmin=0 + loc*(nz+1)
-            kmax=0 + loc*(nz+1)
-          endif
+
+cc          call findLoopLimits(dim,loc,0,nx+1,0,ny+1,0,nz+1)
+          call findLoopLimits(dim,loc,iimin-1,iimax+1
+     .                               ,jjmin-1,jjmax+1
+     .                               ,kkmin-1,kkmax+1)
 
           do i=imin,imax
             do j=jmin,jmax
@@ -1348,13 +1414,13 @@ c     End program
 
       end subroutine imposeBConVector
 
-c     synchronize
+c     synchronize_cnv
 c     #################################################################
-      subroutine synchronize(v_cnv,v_cov,bcond)
+      subroutine synchronize_cnv(v_cnv,v_cov,bcond)
 c     -----------------------------------------------------------------
 c     Finds all contravariant components at Neumann boundaries.
 c     On input, tangential covariant components and normal contravariant
-c     components are known at ghost cells. On output, all contravarian
+c     components are known at ghost cells. On output, all contravariant
 c     components are known at ghost cells.
 c     -----------------------------------------------------------------
 
@@ -1369,7 +1435,6 @@ c     Call variables
 c     Local variables
 
       integer(4) :: i,j,k,dim,loc,ig,jg,kg,ivar
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
       real(8)    :: x1,x2,x3,gsuper(3,3),gsub(3,3)
       logical    :: cartesian
 
@@ -1383,28 +1448,11 @@ c     Begin program
             if (ivar == dim) then  !Select tangential components
               cycle
             elseif (bcond(ibc,ivar) < 0) then
-              if (dim == 1) then
-                imin=1  +    loc *(nx-1)
-                imax=nx + (1-loc)*(1-nx)
-                jmin=1
-                jmax=ny
-                kmin=1
-                kmax=nz
-              elseif (dim == 2) then
-                imin=1 
-                imax=nx
-                jmin=1  +    loc *(ny-1)
-                jmax=ny + (1-loc)*(1-ny)
-                kmin=1
-                kmax=nz
-              elseif (dim == 3) then
-                imin=1 
-                imax=nx
-                jmin=1
-                jmax=ny
-                kmin=1  +    loc *(nz-1)
-                kmax=nz + (1-loc)*(1-nz)
-              endif
+
+cc              call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
+              call findLoopLimits(dim,loc,iimin,iimax
+     .                                   ,jjmin,jjmax
+     .                                   ,kkmin,kkmax)
 
               select case (ibc)
               case (1)
@@ -1559,7 +1607,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine synchronize
+      end subroutine synchronize_cnv
 
       end module imposeBCinterface
 
@@ -1596,7 +1644,16 @@ c Begin program
 
       allocate(v_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,v_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
+     .        ,v0   (0:nx+1,0:ny+1,0:nz+1,3))
+
+c Set global limits for impose BC
+
+      iimin = 1
+      iimax = nx
+      jjmin = 1
+      jjmax = ny
+      kkmin = 1
+      kkmax = nz
 
 c Density BC
 
@@ -1621,11 +1678,11 @@ c     BC setup
      .                  /varray%array_var(IRHO)%array
       end where
 
-      vzeros = v_cnv
+      v0 = v_cnv
 
 c     Fill ghost nodes
 
-      call setBC(IVX,v_cnv,v_cov,vzeros,bcnd)
+      call setBC(IVX,v_cnv,v_cov,v0,bcnd)
 
 c     Postprocessing
 
@@ -1656,13 +1713,13 @@ c     BC setup
       v_cnv(:,:,:,2) = varray%array_var(IBY)%array
       v_cnv(:,:,:,3) = varray%array_var(IBZ)%array
 
-      vzeros(:,:,:,1) = u_0%array_var(IBX)%array
-      vzeros(:,:,:,2) = u_0%array_var(IBY)%array
-      vzeros(:,:,:,3) = u_0%array_var(IBZ)%array
+      v0(:,:,:,1) = u_0%array_var(IBX)%array
+      v0(:,:,:,2) = u_0%array_var(IBY)%array
+      v0(:,:,:,3) = u_0%array_var(IBZ)%array
 
 c     Fill ghost nodes
 
-      call setBC(IBX,v_cnv,v_cov,vzeros,bcnd)
+      call setBC(IBX,v_cnv,v_cov,v0,bcnd)
 
 c     Postprocessing
 
@@ -1696,11 +1753,11 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
         enddo
       enddo
 
-      vzeros = v_cnv
+      v0 = v_cnv
 
 c     Fill ghost nodes
 
-      call setBC(IJX,v_cnv,v_cov,vzeros,bcnd)
+      call setBC(IJX,v_cnv,v_cov,v0,bcnd)
 
 c     Postprocessing
 
@@ -1720,84 +1777,11 @@ c Temperature BCs
 
 c Deallocate variables 
 
-      deallocate(v_cnv,v_cov,vzeros)
+      deallocate(v_cnv,v_cov,v0)
 
 c End
 
       end subroutine imposeBoundaryConditions
-
-c setMGBC
-c####################################################################
-      subroutine setMGBC(neq,nnx,nny,nnz,iig,array,bcnd)
-c--------------------------------------------------------------------
-c     Interfaces BC routines with MG code, for preconditioning.
-c--------------------------------------------------------------------
-
-      use imposeBCinterface
-
-      use precond_variables
-
-      implicit none
-
-c Call variables
-
-      integer(4) :: nnx,nny,nnz,neq,bcnd(6,neq),iig
-
-      real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
-
-c Local variables
-
-c Begin program
-
-      igx = iig
-      igy = iig
-      igz = iig
-      
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-      if (nx /= nnx .or. ny /= nny .or. nz /= nnz) then
-        write (*,*) 'Grid sizes do not agree in setMGBC'
-        write (*,*) 'Aborting...'
-        stop
-      endif
-
-c Select operation
-
-      select case (neq)
-      case(1)
-
-        call setBC(IRHO,array(:,:,:,neq),zeros,bcnd(:,1))
-
-cc        call setBC(icomp,array(:,:,:,neq),zeros,bcnd(:,1)) !Velocities for T BC unknown
-
-      case(3)
-
-        allocate(v_cov (0:nx+1,0:ny+1,0:nz+1,neq)
-     .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,neq))
-        vzeros = 0d0  !We are dealing with perturbations of variables at this stage
-
-        select case (icomp)  !'icomp' is passed by the module precond_variables
-        case(IVX,IVY,IVZ)
-          call setBC(IVX,array,v_cov,vzeros,bcnd)
-        case(IBX,IBY,IBZ)
-          call setBC(IBX,array,v_cov,vzeros,bcnd)
-        case(IJX,IJY,IJZ)
-          call setBC(IJX,array,v_cov,vzeros,bcnd)
-        end select
-
-        deallocate(v_cov,vzeros)
-
-      case default
-        write (*,*) 'Number of equations not implemented in setMGBC'
-        write (*,*) 'Aborting...'
-        stop
-      end select
-
-c End
-
-      end subroutine setMGBC
 
 c fillGhostNodes
 c####################################################################
@@ -1835,7 +1819,6 @@ c Call variables
 c Local variables
 
       integer(4) :: neq,ibc,i,j,k,ig,jg,kg
-      real(8)    :: v0(0:nx+1,0:ny+1,0:nz+1,nvar)
 
 c Begin program
 
@@ -1843,31 +1826,19 @@ c Begin program
 
 c Determine boundary limits
 
-      if (dim == 1) then
-        imin=1  +    loc *(nx-1)
-        imax=nx + (1-loc)*(1-nx)
-        jmin=1
-        jmax=ny
-        kmin=1
-        kmax=nz
+cc      call findLoopLimits(dim,loc,1,nx,1,ny,1,nz)
+      call findLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax)
+
+c Allocate rhs
+
+      select case(dim)
+      case(1)
         allocate(rhs(0:ny+1,0:nz+1))
-      elseif (dim == 2) then
-        imin=1 
-        imax=nx
-        jmin=1  +    loc *(ny-1)
-        jmax=ny + (1-loc)*(1-ny)
-        kmin=1
-        kmax=nz
+      case(2)
         allocate(rhs(0:nx+1,0:nz+1))
-      elseif (dim == 3) then
-        imin=1 
-        imax=nx
-        jmin=1
-        jmax=ny
-        kmin=1  +    loc *(nz-1)
-        kmax=nz + (1-loc)*(1-nz)
+      case(3)
         allocate(rhs(0:nx+1,0:ny+1))
-      endif
+      end select
 
 c Find BC update
 
@@ -1896,8 +1867,7 @@ c Find BC update
         case(EQU)
           call dirichletBC(ivar,array,array0,ieq,dim,loc,0)
         case(DIR)
-          v0 = 0d0
-          call dirichletBC(ivar,array,v0    ,ieq,dim,loc,1)
+          call dirichletBC(ivar,array,vzeros,ieq,dim,loc,1)
         case(NEU)
           call neumannBC(ivar,array,ieq,dim,loc)
         case default
