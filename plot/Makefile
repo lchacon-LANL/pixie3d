@@ -38,37 +38,69 @@ prefix = .
 
 FC = f90
 
-ifeq ($(FC),f90)
-
 # Flags for Absoft f90
-OPTIMIZATION = -O1
-DEBUG = -g -et -Rp
-#DEBUG = -g -et --trace=ALL -Rb
-#DEBUG = -g
-PROFILE = -P
-STATIC = -s
-MODPATH = -p
-FFLAGS = -w
+ifeq ($(FC),f90)
+  OPTIMIZATION = -O2 -cpu:host
+#  DEBUG        = -g -et -Rb -Rp
+  DEBUG        = -g -ggdb
+  PROFILE      = -P
+  STATIC       = -s
+  MODPATH      = -p
+  ADDMODPATH   = -p
+  FFLAGS      += -w
+  LIBS         = -llapack_f90 -lblas_f90 -lU77
+  VERBOSE      = -v
 
-LIBS = -lU77 -llapack_f90 -lblas_f90
-
-MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
-
-else
+  ifdef PETSCTRUE
+    CPPFLAGS += -Dabsoft_ -DNVAR=8
+    LIBS      = 
+    FFLAGS   += -DNVAR=8 -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+    FC        = $(MPI_HOME)/bin/mpif90
+  endif
+endif
 
 # Flags for Lahey lf95
-OPTIMIZATION = -O --tpp
-DEBUG = -g --chkglobal
-#DEBUG = -g --trace --trap
-PROFILE =
-STATIC =
-MODPATH = -M
-FFLAGS =
+ifeq ($(FC),lf95)
+  OPTIMIZATION = -O
+#  DEBUG        = -g --chkglobal
+  DEBUG        = -g --chk ase
+  PROFILE      =
+  STATIC       = 
+  MODPATH      = -M
+  ADDMODPATH   = -I
+  FFLAGS      +=
+  LIBS         = -llapackmt -lblasmt
+#  LIBS         = -llapack -lblas -lf2c
+  VERBOSE      = --verbose
 
-LIBS = 
+  ifdef PETSCTRUE
+    CPPFLAGS  += -DNVAR=8 -Dlahey 
+    FFLAGS    += -DNVAR=8 --ml cdecl
+    PETSC_ARCH = linux_lahey
+    FC        = $(MPI_HOME)/bin/mpif90
+  endif
+endif
 
-MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
+# Flags for Intel ifort
+ifeq ($(FC),ifort)
+  OPTIMIZATION = -O2 -mp -axW
+#  DEBUG = -g
+  DEBUG        = -g -check -traceback
+  PROFILE      = -p
+  STATIC       =
+  MODPATH      = -I
+  ADDMODPATH   = -I
+  FFLAGS      += -vec_report0
+  LIBS         = -llapack -lblas -lf2c
+#  LIBS         = -llapack_intel -lblas_intel
+  VERBOSE      = -v
 
+  ifdef PETSCTRUE
+    CPPFLAGS  += -DNVAR=8
+    FFLAGS    += -DNVAR=8
+    PETSC_ARCH = linux_intel
+    FC        = $(MPI_HOME)/bin/mpif90
+  endif
 endif
 
 #Setup compiler options
@@ -88,7 +120,7 @@ ifneq (,$(findstring s,$(OPT)))
 FFLAGS += $(STATIC)
 endif
 
-export FC FFLAGS
+export FC FFLAGS  MODPATH ADDMODPATH
 
 #Define linker flags
 
@@ -106,6 +138,10 @@ SUBDIRS = $(COMMONDIR)/grid\
 	  $(COMMONDIR)/interpolation/slatec/spline_common\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/3dplot
+
+#Module search path
+
+MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBDIRS))
 
 #Define targets
 

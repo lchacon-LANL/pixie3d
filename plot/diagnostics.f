@@ -22,6 +22,8 @@ c####################################################################
 
         use operators
 
+        use generalOperators
+
         implicit none
 
         integer(4) :: ulineplot
