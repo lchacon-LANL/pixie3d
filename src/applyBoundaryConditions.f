@@ -142,6 +142,14 @@ c Find covariant magnetic field
         enddo
       enddo
 
+c Preprocess velocity field
+
+      where (rho /= 0d0)
+        vx = rvx/rho
+        vy = rvy/rho
+        vz = rvz/rho
+      end where
+
 c Fill ghost nodes
 
       neq = varray%nvar
@@ -1076,7 +1084,7 @@ c     Local variables
 
       integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3),rr(3)
+      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3)
       logical    :: cartesian
 
 c     Begin program
@@ -1110,7 +1118,7 @@ c     Begin program
       rhs = 0d0
 
       select case (ieq)
-      case (IRHO,ITMP)
+      case (IRHO)
 
         do i=imin,imax
           do j=jmin,jmax
@@ -1155,6 +1163,86 @@ c     Begin program
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
      .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2))
      .              /gsuper(dim,dim)
+              endif
+
+            enddo
+          enddo
+        enddo
+
+      case (ITMP)
+
+        do i=imin,imax
+          do j=jmin,jmax
+            do k=kmin,kmax
+
+              call getCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,x1,x2,x3
+     .                           ,cartesian)
+
+              gsuper = g_super (x1,x2,x3,cartesian)
+              jac0   = jacobian(x1,x2,x3,cartesian)
+
+              hessian1 = hessian(1,x1,x2,x3,cartesian)
+              hessian2 = hessian(2,x1,x2,x3,cartesian)
+              hessian3 = hessian(3,x1,x2,x3,cartesian)
+        
+              ip = min(i+1,nx)
+              im = max(i-1,1)
+              jp = min(j+1,ny)
+              jm = max(j-1,1)
+              kp = min(k+1,nz)
+              km = max(k-1,1)
+
+              dh(1) = 2.*dxh(ig)
+              if (i == nx) dh(1) = dx(ig-1)
+              if (i == 1 ) dh(1) = dx(ig)
+
+              dh(2) = 2.*dyh(jg)
+              if (j == ny) dh(2) = dy(jg-1)
+              if (j == 1 ) dh(2) = dy(jg)
+
+              dh(3) = 2.*dzh(kg)
+              if (k == nz) dh(3) = dz(kg-1)
+              if (k == 1 ) dh(3) = dz(kg)
+
+              if (dim == 1) then
+                if (gamma > 1d0) then
+                  rhs(j,k) =  hessian1(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian1(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian1(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian1(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian1(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian1(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(j,k) = -dh(dim)
+     .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+     .              -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
+              elseif (dim == 2) then
+                if (gamma > 1d0) then
+                  rhs(i,k) =  hessian2(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian2(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian2(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian2(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian2(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian2(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(i,k) = -dh(dim)*
+     .              (gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,3)*(array(i,j,kp)-array(i,j,km))/dh(3)
+     .              -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
+              elseif (dim == 3) then
+                if (gamma > 1d0) then
+                  rhs(i,j) =  hessian3(1,1)*vx(i,j,k)*vx(i,j,k)
+     .                       +hessian3(2,2)*vy(i,j,k)*vy(i,j,k)
+     .                       +hessian3(3,3)*vz(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian3(1,2)*vx(i,j,k)*vy(i,j,k)
+     .                    +2.*hessian3(1,3)*vx(i,j,k)*vz(i,j,k)
+     .                    +2.*hessian3(2,3)*vy(i,j,k)*vz(i,j,k)
+                endif
+                rhs(i,j) = -dh(dim)
+     .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
+     .              +gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
+     .              -0.5/jac0*rhs(i,j))/gsuper(dim,dim)
               endif
 
             enddo
