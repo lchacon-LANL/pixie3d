@@ -14,20 +14,30 @@
 
 PROD =	3dmhd.x
 BETA =	3dmhd.beta.x
+PETSCCODE = 3dmhd.petsc.x
 
-SRC  := $(wildcard *.f) 
+SRC  := $(wildcard *.f)
 
 MODS := $(wildcard *_mod.f)
 
-OBJS := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
+OBJ  := $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))
 
 OBJMOD := $(MODS:.f=.o)
 
-COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.f)))
-COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.f))
-COMMON_OBJS = $(COMMON_SRC:.f=.o)
+COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.[f,F,c])))
+COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
+              $(patsubst %.c,%.o,$(COMMON_SRC))\ $(patsubst %.F,%.o,$(COMMON_SRC)))
 
 prefix = .
+
+# Petsc include
+
+DRIVERDIR = driver
+ifneq ($(strip $(BOPT)),)
+  include ${PETSC_DIR}/bmake/${PETSC_ARCH}/base
+  DRIVERDIR = driver-petsc
+  PETSCTRUE = true
+endif
 
 #Define compiler flags
 
@@ -37,13 +47,18 @@ FC = f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
 #  DEBUG = -g -et -Rb -Rp -Rc
-  DEBUG = -g
-  PROFILE = -P
-  STATIC = -s
-  MODPATH = -p
-  FFLAGS = -w
+  DEBUG        = -g
+  PROFILE      = -P
+  STATIC       = -s
+  MODPATH      = -p
+  FFLAGS       = -w
+  LIBS         = -llapack_f90 -lblas_f90
 
-  LIBS = -llapack_f90 -lblas_f90
+  ifdef PETSCTRUE
+    CPPFLAGS += -Dabsoft -DNVAR=8
+    LIBS    = 
+    FFLAGS += -DNVAR=8
+  endif
 
   MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
 endif
@@ -97,7 +112,7 @@ ifneq (,$(findstring s,$(OPT)))
 FFLAGS += $(STATIC)
 endif
 
-export FC FFLAGS
+export FC FFLAGS CPPFLAGS
 
 #Define linker flags
 
@@ -107,7 +122,7 @@ LDFLAGS =
 
 COMMONDIR = ./commondirs
 
-SUBDIRS = $(COMMONDIR)/driver\
+SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/newtonGMRES\
 	  $(COMMONDIR)/interpolation/1d_int\
@@ -123,20 +138,27 @@ SUBDIRS = $(COMMONDIR)/driver\
 
 beta: common $(BETA)
 
-$(BETA):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
+$(BETA):  $(OBJMOD) $(OBJ)  $(COMMON_SRC)
 	@echo 'Linking BETA 3DMHD code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
 
 production: common $(PROD)
 
-$(PROD):  $(OBJMOD) $(OBJS)  $(COMMON_SRC)
+$(PROD):  $(OBJMOD) $(OBJ)  $(COMMON_SRC)
 	@echo ''
 	@echo 'Linking PRODUCTION 3DMHD code'
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJS)  $(OBJMOD) $(LIBS)
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+
+petsc: common $(PETSCCODE)
+
+$(PETSCCODE): $(OBJMOD) $(OBJ)  $(COMMON_SRC)
+	@echo ''
+	@echo 'Linking PETSC code'
+	-${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)  ${PETSC_SNES_LIB}
 
 common: ;
 	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -e -C $$subdir ; done
+		$(MAKE) -e -C $$subdir target; done
 
 clean:
 	-rm -f *.o *.mod
@@ -147,7 +169,7 @@ recclean: clean
 
 #Define dependencies
 
-$(OBJS):  $(MODS) $(COMMOM_MODS)
+$(OBJ):  $(MODS) $(COMMOM_MODS)
 
 #Define patterns
 
