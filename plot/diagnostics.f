@@ -304,7 +304,7 @@ c Magnetic divergence diagnostics
         do j = 1,ny
           do i = 1,nx
             jac = gmetric%grid(igx)%jac(i,j,k)
-            array(i,j,k) = div(i,j,k,nx,ny,nz,bx,by,bz)/jac
+            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)/jac
           enddo
         enddo
       enddo
@@ -329,7 +329,7 @@ c Velocity divergence diagnostics
         do j = 1,ny
           do i = 1,nx
             jac = gmetric%grid(igx)%jac(i,j,k)
-            array(i,j,k) = div(i,j,k,nx,ny,nz,vx,vy,vz)/jac
+            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)/jac
           enddo
         enddo
       enddo

@@ -140,9 +140,9 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,jx,jy,jz)
-            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,bx,by,bz)
-            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,vx,vy,vz)
+            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
+            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
           enddo
         enddo
       enddo
