@@ -33,7 +33,7 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
-      real(8)    :: mm,kk,RR,ll,x1,y1,z1,jac
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
 c Begin program
@@ -139,9 +139,9 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            divrgJ(i,j,k) = div(i,j,k,jx,jy,jz)
-            divrgB(i,j,k) = div(i,j,k,bx,by,bz)
-            divrgV(i,j,k) = div(i,j,k,vx,vy,vz)
+            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,jx,jy,jz)
+            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,bx,by,bz)
+            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,vx,vy,vz)
           enddo
         enddo
       enddo
