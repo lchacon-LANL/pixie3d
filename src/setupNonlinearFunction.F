@@ -18,6 +18,8 @@ c------------------------------------------------------------------
 
       use timeStepping
 
+      use debug
+
       implicit none
 
 c Call variables
@@ -31,11 +33,6 @@ c Local variables
       integer(4) :: dim,loc,ibc,ieq,bctype
 
       real(8)    :: dh,vmax
-
-c Externals
-
-      real(8)    :: vis,res
-      external      vis,res
 
 c Begin program
 
@@ -76,6 +73,11 @@ cc        write (*,*) rho(:,:,:)
 
       if (minval(tmp) < 0d0) then
         write (*,*) 'Warning: negative temperatures are occurring'
+#if defined(petsc)
+        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+        call MPI_Finalize(mpierr)
+#endif
+        stop
       endif
 
 c Transport parameters
@@ -88,6 +90,14 @@ c Transport parameters
           enddo
         enddo
       enddo
+
+      ejx = jx_cov*eeta
+      ejy = jy_cov*eeta
+      ejz = jz_cov*eeta
+
+      bcnv(:,:,:,1) = bx
+      bcnv(:,:,:,2) = by
+      bcnv(:,:,:,3) = bz
 
 c End program
 
