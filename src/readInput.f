@@ -164,7 +164,9 @@ c Set defaults
 
 c Read initialization parameters
 
-      open(unit=25,file='3dmhd.in',status='old')
+      inputfile='pixie3d.in'
+
+      open(unit=25,file=inputfile,status='old')
       read(25,datin)
       close(unit=25)
 
@@ -224,7 +226,7 @@ c----------------------------------------------------------------------
 c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
-cc      use graphics
+      use iosetup
 
       implicit none
 
@@ -250,7 +252,7 @@ c Graphics defaults
 
 c Read graphics initialization parameters
 
-      open(unit=25,file='3dmhd.in',status='old')
+      open(unit=25,file=inputfile,status='old')
       read(25,graphdef)
       close(unit=25)
 
