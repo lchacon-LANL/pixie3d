@@ -77,11 +77,11 @@ c Exceptions
 
       select case (equil)
 
-      case ('rfp')
+      case ('rfp1')
 
-cc        bcs(2,IBY) = EQU  !Imposed by equilibrium
+        bcs(2,IBY) = EQU  !Imposed by equilibrium
 
-cc        bcs(2,IBZ) = EQU  !Imposed by equilibrium
+        bcs(2,IBZ) = EQU  !Imposed by equilibrium
 
       end select
 
@@ -585,32 +585,70 @@ c     Externals
 
 c     Begin program
 
-c     Contravariant current
+c     Contravariant all current components within the domain [j=curl(B)]
 
-c This seems to create an instability at the dirichlet boundary
-ccheck      do k = 0,nz+1
-ccheck        do j = 0,ny+1
-ccheck         do i = 0,nx+1
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            jx(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,1)
-            jy(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,2)
-            jz(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,3)
-cc            jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
-cc            jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
-cc            jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
+            jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
+            jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
           enddo
         enddo
       enddo
 
-c     Enforce div(J)=0 on contravariant current components
+cc      do k = 0,nz+1
+cc        do j = 0,ny+1
+cc         do i = 0,nx+1
+cc            if (     i == 0 .or. i==nx+1
+cc     .          .or. j == 0 .or. j==ny+1
+cc     .          .or. k == 0 .or. k==nz+1) then
+cc              jx(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,1)
+cc              jy(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,2)
+cc              jz(i,j,k) = curl2(i,j,k,bx_cov,by_cov,bz_cov,3)
+cc            else
+cc              jx(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,1)
+cc              jy(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,2)
+cc              jz(i,j,k) = curl(i,j,k,bx_cov,by_cov,bz_cov,3)
+cc            endif
+cc          enddo
+cc        enddo
+cc      enddo
+
+c     Correct normal components of J at boundaries by enforcing div(J)=0
 
       do dim=1,3
         do loc=0,1
           ibc = (1+loc)+2*(dim-1)
 
           bctype=DIR
+
+          ieq = IBX
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(-ieq,dim,loc,bctype,jx,zeros)
+          endif
+
+          ieq = IBY
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(-ieq,dim,loc,bctype,jy,zeros)
+          endif
+
+          ieq = IBZ
+          if (varray%array_var(ieq)%bconds(ibc) == bctype) then
+            call FillGhostNodes(-ieq,dim,loc,bctype,jz,zeros)
+          endif
+
+        enddo
+      enddo
+
+c     Correct tangential components of J at boundaries (from normal component)
+c     if perfect conductor (bctype=NEU for tangential B-components)
+
+      do dim=1,3
+        do loc=0,1
+          ibc = (1+loc)+2*(dim-1)
+
+          bctype=NEU
 
           ieq = IBX
           if (varray%array_var(ieq)%bconds(ibc) == bctype) then
@@ -660,7 +698,7 @@ c     Enforce PER BC on contravariant current components
         enddo
       enddo
 
-c     Find covariant current
+c     Find covariant current components
 
       do k = 0,nz+1
         do j = 0,ny+1
@@ -737,17 +775,6 @@ c     Find average cartesian coordinates
             call transformVectorToCartesian(i,j,k,igx,igy,igz
      .           ,vec1(i,j,k),vec2(i,j,k),vec3(i,j,k),cov
      .           ,cx(i),cy(i),cz(i))
-
-cc          write (*,*) cov
-cc          write (*,*) vec1(i,j,k),vec2(i,j,k),vec3(i,j,k)
-cc          write (*,*) cx(i),cy(i),cz(i)
-cc          write (*,*) 'Inverse'
-cc          call transformVectorToCurvilinear(i,j,k,igx,igy,igz
-cc     .               ,cx(i),cy(i),cz(i),cov
-cc     .               ,vec1(i,j,k),vec2(i,j,k),vec3(i,j,k))
-cc          write (*,*) vec1(i,j,k),vec2(i,j,k),vec3(i,j,k)
-cc          write (*,*)
-
           enddo
 
           call IntDriver1d(order1+1,xx(ig),cx,1,x0,cx1,order)
@@ -763,7 +790,6 @@ cc          write (*,*)
         ax0(k) = ax0(k)/avg_vol
         ay0(k) = ay0(k)/avg_vol
         az0(k) = az0(k)/avg_vol
-cc        write (*,*) ax0(k),ay0(k),az0(k)
       enddo
       
 c     Transform to curvilinear components at SP
@@ -778,37 +804,6 @@ c     Transform to curvilinear components at SP
       enddo
 
       deallocate(ax0,ay0,az0)
-
-ccc     ALTERNATIVE WAY: EXTRAPOLATE CURVILINEAR COORDINATES DIRECTLY
-cc
-cc      if (order == 3) then
-cc        order1 = 3
-cc      else
-cc        order1 = order
-cc      endif
-cc
-cc      do k=1,nz
-cc        do j=1,ny
-cc          i = 1
-cc          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc          x0  = xx(ig-1)
-cc
-cc          allocate(cx(order1+1),cy(order1+1),cz(order1+1))
-cc          do i=1,order1+1
-cc            cx(i) = vec1(i,j,k)
-cc            cy(i) = vec2(i,j,k)
-cc            cz(i) = vec3(i,j,k)
-cc          enddo
-cc          call IntDriver1d(order1+1,xx(ig),cx,1,x0,cx1,order)
-cc          call IntDriver1d(order1+1,xx(ig),cy,1,x0,cy1,order)
-cc          call IntDriver1d(order1+1,xx(ig),cz,1,x0,cz1,order)
-cc          deallocate(cx,cy,cz)
-cc
-cc          vec1(0,j,k) = cx1
-cc          vec2(0,j,k) = cy1
-cc          vec3(0,j,k) = cz1
-cc        enddo
-cc      enddo
 
 c     End program
 
@@ -1027,16 +1022,6 @@ c     Begin program
       select case (ieq)
       case (IRHO,ITMP)  !Find average at singular point and store it in ghost node
 
-cc        do k=1,nz
-cc          avg_q = 0d0
-cc          avg_vol = 0d0
-cc          do j=1,ny
-cc            avg_q   = avg_q   + volume(1,j,k,igx,igy,igz)*array(1,j,k)
-cc            avg_vol = avg_vol + volume(1,j,k,igx,igy,igz)
-cc          enddo
-cc          array(0,:,k) = avg_q/avg_vol
-cc        enddo
-
       if (order == 3) then
         order1 = 3
       else
@@ -1091,7 +1076,7 @@ c     Local variables
 
       integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
       integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3)
+      real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3),rr(3)
       logical    :: cartesian
 
 c     Begin program
@@ -1359,6 +1344,69 @@ cc              endif
           enddo
         enddo
 
+      case (-IBX,-IBY,-IBZ) !Finds current components at boundaries
+
+        if (ieq == -IBX) icomp = 1
+        if (ieq == -IBY) icomp = 2
+        if (ieq == -IBZ) icomp = 3
+
+        if (icomp /= dim) then !Tangential components
+
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
+
+              select case (ibc)
+              case (1)
+                call getCoordinates(i-1,j,k,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(j,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jx(i-1,j,k)
+     .                    +array(1,j,k)
+              case (2)
+                call getCoordinates(i+1,j,k,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(j,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jx(i+1,j,k)
+     .                    -array(nx,j,k)
+              case (3)
+                call getCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(i,k) =-gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j-1,k)
+     .                    +array(i,1,k)
+              case (4)
+                call getCoordinates(i,j+1,k,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(i,k) = gsuper(dim,icomp)/gsuper(dim,dim)*jy(i,j+1,k)
+     .                    -array(i,ny,k)
+              case (5)
+                call getCoordinates(i,j,k-1,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(i,j) =-gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k-1)
+     .                    +array(i,j,1)
+              case (6)
+                call getCoordinates(i,j,k+1,igx,igy,igz,ig,jg,kg
+     .                             ,x1,x2,x3,cartesian)
+                gsuper = g_super(x1,x2,x3,cartesian)
+
+                rhs(i,j) = gsuper(dim,icomp)/gsuper(dim,dim)*jz(i,j,k+1)
+     .                    -array(i,j,nz)
+              end select
+
+              enddo
+            enddo
+          enddo
+
+        endif
+
       case default
 
         write (*,*) 'Error in neumannBC'
@@ -1433,7 +1481,7 @@ c     Begin program
       select case (ieq)
       case (IRHO,ITMP,IVX,IVY,IVZ)
 
-        call interpolate(imin,imax,jmin,jmax,kmin,kmax,order)
+        call interpolate(array0,imin,imax,jmin,jmax,kmin,kmax,ibc,order)
 
       case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
 
@@ -1443,7 +1491,8 @@ c     Begin program
 
         if (icomp /= dim) then
 
-          call interpolate(imin,imax,jmin,jmax,kmin,kmax,order)
+          call interpolate(array0,imin,imax,jmin,jmax,kmin,kmax
+     .                    ,ibc,order)
 
         else
 
@@ -1484,17 +1533,13 @@ c     Begin program
 
         endif
 
-      case (-IBX,-IBY,-IBZ) !Imposes divergence-free constraint on current
+      case (-IBX,-IBY,-IBZ) !Finds current normal components at boundaries
 
         if (ieq == -IBX) icomp = 1
         if (ieq == -IBY) icomp = 2
         if (ieq == -IBZ) icomp = 3
 
-        if (icomp /= dim) then
-
-          call interpolate(imin,imax,jmin,jmax,kmin,kmax,order)
-
-        else
+        if (icomp == dim) then !Normal components (div(J)=0)
 
           do i=imin,imax
             do j=jmin,jmax
@@ -1546,20 +1591,21 @@ c     End program
 
 c     interpolate
 c     #######################################################################
-      subroutine interpolate(imin,imax,jmin,jmax,kmin,kmax,order)
+      subroutine interpolate(array0,imin,imax,jmin,jmax,kmin,kmax
+     .                      ,ibc,order)
 
         implicit none
 
 c     Call variables
 
-        integer(4) :: imin,imax,jmin,jmax,kmin,kmax,order
+        integer(4) :: imin,imax,jmin,jmax,kmin,kmax,order,ibc
+        real(8)    :: array0(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
         integer(4) :: i,j,k,ig,jg,kg
         real(8),allocatable,dimension(:) :: xint,vint
         real(8)                          :: xo(1),vo(1)
-        logical    :: quadratic
 
 c     Externals
 
@@ -1567,8 +1613,6 @@ c     Externals
         external   :: quad_int
 
 c     Begin program
-
-        quadratic = .false.
 
         do i=imin,imax
           do j=jmin,jmax
