@@ -195,7 +195,7 @@ c     Begin program
 
 c     Impose BCs
 
-      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
@@ -216,7 +216,11 @@ c     Impose BCs
         enddo
       enddo
 
-c Synchronize periodic boundaries
+c     Singular point boundary condition
+
+      if (bcond(1) == SP) call scalarSingularBC(rho,2)
+
+c     Synchronize periodic boundaries
 
       bctype=PER
 
@@ -253,7 +257,7 @@ c     Begin program
 
 c     Impose BCs
 
-      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+      do bctype=1,4         !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
@@ -273,6 +277,10 @@ c     Impose BCs
           enddo
         enddo
       enddo
+
+c     Singular point boundary condition
+
+      if (bcond(1) == SP) call scalarSingularBC(tmp,2)
 
 c     Synchronize periodic boundaries
 
@@ -330,7 +338,7 @@ c     Preprocess velocity field
 
 c     Impose BCs
 
-      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
@@ -716,7 +724,7 @@ c     Preprocess magnetic field
 
 c     Impose BCs
 
-      do bctype=1,5            !Enforces a particular order in the BCs (see grid_mod.f)
+      do bctype=1,4            !Enforces a particular order in the BCs (see grid_mod.f)
         do dim=1,3
           do loc=0,1
             ibc = (1+loc)+2*(dim-1)
@@ -1309,6 +1317,59 @@ c     End program
 
       end subroutine vectorSingularBC
 
+c     scalarSingularBC
+c     #################################################################
+      subroutine scalarSingularBC(array,order)
+c     -----------------------------------------------------------------
+c     Imposes singular point BC. On input:
+c        * array: contains variable on which singular BC is imposed
+c        * order: order of interpolation towards singular point
+c     -----------------------------------------------------------------
+
+cc      use grid
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: order
+      real(8)    :: array(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,order1
+      real(8)    :: avg_q,avg_vol,rho0,vol,x0
+
+c     Begin program
+
+      if (order == 3) then
+        order1 = 3
+      else
+        order1 = order
+      endif
+
+      do k=1,nz
+        avg_q   = 0d0
+        avg_vol = 0d0
+        do j=1,ny
+          i = 1
+          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          vol = volume(i,j,k,igx,igy,igz)
+          x0  = xx(ig-1)
+
+          call IntDriver1d(order1+1,xx(ig),array(i:i+order1+1,j,k)
+     .                    ,1,x0,rho0,order)
+
+          avg_q   = avg_q   + vol*rho0
+          avg_vol = avg_vol + vol
+        enddo
+        array(0,:,k) = avg_q/avg_vol
+      enddo
+
+c     End program
+
+      end subroutine scalarSingularBC
+
       end subroutine imposeBoundaryConditions
 
 c FillGhostNodes
@@ -1339,243 +1400,14 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: neq,ibc
+      integer(4) :: neq,ibc,imax,imin,jmax,jmin,kmax,kmin
       integer(4) :: i,j,k,ig,jg,kg
 
       real(8),allocatable,dimension(:,:) :: rhs
 
 c Begin program
 
-      ibc = (1+loc)+2*(dim-1)
-
-      select case (ibc)
-
-      case (1)
-
-c     X0
-
-      select case(bctype)
-      case(PER)
-        array(0,:,:) = array(nx,:,:)
-      case(EQU)
-        array(0,:,:) = array0(0,:,:)
-      case(SP)
-        call singularBC(ieq,dim,loc,2)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(0,:,:) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(0,:,:) = array(1,:,:) - rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      case(2)
-
-c     X1
-
-      select case(bctype)
-      case(PER)
-        array(nx+1,:,:) = array(1,:,:)
-      case(EQU)
-        array(nx+1,:,:) = array0(nx+1,:,:)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(nx+1,:,:) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(nx+1,:,:) = array(nx,:,:) + rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      case (3)
-
-c     Y0
-
-      select case(bctype)
-      case(PER)
-        array(:,0,:) = array(:,ny,:)
-      case(EQU)
-        array(:,0,:) = array0(:,0,:)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(:,0,:) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(:,0,:) = array(:,1,:) - rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      case (4)
-
-c     Y1
-
-      select case(bctype)
-      case(PER)
-        array(:,ny+1,:) = array(:,1,:)
-      case(EQU)
-        array(:,ny+1,:) = array0(:,ny+1,:)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(:,ny+1,:) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(:,ny+1,:) = array(:,ny,:) + rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      case (5)
-
-c     Z0
-
-      select case(bctype)
-      case(PER)
-        array(:,:,0) = array(:,:,nz)
-      case(EQU)
-        array(:,:,0) = array0(:,:,0)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(:,:,0) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(:,:,0) = array(:,:,1) - rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      case (6)
-
-c     Z1
-
-      select case(bctype)
-      case(PER)
-        array(:,:,nz+1) = array(:,:,1)
-      case(EQU)
-        array(:,:,nz+1) = array0(:,:,nz+1)
-      case(DIR)
-        call dirichletBC(ieq,dim,loc,1)
-        array(:,:,nz+1) = rhs(:,:)
-        deallocate(rhs)
-      case(NEU)
-        call neumannBC(ieq,dim,loc)
-        array(:,:,nz+1) = array(:,:,nz) + rhs(:,:)
-        deallocate(rhs)
-      case default
-        write (*,*) 'BC not implemented'
-        stop
-      end select
-
-      end select
-
-c End
-
-      contains
-
-c     singularBC
-c     #################################################################
-      subroutine singularBC(ieq,dim,loc,order)
-c     -----------------------------------------------------------------
-c     Imposes singular point BC. On input:
-c        * ieq -> equation number (i.e., vector component)
-c        * dim -> dimension we are imposing BC on (X,Y,Z)
-c        * loc -> boundary location (0 -> left, 1->right)
-c     -----------------------------------------------------------------
-
-cc      use grid
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ieq,dim,loc,order
-
-c     Local variables
-
-      integer(4) :: i,j,k,order1
-      real(8)    :: avg_q,avg_vol,rho0,vol,x0
-
-c     Begin program
-
-      select case (ieq)
-      case (IRHO,ITMP)  !Find average at singular point and store it in ghost node
-
-      if (order == 3) then
-        order1 = 3
-      else
-        order1 = order
-      endif
-
-      do k=1,nz
-        avg_q   = 0d0
-        avg_vol = 0d0
-        do j=1,ny
-          i = 1
-          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          vol = volume(i,j,k,igx,igy,igz)
-          x0  = xx(ig-1)
-
-          call IntDriver1d(order1+1,xx(ig),array(i:i+order1+1,j,k)
-     .                    ,1,x0,rho0,order)
-
-          avg_q   = avg_q   + vol*rho0
-          avg_vol = avg_vol + vol
-        enddo
-        array(0,:,k) = avg_q/avg_vol
-      enddo
-
-      end select
-
-c     End program
-
-      end subroutine singularBC
-
-c     neumannBC
-c     #################################################################
-      subroutine neumannBC(ieq,dim,loc)
-c     -----------------------------------------------------------------
-c     Imposes neumann BC for a scalar. On input:
-c        * ieq -> equation number (i.e., vector component)
-c        * dim -> dimension we are imposing BC on (X,Y,Z)
-c        * loc -> boundary location (0 -> left, 1->right)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Neumann BC.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer(4) :: ieq,dim,loc
-
-c     Local variables
-
-      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      real(8)    :: x1,x2,x3,dh(3),jac0
-      real(8)    :: gsuper(3,3),hessian1(3,3)
-     .             ,hessian2(3,3),hessian3(3,3)
-      logical    :: cartesian
-
-c     Begin program
+c Determine boundary limits
 
       if (dim == 1) then
         imin=1  +    loc *(nx-1)
@@ -1602,6 +1434,143 @@ c     Begin program
         kmax=nz + (1-loc)*(1-nz)
         allocate(rhs(0:nx+1,0:ny+1))
       endif
+
+c Find BC update
+
+      ibc = (1+loc)+2*(dim-1)
+
+      select case(bctype)
+      case(PER)
+        call periodicBC(ibc)
+      case(EQU)
+        call equilBC(ibc)
+      case(DIR)
+        call dirichletBC(ieq,ibc,1)
+      case(NEU)
+        call neumannBC(ieq,ibc)
+      case default
+        write (*,*) 'BC',bctype,' not implemented'
+        stop
+      end select
+
+c Update BC ghost nodes
+
+      select case (ibc)
+      case (1) !x0
+        array(0   ,:,:) = rhs(:,:)
+      case (2) !x1
+        array(nx+1,:,:) = rhs(:,:)
+      case (3) !y0
+        array(:,0   ,:) = rhs(:,:)
+      case (4) !y1
+        array(:,ny+1,:) = rhs(:,:)
+      case (5) !z0
+        array(:,:,0   ) = rhs(:,:)
+      case (6) !z1
+        array(:,:,nz+1) = rhs(:,:)
+      case default
+        write (*,*) 'Boundary',ibc,' non existent'
+        stop
+      end select
+
+      deallocate(rhs)
+
+c End
+
+      contains
+
+c     periodicBC
+c     #################################################################
+      subroutine periodicBC(ibc)
+c     -----------------------------------------------------------------
+c     Imposes singular point BC. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ibc
+
+c     Local variables
+
+c     Begin program
+
+      select case (ibc)
+      case (1)
+        rhs(:,:) = array(nx,:,:)
+      case (2)
+        rhs(:,:) = array(1,:,:)
+      case (3)
+        rhs(:,:) = array(:,ny,:)
+      case (4)
+        rhs(:,:) = array(:,1,:)
+      case (5)
+        rhs(:,:) = array(:,:,nz)
+      case (6)
+        rhs(:,:) = array(:,:,1)
+      end select
+
+c     End program
+
+      end subroutine periodicBC
+
+c     equilBC
+c     #################################################################
+      subroutine equilBC(ibc)
+c     -----------------------------------------------------------------
+c     Imposes singular point BC. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ibc
+
+c     Local variables
+
+c     Begin program
+
+      call interpolate(array0,ibc,0)
+
+c     End program
+
+      end subroutine equilBC
+
+c     neumannBC
+c     #################################################################
+      subroutine neumannBC(ieq,ibc)
+c     -----------------------------------------------------------------
+c     Imposes neumann BC for a scalar. On input:
+c        * ieq -> equation number (i.e., vector component)
+c        * dim -> dimension we are imposing BC on (X,Y,Z)
+c        * loc -> boundary location (0 -> left, 1->right)
+c     This routine fills up the bi-dimensional array rhs, which 
+c     contains the right hand side of the Neumann BC.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: ieq,ibc
+
+c     Local variables
+
+      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
+      real(8)    :: x1,x2,x3,dh(3),jac0
+      real(8)    :: gsuper(3,3),hessian1(3,3)
+     .             ,hessian2(3,3),hessian3(3,3)
+      logical    :: cartesian
+
+c     Begin program
 
       rhs = 0d0
 
@@ -2156,13 +2125,30 @@ cc        enddo
 
       end select
 
+c     Assign value
+
+      select case (ibc)
+      case (1)
+        rhs(:,:) = array(1,:,:)  - rhs(:,:)
+      case (2)
+        rhs(:,:) = array(nx,:,:) + rhs(:,:)
+      case (3)
+        rhs(:,:) = array(:,1,:)  - rhs(:,:)
+      case (4)
+        rhs(:,:) = array(:,ny,:) + rhs(:,:)
+      case (5)
+        rhs(:,:) = array(:,:,1)  - rhs(:,:)
+      case (6)
+        rhs(:,:) = array(:,:,nz) + rhs(:,:)
+      end select
+
 c     End program
 
       end subroutine neumannBC
 
 c     dirichletBC
 c     #################################################################
-      subroutine dirichletBC(ieq,dim,loc,order)
+      subroutine dirichletBC(ieq,ibc,order)
 c     -----------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -2177,51 +2163,22 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc,order
+      integer(4) :: ieq,ibc,order
 
 c     Local variables
 
-      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp,ibc
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      integer(4) :: i,j,k,ip,im,jp,jm,kp,km,icomp
       real(8)    :: x1,x2,x3,dh(3),nabla_v(3,3),jac
       logical    :: cartesian
 
 c     Begin program
-
-      ibc = (1+loc)+2*(dim-1)
-
-      if (dim == 1) then
-        imin=1  +    loc *(nx-1)
-        imax=nx + (1-loc)*(1-nx)
-        jmin=1
-        jmax=ny
-        kmin=1
-        kmax=nz
-        allocate(rhs(0:ny+1,0:nz+1))
-      elseif (dim == 2) then
-        imin=1 
-        imax=nx
-        jmin=1  +    loc *(ny-1)
-        jmax=ny + (1-loc)*(1-ny)
-        kmin=1
-        kmax=nz
-        allocate(rhs(0:nx+1,0:nz+1))
-      elseif (dim == 3) then
-        imin=1 
-        imax=nx
-        jmin=1
-        jmax=ny
-        kmin=1  +    loc *(nz-1)
-        kmax=nz + (1-loc)*(1-nz)
-        allocate(rhs(0:nx+1,0:ny+1))
-      endif
 
       rhs = 0d0
 
       select case (ieq)
       case (IRHO,ITMP,IVX,IVY,IVZ)
 
-        call interpolate(array0,imin,imax,jmin,jmax,kmin,kmax,ibc,order)
+        call interpolate(array0,ibc,order)
 
       case (IBX,IBY,IBZ) !Imposes divergence-free constraint on B-field
 
@@ -2231,8 +2188,7 @@ c     Begin program
 
         if (icomp /= dim) then
 
-          call interpolate(array0,imin,imax,jmin,jmax,kmin,kmax
-     .                    ,ibc,order)
+          call interpolate(array0,ibc,order)
 
         else
 
@@ -2331,26 +2287,18 @@ c     End program
 
 c     interpolate
 c     #######################################################################
-      subroutine interpolate(array0,imin,imax,jmin,jmax,kmin,kmax
-     .                      ,ibc,order)
+      subroutine interpolate(array0,ibc,order)
 
         implicit none
 
 c     Call variables
 
-        integer(4) :: imin,imax,jmin,jmax,kmin,kmax,order,ibc
+        integer(4) :: order,ibc
         real(8)    :: array0(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
         integer(4) :: i,j,k,ig,jg,kg
-        real(8),allocatable,dimension(:) :: xint,vint
-        real(8)                          :: xo(1),vo(1)
-
-c     Externals
-
-cc        real(8)    :: quad_int
-cc        external   :: quad_int
 
 c     Begin program
 
@@ -2363,46 +2311,12 @@ c     Begin program
               select case (ibc)
               case (1)
 
-cc                allocate(xint(0:nx),vint(0:nx))
-cc
-cc              !Define input abcissae
-cc                xint(0)    = xx(ig-1)+dxh(ig-1)
-cc                xint(1:nx) = xx(ig:ig+nx-1)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)      = xx(ig-1)
-cc
-cc              !Define vector of values
-cc                vint(0)    = array0(i-1,j,k)
-cc                vint(1:nx) = array(1:nx,j,k)
-cc                call IntDriver1d(nx+1,xint,vint,1,xo,vo,order)
-cc                rhs(j,k) = vo(1)
-cc
-cc                deallocate(xint,vint)
-
                 rhs(j,k) = 
      .             quad_int(xx(ig-1)+dxh(ig-1),xx(ig),xx(ig+1),xx(ig+2)
      .                     ,array0(i-1,j,k),array(i,j,k)
      .                     ,array (i+1,j,k),array(i+2,j,k)
      .                     ,xx(ig-1),order )
               case (2)
-
-cc                allocate(xint(0:nx),vint(0:nx))
-cc
-cc              !Define input abcissae
-cc                xint(nx)     = xx(ig+1)-dxh(ig+1)
-cc                xint(0:nx-1) = xx(ig-nx+1:ig)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)        = xx(ig+1)
-cc
-cc              !Define vector of values
-cc                vint(nx)     = array0(i+1,j,k)
-cc                vint(0:nx-1) = array(1:nx,j,k)
-cc                call IntDriver1d(nx+1,xint,vint,1,xo,vo,order)
-cc                rhs(j,k) = vo(1)
-cc
-cc                deallocate(xint,vint)
 
                 rhs(j,k) =
      .              quad_int(xx(ig+1)-dxh(ig+1),xx(ig),xx(ig-1),xx(ig-2)
@@ -2411,46 +2325,12 @@ cc                deallocate(xint,vint)
      .                      ,xx(ig+1),order )
               case (3)
 
-cc                allocate(xint(0:ny),vint(0:ny))
-cc
-cc              !Define input abcissae
-cc                xint(0)    = yy(jg-1)+dyh(jg-1)
-cc                xint(1:ny) = yy(jg:jg+ny-1)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)      = yy(jg-1)
-cc
-cc              !Define vector of values
-cc                vint(0)    = array0(i,j-1,k)
-cc                vint(1:ny) = array(i,1:ny,k)
-cc                call IntDriver1d(ny+1,xint,vint,1,xo,vo,order)
-cc                rhs(i,k) = vo(1)
-cc
-cc                deallocate(xint,vint)
-
                 rhs(i,k) =
      .              quad_int(yy(jg-1)+dyh(jg-1),yy(jg),yy(jg+1),yy(jg+2)
      .                      ,array0(i,j-1,k),array(i,j,k)
      .                      ,array (i,j+1,k),array(i,j+2,k)
      .                      ,yy(jg-1),order )
               case (4)
-
-cc                allocate(xint(0:ny),vint(0:ny))
-cc
-cc              !Define input abcissae
-cc                xint(ny)     = yy(jg+1)-dyh(jg+1)
-cc                xint(0:ny-1) = yy(jg-ny+1:jg)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)        = yy(jg+1)
-cc
-cc              !Define vector of values
-cc                vint(ny)     = array0(i,j+1,k)
-cc                vint(0:ny-1) = array(i,1:ny,k)
-cc                call IntDriver1d(ny+1,xint,vint,1,xo,vo,order)
-cc                rhs(i,k) = vo(1)
-cc
-cc                deallocate(xint,vint)
 
                 rhs(i,k) =
      .              quad_int(yy(jg+1)-dyh(jg+1),yy(jg),yy(jg-1),yy(jg-2)
@@ -2459,46 +2339,12 @@ cc                deallocate(xint,vint)
      .                      ,yy(jg+1),order )
               case (5)
 
-cc                allocate(xint(0:nz),vint(0:nz))
-cc
-cc              !Define input abcissae
-cc                xint(0)    = zz(kg-1)+dzh(kg-1)
-cc                xint(1:nz) = zz(kg:kg+nz-1)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)      = zz(kg-1)
-cc
-cc              !Define vector of values
-cc                vint(0)    = array0(i,j,k-1)
-cc                vint(1:nz) = array(i,j,1:nz)
-cc                call IntDriver1d(nz+1,xint,vint,1,xo,vo,order)
-cc                rhs(i,j) = vo(1)
-cc
-cc                deallocate(xint,vint)
-
                 rhs(i,j) =
      .              quad_int(zz(kg-1)+dzh(kg-1),zz(kg),zz(kg+1),zz(kg+2)
      .                      ,array0(i,j,k-1),array(i,j,k)
      .                      ,array (i,j,k+1),array(i,j,k+2)
      .                      ,zz(kg-1),order )
               case (6)
-
-cc                allocate(xint(0:nz),vint(0:nz))
-cc
-cc              !Define input abcissae
-cc                xint(nz)     = zz(kg+1)-dzh(kg+1)
-cc                xint(0:nz-1) = zz(kg-nz+1:kg)
-cc
-cc              !Define extrapolation point(s)
-cc                xo(1)        = zz(kg+1)
-cc
-cc              !Define vector of values
-cc                vint(nz)     = array0(i,j,k+1)
-cc                vint(0:nz-1) = array(i,j,1:nz)
-cc                call IntDriver1d(nz+1,xint,vint,1,xo,vo,order)
-cc                rhs(i,j) = vo(1)
-cc
-cc                deallocate(xint,vint)
 
                 rhs(i,j) =
      .              quad_int(zz(kg+1)-dzh(kg+1),zz(kg),zz(kg-1),zz(kg-2)
@@ -2511,8 +2357,6 @@ cc                deallocate(xint,vint)
         enddo
 
       end subroutine interpolate
-
-cc      end subroutine imposeBoundaryConditions
 
 c     quad_int
 c     #################################################################
