@@ -42,7 +42,7 @@ c Local variables
 c Namelist
 
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
-     .                   ,xmin,ymin,zmin,gparams,mg_ratio
+     .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                ,ilevel
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
      .                ,rtol,atol,maxitnwt,tolgm,maxksp,iguess,maxitgm
@@ -77,6 +77,9 @@ c Set defaults
       zmin     = 0d0           ! Length in z-direction
 
       gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
+
+      numerical_grid = .false. ! Whether grid metrics are calculated numerically (.true.)
+                               !    or analytically.
 
       mg_ratio = 2             ! MG coarsening ratio
 
