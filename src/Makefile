@@ -44,9 +44,9 @@ endif
 
 #Objects
 
-OBJ  := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
-                      $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
-                      $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
+OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
+                        $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
+                        $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
 
 OBJMOD := $(filter %.o, $(patsubst %.f,%.o,$(MODS))\
                         $(patsubst %.F,%.o,$(MODS)))
@@ -65,10 +65,11 @@ FC = f90
 ifeq ($(FC),f90)
   OPTIMIZATION = -O2 -cpu:host
 #  DEBUG        = -g -et -Rb -Rp
-  DEBUG        = -g
+  DEBUG        = -g -ggdb
   PROFILE      = -P
   STATIC       = -s
   MODPATH      = -p
+  ADDMODPATH   = -p
   FFLAGS      += -w
   LIBS         = -llapack_f90 -lblas_f90
   VERBOSE      = -v
@@ -77,9 +78,8 @@ ifeq ($(FC),f90)
     CPPFLAGS += -Dabsoft_ -DNVAR=8
     LIBS      = 
     FFLAGS   += -DNVAR=8 -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+    FC        = $(MPI_HOME)/bin/mpif90
   endif
-
-  MODDIRS = $(patsubst $(COMMONDIR)%,$(MODPATH)$(COMMONDIR)%,$(SUBDIRS))
 endif
 
 # Flags for Lahey lf95
@@ -90,6 +90,7 @@ ifeq ($(FC),lf95)
   PROFILE      =
   STATIC       = 
   MODPATH      = -M
+  ADDMODPATH   = -I
   FFLAGS      +=
   LIBS         = -llapackmt -lblasmt
 #  LIBS         = -llapack -lblas -lf2c
@@ -99,9 +100,8 @@ ifeq ($(FC),lf95)
     CPPFLAGS  += -DNVAR=8 -Dlahey 
     FFLAGS    += -DNVAR=8 --ml cdecl
     PETSC_ARCH = linux_lahey
+    FC        = $(MPI_HOME)/bin/mpif90
   endif
-
-  MODDIRS = $(MODPATH) . $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
 
 # Flags for Intel ifort
@@ -111,7 +111,8 @@ ifeq ($(FC),ifort)
   DEBUG        = -g -check -traceback
   PROFILE      = -p
   STATIC       =
-  MODPATH      =
+  MODPATH      = -I
+  ADDMODPATH   = -I
   FFLAGS      += -vec_report0
   LIBS         = -llapack -lblas -lf2c
 #  LIBS         = -llapack_intel -lblas_intel
@@ -121,12 +122,11 @@ ifeq ($(FC),ifort)
     CPPFLAGS  += -DNVAR=8
     FFLAGS    += -DNVAR=8
     PETSC_ARCH = linux_intel
+    FC        = $(MPI_HOME)/bin/mpif90
   endif
-
-  MODDIRS = $(patsubst $(COMMONDIR)%,-I $(COMMONDIR)%,$(SUBDIRS))
 endif
 
-#Setup compiler options
+#Assemble compiler options
 
 OPT = O 
 
@@ -146,7 +146,7 @@ ifneq (,$(findstring v,$(OPT)))
 FFLAGS += $(VERBOSE)
 endif
 
-export FC FFLAGS CPPFLAGS
+export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH
 
 #Define linker flags
 
@@ -167,6 +167,10 @@ SUBDIRS = $(COMMONDIR)/$(DRIVERDIR)\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG
+
+#Module search path
+
+MODDIRS = $(MODPATH). $(patsubst $(COMMONDIR)%,$(ADDMODPATH)$(COMMONDIR)%,$(SUBDIRS))
 
 #Define targets
 

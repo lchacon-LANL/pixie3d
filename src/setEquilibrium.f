@@ -326,6 +326,7 @@ c     Check coordinates
 
 c     RFP equilibria (Caramana et al, PoP, 1983)
 
+c FIX PARALLEL
         !Integral in r
         rint(nxd+1) = 0d0
         do i=nxd,1,-1
@@ -335,6 +336,7 @@ c1          rint(i) = rint(i+1) + dxh(ig)*x1/ff(x1)
           rint(i) = rint(i+1) + dxh(ig)*qq(x1)*qqp(x1)/ff(x1)
         enddo
         rint(0) = rint(1)
+c FIX PARALLEL
 
         !Determine Iz so that Bz(r=0)=1
 c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
@@ -342,9 +344,9 @@ c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
         Iz = 1./btheta/qq(0d0)
 
         !Build equilibrium
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd+1
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)

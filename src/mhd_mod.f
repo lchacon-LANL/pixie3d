@@ -103,8 +103,6 @@ c ######################################################################
 
         use grid_aliases
 
-        use generalOperators
-
       contains
 
 c     div

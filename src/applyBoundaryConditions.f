@@ -134,6 +134,13 @@ c$$$      kkmax = nz
       kkmin = grid_params%klo(igz)
       kkmax = grid_params%khi(igz)
 
+cc      iimin = ilog
+cc      iimax = ihig
+cc      jjmin = jlog
+cc      jjmax = jhig
+cc      kkmin = klog
+cc      kkmax = khig
+
 c Check local vs. global domain limits (return if not close to physical boundaries)
 
       if (     (iimin > 1 .and. iimax < grid_params%nxgl(igx))

@@ -124,12 +124,16 @@ cc        imax = imin
 
       end module BCS
 
-c FIX PARALLEL
 c module singularBCinterface
 c####################################################################
       module singularBCinterface
 
         use BCS
+
+#if defined(petsc)
+        use iosetup
+        use mpi
+#endif
 
         INTERFACE singularBC
           module procedure scalarSingularBC,vectorSingularBC
@@ -156,32 +160,58 @@ c     Call variables
 c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,order1
-      real(8)    :: avg_q,avg_vol,rho0,vol,x0
+      real(8)    :: lavg_q,lavg_vol,avg_q,avg_vol,rho0,vol,x0
 
 c     Begin program
 
-      if (order == 3) then
-        order1 = 3
+c     Check that we are domain adjacent to singular point
+
+      if (ilog /= 1) then
+        return
       else
-        order1 = order
+        i = ilog
       endif
 
+c     Set interpolation order
+
+      order1 = min(order,ihig-ilog-1)
+
+c     Find scalar value at singular point by averaging neighboring cells
+
       do k=1,nz
-        avg_q   = 0d0
-        avg_vol = 0d0
+
+c       Perform local sum
+        lavg_q   = 0d0
+        lavg_vol = 0d0
+
         do j=1,ny
-          i = 1
           call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
           vol = volume(i,j,k,igx,igy,igz)
           x0  = xx(ig-1)
 
           call IntDriver1d(order1+1,xx(ig),array(i:i+order1+1,j,k)
-     .                    ,1,x0,rho0,order)
+     .                    ,1,x0,rho0,order1)
 
-          avg_q   = avg_q   + vol*rho0
-          avg_vol = avg_vol + vol
+          lavg_q   = lavg_q   + vol*rho0
+          lavg_vol = lavg_vol + vol
         enddo
+
+c       Perform global sum (and broadcast it to all processors)
+
+#if defined(petsc)
+        call MPI_Allreduce(lavg_q  ,avg_q  ,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+        call MPI_Allreduce(lavg_vol,avg_vol,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+#else
+        avg_q   = lavg_q
+        avg_vol = lavg_vol
+#endif
+
+c       Perform average
+
         array(0,:,k) = avg_q/avg_vol
+
       enddo
 
 c     End program
@@ -209,7 +239,8 @@ c     Local variables
       integer(4) :: i,j,k
 
       integer(4) :: ic,ig,jg,kg,order1
-      real(8)    :: x0,avg_q,avg_vol,vol
+      real(8)    :: x0,vol,lavg_x,lavg_y,lavg_z,lavg_vol
+     .                    , avg_x, avg_y, avg_z, avg_vol
       real(8)    :: cx1,cy1,cz1
       real(8),allocatable,dimension(:) :: ax0,ay0,az0,cx,cy,cz
 
@@ -217,23 +248,31 @@ c     External
 
 c     Begin program
 
-      allocate(ax0(nz),ay0(nz),az0(nz))
+c     Check that we are domain adjacent to singular point
+
+      if (ilog /= 1) then
+        return
+      else
+        i = ilog
+      endif
+
+c     Set interpolation order
+
+      order1 = min(order,ihig-ilog-1)
 
 c     Find average cartesian coordinates
 
-      if (order == 3) then
-        order1 = 3
-      else
-        order1 = order
-      endif
+      allocate(ax0(nz),ay0(nz),az0(nz))
 
       do k=1,nz
-        ax0(k) = 0d0
-        ay0(k) = 0d0
-        az0(k) = 0d0
-        avg_vol = 0d0
+
+c       Perform local sum
+        lavg_x   = 0d0
+        lavg_y   = 0d0
+        lavg_z   = 0d0
+        lavg_vol = 0d0
+
         do j=1,ny
-          i = 1
           call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
           vol = volume(i,j,k,igx,igy,igz)
           x0  = xx(ig-1)
@@ -250,14 +289,35 @@ c     Find average cartesian coordinates
           call IntDriver1d(order1+1,xx(ig),cz,1,x0,cz1,order)
           deallocate(cx,cy,cz)
 
-          ax0(k)  = ax0(k)  + vol*cx1
-          ay0(k)  = ay0(k)  + vol*cy1
-          az0(k)  = az0(k)  + vol*cz1
-          avg_vol = avg_vol + vol
+          lavg_x   = lavg_x   + vol*cx1
+          lavg_y   = lavg_y   + vol*cy1
+          lavg_z   = lavg_z   + vol*cz1
+          lavg_vol = lavg_vol + vol
         enddo
-        ax0(k) = ax0(k)/avg_vol
-        ay0(k) = ay0(k)/avg_vol
-        az0(k) = az0(k)/avg_vol
+
+c       Perform global sum (and broadcast it to all processors)
+
+#if defined(petsc)
+        call MPI_Allreduce(lavg_x  ,avg_x  ,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+        call MPI_Allreduce(lavg_y  ,avg_y  ,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+        call MPI_Allreduce(lavg_z  ,avg_z  ,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+        call MPI_Allreduce(lavg_vol,avg_vol,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_SP,mpierr)
+#else
+        avg_x   = lavg_x
+        avg_y   = lavg_y
+        avg_z   = lavg_z
+        avg_vol = lavg_vol
+#endif
+
+c       Perform average
+
+        ax0(k) = avg_x/avg_vol
+        ay0(k) = avg_y/avg_vol
+        az0(k) = avg_z/avg_vol
       enddo
       
 c     Transform to curvilinear components at SP
@@ -278,7 +338,6 @@ c     End program
       end subroutine vectorSingularBC
 
       end module singularBCinterface
-c FIX PARALLEL
 
 c module dirichletBCinterface
 c####################################################################
@@ -1147,15 +1206,25 @@ c     Call variables
 c     Local variables
 
       integer(4) :: ivar,ieq,ibc,loc,dim,bctype
+     .             ,ilmin,jlmin,klmin,ilmax,jlmax,klmax
       logical    :: cov_to_cnv
 
 c     Begin program
 
 c     Find cov components (we assume cnv components are defined)
 
-      do i=iimin,iimax
+#if defined(petsc)
+      call fromGlobalToLocalLimits(iimin,jjmin,kkmin,ilmin,jlmin,klmin)
+      call fromGlobalToLocalLimits(iimax,jjmax,kkmax,ilmax,jlmax,klmax)
+
+      do k=klmin,klmax
+        do j=jlmin,jlmax
+          do i=ilmin,ilmax
+#else
+      do k=kkmin,kkmax
         do j=jjmin,jjmax
-          do k=kkmin,kkmax
+          do i=iimin,iimax
+#endif
             call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .            ,v_cov(i,j,k,1),v_cov(i,j,k,2),v_cov(i,j,k,3)
      .            ,v_cnv(i,j,k,1),v_cnv(i,j,k,2),v_cnv(i,j,k,3),.false.)
