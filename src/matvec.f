@@ -1,7 +1,7 @@
 c setMGBC
 c####################################################################
       subroutine setMGBC(gpos,neq,nnx,nny,nnz,iig,array,bcnd,arr_cov
-     .                  ,icomp,is_cnv)
+     .                  ,arr0,icomp,is_cnv,is_vec,iorder)
 c--------------------------------------------------------------------
 c     Interfaces BC routines with MG code, for preconditioning.
 c     On input, array can be covariant or contravariant, according
@@ -26,22 +26,24 @@ c Call variables
 
       real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
 
-      real(8),optional
-     .       ,intent(INOUT) :: arr_cov(0:nnx+1,0:nny+1,0:nnz+1,neq)
+      real(8),optional,intent(INOUT) ::
+     .                         arr_cov(0:nnx+1,0:nny+1,0:nnz+1,neq)
+      real(8),optional,intent(IN) ::
+     .                         arr0   (0:nnx+1,0:nny+1,0:nnz+1,neq)
 
-      integer(4),optional,intent(IN) :: icomp
+      integer(4),optional,intent(IN) :: icomp,iorder
 
-      logical   ,optional,intent(IN) :: is_cnv
+      logical   ,optional,intent(IN) :: is_cnv,is_vec
 
 c Local variables
 
-      integer(4) :: stencil_width,imn,imx,jmn,jmx,kmn,kmx
+      integer(4) :: stencil_width,imn,imx,jmn,jmx,kmn,kmx,order
 
       integer(4),save :: ivar  !Needed to "remember' ivar from previous calls
                                !when icomp is not provided.
 
-      logical,save    :: iscnv !Needed to "remember' iscnv from previous calls
-                               !when is_cnv is not provided.
+      logical,save    :: iscnv,isvec !Needed to "remember' these from previous calls
+                                     !when they are not provided.
 
 c Begin program
 
@@ -50,6 +52,14 @@ c Optional arguments
       if (PRESENT(icomp)) ivar = icomp
 
       if (PRESENT(is_cnv)) iscnv = is_cnv
+
+      if (PRESENT(is_vec)) isvec = is_vec
+
+      if (PRESENT(iorder)) then
+        order = iorder
+      else
+        order = 1
+      endif
 
 c Consistency check
 
@@ -60,6 +70,8 @@ c Consistency check
         write (*,*) 'Aborting...'
         stop
       endif
+
+      if (.not.isvec) iscnv=.true.
 
 c Find grid node LOCAL position (if gpos > 0, else return local domain limits)
 
@@ -87,48 +99,79 @@ c Select operation
       select case (neq)
       case(1)
 
-        call setBC(IRHO,nnx,nny,nnz,array(:,:,:,neq),zeros
+        !This below changes results. Compiler bug?????
+cc        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,neq))
+        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+        if (PRESENT(arr0)) then
+          v0(:,:,:,neq) = arr0(:,:,:,neq)
+        else
+          v0(:,:,:,neq) = 0d0
+        endif
+
+        call setBC(IRHO,nnx,nny,nnz,array(:,:,:,neq),v0(:,:,:,neq)
      .            ,bcnd(:,neq),iig,iig,iig
-     .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
+     .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx
+     .            ,iorder=order)
 
 cc        !Warning: Velocities for T BC unknown
-cc        call setBC(ivar,nnx,nny,nnz,array(:,:,:,neq),dummy(:,:,:,neq)
+cc        call setBC(ivar,nnx,nny,nnz,array(:,:,:,neq),v0(:,:,:,neq)
 cc     .            ,bcnd(:,1),iig,iig,iig
 cc     .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx)
+cc
+        deallocate(v0)
 
       case(3)
 
         allocate(v_cnv (0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .          ,v_cov (0:nnx+1,0:nny+1,0:nnz+1,neq))
+     .          ,v_cov (0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .          ,v0    (0:nnx+1,0:nny+1,0:nnz+1,neq))
 
-        if (PRESENT(arr_cov)) then
-          v_cnv = array
-          v_cov = arr_cov
+        v_cnv = 0d0
+        v_cov = 0d0
+
+        if (PRESENT(arr0)) then
+          v0 = arr0
         else
-          if (iscnv) then
-            v_cnv = array
-          else
-            v_cov = array
-          endif
+          v0 = 0d0
         endif
 
-        call setBC(ivar,nnx,nny,nnz,v_cnv,v_cov,vzeros,bcnd
+        if (isvec) then
+          if (PRESENT(arr_cov)) then
+            v_cnv(:,:,:,1:neq) = array
+            v_cov(:,:,:,1:neq) = arr_cov
+          else
+            if (iscnv) then
+              v_cnv(:,:,:,1:neq) = array
+            else
+              v_cov(:,:,:,1:neq) = array
+            endif
+          endif
+        else
+          v_cnv(:,:,:,1:neq) = array
+        endif
+
+        call setBC(ivar,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd
      .            ,iig,iig,iig
      .            ,i1=imn,i2=imx,j1=jmn,j2=jmx,k1=kmn,k2=kmx
-     .            ,is_cnv=iscnv)
+     .            ,is_cnv=iscnv,is_vec=isvec,iorder=order)
 
-        if (PRESENT(arr_cov)) then
-          array   = v_cnv
-          arr_cov = v_cov
-        else
-          if (iscnv) then
-            array = v_cnv
+        if (isvec) then
+          if (PRESENT(arr_cov)) then
+            array   = v_cnv(:,:,:,1:neq)
+            arr_cov = v_cov(:,:,:,1:neq)
           else
-            array = v_cov
+            if (iscnv) then
+              array = v_cnv(:,:,:,1:neq)
+            else
+              array = v_cov(:,:,:,1:neq)
+            endif
           endif
+        else
+          array = v_cnv(:,:,:,1:neq)
         endif
 
-        deallocate(v_cov,v_cnv)
+        deallocate(v_cov,v_cnv,v0)
 
       case default
         write (*,*) 'Number of equations not implemented in setMGBC'
@@ -172,8 +215,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
-      real*8       x(ntot),y(ntot)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
@@ -190,8 +233,8 @@ c Local variables
 
 c External
 
-      real*8       vis
-      external     vis
+      real(8)    :: vis
+      external      vis
 
 c Begin program
 
@@ -310,8 +353,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
-      real*8       x(ntot),y(ntot)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
@@ -327,8 +370,8 @@ c Local variables
 
 c External
 
-      real*8       vis
-      external     vis
+cc      real(8)    :: vis
+cc      external      vis
 
 c Begin program
 
@@ -450,7 +493,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,*)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
@@ -467,8 +510,8 @@ c Local variables
 
 c External
 
-      real(8)    :: vis
-      external   :: vis
+cc      real(8)    :: vis
+cc      external      vis
 
 c Begin program
 
@@ -592,8 +635,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
-      real*8       x(ntot),y(ntot)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
@@ -611,7 +654,7 @@ c Local variables
 c External
 
       real(8)    :: res
-      external   :: res
+      external      res
 
 c Begin program
 
@@ -645,7 +688,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-     .            ,icomp=IBX)
+     .            ,icomp=IBX,is_cnv=.true.,is_vec=.true.)
 
 c Velocity field (including BCs)
 
@@ -888,8 +931,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer*4    neq,ntot,igrid,gpos,bcnd(6,*)
-      real*8       x(ntot),y(ntot)
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
@@ -922,7 +965,7 @@ c Local variables
 c External
 
       real(8)    :: vis
-      external   :: vis
+      external      vis
 
 c Begin program
 
@@ -953,7 +996,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .              ,icomp=IVX,is_cnv=is_cnv)
+     .              ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.)
 
       else
 
