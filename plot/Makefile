@@ -159,7 +159,7 @@ $(PROD):  $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 common: $(SUBDIRS)
 
 $(SUBDIRS):
-	$(MAKE) -e -s -C $@ target
+	$(MAKE) -e -C $@ target
 
 clean:
 	-rm -f *.o *.mod
