@@ -33,13 +33,17 @@ endif
 
 prefix = .
 
+EXCLUDE = %test.f
+
 # Petsc include
 
 DRIVERDIR = driver
 ifdef BOPT
   include ${PETSC_DIR}/bmake/common/base
   DRIVERDIR = driver-petsc
-  SRC      := $(filter-out explicit.f,$(wildcard *.[F,c,f]))
+  SRC2      = $(SRC)
+  EXCLUDE  += %explicit.f %newtonGMRES.f
+  SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
 # Objects
@@ -48,17 +52,14 @@ OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
 
-OBJMOD := $(filter %.o, $(patsubst %.f,%.o,$(MODS))\
-                        $(patsubst %.F,%.o,$(MODS)))
+
+OBJMOD := $(patsubst %.f,%.o,$(patsubst %.F,%.f,$(MODS)))
 
 COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F]))
-COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(dir)/test.f,$(wildcard $(dir)/*.[f,F,c])))
+COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(EXCLUDE),$(wildcard $(dir)/*.[f,F,c])))
 COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
                             $(patsubst %.F,%.o,$(COMMON_SRC)))
-
-
-#export FC FFLAGS CPPFLAGS MODPATH ADDMODPATH GMODPATH PETSC_DIR PETSC_ARCH
 
 #Define linker flags
 
@@ -115,10 +116,17 @@ distclean: clean
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir clean;  done
 
+setup: ;
+	-@ln -s ../src/applyBoundaryConditions.F 2>/dev/null ;\
+	  ln -s ../src/imposeBC_mod.F            2>/dev/null ;\
+	  ln -s ../src/Makefile                  2>/dev/null ;\
+	  ln -s ../src/mhd_mod.f                 2>/dev/null ;\
+	  ln -s ../src/readInput.f               2>/dev/null
+
 #Define dependencies
 
-$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/imposeBCinterface_mod.F
-imposeBC_mod.o: $(COMMONDIR)/BC/imposeBCinterface_mod.F
+$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
+imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F]
 
 #Define patterns
 
