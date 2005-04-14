@@ -145,7 +145,7 @@ cc        use parameters
         real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
-     .                                            ,b_diag,v_diag
+     .                                            ,b_diag,v_diag,v_diag2
 
         real(8), allocatable, dimension(:,:)    :: mgj0cnv,mgadvdiffV0
 
@@ -199,7 +199,8 @@ c     Begin program
         allocate (rho_diag(1,  ntotd2p)
      .           ,tmp_diag(1,  ntotd2p)
      .           ,  b_diag(3,3*ntotd2p)
-     .           ,  v_diag(3,3*ntotd2p),STAT=alloc_stat)
+     .           ,  v_diag(3,3*ntotd2p)
+     .           ,  v_diag2(3,3*ntotd2p),STAT=alloc_stat)
 
         call allocateMGArray(1,gp0)
         call allocateMGArray(1,grho0)
@@ -250,7 +251,7 @@ c     ###################################################################
       subroutine gather(xout,xin)
 
 c     -------------------------------------------------------------------
-c     Deallocates preconditioner variables.
+c     Gathers magnitudes from different arrays to vector.
 c     -------------------------------------------------------------------
 
         implicit none
@@ -288,7 +289,8 @@ c     ###################################################################
       subroutine scatter(xout,xin)
 
 c     -------------------------------------------------------------------
-c     Deallocates preconditioner variables.
+c     Scatters magnitudes in vector to different arrays indexed by the
+c     variable identifier ieq.
 c     -------------------------------------------------------------------
 
         implicit none
@@ -361,7 +363,7 @@ c     Begin program
 
         igrid = igx
 
-        order = 0
+        order = 2
 
 c     Store density in all grids (w/o BCs)
 
@@ -1439,24 +1441,24 @@ c       Initialize solver
         call solverInit
 
 c diag ****
-c$$$        call solverOptionsInit
-c$$$
-c$$$        solverOptions%iter    = 100
-c$$$        solverOptions%tol     = mgtol
-c$$$
-c$$$        solverOptions%omega   = 0.8 !For point relax
-c$$$
-c$$$        if (PRESENT(dg)) solverOptions%diag => ddg
-c$$$
-c$$$        if (PRESENT(ncolors)) solverOptions%ncolors  = ncolors
-c$$$
-c$$$cc        call assembleSolverHierarchy('jb')
-c$$$cc        call assembleSolverHierarchy('gs')
-c$$$
-c$$$        solverOptions%stp_test = 1 
-c$$$        solverOptions%krylov_subspace = solverOptions%iter 
-c$$$        call assembleSolverHierarchy('gm')
-c$$$cc        call assembleSolverHierarchy('id')
+        call solverOptionsInit
+
+        solverOptions%iter    = maxvcyc
+        solverOptions%tol     = mgtol
+
+cc        solverOptions%omega   = 0.8 !For point relax
+
+cc        if (PRESENT(dg)) solverOptions%diag => ddg
+cc
+cc        if (PRESENT(ncolors)) solverOptions%ncolors  = ncolors
+
+cc        call assembleSolverHierarchy('jb')
+cc        call assembleSolverHierarchy('gs')
+
+        solverOptions%stp_test = 1 
+        solverOptions%krylov_subspace = solverOptions%iter 
+        call assembleSolverHierarchy('gm')
+cc        call assembleSolverHierarchy('id')
 c diag ****
 
 c       Upper_level solver options (MG)
@@ -1464,9 +1466,10 @@ c       Upper_level solver options (MG)
         call solverOptionsInit
 
         solverOptions%tol      = mgtol
-        solverOptions%vcyc     = maxvcyc
+        solverOptions%vcyc     = 1
+cc        solverOptions%vcyc     = maxvcyc
         solverOptions%igridmin = 3
-        solverOptions%orderres = 2
+        solverOptions%orderres = 0
         solverOptions%orderprol= 2
         solverOptions%mg_mu    = 1
         solverOptions%vol_res  = vol_wgt
@@ -1490,7 +1493,7 @@ cc        solverOptions%vertex_based_relax = .true.
         !Plane/line relaxation
         if (lrelax) then
           solverOptions%igridmin        = 3
-          solverOptions%orderres        = 2
+          solverOptions%orderres        = 0
           solverOptions%orderprol       = 2
           solverOptions%mg_mu           = 1    
           solverOptions%mg_line_relax   = .true.
