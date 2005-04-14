@@ -43,7 +43,7 @@ c Define I/O
 c Define graphics group #1: Contravariant variables
 
       graph(1)%cartesian=.false.
-      graph(1)%descr='Cnv variables'
+      graph(1)%descr='Cnv_variables'
 
       do ieq = 1,neqd
         graph(1)%array_graph(ieq)%array => u_np%array_var(ieq)%array
@@ -79,7 +79,7 @@ c Define graphics group #1: Contravariant variables
 c Define graphics group #2: Cov variables
 
       graph(2)%cartesian=.false.
-      graph(2)%descr='Cov variables'
+      graph(2)%descr='Cov_variables'
 
       graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
       graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
@@ -125,7 +125,7 @@ c Define graphics group #2: Cov variables
 c Define graphics group #3: Cartesian variables
 
       graph(3)%cartesian=.true.
-      graph(3)%descr='Car variables'
+      graph(3)%descr='Car_variables'
 
       graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
       graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
@@ -142,6 +142,8 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IVZ)%array => vz_car
       graph(3)%array_graph(IVZ)%descr = 'Vz'
 
+      graph(3)%array_graph(IVX:IVZ)%vector_name ='V' !Identifies vector comp.
+
       graph(3)%array_graph(IBX)%array => bx_car
       graph(3)%array_graph(IBX)%descr = 'Bx'
 
@@ -151,6 +153,8 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IBZ)%array => bz_car
       graph(3)%array_graph(IBZ)%descr = 'Bz'
 
+      graph(3)%array_graph(IBX:IBZ)%vector_name ='B' !Identifies vector comp.
+
       graph(3)%array_graph(neqd+1)%array => jx_car
       graph(3)%array_graph(neqd+1)%descr = 'Jx'
 
@@ -159,6 +163,8 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+3)%array => jz_car
       graph(3)%array_graph(neqd+3)%descr = 'Jz'
+
+      graph(3)%array_graph(neqd+1:neqd+3)%vector_name = 'J' !Identifies vector comp.
 
       graph(3)%array_graph(neqd+4:ngraph)%descr = ''
 
@@ -195,12 +201,15 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(7)%array => qfactor
       graph(4)%array_graph(7)%descr = 'q factor'
 
-      graph(4)%array_graph(8)%array => p_tot
-      graph(4)%array_graph(8)%descr = 'Total pressure'
+      graph(4)%array_graph(8)%array => lambda
+      graph(4)%array_graph(8)%descr = 'lambda'
 
-      graph(4)%array_graph(9:ngraph)%descr = ''
+      graph(4)%array_graph(9)%array => p_tot
+      graph(4)%array_graph(9)%descr = 'Total pressure'
 
-      sel_gr(4,:) = (/ (i,i=1,8),0 /)
+      graph(4)%array_graph(10:ngraph)%descr = ''
+
+      sel_gr(4,:) = (/ (i,i=1,9) /)
 
       prof_ivar(4,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (4,:) = 0        !No log scales
