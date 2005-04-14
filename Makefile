@@ -26,9 +26,9 @@ HDF5_HOME =/usr/local
 
 # Petsc include
 
+HDF5 = true
 ifdef BOPT
   PETSCTARGET = petsc
-  HDF5 = true
 endif
 
 #Define compiler flags
@@ -37,7 +37,7 @@ FC = f90
 
 # Flags for Absoft f90
 ifeq ($(FC),f90)
-  OPTIMIZATION = -O3 -cpu:host
+  OPTIMIZATION = -O2 -cpu:host
 #  DEBUG        = -g -et -Rb -Rp -Rc
   DEBUG        = -g -en -et -trap=DIVBYZERO,INVALID
   PROFILE      = -P
@@ -161,7 +161,9 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean petsc $(SUBDIRS)
+.PHONY: pixie3d pixplot distclean petsc all setup $(SUBDIRS)
+
+all: src plot
 
 pixie3d: src
 
@@ -170,7 +172,10 @@ pixplot: plot
 $(SUBDIRS):
 	$(MAKE) -e -C $@ $(PETSCTARGET)
 
-distclean: 
+distclean: ;
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
 
+setup: ;
+	-for subdir in common plot ; do \
+		$(MAKE) -C $$subdir setup;  done
