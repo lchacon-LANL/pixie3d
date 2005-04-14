@@ -76,7 +76,7 @@ path=$PWD
 if [ "$tar" = "t" ]
 then
   count=.	
-  dir=$node.scratch
+  dir=$inputfile.scratch
   while [ -d "$dir" ]; do
     dir="${dir}${count}"
   done
@@ -106,7 +106,7 @@ if [ -f $inputfile.in ]; then
   cp $inputfile.in $dir 2>/dev/null
 elif [ -f infiles/$inputfile.in ]; then
   cp infiles/$inputfile.in $dir 2>/dev/null
-else
+elif [ "$restart" != "t" ]; then
   echo "No input file found. Aborting"
   exit 1
 fi
@@ -147,7 +147,8 @@ fi
 
 #cd $path/$dir
 
-code_ifile=`echo "$executable" | sed "s/\.x//"`
+#code_ifile=`echo "$executable" | sed "s/\.x//"`
+code_ifile=pixie3d
 
 cp $inputfile.in $code_ifile.in  2>/dev/null
 
@@ -155,14 +156,14 @@ if [ "$restart" = "t" ]
 then
    sed  -e '/restart/{' \
         -e 'c\' \
-        -e '    restart   = t' \
+        -e '    restart  = t' \
         -e '}' \
         $code_ifile.in > $code_ifile.out
    mv $code_ifile.out $code_ifile.in
 else
    sed  -e '/restart/{' \
         -e 'c\' \
-        -e '    restart   = f' \
+        -e '    restart  = f' \
         -e '}' \
         $code_ifile.in > $code_ifile.out
    mv $code_ifile.out $code_ifile.in
@@ -205,7 +206,7 @@ then
 
 # Package and remove temporary files
 
-  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null ; ls *.x 2>/dev/null`
+  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null ; ls *.x 2>/dev/null ; ls $code_ifile.in 2>/dev/null`
 
   tar zcf $inputfile.tar.gz $files
   if [ -d "$path/tarfiles" ]; then
