@@ -45,14 +45,15 @@ c Call variables
 
 c Local variables
 
-      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax
+      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal
       real(8)       :: ldaflow,x1,y1,z1
 
       logical       :: covariant,to_cartsn,cartsn
 
-      real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,rr,ff
-     .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,rint(0:nxd+1)
-     .                ,r1,bb,aa,nn
+      real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff
+     .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,r1,bb,aa,nn
+     .                ,rint(0:nxd+1),dh
+     .                
 
       real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
      .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
@@ -61,12 +62,12 @@ c Local variables
 c Functions
 
       !q-profile
-      qq (rr) = 0.6125*(1 - 1.8748*rr**2 + 0.8323*rr**4)
-      qqp(rr) = 0.6125*( -2*1.8748*rr   +4*0.8323*rr**3)
-cc      qq(rr)  = 0.3*(1 - 1.8748*rr**2 + 0.8323*rr**4)
-cc      qqp(rr) = 0.3*( -2*1.8748*rr   +4*0.8323*rr**3)
+      qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+      qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)
+cc      qq(r1)  = 0.3*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+cc      qqp(r1) = 0.3*( -2*1.8748*r1   +4*0.8323*r1**3)
 
-      ff(rr) = rr**2 + qq(rr)**2
+      ff(r1) = r1**2 + qq(r1)**2
 
 c Begin program
 
@@ -98,10 +99,6 @@ c Label variables
 c Define boundary conditions
 
       call defineBoundaryConditions(neqd,bcs)
-
-c Decide whether to use the alternative EOM formulation
-
-      alt_eom = alt__eom()
 
 c Set initial guess
 
@@ -223,20 +220,126 @@ c     Tearing mode in cartesian coordinates
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-              !X-Y equilibrium
+             !X-Y equilibrium
              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
              var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
-cc              var(i,j,k,IBX)  = 0d0
-cc              var(i,j,k,IBY)  = 1d1
-cc              var(i,j,k,IBZ)  = 1d1
+cc             var(i,j,k,IBX)=0d0
+cc             var(i,j,k,IBY)=0d0
+cc             var(i,j,k,IBZ)=0d0
+            enddo
+          enddo
+        enddo
 
-              !X-Z equilibrium
-cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
 
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
+      case ('3dkh')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             !X-Y equilibrium
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
+
+             var(i,j,k,IRHO)= (2d0 - var(i,j,k,IBZ)**2)
+
+             var(i,j,k,IVX) = vperflow*tanh((y1-.5*(ymax-ymin))/ldaflow)
+     .                                *sin (2*pi*z1/(zmax-zmin))
+             var(i,j,k,IVY) = 0d0
+             var(i,j,k,IVZ) = 0d0
+
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,ITMP) = 0.25
+
+      case ('tmcxz')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        bz0 = 1d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             !X-Z equilibrium
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
+      case ('tmcyz')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        bz0 = 1d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             !X-Z equilibrium
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
+             var(i,j,k,IBX)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
             enddo
           enddo
         enddo
@@ -309,6 +412,115 @@ cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
           enddo
         enddo
 
+      case ('kaitm')
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tokamak equilibria (analytical)
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+
+cc        aspect_ratio = 0.3
+cc        mm           = 1d0
+cc        RR           = 1d0/aspect_ratio
+cc        kk           = -mm/RR
+
+        Iz           = 2.22
+        bb           = 0.5*Iz
+
+        nh2 = mm !To set the right perturbation wavelength
+
+        !Build equilibrium
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              btheta = bb*x1/(1+(x1/dlambda)**2)
+              bzz    = RR
+
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
+              var(i,j,k,IBZ)  = x1*bzz
+
+              var(i,j,k,IVX)  = 0d0
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 1d-5
+     .                        + 1/16./var(i,j,k,IRHO)
+     .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
+
+            enddo
+          enddo
+        enddo
+
+      case ('kai3d')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tokamak equilibria (analytical)
+
+        Iz = 2.22
+        bb = 0.5*Iz
+
+        nh2 = mm !To set the right perturbation wavelength
+        nh3 = kk*RR    !To set the right perturbation wavelength
+
+        !Build equilibrium
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              btheta = bb*x1/(1+(x1/dlambda)**2)
+              bzz    = RR
+
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta
+              var(i,j,k,IBZ)  = x1*bzz
+
+              var(i,j,k,IVX)  = 0d0
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 1d-5
+     .                        + 1/16./var(i,j,k,IRHO)
+     .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
+
+            enddo
+          enddo
+        enddo
+
       case ('rfp1')
 
         mm = grid_params%params(1)
@@ -326,17 +538,14 @@ c     Check coordinates
 
 c     RFP equilibria (Caramana et al, PoP, 1983)
 
-c FIX PARALLEL
         !Integral in r
         rint(nxd+1) = 0d0
         do i=nxd,1,-1
-          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-c1          rint(i) = rint(i+1) + dxh(ig)*x1/ff(x1)
-          rint(i) = rint(i+1) + dxh(ig)*qq(x1)*qqp(x1)/ff(x1)
+          x1 = grid_params%xg(i)  !Position in global grid
+          dh = grid_params%xg(i+1)-grid_params%xg(i)
+          rint(i) = rint(i+1) + dh*qq(x1)*qqp(x1)/ff(x1)
         enddo
         rint(0) = rint(1)
-c FIX PARALLEL
 
         !Determine Iz so that Bz(r=0)=1
 c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
@@ -352,7 +561,8 @@ c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
      .                                      ,x1,y1,z1)
 
 c1              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
-              btheta = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(i))
+              iglobal = i + grid_params%ilo(igx) - 1
+              btheta = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
               bzz    = qq(x1)*btheta/x1
 
               !X-Y equilibrium
@@ -366,7 +576,7 @@ c1              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
 
               var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,ITMP) = 1d-3
+              var(i,j,k,ITMP) = 1d-5
 
             enddo
           enddo
@@ -614,7 +824,7 @@ c Begin program
 
       select case (trim(equil))
 
-      case ('khcar','tmcar','tmsin')
+      case ('khcar','tmcar','tmsin','tmcxz')
 
         do k = klom,khip
           do j = jlom,jhip
@@ -626,6 +836,22 @@ c Begin program
               a2(i,j,k) = 0d0
               a3(i,j,k) = dlambda
      .             *dlog(dcosh((xx-0.5d0*(xmax-xmin))/dlambda)) 
+            enddo
+          enddo
+        enddo
+
+      case ('tmcyz','3dkh')
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,xx,yy,zz)
+              a1(i,j,k) = dlambda
+     .             *dlog(dcosh((yy-0.5d0*(ymax-ymin))/dlambda)) 
+              a2(i,j,k) = 0d0
+              a3(i,j,k) = 0d0
             enddo
           enddo
         enddo
