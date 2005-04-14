@@ -48,6 +48,8 @@ c Output
 
       if (itime.lt.inewtime) then
 
+        call warnings
+
 cc        write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
         write (*,10) nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid
 
@@ -79,5 +81,26 @@ cc     .        /,'  Preconditioning method:...',a11,
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
  110  format (i7,f9.2,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
+
+      contains
+
+c     #################################################################
+      subroutine warnings
+
+c     -----------------------------------------------------------------
+c     Writes pertinent warings about input variables at the beginning
+c     of simulation
+c     -----------------------------------------------------------------
+
+      implicit none
+
+      write (*,*) '********** WARNING ************'
+
+      if (nc_eom) write (*,*) 'Using non-conservative EOM'
+      if (.not.solenoidal) write (*,*) 'Using divergence cleaning'
+      
+      write (*,*) '********** WARNING ************'
+
+      end subroutine warnings
 
       end subroutine
