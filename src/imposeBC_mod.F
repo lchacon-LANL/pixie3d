@@ -1,44 +1,7 @@
 c module BCS_variables
-c####################################################################
-      module BCS_variables
-
-        use grid
-
-        use grid_aliases
-
-        use auxiliaryVariables
-
-        use operators
-
-        use icond
-
-        use equilibrium
-
-        use transport_params
-
-        use constants
-
-        use variables
-
-        use error
-
-        use generalPurposeFunctions
-
-        integer(4) :: nnvar,imax,imin,jmax,jmin,kmax,kmin
-        integer(4) :: nxbc,nybc,nzbc,igxbc,igybc,igzbc
-
-        real(8),allocatable,dimension(:,:) :: rhs
-
-        real(8),allocatable,dimension(:,:,:,:) :: v_cov,v_cnv,v0
-
-        logical :: symm=.false.
-
-        type :: curv_vector
-          real(8),pointer,dimension(:,:,:,:) :: vcomp
-          logical :: cov
-        end type curv_vector
-
-      end module BCS_variables
+c #####################################################################
+#include "../common/BC/BCS_variables_mod.f"
+c end module BCS_variables
 
 c module dirichletBCinterface
 c####################################################################
@@ -383,9 +346,11 @@ c #####################################################################
 
        use BCS_variables
 
-        INTERFACE neumannBC
-          module procedure scalarNeumannBC,vectorNeumannBC
-        end INTERFACE
+       use transport_params
+
+       INTERFACE neumannBC
+         module procedure scalarNeumannBC,vectorNeumannBC
+       end INTERFACE
 
       contains
 
@@ -622,6 +587,7 @@ c     Begin program
       rhs = 0d0
 
       select case (ieq)
+cc      case (IVX,IVY,IVZ,IBX,IBY,IBZ) !Velocity components
       case (IVX,IVY,IVZ) !Velocity components
 
         do i=imin,imax
@@ -652,7 +618,6 @@ c     Begin program
               dh(3) = 2.*dzh(kg)
               if (k == nzbc) dh(3) = dz(kg-1)
               if (k == 1   ) dh(3) = dz(kg)
-
 
               if (dim == 1) then
 
