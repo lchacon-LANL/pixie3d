@@ -39,6 +39,8 @@ c Local variables
       real(8)    :: mm,kk,RR,ll,x1,y1,z1
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
+      real(8),allocatable,dimension(:,:) :: b00,j00_cov
+
 c Begin program
 
       igx = iigx
@@ -56,6 +58,11 @@ c Begin program
 c Impose boundary conditions
 c (finds all covariant and contravariant components of interest)
 
+cc      write (*,*) 'Dumping perturbations of all quantities'
+cc      call substractDerivedType(varray,u_0,u_graph)
+cc      varray = u_graph
+cc      varray%array_var(1)%array = u_0%array_var(1)%array
+
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
@@ -70,7 +77,6 @@ c (finds all covariant and contravariant components of interest)
 c Find perturbed quantities (u_graph = varray - u_ic)
 
       call substractDerivedType(varray,u_ic,u_graph)
-cc      u_graph = varray - u_ic
 
 c Find Cartesian components of ALL vectors
 
@@ -114,27 +120,89 @@ c Poloidal flux diagnostics  (use graphics limits)
         enddo
       enddo
 
-c Poloidally averaged q-factor (use graphics limits)
+c Mean-field (poloidally averaged) q-factor (use graphics limits)
 
       qfactor = 0d0
       if (coords == 'hel') then
+
+        allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3))
+
         mm = grid_params%params(1)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
+
+cc        do k = kming,kmaxg
+cc          do i = imaxg,iming+1,-1
+cc            qfactor(i,jming-1,k) = 0d0
+cc            b00(i)     = 0d0
+cc            j_cov00(i) = 0d0
+cc            ll = 0d0
+cc            do j = jming,jmaxg
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc              qfactor(i,j,k) = qfactor(i,j-1,k) +
+cc     .              mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+cc              ll = ll + dyh(jg)
+cc            enddo
+cc            qfactor(i,:,k) = qfactor(i,jmaxg,k)/ll
+cc          enddo
+cc          qfactor(iming,:,k) = qfactor(iming+1,:,k)
+cc        enddo
+
+        !Find mean fields
         do k = kming,kmaxg
-          do i = imaxg,iming+1,-1
-            qfactor(i,jming-1,k) = 0d0
+          do i = iming,imaxg
+            b00    (i,:) = 0d0
+            j00_cov(i,:) = 0d0
             ll = 0d0
-            do j = jming,jmaxg
+            do j = jming,jmaxg-1  !Careful with the periodic limits
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-              qfactor(i,j,k) = qfactor(i,j-1,k)
-     .             + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+              b00(i,1) = b00(i,1) + bx(i,j,k)*dyh(jg)
+              b00(i,2) = b00(i,2) + by(i,j,k)*dyh(jg)
+              b00(i,3) = b00(i,3) + bz(i,j,k)*dyh(jg)
+              j00_cov(i,1) = j00_cov(i,1) + jx_cov(i,j,k)*dyh(jg)
+              j00_cov(i,2) = j00_cov(i,2) + jy_cov(i,j,k)*dyh(jg)
+              j00_cov(i,3) = j00_cov(i,3) + jz_cov(i,j,k)*dyh(jg)
               ll = ll + dyh(jg)
             enddo
-            qfactor(i,:,k) = qfactor(i,jmaxg,k)/ll
+            b00    (i,:) = b00    (i,:)/ll
+            j00_cov(i,:) = j00_cov(i,:)/ll
+          enddo
+        enddo
+
+        !Find q-factor and lambda profile
+        do k = kming,kmaxg
+          do i = iming,imaxg
+            do j = jming,jmaxg
+              qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+              lambda(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                          ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)
+     .                          ,b00    (i,1),b00    (i,2),b00    (i,3))
+     .                       /vectorNorm(i,j,k,igx,igy,igz
+     .                          ,b00(i,1),b00(i,2),b00(i,3),.false.)
+            enddo
           enddo
           qfactor(iming,:,k) = qfactor(iming+1,:,k)
+          lambda (iming,:,k) = lambda (iming+1,:,k)
         enddo
+
+        deallocate(b00,j00_cov)
+
+c diag: dump text data
+        if (time == 0d0) then
+          open(unit=1000,file='q-lambda.txt',status='unknown')
+        else
+          open(unit=1000,file='q-lambda.txt',status='unknown'
+     .      ,access='append')
+        endif
+        write (1000,*) 'Time = ',time
+        write (1000,*) '      Q-value             Lambda'
+        do i=iming,imaxg
+          write (1000,*) qfactor(i,1,1),lambda(i,1,1)
+        enddo
+        write (1000,*)
+        close(1000)
+c diag: dump text data
+
       endif
 
 c Divergence diagnostics
@@ -142,9 +210,11 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
-            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+cc            jac = gmetric%grid(igx)%jac(i,j,k)
+            jac = 1d0
+            divrgJ(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
+            divrgB(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+            divrgV(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
           enddo
         enddo
       enddo
@@ -154,7 +224,7 @@ c Divergence diagnostics
       call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
 
       !Average divergence around singular point (we consider whole control volume)
-      if (bcond(1) == SP) then
+      if (bcSP()) then
         do k = 1,nz
           divrgJ(1,:,k) = divrgJ(0,:,k)
           divrgB(1,:,k) = divrgB(0,:,k)
