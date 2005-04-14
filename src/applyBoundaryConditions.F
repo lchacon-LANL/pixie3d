@@ -76,9 +76,17 @@ c Exceptions for specific equilibria
 
       case ('rfp1')
 
-        bbcs(2,IBY) = EQU  !Imposed by equilibrium
+cc        bbcs(2,IBY) = EQU  !Imposed by equilibrium
+cc
+cc        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
 
-        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
+      case ('tmcyz','3dkh')
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = -NEU
+        where (bbcs(:,IVY) ==-NEU) bbcs(:,IVY) =  DIR
+
+        where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
+        where (bbcs(:,IBY) ==-NEU) bbcs(:,IBY) =  DIR
 
       end select
 
@@ -112,6 +120,8 @@ c Local variables
 c Begin program
 
       order = 2   !Order of extrapolation in BCs
+
+      call setASMflag(.false.)  !Not additive Schwartz method
 
 c Local grid sizes
 
@@ -289,8 +299,6 @@ c Local variables
 c Begin program
 
       if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
-cc      if (i+ilog-1 == 1 .and. bcond(1) == SP) flxim = 0d0
-cc      if (i == 1 .and. bconds(1) == SP) flxim = 0d0
 
 c End
 
