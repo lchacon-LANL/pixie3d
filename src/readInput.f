@@ -38,6 +38,7 @@ c Local variables
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
+      type(dim_pack):: gp1,gp2,gp3
 
 c Namelist
 
@@ -53,6 +54,8 @@ c Namelist
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
+     .                ,gp1,gp2,gp3
+     .                ,nc_eom,solenoidal
 
 c ******************************************************************
 
@@ -158,6 +161,11 @@ c Set defaults
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
+      !Grid packing
+      gp1%pack = .false.       ! Do not pack in X-direction
+      gp2%pack = .false.       ! Do not pack in Y-direction
+      gp3%pack = .false.       ! Do not pack in Z-direction
+
       !I/O parameters
       restart  = .false.       ! Restarting flag
       ilevel   = 0             ! Level of solver output information
@@ -177,6 +185,12 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         nu  = sqrt(prndtl)/hrtmn
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
+
+c Initialize grid packing structure
+
+      g_pack%dim(1) = gp1
+      g_pack%dim(2) = gp2
+      g_pack%dim(3) = gp3
 
 c Consistency check
 
@@ -208,8 +222,10 @@ c Translate boundary conditions
         bcond = PER
       elsewhere (bcs == 'spt')
         bcond = SP
+      elsewhere (bcs == 'sp2')
+        bcond = SP2
       elsewhere (bcs == 'sym')
-        bcond = NEU
+        bcond = SYM
       elsewhere (bcs == 'equ')
         bcond = EQU
       end where
@@ -221,6 +237,7 @@ c Translate boundary conditions
         write (*,*) 'Undefined boundary condition in axis',dim,
      .              ', location',loc
         write (*,*) 'Aborting'
+        write (*,*) bcond
         stop
       endif
 
@@ -230,7 +247,7 @@ c End program
 
 c readGraphicsInput
 c######################################################################
-      subroutine readGraphicsInput(sel_diag,sel_graph,ndplot,dplot)
+      subroutine readGraphicsInput
 
 c----------------------------------------------------------------------
 c     Initializes MG and creates grid
@@ -242,12 +259,10 @@ c----------------------------------------------------------------------
 
 c Call variables
 
-      integer(4)    :: sel_diag(9),sel_graph(9),ndplot
-      real(8)       :: dplot
-
 c Local variables
 
-      namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot
+      namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
+     .                   ,prof_conf,cont_conf,clean
 
 c Begin program
 
