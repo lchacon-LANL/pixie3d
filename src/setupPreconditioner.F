@@ -1,6 +1,6 @@
 c setupPreconditioner
 c####################################################################
-      subroutine setupPreconditioner(ntot,x)
+      subroutine setupPreconditioner(v_arr)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -17,12 +17,13 @@ c--------------------------------------------------------------------
 
       use newton_gmres
 
+      use imposeBCinterface
+
       implicit none
 
 c Call variables
 
-      integer(4) :: ntot
-      real(8)    :: x(ntot)
+      type(var_array) :: v_arr
 
 c Local variables
 
@@ -30,7 +31,7 @@ c Local variables
 
 c Externals
 
-      external   v_mtvc,b_mtvc,rho_mtvc,tmp_mtvc
+      external   v_mtvc,v_mtvc2,b_mtvc,rho_mtvc,tmp_mtvc
 
 c Begin program
 
@@ -48,11 +49,9 @@ cc      si_car = .false.
 cc      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)
       if (si_car) si_car = .not.(coords == 'car')
 
-cc      call allocPrecVariables
-
 c Unpack vector x
 
-      varray = x  !This allocates varray; overloaded assignment
+      varray = v_arr
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
@@ -73,20 +72,28 @@ c Extract arrays and BC's
 
       !Current boundary conditions
       bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
-      where (bcs(:,IJX:IJZ) == -NEU)
-        bcs(:,IJX:IJZ) = -DIR  !Use covariant components for tangential dirichlet
-      end where
+      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
 
 c Find coefficients for linearized systems
 
+      call setASM_PC_BC(igx,igy,igz,bcs,EXT)
+
+#if defined(petsc)
+      call findCoeffs
+#else
       if (jit == 1) call findCoeffs
 cc      call findCoeffs
+#endif
 
 c Find required diagonals in all grids
 
+      call setASM_PC_BC(igx,igy,igz,bcs,DIR)
+
       ncolors = 4
 
+#if !defined(petsc)
       if (jit == 1) then
+#endif
         form_diag = .true.
 
         call find_mf_diag_colored(1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
@@ -101,10 +108,14 @@ c Find required diagonals in all grids
         if (.not.gm_smooth) then
           call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                             ,v_diag,ncolors)
+          call find_mf_diag_colored(3,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+     .                             ,v_diag2,ncolors)
         endif
 
         form_diag = .false.
+#if !defined(petsc)
       endif
+#endif
 
 c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
 cc      do k=1,nzz
@@ -161,11 +172,5 @@ c###################################################################
       use precond_variables
 
 c     Deallocate variables
-
-      if (precon == 'id') return
-
-cc      nullify(rho,rvx,rvy,rvz,bx,by,bz,tmp)
-
-cc      call deallocPrecVariables
 
       end subroutine killPreconditioner
