@@ -68,34 +68,21 @@ c Local variables
 
 c Begin program
 
-c Define diagnostics
+c Define diagnostics and create draw*.in file
 
-#if defined(petsc) 
-      if (my_rank == 0) then
-#endif
-      call defineDiagnostics
-#if defined(petsc) 
+      if (isProc(0)) then
+        call defineDiagnostics
+        ndiag = count (sel_diag /= 0)
+
+        call createDrawInGfile(ndiag,lineplotfile,'Time histories'
+     .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
+     .           ,'drawgamma.in',.false.)
       endif
-#endif
 
 c Initialize diagnostic references
 
       initialize = .true.
       call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
-
-c Create draw*.in file
-
-      ndiag = count (sel_diag /= 0)
-
-#if defined(petsc) 
-      if (my_rank == 0) then
-#endif
-      call createDrawInGfile(ndiag,lineplotfile,'Time histories'
-     .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
-     .           ,'drawgamma.in',.false.)
-#if defined(petsc) 
-      endif
-#endif
 
 c End 
 
@@ -119,9 +106,7 @@ c Local variables
 
 c Begin program
 
-#if defined(petsc) 
-        if (my_rank > 0) return
-#endif
+        if (.not.isProc(0)) return
 
 c Finalize time traces output (separator)
 
@@ -229,7 +214,7 @@ c Local variables
       real(8)    :: array(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-      logical    :: cartsn
+      logical    :: cartsn,s_point
 
 c Begin program
 
@@ -325,50 +310,44 @@ c Initial assignments
         return
       endif
 
-c Magnetic divergence diagnostics
+c Velocity divergence diagnostics
+
+      s_point = bcSP(ibc=1)
 
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            jac = gmetric%grid(igx)%jac(i,j,k)
-            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)/jac
+            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
           enddo
         enddo
       enddo
 
       !Take care of singular point
-      if (bcond(1) == SP) then
-cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
-        array(1,:,:) = array(0,:,:)
-cc        array(1,:,:) = 0d0
-      endif
+      if (bcSP(ibc=1)) array(1,:,:) = array(0,:,:)
+
+      !Total flow divergence (conservation of flow)
+      Vflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+
+c Magnetic divergence diagnostics
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+          enddo
+        enddo
+      enddo
 
       !Total B divergence (conservation of flux)
       Bflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Local divergence (statement of numerical accuracy)
       array = abs(array)
-      diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
-
-c Velocity divergence diagnostics
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            jac = gmetric%grid(igx)%jac(i,j,k)
-            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)/jac
-          enddo
-        enddo
-      enddo
 
       !Take care of singular point
-cc      if (bcond(1) == SP) then
-cc        call FillGhostNodes(IRHO,1,0,SP,array,zeros)
-cc        array(1,:,:) = array(0,:,:)
-cc      endif
+cc      if (bcSP(ibc=1)) array(1,:,:) = array(0,:,:)
 
-      !Total flow divergence (conservation of flow)
-      Vflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
 c Growth rate diagnostics
 
@@ -437,9 +416,7 @@ c Local variables
  
 c Begin program
 
-#if defined(petsc) 
-      if (my_rank > 0) return
-#endif
+      if (.not.isProc(0)) return
 
       write(ulineplot) real(time),real(diagnostics)
 cc      write(*,*) real(time),real(diagnostics)
