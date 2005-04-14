@@ -46,11 +46,6 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-c Decide whether to use ZIP differencing in Faraday's law
-
-      zip_eom_b = .false.
-cc      zip_eom_b = .true.
-
 c Impose boundary conditions and find auxiliary quantities
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
