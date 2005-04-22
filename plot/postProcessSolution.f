@@ -131,23 +131,6 @@ c Mean-field (poloidally averaged) q-factor (use graphics limits)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
 
-cc        do k = kming,kmaxg
-cc          do i = imaxg,iming+1,-1
-cc            qfactor(i,jming-1,k) = 0d0
-cc            b00(i)     = 0d0
-cc            j_cov00(i) = 0d0
-cc            ll = 0d0
-cc            do j = jming,jmaxg
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc              qfactor(i,j,k) = qfactor(i,j-1,k) +
-cc     .              mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
-cc              ll = ll + dyh(jg)
-cc            enddo
-cc            qfactor(i,:,k) = qfactor(i,jmaxg,k)/ll
-cc          enddo
-cc          qfactor(iming,:,k) = qfactor(iming+1,:,k)
-cc        enddo
-
         !Find mean fields
         do k = kming,kmaxg
           do i = iming,imaxg
@@ -188,19 +171,19 @@ cc        enddo
         deallocate(b00,j00_cov)
 
 c diag: dump text data
-        if (time == 0d0) then
-          open(unit=1000,file='q-lambda.txt',status='unknown')
-        else
-          open(unit=1000,file='q-lambda.txt',status='unknown'
-     .      ,access='append')
-        endif
-        write (1000,*) 'Time = ',time
-        write (1000,*) '      Q-value             Lambda'
-        do i=iming,imaxg
-          write (1000,*) qfactor(i,1,1),lambda(i,1,1)
-        enddo
-        write (1000,*)
-        close(1000)
+cc        if (time == 0d0) then
+cc          open(unit=1000,file='q-lambda.txt',status='unknown')
+cc        else
+cc          open(unit=1000,file='q-lambda.txt',status='unknown'
+cc     .      ,access='append')
+cc        endif
+cc        write (1000,*) 'Time = ',time
+cc        write (1000,*) '      Q-value             Lambda'
+cc        do i=iming,imaxg
+cc          write (1000,*) qfactor(i,1,1),lambda(i,1,1)
+cc        enddo
+cc        write (1000,*)
+cc        close(1000)
 c diag: dump text data
 
       endif
@@ -222,15 +205,6 @@ cc            jac = gmetric%grid(igx)%jac(i,j,k)
       call setBC(IRHO,nx,ny,nz,divrgJ,zeros,bcond,igx,igy,igz)
       call setBC(IRHO,nx,ny,nz,divrgB,zeros,bcond,igx,igy,igz)
       call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
-
-      !Average divergence around singular point (we consider whole control volume)
-      if (bcSP()) then
-        do k = 1,nz
-          divrgJ(1,:,k) = divrgJ(0,:,k)
-          divrgB(1,:,k) = divrgB(0,:,k)
-          divrgV(1,:,k) = divrgV(0,:,k)
-        enddo
-      endif
 
 c Total pressure (use graphics limits)
 
