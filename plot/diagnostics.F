@@ -214,7 +214,7 @@ c Local variables
       real(8)    :: array(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-      logical    :: cartsn,s_point
+      logical    :: cartsn
 
 c Begin program
 
@@ -312,8 +312,6 @@ c Initial assignments
 
 c Velocity divergence diagnostics
 
-      s_point = bcSP(ibc=1)
-
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
@@ -321,9 +319,6 @@ c Velocity divergence diagnostics
           enddo
         enddo
       enddo
-
-      !Take care of singular point
-      if (bcSP(ibc=1)) array(1,:,:) = array(0,:,:)
 
       !Total flow divergence (conservation of flow)
       Vflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
@@ -343,9 +338,6 @@ c Magnetic divergence diagnostics
 
       !Local divergence (statement of numerical accuracy)
       array = abs(array)
-
-      !Take care of singular point
-cc      if (bcSP(ibc=1)) array(1,:,:) = array(0,:,:)
 
       diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
