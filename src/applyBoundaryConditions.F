@@ -298,8 +298,6 @@ c Local variables
 
 c Begin program
 
-      if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
-
 c End
 
       end subroutine imposeBConfluxes
