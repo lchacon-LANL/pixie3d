@@ -82,8 +82,6 @@ c     Grid parameters
 
       dvol = dxx*dyy*dzz
 
-      sing_point = isSP(i,j,k,igx,igy,igz)
-
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
       jac    = gmetric%grid(igx)%jac (i,j,k)
@@ -99,90 +97,93 @@ c     Grid parameters
 
 c     Rho
 
-      !X flux
-csp      if (bcond(1) == SP) then
-      if (bcSP()) then
-        if (i+grid_params%ilo(igx)-1 == 1) then      !Upwind around singular point
-          jach = 0.5*(jac+jacip)
-          flxip = 0.25*jach
-     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
-     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
-     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
-     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
-          flxim = 0d0
-        elseif (i+grid_params%ilo(igx)-1 < 5) then  !Upwind around singular point
-          jach = 0.5*(jac+jacip)
-          flxip = 0.25*jach
-     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
-     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
-     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
-     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
+cc      !X flux
+cccsp      if (bcond(1) == SP) then
+cc      if (bcSP()) then
+cccc        if (i+grid_params%ilo(igx)-1 == 1) then      !Upwind around singular point
+cccc          jach = 0.5*(jac+jacip)
+cccc          flxip = 0.25*jach
+cccc     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
+cccc     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
+cccc     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
+cccc     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
+cccc          flxim = 0d0
+cccc        elseif (i+grid_params%ilo(igx)-1 < 5) then  !Upwind around singular point
+cc        if (i+grid_params%ilo(igx)-1 < sp_upwind) then  !Upwind around singular point
+cc          jach = 0.5*(jac+jacip)
+cc          flxip = 0.25*jach
+cc     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
+cc     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
+cc     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
+cc     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
+cc
+cc          jach = 0.5*(jac+jacim)
+cc          flxim = 0.25*jach
+cc     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
+cc     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
+cc     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
+cc     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
+cc        elseif (i+grid_params%ilo(igx)-1 == sp_upwind) then  !Upwind around singular point
+cc          jach = 0.5*(jac+jacip)
+cc          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
+cc     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
+cc
+cc          jach = 0.5*(jac+jacim)
+cc          flxim = 0.25*jach
+cc     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
+cc     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
+cc     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
+cc     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
+cc        elseif (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
+cccc        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
+cc          jach = 0.5*(jac+jacip)
+cc          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
+cc     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
+cc          jach = 0.5*(jac+jacim)
+cc          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
+cc     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
+cc        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
+cc          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
+cc
+cc          jach = 0.5*(jac+jacim)
+cc          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
+cc     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
+cc        else
+cc          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
+cc          flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
+cc        endif
+cc      else
+cc        flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
+cc        flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
+cc      endif
+cc
+cc      !Y flux
+cc      if (bcSP() .and. (i+grid_params%ilo(igx)-1 < sp_upwind) ) then !Upwind around singular point
+cc        flxjp = 0.25*( (    (vy(i,j,k)+vy(i,jp,k))
+cc     .                  +abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,j ,k)
+cc     .                +(    (vy(i,j,k)+vy(i,jp,k))
+cc     .                  -abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,jp,k) )
+cc        flxjm = 0.25*( (    (vy(i,j,k)+vy(i,jm,k))
+cc     .                  +abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,jm,k)
+cc     .                +(    (vy(i,j,k)+vy(i,jm,k))
+cc     .                  -abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,j ,k) )
+cc      else
+cc        flxjp = 0.5*(vy(i,jp,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jp,k))
+cc        flxjm = 0.5*(vy(i,jm,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jm,k))
+cc      endif
+cc
+cc      !Z flux
+cc      flxkp = 0.5*(vz(i,j,kp)*rho(i,j,k) + vz(i,j,k)*rho(i,j,kp))
+cc      flxkm = 0.5*(vz(i,j,km)*rho(i,j,k) + vz(i,j,k)*rho(i,j,km))
+cc
+cc      if (sing_point) flxim = 0d0
+cc
+cc      advec = dS1*(flxip - flxim)
+cc     .      + dS2*(flxjp - flxjm)
+cc     .      + dS3*(flxkp - flxkm)
 
-          jach = 0.5*(jac+jacim)
-          flxim = 0.25*jach
-     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
-     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
-        elseif (i+grid_params%ilo(igx)-1 == 5) then  !Upwind around singular point
-          jach = 0.5*(jac+jacip)
-          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
-     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
-
-          jach = 0.5*(jac+jacim)
-          flxim = 0.25*jach
-     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
-     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
-        elseif (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
-cc        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
-          jach = 0.5*(jac+jacip)
-          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
-     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
-          jach = 0.5*(jac+jacim)
-          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
-     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
-        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
-          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-
-          jach = 0.5*(jac+jacim)
-          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
-     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
-        else
-          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-          flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
-        endif
-      else
-        flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-        flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
-      endif
-
-      !Y flux
-      if (bcSP() .and. (i+grid_params%ilo(igx)-1 < 5) ) then !Upwind around singular point
-cc      if (sing_point) then  !Upwind around singular point
-        flxjp = 0.25*( (    (vy(i,j,k)+vy(i,jp,k))
-     .                  +abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,j ,k)
-     .                +(    (vy(i,j,k)+vy(i,jp,k))
-     .                  -abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,jp,k) )
-        flxjm = 0.25*( (    (vy(i,j,k)+vy(i,jm,k))
-     .                  +abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,jm,k)
-     .                +(    (vy(i,j,k)+vy(i,jm,k))
-     .                  -abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,j ,k) )
-      else
-        flxjp = 0.5*(vy(i,jp,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jp,k))
-        flxjm = 0.5*(vy(i,jm,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jm,k))
-      endif
-
-      !Z flux
-      flxkp = 0.5*(vz(i,j,kp)*rho(i,j,k) + vz(i,j,k)*rho(i,j,kp))
-      flxkm = 0.5*(vz(i,j,km)*rho(i,j,k) + vz(i,j,k)*rho(i,j,km))
-
-      if (sing_point) flxim = 0d0
-
-      advec = dS1*(flxip - flxim)
-     .      + dS2*(flxjp - flxjm)
-     .      + dS3*(flxkp - flxkm)
+cc      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho,sp_upwind=5)
+      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho)
 
       if (dd /= 0d0) then
         diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
@@ -200,9 +201,9 @@ c     Faraday's law
       if (solenoidal) then
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
      .                         ,btensor_x,btensor_y,btensor_z)
-cc     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
-     .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                       ,bcnv,.false.)
+     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
+cc     .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                       ,bcnv,.false.)
       else
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
      .                         ,btensor_x,btensor_y,btensor_z)
@@ -212,12 +213,7 @@ cc     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
         !Marder divergence cleaning
 
 cc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
-cc        if (.not.sing_point) then
-cc          flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
-cc        else
-cccc          flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-cc          flxim = 0d0
-cc        endif
+cc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
 cc
 cc        flxjp = div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
 cc        flxjm = div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
@@ -227,13 +223,8 @@ cc        flxkm = div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3)
 
         flxip = 0.5*(div(ip,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
      .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-        if (.not.sing_point) then
-          flxim = 0.5*(div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-     .                +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-        else
-cc          flxim = 0.5*div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-          flxim = 0d0
-        endif
+        flxim = 0.5*(div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
 
         flxjp = 0.5*(div(i,jp,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
      .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
@@ -265,7 +256,7 @@ cc          flxim = 0.5*div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
 
 c     Temperature
 
-csp      if (bcond(1) == SP) then
+      !Advective part
       if (bcSP()) then
         if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
           jach = 0.5*(jac+jacip)
@@ -305,6 +296,16 @@ csp      if (bcond(1) == SP) then
       flxkm = (vz(i,j,km)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,km))/2.
      .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,km)+vz(i,j,k))/2.
 
+      advec = dS1*(flxip-flxim)
+     .       +dS2*(flxjp-flxjm)
+     .       +dS3*(flxkp-flxkm)
+
+cc      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
+
+cc      advec = advec
+cc     .       +(gamma-2.)/ivol*tmp(i,j,k)
+cc     .                  *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+
       !Heat flux
       if (chi /= 0d0) then
         heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
@@ -324,13 +325,11 @@ csp      if (bcond(1) == SP) then
 
       cov_tnsr = matmul(nabla_v,gsub   )
       cnv_tnsr = matmul(gsuper ,nabla_v)
-cc      cnv_tnsr = transpose(matmul(gsuper,nabla_v))
 
       viscous = dvol*rho(i,j,k)*nuu(i,j,k)/jac*sum(cov_tnsr*cnv_tnsr)
 
       heat_src = joule + viscous
-
-cc      heat_src = 0d0
+      heat_src = 0d0
 
       if (heat_src < 0d0) then
         write (*,*) 'Heat source is negative'
@@ -338,11 +337,7 @@ cc      heat_src = 0d0
         stop
       endif
 
-      if (sing_point) flxim = 0d0
-
-      ff(ITMP) = dS1*(flxip-flxim)
-     .          +dS2*(flxjp-flxjm)
-     .          +dS3*(flxkp-flxkm)
+      ff(ITMP) = advec
      .          +0.5*(gamma-1.)*(heat_flx - heat_src)/rho(i,j,k)
 
 c     EOM
@@ -381,7 +376,7 @@ c     Divide by cell volume factor
 
 c End
 
-      end subroutine
+      end subroutine nonlinearRHS
 
 c defineTSParameters
 c####################################################################
