@@ -54,8 +54,9 @@ c Namelist
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_pass
-     .                ,gp1,gp2,gp3
+     .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom,solenoidal
+     .                ,inputfile,recordfile
 
 c ******************************************************************
 
@@ -161,23 +162,24 @@ c Set defaults
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
-      !Grid packing
+      !Grid stuff
       gp1%pack = .false.       ! Do not pack in X-direction
       gp2%pack = .false.       ! Do not pack in Y-direction
       gp3%pack = .false.       ! Do not pack in Z-direction
+      check_grid = .false.     ! Whether to dump grid info or not
 
       !I/O parameters
       restart  = .false.       ! Restarting flag
       ilevel   = 0             ! Level of solver output information
       debug    = .false.       ! Debugging flag
+      inputfile  ='pixie3d.in' ! Default input file
+      recordfile ='record.bin' ! Default output file
 
 c Read initialization parameters
 
-      inputfile='pixie3d.in'
-
-      open(unit=25,file=inputfile,status='old')
-      read(25,datin)
-      close(unit=25)
+      open(unit=uinput,file=inputfile,status='old')
+      read(uinput,datin)
+      close(unit=uinput)
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
@@ -222,8 +224,6 @@ c Translate boundary conditions
         bcond = PER
       elsewhere (bcs == 'spt')
         bcond = SP
-      elsewhere (bcs == 'sp2')
-        bcond = SP2
       elsewhere (bcs == 'sym')
         bcond = SYM
       elsewhere (bcs == 'equ')
