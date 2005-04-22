@@ -26,7 +26,6 @@ HDF5_HOME =/usr/local
 
 # Petsc include
 
-HDF5 = true
 ifdef BOPT
   PETSCTARGET = petsc
 endif
@@ -54,6 +53,8 @@ ifeq ($(FC),f90)
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
   endif
+
+  HDF5 = true
 endif
 
 # Flags for Lahey lf95
