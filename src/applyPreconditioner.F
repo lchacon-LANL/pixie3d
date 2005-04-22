@@ -99,7 +99,8 @@ cc      elseif (precon == 's1') then
 
 c     Scatter residuals
 
-        yyy = y     !Overloaded operation
+        call scatter(yyy,y)
+cc        yyy = y     !Overloaded operation
 
         guess = 0
 
@@ -315,7 +316,8 @@ cc     .                    *(xxx(ii,IVZ)+vz(i,j,k)) -rho(i,j,k)*vz(i,j,k)
 
 c     Gather solution in "x"
 
-        x = xxx         !Overloaded operation
+cc        x = xxx         !Overloaded operation
+        call gather(x,xxx)
 
 c     Diagnostics
 
@@ -948,11 +950,6 @@ c Find rhs_v'
             idy = 0.5/dyh(jg)
             idz = 0.5/dzh(kg)
 
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) then
-cc              idx = 1d0/dx(ig)
-cc              im  = i
-cc            endif
-cc
 cc            cov(1) = jy(i,j,k)*db_cnv(i,j,k,3)/jac
 cc     .             - jz(i,j,k)*db_cnv(i,j,k,2)/jac
 cc     .             - by(i,j,k)*dj_cnv(i,j,k,3)/jac
@@ -971,12 +968,7 @@ cc     .             - bx(i,j,k)*dj_cnv(i,j,k,2)/jac
 cc     .             + by(i,j,k)*dj_cnv(i,j,k,1)/jac
 cc     .             -(dpres(i,j,k+1)-dpres(i,j,k-1))*idz
 
-            if (isSP(i,j,k,igrid,igrid,igrid)) then
-              cov(1) = -(dpres(ip ,j,k)+dpres(i,j,k)
-     .                  -2*dpres(im ,j,k))*idx
-            else
-              cov(1) = -(dpres(ip ,j,k)-dpres(im ,j,k))*idx
-            endif
+            cov(1) = -(dpres(ip ,j,k)-dpres(im ,j,k))*idx
 
             cov(2) = -(dpres(i,j+1,k)-dpres(i,j-1,k))*idy
 
@@ -1077,11 +1069,6 @@ cc     .                    ,rhodv_cnv(:,:,:,3))
             dh(1) = 2*dxh(ig)
             dh(2) = 2*dyh(jg)
             dh(3) = 2*dzh(kg)
-
-            if (isSP(i,j,k,igrid,igrid,igrid)) then
-              dh(1) = dx(ig)
-              im = i
-            endif
 
             crhs(ii) = rho(i,j,k)
      .                *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
