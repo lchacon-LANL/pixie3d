@@ -31,6 +31,8 @@ c--------------------------------------------------------------------
 
       use error
 
+      use oned_int
+
       implicit none
 
 c Call variables
@@ -52,7 +54,7 @@ c Local variables
 
       real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff
      .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,r1,bb,aa,nn
-     .                ,rint(0:nxd+1),dh
+     .                ,rint(0:nxd+1),dh,offset(1),r0(1)
      .                
 
       real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
@@ -392,10 +394,11 @@ c     Tearing mode in sinusoidal coordinates
 
              var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
-              !X-Z equilibrium
-cc              var(i,j,k,IBX)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-cc              var(i,j,k,IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-cc              var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+c diag ****
+cc             var(i,j,k,IBX)  = 0d0
+cc             var(i,j,k,IBY)  = 0d0
+cc             var(i,j,k,IBZ)  = 0d0
+c diag ****
 
              var(i,j,k,IVX)  = 0d0
              var(i,j,k,IVY)  = 0d0
@@ -539,17 +542,28 @@ c     Check coordinates
 c     RFP equilibria (Caramana et al, PoP, 1983)
 
         !Integral in r
-        rint(nxd+1) = 0d0
+        rint(nxd+1) = 0d0  !First guess to rint(r=1d0) = 0d0
         do i=nxd,1,-1
-          x1 = grid_params%xg(i)  !Position in global grid
+          x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
           dh = grid_params%xg(i+1)-grid_params%xg(i)
           rint(i) = rint(i+1) + dh*qq(x1)*qqp(x1)/ff(x1)
         enddo
-        rint(0) = rint(1)
+        rint(0) = rint(1)  !Neumann BC for integral at r=0d0
+
+        !Correction to ensure rint(r=1d0) = 0d0
+        r0 = 1d0
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+     .                  ,rint,1,r0,offset,2)
+
+        rint = rint - offset(1)
 
         !Determine Iz so that Bz(r=0)=1
-c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
-        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
+        r0 = 0d0
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+     .                  ,rint,1,r0,offset,2)
+
+cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
+        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-offset(1))
         Iz = 1./btheta/qq(0d0)
 
         !Build equilibrium
@@ -560,10 +574,9 @@ c1        btheta = 1./2./pi*sqrt(ff(1d0)/ff(0d0))*exp(rint(0))
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
-c1              btheta = Iz/2./pi*x1*sqrt(ff(1d0)/ff(x1))*exp(rint(i))
               iglobal = i + grid_params%ilo(igx) - 1
-              btheta = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
-              bzz    = qq(x1)*btheta/x1
+              btheta  = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
+              bzz     = qq(x1)*btheta/x1
 
               !X-Y equilibrium
               var(i,j,k,IBX)  = 0d0
