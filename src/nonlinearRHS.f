@@ -97,91 +97,6 @@ c     Grid parameters
 
 c     Rho
 
-cc      !X flux
-cccsp      if (bcond(1) == SP) then
-cc      if (bcSP()) then
-cccc        if (i+grid_params%ilo(igx)-1 == 1) then      !Upwind around singular point
-cccc          jach = 0.5*(jac+jacip)
-cccc          flxip = 0.25*jach
-cccc     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
-cccc     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
-cccc     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
-cccc     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
-cccc          flxim = 0d0
-cccc        elseif (i+grid_params%ilo(igx)-1 < 5) then  !Upwind around singular point
-cc        if (i+grid_params%ilo(igx)-1 < sp_upwind) then  !Upwind around singular point
-cc          jach = 0.5*(jac+jacip)
-cc          flxip = 0.25*jach
-cc     .        *( (    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)
-cc     .            +abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(i ,j,k)
-cc     .          +(    (vx(i,j,k)/jac+vx(ip,j,k)/jacip)          
-cc     .            -abs(vx(i,j,k)/jac+vx(ip,j,k)/jacip) ) *rho(ip,j,k) )
-cc
-cc          jach = 0.5*(jac+jacim)
-cc          flxim = 0.25*jach
-cc     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-cc     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
-cc     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-cc     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
-cc        elseif (i+grid_params%ilo(igx)-1 == sp_upwind) then  !Upwind around singular point
-cc          jach = 0.5*(jac+jacip)
-cc          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
-cc     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
-cc
-cc          jach = 0.5*(jac+jacim)
-cc          flxim = 0.25*jach
-cc     .         *( (    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-cc     .             +abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(im,j,k)
-cc     .           +(    (vx(i,j,k)/jac+vx(im,j,k)/jacim)          
-cc     .             -abs(vx(i,j,k)/jac+vx(im,j,k)/jacim) ) *rho(i ,j,k) )
-cc        elseif (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
-cccc        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
-cc          jach = 0.5*(jac+jacip)
-cc          flxip = 0.5*(vx(ip,j,k)*rho(i ,j,k)/jacip
-cc     .               + vx(i ,j,k)*rho(ip,j,k)/jac  )*jach
-cc          jach = 0.5*(jac+jacim)
-cc          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
-cc     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
-cc        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
-cc          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-cc
-cc          jach = 0.5*(jac+jacim)
-cc          flxim = 0.5*(vx(im,j,k)*rho(i ,j,k)/jacim
-cc     .               + vx(i ,j,k)*rho(im,j,k)/jac  )*jach
-cc        else
-cc          flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-cc          flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
-cc        endif
-cc      else
-cc        flxip = 0.5*(vx(ip,j,k)*rho(i,j,k) + vx(i,j,k)*rho(ip,j,k))
-cc        flxim = 0.5*(vx(im,j,k)*rho(i,j,k) + vx(i,j,k)*rho(im,j,k))
-cc      endif
-cc
-cc      !Y flux
-cc      if (bcSP() .and. (i+grid_params%ilo(igx)-1 < sp_upwind) ) then !Upwind around singular point
-cc        flxjp = 0.25*( (    (vy(i,j,k)+vy(i,jp,k))
-cc     .                  +abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,j ,k)
-cc     .                +(    (vy(i,j,k)+vy(i,jp,k))
-cc     .                  -abs(vy(i,j,k)+vy(i,jp,k)) ) *rho(i,jp,k) )
-cc        flxjm = 0.25*( (    (vy(i,j,k)+vy(i,jm,k))
-cc     .                  +abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,jm,k)
-cc     .                +(    (vy(i,j,k)+vy(i,jm,k))
-cc     .                  -abs(vy(i,j,k)+vy(i,jm,k)) ) *rho(i,j ,k) )
-cc      else
-cc        flxjp = 0.5*(vy(i,jp,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jp,k))
-cc        flxjm = 0.5*(vy(i,jm,k)*rho(i,j,k) + vy(i,j,k)*rho(i,jm,k))
-cc      endif
-cc
-cc      !Z flux
-cc      flxkp = 0.5*(vz(i,j,kp)*rho(i,j,k) + vz(i,j,k)*rho(i,j,kp))
-cc      flxkm = 0.5*(vz(i,j,km)*rho(i,j,k) + vz(i,j,k)*rho(i,j,km))
-cc
-cc      if (sing_point) flxim = 0d0
-cc
-cc      advec = dS1*(flxip - flxim)
-cc     .      + dS2*(flxjp - flxjm)
-cc     .      + dS3*(flxkp - flxkm)
-
 cc      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho,sp_upwind=5)
       advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho)
 
@@ -210,46 +125,46 @@ cc     .                                       ,bcnv,.false.)
      .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
      .                                       ,bcnv,.false.)
 
-        !Marder divergence cleaning
-
-cc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
-cc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
+cc        !Marder divergence cleaning
 cc
-cc        flxjp = div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
-cc        flxjm = div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
+cccc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
+cccc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
+cccc
+cccc        flxjp = div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
+cccc        flxjm = div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
+cccc
+cccc        flxkp = div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
+cccc        flxkm = div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
 cc
-cc        flxkp = div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
-cc        flxkm = div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
-
-        flxip = 0.5*(div(ip,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-        flxim = 0.5*(div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-
-        flxjp = 0.5*(div(i,jp,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-        flxjm = 0.5*(div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-
-        flxkp = 0.5*(div(i,j,kp,nx,ny,nz,igx,igy,igz,bx,by,bz) 
-     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
-        flxkm = 0.5*(div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz) 
-     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
-
-        !Take homogeneous dirichlet BCs at boundaries
-        if (i == nx) flxip = 0d0
-        if (i == 1 ) flxim = 0d0
-        if (j == ny) flxjp = 0d0
-        if (j == 1 ) flxjm = 0d0
-        if (k == nz) flxkp = 0d0
-        if (k == 1 ) flxkm = 0d0
-
-        kappa = 10*eeta(i,j,k)
-
-        ff(IBX:IBZ) = ff(IBX:IBZ)
-     .              - kappa*gsuper(:,1)*jac*dS1*(flxip-flxim)
-     .              - kappa*gsuper(:,2)*jac*dS2*(flxjp-flxjm)
-     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
+cc        flxip = 0.5*(div(ip,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+cc     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc        flxim = 0.5*(div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+cc     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc
+cc        flxjp = 0.5*(div(i,jp,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+cc     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc        flxjm = 0.5*(div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+cc     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc
+cc        flxkp = 0.5*(div(i,j,kp,nx,ny,nz,igx,igy,igz,bx,by,bz) 
+cc     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc        flxkm = 0.5*(div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz) 
+cc     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
+cc
+cc        !Take homogeneous dirichlet BCs at boundaries
+cc        if (i == nx) flxip = 0d0
+cc        if (i == 1 ) flxim = 0d0
+cc        if (j == ny) flxjp = 0d0
+cc        if (j == 1 ) flxjm = 0d0
+cc        if (k == nz) flxkp = 0d0
+cc        if (k == 1 ) flxkm = 0d0
+cc
+cc        kappa = 10*eeta(i,j,k)
+cc
+cc        ff(IBX:IBZ) = ff(IBX:IBZ)
+cc     .              - kappa*gsuper(:,1)*jac*dS1*(flxip-flxim)
+cc     .              - kappa*gsuper(:,2)*jac*dS2*(flxjp-flxjm)
+cc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
       endif
 
       nullify(vec1,vec2)
@@ -342,22 +257,30 @@ cc     .                  *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
 
 c     EOM
 
-      ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                        ,vtensor_x,vtensor_y,vtensor_z)
+      if (.not.(nc_eom_v.or.nc_eom_b)) then
+        ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                          ,vtensor_x,vtensor_y,vtensor_z)
+      else 
+        ff(IVX:IVZ) = 0d0
+      endif
 
-c diag **** Non-conservative advection
-cc      nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
-cc
-cc      do ieq=1,3
-cc        cnv(ieq) =( vx(i,j,k)*nabla_v(1,ieq)
-cc     .             +vy(i,j,k)*nabla_v(2,ieq)
-cc     .             +vz(i,j,k)*nabla_v(3,ieq))/jac
-cc      enddo
-cc
-cc      ff(IVX:IVZ) = ff(IVX:IVZ) + rho(i,j,k)*cnv/ivol
-c diag ****
+      if (nc_eom_v) then
+        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
 
-      if (nc_eom) then
+        do ieq=1,3
+          cnv(ieq) =( vx(i,j,k)*nabla_v(1,ieq)
+     .               +vy(i,j,k)*nabla_v(2,ieq)
+     .               +vz(i,j,k)*nabla_v(3,ieq))/jac
+        enddo
+
+        cnv = cnv - nuu(i,j,k)
+     .          *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+     .                       ,alt_eom,vol=.false.)
+
+        ff(IVX:IVZ) = ff(IVX:IVZ) + rho(i,j,k)*cnv/ivol
+      endif
+
+      if (nc_eom_b) then
         cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
      .         - jz_cov(i,j,k)*by_cov(i,j,k)
 
