@@ -105,6 +105,8 @@ c--------------------------------------------------------------------
 
       use debug
 
+      use auxiliaryVariables
+
       implicit none
 
 c Call variables
@@ -151,14 +153,20 @@ c     BC setup
       bcnd(:,2) = varray%array_var(IVY)%bconds
       bcnd(:,3) = varray%array_var(IVZ)%bconds
 
-      where (varray%array_var(IRHO)%array /= 0d0)
-        v_cnv(:,:,:,1) = varray%array_var(IVX )%array
-     .                  /varray%array_var(IRHO)%array
-        v_cnv(:,:,:,2) = varray%array_var(IVY )%array
-     .                  /varray%array_var(IRHO)%array
-        v_cnv(:,:,:,3) = varray%array_var(IVZ )%array
-     .                  /varray%array_var(IRHO)%array
-      end where
+      if (.not.nc_eom_v) then
+        where (varray%array_var(IRHO)%array /= 0d0)
+          v_cnv(:,:,:,1) = varray%array_var(IVX )%array
+     .                    /varray%array_var(IRHO)%array
+          v_cnv(:,:,:,2) = varray%array_var(IVY )%array
+     .                    /varray%array_var(IRHO)%array
+          v_cnv(:,:,:,3) = varray%array_var(IVZ )%array
+     .                    /varray%array_var(IRHO)%array
+        end where
+      else
+        v_cnv(:,:,:,1) = varray%array_var(IVX)%array
+        v_cnv(:,:,:,2) = varray%array_var(IVY)%array
+        v_cnv(:,:,:,3) = varray%array_var(IVZ)%array
+      endif
 
       v0 = v_cnv
 
@@ -177,12 +185,18 @@ c     Postprocessing
       vy     = v_cnv(:,:,:,2)
       vz     = v_cnv(:,:,:,3)
 
-      varray%array_var(IVX)%array = v_cnv(:,:,:,1)
-     .                             *varray%array_var(IRHO)%array
-      varray%array_var(IVY)%array = v_cnv(:,:,:,2)
-     .                             *varray%array_var(IRHO)%array
-      varray%array_var(IVZ)%array = v_cnv(:,:,:,3)
-     .                             *varray%array_var(IRHO)%array
+      if (.not.nc_eom_v) then
+        varray%array_var(IVX)%array = v_cnv(:,:,:,1)
+     .                               *varray%array_var(IRHO)%array
+        varray%array_var(IVY)%array = v_cnv(:,:,:,2)
+     .                               *varray%array_var(IRHO)%array
+        varray%array_var(IVZ)%array = v_cnv(:,:,:,3)
+     .                               *varray%array_var(IRHO)%array
+      else
+        varray%array_var(IVX)%array = v_cnv(:,:,:,1)
+        varray%array_var(IVY)%array = v_cnv(:,:,:,2)
+        varray%array_var(IVZ)%array = v_cnv(:,:,:,3)
+      endif
 
 c Magnetic field BC
 
