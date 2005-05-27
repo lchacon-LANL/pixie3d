@@ -36,7 +36,7 @@ FC = f90
 
 # Flags for Absoft f90
 ifeq ($(FC),f90)
-  OPTIMIZATION = -O2 -cpu:host
+  OPTIMIZATION = -O3 -cpu:host
 #  DEBUG        = -g -et -Rb -Rp -Rc
   DEBUG        = -g -en -et -trap=DIVBYZERO,INVALID
   PROFILE      = -P
@@ -60,8 +60,8 @@ endif
 # Flags for Lahey lf95
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
-  DEBUG        = -g --chkglobal --warn --f95
-#  DEBUG        = -g --chk asex --warn --f95
+#  DEBUG        = -g --chkglobal --warn --f95
+  DEBUG        = -g --chk aseu --warn --f95
 #  DEBUG        = -g --f95
   PROFILE      =
   STATIC       = 
