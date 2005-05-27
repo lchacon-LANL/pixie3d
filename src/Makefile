@@ -40,7 +40,7 @@ EXCLUDE = %test.f
 DRIVERDIR = driver
 ifdef BOPT
   include ${PETSC_DIR}/bmake/common/base
-  DRIVERDIR = driver-petsc
+#  DRIVERDIR = driver-petsc
   SRC2      = $(SRC)
   EXCLUDE  += %explicit.f %newtonGMRES.f
   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
