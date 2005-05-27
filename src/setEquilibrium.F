@@ -52,10 +52,12 @@ c Local variables
 
       logical       :: covariant,to_cartsn,cartsn
 
-      real(8)       :: bz0,r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff
-     .                ,aspect_ratio,mm,kk,Iz,btheta,bzz,r1,bb,aa,nn
-     .                ,rint(0:nxd+1),dh,offset(1),r0(1)
-     .                
+      real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
+     .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
+     .                ,r0(1),aa,dummy,dummy1,dummy2,dummy3,dummy4,dummy5
+
+      real(8)       :: rint(0:nxd+1),dh,offset(1),bth0(0:nxd+1)
+     .                ,bzz0(0:nxd+1),vr0(0:nxd+1),rho0(0:nxd+1)
 
       real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
      .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
@@ -202,46 +204,6 @@ c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
         var(:,:,:,IBZ)  = 1d0
         var(:,:,:,ITMP) = 1d0
 
-      case ('tmcar')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
-
-c     Check coordinates
-
-        if (coords /= 'car') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Tearing mode in cartesian coordinates
-
-        bz0 = 1d0
-
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-             !X-Y equilibrium
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
-
-cc             var(i,j,k,IBX)=0d0
-cc             var(i,j,k,IBY)=0d0
-cc             var(i,j,k,IBZ)=0d0
-            enddo
-          enddo
-        enddo
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d0
-
       case ('3dkh')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
@@ -281,6 +243,47 @@ c     Tearing mode in cartesian coordinates
         enddo
 
         var(:,:,:,ITMP) = 0.25
+
+      case ('tmcar')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        bz0 = 1d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             !X-Y equilibrium
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
+
+cc             var(i,j,k,IBX)=0d0
+cc             var(i,j,k,IBY)=0d0
+cc             var(i,j,k,IBZ)=0d0
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+cc        var(:,:,:,ITMP) = 0d0
 
       case ('tmcxz')
 
@@ -449,11 +452,11 @@ cc        kk           = -mm/RR
      .                                      ,x1,y1,z1)
 
               btheta = bb*x1/(1+(x1/dlambda)**2)
-              bzz    = RR
+              bz0    = RR
 
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -504,11 +507,11 @@ c     Tokamak equilibria (analytical)
      .                                      ,x1,y1,z1)
 
               btheta = bb*x1/(1+(x1/dlambda)**2)
-              bzz    = RR
+              bz0    = RR
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBZ)  = x1*bz0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -519,6 +522,76 @@ c     Tokamak equilibria (analytical)
               var(i,j,k,ITMP) = 1d-5
      .                        + 1/16./var(i,j,k,IRHO)
      .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
+
+            enddo
+          enddo
+        enddo
+
+      case ('ppnch')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+
+        nh2 = mm !To set the right perturbation wavelength
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Equilibria (numerical)
+
+        write (*,*) 'Reading numerical equilibrium ',equil,'...'
+
+        !Read file
+        open (unit=1000,file='par_pinch_eq.txt',status='old')
+
+        read(1000,'(a)')
+        do i=0,nxd+1
+          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),dummy2,dummy3
+     .                ,vr0(i),dummy4,dummy5,rho0(i)
+cc          write (*,*)
+cc          write (*,*) dummy1,bth0(i),bzz0(i),dummy2,dummy3,vr0(i)
+cc     .                ,dummy4,dummy5,rho0(i)
+        enddo
+
+        close(1000)
+
+        write (*,*) 'Done!'
+
+        !Build equilibrium
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              iglobal = i + grid_params%ilo(igx) - 1
+              btheta  = bth0(iglobal)
+              bz0     = bzz0(iglobal)
+              vr      = vr0 (iglobal)
+              rrho    = rho0(iglobal)
+
+              !X-Y equilibrium
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ) = x1*bz0
+
+              if (nc_eom_v) then
+                var(i,j,k,IVX) = x1*vr
+              else
+                var(i,j,k,IVX) = x1*vr*rrho
+              endif
+              var(i,j,k,IVY)  = 0d0
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,IRHO) = rrho
+
+              var(i,j,k,ITMP) = 1d-5
 
             enddo
           enddo
@@ -576,12 +649,12 @@ cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
 
               iglobal = i + grid_params%ilo(igx) - 1
               btheta  = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
-              bzz     = qq(x1)*btheta/x1
+              bz0     = qq(x1)*btheta/x1
 
               !X-Y equilibrium
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -624,11 +697,11 @@ c     RFP equilibria (analytical)
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bzz    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
 
 c diag ****
 cc              var(i,j,k,IBX)  = 0d0
@@ -687,11 +760,11 @@ c     RFP equilibria (analytical)
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bzz    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBZ)  = x1*bz0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -732,12 +805,12 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
      .                                      ,x1,y1,z1)
 
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bzz    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               !X-Y equilibrium
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bzz
-              var(i,j,k,IBZ)  = x1*bzz
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
