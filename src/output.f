@@ -96,7 +96,8 @@ c     -----------------------------------------------------------------
 
       write (*,*) '********** WARNING ************'
 
-      if (nc_eom) write (*,*) 'Using non-conservative EOM'
+      if (nc_eom_b)write (*,*)'Using non-conservative EM part of EOM'
+      if (nc_eom_v)write (*,*)'Using non-conservative hydro part of EOM'
       if (.not.solenoidal) write (*,*) 'Using divergence cleaning'
       
       write (*,*) '********** WARNING ************'
