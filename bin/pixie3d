@@ -206,7 +206,7 @@ then
 
 # Package and remove temporary files
 
-  files=`ls $inputfile.* 2>/dev/null ; ls *.bin 2>/dev/null ; ls draw*.in 2>/dev/null ; ls *.h5 2>/dev/null ; ls *.x 2>/dev/null ; ls $code_ifile.in 2>/dev/null`
+  files=`ls * 2>/dev/null`
 
   tar zcf $inputfile.tar.gz $files
   if [ -d "$path/tarfiles" ]; then
