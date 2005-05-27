@@ -15,7 +15,9 @@ c--------------------------------------------------------------------
 
       use operators
 
+#if !defined(petsc)
       use newton_gmres
+#endif
 
       use imposeBCinterface
 
@@ -78,12 +80,7 @@ c Find coefficients for linearized systems
 
       call setASM_PC_BC(igx,igy,igz,bcs,EXT)
 
-#if defined(petsc)
-      call findCoeffs
-#else
       if (jit == 1) call findCoeffs
-cc      call findCoeffs
-#endif
 
 c Find required diagonals in all grids
 
@@ -91,9 +88,7 @@ c Find required diagonals in all grids
 
       ncolors = 4
 
-#if !defined(petsc)
       if (jit == 1) then
-#endif
         form_diag = .true.
 
         call find_mf_diag_colored(1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
@@ -106,16 +101,23 @@ c Find required diagonals in all grids
      .                           ,b_diag,ncolors)
 
         if (.not.gm_smooth) then
-          call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+          if (precon == 's1') then
+           call find_mf_diag_colored(3,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                             ,v_diag,ncolors)
-          call find_mf_diag_colored(3,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+cc           call find_mf_diag_colored(3,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+cc     .                             ,v_diag2,ncolors)
+          elseif (precon == 's2') then
+           call find_mf_diag_colored(3,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
      .                             ,v_diag2,ncolors)
+          endif
         endif
 
         form_diag = .false.
-#if !defined(petsc)
       endif
-#endif
+
+c Initialize PC Jacobi it. counter
+
+      si_it = 0
 
 c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
 cc      do k=1,nzz
