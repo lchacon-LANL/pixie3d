@@ -168,6 +168,8 @@ c ######################################################################
 
         logical :: alt_eom
 
+        logical :: nc_eom_b=.false.,nc_eom_v=.false.
+
       end module auxiliaryVariables
 
 c module operators
@@ -3177,7 +3179,7 @@ c ######################################################################
 
         real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
 
-        logical :: nc_eom=.false.
+cc        real(8) :: J0(IBX:IBZ)=0d0
 
       contains
 
@@ -3382,7 +3384,7 @@ cc        if (bcond(1) == SP .and. i == 0) jac = 1d-10
         vis = 2./(1./rho(ip,j,k)/nuu(ip,j,k)
      .          + 1./rho(i ,j,k)/nuu(i ,j,k))
 
-        if (nc_eom) then
+        if (nc_eom_b.and.(.not.nc_eom_v)) then
          !Recall p=2nT
           ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
      .               +rho(i ,j,k)*tmp(ip,j,k))
@@ -3413,7 +3415,29 @@ cc        if (bcond(1) == SP .and. i == 0) jac = 1d-10
      .     -vis*( gsuper(1,1)*nabla_v(1,3)
      .           +gsuper(1,2)*nabla_v(2,3)
      .           +gsuper(1,3)*nabla_v(3,3) )
-        else
+        elseif (nc_eom_v.and.(.not.nc_eom_b)) then
+         !Recall p=2nT
+          ptot = jac*(bx(ip,j,k)*bx_cov(i ,j,k)/jacp
+     .               +bx(i ,j,k)*bx_cov(ip,j,k)/jac0
+     .               +by(ip,j,k)*by_cov(i ,j,k)/jac0
+     .               +by(i ,j,k)*by_cov(ip,j,k)/jacp
+     .               +bz(ip,j,k)*bz_cov(i ,j,k)/jacp
+     .               +bz(i ,j,k)*bz_cov(ip,j,k)/jac0)/4.
+
+          t11 =
+     .     -    ( bx(ip,j,k)*bx(i ,j,k)/jacp/jac0 )*jac**2
+     .     +gsuper(1,1)*ptot
+
+          t12 =
+     .     -0.5*( bx(ip,j,k)*by(i ,j,k)/jacp
+     .           +bx(i ,j,k)*by(ip,j,k)/jac0 )*jac
+     .     +gsuper(1,2)*ptot
+
+          t13 =
+     .     -0.5*( bx(ip,j,k)*bz(i ,j,k)/jacp/jac0
+     .           +bx(i ,j,k)*bz(ip,j,k)/jacp/jac0)*jac**2
+     .     +gsuper(1,3)*ptot
+        elseif (.not.(nc_eom_v.or.nc_eom_b)) then
          !Recall p=2nT
           ptot = jac*(rho(ip,j,k)*tmp(i ,j,k)
      .               +rho(i ,j,k)*tmp(ip,j,k))
@@ -3458,6 +3482,10 @@ cc     .               +rho(i ,j,k)*tmp(i ,j,k))
      .     -vis*( gsuper(1,1)*nabla_v(1,3)
      .           +gsuper(1,2)*nabla_v(2,3)
      .           +gsuper(1,3)*nabla_v(3,3) )
+        else
+          t11 = 0d0
+          t12 = 0d0
+          t13 = 0d0
         endif
 
         if (flag /= 0) then
@@ -3522,7 +3550,7 @@ c     Begin program
         vis = 2./(1./rho(i,jp,k)/nuu(i,jp,k)
      .          + 1./rho(i,j ,k)/nuu(i,j ,k))
 
-        if (nc_eom) then
+        if (nc_eom_b.and.(.not.nc_eom_v)) then
           ptot = jac*(rho(i,jp,k)*tmp(i,j ,k)
      .               +rho(i,j ,k)*tmp(i,jp,k))
 
@@ -3549,7 +3577,29 @@ c     Begin program
      .       -vis*( gsuper(2,1)*nabla_v(1,3)
      .             +gsuper(2,2)*nabla_v(2,3)
      .             +gsuper(2,3)*nabla_v(3,3) )
-        else
+        elseif (nc_eom_v.and.(.not.nc_eom_b)) then
+          !Recall p=2nT
+cc          ptot = jac*(rho(i,jp,k)*tmp(i,jp,k)
+cc     .               +rho(i,j ,k)*tmp(i,j ,k))
+          ptot =(bx(i,jp,k)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,jp,k)
+     .          +by(i,jp,k)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,jp,k)
+     .          +bz(i,jp,k)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,jp,k))*0.25
+
+          t21 =
+     .       -0.5*( by(i,jp,k)*bx(i,j ,k)
+     .             +by(i,j ,k)*bx(i,jp,k) )
+     .       +gsuper(2,1)*ptot
+
+          t22 =
+     .       -0.5*( by(i,jp,k)*by(i,j ,k)
+     .             +by(i,j ,k)*by(i,jp,k) )
+     .       +gsuper(2,2)*ptot
+
+          t23 =
+     .       -0.5*( by(i,jp,k)*bz(i,j ,k)
+     .             +by(i,j ,k)*bz(i,jp,k) )
+     .       +gsuper(2,3)*ptot
+        elseif (.not.(nc_eom_v.or.nc_eom_b)) then
           !Recall p=2nT
 cc          ptot = jac*(rho(i,jp,k)*tmp(i,jp,k)
 cc     .               +rho(i,j ,k)*tmp(i,j ,k))
@@ -3588,6 +3638,10 @@ cc     .               +rho(i,j ,k)*tmp(i,j ,k))
      .       -vis*( gsuper(2,1)*nabla_v(1,3)
      .             +gsuper(2,2)*nabla_v(2,3)
      .             +gsuper(2,3)*nabla_v(3,3) )
+        else
+          t21 = 0d0
+          t22 = 0d0
+          t23 = 0d0
         endif
 
         if (flag /= 0) then
@@ -3652,7 +3706,7 @@ c     Begin program
         vis = 2./(1./rho(i,j,kp)/nuu(i,j,kp)
      .          + 1./rho(i,j,k )/nuu(i,j,k ))
 
-        if (nc_eom) then
+        if (nc_eom_b.and.(.not.nc_eom_v)) then
           !Recall p=2nT
 cc          ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
 cc     .               +rho(i,j,k )*tmp(i,j,k ))
@@ -3682,7 +3736,29 @@ cc     .               +rho(i,j,k )*tmp(i,j,k ))
      .       -vis*( gsuper(3,1)*nabla_v(1,3)
      .             +gsuper(3,2)*nabla_v(2,3)
      .             +gsuper(3,3)*nabla_v(3,3) )
-        else
+        elseif (nc_eom_v.and.(.not.nc_eom_b)) then
+          !Recall p=2nT
+cc          ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
+cc     .               +rho(i,j,k )*tmp(i,j,k ))
+          ptot =(bx(i,j,kp)*bx_cov(i,j,k)+bx(i,j,k)*bx_cov(i,j,kp)
+     .          +by(i,j,kp)*by_cov(i,j,k)+by(i,j,k)*by_cov(i,j,kp)
+     .          +bz(i,j,kp)*bz_cov(i,j,k)+bz(i,j,k)*bz_cov(i,j,kp))*0.25
+
+          t31 =
+     .       -0.5*( bz(i,j,kp)*bx(i,j,k )
+     .             +bz(i,j,k )*bx(i,j,kp) )
+     .       +gsuper(3,1)*ptot
+
+          t32 =
+     .       -0.5*( bz(i,j,kp)*by(i,j,k )
+     .             +bz(i,j,k )*by(i,j,kp) )
+     .       +gsuper(3,2)*ptot
+
+          t33 =
+     .       -0.5*( bz(i,j,kp)*bz(i,j,k )
+     .             +bz(i,j,k )*bz(i,j,kp) )
+     .       +gsuper(3,3)*ptot
+        elseif (.not.(nc_eom_v.or.nc_eom_b)) then
           !Recall p=2nT
 cc          ptot = jac*(rho(i,j,kp)*tmp(i,j,kp)
 cc     .               +rho(i,j,k )*tmp(i,j,k ))
@@ -3721,6 +3797,10 @@ cc     .               +rho(i,j,k )*tmp(i,j,k ))
      .       -vis*( gsuper(3,1)*nabla_v(1,3)
      .             +gsuper(3,2)*nabla_v(2,3)
      .             +gsuper(3,3)*nabla_v(3,3) )
+        else
+          t31 = 0d0
+          t32 = 0d0
+          t33 = 0d0
         endif
 
         if (flag /= 0) then
