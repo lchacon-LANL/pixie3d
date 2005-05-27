@@ -53,9 +53,9 @@ c Namelist
      .                   ,odd,random
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
-     .                   ,ndstep,sm_pass
+     .                   ,ndstep,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
-     .                ,nc_eom,solenoidal
+     .                ,nc_eom_b,nc_eom_v,solenoidal
      .                ,inputfile,recordfile
 
 c ******************************************************************
@@ -254,6 +254,8 @@ c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
       use iosetup
+
+      use graphics_variables
 
       implicit none
 
