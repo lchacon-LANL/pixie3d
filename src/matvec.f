@@ -1601,9 +1601,9 @@ c     #####################################################################
       if (v0_cnv(i,j,k,1) > 0d0) hex = -1
       if (v0_cnv(i,j,k,2) > 0d0) hey = -1
       if (v0_cnv(i,j,k,3) > 0d0) hez = -1
-      hex = 0
-      hey = 0
-      hez = 0
+cc      hex = 0
+cc      hey = 0
+cc      hez = 0
 
       nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igr,igr,igr
      .                       ,dv(:,:,:,1),dv(:,:,:,2),dv(:,:,:,3)
