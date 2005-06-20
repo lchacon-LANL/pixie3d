@@ -103,8 +103,6 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use debug
-
       use auxiliaryVariables
 
       implicit none
