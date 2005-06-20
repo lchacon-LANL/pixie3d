@@ -122,6 +122,7 @@ c Poloidal flux diagnostics  (use graphics limits)
 
 c Mean-field (poloidally averaged) q-factor (use graphics limits)
 
+c FIX PARALLEL
       qfactor = 0d0
       if (coords == 'hel') then
 
@@ -169,6 +170,7 @@ c Mean-field (poloidally averaged) q-factor (use graphics limits)
         enddo
 
         deallocate(b00,j00_cov)
+c FIX PARALLEL
 
 c diag: dump text data
 cc        if (time == 0d0) then
