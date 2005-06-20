@@ -15,10 +15,6 @@ c--------------------------------------------------------------------
 
       use operators
 
-#if !defined(petsc)
-      use newton_gmres
-#endif
-
       use imposeBCinterface
 
       implicit none
