@@ -2581,7 +2581,6 @@ c     Begin program
         jac0 = gmetric%grid(igx)%jac(i ,j,k)
         jac  = 0.5*(jacp+jac0)
 
-cc        if (bcond(1) == SP .and. i == 0) jac = 1d-10
         if (isSP(i+1,j,k,igx,igy,igz)) jac = 1d-10
 
         t11 = 0d0
@@ -2593,35 +2592,20 @@ cc        if (bcond(1) == SP .and. i == 0) jac = 1d-10
      .         -0.5*( vec1(i ,j,k,2)*vec2(i ,j,k,1)/jac0
      .               +vec1(ip,j,k,2)*vec2(ip,j,k,1)/jacp)*jac
 
-cc          if (sing_point .and. flag == 1) then
-cc            t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)/jac0**2
-cc     .                 +vec1(ip,j,k,1)*vec2(ip,j,k,3)/jacp**2)*jac**2
-cc     .           -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)/jac0**2
-cc     .                 +vec1(ip,j,k,3)*vec2(ip,j,k,1)/jacp**2)*jac**2
-cc          else
-            t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)/jac0
-     .                 +vec1(ip,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
-     .           -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)/jac0
-     .                 +vec1(ip,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
-cc          endif
+          t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)/jac0
+     .               +vec1(ip,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
+     .         -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)/jac0
+     .               +vec1(ip,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
         else
           t12 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)/jacp
      .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)/jac0)*jac
      .         -0.5*( vec1(ip,j,k,2)*vec2(i ,j,k,1)/jac0
      .               +vec1(i ,j,k,2)*vec2(ip,j,k,1)/jacp)*jac
 
-cc          if (sing_point .and. flag == 1) then
-cc            t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)/jac0/jacp
-cc     .                 +vec1(i ,j,k,1)*vec2(ip,j,k,3)/jacp/jac0)*jac**2
-cc     .           -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)/jac0/jacp
-cc     .                 +vec1(i ,j,k,3)*vec2(ip,j,k,1)/jacp/jac0)*jac**2
-cc          else
-            t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)/jac0
-     .                 +vec1(i ,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
-     .           -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)/jac0
-     .                 +vec1(i ,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
-
-cc          endif
+          t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)/jac0
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)/jacp)*jac
+     .         -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)/jac0
+     .               +vec1(i ,j,k,3)*vec2(ip,j,k,1)/jacp)*jac
         endif
 
         if (flag /= 0) then
