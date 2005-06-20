@@ -162,7 +162,7 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean petsc all setup $(SUBDIRS)
+.PHONY: pixie3d pixplot distclean petsc all setup setup_mhd_b setup_mhd_a $(SUBDIRS)
 
 all: src plot
 
@@ -178,5 +178,12 @@ distclean: ;
 		$(MAKE) -C $$subdir distclean;  done
 
 setup: ;
+	-cd plot ; ln -s ../src/Makefile
 	-for subdir in common plot ; do \
 		$(MAKE) -C $$subdir setup;  done
+
+setup_mhd_b:
+	-@rm plot ; rm src ; ln -s src_b src ; ln -s plot_b plot
+
+setup_mhd_a:
+	-@rm plot ; rm src ; ln -s src_a src ; ln -s plot_a plot
