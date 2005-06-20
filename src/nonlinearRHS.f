@@ -257,11 +257,11 @@ cc     .                  *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
 
 c     EOM
 
-      if (.not.(nc_eom_v.or.nc_eom_b)) then
+      if (nc_eom_v.and.nc_eom_b) then
+        ff(IVX:IVZ) = 0d0
+      else 
         ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                          ,vtensor_x,vtensor_y,vtensor_z)
-      else 
-        ff(IVX:IVZ) = 0d0
       endif
 
       if (nc_eom_v) then
