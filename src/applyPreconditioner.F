@@ -19,10 +19,6 @@ c-------------------------------------------------------------------
 
       use matvec
 
-#if !defined(petsc)
-      use newton_gmres
-#endif
-
       use mg_internal
 
       implicit none
@@ -337,16 +333,18 @@ cc            enddo
 cc          enddo
 cc        enddo
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-              xxx(ii,IVX) =rho(i,j,k)*xxx(ii,IVX)+xxx(ii,IRHO)*vx(i,j,k)
-              xxx(ii,IVY) =rho(i,j,k)*xxx(ii,IVY)+xxx(ii,IRHO)*vy(i,j,k)
-              xxx(ii,IVZ) =rho(i,j,k)*xxx(ii,IVZ)+xxx(ii,IRHO)*vz(i,j,k)
+        if (.not.nc_eom_v) then
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+               ii  = i + nx*(j-1) + nx*ny*(k-1)
+               xxx(ii,IVX)=rho(i,j,k)*xxx(ii,IVX)+xxx(ii,IRHO)*vx(i,j,k)
+               xxx(ii,IVY)=rho(i,j,k)*xxx(ii,IVY)+xxx(ii,IRHO)*vy(i,j,k)
+               xxx(ii,IVZ)=rho(i,j,k)*xxx(ii,IVZ)+xxx(ii,IRHO)*vz(i,j,k)
+              enddo
             enddo
           enddo
-        enddo
+        endif
 
 c     Gather solution in "x"
 
@@ -354,7 +352,7 @@ c     Gather solution in "x"
 
 c     Diagnostics
 
-        if (jit == 6 .and. debug) call PCdiagnostics
+        if (jit == 5 .and. debug) call PCdiagnostics
 
 c     Deallocate variables
 
@@ -697,7 +695,7 @@ c     Begin program
         !Individual residual eqs
         call scatter(yyy,y)
         do ieq=1,neqd
-          mag = sqrt(sum(yyy(:,ieq)**2))
+          mag = sqrt(sum(yyy(:,ieq)**2))/nx/ny/nz
           write (*,*) 'Res. eqn',ieq,':',mag
         enddo
 
