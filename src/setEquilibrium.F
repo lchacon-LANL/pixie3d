@@ -270,7 +270,7 @@ c     Tearing mode in cartesian coordinates
              var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
 
 cc             var(i,j,k,IBX)=0d0
-cc             var(i,j,k,IBY)=0d0
+cc             var(i,j,k,IBY)=1d0
 cc             var(i,j,k,IBZ)=0d0
             enddo
           enddo
@@ -457,6 +457,9 @@ cc        kk           = -mm/RR
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
               var(i,j,k,IBZ)  = x1*bz0
+cc              var(i,j,k,IBX)  = 0d0
+cc              var(i,j,k,IBY)  = 0d0
+cc              var(i,j,k,IBZ)  = 0d0
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -464,10 +467,10 @@ cc        kk           = -mm/RR
 
               var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,ITMP) = 1d-5
+              var(i,j,k,ITMP) = 1d0
      .                        + 1/16./var(i,j,k,IRHO)
      .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
-
+cc              var(i,j,k,ITMP) = 1d-5
             enddo
           enddo
         enddo
@@ -868,9 +871,11 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
 c Find momentum components
 
-      var(:,:,:,IVX) = var(:,:,:,IRHO)*var(:,:,:,IVX)
-      var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
-      var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
+      if (.not.nc_eom_v) then
+        var(:,:,:,IVX) = var(:,:,:,IRHO)*var(:,:,:,IVX)
+        var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
+        var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
+      endif
 
 c End program
 
