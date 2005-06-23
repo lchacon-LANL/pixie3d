@@ -231,12 +231,18 @@ c     EOM
      .                          ,vtensor_x,vtensor_y,vtensor_z)
       endif
 
-cc      if (.not.(nc_eom_v.or.nc_eom_b)) then
-cc        ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                          ,vtensor_x,vtensor_y,vtensor_z)
-cc      else 
-cc        ff(IVX:IVZ) = 0d0
-cc      endif
+      if (nc_eom_b) then
+        cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
+     .         - jz_cov(i,j,k)*by_cov(i,j,k)
+
+        cnv(2) = jz_cov(i,j,k)*bx_cov(i,j,k)
+     .         - jx_cov(i,j,k)*bz_cov(i,j,k)
+
+        cnv(3) = jx_cov(i,j,k)*by_cov(i,j,k)
+     .         - jy_cov(i,j,k)*bx_cov(i,j,k)
+
+        ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+      endif
 
       if (nc_eom_v) then
         nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
@@ -251,20 +257,7 @@ cc      endif
      .          *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
      .                       ,alt_eom,vol=.false.)
 
-        ff(IVX:IVZ) = ff(IVX:IVZ) + rho(i,j,k)*cnv/ivol
-      endif
-
-      if (nc_eom_b) then
-        cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
-     .         - jz_cov(i,j,k)*by_cov(i,j,k)
-
-        cnv(2) = jz_cov(i,j,k)*bx_cov(i,j,k)
-     .         - jx_cov(i,j,k)*bz_cov(i,j,k)
-
-        cnv(3) = jx_cov(i,j,k)*by_cov(i,j,k)
-     .         - jy_cov(i,j,k)*bx_cov(i,j,k)
-
-        ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv/ivol
       endif
 
 c     Divide by cell volume factor
