@@ -44,7 +44,7 @@ c module transport_params
 c ######################################################################
       module transport_params
 
-        real(8) :: nu,eta,dd,chi,gamma
+        real(8) :: nu,eta,dd,chi,gamma,J0(3)=0d0
 
       contains
 

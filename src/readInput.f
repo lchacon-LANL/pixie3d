@@ -257,6 +257,8 @@ c----------------------------------------------------------------------
 
       use graphics_variables
 
+      use transport_params
+
       implicit none
 
 c Call variables
@@ -264,7 +266,7 @@ c Call variables
 c Local variables
 
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean
+     .                   ,prof_conf,cont_conf,clean,J0
 
 c Begin program
 
@@ -282,6 +284,12 @@ c Read graphics initialization parameters
       open(unit=25,file=inputfile,status='old')
       read(25,graphdef)
       close(unit=25)
+
+
+
+      J0(1) = 0d0
+      J0(2) = 3.871500000000000E-002
+      J0(3) = 6.998700000000000E-002
 
 c End program
 

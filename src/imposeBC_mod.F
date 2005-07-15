@@ -577,7 +577,7 @@ c     Call variables
 c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp
-      real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz
+      real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz,ee
       real(8)    :: gsuper(3,3),hessian(3,3,3)
 
 c     Begin program
@@ -740,13 +740,19 @@ cc      case (IVX,IVY,IVZ,IBX,IBY,IBZ) !Velocity components
      .               -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
 
                 if (ivar == 2) then
+                  ee = dot_product(gsuper(3,:)
+     .                -gsuper(3,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(j,k) = dh(dim)
      .               *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                 +gsuper(dim,3)*jxx/gsuper(dim,dim) )
+     .                 +gsuper(dim,3)*jxx/gsuper(dim,dim) + ee)
                 elseif (ivar == 3) then
+                  ee = dot_product(gsuper(2,:)
+     .                -gsuper(2,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(j,k) = dh(dim)
      .               *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                 -gsuper(dim,2)*jxx/gsuper(dim,dim) )
+     .                 -gsuper(dim,2)*jxx/gsuper(dim,dim) - ee)
                 endif
 
               elseif (dim == 2) then
@@ -755,13 +761,19 @@ cc      case (IVX,IVY,IVZ,IBX,IBY,IBZ) !Velocity components
      .               -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
 
                 if (ivar == 3) then
+                  ee = dot_product(gsuper(1,:)
+     .                -gsuper(1,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(i,k) = dh(dim)
      .               *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                 +gsuper(dim,1)*jyy/gsuper(dim,dim) )
+     .                 +gsuper(dim,1)*jyy/gsuper(dim,dim) +ee )
                 elseif (ivar == 1) then
+                  ee = dot_product(gsuper(3,:)
+     .                -gsuper(3,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(i,k) = dh(dim)
      .               *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                 -gsuper(dim,3)*jyy/gsuper(dim,dim) )
+     .                 -gsuper(dim,3)*jyy/gsuper(dim,dim) -ee )
                 endif
 
               elseif (dim == 3) then
@@ -770,13 +782,19 @@ cc      case (IVX,IVY,IVZ,IBX,IBY,IBZ) !Velocity components
      .               -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
 
                 if (ivar == 1) then
+                  ee = dot_product(gsuper(2,:)
+     .                -gsuper(2,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(i,j) = dh(dim)
      .               *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                 +gsuper(dim,2)*jzz/gsuper(dim,dim) )
+     .                 +gsuper(dim,2)*jzz/gsuper(dim,dim) +ee )
                 elseif (ivar == 2) then
+                  ee = dot_product(gsuper(1,:)
+     .                -gsuper(1,dim)/gsuper(dim,dim)*gsuper(dim,:),J0)
+
                   rhs(i,j) = dh(dim)
      .               *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                 -gsuper(dim,1)*jzz/gsuper(dim,dim) )
+     .                 -gsuper(dim,1)*jzz/gsuper(dim,dim) -ee )
                 endif
 
               endif
