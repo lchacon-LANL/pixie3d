@@ -41,27 +41,30 @@ c Call variables
 
       real(8)       :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
 
-      character*(20):: label(neqd)
+      character(20) :: label(neqd)
 
       integer(4)    :: bcs(6,neqd)
 
 c Local variables
 
-      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal
+      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh
       real(8)       :: ldaflow,x1,y1,z1
 
       logical       :: covariant,to_cartsn,cartsn
 
       real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
-     .                ,r0(1),aa,dummy,dummy1,dummy2,dummy3,dummy4,dummy5
+     .                ,r0(1),aa,dummy,dummy1,dummy2,dummy3,ieta
 
       real(8)       :: rint(0:nxd+1),dh,offset(1),bth0(0:nxd+1)
      .                ,bzz0(0:nxd+1),vr0(0:nxd+1),rho0(0:nxd+1)
+     .                ,eth0(0:nxd+1),ez0(0:nxd+1)
 
       real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
      .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
      .                ,a3(ilom:ihip,jlom:jhip,klom:khip)
+
+      character(200) :: command
 
 c Functions
 
@@ -550,20 +553,34 @@ c     Equilibria (numerical)
         write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
         !Read file
-        open (unit=1000,file='par_pinch_eq.txt',status='old')
+        open (unit=1000,file='pixie3d.equ',status='old')
 
         read(1000,'(a)')
         do i=0,nxd+1
           read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),dummy2,dummy3
-     .                ,vr0(i),dummy4,dummy5,rho0(i)
+     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
 cc          write (*,*)
 cc          write (*,*) dummy1,bth0(i),bzz0(i),dummy2,dummy3,vr0(i)
 cc     .                ,dummy4,dummy5,rho0(i)
         enddo
 
+        read(1000)
+        read(1000,'(a)')
+        read(1000,*) ieta
+
         close(1000)
 
         write (*,*) 'Done!'
+
+        !Find electric field at face r=1d0
+        J0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
+        J0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+
+        !Convert electric field to covariant at r=1d0
+        J0(3) = -kk/mm*J0(2) + J0(3)
+
+        !Find current
+        J0 = J0/ieta
 
         !Build equilibrium
         do k = klo,khi
@@ -574,25 +591,22 @@ cc     .                ,dummy4,dummy5,rho0(i)
      .                                      ,x1,y1,z1)
 
               iglobal = i + grid_params%ilo(igx) - 1
-              btheta  = bth0(iglobal)
-              bz0     = bzz0(iglobal)
-              vr      = vr0 (iglobal)
-              rrho    = rho0(iglobal)
 
               !X-Y equilibrium
               var(i,j,k,IBX) = 0d0
-              var(i,j,k,IBY) = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ) = x1*bz0
+              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
+              var(i,j,k,IBZ) = x1*bzz0(iglobal)
 
               if (nc_eom_v) then
-                var(i,j,k,IVX) = x1*vr
+                var(i,j,k,IVX) = x1*vr0(iglobal)
               else
-                var(i,j,k,IVX) = x1*vr*rrho
+                var(i,j,k,IVX) = x1*vr0(iglobal)*rho0(iglobal)
               endif
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
+              var(i,j,k,IVX) = 0d0
+              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVZ) = 0d0
 
-              var(i,j,k,IRHO) = rrho
+              var(i,j,k,IRHO) = rho0(iglobal)
 
               var(i,j,k,ITMP) = 1d-5
 
@@ -642,6 +656,8 @@ cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
         btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-offset(1))
         Iz = 1./btheta/qq(0d0)
 
+cc        call B_from_q(bth0,bzz0)
+
         !Build equilibrium
         do k = klo,khi
           do j = jlo,jhi
@@ -651,13 +667,18 @@ cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
      .                                      ,x1,y1,z1)
 
               iglobal = i + grid_params%ilo(igx) - 1
-              btheta  = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
-              bz0     = qq(x1)*btheta/x1
 
-              !X-Y equilibrium
+cc              btheta  = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
+cc              bz0     = qq(x1)*btheta/x1
+cc
+cc              !X-Y equilibrium
+cc              var(i,j,k,IBX)  = 0d0
+cc              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+cc              var(i,j,k,IBZ)  = x1*bz0
+
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ)  = x1*bz0
+              var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
+              var(i,j,k,IBZ)  = x1*bzz0(iglobal)
 
               var(i,j,k,IVX)  = 0d0
               var(i,j,k,IVY)  = 0d0
@@ -877,7 +898,113 @@ c Find momentum components
         var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
       endif
 
+c Transfer electric field info to postprocessor via input file
+
+      if (sum(J0) /= 0d0) then
+
+        command = 'grep J0 ' // trim(inputfile) // ' > /dev/null'
+        ierr = system(trim(command))
+
+        write (command,*) '   J0 =',real(J0(1),4)
+     .                         ,',',real(J0(2),4)
+     .                         ,',',real(J0(3),4)
+
+
+        if (ierr /= 0) then  !Replace J0
+          command='sed -e"/graphdef/{" -e' // achar(39)
+     .       // 'a\' // achar(39) //' -e"'
+     .       // trim(command)   // '" -e"}" '
+     .       // trim(inputfile) // ' > temp'
+        else                 !Add J0
+          command='sed -e"/J0/{" -e' // achar(39)
+     .       // 'c\' // achar(39) //' -e"'
+     .       // trim(command)   // '" -e"}" '
+     .       // trim(inputfile) // ' > temp'
+        endif
+
+        ierr = system(trim(command))
+
+        command = 'mv temp ' // trim(inputfile)
+        ierr = system(trim(command))
+      endif
+
 c End program
+
+      contains
+
+c     B_from_q
+c     ###############################################################
+      subroutine B_from_q(bth0,bz0)
+
+c     ---------------------------------------------------------------
+c     Finds cylindrical components of magnetic field B_theta, B_z
+c     from q profile.
+c     ---------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        real(8)    :: bth0(0:nxd+1),bz0(0:nxd+1)
+
+c     Local variables
+
+        integer(4) :: i,j,k,ig,jg,kg
+        real(8)    :: qq,qqp,ff,x1,dh,offset(1),r1,btheta,Iz,r0(1)
+
+        real(8)    :: rint(0:nxd+1)
+
+c     Functions
+
+        !q-profile
+        qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+        qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)
+cc        qq(r1)  = 0.3*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+cc        qqp(r1) = 0.3*( -2*1.8748*r1   +4*0.8323*r1**3)
+
+        ff(r1) = r1**2 + qq(r1)**2
+
+c     Begin program
+
+c     Find integrals
+
+        !Integral in r
+        rint(nxd+1) = 0d0  !First guess to rint(r=1d0) = 0d0
+        do i=nxd,1,-1
+          x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
+          dh = grid_params%xg(i+1)-grid_params%xg(i)
+          rint(i) = rint(i+1) + dh*qq(x1)*qqp(x1)/ff(x1)
+        enddo
+        rint(0) = rint(1)  !Neumann BC for integral at r=0d0
+
+        !Correction to ensure rint(r=1d0) = 0d0
+        r0 = 1d0
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+     .                  ,rint,1,r0,offset,2)
+
+        rint = rint - offset(1)
+
+        !Determine Iz so that Bz(r=0)=1
+        r0 = 0d0
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+     .                  ,rint,1,r0,offset,2)
+
+cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
+        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-offset(1))
+        Iz = 1./btheta/qq(0d0)
+
+c     Evaluate magnetic field
+
+        do i = 0,nxd+1
+
+          x1 = grid_params%xg(i)  !Position in global grid
+
+          bth0(i) = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(i))
+          bz0 (i) = qq(x1)*bth0(i)/x1
+
+        enddo
+
+      end subroutine B_from_q
 
       end subroutine setEquilibrium
 
