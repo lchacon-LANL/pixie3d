@@ -235,8 +235,8 @@ c     BC setup
       bcnd(:,2) = varray%array_var(IBY)%bconds
       bcnd(:,3) = varray%array_var(IBZ)%bconds
       where (bcnd == -NEU)
-cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
-        bcnd = -DIR  !Use covariant components for tangential dirichlet
+cc        bcnd = -DIR  !Use covariant components for tangential dirichlet
+        bcnd = -EQU  !Use covariant components for tangential dirichlet
       end where
 
       do k = 0,nnz+1
@@ -256,7 +256,10 @@ cc        bcnd = DIR  !Use contravariant components for tangential dirichlet
       enddo
 #endif
 
-      v0 = v_cnv
+cc      v0 = v_cnv
+      v0(:,:,:,1) = J0(1)
+      v0(:,:,:,2) = J0(2)
+      v0(:,:,:,3) = J0(3)
 
 c     Fill ghost nodes
 
