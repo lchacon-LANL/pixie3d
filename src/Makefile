@@ -117,11 +117,8 @@ distclean: clean
 		$(MAKE) -C $$subdir clean;  done
 
 setup: ;
-	-@ln -s ../src/applyBoundaryConditions.F 2>/dev/null ;\
-	  ln -s ../src/imposeBC_mod.F            2>/dev/null ;\
-	  ln -s ../src/Makefile                  2>/dev/null ;\
-	  ln -s ../src/mhd_mod.f                 2>/dev/null ;\
-	  ln -s ../src/readInput.f               2>/dev/null
+	-for file in $(LNK_FILES) ; do \
+		ln -s ../src/$$file 2>/dev/null ; done
 
 #Define dependencies
 
