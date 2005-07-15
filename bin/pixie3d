@@ -7,7 +7,7 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar]
+pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar] [-equ file]
         -- inputfile [options]
 
 where:
@@ -24,6 +24,7 @@ where:
 	-ntar:         runs in foreground in current directory (default: runs in 
                          background in separate directory and creates 
                          tarfile inputfile.tar.gz)
+	-equ:          equilibrium file 
 	inputfile:     is the input file without the extension .in
 	options:       options passed directly to the executable
 HELP
@@ -35,6 +36,7 @@ exit 0
 restart=f
 parallel=f
 tar=t
+equf=f
 
 # Parse command line options
 
@@ -52,6 +54,7 @@ case $1 in
 	-np)parallel=t;np=$2;shift 2;;
 	-nolocal)nolocal=$1;shift 1;;
 	-ntar)tar=f;shift 1;;
+	-equ)equf=t;equfile=$2;shift 2;;
 	--) shift;break;;
 	-*) echo "error: no such option $1. -h for help";exit 1;;
 	*)  break;;
@@ -111,6 +114,17 @@ elif [ "$restart" != "t" ]; then
   exit 1
 fi
 
+if [ $equf = "t" ]; then
+ if [ -f $equfile ]; then
+  cp $equfile $dir 2>/dev/null
+ elif [ -f infiles/$equfile ]; then
+  cp infiles/$equfile $dir 2>/dev/null
+ else
+  echo "No equilibrium file found. Aborting"
+  exit 1
+ fi
+fi
+
 if [ -f "machines.LINUX" ]; then
     cp machines.LINUX $dir 2>/dev/null
 fi
@@ -151,6 +165,7 @@ fi
 code_ifile=pixie3d
 
 cp $inputfile.in $code_ifile.in  2>/dev/null
+cp $equfile $code_ifile.equ  2>/dev/null
 
 if [ "$restart" = "t" ]
 then
