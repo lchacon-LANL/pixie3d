@@ -15,3 +15,7 @@ SUBDIRS = $(COMMONDIR)/grid\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/3dplot
 
+LNK_FILES = applyBoundaryConditions.F\
+	    imposeBC_mod.F\
+	    mhd_mod.f\
+	    readInput.f              
