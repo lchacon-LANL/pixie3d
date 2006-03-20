@@ -49,8 +49,10 @@ c Begin program
         allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
-     $           ,bcnv(ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,vcnv(ilom:ihip,jlom:jhip,klom:khip,3))
+     $           ,bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3))
+cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
@@ -60,7 +62,12 @@ c Begin program
      .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,ejx   (ilom:ihip,jlom:jhip,klom:khip)
      .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
+     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,pe    (ilom:ihip,jlom:jhip,klom:khip))
+
+        allocate (gpex  (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,gpey  (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,gpez  (ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,vy    (ilom:ihip,jlom:jhip,klom:khip)
@@ -71,6 +78,12 @@ c Begin program
 
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
      .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
+
+c SI operator
+        allocate(b_n(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,p_n(ilom:ihip,jlom:jhip,klom:khip,1)
+     .          ,dv_dt (ilom:ihip,jlom:jhip,klom:khip,3))
+c SI operator
 
         call allocPrecVariables
 

@@ -39,7 +39,7 @@ c Local variables
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,dummy
 
       ! rho equation
-      real(8)    :: advec,diffus
+      real(8)    :: advc,diffus
 
       ! Faraday's law
       real(8)    :: Ez_jp,Ez_jm,Ey_kp,Ey_km,Ex_kp,Ex_km
@@ -54,7 +54,7 @@ c Local variables
       real(8)    :: heat_flx,heat_src,joule,viscous
 
       integer(4) :: ieq
-      real(8)    :: cnv(3),kappa
+      real(8)    :: cnv(3),cov(3),kappa
 
 c Begin program
 
@@ -97,28 +97,29 @@ c     Grid parameters
 
 c     Rho
 
-cc      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho,sp_upwind=5)
-      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,rho)
-
-      if (dd /= 0d0) then
-        diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
+      if (equil =='ppnch' .or. equil == 'ppn3d') then
+        ff(IRHO) = 0d0
       else
-        diffus = 0d0
-      endif
+        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP())
 
-      ff(IRHO) = advec - diffus
+        if (dd /= 0d0) then
+          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
+        else
+          diffus = 0d0
+        endif
+
+        ff(IRHO) = advc - diffus
+      endif
 
 c     Faraday's law
 
-      vec1 => vcnv
+      vec1 => vecnv
       vec2 => bcnv
 
       if (solenoidal) then
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
      .                         ,btensor_x,btensor_y,btensor_z)
      .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
-cc     .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                       ,bcnv,.false.)
       else
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
      .                         ,btensor_x,btensor_y,btensor_z)
@@ -171,100 +172,62 @@ cc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 
 c     Temperature
 
-      !Advective part
-      if (bcSP()) then
-        if (i+grid_params%ilo(igx)-1 < grid_params%nxgl(igx)) then
-          jach = 0.5*(jac+jacip)
-          flxip = (vx(ip,j,k)*tmp(i ,j,k)/jacip
-     .           + vx(i ,j,k)*tmp(ip,j,k)/jac  )*jach/2.
-     .           +(gamma-2.)*tmp(i,j,k)*(vx(ip,j,k)/jacip
-     .                                  +vx(i ,j,k)/jac  )*jach/2.
-          jach = 0.5*(jac+jacim)
-          flxim = (vx(im,j,k)*tmp(i ,j,k)/jacim
-     .           + vx(i ,j,k)*tmp(im,j,k)/jac  )*jach/2.
-     .           +(gamma-2.)*tmp(i,j,k)*(vx(im,j,k)/jacim
-     .                                  +vx(i ,j,k)/jac  )*jach/2.
-        elseif (i+grid_params%ilo(igx)-1 == grid_params%nxgl(igx)) then
-          flxip = (vx(ip,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(ip,j,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vx(ip,j,k)+vx(i,j,k))/2.
-
-          jach = 0.5*(jac+jacim)
-          flxim = (vx(im,j,k)*tmp(i ,j,k)/jacim
-     .           + vx(i ,j,k)*tmp(im,j,k)/jac  )*jach/2.
-     .           +(gamma-2.)*tmp(i,j,k)*(vx(im,j,k)/jacim
-     .                                  +vx(i ,j,k)/jac  )*jach/2.
-        endif
-      else
-        flxip = (vx(ip,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(ip,j,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vx(ip,j,k)+vx(i,j,k))/2.
-        flxim = (vx(im,j,k)*tmp(i,j,k) + vx(i,j,k)*tmp(im,j,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vx(im,j,k)+vx(i,j,k))/2.
-      endif
-
-      flxjp = (vy(i,jp,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,jp,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,jp,k)+vy(i,j,k))/2.
-      flxjm = (vy(i,jm,k)*tmp(i,j,k) + vy(i,j,k)*tmp(i,jm,k))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vy(i,jm,k)+vy(i,j,k))/2.
-
-      flxkp = (vz(i,j,kp)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,kp))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,kp)+vz(i,j,k))/2.
-      flxkm = (vz(i,j,km)*tmp(i,j,k) + vz(i,j,k)*tmp(i,j,km))/2.
-     .              +(gamma-2.)*tmp(i,j,k)*(vz(i,j,km)+vz(i,j,k))/2.
-
-      advec = dS1*(flxip-flxim)
-     .       +dS2*(flxjp-flxjm)
-     .       +dS3*(flxkp-flxkm)
-
-cc      advec = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
-
-cc      advec = advec
-cc     .       +(gamma-2.)/ivol*tmp(i,j,k)
-cc     .                  *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+      advc = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp)
+     .      +(gamma-2.)/ivol*tmp(i,j,k)
+     .                      *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
 
       !Heat flux
-      if (chi /= 0d0) then
+      if (chi /= 0d0 .and. gamma > 1d0) then
         heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
       else
         heat_flx = 0d0
       endif
 
       !Heat sources
+cc      if (gamma > 1d0) then
+cc
+cc        !!!Joule heating
+cc        joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
+cc     .                            +jy(i,j,k)*jy_cov(i,j,k)
+cc     .                            +jz(i,j,k)*jz_cov(i,j,k) )
+cc
+cc        !!!Viscous heating
+cc        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
+cc
+cc        cov_tnsr = matmul(nabla_v,gsub   )
+cc        cnv_tnsr = matmul(gsuper ,nabla_v)
+cc
+cc        viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
+cc
+cc        heat_src = joule + viscous
+cc
+cc        if (heat_src < 0d0) then
+cc          write (*,*) 'Heat source is negative'
+cc          write (*,*) 'Aborting...'
+cc          stop
+cc        endif
+cc
+cc      else
 
-      !!!Joule heating
-      joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
-     .                          +jy(i,j,k)*jy_cov(i,j,k)
-     .                          +jz(i,j,k)*jz_cov(i,j,k) )
+        heat_src = 0d0
 
-      !!!Viscous heating
-      nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
+cc      endif
 
-      cov_tnsr = matmul(nabla_v,gsub   )
-      cnv_tnsr = matmul(gsuper ,nabla_v)
-
-      viscous = dvol*rho(i,j,k)*nuu(i,j,k)/jac*sum(cov_tnsr*cnv_tnsr)
-
-      heat_src = joule + viscous
-      heat_src = 0d0
-
-      if (heat_src < 0d0) then
-        write (*,*) 'Heat source is negative'
-        write (*,*) 'Aborting...'
-        stop
-      endif
-
-      ff(ITMP) = advec
-     .          +0.5*(gamma-1.)*(heat_flx - heat_src)/rho(i,j,k)
+      !Construct temperature equation
+      ff(ITMP) = advc + (gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
 
 c     EOM
 
-      if (nc_eom_v.and.nc_eom_b) then
+      if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
+        ff(IVX:IVZ) = ff(IVX:IVZ)
+     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)/ivol
+      else
         ff(IVX:IVZ) = 0d0
-      else 
-        ff(IVX:IVZ) = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,vtensor_x,vtensor_y,vtensor_z)
       endif
 
-      if (nc_eom_b) then
+      !Forces
+      if (nc_eom_f) then
+        !EM part
         cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
      .         - jz_cov(i,j,k)*by_cov(i,j,k)
 
@@ -275,8 +238,32 @@ c     EOM
      .         - jy_cov(i,j,k)*bx_cov(i,j,k)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+
+        !Pressure part
+        cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
+     .                +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
+
+        cov(2) = 0.5*( rho(i,j,k)*(tmp(i,jp,k)-tmp(i,jm,k))/dyy
+     .                +tmp(i,j,k)*(rho(i,jp,k)-rho(i,jm,k))/dyy)
+        
+        cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
+     .                +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
+
+        cov = cov*a_p
+
+        call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                              ,cov(1),cov(2),cov(3)
+     .                              ,cnv(1),cnv(2),cnv(3),.true.)
+
+        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv/ivol
+      else
+        ff(IVX:IVZ) = ff(IVX:IVZ)
+     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                          ,eom_force_x,eom_force_y,eom_force_z)
+
       endif
 
+      !Advective part
       if (nc_eom_v) then
         nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
 
@@ -286,14 +273,18 @@ c     EOM
      .               +vz(i,j,k)*nabla_v(3,ieq))/jac
         enddo
 
-        cnv = cnv - nuu(i,j,k)
-     .          *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
-     .                       ,alt_eom,vol=.false.)
+        cnv = cnv - nuu(i,j,k)/rho(i,j,k)
+     .             *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+     .                          ,alt_eom,vol=.false.)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv/ivol
+      else
+        ff(IVX:IVZ) = ff(IVX:IVZ)
+     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                          ,eom_advc_x,eom_advc_y,eom_advc_z)
       endif
 
-c     Divide by cell volume factor
+c Divide by cell volume factor
 
       ff = ff*ivol
 
@@ -322,7 +313,17 @@ c Local variables
 
 c Begin program
 
-      cnf = cnfactor
+      if (bdf2) then
+        bdfp  = cnp
+        bdfn  = cn
+        bdfnm = cnm
+        cnf   = 0d0
+      else
+        bdfp  = 1d0
+        bdfn  =-1d0
+        bdfnm = 0d0
+        cnf   = cnfactor
+      endif
       one_over_dt = 1d0/dt
 
 c End program

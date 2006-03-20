@@ -36,7 +36,7 @@ c Local variables
 
       integer(4)    :: dim(1),loc(1)
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-      real(8)       :: prndtl,hrtmn
+      real(8)       :: prndtl,hrtmn,temp_ratio
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
@@ -44,18 +44,18 @@ c Namelist
 
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                ,ilevel,debug
-     .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn
-     .                ,rtol,atol,maxitnwt,tolgm,maxksp,iguess,maxitgm
-     .                   ,global,method,damp,dt0
+     .                ,ilevel,debug,debug_it
+     .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
+     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
+     .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
-     .                   ,ndstep,sm_pass,predictor
+     .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
-     .                ,nc_eom_b,nc_eom_v,solenoidal
+     .                ,nc_eom_f,nc_eom_v,solenoidal,k_si
      .                ,inputfile,recordfile
 
 c ******************************************************************
@@ -104,12 +104,18 @@ c Set defaults
                                !        dstep is calculated in code)
       timecorr = .true.        ! Time adaptiveness based on Newton convergence
       cnfactor = -.48          ! Crank-Nicolson factor
-      sm_pass  = 2             ! Number of initial smoother passes for CN
+      sm_flag  = 0             ! Time smoothing flag:
+                               !   0 -> Theta scheme
+                               !   1 -> Rannacher time stepping (CN scheme)
+                               !   2 -> BDF2
+      sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
       tolgm    = 5.0d-2        ! Inexact Newton parameter (GMRES conv. tolerance)
       rtol     = 1.0d-4        ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
+      stol     = 0d0           ! Newton update convergence tolerance
+      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter
       maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
@@ -139,6 +145,17 @@ c Set defaults
       prndtl   = 0d0           ! Prandtl number (nu/eta)
 
       gamma    = 5./3.         ! Polytropic constant of plasma
+
+      di       = 0d0           ! Hall parameter
+
+      temp_ratio = 1d0         ! Ion-electron temperature ratio
+
+      !Discretization parameters
+      k_si     = 0d0           ! SI constant
+
+      nc_eom_f = .false.       ! Whether we use non-conservative form of jxB in EOM
+      nc_eom_v = .false.       ! Whether we use non-conservative form of inertia in EOM
+      solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
 
       !Initial condition
       equil    = ''            ! Type of equilibrium
@@ -187,6 +204,10 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         nu  = sqrt(prndtl)/hrtmn
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
+
+c Find alpha_p
+
+      a_p = 1d0+temp_ratio
 
 c Initialize grid packing structure
 
@@ -266,7 +287,7 @@ c Call variables
 c Local variables
 
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean,J0
+     .                   ,prof_conf,cont_conf,clean,E0
 
 c Begin program
 
@@ -284,12 +305,6 @@ c Read graphics initialization parameters
       open(unit=25,file=inputfile,status='old')
       read(25,graphdef)
       close(unit=25)
-
-
-
-      J0(1) = 0d0
-      J0(2) = 3.871500000000000E-002
-      J0(3) = 6.998700000000000E-002
 
 c End program
 

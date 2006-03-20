@@ -58,7 +58,8 @@ c Local variables
 
       real(8)       :: rint(0:nxd+1),dh,offset(1),bth0(0:nxd+1)
      .                ,bzz0(0:nxd+1),vr0(0:nxd+1),rho0(0:nxd+1)
-     .                ,eth0(0:nxd+1),ez0(0:nxd+1)
+     .                ,eth0(0:nxd+1),ez0(0:nxd+1),jth0(0:nxd+1)
+     .                ,jz0 (0:nxd+1)
 
       real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
      .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
@@ -421,6 +422,47 @@ c diag ****
           enddo
         enddo
 
+      case ('gem')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        bz0 = 1d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             !X-Y equilibrium
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
+
+cc             var(i,j,k,IBX)=0d0
+cc             var(i,j,k,IBY)=1d0
+cc             var(i,j,k,IBZ)=0d0
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+cc        var(:,:,:,ITMP) = 0d0
+
       case ('kaitm')
 
 c     Check coordinates
@@ -435,11 +477,6 @@ c     Tokamak equilibria (analytical)
         mm = grid_params%params(1)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
-
-cc        aspect_ratio = 0.3
-cc        mm           = 1d0
-cc        RR           = 1d0/aspect_ratio
-cc        kk           = -mm/RR
 
         Iz           = 2.22
         bb           = 0.5*Iz
@@ -460,20 +497,15 @@ cc        kk           = -mm/RR
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
               var(i,j,k,IBZ)  = x1*bz0
-cc              var(i,j,k,IBX)  = 0d0
-cc              var(i,j,k,IBY)  = 0d0
-cc              var(i,j,k,IBZ)  = 0d0
 
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
+              var(i,j,k,IVX:IVZ)  = 0d0
 
               var(i,j,k,IRHO) = 1d0
 
               var(i,j,k,ITMP) = 1d0
      .                        + 1/16./var(i,j,k,IRHO)
      .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
-cc              var(i,j,k,ITMP) = 1d-5
+cc              var(i,j,k,ITMP) = 1d-0
             enddo
           enddo
         enddo
@@ -557,7 +589,7 @@ c     Equilibria (numerical)
 
         read(1000,'(a)')
         do i=0,nxd+1
-          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),dummy2,dummy3
+          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
      .                ,vr0(i),ez0(i),eth0(i),rho0(i)
 cc          write (*,*)
 cc          write (*,*) dummy1,bth0(i),bzz0(i),dummy2,dummy3,vr0(i)
@@ -573,14 +605,16 @@ cc     .                ,dummy4,dummy5,rho0(i)
         write (*,*) 'Done!'
 
         !Find electric field at face r=1d0
-        J0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
-        J0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+        E0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
+        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+        E0 = E0*eta/ieta
 
-        !Convert electric field to covariant at r=1d0
-        J0(3) = -kk/mm*J0(2) + J0(3)
+        !Find electric current at face r=1d0
+cc        E0(2) = 0.5*(jth0(nxd)+jth0(nxd+1))
+cc        E0(3) = 0.5*(jz0 (nxd)+jz0 (nxd+1))
 
-        !Find current
-        J0 = J0/ieta
+        !Convert current to covariant at r=1d0
+        E0(3) = -kk/mm*E0(2) + E0(3)
 
         !Build equilibrium
         do k = klo,khi
@@ -597,16 +631,12 @@ cc     .                ,dummy4,dummy5,rho0(i)
               var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 
-              if (nc_eom_v) then
-                var(i,j,k,IVX) = x1*vr0(iglobal)
-              else
-                var(i,j,k,IVX) = x1*vr0(iglobal)*rho0(iglobal)
-              endif
-              var(i,j,k,IVX) = 0d0
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
-              var(i,j,k,IRHO) = rho0(iglobal)
+cc              var(i,j,k,IRHO) = rho0(iglobal)
+              var(i,j,k,IRHO) = 1d0
 
               var(i,j,k,ITMP) = 1d-5
 
@@ -614,7 +644,103 @@ cc     .                ,dummy4,dummy5,rho0(i)
           enddo
         enddo
 
-      case ('rfp1')
+        !Shift vr for EQU BC
+        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc        var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
+          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+     .                       /gmetric%grid(igx)%jac(ihi,:,:)
+     .                       +var(ihi+1,:,:,IVX)
+     .                       /gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                       *(gmetric%grid(igx)%jac(ihi  ,:,:)
+     .                        +gmetric%grid(igx)%jac(ihi+1,:,:))
+        endif
+
+      case ('ppn3d')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+
+        nh2 = mm       !To set the right perturbation wavelength
+        nh3 = kk*RR    !To set the right perturbation wavelength
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Equilibria (numerical)
+
+        write (*,*) 'Reading numerical equilibrium ',equil,'...'
+
+        !Read file
+        open (unit=1000,file='pixie3d.equ',status='old')
+
+        read(1000,'(a)')
+        do i=0,nxd+1
+          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
+     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
+        enddo
+
+        read(1000)
+        read(1000,'(a)')
+        read(1000,*) ieta
+
+        close(1000)
+
+        write (*,*) 'Done!'
+
+        !Find electric field at face r=1d0
+        E0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
+        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+        E0 = E0*eta/ieta
+
+cc        !Find electric current at face r=1d0
+cc        E0(2) = 0.5*(jth0(nxd)+jth0(nxd+1))
+cc        E0(3) = 0.5*(jz0 (nxd)+jz0 (nxd+1))
+
+cc        !Convert electric field to covariant at r=1d0
+cc        E0(3) = -kk/mm*E0(2) + E0(3)
+
+        !Build equilibrium
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              iglobal = i + grid_params%ilo(igx) - 1
+
+              !X-Y equilibrium
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = bth0(iglobal)
+              var(i,j,k,IBZ) = x1*bzz0(iglobal)
+
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
+              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVZ) = 0d0
+
+cc              var(i,j,k,IRHO) = rho0(iglobal)
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 1d-5
+
+            enddo
+          enddo
+        enddo
+
+        !Shift vr for EQU BC
+        var(nxd+1,:,:,IVX) = 0.5*(var(nxd,:,:,IVX)+var(nxd+1,:,:,IVX))
+
+      case ('rfp1')      !RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)
@@ -692,7 +818,7 @@ cc              var(i,j,k,IBZ)  = x1*bz0
           enddo
         enddo
 
-      case ('rfp2')
+      case ('rfp2','spnch')  !SCREW PINCH EQ.
 
 c     Check coordinates
 
@@ -739,11 +865,11 @@ c diag ****
 
               var(i,j,k,IRHO) = 1d0
 
+              var(i,j,k,ITMP) = 1d-5
 c diag ****
 cc              var(i,j,k,ITMP) = 1d0
 cc              var(i,j,k,ITMP) = 0d0
 c diag ****
-              var(i,j,k,ITMP) = 1d-5
 
             enddo
           enddo
@@ -900,23 +1026,23 @@ c Find momentum components
 
 c Transfer electric field info to postprocessor via input file
 
-      if (sum(J0) /= 0d0) then
+      if (sum(E0) /= 0d0 .and. my_rank == 0) then
 
-        command = 'grep J0 ' // trim(inputfile) // ' > /dev/null'
+        command = 'grep E0 ' // trim(inputfile) // ' > /dev/null'
         ierr = system(trim(command))
 
-        write (command,*) '   J0 =',real(J0(1),4)
-     .                         ,',',real(J0(2),4)
-     .                         ,',',real(J0(3),4)
+        write (command,*) '   E0 =',real(E0(1),4)
+     .                         ,',',real(E0(2),4)
+     .                         ,',',real(E0(3),4)
 
 
-        if (ierr /= 0) then  !Replace J0
+        if (ierr /= 0) then  !Replace E0
           command='sed -e"/graphdef/{" -e' // achar(39)
      .       // 'a\' // achar(39) //' -e"'
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile) // ' > temp'
-        else                 !Add J0
-          command='sed -e"/J0/{" -e' // achar(39)
+        else                 !Add E0
+          command='sed -e"/E0/{" -e' // achar(39)
      .       // 'c\' // achar(39) //' -e"'
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile) // ' > temp'
