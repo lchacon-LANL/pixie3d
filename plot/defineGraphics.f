@@ -68,7 +68,16 @@ c Define graphics group #1: Contravariant variables
       graph(1)%array_graph(neqd+6)%array => vz
       graph(1)%array_graph(neqd+6)%descr = 'V^3'
 
-      graph(1)%array_graph(neqd+7:ngraph)%descr = ''
+      graph(1)%array_graph(neqd+7)%array => vex
+      graph(1)%array_graph(neqd+7)%descr = 'Ve_1'
+
+      graph(1)%array_graph(neqd+8)%array => vey
+      graph(1)%array_graph(neqd+8)%descr = 'Ve_2'
+
+      graph(1)%array_graph(neqd+9)%array => vez
+      graph(1)%array_graph(neqd+9)%descr = 'Ve_3'
+
+      graph(1)%array_graph(neqd+10:ngraph)%descr = ''
 
       sel_gr(1,:) = sel_graph
 
@@ -199,17 +208,23 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(6)%descr = 'Poloidal flux'
 
       graph(4)%array_graph(7)%array => qfactor
-      graph(4)%array_graph(7)%descr = 'q factor'
+      graph(4)%array_graph(7)%descr = 'qlnr q factor'
 
-      graph(4)%array_graph(8)%array => lambda
-      graph(4)%array_graph(8)%descr = 'lambda'
+      graph(4)%array_graph(8)%array => qfactr2
+      graph(4)%array_graph(8)%descr = 'avrgd q factor'
 
-      graph(4)%array_graph(9)%array => p_tot
-      graph(4)%array_graph(9)%descr = 'Total pressure'
+      graph(4)%array_graph(9)%array => lambda
+      graph(4)%array_graph(9)%descr = 'qlnr lambda'
 
-      graph(4)%array_graph(10:ngraph)%descr = ''
+      graph(4)%array_graph(10)%array => lambda2
+      graph(4)%array_graph(10)%descr = 'avrgd lambda'
 
-      sel_gr(4,:) = (/ (i,i=1,9) /)
+      graph(4)%array_graph(11)%array => p_tot
+      graph(4)%array_graph(11)%descr = 'Total pressure'
+
+      graph(4)%array_graph(12:ngraph)%descr = ''
+
+      sel_gr(4,:) = (/ (i,i=3,11) /)
 
       prof_ivar(4,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (4,:) = 0        !No log scales

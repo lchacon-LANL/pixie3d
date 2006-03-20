@@ -36,7 +36,11 @@ c Begin program
      .         ,vz     (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vx_cov (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vy_cov (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,vz_cov (ilom:ihip,jlom:jhip,klom:khip))
+     .         ,vz_cov (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vex    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vey    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vez    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vcnv   (ilom:ihip,jlom:jhip,klom:khip,3))
 
       allocate (bx_car (ilom:ihip,jlom:jhip,klom:khip)
      .         ,by_car (ilom:ihip,jlom:jhip,klom:khip)
@@ -53,7 +57,9 @@ c Begin program
      .         ,Pflux  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,p_tot  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,qfactor(ilom:ihip,jlom:jhip,klom:khip)
-     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
+     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,qfactr2(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,lambda2(ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (eeta (ilom:ihip,jlom:jhip,klom:khip)
      .           ,nuu  (ilom:ihip,jlom:jhip,klom:khip))

@@ -23,6 +23,8 @@ c--------------------------------------------------------------------
 
       use nlfunction_setup
 
+      use vectorOps
+
       use imposeBCinterface
 
       implicit none
@@ -36,10 +38,10 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ieq
-      real(8)    :: mm,kk,RR,ll,x1,y1,z1
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
-      real(8),allocatable,dimension(:,:) :: b00,j00_cov
+      real(8),allocatable,dimension(:,:) :: b00,j00_cov,v00,q00,l00
 
 c Begin program
 
@@ -102,6 +104,12 @@ c Find Cartesian components of ALL vectors
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,covariant,to_cartsn)
 
+c Electron velocity
+
+      vex = vx - di*jx/rho
+      vey = vy - di*jy/rho
+      vez = vz - di*jz/rho
+
 c Poloidal flux diagnostics  (use graphics limits)
 
       do k = kming,kmaxg
@@ -120,13 +128,45 @@ c Poloidal flux diagnostics  (use graphics limits)
         enddo
       enddo
 
+c Ohm's law diagnostic
+
+cc      write (*,*) 'Current',J0
+cc      i = nxd
+cc      k = nzd
+cc      do j = 1,nyd
+cc        ee(1) = eta*(-J0(1)+0.5*(jx_cov(i,j,k)+jx_cov(i+1,j,k)))
+cc     .             - (0.5*(vy(i,j,k)+vy(i+1,j,k))
+cc     .               *0.5*(bz(i,j,k)+bz(i+1,j,k))
+cc     .               -0.5*(vz(i,j,k)+vz(i+1,j,k))
+cc     .               *0.5*(by(i,j,k)+by(i+1,j,k)))
+cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc        ee(2) = eta*(-J0(2)+0.5*(jy_cov(i,j,k)+jy_cov(i+1,j,k)))
+cc     .             - (0.5*(vz(i,j,k)+vz(i+1,j,k))
+cc     .               *0.5*(bx(i,j,k)+bx(i+1,j,k))
+cc     .               -0.5*(vx(i,j,k)+vx(i+1,j,k))
+cc     .               *0.5*(bz(i,j,k)+bz(i+1,j,k)))
+cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc        ee(3) = eta*(-J0(3)+0.5*(jz_cov(i,j,k)+jz_cov(i+1,j,k)))
+cc     .             - (0.5*(vx(i,j,k)+vx(i+1,j,k))
+cc     .               *0.5*(by(i,j,k)+by(i+1,j,k))
+cc     .               -0.5*(vy(i,j,k)+vy(i+1,j,k))
+cc     .               *0.5*(bx(i,j,k)+bx(i+1,j,k)))
+cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc        write (*,*) 'Ohms law at',i,j,k,' = ',ee
+cc      enddo
+
 c Mean-field (poloidally averaged) q-factor (use graphics limits)
 
 c FIX PARALLEL
       qfactor = 0d0
-      if (coords == 'hel') then
+      if (coords == 'hel' .or. coords == 'cyl') then
 
-        allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3))
+        allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
+     .          ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
+     .          ,l00(iming:imaxg,1))
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)
@@ -137,6 +177,9 @@ c FIX PARALLEL
           do i = iming,imaxg
             b00    (i,:) = 0d0
             j00_cov(i,:) = 0d0
+            v00    (i,:) = 0d0
+            q00    (i,:) = 0d0
+            l00    (i,:) = 0d0
             ll = 0d0
             do j = jming,jmaxg-1  !Careful with the periodic limits
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
@@ -146,10 +189,24 @@ c FIX PARALLEL
               j00_cov(i,1) = j00_cov(i,1) + jx_cov(i,j,k)*dyh(jg)
               j00_cov(i,2) = j00_cov(i,2) + jy_cov(i,j,k)*dyh(jg)
               j00_cov(i,3) = j00_cov(i,3) + jz_cov(i,j,k)*dyh(jg)
+              v00(i,1) = v00(i,1) + vx_cov(i,j,k)*dyh(jg)
+              q00(i,1) = q00(i,1)
+     .              + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+              l00(i,1) = l00(i,1)
+     .              + scalarProduct(i,j,k,igx,igy,igz
+     .                     ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
+     .                     ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k))
+     .                /vectorNorm(i,j,k,igx,igy,igz
+     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
+     .               *dyh(jg)
+
               ll = ll + dyh(jg)
             enddo
             b00    (i,:) = b00    (i,:)/ll
             j00_cov(i,:) = j00_cov(i,:)/ll
+            v00    (i,:) = v00    (i,:)/ll
+            q00    (i,:) = q00    (i,:)/ll
+            l00    (i,:) = l00    (i,:)/ll
           enddo
         enddo
 
@@ -158,37 +215,61 @@ c FIX PARALLEL
           do i = iming,imaxg
             do j = jming,jmaxg
               qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
-              lambda(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+              lambda (i,j,k) = scalarProduct(i,j,k,igx,igy,igz
      .                          ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)
      .                          ,b00    (i,1),b00    (i,2),b00    (i,3))
-     .                       /vectorNorm(i,j,k,igx,igy,igz
+     .                        /vectorNorm(i,j,k,igx,igy,igz
      .                          ,b00(i,1),b00(i,2),b00(i,3),.false.)
+              qfactr2(i,j,k) = q00(i,1)
+              lambda2(i,j,k) = l00(i,1)
             enddo
           enddo
           qfactor(iming,:,k) = qfactor(iming+1,:,k)
           lambda (iming,:,k) = lambda (iming+1,:,k)
+          qfactr2(iming,:,k) = qfactr2(iming+1,:,k)
+          lambda2(iming,:,k) = lambda2(iming+1,:,k)
         enddo
 
-        deallocate(b00,j00_cov)
-c FIX PARALLEL
+c diag: dump text data
+        if (time == 0d0) then
+          open(unit=1000,file='q-lambda.txt',status='unknown')
+        else
+          open(unit=1000,file='q-lambda.txt',status='unknown'
+     .      ,access='append')
+        endif
+        write (1000,*) 'Time = ',time
+        write (1000,*) '      Qlnr Q-prof    Avgd Q-prof    Qlnr Lambda'
+     .                ,'      Avgd Lambda         Vr'
+        do i=iming,imaxg
+          write (1000,*) qfactor(i,1,1),qfactr2(i,1,1)
+     .                  ,lambda (i,1,1),lambda2(i,1,1),v00(i,1)
+        enddo
+        write (1000,*)
+        close(1000)
+c diag: dump text data
+
+        deallocate(b00,j00_cov,v00)
 
 c diag: dump text data
 cc        if (time == 0d0) then
-cc          open(unit=1000,file='q-lambda.txt',status='unknown')
+          open(unit=1000,file='fourier.txt',status='unknown')
 cc        else
 cc          open(unit=1000,file='q-lambda.txt',status='unknown'
 cc     .      ,access='append')
 cc        endif
-cc        write (1000,*) 'Time = ',time
-cc        write (1000,*) '      Q-value             Lambda'
-cc        do i=iming,imaxg
-cc          write (1000,*) qfactor(i,1,1),lambda(i,1,1)
-cc        enddo
-cc        write (1000,*)
-cc        close(1000)
+          write (*,*) 'Dumping fourier.txt'
+        do i=1,nxd
+          do j=1,nyd
+            do k=1,nzd
+              write (1000,*) bx_car(i,j,k),by_car(i,j,k),bz_car(i,j,k)
+            enddo
+          enddo
+        enddo
+        write (1000,*)
+        close(1000)
 c diag: dump text data
-
       endif
+c FIX PARALLEL
 
 c Divergence diagnostics
 
@@ -239,81 +320,71 @@ c Transport coefficients
 
 c End program
 
+cc      contains
+cc
+ccc     ql_integral
+ccc     ################################################################
+cc      function ql_integral(nx,ny,nz,array,igx,igy,igz,avg) result(qlp)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Integrates array(i,j,k) on periodic dimensions of domain
+ccc     (nx)x(ny)x(nz) to find quasi-linear profiles.
+ccc     ---------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc    Call variables
+cc
+cc      integer(4) :: igx,igy,igz,nx,ny,nz
+cc      real(8)    :: array(0:nx+1,0:ny+1,0:nz+1),integral
+cc     .             
+cc      logical    :: avg
+cc
+ccc     Local variables
+cc
+cc      integer(4) :: i,j,k
+cc
+cc      real(8)    :: tvolume,vol,lvolume,lintegral
+cc
+ccc     Begin program
+cc
+ccc     Integrate
+cc
+cc      lintegral = 0d0
+cc      lvolume   = 0d0
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc            vol = volume(i,j,k,igx,igy,igz)
+cc
+cc            if (isSYM(i,igx,1,0)) vol = 0.5*vol
+cc            if (isSYM(i,igx,1,1)) vol = 0.5*vol
+cc            if (isSYM(j,igy,2,0)) vol = 0.5*vol
+cc            if (isSYM(j,igy,2,1)) vol = 0.5*vol
+cc            if (isSYM(k,igz,3,0)) vol = 0.5*vol
+cc            if (isSYM(k,igz,3,1)) vol = 0.5*vol
+cc
+cc            lintegral = lintegral + array(i,j,k)*vol
+cc            lvolume = lvolume + vol
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc#if defined(petsc)
+cc      call MPI_Allreduce(lintegral,integral,1,MPI_DOUBLE_PRECISION
+cc     .                  ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc      call MPI_Allreduce(lvolume  ,tvolume ,1,MPI_DOUBLE_PRECISION
+cc     .                  ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#else
+cc      integral = lintegral
+cc      tvolume  = lvolume
+cc#endif
+cc
+cc      if (avg) integral = integral/tvolume
+cc
+ccc     End 
+cc
+cc      end function ql_integral
+
       end subroutine postProcessSolution
-
-c transformVector
-c######################################################################
-      subroutine transformVector(igx,igy,igz
-     .                          ,imin,imax,jmin,jmax,kmin,kmax
-     .                          ,arr1,arr2,arr3,covariant,to_cartsn)
-
-c----------------------------------------------------------------------
-c     Transforms vectors components in arrays arr1,arr2,arr3
-c     from Cartesian to curvilinear (to_cartesian=.false.)
-c     and viceversa, either with covariant (covariant=.true.) or 
-c     contravariant curvilinear vectors.
-c----------------------------------------------------------------------
-
-      use grid
-
-      implicit none
-
-c     Input variables
-
-        integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-        integer(4) :: igx,igy,igz
-        logical    :: covariant,to_cartsn
-        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
-     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
-     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
-
-c     Local variables
-
-        integer(4) :: i,j,k
-        real(8)    :: vec(3)
-
-c     Begin program
-
-        if (to_cartsn) then
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-
-                call transformVectorToCartesian
-     .               (i,j,k,igx,igy,igz
-     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .               ,covariant
-     .               ,vec(1),vec(2),vec(3))
-
-                arr1(i,j,k) = vec(1)
-                arr2(i,j,k) = vec(2)
-                arr3(i,j,k) = vec(3)
-                
-              enddo
-            enddo
-          enddo
-
-        else
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-
-                call transformVectorToCurvilinear
-     .               (i,j,k,igx,igy,igz
-     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .               ,covariant
-     .               ,vec(1),vec(2),vec(3))
-
-                arr1(i,j,k) = vec(1)
-                arr2(i,j,k) = vec(2)
-                arr3(i,j,k) = vec(3)
-                
-              enddo
-            enddo
-          enddo
-
-        endif
-
-      end subroutine transformVector
