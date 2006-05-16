@@ -40,10 +40,13 @@ c Local variables
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
+      logical       :: nc_eom_f=.false.
+
 c Namelist
 
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
+     .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -55,7 +58,8 @@ c Namelist
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
-     .                ,nc_eom_f,nc_eom_v,solenoidal,k_si
+     .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
+     .                   ,k_si,solve_rho
      .                ,inputfile,recordfile
 
 c ******************************************************************
@@ -69,6 +73,10 @@ c Set defaults
       nxd      = 64            ! Mesh points in x-direction
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
+
+      npx      = 0             ! Number of processors in X-direction (if zero, determined by code)
+      npy      = 0             ! Number of processors in Y-direction (if zero, determined by code)
+      npz      = 0             ! Number of processors in Z-direction (if zero, determined by code)
 
       coords   = 'car'         ! Coordinate system (see grid_mod.f)
 
@@ -153,9 +161,11 @@ c Set defaults
       !Discretization parameters
       k_si     = 0d0           ! SI constant
 
-      nc_eom_f = .false.       ! Whether we use non-conservative form of jxB in EOM
-      nc_eom_v = .false.       ! Whether we use non-conservative form of inertia in EOM
+      nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
+      nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
+      nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
+      solve_rho  = .true.      ! Whether we solver continuity equation or not
 
       !Initial condition
       equil    = ''            ! Type of equilibrium
@@ -224,6 +234,12 @@ cc      if (precon == 'id') iguess = 0
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
+      !Non-conservative EOM
+      if (nc_eom_f) then
+        nc_eom_jxb = .true.
+        nc_eom_gp  = .true.
+      endif
+
 c Map perturbations
 
       pert(IRHO)= prho
@@ -288,6 +304,7 @@ c Local variables
 
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0
+     .                   ,iplot,jplot,kplot
 
 c Begin program
 
