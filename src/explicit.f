@@ -116,7 +116,7 @@ c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm,vnorm
-      real(8)    :: k2,k2max,kv_par,kb_par2,dt_cfl,dt_cour
+      real(8)    :: k2,k2max,kv_par,kb_par2,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
       logical    :: cartsn
@@ -129,13 +129,7 @@ c Calculate maximum transport coefficient on grid
 
 c Calculate CFL
 
-cc      beta   = 0d0
-cc      bnorm  = 0d0
-cc      vnorm  = 0d0
-cc      k2max  = 0d0
-cc      kv_par = 0d0
-cc      kb_par2= 0d0
-      dt_cfl = 0d0
+      w_cfl = 0d0
 
       do k=1,nzd
         do j=1,nyd
@@ -152,20 +146,20 @@ cc      kb_par2= 0d0
 
             !Maximum kk
             idx  = 1./dx(ig)
-            if (nxd == 1) idx = 1d-2
+            if (nxd == 1) idx = 0d0
             idy  = 1./dy(jg)
-            if (nyd == 1) idy = 1d-2
+            if (nyd == 1) idy = 0d0
             idz  = 1./dz(kg)
-            if (nzd == 1) idz = 1d-2
+            if (nzd == 1) idz = 0d0
 
             k2 = 4*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
 
             k2max = max(k2max,k2)
 
             !Maximum k.v
-            vxx = rvx(i,j,k)/rho(i,j,k)
-            vyy = rvy(i,j,k)/rho(i,j,k)
-            vzz = rvz(i,j,k)/rho(i,j,k)
+            vxx = px(i,j,k)/rho(i,j,k)
+            vyy = py(i,j,k)/rho(i,j,k)
+            vzz = pz(i,j,k)/rho(i,j,k)
             kv_par = scalarProduct(i,j,k,igx,igy,igz
      .                            ,idx,idy,idz,vxx,vyy,vzz)
 
@@ -174,16 +168,12 @@ cc      kb_par2= 0d0
      .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))**2
      .               /bnorm
 
-            !Maximum velocity field norm
-cc            norm = vectorNorm(i,j,k,igx,igy,igz,vxx,vyy,vzz,.false.)
-cc            vnorm = max(vnorm,norm)
-
             !Sound speed
             cs2 = a_p*gamma*tmp(i,j,k)
 
             !Find CFL
-            dt_cfl = max(0.5*(icfl(cs2,ca2,k2,kb_par2,di)+abs(kv_par))
-     .                  ,dt_cfl)
+            w_cfl = max((icfl(cs2,ca2,k2,kb_par2,di)+abs(kv_par))
+     .                  ,w_cfl)
 
           enddo
         enddo
@@ -191,39 +181,22 @@ cc            vnorm = max(vnorm,norm)
 
 c Calculate courant number
 
-      dt_cour = diffmax*k2max
+      w_cour = diffmax*k2max
 
 c Calculate time step
 
-cc      !Inverse CFL
-cc      write (*,*) 'CFL',1/dt_cfl
-cccc      dt_cfl = icfl(cs2,ca2,kk**2,kb_par**2,di)
-cc
-cc      stop
-cccc      dt_cfl = kv_par + dt_cfl   !Add Doppler shift
-cc
-cccccc      dt_cfl  = kv_par + sqrt(cs2 + ca2)*kk
-cccc      dt_cfl  = sqrt(vnorm + cs2 + ca2)*kk
-cc
-cc      !Inverse courant
-
-      !Combine both
-      if (dt_cfl <= dt_cour) then
-        dt = 0.8/dt_cour
+      if (w_cfl <= w_cour) then
+        dt = 1d0/w_cour
 cc        write (*,*) 'Courant'
       else
-        dt = 0.8*(2*dt_cour**2 + dt_cfl**2 - dt_cour*dt_cfl)/
-     .             (dt_cour**3 + dt_cfl**3)
+        dt = 1d0*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
+     .             (w_cour**3 + w_cfl**3)
 cc        write (*,*) 'CFL'
       endif
 
-cc      write (*,*) 'Sound speed',cs,' Alfven speed',v_alf
-cc     .           ,' Max. diff',diffmax
-cc      write (*,*) 'dx',dxx,'dy',dyy,'kk',kk
-cc      write (*,*) 'dt',dt
-cc      stop
-
       dt = min(dt,dtbase)
+
+c Accumulate explicit time step for average computation
 
       dtexp = dtexp + dt
 
@@ -234,6 +207,8 @@ c End program
 c     icfl
 c     ##########################################################
       function icfl(cs2,ca2,k2,k2par,di)
+
+      use math
 
 c     ----------------------------------------------------------
 c     Finds CFL frequency
@@ -256,8 +231,8 @@ c     Begin program
 c     Solve cubic dispersion relation for omega^2
 
       a =  ckpar**2*cs2
-      b = -ckpar*(ca2 + 2*cs2 + ca2*cs2*k2*di**2)
-      c = (ca2+cs2) + ckpar*(1d0/k2 + ca2*di**2)
+      b = -ckpar*(ca2 + 2*cs2 + cs2*k2*di**2)
+      c = (ca2+cs2) + ckpar*(1d0/k2 + di**2)
       d = -1d0/k2
 
       root = solve_cubic(a,b,c,d)
@@ -275,65 +250,5 @@ c     Find maximum real root
 c     End program
 
       end function icfl
-
-c     solve_cubic
-c     ##########################################################
-      function solve_cubic(a,b,c,d) result(root)
-
-c     ----------------------------------------------------------
-c     Solves for maximum of roots of cubic polynomial:
-c        a + b x +c x^2 + d x^3 = 0
-c     ----------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8)   :: root(3),a,b,c,d
-
-c     Local variables
-
-c     Begin program
-
-      root(1) =
-     -     -c/(3.*d) - (2**0.3333333333333333*(-c**2 + 3*b*d))/
-     -   (3.*d*(-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -        Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -          (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -      0.3333333333333333) + 
-     -  (-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -      Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -        (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -    0.3333333333333333/(3.*2**0.3333333333333333*d)
-
-      root(2) =
-     -     -c/(3.*d) + ((1 + (0,1)*Sqrt(3.))*(-c**2 + 3*b*d))/
-     -   (3.*2**0.6666666666666666*d*
-     -     (-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -        Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -          (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -      0.3333333333333333) - 
-     -  ((1 - (0,1)*Sqrt(3.))*
-     -     (-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -        Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -          (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -      0.3333333333333333)/(6.*2**0.3333333333333333*d)
-
-      root(3) =
-     .     -c/(3.*d) + ((1 - (0,1)*Sqrt(3.))*(-c**2 + 3*b*d))/
-     -   (3.*2**0.6666666666666666*d*
-     -     (-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -        Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -          (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -      0.3333333333333333) - 
-     -  ((1 + (0,1)*Sqrt(3.))*
-     -     (-2*c**3 + 9*b*c*d - 27*a*d**2 + 
-     -        Sqrt(4*(-c**2 + 3*b*d)**3 + 
-     -          (-2*c**3 + 9*b*c*d - 27*a*d**2)**2))**
-     -      0.3333333333333333)/(6.*2**0.3333333333333333*d)
-
-c     End program
-
-      end function solve_cubic
 
       end subroutine findExplicitDt
