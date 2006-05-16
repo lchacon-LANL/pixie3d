@@ -97,10 +97,14 @@ c     Grid parameters
 
 c     Rho
 
-      if (equil =='ppnch' .or. equil == 'ppn3d') then
-        ff(IRHO) = 0d0
-      else
-        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP())
+      if (solve_rho) then
+cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP())
+cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho)
+cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP()
+cc     .               ,upwind=.true.)
+
+        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4)
+cc     .                 ,sp=bcSP())
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
@@ -109,6 +113,8 @@ c     Rho
         endif
 
         ff(IRHO) = advc - diffus
+      else
+        ff(IRHO) = 0d0
       endif
 
 c     Faraday's law
@@ -125,6 +131,7 @@ c     Faraday's law
      .                         ,btensor_x,btensor_y,btensor_z)
      .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
      .                                       ,bcnv,.false.)
+     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
 
 cc        !Marder divergence cleaning
 cc
@@ -172,49 +179,55 @@ cc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 
 c     Temperature
 
-      advc = c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp)
-     .      +(gamma-2.)/ivol*tmp(i,j,k)
-     .                      *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
-
-      !Heat flux
-      if (chi /= 0d0 .and. gamma > 1d0) then
-        heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
+      if (gamma == 1d0) then
+        ff(ITMP) = 0d0
       else
-        heat_flx = 0d0
-      endif
+        advc =
+     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,4)
+cc     .        c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp)
+     .        +(gamma-2.)/ivol*tmp(i,j,k)
+     .                        *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
 
-      !Heat sources
-cc      if (gamma > 1d0) then
+        !Heat flux
+        if (chi /= 0d0) then
+          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
+        else
+          heat_flx = 0d0
+        endif
+
+        !Heat sources
+cc        if (gamma > 1d0) then
 cc
-cc        !!!Joule heating
-cc        joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
-cc     .                            +jy(i,j,k)*jy_cov(i,j,k)
-cc     .                            +jz(i,j,k)*jz_cov(i,j,k) )
+cc          !!!Joule heating
+cc          joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
+cc       .                            +jy(i,j,k)*jy_cov(i,j,k)
+cc       .                            +jz(i,j,k)*jz_cov(i,j,k) )
 cc
-cc        !!!Viscous heating
-cc        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
+cc          !!!Viscous heating
+cc          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
 cc
-cc        cov_tnsr = matmul(nabla_v,gsub   )
-cc        cnv_tnsr = matmul(gsuper ,nabla_v)
+cc          cov_tnsr = matmul(nabla_v,gsub   )
+cc          cnv_tnsr = matmul(gsuper ,nabla_v)
 cc
-cc        viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
+cc          viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
 cc
-cc        heat_src = joule + viscous
+cc          heat_src = joule + viscous
 cc
-cc        if (heat_src < 0d0) then
-cc          write (*,*) 'Heat source is negative'
-cc          write (*,*) 'Aborting...'
-cc          stop
+cc          if (heat_src < 0d0) then
+cc            write (*,*) 'Heat source is negative'
+cc            write (*,*) 'Aborting...'
+cc            stop
+cc          endif
+cc
+cc        else
+
+          heat_src = 0d0
+
 cc        endif
-cc
-cc      else
 
-        heat_src = 0d0
-
-cc      endif
-
-      !Construct temperature equation
-      ff(ITMP) = advc + (gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
+        !Construct temperature equation
+        ff(ITMP) = advc+(gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
+      endif
 
 c     EOM
 
@@ -225,9 +238,8 @@ c     EOM
         ff(IVX:IVZ) = 0d0
       endif
 
-      !Forces
-      if (nc_eom_f) then
-        !EM part
+      !Lorentz force
+      if (nc_eom_jxb) then
         cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
      .         - jz_cov(i,j,k)*by_cov(i,j,k)
 
@@ -237,9 +249,28 @@ c     EOM
         cnv(3) = jx_cov(i,j,k)*by_cov(i,j,k)
      .         - jy_cov(i,j,k)*bx_cov(i,j,k)
 
-        ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+cc        cov(1) =(jy(i,j,k)*bz(i,j,k)
+cc     .          -jz(i,j,k)*by(i,j,k))/jac
+cc
+cc        cov(2) =(jz(i,j,k)*bx(i,j,k)
+cc     .          -jx(i,j,k)*bz(i,j,k))/jac
+cc
+cc        cov(3) =(jx(i,j,k)*by(i,j,k)
+cc     .          -jy(i,j,k)*bx(i,j,k))/jac
+cc
+cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                              ,cov(1),cov(2),cov(3)
+cc     .                              ,cnv(1),cnv(2),cnv(3),.true.)
 
-        !Pressure part
+        ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+      else
+        ff(IVX:IVZ) = ff(IVX:IVZ)
+     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                          ,eom_jxb_x,eom_jxb_y,eom_jxb_z)
+      endif
+
+      !Pressure force
+      if (nc_eom_gp) then
         cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
      .                +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
 
@@ -249,7 +280,11 @@ c     EOM
         cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
      .                +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
 
-        cov = cov*a_p
+cc        cov(1)=0.5*(rho(ip,j,k)*tmp(ip,j,k)-rho(im,j,k)*tmp(im,j,k))/dxx
+cc        cov(2)=0.5*(rho(i,jp,k)*tmp(i,jp,k)-rho(i,jm,k)*tmp(i,jm,k))/dyy
+cc        cov(3)=0.5*(rho(i,j,kp)*tmp(i,j,kp)-rho(i,j,km)*tmp(i,j,km))/dzz
+
+        cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
 
         call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,cov(1),cov(2),cov(3)
@@ -259,8 +294,7 @@ c     EOM
       else
         ff(IVX:IVZ) = ff(IVX:IVZ)
      .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_force_x,eom_force_y,eom_force_z)
-
+     .                          ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z)
       endif
 
       !Advective part
@@ -273,7 +307,7 @@ c     EOM
      .               +vz(i,j,k)*nabla_v(3,ieq))/jac
         enddo
 
-        cnv = cnv - nuu(i,j,k)/rho(i,j,k)
+        cnv = cnv - nuu(i,j,k)
      .             *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
      .                          ,alt_eom,vol=.false.)
 
