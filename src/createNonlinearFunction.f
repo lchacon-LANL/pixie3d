@@ -62,12 +62,7 @@ cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
      .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,ejx   (ilom:ihip,jlom:jhip,klom:khip)
      .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,pe    (ilom:ihip,jlom:jhip,klom:khip))
-
-        allocate (gpex  (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,gpey  (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,gpez  (ilom:ihip,jlom:jhip,klom:khip))
+     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,vy    (ilom:ihip,jlom:jhip,klom:khip)
