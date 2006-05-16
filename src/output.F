@@ -40,21 +40,20 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      lvx_max = maxval(abs(vx))
-      lvy_max = maxval(abs(vy))
-      lvz_max = maxval(abs(vz))
+      vx_max = maxval(abs(vx))
+      vy_max = maxval(abs(vy))
+      vz_max = maxval(abs(vz))
 
-#if defined(petsc)
+#if defined(petsc)      
+      lvx_max = vx_max
+      lvy_max = vy_max
+      lvz_max = vz_max
       call MPI_Reduce(lvx_max,vx_max,1,MPI_DOUBLE_PRECISION
-                     ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
       call MPI_Reduce(lvy_max,vy_max,1,MPI_DOUBLE_PRECISION
-                     ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
       call MPI_Reduce(lvz_max,vz_max,1,MPI_DOUBLE_PRECISION
-                     ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
-#else
-      vx_max = lvx_max
-      vy_max = lvy_max
-      vz_max = lvz_max
+     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
 
 cc      bx_max = maxval(abs(bx_car))
@@ -124,14 +123,17 @@ c     -----------------------------------------------------------------
 
       implicit none
 
-      if (nc_eom_f .or. nc_eom_v .or. (.not.solenoidal)) then
+      if (nc_eom_jxb .or. nc_eom_gp .or. nc_eom_v
+     .    .or. (.not.solenoidal)) then
         write (*,*)
         write (*,*) '****************** NOTICE ******************'
 
-        if (nc_eom_f)
-     .       write (*,*) 'Using non-conservative EM    part of EOM'
+        if (nc_eom_jxb)
+     .       write (*,*) 'Using non-conservative JxB     part of EOM'
+        if (nc_eom_gp)
+     .       write (*,*) 'Using non-conservative grad(p) part of EOM'
         if (nc_eom_v)
-     .       write (*,*) 'Using non-conservative hydro part of EOM'
+     .       write (*,*) 'Using non-conservative div(vv) part of EOM'
         if (.not.solenoidal)
      .       write (*,*) 'Using non-solenoidal version'
       
