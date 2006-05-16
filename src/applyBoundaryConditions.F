@@ -236,7 +236,11 @@ c     BC setup
      .            /(gmetric%grid(iigx)%jac(i  ,j,k)
      .             +gmetric%grid(iigx)%jac(i+1,j,k))
 
-            v0(i+1,j,k,1) = -(bbcov(2)*E0(3)-bbcov(3)*E0(2))/b2  !ExB velocity
+            if (b2 > 0d0) then
+              v0(i+1,j,k,1) = -(bbcov(2)*E0(3)-bbcov(3)*E0(2))/b2 !ExB velocity
+            else
+              v0(i+1,j,k,1) = 0d0
+            endif
           enddo
         enddo
 
@@ -310,7 +314,7 @@ cc        bcnd = -DIR  !Use covariant components for tangential BCs
 
 #if defined(petsc) 
       do icomp=1,3
-        call fillPetscGhostCells(v_cnv(:,:,:,icomp))
+        call fillPetscGhostCells(v_cnv(:,:,:,icomp),iigx)
       enddo
 #endif
 
