@@ -430,22 +430,33 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 
 c     Check coordinates
 
-        if (coords /= 'car') then
+        if (coords /= 'car' .and. coords /= 'scl') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
 
 c     Tearing mode in cartesian coordinates
 
-        bz0 = 1d0
-
+        
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
+
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax-xmin))/dlambda)**2
+     .                      +0.2
+
              !X-Y equilibrium
+
              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
+             var(i,j,k,IBZ)=0d0
+
+cc             var(i,j,k,IBX)=0d0
+cc             var(i,j,k,IBY)=tanh((x1-0.5d0*(xmax-xmin))/dlambda)
+cc             var(i,j,k,IBZ)=0d0
 
 cc             var(i,j,k,IBX)=0d0
 cc             var(i,j,k,IBY)=1d0
@@ -458,10 +469,7 @@ cc             var(i,j,k,IBZ)=0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d0
-cc        var(:,:,:,ITMP) = 0d0
+        var(:,:,:,ITMP) = 1d0/12. !Required for pressure balance
 
       case ('kaitm')
 
@@ -609,10 +617,6 @@ cc     .                ,dummy4,dummy5,rho0(i)
         E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
         E0 = E0*eta/ieta
 
-        !Find electric current at face r=1d0
-cc        E0(2) = 0.5*(jth0(nxd)+jth0(nxd+1))
-cc        E0(3) = 0.5*(jz0 (nxd)+jz0 (nxd+1))
-
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
@@ -635,8 +639,11 @@ cc        E0(3) = 0.5*(jz0 (nxd)+jz0 (nxd+1))
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
-cc              var(i,j,k,IRHO) = rho0(iglobal)
-              var(i,j,k,IRHO) = 1d0
+              if (solve_rho) then
+                var(i,j,k,IRHO) = rho0(iglobal)
+              else
+                var(i,j,k,IRHO) = 1d0
+              endif
 
               var(i,j,k,ITMP) = 1d-5
 
@@ -646,13 +653,13 @@ cc              var(i,j,k,IRHO) = rho0(iglobal)
 
         !Shift vr for EQU BC
         if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc        var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
+cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
           var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-     .                       /gmetric%grid(igx)%jac(ihi,:,:)
-     .                       +var(ihi+1,:,:,IVX)
-     .                       /gmetric%grid(igx)%jac(ihi+1,:,:))
-     .                       *(gmetric%grid(igx)%jac(ihi  ,:,:)
-     .                        +gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+     .                              +var(ihi+1,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
         endif
 
       case ('ppn3d')
@@ -702,13 +709,6 @@ c     Equilibria (numerical)
         E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
         E0 = E0*eta/ieta
 
-cc        !Find electric current at face r=1d0
-cc        E0(2) = 0.5*(jth0(nxd)+jth0(nxd+1))
-cc        E0(3) = 0.5*(jz0 (nxd)+jz0 (nxd+1))
-
-cc        !Convert electric field to covariant at r=1d0
-cc        E0(3) = -kk/mm*E0(2) + E0(3)
-
         !Build equilibrium
         do k = klo,khi
           do j = jlo,jhi
@@ -728,8 +728,11 @@ cc        E0(3) = -kk/mm*E0(2) + E0(3)
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
-cc              var(i,j,k,IRHO) = rho0(iglobal)
-              var(i,j,k,IRHO) = 1d0
+              if (solve_rho) then
+                var(i,j,k,IRHO) = rho0(iglobal)
+              else
+                var(i,j,k,IRHO) = 1d0
+              endif
 
               var(i,j,k,ITMP) = 1d-5
 
@@ -738,7 +741,15 @@ cc              var(i,j,k,IRHO) = rho0(iglobal)
         enddo
 
         !Shift vr for EQU BC
-        var(nxd+1,:,:,IVX) = 0.5*(var(nxd,:,:,IVX)+var(nxd+1,:,:,IVX))
+        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
+          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+     .                              +var(ihi+1,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+        endif
 
       case ('rfp1')      !RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
@@ -1168,7 +1179,7 @@ c Begin program
 
       select case (trim(equil))
 
-      case ('khcar','tmcar','tmsin','tmcxz')
+      case ('khcar','tmcar','tmsin','tmcxz','gem')
 
         do k = klom,khip
           do j = jlom,jhip
