@@ -6,7 +6,8 @@ MODS := mhd_mod.f imposeBC_mod.F
 
 COMMONDIR = ../common
 
-SUBDIRS = $(COMMONDIR)/grid\
+SUBDIRS = $(COMMONDIR)/math\
+	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/interpolation/slatec/1d_spline\
 	  $(COMMONDIR)/interpolation/slatec/2d_spline\
