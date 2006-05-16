@@ -55,6 +55,7 @@ c Namelist
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
+     .                   ,asm_PC
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
@@ -142,6 +143,7 @@ c Set defaults
       mgtol    = 1d-3          ! MG convergence tolerance
       precon   = 'si'          ! Type of preconditioner
       precpass = 1             ! Number of SI iterations in preconditioner
+      asm_PC   = .false.       ! Whether we are doing ASM PC (in parallel)
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
