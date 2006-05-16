@@ -40,8 +40,8 @@ c####################################################################
 
         real(8) :: diagnostics(ngraph)
 
-        real(8) :: Npar0,px0,py0,pz0,Ek0,Em0,Et0,Iz0,Tflux0
-        real(8) :: Npar ,px ,py ,pz ,Em ,Ek ,Et ,Iz ,Tflux
+        real(8) :: Npar0,Ipx0,Ipy0,Ipz0,Ek0,Em0,Et0,Iz0,Tflux0
+        real(8) :: Npar ,Ipx ,Ipy ,Ipz ,Em ,Ek ,Et ,Iz ,Tflux
 
       end module diag_setup
 
@@ -171,8 +171,10 @@ c Define diagnostics
       diag_desc(neqd+13)= 'Vflux at boundaries'
       diag_desc(neqd+14)= 'Toroidal current Iz'
       diag_desc(neqd+15)= 'Toroidal flux'
+      diag_desc(neqd+16)= 'Ez'
+      diag_desc(neqd+17)= 'Reconnected flux'
 
-      diag_desc(neqd+16:ngraph) = ''
+      diag_desc(neqd+18:ngraph) = ''
 
 c Define corresponding independent variables
 
@@ -211,9 +213,11 @@ c Call variables
 c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ieq
-      real(8)    :: array(ilom:ihip,jlom:jhip,klom:khip)
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+     .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
+     .             ,tn=0d0,ez,rflux
       logical    :: cartsn
 
 c Begin program
@@ -228,9 +232,9 @@ c Begin program
 
       if (init) then
         Npar0 = 0d0
-        px0   = 0d0
-        py0   = 0d0
-        pz0   = 0d0
+        Ipx0  = 0d0
+        Ipy0  = 0d0
+        Ipz0  = 0d0
         Em0   = 0d0
         Ek0   = 0d0
         Et0   = 0d0
@@ -239,9 +243,9 @@ c Begin program
       endif
 
       rho => varray%array_var(IRHO)%array
-      rvx => varray%array_var(IVX )%array
-      rvy => varray%array_var(IVY )%array
-      rvz => varray%array_var(IVZ )%array
+      px => varray%array_var(IVX )%array
+      py => varray%array_var(IVY )%array
+      pz => varray%array_var(IVZ )%array
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
@@ -254,13 +258,13 @@ c Particle diagnostics
 c Momentum diagnostics (in Cartesian coords.)
 
       array = rho*vx_car
-      px = integral(nx,ny,nz,array,igx,igy,igz,.false.) - px0
+      Ipx = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipx0
                                                         
       array = rho*vy_car
-      py = integral(nx,ny,nz,array,igx,igy,igz,.false.) - py0
+      Ipy = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipy0
                                                         
       array = rho*vz_car
-      pz = integral(nx,ny,nz,array,igx,igy,igz,.false.) - pz0
+      Ipz = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipz0
 
 c Energy diagnostics
 
@@ -299,9 +303,9 @@ c Initial assignments
 
       if (init) then
         Npar0 = Npar
-        px0   = px  
-        py0   = py  
-        pz0   = pz  
+        Ipx0  = Ipx  
+        Ipy0  = Ipy  
+        Ipz0  = Ipz  
         Em0   = Em  
         Ek0   = Ek  
         Et0   = Et 
@@ -341,6 +345,24 @@ c Magnetic divergence diagnostics
 
       diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
+c Parallel electric field diagnostic
+
+      if (time == tn) then
+        tn = time - 1d5
+        Pfluxn = Pflux
+      endif
+
+      ez = (Pflux (iplot,jplot,1)
+     .     -Pfluxn(iplot,jplot,1))/(time-tn)
+
+      tn = time
+      Pfluxn = Pflux
+
+c Reconnected flux
+
+      rflux = Pflux(iplot,jplot      ,1)
+     .       -Pflux(iplot,jplot-nyd/2,1)
+
 c Growth rate diagnostics
 
       do ieq=1,neqd
@@ -371,12 +393,14 @@ c Diagnostic assignment
       diagnostics(neqd+7) = diverB
       diagnostics(neqd+8) = Bflux
       diagnostics(neqd+9) = Npar
-      diagnostics(neqd+10)= px
-      diagnostics(neqd+11)= py
-      diagnostics(neqd+12)= pz
+      diagnostics(neqd+10)= Ipx
+      diagnostics(neqd+11)= Ipy
+      diagnostics(neqd+12)= Ipz
       diagnostics(neqd+13)= Vflux
       diagnostics(neqd+14)= Iz
       diagnostics(neqd+15)= Tflux
+      diagnostics(neqd+16)= Ez
+      diagnostics(neqd+17)= rflux
 
 cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)
