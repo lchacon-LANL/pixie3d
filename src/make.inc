@@ -8,6 +8,7 @@ COMMONDIR = ../common
 
 ifdef BOPT
   SUBDIRS = $(COMMONDIR)/driver-petsc\
+	    $(COMMONDIR)/math\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/interpolation/slatec/1d_spline\
@@ -19,6 +20,7 @@ ifdef BOPT
 	    $(COMMONDIR)/MG
 else
   SUBDIRS = $(COMMONDIR)/driver\
+	    $(COMMONDIR)/math\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/newtonGMRES\
 	    $(COMMONDIR)/interpolation/1d_int\
