@@ -66,7 +66,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         type (mg_array ),target :: gp0,gb0,gv0,grho0,gb0_cov
 
-        real(8),pointer,dimension(:,:,:):: rho,rvx,rvy,rvz,bx,by,bz,tmp
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
 
         logical :: form_diag=.true.,gm_smooth=.false.,mg_glrkin=.false.
      .            ,si_car=.true.,line_relax=.false.,rat_limit=.true.
@@ -453,12 +453,12 @@ c     Store ion velocity components in all grids (w/ BCs)
 
 c     Store current components in all grids (w/o BCs)
 
-        call restrictArrayToMGVector(1,nxx,nyy,nzz,jx,mgj0cnv(:,1),igrid
-     .                  ,order,.false.)
-        call restrictArrayToMGVector(1,nxx,nyy,nzz,jy,mgj0cnv(:,2),igrid
-     .                  ,order,.false.)
-        call restrictArrayToMGVector(1,nxx,nyy,nzz,jz,mgj0cnv(:,3),igrid
-     .                  ,order,.false.)
+cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jx,mgj0cnv(:,1),igrid
+cc     .                  ,order,.false.)
+cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jy,mgj0cnv(:,2),igrid
+cc     .                  ,order,.false.)
+cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jz,mgj0cnv(:,3),igrid
+cc     .                  ,order,.false.)
 
 c     Find auxiliary quantities and store them in all grids
 
@@ -626,11 +626,11 @@ c     End program
       end subroutine findCoeffs
 
 c     cSolver
-c #   #####################################################################
+c #   ##################################################################
       subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     .                  ,matvec,dg,ncolors,line_relax,gm_smth,gm_drvr
-     .                  ,cvrg_tst,order_res,order_prol,smooth,omega
-     .                  ,mvcyc,mu_cycle,galerkin)
+     .                  ,matvec,dg,ncolors,line_relax,gm_coarse_solve
+     .                  ,gm_driver,cvrg_tst,order_res,order_prol,smooth
+     .                  ,omega,mvcyc,mu_cycle,galerkin)
 c     ---------------------------------------------------------------
 c     This subroutine solves a coupled system of neq equations. 
 c     In call sequence:
@@ -649,7 +649,8 @@ c     Optional variables:
 c       * dg: matrix neq*neq diagonal block (for stationary its).
 c       * ncolors: number of colors in grid (for GS).
 c       * line_relax: whether we want line relaxation
-c       * gm_smth: whether we want GMRES as a smoother
+c       * gm_smooth: whether we want GMRES as a smoother
+c       * gm_driver: whether we want GMRES as a driver
 c       * cvrg_tst: whether we want to perform a convergence test
 c       * order_res: restriction order
 c       * order_prol: restriction order
@@ -673,8 +674,8 @@ c     Call variables
         real(8)   ,optional,intent(IN) :: dg(neq,2*neq*ntotp),omega
         integer(4),optional,intent(IN) :: ncolors,order_res,order_prol
      .                                   ,mvcyc,mu_cycle
-        logical   ,optional,intent(IN) :: line_relax,gm_smth,cvrg_tst
-     .                                   ,gm_drvr,galerkin
+        logical   ,optional,intent(IN) :: line_relax,gm_coarse_solve
+     .                                   ,cvrg_tst,gm_driver,galerkin
 
         character(2),optional :: smooth
 
@@ -685,7 +686,7 @@ c     Local variables
         integer(4) :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc
         real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg
         real(8), target :: ddg(neq,2*neq*ntotp)
-        logical    :: gm_smooth,cvrg_test,lrelax,gm_driver,glkin
+        logical    :: gm_crse_solve,cvrg_test,lrelax,gm_drvr,glkin
 
         character(2) :: smth
 
@@ -695,16 +696,16 @@ c     Process optional arguments
 
         if (PRESENT(dg)) ddg = dg
 
-        if (PRESENT(gm_smth)) then
-          gm_smooth = gm_smth
+        if (PRESENT(gm_coarse_solve)) then
+          gm_crse_solve = gm_coarse_solve
         else
-          gm_smooth = .false.
+          gm_crse_solve = .false.
         endif
 
-        if (PRESENT(gm_drvr)) then
-          gm_driver = gm_drvr
+        if (PRESENT(gm_driver)) then
+          gm_drvr = gm_driver
         else
-          gm_driver = .false.
+          gm_drvr = .false.
         endif
 
         if (PRESENT(cvrg_tst)) then
@@ -756,7 +757,7 @@ cc          endif
         if(PRESENT(omega)) then
           omg = omega
         else
-          omg = 0.8
+          omg = 0.7
         endif
 
         if(PRESENT(galerkin)) then
@@ -786,7 +787,9 @@ c       Initialize solver
 
         call solverInit
 
-        if (gm_driver.and.vcyc > 1) then
+c       Check whether GMRES is driving solve
+
+        if (gm_drvr.and.vcyc > 1) then
           call solverOptionsInit
 
           solverOptions%iter    = vcyc
@@ -798,7 +801,8 @@ c       Initialize solver
         endif
 
 c diag ****
-cccc        if (maxvcyc > 1) then
+cc        write (*,*) 'DIAG -- cSolver'
+cc
 cc        call solverOptionsInit
 cc
 cc        solverOptions%iter    = maxvcyc
@@ -806,30 +810,41 @@ cc        solverOptions%tol     = mgtol
 cc
 cc        if (PRESENT(dg)) solverOptions%diag => ddg
 cc
-cccc        solverOptions%omega   = 1d0 !For point relax
-cccc        call assembleSolverHierarchy('jb')
+cc        select case (smth)
+cc        case('gs')
+cc          solverOptions%omega   = 1d0
+cc          solverOptions%ncolors = ncolors
+cc          call assembleSolverHierarchy('gs')
+cc        case('gm')
+cc          solverOptions%stp_test = 1 
+cc          solverOptions%krylov_subspace = solverOptions%iter 
+cc          call assembleSolverHierarchy('gm')
 cc
-cc        solverOptions%omega   = 1d0 !For point relax
-cc        if (PRESENT(ncolors)) solverOptions%ncolors  = ncolors
-cc        call assembleSolverHierarchy('gs')
-cc
-cccc        solverOptions%stp_test = 1 
-cccc        solverOptions%krylov_subspace = solverOptions%iter 
-cccc        call assembleSolverHierarchy('gm')
-cccc        call assembleSolverHierarchy('id')
+cc          solverOptions%iter    = 1
+cc          solverOptions%omega   = omg
+cc          call assembleSolverHierarchy('jb')
+cccc          call assembleSolverHierarchy('id')
+cc        case default !JB
+cc          solverOptions%omega   = omg
+cc          call assembleSolverHierarchy('jb')
+cc        end select
 c diag ****
 
-c       Upper_level solver options (MG)
+c       MG solver options
 
         call solverOptionsInit
 
         solverOptions%tol      = mgtol
-        if (gm_driver .and. vcyc > 1) then
+        if (gm_drvr .and. vcyc > 1) then
           solverOptions%vcyc     = 1
         else
           solverOptions%vcyc     = vcyc
         endif
-        solverOptions%igridmin = 2
+cc        if (np > 1) then
+cc          solverOptions%igridmin = 1
+cc        else
+          solverOptions%igridmin = 2
+cc        endif
         solverOptions%orderres = iorder_res
         solverOptions%orderprol= iorder_prol
         solverOptions%mg_mu    = mu_cyc
@@ -840,14 +855,18 @@ c       Upper_level solver options (MG)
 
         if (PRESENT(ncolors)) solverOptions%ncolors  = ncolors
 
-        if (gm_smooth) then
-        !With GMRES smoothing
-          solverOptions%mg_coarse_solver_depth = 4 !GMRES, as defined below
-          solverOptions%fdiag = .false.
+        !Coarse solve
+        if (gm_crse_solve) then
+        !With GMRES as coarse solver (defined below)
+          if (         (gm_drvr  .and. smth/='gm')
+     .       .or.((.not.gm_drvr) .and. smth=='gm') ) then
+            solverOptions%mg_coarse_solver_depth = 4
+          elseif (gm_drvr .and. smth=='gm') then
+            solverOptions%mg_coarse_solver_depth = 5
+          endif
         else
-        !With JB smoothing
-cc          solverOptions%mg_coarse_solver_depth = 3 !GMRES, as defined below
-          solverOptions%mg_coarse_solver_depth = 0 !Smoother
+        !Use smoother as coarse solver
+          solverOptions%mg_coarse_solver_depth = 0
         endif
 
         !Vertex relaxation
@@ -873,7 +892,7 @@ cc        solverOptions%vertex_based_relax = .true.
 
         call assembleSolverHierarchy('mg')
 
-c       Next level solver (smoother)
+c       MG smoother
 
         call solverOptionsInit
 
@@ -884,74 +903,39 @@ c       Next level solver (smoother)
           solverOptions%iter  = 2
         endif
 
-        if (smth == 'gs') then
-          !GS
+        select case (smth)
+        case('gs')
           solverOptions%omega   = 1d0
           solverOptions%ncolors = ncolors
           call assembleSolverHierarchy('gs')
-        elseif (smth == 'gm' .or. gm_smooth) then
-          !GMRES
-          solverOptions%krylov_subspace = nsweep
+        case('gm')
           solverOptions%stp_test        = 1 
-
+          solverOptions%krylov_subspace = solverOptions%iter 
           call assembleSolverHierarchy('gm')
 
-          call solverOptionsInit
-          call assembleSolverHierarchy('id') !GMRES preconditioner
-        else
-          !JB
+          if (gm_smooth) then
+            call assembleSolverHierarchy('id')
+          else
+            call solverOptionsInit
+            solverOptions%iter    = 1
+            solverOptions%omega   = omg
+            call assembleSolverHierarchy('jb')
+          endif
+        case default !JB
           solverOptions%omega   = omg
           call assembleSolverHierarchy('jb')
-        endif
+        end select
 
-cc        if (.not.gm_smooth) then
-cccc          if (PRESENT(dg)) solverOptions%diag => ddg
-cc
-cc          !GS
-cccc          solverOptions%omega   = 1d0
-cccc          if (PRESENT(ncolors)) solverOptions%ncolors = ncolors
-cccccc          solverOptions%vertex_based_relax = .true.
-cccc
-cccc          call assembleSolverHierarchy('gs')
-cc
-cc          !JB
-cc          if (lrelax) then
-cc            solverOptions%omega   = 0.67 !For line relax
-cc          else
-cc            solverOptions%omega   = 0.8 !For point relax
-cc          endif
-cc
-cc          call assembleSolverHierarchy('jb')
-cc
-cc        else
-cc
-cc          !GMRES
-cc          solverOptions%krylov_subspace = nsweep
-cc          solverOptions%stp_test        = 1 
-cc
-cc          call assembleSolverHierarchy('gm')
-cc
-cc          call solverOptionsInit
-cc          call assembleSolverHierarchy('id') !GMRES preconditioner
-cc
-cc        endif
-
-c       Coarsest grid solve for outer MG
+c       MG coarsest grid solve
 
         call solverOptionsInit
 
         solverOptions%tol             = 1d-5
-        solverOptions%krylov_subspace = 1000
-        solverOptions%iter            = 1000
-c diag ****
-cc        solverOptions%iter            = 10
-c diag ****
+        solverOptions%krylov_subspace = 100
+        solverOptions%iter            = 100
         solverOptions%stp_test        = 1 
         solverOptions%omega           = 1d0
 
-c diag ****
-cc        call assembleSolverHierarchy('jb')
-c diag ****
         call assembleSolverHierarchy('gm')
         call assembleSolverHierarchy('id') !GMRES preconditioner
 
@@ -1275,8 +1259,6 @@ c     ###################################################################
       function vecA(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,half_elem)
      .         result(cnv)
 
-      use vectorOps
-
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of vector
 c     
@@ -1298,6 +1280,9 @@ c     Call variables
 
 c     Local variables
 
+        integer(4) :: ig,jg,kg
+        real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz
+
 c     Begin program
 
 c     Resistive MHD part
@@ -1307,17 +1292,113 @@ c     Resistive MHD part
 c     Hall MHD part
 
         if (di > 0d0) then
+
+          !Hall term coefficient
+cc          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc          idx  = 1./grid_params%dxh(ig)
+cc          if (nxd == 1) idx = 0d0
+cc          idy  = 1./grid_params%dyh(jg)
+cc          if (nyd == 1) idy = 0d0
+cc          idz  = 1./grid_params%dzh(kg)
+cc          if (nzd == 1) idz = 0d0
+cc
+cc          vxx = abs(vv(i,j,k,1))
+cc          vyy = abs(vv(i,j,k,2))
+cc          vzz = abs(vv(i,j,k,3))
+cc
+cc          minv = cnp/dt
+cc     .           +alpha*(scalarProduct(i,j,k,igx,igy,igz
+cc     .                              ,idx,idy,idz,vxx,vyy,vzz)
+cc     .           +nu*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.))
+
+cc          minv = minv*di/alpha
+          minv = di*cnp/dt/alpha
+
+          !Hall term correction
           cnv = cnv
-     .        + di/dt/alpha*curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vv_cov(:,:,:,1)
-     .                          ,vv_cov(:,:,:,2)
-     .                          ,vv_cov(:,:,:,3),he=half_elem)
+     .        + minv*curl(i,j,k,nx,ny,nz,igx,igy,igz
+     .                   ,vv_cov(:,:,:,1)
+     .                   ,vv_cov(:,:,:,2)
+     .                   ,vv_cov(:,:,:,3),he=half_elem)
      .         
         endif
 
 c     End program
 
       end function vecA
+
+c     diag_v
+c     #####################################################################
+      function diag_v(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,da) result(psiv)
+
+c     ---------------------------------------------------------------------
+c     Find advection/diffusion component of SI operator
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: i,j,k,igx,igy,igz,nxx,nyy,nzz
+      real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3),psiv(3)
+
+c     Local Variables
+
+      integer(4) :: hex,hey,hez
+      real(8)    :: upwind,mul,nabla_vv0(3,3),veclap(3)
+
+c     Begin program
+
+      hex = 1
+      hey = 1
+      hez = 1
+      if (v0(i,j,k,1) > 0d0) hex = -1
+      if (v0(i,j,k,2) > 0d0) hey = -1
+      if (v0(i,j,k,3) > 0d0) hez = -1
+cc      hex = 0
+cc      hey = 0
+cc      hez = 0
+
+      nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                       ,da(:,:,:,1),da(:,:,:,2),da(:,:,:,3)
+     .                       ,hex,hey,hez)
+
+      nabla_vv0 =fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                        ,v0(:,:,:,1)
+     .                        ,v0(:,:,:,2)
+     .                        ,v0(:,:,:,3)
+     .                        ,0,0,0)
+
+      mul = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+
+      veclap = veclaplacian(i,j,k,nxx,nyy,nzz,igx,igy,igz,da
+     .                     ,alt_eom,vol=.false.)
+
+      do ieq=1,3
+        upwind =( v0(i,j,k,1)*nabla_v(1,ieq)
+     .           +v0(i,j,k,2)*nabla_v(2,ieq)
+     .           +v0(i,j,k,3)*nabla_v(3,ieq))/jac
+
+        upwind = upwind
+     .           +( da(i,j,k,1)*nabla_vv0(1,ieq)
+     .             +da(i,j,k,2)*nabla_vv0(2,ieq)
+     .             +da(i,j,k,3)*nabla_vv0(3,ieq))/jac
+
+cc        if (.not.nc_eom_v) then
+cc          hex = floor(sign(1d0,-mgadvdiffV0(ijkg,ieq)))
+cccc          hex = 0
+cc          upwind = upwind
+cc     .          -dt*mgadvdiffV0(ijkg,ieq)*div_upwd(da,hex)/rho0(i,j,k,1)
+cc        endif
+
+        psiv(ieq) = cnp*da(i,j,k,ieq)/dt
+     .            + alpha*upwind
+     .            - alpha*mul*veclap(ieq)
+      enddo
+
+      end function diag_v
 
 c     diagonalScaling
 c     #####################################################################
