@@ -61,32 +61,55 @@ c Unpack vector x
 c Extract arrays and BC's
 
       rho => varray%array_var(IRHO)%array
-      rvx => varray%array_var(IVX )%array
-      rvy => varray%array_var(IVY )%array
-      rvz => varray%array_var(IVZ )%array
+      px => varray%array_var(IVX )%array
+      py => varray%array_var(IVY )%array
+      pz => varray%array_var(IVZ )%array
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
       tmp => varray%array_var(ITMP)%array
 
+c Find coefficients for linearized systems
+
+      !Set boundary conditions
       do ieq=1,neqd
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
 
-      !Current boundary conditions
       bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
       where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
 
-c Find coefficients for linearized systems
+cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
+      call setASM_PC_BC(igx,igy,igz,bcs,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
 
-      call setASM_PC_BC(igx,igy,igz,bcs,EXT)
-
+      !Find coefficients
       if (jit == 1) call findCoeffs
 
 c Find required diagonals in all grids
 
-      call setASM_PC_BC(igx,igy,igz,bcs,DIR)
+      !Set boundary conditions
+      do ieq=1,neqd
+        bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
+      enddo
 
+      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
+      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
+
+      if (asm_PC.and.(np>1)) then
+        call setASM_PC_BC(igx,igy,igz,bcs)
+cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
+      else
+        call setASMflag(.false.)
+      endif
+
+#if defined(petsc)
+      if (ilevel >= 4) then
+        write (*,*) 'Proc ',my_rank,':  asm in setupPC',asm
+        write (*,*) 'Proc ',my_rank,':  asm_dir in setupPC',asm_dir
+      endif
+#endif
+
+      !Find diagonals
       ncolors = 4
 
       if (jit == 1) then
@@ -101,18 +124,6 @@ c Find required diagonals in all grids
         call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
      .                   ,b_diag,ncolors,vol_wgt,.false.)
 
-c diag ****
-cc           call find_mf_diag(3,1,3*ntotdp,hall_mtvc,1,bcs(:,IVX:IVZ)
-cc     .                      ,v_diag,ncolors,vol_wgt,mg_glrkin)
-cccc           do ieq=1,ntotdp
-cccc             write (*,*) v_diag(1,3*(ieq-1) + 1:3*(ieq-1) + 3)
-cccc             write (*,*) v_diag(2,3*(ieq-1) + 1:3*(ieq-1) + 3)
-cccc             write (*,*) v_diag(3,3*(ieq-1) + 1:3*(ieq-1) + 3)
-cccc             write (*,*)
-cccc           enddo
-cccc           stop
-c diag ****
-
         if (.not.gm_smooth) then
           if (precon == 's1') then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
@@ -121,10 +132,10 @@ cc     .                       ,v_diag,ncolors,vol_wgt,si_car)
 cc           call find_mf_diag_colored(3,3*ntotdp,v_mtvc_pr,1
 cc     .                              ,bcs(:,IVX:IVZ),v_diag,ncolors)
           elseif (precon == 's2') then
+cc           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
+cc     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
            call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                      ,v_diag,ncolors,vol_wgt,mg_glrkin)
-           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
-     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
           elseif (precon == 's3') then
            call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
      .                      ,mstar_diag,ncolors,vol_wgt,.false.)
