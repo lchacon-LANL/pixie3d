@@ -35,6 +35,10 @@ c Local variables
       integer(4) :: dim,loc,ibc,ieq,bctype
 
       real(8)    :: dh,vmax
+     .             ,fx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,fy_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,fz_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,pe    (ilom:ihip,jlom:jhip,klom:khip)
 
 c Begin program
 
@@ -53,9 +57,9 @@ c Impose boundary conditions and find auxiliary quantities
 c Set aliases
 
       rho => varray%array_var(IRHO)%array
-      rvx => varray%array_var(IVX )%array
-      rvy => varray%array_var(IVY )%array
-      rvz => varray%array_var(IVZ )%array
+      px  => varray%array_var(IVX )%array
+      py  => varray%array_var(IVY )%array
+      pz  => varray%array_var(IVZ )%array
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
@@ -64,6 +68,7 @@ c Set aliases
 c Safeguards
 
       if (minval(rho) < 0d0) then
+        write (*,*) minval(rho)
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
       endif
@@ -75,11 +80,17 @@ c Safeguards
 
 c Electron velocity
 
-      vecnv(:,:,:,1) = vx -di*jx/rho
-      vecnv(:,:,:,2) = vy -di*jy/rho
-      vecnv(:,:,:,3) = vz -di*jz/rho
+      if (di > 0d0) then
+        vecnv(:,:,:,1) = vx -di*jx/rho
+        vecnv(:,:,:,2) = vy -di*jy/rho
+        vecnv(:,:,:,3) = vz -di*jz/rho
+      else
+        vecnv(:,:,:,1) = vx
+        vecnv(:,:,:,2) = vy
+        vecnv(:,:,:,3) = vz
+      endif
 
-c Electron pressure gradient
+c Electron forces (covariant vector)
 
       if (di > 0d0) then
         pe = rho*tmp
@@ -87,8 +98,22 @@ c Electron pressure gradient
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
+              !Electron pressure
               call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                 ,gpex(i,j,k),gpey(i,j,k),gpez(i,j,k))
+     .                 ,fx_cov(i,j,k),fy_cov(i,j,k),fz_cov(i,j,k))
+              !Electron hall (normally included directly via ve in vexB tem)
+cc              fx_cov(i,j,k) = fx_cov(i,j,k)
+cc     .                    - (jy(i,j,k)*bz(i,j,k)
+cc     .                      -jz(i,j,k)*by(i,j,k))
+cc     .                      /gmetric%grid(igx)%jac(i,j,k)
+cc              fy_cov(i,j,k) = fy_cov(i,j,k)
+cc     .                    - (jz(i,j,k)*bx(i,j,k)
+cc     .                      -jx(i,j,k)*bz(i,j,k))
+cc     .                      /gmetric%grid(igx)%jac(i,j,k)
+cc              fz_cov(i,j,k) = fz_cov(i,j,k)
+cc     .                    - (jx(i,j,k)*by(i,j,k)
+cc     .                      -jy(i,j,k)*bx(i,j,k))
+cc     .                      /gmetric%grid(igx)%jac(i,j,k)
             enddo
           enddo
         enddo
@@ -96,25 +121,42 @@ c Electron pressure gradient
         
 c Viscosity (resistivity found in BC routine)
 
-      do k=0,nz+1
-        do j=0,ny+1
-          do i=0,nx+1
-            nuu  (i,j,k) = rho(i,j,k)*vis(i,j,k,nx,ny,nz,igx,igy,igz)
-cc            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
+      if (nc_eom_v) then
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
+cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
+            enddo
           enddo
         enddo
-      enddo
+      else
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              nuu  (i,j,k) = rho(i,j,k)*vis(i,j,k,nx,ny,nz,igx,igy,igz)
+cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
+            enddo
+          enddo
+        enddo
+      endif
 
 c Auxiliary variables
 
-      ejx = jx_cov*eeta
-      ejy = jy_cov*eeta
-      ejz = jz_cov*eeta
+      if (di > 0d0) then    !Add electron pressure term
+        ejx = - di*fx_cov/rho
+        ejy = - di*fy_cov/rho
+        ejz = - di*fz_cov/rho
+      else
+        ejx = 0d0
+        ejy = 0d0
+        ejz = 0d0
+      endif
 
-      if (di > 0d0) then
-        ejx = ejx - di*gpex/rho
-        ejy = ejy - di*gpey/rho
-        ejz = ejz - di*gpez/rho
+      if (solenoidal) then  !Add resistivity term
+        ejx = ejx + jx_cov*eeta
+        ejy = ejy + jy_cov*eeta
+        ejz = ejz + jz_cov*eeta
       endif
 
       bcnv(:,:,:,1) = bx
@@ -127,18 +169,20 @@ c Auxiliary variables
 
 c SI operator
 
-      b_n(:,:,:,1) = u_n%array_var(IBX)%array
-      b_n(:,:,:,2) = u_n%array_var(IBY)%array
-      b_n(:,:,:,3) = u_n%array_var(IBZ)%array
+      if (k_si > 0d0) then
+        b_n(:,:,:,1) = u_n%array_var(IBX)%array
+        b_n(:,:,:,2) = u_n%array_var(IBY)%array
+        b_n(:,:,:,3) = u_n%array_var(IBZ)%array
 
-      p_n(:,:,:,1) = 2*u_n%array_var(IRHO)%array
-     .                *u_n%array_var(ITMP)%array
+        p_n(:,:,:,1) = 2*u_n%array_var(IRHO)%array
+     .                  *u_n%array_var(ITMP)%array
 
-      dv_dt(:,:,:,1) = (vcnv(:,:,:,1)-u_n%array_var(IVX)%array)/dt
-      dv_dt(:,:,:,2) = (vcnv(:,:,:,2)-u_n%array_var(IVY)%array)/dt
-      dv_dt(:,:,:,3) = (vcnv(:,:,:,3)-u_n%array_var(IVZ)%array)/dt
+        dv_dt(:,:,:,1) = (vcnv(:,:,:,1)-u_n%array_var(IVX)%array)/dt
+        dv_dt(:,:,:,2) = (vcnv(:,:,:,2)-u_n%array_var(IVY)%array)/dt
+        dv_dt(:,:,:,3) = (vcnv(:,:,:,3)-u_n%array_var(IVZ)%array)/dt
 
-      max_dv_dt = maxval(dv_dt)
+        max_dv_dt = maxval(dv_dt)
+      endif
 
 c End program
 
@@ -162,7 +206,7 @@ c Local variables
 
 c Begin program
 
-      nullify(rho,bx,by,bz,rvx,rvy,rvz,tmp)
+      nullify(rho,bx,by,bz,px,py,pz,tmp)
 
 c End program
 
