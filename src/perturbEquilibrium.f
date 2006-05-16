@@ -27,13 +27,15 @@ c     Call variables
 
       integer(4) :: bcs(6),ieq
       real(8)    :: perturb
-      real(8)    :: array (0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz
       real(8)    :: x1,y1,z1,jac
-      real(8)    :: fx(0:nxdp),fy(0:nydp),fz(0:nzdp) 
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      integer(4) :: system,ierr
 
 c     Begin program
 
@@ -46,12 +48,21 @@ c     Begin program
 
         call perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
 
+      case ('ppnch','ppn3d','ppn2')
+
+        ierr = system('ls pixie3d.eig >& /dev/null')
+
+        if (ierr == 0) then
+          call perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
+        else
+          call perturbEquilibrium_def  (array,bcs,perturb,ieq)
+        endif
+
       case ('msw')
 
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-              array(i,j,k) = array(i,j,k) + perturb*fx(i)*fy(j)*fz(k)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
               jac = gmetric%grid(igx)%jac(i,j,k)
@@ -69,37 +80,72 @@ c     Begin program
 
       case default
 
-        do i = 1,nxd
-          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-          fx(i) = factor(xmin,xmax,x1,bcs(1:2),nh1)
-        enddo
-
-        do j = 1,nyd
-          call getCurvilinearCoordinates(1,j,1,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-          fy(j) = factor(ymin,ymax,y1,bcs(3:4),nh2)
-        enddo
-
-        do k = 1,nzd
-          call getCurvilinearCoordinates(1,1,k,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-          fz(k) = factor(zmin,zmax,z1,bcs(5:6),nh3)
-        enddo
-
-        do k = 1,nzd
-          do j = 1,nyd
-            do i = 1,nxd
-              array(i,j,k) = array(i,j,k) + perturb*fx(i)*fy(j)*fz(k)
-            enddo
-          enddo
-        enddo
+        call perturbEquilibrium_def(array,bcs,perturb,ieq)
 
       end select
 
 c     End program
 
       contains
+
+c     perturbEquilibrium_def
+c     #################################################################
+      subroutine perturbEquilibrium_def(array,bcs,perturb,ieq)
+
+c     -----------------------------------------------------------------
+c     Perturbs equilibrium quantity in array0 with a sinusoidal
+c     perturbation of magnitude perturb, and introduces it in array.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: bcs(6),ieq
+      real(8)    :: perturb
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
+      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+c     Begin program
+
+      igx = 1
+      igy = 1
+      igz = 1
+
+      do i = ilom,ihip
+        call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz,ig,jg,kg
+     .                                ,x1,y1,z1)
+        fx(i) = factor(xmin,xmax,x1,bcs(1:2),nh1)
+      enddo
+
+      do j = jlom,jhip
+        call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz,ig,jg,kg
+     .                                ,x1,y1,z1)
+        fy(j) = factor(ymin,ymax,y1,bcs(3:4),nh2)
+      enddo
+
+      do k = klom,khip
+        call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz,ig,jg,kg
+     .                                ,x1,y1,z1)
+        fz(k) = factor(zmin,zmax,z1,bcs(5:6),nh3)
+      enddo
+
+      do k = klom,khip
+        do j = jlom,jhip
+          do i = ilom,ihip
+            array(i,j,k) = array(i,j,k) + perturb*fx(i)*fy(j)*fz(k)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine perturbEquilibrium_def
 
 c     perturbEquilibrium_kaitm
 c     #################################################################
@@ -116,15 +162,15 @@ c     Call variables
 
       integer(4) :: bcs(6),ieq
       real(8)    :: perturb
-      real(8)    :: array (0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz
+      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
       real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(0:nxdp),fy(0:nydp),fz(0:nzdp) 
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      real(8) :: dum,rr(neqd),ii(neqd),pert(neqd)
+      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
 
 c     Begin program
 
@@ -139,27 +185,33 @@ c     Begin program
 
       open(unit=111,file='M64_000020.asc',status='old')
 
-      k = 1
       do i=1,nxd
-        read(111,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
+        read(111,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
+     .                 ,ii(i,1),ii(i,8),ii(i,2:7)
 cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
-        do j=1,nyd
-          call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
+      enddo
 
-          pert = rr*cos(y1)+ii*sin(y1)
+      do k = klom,khip
+        do j = jlom,jhip
+          do i = ilo,ihi
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
 
-          pert(2) = x1*pert(2)
-          pert(3) = pert(3)+kk*x1/mm*pert(4)
-          pert(4) = x1*pert(4)
+            iglobal = i + grid_params%ilo(igx) - 1
 
-          pert(5) = x1*pert(5)
-          pert(6) = pert(6)+kk*x1/mm*pert(7)
-          pert(7) = x1*pert(7)
+            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
-          array(i,j,k) = array(i,j,k) + pert(ieq)
+            pert(2) = x1*pert(2)
+            if (equil == 'kaitm') pert(3) = pert(3)+kk*x1/mm*pert(4)
+            pert(4) = x1*pert(4)
+
+            pert(5) = x1*pert(5)
+            if (equil == 'kaitm') pert(6) = pert(6)+kk*x1/mm*pert(7)
+            pert(7) = x1*pert(7)
+
+            array(i,j,k) = array(i,j,k) + pert(ieq)
+          enddo
         enddo
-cc        write (*,*) x1
       enddo
 
       close (111)
@@ -168,6 +220,91 @@ cc      stop
 c     End program
 
       end subroutine perturbEquilibrium_kaitm
+
+c     perturbEquilibrium_ppnch
+c     #################################################################
+      subroutine perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
+
+c     -----------------------------------------------------------------
+c     Perturbs equilibrium quantity in array0 with a sinusoidal
+c     perturbation of magnitude perturb, and introduces it in array.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: bcs(6),ieq
+      real(8)    :: perturb
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+
+c     Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,nxx
+      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
+
+c     Begin program
+
+      if (ieq == IBX .or. ieq == IBY .or. ieq == IBZ) return
+
+      igx = 1
+      igy = 1
+      igz = 1
+
+      mm = grid_params%params(1)
+      kk = grid_params%params(2)
+
+c     Read pixie3d.eig file
+
+      write (*,*) 'Reading PPNCH eigenmodes...'
+
+      open(unit=111,file='pixie3d.eig',status='old')
+
+      read(111,*) nxx
+
+      if (nxx /= nxd) then
+        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
+      endif
+
+      do i=1,nxd
+        read(111,*) dum,rr(i,1:8),ii(i,1:8)
+      enddo
+
+      close (111)
+
+c     Find perturbations
+
+      do k = klom,khip
+        do j = jlom,jhip
+          do i = ilo,ihi
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+            iglobal = i + grid_params%ilo(igx) - 1
+
+            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
+
+            pert(2) = x1*pert(2)
+            if (coords == 'hel') pert(3) = pert(3)+kk*x1/mm*pert(4)
+            pert(4) = x1*pert(4)
+
+            pert(5) = x1*pert(5)
+            if (coords == 'hel') pert(6) = pert(6)+kk*x1/mm*pert(7)
+            pert(7) = x1*pert(7)
+
+cc            array(i,j,k) = array(i,j,k) + pert(ieq)
+cc            array(i,j,k) = array(i,j,k) + perturb*pert(ieq)
+            array(i,j,k) = array(i,j,k) + 1d-3*pert(ieq)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine perturbEquilibrium_ppnch
 
 c     perturbEquilibrium_gem
 c     #################################################################
@@ -184,17 +321,15 @@ c     Call variables
 
       integer(4) :: bcs(6),ieq
       real(8)    :: perturb
-      real(8)    :: array (0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz
+      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
       real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(0:nxdp),fy(0:nydp),fz(0:nzdp) 
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      real(8)    :: dum,rr(neqd),ii(neqd),pert(neqd)
-
-      real(8)    :: psi(0:nxdp,0:nydp,0:nzdp)
+      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
 
 c     Begin program
 
@@ -202,35 +337,48 @@ c     Begin program
       igy = 1
       igz = 1
 
-      if (ieq == 5 .or. ieq == 6) then
-        k = 1
+      if (ieq == IBX .or. ieq == IBY) then
 
-cc        pi = acos(-1d0)
-        do j=0,nydp
-          do i=0,nxdp
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
-            psi(i,j,k)=sin(pi*x1/(xmax-xmin))*sin(2*pi*y1/(ymax-ymin))
+              psi(i,j,k)=sin(pi*x1/(xmax-xmin))*sin(2*pi*y1/(ymax-ymin))
+            enddo
           enddo
         enddo
 
-        do j=1,nyd
-          do i=1,nxd
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-            if (ieq == 5) then
-              array(i,j,k) = array(i,j,k)
-     .                 - perturb*(psi(i,j+1,k)-psi(i,j-1,k))
-     .                            /2./grid_params%dyh(jg)
-            else
-              array(i,j,k) = array(i,j,k)
-     .                 + perturb*(psi(i+1,j,k)-psi(i-1,j,k))
-     .                            /2./grid_params%dxh(ig)
-            endif
+              ip = min(i+1,ihip)
+              im = max(i-1,ilom)
+              jp = min(j+1,jhip)
+              jm = max(j-1,jlom)
+
+              if (ieq == 5) then
+                array(i,j,k) = array(i,j,k)
+     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+     .                              /(grid_params%yy(jg+jp-j)
+     .                               -grid_params%yy(jg+jm-j))
+              else
+                array(i,j,k) = array(i,j,k)
+     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+     .                              /(grid_params%xx(ig+ip-i)
+     .                               -grid_params%xx(ig+im-i))
+              endif
+            enddo
           enddo
         enddo
+
+      else
+
+        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+
       endif
 
 c     End program
