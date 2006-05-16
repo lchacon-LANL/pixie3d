@@ -497,6 +497,8 @@ c     Begin program
      .                    +2.*hessian(1,1,2)*vx(i,j,k)*vy(i,j,k)
      .                    +2.*hessian(1,1,3)*vx(i,j,k)*vz(i,j,k)
      .                    +2.*hessian(1,2,3)*vy(i,j,k)*vz(i,j,k)
+                else
+                  rhs(j,k) = 0d0
                 endif
                 rhs(j,k) = -dh(dim)
      .             *(gsuper(dim,2)*(array(i,jp,k)-array(i,jm,k))/dh(2)
@@ -510,6 +512,8 @@ c     Begin program
      .                    +2.*hessian(2,1,2)*vx(i,j,k)*vy(i,j,k)
      .                    +2.*hessian(2,1,3)*vx(i,j,k)*vz(i,j,k)
      .                    +2.*hessian(2,2,3)*vy(i,j,k)*vz(i,j,k)
+                else
+                  rhs(i,k) = 0d0
                 endif
                 rhs(i,k) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
@@ -523,6 +527,8 @@ c     Begin program
      .                    +2.*hessian(3,1,2)*vx(i,j,k)*vy(i,j,k)
      .                    +2.*hessian(3,1,3)*vx(i,j,k)*vz(i,j,k)
      .                    +2.*hessian(3,2,3)*vy(i,j,k)*vz(i,j,k)
+                else
+                  rhs(i,j) = 0d0
                 endif
                 rhs(i,j) = -dh(dim)
      .             *(gsuper(dim,1)*(array(ip,j,k)-array(im,j,k))/dh(1)
@@ -596,7 +602,7 @@ c     Local variables
 
       integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
       real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz,ee,alp,vec(3),cnv(3)
-     .             ,cov(3),J0(3)
+     .             ,cov(3),J0(3),bnorm
       real(8)    :: gsuper(3,3),hessian(3,3,3)
      .             ,gsupip(3,3),gsupim(3,3)
      .             ,gsupjp(3,3),gsupjm(3,3)
@@ -763,7 +769,28 @@ cc      case (IVX,IVY,IVZ) !Velocity components
               if (k == nzbc) dh(3) = dz(kg-1)
               if (k == 1   ) dh(3) = dz(kg)
 
-cc              if (equil == 'ppnch' .or. equil == 'ppn3d') then
+              if (eeta(i,j,k) > 0d0) then
+                J0 = E0/eeta(i,j,k)
+              else
+                J0 = 0d0
+              endif
+
+              if (equil == 'ppnch' .or. equil == 'ppn3d') then
+
+                !THIS WON'T WORK FOR LINEARIZED EQUATIONS; SHOULD USE ACTUAL B
+                !   BUT THIS DOESN'T WORK YET.
+                cov = (/array(i,j,k,1),array(i,j,k,2),array(i,j,k,3)/)
+cc                cov = (/varray%array(IBX)%array(i,j,k)
+cc     .                 ,varray%array(IBY)%array(i,j,k)
+cc     .                 ,varray%array(IBZ)%array(i,j,k)/)
+
+                cnv = gsuper(:,1)*cov(1)
+     .               +gsuper(:,2)*cov(2)
+     .               +gsuper(:,3)*cov(3)
+
+                bnorm = scalarProduct(i,j,k,igxbc,igybc,igzbc
+     .                               ,cov(1),cov(2),cov(3)
+     .                               ,cnv(1),cnv(2),cnv(3))
 
                 if (dim == 1) then
 
@@ -787,22 +814,11 @@ cc              if (equil == 'ppnch' .or. equil == 'ppn3d') then
      .                    -gsuper(dim,2)*jxx/gsuper(dim,dim))
                   endif
 
-                  cov = (/array(i,j,k,1),array(i,j,k,2),array(i,j,k,3)/)
-
-                  cnv = gsuper(:,1)*array(i,j,k,1)
-     .                 +gsuper(:,2)*array(i,j,k,2)
-     .                 +gsuper(:,3)*array(i,j,k,3)
-
-                  if (eta > 0d0) then
-
-                    J0 = E0/eeta(i,j,k)
-
+                  if (eta > 0d0 .and. bnorm > 0d0) then
                     alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
      .                                 ,J0 (1),J0 (2),J0 (3)
      .                                 ,cnv(1),cnv(2),cnv(3))
-     .                   /scalarProduct(i,j,k,igxbc,igybc,igzbc
-     .                                 ,cov(1),cov(2),cov(3)
-     .                                 ,cnv(1),cnv(2),cnv(3))
+     .                   /bnorm
                   else
                     alp = 0d0
                   endif
@@ -832,22 +848,11 @@ cc              if (equil == 'ppnch' .or. equil == 'ppn3d') then
      .                    -gsuper(dim,3)*jyy/gsuper(dim,dim))
                   endif
 
-                  cov = (/array(i,j,k,1),array(i,j,k,2),array(i,j,k,3)/)
-
-                  cnv = gsuper(:,1)*array(i,j,k,1)
-     .                 +gsuper(:,2)*array(i,j,k,2)
-     .                 +gsuper(:,3)*array(i,j,k,3)
-
-                  if (eta > 0d0) then
-
-                    J0 = E0/eeta(i,j,k)
-
+                  if (eta > 0d0 .and. bnorm > 0d0) then
                     alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
      .                                 ,J0 (1),J0 (2),J0 (3)
      .                                 ,cnv(1),cnv(2),cnv(3))
-     .                   /scalarProduct(i,j,k,igxbc,igybc,igzbc
-     .                                 ,cov(1),cov(2),cov(3)
-     .                                 ,cnv(1),cnv(2),cnv(3))
+     .                   /bnorm
                   else
                     alp = 0d0
                   endif
@@ -877,22 +882,11 @@ cc              if (equil == 'ppnch' .or. equil == 'ppn3d') then
      .                    -gsuper(dim,1)*jzz/gsuper(dim,dim))
                   endif
 
-                  cov = (/array(i,j,k,1),array(i,j,k,2),array(i,j,k,3)/)
-
-                  cnv = gsuper(:,1)*array(i,j,k,1)
-     .                 +gsuper(:,2)*array(i,j,k,2)
-     .                 +gsuper(:,3)*array(i,j,k,3)
-
-                  if (eta > 0d0) then
-
-                    J0 = E0/eeta(i,j,k)
-
+                  if (eta > 0d0 .and. bnorm > 0d0) then
                     alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
      .                                 ,J0 (1),J0 (2),J0 (3)
      .                                 ,cnv(1),cnv(2),cnv(3))
-     .                   /scalarProduct(i,j,k,igxbc,igybc,igzbc
-     .                                 ,cov(1),cov(2),cov(3)
-     .                                 ,cnv(1),cnv(2),cnv(3))
+     .                   /bnorm
                   else
                     alp = 0d0
                   endif
@@ -903,191 +897,128 @@ cc              if (equil == 'ppnch' .or. equil == 'ppn3d') then
 
                 endif
 
-cc              else
-cc
-cc                if (dim == 1) then
-cc
-cc                  jxx = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
-cc     .                 -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
-cc
-cc                  if (ivar == 2) then
-cc                    icomp = 3
-cc                    isgn  = 1
-cc
-cc                    rhs(j,k) = dh(dim)
-cc     .                 *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-cc     .                    +gsuper(dim,3)*jxx/gsuper(dim,dim))
-cc
-cc                  elseif (ivar == 3) then
-cc                    icomp = 2
-cc                    isgn  =-1
-cc
-cc                    rhs(j,k) = dh(dim)
-cc     .                 *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-cc     .                    -gsuper(dim,2)*jxx/gsuper(dim,dim))
-cc                  endif
-cc
-cc                  if (ibc == 1) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i-1,j,k,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i-1,j,k    )+eeta(i,j,k)    )
-cc     .                   /(gsuper(dim,dim)+gsupim(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupim(icomp,:)
-cc     .                 -gsupim(icomp,dim)/gsupim(dim,dim)*gsupim(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(j,k)=(rhs(j,k)
-cc     .                       +dh(dim)*(isgn*ee+alp*array(i,j,k,ivar)))
-cc     .                      /(1+dh(dim)*0.5*alp)
-cc                  elseif (ibc == 2) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i+1,j,k,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i+1,j,k    )+eeta(i,j,k    ))
-cc     .                   /(gsuper(dim,dim)+gsupip(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupip(icomp,:)
-cc     .                 -gsupip(icomp,dim)/gsupip(dim,dim)*gsupip(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(j,k)=(rhs(j,k)
-cc     .                       +dh(dim)*(isgn*ee+alp*array(i,j,k,ivar)))
-cc     .                      /(1-dh(dim)*0.5*alp)
-cc                  endif
-cc
-cc                elseif (dim == 2) then
-cc
-cc                  jyy = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
-cc     .                 -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
-cc
-cc                  if (ivar == 3) then
-cc                    icomp = 1
-cc                    isgn  = 1
-cc
-cc                    rhs(i,k) = dh(dim)
-cc     .                 *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-cc     .                    +gsuper(dim,1)*jyy/gsuper(dim,dim))
-cc                  elseif (ivar == 1) then
-cc                    icomp = 3
-cc                    isgn  =-1
-cc
-cc                    rhs(i,k) = dh(dim)
-cc     .                 *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-cc     .                    -gsuper(dim,3)*jyy/gsuper(dim,dim))
-cc                  endif
-cc
-cc                  if (ibc == 3) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i,j-1,k,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i,j-1,k)    +eeta(i,j,k)    )
-cc     .                   /(gsuper(dim,dim)+gsupjm(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupjm(icomp,:)
-cc     .                 -gsupjm(icomp,dim)/gsupjm(dim,dim)*gsupjm(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(i,k) = (rhs(i,k)
-cc     .                       +dh(dim)*(isgn*ee + alp*array(i,j,k,ivar)))
-cc     .                      /(1+dh(dim)*0.5*alp)
-cc
-cc                  elseif (ibc == 4) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i,j+1,k,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i,j+1,k)    +eeta(i,j,k)    )
-cc     .                   /(gsuper(dim,dim)+gsupjp(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupjp(icomp,:)
-cc     .                 -gsupjp(icomp,dim)/gsupjp(dim,dim)*gsupjp(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(i,k) = (rhs(i,k)
-cc     .                       +dh(dim)*(isgn*ee + alp*array(i,j,k,ivar)))
-cc     .                      /(1-dh(dim)*0.5*alp)
-cc                  endif
-cc
-cc                elseif (dim == 3) then
-cc
-cc                  jzz = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
-cc     .                 -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
-cc
-cc                  if (ivar == 1) then
-cc                    icomp = 2
-cc                    isgn  = 1
-cc
-cc                    rhs(i,j) = dh(dim)
-cc     .                 *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-cc     .                    +gsuper(dim,2)*jzz/gsuper(dim,dim))
-cc                  elseif (ivar == 2) then
-cc                    icomp = 1
-cc                    isgn  =-1
-cc
-cc                    rhs(i,j) = dh(dim)
-cc     .                 *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-cc     .                    -gsuper(dim,1)*jzz/gsuper(dim,dim))
-cc                  endif
-cc
-cc                  if (ibc == 5) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i,j,k-1,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i,j,k-1)    +eeta(i,j,k    ))
-cc     .                   /(gsuper(dim,dim)+gsupkm(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupkm(icomp,:)
-cc     .                 -gsupkm(icomp,dim)/gsupkm(dim,dim)*gsupkm(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(i,j) = (rhs(i,j)
-cc     .                       +dh(dim)*(isgn*ee + alp*array(i,j,k,ivar)))
-cc     .                      /(1+dh(dim)*0.5*alp)
-cc
-cc                  elseif (ibc == 6) then
-cc                    if (eta > 0d0) then
-cc                      alp = (vcnv(i,j,k+1,dim)+vcnv(i,j,k,dim))
-cc     .                   /(eeta(i,j,k+1)    +eeta(i,j,k    ))
-cc     .                   /(gsuper(dim,dim)+gsupkp(dim,dim))*2
-cc                    else
-cc                      alp = 0d0
-cc                    endif
-cc
-cc                    vec = gsuper(icomp,:)
-cc     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
-cc                    vec = 0.5*(vec + gsupkp(icomp,:)
-cc     .                 -gsupkp(icomp,dim)/gsupkp(dim,dim)*gsupkp(dim,:))
-cc                    ee = dot_product(vec,J0)
-cc
-cc                    rhs(i,j) = (rhs(i,j)
-cc     .                       +dh(dim)*(isgn*ee + alp*array(i,j,k,ivar)))
-cc     .                      /(1-dh(dim)*0.5*alp)
-cc                  endif
-cc
-cc                endif
-cc
-cc              endif
+              else
+
+                if (dim == 1) then
+
+                  jxx = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
+     .                 -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
+
+                  if (ivar == 2) then
+                    icomp = 3
+                    isgn  = 1
+
+                    rhs(j,k) = dh(dim)
+     .                 *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                    +gsuper(dim,3)*jxx/gsuper(dim,dim))
+                  elseif (ivar == 3) then
+                    icomp = 2
+                    isgn  =-1
+
+                    rhs(j,k) = dh(dim)
+     .                 *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                    -gsuper(dim,2)*jxx/gsuper(dim,dim))
+                  endif
+
+                  if (ibc == 1) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupim(icomp,:)
+     .                 -gsupim(icomp,dim)/gsupim(dim,dim)*gsupim(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(j,k) = rhs(j,k) + dh(dim)*isgn*ee
+                  elseif (ibc == 2) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupip(icomp,:)
+     .                 -gsupip(icomp,dim)/gsupip(dim,dim)*gsupip(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(j,k) = rhs(j,k) + dh(dim)*isgn*ee
+                  endif
+
+                elseif (dim == 2) then
+
+                  jyy = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
+     .                 -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
+
+                  if (ivar == 3) then
+                    icomp = 1
+                    isgn  = 1
+
+                    rhs(i,k) = dh(dim)
+     .                 *( (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                    +gsuper(dim,1)*jyy/gsuper(dim,dim))
+                  elseif (ivar == 1) then
+                    icomp = 3
+                    isgn  =-1
+
+                    rhs(i,k) = dh(dim)
+     .                 *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                    -gsuper(dim,3)*jyy/gsuper(dim,dim))
+                  endif
+
+                  if (ibc == 3) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupjm(icomp,:)
+     .                 -gsupjm(icomp,dim)/gsupjm(dim,dim)*gsupjm(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(i,k) = rhs(i,k) + dh(dim)*isgn*ee
+                  elseif (ibc == 4) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupjp(icomp,:)
+     .                 -gsupjp(icomp,dim)/gsupjp(dim,dim)*gsupjp(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(i,k) = rhs(i,k) + dh(dim)*isgn*ee
+                  endif
+
+                elseif (dim == 3) then
+
+                  jzz = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
+     .                 -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
+
+                  if (ivar == 1) then
+                    icomp = 2
+                    isgn  = 1
+
+                    rhs(i,j) = dh(dim)
+     .                 *( (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                    +gsuper(dim,2)*jzz/gsuper(dim,dim))
+                  elseif (ivar == 2) then
+                    icomp = 1
+                    isgn  =-1
+
+                    rhs(i,j) = dh(dim)
+     .                 *( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                    -gsuper(dim,1)*jzz/gsuper(dim,dim))
+                  endif
+
+                  if (ibc == 5) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupkm(icomp,:)
+     .                 -gsupkm(icomp,dim)/gsupkm(dim,dim)*gsupkm(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(i,j) = rhs(i,j) + dh(dim)*isgn*ee
+                  elseif (ibc == 6) then
+                    vec = gsuper(icomp,:)
+     .                 -gsuper(icomp,dim)/gsuper(dim,dim)*gsuper(dim,:)
+                    vec = 0.5*(vec + gsupkp(icomp,:)
+     .                 -gsupkp(icomp,dim)/gsupkp(dim,dim)*gsupkp(dim,:))
+                    ee = dot_product(vec,J0)
+
+                    rhs(i,j) = rhs(i,j) + dh(dim)*isgn*ee
+                  endif
+
+                endif
+
+              endif
 
             enddo
           enddo
