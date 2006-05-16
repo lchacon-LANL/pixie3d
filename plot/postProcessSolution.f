@@ -68,9 +68,9 @@ cc      varray%array_var(1)%array = u_0%array_var(1)%array
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
-      rvx => varray%array_var(IVX )%array
-      rvy => varray%array_var(IVY )%array
-      rvz => varray%array_var(IVZ )%array
+      px => varray%array_var(IVX )%array
+      py => varray%array_var(IVY )%array
+      pz => varray%array_var(IVZ )%array
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
@@ -298,7 +298,7 @@ c Total pressure (use graphics limits)
           do i = iming,imaxg
             jac = gmetric%grid(igx)%jac(i,j,k)
 
-            p_tot(i,j,k) = (2.*rho(i,j,k)*tmp(i,j,k))
+            p_tot(i,j,k) = (a_p*rho(i,j,k)*tmp(i,j,k))
      .                     +(bx(i,j,k)*bx_cov(i,j,k)
      .                      +by(i,j,k)*by_cov(i,j,k)
      .                      +bz(i,j,k)*bz_cov(i,j,k))/2./jac
