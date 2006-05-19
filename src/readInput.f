@@ -321,9 +321,9 @@ c Graphics defaults
 
 c Read graphics initialization parameters
 
-      open(unit=25,file=inputfile,status='old')
-      read(25,graphdef)
-      close(unit=25)
+      open(unit=uinput,file=inputfile,status='old')
+      read(uinput,graphdef)
+      close(unit=uinput)
 
 c End program
 
