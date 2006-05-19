@@ -104,8 +104,9 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
 
 #if defined(petsc)
       if (ilevel >= 4) then
-        write (*,*) 'Proc ',my_rank,':  asm in setupPC',asm
-        write (*,*) 'Proc ',my_rank,':  asm_dir in setupPC',asm_dir
+        write (*,*) 'Proc ',my_rank,': asm     in setupPC',asm
+        write (*,*) 'Proc ',my_rank,': par_bc  in setupPC',par_bc
+        write (*,*) 'Proc ',my_rank,': asm_dir in setupPC',asm_dir
       endif
 #endif
 
