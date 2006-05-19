@@ -4139,6 +4139,270 @@ c     End program
 
       end subroutine btensor_z
 
+c     curl_inv
+c     ###############################################################
+      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a)
+
+c     ---------------------------------------------------------------
+c     Finds COVARIANT vector potential from CONTRAVARIANT vector
+c     field components. Employs gauge A1 = 0d0. In SP systems,
+c     it integrates at faces in r, and then averages to nodes.
+c     
+c     Integrals done by Numerical Recipes p. 128, 4.1.12 -- actually
+c     one bit better -- extrapolates quadratically to f(-1) and uses
+c     the internal formula, rather than using midpoint for the first
+c     point. Thus even the first point has third order accuracy.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer(4) :: nx,ny,nz,igx,igy,igz
+      real(8)    :: a(0:nx+1,0:ny+1,0:nz+1,3)
+     .             ,b(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer(4) :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
+      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
+
+      logical    :: spoint
+
+c     Begin program
+
+      igrid = igx
+
+c     New code (SP ready, parallel-ready, version I)
+
+      a(:,:,:,1)=0d0  !Gauge
+
+      a(0,0,:,3)=0d0
+
+      i = 0
+
+      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+
+      do j=1,ny+1
+        call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
+
+        dyy = grid_params%dy(jg-1)
+
+        if (spoint) then  !r=0 face
+          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
+     .                                         +b(i  ,j  ,:,1)
+     .                                         +b(i+1,j-1,:,1)
+     .                                         +b(i+1,j  ,:,1))
+        else
+          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
+     .                                         +b(i,j  ,:,1))
+        endif
+      enddo
+
+      a(0,:,:,2)=0d0
+
+      do i=1,nx+1
+        call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+
+        if (spoint) then
+
+          dxx = grid_params%dxh(ig-1)
+
+          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+
+          if (isSP(i,1,1,igx,igy,igz)) then
+            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
+          else
+            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
+          endif
+
+        else
+
+          dxx = grid_params%dx(ig-1)
+
+          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
+     .                                         +b(i  ,:,:,2))
+          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
+     .                                         +b(i  ,:,:,3))
+
+        endif
+      enddo
+
+      !Average from radial faces to nodes in SP coordinate systems
+      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
+     .                                    +a(0:nx  ,:,:,2:3))
+
+      return
+
+c     New code (SP-ready, NOT parallel-ready, version II)
+
+cc      a(:,:,:,1)=0d0  !Gauge
+cc
+cc      if (bcSP()) then
+cc
+cc        a(0,0,:,3)=0d0
+cc
+cc        i = 0
+cc
+cc        do k=0,nz+1
+cc          do j=1,ny+1
+cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc            dyy = grid_params%dy(jg-1)
+cc
+cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.25*(b(i  ,j-1,k,1)
+cc     .                                         +b(i  ,j  ,k,1)
+cc     .                                         +b(i+1,j-1,k,1)
+cc     .                                         +b(i+1,j  ,k,1))
+cc          enddo
+cc        enddo
+cc
+cc        a(0,:,:,2)=0d0
+cc
+cc        do k=0,nz+1
+cc          do j=0,ny+1
+cc            do i=1,nx+1
+cc
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              dxx = grid_params%dxh(ig-1)
+cc
+cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*b(i,j,k,2)
+cc
+cc              if (isSP(i,j,k,igx,igy,igz)) then
+cc                a(i,j,k,2)=a(i-1,j,k,2) +0.5*dxx*b(i,j,k,3) !Factor of 1/2 due to geometry
+cc              else
+cc                a(i,j,k,2)=a(i-1,j,k,2) +    dxx*b(i,j,k,3)
+cc              endif
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        !Average from radial faces to centers
+cc        a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)+a(0:nx,:,:,2:3))
+cc
+cc        !Boundary conditions: topological constraints (SP, PER)
+cc
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc
+cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
+cc     .            ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cc
+cc      else
+cc
+cc        a(0,0,:,3)=0d0
+cc
+cc        i = 0
+cc
+cc        do k=0,nz+1
+cc          do j=1,ny+1
+cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc            dyy = grid_params%dy(jg-1)
+cc
+cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.5*(b(i,j-1,k,1)
+cc     .                                        +b(i,j  ,k,1))
+cc
+cc          enddo
+cc        enddo
+cc
+cc        a(0,:,:,2)=0d0
+cc
+cc        do k=0,nz+1
+cc          do j=0,ny+1
+cc            do i=1,nx+1
+cc
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              dxx = grid_params%dx(ig-1)
+cc
+cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*0.5*(b(i-1,j,k,2)
+cc     .                                         +b(i  ,j,k,2))
+cc              a(i,j,k,2)=a(i-1,j,k,2) +dxx*0.5*(b(i-1,j,k,3)
+cc     .                                         +b(i  ,j,k,3))
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc        
+cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
+cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+
+c     JOHN FINN's code (assumes uniform mesh)
+
+cc        cm=-0.0833333333333
+cc        c0= 0.6666666666667
+cc        cp= 0.4166666666667
+cc
+cc        a(1,1,:,3) = 0d0
+cc
+cc        do k=1,nz
+cc          do j=2,ny
+cc            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                  ,x1,y1,z1)
+cc
+cc            dyy = grid_params%dyh(jg)
+cc
+cccc            if(j.eq.2) then
+cccc              a(1,j,k,3)=a(1,j-1,k,3)
+cccc     $          +dyy*(cp*b(1,j-1,k,1)+c0*b(1,j  ,k,1)+cm*b(1,j+1,k,1))
+cccc            else
+cc              a(1,j,k,3)=a(1,j-1,k,3)
+cc     .          +dyy*(cm*b(1,j-2,k,1)+c0*b(1,j-1,k,1)+cp*b(1,j  ,k,1))
+cccc            endif
+cc          enddo
+cc        enddo
+cc
+cc        a(1,:,:,2) = 0d0
+cc
+cc        do k=1,nz
+cc          do j=1,ny
+cc            do i=2,nx
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+cc
+cc              dxx = grid_params%dxh(ig)
+cc
+cccc              if(i.eq.2) then
+cccc                a(i,j,k,3)=a(i-1,j,k,3)
+cccc     .            -dxx*(cp*b(i-1,j,k,2)+c0*b(i,j,k,2)+cm*b(i+1,j,k,2))
+cccc                a(i,j,k,2)=a(i-1,j,k,2)
+cccc     .            +dxx*(cp*b(i-1,j,k,3)+c0*b(i,j,k,3)+cm*b(i+1,j,k,3))
+cccc              else
+cc                a(i,j,k,3)=a(i-1,j,k,3)
+cc     .            -dxx*(cm*b(i-2,j,k,2)+c0*b(i-1,j,k,2)+cp*b(i,j,k,2))
+cc                a(i,j,k,2)=a(i-1,j,k,2)
+cc     .            +dxx*(cm*b(i-2,j,k,3)+c0*b(i-1,j,k,3)+cp*b(i,j,k,3))
+cccc              endif
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+ccc     Boundary conditions: topological constraints (PER) and extrapolation
+cc
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc        where (bcnd == DEF) bcnd = EXT
+cc        
+cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
+cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cc
+cc      endif
+
+
+c     End program
+
+      end subroutine curl_inv
+
 ccc     lf_x
 ccc     #############################################################
 cc      subroutine lf_x(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
