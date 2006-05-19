@@ -22,7 +22,7 @@
 # System-dependent variables
 
 PETSC_DIR =/usr/local/petsc-2.2.0
-HDF5_HOME =/usr/local
+HDF5_HOME =/usr/local/hdf5/parallel/f90_
 
 # Petsc include
 
