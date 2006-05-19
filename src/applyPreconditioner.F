@@ -57,10 +57,10 @@ c Begin program
       call setASMflag(asm_PC.and.(np>1))
 
 #if defined(petsc)
-      if (iout >= 0) write (*,*) 'Proc ',my_rank,':  asm in applyPC',asm
-cc      do ieq=1,neqd+3
-cc        write (*,*) my_rank,bcs(:,ieq)
-cc      enddo
+      if (iout >= 0) then
+        write (*,*) 'Proc ',my_rank,': asm    in applyPC',asm
+        write (*,*) 'Proc ',my_rank,': par_bc in applyPC',par_bc
+      endif
 #endif
 
       igx = 1
@@ -1105,21 +1105,6 @@ c     Begin program
 
         !Corrector rhs plot
         if (si_car) call XtoCurv(igrid,rhspc(:,IVX:IVZ))
-cc        if (si_car) then
-cc          do k = 1,nz
-cc            do j = 1,ny
-cc              do i = 1,nx
-cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc                car = rhspc(ii,IVX:IVZ)
-cc                call transformVectorToCurvilinear
-cc     .             (i,j,k,igrid,igrid,igrid
-cc     .             ,car(1)     ,car(2)     ,car(3)
-cc     .             ,.false.
-cc     .             ,rhspc(ii,IVX),rhspc(ii,IVY),rhspc(ii,IVZ))
-cc              enddo
-cc            enddo
-cc          enddo
-cc        endif
 
         call MGplot(1,rhspc(:,IRHO),igrid,0,'cor_rhs.bin')
         call MGplot(1,rhspc(:,IVX) ,igrid,1,'cor_rhs.bin')
@@ -1892,10 +1877,10 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ii,ivar
+      integer(4) :: ii,ivar,bcnd(6,3)
       real(8)    :: a1,a2,a3,etal
      .             ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
+cc     .             ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Begin program
@@ -1913,9 +1898,23 @@ c Find dB* (w/ BCs)
      .            ,icomp=IBX,is_cnv=.true.,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2)
 
-c Find dA* from dB* (w/ BCs)
+c Find dA* from dB* (w/ ghost cells)
 
-      call findVectorPotential(nx,ny,nz,igrid,igrid,igrid,db_cnv,da_cov)
+      call curl_inv(nx,ny,nz,igrid,igrid,igrid,db_cnv,da_cov)
+
+#if !defined(petsc)
+      if (isSP(1,1,1,igrid,igrid,igrid)) then
+        !Impose BCs
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
+        where (bcnd /= SP) bcnd = DEF
+cc        where (bcnd == DEF) bcnd = EXT
+
+        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+      endif
+#endif
 
 c Find clean dB=curl(dA)
 
