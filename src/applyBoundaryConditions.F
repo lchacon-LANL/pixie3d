@@ -129,7 +129,7 @@ c Begin program
 
       order = 2   !Order of extrapolation in BCs
 
-      call setASMflag(.false.)  !Not additive Schwartz method
+      call setup_petsc_BC !Setup parallel BC flags
 
 c Local grid sizes
 
