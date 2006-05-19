@@ -135,20 +135,6 @@ c Find GLOBAL limits (required for BC routine setBC)
       kmng = max(kmnl-stencil_width,1)   + grid_params%klo(iig)-1
       kmxg = min(kmxl+stencil_width,nnz) + grid_params%klo(iig)-1
 
-c Fill PETSc ghost cells
-
-#if defined(petsc)
-      if (      (np > 1)
-     .    .and. (.not.asm)
-     .    .and. (            iscnv
-     .           .or.( (.not.iscnv).and.(.not.PRESENT(arr_cov)) )))then
-cc        write (*,*) my_rank,'HERE 1',asm,iscnv,PRESENT(arr_cov)
-        do ieq=1,neq
-          call fillPetscGhostCells(array(:,:,:,ieq),iig)
-        enddo
-      endif
-#endif
-
 c Select operation
 
       select case (neq)
@@ -189,21 +175,6 @@ cc
           v0 = 0d0
         endif
 
-cc        if (isvec) then
-cc
-cc          if (PRESENT(arr_cov)) then
-cc            v_cnv = array
-cc            v_cov = arr_cov
-cc          else
-cc            if (iscnv) then
-cc              v_cnv = array
-cc            else
-cc              v_cov = array
-cc            endif
-cc          endif
-cc
-cc        else
-
         if (.not.isvec) then
 
           do k = kmnl-1,kmxl+1
@@ -224,16 +195,6 @@ cc        else
         if (PRESENT(arr_cov)) then
           v_cnv = array
           v_cov = arr_cov
-
-#if defined(petsc)
-          if ((np>1).and.(.not.asm) .and. (.not.iscnv)) then
-cc            write (*,*) my_rank,'HERE 2',asm,iscnv
-            do ieq=1,neq
-              call fillPetscGhostCells(arr_cov(:,:,:,ieq),iig)
-            enddo
-          endif
-#endif
-
         else
           if (iscnv) then
             v_cnv = array
