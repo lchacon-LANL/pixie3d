@@ -68,9 +68,9 @@ cc      varray%array_var(1)%array = u_0%array_var(1)%array
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
-      px => varray%array_var(IVX )%array
-      py => varray%array_var(IVY )%array
-      pz => varray%array_var(IVZ )%array
+      px  => varray%array_var(IVX )%array
+      py  => varray%array_var(IVY )%array
+      pz  => varray%array_var(IVZ )%array
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
@@ -276,18 +276,18 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-cc            jac = gmetric%grid(igx)%jac(i,j,k)
-            jac = 1d0
-            divrgJ(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
-            divrgB(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-            divrgV(i,j,k) = jac*div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
+            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
+            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
           enddo
         enddo
       enddo
 
-      call setBC(IRHO,nx,ny,nz,divrgJ,zeros,bcond,igx,igy,igz)
-      call setBC(IRHO,nx,ny,nz,divrgB,zeros,bcond,igx,igy,igz)
-      call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
+cc      call setASMflag(.false.) !Allow BC communication
+cc
+cc      call setBC(IRHO,nx,ny,nz,divrgJ,zeros,bcond,igx,igy,igz)
+cc      call setBC(IRHO,nx,ny,nz,divrgB,zeros,bcond,igx,igy,igz)
+cc      call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
 
 c Total pressure (use graphics limits)
 
@@ -309,9 +309,9 @@ c Total pressure (use graphics limits)
 
 c Transport coefficients
 
-      do k=0,nz+1
-        do j=0,ny+1
-          do i=0,nx+1
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
             nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
             eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
           enddo
