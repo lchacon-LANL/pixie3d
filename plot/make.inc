@@ -2,7 +2,7 @@ PROD      = pixplot.x
 BETA      = pixplot.beta.x
 PETSCCODE = pixplot.petsc.x
 
-MODS := mhd_mod.f imposeBC_mod.F
+MODS := mhd_mod.F imposeBC_mod.F
 
 COMMONDIR = ../common
 

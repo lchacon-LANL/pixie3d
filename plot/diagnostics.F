@@ -151,10 +151,16 @@ c Define diagnostics
       diag_desc(IRHO)   = '||drho||'       
       diag_desc(IVX)    = '||dpx||'        
       diag_desc(IVY)    = '||dpy||'        
-      diag_desc(IVZ)    = '||dpz||'        
+      diag_desc(IVZ)    = '||dpz||'
+#if !defined(vec_pot)
       diag_desc(IBX)    = '||dbx||'        
       diag_desc(IBY)    = '||dby||'        
       diag_desc(IBZ)    = '||dbz||'        
+#else
+      diag_desc(IAX)    = '||dax||'        
+      diag_desc(IAY)    = '||day||'        
+      diag_desc(IAZ)    = '||dax|'        
+#endif
       diag_desc(ITMP)   = '||dtmp||'       
       diag_desc(neqd+1) = 'Magnetic energy'
       diag_desc(neqd+2) = 'Kinetic energy' 
@@ -243,12 +249,18 @@ c Begin program
       endif
 
       rho => varray%array_var(IRHO)%array
-      px => varray%array_var(IVX )%array
-      py => varray%array_var(IVY )%array
-      pz => varray%array_var(IVZ )%array
+      px  => varray%array_var(IVX )%array
+      py  => varray%array_var(IVY )%array
+      pz  => varray%array_var(IVZ )%array
+#if !defined(vec_pot)
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
+#else
+      ax  => varray%array_var(IAX )%array
+      ay  => varray%array_var(IAY )%array
+      az  => varray%array_var(IAZ )%array
+#endif
       tmp => varray%array_var(ITMP)%array
 
 c Particle diagnostics

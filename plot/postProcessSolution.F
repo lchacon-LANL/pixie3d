@@ -61,7 +61,7 @@ c Impose boundary conditions
 c (finds all covariant and contravariant components of interest)
 
 cc      write (*,*) 'Dumping perturbations of all quantities'
-cc      call substractDerivedType(varray,u_0,u_graph)
+cc      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_graph)
 cc      varray = u_graph
 cc      varray%array_var(1)%array = u_0%array_var(1)%array
 
@@ -71,14 +71,26 @@ cc      varray%array_var(1)%array = u_0%array_var(1)%array
       px  => varray%array_var(IVX )%array
       py  => varray%array_var(IVY )%array
       pz  => varray%array_var(IVZ )%array
+#if !defined(vec_pot)
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
+#else
+      ax  => varray%array_var(IAX )%array
+      ay  => varray%array_var(IAY )%array
+      az  => varray%array_var(IAZ )%array
+#endif
       tmp => varray%array_var(ITMP)%array
+
+#if defined(vec_pot)
+      ax_cnv = acnv(:,:,:,1)
+      ay_cnv = acnv(:,:,:,2)
+      az_cnv = acnv(:,:,:,3)
+#endif
 
 c Find perturbed quantities (u_graph = varray - u_ic)
 
-      call substractDerivedType(varray,u_ic,u_graph)
+      call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_graph)
 
 c Find Cartesian components of ALL vectors
 
@@ -88,6 +100,17 @@ c Find Cartesian components of ALL vectors
       vz_car = vz
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
+
+#if defined(vec_pot)
+      !Cartesian A components
+      covariant = .true.
+      ax_car = ax
+      ay_car = ay
+      az_car = az
+      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                    ,ax_car,ay_car,az_car,covariant,to_cartsn)
+      covariant = .false.
+#endif
 
       !Cartesian B components
       bx_car = bx
