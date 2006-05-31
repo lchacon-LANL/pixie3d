@@ -142,6 +142,32 @@ ifdef HDF5
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
 endif
 
+# PIXIE setup
+
+ifdef VECPOT
+  CPPFLAGS += -Dvec_pot
+endif
+
+# Petsc setup
+
+ifdef BOPT
+  CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
+#  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
+endif
+
+#Export required variables
+
+export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
+       BOPT PETSC_DIR PETSC_ARCH
+
+#Define targets
+
+.PHONY: pixie3d pixplot distclean petsc all setup setup_mhd_b setup_mhd_a $(SUBDIRS)
+
+all: src plot
+
+pixie3d: src
+
 # XDRAW setup
 
 ifdef NOBC
