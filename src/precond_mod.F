@@ -52,7 +52,9 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
      .                                            ,b_diag,v_diag
-     .                                            ,mstar_diag
+     .                                            ,mstar_diag,a_diag
+
+        real(8), allocatable, dimension(:,:),target :: d_pois
 
         real(8), allocatable, dimension(:,:)    :: mgj0cnv,mgadvdiffV0
 
@@ -66,8 +68,12 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         type (mg_array ),target :: gp0,gb0,gv0,grho0,gb0_cov
 
+#if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+#else
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 
+#endif
         logical :: form_diag=.true.,gm_smooth=.false.,mg_glrkin=.false.
      .            ,si_car=.true.,line_relax=.false.,rat_limit=.true.
 
@@ -106,7 +112,11 @@ c     Begin program
 
         allocate (rho_diag  (1,  ntotd2p)
      .           ,tmp_diag  (1,  ntotd2p)
+#if !defined(vec_pot)
      .           ,  b_diag  (3,3*ntotd2p)
+#else
+     .           ,  a_diag  (3,3*ntotd2p)
+#endif
      .           ,  v_diag  (3,3*ntotd2p)
      .           ,mstar_diag(3,3*ntotd2p),STAT=alloc_stat)
 
@@ -237,7 +247,7 @@ c     ###################################################################
       subroutine XtoCar(igrid,x,xout,cov)
 
 c     -------------------------------------------------------------------
-c     Gathers magnitudes from different arrays to vector.
+c     Transforms vector to Cartesian components
 c     -------------------------------------------------------------------
 
         implicit none
@@ -314,7 +324,7 @@ c     ###################################################################
       subroutine XtoCurv(igrid,x,xout,cov)
 
 c     -------------------------------------------------------------------
-c     Gathers magnitudes from different arrays to vector.
+c     Transform vector components from Cartesian to curvilinear
 c     -------------------------------------------------------------------
 
         implicit none
@@ -383,6 +393,65 @@ c     Begin program
 c     End program
 
       end subroutine XtoCurv
+
+c     fillArray
+c     ###################################################################
+      subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov
+     .                    ,is_vec,is_cnv)
+
+c     -------------------------------------------------------------------
+c     Fills array arr (with BCs) using vector x.
+c     -------------------------------------------------------------------
+
+        use setMGBC_interface
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: igrid,icomp,neq,iorder,bcs(:,:)
+        real(8),dimension(:,:) :: x
+        real(8),dimension(:,:,:,:) :: arr
+        real(8),optional,dimension(:,:,:,:) :: arr_cov
+        logical,optional :: is_vec,is_cnv
+
+c     Local variables
+
+        integer(4) :: ieq
+        logical    :: isvec,iscnv
+
+c     Begin program
+
+        if (PRESENT(is_vec)) then
+          isvec = is_vec
+        else
+          isvec = (neq > 1)
+        endif
+
+        if (PRESENT(is_cnv)) then
+          iscnv = is_cnv
+        else
+          iscnv = .true.
+        endif
+
+        do ieq=1,neq
+          call mapMGVectorToArray(0,1,x(:,ieq),nx,ny,nz
+     .                       ,arr(:,:,:,ieq),igrid,.false.)
+        enddo
+
+        if (PRESENT(arr_cov)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder,arr_cov=arr_cov)
+        else
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder)
+        endif
+
+c     End program
+
+      end subroutine fillArray
 
 c     findCoeffs
 c     ###################################################################
@@ -973,6 +1042,119 @@ c     Scatter solution for output
 c     End program
 
       end subroutine cSolver
+
+c     poisson
+c     ###############################################################
+      subroutine poisson(nn,b,x,iter,tol,bcnd,iout,guess)
+
+        use mlsolverSetup
+
+c     Call variables
+
+        integer(4) :: nn,iter,bcnd(6,1),iout,guess
+        real(8)    :: b(nn),x(nn),tol
+
+c     Local variables
+
+        integer(4) :: nn2,ncolors
+
+c     Externals
+
+        external    lap_mtvc
+
+c     Begin program
+
+        ncolors = 2
+
+        nn2 = 2*nn
+
+        if(.not.allocated(d_pois)) then
+          allocate(d_pois(1,nn2))
+          call find_mf_diag_colored(1,ntotdp,lap_mtvc,1
+     .                             ,bcnd,d_pois,ncolors)
+        endif
+
+c     Initialize solver
+
+        call solverInit
+
+c     Upper_level solver options
+
+        call solverOptionsInit
+
+        solverOptions%tol      = tol
+        solverOptions%iter     = iter
+        solverOptions%stp_test = 0         !Use rhs for convergence criteria
+
+        call assembleSolverHierarchy('gm')
+
+c     Next level solver
+
+        call solverOptionsInit
+
+        solverOptions%vcyc     = 1
+cc        solverOptions%vcyc     = iter
+        solverOptions%igridmin = 2
+        solverOptions%orderres = 0
+        solverOptions%orderprol= 2
+        solverOptions%mg_mu    = 1
+        solverOptions%ncolors  = ncolors
+        solverOptions%diag     => d_pois
+        solverOptions%vol_res  = .true.
+        solverOptions%mg_coarse_solver_depth = 0
+
+        call assembleSolverHierarchy('mg')
+
+c     Next level solver
+
+        call solverOptionsInit
+
+        solverOptions%omega = 0.8
+        solverOptions%iter  = 3
+        solverOptions%tol   = 1d-10
+
+        call assembleSolverHierarchy('jb')
+
+cc        solverOptions%omega = 1d0
+cc        solverOptions%iter  = 3
+cc        solverOptions%tol   = 1d-10
+cc        solverOptions%ncolors = ncolors
+cc
+cc        call assembleSolverHierarchy('gs')
+
+c       Coarsest grid solve for outer MG
+
+        call solverOptionsInit
+
+        solverOptions%tol             = 1d-5
+        solverOptions%krylov_subspace = 1000
+        solverOptions%iter            = 1000
+        solverOptions%stp_test        = 1 
+        solverOptions%omega           = 1d0
+
+c diag ****
+cc        call assembleSolverHierarchy('jb')
+c diag ****
+        call assembleSolverHierarchy('gm')
+        call assembleSolverHierarchy('id') !GMRES preconditioner
+
+c     Invoke solver
+
+        call getSolver(1,nn,b,x,lap_mtvc,1,bcnd,guess,iout,1)
+
+c     Get output data
+
+        call getSolverOptions(1)
+
+        iter = solverOptions%iter_out
+
+c     Kill solver
+
+        call solverKill
+
+c     End
+
+      end subroutine poisson
 
 c     vecA
 c     ###################################################################

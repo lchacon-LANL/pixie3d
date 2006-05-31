@@ -60,7 +60,7 @@ c Namelist
      .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,k_si,solve_rho
+     .                   ,k_si,solve_rho,advect
      .                ,inputfile,recordfile
 
 c ******************************************************************
@@ -71,13 +71,14 @@ c Set defaults
 
       !General setup
       neqd     = 8             ! Number of degrees of freedom (equations)
+
       nxd      = 64            ! Mesh points in x-direction
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
 
-      npx      = 0             ! Number of processors in X-direction (if zero, determined by code)
-      npy      = 0             ! Number of processors in Y-direction (if zero, determined by code)
-      npz      = 0             ! Number of processors in Z-direction (if zero, determined by code)
+cc      npx      = 0             ! Number of processors in X-direction (if zero, determined by code)
+cc      npy      = 0             ! Number of processors in Y-direction (if zero, determined by code)
+cc      npz      = 0             ! Number of processors in Z-direction (if zero, determined by code)
 
       coords   = 'car'         ! Coordinate system (see grid_mod.f)
 
@@ -169,6 +170,14 @@ c Set defaults
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solver continuity equation or not
 
+      advect   = 2             ! Type of advective scheme
+                               !    1,7 -> upwind,
+                               !    2 -> centered (ZIP)
+                               !    3 -> QUICK,
+                               !    4 -> SMART,
+                               !    5 -> smooth SMART,
+                               !    6 -> centered high order
+
       !Initial condition
       equil    = ''            ! Type of equilibrium
       dlambda  = .2            ! Characteristic width of Harris sheet
@@ -217,6 +226,7 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
 
+
 c Find alpha_p
 
       a_p = 1d0+temp_ratio
@@ -248,9 +258,15 @@ c Map perturbations
       pert(IVX) = pvx
       pert(IVY) = pvy
       pert(IVZ) = pvz
+#if !defined(vec_pot)
       pert(IBX) = pbx
       pert(IBY) = pby
       pert(IBZ) = pbz
+#else
+      pert(IAX) = pbx
+      pert(IAY) = pby
+      pert(IAZ) = pbz
+#endif
       pert(ITMP)= ptemp
 
 c Translate boundary conditions

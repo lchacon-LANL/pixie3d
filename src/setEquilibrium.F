@@ -48,24 +48,26 @@ c Call variables
 c Local variables
 
       integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh
-      real(8)       :: ldaflow,x1,y1,z1
+      real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
-      logical       :: covariant,to_cartsn,cartsn
+      logical       :: covariant,to_cartsn,cartsn,a_bc
 
       real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy,dummy1,dummy2,dummy3,ieta
 
-      real(8)       :: rint(0:nxd+1),dh,offset(1),bth0(0:nxd+1)
-     .                ,bzz0(0:nxd+1),vr0(0:nxd+1),rho0(0:nxd+1)
-     .                ,eth0(0:nxd+1),ez0(0:nxd+1),jth0(0:nxd+1)
-     .                ,jz0 (0:nxd+1)
+      real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
+     .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
+     .                ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
+     .                ,jz0 (0:nxdp)
 
-      real(8)       :: a1(ilom:ihip,jlom:jhip,klom:khip)
-     .                ,a2(ilom:ihip,jlom:jhip,klom:khip)
-     .                ,a3(ilom:ihip,jlom:jhip,klom:khip)
+      real(8)       :: a(ilom:ihip,jlom:jhip,klom:khip,3)
 
-      character(200) :: command
+      character(200):: command
+
+#if defined(vec_pot)
+      real(8)       :: b(0:nxdp,0:nydp,0:nzdp,3)
+#endif
 
 c Functions
 
@@ -83,6 +85,12 @@ c Begin program
 
       var = 0d0
 
+#if !defined(vec_pot) 
+      a_bc = .false.
+#else
+      a_bc = .true.
+#endif
+
 c Initialize required local grid information
 
       igx = iigx
@@ -96,9 +104,15 @@ c Initialize required local grid information
 c Label variables
      
       label(IRHO) = 'Rho'
+#if !defined(vec_pot)
       label(IBX)  = 'B^1'
       label(IBY)  = 'B^2'
       label(IBZ)  = 'B^3'
+#else
+      label(IAX)  = 'A_1'
+      label(IAY)  = 'A_2'
+      label(IAZ)  = 'A_3'
+#endif
       label(IVX)  = 'P^1'
       label(IVY)  = 'P^2'
       label(IVZ)  = 'P^3'
@@ -125,24 +139,37 @@ c     Check coordinates
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
 
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
+#if !defined(vec_pot)
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
 
-              var(i,j,k,IRHO) = 1d0
-
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
               var(i,j,k,IBZ)  = 1d0
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,ITMP) = 1d0
             enddo
           enddo
         enddo
+#else
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              var(i,j,k,IAX)  = 0d0
+              var(i,j,k,IAY)  = x1
+              var(i,j,k,IAZ)  = 0d0
+            enddo
+          enddo
+        enddo
+#endif
 
       case ('mswsn') !Magnetosonic wave
 
@@ -157,32 +184,49 @@ c     Check coordinates
 
 c     Uniform medium with constant magnetic field in cartesian coordinates
 
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
+
+#if !defined(vec_pot)
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
 
               jac1 = gmetric%grid(igx)%jac(i,j,k)
 
-              var(i,j,k,IRHO) = 1d0
-
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
               var(i,j,k,IBZ)  = jac1*1d0
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,ITMP) = 1d0
             enddo
           enddo
         enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc
+cc              jac1 = gmetric%grid(igx)%jac(i,j,k)  !Not defined in the global domain
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = 0d0
+cc              b(i,j,k,3) = jac1*1d0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('khcar')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
 
 c     Check coordinates
 
@@ -193,26 +237,33 @@ c     Check coordinates
 
 c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
 
+        var(:,:,:,IRHO) = 1d0
+        var(:,:,:,ITMP) = 1d0
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-             var(i,j,k,IVX:IVZ)=vperflow
-     .                      *curl(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3)
+              var(i,j,k,IVX:IVZ)=vperflow
+     .                          *tanh((x1-0.5d0*(xmax-xmin))/dlambda)
             enddo
           enddo
         enddo
 
-        var(:,:,:,IRHO) = 1d0
+#if !defined(vec_pot)
         var(:,:,:,IBX)  = 0d0
         var(:,:,:,IBY)  = 0d0
         var(:,:,:,IBZ)  = 1d0
-        var(:,:,:,ITMP) = 1d0
+#else
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+        var(:,:,:,IAX:IAZ) = a
+#endif
 
       case ('3dkh')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+        call fillVectorPotential(a,igx,igy,igz,.false.)
 
 c     Check coordinates
 
@@ -230,12 +281,21 @@ c     Tearing mode in cartesian coordinates
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
-             !X-Y equilibrium
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
+#if !defined(vec_pot)
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
 
              var(i,j,k,IRHO)= (2d0 - var(i,j,k,IBZ)**2)
+#else
+             bz0 = curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
+
+             var(i,j,k,IRHO) = 2 - bz0**2
+#endif
 
              var(i,j,k,IVX) = vperflow*tanh((y1-.5*(ymax-ymin))/ldaflow)
      .                                *sin (2*pi*z1/(zmax-zmin))
@@ -246,13 +306,21 @@ c     Tearing mode in cartesian coordinates
           enddo
         enddo
 
+#if defined(vec_pot)
+
+        call fillVectorPotential(a,igx,igy,igz,.true.)
+
+        var(:,:,:,IAX:IAZ) = a
+
+#endif
+
         var(:,:,:,ITMP) = 0.25
 
       case ('tmcar')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
 
 c     Check coordinates
 
@@ -262,23 +330,6 @@ c     Check coordinates
         endif
 
 c     Tearing mode in cartesian coordinates
-
-        bz0 = 1d0
-
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-             !X-Y equilibrium
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
-
-cc             var(i,j,k,IBX)=0d0
-cc             var(i,j,k,IBY)=1d0
-cc             var(i,j,k,IBZ)=0d0
-            enddo
-          enddo
-        enddo
 
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
@@ -289,83 +340,116 @@ cc             var(i,j,k,IBZ)=0d0
         var(:,:,:,ITMP) = 1d0
 cc        var(:,:,:,ITMP) = 0d0
 
-      case ('tmcxz')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
-
-c     Check coordinates
-
-        if (coords /= 'car') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Tearing mode in cartesian coordinates
-
         bz0 = 1d0
 
+#if !defined(vec_pot)
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-             !X-Z equilibrium
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+             var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
+            enddo
+          enddo
+        enddo
+#else
+cc        var(:,:,:,IAX:IAZ) = a
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1)  = 0d0                  
+              b(i,j,k,2)  = tanh((x1-0.5d0*(xmax-xmin))/dlambda)
+              b(i,j,k,3)  = sqrt(bz0**2 - b(i,j,k,2)**2)
             enddo
           enddo
         enddo
 
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d0
-
-      case ('tmcyz')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
-
-c     Check coordinates
-
-        if (coords /= 'car') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Tearing mode in cartesian coordinates
-
-        bz0 = 1d0
-
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-             !X-Z equilibrium
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
-             var(i,j,k,IBX)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
-            enddo
-          enddo
-        enddo
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d0
+cc      case ('tmcxz')
+cc
+ccc     Define vector potential (in curvilinear coordinates) for initialization
+cc
+cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
+cc
+ccc     Check coordinates
+cc
+cc        if (coords /= 'car') then
+cc          messg = 'Wrong coordinates for equilibrium '//equil
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     Tearing mode in cartesian coordinates
+cc
+cc        bz0 = 1d0
+cc
+cc        do k = klo,khi
+cc          do j = jlo,jhi
+cc            do i = ilo,ihi
+cc             !X-Z equilibrium
+cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
+cc             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+cc             var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        var(:,:,:,IVX)  = 0d0
+cc        var(:,:,:,IVY)  = 0d0
+cc        var(:,:,:,IVZ)  = 0d0
+cc
+cc        var(:,:,:,IRHO) = 1d0
+cc
+cc        var(:,:,:,ITMP) = 1d0
+cc
+cc      case ('tmcyz')
+cc
+ccc     Define vector potential (in curvilinear coordinates) for initialization
+cc
+cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
+cc
+ccc     Check coordinates
+cc
+cc        if (coords /= 'car') then
+cc          messg = 'Wrong coordinates for equilibrium '//equil
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     Tearing mode in cartesian coordinates
+cc
+cc        bz0 = 1d0
+cc
+cc        do k = klo,khi
+cc          do j = jlo,jhi
+cc            do i = ilo,ihi
+cc             !X-Z equilibrium
+cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+cc             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
+cc             var(i,j,k,IBX)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        var(:,:,:,IVX)  = 0d0
+cc        var(:,:,:,IVY)  = 0d0
+cc        var(:,:,:,IVZ)  = 0d0
+cc
+cc        var(:,:,:,IRHO) = 1d0
+cc
+cc        var(:,:,:,ITMP) = 1d0
 
       case ('tmsin')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
 
 c     Check coordinates
 
@@ -376,15 +460,26 @@ c     Check coordinates
 
 c     Tearing mode in sinusoidal coordinates
 
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
         bz0 = 1d0
 
+#if !defined(vec_pot)
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
 
               !X-Y equilibrium
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
              var(i,j,k,IBZ)=0d0
 
              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -401,32 +496,44 @@ c     Tearing mode in sinusoidal coordinates
 
              var(i,j,k,IBZ)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
 
-c diag ****
-cc             var(i,j,k,IBX)  = 0d0
-cc             var(i,j,k,IBY)  = 0d0
-cc             var(i,j,k,IBZ)  = 0d0
-c diag ****
-
-             var(i,j,k,IVX)  = 0d0
-             var(i,j,k,IVY)  = 0d0
-             var(i,j,k,IVZ)  = 0d0
-
-             var(i,j,k,IRHO) = 1d0
-
-             var(i,j,k,ITMP) = 1d0
-
              if (bbb**2+4*aaa*ccc < 0d0) then
                write (*,*) var(i,j,k,IBZ),bnorm,aaa,bbb**2+4*aaa*ccc
              endif
             enddo
           enddo
         enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              cx = 0d0
+cc              cy = tanh((x1-0.5d0*(xmax-xmin))/dlambda)
+cc              cz = sqrt(bz0**2 - cy**2)  
+cc
+cc              call transformVectorToCurvilinear(i,j,k,igx,igy,igz
+cc     .                                       ,cx,cy,cz,.false.
+cc     .                                       ,b(i,j,k,1)
+cc     .                                       ,b(i,j,k,2)
+cc     .                                       ,b(i,j,k,3))          
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('gem')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a1,a2,a3,igx,igy,igz)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
 
 c     Check coordinates
 
@@ -435,9 +542,14 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-c     Tearing mode in cartesian coordinates
+c     GEM challenge
 
-        
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,ITMP) = 1d0/12. !Required for pressure balance
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
@@ -447,29 +559,25 @@ c     Tearing mode in cartesian coordinates
 
              var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax-xmin))/dlambda)**2
      .                      +0.2
-
-             !X-Y equilibrium
-
-             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-             var(i,j,k,IBZ)=0d0
-
-cc             var(i,j,k,IBX)=0d0
-cc             var(i,j,k,IBY)=tanh((x1-0.5d0*(xmax-xmin))/dlambda)
-cc             var(i,j,k,IBZ)=0d0
-
-cc             var(i,j,k,IBX)=0d0
-cc             var(i,j,k,IBY)=1d0
-cc             var(i,j,k,IBZ)=0d0
             enddo
           enddo
         enddo
 
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,ITMP) = 1d0/12. !Required for pressure balance
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+             var(i,j,k,IBZ)=0d0
+            enddo
+          enddo
+        enddo
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
 
       case ('kaitm')
 
@@ -492,24 +600,26 @@ c     Tokamak equilibria (analytical)
         nh2 = mm !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
 
+        var(:,:,:,IRHO) = 1d0
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
               btheta = bb*x1/(1+(x1/dlambda)**2)
               bz0    = RR
 
+#if !defined(vec_pot)
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
               var(i,j,k,IBZ)  = x1*bz0
-
-              var(i,j,k,IVX:IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
+#endif
               var(i,j,k,ITMP) = 1d0
      .                        + 1/16./var(i,j,k,IRHO)
      .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
@@ -517,6 +627,27 @@ cc              var(i,j,k,ITMP) = 1d-0
             enddo
           enddo
         enddo
+
+#if defined(vec_pot)
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              btheta = bb*x1/(1+(x1/dlambda)**2)
+              bz0    = RR
+
+              b(i,j,k,1)  = 0d0                  
+              b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+              b(i,j,k,3)  = x1*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('kai3d')
 
@@ -545,9 +676,15 @@ c     Tokamak equilibria (analytical)
         nh3 = kk*RR    !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -555,16 +692,11 @@ c     Tokamak equilibria (analytical)
               btheta = bb*x1/(1+(x1/dlambda)**2)
               bz0    = RR
 
+#if !defined(vec_pot)
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
               var(i,j,k,IBZ)  = x1*bz0
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
+#endif
               var(i,j,k,ITMP) = 1d-5
      .                        + 1/16./var(i,j,k,IRHO)
      .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
@@ -572,6 +704,27 @@ c     Tokamak equilibria (analytical)
             enddo
           enddo
         enddo
+
+#if defined(vec_pot)
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              btheta = bb*x1/(1+(x1/dlambda)**2)
+              bz0    = RR
+
+              b(i,j,k,1)  = 0d0                  
+              b(i,j,k,2)  = btheta
+              b(i,j,k,3)  = x1*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('ppnch')
 
@@ -596,7 +749,7 @@ c     Equilibria (numerical)
         open (unit=1000,file='pixie3d.equ',status='old')
 
         read(1000,'(a)')
-        do i=0,nxd+1
+        do i=0,nxdp
           read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
      .                ,vr0(i),ez0(i),eth0(i),rho0(i)
 cc          write (*,*)
@@ -613,17 +766,17 @@ cc     .                ,dummy4,dummy5,rho0(i)
         write (*,*) 'Done!'
 
         !Find electric field at face r=1d0
-        E0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
-        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+        E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
+        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
         E0 = E0*eta/ieta
 
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -631,10 +784,11 @@ cc     .                ,dummy4,dummy5,rho0(i)
               iglobal = i + grid_params%ilo(igx) - 1
 
               !X-Y equilibrium
+#if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
               var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
-
+#endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
@@ -650,6 +804,24 @@ cc     .                ,dummy4,dummy5,rho0(i)
             enddo
           enddo
         enddo
+
+#if defined(vec_pot)
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+              b(i,j,k,3) = x1*bzz0(i)
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
         !Shift vr for EQU BC
         if (ihip + grid_params%ilo(igx)-1 == nxdp) then
@@ -691,7 +863,7 @@ c     Equilibria (numerical)
         open (unit=1000,file='pixie3d.equ',status='old')
 
         read(1000,'(a)')
-        do i=0,nxd+1
+        do i=0,nxdp
           read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
      .                ,vr0(i),ez0(i),eth0(i),rho0(i)
         enddo
@@ -705,28 +877,25 @@ c     Equilibria (numerical)
         write (*,*) 'Done!'
 
         !Find electric field at face r=1d0
-        E0(2) = 0.5*(eth0(nxd)+eth0(nxd+1))
-        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxd+1))
+        E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
+        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
         E0 = E0*eta/ieta
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
               iglobal = i + grid_params%ilo(igx) - 1
 
-              !X-Y equilibrium
+#if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
               var(i,j,k,IBY) = bth0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
-
-              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
-              var(i,j,k,IVY) = 0d0
-              var(i,j,k,IVZ) = 0d0
+#endif
 
               if (solve_rho) then
                 var(i,j,k,IRHO) = rho0(iglobal)
@@ -739,6 +908,24 @@ c     Equilibria (numerical)
             enddo
           enddo
         enddo
+
+#if defined(vec_pot)
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = bth0(i)
+              b(i,j,k,3) = x1*bzz0(i)
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
         !Shift vr for EQU BC
         if (ihip + grid_params%ilo(igx)-1 == nxdp) then
@@ -769,7 +956,7 @@ c     Check coordinates
 c     RFP equilibria (Caramana et al, PoP, 1983)
 
         !Integral in r
-        rint(nxd+1) = 0d0  !First guess to rint(r=1d0) = 0d0
+        rint(nxdp) = 0d0  !First guess to rint(r=1d0) = 0d0
         do i=nxd,1,-1
           x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
           dh = grid_params%xg(i+1)-grid_params%xg(i)
@@ -779,14 +966,14 @@ c     RFP equilibria (Caramana et al, PoP, 1983)
 
         !Correction to ensure rint(r=1d0) = 0d0
         r0 = 1d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
      .                  ,rint,1,r0,offset,2)
 
         rint = rint - offset(1)
 
         !Determine Iz so that Bz(r=0)=1
         r0 = 0d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
      .                  ,rint,1,r0,offset,2)
 
 cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
@@ -796,44 +983,53 @@ cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
 cc        call B_from_q(bth0,bzz0)
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
 
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
               iglobal = i + grid_params%ilo(igx) - 1
 
-cc              btheta  = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(iglobal))
-cc              bz0     = qq(x1)*btheta/x1
-cc
-cc              !X-Y equilibrium
-cc              var(i,j,k,IBX)  = 0d0
-cc              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-cc              var(i,j,k,IBZ)  = x1*bz0
-
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ)  = x1*bzz0(iglobal)
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
-              var(i,j,k,ITMP) = 1d-5
-
             enddo
           enddo
         enddo
+#else
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+              b(i,j,k,3) = x1*bzz0(i)
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('rfp2','spnch')  !SCREW PINCH EQ.
 
 c     Check coordinates
 
-        if (coords /= 'hel') then
+        if (coords /= 'hel' .and. coords /= 'hl2') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -848,43 +1044,72 @@ c     RFP equilibria (analytical)
         nh2 = mm !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
+
+              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ)  = x1*bz0
-
-c diag ****
-cc              var(i,j,k,IBX)  = 0d0
-cc              var(i,j,k,IBY)  = 0d0
-cc              var(i,j,k,IBZ)  = x1*0d0
-c diag ****
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
-              var(i,j,k,ITMP) = 1d-5
-c diag ****
-cc              var(i,j,k,ITMP) = 1d0
-cc              var(i,j,k,ITMP) = 0d0
-c diag ****
-
+              if (coords == 'hel') then
+                var(i,j,k,IBX)  = 0d0
+                var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+                var(i,j,k,IBZ)  = x1*bz0
+              else
+                var(i,j,k,IBX)  = 0d0
+                var(i,j,k,IBY)  = btheta/x1 + kk/mm*bz0
+                var(i,j,k,IBZ)  = bz0
+              endif
             enddo
           enddo
         enddo
+#else
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
+
+              bb     = (dlambda**2+aa)
+     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              if (coords == 'hel') then
+                b(i,j,k,1)  = 0d0
+                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+                b(i,j,k,3)  = x1*bz0
+              else
+                b(i,j,k,1)  = 0d0
+                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
+                b(i,j,k,3)  = bz0
+              endif
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('rfp3d')
 
@@ -911,10 +1136,19 @@ c     RFP equilibria (analytical)
         nh3 = kk*RR    !To set the right perturbation wavelength
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
 
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
@@ -926,18 +1160,31 @@ c     RFP equilibria (analytical)
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
               var(i,j,k,IBZ)  = x1*bz0
-
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-
-              var(i,j,k,ITMP) = 1d-5
-
             enddo
           enddo
         enddo
+#else
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              bb     = (dlambda**2+aa)
+     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = btheta
+              b(i,j,k,3) = x1*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case ('tok')
 
@@ -958,9 +1205,18 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         endif
 
         !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-3
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
@@ -972,53 +1228,29 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
               var(i,j,k,IBZ)  = x1*bz0
+            enddo
+          enddo
+        enddo
+#else
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
 
-              var(i,j,k,IVX)  = 0d0
-              var(i,j,k,IVY)  = 0d0
-              var(i,j,k,IVZ)  = 0d0
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
-              var(i,j,k,IRHO) = 1d0
-
-              var(i,j,k,ITMP) = 1d-3
-
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = btheta + kk*x1/mm*bz0
+              b(i,j,k,3) = x1*bz0
             enddo
           enddo
         enddo
 
-      case ('rhots')
-
-c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
-
-        if (coords /= 'cyl') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-        !Build equilibrium
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              !X-Y equilibrium
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = 0d0
-              var(i,j,k,IBZ)  = 0d0
-
-              var(i,j,k,IVX)  = x1*cos(y1)
-              var(i,j,k,IVY)  = -sin(y1)
-              var(i,j,k,IVZ)  = 0d0
-
-              var(i,j,k,IRHO) = 1d0
-     .                      +1d-1*x1*exp(-(x1-0.3)**2/dlambda**2)
-
-              var(i,j,k,ITMP) = 0d0
-
-            enddo
-          enddo
-        enddo
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
 
       case default
 
@@ -1082,14 +1314,14 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        real(8)    :: bth0(0:nxd+1),bz0(0:nxd+1)
+        real(8)    :: bth0(0:nxdp),bz0(0:nxdp)
 
 c     Local variables
 
         integer(4) :: i,j,k,ig,jg,kg
         real(8)    :: qq,qqp,ff,x1,dh,offset(1),r1,btheta,Iz,r0(1)
 
-        real(8)    :: rint(0:nxd+1)
+        real(8)    :: rint(0:nxdp)
 
 c     Functions
 
@@ -1106,7 +1338,7 @@ c     Begin program
 c     Find integrals
 
         !Integral in r
-        rint(nxd+1) = 0d0  !First guess to rint(r=1d0) = 0d0
+        rint(nxdp) = 0d0  !First guess to rint(r=1d0) = 0d0
         do i=nxd,1,-1
           x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
           dh = grid_params%xg(i+1)-grid_params%xg(i)
@@ -1116,14 +1348,14 @@ c     Find integrals
 
         !Correction to ensure rint(r=1d0) = 0d0
         r0 = 1d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
      .                  ,rint,1,r0,offset,2)
 
         rint = rint - offset(1)
 
         !Determine Iz so that Bz(r=0)=1
         r0 = 0d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxd+1)
+        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
      .                  ,rint,1,r0,offset,2)
 
 cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
@@ -1132,7 +1364,7 @@ cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
 
 c     Evaluate magnetic field
 
-        do i = 0,nxd+1
+        do i = 0,nxdp
 
           x1 = grid_params%xg(i)  !Position in global grid
 
@@ -1147,7 +1379,7 @@ c     Evaluate magnetic field
 
 c fillVectorPotential
 c####################################################################
-      subroutine fillVectorPotential(a1,a2,a3,igx,igy,igz)
+      subroutine fillVectorPotential(a,iigx,iigy,iigz,bc)
 
 c--------------------------------------------------------------------
 c     Defines COVARIANT vector potential for initialization of 
@@ -1160,37 +1392,75 @@ c--------------------------------------------------------------------
 
       use equilibrium
 
+      use imposeBCinterface
+
       implicit none
 
 c Call variables
 
-      integer(4) :: igx,igy,igz
-      real(8)    :: a1(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,a2(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,a3(ilom:ihip,jlom:jhip,klom:khip)
+      integer(4) :: iigx,iigy,iigz
+      real(8)    :: a(ilom:ihip,jlom:jhip,klom:khip,3)
+      logical    :: bc
 
 c Local variables
 
-      integer(4) :: ig,jg,kg,i,j,k
-      real(8)    :: xx,yy,zz
+      integer(4) :: ig,jg,kg,i,j,k,bcnd(6,3)
+      real(8)    :: x1,y1,z1
+      real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
 
 c Begin program
 
+      nx = grid_params%nxv(iigx)
+      ny = grid_params%nyv(iigy)
+      nz = grid_params%nzv(iigz)
+
       select case (trim(equil))
 
-      case ('khcar','tmcar','tmsin','tmcxz','gem')
+      case ('khcar')
 
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,xx,yy,zz)
-              a1(i,j,k) = 0d0
-              a2(i,j,k) = 0d0
-              a3(i,j,k) = dlambda
-     .             *dlog(dcosh((xx-0.5d0*(xmax-xmin))/dlambda)) 
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = x1
+              a(i,j,k,3) = 0d0
+            enddo
+          enddo
+        enddo
+
+      case ('gem')
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = 0d0
+              a(i,j,k,3) = -dlambda
+     .             *dlog(dcosh((x1-0.5d0*(xmax-xmin))/dlambda)) 
+            enddo
+          enddo
+        enddo
+
+      case ('tmcar','tmsin')
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = 2*dlambda
+     .               *atan(exp((x1-0.5d0*(xmax-xmin))/dlambda))
+              a(i,j,k,3) = -dlambda
+     .              *dlog(dcosh((x1-0.5d0*(xmax-xmin))/dlambda)) 
             enddo
           enddo
         enddo
@@ -1201,19 +1471,365 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,xx,yy,zz)
-              a1(i,j,k) = dlambda
-     .             *dlog(dcosh((yy-0.5d0*(ymax-ymin))/dlambda)) 
-              a2(i,j,k) = 0d0
-              a3(i,j,k) = 0d0
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = dlambda
+     .             *dlog(dcosh((y1-0.5d0*(ymax-ymin))/dlambda)) 
+              a(i,j,k,2) = 0d0
+              a(i,j,k,3) = 0d0
             enddo
           enddo
         enddo
 
       end select
 
+c Set boundary values to face values for EQU BC
+
+      if (bc) then
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
+        where (bcnd == DEF) bcnd = -IFC
+
+        call setBC(IAX,3,nx,ny,nz,a_cnv,a,a,bcnd,iigx,iigy,iigz
+     .          ,is_cnv=.false.)
+      endif
+
 c End program
 
       end subroutine fillVectorPotential
+
+c findVectorPotential
+c####################################################################
+      subroutine findVectorPotential(v,b,a_cov)
+
+c--------------------------------------------------------------------
+c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
+c     field components with gauge:
+c                grad(phi + eta div(a)) = 0
+c
+c     On input:
+c       * v -> cnv velocity
+c       * b -> cnv magnetic field
+c     On output:
+c       * a -> cov vector potential
+c--------------------------------------------------------------------
+
+      use parameters
+
+      use grid
+
+      use equilibrium
+
+      use precond_variables
+
+      use matvec
+
+      use operators
+
+      use imposeBCinterface
+
+      implicit none
+
+c Call variables
+
+      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,b(0:nxdp,0:nydp,0:nzdp,3)
+
+c Local variables
+
+      integer(4) :: igrid,ii,bcnd(6,3)
+      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
+     .             ,cai_rhs(ntotdp),caiv(ntotdp)
+     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,a(0:nxdp,0:nydp,0:nzdp,3)
+
+      logical    :: spoint
+
+c Begin program
+
+      igrid = 1
+
+      nx = grid_params%nxv(igrid)
+      ny = grid_params%nyv(igrid)
+      nz = grid_params%nzv(igrid)
+
+c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
+
+      call findScalarPotential(v
+     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+     .                        ,phi)
+
+c Find vector potential with gauge Ax = 0 in GLOBAL domain
+
+      a(:,:,:,1)=0d0  !Gauge
+
+      a(0,0,:,3)=0d0
+
+      i = 0
+
+cc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+      spoint = .false.
+
+      do j=1,nyd+1
+        dyy = grid_params%yg(j)-grid_params%yg(j-1)
+
+        if (spoint) then  !r=0 face
+          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
+     .                                         +b(i  ,j  ,:,1)
+     .                                         +b(i+1,j-1,:,1)
+     .                                         +b(i+1,j  ,:,1))
+        else
+          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
+     .                                         +b(i,j  ,:,1))
+        endif
+      enddo
+
+      a(0,:,:,2)=0d0
+
+      do i=1,nxd+1
+        if (spoint) then
+
+          dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
+
+          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+
+          if (isSP(i,1,1,igx,igy,igz)) then
+            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
+          else
+            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
+          endif
+
+        else
+
+          dxx = grid_params%xg(i)-grid_params%xg(i-1)
+
+          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
+     .                                         +b(i  ,:,:,2))
+          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
+     .                                         +b(i  ,:,:,3))
+
+        endif
+      enddo
+
+      !Average from radial faces to nodes in SP coordinate systems
+      if (spoint) a(1:nxd+1,:,:,2:3) = 0.5*(a(1:nxd+1,:,:,2:3)
+     .                                     +a(0:nxd  ,:,:,2:3))
+
+cc      call curl_inv(nx,ny,nz,igrid,igrid,igrid,b,a)
+
+c Restrict solution to current domain
+
+      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
+     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+
+c Impose topological constraints and find a_cnv
+
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+cc      where (bcnd == DEF) bcnd = EXT
+
+      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
+
+c Transform A to gauge phi+eta div(A)=0
+
+      !Find gauge transformation potential cai
+
+      do k=klo,khi
+        do j=jlo,jhi
+          do i=ilo,ihi
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
+
+            cai_rhs(ii)=-dvol*(phi(i,j,k)
+     .                        +eta*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                                ,a_cnv(:,:,:,1)
+     .                                ,a_cnv(:,:,:,2)
+     .                                ,a_cnv(:,:,:,3)))
+          enddo
+        enddo
+      enddo
+
+      !Transform A (if rhs /= 0d0)
+
+      if (sqrt(sum(cai_rhs*cai_rhs)) > 0d0) then
+
+        !Solve Poisson problem to find Gauge potential cai
+#if defined(petsc)
+        call pstop('findVectorPotential'
+     .          ,'Poisson solver not implemented in parallel')
+#else
+        write (*,*) 'Solving for Gauge potential'
+
+        !Define BCs
+        bcnd(:,1) = bcond
+        where (bcnd == DEF) bcnd = DIR
+
+        !Solve Poisson eq
+        call poisson(ntotdp,cai_rhs,caiv,30,1d-6,bcnd(:,1),ilevel,0)
+
+        !Map to array (w BCs)
+        call mapMGVectorToArray(0,1,caiv,nx,ny,nz,cai,igrid,.false.)
+
+        call setMGBC(0,1,nx,ny,nz,igrid,cai,bcnd,icomp=IRHO
+     .            ,is_vec=.false.,iorder=2)
+#endif
+
+        !Gauge transformation A' = A + grad(cai)
+        do k=klom,khip
+          do j=jlom,jhip
+            do i=ilom,ihip
+              call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,cai
+     .                 ,cov(1),cov(2),cov(3))
+              a_cov(i,j,k,:) = a_cov(i,j,k,:) + cov
+            enddo
+          enddo
+        enddo
+
+      endif
+
+c Set boundary values to face values for EQU BC
+
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+      where (bcnd == DEF) bcnd = -IFC
+
+      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,a,bcnd,igrid,igrid,igrid
+     .          ,is_cnv=.false.)
+
+c End program
+
+      end subroutine findVectorPotential
+
+c findScalarPotential
+c####################################################################
+      subroutine findScalarPotential(v,b,phi)
+
+c--------------------------------------------------------------------
+c     Finds scalar equilibrium potential from equilibrium velocity and 
+c     magnetic fields, obeying the relation:
+c     
+c         lap(phi_0) = div(v0 x B0)
+c
+c     This automatically takes into account ExB flows at the boundary.
+c--------------------------------------------------------------------
+
+      use parameters
+
+      use grid
+
+      use equilibrium
+
+      use precond_variables
+
+      implicit none
+
+c Call variables
+
+      real(8)    :: v(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,b(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
+
+c Local variables
+
+      integer(4) :: igrid,ii,bcnd(6,1)
+      real(8)    :: phi_rhs(ntotdp),phiv(ntotdp),cov(3)
+     .             ,dum(ilom:ihip,jlom:jhip,klom:khip,3),dvol
+
+c Begin program
+
+      igrid = 1
+
+      nx = grid_params%nxv(igrid)
+      ny = grid_params%nyv(igrid)
+      nz = grid_params%nzv(igrid)
+
+c Find rhs
+
+      do k=klom,khip
+        do j=jlom,jhip
+          do i=ilom,ihip
+            jac = gmetric%grid(igrid)%jac(i,j,k)
+
+            cov(1) = v(i,j,k,2)*b(i,j,k,3)
+     .             - v(i,j,k,3)*b(i,j,k,2)
+
+            cov(2) = v(i,j,k,3)*b(i,j,k,1)
+     .             - v(i,j,k,1)*b(i,j,k,3)
+
+            cov(3) = v(i,j,k,1)*b(i,j,k,2)
+     .             - v(i,j,k,2)*b(i,j,k,1)
+
+            cov = cov/jac
+
+            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                                  ,cov(1),cov(2),cov(3)
+     .                                  ,dum(i,j,k,1)
+     .                                  ,dum(i,j,k,2)
+     .                                  ,dum(i,j,k,3),.true.)
+
+          enddo
+        enddo
+      enddo
+
+      do k=klo,khi
+        do j=jlo,jhi
+          do i=ilo,ihi
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+            if (vol_wgt) then
+              dvol = volume(i,j,k,igrid,igrid,igrid)
+            else
+              dvol = 1d0
+            endif
+
+            phi_rhs(ii) = dvol*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dum(:,:,:,1),dum(:,:,:,2),dum(:,:,:,3))
+          enddo
+        enddo
+      enddo
+
+c Solve for potential
+
+      if (sqrt(sum(phi_rhs*phi_rhs))>0d0) then
+
+#if defined(petsc)
+
+        call pstop('findScalarPotential'
+     .          ,'Poisson solver not implemented in parallel')
+
+#else
+
+        !Define BCs
+        bcnd(:,1) = bcond
+        where (bcnd == DEF) bcnd = DIR
+
+        !Solve Poisson eq
+        call poisson(ntotdp,phi_rhs,phiv,30,1d-6,bcnd,ilevel,0)
+
+        !Map to array (w/o BCs)
+        call mapMGVectorToArray(0,1,phiv,nx,ny,nz,phi,igrid,.false.)
+#endif
+
+      else
+
+        phi = 0d0
+
+      endif
+
+c End program
+
+      end subroutine findScalarPotential
+
 

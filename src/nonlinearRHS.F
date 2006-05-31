@@ -54,7 +54,7 @@ c Local variables
       real(8)    :: heat_flx,heat_src,joule,viscous
 
       integer(4) :: ieq
-      real(8)    :: cnv(3),cov(3),kappa
+      real(8)    :: cnv(3),cov(3),kappa,vlap(3),vlap2(3)
 
 c Begin program
 
@@ -103,8 +103,9 @@ cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho)
 cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP()
 cc     .               ,upwind=.true.)
 
-        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4)
-cc     .                 ,sp=bcSP())
+        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,advect
+     .                 ,sp=bcSP())
+cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4)
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
@@ -119,6 +120,7 @@ cc     .                 ,sp=bcSP())
 
 c     Faraday's law
 
+#if !defined(vec_pot)
       vec1 => vecnv
       vec2 => bcnv
 
@@ -177,13 +179,47 @@ cc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 
       nullify(vec1,vec2)
 
+#else
+
+c     Vector potential
+
+      cov(1) = vecnv(i,j,k,2)*bz(i,j,k)
+     .       - vecnv(i,j,k,3)*by(i,j,k) - ejx(i,j,k)
+
+      cov(2) = vecnv(i,j,k,3)*bx(i,j,k)
+     .       - vecnv(i,j,k,1)*bz(i,j,k) - ejy(i,j,k)
+
+      cov(3) = vecnv(i,j,k,1)*by(i,j,k)
+     .       - vecnv(i,j,k,2)*bx(i,j,k) - ejz(i,j,k)
+
+      vlap  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+cc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
+cc     .                     ,.false.,vol=.false.)
+cc
+cc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,vlap(1),vlap(2),vlap(3)
+cc     .                        ,cnv (1),cnv (2),cnv (3)
+cc     .                        ,.false.)
+
+      if (heta > 0d0) then
+        vlap2 = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov,vol=.false.)
+      else
+        vlap2 = 0d0
+      endif
+
+      cov = cov/jac + eeta(i,j,k)*vlap - heta*vlap2
+
+      ff(IAX:IAZ) = -cov/ivol
+
+#endif
+
 c     Temperature
 
       if (gamma == 1d0) then
         ff(ITMP) = 0d0
       else
         advc =
-     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,4)
+     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,advect)
 cc     .        c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp)
      .        +(gamma-2.)/ivol*tmp(i,j,k)
      .                        *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)

@@ -349,7 +349,7 @@ c     Begin program
             enddo
           enddo
         enddo
-
+        
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -360,7 +360,7 @@ c     Begin program
               jp = min(j+1,jhip)
               jm = max(j-1,jlom)
 
-              if (ieq == 5) then
+              if (ieq == IBX) then
                 array(i,j,k) = array(i,j,k)
      .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
      .                              /(grid_params%yy(jg+jp-j)

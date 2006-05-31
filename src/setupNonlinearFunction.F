@@ -60,20 +60,29 @@ c Set aliases
       px  => varray%array_var(IVX )%array
       py  => varray%array_var(IVY )%array
       pz  => varray%array_var(IVZ )%array
+#if !defined(vec_pot)
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
+#else
+      ax  => varray%array_var(IAX )%array
+      ay  => varray%array_var(IAY )%array
+      az  => varray%array_var(IAZ )%array
+#endif
       tmp => varray%array_var(ITMP)%array
 
 c Safeguards
 
       if (minval(rho) < 0d0) then
+        close (urecord)  !Close record file before exiting
         write (*,*) minval(rho)
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
       endif
 
       if (minval(tmp) < 0d0) then
+        close (urecord) !Close record file before exiting
+        write (*,*) minval(rho)
         call pstop('setupNonlinearFunction',
      .             'Warning: negative temperatures are occurring')
       endif
@@ -153,6 +162,7 @@ c Auxiliary variables
         ejz = 0d0
       endif
 
+#if !defined(vec_pot)
       if (solenoidal) then  !Add resistivity term
         ejx = ejx + jx_cov*eeta
         ejy = ejy + jy_cov*eeta
@@ -162,6 +172,15 @@ c Auxiliary variables
       bcnv(:,:,:,1) = bx
       bcnv(:,:,:,2) = by
       bcnv(:,:,:,3) = bz
+#else
+      acov(:,:,:,1) = ax
+      acov(:,:,:,2) = ay
+      acov(:,:,:,3) = az
+
+      jcov(:,:,:,1) = jx_cov
+      jcov(:,:,:,2) = jy_cov
+      jcov(:,:,:,3) = jz_cov
+#endif
 
       vcnv(:,:,:,1) = vx
       vcnv(:,:,:,2) = vy
@@ -206,7 +225,11 @@ c Local variables
 
 c Begin program
 
+#if !defined(vec_pot)
       nullify(rho,bx,by,bz,px,py,pz,tmp)
+#else
+      nullify(rho,ax,ay,az,px,py,pz,tmp)
+#endif
 
 c End program
 

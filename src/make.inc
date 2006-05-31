@@ -2,7 +2,7 @@ PROD      = pixie3d.x
 BETA      = pixie3d.beta.x
 PETSCCODE = pixie3d.petsc.x
 
-MODS := mhd_mod.f imposeBC_mod.F precond_mod.F
+MODS := mhd_mod.F imposeBC_mod.F precond_mod.F
 
 COMMONDIR = ../common
 

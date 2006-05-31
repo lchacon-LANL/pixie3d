@@ -30,7 +30,7 @@ c Local variables
 c Externals
 
       external   v_mtvc,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
-     .          ,mstar_mtvc,hall_mtvc
+     .          ,mstar_mtvc,hall_mtvc,a_mtvc
 
 c Begin program
 
@@ -64,9 +64,15 @@ c Extract arrays and BC's
       px => varray%array_var(IVX )%array
       py => varray%array_var(IVY )%array
       pz => varray%array_var(IVZ )%array
+#if !defined(vec_pot)
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array
       bz  => varray%array_var(IBZ )%array
+#else
+      ax  => varray%array_var(IAX )%array
+      ay  => varray%array_var(IAY )%array
+      az  => varray%array_var(IAZ )%array
+#endif
       tmp => varray%array_var(ITMP)%array
 
 c Find coefficients for linearized systems
@@ -76,8 +82,16 @@ c Find coefficients for linearized systems
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
 
+#if !defined(vec_pot)
       bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
       where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
+#else
+      where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
+
+      !Magnetic field conditions
+      bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
+      where (bcs(:,IBX:IBZ) == -DIR) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
+#endif
 
 cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
       call setASM_PC_BC(igx,igy,igz,bcs,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
@@ -92,8 +106,16 @@ c Find required diagonals in all grids
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
 
+#if !defined(vec_pot)
       bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
       where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
+#else
+      where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
+
+      !Magnetic field conditions
+      bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
+      where (bcs(:,IBX:IBZ) == -DIR) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
+#endif
 
       if (asm_PC.and.(np>1)) then
         call setASM_PC_BC(igx,igy,igz,bcs)
@@ -122,8 +144,13 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
         call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
      .                   ,tmp_diag,ncolors,vol_wgt,.false.)
 
+#if !defined(vec_pot)
         call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
      .                   ,b_diag,ncolors,vol_wgt,.false.)
+#else
+        call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                   ,a_diag,ncolors,vol_wgt,.false.)
+#endif
 
         if (.not.gm_smooth) then
           if (precon == 's1') then

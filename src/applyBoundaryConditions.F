@@ -54,6 +54,7 @@ c Default boundary conditions
       where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IVZ) = bcsq
 
+#if !defined(vec_pot)
       bcsq = bbcs(:,IBX)
       where (bcsq == DEF) bcsq = DIR
       bbcs(:,IBX) = bcsq
@@ -65,6 +66,19 @@ c Default boundary conditions
       bcsq = bbcs(:,IBZ)
       where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IBZ) = bcsq
+#else
+      bcsq = bbcs(:,IAX)
+      where (bcsq == DEF) bcsq = DIR   !On contravariant components
+      bbcs(:,IAX) = bcsq
+
+      bcsq = bbcs(:,IAY)
+      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      bbcs(:,IAY) = bcsq
+
+      bcsq = bbcs(:,IAZ)
+      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      bbcs(:,IAZ) = bcsq
+#endif
 
       bcsq = bbcs(:,ITMP)
       where (bcsq == DEF) bcsq = NEU !To allow isothermal case
@@ -121,7 +135,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,icomp,bcnd(6,3),nnx,nny,nnz,order
+      integer(4) :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz,order
 
       real(8)    :: bbcov(3),bbcnv(3),b2,J0(3)
 
@@ -150,6 +164,8 @@ c Density BC
      .               ,u_0   %array_var(IRHO)%array
      .               ,varray%array_var(IRHO)%bconds
      .               ,iigx,iigy,iigz,iorder=order)
+
+#if !defined(vec_pot)
 
 c Magnetic field BC
 
@@ -192,6 +208,104 @@ c     Postprocessing
       varray%array_var(IBY)%array = v_cnv(:,:,:,2)
       varray%array_var(IBZ)%array = v_cnv(:,:,:,3)
 
+#else
+
+c Vector Pot. BC
+
+c     Resistivity (needed for BCs; may depend on T)
+
+      do k=0,nnz+1
+        do j=0,nny+1
+          do i=0,nnx+1
+            eeta (i,j,k) = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
+          enddo
+        enddo
+      enddo
+
+c     BC setup
+
+      bcnd(:,1) = varray%array_var(IAX)%bconds
+      bcnd(:,2) = varray%array_var(IAY)%bconds
+      bcnd(:,3) = varray%array_var(IAZ)%bconds
+
+      v_cov(:,:,:,1) = varray%array_var(IAX)%array
+      v_cov(:,:,:,2) = varray%array_var(IAY)%array
+      v_cov(:,:,:,3) = varray%array_var(IAZ)%array
+
+      v0(:,:,:,1) = u_0%array_var(IAX)%array
+      v0(:,:,:,2) = u_0%array_var(IAY)%array
+      v0(:,:,:,3) = u_0%array_var(IAZ)%array
+
+c     Fill ghost nodes
+
+      call setBC(IAX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,is_cnv=.false.,iorder=order)
+
+c     Postprocessing
+
+      varray%array_var(IAX)%array = v_cov(:,:,:,1)
+      varray%array_var(IAY)%array = v_cov(:,:,:,2)
+      varray%array_var(IAZ)%array = v_cov(:,:,:,3)
+
+      acnv = v_cnv
+
+c Magnetic field BC
+
+c     BC setup  (only topological constraints)
+
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = DIR
+      bcnd(:,1) = bcsq
+
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = EXT
+      bcnd(:,2) = bcsq
+
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = EXT
+      bcnd(:,3) = bcsq
+
+c     B=curl(A)
+
+      do k = 0,nnz+1
+        do j = 0,nny+1
+          do i = 0,nnx+1
+            do icomp=1,3
+              !Here, v_cov=a per previous step
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+     .                                ,v_cov(:,:,:,1)
+     .                                ,v_cov(:,:,:,2)
+     .                                ,v_cov(:,:,:,3),icomp)
+            enddo
+          enddo
+        enddo
+      enddo
+
+#if defined(petsc) 
+      do icomp=1,3
+        call fillPetscGhostCells(v_cnv(:,:,:,icomp),iigx)
+      enddo
+#endif
+
+      v0 = v_cnv
+
+c     Fill ghost nodes
+
+      call setBC(IBX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,iorder=order)
+
+c     Postprocessing
+
+      bx     = v_cnv(:,:,:,1)
+      by     = v_cnv(:,:,:,2)
+      bz     = v_cnv(:,:,:,3)
+
+      bx_cov = v_cov(:,:,:,1)
+      by_cov = v_cov(:,:,:,2)
+      bz_cov = v_cov(:,:,:,3)
+
+#endif
+
 c Velocity BC
 
 c     BC setup
@@ -221,13 +335,21 @@ c     BC setup
 
         do k=1,nnz
           do j=1,nny
+#if !defined(vec_pot)
             bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
      .                    ,varray%array_var(IBY)%array(i  ,j,k)
      .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
      .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
      .                    ,varray%array_var(IBY)%array(i+1,j,k)
      .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
-
+#else
+            bbcnv = 0.5*(/ bx(i  ,j,k)
+     .                    ,by(i  ,j,k)
+     .                    ,bz(i  ,j,k) /)
+     .             +0.5*(/ bx(i+1,j,k)
+     .                    ,by(i+1,j,k)
+     .                    ,bz(i+1,j,k) /)
+#endif
             bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
      .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
      .                    ,bbcnv)
@@ -293,6 +415,7 @@ c Current BC
 
 c     BC setup
 
+#if !defined(vec_pot)
       bcnd(:,1) = varray%array_var(IBX)%bconds
       bcnd(:,2) = varray%array_var(IBY)%bconds
       bcnd(:,3) = varray%array_var(IBZ)%bconds
@@ -300,6 +423,23 @@ c     BC setup
 cc        bcnd = -DIR  !Use covariant components for tangential BCs
         bcnd = -EQU  !Use covariant components for tangential BCs
       end where
+#else
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = DIR
+      bcnd(:,1) = bcsq
+
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = EXT
+      bcnd(:,2) = bcsq
+
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = EXT
+      bcnd(:,3) = bcsq
+
+cc      bcnd(:,1) = varray%array_var(IAX)%bconds
+cc      bcnd(:,2) = varray%array_var(IAY)%bconds
+cc      bcnd(:,3) = varray%array_var(IAZ)%bconds
+#endif
 
       do k = 0,nnz+1
         do j = 0,nny+1
@@ -325,13 +465,21 @@ cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
 
         do k=1,nnz
           do j=1,nny
+#if !defined(vec_pot)
             bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
      .                    ,varray%array_var(IBY)%array(i  ,j,k)
      .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
      .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
      .                    ,varray%array_var(IBY)%array(i+1,j,k)
      .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
-
+#else
+            bbcnv = 0.5*(/ bx(i  ,j,k)
+     .                    ,by(i  ,j,k)
+     .                    ,bz(i  ,j,k) /)
+     .             +0.5*(/ bx(i+1,j,k)
+     .                    ,by(i+1,j,k)
+     .                    ,bz(i+1,j,k) /)
+#endif
             bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
      .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
      .                    ,bbcnv)

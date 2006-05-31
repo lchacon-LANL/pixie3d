@@ -6,7 +6,11 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
+      use parameters
+
       use grid_aliases
+
+      use transport_params
 
       implicit none
 
@@ -19,6 +23,10 @@ c Begin program
       call allocateSpecificVariables
 
       call defineGridAliases
+
+c Find hyperresistivity
+
+      if (di > 0d0) heta = hres(nxd,nyd,nzd,1,1,1)
 
 c End programs
 
@@ -49,7 +57,6 @@ c Begin program
         allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
-     $           ,bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3))
 cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
@@ -73,6 +80,17 @@ cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
      .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
+
+#if !defined(vec_pot)
+        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3))
+#else
+        allocate (bx    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,by    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,bz    (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+#endif
 
 c SI operator
         allocate(b_n(ilom:ihip,jlom:jhip,klom:khip,3)

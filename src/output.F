@@ -30,7 +30,7 @@ c Local variables
 
       integer(4)    :: ngrd(3)
 
-      character(10) :: ts
+      character(10) :: advective,ts
 
       real(8)       :: lvx_max,lvy_max,lvz_max
 
@@ -68,6 +68,24 @@ c Output
 
           call warnings
 
+          if     (advect.eq.1 .or. advect == 7) then
+            advective = 'UPWIND'
+          elseif (advect.eq.2) then
+            advective = '   ZIP'
+          elseif (advect.eq.3) then
+            advective = ' QUICK'
+          elseif (advect.eq.4) then
+            advective = ' SMART'
+          elseif (advect.eq.5) then
+            advective = 'SSMART'
+          elseif (advect.eq.6) then
+            advective = 'HORDER'
+cc          elseif (advect.eq.7) then
+cc            advective = '   TVD'
+cc          else
+cc            advective = 'PBRKCT'
+          endif
+
           if     (sm_flag.eq.0) then
             ts = ' Theta'
           elseif (sm_flag.eq.1) then
@@ -77,7 +95,8 @@ c Output
           endif
 
 cc          write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
-          write (*,10)nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid,ts
+          write (*,10)nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid
+     .              ,advective,ts
 
           write (*,*) 
           write (*,100)
@@ -106,6 +125,7 @@ cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
+     .        /,'  Advection scheme..........',a
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')

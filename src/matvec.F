@@ -250,6 +250,102 @@ c End
 
       end subroutine setMGBC
 
+c lap_mtvc
+c####################################################################
+      subroutine lap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec test, y = A.x.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      use precond_variables
+
+      use mg_internal
+
+      implicit none
+
+c Call variables
+
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
+      integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
+      integer(4) :: iimin,iimax,jjmin,jjmax,kkmin,kkmax
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
+
+      logical    :: fpointers
+
+c Begin program
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr)
+
+      call deallocPointers(fpointers)
+
+      end subroutine lap_mtvc
+
 c test_mtvc
 c####################################################################
       subroutine test_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
@@ -1459,6 +1555,282 @@ c End program
       call deallocPointers(fpointers)
 
       end subroutine b_mtvc
+
+c a_mtvc
+c####################################################################
+      subroutine a_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for the Vector Potential..
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      use precond_variables
+
+      use mg_internal
+
+      implicit none
+
+c Call variables
+
+      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer(4) :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+      real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+     .             ,veclap(3),cnv(3),cov(3),car(3)
+
+      real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
+
+      logical    :: fpointers,is_cnv
+
+c Begin program
+
+      is_cnv = .false.
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz
+     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(da    (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+cc      allocate(da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      da = 0d0
+cc      da_cnv = 0d0
+
+      !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
+      !For finding the diagonal, gpos > 0
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,da,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
+cc     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.,iorder=2)
+     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=2)
+
+c Velocity field (including BCs)
+
+      v0_cnv => gv0%grid(igrid)%array
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            jac    = gmetric%grid(igrid)%jac(i,j,k)
+
+cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            if (vol_wgt) then
+              vol = volume(i,j,k,igrid,igrid,igrid)
+            else
+              vol = 1d0
+            endif
+
+            !Resistive part
+            veclap = veclap_cov(i,j,k,nxx,nyy,nzz
+     .                         ,igrid,igrid,igrid,da
+     .                         ,vol=.false.)
+
+cc            cnv = veclaplacian(i,j,k,nxx,nyy,nzz
+cc     .                           ,igrid,igrid,igrid,da_cnv
+cc     .                           ,.false.,vol=.false.)
+cc
+cc            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                        ,veclap(1),veclap(2),veclap(3)
+cc     .                        ,cnv   (1),cnv   (2),cnv   (3)
+cc     .                        ,.false.)
+
+            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
+
+            !Convective part
+
+cc            if (i == imax) write (*,*) 'ip',da(i,j,k,3)+da(ip,j,k,3)
+cc            if (i == imin) write (*,*) 'im',da(i,j,k,3)+da(im,j,k,3)
+
+            flxip = -v0_cnv(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))
+     .              -v0_cnv(i,j,k,3)*0.5*(da(ip,j,k,3)+da(i,j,k,3))
+
+            flxim = -v0_cnv(i,j,k,2)*0.5*(da(im,j,k,2)+da(i,j,k,2))
+     .              -v0_cnv(i,j,k,3)*0.5*(da(im,j,k,3)+da(i,j,k,3))
+
+cc            flxip =-0.5*(    v0_cnv(i,j,k,2)
+cc     .                  +abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
+cc     .             -0.5*(    v0_cnv(i,j,k,2)
+cc     .                  -abs(v0_cnv(i,j,k,2)))*da(ip,j,k,2)
+cc     .             -0.5*(    v0_cnv(i,j,k,3)
+cc     .                  +abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
+cc     .             -0.5*(    v0_cnv(i,j,k,3)
+cc     .                  -abs(v0_cnv(i,j,k,3)))*da(ip,j,k,3)
+cc            flxim =-0.5*(    v0_cnv(i,j,k,2)
+cc     .                  +abs(v0_cnv(i,j,k,2)))*da(im,j,k,2)
+cc     .             -0.5*(    v0_cnv(i,j,k,2)
+cc     .                  -abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
+cc     .             -0.5*(    v0_cnv(i,j,k,3)
+cc     .                  +abs(v0_cnv(i,j,k,3)))*da(im,j,k,3)
+cc     .             -0.5*(    v0_cnv(i,j,k,3)
+cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
+
+            flxjp = 0.5*(    v0_cnv(i,j,k,2)
+     .                  +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
+     .             +0.5*(    v0_cnv(i,j,k,2)
+     .                  -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,1)
+            flxjm = 0.5*(    v0_cnv(i,j,k,2)
+     .                  +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,1)
+     .             +0.5*(    v0_cnv(i,j,k,2)
+     .                  -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
+
+            flxkp = 0.5*(    v0_cnv(i,j,k,3)
+     .                  +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
+     .             +0.5*(    v0_cnv(i,j,k,3)            
+     .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,1)
+            flxkm = 0.5*(    v0_cnv(i,j,k,3)            
+     .                  +abs(v0_cnv(i,j,k,3)))*da(i,j,km,1)
+     .             +0.5*(    v0_cnv(i,j,k,3)            
+     .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
+
+            cov(1) =  (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg)
+
+
+            flxip = 0.5*(    v0_cnv(i,j,k,1)
+     .                  +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
+     .             +0.5*(    v0_cnv(i,j,k,1)        
+     .                  -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,2)
+            flxim = 0.5*(    v0_cnv(i,j,k,1)        
+     .                  +abs(v0_cnv(i,j,k,1)))*da(im,j,k,2)
+     .             +0.5*(    v0_cnv(i,j,k,1)        
+     .                  -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
+
+            flxjp = -v0_cnv(i,j,k,1)*0.5*(da(i,jp,k,1)+da(i,j,k,1))
+     .              -v0_cnv(i,j,k,3)*0.5*(da(i,jp,k,3)+da(i,j,k,3))
+
+            flxjm = -v0_cnv(i,j,k,1)*0.5*(da(i,jm,k,1)+da(i,j,k,1))
+     .              -v0_cnv(i,j,k,3)*0.5*(da(i,jm,k,3)+da(i,j,k,3))
+
+            flxkp = 0.5*(    v0_cnv(i,j,k,3)
+     .                  +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
+     .             +0.5*(    v0_cnv(i,j,k,3)            
+     .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,2)
+            flxkm = 0.5*(    v0_cnv(i,j,k,3)            
+     .                  +abs(v0_cnv(i,j,k,3)))*da(i,j,km,2)
+     .             +0.5*(    v0_cnv(i,j,k,3)            
+     .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
+
+            cov(2) =  (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg)
+
+
+            flxip = 0.5*(    v0_cnv(i,j,k,1)
+     .                  +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
+     .             +0.5*(    v0_cnv(i,j,k,1)        
+     .                  -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,3)
+            flxim = 0.5*(    v0_cnv(i,j,k,1)        
+     .                  +abs(v0_cnv(i,j,k,1)))*da(im,j,k,3)
+     .             +0.5*(    v0_cnv(i,j,k,1)        
+     .                  -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
+
+            flxjp = 0.5*(    v0_cnv(i,j,k,2)
+     .                  +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
+     .             +0.5*(    v0_cnv(i,j,k,2)
+     .                  -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,3)
+            flxjm = 0.5*(    v0_cnv(i,j,k,2)
+     .                  +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,3)
+     .             +0.5*(    v0_cnv(i,j,k,2)
+     .                  -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
+
+            flxkp = -v0_cnv(i,j,k,1)*0.5*(da(i,j,kp,1)+da(i,j,k,1))
+     .              -v0_cnv(i,j,k,2)*0.5*(da(i,j,kp,2)+da(i,j,k,2))
+                                                   
+            flxkm = -v0_cnv(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
+     .              -v0_cnv(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
+
+            cov(3) =  (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg)
+
+            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov/jac - etal*veclap))*vol
+
+            if (si_car) then
+              call transformVectorToCartesian
+     .              (i,j,k,igrid,igrid,igrid
+     .               ,cov(1),cov(2),cov(3)
+     .               ,.true.
+     .               ,car(1),car(2),car(3))
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = car(ieq)
+              enddo
+            else
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = cov(ieq)
+              enddo
+            endif
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(da)
+cc      deallocate(da_cnv)
+      nullify(v0_cnv)
+
+      call deallocPointers(fpointers)
+
+      end subroutine a_mtvc
 
 c module v_mtvc_mod
 c ##################################################################

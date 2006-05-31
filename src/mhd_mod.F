@@ -31,8 +31,15 @@ c ######################################################################
       module equilibrium
 
         integer(4) :: IRHO,IVX,IVY,IVZ,IBX,IBY,IBZ,ITMP,IJX,IJY,IJZ
+     .               ,IAX,IAY,IAZ
+
+#if !defined(vec_pot)
         parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7,ITMP=8
-     .               ,IJX=9,IJY=10,IJZ=11)
+     .               ,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14)
+#else
+        parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7,ITMP=8
+     .               ,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14)
+#endif
 
         real(8)    :: dlambda,rshear,vparflow,vperflow
 
@@ -44,7 +51,9 @@ c module transport_params
 c ######################################################################
       module transport_params
 
-        real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,di,a_p
+        use grid
+
+        real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,di,a_p,heta=0d0
 
       contains
 
@@ -118,6 +127,57 @@ c     End program
 
       end function vis
 
+c     hres
+c     ###############################################################
+      function hres(nx,ny,nz,igx,igy,igz)
+c     ---------------------------------------------------------------
+c     Finds hyper-resistivity coefficient (global on the grid)
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8)    :: hres
+      integer(4) :: nx,ny,nz,igx,igy,igz
+
+c     Local variables
+
+      real(8)    :: kk,norm,idx,idy,idz
+      integer(4) :: ig,jg,kg,i,j,k
+
+c     Begin program
+
+      kk = 0d0
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            !Maximum kk
+            idx  = 1./grid_params%dx(ig)
+            if (nx == 1) idx = 1d-2
+            idy  = 1./grid_params%dy(jg)
+            if (ny == 1) idy = 1d-2
+            idz  = 1./grid_params%dz(kg)
+            if (nz == 1) idz = 1d-2
+
+            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+            kk   = max(kk,norm)
+
+          enddo
+        enddo
+      enddo
+
+      hres = .2*di/kk
+cc      hres = di/kk
+
+c     End
+
+      end function hres
+
       end module transport_params
 
 c module grid_aliases
@@ -152,18 +212,15 @@ c module auxiliaryVariables
 c ######################################################################
       module auxiliaryVariables
 
+#if !defined(vec_pot)
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
-     .         ,vex,vey,vez
-     .         ,eeta,nuu,ejx,ejy,ejz
+     .         ,vex,vey,vez,ejx,ejy,ejz
+     .         ,eeta,nuu
 
         real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,vcnv,vecnv
-
-c SI operator
-        real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
-c SI operator
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_car,by_car,bz_car
@@ -171,12 +228,34 @@ c SI operator
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgV,divrgJ,Pflux
      .         ,qfactor,lambda,qfactr2,lambda2,p_tot
+#else
+        real(8),target,allocatable,dimension(:,:,:) ::
+     .          bx,by,bz,bx_cov,by_cov,bz_cov
+     .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
+     .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
+     .         ,ax_cnv,ay_cnv,az_cnv,eeta,nuu
+     .         ,vex,vey,vez,ejx,ejy,ejz
 
+        real(8),target,allocatable,dimension(:,:,:,:) :: acov,vcnv,jcov
+     .                                                  ,acnv,vecnv
+
+        real(8),target,allocatable,dimension(:,:,:) ::
+     .          ax_car,ay_car,az_car
+     .         ,bx_car,by_car,bz_car
+     .         ,jx_car,jy_car,jz_car
+     .         ,vx_car,vy_car,vz_car
+     .         ,divrgB,divrgV,divrgJ,Pflux
+     .         ,qfactor,lambda,qfactr2,lambda2,p_tot
+#endif
         logical :: alt_eom
 
         logical :: nc_eom_jxb=.false.,nc_eom_gp=.false.,nc_eom_v=.false.
 
         real(8) :: k_si=0d0
+
+c SI operator
+        real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
+c SI operator
 
       end module auxiliaryVariables
 
@@ -641,14 +720,12 @@ c     Calculates divergence of vector field (v.arr) at cell centers in
 c     general non-orthogonal geometry.
 c
 c     method: specifies the advective scheme:
-c        0 -> default
-c        1 -> upwind,
+c        1, 7 -> upwind,
 c        2 -> ZIP,
 c        3 -> QUICK,
 c        4 -> SMART,
-c        5 -> smooth SMART
-c        6 -> centered high-order,
-c        7 -> explicit TVD
+c        5 -> smooth SMART,
+c        6 -> centered high-order
 c     ---------------------------------------------------------------
 
 c     Call variables
@@ -949,7 +1026,7 @@ c     Find advective term
 
 c     End 
 
-      contains
+      end function flx_advec
 
 c     inter
 c     ###############################################################
@@ -974,6 +1051,8 @@ c           Location of face
 c     ---------------------------------------------------------------
 
       use oned_int
+
+      use math
 
       implicit none                !For safe fortran
 
@@ -1107,30 +1186,6 @@ c     Centered high-order
 c     End
 
       end function inter
-
-c     fmed
-c     ###############################################################
-      function fmed(p1,p2,p3)
-      implicit none                !For safe fortran
-c     ---------------------------------------------------------------
-c     This function computes intermediate value of p1, p2, p3.
-c     ---------------------------------------------------------------
-
-c     Call variables
-
-      real(8) :: p1,p2,p3,fmed
-
-c     Local variables
-
-c     Begin program
-
-      fmed = min( max(p1,p2) , max( p3,min(p1,p2) ) )
-
-c     End
-
-      end function fmed
-
-      end function flx_advec
 
 c     lap_diff
 c     ###############################################################
@@ -1790,6 +1845,161 @@ c     End program
 
       end function div_tensor
 
+c     div_tensor_cov
+c     ###############################################################
+      function div_tensor_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                       ,tsrx,tsry,tsrz,vol) result (divt)
+
+c     ---------------------------------------------------------------
+c     Calculates div(tensor) at cell centers in general non-orthogonal
+c     coordinates.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      real(8)    :: divt(3)
+
+      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+
+      external   tsrx,tsry,tsrz
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+
+      real(8)    :: jac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
+
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
+     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
+     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
+
+      real(8)    :: hess(3,3,3),msource,dx1,dx2,ll
+
+      logical    :: vol_wgt
+
+      real(8)    :: dum1,dum2
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      igrid = igx
+
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
+
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      jac = gmetric%grid(igrid)%jac(i,j,k)
+
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
+
+      dvol = dxx*dyy*dzz
+
+      if (coords /= 'car') then
+        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+      endif
+
+      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,t11p,t12p,t13p, 1)
+      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,t11m,t12m,t13m,-1)
+      if (coords /= 'car')
+     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,t11o,t12o,t13o,0)
+
+      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,t21p,t22p,t23p, 1)
+      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,t21m,t22m,t23m,-1)
+      if (coords /= 'car')
+     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,t21o,t22o,t23o,0)
+
+      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,t31p,t32p,t33p, 1)
+      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,t31m,t32m,t33m,-1)
+      if (coords /= 'car')
+     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,t31o,t32o,t33o,0)
+
+      msource = 0d0
+
+      !Component 1
+      flxip = t11p
+      flxim = t11m
+
+      flxjp = t21p
+      flxjm = t21m
+
+      flxkp = t31p
+      flxkm = t31m
+
+      if (coords /= 'car') then
+        msource =  (t11o*hess(1,1,1)+t12o*hess(2,1,1)+t13o*hess(3,1,1)
+     .             +t21o*hess(1,2,1)+t22o*hess(2,2,1)+t23o*hess(3,2,1)
+     .             +t31o*hess(1,3,1)+t32o*hess(2,3,1)+t33o*hess(3,3,1))
+      endif
+
+      divt(1) =  (flxip - flxim)/dxx
+     .          +(flxjp - flxjm)/dyy
+     .          +(flxkp - flxkm)/dzz - msource
+
+      !Component 2
+      flxip = t12p
+      flxim = t12m
+
+      flxjp = t22p
+      flxjm = t22m
+
+      flxkp = t32p
+      flxkm = t32m
+
+      if (coords /= 'car') then
+        msource=  (t11o*hess(1,1,2)+t12o*hess(2,1,2)+t13o*hess(3,1,2)
+     .            +t21o*hess(1,2,2)+t22o*hess(2,2,2)+t23o*hess(3,2,2)
+     .            +t31o*hess(1,3,2)+t32o*hess(2,3,2)+t33o*hess(3,3,2))
+      endif
+
+      divt(2) =  (flxip - flxim)/dxx
+     .          +(flxjp - flxjm)/dyy
+     .          +(flxkp - flxkm)/dzz  - msource
+
+      !Component 3
+      flxip = t13p
+      flxim = t13m
+
+      flxjp = t23p
+      flxjm = t23m
+
+      flxkp = t33p
+      flxkm = t33m
+
+      if (coords /= 'car') then
+        msource = (t11o*hess(1,1,3)+t12o*hess(2,1,3)+t13o*hess(3,1,3)
+     .            +t21o*hess(1,2,3)+t22o*hess(2,2,3)+t23o*hess(3,2,3)
+     .            +t31o*hess(1,3,3)+t32o*hess(2,3,3)+t33o*hess(3,3,3))
+      endif
+
+      divt(3) =  (flxip - flxim)/dxx
+     .          +(flxjp - flxjm)/dyy
+     .          +(flxkp - flxkm)/dzz - msource
+
+      divt = divt/jac
+
+      !Volume factor
+cc      if (vol_wgt) divt=divt*volume(i,j,k,igx,igy,igz)
+      if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
+
+c     End program
+
+      end function div_tensor_cov
+
 c     veclap_diff
 c     ###############################################################
       function veclap_diff(i,j,k,nx,ny,nz,igx,igy,igz,vfield
@@ -2191,6 +2401,240 @@ c     Begin program
 c     End program
 
       end subroutine nabtensor_z
+
+c     veclap_cov
+c     ###############################################################
+      function veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vfield
+     .                   ,vol) result (vlap)
+
+c     ---------------------------------------------------------------
+c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
+c     coordinates. Vector is assumed in covariant representation.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+
+      real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
+
+      real(8)    :: vlap(3)
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer(4) :: icomp
+
+      logical    :: vol_wgt
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      if (coords == 'car') then
+        do icomp=1,3
+          vlap(icomp)=laplacian(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,vfield(:,:,:,icomp),vol=vol_wgt)
+        enddo
+      else
+        vec => vfield !Pointer passed to nabtensor routines
+        vlap = div_tensor_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .             ,nabtensor_cov_x,nabtensor_cov_y,nabtensor_cov_z
+     $             ,vol=vol_wgt)
+      endif
+
+c     End program
+
+      end function veclap_cov
+
+c     nabtensor_cov_x
+c     #############################################################
+      subroutine nabtensor_cov_x(i,j,k,nx,ny,nz,igx,igy,igz
+     .                      ,t11,t12,t13,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for nabla(vec)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t11,t12,t13
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,ip,igrid
+        real(8)    :: x,y,z,jac,jac0,jacp
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
+
+c     Begin program
+
+        igrid = igx
+
+        ip = i+1
+        if (flag == 0) ip = i
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
+     .               +gmetric%grid(igrid)%jac (i ,j,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
+
+        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
+
+        if (flag /= 0) then
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),1)
+        else
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),0)
+        endif
+
+        t11 =( gsuper(1,1)*nabla_v(1,1)
+     .        +gsuper(1,2)*nabla_v(2,1)
+     .        +gsuper(1,3)*nabla_v(3,1) )
+
+        t12 =( gsuper(1,1)*nabla_v(1,2)
+     .        +gsuper(1,2)*nabla_v(2,2)
+     .        +gsuper(1,3)*nabla_v(3,2) )
+
+        t13 =( gsuper(1,1)*nabla_v(1,3)
+     .        +gsuper(1,2)*nabla_v(2,3)
+     .        +gsuper(1,3)*nabla_v(3,3) )
+
+c     End program
+
+      end subroutine nabtensor_cov_x
+
+c     nabtensor_cov_y
+c     #############################################################
+      subroutine nabtensor_cov_y(i,j,k,nx,ny,nz,igx,igy,igz
+     .                      ,t21,t22,t23,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t21-t23 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t21,t22,t23
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,jp,igrid
+        real(8)    :: x,y,z,jac
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
+
+c     Begin program
+
+        igrid = igx
+
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,jp,k)
+     .               +gmetric%grid(igrid)%jac (i,j ,k))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,jp,k,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j ,k,:,:))
+
+        if (flag /= 0) then
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),2)
+        else
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),0)
+        endif
+
+        t21 =( gsuper(2,1)*nabla_v(1,1)
+     .        +gsuper(2,2)*nabla_v(2,1)
+     .        +gsuper(2,3)*nabla_v(3,1) )
+
+        t22 =( gsuper(2,1)*nabla_v(1,2)
+     .        +gsuper(2,2)*nabla_v(2,2)
+     .        +gsuper(2,3)*nabla_v(3,2) )
+
+        t23 =( gsuper(2,1)*nabla_v(1,3)
+     .        +gsuper(2,2)*nabla_v(2,3)
+     .        +gsuper(2,3)*nabla_v(3,3) )
+
+c     End program
+
+      end subroutine nabtensor_cov_y
+
+c     nabtensor_cov_z
+c     #############################################################
+      subroutine nabtensor_cov_z(i,j,k,nx,ny,nz,igx,igy,igz
+     .                      ,t31,t32,t33,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t31-t33 for EOM
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        real(8)    :: t31,t32,t33
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,kp,igrid
+        real(8)    :: x,y,z,jac
+        real(8)    :: nabla_v(3,3),gsuper(3,3)
+
+c     Begin program
+
+        igrid = igx
+
+        kp=k+1
+        if (flag == 0) kp = k
+
+        jac    = 0.5*(gmetric%grid(igrid)%jac (i,j,kp)
+     .               +gmetric%grid(igrid)%jac (i,j,k ))
+        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,j,kp,:,:)
+     .               +gmetric%grid(igrid)%gsup(i,j,k ,:,:))
+
+        if (flag /= 0) then
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),3)
+        else
+          nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec(:,:,:,1)
+     .                          ,vec(:,:,:,2)
+     .                          ,vec(:,:,:,3),0)
+        endif
+
+        t31 =( gsuper(3,1)*nabla_v(1,1)
+     .        +gsuper(3,2)*nabla_v(2,1)
+     .        +gsuper(3,3)*nabla_v(3,1) )
+
+        t32 =( gsuper(3,1)*nabla_v(1,2)
+     .        +gsuper(3,2)*nabla_v(2,2)
+     .        +gsuper(3,3)*nabla_v(3,2) )
+
+        t33 =( gsuper(3,1)*nabla_v(1,3)
+     .        +gsuper(3,2)*nabla_v(2,3)
+     .        +gsuper(3,3)*nabla_v(3,3) )
+
+c     End program
+
+      end subroutine nabtensor_cov_z
 
 c     grad
 c     ###############################################################
@@ -3928,6 +4372,593 @@ c     End program
 
       end function fnabla_v_upwd
 
+c     fnabla_v_cov
+c     #############################################################
+      function fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
+     .                     ,half_elem) result(tensor)
+c     -------------------------------------------------------------
+c     Calculates the tensor components T_lm of nabla(vec v), with
+c     v covariant, and fills tensor(l,m) at the following positions:
+c       + half_elem=0 --> i,j,k
+c       + half_elem=1 --> i+1/2,j,k
+c       + half_elem=2 --> i,j+1/2,k
+c       + half_elem=3 --> i,j,k+1/2
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer(4) :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
+        real(8)    :: tensor(3,3)
+        real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
+     .               ,ay(0:nx+1,0:ny+1,0:nz+1)
+     .               ,az(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid,jpp,jmm
+        real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
+        real(8)    :: vxx,vyy,vzz
+     .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+        real(8)    :: tsrc(3,3),jacip,jacjp,jacjm,jackp,jackm
+     .               ,jacipkp,jacipkm,jacipjp,jacipjm,jac
+
+c     Begin program
+
+        igrid = igx
+
+        !Defaults
+
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+        dhx = 2.*dxh(ig)
+        dhy = 2.*dyh(jg)
+        dhz = 2.*dzh(kg)
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        !Exceptions
+
+        select case(half_elem)
+        case (1)
+          dhx = dx(ig)
+
+          vxip = ax(ip,j,k)
+          vxim = ax(i ,j,k)
+          vyip = ay(ip,j,k)
+          vyim = ay(i ,j,k)
+          vzip = az(ip,j,k)
+          vzim = az(i ,j,k)
+
+cc          if (isSP(i,j,k,igx,igy,igz)) then
+ccc FIX PARALLEL for PER BC
+cc            !4th order
+cc            if (j == nx) then
+cc              jpp = 2
+cc              vxjp = 0.5*(-1./6.*(ax(ip,jpp ,k)+ax(i,jpp ,k))
+cc     .                    +7./6.*(ax(ip,jp  ,k)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(ip,j -1,k)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(ip,j +1,k)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(ip,jm  ,k)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(ip,jm-1,k)+ax(i,jm-1,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(ip,jpp ,k)+ay(i,jpp ,k))
+cc     .                    +7./6.*(ay(ip,jp  ,k)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(ip,j -1,k)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(ip,j +1,k)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(ip,jm  ,k)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(ip,jm-1,k)+ay(i,jm-1,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(ip,jpp ,k)+az(i,jpp ,k))
+cc     .                    +7./6.*(az(ip,jp  ,k)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    -1./6.*(az(ip,j -1,k)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(ip,j +1,k)+az(i,j +1,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    +7./6.*(az(ip,jm  ,k)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(ip,jm-1,k)+az(i,jm-1,k)))
+cc            elseif (j == 1) then
+cc              jmm = nx-1
+cc              vxjp = 0.5*(-1./6.*(ax(ip,jp+1,k)+ax(i,jp+1,k))
+cc     .                    +7./6.*(ax(ip,jp  ,k)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(ip,j -1,k)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(ip,j +1,k)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(ip,jm  ,k)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(ip,jmm ,k)+ax(i,jmm ,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(ip,jp+1,k)+ay(i,jp+1,k))
+cc     .                    +7./6.*(ay(ip,jp  ,k)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(ip,j -1,k)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(ip,j +1,k)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(ip,jm  ,k)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(ip,jmm ,k)+ay(i,jmm ,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(ip,jp+1,k)+az(i,jp+1,k))
+cc     .                    +7./6.*(az(ip,jp  ,k)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    -1./6.*(az(ip,j -1,k)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(ip,j +1,k)+az(i,j +1,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    +7./6.*(az(ip,jm  ,k)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(ip,jmm ,k)+az(i,jmm ,k)))
+cc            else
+cc              vxjp = 0.5*(-1./6.*(ax(ip,jp+1,k)+ax(i,jp+1,k))
+cc     .                    +7./6.*(ax(ip,jp  ,k)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(ip,j -1,k)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(ip,j +1,k)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(ip,j   ,k)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(ip,jm  ,k)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(ip,jm-1,k)+ax(i,jm-1,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(ip,jp+1,k)+ay(i,jp+1,k))
+cc     .                    +7./6.*(ay(ip,jp  ,k)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(ip,j -1,k)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(ip,j +1,k)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(ip,j   ,k)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(ip,jm  ,k)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(ip,jm-1,k)+ay(i,jm-1,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(ip,jp+1,k)+az(i,jp+1,k))
+cc     .                    +7./6.*(az(ip,jp  ,k)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    -1./6.*(az(ip,j -1,k)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(ip,j +1,k)+az(i,j +1,k))
+cc     .                    +7./6.*(az(ip,j   ,k)+az(i,j   ,k))
+cc     .                    +7./6.*(az(ip,jm  ,k)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(ip,jm-1,k)+az(i,jm-1,k)))
+cc            endif
+cc          else
+c         2nd order
+            vxjp = 0.5*(ax(ip,jp,k)+ax(i,jp,k))
+            vxjm = 0.5*(ax(ip,jm,k)+ax(i,jm,k))
+            vyjp = 0.5*(ay(ip,jp,k)+ay(i,jp,k))
+            vyjm = 0.5*(ay(ip,jm,k)+ay(i,jm,k))
+            vzjp = 0.5*(az(ip,jp,k)+az(i,jp,k))
+            vzjm = 0.5*(az(ip,jm,k)+az(i,jm,k))
+cc          endif
+
+          vxkp = 0.5*(ax(ip,j,kp)+ax(i,j,kp))
+          vxkm = 0.5*(ax(ip,j,km)+ax(i,j,km))
+          vykp = 0.5*(ay(ip,j,kp)+ay(i,j,kp))
+          vykm = 0.5*(ay(ip,j,km)+ay(i,j,km))
+          vzkp = 0.5*(az(ip,j,kp)+az(i,j,kp))
+          vzkm = 0.5*(az(ip,j,km)+az(i,j,km))
+
+          tsrc = 0.5*(nabla_v_src(ip,j,k)
+     .               +nabla_v_src(i ,j,k))
+
+        case (2)
+          dhy = dy(jg)
+
+          vxip = 0.5*(ax(ip,j,k)+ax(ip,jp,k))
+          vxim = 0.5*(ax(im,j,k)+ax(im,jp,k))
+          vyip = 0.5*(ay(ip,j,k)+ay(ip,jp,k))
+          vyim = 0.5*(ay(im,j,k)+ay(im,jp,k))
+          vzip = 0.5*(az(ip,j,k)+az(ip,jp,k))
+          vzim = 0.5*(az(im,j,k)+az(im,jp,k))
+
+cc          if (isSP(i,j,k,igx,igy,igz)) then
+cc            !4th order
+cc            if (j < nx .and. j > 0) then
+cc              vxjp = 9./8.*ax(i,jp,k)-ax(i,jp+1,k)/24.
+cc              vxjm = 9./8.*ax(i,j ,k)-ax(i,j -1,k)/24.
+cc              vyjp = 9./8.*ay(i,jp,k)-ay(i,jp+1,k)/24.
+cc              vyjm = 9./8.*ay(i,j ,k)-ay(i,j -1,k)/24.
+cc              vzjp = 9./8.*az(i,jp,k)-az(i,jp+1,k)/24.
+cc              vzjm = 9./8.*az(i,j ,k)-az(i,j -1,k)/24.
+cc            elseif (j >= nx) then
+cc              jpp = 2
+cc              vxjp = 9./8.*ax(i,jp,k)-ax(i,jpp ,k)/24.
+cc              vxjm = 9./8.*ax(i,j ,k)-ax(i,j -1,k)/24.
+cc              vyjp = 9./8.*ay(i,jp,k)-ay(i,jpp ,k)/24.
+cc              vyjm = 9./8.*ay(i,j ,k)-ay(i,j -1,k)/24.
+cc              vzjp = 9./8.*az(i,jp,k)-az(i,jpp ,k)/24.
+cc              vzjm = 9./8.*az(i,j ,k)-az(i,j -1,k)/24.
+cc
+cccc              vxjp =-7./8.*ax(i,j  ,k)+23.*ax(i,jp ,k)/24.
+cccc              vxjm = 1./8.*ax(i,j-1,k)-    ax(i,j-2,k)/24.
+cccc              vyjp =-7./8.*ay(i,j  ,k)+23.*ay(i,jp ,k)/24.
+cccc              vyjm = 1./8.*ay(i,j-1,k)-    ay(i,j-2,k)/24.
+cccc              vzjp =-7./8.*az(i,j  ,k)+23.*az(i,jp ,k)/24. 
+cccc              vzjm = 1./8.*az(i,j-1,k)-    az(i,j-2,k)/24. 
+cc
+cc            elseif (j == 0) then
+cc              jmm = nx-1
+cc              vxjp = 9./8.*ax(i,jp,k)-ax(i,jp+1,k)/24.
+cc              vxjm = 9./8.*ax(i,j ,k)-ax(i,jmm ,k)/24.
+cc              vyjp = 9./8.*ay(i,jp,k)-ay(i,jp+1,k)/24.
+cc              vyjm = 9./8.*ay(i,j ,k)-ay(i,jmm ,k)/24.
+cc              vzjp = 9./8.*az(i,jp,k)-az(i,jp+1,k)/24.
+cc              vzjm = 9./8.*az(i,j ,k)-az(i,jmm ,k)/24.
+cc
+cccc              vxjp = 1./8.*ax(i,j+2,k)-    ax(i,j+3,k)/24.
+cccc              vxjm =-7./8.*ax(i,j+1,k)+23.*ax(i,j  ,k)/24.
+cccc              vyjp = 1./8.*ay(i,j+2,k)-    ay(i,j+3,k)/24.
+cccc              vyjm =-7./8.*ay(i,j+1,k)+23.*ay(i,j  ,k)/24.
+cccc              vzjp = 1./8.*az(i,j+2,k)-    az(i,j+3,k)/24.
+cccc              vzjm =-7./8.*az(i,j+1,k)+23.*az(i,j  ,k)/24.
+cc            endif
+cc          else
+            !2nd order
+            vxjp = ax(i,jp,k)
+            vxjm = ax(i,j ,k)
+            vyjp = ay(i,jp,k)
+            vyjm = ay(i,j ,k)
+            vzjp = az(i,jp,k)
+            vzjm = az(i,j ,k)
+cc          endif
+
+          vxkp = 0.5*(ax(i,j,kp)+ax(i,jp,kp))
+          vxkm = 0.5*(ax(i,j,km)+ax(i,jp,km))
+          vykp = 0.5*(ay(i,j,kp)+ay(i,jp,kp))
+          vykm = 0.5*(ay(i,j,km)+ay(i,jp,km))
+          vzkp = 0.5*(az(i,j,kp)+az(i,jp,kp))
+          vzkm = 0.5*(az(i,j,km)+az(i,jp,km))
+
+          tsrc = 0.5*(nabla_v_src(i,jp,k)
+     .               +nabla_v_src(i,j ,k))
+
+        case (3)
+          dhz = dz(kg)
+
+          vxip = 0.5*(ax(ip,j,k)+ax(ip,j,kp))
+          vxim = 0.5*(ax(im,j,k)+ax(im,j,kp))
+          vyip = 0.5*(ay(ip,j,k)+ay(ip,j,kp))
+          vyim = 0.5*(ay(im,j,k)+ay(im,j,kp))
+          vzip = 0.5*(az(ip,j,k)+az(ip,j,kp))
+          vzim = 0.5*(az(im,j,k)+az(im,j,kp))
+
+cc          if (isSP(i,j,k,igx,igy,igz)) then
+ccc FIX PARALLEL for PER BC
+cc          !4th order
+cc            if (j == nx) then
+cc              jpp = 2
+cc              vxjp = 0.5*(-1./6.*(ax(i,jpp ,kp)+ax(i,jpp ,k))
+cc     .                    +7./6.*(ax(i,jp  ,kp)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(i,j -1,kp)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(i,j +1,kp)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(i,jm  ,kp)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(i,jm-1,kp)+ax(i,jm-1,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(i,jpp ,kp)+ay(i,jpp ,k))
+cc     .                    +7./6.*(ay(i,jp  ,kp)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(i,j -1,kp)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(i,j +1,kp)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(i,jm  ,kp)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(i,jm-1,kp)+ay(i,jm-1,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(i,jpp ,kp)+az(i,jpp ,k))
+cc     .                    +7./6.*(az(i,jp  ,kp)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    -1./6.*(az(i,j -1,kp)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(i,j +1,kp)+az(i,j +1,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    +7./6.*(az(i,jm  ,kp)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(i,jm-1,kp)+az(i,jm-1,k)))
+cc            elseif (j == 1) then
+cc              jmm = nx-1
+cc              vxjp = 0.5*(-1./6.*(ax(i,jp+1,kp)+ax(i,jp+1,k))
+cc     .                    +7./6.*(ax(i,jp  ,kp)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(i,j -1,kp)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(i,j +1,kp)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(i,jm  ,kp)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(i,jmm ,kp)+ax(i,jmm ,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(i,jp+1,kp)+ay(i,jp+1,k))
+cc     .                    +7./6.*(ay(i,jp  ,kp)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(i,j -1,kp)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(i,j +1,kp)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(i,jm  ,kp)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(i,jmm ,kp)+ay(i,jmm ,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(i,jp+1,kp)+az(i,jp+1,k))
+cc     .                    +7./6.*(az(i,jp  ,kp)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    -1./6.*(az(i,j -1,kp)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(i,j +1,kp)+az(i,j +1,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    +7./6.*(az(i,jm  ,kp)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(i,jmm ,kp)+az(i,jmm ,k)))
+cc            else
+cc              vxjp = 0.5*(-1./6.*(ax(i,jp+1,kp)+ax(i,jp+1,k))
+cc     .                    +7./6.*(ax(i,jp  ,kp)+ax(i,jp  ,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    -1./6.*(ax(i,j -1,kp)+ax(i,j -1,k)))
+cc              vxjm = 0.5*(-1./6.*(ax(i,j +1,kp)+ax(i,j +1,k))
+cc     .                    +7./6.*(ax(i,j   ,kp)+ax(i,j   ,k))
+cc     .                    +7./6.*(ax(i,jm  ,kp)+ax(i,jm  ,k))
+cc     .                    -1./6.*(ax(i,jm-1,kp)+ax(i,jm-1,k)))
+cc
+cc              vyjp = 0.5*(-1./6.*(ay(i,jp+1,kp)+ay(i,jp+1,k))
+cc     .                    +7./6.*(ay(i,jp  ,kp)+ay(i,jp  ,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    -1./6.*(ay(i,j -1,kp)+ay(i,j -1,k)))
+cc              vyjm = 0.5*(-1./6.*(ay(i,j +1,kp)+ay(i,j +1,k))
+cc     .                    +7./6.*(ay(i,j   ,kp)+ay(i,j   ,k))
+cc     .                    +7./6.*(ay(i,jm  ,kp)+ay(i,jm  ,k))
+cc     .                    -1./6.*(ay(i,jm-1,kp)+ay(i,jm-1,k)))
+cc
+cc              vzjp = 0.5*(-1./6.*(az(i,jp+1,kp)+az(i,jp+1,k))
+cc     .                    +7./6.*(az(i,jp  ,kp)+az(i,jp  ,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    -1./6.*(az(i,j -1,kp)+az(i,j -1,k)))
+cc              vzjm = 0.5*(-1./6.*(az(i,j +1,kp)+az(i,j +1,k))
+cc     .                    +7./6.*(az(i,j   ,kp)+az(i,j   ,k))
+cc     .                    +7./6.*(az(i,jm  ,kp)+az(i,jm  ,k))
+cc     .                    -1./6.*(az(i,jm-1,kp)+az(i,jm-1,k)))
+cc            endif
+cc          else
+          !2nd order
+            vxjp = 0.5*(ax(i,jp,k)+ax(i,jp,kp))
+            vxjm = 0.5*(ax(i,jm,k)+ax(i,jm,kp))
+            vyjp = 0.5*(ay(i,jp,k)+ay(i,jp,kp))
+            vyjm = 0.5*(ay(i,jm,k)+ay(i,jm,kp))
+            vzjp = 0.5*(az(i,jp,k)+az(i,jp,kp))
+            vzjm = 0.5*(az(i,jm,k)+az(i,jm,kp))
+cc          endif
+
+          vxkp = ax(i,j,kp)
+          vxkm = ax(i,j,k )
+          vykp = ay(i,j,kp)
+          vykm = ay(i,j,k )
+          vzkp = az(i,j,kp)
+          vzkm = az(i,j,k )
+
+          tsrc = 0.5*(nabla_v_src(i,j,kp)
+     .               +nabla_v_src(i,j,k ))
+
+        case default
+
+          vxip = ax(ip,j,k)
+          vxim = ax(im,j,k)
+          vyip = ay(ip,j,k)
+          vyim = ay(im,j,k)
+          vzip = az(ip,j,k)
+          vzim = az(im,j,k)
+
+cc          if (isSP(i,j,k,igx,igy,igz)) then
+ccc FIX PARALLEL for PER BC
+cc          !4th order
+cc            if (j == nx) then
+cc              jpp = 2
+cc              vxjp = (-1./6.*(ax(i,jpp ,k))
+cc     .                +7./6.*(ax(i,jp  ,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                -1./6.*(ax(i,j -1,k)))
+cc              vxjm = (-1./6.*(ax(i,j +1,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                +7./6.*(ax(i,jm  ,k))
+cc     .                -1./6.*(ax(i,jm-1,k)))
+cc
+cc              vyjp = (-1./6.*(ay(i,jpp ,k))
+cc     .                +7./6.*(ay(i,jp  ,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                -1./6.*(ay(i,j -1,k)))
+cc              vyjm = (-1./6.*(ay(i,j +1,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                +7./6.*(ay(i,jm  ,k))
+cc     .                -1./6.*(ay(i,jm-1,k)))
+cc
+cc              vzjp = (-1./6.*(az(i,jpp ,k))
+cc     .                +7./6.*(az(i,jp  ,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                -1./6.*(az(i,j -1,k)))
+cc              vzjm = (-1./6.*(az(i,j +1,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                +7./6.*(az(i,jm  ,k))
+cc     .                -1./6.*(az(i,jm-1,k)))
+cc            elseif (j == 1) then
+cc              jmm = nx-1
+cc              vxjp = (-1./6.*(ax(i,jp+1,k))
+cc     .                +7./6.*(ax(i,jp  ,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                -1./6.*(ax(i,j -1,k)))
+cc              vxjm = (-1./6.*(ax(i,j +1,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                +7./6.*(ax(i,jm  ,k))
+cc     .                -1./6.*(ax(i,jmm ,k)))
+cc
+cc              vyjp = (-1./6.*(ay(i,jp+1,k))
+cc     .                +7./6.*(ay(i,jp  ,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                -1./6.*(ay(i,j -1,k)))
+cc              vyjm = (-1./6.*(ay(i,j +1,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                +7./6.*(ay(i,jm  ,k))
+cc     .                -1./6.*(ay(i,jmm ,k)))
+cc
+cc              vzjp = (-1./6.*(az(i,jp+1,k))
+cc     .                +7./6.*(az(i,jp  ,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                -1./6.*(az(i,j -1,k)))
+cc              vzjm = (-1./6.*(az(i,j +1,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                +7./6.*(az(i,jm  ,k))
+cc     .                -1./6.*(az(i,jmm ,k)))
+cc            else
+cc              vxjp = (-1./6.*(ax(i,jp+1,k))
+cc     .                +7./6.*(ax(i,jp  ,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                -1./6.*(ax(i,j -1,k)))
+cc              vxjm = (-1./6.*(ax(i,j +1,k))
+cc     .                +7./6.*(ax(i,j   ,k))
+cc     .                +7./6.*(ax(i,jm  ,k))
+cc     .                -1./6.*(ax(i,jm-1,k)))
+cc
+cc              vyjp = (-1./6.*(ay(i,jp+1,k))
+cc     .                +7./6.*(ay(i,jp  ,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                -1./6.*(ay(i,j -1,k)))
+cc              vyjm = (-1./6.*(ay(i,j +1,k))
+cc     .                +7./6.*(ay(i,j   ,k))
+cc     .                +7./6.*(ay(i,jm  ,k))
+cc     .                -1./6.*(ay(i,jm-1,k)))
+cc
+cc              vzjp = (-1./6.*(az(i,jp+1,k))
+cc     .                +7./6.*(az(i,jp  ,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                -1./6.*(az(i,j -1,k)))
+cc              vzjm = (-1./6.*(az(i,j +1,k))
+cc     .                +7./6.*(az(i,j   ,k))
+cc     .                +7./6.*(az(i,jm  ,k))
+cc     .                -1./6.*(az(i,jm-1,k)))
+cc            endif
+cc          else
+          !2nd order
+            vxjp = ax(i,jp,k)
+            vxjm = ax(i,jm,k)
+            vyjp = ay(i,jp,k)
+            vyjm = ay(i,jm,k)
+            vzjp = az(i,jp,k)
+            vzjm = az(i,jm,k)
+cc          endif
+
+          vxkp = ax(i,j,kp)
+          vxkm = ax(i,j,km)
+          vykp = ay(i,j,kp)
+          vykm = ay(i,j,km)
+          vzkp = az(i,j,kp)
+          vzkm = az(i,j,km)
+
+          tsrc = nabla_v_src(i,j,k)
+
+        end select
+
+        idhx = 1./dhx
+        idhy = 1./dhy
+        idhz = 1./dhz
+
+      ! l = 1, m = 1
+        tensor(1,1) = (vxip-vxim)*idhx
+
+      ! l = 1, m = 2
+        tensor(1,2) = (vyip-vyim)*idhx
+
+      ! l = 1, m = 3
+        tensor(1,3) = (vzip-vzim)*idhx
+
+      ! l = 2, m = 1
+        tensor(2,1) = (vxjp-vxjm)*idhy
+
+      ! l = 2, m = 2
+        tensor(2,2) = (vyjp-vyjm)*idhy
+
+      ! l = 2, m = 3
+        tensor(2,3) = (vzjp-vzjm)*idhy
+
+      ! l = 3, m = 1
+        tensor(3,1) = (vxkp-vxkm)*idhz
+
+      ! l = 3, m = 2
+        tensor(3,2) = (vykp-vykm)*idhz
+
+      ! l = 3, m = 3
+        tensor(3,3) = (vzkp-vzkm)*idhz
+
+      ! Add geometric source
+
+        tensor = tensor - tsrc
+
+c     End program
+
+      contains
+
+c     nabla_v_src
+c     #############################################################
+      function nabla_v_src(i,j,k) result(tensor)
+
+c     -------------------------------------------------------------
+c     Finds geometric source of tensor nabla(v) at cell (i,j,k)
+c     -------------------------------------------------------------
+
+        implicit none
+
+        integer(4) :: i,j,k
+        real(8)    :: tensor(3,3)
+
+        real(8)    :: hessian(3,3,3)
+
+c     Begin program
+
+        hessian = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+
+      ! l = 1, m = 1
+        tensor(1,1) =+ ax(i,j,k)* hessian(1,1,1)
+     .               + ay(i,j,k)* hessian(2,1,1)
+     .               + az(i,j,k)* hessian(3,1,1)
+
+      ! l = 1, m = 2
+        tensor(1,2) =+ ax(i,j,k)* hessian(1,1,2)
+     .               + ay(i,j,k)* hessian(2,1,2)
+     .               + az(i,j,k)* hessian(3,1,2)
+
+      ! l = 1, m = 3
+        tensor(1,3) =+ ax(i,j,k)* hessian(1,1,3)
+     .               + ay(i,j,k)* hessian(2,1,3)
+     .               + az(i,j,k)* hessian(3,1,3)
+
+      ! l = 2, m = 1
+        tensor(2,1) =+ ax(i,j,k)* hessian(1,2,1)
+     .               + ay(i,j,k)* hessian(2,2,1)
+     .               + az(i,j,k)* hessian(3,2,1)
+
+      ! l = 2, m = 2
+        tensor(2,2) =+ ax(i,j,k)* hessian(1,2,2)
+     .               + ay(i,j,k)* hessian(2,2,2)
+     .               + az(i,j,k)* hessian(3,2,2)
+
+      ! l = 2, m = 3
+        tensor(2,3) =+ ax(i,j,k)* hessian(1,2,3)
+     .               + ay(i,j,k)* hessian(2,2,3)
+     .               + az(i,j,k)* hessian(3,2,3)
+
+      ! l = 3, m = 1
+        tensor(3,1) =+ ax(i,j,k)* hessian(1,3,1)
+     .               + ay(i,j,k)* hessian(2,3,1)
+     .               + az(i,j,k)* hessian(3,3,1)
+
+      ! l = 3, m = 2
+        tensor(3,2) =+ ax(i,j,k)* hessian(1,3,2)
+     .               + ay(i,j,k)* hessian(2,3,2)
+     .               + az(i,j,k)* hessian(3,3,2)
+
+      ! l = 3, m = 3
+        tensor(3,3) =+ ax(i,j,k)* hessian(1,3,3)
+     .               + ay(i,j,k)* hessian(2,3,3)
+     .               + az(i,j,k)* hessian(3,3,3)
+
+c     End program
+
+      end function nabla_v_src
+
+      end function fnabla_v_cov
+
 c     btensor_x
 c     #############################################################
       subroutine btensor_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
@@ -4181,7 +5212,8 @@ c     New code (SP ready, parallel-ready, version I)
 
       i = 0
 
-      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+cc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+      spoint = .false.
 
       do j=1,ny+1
         call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
@@ -4825,8 +5857,13 @@ c ######################################################################
         use operators
 
         use timeStepping
-
+#if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+#else
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
+#endif
+
+        integer(4) :: advect
 
         real(8) :: max_dv_dt
 
@@ -5371,8 +6408,8 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip
-        real(8)    :: x,y,z
+        integer(4) :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
+        real(8)    :: x,y,z,vxp,qip,ph
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
 
 c     Begin program
@@ -5395,6 +6432,8 @@ c     Begin program
           jac0 = jac
         endif
 
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
         ijac0 = 1d0/jac0
@@ -5406,34 +6445,125 @@ c     Begin program
           nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
+c       Advective part
+
+        if (flag /= 0 .and. advect /= 2) then
+          ipp = min(ip+1,nx+1)
+          im  = max(i -1,0   )
+
+          igp  = ig + (ip  - i)
+          igm  = ig + (im  - i)
+          igpp = ig + (ipp - i)
+        endif
+
+        !Advection of px
+        t11 = 0.5*( vx(ip,j,k)*px (i ,j,k)*ijacp*ijac0
+     .             +vx(i ,j,k)*px (ip,j,k)*ijacp*ijac0)*jac**2
+
+        ph = 0.5*(px(i,j,k)+px(ip,j,k))
+
+        if (      flag   /= 0
+     .      .and. advect /= 2
+     .      .and. t11    /= 0d0
+     .      .and. abs(ph) > 1d-5) then
+
+          vxp = t11/ph
+
+cc          write (*,*) 'before',i,j,k,t11,vxp,ph
+          if (i == nx .or. i == 0) then
+            qip=inter(xx(igpp),px(ipp,j,k),xx(igp),px(ip,j,k)
+     .               ,xx(ig  ),px(i  ,j,k),xx(igm),px(im,j,k)
+     .               ,vxp,min(advect,2))
+          else
+            qip=inter(xx(igpp),px(ipp,j,k),xx(igp),px(ip,j,k)
+     .               ,xx(ig  ),px(i  ,j,k),xx(igm),px(im,j,k)
+     .               ,vxp,advect)
+          endif
+
+          t11 = vxp*qip
+cc          write (*,*) 'after',i,j,k,t11,vxp,qip
+        endif
+
+        !Advection of py
+        t12 = 0.5*( vx(i ,j,k)*py(ip,j,k)*ijac0
+     .            + vx(ip,j,k)*py(i ,j,k)*ijacp)*jac
+cc     .     0.25*( px(ip,j,k)*vy (i ,j,k)*ijacp
+cc     .           +px(i ,j,k)*vy (ip,j,k)*ijac0
+cc     .           + vx(i ,j,k)*py(ip,j,k)*ijac0
+cc     .           + vx(ip,j,k)*py(i ,j,k)*ijacp)*jac
+
+        ph = 0.5*(py(i,j,k)+py(ip,j,k))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t12    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vxp = t12/ph
+cc
+cc          if (i == nx .or. i == 0) then
+cc            qip=inter(xx(igpp),py(ipp,j,k),xx(igp),py(ip,j,k)
+cc     .               ,xx(ig  ),py(i  ,j,k),xx(igm),py(im,j,k)
+cc     .               ,vxp,min(advect,2))
+cc          else
+cc            qip=inter(xx(igpp),py(ipp,j,k),xx(igp),py(ip,j,k)
+cc     .               ,xx(ig  ),py(i  ,j,k),xx(igm),py(im,j,k)
+cc     .               ,vxp,advect)
+cc          endif
+cc
+cc          t12 = vxp*qip
+cc        endif
+
+        !Advection of pz
+        t13 = 0.5*( vx(i ,j,k)*pz(ip,j,k)*ijacp*ijac0
+     .            + vx(ip,j,k)*pz(i ,j,k)*ijacp*ijac0)*jac**2
+cc     .      0.25*( px(ip,j,k)*vz (i ,j,k)*ijacp*ijac0
+cc     .            +px(i ,j,k)*vz (ip,j,k)*ijacp*ijac0
+cc     .            + vx(i ,j,k)*pz(ip,j,k)*ijacp*ijac0
+cc     .            + vx(ip,j,k)*pz(i ,j,k)*ijacp*ijac0)*jac**2
+
+        ph = 0.5*(pz(i,j,k)+pz(ip,j,k))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t13    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vxp = t13/ph
+cc
+cc          if (i == nx .or. i == 0) then
+cc            qip=inter(xx(igpp),pz(ipp,j,k),xx(igp),pz(ip,j,k)
+cc     .               ,xx(ig  ),pz(i  ,j,k),xx(igm),pz(im,j,k)
+cc     .               ,vxp,min(advect,2))
+cc          else
+cc            qip=inter(xx(igpp),pz(ipp,j,k),xx(igp),pz(ip,j,k)
+cc     .               ,xx(ig  ),pz(i  ,j,k),xx(igm),pz(im,j,k)
+cc     .               ,vxp,advect)
+cc          endif
+cc
+cc          t13 = vxp*qip
+cc        endif
+
+c       Diffusive part
+
         !Harmonic average for calculation of viscosity coeff. at faces
 cc        vis = 2./(1./nuu(ip,j,k) + 1./nuu(i ,j,k))
         vis = 2.*nuu(ip,j,k)*nuu(i,j,k)/(nuu(ip,j,k) + nuu(i ,j,k))
 
-        t11 =
-     .      0.5*( px(ip,j,k)*vx (i ,j,k)*ijacp*ijac0
-     .           +px(i ,j,k)*vx (ip,j,k)*ijacp*ijac0)*jac**2
-     .     -vis*( gsuper(1,1)*nabla_v(1,1)
-     .           +gsuper(1,2)*nabla_v(2,1)
-     .           +gsuper(1,3)*nabla_v(3,1) )
+        t11 = t11
+     .       -vis*( gsuper(1,1)*nabla_v(1,1)
+     .             +gsuper(1,2)*nabla_v(2,1)
+     .             +gsuper(1,3)*nabla_v(3,1) )
 
-        t12 =
-     .     0.25*( px(ip,j,k)*vy (i ,j,k)*ijacp
-     .           +px(i ,j,k)*vy (ip,j,k)*ijac0
-     .           + vx(i ,j,k)*py(ip,j,k)*ijac0
-     .           + vx(ip,j,k)*py(i ,j,k)*ijacp)*jac
-     .     -vis*( gsuper(1,1)*nabla_v(1,2)
-     .           +gsuper(1,2)*nabla_v(2,2)
-     .           +gsuper(1,3)*nabla_v(3,2) )
+        t12 = t12
+     .       -vis*( gsuper(1,1)*nabla_v(1,2)
+     .             +gsuper(1,2)*nabla_v(2,2)
+     .             +gsuper(1,3)*nabla_v(3,2) )
 
-        t13 =
-     .      0.25*( px(ip,j,k)*vz (i ,j,k)*ijacp*ijac0
-     .            +px(i ,j,k)*vz (ip,j,k)*ijacp*ijac0
-     .            + vx(i ,j,k)*pz(ip,j,k)*ijacp*ijac0
-     .            + vx(ip,j,k)*pz(i ,j,k)*ijacp*ijac0)*jac**2
-     .     -vis*( gsuper(1,1)*nabla_v(1,3)
-     .           +gsuper(1,2)*nabla_v(2,3)
-     .           +gsuper(1,3)*nabla_v(3,3) )
+        t13 = t13
+     .       -vis*( gsuper(1,1)*nabla_v(1,3)
+     .             +gsuper(1,2)*nabla_v(2,3)
+     .             +gsuper(1,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
@@ -5476,8 +6606,8 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp
-        real(8)    :: x,y,z
+        integer(4) :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
+        real(8)    :: x,y,z,vyp,qjp,ph
         real(8)    :: jac,ijac,vis
 
 c     Begin program
@@ -5496,26 +6626,119 @@ c     Begin program
           nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+c       Advective part
+
+        if (flag /= 0 .and. advect /= 2) then
+          jpp = min(jp+1,ny+1)
+          jm  = max(j-1 ,0   )
+
+          jgp  = jg + (jp  - j)
+          jgm  = jg + (jm  - j)
+          jgpp = jg + (jpp - j)
+        endif
+
+        t21 =
+cc     .       0.25*( py(i,jp,k)*vx(i,j,k) + py(i,j,k)*vx(i,jp,k)
+cc     .             +px(i,jp,k)*vy(i,j,k) + px(i,j,k)*vy(i,jp,k))
+     .       0.5*(vy(i,j ,k)*px(i,jp,k)
+     .           +vy(i,jp,k)*px(i,j ,k))
+
+        ph = 0.5*(px(i,j,k)+px(i,jp,k))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t21    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vyp = t21/ph
+cc
+cc          if (j == ny .or. j == 0) then
+cc            qjp=inter(yy(jgpp),px(i,jpp,k),yy(jgp),px(i,jp,k)
+cc     .               ,yy(jg  ),px(i,j  ,k),yy(jgm),px(i,jm,k)
+cc     .               ,vyp,min(advect,2))
+cc          else
+cc            qjp=inter(yy(jgpp),px(i,jpp,k),yy(jgp),px(i,jp,k)
+cc     .               ,yy(jg  ),px(i,j  ,k),yy(jgm),px(i,jm,k)
+cc     .               ,vyp,advect)
+cc          endif
+cc
+cc          t21 = vyp*qjp
+cc        endif
+
+        t22 =
+cc     .       0.25*( py(i,jp,k)*vy(i,j,k) + py(i,j,k)*vy(i,jp,k)
+cc     .             +py(i,jp,k)*vy(i,j,k) + py(i,j,k)*vy(i,jp,k))
+     .       0.5*( vy(i,j ,k)*py(i,jp,k)
+     .           + vy(i,jp,k)*py(i,j ,k))
+
+        ph = 0.5*(py(i,j,k)+py(i,jp,k))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t22    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vyp = t22/ph
+cc
+cc          if (j == ny .or. j == 0) then
+cc            qjp=inter(yy(jgpp),py(i,jpp,k),yy(jgp),py(i,jp,k)
+cc     .               ,yy(jg  ),py(i,j  ,k),yy(jgm),py(i,jm,k)
+cc     .               ,vyp,min(advect,2))
+cc          else
+cc            qjp=inter(yy(jgpp),py(i,jpp,k),yy(jgp),py(i,jp,k)
+cc     .               ,yy(jg  ),py(i,j  ,k),yy(jgm),py(i,jm,k)
+cc     .               ,vyp,advect)
+cc          endif
+cc
+cc          t22 = vyp*qjp
+cc        endif
+
+        t23 =
+cc     .       0.25*( py(i,jp,k)*vz(i,j,k) + py(i,j,k)*vz(i,jp,k)
+cc     .             +pz(i,jp,k)*vy(i,j,k) + pz(i,j,k)*vy(i,jp,k))
+     .       0.5*( vy(i,j ,k)*pz(i,jp,k)
+     .           + vy(i,jp,k)*pz(i,j ,k))
+
+        ph = 0.5*(pz(i,j,k)+pz(i,jp,k))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t23    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vyp = t23/ph
+cc
+cc          if (j == ny .or. j == 0) then
+cc            qjp=inter(yy(jgpp),pz(i,jpp,k),yy(jgp),pz(i,jp,k)
+cc     .               ,yy(jg  ),pz(i,j  ,k),yy(jgm),pz(i,jm,k)
+cc     .               ,vyp,min(advect,2))
+cc          else
+cc            qjp=inter(yy(jgpp),pz(i,jpp,k),yy(jgp),pz(i,jp,k)
+cc     .               ,yy(jg  ),pz(i,j  ,k),yy(jgm),pz(i,jm,k)
+cc     .               ,vyp,advect)
+cc          endif
+cc
+cc          t23 = vyp*qjp
+cc        endif
+
+c       Diffusive part
+
 cc        vis = 2./(1./nuu(i,jp,k) + 1./nuu(i,j ,k))
         vis = 2.*nuu(i,jp,k)*nuu(i,j,k)/(nuu(i,jp,k) + nuu(i,j ,k))
 
-        t21 =
-     .       0.25*( py(i,jp,k)*vx(i,j,k) + py(i,j,k)*vx(i,jp,k)
-     .             +px(i,jp,k)*vy(i,j,k) + px(i,j,k)*vy(i,jp,k))
+        t21 = t21
      .       -vis*( gsuper(2,1)*nabla_v(1,1)
      .             +gsuper(2,2)*nabla_v(2,1)
      .             +gsuper(2,3)*nabla_v(3,1) )
 
-        t22 =
-     .       0.25*( py(i,jp,k)*vy(i,j,k) + py(i,j,k)*vy(i,jp,k)
-     .             +py(i,jp,k)*vy(i,j,k) + py(i,j,k)*vy(i,jp,k))
+        t22 = t22
      .       -vis*( gsuper(2,1)*nabla_v(1,2)
      .             +gsuper(2,2)*nabla_v(2,2)
      .             +gsuper(2,3)*nabla_v(3,2) )
 
-        t23 =
-     .       0.25*( py(i,jp,k)*vz(i,j,k) + py(i,j,k)*vz(i,jp,k)
-     .             +pz(i,jp,k)*vy(i,j,k) + pz(i,j,k)*vy(i,jp,k))
+        t23 = t23
      .       -vis*( gsuper(2,1)*nabla_v(1,3)
      .             +gsuper(2,2)*nabla_v(2,3)
      .             +gsuper(2,3)*nabla_v(3,3) )
@@ -5561,8 +6784,8 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp
-        real(8)    :: x,y,z
+        integer(4) :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
+        real(8)    :: x,y,z,vzp,qkp,ph
         real(8)    :: jac,ijac,vis
 
 c     Begin program
@@ -5581,26 +6804,119 @@ c     Begin program
           nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
         endif
 
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+c       Advective part
+
+        if (flag /= 0 .and. advect /= 2) then
+          kpp = min(kp+1,nx+1)
+          km  = max(k -1,0   )
+
+          kgp  = kg + (kp  - k)
+          kgm  = kg + (km  - k)
+          kgpp = kg + (kpp - k)
+        endif
+
+        t31 =
+cc     .       0.25*( pz(i,j,kp)*vx(i,j,k) + pz(i,j,k)*vx(i,j,kp)
+cc     .             +px(i,j,kp)*vz(i,j,k) + px(i,j,k)*vz(i,j,kp) )
+     .       0.5*( vz(i,j,k )*px(i,j,kp)
+     .           + vz(i,j,kp)*px(i,j,k ) )
+
+        ph = 0.5*(px(i,j,k)+px(i,j,kp))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t31    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vzp = t31/ph
+cc
+cc          if (k == nz .or. k == 0) then
+cc            qkp=inter(zz(kgpp),px(i,j,kpp),zz(kgp),px(i,j,kp)
+cc     .               ,zz(kg  ),px(i,j,k  ),zz(kgm),px(i,j,km)
+cc     .               ,vzp,min(advect,2))
+cc          else
+cc            qkp=inter(zz(kgpp),px(i,j,kpp),zz(kgp),px(i,j,kp)
+cc     .               ,zz(kg  ),px(i,j,k  ),zz(kgm),px(i,j,km)
+cc     .               ,vzp,advect)
+cc          endif
+cc
+cc          t31 = vzp*qkp
+cc        endif
+
+        t32 =
+cc     .       0.25*( pz(i,j,kp)*vy(i,j,k) + pz(i,j,k)*vy(i,j,kp)
+cc     .             +py(i,j,kp)*vz(i,j,k) + py(i,j,k)*vz(i,j,kp) )
+     .       0.5*( vz(i,j,k )*py(i,j,kp)
+     .           + vz(i,j,kp)*py(i,j,k ) )
+
+        ph = 0.5*(py(i,j,k)+py(i,j,kp))
+cc
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t32    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vzp = t32/ph
+cc
+cc          if (k == nz .or. k == 0) then
+cc            qkp=inter(zz(kgpp),py(i,j,kpp),zz(kgp),py(i,j,kp)
+cc     .               ,zz(kg  ),py(i,j,k  ),zz(kgm),py(i,j,km)
+cc     .               ,vzp,min(advect,2))
+cc          else
+cc            qkp=inter(zz(kgpp),py(i,j,kpp),zz(kgp),py(i,j,kp)
+cc     .               ,zz(kg  ),py(i,j,k  ),zz(kgm),py(i,j,km)
+cc     .               ,vzp,advect)
+cc          endif
+cc
+cc          t32 = vzp*qkp
+cc        endif
+
+        t33 =
+cc     .       0.25*( pz(i,j,kp)*vz(i,j,k) + pz(i,j,k)*vz(i,j,kp)
+cc     .             +pz(i,j,kp)*vz(i,j,k) + pz(i,j,k)*vz(i,j,kp) )
+     .       0.5*( vz(i,j,kp)*pz(i,j,k )
+     .           + vz(i,j,k )*pz(i,j,kp) )
+
+        ph = 0.5*(pz(i,j,k)+pz(i,j,kp))
+
+cc        if (      flag   /= 0
+cc     .      .and. advect /= 2
+cc     .      .and. t33    /= 0d0
+cc     .      .and. abs(ph) > 1d-5) then
+cc
+cc          vzp = t33/ph
+cc
+cc          if (k == nz .or. k == 0) then
+cc            qkp=inter(zz(kgpp),pz(i,j,kpp),zz(kgp),pz(i,j,kp)
+cc     .               ,zz(kg  ),pz(i,j,k  ),zz(kgm),pz(i,j,km)
+cc     .               ,vzp,min(advect,2))
+cc          else
+cc            qkp=inter(zz(kgpp),pz(i,j,kpp),zz(kgp),pz(i,j,kp)
+cc     .               ,zz(kg  ),pz(i,j,k  ),zz(kgm),pz(i,j,km)
+cc     .               ,vzp,advect)
+cc          endif
+cc
+cc          t33 = vzp*qkp
+cc        endif
+
+c       Diffusive part
+
 cc        vis = 2./(1./nuu(i,j,kp) + 1./nuu(i,j,k ))
         vis = 2.*nuu(i,j,kp)*nuu(i,j,k)/(nuu(i,j,kp) + nuu(i,j,k ))
 
-        t31 =
-     .       0.25*( pz(i,j,kp)*vx(i,j,k) + pz(i,j,k)*vx(i,j,kp)
-     .             +px(i,j,kp)*vz(i,j,k) + px(i,j,k)*vz(i,j,kp) )
+        t31 = t31
      .       -vis*( gsuper(3,1)*nabla_v(1,1)
      .             +gsuper(3,2)*nabla_v(2,1)
      .             +gsuper(3,3)*nabla_v(3,1) )
 
-        t32 =
-     .       0.25*( pz(i,j,kp)*vy(i,j,k) + pz(i,j,k)*vy(i,j,kp)
-     .             +py(i,j,kp)*vz(i,j,k) + py(i,j,k)*vz(i,j,kp) )
+        t32 = t32
      .       -vis*( gsuper(3,1)*nabla_v(1,2)
      .             +gsuper(3,2)*nabla_v(2,2)
      .             +gsuper(3,3)*nabla_v(3,2) )
 
-        t33 =
-     .       0.25*( pz(i,j,kp)*vz(i,j,k) + pz(i,j,k)*vz(i,j,kp)
-     .             +pz(i,j,kp)*vz(i,j,k) + pz(i,j,k)*vz(i,j,kp) )
+        t33 = t33
      .       -vis*( gsuper(3,1)*nabla_v(1,3)
      .             +gsuper(3,2)*nabla_v(2,3)
      .             +gsuper(3,3)*nabla_v(3,3) )
