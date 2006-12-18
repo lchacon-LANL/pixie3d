@@ -24,12 +24,6 @@
 PETSC_DIR =/usr/local/petsc-2.2.0
 HDF5_HOME =/usr/local/hdf5/parallel/f90_
 
-# Petsc include
-
-ifdef BOPT
-  PETSCTARGET = petsc
-endif
-
 #Define compiler flags
 
 FC = f90
@@ -43,15 +37,19 @@ ifeq ($(FC),f90)
   STATIC       = -s
   MODFLAG      = -p
   ADDMODFLAG   = -p
-  FFLAGS       = -w
-  LIBS        += -llapack_f90 -lblas_f90 -lU77
+  FFLAGS       = -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+  LDFLAGS      = -lU77
+  LIBS        += -llapack -lblas
+#  LIBS        += -llapack_f90 -lblas_f90
   VERBOSE      = -v
+  RELEASE      = absoft
 
   ifdef BOPT
     PETSC_ARCH = linux_absoft_
     CPPFLAGS  += -Dabsoft_ 
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
+    RELEASE      = absoft_
   endif
 
   HDF5 = true
@@ -68,9 +66,11 @@ ifeq ($(FC),lf95)
   MODFLAG      = -M
   ADDMODFLAG   = -I
   FFLAGS      += -X9
+  LDFLAGS      = -lf2c
 #  LIBS         = -llapackmt -lblasmt
-  LIBS         = -llapack -lblas -lf2c
+  LIBS         = -llapack -lblas
   VERBOSE      = --verbose
+  RELEASE      = lahey
 
   ifdef BOPT
     CPPFLAGS  += -Dlahey 
@@ -84,16 +84,42 @@ endif
 # Flags for Intel ifort
 ifeq ($(FC),ifort)
   OPTIMIZATION = -O2 -mp -axW
-  DEBUG = -g
+  DEBUG = -g -check all -traceback
 #  DEBUG        = -g -check -traceback
   PROFILE      = -p
   STATIC       =
   MODFLAG      = -I
   ADDMODFLAG   = -I
   FFLAGS      += -vec_report0 -w
+  LDFLAGS      = 
   LIBS         = -llapack -lblas -lf2c
 #  LIBS         = -llapack_intel -lblas_intel
   VERBOSE      = -v
+  RELEASE      = intel
+
+  ifdef BOPT
+    CPPFLAGS  += -DNVAR=8
+    FFLAGS    += -DNVAR=8
+    PETSC_ARCH = linux_intel
+    include ${PETSC_DIR}/bmake/common/base
+    FC         = $(MPI_HOME)/bin/mpif90
+  endif
+endif
+
+# Flags for Intel ifort
+ifeq ($(FC),g95)
+  OPTIMIZATION = -O2
+  DEBUG = -g
+#  DEBUG        = -g -check -traceback
+  PROFILE      = -pg
+  STATIC       =
+  MODFLAG      = -I
+  ADDMODFLAG   = -I
+  FFLAGS      += 
+  LIBS         = -llapack -lblas -lg2c
+#  LIBS         = -llapack_intel -lblas_intel
+  VERBOSE      = -v
+  RELEASE      = g95
 
   ifdef BOPT
     CPPFLAGS  += -DNVAR=8
@@ -124,10 +150,6 @@ ifneq (,$(findstring v,$(OPT)))
 FFLAGS += $(VERBOSE)
 endif
 
-#Define linker flags
-
-LDFLAGS = 
-
 #Define relevant directories
 
 SUBDIRS = src plot
@@ -146,27 +168,30 @@ endif
 
 ifdef VECPOT
   CPPFLAGS += -Dvec_pot
+  ifdef VECPOT
+    TARGET = code_a
+  endif
+endif
+
+# VMEC setup
+
+ifdef VMEC
+  LIBS     += -L../contrib/vmec/lib -lstell
+  CPPFLAGS += -Dvmec
+  MODPATH  += $(ADDMODFLAG)../contrib/vmec/lib
 endif
 
 # Petsc setup
 
 ifdef BOPT
+  ifdef VECPOT
+    TARGET = petsc_a
+  else
+    TARGET = petsc
+  endif
   CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
 #  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
 endif
-
-#Export required variables
-
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
-       BOPT PETSC_DIR PETSC_ARCH
-
-#Define targets
-
-.PHONY: pixie3d pixplot distclean petsc all setup setup_mhd_b setup_mhd_a $(SUBDIRS)
-
-all: src plot
-
-pixie3d: src
 
 # XDRAW setup
 
@@ -174,32 +199,26 @@ ifdef NOBC
   CPPFLAGS += -Dnobc
 endif
 
-# Petsc setup
-
-ifdef BOPT
-  CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
-#  MODPATH  += $(ADDMODFLAG)$(MPI_HOME)/include
-endif
-
 #Export required variables
 
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS HDF5_HOME \
-       BOPT PETSC_DIR PETSC_ARCH
+export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
+       BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean petsc all setup setup_mhd_b setup_mhd_a $(SUBDIRS)
+.PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
+        vmec vmec_clean setup setup_mhd_b setup_mhd_a $(SUBDIRS)
 
-all: src plot
+all: contrib src plot
 
 pixie3d: src
 
 pixplot: plot
 
 $(SUBDIRS):
-	$(MAKE) -e -C $@ $(PETSCTARGET)
+	$(MAKE) -e -C $@ $(TARGET)
 
-distclean: ;
+distclean: contrib_clean
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
 
@@ -208,8 +227,18 @@ setup: ;
 	-for subdir in common plot ; do \
 		$(MAKE) -C $$subdir setup;  done
 
-setup_mhd_b:
-	-@rm plot ; rm src ; ln -s src_b src ; ln -s plot_b plot
+# CONTRIBUTED SOFTWARE
 
-setup_mhd_a:
-	-@rm plot ; rm src ; ln -s src_a src ; ln -s plot_a plot
+contrib: vmec
+
+contrib_clean: vmec_clean
+
+vmec:
+ifdef VMEC
+	$(MAKE) -e -C contrib/vmec/LIBSTELL release
+endif
+
+vmec_clean:
+ifdef VMEC
+	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
+endif
