@@ -21,19 +21,25 @@
 
 -include make.inc
 
+# Exclude files
+
+ifdef VMEC
+  EXCLUDE = %test.f
+else
+  EXCLUDE = %test.f %vmec.f90
+endif
+
 # Source files
 
 ifndef SRC
-  SRC = $(wildcard *.[F,c,f])
+  SRC := $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.f90))
 endif
 
 ifndef MODS
-  MODS = $(wildcard *_mod.[F,f])
+  MODS := $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.f90))
 endif
 
 prefix = .
-
-EXCLUDE = %test.f
 
 # Petsc include
 
@@ -50,16 +56,18 @@ endif
 
 OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
-                        $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC))))
+                        $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC)))\
+                        $(patsubst %.f90,%.o,$(filter-out $(MODS),$(SRC))))
 
 
-OBJMOD := $(patsubst %.f,%.o,$(patsubst %.F,%.f,$(MODS)))
+OBJMOD := $(patsubst %.f,%.o,$(patsubst %.F,%.f,$(patsubst %.f90,%.f,$(MODS))))
 
-COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F]))
-COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(EXCLUDE),$(wildcard $(dir)/*.[f,F,c])))
+COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F] $(dir)/*_mod.f90))
+COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(EXCLUDE),$(wildcard $(dir)/*.[f,F,c] $(dir)/*.f90)))
 COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
-                            $(patsubst %.F,%.o,$(COMMON_SRC)))
+                            $(patsubst %.F,%.o,$(COMMON_SRC))\
+                            $(patsubst %.f90,%.o,$(COMMON_SRC)))
 
 #Define linker flags
 
@@ -75,29 +83,38 @@ MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDI
 
 #Define targets
 
-.PHONY: clean distclean common beta production petsc $(SUBDIRS)
+.PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
-beta: common $(BETA)
+code: common $(CODE)
 
-$(BETA):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+$(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
-production: common $(PROD)
+code_a: common $(A_CODE)
 
-$(PROD):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+$(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS)
+	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE)
 
 $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+	@echo ''
+	@echo 'Linking ' $@ ' code'
+	@echo ''
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) ${PETSC_FORTRAN_LIB} ${PETSC_SNES_LIB}
+	@mv $@ $(BINDIR)
+
+petsc_a: common $(PETSC_A_CODE)
+
+$(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
@@ -122,8 +139,10 @@ setup: ;
 
 #Define dependencies
 
-$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
-imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F]
+$(OBJMOD): $(COMMON_MODS)
+$(OBJ):    $(MODS) $(COMMON_MODS)
+#$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
+#imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F] 
 
 #Define patterns
 
@@ -134,3 +153,7 @@ imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F]
 %.o : %.F
 	@echo 'Compiling' $@
 	$(FC) -c $(MODDIRS) $(FFLAGS) $(CPPFLAGS) $<
+
+%.o : %.f90
+	@echo 'Compiling' $@
+	$(FC) -c $(MODDIRS) $(FFLAGS) $<
