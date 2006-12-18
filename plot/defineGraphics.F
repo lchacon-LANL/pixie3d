@@ -374,9 +374,20 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(11)%array => p_tot
       graph(4)%array_graph(11)%descr = 'Total pressure'
 
-      graph(4)%array_graph(12:ngraph)%descr = ''
+      graph(4)%array_graph(12)%array => vpar
+      graph(4)%array_graph(12)%descr = 'V||'
 
-      sel_gr(4,:) = (/ (i,i=3,11) /)
+      graph(4)%array_graph(13)%array => vpsi
+      graph(4)%array_graph(13)%descr = 'V.grad(psi)'
+
+      graph(4)%array_graph(14)%array => vperp
+      graph(4)%array_graph(14)%descr = 'V.(bxgrad(psi))'
+
+      graph(4)%array_graph(15:ngraph)%descr = ''
+
+cc      sel_gr(4,:) = (/ (i,i=6,14) /)
+cc      sel_gr(4,:) = (/ (i,i=1,9) /)
+      sel_gr(4,:) = (/ (i,i=1,xdraw_cont_lim) /)
 
       prof_ivar(4,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (4,:) = 0        !No log scales
@@ -395,7 +406,7 @@ c Define graphics group #5: Perturbations
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
 
-      sel_gr(5,:) = (/ (i,i=1,neqd),(0,i=neqd+1,9) /)
+      sel_gr(5,:) = (/ (i,i=1,neqd),(0,i=neqd+1,xdraw_cont_lim) /)
 
       prof_ivar(5,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (5,:) = 0        !No log scales
