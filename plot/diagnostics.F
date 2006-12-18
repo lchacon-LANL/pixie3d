@@ -38,6 +38,9 @@ c####################################################################
 
         integer(4) :: ndiag
 
+        integer(4) :: drank,dnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
+        logical    :: isProcessor
+
         real(8) :: diagnostics(ngraph)
 
         real(8) :: Npar0,Ipx0,Ipy0,Ipz0,Ek0,Em0,Et0,Iz0,Tflux0
@@ -68,10 +71,49 @@ c Local variables
 
 c Begin program
 
-c Define diagnostics and create draw*.in file
+c Define processor for local diagnostics
 
-      if (isProc(0)) then
-        call defineDiagnostics
+      !Identify local diagnostic proc
+      isProcessor = inProc(iplot,jplot,kplot,igx,igy,igz)
+
+#if defined(petsc)
+      !Create local diagnostics communicator for line integral
+      split_key = MPI_UNDEFINED
+
+      if (inProc(iplot,jplot-nyd/2,kplot,igx,igy,igz)) then
+        call fromGlobalToLocalLimits(iplot,jplot-nyd/2,kplot
+     .                              ,iplt,jplt,kplt,igx,igy,igz)
+        split_key = 1
+      endif
+
+      if (isProcessor) then
+        call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
+     .                              ,igx,igy,igz)
+        split_key = 1
+      endif
+
+      call MPI_Comm_split(MPI_COMM_WORLD,split_key,my_rank
+     .                   ,MPI_COMM_DIAG,mpierr)
+
+      if (split_key /= MPI_UNDEFINED) then
+        call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
+        call MPI_Comm_size(MPI_COMM_DIAG,dnp  ,mpierr)
+      endif
+
+cc      write (*,*) 'Proc:',drank,dnp
+#else
+      iplt = iplot
+      jplt = jplot
+      kplt = kplot
+#endif
+
+c Define diagnostics
+
+      call defineDiagnostics
+
+c Create draw*.in file
+
+      if (isProcessor) then
         ndiag = count (sel_diag /= 0)
 
         call createDrawInGfile(ndiag,lineplotfile,'Time histories'
@@ -79,7 +121,7 @@ c Define diagnostics and create draw*.in file
      .           ,'drawgamma.in',.false.)
       endif
 
-c Initialize diagnostic references
+c Initialize diagnostic value references
 
       initialize = .true.
       call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
@@ -106,7 +148,7 @@ c Local variables
 
 c Begin program
 
-        if (.not.isProc(0)) return
+        if (.not.isProcessor) return
 
 c Finalize time traces output (separator)
 
@@ -138,6 +180,8 @@ c Local variables
 
 c Begin program
 
+      if (.not.isProcessor) return
+
 c Open files
 
       lineplotfile = 'drawtplots.bin'
@@ -159,7 +203,7 @@ c Define diagnostics
 #else
       diag_desc(IAX)    = '||dax||'        
       diag_desc(IAY)    = '||day||'        
-      diag_desc(IAZ)    = '||dax|'        
+      diag_desc(IAZ)    = '||daz||'        
 #endif
       diag_desc(ITMP)   = '||dtmp||'       
       diag_desc(neqd+1) = 'Magnetic energy'
@@ -223,7 +267,7 @@ c Local variables
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .             ,tn=0d0,ez,rflux
+     .             ,tn=0d0,ez,lrflux,rflux
       logical    :: cartsn
 
 c Begin program
@@ -359,21 +403,37 @@ c Magnetic divergence diagnostics
 
 c Parallel electric field diagnostic
 
-      if (time == tn) then
-        tn = time - 1d5
-        Pfluxn = Pflux
+      if (isProcessor) then
+        if (time == tn) then
+          tn = time - 1d5
+          Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
+        endif
+
+        ez = (Pflux (iplt,jplt,1)
+     .       -Pfluxn(iplt,jplt,1))/(time-tn)
+
+        tn = time
+        Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
       endif
 
-      ez = (Pflux (iplot,jplot,1)
-     .     -Pfluxn(iplot,jplot,1))/(time-tn)
+c Reconnected flux (GEM challenge)
 
-      tn = time
-      Pfluxn = Pflux
+#if defined(petsc)
+      if (split_key /= MPI_UNDEFINED) then
+        if (dnp == 1) then
+          rflux = Pflux(iplt,jplt      ,1)
+     .          - Pflux(iplt,jplt-nyd/2,1)
+        else
+          lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
 
-c Reconnected flux
-
-      rflux = Pflux(iplot,jplot      ,1)
-     .       -Pflux(iplot,jplot-nyd/2,1)
+          call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                      ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+        endif
+      endif
+#else
+      rflux = minval(Pflux(iplt,1:nyd,1))
+     .      - maxval(Pflux(iplt,1:nyd,1))
+#endif
 
 c Growth rate diagnostics
 
@@ -444,10 +504,10 @@ c Local variables
  
 c Begin program
 
-      if (.not.isProc(0)) return
-
-      write(ulineplot) real(time),real(diagnostics)
+      if (isProcessor) then
+        write(ulineplot) real(time),real(diagnostics)
 cc      write(*,*) real(time),real(diagnostics)
+      endif
 
 c End program
 
