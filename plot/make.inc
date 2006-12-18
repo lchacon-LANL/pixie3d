@@ -1,6 +1,7 @@
-PROD      = pixplot.x
-BETA      = pixplot.beta.x
-PETSCCODE = pixplot.petsc.x
+CODE         = pixplot.x
+A_CODE       = pixplot_a.x
+PETSCCODE    = pixplot.petsc.x
+PETSC_A_CODE = pixplot_a.petsc.x
 
 MODS := mhd_mod.F imposeBC_mod.F
 
@@ -18,5 +19,5 @@ SUBDIRS = $(COMMONDIR)/math\
 
 LNK_FILES = applyBoundaryConditions.F\
 	    imposeBC_mod.F\
-	    mhd_mod.f\
-	    readInput.f              
+	    mhd_mod.F\
+	    readInput.F             
