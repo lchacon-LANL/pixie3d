@@ -76,18 +76,22 @@ c Begin program
      .         ,vx_car (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vy_car (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vz_car (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vpar   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vpsi   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vperp  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgB (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgJ (ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,p_tot  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,qfactor(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,p_tot  (ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda (ilom:ihip,jlom:jhip,klom:khip)
      .         ,qfactr2(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda2(ilom:ihip,jlom:jhip,klom:khip))
 
-        allocate (eeta (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,nuu  (ilom:ihip,jlom:jhip,klom:khip))
+      allocate (eeta (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,nuu  (ilom:ihip,jlom:jhip,klom:khip))
 
       call defineGridAliases
 
