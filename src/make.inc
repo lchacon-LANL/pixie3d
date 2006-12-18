@@ -1,6 +1,7 @@
-PROD      = pixie3d.x
-BETA      = pixie3d.beta.x
-PETSCCODE = pixie3d.petsc.x
+CODE         = pixie3d.x
+A_CODE       = pixie3d_a.x
+PETSCCODE    = pixie3d.petsc.x
+PETSC_A_CODE = pixie3d_a.petsc.x
 
 MODS := mhd_mod.F imposeBC_mod.F precond_mod.F
 
