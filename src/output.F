@@ -40,9 +40,9 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      vx_max = maxval(abs(vx))
-      vy_max = maxval(abs(vy))
-      vz_max = maxval(abs(vz))
+      vx_max = maxval(abs(u_n%array_var(IVX)%array))
+      vy_max = maxval(abs(u_n%array_var(IVY)%array))
+      vz_max = maxval(abs(u_n%array_var(IVZ)%array))
 
 #if defined(petsc)      
       lvx_max = vx_max
@@ -119,8 +119,8 @@ cc          write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
 
 c End program
 
- 10   format (/,'  Grid mesh:................',i4,'x',i3,'x',i3
-     .        /,'  Number of grid levels:....',i4,',',i2,',',i2
+ 10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
+     .        /,'  Number of grid levels:....',i5,',',i5,',',i5
 cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
@@ -129,7 +129,7 @@ cc     .        /,'  Preconditioning method:...',a11,
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
- 110  format (i7,f9.2,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
 
       contains
 
