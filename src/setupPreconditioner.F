@@ -25,7 +25,12 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ncolors
+      integer(4) :: ncolors,igrid,ii,jj,isig
+
+c Diag
+
+      integer(4) :: nxx,nyy,nzz,nt,icomp
+      real(8),allocatable,dimension(:,:) :: v_mat
 
 c Externals
 
@@ -133,7 +138,7 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
 #endif
 
       !Find diagonals
-      ncolors = 4
+      ncolors = 8
 
       if (jit == 1) then
         form_diag = .true.
@@ -154,11 +159,15 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
 
         if (.not.gm_smooth) then
           if (precon == 's1') then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+            if (debug) then
+              write (*,*) 'DIAG -- setupPC: Building diagonal...'
+              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag,1,vol_wgt,mg_glrkin)
+            else
+              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
 cc     .                       ,v_diag,ncolors,vol_wgt,si_car)
      .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
-cc           call find_mf_diag_colored(3,3*ntotdp,v_mtvc_pr,1
-cc     .                              ,bcs(:,IVX:IVZ),v_diag,ncolors)
+            endif
           elseif (precon == 's2') then
 cc           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
 cc     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
@@ -179,12 +188,47 @@ c Initialize PC Jacobi it. counter
 
       si_it = 0
 
+c diag ***** DIAGONAL WRITE UP
+cc      isig = 1
+cc      do igrid = 1,ngrid
+cc
+cc        write (*,*) 'Grid level',igrid
+cc        write (*,*) 'Grid level pointer:',isig
+cc
+cc        nxx = grid_params%nxv(igrid)
+cc        nyy = grid_params%nyv(igrid)
+cc        nzz = grid_params%nzv(igrid)
+cc
+cc        nt = nxx*nyy*nzz
+cc
+cc        do k=1,nzz
+cc          do j=1,nyy
+cc            do i=1,nxx
+cc        
+cc              ii = i + nxx*(j-1) + nxx*nyy*(k-1)
+cc
+cc              jj  = (ii-1)*3 + isig - 1
+cc
+cc              write (*,*) 'Grid pos:',i,j,k,jj+1
+cc              write (*,*) v_diag(:,jj+1)
+cc              write (*,*) v_diag(:,jj+2)
+cc              write (*,*) v_diag(:,jj+3)
+cc              write (*,*)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        isig = isig + 3*nt
+cc      enddo
+cc      stop
+c diag *****
+
 c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
 cc      do k=1,nzz
 cc        do j=1,nyy
 cc          do i=1,nxx
 cc            ii = i + nxx*(j-1)+nxx*nyy*(k-1)
-cc            debug(i,j,k) = 1./sqrt(sum(v_diag(3,3*ii-2:3*ii)**2)
+cc            debug(i,j,k) = 1./sqrt(sum(v_diag(:,3*ii-2:3*ii)**2)
 cc          enddo
 cc        enddo
 cc      enddo
@@ -197,30 +241,36 @@ cc      stop
 c diag *****
 
 c diag ***** MATRIX GENERATION FOR MATLAB PROCESSING
-cc      igrid = 1
-cc
-cc      nxx = grid_params%nxv(igrid)
-cc      nyy = grid_params%nyv(igrid)
-cc      nzz = grid_params%nzv(igrid)
-cc
-cc      nt = 3*nxx*nyy*nzz
-cc
-cc      allocate(v_mat(nt,nt))
-cc
-cc      icomp = IVX
-cc      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
-cc
-cccc      open(unit=110,file='debug.bin',form='unformatted'
-cccc     .       ,status='replace')
-cccc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
-cccc      close(110)
-cc
-cc      open(unit=110,file='debug.mat',status='replace')
-cc      do i=1,nt
-cc        write (110,*) (v_mat(i,j),j=1,nt)
-cc      enddo
+      if (debug) then
+      write (*,*) 'DIAG -- setupPC: Building matrix...'
+
+      igrid = 1
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      nt = 3*nxx*nyy*nzz
+
+      allocate(v_mat(nt,nt))
+
+      icomp = IVX
+      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
+
+cc      open(unit=110,file='debug.bin',form='unformatted'
+cc     .       ,status='replace')
+cc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
 cc      close(110)
+
+      open(unit=110,file='debug.mat',status='replace')
+      do i=1,nt
+        write (110,*) (v_mat(i,j),j=1,nt)
+      enddo
+      close(110)
+
+      deallocate(v_mat)
 cc      stop
+      endif
 c diag *****
 
 c End program

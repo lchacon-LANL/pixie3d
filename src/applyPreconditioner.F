@@ -19,7 +19,7 @@ c-------------------------------------------------------------------
 
       use matvec
 
-      use mg_internal
+cc      use mg_internal
 
       use imposeBCinterface
 
@@ -127,28 +127,35 @@ c     Create auxiliary arrays
      .          ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
 c diag****
-cc        write (*,*) 'DIAG -- applyPC'
-cccc        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
-cccc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,hall_mtvc
-cccc     .            ,dg=v_diag,ncolors=4,line_relax=line_relax
-cccc     .            ,order_res=2,order_prol=2,cvrg_tst=.true.
-cccc     .            ,smooth='gm',omega=1d0)
+        if (debug) then
+        write (*,*) 'DIAG -- applyPC'
 cc        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
-cc     .               ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
-cc     .               ,ncolors=4,line_relax=line_relax,order_res=0
-cc     .               ,order_prol=2,smooth='gm',cvrg_tst=.true.
-cc     .               ,omega=0.7d0,gm_driver=.true.)
-cc
-cc        call gather(x,xxx)
-cc
-cc        call PCdiagnostics
-cc        stop
+cc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,hall_mtvc
+cc     .            ,dg=v_diag,ncolors=4,line_relax=line_relax
+cc     .            ,order_res=2,order_prol=2,cvrg_tst=.true.
+cc     .            ,smooth='gm',omega=1d0)
+        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
+     .               ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+     .               ,ncolors=4,line_relax=line_relax,order_res=0
+     .               ,order_prol=2,smooth='gs',cvrg_tst=.true.
+     .               ,omega=1d0,gm_driver=.false.
+     .               ,gm_coarse_solve=.false.)
+
+        call gather(x,xxx)
+
+        call PCdiagnostics
+        stop
+        endif
 c diag****
 
-c     Preprocess B rhs
+c     Preprocess B/A rhs
 
         if (di > 0d0) then
+#if !defined(vec_pot)
           call preprocessBflRHS(yyy,igrid)
+#else
+          call preprocessAflRHS(yyy,igrid)
+#endif
 cc          call gather(rr,yyy)
 cc        else
 cc          rr = y
@@ -840,7 +847,7 @@ cc     .                ,order_prol=1,gm_drvr=.true.,mvcyc=2)
           else
             call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
      .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
-     .                ,ncolors=4,line_relax=line_relax,order_res=0
+     .                ,ncolors=4,line_relax=line_relax,order_res=2
      .                ,order_prol=2,smooth='jb')
 cc     .                ,ncolors=4,line_relax=line_relax,order_res=0
 cc     .                ,order_prol=1,smooth='gm')
@@ -1235,7 +1242,7 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1435,7 +1442,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1502,7 +1509,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1598,7 +1605,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1668,7 +1675,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1725,7 +1732,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       use matvec
 
@@ -1818,7 +1825,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1881,7 +1888,7 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 
@@ -1933,6 +1940,55 @@ c End program
 
       end subroutine preprocessBflRHS
 
+c preprocessAflRHS
+c ###################################################################
+      subroutine preprocessAflRHS(yyy,igrid)
+c--------------------------------------------------------------------
+c     This subroutine preprocesses B rhs to add Hall correction.
+c--------------------------------------------------------------------
+
+      use precond_variables
+
+      use operators
+
+      use matvec
+
+cc      use mg_internal
+
+      implicit none
+
+c Call variables
+
+      integer(4) :: igrid
+
+      real(8)    :: yyy(nx*ny*nz,neqd)
+
+c Local variables
+
+      integer(4) :: ii
+      real(8)    :: cov(3),cnv(3)
+
+c Begin program
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+            cnv = yyy(ii,IVX:IVZ)
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .           ,cov(1),cov(2),cov(3)
+     .           ,cnv(1),cnv(2),cnv(3),.false.)
+
+            yyy(ii,IAX:IAZ) = yyy(ii,IAX:IAZ) + di*cov/rho(i,j,k)
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      end subroutine preprocessAflRHS
+
 c divClean
 c ###################################################################
       subroutine divClean(ntotp,xxx,igrid)
@@ -1947,8 +2003,6 @@ c--------------------------------------------------------------------
       use operators
 
       use imposeBCinterface
-
-      use mg_internal
 
       use setMGBC_interface
 
@@ -2028,7 +2082,7 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use mg_internal
+cc      use mg_internal
 
       implicit none
 

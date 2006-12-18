@@ -22,6 +22,8 @@ cc      use debug
 
       use error
 
+      use imposeBCinterface
+
       implicit none
 
 c Call variables
@@ -32,9 +34,9 @@ c Local variables
 
       integer(4) :: i,j,k,ig,jg,kg
 
-      integer(4) :: dim,loc,ibc,ieq,bctype
+      integer(4) :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
-      real(8)    :: dh,vmax
+      real(8)    :: dh,vmax,cnv(3)
      .             ,fx_cov(ilom:ihip,jlom:jhip,klom:khip)
      .             ,fy_cov(ilom:ihip,jlom:jhip,klom:khip)
      .             ,fz_cov(ilom:ihip,jlom:jhip,klom:khip)
@@ -143,7 +145,8 @@ cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
-              nuu  (i,j,k) = rho(i,j,k)*vis(i,j,k,nx,ny,nz,igx,igy,igz)
+cc              nuu  (i,j,k) = rho(i,j,k)*vis(i,j,k,nx,ny,nz,igx,igy,igz)
+              nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
 cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
             enddo
           enddo
@@ -177,9 +180,38 @@ c Auxiliary variables
       acov(:,:,:,2) = ay
       acov(:,:,:,3) = az
 
-      jcov(:,:,:,1) = jx_cov
-      jcov(:,:,:,2) = jy_cov
-      jcov(:,:,:,3) = jz_cov
+      !Covariant vec-laplacian/curlcurl on A (w/ BCs)
+cc      vlap_a(:,:,:,1) = -jx_cov
+cc      vlap_a(:,:,:,2) = -jy_cov
+cc      vlap_a(:,:,:,3) = -jz_cov
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+cc            vlap_a(i,j,k,:) =
+cc     .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+            cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
+     .                   ,vol=.false.)
+            call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .           ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
+     .           ,cnv(1),cnv(2),cnv(3),.false.)
+          enddo
+        enddo
+      enddo
+
+      bcnd(:,1) = varray%array_var(IAX)%bconds
+      bcnd(:,2) = varray%array_var(IAY)%bconds
+      bcnd(:,3) = varray%array_var(IAZ)%bconds
+
+#if defined(petsc) 
+      do ieq=1,3
+        call fillPetscGhostCells(vlap_a(:,:,:,ieq),igx)
+      enddo
+#endif
+
+      call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
+     .          ,iorder=2,is_cnv=.false.)
+
 #endif
 
       vcnv(:,:,:,1) = vx

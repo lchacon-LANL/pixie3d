@@ -1,16 +1,3 @@
-c  module matvec
-c ###################################################################
-      module matvec
-
-        use grid
-
-        use setMGBC_interface
-
-        use mg_internal
-
-        use constants
-
-      end module matvec
 
 c module precond_variables
 c ######################################################################
@@ -75,7 +62,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
 #endif
         logical :: form_diag=.true.,gm_smooth=.false.,mg_glrkin=.false.
-     .            ,si_car=.true.,line_relax=.false.,rat_limit=.true.
+     .            ,si_car=.false.,line_relax=.false.,rat_limit=.true.
 
 cc        INTERFACE ASSIGNMENT (=)
 cc          module procedure scatter,gather
@@ -485,7 +472,7 @@ c     Begin program
 
         igrid = igx
 
-        order = 2
+        order = 0
 
 c     Store density in all grids (w/o BCs)
 
@@ -497,11 +484,25 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
 
 cc        call restrict_B(.true.)
 
+cc        write (*,*) 'DIAG -- findCoeffs'
+
         gb0%grid(igrid)%array(:,:,:,1) = bx
         gb0%grid(igrid)%array(:,:,:,2) = by
         gb0%grid(igrid)%array(:,:,:,3) = bz
 
+cc        gb0%grid(igrid)%array(:,:,:,1) = 0d0
+cc        gb0%grid(igrid)%array(:,:,:,2) = 0d0
+cc        gb0%grid(igrid)%array(:,:,:,3) = 1d0
+
         call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
+
+cc        write (*,*) gb0%grid(2)%array(:,:,:,3)
+cc        stop
+cc        do igr=1,grid_params%ngrid
+cc          gb0%grid(igr)%array(:,:,:,1) = 0d0
+cc          gb0%grid(igr)%array(:,:,:,2) = 0d0
+cc          gb0%grid(igr)%array(:,:,:,3) = 1d0
+cc        enddo
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
@@ -509,8 +510,18 @@ c     Store magnetic field cov components in all grids (w/ BCs)
         gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
         gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
 
+cc        gb0_cov%grid(igrid)%array(:,:,:,1) = 0d0
+cc        gb0_cov%grid(igrid)%array(:,:,:,2) = 0d0
+cc        gb0_cov%grid(igrid)%array(:,:,:,3) = 1d0
+
         call restrictMGArray(IBX,3,gb0_cov,bcs(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
+
+cc        do igr=1,grid_params%ngrid
+cc          gb0_cov%grid(igr)%array(:,:,:,1) = 0d0
+cc          gb0_cov%grid(igr)%array(:,:,:,2) = 0d0
+cc          gb0_cov%grid(igr)%array(:,:,:,3) = 1d0
+cc        enddo
 
 c     Store ion velocity components in all grids (w/ BCs)
 
@@ -518,7 +529,17 @@ c     Store ion velocity components in all grids (w/ BCs)
         gv0%grid(igrid)%array(:,:,:,2) = vy
         gv0%grid(igrid)%array(:,:,:,3) = vz
 
+cc        gv0%grid(igrid)%array(:,:,:,1) = 0d0
+cc        gv0%grid(igrid)%array(:,:,:,2) = 0d0
+cc        gv0%grid(igrid)%array(:,:,:,3) = 0d0
+
         call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
+
+cc        do igr=1,grid_params%ngrid
+cc          gv0%grid(igr)%array(:,:,:,1) = 0d0
+cc          gv0%grid(igr)%array(:,:,:,2) = 0d0
+cc          gv0%grid(igr)%array(:,:,:,3) = 0d0
+cc        enddo
 
 c     Store current components in all grids (w/o BCs)
 
@@ -613,7 +634,7 @@ c     End program
 
 c     restrict_B
 c     ###############################################################
-cc      subroutine restrictCurvVec(ax,ay,az,gvec,order)
+cc      subroutine restrictCurvVec(icomp,ax,ay,az,gvec,order,cartesian)
       subroutine restrict_B(cartesian)
 
 c     ---------------------------------------------------------------
@@ -629,7 +650,8 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-cc      integer(4) :: order
+cc      integer(4) :: order,icomp
+cc      type(mg_array)  :: gvec
       logical    :: cartesian
 
 c     Local variables
@@ -663,7 +685,7 @@ c     Restrict components (w/o BCs)
 
       call restrictMGArray(0,neq,gb0,bcs(:,IBX:IBZ),igr,order)
 cc        call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order
-cc     .                      ,iscnv=.true.,isvec=.false.
+cc     .                      ,iscnv=.true.,isvec=.not.cartesian
 cc     .                      ,result_is_vec=.true.)
 
 c     Impose BCs, and return cov, cnv components
@@ -683,7 +705,7 @@ c     Impose BCs, and return cov, cnv components
      .              ,arr_cov=gb0_cov%grid(igr)%array !Input/output cov array
      .              ,icomp=IBX
      .              ,is_cnv=.true.          !This informs that input is in cnv array
-     .              ,is_vec=.false.         !This informs that input is Cartesian
+     .              ,is_vec=.not.cartesian  !This informs whether input is Cartesian
      .              ,result_is_vec=.true.   !This returns curvilinear components
      .              ,iorder=order)
       enddo
@@ -846,9 +868,81 @@ c     Gather variables for coupled solve
           enddo
         else
           bi = 0d0
+
+          if (debug) then
+          xi = 1d0
+          write (*,*) 'DIAG -- cSolver'
+cc          open(unit=11000,file='inputvec',status='unknown')
+cc          do i=1,ntotp
+cc            do ieq=1,neq
+cccc              write (11000,*) xi(neq*(i-1)+ieq)
+cc              read (11000,*) xi(neq*(i-1)+ieq)
+cc            enddo
+cc          enddo
+cc          close(11000)
+          else
           call random_number(xi)
+          endif
+
           guess = 1
         endif
+
+c diag ****
+        if (debug) then
+        write (*,*) 'DIAG -- cSolver'
+
+c       Initialize solver
+
+        call solverInit
+
+c       Setup solver
+
+        call solverOptionsInit
+
+        solverOptions%iter    = maxvcyc
+        solverOptions%tol     = mgtol
+
+        if (PRESENT(dg)) solverOptions%diag => ddg
+
+        select case (smth)
+        case('gs')
+          solverOptions%omega   = 1d0
+          solverOptions%ncolors = ncolors
+          call assembleSolverHierarchy('gs')
+        case('gm')
+          solverOptions%stp_test = 1 
+          solverOptions%krylov_subspace = solverOptions%iter 
+          call assembleSolverHierarchy('gm')
+
+cc          solverOptions%iter    = 1
+cc          solverOptions%omega   = omg
+cc          call assembleSolverHierarchy('jb')
+          call assembleSolverHierarchy('id')
+        case default !JB
+          solverOptions%omega   = omg
+          call assembleSolverHierarchy('jb')
+        end select
+
+c       Invoke solver
+
+        ntot=neq*ntotp
+        call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
+
+c       Kill solver
+
+        call solverKill
+
+c       Scatter solution
+
+        do i = 1,ntotp
+          do ieq=1,neq
+            x(i,ieq) = xi(neq*(i-1)+ieq)
+          enddo
+        enddo
+
+        return
+        endif
+c diag ****
 
 c     Solve coupled MG
 
@@ -868,36 +962,6 @@ c       Check whether GMRES is driving solve
           solverOptions%krylov_subspace = solverOptions%iter 
           call assembleSolverHierarchy('gm')
         endif
-
-c diag ****
-cc        write (*,*) 'DIAG -- cSolver'
-cc
-cc        call solverOptionsInit
-cc
-cc        solverOptions%iter    = maxvcyc
-cc        solverOptions%tol     = mgtol
-cc
-cc        if (PRESENT(dg)) solverOptions%diag => ddg
-cc
-cc        select case (smth)
-cc        case('gs')
-cc          solverOptions%omega   = 1d0
-cc          solverOptions%ncolors = ncolors
-cc          call assembleSolverHierarchy('gs')
-cc        case('gm')
-cc          solverOptions%stp_test = 1 
-cc          solverOptions%krylov_subspace = solverOptions%iter 
-cc          call assembleSolverHierarchy('gm')
-cc
-cc          solverOptions%iter    = 1
-cc          solverOptions%omega   = omg
-cc          call assembleSolverHierarchy('jb')
-cccc          call assembleSolverHierarchy('id')
-cc        case default !JB
-cc          solverOptions%omega   = omg
-cc          call assembleSolverHierarchy('jb')
-cc        end select
-c diag ****
 
 c       MG solver options
 
@@ -932,6 +996,8 @@ cc        endif
             solverOptions%mg_coarse_solver_depth = 4
           elseif (gm_drvr .and. smth=='gm') then
             solverOptions%mg_coarse_solver_depth = 5
+          else
+            solverOptions%mg_coarse_solver_depth = 3
           endif
         else
         !Use smoother as coarse solver
@@ -1346,3 +1412,13 @@ c     End program
       end subroutine diagonalScaling
 
       end module precond_variables
+
+c  module matvec
+c ###################################################################
+      module matvec
+
+        use setMGBC_interface
+
+        use precond_variables
+
+      end module matvec

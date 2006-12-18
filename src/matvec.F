@@ -1,254 +1,288 @@
-c setMGBC
-c####################################################################
-      subroutine setMGBC(gpos,neq,nnx,nny,nnz,iig,array,bcnd,arr_cov
-     .                  ,arr0,icomp,is_cnv,is_vec,result_is_vec,iorder)
-c--------------------------------------------------------------------
-c     Interfaces BC routines with MG code, for preconditioning.
-c     On input:
-c       *gpos: node number (whole grid if gpos=0)
-c       *neq,nnx,nny,nnz: number of degrees of freedom.
-c       *iig: grid level
-c       *array: array containing values of magnitudes for all grid
-c               points. The magnitudes may be scalars or vector
-c               components (the latter assumed contravariant by default)
-c       *bcnd: array containing BC information
-c
-c     Optional parameters:
-c       *arr_cov: covariant components of vector components.
-c       *arr0: array containing dirichlet BCs (zero by default)
-c       *icomp: integer specifying magnitude of interest (if not
-c               provided, use last used value).
-c       *is_cnv: logical variable indicating whether array
-c                contains covariant or contravariant components
-c                (if not provided, use last used value).
-c       *is_vec: logical variable specifying whether array
-c          represents a curvilinear vector or a set of scalars
-c          (if not provided, use last used value):
-c             -If is_vec=.true., array is taken as curvilinear vector
-c              components (covariant or contravariant, according
-c              to variable is_cnv).
-c             -If is_vec=.false., array is taken as coupled scalars
-c              (also Cartesian vector components).
-c       *result_is_vec: logical variable specifying whether output
-c                       in array should be curvilinear (.true.) or
-c                       not (default=is_vec)
-c       *iorder: order of inter/extrapolation in BC routines (linear
-c                by default).
-c
-c     On output, array is returned in the same representation.
-c
-c     WARNING: if call sequence is modified, the INTERFACE block 
-c           in module mg_internal needs to be updated accordingly.
-c--------------------------------------------------------------------
-
-      use grid
-
-      use mg_internal
-
-      use imposeBCinterface
-
-      implicit none
-
-c Call variables
-
-      integer(4) :: nnx,nny,nnz,neq,bcnd(6,neq),iig,gpos
-
-      real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
-
-      real(8),optional,intent(INOUT) ::
-     .                         arr_cov(0:nnx+1,0:nny+1,0:nnz+1,neq)
-      real(8),optional,intent(IN) ::
-     .                         arr0   (0:nnx+1,0:nny+1,0:nnz+1,neq)
-
-      integer(4),optional,intent(IN) :: icomp,iorder
-
-      logical   ,optional,intent(IN) :: is_cnv,is_vec,result_is_vec
-
-c Local variables
-
-      integer(4) :: i,j,k,stencil_width,order,ieq
-     .             ,imng,imxg,jmng,jmxg,kmng,kmxg
-     .             ,imnl,imxl,jmnl,jmxl,kmnl,kmxl
-
-      integer(4),save :: ivar  !Needed to "remember' ivar from previous calls
-                               !when icomp is not provided.
-
-      logical,save    :: iscnv,isvec !Needed to "remember' these from previous calls
-                                     !when they are not provided.
-
-      logical         :: res_is_vec
-
-      real(8)    :: car(3),curv(3)
-
-c Begin program
-
-c Optional arguments
-
-      if (PRESENT(icomp))  ivar  = icomp
-
-      if (PRESENT(is_cnv)) iscnv = is_cnv
-
-      if (PRESENT(is_vec)) isvec = is_vec
-
-      if (PRESENT(result_is_vec)) then
-        res_is_vec = result_is_vec
-      else
-        res_is_vec = isvec
-      endif
-
-      if (PRESENT(iorder)) then
-        order = iorder
-      else
-        order = 2
-      endif
-
-c Consistency check
-
-      if (     grid_params%nxv(iig) /= nnx
-     .    .or. grid_params%nyv(iig) /= nny
-     .    .or. grid_params%nzv(iig) /= nnz) then
-        write (*,*) 'Grid sizes do not agree in setMGBC'
-        write (*,*) 'Aborting...'
-        stop
-      endif
-
-      if (.not.isvec) iscnv=.true.
-
-c Find grid node LOCAL position (if gpos > 0, else return local domain limits)
-
-      call limits(gpos,nnx,nny,nnz,iig,imnl,imxl,jmnl,jmxl,kmnl,kmxl)
-
-c Check LOCAL limits (return if not close to local domain boundaries)
-
-      if (     (imnl > 1 .and. imxl < nnx)
-     .    .and.(jmnl > 1 .and. jmxl < nny)
-     .    .and.(kmnl > 1 .and. kmxl < nnz)) return
-
-c Find GLOBAL limits (required for BC routine setBC)
-
-      stencil_width = 1
-
-      imng = max(imnl-stencil_width,1)   + grid_params%ilo(iig)-1
-      imxg = min(imxl+stencil_width,nnx) + grid_params%ilo(iig)-1
-      jmng = max(jmnl-stencil_width,1)   + grid_params%jlo(iig)-1
-      jmxg = min(jmxl+stencil_width,nny) + grid_params%jlo(iig)-1
-      kmng = max(kmnl-stencil_width,1)   + grid_params%klo(iig)-1
-      kmxg = min(kmxl+stencil_width,nnz) + grid_params%klo(iig)-1
-
-c Select operation
-
-      select case (neq)
-      case(1)
-
-        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,1))
-
-        if (PRESENT(arr0)) then
-          v0 = arr0
-        else
-          v0 = 0d0
-        endif
-
-        call setBC(IRHO,nnx,nny,nnz,array(:,:,:,1),v0(:,:,:,1)
-     .            ,bcnd(:,neq),iig,iig,iig
-     .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg
-     .            ,iorder=order)
-
-cc        !Warning: Velocities for T BC unknown
-cc        call setBC(ivar,nnx,nny,nnz,array(:,:,:,neq),v0(:,:,:,neq)
-cc     .            ,bcnd(:,1),iig,iig,iig
-cc     .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg)
+ccc setMGBC
+ccc####################################################################
+cc      subroutine setMGBC(gpos,neq,nnx,nny,nnz,iig,array,bcnd,arr_cov
+cc     .                  ,arr0,icomp,is_cnv,is_vec,result_is_vec,iorder)
+ccc--------------------------------------------------------------------
+ccc     Interfaces BC routines with MG code, for preconditioning.
+ccc     On input:
+ccc       *gpos: node number (whole grid if gpos=0)
+ccc       *neq,nnx,nny,nnz: number of degrees of freedom.
+ccc       *iig: grid level
+ccc       *array: array containing values of magnitudes for all grid
+ccc               points. The magnitudes may be scalars or vector
+ccc               components (the latter assumed contravariant by default)
+ccc       *bcnd: array containing BC information
+ccc
+ccc     Optional parameters:
+ccc       *arr_cov: covariant components of vector components.
+ccc       *arr0: array containing dirichlet BCs (zero by default)
+ccc       *icomp: integer specifying magnitude of interest (if not
+ccc               provided, use last used value).
+ccc       *is_cnv: logical variable indicating whether array
+ccc                contains covariant or contravariant components
+ccc                (if not provided, use last used value).
+ccc       *is_vec: logical variable specifying whether array
+ccc          represents a curvilinear vector or a set of scalars
+ccc          (if not provided, use last used value):
+ccc             -If is_vec=.true., array is taken as curvilinear vector
+ccc              components (covariant or contravariant, according
+ccc              to variable is_cnv).
+ccc             -If is_vec=.false., array is taken as coupled scalars
+ccc              (also Cartesian vector components).
+ccc       *result_is_vec: logical variable specifying whether output
+ccc                       in array should be curvilinear (.true.) or
+ccc                       not (default=is_vec)
+ccc       *iorder: order of inter/extrapolation in BC routines (linear
+ccc                by default).
+ccc
+ccc     On output, array is returned in the same representation.
+ccc
+ccc     WARNING: if call sequence is modified, the INTERFACE block 
+ccc           in module mg_internal needs to be updated accordingly.
+ccc--------------------------------------------------------------------
 cc
-        deallocate(v0)
-
-      case(3)
-
-        allocate(v_cnv (0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .          ,v_cov (0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .          ,v0    (0:nnx+1,0:nny+1,0:nnz+1,neq))
-
-        v_cnv = 0d0
-        v_cov = 0d0
-
-        if (PRESENT(arr0)) then
-          v0 = arr0
-        else
-          v0 = 0d0
-        endif
-
-        if (.not.isvec) then
-
-          do k = kmnl-1,kmxl+1
-            do j = jmnl-1,jmxl+1
-              do i = imnl-1,imxl+1
-                car = array(i,j,k,:)
-                call transformVectorToCurvilinear
-     .               (i,j,k,iig,iig,iig
-     .               ,car(1),car(2),car(3)
-     .               ,.not.iscnv
-     .               ,array(i,j,k,1),array(i,j,k,2),array(i,j,k,3))
-              enddo
-            enddo
-          enddo
-
-        endif
-
-        if (PRESENT(arr_cov)) then
-          v_cnv = array
-          v_cov = arr_cov
-        else
-          if (iscnv) then
-            v_cnv = array
-          else
-            v_cov = array
-          endif
-        endif
-
-        call setBC(ivar,neq,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd
-     .            ,iig,iig,iig
-     .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg
-     .            ,is_cnv=iscnv,is_vec=.true.,iorder=order)
-
-        if (isvec .or. res_is_vec) then
-
-          if (PRESENT(arr_cov)) then
-            array   = v_cnv
-            arr_cov = v_cov
-          else
-            if (iscnv) then
-              array = v_cnv
-            else
-              array = v_cov
-            endif
-          endif
-
-        else
-
-          do k = kmnl-1,kmxl+1
-            do j = jmnl-1,jmxl+1
-              do i = imnl-1,imxl+1
-                curv = v_cnv(i,j,k,:)
-                call transformVectorToCartesian
-     .               (i,j,k,iig,iig,iig
-     .               ,curv(1),curv(2),curv(3)
-     .               ,.false.
-     .               ,array(i,j,k,1),array(i,j,k,2),array(i,j,k,3))
-              enddo
-            enddo
-          enddo
-
-        endif
-
-        deallocate(v_cov,v_cnv,v0)
-
-      case default
-        write (*,*) 'Number of equations not implemented in setMGBC'
-        write (*,*) 'Aborting...'
-        stop
-      end select
-
-c End
-
-      end subroutine setMGBC
+cc      use grid
+cc
+cc      use grid_mg
+cc
+cc      use imposeBCinterface
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      integer(4) :: nnx,nny,nnz,neq,bcnd(6,neq),iig,gpos
+cc
+cc      real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
+cc
+cc      real(8),optional,intent(INOUT) ::
+cc     .                         arr_cov(0:nnx+1,0:nny+1,0:nnz+1,neq)
+cc      real(8),optional,intent(IN) ::
+cc     .                         arr0   (0:nnx+1,0:nny+1,0:nnz+1,neq)
+cc
+cc      integer(4),optional,intent(IN) :: icomp,iorder
+cc
+cc      logical   ,optional,intent(IN) :: is_cnv,is_vec,result_is_vec
+cc
+ccc Local variables
+cc
+cc      integer(4) :: i,j,k,stencil_width,order,ieq
+cc     .             ,imng,imxg,jmng,jmxg,kmng,kmxg
+cc     .             ,imnl,imxl,jmnl,jmxl,kmnl,kmxl
+cc
+cc      integer(4),save :: ivar  !Needed to "remember' ivar from previous calls
+cc                               !when icomp is not provided.
+cc
+cc      logical,save    :: iscnv,isvec !Needed to "remember' these from previous calls
+cc                                     !when they are not provided.
+cc
+cc      logical         :: res_is_vec,fpointers
+cc
+cc      real(8)    :: car(3),curv(3)
+cc
+ccc Begin program
+cc
+ccc Optional arguments
+cc
+cc      if (PRESENT(icomp))  ivar  = icomp
+cc
+cc      if (PRESENT(is_cnv)) iscnv = is_cnv
+cc
+cc      if (PRESENT(is_vec)) isvec = is_vec
+cc
+cc      if (PRESENT(result_is_vec)) then
+cc        res_is_vec = result_is_vec
+cc      else
+cc        res_is_vec = isvec
+cc      endif
+cc
+cc      if (PRESENT(iorder)) then
+cc        order = iorder
+cc      else
+cc        order = 2
+cc      endif
+cc
+ccc Consistency check
+cc
+cc      if (     grid_params%nxv(iig) /= nnx
+cc     .    .or. grid_params%nyv(iig) /= nny
+cc     .    .or. grid_params%nzv(iig) /= nnz) then
+cc        write (*,*) 'Grid sizes do not agree in setMGBC'
+cc        write (*,*) 'Aborting...'
+cc        stop
+cc      endif
+cc
+cc      if (.not.isvec) iscnv=.true.
+cc
+ccc Allocate MG pointers (if not allocated earlier)
+cc
+cc      call allocPointers(neq,fpointers)
+cc
+ccc Find grid node LOCAL position (if gpos > 0, else return local domain limits)
+cc
+cc      call limits(gpos,nnx,nny,nnz,iig,imnl,imxl,jmnl,jmxl,kmnl,kmxl)
+cc
+ccc Check LOCAL limits (return if not close to local domain boundaries)
+cc
+cc      if (     (imnl > 1 .and. imxl < nnx)
+cc     .    .and.(jmnl > 1 .and. jmxl < nny)
+cc     .    .and.(kmnl > 1 .and. kmxl < nnz)) return
+cc
+ccc Find GLOBAL limits (required for BC routine setBC)
+cc
+cccc      stencil_width = 1
+cccc
+cccc      imng = max(imnl-stencil_width,1)   + grid_params%ilo(iig)-1
+cccc      imxg = min(imxl+stencil_width,nnx) + grid_params%ilo(iig)-1
+cccc      jmng = max(jmnl-stencil_width,1)   + grid_params%jlo(iig)-1
+cccc      jmxg = min(jmxl+stencil_width,nny) + grid_params%jlo(iig)-1
+cccc      kmng = max(kmnl-stencil_width,1)   + grid_params%klo(iig)-1
+cccc      kmxg = min(kmxl+stencil_width,nnz) + grid_params%klo(iig)-1
+cc
+cc      imng = imnl + grid_params%ilo(iig)-1
+cc      imxg = imxl + grid_params%ilo(iig)-1
+cc      jmng = jmnl + grid_params%jlo(iig)-1
+cc      jmxg = jmxl + grid_params%jlo(iig)-1
+cc      kmng = kmnl + grid_params%klo(iig)-1
+cc      kmxg = kmxl + grid_params%klo(iig)-1
+cc
+ccc Select operation
+cc
+cc      select case (neq)
+cc      case(1)
+cc
+cc        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,1))
+cc
+cc        if (PRESENT(arr0)) then
+cc          v0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .         = arr0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc          v0 = arr0
+cc        else
+cc          v0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:) = 0d0
+cccc          v0 = 0d0
+cc        endif
+cc
+cc        call setBC(ivar,nnx,nny,nnz,array(:,:,:,1),v0(:,:,:,1)
+cc     .            ,bcnd(:,neq),iig,iig,iig
+cc     .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg
+cc     .            ,iorder=order)
+cc
+cc        deallocate(v0)
+cc
+cc      case(3)
+cc
+cc        allocate(v_cnv (0:nnx+1,0:nny+1,0:nnz+1,neq)
+cc     .          ,v_cov (0:nnx+1,0:nny+1,0:nnz+1,neq)
+cc     .          ,v0    (0:nnx+1,0:nny+1,0:nnz+1,neq))
+cc
+cc        v_cnv(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:) = 0d0
+cc        v_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:) = 0d0
+cccc        v_cnv = 0d0
+cccc        v_cov = 0d0
+cc
+cc        if (PRESENT(arr0)) then
+cc          v0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .       = arr0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc          v0 = arr0
+cc        else
+cc          v0(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:) = 0d0
+cccc          v0 = 0d0
+cc        endif
+cc
+cc        if (.not.isvec) then
+cc
+cc          do k = kmnl-1,kmxl+1
+cc            do j = jmnl-1,jmxl+1
+cc              do i = imnl-1,imxl+1
+cc                car = array(i,j,k,:)
+cc                call transformVectorToCurvilinear
+cc     .               (i,j,k,iig,iig,iig
+cc     .               ,car(1),car(2),car(3)
+cc     .               ,.not.iscnv
+cc     .               ,array(i,j,k,1),array(i,j,k,2),array(i,j,k,3))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc        if (PRESENT(arr_cov)) then
+cccc          v_cnv(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc     .         = array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc          v_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc     .         = arr_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc          v_cnv = array
+cc          v_cov = arr_cov
+cc        else
+cc          if (iscnv) then
+cccc            v_cnv(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc     .           = array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc            v_cnv = array
+cc          else
+cccc            v_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc     .           = array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc            v_cov = array
+cc          endif
+cc        endif
+cc
+cc        call setBC(ivar,neq,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd
+cc     .            ,iig,iig,iig
+cc     .            ,i1=imng,i2=imxg,j1=jmng,j2=jmxg,k1=kmng,k2=kmxg
+cc     .            ,is_cnv=iscnv,is_vec=.true.,iorder=order)
+cc
+cc        if (isvec .or. res_is_vec) then
+cc
+cc          if (PRESENT(arr_cov)) then
+cc            array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .           = v_cnv(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc            arr_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .           = v_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc            array = v_cnv
+cccc            arr_cov = v_cov
+cc          else
+cc            if (iscnv) then
+cc              array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .             = v_cnv(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc              array = v_cnv
+cc            else
+cc              array(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cc     .             = v_cov(imnl-1:imxl+1,jmnl-1:jmxl+1,kmnl-1:kmxl+1,:)
+cccc              array = v_cov
+cc            endif
+cc          endif
+cc
+cc        else
+cc
+cc          do k = kmnl-1,kmxl+1
+cc            do j = jmnl-1,jmxl+1
+cc              do i = imnl-1,imxl+1
+cc                curv = v_cnv(i,j,k,:)
+cc                call transformVectorToCartesian
+cc     .               (i,j,k,iig,iig,iig
+cc     .               ,curv(1),curv(2),curv(3)
+cc     .               ,.false.
+cc     .               ,array(i,j,k,1),array(i,j,k,2),array(i,j,k,3))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc        deallocate(v_cov,v_cnv,v0)
+cc
+cc      case default
+cc        write (*,*) 'Number of equations not implemented in setMGBC'
+cc        write (*,*) 'Aborting...'
+cc        stop
+cc      end select
+cc
+ccc Deallocate MG pointers (if allocated in this routine)
+cc
+cc      call deallocPointers(fpointers)
+cc
+ccc End
+cc
+cc      end subroutine setMGBC
 
 c lap_mtvc
 c####################################################################
@@ -273,10 +307,6 @@ c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
       use matvec
-
-      use precond_variables
-
-      use mg_internal
 
       implicit none
 
@@ -369,10 +399,6 @@ c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
       use matvec
-
-      use precond_variables
-
-      use mg_internal
 
       implicit none
 
@@ -503,10 +529,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use precond_variables
-
-      use mg_internal
-
       implicit none
 
 c Call variables
@@ -551,7 +573,8 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dtmp,bcnd
-     .            ,icomp=ITMP)
+     .            ,icomp=IRHO)   !Use rho since velocities are not included yet
+cc     .            ,icomp=ITMP)
 
 c Map velocity components
 
@@ -638,10 +661,6 @@ c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
       use matvec
-
-      use precond_variables
-
-      use mg_internal
 
       implicit none
 
@@ -791,10 +810,6 @@ ccc      * bcnf: boundary conditions on x vector.
 ccc--------------------------------------------------------------------
 cc
 cc      use matvec
-cc
-cc      use precond_variables
-cc
-cc      use mg_internal
 cc
 cc      implicit none
 cc
@@ -1296,10 +1311,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use precond_variables
-
-      use mg_internal
-
       implicit none
 
 c Call variables
@@ -1581,10 +1592,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use precond_variables
-
-      use mg_internal
-
       implicit none
 
 c Call variables
@@ -1836,7 +1843,7 @@ c module v_mtvc_mod
 c ##################################################################
       module v_mtvc_mod
 
-      use precond_variables
+      use matvec
 
       real(8),allocatable,dimension(:,:,:,:) :: dv,dv_cov
 
@@ -2206,8 +2213,8 @@ c     #############################################################
 
       real(8) :: coeff
 
-      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
-cc      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,.false.
+      cnv = div_tensor2(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
+cc      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,.true.
      .                ,tensor_x,tensor_y,tensor_z,vol=.false.)
 
       coeff = (alpha**2/cnp + k_si*alpha)
@@ -2215,6 +2222,152 @@ cc      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,.false.
       psib = coeff*cnv
 
       end subroutine findPsib
+
+c     div_tensor2
+c     ###############################################################
+      function div_tensor2(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                   ,tsrx,tsry,tsrz,vol) result (divt)
+
+c     ---------------------------------------------------------------
+c     Calculates div(tensor) at cell centers in general non-orthogonal
+c     coordinates.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      real(8)    :: divt(3)
+
+      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+
+      logical    :: alt_eom
+
+      external   tsrx,tsry,tsrz
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+
+      real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
+
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
+     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
+     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
+
+      real(8)    :: hess(3,3,3),msource,dx1,dx2,ll
+
+      logical    :: vol_wgt
+
+      real(8)    :: dum1,dum2,coeff
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      igrid = igx
+
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
+
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      jac = gmetric%grid(igrid)%jac(i,j,k)
+      ijac = 1./jac
+
+      dxx = dxh(ig)
+      dyy = dyh(jg)
+      dzz = dzh(kg)
+
+      if (coords /= 'car') then
+        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+      endif
+
+      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11p,t12p,t13p, 1)
+      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11m,t12m,t13m,-1)
+      if (coords /= 'car')
+     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11o,t12o,t13o,0)
+
+      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,alt_eom,t21p,t22p,t23p, 1)
+      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,alt_eom,t21m,t22m,t23m,-1)
+      if (coords /= 'car')
+     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t21o,t22o,t23o,0)
+
+      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,alt_eom,t31p,t32p,t33p, 1)
+      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,alt_eom,t31m,t32m,t33m,-1)
+      if (coords /= 'car')
+     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t31o,t32o,t33o,0)
+
+      msource = 0d0
+
+      !Component 1
+      if (coords /= 'car') then
+        msource =  (t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
+     .             *ijac
+      endif
+
+      divt(1) =  (t11p - t11m)/dxx
+     .          +(t21p - t21m)/dyy
+     .          +(t31p - t31m)/dzz + msource
+
+      !Component 2
+      coeff = 1d0
+
+      if (coords /= 'car') then
+        if (alt_eom) then
+
+          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))*ijac
+
+          coeff = ijac
+
+        else
+          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
+     .              *ijac
+        endif
+
+      endif
+
+      divt(2) = ( (t12p - t12m)/dxx
+     .           +(t22p - t22m)/dyy
+     .           +(t32p - t32m)/dzz)*coeff  + msource
+
+      !Component 3
+      if (coords /= 'car') then
+        msource = (t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
+     .            *ijac
+      endif
+
+      divt(3) =  (t13p - t13m)/dxx
+     .          +(t23p - t23m)/dyy
+     .          +(t33p - t33m)/dzz + msource
+
+      !Volume factor
+cc      if (vol_wgt) divt=divt*volume(i,j,k,igx,igy,igz)
+      if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
+
+c     End program
+
+      end function div_tensor2
 
 c     tensor_x
 c     #############################################################
@@ -2239,8 +2392,6 @@ c     Local variables
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
-
-cc        write (*,*) igx,igy,igz,nxx,nyy,nzz
 
         igrid = igx
 
@@ -2275,12 +2426,12 @@ cc        write (*,*) igx,igy,igz,nxx,nyy,nzz
      .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
         endif
 
-cc        b0cnv = 0.5*(b0_cnv(ip,j,k,:)+b0_cnv(i,j,k,:))
+        b0cnv = 0.5*(b0_cnv(ip,j,k,:)+b0_cnv(i,j,k,:))
 cc        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
 
-        b0cnv(1)=0.5*(b0_cnv(ip,j,k,1)*ijacp+b0_cnv(i,j,k,1)*ijac0)*jac
-        b0cnv(2)=0.5*(b0_cnv(ip,j,k,2)      +b0_cnv(i,j,k,2))
-        b0cnv(3)=0.5*(b0_cnv(ip,j,k,3)*ijacp+b0_cnv(i,j,k,3)*ijac0)*jac
+cc        b0cnv(1)=0.5*(b0_cnv(ip,j,k,1)*ijacp+b0_cnv(i,j,k,1)*ijac0)*jac
+cc        b0cnv(2)=0.5*(b0_cnv(ip,j,k,2)      +b0_cnv(i,j,k,2))
+cc        b0cnv(3)=0.5*(b0_cnv(ip,j,k,3)*ijacp+b0_cnv(i,j,k,3)*ijac0)*jac
 
 cc        b0cov(1)=0.5*(b0_cov(ip,j,k,1)      +b0_cov(i,j,k,1)      )
 cc        b0cov(2)=0.5*(b0_cov(ip,j,k,2)*ijacp+b0_cov(i,j,k,2)*ijac0)*jac
@@ -2311,8 +2462,6 @@ cc        b0cov(3)=0.5*(b0_cov(ip,j,k,3)      +b0_cov(i,j,k,3)      )
         t13 =( acnv(1)*b0cnv(3)
      .        +acnv(3)*b0cnv(1)
      .        -gsuper(1,3)*scalar_prod )
-
-cc        if (isSP(i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
         if (flag /= 0) then
           if (isSP(i+1,j,k,igx,igy,igz)) then
@@ -2631,11 +2780,7 @@ c      * igrid: grid level
 c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
-      use matvec
-
       use nlfunction_setup
-
-      use mg_internal
 
       use v_mtvc_mod
 
@@ -2696,9 +2841,16 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       !Higher-order interpolation than 1 is JB-unstable for cyl.
+      if (debug) then
+        write (*,*) 'DIAG--v_mtvc'
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+      else
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+      endif
 
 c Calculate matrix-vector product
 
@@ -2877,8 +3029,6 @@ cc      use matvec
 cc
 cc      use nlfunction_setup
 cc
-cc      use mg_internal
-cc
 cc      use mgarraySetup
 cc
 cc      implicit none
@@ -2971,11 +3121,7 @@ ccc      * igrid: grid level
 ccc      * bcnf: boundary conditions on x vector.
 ccc--------------------------------------------------------------------
 cc
-cc      use matvec
-cc
 cc      use nlfunction_setup
-cc
-cc      use mg_internal
 cc
 cc      use v_mtvc_mod
 cc
@@ -3148,11 +3294,7 @@ c      * igrid: grid level
 c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
-      use matvec
-
       use nlfunction_setup
-
-      use mg_internal
 
       use v_mtvc_mod
 
@@ -3326,11 +3468,7 @@ c      * igrid: grid level
 c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
-      use matvec
-
       use nlfunction_setup
-
-      use mg_internal
 
       use v_mtvc_mod
 
@@ -3477,11 +3615,7 @@ c      * igrid: grid level
 c      * bcnf: boundary conditions on x vector.
 c--------------------------------------------------------------------
 
-      use matvec
-
       use nlfunction_setup
-
-      use mg_internal
 
       use v_mtvc_mod
 

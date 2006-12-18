@@ -277,9 +277,9 @@ c     Read pixie3d.eig file
 
 c     Find perturbations
 
-      do k = klom,khip
-        do j = jlom,jhip
-          do i = ilo,ihi
+      do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
             call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 

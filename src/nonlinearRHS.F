@@ -98,13 +98,19 @@ c     Grid parameters
 c     Rho
 
       if (solve_rho) then
+        !Various flavors of advection (old)
 cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP())
 cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho)
 cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP()
 cc     .               ,upwind=.true.)
 
+        !General advection (w/ SP treatment for particle conservation)
         advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,advect
      .                 ,sp=bcSP())
+        !Hardwired advection (generalizes ZIP)
+cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,1
+cc     .                 ,sp=bcSP())
+        !Hardwired SMART (generalizes ZIP)
 cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4)
 
         if (dd /= 0d0) then
@@ -193,6 +199,7 @@ c     Vector potential
      .       - vecnv(i,j,k,2)*bx(i,j,k) - ejz(i,j,k)
 
       vlap  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+cc      vlap  = vlap_a(i,j,k,:)
 cc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
 cc     .                     ,.false.,vol=.false.)
 cc
@@ -202,9 +209,9 @@ cc     .                        ,cnv (1),cnv (2),cnv (3)
 cc     .                        ,.false.)
 
       if (heta > 0d0) then
-        vlap2 = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov,vol=.false.)
+        vlap2=veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vlap_a,vol=.false.)
       else
-        vlap2 = 0d0
+        vlap2=0d0
       endif
 
       cov = cov/jac + eeta(i,j,k)*vlap - heta*vlap2
@@ -216,53 +223,59 @@ cc     .                        ,.false.)
 c     Temperature
 
       if (gamma == 1d0) then
+
         ff(ITMP) = 0d0
+
       else
+
+c       Advection
+
         advc =
+              !General advection
      .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,advect)
-cc     .        c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp)
+              !Hardwired SMART (generalizes ZIP)
+cc     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,4)
+              !Hardwired standard upwind
+cc     .        c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp
+cc     .               ,upwind=.true.)
      .        +(gamma-2.)/ivol*tmp(i,j,k)
      .                        *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
 
-        !Heat flux
+c       Heat flux
+
         if (chi /= 0d0) then
           heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
         else
           heat_flx = 0d0
         endif
 
-        !Heat sources
-cc        if (gamma > 1d0) then
-cc
-cc          !!!Joule heating
-cc          joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
-cc       .                            +jy(i,j,k)*jy_cov(i,j,k)
-cc       .                            +jz(i,j,k)*jz_cov(i,j,k) )
-cc
-cc          !!!Viscous heating
-cc          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
-cc
-cc          cov_tnsr = matmul(nabla_v,gsub   )
-cc          cnv_tnsr = matmul(gsuper ,nabla_v)
-cc
-cc          viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
-cc
-cc          heat_src = joule + viscous
-cc
-cc          if (heat_src < 0d0) then
-cc            write (*,*) 'Heat source is negative'
-cc            write (*,*) 'Aborting...'
-cc            stop
-cc          endif
-cc
-cc        else
+c       Heat sources
 
-          heat_src = 0d0
+        !Joule heating
+        joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
+     .                            +jy(i,j,k)*jy_cov(i,j,k)
+     .                            +jz(i,j,k)*jz_cov(i,j,k) )
 
-cc        endif
+        !Viscous heating
+        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
 
-        !Construct temperature equation
+        cov_tnsr = matmul(nabla_v,gsub   )
+        cnv_tnsr = matmul(gsuper ,nabla_v)
+
+        viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
+
+        heat_src = joule + viscous
+
+        if (heat_src < 0d0) then
+cc          write (*,*) my_rank,i,j,k,dvol,eeta(i,j,k)
+cc     .               ,jx(i,j,k),jy(i,j,k),jz(i,j,k)
+cc     .               ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
+          call pstop('nonlinearRHS','Heat source is negative')
+        endif
+
+c       Add contributions
         ff(ITMP) = advc+(gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
+
       endif
 
 c     EOM

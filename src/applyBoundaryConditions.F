@@ -47,11 +47,25 @@ c Default boundary conditions
       bbcs(:,IVX) = bcsq
 
       bcsq = bbcs(:,IVY)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      if (     coords == 'cyl'
+     .    .or. coords == 'hel'
+     .    .or. coords == 'tor'
+     .    .or. coords == 'car') then
+        where (bcsq == DEF) bcsq =  NEU !On contravariant components
+      else
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+      endif
       bbcs(:,IVY) = bcsq
 
       bcsq = bbcs(:,IVZ)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      if (     coords == 'cyl'
+     .    .or. coords == 'hel'
+     .    .or. coords == 'tor'
+     .    .or. coords == 'car') then
+        where (bcsq == DEF) bcsq =  NEU !On contravariant components
+      else
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+      endif
       bbcs(:,IVZ) = bcsq
 
 #if !defined(vec_pot)
@@ -69,6 +83,8 @@ c Default boundary conditions
 #else
       bcsq = bbcs(:,IAX)
       where (bcsq == DEF) bcsq = DIR   !On contravariant components
+cc      where (bcsq == DEF) bcsq = EXT   !On contravariant components
+cc      where (bcsq == DEF) bcsq = -EQU  !On contravariant components
       bbcs(:,IAX) = bcsq
 
       bcsq = bbcs(:,IAY)
@@ -97,16 +113,20 @@ cc        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
       case ('tmcyz','3dkh')
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = -NEU
-        where (bbcs(:,IVY) ==-NEU) bbcs(:,IVY) =  DIR
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) =  DIR
 
         where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
-        where (bbcs(:,IBY) ==-NEU) bbcs(:,IBY) =  DIR
+        where (bbcs(:,IBY) == NEU) bbcs(:,IBY) =  DIR
 
       case ('ppnch','ppn3d') 
 
 cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
+
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
-cc       where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = NEU
+
+        !Dirichlet boundary conditions for tangential components
+cc        where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
+cc        where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
 
       end select
 
@@ -121,9 +141,13 @@ c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
 
+      use local_BCS_variables
+
       use imposeBCinterface
 
       use auxiliaryVariables
+
+      use variables
 
       implicit none
 
@@ -137,7 +161,7 @@ c Local variables
 
       integer(4) :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz,order
 
-      real(8)    :: bbcov(3),bbcnv(3),b2,J0(3)
+      real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
 
 c Begin program
 
@@ -257,13 +281,23 @@ c     BC setup  (only topological constraints)
       where (bcsq == DEF) bcsq = DIR
       bcnd(:,1) = bcsq
 
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = EXT
-      bcnd(:,2) = bcsq
+cc      if (equil == 'spnch' .or. equil == 'rfp2') then
+cc        bcsq = bcond
+cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
+cc        bcnd(:,2) = bcsq
+cc
+cc        bcsq = bcond
+cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
+cc        bcnd(:,3) = bcsq
+cc      else
+        bcsq = bcond
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+        bcnd(:,2) = bcsq
 
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = EXT
-      bcnd(:,3) = bcsq
+        bcsq = bcond
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+        bcnd(:,3) = bcsq
+cc      endif
 
 c     B=curl(A)
 
@@ -280,12 +314,6 @@ c     B=curl(A)
           enddo
         enddo
       enddo
-
-#if defined(petsc) 
-      do icomp=1,3
-        call fillPetscGhostCells(v_cnv(:,:,:,icomp),iigx)
-      enddo
-#endif
 
       v0 = v_cnv
 
@@ -305,6 +333,111 @@ c     Postprocessing
       bz_cov = v_cov(:,:,:,3)
 
 #endif
+
+c Current BC
+
+c     BC setup
+
+#if !defined(vec_pot)
+      bcnd(:,1) = varray%array_var(IBX)%bconds
+      bcnd(:,2) = varray%array_var(IBY)%bconds
+      bcnd(:,3) = varray%array_var(IBZ)%bconds
+      where (bcnd == -NEU)
+cc        bcnd = -DIR  !Use covariant components for tangential BCs
+        bcnd = -EQU  !Use covariant components for tangential BCs
+      end where
+#else
+cc      if (equil == 'spnch' .or. equil == 'rfp2') then
+cc        bcsq = bcond
+cc        where (bcsq == DEF) bcsq = DIR
+cc        bcnd(:,1) = bcsq
+cc
+cc        bcsq = bcond
+cc        where (bcsq == DEF) bcsq = EXT
+cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
+cc        bcnd(:,2) = bcsq
+cc
+cc        bcsq = bcond
+cc        where (bcsq == DEF) bcsq = EXT
+cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
+cc        bcnd(:,3) = bcsq
+cc      else
+        bcnd(:,1) = varray%array_var(IAX)%bconds
+        bcnd(:,2) = varray%array_var(IAY)%bconds
+        bcnd(:,3) = varray%array_var(IAZ)%bconds
+cc      endif
+#endif
+
+      do k = 0,nnz+1
+        do j = 0,nny+1
+          do i = 0,nnx+1
+            do icomp=1,3
+              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+     .                                ,bx_cov,by_cov,bz_cov,icomp)
+            enddo
+          enddo
+        enddo
+      enddo
+
+      if (equil == 'ppnch' .or. equil == 'ppn3d') then  !Jt = alpha*Bt in cov representation
+cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
+
+        i = nnx
+
+        do k=1,nnz
+          do j=1,nny
+#if !defined(vec_pot)
+            bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
+     .                    ,varray%array_var(IBY)%array(i  ,j,k)
+     .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
+     .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
+     .                    ,varray%array_var(IBY)%array(i+1,j,k)
+     .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
+#else
+            bbcnv = 0.5*(/ bx(i  ,j,k)
+     .                    ,by(i  ,j,k)
+     .                    ,bz(i  ,j,k) /)
+     .             +0.5*(/ bx(i+1,j,k)
+     .                    ,by(i+1,j,k)
+     .                    ,bz(i+1,j,k) /)
+#endif
+            bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
+     .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
+     .                    ,bbcnv)
+
+            b2   = 2*dot_product(bbcnv,bbcov)
+     .            /(gmetric%grid(iigx)%jac(i  ,j,k)
+     .             +gmetric%grid(iigx)%jac(i+1,j,k))
+
+            J0 = E0*2./(eeta(i,j,k)+eeta(i+1,j,k))
+
+            v0(i+1,j,k,:) = scalarProduct(i,j,k,iigx,iigy,iigz
+     .                                 ,J0   (1),J0   (2),J0   (3)
+     .                                 ,bbcnv(1),bbcnv(2),bbcnv(3))/b2
+     .                     *bbcov(:)
+          enddo
+        enddo
+
+      else
+
+        v0 = 0d0
+
+      endif
+
+c     Fill ghost nodes
+
+      call setBC(IJX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
+     .          ,iorder=order)
+
+c     Postprocessing
+
+      jx_cov = v_cov(:,:,:,1)
+      jy_cov = v_cov(:,:,:,2)
+      jz_cov = v_cov(:,:,:,3)
+
+      jx = v_cnv(:,:,:,1)
+      jy = v_cnv(:,:,:,2)
+      jz = v_cnv(:,:,:,3)
 
 c Velocity BC
 
@@ -359,7 +492,14 @@ c     BC setup
      .             +gmetric%grid(iigx)%jac(i+1,j,k))
 
             if (b2 > 0d0) then
-              v0(i+1,j,k,1) = -(bbcov(2)*E0(3)-bbcov(3)*E0(2))/b2 !ExB velocity
+cc              E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jx_cov(i  ,j,k)
+cc     .                             +eeta(i+1,j,k)*jx_cov(i+1,j,k))
+              E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jy_cov(i  ,j,k)
+     .                             +eeta(i+1,j,k)*jy_cov(i+1,j,k))
+              E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jz_cov(i  ,j,k)
+     .                             +eeta(i+1,j,k)*jz_cov(i+1,j,k))
+
+              v0(i+1,j,k,1) = -(bbcov(2)*E00(3)-bbcov(3)*E00(2))/b2 !ExB velocity
             else
               v0(i+1,j,k,1) = 0d0
             endif
@@ -411,160 +551,6 @@ c Temperature BCs
      .               ,varray%array_var(ITMP)%bconds
      .               ,iigx,iigy,iigz,iorder=order)
 
-c Current BC
-
-c     BC setup
-
-#if !defined(vec_pot)
-      bcnd(:,1) = varray%array_var(IBX)%bconds
-      bcnd(:,2) = varray%array_var(IBY)%bconds
-      bcnd(:,3) = varray%array_var(IBZ)%bconds
-      where (bcnd == -NEU)
-cc        bcnd = -DIR  !Use covariant components for tangential BCs
-        bcnd = -EQU  !Use covariant components for tangential BCs
-      end where
-#else
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = DIR
-      bcnd(:,1) = bcsq
-
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = EXT
-      bcnd(:,2) = bcsq
-
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = EXT
-      bcnd(:,3) = bcsq
-
-cc      bcnd(:,1) = varray%array_var(IAX)%bconds
-cc      bcnd(:,2) = varray%array_var(IAY)%bconds
-cc      bcnd(:,3) = varray%array_var(IAZ)%bconds
-#endif
-
-      do k = 0,nnz+1
-        do j = 0,nny+1
-          do i = 0,nnx+1
-            do icomp=1,3
-              v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
-     .                                ,bx_cov,by_cov,bz_cov,icomp)
-            enddo
-          enddo
-        enddo
-      enddo
-
-#if defined(petsc) 
-      do icomp=1,3
-        call fillPetscGhostCells(v_cnv(:,:,:,icomp),iigx)
-      enddo
-#endif
-
-      if (equil == 'ppnch' .or. equil == 'ppn3d') then  !Jt = alpha*Bt in cov representation
-cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
-
-        i = nnx
-
-        do k=1,nnz
-          do j=1,nny
-#if !defined(vec_pot)
-            bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
-     .                    ,varray%array_var(IBY)%array(i  ,j,k)
-     .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
-     .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
-     .                    ,varray%array_var(IBY)%array(i+1,j,k)
-     .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
-#else
-            bbcnv = 0.5*(/ bx(i  ,j,k)
-     .                    ,by(i  ,j,k)
-     .                    ,bz(i  ,j,k) /)
-     .             +0.5*(/ bx(i+1,j,k)
-     .                    ,by(i+1,j,k)
-     .                    ,bz(i+1,j,k) /)
-#endif
-            bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
-     .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
-     .                    ,bbcnv)
-
-            b2   = 2*dot_product(bbcnv,bbcov)
-     .            /(gmetric%grid(iigx)%jac(i  ,j,k)
-     .             +gmetric%grid(iigx)%jac(i+1,j,k))
-
-            J0 = E0/0.5/(eeta(i,j,k)+eeta(i+1,j,k))
-
-            v0(i+1,j,k,:) = scalarProduct(i,j,k,iigx,iigy,iigz
-     .                                 ,J0   (1),J0   (2),J0   (3)
-     .                                 ,bbcnv(1),bbcnv(2),bbcnv(3))/b2
-     .                     *bbcov(:)
-          enddo
-        enddo
-
-cc        vcnv(:,:,:,1) = varray%array_var(IVX)%array
-cc        vcnv(:,:,:,2) = varray%array_var(IVY)%array
-cc        vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-cc
-cc        where (eeta(nnx,:,:) > 0d0) 
-cc          v0(nnx+1,:,:,1) =
-cc     .                    (0.5*(vcnv(nnx,:,:,2)+vcnv(nnx+1,:,:,2))
-cc     .                    *0.5*(varray%array_var(IBZ)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBZ)%array(nnx+1,:,:))
-cc     .                    -0.5*(vcnv(nnx,:,:,3)+vcnv(nnx+1,:,:,3))
-cc     .                    *0.5*(varray%array_var(IBY)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBY)%array(nnx+1,:,:)))
-cc     .                   /(0.5*(eeta(nnx,:,:)+eeta(nnx+1,:,:)))
-cc     .                   /(0.5*(gmetric%grid(iigx)%jac(nnx  ,:,:)
-cc     .                         +gmetric%grid(iigx)%jac(nnx+1,:,:)))
-cc          v0(nnx+1,:,:,2) =
-cc     .                    (0.5*(vcnv(nnx,:,:,3)+vcnv(nnx+1,:,:,3))
-cc     .                    *0.5*(varray%array_var(IBX)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBX)%array(nnx+1,:,:))
-cc     .                    -0.5*(vcnv(nnx,:,:,1)+vcnv(nnx+1,:,:,1))
-cc     .                    *0.5*(varray%array_var(IBZ)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBZ)%array(nnx+1,:,:)))
-cc     .                   /(0.5*(eeta(nnx,:,:)+eeta(nnx+1,:,:)))
-cc     .                   /(0.5*(gmetric%grid(iigx)%jac(nnx  ,:,:)
-cc     .                         +gmetric%grid(iigx)%jac(nnx+1,:,:)))
-cc          v0(nnx+1,:,:,3) =
-cc     .                    (0*0.5*(vcnv(nnx,:,:,1)+vcnv(nnx+1,:,:,1))
-cc     .                    *0.5*(varray%array_var(IBY)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBY)%array(nnx+1,:,:))
-cc     .                    -0.5*(vcnv(nnx,:,:,2)+vcnv(nnx+1,:,:,2))
-cc     .                    *0.5*(varray%array_var(IBX)%array(nnx  ,:,:)
-cc     .                         +varray%array_var(IBX)%array(nnx+1,:,:)))
-cc     .                   /(0.5*(eeta(nnx,:,:)+eeta(nnx+1,:,:)))
-cc     .                   /(0.5*(gmetric%grid(iigx)%jac(nnx  ,:,:)
-cc     .                         +gmetric%grid(iigx)%jac(nnx+1,:,:)))
-cccc          v0(nnx+1,:,:,3) = 0d0
-cc        end where
-cc
-cc        write (*,*) v0(nnx+1,1,1,:)
-cc
-cc        v0(nnx+1,:,:,1) = v0(nnx+1,:,:,1) + J0(1) 
-cc        v0(nnx+1,:,:,2) = v0(nnx+1,:,:,2) + J0(2) 
-cc        v0(nnx+1,:,:,3) = v0(nnx+1,:,:,3) + J0(3) 
-cc
-cc        write (*,*) 'v',0.5*(vcnv(nnx,1,1,1)+vcnv(nnx+1,1,1,1))
-cc        write (*,*) 'b',0.5*(varray%array_var(IBX)%array(nnx  ,1,1)
-cc     .                         +varray%array_var(IBX)%array(nnx+1,1,1))
-cc        write (*,*) J0(3),v0(nnx+1,1,1,3)
-      else
-
-        v0 = 0d0
-
-      endif
-
-c     Fill ghost nodes
-
-      call setBC(IJX,3,nnx,nny,nnz,v_cnv,v_cov,v0,bcnd,iigx,iigy,iigz
-     .          ,iorder=order)
-
-c     Postprocessing
-
-      jx_cov = v_cov(:,:,:,1)
-      jy_cov = v_cov(:,:,:,2)
-      jz_cov = v_cov(:,:,:,3)
-
-      jx = v_cnv(:,:,:,1)
-      jy = v_cnv(:,:,:,2)
-      jz = v_cnv(:,:,:,3)
 
 c Deallocate variables 
 

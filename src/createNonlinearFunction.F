@@ -58,8 +58,8 @@ c Begin program
      .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
      .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
      $           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3))
-cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+     $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
@@ -89,7 +89,8 @@ cc     $           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3))
      .           ,bz    (ilom:ihip,jlom:jhip,klom:khip)
      .           ,acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+     $           ,vlap_a(ilom:ihip,jlom:jhip,klom:khip,3))
+cc     $           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 #endif
 
 c SI operator
