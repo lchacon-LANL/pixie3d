@@ -37,8 +37,8 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,ieq
-      real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3)
+      integer(4) :: i,j,k,ig,jg,kg,ieq,bcs(6)
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3),vr,vth,norm,cov(3),cnv(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
       real(8),allocatable,dimension(:,:) :: b00,j00_cov,v00,q00,l00
@@ -101,6 +101,22 @@ c Find Cartesian components of ALL vectors
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
 
+cc      !Cylindrical coordinates
+cc      do k = 0,nz+1
+cc        do i = 0,nx+1
+cc          do j = 0,ny+1
+cc            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc            vr  = vx_car(i,j,k)*cos(y1)+vy_car(i,j,k)*sin(y1)
+cc            vth =-vx_car(i,j,k)*sin(y1)+vy_car(i,j,k)*cos(y1)
+cc
+cc            vx_car(i,j,k) = vr
+cc            vy_car(i,j,k) = vth
+cc          enddo
+cc        enddo
+cc      enddo
+
 #if defined(vec_pot)
       !Cartesian A components
       covariant = .true.
@@ -120,12 +136,13 @@ c Find Cartesian components of ALL vectors
      .                    ,bx_car,by_car,bz_car,covariant,to_cartsn)
 
       !Find Cartesian J components
-
       jx_car = jx
       jy_car = jy
       jz_car = jz
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,covariant,to_cartsn)
+
+cc      bz = bz/gmetric%grid(igx)%jac(:,:,:)
 
 c Electron velocity
 
@@ -133,23 +150,107 @@ c Electron velocity
       vey = vy - di*jy/rho
       vez = vz - di*jz/rho
 
-c Poloidal flux diagnostics  (use graphics limits)
+c Poloidal flux diagnostics
 
-      do k = kming,kmaxg
-        do i = iming,imaxg
-          j = jming
+#if !defined(vec_pot)
+      do k = 0,nz+1
+        do i = 0,nx+1
+          j = 0
+cc      do k = kming,kmaxg
+cc        do i = iming,imaxg
+cc          j = jming
           call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          if (i == iming) then
+cc          if (i == iming) then
+          if (i == 0) then
             Pflux(i,j,k) = 0d0
           else
-            Pflux(i,j,k) = Pflux(i-1,j,k) - by(i,j,k)*dxh(ig)
+cc            Pflux(i,j,k) = Pflux(i-1,j,k) - by(i,j,k)*dxh(ig)
+            Pflux(i,j,k) = Pflux(i-1,j,k)
+     .                   - 0.5*(by(i-1,j,k)+by(i,j,k))*dx(ig-1)
           endif
-          do j = jming+1,jmaxg
+cc          do j = jming+1,jmaxg
+          do j = 1,ny+1
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            Pflux(i,j,k) = Pflux(i,j-1,k) + bx(i,j,k)*dyh(jg)
+cc            Pflux(i,j,k) = Pflux(i,j-1,k) + bx(i,j,k)*dyh(jg)
+            Pflux(i,j,k) = Pflux(i,j-1,k)
+     .                   + 0.5*(bx(i,j-1,k)+bx(i,j,k))*dy(jg-1)
           enddo
         enddo
       enddo
+
+      bcs = bcond
+      where (bcs == DEF) bcs = EXT
+
+      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
+
+#else
+      Pflux = az
+#endif
+
+c Velocity intrinsic components (wrt B)
+
+        do k = kming,kmaxg
+          do j = jming,jmaxg
+            do i = iming,imaxg
+cc      do k = 0,nz+1
+cc        do i = 0,nx+1
+cc          do j = 0,ny+1
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+            !V_parallel
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                        ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.))
+
+            if (norm == 0d0) then
+              vpar(i,j,k) = 0d0
+            else
+              vpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                     ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+     .                     ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k))
+     .                     /norm
+            endif
+
+            !V.grad(psi)/|grad(psi)|
+            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
+     .               ,cov(1),cov(2),cov(3))
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                             ,cov(1),cov(2),cov(3),.true.))
+
+            if (norm == 0d0) then
+              vpsi(i,j,k) = 0d0
+            else
+              vpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                     ,cov(1),cov(2),cov(3)
+     .                     ,vx(i,j,k),vy(i,j,k),vz(i,j,k))
+     .                     /norm
+            endif
+cc            vpsi(i,j,k) = cov(1)
+
+            !V.(b x grad(psi))/|(b x grad(psi))|
+            cnv(1) = by(i,j,k)*cov(3)
+     .              -bz(i,j,k)*cov(2)
+            cnv(2) = bz(i,j,k)*cov(1)
+     .              -bx(i,j,k)*cov(3)
+            cnv(3) = bx(i,j,k)*cov(2)
+     .              -by(i,j,k)*cov(1)
+
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                            ,cnv(1),cnv(2),cnv(3),.false.))
+
+            if (norm == 0) then
+              vperp(i,j,k) = 0d0
+            else
+              vperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                       ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .                       ,cnv(1),cnv(2),cnv(3))
+     .                       /norm
+            endif
+            
+          enddo
+        enddo
+      enddo
+
 
 c Ohm's law diagnostic
 
@@ -185,7 +286,10 @@ c Mean-field (poloidally averaged) q-factor (use graphics limits)
 
 c FIX PARALLEL
       qfactor = 0d0
-      if (coords == 'hel' .or. coords == 'cyl') then
+      if (    coords == 'hel'
+     .   .or. coords == 'cyl'
+     .   .or. coords == 'tor'
+     .   .or. coords == 'vmc') then
 
         allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
      .          ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
@@ -213,8 +317,12 @@ c FIX PARALLEL
               j00_cov(i,2) = j00_cov(i,2) + jy_cov(i,j,k)*dyh(jg)
               j00_cov(i,3) = j00_cov(i,3) + jz_cov(i,j,k)*dyh(jg)
               v00(i,1) = v00(i,1) + vx_cov(i,j,k)*dyh(jg)
-              q00(i,1) = q00(i,1)
+              if (coords == 'hel') then
+                q00(i,1) = q00(i,1)
      .              + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+              else
+                q00(i,1) = q00(i,1) + bz(i,j,k)/by(i,j,k)*dyh(jg)
+              endif
               l00(i,1) = l00(i,1)
      .              + scalarProduct(i,j,k,igx,igy,igz
      .                     ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
@@ -237,7 +345,11 @@ c FIX PARALLEL
         do k = kming,kmaxg
           do i = iming,imaxg
             do j = jming,jmaxg
-              qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+              if (coords == 'hel') then
+                qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+              else
+                qfactor(i,j,k) = b00(i,3)/b00(i,2)
+              endif
               lambda (i,j,k) = scalarProduct(i,j,k,igx,igy,igz
      .                          ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)
      .                          ,b00    (i,1),b00    (i,2),b00    (i,3))
@@ -247,10 +359,10 @@ c FIX PARALLEL
               lambda2(i,j,k) = l00(i,1)
             enddo
           enddo
-          qfactor(iming,:,k) = qfactor(iming+1,:,k)
-          lambda (iming,:,k) = lambda (iming+1,:,k)
-          qfactr2(iming,:,k) = qfactr2(iming+1,:,k)
-          lambda2(iming,:,k) = lambda2(iming+1,:,k)
+          qfactor(iming,jming:jmaxg,k) = qfactor(iming+1,jming:jmaxg,k)
+          lambda (iming,jming:jmaxg,k) = lambda (iming+1,jming:jmaxg,k)
+          qfactr2(iming,jming:jmaxg,k) = qfactr2(iming+1,jming:jmaxg,k)
+          lambda2(iming,jming:jmaxg,k) = lambda2(iming+1,jming:jmaxg,k)
         enddo
 
 c diag: dump text data
