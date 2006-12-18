@@ -7,8 +7,8 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar] [-equ file]
-        -- inputfile [options]
+pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar]
+        [-equ file] [-eig file] -- inputfile [options]
 
 where:
 	-h:            gives this message
@@ -25,6 +25,7 @@ where:
                          background in separate directory and creates 
                          tarfile inputfile.tar.gz)
 	-equ:          equilibrium file 
+	-eig:          eigenmode file 
 	inputfile:     is the input file without the extension .in
 	options:       options passed directly to the executable
 HELP
@@ -55,6 +56,7 @@ case $1 in
 	-nolocal)nolocal=$1;shift 1;;
 	-ntar)tar=f;shift 1;;
 	-equ)equf=t;equfile=$2;shift 2;;
+	-eig)eigf=t;eigfile=$2;shift 2;;
 	--) shift;break;;
 	-*) echo "error: no such option $1. -h for help";exit 1;;
 	*)  break;;
@@ -114,13 +116,24 @@ elif [ "$restart" != "t" ]; then
   exit 1
 fi
 
-if [ $equf = "t" ]; then
- if [ -f $equfile ]; then
+if [ "$equf" = "t" ]; then
+ if [ -f "$equfile" ]; then
   cp $equfile $dir 2>/dev/null
  elif [ -f infiles/$equfile ]; then
   cp infiles/$equfile $dir 2>/dev/null
  else
   echo "No equilibrium file found. Aborting"
+  exit 1
+ fi
+fi
+
+if [ "$eigf" = "t" ]; then
+ if [ -f "$eigfile" ]; then
+  cp $eigfile $dir 2>/dev/null
+ elif [ -f infiles/$eigfile ]; then
+  cp infiles/$eigfile $dir 2>/dev/null
+ else
+  echo "No eigenvalue file found. Aborting"
   exit 1
  fi
 fi
@@ -148,7 +161,7 @@ then
    fi
    if [ -f "$rpath/$inputfile.tar.gz" ]
    then
-     tar xzf $rpath/$inputfile.tar.gz
+     tar xzf $rpath/$inputfile.tar.gz --exclude $inputfile.in --exclude machines.LINUX --exclude $executable
 #     cp $inputfile.log $path/$dir
 #     cp *.bin $path/$dir
    else
@@ -166,6 +179,7 @@ code_ifile=pixie3d
 
 cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
+cp $eigfile $code_ifile.eig  2>/dev/null
 
 if [ "$restart" = "t" ]
 then
@@ -196,22 +210,15 @@ fi
 
 # Execute
 
-#if [ "$tar" = "t" ]
-#then
-#  $time="/usr/bin/time -v -o $inputfile.cpu"
-#else
-#  $time="/usr/bin/time"
-#fi
-
 if [ "$parallel" = "t" ]
 then
    if [ -f "machines.LINUX" ]
    then
      machine="-machinefile machines.LINUX"
    fi
-   executable="$time mpirun -np $np $nolocal $machine ./$executable -snes_mf $options"
+   executable="$MPI_HOME/bin/mpirun -np $np $nolocal $machine ./$executable -snes_mf $options"
 else
-   executable="$time ./$executable $options"
+   executable="./$executable $options"
 fi
 
 if [ "$tar" = "t" ]
