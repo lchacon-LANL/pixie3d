@@ -61,7 +61,7 @@ c Namelist
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,k_si,solve_rho,advect
-     .                ,inputfile,recordfile
+     .                ,inputfile,recordfile,equ_file
 
 c ******************************************************************
 
@@ -212,6 +212,7 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       debug    = .false.       ! Debugging flag
       inputfile  ='pixie3d.in' ! Default input file
       recordfile ='record.bin' ! Default output file
+      equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
 
 c Read initialization parameters
 
@@ -225,7 +226,6 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         nu  = sqrt(prndtl)/hrtmn
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
-
 
 c Find alpha_p
 
@@ -320,6 +320,8 @@ c Call variables
 
 c Local variables
 
+      integer(4) :: i
+
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0
      .                   ,iplot,jplot,kplot
@@ -334,6 +336,8 @@ c Graphics defaults
 
       ndplot = 0
       dplot  = 0d0
+
+      sel_graph = (/ (i,i=1,xdraw_cont_lim) /)
 
 c Read graphics initialization parameters
 
