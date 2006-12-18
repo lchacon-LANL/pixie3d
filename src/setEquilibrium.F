@@ -48,6 +48,7 @@ c Call variables
 c Local variables
 
       integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh
+
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
       logical       :: covariant,to_cartsn,cartsn,a_bc
@@ -746,7 +747,7 @@ c     Equilibria (numerical)
         write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
         !Read file
-        open (unit=1000,file='pixie3d.equ',status='old')
+        open (unit=1000,file=trim(equ_file),status='old')
 
         read(1000,'(a)')
         do i=0,nxdp
@@ -860,7 +861,7 @@ c     Equilibria (numerical)
         write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
         !Read file
-        open (unit=1000,file='pixie3d.equ',status='old')
+        open (unit=1000,file=trim(equ_file),status='old')
 
         read(1000,'(a)')
         do i=0,nxdp
@@ -1252,6 +1253,50 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
      .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
+#if defined(vmec)
+
+      case ('vmec')
+
+        mm = grid_params%params(1)
+        nn = grid_params%params(2)
+
+        RR = 1d0   !To avoid affecting q-profile
+
+        kk = 0d0   !To avoid affecting q-profile
+
+c     Check coordinates
+
+        if (coords /= 'vmc') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Read VMEC equilibrium
+
+        nh2 =  mm       !To set the right perturbation wavelength
+        nh3 = -nn       !To set the right perturbation wavelength
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+#if !defined(vec_pot)
+        call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
+     .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
+#else
+        call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
+     .                            ,b(:,:,:,3),var(:,:,:,ITMP))
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+#endif
       case default
 
         messg = 'Equilibrium '//trim(equil)//' undefined'
@@ -1404,7 +1449,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ig,jg,kg,i,j,k,bcnd(6,3)
+      integer(4) :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
       real(8)    :: x1,y1,z1
       real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
@@ -1559,67 +1604,67 @@ c Begin program
 
 c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
 
-      call findScalarPotential(v
-     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-     .                        ,phi)
+cc      call findScalarPotential(v
+cc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+cc     .                        ,phi)
 
 c Find vector potential with gauge Ax = 0 in GLOBAL domain
 
-      a(:,:,:,1)=0d0  !Gauge
+cc      a(:,:,:,1)=0d0  !Gauge
+cc
+cc      a(0,0,:,3)=0d0
+cc
+cc      i = 0
+cc
+cccc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+cc      spoint = .false.
+cc
+cc      do j=1,nyd+1
+cc        dyy = grid_params%yg(j)-grid_params%yg(j-1)
+cc
+cc        if (spoint) then  !r=0 face
+cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
+cc     .                                         +b(i  ,j  ,:,1)
+cc     .                                         +b(i+1,j-1,:,1)
+cc     .                                         +b(i+1,j  ,:,1))
+cc        else
+cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
+cc     .                                         +b(i,j  ,:,1))
+cc        endif
+cc      enddo
+cc
+cc      a(0,:,:,2)=0d0
+cc
+cc      do i=1,nxd+1
+cc        if (spoint) then
+cc
+cc          dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
+cc
+cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+cc
+cc          if (isSP(i,1,1,igx,igy,igz)) then
+cc            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
+cc          else
+cc            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
+cc          endif
+cc
+cc        else
+cc
+cc          dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc
+cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
+cc     .                                         +b(i  ,:,:,2))
+cc          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
+cc     .                                         +b(i  ,:,:,3))
+cc
+cc        endif
+cc      enddo
+cc
+cc      !Average from radial faces to nodes in SP coordinate systems
+cc      if (spoint) a(1:nxd+1,:,:,2:3) = 0.5*(a(1:nxd+1,:,:,2:3)
+cc     .                                     +a(0:nxd  ,:,:,2:3))
 
-      a(0,0,:,3)=0d0
-
-      i = 0
-
-cc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
-      spoint = .false.
-
-      do j=1,nyd+1
-        dyy = grid_params%yg(j)-grid_params%yg(j-1)
-
-        if (spoint) then  !r=0 face
-          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
-     .                                         +b(i  ,j  ,:,1)
-     .                                         +b(i+1,j-1,:,1)
-     .                                         +b(i+1,j  ,:,1))
-        else
-          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
-     .                                         +b(i,j  ,:,1))
-        endif
-      enddo
-
-      a(0,:,:,2)=0d0
-
-      do i=1,nxd+1
-        if (spoint) then
-
-          dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
-
-          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
-
-          if (isSP(i,1,1,igx,igy,igz)) then
-            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
-          else
-            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
-          endif
-
-        else
-
-          dxx = grid_params%xg(i)-grid_params%xg(i-1)
-
-          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
-     .                                         +b(i  ,:,:,2))
-          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
-     .                                         +b(i  ,:,:,3))
-
-        endif
-      enddo
-
-      !Average from radial faces to nodes in SP coordinate systems
-      if (spoint) a(1:nxd+1,:,:,2:3) = 0.5*(a(1:nxd+1,:,:,2:3)
-     .                                     +a(0:nxd  ,:,:,2:3))
-
-cc      call curl_inv(nx,ny,nz,igrid,igrid,igrid,b,a)
+      call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
 
 c Restrict solution to current domain
 
@@ -1636,10 +1681,9 @@ cc      where (bcnd == DEF) bcnd = EXT
       call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
 
-c Transform A to gauge phi+eta div(A)=0
+c Transform A to gauge div(A)=0
 
       !Find gauge transformation potential cai
-
       do k=klo,khi
         do j=jlo,jhi
           do i=ilo,ihi
@@ -1651,17 +1695,15 @@ c Transform A to gauge phi+eta div(A)=0
               dvol = 1d0
             endif
 
-            cai_rhs(ii)=-dvol*(phi(i,j,k)
-     .                        +eta*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                                ,a_cnv(:,:,:,1)
-     .                                ,a_cnv(:,:,:,2)
-     .                                ,a_cnv(:,:,:,3)))
+            cai_rhs(ii)=-dvol*(div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                            ,a_cnv(:,:,:,1)
+     .                            ,a_cnv(:,:,:,2)
+     .                            ,a_cnv(:,:,:,3)))
           enddo
         enddo
       enddo
 
       !Transform A (if rhs /= 0d0)
-
       if (sqrt(sum(cai_rhs*cai_rhs)) > 0d0) then
 
         !Solve Poisson problem to find Gauge potential cai
@@ -1681,8 +1723,8 @@ c Transform A to gauge phi+eta div(A)=0
         !Map to array (w BCs)
         call mapMGVectorToArray(0,1,caiv,nx,ny,nz,cai,igrid,.false.)
 
-        call setMGBC(0,1,nx,ny,nz,igrid,cai,bcnd,icomp=IRHO
-     .            ,is_vec=.false.,iorder=2)
+        call setBC(IRHO,nx,ny,nz,cai,zeros,bcnd(:,1),igrid,igrid,igrid
+     .            ,iorder=2)
 #endif
 
         !Gauge transformation A' = A + grad(cai)
@@ -1712,124 +1754,124 @@ c End program
 
       end subroutine findVectorPotential
 
-c findScalarPotential
-c####################################################################
-      subroutine findScalarPotential(v,b,phi)
-
-c--------------------------------------------------------------------
-c     Finds scalar equilibrium potential from equilibrium velocity and 
-c     magnetic fields, obeying the relation:
-c     
-c         lap(phi_0) = div(v0 x B0)
-c
-c     This automatically takes into account ExB flows at the boundary.
-c--------------------------------------------------------------------
-
-      use parameters
-
-      use grid
-
-      use equilibrium
-
-      use precond_variables
-
-      implicit none
-
-c Call variables
-
-      real(8)    :: v(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,b(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
-
-c Local variables
-
-      integer(4) :: igrid,ii,bcnd(6,1)
-      real(8)    :: phi_rhs(ntotdp),phiv(ntotdp),cov(3)
-     .             ,dum(ilom:ihip,jlom:jhip,klom:khip,3),dvol
-
-c Begin program
-
-      igrid = 1
-
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
-
-c Find rhs
-
-      do k=klom,khip
-        do j=jlom,jhip
-          do i=ilom,ihip
-            jac = gmetric%grid(igrid)%jac(i,j,k)
-
-            cov(1) = v(i,j,k,2)*b(i,j,k,3)
-     .             - v(i,j,k,3)*b(i,j,k,2)
-
-            cov(2) = v(i,j,k,3)*b(i,j,k,1)
-     .             - v(i,j,k,1)*b(i,j,k,3)
-
-            cov(3) = v(i,j,k,1)*b(i,j,k,2)
-     .             - v(i,j,k,2)*b(i,j,k,1)
-
-            cov = cov/jac
-
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-     .                                  ,cov(1),cov(2),cov(3)
-     .                                  ,dum(i,j,k,1)
-     .                                  ,dum(i,j,k,2)
-     .                                  ,dum(i,j,k,3),.true.)
-
-          enddo
-        enddo
-      enddo
-
-      do k=klo,khi
-        do j=jlo,jhi
-          do i=ilo,ihi
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-            if (vol_wgt) then
-              dvol = volume(i,j,k,igrid,igrid,igrid)
-            else
-              dvol = 1d0
-            endif
-
-            phi_rhs(ii) = dvol*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dum(:,:,:,1),dum(:,:,:,2),dum(:,:,:,3))
-          enddo
-        enddo
-      enddo
-
-c Solve for potential
-
-      if (sqrt(sum(phi_rhs*phi_rhs))>0d0) then
-
-#if defined(petsc)
-
-        call pstop('findScalarPotential'
-     .          ,'Poisson solver not implemented in parallel')
-
-#else
-
-        !Define BCs
-        bcnd(:,1) = bcond
-        where (bcnd == DEF) bcnd = DIR
-
-        !Solve Poisson eq
-        call poisson(ntotdp,phi_rhs,phiv,30,1d-6,bcnd,ilevel,0)
-
-        !Map to array (w/o BCs)
-        call mapMGVectorToArray(0,1,phiv,nx,ny,nz,phi,igrid,.false.)
-#endif
-
-      else
-
-        phi = 0d0
-
-      endif
-
-c End program
-
-      end subroutine findScalarPotential
+ccc findScalarPotential
+ccc####################################################################
+cc      subroutine findScalarPotential(v,b,phi)
+cc
+ccc--------------------------------------------------------------------
+ccc     Finds scalar equilibrium potential from equilibrium velocity and 
+ccc     magnetic fields, obeying the relation:
+ccc     
+ccc         lap(phi_0) = div(v0 x B0)
+ccc
+ccc     This automatically takes into account ExB flows at the boundary.
+ccc--------------------------------------------------------------------
+cc
+cc      use parameters
+cc
+cc      use grid
+cc
+cc      use equilibrium
+cc
+cc      use precond_variables
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      real(8)    :: v(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .             ,b(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
+cc
+ccc Local variables
+cc
+cc      integer(4) :: igrid,ii,bcnd(6,1)
+cc      real(8)    :: phi_rhs(ntotdp),phiv(ntotdp),cov(3)
+cc     .             ,dum(ilom:ihip,jlom:jhip,klom:khip,3),dvol
+cc
+ccc Begin program
+cc
+cc      igrid = 1
+cc
+cc      nx = grid_params%nxv(igrid)
+cc      ny = grid_params%nyv(igrid)
+cc      nz = grid_params%nzv(igrid)
+cc
+ccc Find rhs
+cc
+cc      do k=klom,khip
+cc        do j=jlom,jhip
+cc          do i=ilom,ihip
+cc            jac = gmetric%grid(igrid)%jac(i,j,k)
+cc
+cc            cov(1) = v(i,j,k,2)*b(i,j,k,3)
+cc     .             - v(i,j,k,3)*b(i,j,k,2)
+cc
+cc            cov(2) = v(i,j,k,3)*b(i,j,k,1)
+cc     .             - v(i,j,k,1)*b(i,j,k,3)
+cc
+cc            cov(3) = v(i,j,k,1)*b(i,j,k,2)
+cc     .             - v(i,j,k,2)*b(i,j,k,1)
+cc
+cc            cov = cov/jac
+cc
+cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+cc     .                                  ,cov(1),cov(2),cov(3)
+cc     .                                  ,dum(i,j,k,1)
+cc     .                                  ,dum(i,j,k,2)
+cc     .                                  ,dum(i,j,k,3),.true.)
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      do k=klo,khi
+cc        do j=jlo,jhi
+cc          do i=ilo,ihi
+cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc            if (vol_wgt) then
+cc              dvol = volume(i,j,k,igrid,igrid,igrid)
+cc            else
+cc              dvol = 1d0
+cc            endif
+cc
+cc            phi_rhs(ii) = dvol*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,dum(:,:,:,1),dum(:,:,:,2),dum(:,:,:,3))
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc Solve for potential
+cc
+cc      if (sqrt(sum(phi_rhs*phi_rhs))>0d0) then
+cc
+cc#if defined(petsc)
+cc
+cc        call pstop('findScalarPotential'
+cc     .          ,'Poisson solver not implemented in parallel')
+cc
+cc#else
+cc
+cc        !Define BCs
+cc        bcnd(:,1) = bcond
+cc        where (bcnd == DEF) bcnd = DIR
+cc
+cc        !Solve Poisson eq
+cc        call poisson(ntotdp,phi_rhs,phiv,30,1d-6,bcnd,ilevel,0)
+cc
+cc        !Map to array (w/o BCs)
+cc        call mapMGVectorToArray(0,1,phiv,nx,ny,nz,phi,igrid,.false.)
+cc#endif
+cc
+cc      else
+cc
+cc        phi = 0d0
+cc
+cc      endif
+cc
+ccc End program
+cc
+cc      end subroutine findScalarPotential
 
 
