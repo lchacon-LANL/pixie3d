@@ -460,6 +460,11 @@ c     Local variables
         real(8), allocatable, dimension(:,:,:,:) :: vector,vel
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
 
+c     Debug
+
+        real(8),allocatable,dimension(:,:,:) :: debug2
+        character(13) :: debugfile
+
 c     Begin program
 
         nxx = grid_params%nxv(igx)
@@ -484,25 +489,25 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
 
 cc        call restrict_B(.true.)
 
-cc        write (*,*) 'DIAG -- findCoeffs'
-
         gb0%grid(igrid)%array(:,:,:,1) = bx
         gb0%grid(igrid)%array(:,:,:,2) = by
         gb0%grid(igrid)%array(:,:,:,3) = bz
 
+        call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
+
+c diag ****
+cc        write (*,*) 'DIAG -- findCoeffs'
+cc
 cc        gb0%grid(igrid)%array(:,:,:,1) = 0d0
 cc        gb0%grid(igrid)%array(:,:,:,2) = 0d0
 cc        gb0%grid(igrid)%array(:,:,:,3) = 1d0
-
-        call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
-
-cc        write (*,*) gb0%grid(2)%array(:,:,:,3)
-cc        stop
+cc
 cc        do igr=1,grid_params%ngrid
 cc          gb0%grid(igr)%array(:,:,:,1) = 0d0
 cc          gb0%grid(igr)%array(:,:,:,2) = 0d0
 cc          gb0%grid(igr)%array(:,:,:,3) = 1d0
 cc        enddo
+c diag ****
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
@@ -510,18 +515,22 @@ c     Store magnetic field cov components in all grids (w/ BCs)
         gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
         gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
 
-cc        gb0_cov%grid(igrid)%array(:,:,:,1) = 0d0
-cc        gb0_cov%grid(igrid)%array(:,:,:,2) = 0d0
-cc        gb0_cov%grid(igrid)%array(:,:,:,3) = 1d0
-
         call restrictMGArray(IBX,3,gb0_cov,bcs(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
 
+c diag ****
+cc        write (*,*) 'DIAG -- findCoeffs'
+cc
+cc        gb0_cov%grid(igrid)%array(:,:,:,1) = 0d0
+cc        gb0_cov%grid(igrid)%array(:,:,:,2) = 0d0
+cc        gb0_cov%grid(igrid)%array(:,:,:,3) = 1d0
+cc
 cc        do igr=1,grid_params%ngrid
 cc          gb0_cov%grid(igr)%array(:,:,:,1) = 0d0
 cc          gb0_cov%grid(igr)%array(:,:,:,2) = 0d0
 cc          gb0_cov%grid(igr)%array(:,:,:,3) = 1d0
 cc        enddo
+c diag ****
 
 c     Store ion velocity components in all grids (w/ BCs)
 
@@ -529,17 +538,21 @@ c     Store ion velocity components in all grids (w/ BCs)
         gv0%grid(igrid)%array(:,:,:,2) = vy
         gv0%grid(igrid)%array(:,:,:,3) = vz
 
+        call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
+
+c diag ****
+cc        write (*,*) 'DIAG -- findCoeffs'
+cc
 cc        gv0%grid(igrid)%array(:,:,:,1) = 0d0
 cc        gv0%grid(igrid)%array(:,:,:,2) = 0d0
 cc        gv0%grid(igrid)%array(:,:,:,3) = 0d0
-
-        call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
-
+cc
 cc        do igr=1,grid_params%ngrid
 cc          gv0%grid(igr)%array(:,:,:,1) = 0d0
 cc          gv0%grid(igr)%array(:,:,:,2) = 0d0
 cc          gv0%grid(igr)%array(:,:,:,3) = 0d0
 cc        enddo
+c diag ****
 
 c     Store current components in all grids (w/o BCs)
 
@@ -627,6 +640,54 @@ cc              divrgV(i,j,k) = 0d0
         enddo
 
         deallocate(vector,vel,tensor)
+
+c diag ****
+cc      write (*,*) 'DIAG -- findCoeffs'
+cc
+cc      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
+cc      open(unit=110,file=debugfile,form='unformatted'
+cc     .    ,status='replace')
+cc
+cc      igx = 2
+cc      k = 2
+cc
+cc      nx = grid_params%nxv(igx)
+cc      ny = grid_params%nyv(igx)
+cc      nz = grid_params%nzv(igx)
+cc      allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
+cc
+cc      do ieq=1,3
+cc        debug2 = gb0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .              ,lxmin,lxmax,lymin,lymax,ieq-1,110)
+cc      enddo
+cc
+cc      do ieq=1,3
+cc        debug2 = gb0_cov%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .              ,lxmin,lxmax,lymin,lymax,1,110)
+cc      enddo
+cc
+cc      do ieq=1,3
+cc        debug2 = gv0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .              ,lxmin,lxmax,lymin,lymax,1,110)
+cc      enddo
+cc
+cc      debug2 = grho0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .            ,lxmin,lxmax,lymin,lymax,1,110)
+cc
+cc      debug2 = gp0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .            ,lxmin,lxmax,lymin,lymax,1,110)
+cc
+cc      deallocate(debug2)
+cc      close(110)
+cc
+cc      call PetscEnd(mpierr)
+cc      stop
+c diag ****
 
 c     End program
 
