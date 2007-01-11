@@ -163,6 +163,8 @@ c Local variables
 
       real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
 
+      real(8),allocatable,dimension(:,:,:,:) :: v0
+
 c Begin program
 
       order = 2   !Order of extrapolation in BCs
