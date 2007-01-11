@@ -319,7 +319,6 @@ c Local variables
 
       integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
       integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
-      integer(4) :: iimin,iimax,jjmin,jjmax,kkmin,kkmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 
@@ -411,7 +410,6 @@ c Local variables
 
       integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
       integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
-      integer(4) :: iimin,iimax,jjmin,jjmax,kkmin,kkmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
