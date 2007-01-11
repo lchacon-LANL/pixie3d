@@ -1100,17 +1100,28 @@ c     --------------------------------------------------------------
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3))
 #endif
 
+        character(10) :: solf,resf,rhsf,crsf,fldf,divf
+
 c     Begin program
+
+c     Create output files
+
+        solf='sol_p'//trim(int2char(my_rank))//'.bin'
+        resf='res_p'//trim(int2char(my_rank))//'.bin'
+        rhsf='rhs_p'//trim(int2char(my_rank))//'.bin'
+        crsf='crs_p'//trim(int2char(my_rank))//'.bin'
+        fldf='fld_p'//trim(int2char(my_rank))//'.bin'
+        divf='div_p'//trim(int2char(my_rank))//'.bin'
+
+c     Dump graphics
 
         allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
-      if (my_rank == 0) then
-
         !Solution plot
-        call MGplot(neqd,x,igrid,0,'sol.bin')
+        call MGplot(neqd,x,igrid,0,solf)
 
         !Predictor RHS plot
-        call MGplot(neqd,y,igrid,0,'rhs.bin')
+        call MGplot(neqd,y,igrid,0,rhsf)
 
         !Residual plot
 #if !defined(petsc)
@@ -1118,24 +1129,31 @@ c     Begin program
 #else
         rr = 0d0
 #endif
-        mag0 = sqrt(sum(y*y))
+        mag0 = sqrt(dot(ntot,y,y))
         y = y - rr
-        mag = sqrt(sum(y*y))
-        write (*,*) 'abs res=',mag,', rel res=',mag/mag0
-        call MGplot(neqd,y,igrid,0,'res.bin')
+        mag  = sqrt(dot(ntot,y,y))
+        call MGplot(neqd,y,igrid,0,resf)
+
+        if (my_rank == 0) then
+           write (*,*)
+           write (*,*) 'LINEAR RESIDUAL'
+           write (*,*) 'abs res=',mag
+           write (*,*) 'abs res (per node)=',mag/ntot
+     $                ,', rel res=',mag/mag0
+        endif
 
         !Individual residual eqs
         call scatter(yyy,y)
         do ieq=1,neqd
-          mag = sqrt(sum(yyy(:,ieq)**2))
-          write (*,*) 'Res. eqn',ieq,':',mag
+          mag = sqrt(dot(ntotdp,yyy(:,ieq),yyy(:,ieq)))
+          if (my_rank == 0) write (*,*) 'Res. eqn',ieq,':',mag
         enddo
 
         !Corrector rhs plot
         if (si_car) call XtoCurv(igrid,rhspc(:,IVX:IVZ))
 
         call gather(rr,rhspc)
-        call MGplot(neqd,rr,igrid,0,'cor_rhs.bin')
+        call MGplot(neqd,rr,igrid,0,crsf)
 
         !Vector components plot
 #if !defined(vec_pot)
@@ -1171,28 +1189,28 @@ c     Begin program
         call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
      .                ,2,is_vec=.true.,is_cnv=.true.)
 
-        open(unit=110,file='fields.bin',form='unformatted'
+        open(unit=110,file=fldf,form='unformatted'
      .     ,status='replace')
-        call contour(dv_cnv(0:nx+1,1:ny,1,1),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,0,110)
-        call contour(dv_cnv(0:nx+1,1:ny,1,2),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
-        call contour(dv_cnv(0:nx+1,1:ny,1,3),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,0,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
 #if !defined(vec_pot)
-        call contour(db_cnv(0:nx+1,1:ny,1,1),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
-        call contour(db_cnv(0:nx+1,1:ny,1,2),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
-        call contour(db_cnv(0:nx+1,1:ny,1,3),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
 #else
-        call contour(da_cov(0:nx+1,1:ny,1,1),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
-        call contour(da_cov(0:nx+1,1:ny,1,2),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
-        call contour(da_cov(0:nx+1,1:ny,1,3),nx+2,ny,0d0
-     .              ,xmax,0d0,ymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
+     .              ,lxmax,lymin,lymax,1,110)
 #endif
         close(110)
 
@@ -1210,19 +1228,17 @@ c     Begin program
           enddo
         enddo
 
-        mag = sqrt(sum(dbg**2))
-        write (*,*) 'L-2 norm of div(dB)',mag
+        mag = sqrt(dot(ntotdp,dbg,dbg))
+        if (my_rank == 0) write (*,*) 'L-2 norm of div(dB)',mag
 
-        open(unit=110,file='divB.bin',form='unformatted'
-     .       ,status='replace')
-        call contour(dbg(:,:,1,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
+        open(unit=110,file=divf,form='unformatted',status='replace')
+        call contour(dbg(:,:,1,1),nx,ny,lxmin,lxmax,lymin,lymax
+     .              ,0,110)
         close(110)
 
         deallocate(dbg)
 
-      endif
-
-      call pstop('PCdiagnostics','Finished PC diagnostics')
+        call pstop('PCdiagnostics','Finished PC diagnostics')
 
       end subroutine PCdiagnostics
 
