@@ -22,10 +22,10 @@ c####################################################################
 
       end module local_BCS_variables
 
-c     scalarDirichletBC
-c     #################################################################
+c scalarDirichletBC
+c #####################################################################
       subroutine scalarDirichletBC(array,array0,ieq,dim,loc,order)
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
@@ -33,7 +33,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c     This routine fills up the bi-dimensional array rhs, which 
 c     contains the right hand side of the Dirichlet BC.
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
 
       use local_BCS_variables
 
@@ -55,10 +55,10 @@ c     End program
 
       end subroutine scalarDirichletBC
 
-c     vectorDirichletBC
-c     #################################################################
+c vectorDirichletBC
+c #####################################################################
       subroutine vectorDirichletBC(ivar,array,array0,ieq,dim,loc,order)
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
@@ -66,7 +66,7 @@ c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
 c     This routine fills up the bi-dimensional array rhs, which 
 c     contains the right hand side of the Dirichlet BC.
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
         
       use local_BCS_variables, jac_mod=>jac0,gsup_mod=>gsuper
 
@@ -299,10 +299,10 @@ c     End program
 
       end subroutine vectorDirichletBC
 
-c     scalarNeumannBC
-c     #################################################################
+c scalarNeumannBC
+c #####################################################################
       subroutine scalarNeumannBC(array,ieq,dim,loc)
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
 c        * array -> variable upon which BCs are imposed
 c        * ieq -> equation number (i.e., vector component)
@@ -310,7 +310,7 @@ c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
 c     This routine fills up the bi-dimensional array rhs, which 
 c     contains the right hand side of the Neumann BC.
-c     -----------------------------------------------------------------
+c ---------------------------------------------------------------------
 
       use local_BCS_variables, jac_mod=>jac0,gsup_mod=>gsuper
 
@@ -335,7 +335,7 @@ c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
 
-      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
@@ -511,8 +511,8 @@ c     End program
 
       end subroutine scalarNeumannBC
 
-c     vectorNeumannBC
-c     #################################################################
+c vectorNeumannBC
+c #####################################################################
       subroutine vectorNeumannBC(ivar,array,ieq,dim,loc)
 c     -----------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
@@ -550,7 +550,7 @@ c     Begin program
 
       rhs = 0d0
 
-      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
