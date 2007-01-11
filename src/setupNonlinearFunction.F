@@ -203,12 +203,6 @@ cc     .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
       bcnd(:,2) = varray%array_var(IAY)%bconds
       bcnd(:,3) = varray%array_var(IAZ)%bconds
 
-#if defined(petsc) 
-      do ieq=1,3
-        call fillPetscGhostCells(vlap_a(:,:,:,ieq),igx)
-      enddo
-#endif
-
       call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
      .          ,iorder=2,is_cnv=.false.)
 
