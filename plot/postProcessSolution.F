@@ -101,22 +101,6 @@ c Find Cartesian components of ALL vectors
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
 
-cc      !Cylindrical coordinates
-cc      do k = 0,nz+1
-cc        do i = 0,nx+1
-cc          do j = 0,ny+1
-cc            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc            vr  = vx_car(i,j,k)*cos(y1)+vy_car(i,j,k)*sin(y1)
-cc            vth =-vx_car(i,j,k)*sin(y1)+vy_car(i,j,k)*cos(y1)
-cc
-cc            vx_car(i,j,k) = vr
-cc            vy_car(i,j,k) = vth
-cc          enddo
-cc        enddo
-cc      enddo
-
 #if defined(vec_pot)
       !Cartesian A components
       covariant = .true.
@@ -142,8 +126,6 @@ cc      enddo
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,covariant,to_cartsn)
 
-cc      bz = bz/gmetric%grid(igx)%jac(:,:,:)
-
 c Electron velocity
 
       vex = vx - di*jx/rho
@@ -156,22 +138,15 @@ c Poloidal flux diagnostics
       do k = 0,nz+1
         do i = 0,nx+1
           j = 0
-cc      do k = kming,kmaxg
-cc        do i = iming,imaxg
-cc          j = jming
           call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc          if (i == iming) then
           if (i == 0) then
             Pflux(i,j,k) = 0d0
           else
-cc            Pflux(i,j,k) = Pflux(i-1,j,k) - by(i,j,k)*dxh(ig)
             Pflux(i,j,k) = Pflux(i-1,j,k)
      .                   - 0.5*(by(i-1,j,k)+by(i,j,k))*dx(ig-1)
           endif
-cc          do j = jming+1,jmaxg
           do j = 1,ny+1
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc            Pflux(i,j,k) = Pflux(i,j-1,k) + bx(i,j,k)*dyh(jg)
             Pflux(i,j,k) = Pflux(i,j-1,k)
      .                   + 0.5*(bx(i,j-1,k)+bx(i,j,k))*dy(jg-1)
           enddo
@@ -182,7 +157,6 @@ cc            Pflux(i,j,k) = Pflux(i,j-1,k) + bx(i,j,k)*dyh(jg)
       where (bcs == DEF) bcs = EXT
 
       call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
-
 #else
       Pflux = az
 #endif
