@@ -1,4 +1,3 @@
-
 c module equilibrium
 c ######################################################################
       module equilibrium
@@ -709,6 +708,7 @@ c        3 -> QUICK,
 c        4 -> SMART,
 c        5 -> smooth SMART,
 c        6 -> centered high-order
+c        8 -> Gamma
 c     ---------------------------------------------------------------
 
 c     Call variables
@@ -1024,6 +1024,7 @@ c       * advect = 3 => High-order upwind (QUICK)
 c       * advect = 4 => Monotone high-order upwind (SMART)
 c       * advect = 5 => SMART with smooth transition
 c       * advect = 6 => Centered, high-order
+c       * advect = 8 => Gamma (modification of SMART)
 c
 c     Convention:
 c
@@ -1163,6 +1164,30 @@ c     Smooth SMART
 c     Centered high-order
 
         inter = (-q4 + 9.*q3 + 9.*q2 - q1)/16.
+
+cc      case(8)
+cc
+ccc     Gamma [Jasak, Weller, and Gosman, Int. J. Numer. Meth. Fluids, 32, p431 (1999)]
+cc
+cc        slp1 = 1.5
+cc        slp2 = .5
+cc        if (vel.gt.0d0) then
+cc          curv = ((q2-q3)/(x2-x3)-(q3-q4)/(x3-x4))/0.5/(x2-x4)
+cc          qt1 = 0.5*(q2+q3) - 0.125*curv*(x2-x3)**2
+cccc          qt1 = 3.*q2/8. + 3.*q3/4.- q4/8.
+cc          qt2 = slp1*q3 + (1.-slp1)*q4
+cc          qt3 = slp2*q3 + (1.-slp2)*q2
+cc          qt4 = fmed(q3,qt2,qt3)
+cc          inter = fmed(q3,qt4,qt1)
+cc        else
+cc          curv = ((q1-q2)/(x1-x2)-(q2-q3)/(x2-x3))/0.5/(x1-x3)
+cc          qt1 = 0.5*(q2+q3) - 0.125*curv*(x2-x3)**2
+cccc          qt1 = 3.*q3/8. + 3.*q2/4.- q1/8.
+cc          qt2 = slp1*q2 + (1.-slp1)*q1
+cc          qt3 = slp2*q2 + (1.-slp2)*q3
+cc          qt4 = fmed(q2,qt2,qt3)
+cc          inter = fmed(q2,qt4,qt1)
+cc        endif
 
       end select
 
@@ -6237,7 +6262,7 @@ c ######################################################################
 
         real(8) :: max_dv_dt
 
-        logical :: solve_rho=.true.
+        logical :: solve_rho=.true.,sym_st=.false.
 
       contains
 
@@ -6779,7 +6804,7 @@ c     Call variables
 c     Local variables
 
         integer(4) :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
-        real(8)    :: x,y,z,vxp,qip,ph
+        real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
 
 c     Begin program
@@ -6916,20 +6941,30 @@ c       Diffusive part
 cc        vis = 2./(1./nuu(ip,j,k) + 1./nuu(i ,j,k))
         vis = 2.*nuu(ip,j,k)*nuu(i,j,k)/(nuu(ip,j,k) + nuu(i,j,k))
 
-        t11 = t11
-     .       -vis*( gsuper(1,1)*nabla_v(1,1)
-     .             +gsuper(1,2)*nabla_v(2,1)
-     .             +gsuper(1,3)*nabla_v(3,1) )
+        nabla_v_cnv = matmul(gsuper,nabla_v)
 
-        t12 = t12
-     .       -vis*( gsuper(1,1)*nabla_v(1,2)
-     .             +gsuper(1,2)*nabla_v(2,2)
-     .             +gsuper(1,3)*nabla_v(3,2) )
+        if (sym_st) then
+          nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        endif
 
-        t13 = t13
-     .       -vis*( gsuper(1,1)*nabla_v(1,3)
-     .             +gsuper(1,2)*nabla_v(2,3)
-     .             +gsuper(1,3)*nabla_v(3,3) )
+        t11 = t11 - vis*nabla_v_cnv(1,1)
+        t12 = t12 - vis*nabla_v_cnv(1,2)
+        t13 = t13 - vis*nabla_v_cnv(1,3)
+
+cc        t11 = t11
+cc     .       -vis*( gsuper(1,1)*nabla_v(1,1)
+cc     .             +gsuper(1,2)*nabla_v(2,1)
+cc     .             +gsuper(1,3)*nabla_v(3,1) )
+cc
+cc        t12 = t12
+cc     .       -vis*( gsuper(1,1)*nabla_v(1,2)
+cc     .             +gsuper(1,2)*nabla_v(2,2)
+cc     .             +gsuper(1,3)*nabla_v(3,2) )
+cc
+cc        t13 = t13
+cc     .       -vis*( gsuper(1,1)*nabla_v(1,3)
+cc     .             +gsuper(1,2)*nabla_v(2,3)
+cc     .             +gsuper(1,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
@@ -6973,7 +7008,7 @@ c     Call variables
 c     Local variables
 
         integer(4) :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
-        real(8)    :: x,y,z,vyp,qjp,ph
+        real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vis
 
 c     Begin program
@@ -7091,20 +7126,30 @@ c       Diffusive part
 cc        vis = 2./(1./nuu(i,jp,k) + 1./nuu(i,j ,k))
         vis = 2.*nuu(i,jp,k)*nuu(i,j,k)/(nuu(i,jp,k) + nuu(i,j,k))
 
-        t21 = t21
-     .       -vis*( gsuper(2,1)*nabla_v(1,1)
-     .             +gsuper(2,2)*nabla_v(2,1)
-     .             +gsuper(2,3)*nabla_v(3,1) )
+cc        t21 = t21
+cc     .       -vis*( gsuper(2,1)*nabla_v(1,1)
+cc     .             +gsuper(2,2)*nabla_v(2,1)
+cc     .             +gsuper(2,3)*nabla_v(3,1) )
+cc
+cc        t22 = t22
+cc     .       -vis*( gsuper(2,1)*nabla_v(1,2)
+cc     .             +gsuper(2,2)*nabla_v(2,2)
+cc     .             +gsuper(2,3)*nabla_v(3,2) )
+cc
+cc        t23 = t23
+cc     .       -vis*( gsuper(2,1)*nabla_v(1,3)
+cc     .             +gsuper(2,2)*nabla_v(2,3)
+cc     .             +gsuper(2,3)*nabla_v(3,3) )
 
-        t22 = t22
-     .       -vis*( gsuper(2,1)*nabla_v(1,2)
-     .             +gsuper(2,2)*nabla_v(2,2)
-     .             +gsuper(2,3)*nabla_v(3,2) )
+        nabla_v_cnv = matmul(gsuper,nabla_v)
 
-        t23 = t23
-     .       -vis*( gsuper(2,1)*nabla_v(1,3)
-     .             +gsuper(2,2)*nabla_v(2,3)
-     .             +gsuper(2,3)*nabla_v(3,3) )
+        if (sym_st) then
+          nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        endif
+
+        t21 = t21 - vis*nabla_v_cnv(2,1)
+        t22 = t22 - vis*nabla_v_cnv(2,2)
+        t23 = t23 - vis*nabla_v_cnv(2,3)
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -7148,7 +7193,7 @@ c     Call variables
 c     Local variables
 
         integer(4) :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
-        real(8)    :: x,y,z,vzp,qkp,ph
+        real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vis
 
 c     Begin program
@@ -7266,20 +7311,29 @@ c       Diffusive part
 cc        vis = 2./(1./nuu(i,j,kp) + 1./nuu(i,j,k ))
         vis = 2.*nuu(i,j,kp)*nuu(i,j,k)/(nuu(i,j,kp) + nuu(i,j,k))
 
-        t31 = t31
-     .       -vis*( gsuper(3,1)*nabla_v(1,1)
-     .             +gsuper(3,2)*nabla_v(2,1)
-     .             +gsuper(3,3)*nabla_v(3,1) )
+cc        t31 = t31
+cc     .       -vis*( gsuper(3,1)*nabla_v(1,1)
+cc     .             +gsuper(3,2)*nabla_v(2,1)
+cc     .             +gsuper(3,3)*nabla_v(3,1) )
+cc
+cc        t32 = t32
+cc     .       -vis*( gsuper(3,1)*nabla_v(1,2)
+cc     .             +gsuper(3,2)*nabla_v(2,2)
+cc     .             +gsuper(3,3)*nabla_v(3,2) )
+cc
+cc        t33 = t33
+cc     .       -vis*( gsuper(3,1)*nabla_v(1,3)
+cc     .             +gsuper(3,2)*nabla_v(2,3)
+cc     .             +gsuper(3,3)*nabla_v(3,3) )
 
-        t32 = t32
-     .       -vis*( gsuper(3,1)*nabla_v(1,2)
-     .             +gsuper(3,2)*nabla_v(2,2)
-     .             +gsuper(3,3)*nabla_v(3,2) )
+        nabla_v_cnv = matmul(gsuper,nabla_v)
+        if (sym_st) then
+          nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        endif
 
-        t33 = t33
-     .       -vis*( gsuper(3,1)*nabla_v(1,3)
-     .             +gsuper(3,2)*nabla_v(2,3)
-     .             +gsuper(3,3)*nabla_v(3,3) )
+        t31 = t31 - vis*nabla_v_cnv(3,1)
+        t32 = t32 - vis*nabla_v_cnv(3,2)
+        t33 = t33 - vis*nabla_v_cnv(3,3)
 
         if (flag /= 0) then
           ijac = 1d0/jac
