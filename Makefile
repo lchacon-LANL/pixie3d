@@ -24,6 +24,10 @@
 PETSC_DIR =/usr/local/petsc-2.2.0
 HDF5_HOME =/usr/local/hdf5/parallel/f90_
 
+ifndef HOST
+   HOST = `hostname`
+endif
+
 #Define compiler flags
 
 FC = f90
@@ -37,10 +41,6 @@ ifeq ($(FC),f90)
   STATIC       = -s
   MODFLAG      = -p
   ADDMODFLAG   = -p
-  FFLAGS       = -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
-  LDFLAGS      = -lU77
-  LIBS        += -llapack -lblas
-#  LIBS        += -llapack_f90 -lblas_f90
   VERBOSE      = -v
   RELEASE      = absoft
 
@@ -50,6 +50,15 @@ ifeq ($(FC),f90)
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
     RELEASE      = absoft_
+  else
+    FFLAGS       = -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+    LDFLAGS      = -lU77 
+#    ifeq ($(HOST),nip.lanl.gov)
+#      LIBS      += -llapack -lblas -lg2c 
+#    else
+#      LIBS      += -llapack -lblas
+#    endif
+     LIBS      += -llapack_f90_ -lblas_f90_
   endif
 
   HDF5 = true
@@ -65,10 +74,6 @@ ifeq ($(FC),lf95)
   STATIC       = 
   MODFLAG      = -M
   ADDMODFLAG   = -I
-  FFLAGS      += -X9
-  LDFLAGS      = -lf2c
-#  LIBS         = -llapackmt -lblasmt
-  LIBS         = -llapack -lblas
   VERBOSE      = --verbose
   RELEASE      = lahey
 
@@ -78,6 +83,15 @@ ifeq ($(FC),lf95)
     PETSC_ARCH = linux_lahey
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
+  else
+    FFLAGS    += -X9
+    LDFLAGS    = -lf2c
+    ifeq ($(HOST),nip.lanl.gov)
+      LIBS      += -llapack -lblas -lg2c
+    else
+      LIBS      += -llapack -lblas
+    endif
+#    LIBS       = -llapackmt -lblasmt
   endif
 endif
 
@@ -90,10 +104,6 @@ ifeq ($(FC),ifort)
   STATIC       =
   MODFLAG      = -I
   ADDMODFLAG   = -I
-  FFLAGS      += -vec_report0 -w
-  LDFLAGS      = 
-  LIBS         = -llapack -lblas -lf2c
-#  LIBS         = -llapack_intel -lblas_intel
   VERBOSE      = -v
   RELEASE      = intel
 
@@ -103,6 +113,15 @@ ifeq ($(FC),ifort)
     PETSC_ARCH = linux_intel
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
+  else
+    FFLAGS      += -vec_report0 -w
+    LDFLAGS      = 
+    ifeq ($(HOST),nip.lanl.gov)
+      LIBS      += -llapack -lblas -lg2c
+    else
+      LIBS      += -llapack -lblas
+    endif
+#    LIBS         = -llapack_intel -lblas_intel
   endif
 endif
 
@@ -115,9 +134,6 @@ ifeq ($(FC),g95)
   STATIC       =
   MODFLAG      = -I
   ADDMODFLAG   = -I
-  FFLAGS      += 
-  LIBS         = -llapack -lblas -lg2c
-#  LIBS         = -llapack_intel -lblas_intel
   VERBOSE      = -v
   RELEASE      = g95
 
@@ -127,6 +143,13 @@ ifeq ($(FC),g95)
     PETSC_ARCH = linux_intel
     include ${PETSC_DIR}/bmake/common/base
     FC         = $(MPI_HOME)/bin/mpif90
+  else
+    FFLAGS      += 
+    ifeq ($(HOST),nip.lanl.gov)
+      LIBS      += -llapack -lblas -lg2c
+    else
+      LIBS      += -llapack -lblas
+    endif
   endif
 endif
 
