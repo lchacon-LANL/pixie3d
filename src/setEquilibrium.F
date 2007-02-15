@@ -1267,7 +1267,7 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 c     Check coordinates
 
         if (coords /= 'vmc') then
-          messg = 'Wrong coordinates for equilibrium '//equil
+          messg = 'Need "vmc" coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
 
@@ -1287,6 +1287,25 @@ c     Read VMEC equilibrium
 #if !defined(vec_pot)
         call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
+
+        !Divergence clean
+        call curl_inv(nx,ny,nz,igx,igy,igz,var(:,:,:,IBX:IBZ),a)
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+cc              var(i,j,k,IBX:IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                               ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3))
+              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+              var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
+            enddo
+          enddo
+        enddo
+
 #else
         call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
      .                            ,b(:,:,:,3),var(:,:,:,ITMP))
@@ -1484,7 +1503,7 @@ c Begin program
             do i = ilom,ihip
 
               call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+     .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda
