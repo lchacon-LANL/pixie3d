@@ -20,4 +20,5 @@ SUBDIRS = $(COMMONDIR)/math\
 LNK_FILES = applyBoundaryConditions.F\
 	    imposeBC_mod.F\
 	    mhd_mod.F\
-	    readInput.F             
+	    readInput.F\
+            vmec.f90 
