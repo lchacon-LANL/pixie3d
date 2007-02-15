@@ -260,6 +260,9 @@ c       Heat sources
         nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
 
         cov_tnsr = matmul(nabla_v,gsub   )
+
+        if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
+
         cnv_tnsr = matmul(gsuper ,nabla_v)
 
         viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac

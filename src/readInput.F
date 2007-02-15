@@ -60,7 +60,7 @@ c Namelist
      .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,k_si,solve_rho,advect
+     .                   ,k_si,solve_rho,advect,sym_st
      .                ,inputfile,recordfile,equ_file
 
 c ******************************************************************
@@ -169,6 +169,8 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solver continuity equation or not
+      sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
+                               !   tensor or not
 
       advect   = 2             ! Type of advective scheme
                                !    1,7 -> upwind,
