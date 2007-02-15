@@ -327,12 +327,17 @@ c Energy diagnostics
       !Magnetic energy
 
       array = rho*(bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Em0
+      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ek0
+      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+
+c diag *****
+cc      array = (vx_car**2 + vy_car**2)
+cc      write (*,*) 'DIAG -- diagnostics, vpol_max=',sqrt(maxval(array))
+c diag *****
 
       !Thermal energy
 
@@ -341,11 +346,11 @@ c Energy diagnostics
       else
         array = 0d0
       endif
-      Et = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Et0
+      Et = integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Total energy
 
-      energy = Ek + Em + Et
+      energy = Ek + Em + Et - Ek0 - Em0 - Et0
 
 c Current diagnostics
 
