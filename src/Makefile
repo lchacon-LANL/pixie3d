@@ -91,7 +91,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 code_a: common $(A_CODE)
@@ -100,7 +100,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	@$(FC) $(FFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE)
