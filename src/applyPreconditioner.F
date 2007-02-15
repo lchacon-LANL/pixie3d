@@ -127,25 +127,25 @@ c     Create auxiliary arrays
      .          ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
 c diag****
-        if (debug) then
-        write (*,*) 'DIAG -- applyPC'
+cc        if (debug) then
+cc        write (*,*) 'DIAG -- applyPC'
+cccc        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
+cccc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,hall_mtvc
+cccc     .            ,dg=v_diag,ncolors=4,line_relax=line_relax
+cccc     .            ,order_res=2,order_prol=2,cvrg_tst=.true.
+cccc     .            ,smooth='gm',omega=1d0)
 cc        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
-cc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,hall_mtvc
-cc     .            ,dg=v_diag,ncolors=4,line_relax=line_relax
-cc     .            ,order_res=2,order_prol=2,cvrg_tst=.true.
-cc     .            ,smooth='gm',omega=1d0)
-        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),xxx(:,IVX:IVZ)
-     .               ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
-     .               ,ncolors=4,line_relax=line_relax,order_res=0
-     .               ,order_prol=2,smooth='gs',cvrg_tst=.true.
-     .               ,omega=1d0,gm_driver=.false.
-     .               ,gm_coarse_solve=.false.)
-
-        call gather(x,xxx)
-
-        call PCdiagnostics
-        stop
-        endif
+cc     .               ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+cc     .               ,ncolors=4,line_relax=line_relax,order_res=0
+cc     .               ,order_prol=2,smooth='gs',cvrg_tst=.true.
+cc     .               ,omega=1d0,gm_driver=.false.
+cc     .               ,gm_coarse_solve=.false.)
+cc
+cc        call gather(x,xxx)
+cc
+cc        call PCdiagnostics
+cc        stop
+cc        endif
 c diag****
 
 c     Preprocess B/A rhs
@@ -857,7 +857,7 @@ cc     .                ,order_prol=1,smooth='gm')
         if (si_car) call XtoCurv(igrid,x(:,IVX:IVZ))
 
 cc        else
-cc
+
 cc          write (*,*) 'DIAG -- invert_P_si'
 cc
 cc          do k = 1,nz
@@ -873,7 +873,7 @@ cc                x(ii,IVX:IVZ) = dt*rhspc(ii,IVX:IVZ)/dvol/cnp
 cc              enddo
 cc            enddo
 cc          enddo
-cc
+
 cc        endif
 
 c     End program
@@ -1087,9 +1087,11 @@ c     --------------------------------------------------------------
 
         character(1) :: plot
 
-        real(8) :: mag0,mag
+        real(8) :: mag0,mag,lxmin,lxmax,lymin,lymax
 
         real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
+
+        character(10) :: solf,resf,rhsf,crsf,fldf,divf
 
 #if defined(vec_pot)
         integer(4) :: ivar
@@ -1100,9 +1102,13 @@ c     --------------------------------------------------------------
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3))
 #endif
 
-        character(10) :: solf,resf,rhsf,crsf,fldf,divf
-
 c     Begin program
+
+        lxmin = grid_params%lxmin
+        lxmax = grid_params%lxmax
+
+        lymin = grid_params%lymin
+        lymax = grid_params%lymax
 
 c     Create output files
 
@@ -1478,7 +1484,7 @@ c Begin program
 
 c Find rhs_v
 
-      if (.not.nc_eom_v) then
+cc      if (.not.nc_eom_v) then
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -1494,9 +1500,9 @@ c Find rhs_v
             enddo
           enddo
         enddo
-      else
-        rhs_si = yyy
-      endif
+cc      else
+cc        rhs_si = yyy
+cc      endif
 
 c Find linearized EOM rhs [jxB-grad(p)] correction
 
