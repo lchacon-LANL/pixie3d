@@ -22,7 +22,9 @@
 !-----------------------------------------------
 !   L o c a l   V a r i a b l e s
 !-----------------------------------------------
-      REAL(rprec), DIMENSION(:,:), ALLOCATABLE ::                       &
+      LOGICAL :: load_metrics=.false.
+
+      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE ::                       &
      &             sqrtg,                                               &!sqrt(g): Jacobian on half grid
      &             gss, gsu, gsv, guu, guv, gvv,                        &!symmetric elements of lower metric tensor (full mesh)
      &             hss, hsu, hsv, huu, huv, hvv                          !symmetric elements of upper metric tensor (half mesh)
@@ -41,7 +43,8 @@
 
 !     LOCAL (PRIVATE) HELPER ROUTINES (NOT ACCESSIBLE FROM OUTSIDE THIS MODULE)
 !
-      PRIVATE spline_fourier_modes, loadrzl_vmec,       &
+!LC 2/2/07      PRIVATE spline_fourier_modes, loadrzl_vmec,       &
+      PRIVATE spline_fourier_modes,       &
      &        convert_to_full_mesh, vmec_load_rz
 
       CONTAINS
@@ -111,7 +114,7 @@
      &             bsupumnc_spline(mnmax,ns_i), bsupvmnc_spline(mnmax,ns_i),&
      &             phipf_i(ns_i), iotaf_i(ns_i),presf_i(ns_i),              &
      &             stat=istat)
-          IF (istat .ne. 0) STOP 'Allocation error 1 in INIT_METRIC_ELEMENTS'
+          IF (istat .ne. 0) STOP 'Allocation error 1 in VMEC_INIT_EQU'
 
 !       SPLINE R, Z. L FOURIER COMPONENTS in s FROM ORIGINAL VMEC MESH (s ~ phi, ns_vmec points) 
 !       TO A "POLAR" MESH [s ~ sqrt(phi), ns_i POINTS] WITH BETTER AXIS RESOLUTION
@@ -136,7 +139,7 @@
                 DEALLOCATE(bsupumnc_v, bsupvmnc_v)
              END IF
 
-             IF (istat .ne. 0) STOP 'Spline error in INIT_METRIC_ELEMENTS'
+             IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT_EQU'
           END DO
    
 !       Spline 1-D arrays: careful -> convert phipf VMEC and multiply
@@ -154,7 +157,7 @@
 !     AND COMPUTE METRIC ELEMENTS AND JACOBIAN
 
           CALL vmec_load_rz(istat)
-          IF (istat .ne. 0) STOP 'LoadRZL error in VMEC_INIT_EQU'
+          IF (istat .ne. 0) STOP 'Load R,Z error in VMEC_INIT_EQU'
 
         END SUBROUTINE vmec_init_equ
 
@@ -207,12 +210,76 @@
 !        istat = (ns_i-1)/2 + 1    !rho = 1/2 => s = 1/4
 !        CALL dump_special(r1_i,z1_i,ru_i,zu_i,rv_i,zv_i,istat)
 
+!       LOAD METRIC ELEMENTS
+
+          if (load_metrics) then
+            call vmec_load_metrics(istat)
+            IF (istat .ne. 0) STOP 'Error in VMEC_LOAD_METRICS'
+          endif
+
 !       CLEAN-UP EXTRA ARRAYS
 
           DEALLOCATE (rmnc_i, zmns_i, stat=istat)
           IF (lwout_opened) CALL read_wout_deallocate
 
         END SUBROUTINE vmec_load_rz
+
+!       vmec_load_metrics
+!       ################################################################################
+        SUBROUTINE vmec_load_metrics(istat)
+
+!       ------------------------------------------------------------------------------
+!       Loads metric elements in VMEC's half mesh (PIXIE3D integer mesh) in real space
+!       from VMEC equilibrium
+!
+!       Created by L. Chacon 01/31/07
+!       ------------------------------------------------------------------------------
+
+          USE Fourier, ONLY: toijsp
+!          USE dump_output
+
+!       Call variables
+
+          INTEGER, INTENT(out)     :: istat
+          REAL(8), DIMENSION(:,:,:), ALLOCATABLE ::ru_i,zu_i,rv_i,zv_i
+
+!       Local variables
+
+!!$          REAL(rprec), DIMENSION(ns_vmec)  :: fac1, fac2
+          INTEGER                          :: iparity
+
+!       Begin program
+
+!       COMPUTE AND STORE ANGULAR DERIVATIVES OF R, Z
+
+          ALLOCATE (ru_i(ns_i, nu_i, nv_i), zu_i(ns_i, nu_i, nv_i),         &
+     &              rv_i(ns_i, nu_i, nv_i), zv_i(ns_i, nu_i, nv_i),         &
+     &              stat = istat)
+
+          IF (istat .ne. 0) STOP 'Allocation failed in VMEC_LOAD_METRICS'
+
+          iparity = 0
+          CALL toijsp (rmnc_i, ru_i, 1, 0, iparity, 0)
+          CALL toijsp (rmnc_i, rv_i, 0, 1, iparity, 0)
+      
+          iparity = 1
+          CALL toijsp (zmns_i, zu_i, 1, 0, iparity, 0)
+          CALL toijsp (zmns_i, zv_i, 0, 1, iparity, 0)
+
+!       DEBUG: CHECK IF CORRECT
+!
+!        istat = (ns_i-1)/2 + 1    !rho = 1/2 => s = 1/4
+!        CALL dump_special(r1_i,z1_i,ru_i,zu_i,rv_i,zv_i,istat)
+
+!       COMPUTE HALF-MESH LOWER/UPPER METRIC ELEMENTS AND JACOBIAN
+
+          CALL vmec_half_mesh_metrics (rr,ru_i,rv_i,zz,zu_i,zv_i)
+
+!       CLEAN-UP EXTRA ARRAYS
+
+          DEALLOCATE (ru_i,zu_i,rv_i,zv_i,stat=istat)
+
+        END SUBROUTINE vmec_load_metrics
 
 !       vmec_cleanup
 !       ################################################################################
@@ -240,111 +307,111 @@
 
         END SUBROUTINE vmec_cleanup
 
-!       init_metric_elements
-!       ################################################################################
-        SUBROUTINE init_metric_elements(ns_in,mpol_in,ntor_in,wout_file)
-
-          IMPLICIT NONE
-!-----------------------------------------------
-!   D u m m y   A r g u m e n t s
-!-----------------------------------------------
-          CHARACTER*(*)            :: wout_file
-          INTEGER, INTENT(in)      :: ns_in, mpol_in, ntor_in
-          INTEGER                  :: istat, ntype, imesh, js
-          REAL(rprec), DIMENSION(:,:), ALLOCATABLE ::                       &
-     &                            bsupumnc_v,  bsupvmnc_v
-          REAL(rprec) :: t1, t2
-          INTEGER     :: m, n, mn
-!-----------------------------------------------
-!
-!     LOADS VALUES FOR MESHES TO BE USED IN VMECPP ISLAND SOLVER
-!     (GENERALLY DIFFERENT FROM VMEC MESHES. USE SUBSCRIPT _i FOR ISLAND VARIABLES)
-!     READS wout_file FROM VMEC TO GET FOURIER COMPONENTS ON VMEC MESH
-!     SPLINES THE VMEC COMPONENTS TO RADIAL ISLAND MESH (PHI->SQRT(PHI))
-!     CALLS Fourier MODULE fixarray TO LOAD TRIG ARRAYS FOR COMPUTING ISLAND METRICS
-!     COMPUTES gij (sub/sup) AND JACOBIAN ON ISLAND MESHES IN REAL SPACE
-!
-          ns_i = ns_in
-          nsh  = ns_i-1
-          ntor_i = ntor_in
-          mpol_i = mpol_in
-
-! Set number of points == number of modes for now! (May want mid-points for flux conservation)
-!SPH : # POINTS???
-          nu_i = mpol_i + 3
-          nv_i = 2*ntor_i + 2
-          IF (ntor_i .eq. 0) nv_i = 1
-          nuv_i = nu_i*nv_i
-          mnmax_i = (mpol_i + 1)*(2*ntor_i + 1)             ! Added RS. Contains total number of modes.
-
-!
-!     READ-IN DATA FROM VMEC-PRODUCED WOUT FILE (LIBSTELL ROUTINE)
-!
-          CALL read_wout_file(wout_file, istat)
-          IF (istat .ne. 0) STOP 'Read-wout error in INIT_METRIC_ELEMENTS'
-
-          nfp_i = nfp_vmec
-          wb_i  = (4*pi*pi)*wb_vmec
-
-          IF (wb_i .eq. 0._dp) STOP 'wb_vmec = 0!'
-
-!
-!     Allocate space for splined arrays
-!
-          ALLOCATE(rmnc_spline(mnmax,ns_i), zmns_spline(mnmax,ns_i),        &
-     &             bsupumnc_v(mnmax,ns_vmec),  bsupvmnc_v(mnmax,ns_vmec),   &
-     &             bsupumnc_spline(mnmax,ns_i), bsupvmnc_spline(mnmax,ns_i),&
-     &             phipf_i(ns_i), iotaf_i(ns_i),presf_i(ns_i),              &
-     &             stat=istat)
-          IF (istat .ne. 0) STOP 'Allocation error 1 in INIT_METRIC_ELEMENTS'
-
-!
-!     SPLINE R, Z. L FOURIER COMPONENTS in s FROM ORIGINAL VMEC MESH (s ~ phi, ns_vmec points) 
-!     TO A "POLAR" MESH [s ~ sqrt(phi), ns_i POINTS] WITH BETTER AXIS RESOLUTION
-!
-          DO ntype = 1, 3
-             IF (ntype .eq. 1) THEN
-                istat = 0
-                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)   
-             ELSE IF (ntype .eq. 2) THEN
-                istat = 0
-                CALL Spline_Fourier_Modes(zmns_vmec, zmns_spline, istat)   
-             ELSE 
-                CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
-                CALL Convert_To_Full_Mesh(bsupumnc_v)
-                istat = 1
-                CALL Spline_Fourier_Modes(bsupumnc_v, bsupumnc_spline, istat)   
-
-                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
-                CALL Convert_To_Full_Mesh(bsupvmnc_v)
-                istat = 1
-                CALL Spline_Fourier_Modes(bsupvmnc_v, bsupvmnc_spline, istat)   
-                DEALLOCATE(bsupumnc_v, bsupvmnc_v)
-             END IF
-
-             IF (istat .ne. 0) STOP 'Spline error in INIT_METRIC_ELEMENTS'
-          END DO
-   
-!
-!     Spline 1-D arrays: careful -> convert phipf VMEC and multiply
-!     by ds-vmec/ds-island, since phipf_i = d(PHI)/ds-island
-!
-          CALL Spline_OneD_Array (iotaf_vmec, iotaf_i, istat)
-          CALL Spline_OneD_Array (phipf_vmec, phipf_i, istat)
-          presf_vmec = mu0 * presf_vmec
-          CALL Spline_OneD_Array (presf_vmec, presf_i, istat)
-          DO js = 1, ns_i
-             phipf_i(js) = 2 * hs_i*(js-1) * phipf_i(js) / (2*pi)
-          END DO
-          
-!
-!     CONSTRUCT R, Z, L REAL-SPACE ARRAYS ON "POLAR" MESH
-!     AND COMPUTE METRIC ELEMENTS AND JACOBIAN
-!
-          CALL LoadRZL_VMEC(istat)
-          IF (istat .ne. 0) STOP 'LoadRZL error in INIT_METRIC_ELEMENTS'
-
-        END SUBROUTINE init_metric_elements
+!!$!       init_metric_elements
+!!$!       ################################################################################
+!!$        SUBROUTINE init_metric_elements(ns_in,mpol_in,ntor_in,wout_file)
+!!$
+!!$          IMPLICIT NONE
+!!$!-----------------------------------------------
+!!$!   D u m m y   A r g u m e n t s
+!!$!-----------------------------------------------
+!!$          CHARACTER*(*)            :: wout_file
+!!$          INTEGER, INTENT(in)      :: ns_in, mpol_in, ntor_in
+!!$          INTEGER                  :: istat, ntype, imesh, js
+!!$          REAL(rprec), DIMENSION(:,:), ALLOCATABLE ::                       &
+!!$     &                            bsupumnc_v,  bsupvmnc_v
+!!$          REAL(rprec) :: t1, t2
+!!$          INTEGER     :: m, n, mn
+!!$!-----------------------------------------------
+!!$!
+!!$!     LOADS VALUES FOR MESHES TO BE USED IN VMECPP ISLAND SOLVER
+!!$!     (GENERALLY DIFFERENT FROM VMEC MESHES. USE SUBSCRIPT _i FOR ISLAND VARIABLES)
+!!$!     READS wout_file FROM VMEC TO GET FOURIER COMPONENTS ON VMEC MESH
+!!$!     SPLINES THE VMEC COMPONENTS TO RADIAL ISLAND MESH (PHI->SQRT(PHI))
+!!$!     CALLS Fourier MODULE fixarray TO LOAD TRIG ARRAYS FOR COMPUTING ISLAND METRICS
+!!$!     COMPUTES gij (sub/sup) AND JACOBIAN ON ISLAND MESHES IN REAL SPACE
+!!$!
+!!$          ns_i = ns_in
+!!$          nsh  = ns_i-1
+!!$          ntor_i = ntor_in
+!!$          mpol_i = mpol_in
+!!$
+!!$! Set number of points == number of modes for now! (May want mid-points for flux conservation)
+!!$!SPH : # POINTS???
+!!$          nu_i = mpol_i + 3
+!!$          nv_i = 2*ntor_i + 2
+!!$          IF (ntor_i .eq. 0) nv_i = 1
+!!$          nuv_i = nu_i*nv_i
+!!$          mnmax_i = (mpol_i + 1)*(2*ntor_i + 1)             ! Added RS. Contains total number of modes.
+!!$
+!!$!
+!!$!     READ-IN DATA FROM VMEC-PRODUCED WOUT FILE (LIBSTELL ROUTINE)
+!!$!
+!!$          CALL read_wout_file(wout_file, istat)
+!!$          IF (istat .ne. 0) STOP 'Read-wout error in INIT_METRIC_ELEMENTS'
+!!$
+!!$          nfp_i = nfp_vmec
+!!$          wb_i  = (4*pi*pi)*wb_vmec
+!!$
+!!$          IF (wb_i .eq. 0._dp) STOP 'wb_vmec = 0!'
+!!$
+!!$!
+!!$!     Allocate space for splined arrays
+!!$!
+!!$          ALLOCATE(rmnc_spline(mnmax,ns_i), zmns_spline(mnmax,ns_i),        &
+!!$     &             bsupumnc_v(mnmax,ns_vmec),  bsupvmnc_v(mnmax,ns_vmec),   &
+!!$     &             bsupumnc_spline(mnmax,ns_i), bsupvmnc_spline(mnmax,ns_i),&
+!!$     &             phipf_i(ns_i), iotaf_i(ns_i),presf_i(ns_i),              &
+!!$     &             stat=istat)
+!!$          IF (istat .ne. 0) STOP 'Allocation error 1 in INIT_METRIC_ELEMENTS'
+!!$
+!!$!
+!!$!     SPLINE R, Z. L FOURIER COMPONENTS in s FROM ORIGINAL VMEC MESH (s ~ phi, ns_vmec points) 
+!!$!     TO A "POLAR" MESH [s ~ sqrt(phi), ns_i POINTS] WITH BETTER AXIS RESOLUTION
+!!$!
+!!$          DO ntype = 1, 3
+!!$             IF (ntype .eq. 1) THEN
+!!$                istat = 0
+!!$                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)   
+!!$             ELSE IF (ntype .eq. 2) THEN
+!!$                istat = 0
+!!$                CALL Spline_Fourier_Modes(zmns_vmec, zmns_spline, istat)   
+!!$             ELSE 
+!!$                CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
+!!$                CALL Convert_To_Full_Mesh(bsupumnc_v)
+!!$                istat = 1
+!!$                CALL Spline_Fourier_Modes(bsupumnc_v, bsupumnc_spline, istat)   
+!!$
+!!$                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
+!!$                CALL Convert_To_Full_Mesh(bsupvmnc_v)
+!!$                istat = 1
+!!$                CALL Spline_Fourier_Modes(bsupvmnc_v, bsupvmnc_spline, istat)   
+!!$                DEALLOCATE(bsupumnc_v, bsupvmnc_v)
+!!$             END IF
+!!$
+!!$             IF (istat .ne. 0) STOP 'Spline error in INIT_METRIC_ELEMENTS'
+!!$          END DO
+!!$   
+!!$!
+!!$!     Spline 1-D arrays: careful -> convert phipf VMEC and multiply
+!!$!     by ds-vmec/ds-island, since phipf_i = d(PHI)/ds-island
+!!$!
+!!$          CALL Spline_OneD_Array (iotaf_vmec, iotaf_i, istat)
+!!$          CALL Spline_OneD_Array (phipf_vmec, phipf_i, istat)
+!!$          presf_vmec = mu0 * presf_vmec
+!!$          CALL Spline_OneD_Array (presf_vmec, presf_i, istat)
+!!$          DO js = 1, ns_i
+!!$             phipf_i(js) = 2 * hs_i*(js-1) * phipf_i(js) / (2*pi)
+!!$          END DO
+!!$          
+!!$!
+!!$!     CONSTRUCT R, Z, L REAL-SPACE ARRAYS ON "POLAR" MESH
+!!$!     AND COMPUTE METRIC ELEMENTS AND JACOBIAN
+!!$!
+!!$          CALL LoadRZL_VMEC(istat)
+!!$          IF (istat .ne. 0) STOP 'LoadRZL error in INIT_METRIC_ELEMENTS'
+!!$
+!!$        END SUBROUTINE init_metric_elements
 
       
       SUBROUTINE Spline_Fourier_Modes(ymn_vmec, ymn_spline, istat)
@@ -629,96 +696,95 @@
       END SUBROUTINE
 
 
-      SUBROUTINE LoadRZL_VMEC(istat)
-      USE Fourier, ONLY: toijsp
-!      USE dump_output
-!-----------------------------------------------
-!   D u m m y   A r g u m e n t s
-!-----------------------------------------------
-      INTEGER, INTENT(out)     :: istat
-!-----------------------------------------------
-!   L o c a l   V a r i a b l e s
-!-----------------------------------------------
-      REAL(rprec), DIMENSION(ns_vmec)  :: fac1, fac2
-      INTEGER                          :: mpol_save, ntor_save, iparity
-      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE    ::                  &
-     &   r1_i, z1_i, ru_i, zu_i, rv_i, zv_i
-      REAL(rprec), DIMENSION(:,:), ALLOCATABLE :: temp
-!-----------------------------------------------
-!
-!     1. LOAD FOURIER FACTORS USING VMEC mpol,ntor AND ISLAND nu,nv
-!        IDEA: USE VMEC mpol, ntor VALUES AND CALL fixarray
-!     2. COMPUTE METRIC ELEMENTS, JACOBIAN, LAMBDA ON ISLAND MESH
-      
-      CALL fixarray
-
-!
-!     COMPUTE R, Z (Metric elements, jacobian), LAMBDA (For initializing B)
-!
-!     FIRST, REPACK SPLINED ARRAYS FROM VMEC-ORDERING TO ISLAND-ORDERING
-!     AND SWAP THE N->-N MODES TO BE CONSISTENT WITH mu+nv ISLAND ARGUMENT
-!
-      CALL repack (istat)
-
-!
-!     COMPUTE AND STORE R, Z AND THEIR ANGULAR DERIVATIVES, AND LAMBDA (NEED FOR VECTOR POT)
-!
-      ALLOCATE (r1_i(ns_i, nu_i, nv_i), z1_i(ns_i, nu_i, nv_i),         &
-     &          ru_i(ns_i, nu_i, nv_i), zu_i(ns_i, nu_i, nv_i),         &
-     &          rv_i(ns_i, nu_i, nv_i), zv_i(ns_i, nu_i, nv_i),         &
-     &          stat = istat)
-
-      IF (istat .ne. 0) STOP 'Allocation failed in LoadRZL_VMEC'
-
-      iparity = 0
-      CALL toijsp (rmnc_i, r1_i, 0, 0, iparity, 0)
-      CALL toijsp (rmnc_i, ru_i, 1, 0, iparity, 0)
-      CALL toijsp (rmnc_i, rv_i, 0, 1, iparity, 0)
-      
-      iparity = 1
-      CALL toijsp (zmns_i, z1_i, 0, 0, iparity, 0)
-      CALL toijsp (zmns_i, zu_i, 1, 0, iparity, 0)
-      CALL toijsp (zmns_i, zv_i, 0, 1, iparity, 0)
-
-!
-!     DEBUG: CHECK IF CORRECT
-!
-      istat = (ns_i-1)/2 + 1    !rho = 1/2 => s = 1/4
-!      CALL dump_special(r1_i,z1_i,ru_i,zu_i,rv_i,zv_i,istat)
-
-!
-!     COMPUTE HALF-MESH LOWER/UPPER METRIC ELEMENTS AND JACOBIAN
-!
-      CALL half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
-
-!
-!     CLEAN-UP EXTRA ARRAYS
-!
-      DEALLOCATE (rmnc_i, zmns_i, stat=istat)
-      DEALLOCATE (r1_i, z1_i, ru_i, zu_i, rv_i, zv_i, stat=istat)
-      IF (lwout_opened) CALL read_wout_deallocate
-
-!
-!     CONVERT UPPER METRIC ELEMENTS TO FULL MESH
-!!$      ALLOCATE (temp(ns_i, nuv_i))
-!!$      temp = hss
-!!$      CALL to_full_mesh_sp (temp, hss)
-!!$      temp = hsu
-!!$      CALL to_full_mesh_sp (temp, hsu)
-!!$      temp = hsv
-!!$      CALL to_full_mesh_sp (temp, hsv)
-!!$      temp = huu
-!!$      CALL to_full_mesh_sp (temp, huu)
-!!$      huu(3,:) = (9._dp)*huu(4,:)/4     !  huu ~ 1/rho**2
-!!$      huu(2,:) = 4*huu(3,:)
-!!$      temp = huv
-!!$      CALL to_full_mesh_sp (temp, huv)
-!!$      temp = hvv
-!!$      CALL to_full_mesh_sp (temp, hvv)
-
-      DEALLOCATE(temp)
-
-      END SUBROUTINE LoadRZL_VMEC
+!!$      SUBROUTINE LoadRZL_VMEC(istat)
+!!$      USE Fourier, ONLY: toijsp
+!!$!      USE dump_output
+!!$!-----------------------------------------------
+!!$!   D u m m y   A r g u m e n t s
+!!$!-----------------------------------------------
+!!$      INTEGER, INTENT(out)     :: istat
+!!$!-----------------------------------------------
+!!$!   L o c a l   V a r i a b l e s
+!!$!-----------------------------------------------
+!!$      REAL(rprec), DIMENSION(ns_vmec)  :: fac1, fac2
+!!$      INTEGER                          :: mpol_save, ntor_save, iparity
+!!$      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE    ::                  &
+!!$     &   r1_i, z1_i, ru_i, zu_i, rv_i, zv_i
+!!$      REAL(rprec), DIMENSION(:,:), ALLOCATABLE :: temp
+!!$!-----------------------------------------------
+!!$!
+!!$!     1. LOAD FOURIER FACTORS USING VMEC mpol,ntor AND ISLAND nu,nv
+!!$!        IDEA: USE VMEC mpol, ntor VALUES AND CALL fixarray
+!!$!     2. COMPUTE METRIC ELEMENTS, JACOBIAN, LAMBDA ON ISLAND MESH
+!!$      
+!!$      CALL fixarray
+!!$
+!!$!
+!!$!     COMPUTE R, Z (Metric elements, jacobian), LAMBDA (For initializing B)
+!!$!
+!!$!     FIRST, REPACK SPLINED ARRAYS FROM VMEC-ORDERING TO ISLAND-ORDERING
+!!$!     AND SWAP THE N->-N MODES TO BE CONSISTENT WITH mu+nv ISLAND ARGUMENT
+!!$!
+!!$      CALL repack (istat)
+!!$
+!!$!
+!!$!     COMPUTE AND STORE R, Z AND THEIR ANGULAR DERIVATIVES, AND LAMBDA (NEED FOR VECTOR POT)
+!!$!
+!!$      ALLOCATE (r1_i(ns_i, nu_i, nv_i), z1_i(ns_i, nu_i, nv_i),         &
+!!$     &          ru_i(ns_i, nu_i, nv_i), zu_i(ns_i, nu_i, nv_i),         &
+!!$     &          rv_i(ns_i, nu_i, nv_i), zv_i(ns_i, nu_i, nv_i),         &
+!!$     &          stat = istat)
+!!$
+!!$      IF (istat .ne. 0) STOP 'Allocation failed in LoadRZL_VMEC'
+!!$
+!!$      iparity = 0
+!!$      CALL toijsp (rmnc_i, r1_i, 0, 0, iparity, 0)
+!!$      CALL toijsp (rmnc_i, ru_i, 1, 0, iparity, 0)
+!!$      CALL toijsp (rmnc_i, rv_i, 0, 1, iparity, 0)
+!!$      
+!!$      iparity = 1
+!!$      CALL toijsp (zmns_i, z1_i, 0, 0, iparity, 0)
+!!$      CALL toijsp (zmns_i, zu_i, 1, 0, iparity, 0)
+!!$      CALL toijsp (zmns_i, zv_i, 0, 1, iparity, 0)
+!!$
+!!$!
+!!$!     DEBUG: CHECK IF CORRECT
+!!$!
+!!$      istat = (ns_i-1)/2 + 1    !rho = 1/2 => s = 1/4
+!!$!      CALL dump_special(r1_i,z1_i,ru_i,zu_i,rv_i,zv_i,istat)
+!!$
+!!$!
+!!$!     COMPUTE HALF-MESH LOWER/UPPER METRIC ELEMENTS AND JACOBIAN
+!!$!
+!!$      CALL half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
+!!$
+!!$!
+!!$!     CLEAN-UP EXTRA ARRAYS
+!!$!
+!!$      DEALLOCATE (rmnc_i, zmns_i, stat=istat)
+!!$      IF (lwout_opened) CALL read_wout_deallocate
+!!$
+!!$!
+!!!!$!     CONVERT UPPER METRIC ELEMENTS TO FULL MESH
+!!!!$      ALLOCATE (temp(ns_i, nuv_i))
+!!!!$      temp = hss
+!!!!$      CALL to_full_mesh_sp (temp, hss)
+!!!!$      temp = hsu
+!!!!$      CALL to_full_mesh_sp (temp, hsu)
+!!!!$      temp = hsv
+!!!!$      CALL to_full_mesh_sp (temp, hsv)
+!!!!$      temp = huu
+!!!!$      CALL to_full_mesh_sp (temp, huu)
+!!!!$      huu(3,:) = (9._dp)*huu(4,:)/4     !  huu ~ 1/rho**2
+!!!!$      huu(2,:) = 4*huu(3,:)
+!!!!$      temp = huv
+!!!!$      CALL to_full_mesh_sp (temp, huv)
+!!!!$      temp = hvv
+!!!!$      CALL to_full_mesh_sp (temp, hvv)
+!!!!$
+!!!!$      DEALLOCATE(temp)
+!!$
+!!$      END SUBROUTINE LoadRZL_VMEC
 
 
       SUBROUTINE repack (istat)
@@ -803,12 +869,166 @@
 
       END SUBROUTINE repack
 
+!!$      SUBROUTINE half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
+!!$!-----------------------------------------------
+!!$!   D u m m y   A r g u m e n t s
+!!$!-----------------------------------------------
+!!$      REAL(rprec), DIMENSION(1:ns_i,nuv_i), INTENT(in) ::               &
+!!$     &   r1_i, ru_i, rv_i, z1_i, zu_i, zv_i
+!!$!-----------------------------------------------
+!!$!   L o c a l   V a r i a b l e s
+!!$!-----------------------------------------------
+!!$      REAL(rprec), PARAMETER :: p5 = 1.d0/2.d0, zero = 0
+!!$      INTEGER  :: js, lk, js1, istat
+!!$      REAL(rprec)            :: mintest, maxtest, r1, s1, t1, eps
+!!$      REAL(rprec), DIMENSION(nuv_i) ::                                  &
+!!$     &      r12, ru12, rv12, zu12, zv12, rs12, zs12, det
+!!$!-----------------------------------------------
+!!$!
+!!$!     ALLOCATE METRIC ELEMENT ARRAYS
+!!$!
+!!$      ALLOCATE(sqrtg(ns_i,nuv_i),                                       &
+!!$     &         gss(ns_i,nuv_i), gsu(ns_i,nuv_i),                      &
+!!$     &         gsv(ns_i,nuv_i), guu(ns_i,nuv_i),                      &
+!!$     &         guv(ns_i,nuv_i), gvv(ns_i,nuv_i),                      &
+!!$     &         hss(ns_i,nuv_i), hsu(ns_i,nuv_i),                      &
+!!$     &         hsv(ns_i,nuv_i), huu(ns_i,nuv_i),                      &
+!!$     &         huv(ns_i,nuv_i), hvv(ns_i,nuv_i),                      &
+!!$     &         stat=istat)
+!!$
+!!$!     COMPUTE ALL ON THE HALF MESH
+!!$      IF (istat .ne. 0) STOP 'Allocation error in VMEC_HALF_MESH_METRICS'
+!!$      gss(1,:) = 0;  gsu(1,:) = 0;  gsv(1,:) = 0
+!!$      guu(1,:) = 0;  guv(1,:) = 0;  gvv(1,:) = 0
+!!$      sqrtg(1,:) = 0
+!!$
+!!$      !Do inner domain
+!!$      DO js = 2, ns_i
+!!$         js1 = js-1
+!!$         r12 = p5*(r1_i(js,:) + r1_i(js1,:))
+!!$         rs12 = (r1_i(js,:) - r1_i(js1,:))*ohs_i
+!!$         ru12= p5*(ru_i(js,:) + ru_i(js1,:))
+!!$         rv12= p5*(rv_i(js,:) + rv_i(js1,:))
+!!$         zs12 = (z1_i(js,:) - z1_i(js1,:))*ohs_i
+!!$         zu12= p5*(zu_i(js,:) + zu_i(js1,:))
+!!$         zv12= p5*(zv_i(js,:) + zv_i(js1,:))
+!!$         guu(js,:) = ru12*ru12 + zu12*zu12
+!!$         guv(js,:) = ru12*rv12 + zu12*zv12
+!!$         gvv(js,:) = r12*r12 + rv12*rv12 + zv12*zv12
+!!$         gsu(js,:) = rs12*ru12 + zs12*zu12
+!!$         gsv(js,:) = rs12*rv12 + zs12*zv12
+!!$         gss(js,:) = rs12*rs12 + zs12*zs12
+!!$         sqrtg(js,:) = r12*(ru12*zs12 - rs12*zu12)
+!!$      END DO
+!!$
+!!$      mintest = MINVAL(sqrtg(2:ns_i+1,:))
+!!$      maxtest = MAXVAL(sqrtg(2:ns_i+1,:))
+!!$
+!!$      IF (mintest*maxtest .le. zero) STOP "Jacobian changed sign!"
+!!$
+!!$!     Compute upper metric elements (inverse of lower matrix: det = sqrtg**2?)
+!!$!
+!!$      hss(1,:) = 0;  hsu(1,:) = 0;  hsv(1,:) = 0
+!!$      huu(1,:) = 0;  huv(1,:) = 0;  hvv(1,:) = 0
+!!$
+!!$      DO js = 2, ns_i
+!!$         det(:) = one/(  gss(js,:)*guu(js,:)*gvv(js,:)   &
+!!$     &                +2*gsu(js,:)*guv(js,:)*gsv(js,:)   &
+!!$     &                -  gsv(js,:)*guu(js,:)*gsv(js,:)   &
+!!$     &                -  gss(js,:)*guv(js,:)*guv(js,:)   &
+!!$     &                -  gvv(js,:)*gsu(js,:)*gsu(js,:))
+!!$         hss(js,:) = det(:)*                                            &
+!!$     &              (guu(js,:)*gvv(js,:) - guv(js,:)*guv(js,:))
+!!$         hsu(js,:) = det(:)*                                            &
+!!$     &              (guv(js,:)*gsv(js,:) - gsu(js,:)*gvv(js,:))
+!!$         hsv(js,:) = det(:)*                                            &
+!!$     &              (gsu(js,:)*guv(js,:) - gsv(js,:)*guu(js,:))
+!!$         huu(js,:) = det(:)*                                            &
+!!$     &              (gss(js,:)*gvv(js,:) - gsv(js,:)*gsv(js,:))
+!!$         huv(js,:) = det(:)*                                            &
+!!$     &              (gsv(js,:)*gsu(js,:) - gss(js,:)*guv(js,:))
+!!$         hvv(js,:) = det(:)*                                            &
+!!$     &              (gss(js,:)*guu(js,:) - gsu(js,:)*gsu(js,:))
+!!$
+!!$      END DO
+!!$
+!!$!
+!!$!     CONFIRM ACCURACY OF INVERSE
+!!$!
+!!$!     FIRST ROW
+!!$     
+!!$      maxtest = 0
+!!$      eps = 0.01_dp*SQRT(EPSILON(eps))
+!!$
+!!$      DO js = 2, ns_i
+!!$        r12 = gss(js,:)*hss(js,:) + gsu(js,:)*hsu(js,:)                 &
+!!$     &       +gsv(js,:)*hsv(js,:)
+!!$        ru12 = gss(js,:)*hsu(js,:) + gsu(js,:)*huu(js,:)                &
+!!$     &       +gsv(js,:)*huv(js,:) 
+!!$        rs12 = gss(js,:)*hsv(js,:) + gsu(js,:)*huv(js,:)                &
+!!$     &       +gsv(js,:)*hvv(js,:) 
+!!$        r1 = MAXVAL(ABS(r12-1))
+!!$        s1 = MAXVAL(ABS(ru12))
+!!$        t1 = MAXVAL(ABS(rs12))
+!!$        maxtest = MAX(maxtest,r1,s1,t1)
+!!$      END DO
+!!$    
+!!$      IF (maxtest .gt. eps) then
+!!$         write(*,*) "Error1 in metric elements",maxtest,r1,s1,t1
+!!$         stop
+!!$      ENDIF
+!!$
+!!$!     SECOND ROW
+!!$     
+!!$      maxtest = 0
+!!$
+!!$      DO js = 2, ns_i
+!!$        r12 = gsu(js,:)*hss(js,:) + guu(js,:)*hsu(js,:)                 &
+!!$     &       +guv(js,:)*hsv(js,:)
+!!$        ru12 = gsu(js,:)*hsu(js,:) + guu(js,:)*huu(js,:)                &
+!!$     &       +guv(js,:)*huv(js,:) 
+!!$        rs12 = gsu(js,:)*hsv(js,:) + guu(js,:)*huv(js,:)                &
+!!$     &       +guv(js,:)*hvv(js,:) 
+!!$        r1 = MAXVAL(ABS(r12))
+!!$        s1 = MAXVAL(ABS(ru12-1))
+!!$        t1 = MAXVAL(ABS(rs12))
+!!$        maxtest = MAX(maxtest,r1,s1,t1)
+!!$      END DO
+!!$
+!!$      IF (maxtest .gt. eps) then
+!!$         write(*,*) "Error2 in metric elements",maxtest,r1,s1,t1
+!!$         stop
+!!$      ENDIF
+!!$
+!!$!     THIRD ROW
+!!$     
+!!$      maxtest = 0
+!!$
+!!$      DO js = 2, ns_i
+!!$        r12 = gsv(js,:)*hss(js,:) + guv(js,:)*hsu(js,:)                 &
+!!$     &       +gvv(js,:)*hsv(js,:)
+!!$        ru12 = gsv(js,:)*hsu(js,:) + guv(js,:)*huu(js,:)                &
+!!$     &       +gvv(js,:)*huv(js,:) 
+!!$        rs12 = gsv(js,:)*hsv(js,:) + guv(js,:)*huv(js,:)                &
+!!$     &       +gvv(js,:)*hvv(js,:) 
+!!$        r1 = MAXVAL(ABS(r12))
+!!$        s1 = MAXVAL(ABS(ru12))
+!!$        t1 = MAXVAL(ABS(rs12-1))
+!!$        maxtest = MAX(maxtest,r1,s1,t1)
+!!$      END DO
+!!$
+!!$      IF (maxtest .gt. eps) then
+!!$         write(*,*) "Error3 in metric elements",maxtest,r1,s1,t1
+!!$         stop
+!!$      ENDIF
+!!$
+!!$      END SUBROUTINE half_mesh_metrics
 
-      SUBROUTINE half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
+      SUBROUTINE vmec_half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
 !-----------------------------------------------
 !   D u m m y   A r g u m e n t s
 !-----------------------------------------------
-      REAL(rprec), DIMENSION(1:ns_i,nuv_i), INTENT(in) ::               &
+      REAL(rprec), DIMENSION(1:ns_i,nu_i,nv_i), INTENT(in) ::               &
      &   r1_i, ru_i, rv_i, z1_i, zu_i, zv_i
 !-----------------------------------------------
 !   L o c a l   V a r i a b l e s
@@ -816,69 +1036,198 @@
       REAL(rprec), PARAMETER :: p5 = 1.d0/2.d0, zero = 0
       INTEGER  :: js, lk, js1, istat
       REAL(rprec)            :: mintest, maxtest, r1, s1, t1, eps
-      REAL(rprec), DIMENSION(nuv_i) ::                                  &
-     &      r12, ru12, rv12, zu12, zv12, rs12, zs12, det
+      REAL(rprec), DIMENSION(nu_i,nv_i) ::                                  &
+     &      r12, ru12, rv12, zu12, zv12, rs12, zs12, det                &
+     &     ,guu0,guv0,gvv0,gsu0,gsv0,gss0,sqrtg0                        
+!!$     &     ,r12_0,ru12_0,rv12_0,zu12_0,zv12_0,rs12_0,zs12_0
+
 !-----------------------------------------------
 !
 !     ALLOCATE METRIC ELEMENT ARRAYS
 !
-      ALLOCATE(sqrtg(ns_i,nuv_i),                                       &
-     &         gss(ns_i,nuv_i), gsu(ns_i,nuv_i),                        &
-     &         gsv(ns_i,nuv_i), guu(ns_i,nuv_i),                        &
-     &         guv(ns_i,nuv_i), gvv(ns_i,nuv_i),                        &
-     &         hss(ns_i,nuv_i), hsu(ns_i,nuv_i),                        & 
-     &         hsv(ns_i,nuv_i), huu(ns_i,nuv_i),                        &
-     &         huv(ns_i,nuv_i), hvv(ns_i,nuv_i),                        &
+      ALLOCATE(sqrtg(ns_i+1,nu_i,nv_i),                                       &
+     &         gss(ns_i+1,nu_i,nv_i), gsu(ns_i+1,nu_i,nv_i),                  &
+     &         gsv(ns_i+1,nu_i,nv_i), guu(ns_i+1,nu_i,nv_i),                  &
+     &         guv(ns_i+1,nu_i,nv_i), gvv(ns_i+1,nu_i,nv_i),                  &
+     &         hss(ns_i+1,nu_i,nv_i), hsu(ns_i+1,nu_i,nv_i),                  &
+     &         hsv(ns_i+1,nu_i,nv_i), huu(ns_i+1,nu_i,nv_i),                  &
+     &         huv(ns_i+1,nu_i,nv_i), hvv(ns_i+1,nu_i,nv_i),                  &
      &         stat=istat)
 
 !     COMPUTE ALL ON THE HALF MESH
-      IF (istat .ne. 0) STOP 'Allocation error in HALF_MESH_METRICS'
-      gss(1,:) = 0;  gsu(1,:) = 0;  gsv(1,:) = 0
-      guu(1,:) = 0;  guv(1,:) = 0;  gvv(1,:) = 0
-      sqrtg(1,:) = 0
+      IF (istat .ne. 0) STOP 'Allocation error in VMEC_HALF_MESH_METRICS'
+!!$ LC 02/01/2007
+!!$      gss(1,:) = 0;  gsu(1,:) = 0;  gsv(1,:) = 0
+!!$      guu(1,:) = 0;  guv(1,:) = 0;  gvv(1,:) = 0
+!!$      sqrtg(1,:) = 0
 
+      !Do inner domain
       DO js = 2, ns_i
          js1 = js-1
-         r12 = p5*(r1_i(js,:) + r1_i(js1,:))
-         rs12 = (r1_i(js,:) - r1_i(js1,:))*ohs_i
-         ru12= p5*(ru_i(js,:) + ru_i(js1,:))
-         rv12= p5*(rv_i(js,:) + rv_i(js1,:))
-         zs12 = (z1_i(js,:) - z1_i(js1,:))*ohs_i
-         zu12= p5*(zu_i(js,:) + zu_i(js1,:))
-         zv12= p5*(zv_i(js,:) + zv_i(js1,:))
-         guu(js,:) = ru12*ru12 + zu12*zu12
-         guv(js,:) = ru12*rv12 + zu12*zv12
-         gvv(js,:) = r12*r12 + rv12*rv12 + zv12*zv12
-         gsu(js,:) = rs12*ru12 + zs12*zu12
-         gsv(js,:) = rs12*rv12 + zs12*zv12
-         gss(js,:) = rs12*rs12 + zs12*zs12
-         sqrtg(js,:) = r12*(ru12*zs12 - rs12*zu12)
+         r12 = p5*(r1_i(js,:,:) + r1_i(js1,:,:))
+         rs12 = (r1_i(js,:,:) - r1_i(js1,:,:))*ohs_i
+         ru12= p5*(ru_i(js,:,:) + ru_i(js1,:,:))
+         rv12= p5*(rv_i(js,:,:) + rv_i(js1,:,:))
+         zs12 = (z1_i(js,:,:) - z1_i(js1,:,:))*ohs_i
+         zu12= p5*(zu_i(js,:,:) + zu_i(js1,:,:))
+         zv12= p5*(zv_i(js,:,:) + zv_i(js1,:,:))
+         guu(js,:,:) = ru12*ru12 + zu12*zu12
+         guv(js,:,:) = ru12*rv12 + zu12*zv12
+         gvv(js,:,:) = r12*r12 + rv12*rv12 + zv12*zv12
+         gsu(js,:,:) = rs12*ru12 + zs12*zu12
+         gsv(js,:,:) = rs12*rv12 + zs12*zv12
+         gss(js,:,:) = rs12*rs12 + zs12*zs12
+!!$         sqrtg(js,:,:) = r12*(ru12*zs12 - rs12*zu12)
+         sqrtg(js,:,:) = sqrt((  gss(js,:,:)*guu(js,:,:)*gvv(js,:,:)   &
+     &                        +2*gsu(js,:,:)*guv(js,:,:)*gsv(js,:,:)   &
+     &                        -  gsv(js,:,:)*guu(js,:,:)*gsv(js,:,:)   &
+     &                        -  gss(js,:,:)*guv(js,:,:)*guv(js,:,:)   &
+     &                        -  gvv(js,:,:)*gsu(js,:,:)*gsu(js,:,:)))
       END DO
 
-      mintest = MINVAL(sqrtg(2:,:))
-      maxtest = MAXVAL(sqrtg(2:,:))
+      !Extrapolate (first-order) at radial boundaries (L. Chacon, 02/01/2007)
+      js = 1   !SINGULAR POINT
 
+!!$      !Find derivatives at boundary face (dx/du == 0d0 at SP)
+!!$      r12_0  = r1_i(js,:,:)
+!!$      rs12_0 = (r1_i(js+1,:,:) - r1_i(js,:,:))*ohs_i
+!!$      ru12_0 = ru_i(js,:,:)
+!!$      rv12_0 = rv_i(js,:,:)
+!!$      zs12_0 = (z1_i(js+1,:,:) - z1_i(js,:,:))*ohs_i
+!!$      zu12_0 = zu_i(js,:,:)
+!!$      zv12_0 = zv_i(js,:,:)
+!!$
+!!$      !Extrapolate derivatives to ghost cell 
+!!$      r12 = p5*(r1_i(js+1,:,:) + r1_i(js,:,:))
+!!$      rs12 = (r1_i(js+1,:,:) - r1_i(js,:,:))*ohs_i
+!!$      ru12= p5*(ru_i(js+1,:,:) + ru_i(js,:,:))
+!!$      rv12= p5*(rv_i(js+1,:,:) + rv_i(js,:,:))
+!!$      zs12 = (z1_i(js+1,:,:) - z1_i(js,:,:))*ohs_i
+!!$      zu12= p5*(zu_i(js+1,:,:) + zu_i(js,:,:))
+!!$      zv12= p5*(zv_i(js+1,:,:) + zv_i(js,:,:))
+!!$
+!!$      r12  = 2*r12_0  - r12 
+!!$      rs12 = 2*rs12_0 - rs12
+!!$      ru12 = 2*ru12_0 - ru12
+!!$      rv12 = 2*rv12_0 - rv12
+!!$      zs12 = 2*zs12_0 - zs12
+!!$      zu12 = 2*zu12_0 - zu12
+!!$      zv12 = 2*zv12_0 - zv12 
+!!$
+!!$      !Find metrics at ghost cell
+!!$      guu(js,:,:)  = ru12*ru12 + zu12*zu12
+!!$      guv(js,:,:)  = ru12*rv12 + zu12*zv12
+!!$      gvv(js,:,:)  = r12*r12 + rv12*rv12 + zv12*zv12
+!!$      gsu(js,:,:)  = rs12*ru12 + zs12*zu12
+!!$      gsv(js,:,:)  = rs12*rv12 + zs12*zv12
+!!$      gss(js,:,:)  = rs12*rs12 + zs12*zs12
+
+      !Find derivatives at boundary face (dx/du == 0d0 at SP)
+      r12  = r1_i(js,:,:)
+      rs12 = (r1_i(js+1,:,:) - r1_i(js,:,:))*ohs_i
+      ru12 = ru_i(js,:,:)
+      rv12 = rv_i(js,:,:)
+      zs12 = (z1_i(js+1,:,:) - z1_i(js,:,:))*ohs_i
+      zu12 = zu_i(js,:,:)
+      zv12 = zv_i(js,:,:)
+
+      !Find metrics at boundary face  (dx/du == 0d0 at SP)
+      guu0  = ru12*ru12 + zu12*zu12
+      guv0  = ru12*rv12 + zu12*zv12
+      gvv0  = r12*r12 + rv12*rv12 + zv12*zv12
+      gsu0  = rs12*ru12 + zs12*zu12
+      gsv0  = rs12*rv12 + zs12*zv12
+      gss0  = rs12*rs12 + zs12*zs12
+
+      sqrtg0= 0d0
+
+      !Extrapolate metrics to ghost cell
+      guu(js,:,:) = 2*guu0 - guu(js+1,:,:)
+      guv(js,:,:) = 2*guv0 - guv(js+1,:,:)
+      gvv(js,:,:) = 2*gvv0 - gvv(js+1,:,:)
+      gsu(js,:,:) = 2*gsu0 - gsu(js+1,:,:)
+      gsv(js,:,:) = 2*gsv0 - gsv(js+1,:,:)
+      gss(js,:,:) = 2*gss0 - gss(js+1,:,:)
+
+!!      sqrtg(js,:,:) = 2*sqrtg0 - sqrtg(js+1,:,:)
+      sqrtg(js,:,:) = -sqrt( abs(gss(js,:,:)*guu(js,:,:)*gvv(js,:,:)   &
+     &                        +2*gsu(js,:,:)*guv(js,:,:)*gsv(js,:,:)   &
+     &                        -  gsv(js,:,:)*guu(js,:,:)*gsv(js,:,:)   &
+     &                        -  gss(js,:,:)*guv(js,:,:)*guv(js,:,:)   &
+     &                        -  gvv(js,:,:)*gsu(js,:,:)*gsu(js,:,:)))
+
+      js = ns_i  !OUTER RADIUS
+
+      !Find derivatives at boundary face
+      r12  = r1_i(js,:,:)
+      rs12 = (r1_i(js,:,:) - r1_i(js-1,:,:))*ohs_i
+      ru12 = ru_i(js,:,:)
+      rv12 = rv_i(js,:,:)
+      zs12 = (z1_i(js,:,:) - z1_i(js-1,:,:))*ohs_i
+      zu12 = zu_i(js,:,:)
+      zv12 = zv_i(js,:,:)
+
+      !Find metrics at boundary face
+      guu0 = ru12*ru12 + zu12*zu12
+      guv0 = ru12*rv12 + zu12*zv12
+      gvv0 = r12*r12 + rv12*rv12 + zv12*zv12
+      gsu0 = rs12*ru12 + zs12*zu12
+      gsv0 = rs12*rv12 + zs12*zv12
+      gss0 = rs12*rs12 + zs12*zs12
+
+      sqrtg0 = r12*(ru12*zs12 - rs12*zu12)
+
+      !Extrapolate metrics to ghost cell
+      guu(js+1,:,:) = 2*guu0 - guu(js,:,:)
+      guv(js+1,:,:) = 2*guv0 - guv(js,:,:)
+      gvv(js+1,:,:) = 2*gvv0 - gvv(js,:,:)
+      gsu(js+1,:,:) = 2*gsu0 - gsu(js,:,:)
+      gsv(js+1,:,:) = 2*gsv0 - gsv(js,:,:)
+      gss(js+1,:,:) = 2*gss0 - gss(js,:,:)
+
+!!      sqrtg(js+1,:,:) = 2*sqrtg0 - sqrtg(js,:,:)
+      sqrtg(js+1,:,:) = sqrt((  gss(js+1,:,:)*guu(js+1,:,:)*gvv(js+1,:,:)   &
+     &                       +2*gsu(js+1,:,:)*guv(js+1,:,:)*gsv(js+1,:,:)   &
+     &                       -  gsv(js+1,:,:)*guu(js+1,:,:)*gsv(js+1,:,:)   &
+     &                       -  gss(js+1,:,:)*guv(js+1,:,:)*guv(js+1,:,:)   &
+     &                       -  gvv(js+1,:,:)*gsu(js+1,:,:)*gsu(js+1,:,:)))
+
+
+      !Test
+      mintest = MINVAL(sqrtg(2:ns_i+1,:,:))
+      maxtest = MAXVAL(sqrtg(2:ns_i+1,:,:))
+
+!!$      write (*,*) 'DIAG -- vmec_half_mesh_metrics;'
+!!$      write (*,*) sqrtg(1:ns_i+1,1)
+!!$      stop
+!!$      write (*,*) 'DIAG -- half_mesh_metrics:',mintest,maxtest
       IF (mintest*maxtest .le. zero) STOP "Jacobian changed sign!"
 
-      hss(1,:) = 0;  hsu(1,:) = 0;  hsv(1,:) = 0
-      huu(1,:) = 0;  huv(1,:) = 0;  hvv(1,:) = 0
-!
 !     Compute upper metric elements (inverse of lower matrix: det = sqrtg**2?)
 !
-      DO js = 2, ns_i
-         det(:) = one/(sqrtg(js,:)*sqrtg(js,:))
-         hss(js,:) = det(:)*                                            &
-     &              (guu(js,:)*gvv(js,:) - guv(js,:)*guv(js,:))
-         hsu(js,:) = det(:)*                                            &
-     &              (guv(js,:)*gsv(js,:) - gsu(js,:)*gvv(js,:))
-         hsv(js,:) = det(:)*                                            &
-     &              (gsu(js,:)*guv(js,:) - gsv(js,:)*guu(js,:))
-         huu(js,:) = det(:)*                                            &
-     &              (gss(js,:)*gvv(js,:) - gsv(js,:)*gsv(js,:))
-         huv(js,:) = det(:)*                                            &
-     &              (gsv(js,:)*gsu(js,:) - gss(js,:)*guv(js,:))
-         hvv(js,:) = det(:)*                                            &
-     &              (gss(js,:)*guu(js,:) - gsu(js,:)*gsu(js,:))
+!!$ LC 02/01/2007
+!!$      hss(1,:,:) = 0;  hsu(1,:,:) = 0;  hsv(1,:,:) = 0
+!!$      huu(1,:,:) = 0;  huv(1,:,:) = 0;  hvv(1,:,:) = 0
+!!$
+!!$      DO js = 2, ns_i
+      DO js = 1, ns_i+1
+         det(:,:) = one/(  gss(js,:,:)*guu(js,:,:)*gvv(js,:,:)   &
+     &                 + 2*gsu(js,:,:)*guv(js,:,:)*gsv(js,:,:)   &
+     &                 -   gsv(js,:,:)*guu(js,:,:)*gsv(js,:,:)   &
+     &                 -   gss(js,:,:)*guv(js,:,:)*guv(js,:,:)   &
+     &                 -   gvv(js,:,:)*gsu(js,:,:)*gsu(js,:,:))
+         hss(js,:,:) = det(:,:)*                                            &
+     &              (guu(js,:,:)*gvv(js,:,:) - guv(js,:,:)*guv(js,:,:))
+         hsu(js,:,:) = det(:,:)*                                            &
+     &              (guv(js,:,:)*gsv(js,:,:) - gsu(js,:,:)*gvv(js,:,:))
+         hsv(js,:,:) = det(:,:)*                                            &
+     &              (gsu(js,:,:)*guv(js,:,:) - gsv(js,:,:)*guu(js,:,:))
+         huu(js,:,:) = det(:,:)*                                            &
+     &              (gss(js,:,:)*gvv(js,:,:) - gsv(js,:,:)*gsv(js,:,:))
+         huv(js,:,:) = det(:,:)*                                            &
+     &              (gsv(js,:,:)*gsu(js,:,:) - gss(js,:,:)*guv(js,:,:))
+         hvv(js,:,:) = det(:,:)*                                            &
+     &              (gss(js,:,:)*guu(js,:,:) - gsu(js,:,:)*gsu(js,:,:))
 
       END DO
 
@@ -890,79 +1239,83 @@
       maxtest = 0
       eps = 0.01_dp*SQRT(EPSILON(eps))
 
-      DO js = 2, ns_i
-        r12 = gss(js,:)*hss(js,:) + gsu(js,:)*hsu(js,:)                 &
-     &       +gsv(js,:)*hsv(js,:)
-        ru12 = gss(js,:)*hsu(js,:) + gsu(js,:)*huu(js,:)                &
-     &       +gsv(js,:)*huv(js,:) 
-        rs12 = gss(js,:)*hsv(js,:) + gsu(js,:)*huv(js,:)                &
-     &       +gsv(js,:)*hvv(js,:) 
-        r1 = MAXVAL(ABS(r12)-1)
+      DO js = 1, ns_i+1
+        r12 = gss(js,:,:)*hss(js,:,:) + gsu(js,:,:)*hsu(js,:,:)                 &
+     &       +gsv(js,:,:)*hsv(js,:,:)
+        ru12 = gss(js,:,:)*hsu(js,:,:) + gsu(js,:,:)*huu(js,:,:)                &
+     &       +gsv(js,:,:)*huv(js,:,:) 
+        rs12 = gss(js,:,:)*hsv(js,:,:) + gsu(js,:,:)*huv(js,:,:)                &
+     &       +gsv(js,:,:)*hvv(js,:,:) 
+        r1 = MAXVAL(ABS(r12-1))
         s1 = MAXVAL(ABS(ru12))
         t1 = MAXVAL(ABS(rs12))
         maxtest = MAX(maxtest,r1,s1,t1)
       END DO
-
     
-      IF (maxtest .gt. eps) STOP "Error1 in metric elements"
+      IF (maxtest .gt. eps) then
+         write(*,*) "Error1 in metric elements",maxtest,r1,s1,t1
+         stop
+      ENDIF
 
 !     SECOND ROW
      
       maxtest = 0
 
-      DO js = 2, ns_i
-        r12 = gsu(js,:)*hss(js,:) + guu(js,:)*hsu(js,:)                 &
-     &       +guv(js,:)*hsv(js,:)
-        ru12 = gsu(js,:)*hsu(js,:) + guu(js,:)*huu(js,:)                &
-     &       +guv(js,:)*huv(js,:) 
-        rs12 = gsu(js,:)*hsv(js,:) + guu(js,:)*huv(js,:)                &
-     &       +guv(js,:)*hvv(js,:) 
+      DO js = 1, ns_i+1
+        r12 = gsu(js,:,:)*hss(js,:,:) + guu(js,:,:)*hsu(js,:,:)                 &
+     &       +guv(js,:,:)*hsv(js,:,:)
+        ru12 = gsu(js,:,:)*hsu(js,:,:) + guu(js,:,:)*huu(js,:,:)                &
+     &       +guv(js,:,:)*huv(js,:,:) 
+        rs12 = gsu(js,:,:)*hsv(js,:,:) + guu(js,:,:)*huv(js,:,:)                &
+     &       +guv(js,:,:)*hvv(js,:,:) 
         r1 = MAXVAL(ABS(r12))
         s1 = MAXVAL(ABS(ru12-1))
         t1 = MAXVAL(ABS(rs12))
         maxtest = MAX(maxtest,r1,s1,t1)
       END DO
 
-      IF (maxtest .gt. eps) STOP "Error2 in metric elements"
+      IF (maxtest .gt. eps) then
+         write(*,*) "Error2 in metric elements",maxtest,r1,s1,t1
+         stop
+      ENDIF
 
 !     THIRD ROW
      
       maxtest = 0
 
-      DO js = 2, ns_i
-        r12 = gsv(js,:)*hss(js,:) + guv(js,:)*hsu(js,:)                 &
-     &       +gvv(js,:)*hsv(js,:)
-        ru12 = gsv(js,:)*hsu(js,:) + guv(js,:)*huu(js,:)                &
-     &       +gvv(js,:)*huv(js,:) 
-        rs12 = gsv(js,:)*hsv(js,:) + guv(js,:)*huv(js,:)                &
-     &       +gvv(js,:)*hvv(js,:) 
+      DO js = 1, ns_i+1
+        r12 = gsv(js,:,:)*hss(js,:,:) + guv(js,:,:)*hsu(js,:,:)                 &
+     &       +gvv(js,:,:)*hsv(js,:,:)
+        ru12 = gsv(js,:,:)*hsu(js,:,:) + guv(js,:,:)*huu(js,:,:)                &
+     &       +gvv(js,:,:)*huv(js,:,:) 
+        rs12 = gsv(js,:,:)*hsv(js,:,:) + guv(js,:,:)*huv(js,:,:)                &
+     &       +gvv(js,:,:)*hvv(js,:,:) 
         r1 = MAXVAL(ABS(r12))
         s1 = MAXVAL(ABS(ru12))
         t1 = MAXVAL(ABS(rs12-1))
         maxtest = MAX(maxtest,r1,s1,t1)
       END DO
 
-      IF (maxtest .gt. eps) STOP "Error3 in metric elements"
+      IF (maxtest .gt. eps) then
+         write(*,*) "Error3 in metric elements",maxtest,r1,s1,t1
+         stop
+      ENDIF
 
-      END SUBROUTINE half_mesh_metrics
+      END SUBROUTINE vmec_half_mesh_metrics
 
-
-      SUBROUTINE vmec_cleanup_metric_elements
+      SUBROUTINE vmec_cleanup_metrics
       IMPLICIT NONE
 !-----------------------------------------------
 !   L o c a l   V a r i a b l e s
 !-----------------------------------------------
       INTEGER         :: istat
 !-----------------------------------------------
-	
-!     Note: sqrtg is deallocated in init_bcovar and stored in jacob variable
 
       DEALLOCATE(gss, gsu, gsv, guu, guv, gvv,                          &
      &           hss, hsu, hsv, huu, huv, hvv,                          &
-     &           phipf_i, iotaf_i, presf_i,                             &
-     &           stat=istat)
+     &           sqrtg, stat=istat)
 	
-      END SUBROUTINE vmec_cleanup_metric_elements
+      END SUBROUTINE vmec_cleanup_metrics
 
       
       SUBROUTINE FIXARRAY
@@ -1063,9 +1416,9 @@
          
         END SUBROUTINE DEALLOC_FIXARRAY
 
-!       full_to_half
+!       half_to_int
 !       ###########################################################################
-        subroutine full_to_half(igl,jgl,kgl,vmec_arr,local_val)
+        subroutine half_to_int(igl,jgl,kgl,vmec_arr,local_val)
 
 !       ---------------------------------------------------------------------------
 !       Averages quantities from VMEC's full mesh (which is PIXIE's half mesh)
@@ -1088,13 +1441,13 @@
              local_val = 0.5*(vmec_arr(igl,jgl,kgl)+vmec_arr(igl+1,jgl,kgl))
           endif
 
-        end subroutine full_to_half
+        end subroutine half_to_int
 
       END MODULE vmec_mod
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(igrid,nx,ny,nz,xcar)
+      subroutine vmec_map(igrid,nx,ny,nz,xcar,metrics)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -1111,6 +1464,7 @@
 
         integer(4) :: igrid,nx,ny,nz
         real(8)    :: xcar(0:nx+1,0:ny+1,0:nz+1,3)
+        logical    :: metrics
 
 !     Local variables
 
@@ -1118,6 +1472,8 @@
         real(8)    :: r1,z1,ph1,sgn
 
 !     Begin program
+
+        load_metrics = metrics  !Set flag for metric elements routine
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
@@ -1173,8 +1529,8 @@
 
               !Average to our radial mesh (half-mesh in VMEC)
               !(except for radial ghost cells, where we extrapolate the boundary value)
-              call full_to_half(igl,jgl,kgl,rr,r1)
-              call full_to_half(igl,jgl,kgl,zz,z1)
+              call half_to_int(igl,jgl,kgl,rr,r1)
+              call half_to_int(igl,jgl,kgl,zz,z1)
 
               ph1 = -grid_params%zz(kg)  !Minus sign to preserve a right-handed ref. sys.
 
@@ -1208,54 +1564,126 @@
 
       end subroutine vmec_map
 
-!     vmec_init_fields
+!     vmec_metrics
 !     #################################################################
-      SUBROUTINE vmec_init_fields
+      subroutine vmec_metrics(igrid,nx,ny,nz,jac,gsub,gsup)
 
 !     -----------------------------------------------------------------
-!     Gives contravariant magnetic fields components and pressure
-!     at grid level igrid
+!     Give Cartesian coordinates of each logical mesh point at grid
+!     level (igrid).
 !     -----------------------------------------------------------------
 
-       USE stel_kinds
-       USE stel_constants            
-       USE island_params, ns=>ns_i, ntheta=>nu_i, nzeta=>nv_i,                &
-    &          mpol=>mpol_i, ntor=>ntor_i, nuv=>nuv_i, mnmax=>mnmax_i,        &
-    &          ohs=>ohs_i, nfp=>nfp_i
-       USE vmec_mod, ONLY: bsupumncf_i,bsupvmncf_i,presf_i                    &
-                          ,bsupuijcf  ,bsupvijcf  ,bsupsijsf,presijf
-       USE fourier, ONLY:  toijsp
+        use vmec_mod
+        use equilibrium
+        use grid
 
-       IMPLICIT NONE
+        implicit none
 
-!      Local variables
+!     Input variables
 
-       INTEGER:: istat, jk
+        integer(4) :: igrid,nx,ny,nz
+        real(8)    :: jac (0:nx+1,0:ny+1,0:nz+1)            &
+     &               ,gsub(0:nx+1,0:ny+1,0:nz+1,3,3)        &
+     &               ,gsup(0:nx+1,0:ny+1,0:nz+1,3,3)
 
-!      Begin program
+!     Local variables
 
-!      Allocate variables
+        integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,jkg,m,l
+        real(8)    :: sgn,ds
 
-       ALLOCATE (bsupsijsf(ns,ntheta,nzeta)  &
-                ,bsupuijcf(ns,ntheta,nzeta)  &
-                ,bsupvijcf(ns,ntheta,nzeta), stat=istat)
-       IF (istat .ne. 0) STOP 'Allocation error in init_bcovar'
+!     Begin program
 
-       ALLOCATE(presijf(ns,ntheta,nzeta), stat=istat)
-       IF (istat .ne. 0) STOP 'Allocation error in init_fields'
+!     Get GLOBAL limits (VMEC operates on global domain)
 
-!      Fill GLOBAL variables (at VMEC integer mesh -- PIXIE3D's half mesh)
+        nxg = grid_params%nxgl(igrid)
+        nyg = grid_params%nygl(igrid)
+        nzg = grid_params%nzgl(igrid)
 
-!LC12/14/06       bsupsijsh = zero                       ! It is zero in VMEC (flux surfaces)
-       bsupsijsf = zero                                ! It is zero in VMEC (flux surfaces)
-       CALL toijsp (bsupumncf_i, bsupuijcf, 0, 0, 0, 0)
-       CALL toijsp (bsupvmncf_i, bsupvijcf, 0, 0, 0, 0)
+!     Transfer metrics (from GLOBAL in VMEC to LOCAL)
 
-       DO jk = 1, ns
-         presijf(jk,:,:) =  presf_i(jk)                ! Init pressure
-       ENDDO
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
 
-      END SUBROUTINE vmec_init_fields 
+              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+              !Find global limits
+              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+
+              !Ensures we don't step over physical periodic boundaries
+!!$              if (    (jgl < 1 .or. jgl > nyg)                       &
+!!$                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
+
+              !Periodic boundary in theta (other boundary enforced by symmetry)
+              if (jgl == 0) jgl = nyg
+
+              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+              sgn = 1d0
+              if (jgl > nyg/2+1) then
+                 jgl = nyg + 2 - jgl
+                 sgn = -1d0
+              endif
+
+              !Periodic boundary in phi
+              if (kgl == 0) kgl = nzg
+              if (kgl == nzg+1) kgl = 1
+
+              !Assign metric elements
+!!$              ds = 2*grid_params%xx(ig) !This correction comes because here
+!!$                                          !the variable is x1=sqrt(s), s-> VMEC.
+              ds = 1d0
+
+              jac(i,j,k)      = sqrtg(igl+1,jgl,kgl)
+
+              gsub(i,j,k,1,1) = gss(igl+1,jgl,kgl)/ds**2
+              gsub(i,j,k,1,2) = gsu(igl+1,jgl,kgl)/ds
+              gsub(i,j,k,1,3) = gsv(igl+1,jgl,kgl)/ds
+              gsub(i,j,k,2,2) = guu(igl+1,jgl,kgl)
+              gsub(i,j,k,2,3) = guv(igl+1,jgl,kgl)
+              gsub(i,j,k,3,3) = gvv(igl+1,jgl,kgl)
+
+              gsup(i,j,k,1,1) = hss(igl+1,jgl,kgl)*ds**2
+              gsup(i,j,k,1,2) = hsu(igl+1,jgl,kgl)*ds
+              gsup(i,j,k,1,3) = hsv(igl+1,jgl,kgl)*ds
+              gsup(i,j,k,2,2) = huu(igl+1,jgl,kgl)
+              gsup(i,j,k,2,3) = huv(igl+1,jgl,kgl)
+              gsup(i,j,k,3,3) = hvv(igl+1,jgl,kgl)
+
+              !Enforce symmetry
+              do m=1,3
+                do l=1,m
+                  gsub(i,j,k,m,l) = gsub(i,j,k,l,m)
+                  gsup(i,j,k,m,l) = gsup(i,j,k,l,m)
+                enddo
+              enddo
+
+              !Transform to PIXIE3D's convention
+              gsup(i,j,k,:,:) = gsup(i,j,k,:,:)*jac(i,j,k)
+              gsub(i,j,k,:,:) = gsub(i,j,k,:,:)/jac(i,j,k)
+            enddo
+          enddo
+        enddo
+
+!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
+!!$        do k=1,nz
+!!$           write (*,*) 'slice=',k
+!!$           do j=1,ny
+!!$              write (*,*) 'X',j,k,xcar(:,j,k,1)
+!!$              write (*,*) 'Y',j,k,xcar(:,j,k,2)
+!!$              write (*,*) 'Z',j,k,xcar(:,j,k,3)
+!!$              write (*,*)
+!!$           enddo
+!!$           write (*,*)
+!!$        enddo
+!!$        stop
+
+!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+
+        call vmec_cleanup_metrics
+
+!     End program
+
+      end subroutine vmec_metrics
 
 !     vmec_equ
 !     #################################################################
@@ -1329,16 +1757,16 @@
               if (kgl == 0) kgl = nzg
               if (kgl == nzg+1) kgl = 1
 
-              !Average to our radial mesh (half-mesh in VMEC)
-              call full_to_half(igl,jgl,kgl,bsupsijsf,b1 (i,j,k))
-              call full_to_half(igl,jgl,kgl,bsupuijcf,b2 (i,j,k))
-              call full_to_half(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
-              call full_to_half(igl,jgl,kgl,presijf  ,prs(i,j,k))
+              !Average to our integer radial mesh (half-mesh in VMEC)
+              call half_to_int(igl,jgl,kgl,bsupsijsf,b1 (i,j,k))
+              call half_to_int(igl,jgl,kgl,bsupuijcf,b2 (i,j,k))
+              call half_to_int(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
+              call half_to_int(igl,jgl,kgl,presijf  ,prs(i,j,k))
 
               !Transform to PIXIE's contravariant representation
               b1(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b1(i,j,k)  &
                           *0.5/grid_params%xx(ig)   !This correction comes because here
-                                                    ! the variable is x1=sqrt(s), s-> VMEC.
+                                                    !the variable is x1=sqrt(s), s-> VMEC.
               b2(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b2(i,j,k)
               b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
             enddo
@@ -1355,3 +1783,52 @@
 !     End program
 
       end subroutine vmec_equ
+
+!     vmec_init_fields
+!     #################################################################
+      SUBROUTINE vmec_init_fields
+
+!     -----------------------------------------------------------------
+!     Gives contravariant magnetic fields components and pressure
+!     at grid level igrid
+!     -----------------------------------------------------------------
+
+       USE stel_kinds
+       USE stel_constants            
+       USE island_params, ns=>ns_i, ntheta=>nu_i, nzeta=>nv_i,                &
+    &          mpol=>mpol_i, ntor=>ntor_i, nuv=>nuv_i, mnmax=>mnmax_i,        &
+    &          ohs=>ohs_i, nfp=>nfp_i
+       USE vmec_mod, ONLY: bsupumncf_i,bsupvmncf_i,presf_i                    &
+                          ,bsupuijcf  ,bsupvijcf  ,bsupsijsf,presijf
+       USE fourier, ONLY:  toijsp
+
+       IMPLICIT NONE
+
+!      Local variables
+
+       INTEGER:: istat, jk
+
+!      Begin program
+
+!      Allocate variables
+
+       ALLOCATE (bsupsijsf(ns,ntheta,nzeta)  &
+                ,bsupuijcf(ns,ntheta,nzeta)  &
+                ,bsupvijcf(ns,ntheta,nzeta), stat=istat)
+       IF (istat .ne. 0) STOP 'Allocation error in init_bcovar'
+
+       ALLOCATE(presijf(ns,ntheta,nzeta), stat=istat)
+       IF (istat .ne. 0) STOP 'Allocation error in init_fields'
+
+!      Fill GLOBAL variables (at VMEC integer mesh -- PIXIE3D's half mesh)
+
+!LC12/14/06       bsupsijsh = zero                       ! It is zero in VMEC (flux surfaces)
+       bsupsijsf = zero                                ! It is zero in VMEC (flux surfaces)
+       CALL toijsp (bsupumncf_i, bsupuijcf, 0, 0, 0, 0)
+       CALL toijsp (bsupvmncf_i, bsupvijcf, 0, 0, 0, 0)
+
+       DO jk = 1, ns
+         presijf(jk,:,:) =  presf_i(jk)                ! Init pressure
+       ENDDO
+
+      END SUBROUTINE vmec_init_fields 
