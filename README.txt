@@ -149,16 +149,13 @@ physically located under the "contrib" directory.
 Before execution, the user should set the input file,
 "pixie3d.in". Defaults are provided within PIXIE3D for all quantities,
 which are explained in the readInput.F file. An excerpt of this file
-in included in App. 1.
+is included in App. 1.
 
 Of these parameters, several deserve further discussion here.
 
 equil: specifies the equilibrium type. Several are provided. The user
        is encouraged to look into the file setEquilibrium.F to
        view available ones, and to code new ones.
-
-
-
 
 5.2> Serial execution
 
@@ -316,6 +313,8 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solver continuity equation or not
+      sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
+                               !   tensor or not
 
       advect   = 2             ! Type of advective scheme
                                !    1,7 -> upwind,
