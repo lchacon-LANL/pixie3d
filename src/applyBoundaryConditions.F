@@ -169,7 +169,7 @@ c Begin program
 
       order = 2   !Order of extrapolation in BCs
 
-      call setup_petsc_BC !Setup parallel BC flags
+cc      call setup_petsc_BC !Setup parallel BC flags
 
 c Local grid sizes
 
