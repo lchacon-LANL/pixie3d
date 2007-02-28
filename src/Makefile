@@ -135,7 +135,7 @@ distclean: clean
 
 setup: ;
 	-for file in $(LNK_FILES) ; do \
-		ln -s ../src/$$file 2>/dev/null ; done
+		ln -s $$file 2>/dev/null ; done
 
 #Define dependencies
 
