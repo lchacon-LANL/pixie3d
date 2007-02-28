@@ -82,29 +82,9 @@ c Extract arrays and BC's
 
 c Find coefficients for linearized systems
 
-      !Set boundary conditions
-      do ieq=1,neqd
-        bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
-      enddo
+      if (jit == 1) call findPCcoeffs
 
-#if !defined(vec_pot)
-      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
-      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
-#else
-      where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
-
-      !Magnetic field conditions
-      bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
-      where (bcs(:,IBX:IBZ) == -DIR) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
-#endif
-
-cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
-      call setASM_PC_BC(igx,igy,igz,bcs,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
-
-      !Find coefficients
-      if (jit == 1) call findCoeffs
-
-c Find required diagonals in all grids
+c Setup BCs for diagonal formation
 
       !Set boundary conditions
       do ieq=1,neqd
@@ -137,7 +117,8 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
       endif
 #endif
 
-      !Find diagonals
+c Find required diagonals in all grids
+
       ncolors = 8
 
       if (jit == 1) then
@@ -159,15 +140,15 @@ cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
 
         if (.not.gm_smooth) then
           if (precon == 's1') then
-            if (debug) then
-              write (*,*) 'DIAG -- setupPC: Building diagonal...'
-              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag,1,vol_wgt,mg_glrkin)
-            else
+cc            if (debug) then
+cc              write (*,*) 'DIAG -- setupPC: Building diagonal...'
+cc              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+cc     .                       ,v_diag,1,vol_wgt,mg_glrkin)
+cc            else
               call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
 cc     .                       ,v_diag,ncolors,vol_wgt,si_car)
      .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
-            endif
+cc            endif
           elseif (precon == 's2') then
 cc           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
 cc     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
@@ -241,36 +222,36 @@ cc      stop
 c diag *****
 
 c diag ***** MATRIX GENERATION FOR MATLAB PROCESSING
-      if (debug) then
-      write (*,*) 'DIAG -- setupPC: Building matrix...'
-
-      igrid = 1
-
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
-
-      nt = 3*nxx*nyy*nzz
-
-      allocate(v_mat(nt,nt))
-
-      icomp = IVX
-      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
-
-cc      open(unit=110,file='debug.bin',form='unformatted'
-cc     .       ,status='replace')
-cc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
+cc      if (debug) then
+cc      write (*,*) 'DIAG -- setupPC: Building matrix...'
+cc
+cc      igrid = 1
+cc
+cc      nxx = grid_params%nxv(igrid)
+cc      nyy = grid_params%nyv(igrid)
+cc      nzz = grid_params%nzv(igrid)
+cc
+cc      nt = 3*nxx*nyy*nzz
+cc
+cc      allocate(v_mat(nt,nt))
+cc
+cc      icomp = IVX
+cc      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
+cc
+cccc      open(unit=110,file='debug.bin',form='unformatted'
+cccc     .       ,status='replace')
+cccc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
+cccc      close(110)
+cc
+cc      open(unit=110,file='debug.mat',status='replace')
+cc      do i=1,nt
+cc        write (110,*) (v_mat(i,j),j=1,nt)
+cc      enddo
 cc      close(110)
-
-      open(unit=110,file='debug.mat',status='replace')
-      do i=1,nt
-        write (110,*) (v_mat(i,j),j=1,nt)
-      enddo
-      close(110)
-
-      deallocate(v_mat)
-cc      stop
-      endif
+cc
+cc      deallocate(v_mat)
+cccc      stop
+cc      endif
 c diag *****
 
 c End program
