@@ -2839,16 +2839,16 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       !Higher-order interpolation than 1 is JB-unstable for cyl.
-      if (debug) then
-        write (*,*) 'DIAG--v_mtvc'
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
-      else
+cc      if (debug) then
+cc        write (*,*) 'DIAG--v_mtvc'
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+cc      else
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
-      endif
+cc      endif
 
 c Calculate matrix-vector product
 
