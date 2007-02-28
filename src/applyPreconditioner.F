@@ -53,14 +53,14 @@ c Externals
 
 c Begin program
 
-      call setASMflag(asm_PC.and.(np>1))
-
-#if defined(petsc)
-      if (iout >= 0) then
-        write (*,*) 'Proc ',my_rank,': asm    in applyPC',asm
-        write (*,*) 'Proc ',my_rank,': par_bc in applyPC',par_bc
-      endif
-#endif
+cc      call setASMflag(asm_PC.and.(np>1))
+cc
+cc#if defined(petsc)
+cc      if (iout >= 0) then
+cc        write (*,*) 'Proc ',my_rank,': asm    in applyPC',asm
+cc        write (*,*) 'Proc ',my_rank,': par_bc in applyPC',par_bc
+cc      endif
+cc#endif
 
       igx = 1
       igy = 1
