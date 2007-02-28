@@ -17,8 +17,8 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/3dplot
 
-LNK_FILES = applyBoundaryConditions.F\
-	    imposeBC_mod.F\
-	    mhd_mod.F\
-	    readInput.F\
-            vmec.f90 
+LNK_FILES = ../src/applyBoundaryConditions.F\
+	    ../src/imposeBC_mod.F\
+	    ../src/mhd_mod.F\
+	    ../src/readInput.F\
+            ../src/vmec.f90 
