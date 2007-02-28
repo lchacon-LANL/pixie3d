@@ -440,9 +440,9 @@ c     End program
 
       end subroutine fillArray
 
-c     findCoeffs
+c     findPCcoeffs
 c     ###################################################################
-      subroutine findCoeffs
+      subroutine findPCcoeffs
 
 c     -------------------------------------------------------------------
 c     Finds coefficients for linearized systems in preconditioner
@@ -455,6 +455,8 @@ c     Call variables
 c     Local variables
 
         integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar,igr,i,j
+     .               ,bc_pc(size(bcs,1),size(bcs,2))
+
         real(8)    :: dvol,veclap(3)
 
         real(8), allocatable, dimension(:,:,:,:) :: vector,vel
@@ -479,11 +481,32 @@ c     Begin program
 
         order = 0
 
+c     Setup BCs
+
+      !Set boundary conditions
+      do ieq=1,neqd
+        bc_pc(:,ieq) = varray%array_var(ieq)%bconds(:)
+      enddo
+
+#if !defined(vec_pot)
+      bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
+      where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = -DIR  !Use covariant components 
+#else
+      where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR  !Use covariant components 
+
+      !Magnetic field conditions
+      bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
+      where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU  !Use covariant components 
+#endif
+
+cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
+      call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
+
 c     Store density in all grids (w/o BCs)
 
         grho0%grid(igrid)%array(:,:,:,1) = rho
 
-        call restrictMGArray(IRHO,1,grho0,bcs(:,IRHO),igrid,order)
+        call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
@@ -493,7 +516,7 @@ cc        call restrict_B(.true.)
         gb0%grid(igrid)%array(:,:,:,2) = by
         gb0%grid(igrid)%array(:,:,:,3) = bz
 
-        call restrictMGArray(IBX,3,gb0,bcs(:,IBX:IBZ),igrid,order)
+        call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order)
 
 c diag ****
 cc        write (*,*) 'DIAG -- findCoeffs'
@@ -515,7 +538,7 @@ c     Store magnetic field cov components in all grids (w/ BCs)
         gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
         gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
 
-        call restrictMGArray(IBX,3,gb0_cov,bcs(:,IBX:IBZ),igrid,order
+        call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
 
 c diag ****
@@ -538,7 +561,7 @@ c     Store ion velocity components in all grids (w/ BCs)
         gv0%grid(igrid)%array(:,:,:,2) = vy
         gv0%grid(igrid)%array(:,:,:,3) = vz
 
-        call restrictMGArray(IVX,3,gv0,bcs(:,IVX:IVZ),igrid,order)
+        call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
 
 c diag ****
 cc        write (*,*) 'DIAG -- findCoeffs'
@@ -586,7 +609,7 @@ cc              divrgV(i,j,k) = 0d0
         !pressure (w/ BCs)
         gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
 
-        call restrictMGArray(IRHO,1,gp0,bcs(:,IRHO),igrid,order)
+        call restrictMGArray(IRHO,1,gp0,bc_pc(:,IRHO),igrid,order)
 
         !v0/dt+theta(v0.grad(v0)-mu*veclap(v0)) and nabla_v0
         allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -775,7 +798,7 @@ c     End program
 
       end subroutine restrict_B
 
-      end subroutine findCoeffs
+      end subroutine findPCcoeffs
 
 c     cSolver
 c #   ##################################################################
@@ -949,60 +972,60 @@ cc          close(11000)
         endif
 
 c diag ****
-        if (debug) then
-        write (*,*) 'DIAG -- cSolver'
-
-c       Initialize solver
-
-        call solverInit
-
-c       Setup solver
-
-        call solverOptionsInit
-
-        solverOptions%iter    = maxvcyc
-        solverOptions%tol     = mgtol
-
-        if (PRESENT(dg)) solverOptions%diag => ddg
-
-        select case (smth)
-        case('gs')
-          solverOptions%omega   = 1d0
-          solverOptions%ncolors = ncolors
-          call assembleSolverHierarchy('gs')
-        case('gm')
-          solverOptions%stp_test = 1 
-          solverOptions%krylov_subspace = solverOptions%iter 
-          call assembleSolverHierarchy('gm')
-
-cc          solverOptions%iter    = 1
+cc        if (debug) then
+cc        write (*,*) 'DIAG -- cSolver'
+cc
+ccc       Initialize solver
+cc
+cc        call solverInit
+cc
+ccc       Setup solver
+cc
+cc        call solverOptionsInit
+cc
+cc        solverOptions%iter    = maxvcyc
+cc        solverOptions%tol     = mgtol
+cc
+cc        if (PRESENT(dg)) solverOptions%diag => ddg
+cc
+cc        select case (smth)
+cc        case('gs')
+cc          solverOptions%omega   = 1d0
+cc          solverOptions%ncolors = ncolors
+cc          call assembleSolverHierarchy('gs')
+cc        case('gm')
+cc          solverOptions%stp_test = 1 
+cc          solverOptions%krylov_subspace = solverOptions%iter 
+cc          call assembleSolverHierarchy('gm')
+cc
+cccc          solverOptions%iter    = 1
+cccc          solverOptions%omega   = omg
+cccc          call assembleSolverHierarchy('jb')
+cc          call assembleSolverHierarchy('id')
+cc        case default !JB
 cc          solverOptions%omega   = omg
 cc          call assembleSolverHierarchy('jb')
-          call assembleSolverHierarchy('id')
-        case default !JB
-          solverOptions%omega   = omg
-          call assembleSolverHierarchy('jb')
-        end select
-
-c       Invoke solver
-
-        ntot=neq*ntotp
-        call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
-
-c       Kill solver
-
-        call solverKill
-
-c       Scatter solution
-
-        do i = 1,ntotp
-          do ieq=1,neq
-            x(i,ieq) = xi(neq*(i-1)+ieq)
-          enddo
-        enddo
-
-        return
-        endif
+cc        end select
+cc
+ccc       Invoke solver
+cc
+cc        ntot=neq*ntotp
+cc        call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
+cc
+ccc       Kill solver
+cc
+cc        call solverKill
+cc
+ccc       Scatter solution
+cc
+cc        do i = 1,ntotp
+cc          do ieq=1,neq
+cc            x(i,ieq) = xi(neq*(i-1)+ieq)
+cc          enddo
+cc        enddo
+cc
+cc        return
+cc        endif
 c diag ****
 
 c     Solve coupled MG
