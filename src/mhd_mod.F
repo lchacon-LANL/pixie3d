@@ -6938,33 +6938,32 @@ cc          vxp = t13/ph
 c       Diffusive part
 
         !Harmonic average for calculation of viscosity coeff. at faces
-cc        vis = 2./(1./nuu(ip,j,k) + 1./nuu(i ,j,k))
         vis = 2.*nuu(ip,j,k)*nuu(i,j,k)/(nuu(ip,j,k) + nuu(i,j,k))
 
-        nabla_v_cnv = matmul(gsuper,nabla_v)
-
         if (sym_st) then
+          nabla_v_cnv = matmul(gsuper,nabla_v)
+
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+
+          t11 = t11 - vis*nabla_v_cnv(1,1)
+          t12 = t12 - vis*nabla_v_cnv(1,2)
+          t13 = t13 - vis*nabla_v_cnv(1,3)
+        else
+          t11 = t11
+     .       -vis*( gsuper(1,1)*nabla_v(1,1)
+     .             +gsuper(1,2)*nabla_v(2,1)
+     .             +gsuper(1,3)*nabla_v(3,1) )
+
+          t12 = t12
+     .       -vis*( gsuper(1,1)*nabla_v(1,2)
+     .             +gsuper(1,2)*nabla_v(2,2)
+     .             +gsuper(1,3)*nabla_v(3,2) )
+
+          t13 = t13
+     .       -vis*( gsuper(1,1)*nabla_v(1,3)
+     .             +gsuper(1,2)*nabla_v(2,3)
+     .             +gsuper(1,3)*nabla_v(3,3) )
         endif
-
-        t11 = t11 - vis*nabla_v_cnv(1,1)
-        t12 = t12 - vis*nabla_v_cnv(1,2)
-        t13 = t13 - vis*nabla_v_cnv(1,3)
-
-cc        t11 = t11
-cc     .       -vis*( gsuper(1,1)*nabla_v(1,1)
-cc     .             +gsuper(1,2)*nabla_v(2,1)
-cc     .             +gsuper(1,3)*nabla_v(3,1) )
-cc
-cc        t12 = t12
-cc     .       -vis*( gsuper(1,1)*nabla_v(1,2)
-cc     .             +gsuper(1,2)*nabla_v(2,2)
-cc     .             +gsuper(1,3)*nabla_v(3,2) )
-cc
-cc        t13 = t13
-cc     .       -vis*( gsuper(1,1)*nabla_v(1,3)
-cc     .             +gsuper(1,2)*nabla_v(2,3)
-cc     .             +gsuper(1,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
@@ -7123,33 +7122,33 @@ cc          vyp = t23/ph
 
 c       Diffusive part
 
-cc        vis = 2./(1./nuu(i,jp,k) + 1./nuu(i,j ,k))
         vis = 2.*nuu(i,jp,k)*nuu(i,j,k)/(nuu(i,jp,k) + nuu(i,j,k))
 
-cc        t21 = t21
-cc     .       -vis*( gsuper(2,1)*nabla_v(1,1)
-cc     .             +gsuper(2,2)*nabla_v(2,1)
-cc     .             +gsuper(2,3)*nabla_v(3,1) )
-cc
-cc        t22 = t22
-cc     .       -vis*( gsuper(2,1)*nabla_v(1,2)
-cc     .             +gsuper(2,2)*nabla_v(2,2)
-cc     .             +gsuper(2,3)*nabla_v(3,2) )
-cc
-cc        t23 = t23
-cc     .       -vis*( gsuper(2,1)*nabla_v(1,3)
-cc     .             +gsuper(2,2)*nabla_v(2,3)
-cc     .             +gsuper(2,3)*nabla_v(3,3) )
-
-        nabla_v_cnv = matmul(gsuper,nabla_v)
-
         if (sym_st) then
+          nabla_v_cnv = matmul(gsuper,nabla_v)
+
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+
+          t21 = t21 - vis*nabla_v_cnv(2,1)
+          t22 = t22 - vis*nabla_v_cnv(2,2)
+          t23 = t23 - vis*nabla_v_cnv(2,3)
+        else
+          t21 = t21
+     .       -vis*( gsuper(2,1)*nabla_v(1,1)
+     .             +gsuper(2,2)*nabla_v(2,1)
+     .             +gsuper(2,3)*nabla_v(3,1) )
+
+          t22 = t22
+     .       -vis*( gsuper(2,1)*nabla_v(1,2)
+     .             +gsuper(2,2)*nabla_v(2,2)
+     .             +gsuper(2,3)*nabla_v(3,2) )
+
+          t23 = t23
+     .       -vis*( gsuper(2,1)*nabla_v(1,3)
+     .             +gsuper(2,2)*nabla_v(2,3)
+     .             +gsuper(2,3)*nabla_v(3,3) )
         endif
 
-        t21 = t21 - vis*nabla_v_cnv(2,1)
-        t22 = t22 - vis*nabla_v_cnv(2,2)
-        t23 = t23 - vis*nabla_v_cnv(2,3)
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -7308,32 +7307,32 @@ cc          vzp = t33/ph
 
 c       Diffusive part
 
-cc        vis = 2./(1./nuu(i,j,kp) + 1./nuu(i,j,k ))
         vis = 2.*nuu(i,j,kp)*nuu(i,j,k)/(nuu(i,j,kp) + nuu(i,j,k))
 
-cc        t31 = t31
-cc     .       -vis*( gsuper(3,1)*nabla_v(1,1)
-cc     .             +gsuper(3,2)*nabla_v(2,1)
-cc     .             +gsuper(3,3)*nabla_v(3,1) )
-cc
-cc        t32 = t32
-cc     .       -vis*( gsuper(3,1)*nabla_v(1,2)
-cc     .             +gsuper(3,2)*nabla_v(2,2)
-cc     .             +gsuper(3,3)*nabla_v(3,2) )
-cc
-cc        t33 = t33
-cc     .       -vis*( gsuper(3,1)*nabla_v(1,3)
-cc     .             +gsuper(3,2)*nabla_v(2,3)
-cc     .             +gsuper(3,3)*nabla_v(3,3) )
-
-        nabla_v_cnv = matmul(gsuper,nabla_v)
         if (sym_st) then
-          nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-        endif
+          nabla_v_cnv = matmul(gsuper,nabla_v)
 
-        t31 = t31 - vis*nabla_v_cnv(3,1)
-        t32 = t32 - vis*nabla_v_cnv(3,2)
-        t33 = t33 - vis*nabla_v_cnv(3,3)
+          nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+
+          t31 = t31 - vis*nabla_v_cnv(3,1)
+          t32 = t32 - vis*nabla_v_cnv(3,2)
+          t33 = t33 - vis*nabla_v_cnv(3,3)
+        else
+          t31 = t31
+     .       -vis*( gsuper(3,1)*nabla_v(1,1)
+     .             +gsuper(3,2)*nabla_v(2,1)
+     .             +gsuper(3,3)*nabla_v(3,1) )
+
+          t32 = t32
+     .       -vis*( gsuper(3,1)*nabla_v(1,2)
+     .             +gsuper(3,2)*nabla_v(2,2)
+     .             +gsuper(3,3)*nabla_v(3,2) )
+
+          t33 = t33
+     .       -vis*( gsuper(3,1)*nabla_v(1,3)
+     .             +gsuper(3,2)*nabla_v(2,3)
+     .             +gsuper(3,3)*nabla_v(3,3) )
+        endif
 
         if (flag /= 0) then
           ijac = 1d0/jac
