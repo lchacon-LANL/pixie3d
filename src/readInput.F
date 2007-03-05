@@ -40,7 +40,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f=.false.
+      logical       :: nc_eom_f
 
 c Namelist
 
@@ -60,7 +60,7 @@ c Namelist
      .                   ,ndstep,sm_flag,sm_pass,predictor
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,k_si,solve_rho,advect,sym_st
+     .                   ,k_si,solve_rho,advect,sym_st,adiabatic
      .                ,inputfile,recordfile,equ_file
 
 c ******************************************************************
@@ -76,11 +76,7 @@ c Set defaults
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
 
-cc      npx      = 0             ! Number of processors in X-direction (if zero, determined by code)
-cc      npy      = 0             ! Number of processors in Y-direction (if zero, determined by code)
-cc      npz      = 0             ! Number of processors in Z-direction (if zero, determined by code)
-
-      coords   = 'car'         ! Coordinate system (see grid_mod.f)
+      coords   = 'car'         ! Coordinate system (see grid_anal_mod.F)
 
       xmax     = 1d0           ! Length in x-direction
       ymax     = 1d0           ! Length in y-direction
@@ -90,19 +86,21 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       ymin     = 0d0           ! Length in y-direction
       zmin     = 0d0           ! Length in z-direction
 
-      gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
+      gparams  = 0d0           ! Array with additional grid parameters
+                               ! (grid-dependent; see setEquilibrium.F)
 
       numerical_grid = .false. ! Whether grid metrics are calculated numerically (.true.)
-                               !    or analytically.
-
-      mg_ratio = 2             ! MG coarsening ratio
+                               !   or analytically.
 
       bcs      = (/ 'def','def','per','per','per','per' /) 
-                               ! Defines topological constraints. Convention:
-                               !   + 'def' = default (set in code)
+                               ! Defines topological boundary conditions:
+                               !   + 'def' = default
+                               !     (see applyBoundaryCondtions.F)
                                !   + 'per' = periodic
                                !   + 'spt' = singular point
-                               !   + 'sym' = symmetry (homogeneous Neumann)
+                               !   + 'sym' = symmetry 
+                               !     (homogeneous Neumann/Dirichlet
+                               !      for even/odd quantities)
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
@@ -112,39 +110,54 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
                                !        ndstep is calculated in code)
       dstep    = 0.            ! Time interval between plots (if zero,
                                !        dstep is calculated in code)
-      timecorr = .true.        ! Time adaptiveness based on Newton convergence
-      cnfactor = -.48          ! Crank-Nicolson factor
+
+      restart  = .false.       ! Restarting flag
+      timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
+
+      cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
                                !   0 -> Theta scheme
-                               !   1 -> Rannacher time stepping (CN scheme)
+                               !   1 -> Rannacher time stepping
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
-      tolgm    = 5.0d-2        ! Inexact Newton parameter (GMRES conv. tolerance)
+      tolgm    = 8d-1          ! Inexact Newton parameter
       rtol     = 1.0d-4        ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter
+      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter (if zero,
+                               !        use default in NK routine)
       maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
-      method   = 0             ! Constant forcing parameter for inexact Newton
-                               !        (see etak_meth in NewtonGmres doc)
-      global   = 0             ! Do not use globalization (see global in NewtonGmres doc)
-      damp     = 1d0           ! Damping parameter in Newton (see NewtonGmres doc))
+      method   = 0             ! Inexact Newton method:
+                               !   + 0: constant forcing
+                               !   + other: adaptive (Eisenstat-Walker)
+
+      global   = 0             ! Newton's globalization method:
+                               !   + 0 --> no globalization
+                               !   + 1 --> linesearch backtracking 
+                               !   + 2 --> pseudo-transient
+
+      damp     = 1d0           ! Damping parameter in Newton (see nk_mod.f doc))
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 1             ! Whether preconditioner is used to give initial
-                               !        guess to GMRES (1)
+                               !   guess to GMRES (when =1) 
 
       !Preconditioner parameters
-      nsweep   = 5             ! Number of SGS sweeps
-      maxvcyc  = 1             ! Maximum number of V-cycles
+      mg_ratio = 2             ! MG coarsening ratio
+      nsweep   = 5             ! Number of MG smoothing passes
+      maxvcyc  = 1             ! Maximum number of MG V-cycles
       mgtol    = 1d-3          ! MG convergence tolerance
-      precon   = 'si'          ! Type of preconditioner
+
+      precon   = 'id'          ! Type of preconditioner. Currently:
+                               !   - 'id': identity (default)
+                               !   - 's1': SI without flow
+                               !   - 's2': SI with flow
       precpass = 1             ! Number of SI iterations in preconditioner
-      asm_PC   = .false.       ! Whether we are doing ASM PC (in parallel)
+      asm_PC   = .false.       ! Whether we are doing additive Schwartz PC (in parallel)
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
@@ -161,28 +174,32 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio
 
-      !Discretization parameters
-      k_si     = 0d0           ! SI constant
+      !Nonlinear function parameters
+      k_si       = 0d0         ! SI constant
 
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
+      nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solver continuity equation or not
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
-      advect   = 2             ! Type of advective scheme
-                               !    1,7 -> upwind,
-                               !    2 -> centered (ZIP)
+      advect     = 2           ! Type of advective scheme (currently available only
+                               ! for scalars):
+                               !    1 -> upwind,
+                               !    2 -> centered (ZIP),
                                !    3 -> QUICK,
                                !    4 -> SMART,
                                !    5 -> smooth SMART,
-                               !    6 -> centered high order
+                               !    6 -> centered 4th order
 
       !Initial condition
-      equil    = ''            ! Type of equilibrium
-      dlambda  = .2            ! Characteristic width of Harris sheet
+      equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
+      dlambda  = .2            ! Characteristic equilibrium scale length
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
       vperflow = 0.            ! Maximum perpendicular fluid flow
@@ -202,21 +219,39 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
-      !Grid stuff
+      !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
       gp2%pack = .false.       ! Do not pack in Y-direction
       gp3%pack = .false.       ! Do not pack in Z-direction
+                               ! To select packing, one needs to set the fields
+                               ! of gp1, gp2, gp3 as follows:
+                               !    gp* = pack,xp,dx0
+     .                         ! where:
+                               !   + pack (logical): whether to pack
+                               !   + xp (real): where to pack
+                               !   + dx0 (real): initial grid spacing (at xp)
       check_grid = .false.     ! Whether to dump grid info or not
 
       !I/O parameters
-      restart  = .false.       ! Restarting flag
-      ilevel   = 0             ! Level of solver output information
-      debug    = .false.       ! Debugging flag
-      inputfile  ='pixie3d.in' ! Default input file
+      ilevel     = 0           ! Level of output information:
+                               !   -  0: time step      level
+                               !   -  1: Newton solver  level (basic)
+                               !   -  2: Newton solver  level (advanced)
+                               !   -  3: Krylov solver  level
+                               !   -  4: Preconditioner level (basic)
+                               !   - >4: Preconditioner level (advanced)
+                               ! Each level encompasses previous ones.
+
+      debug      = .false.     ! PC debugging flag
+      debug_it   = 1           ! Newton iteration level for debugging
+
       recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
+      prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
 
 c Read initialization parameters
+
+      inputfile  ='pixie3d.in' ! Default input file
 
       open(unit=uinput,file=inputfile,status='old')
       read(uinput,datin)
@@ -336,10 +371,28 @@ c Read computation initializations (external)
 
 c Graphics defaults
 
-      ndplot = 0
-      dplot  = 0d0
+      ndplot = 1          ! Postprocessing interval (# of time steps; integer)
+      dplot  = 1d0        !       "          "      (time interval; real)
+      hdf_plot =.false.   ! Whether an HDF5 file is to be created
 
-      sel_graph = (/ (i,i=1,xdraw_cont_lim) /)
+      !Line profile configuration (XDRAW)
+      prof_conf%line   = 1          ! Direction (1 -> x, 2 -> y, 3 -> z)
+      prof_conf%label  ='x'         ! Label
+      prof_conf%coords = (/1,1,1/)  ! Line coordinates 
+
+      !Contour slice configuration (XDRAW)
+      cont_conf%plane  = 3          ! Normal to cut plane (1 -> x, 2 -> y, 3 -> z)
+      cont_conf%label  = (/'x','y'/)! Contour plot axes labels
+      cont_conf%coords =(/1,1,1/)   ! Plane coordinates along normal
+
+      sel_diag = 0   !Array of size "xdraw_cont_lim (currently set to 16)
+                     !  indicating time histories to be dumped (see
+                     !  drawgamma.in --generated after postprocessing--
+                     !  or diagnostics.F for information on available variables)
+
+      sel_graph = (/ (i,i=1,xdraw_cont_lim) /)  !(obsolete)
+                     !Selects graphics to be shown with XDRAW contour plotter.
+
 
 c Read graphics initialization parameters
 

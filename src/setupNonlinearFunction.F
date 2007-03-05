@@ -18,8 +18,6 @@ c------------------------------------------------------------------
 
       use timeStepping
 
-cc      use debug
-
       use error
 
       use imposeBCinterface
@@ -92,13 +90,11 @@ c Safeguards
 c Electron velocity
 
       if (di > 0d0) then
-        vecnv(:,:,:,1) = vx -di*jx/rho
-        vecnv(:,:,:,2) = vy -di*jy/rho
-        vecnv(:,:,:,3) = vz -di*jz/rho
+        vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+        vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+        vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
       else
-        vecnv(:,:,:,1) = vx
-        vecnv(:,:,:,2) = vy
-        vecnv(:,:,:,3) = vz
+        vecnv = vcnv
       endif
 
 c Electron forces (covariant vector)
@@ -111,7 +107,7 @@ c Electron forces (covariant vector)
             do i=0,nx+1
               !Electron pressure
               call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                 ,fx_cov(i,j,k),fy_cov(i,j,k),fz_cov(i,j,k))
+     .                 ,grd(i,j,k,1),grd(i,j,k,2),grd(i,j,k,3))
               !Electron hall (normally included directly via ve in vexB tem)
 cc              fx_cov(i,j,k) = fx_cov(i,j,k)
 cc     .                    - (jy(i,j,k)*bz(i,j,k)
@@ -128,89 +124,69 @@ cc     .                      /gmetric%grid(igx)%jac(i,j,k)
             enddo
           enddo
         enddo
+
+        grd(:,:,:,1) = di*grd(:,:,:,1)/rho
+        grd(:,:,:,2) = di*grd(:,:,:,2)/rho
+        grd(:,:,:,3) = di*grd(:,:,:,3)/rho
+      else
+        grd = 0d0
       endif
         
 c Viscosity (resistivity found in BC routine)
 
-      if (nc_eom_v) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
-cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
-            enddo
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            nuu(i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
+cc            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
           enddo
         enddo
-      else
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-cc              nuu  (i,j,k) = rho(i,j,k)*vis(i,j,k,nx,ny,nz,igx,igy,igz)
-              nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
-cc              eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
-            enddo
-          enddo
-        enddo
-      endif
+      enddo
 
 c Auxiliary variables
 
-      if (di > 0d0) then    !Add electron pressure term
-        ejx = - di*fx_cov/rho
-        ejy = - di*fy_cov/rho
-        ejz = - di*fz_cov/rho
-      else
-        ejx = 0d0
-        ejy = 0d0
-        ejz = 0d0
-      endif
-
 #if !defined(vec_pot)
-      if (solenoidal) then  !Add resistivity term
-        ejx = ejx + jx_cov*eeta
-        ejy = ejy + jy_cov*eeta
-        ejz = ejz + jz_cov*eeta
+      if (solenoidal) then  !Add resistivity term to grad(pe) term
+        grd(:,:,:,1) = eeta*jcov(:,:,:,1) - grd(:,:,:,1)
+        grd(:,:,:,2) = eeta*jcov(:,:,:,2) - grd(:,:,:,2)
+        grd(:,:,:,3) = eeta*jcov(:,:,:,3) - grd(:,:,:,3)
       endif
-
-      bcnv(:,:,:,1) = bx
-      bcnv(:,:,:,2) = by
-      bcnv(:,:,:,3) = bz
 #else
       acov(:,:,:,1) = ax
       acov(:,:,:,2) = ay
       acov(:,:,:,3) = az
 
       !Covariant vec-laplacian/curlcurl on A (w/ BCs)
-cc      vlap_a(:,:,:,1) = -jx_cov
-cc      vlap_a(:,:,:,2) = -jy_cov
-cc      vlap_a(:,:,:,3) = -jz_cov
+      if (heta > 0d0) then
+cc        vlap_a = -jcov
 
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-cc            vlap_a(i,j,k,:) =
-cc     .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-            cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
-     .                   ,vol=.false.)
-            call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .           ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
-     .           ,cnv(1),cnv(2),cnv(3),.false.)
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+cc              vlap_a(i,j,k,:) =
+cc       .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+              cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
+     .                     ,vol=.false.)
+              call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
+     .             ,cnv(1),cnv(2),cnv(3),.false.)
+            enddo
           enddo
         enddo
-      enddo
 
-      bcnd(:,1) = varray%array_var(IAX)%bconds
-      bcnd(:,2) = varray%array_var(IAY)%bconds
-      bcnd(:,3) = varray%array_var(IAZ)%bconds
+        bcnd(:,1) = varray%array_var(IAX)%bconds
+        bcnd(:,2) = varray%array_var(IAY)%bconds
+        bcnd(:,3) = varray%array_var(IAZ)%bconds
 
-      call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
-     .          ,iorder=2,is_cnv=.false.)
+        call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
+     .            ,iorder=2,is_cnv=.false.)
+      endif
 
 #endif
 
-      vcnv(:,:,:,1) = vx
-      vcnv(:,:,:,2) = vy
-      vcnv(:,:,:,3) = vz
+      pcnv(:,:,:,1) = px
+      pcnv(:,:,:,2) = py
+      pcnv(:,:,:,3) = pz
 
 c SI operator
 

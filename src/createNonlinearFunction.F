@@ -54,43 +54,29 @@ c Local variables
 
 c Begin program
 
-        allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,bz_cov(ilom:ihip,jlom:jhip,klom:khip)
-     $           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+        allocate (pcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
 
-        allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jy    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jz    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jx_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jy_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,jz_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,ejx   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
-
-        allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,vy    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,vz    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,vx_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,vy_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .           ,vz_cov(ilom:ihip,jlom:jhip,klom:khip))
+cc        allocate (ejx   (ilom:ihip,jlom:jhip,klom:khip)
+cc     .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
+cc     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
      .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
 
-#if !defined(vec_pot)
-        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3))
-#else
-        allocate (bx    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,by    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,bz    (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+        allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,jcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,grd   (ilom:ihip,jlom:jhip,klom:khip,3))
+
+#if defined(vec_pot)
+        allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vlap_a(ilom:ihip,jlom:jhip,klom:khip,3))
-cc     $           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 #endif
 
 c SI operator

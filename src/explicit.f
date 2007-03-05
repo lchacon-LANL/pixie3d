@@ -139,7 +139,7 @@ c Calculate CFL
 
             !Maximum magnetic field norm and maximum beta
             bnorm = vectorNorm(i,j,k,igx,igy,igz
-     .                        ,bx(i,j,k),by(i,j,k),bz(i,j,k)
+     .                        ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
      .                        ,.false.)
 
             ca2 = bnorm/rho(i,j,k)
@@ -165,7 +165,7 @@ c Calculate CFL
 
             !Maximum k.B
             kb_par2 = scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
-     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))**2
+     .                 ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))**2
      .               /bnorm
 
             !Sound speed

@@ -36,6 +36,7 @@ c     Local variables
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       integer(4) :: system,ierr
+      character(50) :: command
 
 c     Begin program
 
@@ -46,11 +47,19 @@ c     Begin program
       select case(equil)
       case ('kaitm','kai3d')
 
-        call perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
+        command = 'ls '//trim(prt_file)//' >& /dev/null'
+        ierr = system(trim(command))
+
+        if (ierr == 0) then
+          call perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
+        else
+          call perturbEquilibrium_def  (array,bcs,perturb,ieq)
+        endif
 
       case ('ppnch','ppn3d','ppn2')
 
-        ierr = system('ls pixie3d.eig >& /dev/null')
+        command = 'ls '//trim(prt_file)//' >& /dev/null'
+        ierr = system(trim(command))
 
         if (ierr == 0) then
           call perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
@@ -183,7 +192,7 @@ c     Begin program
 
       write (*,*) 'Reading KAI TM perturbations'
 
-      open(unit=111,file='M64_000020.asc',status='old')
+      open(unit=111,file=trim(prt_file),status='old')
 
       do i=1,nxd
         read(111,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
@@ -215,7 +224,6 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
       enddo
 
       close (111)
-cc      stop
 
 c     End program
 
@@ -257,11 +265,11 @@ c     Begin program
       mm = grid_params%params(1)
       kk = grid_params%params(2)
 
-c     Read pixie3d.eig file
+c     Read perturbation file
 
       write (*,*) 'Reading PPNCH eigenmodes...'
 
-      open(unit=111,file='pixie3d.eig',status='old')
+      open(unit=111,file=trim(prt_file),status='old')
 
       read(111,*) nxx
 

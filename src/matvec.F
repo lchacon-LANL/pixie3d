@@ -1877,7 +1877,7 @@ c     Call variables
 
 c     Begin program
 
-        psiv = diag_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,da)
+        psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
 
       end subroutine findPsiv
 
@@ -2965,9 +2965,11 @@ cc              cnv = (psit + psib)
 
             !Form total operator
 
-            if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
-
-            cnv = (psiv + cnv)*vol
+            if (nc_eom_v) then
+              cnv = (psiv + cnv/rho0(i,j,k,1))*vol
+            else
+              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
+            endif
 
             if (si_car) then
               call transformVectorToCartesian

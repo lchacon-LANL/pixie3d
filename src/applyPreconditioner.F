@@ -900,9 +900,12 @@ c     Begin program
           do j = 1,ny
             do i = 1,nx
              ii  = i + nx*(j-1) + nx*ny*(k-1)
-             xxx(ii,IVX)=rho(i,j,k)*xxx(ii,IVX)+xxx(ii,IRHO)*vx(i,j,k)
-             xxx(ii,IVY)=rho(i,j,k)*xxx(ii,IVY)+xxx(ii,IRHO)*vy(i,j,k)
-             xxx(ii,IVZ)=rho(i,j,k)*xxx(ii,IVZ)+xxx(ii,IRHO)*vz(i,j,k)
+             xxx(ii,IVX)=rho(i,j,k)*xxx(ii,IVX)
+     .                  +xxx(ii,IRHO)*vcnv(i,j,k,1)
+             xxx(ii,IVY)=rho(i,j,k)*xxx(ii,IVY)
+     .                  +xxx(ii,IRHO)*vcnv(i,j,k,2)
+             xxx(ii,IVZ)=rho(i,j,k)*xxx(ii,IVZ)
+     .                  +xxx(ii,IRHO)*vcnv(i,j,k,3)
             enddo
           enddo
         enddo
@@ -1425,26 +1428,29 @@ cc     .                  +tmp(i,j,k)*(drho(i,j,k+1)-drho(i,j,k-1))*idz)
 
             !Add Lorentz force correction
             cnv(1) = cnv(1)
-     .             + jy_cov(i,j,k)*db_cov(i,j,k,3)
-     .             - jz_cov(i,j,k)*db_cov(i,j,k,2)
-     .             - by_cov(i,j,k)*dj_cov(i,j,k,3)
-     .             + bz_cov(i,j,k)*dj_cov(i,j,k,2)
+     .             + jcov(i,j,k,2)*db_cov(i,j,k,3)
+     .             - jcov(i,j,k,3)*db_cov(i,j,k,2)
+     .             - bcov(i,j,k,2)*dj_cov(i,j,k,3)
+     .             + bcov(i,j,k,3)*dj_cov(i,j,k,2)
 
             cnv(2) = cnv(2)
-     .             + jz_cov(i,j,k)*db_cov(i,j,k,1)
-     .             - jx_cov(i,j,k)*db_cov(i,j,k,3)
-     .             - bz_cov(i,j,k)*dj_cov(i,j,k,1)
-     .             + bx_cov(i,j,k)*dj_cov(i,j,k,3)
+     .             + jcov(i,j,k,3)*db_cov(i,j,k,1)
+     .             - jcov(i,j,k,1)*db_cov(i,j,k,3)
+     .             - bcov(i,j,k,3)*dj_cov(i,j,k,1)
+     .             + bcov(i,j,k,1)*dj_cov(i,j,k,3)
 
             cnv(3) = cnv(3)
-     .             + jx_cov(i,j,k)*db_cov(i,j,k,2)
-     .             - jy_cov(i,j,k)*db_cov(i,j,k,1)
-     .             - bx_cov(i,j,k)*dj_cov(i,j,k,2)
-     .             + by_cov(i,j,k)*dj_cov(i,j,k,1)
+     .             + jcov(i,j,k,1)*db_cov(i,j,k,2)
+     .             - jcov(i,j,k,2)*db_cov(i,j,k,1)
+     .             - bcov(i,j,k,1)*dj_cov(i,j,k,2)
+     .             + bcov(i,j,k,2)*dj_cov(i,j,k,1)
 
             !Correct rhs_v
-            eom_rhs(ii,:) = alpha*dvol*cnv(:)
-
+            if (nc_eom_v) then
+              eom_rhs(ii,:) = alpha*dvol*cnv(:)/rho(i,j,k)
+            else
+              eom_rhs(ii,:) = alpha*dvol*cnv(:)
+            endif
           enddo
         enddo
       enddo
@@ -1484,7 +1490,7 @@ c Begin program
 
 c Find rhs_v
 
-cc      if (.not.nc_eom_v) then
+      if (.not.nc_eom_v) then
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -1500,9 +1506,9 @@ cc      if (.not.nc_eom_v) then
             enddo
           enddo
         enddo
-cc      else
-cc        rhs_si = yyy
-cc      endif
+      else
+        rhs_si = yyy
+      endif
 
 c Find linearized EOM rhs [jxB-grad(p)] correction
 
@@ -1579,19 +1585,21 @@ c Find advection-diffusion part
      .                        ,dv(:,:,:,1),dv(:,:,:,2),dv(:,:,:,3),0)
 
             nabla_vv0 = fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vx,vy,vz,0)
+     .                          ,vcnv(:,:,:,1)
+     .                          ,vcnv(:,:,:,2)
+     .                          ,vcnv(:,:,:,3),0)
 
             mul = vis(i,j,k,nx,ny,nz,igrid,igrid,igrid)
 
             veclap = veclaplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid,dv
      .                           ,alt_eom,vol=.false.)
 
-            advc  =( vx(i,j,k)  *nabla_v  (1,:)
-     .              +vy(i,j,k)  *nabla_v  (2,:)
-     .              +vz(i,j,k)  *nabla_v  (3,:)
-     .              +dv(i,j,k,1)*nabla_vv0(1,:)
-     .              +dv(i,j,k,2)*nabla_vv0(2,:)
-     .              +dv(i,j,k,3)*nabla_vv0(3,:))/jac
+            advc  =( vcnv(i,j,k,1)*nabla_v  (1,:)
+     .              +vcnv(i,j,k,2)*nabla_v  (2,:)
+     .              +vcnv(i,j,k,3)*nabla_v  (3,:)
+     .              +dv  (i,j,k,1)*nabla_vv0(1,:)
+     .              +dv  (i,j,k,2)*nabla_vv0(2,:)
+     .              +dv  (i,j,k,3)*nabla_vv0(3,:))/jac
 
             cnv = cnv + rho(i,j,k)*(advc - mul*veclap)
 
@@ -1599,9 +1607,9 @@ c Find advection-diffusion part
             veclap = veclaplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid,vcnv
      .                           ,alt_eom,vol=.false.)
 
-            advc  =( vx(i,j,k)*nabla_vv0(1,:)
-     .              +vy(i,j,k)*nabla_vv0(2,:)
-     .              +vz(i,j,k)*nabla_vv0(3,:))/jac
+            advc  =( vcnv(i,j,k,1)*nabla_vv0(1,:)
+     .              +vcnv(i,j,k,2)*nabla_vv0(2,:)
+     .              +vcnv(i,j,k,3)*nabla_vv0(3,:))/jac
 
             cnv = cnv + xxx(ii,IRHO)*(advc - mul*veclap)
 

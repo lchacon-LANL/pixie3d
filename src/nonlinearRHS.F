@@ -34,21 +34,12 @@ c Local variables
 
       integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
 
-      real(8)    :: dvol,ivol,dS1,dS2,dS3,dxx,dyy,dzz,xhm,yhm,zhm
-
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,dummy
+      !Marder B cleaning
+      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       ! rho equation
       real(8)    :: advc,diffus
-
-      ! Faraday's law
-      real(8)    :: Ez_jp,Ez_jm,Ey_kp,Ey_km,Ex_kp,Ex_km
-     .             ,Ez_ip,Ez_im,Ey_ip,Ey_im,Ex_jp,Ex_jm
-
-      ! EOM
-      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
-     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
-     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
 
       ! tmp equation
       real(8)    :: heat_flx,heat_src,joule,viscous
@@ -80,8 +71,6 @@ c     Grid parameters
       dS2 = dxx*dzz
       dS3 = dxx*dyy
 
-      dvol = dxx*dyy*dzz
-
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
       jac    = gmetric%grid(igx)%jac (i,j,k)
@@ -93,8 +82,6 @@ c     Grid parameters
       jackp  = gmetric%grid(igx)%jac(i,j,kp)
       jackm  = gmetric%grid(igx)%jac(i,j,km)
 
-      ivol = 1d0/volume(i,j,k,igx,igy,igz)
-
 c     Rho
 
       if (solve_rho) then
@@ -105,16 +92,20 @@ cc        advc =c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,sp=bcSP()
 cc     .               ,upwind=.true.)
 
         !General advection (w/ SP treatment for particle conservation)
-        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,advect
-     .                 ,sp=bcSP())
-        !Hardwired advection (generalizes ZIP)
+        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                 ,vcnv(:,:,:,1)
+     .                 ,vcnv(:,:,:,2)
+     .                 ,vcnv(:,:,:,3),rho,advect,sp=bcSP(),vol=.false.)
+        !Hardwired upwinding (generalizes ZIP)
 cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,1
-cc     .                 ,sp=bcSP())
+cc     .                 ,sp=bcSP(),vol=.false.)
         !Hardwired SMART (generalizes ZIP)
-cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4)
+cc        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,rho,4
+c                        ,vol=.false.)
 
         if (dd /= 0d0) then
-          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
+          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho
+     .                         ,vol=.false.)
         else
           diffus = 0d0
         endif
@@ -132,15 +123,18 @@ c     Faraday's law
 
       if (solenoidal) then
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                         ,btensor_x,btensor_y,btensor_z)
-     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
+     .                         ,btensor_x,btensor_y,btensor_z
+     .                         ,vol=.false.)
+     .             + curl(i,j,k,nx,ny,nz,igx,igy,igz,grd(:,:,:,1)
+     .                   ,grd(:,:,:,2),grd(:,:,:,3))
       else
         ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                         ,btensor_x,btensor_y,btensor_z)
+     .                         ,btensor_x,btensor_y,btensor_z
+     .                         ,vol=.false.)
      .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                       ,bcnv,.false.)
-     .           + jac*dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,ejx,ejy,ejz)
-
+     .                                       ,bcnv,.false.,vol=.false.)
+     .             - curl(i,j,k,nx,ny,nz,igx,igy,igz,grd(:,:,:,1)
+     .                   ,grd(:,:,:,2),grd(:,:,:,3))
 cc        !Marder divergence cleaning
 cc
 cccc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
@@ -189,14 +183,14 @@ cc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 
 c     Vector potential
 
-      cov(1) = vecnv(i,j,k,2)*bz(i,j,k)
-     .       - vecnv(i,j,k,3)*by(i,j,k) - ejx(i,j,k)
+      cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
+     .         -vecnv(i,j,k,3)*bcnv(i,j,k,2))/jac + grd(i,j,k,1)
 
-      cov(2) = vecnv(i,j,k,3)*bx(i,j,k)
-     .       - vecnv(i,j,k,1)*bz(i,j,k) - ejy(i,j,k)
+      cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
+     .         -vecnv(i,j,k,1)*bcnv(i,j,k,3))/jac + grd(i,j,k,2)
 
-      cov(3) = vecnv(i,j,k,1)*by(i,j,k)
-     .       - vecnv(i,j,k,2)*bx(i,j,k) - ejz(i,j,k)
+      cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
+     .         -vecnv(i,j,k,2)*bcnv(i,j,k,1))/jac + grd(i,j,k,3)
 
       vlap  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
 cc      vlap  = vlap_a(i,j,k,:)
@@ -214,9 +208,7 @@ cc     .                        ,.false.)
         vlap2=0d0
       endif
 
-      cov = cov/jac + eeta(i,j,k)*vlap - heta*vlap2
-
-      ff(IAX:IAZ) = -cov/ivol
+      ff(IAX:IAZ) = -(cov + eeta(i,j,k)*vlap - heta*vlap2)
 
 #endif
 
@@ -230,50 +222,54 @@ c     Temperature
 
 c       Advection
 
-        advc =
-              !General advection
-     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,advect)
-              !Hardwired SMART (generalizes ZIP)
-cc     .        flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp,4)
-              !Hardwired standard upwind
-cc     .        c_advec(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,tmp
-cc     .               ,upwind=.true.)
-     .        +(gamma-2.)/ivol*tmp(i,j,k)
-     .                        *div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+        advc= flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                 ,vcnv(:,:,:,1)
+     .                 ,vcnv(:,:,:,2)
+     .                 ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .      +(gamma-2.)*tmp(i,j,k)
+     .                 *div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                     ,vcnv(:,:,:,1)
+     .                     ,vcnv(:,:,:,2)
+     .                     ,vcnv(:,:,:,3))
 
 c       Heat flux
 
         if (chi /= 0d0) then
-          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp)
+          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                            ,vol=.false.)
         else
           heat_flx = 0d0
         endif
 
 c       Heat sources
 
-        !Joule heating
-        joule = dvol*eeta(i,j,k)*( jx(i,j,k)*jx_cov(i,j,k)
-     .                            +jy(i,j,k)*jy_cov(i,j,k)
-     .                            +jz(i,j,k)*jz_cov(i,j,k) )
+        if (.not.adiabatic) then
+          !Joule heating
+          joule = eeta(i,j,k)*( jcnv(i,j,k,1)*jcov(i,j,k,1)
+     .                         +jcnv(i,j,k,2)*jcov(i,j,k,2)
+     .                         +jcnv(i,j,k,3)*jcov(i,j,k,3) )/jac
 
-        !Viscous heating
-        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
+          !Viscous heating
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
+     .                      ,vcnv(:,:,:,1)
+     .                      ,vcnv(:,:,:,2)
+     .                      ,vcnv(:,:,:,3),0)
 
-        cov_tnsr = matmul(nabla_v,gsub   )
+          cov_tnsr = matmul(nabla_v,gsub)
 
-        if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
+          if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
 
-        cnv_tnsr = matmul(gsuper ,nabla_v)
+          cnv_tnsr = matmul(gsuper,nabla_v)
 
-        viscous = dvol*nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac
+          viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
 
-        heat_src = joule + viscous
+          heat_src = joule + viscous
 
-        if (heat_src < 0d0) then
-cc          write (*,*) my_rank,i,j,k,dvol,eeta(i,j,k)
-cc     .               ,jx(i,j,k),jy(i,j,k),jz(i,j,k)
-cc     .               ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
-          call pstop('nonlinearRHS','Heat source is negative')
+          if (heat_src < 0d0) then
+            call pstop('nonlinearRHS','Heat source is negative')
+          endif
+        else
+          heat_src = 0d0
         endif
 
 c       Add contributions
@@ -283,96 +279,49 @@ c       Add contributions
 
 c     EOM
 
+      !SI contribution
       if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
         ff(IVX:IVZ) = ff(IVX:IVZ)
-     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)/ivol
+     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)
       else
         ff(IVX:IVZ) = 0d0
       endif
 
-      !Lorentz force
+      !Volume force
       if (nc_eom_jxb) then
-        cnv(1) = jy_cov(i,j,k)*bz_cov(i,j,k)
-     .         - jz_cov(i,j,k)*by_cov(i,j,k)
-
-        cnv(2) = jz_cov(i,j,k)*bx_cov(i,j,k)
-     .         - jx_cov(i,j,k)*bz_cov(i,j,k)
-
-        cnv(3) = jx_cov(i,j,k)*by_cov(i,j,k)
-     .         - jy_cov(i,j,k)*bx_cov(i,j,k)
-
-cc        cov(1) =(jy(i,j,k)*bz(i,j,k)
-cc     .          -jz(i,j,k)*by(i,j,k))/jac
-cc
-cc        cov(2) =(jz(i,j,k)*bx(i,j,k)
-cc     .          -jx(i,j,k)*bz(i,j,k))/jac
-cc
-cc        cov(3) =(jx(i,j,k)*by(i,j,k)
-cc     .          -jy(i,j,k)*bx(i,j,k))/jac
-cc
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                              ,cov(1),cov(2),cov(3)
-cc     .                              ,cnv(1),cnv(2),cnv(3),.true.)
-
-        ff(IVX:IVZ) = ff(IVX:IVZ) - cnv/ivol
+        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+     .           ,bcov,jcov,.false.,vol=.false.)
       else
-        ff(IVX:IVZ) = ff(IVX:IVZ)
-     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_jxb_x,eom_jxb_y,eom_jxb_z)
+        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+     .           ,bcnv,jcnv,.true. ,vol=.false.)
       endif
 
-      !Pressure force
-      if (nc_eom_gp) then
-        cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
-     .                +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
+      ff(IVX:IVZ) = ff(IVX:IVZ) - cnv
 
-        cov(2) = 0.5*( rho(i,j,k)*(tmp(i,jp,k)-tmp(i,jm,k))/dyy
-     .                +tmp(i,j,k)*(rho(i,jp,k)-rho(i,jm,k))/dyy)
-        
-        cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
-     .                +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
-
-cc        cov(1)=0.5*(rho(ip,j,k)*tmp(ip,j,k)-rho(im,j,k)*tmp(im,j,k))/dxx
-cc        cov(2)=0.5*(rho(i,jp,k)*tmp(i,jp,k)-rho(i,jm,k)*tmp(i,jm,k))/dyy
-cc        cov(3)=0.5*(rho(i,j,kp)*tmp(i,j,kp)-rho(i,j,km)*tmp(i,j,km))/dzz
-
-        cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
-
-        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .                              ,cov(1),cov(2),cov(3)
-     .                              ,cnv(1),cnv(2),cnv(3),.true.)
-
-        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv/ivol
-      else
-        ff(IVX:IVZ) = ff(IVX:IVZ)
-     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z)
-      endif
-
-      !Advective part
+      !Advection
       if (nc_eom_v) then
-        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz,0)
-
         do ieq=1,3
-          cnv(ieq) =( vx(i,j,k)*nabla_v(1,ieq)
-     .               +vy(i,j,k)*nabla_v(2,ieq)
-     .               +vz(i,j,k)*nabla_v(3,ieq))/jac
+          cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
+     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
+     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
         enddo
 
-        cnv = cnv - nuu(i,j,k)
-     .             *veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
-     .                          ,alt_eom,vol=.false.)
+        cnv = cnv
+     .      - veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+     .                    ,alt_eom,nuu,vol=.false.)
+     .       /rho(i,j,k)
 
-        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv/ivol
+        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
+                                                    !we evolve dv/dt
       else
+        vec1 => vcnv
+        vec2 => pcnv
         ff(IVX:IVZ) = ff(IVX:IVZ)
-     .               +div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_advc_x,eom_advc_y,eom_advc_z)
+     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
+     .                          ,vol=.false.)
+        nullify(vec1,vec2)
       endif
-
-c Divide by cell volume factor
-
-      ff = ff*ivol
 
 c End
 

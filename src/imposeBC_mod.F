@@ -423,12 +423,12 @@ c     Begin program
 
               if (dim == 1) then
                 if (gamma > 1d0) then
-                  rhs(j,k) =  hessian(1,1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian(1,2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian(1,3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(1,1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian(1,1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(1,2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(j,k) =  hessian(1,1,1)*vcnv(i,j,k,1)*vcnv(i,j,k,1)
+     .                       +hessian(1,2,2)*vcnv(i,j,k,2)*vcnv(i,j,k,2)
+     .                       +hessian(1,3,3)*vcnv(i,j,k,3)*vcnv(i,j,k,3)
+     .                    +2.*hessian(1,1,2)*vcnv(i,j,k,1)*vcnv(i,j,k,2)
+     .                    +2.*hessian(1,1,3)*vcnv(i,j,k,1)*vcnv(i,j,k,3)
+     .                    +2.*hessian(1,2,3)*vcnv(i,j,k,2)*vcnv(i,j,k,3)
                 else
                   rhs(j,k) = 0d0
                 endif
@@ -438,12 +438,12 @@ c     Begin program
      .             -0.5/jac0*rhs(j,k))/gsuper(dim,dim)
               elseif (dim == 2) then
                 if (gamma > 1d0) then
-                  rhs(i,k) =  hessian(2,1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian(2,2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian(2,3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(2,1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian(2,1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(2,2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(i,k) =  hessian(2,1,1)*vcnv(i,j,k,1)*vcnv(i,j,k,1)
+     .                       +hessian(2,2,2)*vcnv(i,j,k,2)*vcnv(i,j,k,2)
+     .                       +hessian(2,3,3)*vcnv(i,j,k,3)*vcnv(i,j,k,3)
+     .                    +2.*hessian(2,1,2)*vcnv(i,j,k,1)*vcnv(i,j,k,2)
+     .                    +2.*hessian(2,1,3)*vcnv(i,j,k,1)*vcnv(i,j,k,3)
+     .                    +2.*hessian(2,2,3)*vcnv(i,j,k,2)*vcnv(i,j,k,3)
                 else
                   rhs(i,k) = 0d0
                 endif
@@ -453,12 +453,12 @@ c     Begin program
      .             -0.5/jac0*rhs(i,k))/gsuper(dim,dim)
               elseif (dim == 3) then
                 if (gamma > 1d0) then
-                  rhs(i,j) =  hessian(3,1,1)*vx(i,j,k)*vx(i,j,k)
-     .                       +hessian(3,2,2)*vy(i,j,k)*vy(i,j,k)
-     .                       +hessian(3,3,3)*vz(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(3,1,2)*vx(i,j,k)*vy(i,j,k)
-     .                    +2.*hessian(3,1,3)*vx(i,j,k)*vz(i,j,k)
-     .                    +2.*hessian(3,2,3)*vy(i,j,k)*vz(i,j,k)
+                  rhs(i,j) =  hessian(3,1,1)*vcnv(i,j,k,1)*vcnv(i,j,k,1)
+     .                       +hessian(3,2,2)*vcnv(i,j,k,2)*vcnv(i,j,k,2)
+     .                       +hessian(3,3,3)*vcnv(i,j,k,3)*vcnv(i,j,k,3)
+     .                    +2.*hessian(3,1,2)*vcnv(i,j,k,1)*vcnv(i,j,k,2)
+     .                    +2.*hessian(3,1,3)*vcnv(i,j,k,1)*vcnv(i,j,k,3)
+     .                    +2.*hessian(3,2,3)*vcnv(i,j,k,2)*vcnv(i,j,k,3)
                 else
                   rhs(i,j) = 0d0
                 endif

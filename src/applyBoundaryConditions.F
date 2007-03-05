@@ -226,9 +226,12 @@ c     Fill ghost nodes
 
 c     Postprocessing
 
-      bx_cov = v_cov(:,:,:,1)
-      by_cov = v_cov(:,:,:,2)
-      bz_cov = v_cov(:,:,:,3)
+      bcov = v_cov
+      bcnv = v_cnv
+
+cc      bx_cov = v_cov(:,:,:,1)
+cc      by_cov = v_cov(:,:,:,2)
+cc      bz_cov = v_cov(:,:,:,3)
 
       varray%array_var(IBX)%array = v_cnv(:,:,:,1)
       varray%array_var(IBY)%array = v_cnv(:,:,:,2)
@@ -274,6 +277,7 @@ c     Postprocessing
       varray%array_var(IAZ)%array = v_cov(:,:,:,3)
 
       acnv = v_cnv
+      acov = v_cov
 
 c Magnetic field BC
 
@@ -326,13 +330,16 @@ c     Fill ghost nodes
 
 c     Postprocessing
 
-      bx     = v_cnv(:,:,:,1)
-      by     = v_cnv(:,:,:,2)
-      bz     = v_cnv(:,:,:,3)
+      bcnv = v_cnv
+      bcov = v_cov
 
-      bx_cov = v_cov(:,:,:,1)
-      by_cov = v_cov(:,:,:,2)
-      bz_cov = v_cov(:,:,:,3)
+cc      bx     = v_cnv(:,:,:,1)
+cc      by     = v_cnv(:,:,:,2)
+cc      bz     = v_cnv(:,:,:,3)
+cc
+cc      bx_cov = v_cov(:,:,:,1)
+cc      by_cov = v_cov(:,:,:,2)
+cc      bz_cov = v_cov(:,:,:,3)
 
 #endif
 
@@ -375,7 +382,9 @@ cc      endif
           do i = 0,nnx+1
             do icomp=1,3
               v_cnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
-     .                                ,bx_cov,by_cov,bz_cov,icomp)
+     .                                ,bcov(:,:,:,1)
+     .                                ,bcov(:,:,:,2)
+     .                                ,bcov(:,:,:,3),icomp)
             enddo
           enddo
         enddo
@@ -396,12 +405,12 @@ cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
      .                    ,varray%array_var(IBY)%array(i+1,j,k)
      .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
 #else
-            bbcnv = 0.5*(/ bx(i  ,j,k)
-     .                    ,by(i  ,j,k)
-     .                    ,bz(i  ,j,k) /)
-     .             +0.5*(/ bx(i+1,j,k)
-     .                    ,by(i+1,j,k)
-     .                    ,bz(i+1,j,k) /)
+            bbcnv = 0.5*(/ bcnv(i  ,j,k,1)
+     .                    ,bcnv(i  ,j,k,2)
+     .                    ,bcnv(i  ,j,k,3) /)
+     .             +0.5*(/ bcnv(i+1,j,k,1)
+     .                    ,bcnv(i+1,j,k,2)
+     .                    ,bcnv(i+1,j,k,3) /)
 #endif
             bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
      .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
@@ -433,13 +442,16 @@ c     Fill ghost nodes
 
 c     Postprocessing
 
-      jx_cov = v_cov(:,:,:,1)
-      jy_cov = v_cov(:,:,:,2)
-      jz_cov = v_cov(:,:,:,3)
+      jcov = v_cov
+      jcnv = v_cnv
 
-      jx = v_cnv(:,:,:,1)
-      jy = v_cnv(:,:,:,2)
-      jz = v_cnv(:,:,:,3)
+cc      jx_cov = v_cov(:,:,:,1)
+cc      jy_cov = v_cov(:,:,:,2)
+cc      jz_cov = v_cov(:,:,:,3)
+cc
+cc      jx = v_cnv(:,:,:,1)
+cc      jy = v_cnv(:,:,:,2)
+cc      jz = v_cnv(:,:,:,3)
 
 c Velocity BC
 
@@ -478,12 +490,18 @@ c     BC setup
      .                    ,varray%array_var(IBY)%array(i+1,j,k)
      .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
 #else
-            bbcnv = 0.5*(/ bx(i  ,j,k)
-     .                    ,by(i  ,j,k)
-     .                    ,bz(i  ,j,k) /)
-     .             +0.5*(/ bx(i+1,j,k)
-     .                    ,by(i+1,j,k)
-     .                    ,bz(i+1,j,k) /)
+            bbcnv = 0.5*(/ bcnv(i  ,j,k,1)
+     .                    ,bcnv(i  ,j,k,2)
+     .                    ,bcnv(i  ,j,k,3) /)
+     .             +0.5*(/ bcnv(i+1,j,k,1)
+     .                    ,bcnv(i+1,j,k,2)
+     .                    ,bcnv(i+1,j,k,3) /)
+cc            bbcnv = 0.5*(/ bx(i  ,j,k)
+cc     .                    ,by(i  ,j,k)
+cc     .                    ,bz(i  ,j,k) /)
+cc     .             +0.5*(/ bx(i+1,j,k)
+cc     .                    ,by(i+1,j,k)
+cc     .                    ,bz(i+1,j,k) /)
 #endif
             bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
      .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
@@ -494,12 +512,12 @@ c     BC setup
      .             +gmetric%grid(iigx)%jac(i+1,j,k))
 
             if (b2 > 0d0) then
-cc              E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jx_cov(i  ,j,k)
-cc     .                             +eeta(i+1,j,k)*jx_cov(i+1,j,k))
-              E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jy_cov(i  ,j,k)
-     .                             +eeta(i+1,j,k)*jy_cov(i+1,j,k))
-              E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jz_cov(i  ,j,k)
-     .                             +eeta(i+1,j,k)*jz_cov(i+1,j,k))
+cc              E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,1)
+cc     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,1))
+              E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,2)
+     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,2))
+              E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,3)
+     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,3))
 
               v0(i+1,j,k,1) = -(bbcov(2)*E00(3)-bbcov(3)*E00(2))/b2 !ExB velocity
             else
@@ -524,13 +542,16 @@ c     Fill ghost nodes
 
 c     Postprocessing
 
-      vx_cov = v_cov(:,:,:,1)
-      vy_cov = v_cov(:,:,:,2)
-      vz_cov = v_cov(:,:,:,3)
+      vcov = v_cov
+      vcnv = v_cnv
 
-      vx     = v_cnv(:,:,:,1)
-      vy     = v_cnv(:,:,:,2)
-      vz     = v_cnv(:,:,:,3)
+cc      vx_cov = v_cov(:,:,:,1)
+cc      vy_cov = v_cov(:,:,:,2)
+cc      vz_cov = v_cov(:,:,:,3)
+cc
+cc      vx     = v_cnv(:,:,:,1)
+cc      vy     = v_cnv(:,:,:,2)
+cc      vz     = v_cnv(:,:,:,3)
 
       if (.not.nc_eom_v) then
         varray%array_var(IVX)%array = v_cnv(:,:,:,1)

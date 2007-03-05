@@ -186,11 +186,8 @@ c     Check coordinates
 c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IVX:IVZ) = 0d0
-
         var(:,:,:,IRHO) = 1d0
-
         var(:,:,:,ITMP) = 1d0
-
 
 #if !defined(vec_pot)
         do k = klo,khi
@@ -244,11 +241,16 @@ c     Kelvin-Helmholtz with constant magnetic field in cartesian coordinates
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-              var(i,j,k,IVX:IVZ)=vperflow
-     .                          *tanh((x1-0.5d0*(xmax-xmin))/dlambda)
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              var(i,j,k,IVY)=vperflow
+     .                      *tanh((x1-0.5d0*(xmax+xmin))/dlambda)
             enddo
           enddo
         enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
 
 #if !defined(vec_pot)
         var(:,:,:,IBX)  = 0d0
@@ -298,7 +300,7 @@ c     Tearing mode in cartesian coordinates
              var(i,j,k,IRHO) = 2 - bz0**2
 #endif
 
-             var(i,j,k,IVX) = vperflow*tanh((y1-.5*(ymax-ymin))/ldaflow)
+             var(i,j,k,IVX) = vperflow*tanh((y1-.5*(ymax+ymin))/ldaflow)
      .                                *sin (2*pi*z1/(zmax-zmin))
              var(i,j,k,IVY) = 0d0
              var(i,j,k,IVZ) = 0d0
@@ -363,7 +365,7 @@ cc        var(:,:,:,IAX:IAZ) = a
               x1 = grid_params%xg(i)  !Global coordinate
 
               b(i,j,k,1)  = 0d0                  
-              b(i,j,k,2)  = tanh((x1-0.5d0*(xmax-xmin))/dlambda)
+              b(i,j,k,2)  = tanh((x1-0.5d0*(xmax+xmin))/dlambda)
               b(i,j,k,3)  = sqrt(bz0**2 - b(i,j,k,2)**2)
             enddo
           enddo
@@ -558,7 +560,7 @@ c     GEM challenge
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
-             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax-xmin))/dlambda)**2
+             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
      .                      +0.2
             enddo
           enddo

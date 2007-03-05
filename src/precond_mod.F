@@ -454,12 +454,13 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar,igr,i,j
+        integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
      .               ,bc_pc(size(bcs,1),size(bcs,2))
+     .               ,i,j,k,ip,im,jp,jm,kp,km
 
-        real(8)    :: dvol,veclap(3)
+        real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
 
-        real(8), allocatable, dimension(:,:,:,:) :: vector,vel
+        real(8), allocatable, dimension(:,:,:,:) :: vector
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
 
 c     Debug
@@ -483,24 +484,24 @@ c     Begin program
 
 c     Setup BCs
 
-      !Set boundary conditions
-      do ieq=1,neqd
-        bc_pc(:,ieq) = varray%array_var(ieq)%bconds(:)
-      enddo
+        !Set boundary conditions
+        do ieq=1,neqd
+          bc_pc(:,ieq) = varray%array_var(ieq)%bconds(:)
+        enddo
 
 #if !defined(vec_pot)
-      bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
-      where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = -DIR  !Use covariant components 
+        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
+        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = -DIR !Use covariant components 
 #else
-      where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR  !Use covariant components 
+        where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR !Use covariant components 
 
-      !Magnetic field conditions
-      bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
-      where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU  !Use covariant components 
+        !Magnetic field conditions
+        bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
+        where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
 #endif
 
 cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
-      call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
 
 c     Store density in all grids (w/o BCs)
 
@@ -512,9 +513,10 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
 
 cc        call restrict_B(.true.)
 
-        gb0%grid(igrid)%array(:,:,:,1) = bx
-        gb0%grid(igrid)%array(:,:,:,2) = by
-        gb0%grid(igrid)%array(:,:,:,3) = bz
+        gb0%grid(igrid)%array = bcnv
+cc        gb0%grid(igrid)%array(:,:,:,1) = bx
+cc        gb0%grid(igrid)%array(:,:,:,2) = by
+cc        gb0%grid(igrid)%array(:,:,:,3) = bz
 
         call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order)
 
@@ -534,9 +536,10 @@ c diag ****
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
-        gb0_cov%grid(igrid)%array(:,:,:,1) = bx_cov
-        gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
-        gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
+        gb0_cov%grid(igrid)%array = bcov
+cc        gb0_cov%grid(igrid)%array(:,:,:,1) = bx_cov
+cc        gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
+cc        gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
 
         call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
@@ -557,9 +560,10 @@ c diag ****
 
 c     Store ion velocity components in all grids (w/ BCs)
 
-        gv0%grid(igrid)%array(:,:,:,1) = vx
-        gv0%grid(igrid)%array(:,:,:,2) = vy
-        gv0%grid(igrid)%array(:,:,:,3) = vz
+        gv0%grid(igrid)%array = vcnv
+cc        gv0%grid(igrid)%array(:,:,:,1) = vx
+cc        gv0%grid(igrid)%array(:,:,:,2) = vy
+cc        gv0%grid(igrid)%array(:,:,:,3) = vz
 
         call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
 
@@ -595,7 +599,9 @@ c     Find auxiliary quantities and store them in all grids
           do j=1,nyy
             do i=1,nxx
               divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                           ,vx,vy,vz)
+     .                           ,vcnv(:,:,:,1)
+     .                           ,vcnv(:,:,:,2)
+     .                           ,vcnv(:,:,:,3))
 cc              divrgV(i,j,k) = 0d0
             enddo
           enddo
@@ -613,35 +619,78 @@ cc              divrgV(i,j,k) = 0d0
 
         !v0/dt+theta(v0.grad(v0)-mu*veclap(v0)) and nabla_v0
         allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .          ,vel   (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .          ,tensor(0:nxx+1,0:nyy+1,0:nzz+1,3,3))
-
-        vel (:,:,:,1) = vx
-        vel (:,:,:,2) = vy
-        vel (:,:,:,3) = vz
 
         do k = 1,nzz
           do j = 1,nyy
             do i = 1,nxx
+
+              ip = i+1
+              im = i-1
+              jp = j+1
+              jm = j-1
+              kp = k+1
+              km = k-1
+
               ii  = i + nxx*(j-1) + nxx*nyy*(k-1)
 
               jac    = gmetric%grid(igrid)%jac(i,j,k)
+
               nabla_v= fnabla_v(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                         ,vx,vy,vz,0)
-              veclap = nuu(i,j,k)
-     $                *veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                             ,vel,alt_eom,vol=.false.)
-
-              do ivar=1,3
-                vector(i,j,k,ivar) = 
-     .                            gv0%grid(igrid)%array(i,j,k,ivar)/dt
-     .                          + alpha*vx(i,j,k)*nabla_v(1,ivar)/jac
-     .                          + alpha*vy(i,j,k)*nabla_v(2,ivar)/jac
-     .                          + alpha*vz(i,j,k)*nabla_v(3,ivar)/jac
-     .                          - alpha*veclap(ivar)
-              enddo
-
+     .                         ,vcnv(:,:,:,1)
+     .                         ,vcnv(:,:,:,2)
+     .                         ,vcnv(:,:,:,3),0)
               tensor(i,j,k,:,:) = nabla_v
+
+              if (nc_eom_v) then
+                veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+     .                               ,igrid,igrid,igrid
+     .                               ,vcnv,alt_eom,nuu,vol=.false.)
+
+                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+                dxx = dxh(ig)
+                dyy = dyh(jg)
+                dzz = dzh(kg)
+
+                !Grad(p)
+                cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
+     .                        +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
+
+                cov(2) = 0.5*( rho(i,j,k)*(tmp(i,jp,k)-tmp(i,jm,k))/dyy
+     .                        +tmp(i,j,k)*(rho(i,jp,k)-rho(i,jm,k))/dyy)
+        
+                cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
+     .                        +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
+
+                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
+
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                                      ,cov(1),cov(2),cov(3)
+     .                                      ,cnv(1),cnv(2),cnv(3)
+     .                                      ,.true.)
+
+                !JxB
+                cnv(1) = jcov(i,j,k,2)*bcov(i,j,k,3)
+     .                 - jcov(i,j,k,3)*bcov(i,j,k,2) - cnv(1)
+
+                cnv(2) = jcov(i,j,k,3)*bcov(i,j,k,1)
+     .                 - jcov(i,j,k,1)*bcov(i,j,k,3) - cnv(2)
+
+                cnv(3) = jcov(i,j,k,1)*bcov(i,j,k,2)
+     .                 - jcov(i,j,k,2)*bcov(i,j,k,1) - cnv(3)
+
+                vector(i,j,k,:) = (cnv-veclap)/rho(i,j,k)**2
+              else
+                do ivar=1,3
+                  vector(i,j,k,ivar) = 
+     .                          gv0%grid(igrid)%array(i,j,k,ivar)/dt
+     .                        + alpha*vcnv(i,j,k,1)*nabla_v(1,ivar)/jac
+     .                        + alpha*vcnv(i,j,k,2)*nabla_v(2,ivar)/jac
+     .                        + alpha*vcnv(i,j,k,3)*nabla_v(3,ivar)/jac
+                enddo
+              endif
+
             enddo
           enddo
         enddo
@@ -662,7 +711,7 @@ cc              divrgV(i,j,k) = 0d0
           enddo
         enddo
 
-        deallocate(vector,vel,tensor)
+        deallocate(vector,tensor)
 
 c diag ****
 cc      write (*,*) 'DIAG -- findCoeffs'
@@ -754,9 +803,10 @@ c     Begin program
 
 c     Find cartesian coordinates
 
-      gb0%grid(1)%array(:,:,:,1) = bx
-      gb0%grid(1)%array(:,:,:,2) = by
-      gb0%grid(1)%array(:,:,:,3) = bz
+      gb0%grid(1)%array = bcnv
+cc      gb0%grid(1)%array(:,:,:,1) = bx
+cc      gb0%grid(1)%array(:,:,:,2) = by
+cc      gb0%grid(1)%array(:,:,:,3) = bz
 
       if (cartesian)
      .   call transformVector(igr,igr,igr,0,nxc+1,0,nyc+1,0,nzc+1
@@ -1380,9 +1430,10 @@ c     End program
 
       end function vecA
 
-c     diag_v
+c     adv_diff_v
 c     #####################################################################
-      function diag_v(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,da) result(psiv)
+      function adv_diff_v(i,j,k,nxx,nyy,nzz,igx,igy,igz,rho0,v0,da)
+     .         result(psiv)
 
 c     ---------------------------------------------------------------------
 c     Find advection/diffusion component of SI operator
@@ -1394,7 +1445,8 @@ c     Call variables
 
       integer(4) :: i,j,k,igx,igy,igz,nxx,nyy,nzz
       real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3),psiv(3)
+     .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .             ,rho0(0:nxx+1,0:nyy+1,0:nzz+1,1),psiv(3)
 
 c     Local Variables
 
@@ -1447,10 +1499,10 @@ cc        endif
 
         psiv(ieq) = cnp*da(i,j,k,ieq)/dt
      .            + alpha*upwind
-     .            - alpha*mul*veclap(ieq)
+     .            - alpha*mul*veclap(ieq)/rho0(i,j,k,1)
       enddo
 
-      end function diag_v
+      end function adv_diff_v
 
 c     diagonalScaling
 c     #####################################################################
