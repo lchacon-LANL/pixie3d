@@ -2,16 +2,45 @@
 
 1.> Introduction
 
+2.> Requirements
+2.1> Compilers
+2.2> External libraries
+2.3> Graphics
+2.3.1> Xdraw
+2.3.2> Visit
+
+3.> Installation instructions
+
+4.> Compilation instructions
+4.1> Serial compilation
+4.2> Parallel compilation
+4.3> Special Makefile flags
+
+5.> Using PIXIE3D
+5.1> Input file
+5.2> Serial execution
+5.3> Parallel execution
+5.4> Postprocessing
+
+6.> References
+
+> Appendix 1: Default values for input parameters for "pixie3d.x"
+> Appendix 2: Default values for input parameters for "pixplot.x" 
+  (graphics postprocessor)
+
+----------------------------------------------------------------------
+
+1.> Introduction
+
 This readme is intended to describe the requirements to compile and
-run the code PIXIE3D. PIXIE3D solves the extended
-magnetohydro-dynamics (MHD) equations in 3D arbitrary geometries using
-fully implicit Newton-Krylov algorithms. The code employs the
-open-source PETSc library for parallelization, and the HDF5 library
-for data management. It is primarily used to study plasma behavior in
-magnetic confinement fusion devices (MFE DUSA). The spatial
-discretization of the MHD equations in PIXIE3D is described in
-Ref. [1]. Details of the temporal discretization can be found in
-Refs. [2-5].
+run the code PIXIE3D. PIXIE3D solves the extended magnetohydro-
+dynamics (MHD) equations in 3D arbitrary geometries using fully
+implicit Newton-Krylov algorithms. The code employs the open-source
+PETSc library for parallelization, and the HDF5 library for data
+management. It is primarily used to study plasma behavior in magnetic
+confinement fusion devices. The spatial discretization of the MHD
+equations in PIXIE3D is described in Ref. [1]. Details of the temporal
+discretization can be found in Refs. [2-5].
 
 2.> Requirements
 
@@ -22,7 +51,7 @@ PIXIE3D.
 
 The serial version of PIXIE3D (pixie3d.x) only requires a Fortran
 90/95 compiler. PIXIE3D has been compiled and tested with Absoft,
-Lahey, and Intel f95 compilers. Other will be added in time.
+Lahey, and Intel f95 compilers. Others will be added in time.
 
 The parallel version of PIXIE3D (pixie3d.petsc.x) requires an ANSI C
 compiler in addition to the fortran compiler. In addition, certain
@@ -31,13 +60,11 @@ libraries need to be present. We proceed to discuss these next.
 2.2> External libraries
 
 The serial version of PIXIE3D does not require any external
-libraries. The parallel version uses PETSC 2.2.0 for parallelization
-(included in the electronic distribution). PETSC, in turn, requires an
-MPI implementation (we have tested it with MPICH-1.2.5.2, which is
-also included in the electronic distribution).
+libraries. The parallel version currently uses PETSC 2.2.0 for
+parallelization (http://www.anl??).
 
 Advanced graphics postprocessing in 3D requires HDF5 libraries
-(v. 1.6.2. and associated tools, also included). Such libraries allows
+(v. 1.6.2. and associated tools; http://??). Such libraries allows
 the user to generate an HDF5 format file, readable by the LLNL
 graphics interpreter Visit (see next section).
 
@@ -45,7 +72,7 @@ All these libraries contain documentation as to how to compile them
 and test them, and these are not reproduced here in the interest of
 brevity.
 
-2.3> Graphics postprocessors
+2.3> Graphics
 
 PIXIE3D comes with its own postprocessor, called pixplot.x. This file
 will take output from PIXIE3D and generate various files with time traces,
@@ -58,8 +85,8 @@ the visualization software below.
 Xdraw is a free, simple (yet powerful) 1D and 2D plotter (included in
 this electronic distribution). The postprocessor "pixplot.x" will
 always generate xdraw files for 2D contour plots, even in 3D runs. The
-user can choose how to slice the solution among the main logical coordinate
-axes (see Sec. 5.1 below).
+user can choose how to slice the solution among the main logical
+coordinate axes (see Sec. 5.1 below).
 
 Xdraw is invoked with "xdraw [keyword]", where "keyword" can be "car"
 (for cartesian coordinate plots, "cnv" for contravariant component
@@ -85,8 +112,8 @@ PIXIE3D is easy to install. Just execute:
 
 tar xzvf pixie3d.tar.gz
 
-to generate the directory structure, and change directories into "pixie3d".
-From there, type:
+to generate the directory structure, and change directories into
+"pixie3d".  From there, type:
 
 # make setup
 
@@ -98,11 +125,11 @@ In order to compile PIXIE3D, the user will need to edit the Makefile
 in the main distribution directory to setup some system-dependent
 variables, such as the installation directory for PETSC (PETSC_DIR; if
 a parallel compilation is required) and that for the HDF5 distribution
-(HDF5_HOME; if visit is to be used for postprocessing).
+(HDF5_HOME; if an HDF5 file is to be generated after postprocessing).
 
-Currently, PIXIE3D has been successfully compiled with three different
-compilers: Absoft f90, Lahey lf95, and Inter ifort. More compilers will
-be tested in the future.
+Currently, PIXIE3D has been successfully compiled in Linux OS with
+three different compilers: Absoft f90, Lahey lf95, and Intel
+ifort. More compilers will be tested in the future.
 
 4.1> Serial compilation
 
@@ -110,6 +137,10 @@ For a serial compilation, type
 
 # make distclean
 # make
+
+For testing serially, type:
+
+# make serial-tests
 
 4.2> Parallel compilation
 
@@ -121,7 +152,9 @@ runs, "O" should normally be used, and one should type
 # make BOPT=O pixie3d
 # make BOPT=O pixplot
 
-to generate pixie3d.petsc.x and pixplot.petsc.x (the parallel postprocessor).
+to generate pixie3d.petsc.x and pixplot.petsc.x (the parallel
+postprocessor).  At this point, testing is not available for the
+parallel version.
 
 4.3> Special Makefile flags
 
@@ -130,10 +163,10 @@ invoke when compiling PIXIE3D. These are:
 
 FC: to set the fortran compiler (default is f90) 
 
-OPT: to set the optimization level. Can be set to "g" (debuggin), "O"
+OPT: to set the optimization level. Can be set to "g" (debugging), "O"
 (optimized), "p" (profiling), "s" (static; for Absoft only), and "v"
-(verbose), and combinations (e.g. one can set OPT=Opv to combine the
-optimized version with profiling and verbose options).
+(verbose), and combinations (e.g. one can set OPT=Opv to combine
+optimization with profiling and verbose options).
 
 VECPOT: if set, the vector potential version of PIXIE3D will be
 compiled, generating the executables "pixie3d_a.x" and "pixplot_a.x"
@@ -146,16 +179,10 @@ physically located under the "contrib" directory.
 
 5.1> Input file
 
-Before execution, the user should set the input file,
-"pixie3d.in". Defaults are provided within PIXIE3D for all quantities,
+Before execution, the user should set the input file, "pixie3d.in". 
+Defaults are provided within PIXIE3D for all quantities,
 which are explained in the readInput.F file. An excerpt of this file
-is included in App. 1.
-
-Of these parameters, several deserve further discussion here.
-
-equil: specifies the equilibrium type. Several are provided. The user
-       is encouraged to look into the file setEquilibrium.F to
-       view available ones, and to code new ones.
+is included in App. 1 (for pixie3d.x) and App. 2 (for pixplot.x).
 
 5.2> Serial execution
 
@@ -185,7 +212,7 @@ indicates that a Jacobian-free approach is to be used) is
 mandatory. Specific PETSC options for PIXIE3D include:
 
      OUTPUT CONTROL:                                     
-        -ilevel <ilevel>: level of output info           
+        -ilevel <ilevel>: level of output info          
                                                          
      SOLVER:                                             
 	-asm_PC: use an additive Schwartz (ASM) preconditioner
@@ -193,7 +220,7 @@ mandatory. Specific PETSC options for PIXIE3D include:
         -id_PC: identity preconditioner                  
                                                          
      TIME STEPPING:                                      
-        -nmax <nmax>: max. iteration # of time steps     
+        -nmax <nmax>: number of time steps     
         -tmax <tmax>: final time                         
                                                          
      PARALLEL DA:                                        
@@ -201,17 +228,49 @@ mandatory. Specific PETSC options for PIXIE3D include:
         -npy: processors in Y direction                  
         -npz: processors in Z direction                  
 
+5.4> Postprocessing
+
+Postprocessing is done with pixplot.x (or any of the following
+variants: pixplot_a.x for vector potential version; pixplot.petsc.x
+for parallel version; and pixplot_a.petsc.x for parallel vector
+potential version).
+
+pixplot.x is configured via the namelist "graphdef", also located in
+the file "pixie3d.in". The components of the namelist are described in
+App. 2. 
+
+The serial postprocessor can be used to postprocess serial or parallel
+runs (provided the information fits in memory). However, the parallel
+postprocessor cannot be used to postprocess serial runs (unless it
+employs only one processor).
+
+The parallel postprocessor does not require any runtime options. If
+postprocessing is done in parallel, one needs to use the same number
+of processors as were used with pixie3d.petsc.x. Furthermore, XDRAW
+contour plots are not generated (although time histories still are),
+and the HDF5 file pixie3d.h5 is generated instead. This file can be
+interpreted using the freely available graphics software Visit.
+
 6.> References
 
-[1] L. Chacón, "A non-staggered, conservative, , finite-volume scheme for 3D implicit extended magnetohydrodynamics in curvilinear geometries," Comput. Phys. Comm., 163 (3),  143-171 (2004).
-[2] L. Chacón,  D. A. Knoll, J. M. Finn, "An implicit, nonlinear reduced resistive MHD solver," J. Comput. Phys., 178, 15-36 (2002).
-[3] L. Chacón, D. A. Knoll, "A 2D high-beta Hall MHD implicit nonlinear solver," J. Comput. Phys., 188 (2), 573-592 (2003).
-[4] L. Chacón, "A fully implicit 3D extended MHD algorithm," 32nd EPS Conference on Plasma Physics, Tarragona, Spain, June 27-July 1, 2005.
-[5] L. Chacón, D. A. Knoll, "A fully implicit 3D extended MHD algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June 19-23, 2006.
+[1] L. Chacón, "A non-staggered, conservative, , finite-volume scheme
+for 3D implicit extended magnetohydrodynamics in curvilinear
+geometries," Comput. Phys. Comm., 163 (3), 143-171 (2004).
 
-> Appendix 1: Default values for input parameters.
+[2] L. Chacón, D. A. Knoll, J. M. Finn, "An implicit, nonlinear
+reduced resistive MHD solver," J. Comput. Phys., 178, 15-36 (2002).
 
-For "pixie3d.x":
+[3] L. Chacón, D. A. Knoll, "A 2D high-beta Hall MHD implicit
+nonlinear solver," J. Comput. Phys., 188 (2), 573-592 (2003).
+
+[4] L. Chacón, "A fully implicit 3D extended MHD algorithm," 32nd EPS
+Conference on Plasma Physics, Tarragona, Spain, June 27-July 1, 2005.
+
+[5] L. Chacón, D. A. Knoll, "A fully implicit 3D extended MHD
+algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
+19-23, 2006.
+
+> Appendix 1: Default values for input parameters for "pixie3d.x":
 
       !General setup
       neqd     = 8             ! Number of degrees of freedom (equations)
@@ -220,11 +279,7 @@ For "pixie3d.x":
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
 
-cc      npx      = 0             ! Number of processors in X-direction (if zero, determined by code)
-cc      npy      = 0             ! Number of processors in Y-direction (if zero, determined by code)
-cc      npz      = 0             ! Number of processors in Z-direction (if zero, determined by code)
-
-      coords   = 'car'         ! Coordinate system (see grid_mod.f)
+      coords   = 'car'         ! Coordinate system (see grid_anal_mod.F)
 
       xmax     = 1d0           ! Length in x-direction
       ymax     = 1d0           ! Length in y-direction
@@ -234,19 +289,21 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       ymin     = 0d0           ! Length in y-direction
       zmin     = 0d0           ! Length in z-direction
 
-      gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
+      gparams  = 0d0           ! Array with additional grid parameters
+                               ! (grid-dependent; see setEquilibrium.F)
 
       numerical_grid = .false. ! Whether grid metrics are calculated numerically (.true.)
-                               !    or analytically.
-
-      mg_ratio = 2             ! MG coarsening ratio
+                               !   or analytically.
 
       bcs      = (/ 'def','def','per','per','per','per' /) 
-                               ! Defines topological constraints. Convention:
-                               !   + 'def' = default (set in code)
+                               ! Defines topological boundary conditions:
+                               !   + 'def' = default
+                               !     (see applyBoundaryCondtions.F)
                                !   + 'per' = periodic
                                !   + 'spt' = singular point
-                               !   + 'sym' = symmetry (homogeneous Neumann)
+                               !   + 'sym' = symmetry 
+                               !     (homogeneous Neumann/Dirichlet
+                               !      for even/odd quantities)
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
@@ -256,39 +313,54 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
                                !        ndstep is calculated in code)
       dstep    = 0.            ! Time interval between plots (if zero,
                                !        dstep is calculated in code)
-      timecorr = .true.        ! Time adaptiveness based on Newton convergence
-      cnfactor = -.48          ! Crank-Nicolson factor
+
+      restart  = .false.       ! Restarting flag
+      timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
+
+      cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
                                !   0 -> Theta scheme
-                               !   1 -> Rannacher time stepping (CN scheme)
+                               !   1 -> Rannacher time stepping
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
-      tolgm    = 5.0d-2        ! Inexact Newton parameter (GMRES conv. tolerance)
+      tolgm    = 8d-1          ! Inexact Newton parameter
       rtol     = 1.0d-4        ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter
+      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter (if zero,
+                               !        use default in NK routine)
       maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
-      method   = 0             ! Constant forcing parameter for inexact Newton
-                               !        (see etak_meth in NewtonGmres doc)
-      global   = 0             ! Do not use globalization (see global in NewtonGmres doc)
-      damp     = 1d0           ! Damping parameter in Newton (see NewtonGmres doc))
+      method   = 0             ! Inexact Newton method:
+                               !   + 0: constant forcing
+                               !   + other: adaptive (Eisenstat-Walker)
+
+      global   = 0             ! Newton's globalization method:
+                               !   + 0 --> no globalization
+                               !   + 1 --> linesearch backtracking 
+                               !   + 2 --> pseudo-transient
+
+      damp     = 1d0           ! Damping parameter in Newton (see nk_mod.f doc))
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 1             ! Whether preconditioner is used to give initial
-                               !        guess to GMRES (1)
+                               !   guess to GMRES (when =1) 
 
       !Preconditioner parameters
-      nsweep   = 5             ! Number of SGS sweeps
-      maxvcyc  = 1             ! Maximum number of V-cycles
+      mg_ratio = 2             ! MG coarsening ratio
+      nsweep   = 5             ! Number of MG smoothing passes
+      maxvcyc  = 1             ! Maximum number of MG V-cycles
       mgtol    = 1d-3          ! MG convergence tolerance
-      precon   = 'si'          ! Type of preconditioner
+
+      precon   = 'id'          ! Type of preconditioner. Currently:
+                               !   - 'id': identity (default)
+                               !   - 's1': SI without flow
+                               !   - 's2': SI with flow
       precpass = 1             ! Number of SI iterations in preconditioner
-      asm_PC   = .false.       ! Whether we are doing ASM PC (in parallel)
+      asm_PC   = .false.       ! Whether we are doing additive Schwartz PC (in parallel)
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
@@ -305,28 +377,32 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio
 
-      !Discretization parameters
-      k_si     = 0d0           ! SI constant
+      !Nonlinear function parameters
+      k_si       = 0d0         ! SI constant
 
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
+      nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solver continuity equation or not
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
-      advect   = 2             ! Type of advective scheme
-                               !    1,7 -> upwind,
-                               !    2 -> centered (ZIP)
+      advect     = 2           ! Type of advective scheme (currently available only
+                               ! for scalars):
+                               !    1 -> upwind,
+                               !    2 -> centered (ZIP),
                                !    3 -> QUICK,
                                !    4 -> SMART,
                                !    5 -> smooth SMART,
-                               !    6 -> centered high order
+                               !    6 -> centered 4th order
 
       !Initial condition
-      equil    = ''            ! Type of equilibrium
-      dlambda  = .2            ! Characteristic width of Harris sheet
+      equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
+      dlambda  = .2            ! Characteristic equilibrium scale length
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
       vperflow = 0.            ! Maximum perpendicular fluid flow
@@ -346,26 +422,65 @@ cc      npz      = 0             ! Number of processors in Z-direction (if zero,
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
-      !Grid stuff
+      !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
       gp2%pack = .false.       ! Do not pack in Y-direction
       gp3%pack = .false.       ! Do not pack in Z-direction
+                               ! To select packing, one needs to set the fields
+                               ! of gp1, gp2, gp3 as follows:
+                               !    gp* = pack,xp,dx0
+     .                         ! where:
+                               !   + pack (logical): whether to pack
+                               !   + xp (real): where to pack
+                               !   + dx0 (real): initial grid spacing (at xp)
       check_grid = .false.     ! Whether to dump grid info or not
 
       !I/O parameters
-      restart  = .false.       ! Restarting flag
-      ilevel   = 0             ! Level of solver output information
-      debug    = .false.       ! Debugging flag
-      inputfile  ='pixie3d.in' ! Default input file
+      ilevel     = 0           ! Level of output information:
+                               !   -  0: time step      level
+                               !   -  1: Newton solver  level (basic)
+                               !   -  2: Newton solver  level (advanced)
+                               !   -  3: Krylov solver  level
+                               !   -  4: Preconditioner level (basic)
+                               !   - >4: Preconditioner level (advanced)
+                               ! Each level encompasses previous ones.
+
+      debug      = .false.     ! PC debugging flag
+      debug_it   = 1           ! Newton iteration level for debugging
+
       recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
+      prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
 
-For "pixplot.x":
 
-ndplot = 1     ! Postprocessing interval (# of time steps; integer)
-dplot  = 1d0   !       "          "      (time interval; real)
-hdf_plot = f   ! Whether an HDF5 plot is to be created
+> Appendix 2: Default values for input parameters for "pixplot.x" 
+  (graphics postprocessor):
 
-prof_cont = 1,'x',1,1,1  !Profile configuration (XDRAW)
-                         !Fields:
-                         !  - Direction (1 -> x, 2 -> y
+      ndplot = 1     ! Postprocessing interval (# of time steps; integer)
+      dplot  = 1d0   !       "          "      (time interval; real)
+      hdf_plot = f   ! Whether an HDF5 file is created
+
+      prof_cont = 1,'x',1,1,1  !Line profile configuration (XDRAW)
+                     !Fields:
+                     !  1) Direction (1 -> x, 2 -> y, 3 -> z)
+                     !  2) Label
+                     !  3) x-coordinate (ignored if direction is x)
+                     !  4) y-coordinate (ignored if direction is y)
+                     !  5  z-coordinate (ignored if direction is z)
+
+      cont_conf = 3,'x','y',1,1,1  !Contour slice configuration (XDRAW)
+                     !Fields:
+                     !  1) Normal to cut plane (1 -> x, 2 -> y, 3 -> z)
+                     !  2) Label abcissae
+                     !  3) Label ordinates
+                     !  3) x-coordinate (used if direction is x)
+                     !  4) y-coordinate (used if direction is y)
+                     !  5  z-coordinate (used if direction is z)
+
+      sel_diag = 0   !Array of size "xdraw_cont_lim" (currently set to 16)
+                     !  indicating time histories to be dumped (see
+                     !  drawgamma.in --generated after postprocessing--
+                     !  or diagnostics.F for information on available variables)
+
+      sel_graph = (/ (i,i=1,xdraw_cont_lim) /)  !(obsolete)
+                     !Selects graphics to be shown with XDRAW contour plotter.
