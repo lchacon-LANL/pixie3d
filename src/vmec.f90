@@ -49,9 +49,9 @@
 
       CONTAINS
 
-!       vmec_init_equ
+!       vmec_init
 !       ################################################################################
-        SUBROUTINE vmec_init_equ(ns_in,nu_in,nv_in,wout_file)
+        SUBROUTINE vmec_init(ns_in,nu_in,nv_in,wout_file)
 
           IMPLICIT NONE
 
@@ -114,7 +114,7 @@
      &             bsupumnc_spline(mnmax,ns_i), bsupvmnc_spline(mnmax,ns_i),&
      &             phipf_i(ns_i), iotaf_i(ns_i),presf_i(ns_i),              &
      &             stat=istat)
-          IF (istat .ne. 0) STOP 'Allocation error 1 in VMEC_INIT_EQU'
+          IF (istat .ne. 0) STOP 'Allocation error 1 in VMEC_INIT'
 
 !       SPLINE R, Z. L FOURIER COMPONENTS in s FROM ORIGINAL VMEC MESH (s ~ phi, ns_vmec points) 
 !       TO A "POLAR" MESH [s ~ sqrt(phi), ns_i POINTS] WITH BETTER AXIS RESOLUTION
@@ -139,7 +139,7 @@
                 DEALLOCATE(bsupumnc_v, bsupvmnc_v)
              END IF
 
-             IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT_EQU'
+             IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT'
           END DO
    
 !       Spline 1-D arrays: careful -> convert phipf VMEC and multiply
@@ -157,9 +157,9 @@
 !     AND COMPUTE METRIC ELEMENTS AND JACOBIAN
 
           CALL vmec_load_rz(istat)
-          IF (istat .ne. 0) STOP 'Load R,Z error in VMEC_INIT_EQU'
+          IF (istat .ne. 0) STOP 'Load R,Z error in VMEC_INIT'
 
-        END SUBROUTINE vmec_init_equ
+        END SUBROUTINE vmec_init
 
 !       vmec_load_rz
 !       ################################################################################
@@ -413,7 +413,6 @@
 !!$
 !!$        END SUBROUTINE init_metric_elements
 
-      
       SUBROUTINE Spline_Fourier_Modes(ymn_vmec, ymn_spline, istat)
 !-----------------------------------------------
 !   D u m m y   A r g u m e n t s
@@ -431,14 +430,14 @@
       REAL(rprec), DIMENSION(:), POINTER :: y_vmec, y_spline
       REAL(rprec), DIMENSION(ns_vmec) :: snodes_vmec, y2_vmec, fac1
       REAL(rprec), DIMENSION(ns_i)    :: snodes, fac2
-      REAL(rprec)                     :: hs_vmec, yp1, ypn
+      REAL(rprec)                     :: hs_vmec, yp1, ypn, expm
 !-----------------------------------------------
 !
 !     CALL LIBRARY SPLINE ROUTINES TO SPLINE FROM VMEC (s~phi) TO s~sqrt(phi) MESH
 !
 
 !
-!     1. Factors for taking out (putting back) sqrt(s) factor for m-odd modes
+!     1. Factors for taking out (putting back) [sqrt(s)]**m factor
 
       IF (ns_vmec .le. 1) THEN
          istat = 1
@@ -463,11 +462,12 @@
       END DO
 
 !
-!     2. Set up s-nodes on final (splined) mesh [sfinal ~ sqrt(s_vmec)]
+!     2. Set up s-nodes in original (vmec) radial spatial coordinates for the final (splined) mesh 
+!        using the mapping relation: s_vmec(sfinal) = sfinal**2 since sfinal = sqrt(phi)
 !
 
       DO js = 1, ns_i
-         snodes(js) = fac2(js)*fac2(js)
+         snodes(js) = fac2(js)**2
       END DO
 
 !
@@ -477,16 +477,21 @@
          snodes_vmec(js) = hs_vmec*((js-1))
       END DO
 
-      ymn_spline = 0d0   !L. Chacon, 11/29/06, to avoid definition error below
+      ymn_spline = 0d0   !L. Chacon, 2/20/06, to avoid definition error below
 
       DO modes = 1, mnmax
          y_vmec => ymn_vmec(modes,:)
          y_spline => ymn_spline(modes,:)
          mp = xm_vmec(modes)
 
-         IF (istat.eq.0 .and. MOD(mp,2).eq.1) THEN
-            y_vmec = y_vmec*fac1
-            y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
+         IF (istat.eq.0 .and. mp.gt.0) THEN
+            IF (MOD(mp,2) .eq. 1) THEN 
+               expm = 1
+            ELSE
+               expm = 2
+            END IF
+            y_vmec = y_vmec*(fac1**expm)
+            IF (mp .le. 2) y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
          END IF
 
 !
@@ -503,8 +508,8 @@
      &                   snodes(js), y_spline(js))
          END DO
 
-         IF (istat.eq.0 .and. MOD(mp,2).eq.1) THEN
-            y_spline = y_spline*fac2
+         IF (istat.eq.0 .and. mp.gt.0) THEN
+            y_spline = y_spline*(fac2**expm)
          END IF
 
 !
@@ -527,6 +532,120 @@
       istat = 0
 
       END SUBROUTINE Spline_Fourier_Modes
+
+!!$      SUBROUTINE Spline_Fourier_Modes(ymn_vmec, ymn_spline, istat)
+!!$!-----------------------------------------------
+!!$!   D u m m y   A r g u m e n t s
+!!$!-----------------------------------------------
+!!$      INTEGER, INTENT(inout)     :: istat
+!!$      REAL(rprec), DIMENSION(mnmax, ns_vmec), TARGET,                   &
+!!$     &                     INTENT(in)  :: ymn_vmec
+!!$      REAL(rprec), DIMENSION(mnmax, ns_i), TARGET,                      &
+!!$     &                     INTENT(out) :: ymn_spline
+!!$!-----------------------------------------------
+!!$!   L o c a l   V a r i a b l e s
+!!$!-----------------------------------------------
+!!$      REAL(rprec), PARAMETER          :: one = 1
+!!$      INTEGER                         :: js, modes, ntype, mp
+!!$      REAL(rprec), DIMENSION(:), POINTER :: y_vmec, y_spline
+!!$      REAL(rprec), DIMENSION(ns_vmec) :: snodes_vmec, y2_vmec, fac1
+!!$      REAL(rprec), DIMENSION(ns_i)    :: snodes, fac2
+!!$      REAL(rprec)                     :: hs_vmec, yp1, ypn
+!!$!-----------------------------------------------
+!!$!
+!!$!     CALL LIBRARY SPLINE ROUTINES TO SPLINE FROM VMEC (s~phi) TO s~sqrt(phi) MESH
+!!$!
+!!$
+!!$!
+!!$!     1. Factors for taking out (putting back) sqrt(s) factor for m-odd modes
+!!$
+!!$      IF (ns_vmec .le. 1) THEN
+!!$         istat = 1
+!!$         RETURN
+!!$      END IF
+!!$
+!!$      fac1 = 0
+!!$      hs_vmec = one/(ns_vmec-1)
+!!$      DO js = 2, ns_vmec
+!!$         fac1(js) = one/SQRT(hs_vmec*(js-1))
+!!$      END DO
+!!$
+!!$      IF (ns_i .le. 1) THEN
+!!$         istat = 2
+!!$         RETURN
+!!$      END IF
+!!$
+!!$      ohs_i = ns_i-1
+!!$      hs_i = one/ohs_i
+!!$      DO js = 1, ns_i
+!!$         fac2(js) = hs_i*(js-1)
+!!$      END DO
+!!$
+!!$!
+!!$!     2. Set up s-nodes on final (splined) mesh [sfinal ~ sqrt(s_vmec)]
+!!$!
+!!$
+!!$      DO js = 1, ns_i
+!!$         snodes(js) = fac2(js)*fac2(js)
+!!$      END DO
+!!$
+!!$!
+!!$!     3. Set up "knots" on initial (vmec, svmec~phi) mesh 
+!!$!
+!!$      DO js = 1, ns_vmec
+!!$         snodes_vmec(js) = hs_vmec*((js-1))
+!!$      END DO
+!!$
+!!$      ymn_spline = 0d0   !L. Chacon, 11/29/06, to avoid definition error below
+!!$
+!!$      DO modes = 1, mnmax
+!!$         y_vmec => ymn_vmec(modes,:)
+!!$         y_spline => ymn_spline(modes,:)
+!!$         mp = xm_vmec(modes)
+!!$
+!!$         IF (istat.eq.0 .and. MOD(mp,2).eq.1) THEN
+!!$            y_vmec = y_vmec*fac1
+!!$            y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
+!!$         END IF
+!!$
+!!$!
+!!$!        4. Initialize spline for each mode amplitude (factor out sqrt(s) factor for odd-m)
+!!$!
+!!$         yp1 = -1.e30_dp;  ypn = -1.e30_dp
+!!$         CALL spline (snodes_vmec, y_vmec, ns_vmec, yp1, ypn, y2_vmec)
+!!$
+!!$!
+!!$!        5. Interpolate onto snodes mesh
+!!$!
+!!$         DO js = 1, ns_i
+!!$            CALL splint (snodes_vmec, y_vmec, y2_vmec, ns_vmec,         &
+!!$     &                   snodes(js), y_spline(js))
+!!$         END DO
+!!$
+!!$         IF (istat.eq.0 .and. MOD(mp,2).eq.1) THEN
+!!$            y_spline = y_spline*fac2
+!!$         END IF
+!!$
+!!$!
+!!$!        PRINT OUT FOR CHECKING
+!!$!
+!!$         IF (xn_vmec(modes) .eq. 0) THEN
+!!$!             WRITE (33, *) mp
+!!$             DO js = 1, ns_vmec
+!!$!                WRITE (33, '(1p2e14.4)') snodes_vmec(js), y_vmec(js)
+!!$             END DO
+!!$!                WRITE (33, *)
+!!$             DO js = 1, ns_i
+!!$!                WRITE (33, '(1p2e14.4)') snodes(js), y_spline(js)
+!!$             END DO
+!!$!                WRITE (33, *)
+!!$         END IF
+!!$
+!!$      END DO
+!!$
+!!$      istat = 0
+!!$
+!!$      END SUBROUTINE Spline_Fourier_Modes
       
 
       SUBROUTINE Spline_OneD_Array (y_vmec, y_spline, istat)
@@ -1485,7 +1604,7 @@
 !     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
 
-        call vmec_init_equ(nxg+1,nyg/2+1,nzg,equ_file)
+        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
 
 !!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
 !!$        do k=1,nzg
@@ -1722,7 +1841,7 @@
 !     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
 
-        call vmec_init_equ(nxg+1,nyg/2+1,nzg,equ_file)
+        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
 
 !     Setup equilibrium fields
 
