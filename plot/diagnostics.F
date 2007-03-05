@@ -16,6 +16,8 @@ c####################################################################
 
         use auxiliaryVariables
 
+        use auxPlotVariables
+
         use constants
 
         use transport_params
@@ -377,32 +379,16 @@ c Initial assignments
 
 c Velocity divergence diagnostics
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
-          enddo
-        enddo
-      enddo
-
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Vflux  = integral(nx,ny,nz,divrgV,igx,igy,igz,.false.)
 
 c Magnetic divergence diagnostics
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            array(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-          enddo
-        enddo
-      enddo
-
       !Total B divergence (conservation of flux)
-      Bflux  = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Bflux  = integral(nx,ny,nz,divrgB,igx,igy,igz,.false.)
 
       !Local divergence (statement of numerical accuracy)
-      array = abs(array)
+      array(1:nx,1:ny,1:nz) = abs(divrgB(1:nx,1:ny,1:nz))
 
       diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 

@@ -13,6 +13,8 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
+      use auxPlotVariables
+
       use timeStepping
 
       use constants
@@ -92,45 +94,77 @@ c Find perturbed quantities (u_graph = varray - u_ic)
 
       call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_graph)
 
+c Assignments
+
+      bx_cov = bcov(:,:,:,1)
+      by_cov = bcov(:,:,:,2)
+      bz_cov = bcov(:,:,:,3)
+
+      jx = jcnv(:,:,:,1)
+      jy = jcnv(:,:,:,2)
+      jz = jcnv(:,:,:,3)
+
+      jx_cov = jcov(:,:,:,1)
+      jy_cov = jcov(:,:,:,2)
+      jz_cov = jcov(:,:,:,3)
+
+      vx = vcnv(:,:,:,1)
+      vy = vcnv(:,:,:,2)
+      vz = vcnv(:,:,:,3)
+
+      vx_cov = vcov(:,:,:,1)
+      vy_cov = vcov(:,:,:,2)
+      vz_cov = vcov(:,:,:,3)
+
+#if defined(vec_pot)
+      ax_cnv = acnv(:,:,:,1)
+      ay_cnv = acnv(:,:,:,2)
+      az_cnv = acnv(:,:,:,3)
+#endif
+
 c Find Cartesian components of ALL vectors
 
       !Cartesian velocities
-      vx_car = vx
-      vy_car = vy
-      vz_car = vz
+      vx_car = vcnv(:,:,:,1)
+      vy_car = vcnv(:,:,:,2)
+      vz_car = vcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
 
 #if defined(vec_pot)
       !Cartesian A components
       covariant = .true.
-      ax_car = ax
-      ay_car = ay
-      az_car = az
+      ax_car = acov(:,:,:,1)
+      ay_car = acov(:,:,:,2)
+      az_car = acov(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,ax_car,ay_car,az_car,covariant,to_cartsn)
       covariant = .false.
 #endif
 
       !Cartesian B components
-      bx_car = bx
-      by_car = by
-      bz_car = bz
+      bx_car = bcnv(:,:,:,1)
+      by_car = bcnv(:,:,:,2)
+      bz_car = bcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,bx_car,by_car,bz_car,covariant,to_cartsn)
 
       !Find Cartesian J components
-      jx_car = jx
-      jy_car = jy
-      jz_car = jz
+      jx_car = jcnv(:,:,:,1)
+      jy_car = jcnv(:,:,:,2)
+      jz_car = jcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,covariant,to_cartsn)
 
 c Electron velocity
 
-      vex = vx - di*jx/rho
-      vey = vy - di*jy/rho
-      vez = vz - di*jz/rho
+      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+
+      vex = vecnv(:,:,:,1)
+      vey = vecnv(:,:,:,2)
+      vez = vecnv(:,:,:,3)
 
 c Poloidal flux diagnostics
 
@@ -143,12 +177,14 @@ c Poloidal flux diagnostics
             Pflux(i,j,k) = 0d0
           else
             Pflux(i,j,k) = Pflux(i-1,j,k)
-     .                   - 0.5*(by(i-1,j,k)+by(i,j,k))*dx(ig-1)
+     .                   - 0.5*(bcnv(i-1,j,k,2)
+     .                         +bcnv(i  ,j,k,2))*dx(ig-1)
           endif
           do j = 1,ny+1
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
             Pflux(i,j,k) = Pflux(i,j-1,k)
-     .                   + 0.5*(bx(i,j-1,k)+bx(i,j,k))*dy(jg-1)
+     .                   + 0.5*(bcnv(i,j-1,k,1)
+     .                         +bcnv(i,j  ,k,1))*dy(jg-1)
           enddo
         enddo
       enddo
@@ -163,25 +199,24 @@ c Poloidal flux diagnostics
 
 c Velocity intrinsic components (wrt B)
 
-        do k = kming,kmaxg
-          do j = jming,jmaxg
-            do i = iming,imaxg
-cc      do k = 0,nz+1
-cc        do i = 0,nx+1
-cc          do j = 0,ny+1
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
             call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
             !V_parallel
             norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                        ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.))
+     .                            ,bcnv(i,j,k,1)
+     .                            ,bcnv(i,j,k,2)
+     .                            ,bcnv(i,j,k,3),.false.))
 
             if (norm == 0d0) then
               vpar(i,j,k) = 0d0
             else
               vpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                     ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .                     ,vx    (i,j,k),vy    (i,j,k),vz    (i,j,k))
+     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
+     .                     ,vcnv(i,j,k,1),vcnv(i,j,k,2),vcnv(i,j,k,3))
      .                     /norm
             endif
 
@@ -196,18 +231,18 @@ cc          do j = 0,ny+1
             else
               vpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
      .                     ,cov(1),cov(2),cov(3)
-     .                     ,vx(i,j,k),vy(i,j,k),vz(i,j,k))
+     .                     ,vcnv(i,j,k,1),vcnv(i,j,k,2),vcnv(i,j,k,3))
      .                     /norm
             endif
 cc            vpsi(i,j,k) = cov(1)
 
             !V.(b x grad(psi))/|(b x grad(psi))|
-            cnv(1) = by(i,j,k)*cov(3)
-     .              -bz(i,j,k)*cov(2)
-            cnv(2) = bz(i,j,k)*cov(1)
-     .              -bx(i,j,k)*cov(3)
-            cnv(3) = bx(i,j,k)*cov(2)
-     .              -by(i,j,k)*cov(1)
+            cnv(1) = bcnv(i,j,k,2)*cov(3)
+     .              -bcnv(i,j,k,3)*cov(2)
+            cnv(2) = bcnv(i,j,k,3)*cov(1)
+     .              -bcnv(i,j,k,1)*cov(3)
+            cnv(3) = bcnv(i,j,k,1)*cov(2)
+     .              -bcnv(i,j,k,2)*cov(1)
 
             norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
      .                            ,cnv(1),cnv(2),cnv(3),.false.))
@@ -216,7 +251,7 @@ cc            vpsi(i,j,k) = cov(1)
               vperp(i,j,k) = 0d0
             else
               vperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                       ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .                       ,vcov(i,j,k,1),vcov(i,j,k,2),vcov(i,j,k,3)
      .                       ,cnv(1),cnv(2),cnv(3))
      .                       /norm
             endif
@@ -284,25 +319,29 @@ c FIX PARALLEL
             ll = 0d0
             do j = jming,jmaxg-1  !Careful with the periodic limits
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-              b00(i,1) = b00(i,1) + bx(i,j,k)*dyh(jg)
-              b00(i,2) = b00(i,2) + by(i,j,k)*dyh(jg)
-              b00(i,3) = b00(i,3) + bz(i,j,k)*dyh(jg)
-              j00_cov(i,1) = j00_cov(i,1) + jx_cov(i,j,k)*dyh(jg)
-              j00_cov(i,2) = j00_cov(i,2) + jy_cov(i,j,k)*dyh(jg)
-              j00_cov(i,3) = j00_cov(i,3) + jz_cov(i,j,k)*dyh(jg)
-              v00(i,1) = v00(i,1) + vx_cov(i,j,k)*dyh(jg)
+              b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dyh(jg)
+              b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dyh(jg)
+              b00(i,3) = b00(i,3) + bcnv(i,j,k,3)*dyh(jg)
+              j00_cov(i,1) = j00_cov(i,1) + jcov(i,j,k,1)*dyh(jg)
+              j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dyh(jg)
+              j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dyh(jg)
+              v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dyh(jg)
               if (coords == 'hel') then
                 q00(i,1) = q00(i,1)
-     .              + mm*bz(i,j,k)/RR/(by(i,j,k)-kk*bz(i,j,k))*dyh(jg)
+     .              + mm*bcnv(i,j,k,3)/RR
+     .                 /(bcnv(i,j,k,2)-kk*bcnv(i,j,k,3))*dyh(jg)
               else
-                q00(i,1) = q00(i,1) + bz(i,j,k)/by(i,j,k)*dyh(jg)
+                q00(i,1) = q00(i,1)
+     .                   + bcnv(i,j,k,3)/bcnv(i,j,k,2)*dyh(jg)
               endif
               l00(i,1) = l00(i,1)
      .              + scalarProduct(i,j,k,igx,igy,igz
-     .                     ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
-     .                     ,bx    (i,j,k),by    (i,j,k),bz    (i,j,k))
+     .                     ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
+     .                     ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))
      .                /vectorNorm(i,j,k,igx,igy,igz
-     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
+     .                           ,bcnv(i,j,k,1)
+     .                           ,bcnv(i,j,k,2)
+     .                           ,bcnv(i,j,k,3),.false.)
      .               *dyh(jg)
 
               ll = ll + dyh(jg)
@@ -385,9 +424,18 @@ c Divergence diagnostics
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
-            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,jx,jy,jz)
-            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz,vx,vy,vz)
+            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,jcnv(:,:,:,1)
+     .                         ,jcnv(:,:,:,2)
+     .                         ,jcnv(:,:,:,3))
+            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,bcnv(:,:,:,1)
+     .                         ,bcnv(:,:,:,2)
+     .                         ,bcnv(:,:,:,3))
+            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,vcnv(:,:,:,1)
+     .                         ,vcnv(:,:,:,2)
+     .                         ,vcnv(:,:,:,3))
           enddo
         enddo
       enddo
@@ -408,9 +456,9 @@ c Total pressure (use graphics limits)
             jac = gmetric%grid(igx)%jac(i,j,k)
 
             p_tot(i,j,k) = (a_p*rho(i,j,k)*tmp(i,j,k))
-     .                     +(bx(i,j,k)*bx_cov(i,j,k)
-     .                      +by(i,j,k)*by_cov(i,j,k)
-     .                      +bz(i,j,k)*bz_cov(i,j,k))/2./jac
+     .                     +(bcnv(i,j,k,1)*bcov(i,j,k,1)
+     .                      +bcnv(i,j,k,2)*bcov(i,j,k,2)
+     .                      +bcnv(i,j,k,3)*bcov(i,j,k,3))/2./jac
 
           enddo
         enddo

@@ -14,6 +14,8 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
+      use auxPlotVariables
+
       use equilibrium
 
       implicit none
