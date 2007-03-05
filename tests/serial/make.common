@@ -1,10 +1,14 @@
 #Define variables
 
-EXEC = $(shell ls pixie3d*.x)
+-include make.inc
 
 #Define targets
 
-.PHONY: test rebuild
+.PHONY: test rebuild setup
+
+setup: ;
+	-@ln -s ../../../bin/$(EXEC)
+	-@ln -s ../../../bin/$(PLOT)
 
 rebuild: ;
 	@echo "Rebuilding test in $(CURDIR)"

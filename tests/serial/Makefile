@@ -1,6 +1,6 @@
 #Define variables
 
-DIRS = $(shell ls | grep -v ake)
+DIRS = $(shell ls | grep -v ake | grep -v CVS)
 
 #Define targets
 
@@ -8,12 +8,9 @@ DIRS = $(shell ls | grep -v ake)
 
 setup: ;
 	-@for subdir in $(DIRS); do \
-		ln -s ../make.common $$subdir/makefile;  done
+		ln -s ../make.common $$subdir/makefile; \
+		$(MAKE) --no-print-directory -C $$subdir $@; done
 
-rebuild: ;
+test rebuild: ;
 	-@for subdir in $(DIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir rebuild;  done
-
-test: ;
-	-@for subdir in $(DIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir test;  done
+		$(MAKE) --no-print-directory -C $$subdir $@;  done
