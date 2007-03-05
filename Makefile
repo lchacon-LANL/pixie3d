@@ -53,12 +53,12 @@ ifeq ($(FC),f90)
   else
     FFLAGS       = -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
     LDFLAGS      = -lU77 
-#    ifeq ($(HOST),nip.lanl.gov)
+    ifeq ($(HOST),nip.lanl.gov)
 #      LIBS      += -llapack -lblas -lg2c 
-#    else
-#      LIBS      += -llapack -lblas
-#    endif
-     LIBS      += -llapack_f90_ -lblas_f90_
+      LIBS      += -llapack_f90_ -lblas_f90_
+    else
+      LIBS      += -llapack -lblas
+    endif
   endif
 
   HDF5 = true
@@ -85,7 +85,7 @@ ifeq ($(FC),lf95)
     FC         = $(MPI_HOME)/bin/mpif90
   else
     FFLAGS    += -X9
-    LDFLAGS    = -lf2c
+    LDFLAGS    =
     ifeq ($(HOST),nip.lanl.gov)
       LIBS      += -llapack -lblas -lg2c
     else
@@ -230,7 +230,7 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
 #Define targets
 
 .PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup setup_mhd_b setup_mhd_a $(SUBDIRS)
+        vmec vmec_clean setup serial-tests serial-tests-rebuild $(SUBDIRS)
 
 all: contrib src plot
 
@@ -247,8 +247,14 @@ distclean: contrib_clean
 
 setup: ;
 	-cd plot ; ln -s ../src/Makefile
-	-for subdir in common plot ; do \
+	-for subdir in common plot tests/serial ; do \
 		$(MAKE) -C $$subdir setup;  done
+
+serial-tests: ;
+	$(MAKE) -C tests/serial test
+
+serial-tests-rebuild: ;
+	$(MAKE) -C tests/serial rebuild
 
 # CONTRIBUTED SOFTWARE
 
