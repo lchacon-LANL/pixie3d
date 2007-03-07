@@ -1,0 +1,32 @@
+#Define variables
+
+NP=2
+
+-include make.inc
+
+PAREXEC=$(MPI_HOME)/bin/mpirun -np $(NP) $(EXEC) -snes_mf
+
+#Define targets
+
+.PHONY: test rebuild setup
+
+setup: ;
+	-@ln -s ../../../bin/$(EXEC)
+	-@ln -s ../../../bin/$(PLOT)
+
+rebuild: ;
+	@echo "Rebuilding parallel test in $(CURDIR)"
+	-@$(PAREXEC) > pixie3d.out
+
+test: ;
+	@echo
+	@echo "Running parallel test in $(CURDIR)"
+	-@mv record.bin record.bak
+	-@$(PAREXEC) > pixie3d.tst
+ifneq (,$(strip $(shell diff pixie3d.tst pixie3d.out 2> /dev/null)))
+	@echo "Differences found in $(CURDIR)"
+	@echo $(shell diff pixie3d.tst pixie3d.out 2> /dev/null)
+else
+	@echo "No differences found in $(CURDIR)"
+	-@rm *.bak pixie3d.tst
+endif
