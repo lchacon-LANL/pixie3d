@@ -125,26 +125,32 @@ c     Begin program
 
       kk = 0d0
 
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
+cc      do k=1,nz
+cc        do j=1,ny
+cc          do i=1,nx
+cc
+cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc            !Maximum kk
+cc            idx  = 1./grid_params%dx(ig)
+cc            if (nx == 1) idx = 1d-2
+cc            idy  = 1./grid_params%dy(jg)
+cc            if (ny == 1) idy = 1d-2
+cc            idz  = 1./grid_params%dz(kg)
+cc            if (nz == 1) idz = 1d-2
+cc
+cc            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+cc            kk   = max(kk,norm)
+cc
+cc          enddo
+cc        enddo
+cc      enddo
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      idx = grid_params%nxgl(igx)/(xmax-xmin)
+      idy = grid_params%nxgl(igy)/(ymax-ymin)
+      idz = grid_params%nxgl(igz)/(zmax-zmin)
 
-            !Maximum kk
-            idx  = 1./grid_params%dx(ig)
-            if (nx == 1) idx = 1d-2
-            idy  = 1./grid_params%dy(jg)
-            if (ny == 1) idy = 1d-2
-            idz  = 1./grid_params%dz(kg)
-            if (nz == 1) idz = 1d-2
-
-            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
-            kk   = max(kk,norm)
-
-          enddo
-        enddo
-      enddo
+      kk = (idx**2 + idy**2 + idz**2)
 
       hres = .05*di/kk
 cc      hres = di/kk
