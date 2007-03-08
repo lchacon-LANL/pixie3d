@@ -127,7 +127,7 @@ c Set defaults
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
       mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
-      maxitnwt = 10            ! Maximum number of Newton its. (if zero, maxitnwt
+      maxitnwt = 20            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
