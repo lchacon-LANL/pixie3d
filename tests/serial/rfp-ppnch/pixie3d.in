@@ -28,8 +28,8 @@
     gamma    = 1d0
 
     dt       = 5d-3
-    tmax     = 2.5d-1
-    dstep    = 2.5d-1
+    tmax     = 5d-1
+    dstep    = 5d-1
 
     pvx      = 1d-4
     odd      = t
