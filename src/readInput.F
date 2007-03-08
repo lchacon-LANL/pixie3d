@@ -123,16 +123,15 @@ c Set defaults
 
       !NK parameters
       tolgm    = 8d-1          ! Inexact Newton parameter
-      rtol     = 1.0d-4        ! Newton relative convergence tolerance
+      rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter (if zero,
-                               !        use default in NK routine)
-      maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
+      mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
+      maxitnwt = 10            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
-      method   = 0             ! Inexact Newton method:
+      method   = 1             ! Inexact Newton method:
                                !   + 0: constant forcing
                                !   + other: adaptive (Eisenstat-Walker)
 
@@ -143,7 +142,7 @@ c Set defaults
 
       damp     = 1d0           ! Damping parameter in Newton (see nk_mod.f doc))
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
-      iguess   = 1             ! Whether preconditioner is used to give initial
+      iguess   = 0             ! Whether preconditioner is used to give initial
                                !   guess to GMRES (when =1) 
 
       !Preconditioner parameters
