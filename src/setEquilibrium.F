@@ -756,13 +756,13 @@ c     Equilibria (numerical)
           read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
      .                ,vr0(i),ez0(i),eth0(i),rho0(i)
 cc          write (*,*)
-cc          write (*,*) dummy1,bth0(i),bzz0(i),dummy2,dummy3,vr0(i)
-cc     .                ,dummy4,dummy5,rho0(i)
+cc          write (*,*) dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
+cc     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
         enddo
 
-        read(1000)
         read(1000,'(a)')
-        read(1000,*) ieta
+        read(1000,'(a)')
+        read(1000,'(f7.1)') ieta
 
         close(1000)
 
