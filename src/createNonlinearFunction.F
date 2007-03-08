@@ -58,10 +58,6 @@ c Begin program
      $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
 
-cc        allocate (ejx   (ilom:ihip,jlom:jhip,klom:khip)
-cc     .           ,ejy   (ilom:ihip,jlom:jhip,klom:khip)
-cc     .           ,ejz   (ilom:ihip,jlom:jhip,klom:khip))
-
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
      .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
 

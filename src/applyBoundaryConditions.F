@@ -229,10 +229,6 @@ c     Postprocessing
       bcov = v_cov
       bcnv = v_cnv
 
-cc      bx_cov = v_cov(:,:,:,1)
-cc      by_cov = v_cov(:,:,:,2)
-cc      bz_cov = v_cov(:,:,:,3)
-
       varray%array_var(IBX)%array = v_cnv(:,:,:,1)
       varray%array_var(IBY)%array = v_cnv(:,:,:,2)
       varray%array_var(IBZ)%array = v_cnv(:,:,:,3)
@@ -332,14 +328,6 @@ c     Postprocessing
 
       bcnv = v_cnv
       bcov = v_cov
-
-cc      bx     = v_cnv(:,:,:,1)
-cc      by     = v_cnv(:,:,:,2)
-cc      bz     = v_cnv(:,:,:,3)
-cc
-cc      bx_cov = v_cov(:,:,:,1)
-cc      by_cov = v_cov(:,:,:,2)
-cc      bz_cov = v_cov(:,:,:,3)
 
 #endif
 
@@ -445,14 +433,6 @@ c     Postprocessing
       jcov = v_cov
       jcnv = v_cnv
 
-cc      jx_cov = v_cov(:,:,:,1)
-cc      jy_cov = v_cov(:,:,:,2)
-cc      jz_cov = v_cov(:,:,:,3)
-cc
-cc      jx = v_cnv(:,:,:,1)
-cc      jy = v_cnv(:,:,:,2)
-cc      jz = v_cnv(:,:,:,3)
-
 c Velocity BC
 
 c     BC setup
@@ -544,14 +524,6 @@ c     Postprocessing
 
       vcov = v_cov
       vcnv = v_cnv
-
-cc      vx_cov = v_cov(:,:,:,1)
-cc      vy_cov = v_cov(:,:,:,2)
-cc      vz_cov = v_cov(:,:,:,3)
-cc
-cc      vx     = v_cnv(:,:,:,1)
-cc      vy     = v_cnv(:,:,:,2)
-cc      vz     = v_cnv(:,:,:,3)
 
       if (.not.nc_eom_v) then
         varray%array_var(IVX)%array = v_cnv(:,:,:,1)
