@@ -35,9 +35,6 @@ c Local variables
       integer(4) :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
       real(8)    :: dh,vmax,cnv(3)
-     .             ,fx_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,fy_cov(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,fz_cov(ilom:ihip,jlom:jhip,klom:khip)
      .             ,pe    (ilom:ihip,jlom:jhip,klom:khip)
 
 c Begin program
@@ -53,6 +50,8 @@ c Begin program
 c Impose boundary conditions and find auxiliary quantities
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
+
+cc      write (*,*) 'DIAG -- setupNLF'
 
 c Set aliases
 
@@ -159,7 +158,6 @@ c Auxiliary variables
       !Covariant vec-laplacian/curlcurl on A (w/ BCs)
       if (heta > 0d0) then
 cc        vlap_a = -jcov
-
         do k=1,nz
           do j=1,ny
             do i=1,nx
