@@ -744,7 +744,8 @@ cc      case (IVX,IVY,IVZ,IJX,IJY,IJZ) !Velocity components
                 J0 = 0d0
               endif
 
-              if (equil == 'ppnch' .or. equil == 'ppn3d') then
+              if (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .            .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then
 
                 !THIS WON'T WORK FOR LINEARIZED EQUATIONS; SHOULD USE ACTUAL B
                 !   BUT THIS DOESN'T WORK YET.
