@@ -118,15 +118,21 @@ cc        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
         where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
         where (bbcs(:,IBY) == NEU) bbcs(:,IBY) =  DIR
 
-      case ('ppnch','ppn3d') 
+      case ('ppnch','ppn3d','ppnst')   !No stress BCs
+
+cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
+
+        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
+
+      case ('ppnsl')                   !No slip BCs
 
 cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
         !Dirichlet boundary conditions for tangential components
-cc        where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
-cc        where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
+        where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
+        where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
 
       end select
 
@@ -378,7 +384,8 @@ cc      endif
         enddo
       enddo
 
-      if (equil == 'ppnch' .or. equil == 'ppn3d') then  !Jt = alpha*Bt in cov representation
+      if (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .    .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then       !Jt = alpha*Bt in cov representation
 cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
 
         i = nnx
@@ -456,7 +463,8 @@ c     BC setup
         v_cnv(:,:,:,3) = varray%array_var(IVZ)%array
       endif
 
-      if (equil == 'ppnch' .or. equil == 'ppn3d') then
+      if (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .    .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then
 
         i = nnx
 
