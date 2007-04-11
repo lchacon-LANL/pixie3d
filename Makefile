@@ -61,7 +61,9 @@ ifeq ($(FC),f90)
     endif
   endif
 
-  HDF5 = true
+  ifndef HDF5
+    HDF5 = t
+  endif
 endif
 
 # Flags for Lahey lf95
@@ -181,7 +183,7 @@ MODPATH = $(MODFLAG).
 
 # HDF5 setup
 
-ifdef HDF5
+ifeq ($(HDF5),"t")
   LIBS     += -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz 
   CPPFLAGS += -Dhdf5 -I$(HDF5_HOME)/include
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
