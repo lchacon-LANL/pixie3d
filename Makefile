@@ -183,7 +183,7 @@ MODPATH = $(MODFLAG).
 
 # HDF5 setup
 
-ifeq ($(HDF5),"t")
+ifeq ("$(HDF5)","t")
   LIBS     += -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz 
   CPPFLAGS += -Dhdf5 -I$(HDF5_HOME)/include
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
