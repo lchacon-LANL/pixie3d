@@ -729,7 +729,7 @@ c     Tokamak equilibria (analytical)
      .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-      case ('ppnch')
+      case ('ppnch','ppnsl','ppnst')
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)

@@ -56,7 +56,7 @@ c     Begin program
           call perturbEquilibrium_def  (array,bcs,perturb,ieq)
         endif
 
-      case ('ppnch','ppn3d','ppn2')
+      case ('ppnch','ppn3d','ppnsl','ppnst')
 
         command = 'ls '//trim(prt_file)//' >& /dev/null'
         ierr = system(trim(command))
