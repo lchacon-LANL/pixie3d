@@ -34,8 +34,8 @@ c Local variables
 
       integer(4) :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
-      real(8)    :: dh,vmax,cnv(3)
-     .             ,pe    (ilom:ihip,jlom:jhip,klom:khip)
+      real(8)    :: dh,vmax,cnv(3),minrho,mintmp
+     .             ,pe(ilom:ihip,jlom:jhip,klom:khip)
 
 c Begin program
 
@@ -72,16 +72,26 @@ c Set aliases
 
 c Safeguards
 
-      if (minval(rho) < 0d0) then
+#if defined(petsc)
+      call MPI_Allreduce(minval(rho),minrho,1,MPI_REAL8,MPI_MIN
+     .                    ,MPI_COMM_WORLD,mpierr)
+      call MPI_Allreduce(minval(tmp),mintmp,1,MPI_REAL8,MPI_MIN
+     .                    ,MPI_COMM_WORLD,mpierr)
+#else
+      minrho = minval(rho)
+      mintmp = minval(tmp)
+#endif
+
+      if (minrho < 0d0) then
         close (urecord)  !Close record file before exiting
-        write (*,*) minval(rho)
+        write (*,*) minrho
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
       endif
 
-      if (minval(tmp) < 0d0) then
+      if (mintmp < 0d0) then
         close (urecord) !Close record file before exiting
-        write (*,*) minval(rho)
+        write (*,*) mintmp
         call pstop('setupNonlinearFunction',
      .             'Warning: negative temperatures are occurring')
       endif
