@@ -84,14 +84,14 @@ c Safeguards
 
       if (minrho < 0d0) then
         close (urecord)  !Close record file before exiting
-        write (*,*) minrho
+        if (my_rank == 0) write (*,*) 'rho=',minrho
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
       endif
 
       if (mintmp < 0d0) then
         close (urecord) !Close record file before exiting
-        write (*,*) mintmp
+        if (my_rank == 0) write (*,*) 'tmp=',mintmp
         call pstop('setupNonlinearFunction',
      .             'Warning: negative temperatures are occurring')
       endif
