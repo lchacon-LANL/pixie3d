@@ -290,10 +290,12 @@ c     EOM
       !Volume force
       if (nc_eom_jxb) then
         cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .           ,bcov,jcov,.false.,vol=.false.)
+     .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
+     $           ,vol=.false.)
       else
         cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .           ,bcnv,jcnv,.true. ,vol=.false.)
+     .           ,bcnv,jcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
+     $           ,vol=.false.)
       endif
 
       ff(IVX:IVZ) = ff(IVX:IVZ) - cnv
