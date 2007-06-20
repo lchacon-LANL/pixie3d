@@ -31,8 +31,8 @@
     vperflow = 0.
 
     dt       = 1d-2
-    tmax     = 1d+0 
-    dstep    = 1d-0
+    tmax     = 1d-1 
+    dstep    = 1d-1
 
     pbz      = 0.1
     prho     = 0d-3

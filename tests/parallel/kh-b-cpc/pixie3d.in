@@ -26,8 +26,8 @@
     vperflow = 0.5
 
     dt       = 1d-2
-    tmax     = 1d0
-    dstep    = 1d-2
+    tmax     = 1d-1
+    dstep    = 1d-1
 
     sm_flag  = 0
 
