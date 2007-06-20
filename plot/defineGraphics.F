@@ -135,12 +135,15 @@ c Define graphics group #1: Contravariant variables
 
       graph(1)%array_graph(neqd+10:ngraph)%descr = ''
 #endif
-      sel_gr(1,:) = sel_graph
+
+cc      sel_gr(1,:) = sel_graph
+      sel_gr(1,:) = (/ (i,i=1,xdraw_cont_lim) /)
 
       prof_ivar(1,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (1,:) = 0        !No log scales
       prof_spline(1) = .false.  !No splines
 
+#if !defined(RFX)
 c Define graphics group #2: Cov variables
 
       graph(2)%cartesian=.false.
@@ -227,11 +230,97 @@ c Define graphics group #2: Cov variables
       graph(2)%array_graph(neqd+7:ngraph)%descr = ''
 #endif
 
-      sel_gr(2,:) = sel_graph
+cc      sel_gr(2,:) = sel_graph
+      sel_gr(2,:) = (/ (i,i=1,xdraw_cont_lim) /)
 
       prof_ivar(2,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (2,:) = 0        !No log scales
       prof_spline(2) = .false.  !No splines
+
+#else
+
+c Define graphics group #2: Cyl variables
+
+      graph(2)%cartesian=.false.
+      graph(2)%descr='Cyl_variables'
+
+#if !defined(vec_pot)
+      graph(2)%array_graph(1)%array => vx_cov
+      graph(2)%array_graph(1)%descr = 'Vr'
+
+      graph(2)%array_graph(2)%array => vy_cov
+      graph(2)%array_graph(2)%descr = 'Vth'
+
+      graph(2)%array_graph(3)%array => vz_cov
+      graph(2)%array_graph(3)%descr = 'Vz'
+
+      graph(2)%array_graph(4)%array => bx_cov
+      graph(2)%array_graph(4)%descr = 'Br'
+
+      graph(2)%array_graph(5)%array => by_cov
+      graph(2)%array_graph(5)%descr = 'Bth'
+
+      graph(2)%array_graph(6)%array => bz_cov
+      graph(2)%array_graph(6)%descr = 'Bz'
+
+      graph(2)%array_graph(7)%array => jx_cov
+      graph(2)%array_graph(7)%descr = 'Jr'
+
+      graph(2)%array_graph(8)%array => jy_cov
+      graph(2)%array_graph(8)%descr = 'Jth'
+
+      graph(2)%array_graph(9)%array => jz_cov
+      graph(2)%array_graph(9)%descr = 'Jz'
+
+      graph(2)%array_graph(10:ngraph)%descr = ''
+#else
+      graph(2)%array_graph(1)%array => vx_cov
+      graph(2)%array_graph(1)%descr = 'Vr'
+
+      graph(2)%array_graph(2)%array => vy_cov
+      graph(2)%array_graph(2)%descr = 'Vth'
+
+      graph(2)%array_graph(3)%array => vz_cov
+      graph(2)%array_graph(3)%descr = 'Vz'
+
+      graph(2)%array_graph(4)%array => ax_cnv
+      graph(2)%array_graph(4)%descr =  'Ar'
+                                                        
+      graph(2)%array_graph(5)%array => ay_cnv
+      graph(2)%array_graph(5)%descr =  'Ath'
+                                                        
+      graph(2)%array_graph(6)%array => az_cnv
+      graph(2)%array_graph(6)%descr =  'Az'
+
+      graph(2)%array_graph(7)%array => bx_cov
+      graph(2)%array_graph(7)%descr = 'Br'
+                           
+      graph(2)%array_graph(8)%array => by_cov
+      graph(2)%array_graph(8)%descr = 'Bth'
+                           
+      graph(2)%array_graph(9)%array => bz_cov
+      graph(2)%array_graph(9)%descr = 'Bz'
+
+      graph(2)%array_graph(10)%array => jx_cov
+      graph(2)%array_graph(10)%descr = 'Jr'
+
+      graph(2)%array_graph(11)%array => jy_cov
+      graph(2)%array_graph(11)%descr = 'Jth'
+
+      graph(2)%array_graph(12)%array => jz_cov
+      graph(2)%array_graph(12)%descr = 'Jz'
+
+      graph(2)%array_graph(13:ngraph)%descr = ''
+#endif
+
+cc      sel_gr(2,:) = sel_graph
+      sel_gr(2,:) = (/ (i,i=1,xdraw_cont_lim) /)
+
+      prof_ivar(2,:) = 0        !All profiles have same (default) independent variable: x
+      prof_log (2,:) = 0        !No log scales
+      prof_spline(2) = .false.  !No splines
+
+#endif
 
 c Define graphics group #3: Cartesian variables
 
@@ -331,7 +420,8 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(neqd+7:ngraph)%descr = ''
 #endif
 
-      sel_gr(3,:) = sel_graph
+cc      sel_gr(3,:) = sel_graph
+      sel_gr(3,:) = (/ (i,i=1,xdraw_cont_lim) /)
 
       prof_ivar(3,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (3,:) = 0        !No log scales
@@ -426,7 +516,11 @@ c     ##################################################################
 
         graphfile(1) = 'drawcnv.bin'
         ugraph(1)    = 20
+#if defined(RFX)
+        graphfile(2) = 'drawcyl.bin'
+#else
         graphfile(2) = 'drawcov.bin'
+#endif
         ugraph(2)    = 21
         graphfile(3) = 'drawcar.bin'
         ugraph(3)    = 22
@@ -437,7 +531,11 @@ c     ##################################################################
 
         profilefile(1)= 'drawcnv-prof.bin'
         uprofile(1)   = 30
+#if defined(RFX)
+        profilefile(2)= 'drawcyl-prof.bin'
+#else
         profilefile(2)= 'drawcov-prof.bin'
+#endif
         uprofile(2)   = 31
         profilefile(3)= 'drawcar-prof.bin'
         uprofile(3)   = 32
@@ -452,13 +550,21 @@ c     ##################################################################
         hdf5_fname   = 'pixie3d.h5'
 
         drawgraph(1) = 'drawcnv.in'
+#if defined(RFX)
+        drawgraph(2) = 'drawcyl.in'
+#else
         drawgraph(2) = 'drawcov.in'
+#endif
         drawgraph(3) = 'drawcar.in'
         drawgraph(4) = 'drawdiag.in'
         drawgraph(5) = 'drawpert.in'
 
         drawprof(1)  = 'drawcnv-prof.in'
+#if defined(RFX)
+        drawprof(2)  = 'drawcyl-prof.in'
+#else
         drawprof(2)  = 'drawcov-prof.in'
+#endif
         drawprof(3)  = 'drawcar-prof.in'
         drawprof(4)  = 'drawdiag-prof.in'
         drawprof(5)  = 'drawpert-prof.in'
