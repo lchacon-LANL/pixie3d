@@ -49,9 +49,11 @@ c Namelist
      .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
+     .                   ,nn_eta,aa_eta,c_hyper
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
+     .                   ,chk_src
      .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
@@ -167,6 +169,11 @@ c Set defaults
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
 
+      nn_eta   = 0             ! Exponent for eta profile
+      aa_eta   = 0d0           ! Coefficient for eta profile
+
+      c_hyper  = 0d0           ! Coefficient for hyper-resistivity
+
       gamma    = 5./3.         ! Polytropic constant of plasma
 
       di       = 0d0           ! Hall parameter
@@ -198,11 +205,13 @@ c Set defaults
 
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
+cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       dlambda  = .2            ! Characteristic equilibrium scale length
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
       vperflow = 0.            ! Maximum perpendicular fluid flow
       source   = .true.        ! Impose source to provide equilibrium
+      chk_src  = .false.       ! Whether to check source (e.g., to check equilibria)
 
       prho     = 0d0           ! Density perturbation
       pvx      = 0d0           ! Vx perturbation
@@ -220,8 +229,14 @@ c Set defaults
 
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
+      gp1%xp   = 0d0
+      gp1%dx0  = 0d0
       gp2%pack = .false.       ! Do not pack in Y-direction
+      gp2%xp   = 0d0
+      gp2%dx0  = 0d0
       gp3%pack = .false.       ! Do not pack in Z-direction
+      gp3%xp   = 0d0
+      gp3%dx0  = 0d0
                                ! To select packing, one needs to set the fields
                                ! of gp1, gp2, gp3 as follows:
                                !    gp* = pack,xp,dx0
@@ -229,6 +244,7 @@ c Set defaults
                                !   + pack (logical): whether to pack
                                !   + xp (real): where to pack
                                !   + dx0 (real): initial grid spacing (at xp)
+
       check_grid = .false.     ! Whether to dump grid info or not
 
       !I/O parameters
@@ -262,6 +278,10 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         nu  = sqrt(prndtl)/hrtmn
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
+
+c Find hyperresistivity
+
+      if (di > 0d0) heta = c_hyper
 
 c Find alpha_p
 
