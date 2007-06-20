@@ -33,6 +33,8 @@ c--------------------------------------------------------------------
 
       use oned_int
 
+      use vectorOps
+
       implicit none
 
 c Call variables
@@ -47,7 +49,7 @@ c Call variables
 
 c Local variables
 
-      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh
+      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh,it
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -55,12 +57,15 @@ c Local variables
 
       real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
-     .                ,r0(1),aa,dummy,dummy1,dummy2,dummy3,ieta
+     .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
+     $                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
      .                ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
-     .                ,jz0 (0:nxdp)
+     .                ,jz0 (0:nxdp),bth0_old(0:nxdp)
+     .                ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
+     .                ,dum(klom:khip,2),ldum(klom:khip,2)
 
       real(8)       :: a(ilom:ihip,jlom:jhip,klom:khip,3)
 
@@ -582,6 +587,66 @@ c     GEM challenge
         var(:,:,:,IAX:IAZ) = a
 #endif
 
+      case ('ic')
+
+        p0     = grid_params%params(1)
+        eps    = grid_params%params(2)
+        dlambda = (ymax-ymin)/2./pi/2.
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        bz0 = 1d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,ITMP)=(p0 + 0.5*(1-eps**2)
+     $                       /(    cosh(x1/dlambda)
+     $                        +eps*cos (y1/dlambda))**2)
+     $                       /a_p/var(i,j,k,IRHO)
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+             var(i,j,k,IBZ)=0d0
+            enddo
+          enddo
+        enddo
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
+
       case ('kaitm')
 
 c     Check coordinates
@@ -734,6 +799,9 @@ c     Tokamak equilibria (analytical)
         mm = grid_params%params(1)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
+        theta_ppnch = grid_params%params(4)
+        e0_over_eta = grid_params%params(5)
+        bz0         = grid_params%params(6)
 
         nh2 = mm !To set the right perturbation wavelength
 
@@ -746,32 +814,189 @@ c     Check coordinates
 
 c     Equilibria (numerical)
 
-        write (*,*) 'Reading numerical equilibrium ',equil,'...'
+cc        command = '[ -f '//trim(equ_file)//' ]'
 
-        !Read file
-        open (unit=1000,file=trim(equ_file),status='old')
+cc        ierr = system(trim(command))
 
-        read(1000,'(a)')
-        do i=0,nxdp
-          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
-cc          write (*,*)
-cc          write (*,*) dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-cc     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
-        enddo
+cc        if (ierr == 0) then     !External file equilibrium
+        if (e0_over_eta == 0d0) then     !External file equilibrium
 
-        read(1000,'(a)')
-        read(1000,'(a)')
-        read(1000,'(f7.1)') ieta
+          if (my_rank == 0)
+     .      write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
-        close(1000)
+          !Read file
+          open (unit=1000,file=trim(equ_file),status='old')
 
-        write (*,*) 'Done!'
+          read(1000,'(a)')
+          do i=0,nxdp
+            read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+cc            write (*,*)
+cc            write (*,*) dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
+cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+          enddo
 
-        !Find electric field at face r=1d0
-        E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
-        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
-        E0 = E0*eta/ieta
+          read(1000,'(a)')
+          read(1000,'(a)')
+          read(1000,'(f7.1)') ieta
+
+          close(1000)
+
+          if (my_rank ==0) write (*,*) 'Done!'
+
+          !Find electric field at face r=1d0
+          E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
+          E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
+          E0 = E0*eta/ieta
+
+        else   !Calculate equilibrium
+
+          if (my_rank == 0)
+     .       write (*,*) 'Calculating equilibrium ',equil,'...'
+
+          do i=0,nxdp
+            x1 = i*xmax/nxd
+            bth0(i) = 0.5*x1*e0_over_eta
+          enddo
+
+	  !Initialize iteration
+          bzz0 = 1d0
+
+	  !Iteration
+          dr = xmax/nxd
+
+          do it=1,100
+
+            bth0_old = bth0
+            bzz0_old = bzz0
+
+	    !Perform integral of B_theta
+            dummy(0) = 0d0
+            bth0 (0) = 0d0
+            do i=1,nxdp
+              x1 = i*dr
+              bzh = 0.5*(bzz0(i)+bzz0(i-1))
+              bth = 0.5*(bth0(i)+bth0(i-1))
+              rh  = 0.5*(2*i-1)*dr
+
+              dummy(i) = dummy(i-1) + bzh**2/(bzh**2+bth**2)*rh*dr
+
+              bth0(i) = e0_over_eta*dummy(i)/x1
+            enddo
+
+            !Perform integral of Bz
+            dummy(0) = 0d0
+            do i=1,nxdp
+              x1 = i*xmax/nxd
+              bzh = 0.5*(bzz0(i)+bzz0(i-1))
+              bth = 0.5*(bth0(i)+bth0(i-1))
+              rh  = 0.5*(2*i-1)*dr
+              dummy(i) = dummy(i-1) + bth/(bzh**2+bth**2)*dr
+            enddo
+
+            bzz0 = exp(-e0_over_eta*dummy)
+
+            if (theta_ppnch /= 0d0) then
+              bz_avg = 0d0
+              do i=1,nxd
+                 bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr**2
+              enddo
+              bz_avg = bz_avg/xmax**2
+              bzz0 = bth0(nxd)/theta_ppnch/bz_avg*bzz0
+            elseif (bz0 /= 0d0) then
+              bzz0 = bz0*bzz0
+            else
+              call pstop('setEquilibrium'
+     $                  ,'Can not find PPNCH equilibrium:'
+     $                   //'Both Bz0 and theta are zero')
+            endif
+
+	    !Check convergence
+            err = sqrt(0.5*(sum((bth0-bth0_old)**2)
+     .                     +sum((bzz0-bzz0_old)**2))/nxdp)
+
+            if (ilevel > 0 .and. my_rank == 0) then
+              write (*,*) 'Equilibrium iter =',it,' ; Error=',err
+            endif
+
+            if (err < 0.1*dr**2) exit
+
+          enddo
+
+          if (ilevel == 0 .and. my_rank == 0) then
+             write (*,*)
+             write (*,'(a,i3,a,e10.2)') ' Equilibrium converged in ',it
+     $                  ,' iterations with error =',err
+          endif
+
+          !Check force free diagnostic
+          do i=1,nxd
+            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+            bth = 0.5*(bth0(i)+bth0(i-1))
+            rh  = 0.5*(2*i-1)*dr
+            dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr
+     $                 +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+          enddo
+
+          if (my_rank == 0) then
+            write(*,*)
+            write(*,*)'Force free error=',sqrt(sum(dummy(1:nxd)**2)/nxd)
+          endif
+
+          !Check Ohm's law
+          do i=1,nxd
+            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+            bth = 0.5*(bth0(i)+bth0(i-1))
+            rh  = 0.5*(2*i-1)*dr
+            dummy(i) = e0_over_eta*bzh
+     $                -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+     $                +bth*(bzz0(i)-bzz0(i-1))/dr
+          enddo
+
+          if (my_rank == 0) then
+            write(*,*)'Ohms law   error=',sqrt(sum(dummy(1:nxd)**2)/nxd)
+          endif
+
+          !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
+          bz_avg = 0d0
+          do i=1,nxd
+            x1 = i*xmax/nxd
+            bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr**2
+          enddo
+
+          if (my_rank == 0) then
+            write (*,*) 
+            write (*,*) 'Pinch equilibrium features:'
+            write (*,*) '  Theta  =',bth0(nxd)/bz_avg
+            write (*,*) '  Bz(r=0)=',bzz0(0)
+            write (*,*) '  I0     =',2*pi*xmax*bth0(nxd)
+            write (*,*) '  E0/eta =',e0_over_eta
+            write (*,*) '  T_flux =',pi*xmax**2*bz_avg
+          endif
+
+	  !Transfer to integer grid
+          bth0(1:nxdp) = 0.5*(bth0(0:nxd)+bth0(1:nxdp))
+          bzz0(1:nxdp) = 0.5*(bzz0(0:nxd)+bzz0(1:nxdp))
+
+	  !Find electric field
+          E0(1:2) = 0d0
+          E0(3) = e0_over_eta*eta
+          ieta = eta
+
+          !Find radial flow
+          vr0 = -(E0(3)*bth0-E0(2)*bzz0)/(bzz0**2+bth0**2)
+
+	  !Find density
+          rho0 = 1d0
+
+        endif
+
+c$$$        write (*,*) 'r,bth0,bzz0,jth0,jz0,vr0'
+c$$$        do i=0,nxdp
+c$$$          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
+c$$$     .                                  ,x1,y1,z1)
+c$$$          write(*,*) x1,bth0(i),bzz0(i),jth0(i),jz0(i),vr0(i)
+c$$$        enddo
 
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
@@ -1290,23 +1515,67 @@ c     Read VMEC equilibrium
         call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
 
-        !Divergence clean
-        call curl_inv(nx,ny,nz,igx,igy,igz,var(:,:,:,IBX:IBZ),a)
+c     Clean up toroidal magnetic field component
 
-        do k = klo,khi
+        !Transform to covariant
+cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+cc     .                    ,'cnv','cov')
+
+        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
+        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
+        do i = ilo,ihi
+          dum = 0
           do j = jlo,jhi
-            do i = ilo,ihi
-cc              var(i,j,k,IBX:IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                               ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3))
-              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-              var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
-            enddo
+
+cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
+
+            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
+     .                           /gmetric%grid(igx)%jac(i,j,:)
+            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
+          enddo
+
+#if defined(petsc)
+          ldum = dum
+          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
+     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
+#endif
+
+          dum = dum/nyd         !Average
+
+          do j = jlo,jhi
+            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+cc            var(i,j,:,IBZ) = dum  !For covariant B_3
+            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
+     .                              /(x1**2+y1**2)
+            var(i,j,:,IBY) = dum(:,1)
           enddo
         enddo
+
+cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+cc     .                    ,'cov','cnv')
+
+cc        !Divergence clean
+cc        call curl_inv(nx,ny,nz,igx,igy,igz,var(:,:,:,IBX:IBZ),a)
+cc
+cc        do k = klo,khi
+cc          do j = jlo,jhi
+cc            do i = ilo,ihi
+cccc              var(i,j,k,IBX:IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz
+cccc     .                               ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3))
+cc              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+cc              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+cc              var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
+cc            enddo
+cc          enddo
+cc        enddo
 
 #else
         call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
@@ -1318,6 +1587,79 @@ cc     .                               ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3))
 #endif
 
 #endif
+
+      case ('tor')
+
+        RR = grid_params%params(1)
+        mm = grid_params%params(2)
+        nn = grid_params%params(3)
+        q0 = grid_params%params(4)
+
+        kk = 0d0   !To avoid affecting q-profile
+
+        bb = dlambda/RR/q0
+
+c     Check coordinates
+
+        if (coords /= 'tor') then
+          messg = 'Need "tor" coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Read VMEC equilibrium
+
+        nh2 =  mm       !To set the right perturbation wavelength
+        nh3 = -nn       !To set the right perturbation wavelength
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-3
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              !X-Y equilibrium
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = gmetric%grid(igx)%jac(i,j,k)*bz0
+            enddo
+          enddo
+        enddo
+#else
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = btheta + kk*x1/mm*bz0
+              b(i,j,k,3) = gmetric%grid(igx)%jac(i,j,k)*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
       case default
 
         messg = 'Equilibrium '//trim(equil)//' undefined'
@@ -1347,12 +1689,20 @@ c Transfer electric field info to postprocessor via input file
 
         if (ierr /= 0) then  !Replace E0
           command='sed -e"/graphdef/{" -e' // achar(39)
+#if defined(pgf90)
+     .       // 'a\\' // achar(39) //' -e"'
+#else
      .       // 'a\' // achar(39) //' -e"'
+#endif
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile) // ' > temp'
         else                 !Add E0
           command='sed -e"/E0/{" -e' // achar(39)
+#if defined(pgf90)
+     .       // 'c\\' // achar(39) //' -e"'
+#else
      .       // 'c\' // achar(39) //' -e"'
+#endif
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile) // ' > temp'
         endif
@@ -1471,7 +1821,7 @@ c Call variables
 c Local variables
 
       integer(4) :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8)    :: x1,y1,z1
+      real(8)    :: x1,y1,z1,eps
       real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
 
@@ -1509,7 +1859,7 @@ c Begin program
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda
-     .             *dlog(dcosh((x1-0.5d0*(xmax-xmin))/dlambda)) 
+     .             *dlog(cosh((x1-0.5d0*(xmax+xmin))/dlambda)) 
             enddo
           enddo
         enddo
@@ -1524,9 +1874,28 @@ c Begin program
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 2*dlambda
-     .               *atan(exp((x1-0.5d0*(xmax-xmin))/dlambda))
+     .               *atan(exp((x1-0.5d0*(xmax+xmin))/dlambda))
               a(i,j,k,3) = -dlambda
-     .              *dlog(dcosh((x1-0.5d0*(xmax-xmin))/dlambda)) 
+     .               *log(cosh((x1-0.5d0*(xmax+xmin))/dlambda)) 
+            enddo
+          enddo
+        enddo
+
+      case ('ic')
+
+        eps = grid_params%params(2)
+        dlambda = (ymax-ymin)/2./pi/2.
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = 0d0
+              a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
+     $                                  +eps*cos (y1/dlambda)) 
             enddo
           enddo
         enddo
@@ -1540,7 +1909,7 @@ c Begin program
               call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = dlambda
-     .             *dlog(dcosh((y1-0.5d0*(ymax-ymin))/dlambda)) 
+     .             *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = 0d0
             enddo
