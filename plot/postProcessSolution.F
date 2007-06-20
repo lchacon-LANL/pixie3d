@@ -129,7 +129,7 @@ c Find Cartesian components of ALL vectors
       vy_car = vcnv(:,:,:,2)
       vz_car = vcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,vx_car,vy_car,vz_car,covariant,to_cartsn)
+     .                    ,vx_car,vy_car,vz_car,'cnv','car')
 
 #if defined(vec_pot)
       !Cartesian A components
@@ -138,7 +138,7 @@ c Find Cartesian components of ALL vectors
       ay_car = acov(:,:,:,2)
       az_car = acov(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,ax_car,ay_car,az_car,covariant,to_cartsn)
+     .                    ,ax_car,ay_car,az_car,'cov','car')
       covariant = .false.
 #endif
 
@@ -147,14 +147,14 @@ c Find Cartesian components of ALL vectors
       by_car = bcnv(:,:,:,2)
       bz_car = bcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,bx_car,by_car,bz_car,covariant,to_cartsn)
+     .                    ,bx_car,by_car,bz_car,'cnv','car')
 
       !Find Cartesian J components
       jx_car = jcnv(:,:,:,1)
       jy_car = jcnv(:,:,:,2)
       jz_car = jcnv(:,:,:,3)
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,jx_car,jy_car,jz_car,covariant,to_cartsn)
+     .                    ,jx_car,jy_car,jz_car,'cnv','car')
 
 c Electron velocity
 
@@ -294,6 +294,8 @@ cc      enddo
 c Mean-field (poloidally averaged) q-factor (use graphics limits)
 
 c FIX PARALLEL
+      if (np == 1) then
+
       qfactor = 0d0
       if (    coords == 'hel'
      .   .or. coords == 'cyl'
@@ -383,7 +385,7 @@ c diag: dump text data
           open(unit=1000,file='q-lambda.txt',status='unknown')
         else
           open(unit=1000,file='q-lambda.txt',status='unknown'
-     .      ,access='append')
+     .      ,position='append')
         endif
         write (1000,*) 'Time = ',time
         write (1000,*) '      Qlnr Q-prof    Avgd Q-prof    Qlnr Lambda'
@@ -403,7 +405,7 @@ cc        if (time == 0d0) then
           open(unit=1000,file='fourier.txt',status='unknown')
 cc        else
 cc          open(unit=1000,file='q-lambda.txt',status='unknown'
-cc     .      ,access='append')
+cc     .      ,position='append')
 cc        endif
           write (*,*) 'Dumping fourier.txt'
         do i=1,nxd
@@ -416,6 +418,13 @@ cc        endif
         write (1000,*)
         close(1000)
 c diag: dump text data
+      endif
+
+      else
+         if (my_rank == 0) then
+           write (*,*) 'Q-profile and lambda-profile not'
+     $                ,' available in parallel'
+         endif
       endif
 c FIX PARALLEL
 
@@ -474,6 +483,46 @@ c Transport coefficients
           enddo
         enddo
       enddo
+
+c Transform to cylindrical
+
+#if defined(RFX)
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+            vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
+     $                     +vy_car(i,j,k)*sin(y1)
+            vy_cov(i,j,k) = vx_car(i,j,k)*sin(y1)
+     $                     -vy_car(i,j,k)*cos(y1)
+            vz_cov(i,j,k) = vz_car(i,j,k)
+
+#if defined(vec_pot)
+            ax_cnv(i,j,k) = ax_car(i,j,k)*cos(y1)
+     $                     +ay_car(i,j,k)*sin(y1)
+            ay_cnv(i,j,k) = ax_car(i,j,k)*sin(y1)
+     $                     -ay_car(i,j,k)*cos(y1)
+            az_cnv(i,j,k) = az_car(i,j,k)
+#endif
+
+            bx_cov(i,j,k) = bx_car(i,j,k)*cos(y1)
+     $                     +by_car(i,j,k)*sin(y1)
+            by_cov(i,j,k) = bx_car(i,j,k)*sin(y1)
+     $                     -by_car(i,j,k)*cos(y1)
+            bz_cov(i,j,k) = bz_car(i,j,k)
+
+            jx_cov(i,j,k) = jx_car(i,j,k)*cos(y1)
+     $                     +jy_car(i,j,k)*sin(y1)
+            jy_cov(i,j,k) = jx_car(i,j,k)*sin(y1)
+     $                     -jy_car(i,j,k)*cos(y1)
+            jz_cov(i,j,k) = jz_car(i,j,k)
+
+          enddo
+        enddo
+      enddo
+#endif
 
 c End program
 
