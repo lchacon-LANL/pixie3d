@@ -1,5 +1,5 @@
  &datin
-    ilevel   = 2
+    ilevel   = 0
 
     nxd      = 32
     nyd      = 32
@@ -27,8 +27,8 @@
     vperflow = 0.
 
     dt       = 1d-2
-    tmax     = 1d0
-    dstep    = 1d-2
+    tmax     = 1d-1
+    dstep    = 1d-1
 
     pvy      = 1d-3
     odd      = t
