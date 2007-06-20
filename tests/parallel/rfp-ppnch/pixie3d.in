@@ -23,16 +23,16 @@
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2.0d0,4d0,2d0,0d0
+    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,1d0
 
     gamma    = 1d0
 
     dt       = 5d-3
-    tmax     = 2.5d-1
-    dstep    = 2.5d-1
+    tmax     = 5d-2
+    dstep    = 5d-2
 
     pvx      = 1d-4
-    odd      = t
+    odd      = f
     random   = f
 
     iguess   = 0
@@ -45,6 +45,16 @@
     source   = t
 
     precon   = 'id'
+
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-4
+    atol     = 0d0
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+
 
     nc_eom_f = t
     nc_eom_v = f
