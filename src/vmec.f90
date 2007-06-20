@@ -7,7 +7,7 @@
      &   rmnc_vmec=>rmnc, zmns_vmec=>zmns,                              &
      &   xm_vmec=>xm, xn_vmec=>xn, iotaf_vmec=>iotaf, phipf_vmec=>phipf,&
      &   presf_vmec=>presf, nfp_vmec=>nfp, bsupumnc_vmec=>bsupumnc,     &
-     &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb
+     &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb,bsubvmnc_vmec=>bsubvmnc
 
       IMPLICIT NONE
 !     
@@ -98,7 +98,7 @@
           ntor_i = ntor_vmec   !Take from VMEC equilibrium file
           mpol_i = mpol_vmec   !Take from VMEC equilibrium file
 
-          mnmax_i = (mpol_i + 1)*(2*ntor_i + 1)             ! Added RS. Contains total number of modes.
+          mnmax_i = (mpol_i + 1)*(2*ntor_i + 1)   ! Added RS. Contains total number of modes.
 
           nfp_i = nfp_vmec
           wb_i  = (4*pi*pi)*wb_vmec
@@ -129,12 +129,15 @@
              ELSE 
                 CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupumnc_v)
-                istat = 1
+!!                istat = 1
+                istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupumnc_v, bsupumnc_spline, istat)   
 
                 CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
+!!                CALL Convert_From_Nyq(bsupvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupvmnc_v)
-                istat = 1
+!LC  6/5/07                istat = 1
+                istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupvmnc_v, bsupvmnc_spline, istat)   
                 DEALLOCATE(bsupumnc_v, bsupvmnc_v)
              END IF
@@ -414,6 +417,9 @@
 !!$        END SUBROUTINE init_metric_elements
 
       SUBROUTINE Spline_Fourier_Modes(ymn_vmec, ymn_spline, istat)
+
+      use oned_int   !Added by L. Chacon 6/5/07
+
 !-----------------------------------------------
 !   D u m m y   A r g u m e n t s
 !-----------------------------------------------
@@ -444,6 +450,8 @@
          RETURN
       END IF
 
+!LC      write (*,*) 'ns_vmec',ns_vmec
+
       fac1 = 0
       hs_vmec = one/(ns_vmec-1)
       DO js = 2, ns_vmec
@@ -454,6 +462,8 @@
          istat = 2
          RETURN
       END IF
+
+!LC      write (*,*) 'ns_i',ns_i
 
       ohs_i = ns_i-1
       hs_i = one/ohs_i
@@ -477,7 +487,7 @@
          snodes_vmec(js) = hs_vmec*((js-1))
       END DO
 
-      ymn_spline = 0d0   !L. Chacon, 2/20/06, to avoid definition error below
+      ymn_spline = 0d0   !L. Chacon, 2/20/07, to avoid definition error below
 
       DO modes = 1, mnmax
          y_vmec => ymn_vmec(modes,:)
@@ -491,43 +501,59 @@
                expm = 2
             END IF
             y_vmec = y_vmec*(fac1**expm)
-            IF (mp .le. 2) y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
+!LC 6/5/07            IF (mp .le. 2) y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
+            IF (mp .le. 2) then
+               call IntDriver1d(4,snodes_vmec(2:5),ymn_vmec(modes,2:5)   &
+     &                         ,1,snodes_vmec(1:1),ymn_vmec(modes,1:1),3)
+            ENDIF
          END IF
 
 !
 !        4. Initialize spline for each mode amplitude (factor out sqrt(s) factor for odd-m)
 !
-         yp1 = -1.e30_dp;  ypn = -1.e30_dp
-         CALL spline (snodes_vmec, y_vmec, ns_vmec, yp1, ypn, y2_vmec)
+!!$         yp1 = -1.e30_dp;  ypn = -1.e30_dp
+!!$         CALL spline (snodes_vmec, y_vmec, ns_vmec, yp1, ypn, y2_vmec)
+!!$
+!!$!
+!!$!        5. Interpolate onto snodes mesh
+!!$!
+!!$         DO js = 1, ns_i
+!!$            CALL splint (snodes_vmec, y_vmec, y2_vmec, ns_vmec,         &
+!!$     &                   snodes(js), y_spline(js))
+!!$         END DO
 
 !
-!        5. Interpolate onto snodes mesh
+!        4 and 5: spline vmec coefficients into snodes mesh (L. Chacon, 6/5/07)
 !
-         DO js = 1, ns_i
-            CALL splint (snodes_vmec, y_vmec, y2_vmec, ns_vmec,         &
-     &                   snodes(js), y_spline(js))
-         END DO
+         call IntDriver1d(ns_vmec,snodes_vmec,ymn_vmec(modes,:)   &
+     &                   ,ns_i   ,snodes     ,y_spline        ,3)
 
+!
+!        PRINT OUT FOR CHECKING (Modified by L. Chacon 6/5/07)
+!
+!!$         IF (xn_vmec(modes) .eq. 0) THEN
+!!$             WRITE (*, *) mp
+!!$             WRITE (*, *) 'index   Spline_knots     Vmec positions'
+!!$             DO js = 1, ns_vmec
+!!$                WRITE (*, '(i3,1p2e14.5)') js,snodes_vmec(js), y_vmec(js)
+!!$             END DO
+!!$             WRITE (*, *)
+!!$             WRITE (*, *) 'index   Radial nodes     Splined positions'
+!!$             DO js = 1, ns_i
+!!$                WRITE (*, '(i3,1p2e14.5)') js,snodes(js), y_spline(js)
+!!$             END DO
+!!$             WRITE (*, *)
+!!$         END IF
+!
+!        RECOVER RADIAL DEPENDENCE
+!
          IF (istat.eq.0 .and. mp.gt.0) THEN
             y_spline = y_spline*(fac2**expm)
          END IF
 
-!
-!        PRINT OUT FOR CHECKING
-!
-         IF (xn_vmec(modes) .eq. 0) THEN
-!             WRITE (33, *) mp
-             DO js = 1, ns_vmec
-!                WRITE (33, '(1p2e14.4)') snodes_vmec(js), y_vmec(js)
-             END DO
-!                WRITE (33, *)
-             DO js = 1, ns_i
-!                WRITE (33, '(1p2e14.4)') snodes(js), y_spline(js)
-             END DO
-!                WRITE (33, *)
-         END IF
-
       END DO
+
+!LC      stop
 
       istat = 0
 
@@ -1537,7 +1563,7 @@
 
 !       half_to_int
 !       ###########################################################################
-        subroutine half_to_int(igl,jgl,kgl,vmec_arr,local_val)
+        subroutine half_to_int(igl,jgl,kgl,vmec_arr,local_val,order)
 
 !       ---------------------------------------------------------------------------
 !       Averages quantities from VMEC's full mesh (which is PIXIE's half mesh)
@@ -1545,20 +1571,61 @@
 !       first-order formula.
 !       ---------------------------------------------------------------------------
 
+          use oned_int
+
 !       Call variables
 
           integer(4)  :: igl,jgl,kgl
+          integer(4),optional :: order
+
           real(rprec) :: vmec_arr(ns_i,nu_i,nv_i),local_val
 
 !       Local variables
 
-          if (igl == 0) then
-             local_val = 1.5*vmec_arr(1,jgl,kgl)-0.5*vmec_arr(2,jgl,kgl)
-          elseif (igl == ns_i) then
-             local_val = 1.5*vmec_arr(igl,jgl,kgl)-0.5*vmec_arr(igl-1,jgl,kgl)
+          integer(4)  :: ordr
+          real(8)     :: pos(5),val(5)
+
+!       Begin program
+
+          if (PRESENT(order)) then
+             ordr = order
           else
-             local_val = 0.5*(vmec_arr(igl,jgl,kgl)+vmec_arr(igl+1,jgl,kgl))
+             ordr = 1
           endif
+
+          pos(1:4) = (/ 0d0,1d0,2d0,3d0 /)
+
+          if (igl == 0) then
+             pos(5) = -0.5d0
+             val(1:4) = vmec_arr(igl+1:igl+4,jgl,kgl)
+             call IntDriver1d(4,pos(1:4),val(1:4),1,pos(5),val(5),ordr)
+          elseif (igl == 1) then
+             pos(5) = 0.5d0
+             val(1:4) = vmec_arr(igl:igl+3,jgl,kgl)
+             call IntDriver1d(4,pos(1:4),val(1:4),1,pos(5),val(5),ordr)
+          elseif (igl == ns_i) then
+             pos(5) = 3.5d0
+             val(1:4) = vmec_arr(igl-3:igl,jgl,kgl)
+             call IntDriver1d(4,pos(1:4),val(1:4),1,pos(5),val(5),ordr)
+          elseif (igl == ns_i - 1) then
+             pos(5) = 2.5d0
+             val(1:4) = vmec_arr(igl-2:igl+1,jgl,kgl)
+             call IntDriver1d(4,pos(1:4),val(1:4),1,pos(5),val(5),ordr)
+          else
+             pos(5) = 1.5d0
+             val(1:4) = vmec_arr(igl-1:igl+2,jgl,kgl)
+             call IntDriver1d(4,pos(1:4),val(1:4),1,pos(5),val(5),ordr)
+          endif
+
+          local_val = val(5)
+
+!!$          if (igl == 0) then
+!!$             local_val = 1.5*vmec_arr(1,jgl,kgl)-0.5*vmec_arr(2,jgl,kgl)
+!!$          elseif (igl == ns_i) then
+!!$             local_val = 1.5*vmec_arr(igl,jgl,kgl)-0.5*vmec_arr(igl-1,jgl,kgl)
+!!$          else
+!!$             local_val = 0.5*(vmec_arr(igl,jgl,kgl)+vmec_arr(igl+1,jgl,kgl))
+!!$          endif
 
         end subroutine half_to_int
 
@@ -1666,9 +1733,12 @@
 !!$        do k=1,nz
 !!$           write (*,*) 'slice=',k
 !!$           do j=1,ny
-!!$              write (*,*) 'X',j,k,xcar(:,j,k,1)
-!!$              write (*,*) 'Y',j,k,xcar(:,j,k,2)
-!!$              write (*,*) 'Z',j,k,xcar(:,j,k,3)
+!!$!              write (*,*) 'X',j,k,xcar(:,j,k,1)
+!!$!              write (*,*) 'Y',j,k,xcar(:,j,k,2)
+!!$!              write (*,*) 'Z',j,k,xcar(:,j,k,3)
+!!$              write (*,*) 'X',j,k,0.5*sum(xcar(0:1,j,k,1))
+!!$              write (*,*) 'Y',j,k,0.5*sum(xcar(0:1,j,k,2))
+!!$              write (*,*) 'Z',j,k,0.5*sum(xcar(0:1,j,k,3))
 !!$              write (*,*)
 !!$           enddo
 !!$           write (*,*)
@@ -1770,7 +1840,7 @@
 
               !Enforce symmetry
               do m=1,3
-                do l=1,m
+                 do l=1,m
                   gsub(i,j,k,m,l) = gsub(i,j,k,l,m)
                   gsup(i,j,k,m,l) = gsup(i,j,k,l,m)
                 enddo
@@ -1827,7 +1897,7 @@
 !     Local variables
 
         integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
-        real(8)    :: r1,z1,ph1,sgn
+        real(8)    :: r1,z1,ph1,sgn,jac
 
 !     Begin program
 
@@ -1840,6 +1910,8 @@
 !     Read equilibrium file and setup arrays
 !     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
+
+        load_metrics = .true.  !Whether to use VMEC metrics to define B components
 
         call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
 
@@ -1882,12 +1954,22 @@
               call half_to_int(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
               call half_to_int(igl,jgl,kgl,presijf  ,prs(i,j,k))
 
+              if (load_metrics) then
+                 jac = sqrtg(igl+1,jgl,kgl)
+              else
+                 jac = gmetric%grid(igrid)%jac(i,j,k)
+              endif
+
               !Transform to PIXIE's contravariant representation
-              b1(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b1(i,j,k)  &
-                          *0.5/grid_params%xx(ig)   !This correction comes because here
-                                                    !the variable is x1=sqrt(s), s-> VMEC.
-              b2(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b2(i,j,k)
+              b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)   !This correction comes because here
+                                                                 !the variable is x1=sqrt(s), s-> VMEC.
+              b2(i,j,k) = jac*b2(i,j,k)
               b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
+!!$              if (load_metrics) then
+!!$                 b3(i,j,k) = b3(i,j,k)*hvv(igl+1,jgl,kgl)*jac
+!!$              else
+!!$                 b3(i,j,k) = b3(i,j,k)*gmetric%grid(igrid)%gsup(i,j,k,3,3)
+!!$              endif
             enddo
           enddo
         enddo
@@ -1898,6 +1980,8 @@
         IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
 
         call vmec_cleanup
+
+        if (load_metrics) call vmec_cleanup_metrics
 
 !     End program
 
@@ -1934,10 +2018,10 @@
        ALLOCATE (bsupsijsf(ns,ntheta,nzeta)  &
                 ,bsupuijcf(ns,ntheta,nzeta)  &
                 ,bsupvijcf(ns,ntheta,nzeta), stat=istat)
-       IF (istat .ne. 0) STOP 'Allocation error in init_bcovar'
+       IF (istat .ne. 0) STOP 'Allocation error in vmec_init_fields'
 
        ALLOCATE(presijf(ns,ntheta,nzeta), stat=istat)
-       IF (istat .ne. 0) STOP 'Allocation error in init_fields'
+       IF (istat .ne. 0) STOP 'Allocation error in vmec_init_fields'
 
 !      Fill GLOBAL variables (at VMEC integer mesh -- PIXIE3D's half mesh)
 
