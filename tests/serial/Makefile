@@ -1,16 +1,22 @@
 #Define variables
 
-DIRS = $(shell ls | grep -v ake | grep -v CVS)
+DIRS   = $(shell ls | grep -v ake | grep -v CVS)
+DIRS_A = $(shell ls | grep -v ake | grep -v CVS | grep    "\-a\-")
+DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a\-")
 
 #Define targets
 
-.PHONY: test rebuild setup
+.PHONY: test-a test-b rebuild-a rebuild-b setup
 
 setup: ;
 	-@for subdir in $(DIRS); do \
 		ln -s ../make.common $$subdir/makefile; \
 		$(MAKE) --no-print-directory -C $$subdir $@; done
 
-test rebuild: ;
-	-@for subdir in $(DIRS) ; do \
+test-a rebuild-a: ;
+	-@for subdir in $(DIRS_A) ; do \
+		$(MAKE) --no-print-directory -C $$subdir $@;  done
+
+test-b rebuild-b: ;
+	-@for subdir in $(DIRS_B) ; do \
 		$(MAKE) --no-print-directory -C $$subdir $@;  done
