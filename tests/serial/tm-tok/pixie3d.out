@@ -7,6 +7,14 @@
  Reading KAI TM perturbations
  Reading KAI TM perturbations
  
+ ***********************************************
+ ****** PIXIE3D Extended MHD code, V. 0.9 ******
+ ******       Developer: L. Chacon        ******
+ ******  Los Alamos National Laboratory   ******
+ ******       Los Alamos, NM 87545        ******
+ ******           LA-CC 07-005            ******
+ ***********************************************
+ 
  ****************** NOTICE ******************
  Using non-conservative JxB     part of EOM
  Using non-conservative grad(p) part of EOM
