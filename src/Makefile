@@ -46,9 +46,10 @@ prefix = .
 DRIVERDIR = driver
 ifdef BOPT
   include ${PETSC_DIR}/bmake/common/base
-#  DRIVERDIR = driver-petsc
   SRC2      = $(SRC)
-  EXCLUDE  += %explicit.f %newtonGMRES.f
+  ifdef PETSC_C
+    EXCLUDE  += %explicit.f %newtonGMRES.f
+  endif
   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
@@ -91,7 +92,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(VMECLIBS) $(H5LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 code_a: common $(A_CODE)
@@ -100,7 +101,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(VMECLIBS) $(H5LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE)
@@ -109,7 +110,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) ${PETSC_FORTRAN_LIB} ${PETSC_SNES_LIB}
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} $(H5LIBS)
 	@mv $@ $(BINDIR)
 
 petsc_a: common $(PETSC_A_CODE)
@@ -118,7 +119,7 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) ${PETSC_FORTRAN_LIB} ${PETSC_SNES_LIB}
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} $(H5LIBS)
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
