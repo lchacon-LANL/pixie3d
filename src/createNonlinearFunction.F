@@ -24,9 +24,9 @@ c Begin program
 
       call defineGridAliases
 
-c Find hyperresistivity
-
-      if (di > 0d0) heta = hres(nxd,nyd,nzd,1,1,1)
+c$$$c Find hyperresistivity
+c$$$
+c$$$      if (di > 0d0) heta = hres(nxd,nyd,nzd,1,1,1)
 
 c End programs
 
