@@ -23,11 +23,7 @@ c ######################################################################
 
         use mgarraySetup
 
-#if defined(petsc)
-        integer(4) :: jit=1
-#else
         use newtongm
-#endif
 
         integer(4) :: i,j,k,ig,jg,kg,ieq
         real(8)    :: x1,y1,z1
@@ -813,7 +809,7 @@ cc      gb0%grid(1)%array(:,:,:,3) = bz
      .                       ,gb0%grid(1)%array(:,:,:,1)
      .                       ,gb0%grid(1)%array(:,:,:,2)
      .                       ,gb0%grid(1)%array(:,:,:,3)
-     .                       ,.false.,.true.)
+     .                       ,'cnv','car')
 
 c     Restrict components (w/o BCs)
 
