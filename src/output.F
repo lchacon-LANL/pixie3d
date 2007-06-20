@@ -137,11 +137,29 @@ c     #################################################################
       subroutine warnings
 
 c     -----------------------------------------------------------------
-c     Writes pertinent warings about input variables at the beginning
-c     of simulation
+c     Writes initial message and pertinent warings about input variables
+c     at the beginning of simulation
 c     -----------------------------------------------------------------
 
       implicit none
+
+      character (5) :: release
+
+c     Initial message
+
+      write (release,'(i1,a1,i1)') REL1,'.',REL2
+
+      write (*,*)
+      write (*,*) '***********************************************'
+      write (*,*) '****** PIXIE3D Extended MHD code, V. '//
+     $            trim(release) //' ******'
+      write (*,*) '******       Developer: L. Chacon        ******'
+      write (*,*) '******  Los Alamos National Laboratory   ******'
+      write (*,*) '******       Los Alamos, NM 87545        ******'
+      write (*,*) '******           LA-CC 07-005            ******'
+      write (*,*) '***********************************************'
+
+c     Warnings
 
       if (nc_eom_jxb .or. nc_eom_gp .or. nc_eom_v
      .    .or. (.not.solenoidal)) then
