@@ -134,6 +134,10 @@ cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
         where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
 
+c$$$      case ('ic')
+c$$$
+c$$$        bbcs(2,:) = EQU
+
       end select
 
 c End
