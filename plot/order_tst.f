@@ -22,8 +22,8 @@ c##########################################################################
 
 c Local variables
 
-      integer(4)     :: i,j,k,ig,jg,kg,nx,ny,nz
-      integer(4)     :: ierr,system,nplot,igx,igy,igz
+      integer        :: i,j,k,ig,jg,kg,nx,ny,nz
+      integer        :: ierr,system,nplot,igx,igy,igz
 
       real(8)        :: mag,mag0,jac
       real(8),allocatable,dimension(:,:,:,:) :: pos 
@@ -36,7 +36,7 @@ c Interpolation
       real(8)    :: xp,yp,zp,interp
       real(8),allocatable,dimension(:) :: xx,yy,zz
 
-cc      integer(4) :: kx,ky,kz,nx,ny,nz,dim,flg,order
+cc      integer    :: kx,ky,kz,nx,ny,nz,dim,flg,order
 cc
 cc      real(8), dimension(:),allocatable:: tx,ty,tz,work
 cc      real(8), dimension(:,:,:),allocatable:: bcoef

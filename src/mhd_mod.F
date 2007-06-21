@@ -2,7 +2,7 @@ c module equilibrium
 c ######################################################################
       module equilibrium
 
-        integer(4) :: IRHO,IVX,IVY,IVZ,IBX,IBY,IBZ,ITMP,IJX,IJY,IJZ
+        integer    :: IRHO,IVX,IVY,IVZ,IBX,IBY,IBZ,ITMP,IJX,IJY,IJZ
      .               ,IAX,IAY,IAZ
 
 #if !defined(vec_pot)
@@ -32,7 +32,7 @@ c ######################################################################
         real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,di,a_p,heta=0d0
      $            ,aa_eta,c_hyper
 
-        integer(4) :: nn_eta
+        integer :: nn_eta
 
         logical :: adiabatic
 
@@ -51,11 +51,11 @@ c     -------------------------------------------------------------
 c     Call variables
 
       real(8)    :: res
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg
+      integer    :: ig,jg,kg
       real(8)    :: x1,y1,z1
       logical    :: cartsn
 
@@ -94,7 +94,7 @@ c     -------------------------------------------------------------
 c     Call variables
 
       real(8)    :: vis
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
 c     Local variables
 
@@ -118,12 +118,12 @@ c     ---------------------------------------------------------------
 c     Call variables
 
       real(8)    :: hres
-      integer(4) :: nx,ny,nz,igx,igy,igz
+      integer    :: nx,ny,nz,igx,igy,igz
 
 c     Local variables
 
       real(8)    :: kk,norm,idx,idy,idz
-      integer(4) :: ig,jg,kg,i,j,k
+      integer    :: ig,jg,kg,i,j,k
 
 c     Begin program
 
@@ -174,7 +174,7 @@ c ######################################################################
 
         real(8),pointer,dimension(:) :: xx,yy,zz,dxh,dyh,dzh,dx,dy,dz
 
-        integer(4) :: igx,igy,igz,nx,ny,nz
+        integer    :: igx,igy,igz,nx,ny,nz
 
         real(8)    :: xim,yim,zim,xip,yip,zip
      .               ,xjm,yjm,zjm,xjp,yjp,zjp
@@ -291,16 +291,16 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
      .             ,az(0:nx+1,0:ny+1,0:nz+1),div
-      integer(4),optional :: he
+      integer   ,optional :: he
       logical,optional    :: sp
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km
+      integer    :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km
       real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacp,jacm,jac0,jach
       logical    :: spoint
 
@@ -385,7 +385,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
       real(8)    :: phi(0:nx+1,0:ny+1,0:nz+1)
      .             ,v1 (0:nx+1,0:ny+1,0:nz+1)
      .             ,v2 (0:nx+1,0:ny+1,0:nz+1)
@@ -395,7 +395,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km,su
+      integer    :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km,su
       real(8)    :: dxx,dyy,dzz,x0,y0,z0
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
       logical    :: vw,upw
@@ -520,7 +520,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
       real(8)    :: phi(0:nx+1,0:ny+1,0:nz+1)
      .             ,v1 (0:nx+1,0:ny+1,0:nz+1)
      .             ,v2 (0:nx+1,0:ny+1,0:nz+1)
@@ -530,7 +530,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km,su
+      integer    :: ig,jg,kg,igrid,half_elem,ip,im,jp,jm,kp,km,su
       real(8)    :: dxx,dyy,dzz,x0,y0,z0,jacip,jacim,jac,jach
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
       logical    :: vw,spoint,upw
@@ -727,7 +727,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz,method
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz,method
 
       real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1)
      .             ,v1 (0:nx+1,0:ny+1,0:nz+1)
@@ -738,9 +738,9 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: igrid,half_elem,su
+      integer    :: igrid,half_elem,su
 
-      integer(4) :: im,ip,ipp,imm,igm,igp,igpp,igmm
+      integer    :: im,ip,ipp,imm,igm,igp,igpp,igmm
      .             ,jm,jp,jpp,jmm,jgm,jgp,jgpp,jgmm
      .             ,km,kp,kpp,kmm,kgm,kgp,kgpp,kgmm
      .             ,ig,jg,kg
@@ -1057,7 +1057,7 @@ c     ---------------------------------------------------------------
 c     Call variables
 
       real(8)    :: x1,x2,x3,x4,q1,q2,q3,q4,vel,inter
-      integer(4) :: advect
+      integer    :: advect
 
 c     Local variables
 
@@ -1222,7 +1222,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),laplacian
 
@@ -1232,7 +1232,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
 
       real(8)    :: d_xx_ip,d_xx_im,d_yy_jp,d_yy_jm,d_zz_kp,d_zz_km
      .             ,d_xy_ipjp,d_xy_ipjm,d_xy_imjp,d_xy_imjm
@@ -1370,7 +1370,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),laplacian
 
@@ -1378,7 +1378,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
 
       real(8)    :: d_xx_ip,d_xx_im,d_yy_jp,d_yy_jm,d_zz_kp,d_zz_km
      .             ,d_xy_ipjp,d_xy_ipjm,d_xy_imjp,d_xy_imjm
@@ -1519,7 +1519,7 @@ c     Call variables
 
       real(8)    :: divt(3)
 
-      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
 
       logical    :: alt_eom
 
@@ -1529,7 +1529,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
 
       real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
 
@@ -1665,7 +1665,7 @@ c     Call variables
 
       real(8)    :: divt(3)
 
-      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
 
       external   tsrx,tsry,tsrz
 
@@ -1673,7 +1673,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
 
       real(8)    :: jac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
 
@@ -1818,7 +1818,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
      .                 ,diff   (0:nx+1,0:ny+1,0:nz+1)
@@ -1831,7 +1831,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: icomp
+      integer    :: icomp
 
       logical    :: vol_wgt
 
@@ -1872,7 +1872,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
 
@@ -1884,7 +1884,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: icomp
+      integer    :: icomp
 
       logical    :: vol_wgt
 
@@ -1923,13 +1923,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
         logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,igrid
+        integer    :: ig,jg,kg,ip,igrid
         real(8)    :: x,y,z,jac,jac0,jacp,ijac
         real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
@@ -1998,13 +1998,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
         logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp,igrid
+        integer    :: ig,jg,kg,jp,igrid
         real(8)    :: x,y,z,jac,ijac
         real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
@@ -2072,13 +2072,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
         logical    :: alteom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp,igrid
+        integer    :: ig,jg,kg,kp,igrid
         real(8)    :: x,y,z,jac,ijac
         real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
@@ -2148,7 +2148,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
 
@@ -2158,7 +2158,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: icomp
+      integer    :: icomp
 
       logical    :: vol_wgt
 
@@ -2195,12 +2195,12 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,igrid
+        integer    :: ig,jg,kg,ip,igrid
         real(8)    :: x,y,z,jac,jac0,jacp
         real(8)    :: nabla_v(3,3),gsuper(3,3)
 
@@ -2258,12 +2258,12 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp,igrid
+        integer    :: ig,jg,kg,jp,igrid
         real(8)    :: x,y,z,jac
         real(8)    :: nabla_v(3,3),gsuper(3,3)
 
@@ -2319,12 +2319,12 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp,igrid
+        integer    :: ig,jg,kg,kp,igrid
         real(8)    :: x,y,z,jac
         real(8)    :: nabla_v(3,3),gsuper(3,3)
 
@@ -2381,13 +2381,13 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),gx,gy,gz
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
       real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
       real(8)    :: jac0,jacp,jacm,ll,al,ar
@@ -2484,8 +2484,8 @@ c     Call variables
 
       real(8)    :: crl(3)
 
-      integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
-      integer(4), optional :: he
+      integer    :: i,j,k,comp,nx,ny,nz,igx,igy,igz
+      integer   , optional :: he
 
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -2493,7 +2493,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid,half_elem
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid,half_elem
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
      .             ,idhx,idhy,idhz
       real(8)    :: dS1,dS2,dS3,x0,y0,z0,jac,dx1,dx2,ll
@@ -2714,7 +2714,7 @@ c     Call variables
 
       real(8)    :: curl2
 
-      integer(4) :: i,j,k,comp,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,comp,nx,ny,nz,igx,igy,igz
 
       real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .             ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -2722,7 +2722,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg,igrid
       real(8)    :: dx,dy,dz,dx1,dx2,dy1,dy2,dz1,dz2
       real(8)    :: daxdz,dazdx,daydx,daxdy,dazdy,daydz
       real(8)    :: jac0,jacp,jacm,ll,al,ar
@@ -2919,15 +2919,15 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
+        integer    :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
         real(8)    :: cnv(3)
         real(8)    :: vv(0:nx+1,0:ny+1,0:nz+1,3)
      $               ,bb(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
-        integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
+        integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
         real(8)    :: idhx,idhy,idhz,a(3)
         real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
@@ -3273,15 +3273,15 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,nx,ny,nz,hex,hey,hez,igx,igy,igz
+cc        integer    :: i,j,k,nx,ny,nz,hex,hey,hez,igx,igy,igz
 cc        real(8)    :: cnv(3)
 cc        real(8)    :: vv(0:nx+1,0:ny+1,0:nz+1,3)
 cc     $               ,bb(0:nx+1,0:ny+1,0:nz+1,3)
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
-cc        integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+cc        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
+cc        integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 cc
 cc        real(8)    :: idhx,idhy,idhz,a(3)
 cc        real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
@@ -3633,7 +3633,7 @@ ccc     -----------------------------------------------------------------
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,dir
+cc        integer    :: i,j,k,dir
 cc        real(8)    :: sum,array(0:nx+1,0:ny+1,0:nz+1)
 cc
 ccc     Local variables
@@ -3723,7 +3723,7 @@ cc      use grid
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
      .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
@@ -3734,7 +3734,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
 
       real(8)    :: dwa,dwb,dwc,dwd,dwe,dwf,dwg,dwh,dwi,dwj,dwk
 
@@ -4035,7 +4035,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
       real(8)    :: ax  (0:nx+1,0:ny+1,0:nz+1)
      .             ,ay  (0:nx+1,0:ny+1,0:nz+1)
@@ -4047,7 +4047,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
 
 cc      real(8)    :: x0,xp,xm,y0,yp,ym,z0,zp,zm
       real(8)    :: dwa,dwb,dwc,dwd,dwe,dwf,dwg,dwh,dwi,dwj,dwk
@@ -4411,7 +4411,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
+        integer    :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
         real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -4419,7 +4419,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
         real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
@@ -4607,7 +4607,7 @@ c     -------------------------------------------------------------
 
         implicit none
 
-        integer(4) :: i,j,k
+        integer    :: i,j,k
         real(8)    :: tensor(3,3)
 
 c     Begin program
@@ -4688,7 +4688,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,hex,hey,hez,nx,ny,nz,igx,igy,igz
+        integer    :: i,j,k,hex,hey,hez,nx,ny,nz,igx,igy,igz
         real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -4696,7 +4696,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
         real(8)    :: dhx,dhy,dhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
@@ -4892,7 +4892,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
+        integer    :: i,j,k,half_elem,nx,ny,nz,igx,igy,igz
         real(8)    :: tensor(3,3)
         real(8)    :: ax(0:nx+1,0:ny+1,0:nz+1)
      .               ,ay(0:nx+1,0:ny+1,0:nz+1)
@@ -4900,7 +4900,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid,jpp,jmm
+        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid,jpp,jmm
         real(8)    :: dhx,dhy,dhz,idhx,idhy,idhz
         real(8)    :: vxx,vyy,vzz
      .               ,vxip,vxim,vxjp,vxjm,vxkp,vxkm
@@ -5235,7 +5235,7 @@ c     -------------------------------------------------------------
 
         implicit none
 
-        integer(4) :: i,j,k
+        integer    :: i,j,k
         real(8)    :: tensor(3,3)
 
         real(8)    :: hessian(3,3,3)
@@ -5307,13 +5307,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip
+        integer    :: ig,jg,kg,ip
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp
 
@@ -5378,13 +5378,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp
+        integer    :: ig,jg,kg,jp
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp
 
@@ -5449,13 +5449,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp
+        integer    :: ig,jg,kg,kp
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ijac,ijacp,ijac0
 
@@ -5525,14 +5525,14 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: nx,ny,nz,igx,igy,igz
+      integer    :: nx,ny,nz,igx,igy,igz
       real(8)    :: a(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,b(0:nx+1,0:ny+1,0:nz+1,3)
       logical,optional :: global
 
 c     Local variables
 
-      integer(4) :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
+      integer    :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
 
       logical    :: spoint,glbl
@@ -5808,13 +5808,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
 cc        real(8)    :: t11,t12,t13
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: ip,igrid
+cc        integer    :: ip,igrid
 cc        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3)
 cc     .               ,scalar_prod,acnv(3),acnvp(3),bcov(3)
 cc     .               ,bcovp(3),bcnv(3),bcnvp(3)
@@ -5964,13 +5964,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
 cc        real(8)    :: t21,t22,t23
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: jp,igrid
+cc        integer    :: jp,igrid
 cc        real(8)    :: jac,ijac,gsuper(3,3),scalar_prod
 cc     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
 cc
@@ -6087,13 +6087,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
 cc        real(8)    :: t31,t32,t33
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: kp,igrid
+cc        integer    :: kp,igrid
 cc        real(8)    :: jac,ijac,gsuper(3,3),scalar_prod
 cc     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
 cc
@@ -6212,7 +6212,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nx,ny,nz,igx,igy,igz
+        integer    :: i,j,k,nx,ny,nz,igx,igy,igz
         real(8)    :: cnv(3)
         real(8),target :: jj(0:nx+1,0:ny+1,0:nz+1,3)
      $                   ,bb(0:nx+1,0:ny+1,0:nz+1,3)
@@ -6223,7 +6223,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: igrid,ig,jg,kg,ip,im,jp,jm,kp,km
+        integer    :: igrid,ig,jg,kg,ip,im,jp,jm,kp,km
         real(8)    :: cov(3),jac,cnv1(3),dxx,dyy,dzz
         logical    :: vol_wgt
 
@@ -6342,13 +6342,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip
+        integer    :: ig,jg,kg,ip
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag
 
@@ -6452,13 +6452,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp
+        integer    :: ig,jg,kg,jp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3)
         real(8)    :: jac,ijac,pmag
 
@@ -6535,13 +6535,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp
+        integer    :: ig,jg,kg,kp
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3)
         real(8)    :: jac,ijac,pmag
 
@@ -6618,13 +6618,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip
+        integer    :: ig,jg,kg,ip
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot
 
@@ -6685,13 +6685,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp
+        integer    :: ig,jg,kg,jp
         real(8)    :: x,y,z
         real(8)    :: jac,ijac,ptot
 
@@ -6750,13 +6750,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp
+        integer    :: ig,jg,kg,kp
         real(8)    :: x,y,z
         real(8)    :: jac,ijac,ptot
 
@@ -6819,7 +6819,7 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 #endif
 
-        integer(4) :: advect
+        integer    :: advect
 
         real(8) :: max_dv_dt
 
@@ -6848,13 +6848,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
 cc        real(8)    :: t11,t12,t13
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
+cc        integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
 cc        real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
 cc        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
 cc
@@ -7051,13 +7051,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
 cc        real(8)    :: t21,t22,t23
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
+cc        integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
 cc        real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
 cc        real(8)    :: jac,ijac,vis
 cc
@@ -7236,13 +7236,13 @@ cc        implicit none
 cc
 ccc     Call variables
 cc
-cc        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
 cc        real(8)    :: t31,t32,t33
 cc        logical    :: alt_eom
 cc
 ccc     Local variables
 cc
-cc        integer(4) :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
+cc        integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
 cc        real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
 cc        real(8)    :: jac,ijac,vis
 cc
@@ -7419,13 +7419,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
+        integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
         real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
 
@@ -7647,13 +7647,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
+        integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
         real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vis
 
@@ -7853,13 +7853,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,flag,igx,igy,igz,nx,ny,nz
+        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
+        integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
         real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vis
 
@@ -8042,7 +8042,7 @@ c     #####################################################################
 
       implicit none
 
-      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
       real(8)    :: cnv(3)
 
       real(8)    :: psib(3),psit(3)
@@ -8071,13 +8071,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ip,igrid
+        integer    :: ip,igrid
         real(8)    :: jac,jac0,jacp,gsuper(3,3)
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
@@ -8165,13 +8165,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: jp,igrid
+        integer    :: jp,igrid
         real(8)    :: jac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
      .                ,scalar_prod
 
@@ -8244,13 +8244,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: kp,igrid
+        integer    :: kp,igrid
         real(8)    :: jac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod
 
@@ -8316,10 +8316,10 @@ c     #####################################################################
 
       implicit none
 
-      integer(4) :: i,j,k,igx,igy,igz
+      integer    :: i,j,k,igx,igy,igz
       real(8)    :: psit(3)
 
-      integer(4) :: ip,im,jp,jm,kp,km,ig,jg,kg
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
      $             ,divip,divim,divjp,divjm,divkp,divkm
@@ -8497,8 +8497,8 @@ c     ----------------------------------------------------------------------
 
 c     Input variables
 
-        integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-        integer(4) :: igx,igy,igz
+        integer    :: imin,imax,jmin,jmax,kmin,kmax
+        integer    :: igx,igy,igz
         real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
      .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
      .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
@@ -8507,7 +8507,7 @@ c     Input variables
 
 c     Local variables
 
-        integer(4) :: i,j,k
+        integer    :: i,j,k
         real(8)    :: vec(3)
 
         logical    :: covariant,cnvariant,cartesian

@@ -25,11 +25,11 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ncolors,igrid,ii,jj,isig
+      integer    :: ncolors,igrid,ii,jj,isig
 
 c Diag
 
-      integer(4) :: nxx,nyy,nzz,nt,icomp
+      integer    :: nxx,nyy,nzz,nt,icomp
       real(8),allocatable,dimension(:,:) :: v_mat
 
 c Externals

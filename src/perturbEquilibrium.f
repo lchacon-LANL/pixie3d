@@ -25,17 +25,17 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: bcs(6),ieq
+      integer    :: bcs(6),ieq
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz
       real(8)    :: x1,y1,z1,jac
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      integer(4) :: system,ierr
+      integer    :: system,ierr
       character(50) :: command
 
 c     Begin program
@@ -110,13 +110,13 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: bcs(6),ieq
+      integer    :: bcs(6),ieq
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -169,13 +169,13 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: bcs(6),ieq
+      integer    :: bcs(6),ieq
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -242,13 +242,13 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: bcs(6),ieq
+      integer    :: bcs(6),ieq
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,nxx
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,nxx
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -327,13 +327,13 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: bcs(6),ieq
+      integer    :: bcs(6),ieq
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -400,7 +400,7 @@ c     ####################################################################
         implicit none
 
         real(8)    :: xmin,xmax,x,period,ff
-        integer(4) :: bcs(2),nh
+        integer    :: bcs(2),nh
 
         logical    :: neumann(2),dirichlet(2),spoint(2)
 

@@ -30,17 +30,17 @@ c####################################################################
 
         implicit none
 
-        integer(4) :: ulineplot
+        integer    :: ulineplot
         character*(20) :: lineplotfile
 
         character*(20) :: diag_desc(ngraph)
 
-        integer(4)     :: diag_ivar(ngraph)
+        integer        :: diag_ivar(ngraph)
      .                   ,diag_log(ngraph)
 
-        integer(4) :: ndiag
+        integer    :: ndiag
 
-        integer(4) :: drank,dnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
+        integer    :: drank,dnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
         logical    :: isProcessor
 
         real(8) :: diagnostics(ngraph)
@@ -64,7 +64,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4)       :: iigx,iigy,iigz
+      integer          :: iigx,iigy,iigz
       type (var_array) :: varray
 
 c Local variables
@@ -257,14 +257,14 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4)       :: iigx,iigy,iigz
+      integer          :: iigx,iigy,iigz
       logical          :: init
 
       type (var_array) :: varray
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,ieq
+      integer    :: i,j,k,ig,jg,kg,ieq
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 

@@ -29,7 +29,7 @@ cc      type(var_array) :: v_arr
 cc
 ccc Local variables
 cc
-cc      integer(4) :: ii,nn,guess,iout,bcpsi(6),bcbz(6),ncolors
+cc      integer    :: ii,nn,guess,iout,bcpsi(6),bcbz(6),ncolors
 cccc     .             ,filter_it
 cc      real(8)    :: dvol,opt_om
 cc      real(8),allocatable,dimension(:,:) :: xpsi,xbz

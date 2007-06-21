@@ -33,13 +33,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: iigx,iigy,iigz
+      integer    :: iigx,iigy,iigz
 
       type(var_array) :: varray
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg,ieq,bcs(6)
+      integer    :: i,j,k,ig,jg,kg,ieq,bcs(6)
       real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3),vr,vth,norm,cov(3),cnv(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
@@ -541,14 +541,14 @@ cc      implicit none
 cc
 ccc    Call variables
 cc
-cc      integer(4) :: igx,igy,igz,nx,ny,nz
+cc      integer    :: igx,igy,igz,nx,ny,nz
 cc      real(8)    :: array(0:nx+1,0:ny+1,0:nz+1),integral
 cc     .             
 cc      logical    :: avg
 cc
 ccc     Local variables
 cc
-cc      integer(4) :: i,j,k
+cc      integer    :: i,j,k
 cc
 cc      real(8)    :: tvolume,vol,lvolume,lintegral
 cc

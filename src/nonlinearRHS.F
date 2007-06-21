@@ -32,7 +32,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km
+      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km
 
       !Marder B cleaning
       real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
@@ -44,7 +44,7 @@ c Local variables
       ! tmp equation
       real(8)    :: heat_flx,heat_src,joule,viscous
 
-      integer(4) :: ieq
+      integer    :: ieq
       real(8)    :: cnv(3),cov(3),kappa,vlap(3),vlap2(3)
 
 c Begin program
