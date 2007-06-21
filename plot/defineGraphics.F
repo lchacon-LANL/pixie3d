@@ -24,7 +24,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: ieq,i
+      integer    :: ieq,i
 
 c Begin program
 

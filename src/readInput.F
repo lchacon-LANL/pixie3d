@@ -34,7 +34,7 @@ c Call variables
 
 c Local variables
 
-      integer(4)    :: dim(1),loc(1)
+      integer       :: dim(1),loc(1)
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)       :: prndtl,hrtmn,temp_ratio
       character*(3) :: bcs(6)
@@ -376,7 +376,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i
+      integer    :: i
 
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0

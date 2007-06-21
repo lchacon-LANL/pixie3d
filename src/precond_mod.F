@@ -25,11 +25,11 @@ c ######################################################################
 
         use newtongm
 
-        integer(4) :: i,j,k,ig,jg,kg,ieq
+        integer    :: i,j,k,ig,jg,kg,ieq
         real(8)    :: x1,y1,z1
         logical    :: cartsn,covariant,to_cartsn,to_cnv
 
-        integer(4) :: ntotd2p,si_it
+        integer    :: ntotd2p,si_it
 
 cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
@@ -45,7 +45,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:)      :: mgdivV0
 
-        integer(4), allocatable, dimension(:,:) :: bcs
+        integer   , allocatable, dimension(:,:) :: bcs
 
         type (var_array),target :: varray
 
@@ -80,7 +80,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: alloc_stat
+        integer    :: alloc_stat
 
 c     Begin program
 
@@ -164,7 +164,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: i,j,k,ii,iii,ieq
+        integer    :: i,j,k,ii,iii,ieq
         real(8)    :: dvol
 
 c     Begin program
@@ -203,7 +203,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: i,j,k,ii,iii,ieq
+        integer    :: i,j,k,ii,iii,ieq
 
 c     Begin program
 
@@ -237,14 +237,14 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: igrid
+        integer    :: igrid
         real(8),intent(INOUT),dimension(:,:) :: x
         real(8),intent(OUT),optional,dimension(:,:) :: xout
         logical, optional :: cov
 
 c     Local variables
 
-        integer(4) :: i,j,k,ii,nx,ny,nz
+        integer    :: i,j,k,ii,nx,ny,nz
         real(8)    :: cnv(3)
         logical    :: covar
 
@@ -314,14 +314,14 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: igrid
+        integer    :: igrid
         real(8),intent(INOUT),dimension(:,:) :: x
         real(8),intent(OUT),optional,dimension(:,:) :: xout
         logical, optional :: cov
 
 c     Local variables
 
-        integer(4) :: i,j,k,ii,nx,ny,nz
+        integer    :: i,j,k,ii,nx,ny,nz
         real(8)    :: car(3)
         logical    :: covar
 
@@ -392,7 +392,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: igrid,icomp,neq,iorder,bcs(:,:)
+        integer    :: igrid,icomp,neq,iorder,bcs(:,:)
         real(8),dimension(:,:) :: x
         real(8),dimension(:,:,:,:) :: arr
         real(8),optional,dimension(:,:,:,:) :: arr_cov
@@ -400,7 +400,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ieq
+        integer    :: ieq
         logical    :: isvec,iscnv
 
 c     Begin program
@@ -450,7 +450,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
+        integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
      .               ,bc_pc(size(bcs,1),size(bcs,2))
      .               ,i,j,k,ip,im,jp,jm,kp,km
 
@@ -779,13 +779,13 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-cc      integer(4) :: order,icomp
+cc      integer    :: order,icomp
 cc      type(mg_array)  :: gvec
       logical    :: cartesian
 
 c     Local variables
 
-      integer(4) :: igr,bcmod(6,3),nxc,nyc,nzc,neq
+      integer    :: igr,bcmod(6,3),nxc,nyc,nzc,neq
 
 c     Begin program
 
@@ -889,11 +889,11 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: neq,ntotp,igrid,bcnd(6,neq),out,guess
+        integer    :: neq,ntotp,igrid,bcnd(6,neq),out,guess
         real(8)    :: x(ntotp,neq),b(ntotp,neq)
 
         real(8)   ,optional,intent(IN) :: dg(neq,2*neq*ntotp),omega
-        integer(4),optional,intent(IN) :: ncolors,order_res,order_prol
+        integer   ,optional,intent(IN) :: ncolors,order_res,order_prol
      .                                   ,mvcyc,mu_cycle
         logical   ,optional,intent(IN) :: line_relax,gm_coarse_solve
      .                                   ,cvrg_tst,gm_driver,galerkin
@@ -904,7 +904,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc
+        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc
         real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg
         real(8), target :: ddg(neq,2*neq*ntotp)
         logical    :: gm_crse_solve,cvrg_test,lrelax,gm_drvr,glkin
@@ -1247,12 +1247,12 @@ c     ###############################################################
 
 c     Call variables
 
-        integer(4) :: nn,iter,bcnd(6,1),iout,guess
+        integer    :: nn,iter,bcnd(6,1),iout,guess
         real(8)    :: b(nn),x(nn),tol
 
 c     Local variables
 
-        integer(4) :: nn2,ncolors
+        integer    :: nn2,ncolors
 
 c     Externals
 
@@ -1370,7 +1370,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
+        integer    :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
         real(8)    :: cnv(3)
         real(8)    :: vv    (0:nx+1,0:ny+1,0:nz+1,3)
      .               ,vv_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1378,7 +1378,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ig,jg,kg
+        integer    :: ig,jg,kg
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz
 
 c     Begin program
@@ -1439,14 +1439,14 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: i,j,k,igx,igy,igz,nxx,nyy,nzz
+      integer    :: i,j,k,igx,igy,igz,nxx,nyy,nzz
       real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .             ,rho0(0:nxx+1,0:nyy+1,0:nzz+1,1),psiv(3)
 
 c     Local Variables
 
-      integer(4) :: hex,hey,hez
+      integer    :: hex,hey,hez
       real(8)    :: upwind,mul,nabla_vv0(3,3),veclap(3)
 
 c     Begin program
@@ -1514,12 +1514,12 @@ cc      use mg_internal
 
 c     Call variables
 
-      integer(4) :: neq,ntotp,igrid
+      integer    :: neq,ntotp,igrid
       real(8)    :: idiag(neq,*),y(ntotp,neq),x(ntotp,neq)
 
 c     Local variables
 
-      integer(4) :: ii,iii,iig,isig
+      integer    :: ii,iii,iig,isig
       logical    :: fpointers
 
 c     Begin program

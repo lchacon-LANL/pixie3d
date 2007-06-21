@@ -28,7 +28,7 @@ c Call variables
 
 c Local variables
 
-      integer(4)    :: ngrd(3)
+      integer       :: ngrd(3)
 
       character(10) :: advective,ts
 

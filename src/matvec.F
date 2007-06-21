@@ -51,7 +51,7 @@ cc      implicit none
 cc
 ccc Call variables
 cc
-cc      integer(4) :: nnx,nny,nnz,neq,bcnd(6,neq),iig,gpos
+cc      integer    :: nnx,nny,nnz,neq,bcnd(6,neq),iig,gpos
 cc
 cc      real(8)    :: array(0:nnx+1,0:nny+1,0:nnz+1,neq)
 cc
@@ -60,17 +60,17 @@ cc     .                         arr_cov(0:nnx+1,0:nny+1,0:nnz+1,neq)
 cc      real(8),optional,intent(IN) ::
 cc     .                         arr0   (0:nnx+1,0:nny+1,0:nnz+1,neq)
 cc
-cc      integer(4),optional,intent(IN) :: icomp,iorder
+cc      integer   ,optional,intent(IN) :: icomp,iorder
 cc
 cc      logical   ,optional,intent(IN) :: is_cnv,is_vec,result_is_vec
 cc
 ccc Local variables
 cc
-cc      integer(4) :: i,j,k,stencil_width,order,ieq
+cc      integer    :: i,j,k,stencil_width,order,ieq
 cc     .             ,imng,imxg,jmng,jmxg,kmng,kmxg
 cc     .             ,imnl,imxl,jmnl,jmxl,kmnl,kmxl
 cc
-cc      integer(4),save :: ivar  !Needed to "remember' ivar from previous calls
+cc      integer   ,save :: ivar  !Needed to "remember' ivar from previous calls
 cc                               !when icomp is not provided.
 cc
 cc      logical,save    :: iscnv,isvec !Needed to "remember' these from previous calls
@@ -312,13 +312,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
-      integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
+      integer    :: isig,ijk,ijkg,nxx,nyy,nzz
+      integer    ::  imin, imax, jmin, jmax, kmin, kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 
@@ -403,13 +403,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,nxx,nyy,nzz
-      integer(4) ::  imin, imax, jmin, jmax, kmin, kmax
+      integer    :: isig,ijk,ijkg,nxx,nyy,nzz
+      integer    ::  imin, imax, jmin, jmax, kmin, kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -531,13 +531,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,nnx,nny,nnz
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: isig,ijk,ijkg,nnx,nny,nnz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -664,13 +664,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ijk,ijkg,nnx,nny,nnz,ip,im,jp,jm,kp,km
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: isig,ijk,ijkg,nnx,nny,nnz,ip,im,jp,jm,kp,km
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
  
       real(8),allocatable,dimension(:,:,:,:) :: drho
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -813,14 +813,14 @@ cc      implicit none
 cc
 ccc Call variables
 cc
-cc      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+cc      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
 cc      real(8)    :: x(ntot),y(ntot)
 cc
 ccc Local variables
 cc
-cc      integer(4) :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-cc      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-cc      integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+cc      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+cc      integer    :: imin,imax,jmin,jmax,kmin,kmax
+cc      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 cc
 cc      real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
 cc     .             ,veclap(3),cnv(3),cov(3),car(3)
@@ -1313,14 +1313,14 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
       real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
      .             ,veclap(3),cnv(3),cov(3),car(3)
@@ -1594,14 +1594,14 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer(4) :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
-      integer(4) :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
       real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
      .             ,veclap(3),cnv(3),cov(3),car(3)
@@ -1848,8 +1848,8 @@ c ##################################################################
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,b0_cov
      .                                         ,rho0,pp0
 
-      integer(4) :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer(4) :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
      .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr
 
       real(8),allocatable,dimension(:,:)     :: a_sp,a_vol
@@ -1885,10 +1885,10 @@ c     div_upwd
 c     #####################################################################
       function div_upwd(da,half_elem)
 
-        integer(4) :: half_elem
+        integer    :: half_elem
         real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,*),div_upwd
 
-        integer(4) :: ip,im,jp,jm,kp,km
+        integer    :: ip,im,jp,jm,kp,km
         real(8)    :: dxx,dyy,dzz,axp,axm,ayp,aym,azp,azm
 
 c     Begin program
@@ -2237,7 +2237,7 @@ c     Call variables
 
       real(8)    :: divt(3)
 
-      integer(4) :: i,j,k,igx,igy,igz,nx,ny,nz
+      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
 
       logical    :: alt_eom
 
@@ -2247,7 +2247,7 @@ c     Call variables
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
 
       real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
 
@@ -2379,13 +2379,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: ip,igrid
+        integer    :: ip,igrid
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3)
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
@@ -2490,13 +2490,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: jp,igrid
+        integer    :: jp,igrid
         real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
      .                ,scalar_prod
 
@@ -2561,13 +2561,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
+        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer(4) :: kp,igrid
+        integer    :: kp,igrid
         real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod
 
@@ -2786,7 +2786,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq),iig
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq),iig
       real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
      .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 
@@ -3035,13 +3035,13 @@ cc      implicit none
 cc
 ccc Call variables
 cc
-cc      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+cc      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
 cc      real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
 cc     .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 cc
 ccc Local variables
 cc
-cc      integer(4) :: igr,nxx,nyy,nzz,ntotf,isig
+cc      integer    :: igr,nxx,nyy,nzz,ntotf,isig
 cc      real(8),allocatable,dimension(:) :: MGx,MGy
 cc
 cc      logical    :: fpointers
@@ -3129,7 +3129,7 @@ cc      implicit none
 cc
 ccc Call variables
 cc
-cc      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+cc      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
 cc      real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
 cc     .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 cc
@@ -3302,7 +3302,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
      .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 
@@ -3476,7 +3476,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz
      .             ,idxcnv,idycnv,idzcnv,vxx,vyy,vzz
      .             ,diff,upwind
@@ -3623,7 +3623,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
      .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 

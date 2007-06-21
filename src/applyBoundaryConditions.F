@@ -28,11 +28,11 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: neq,bbcs(6,neq)
+      integer    :: neq,bbcs(6,neq)
 
 c Local variables
 
-      integer(4) :: ieq,bcsq(6)
+      integer    :: ieq,bcsq(6)
 
 c Begin program
 
@@ -163,13 +163,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: iigx,iigy,iigz
+      integer    :: iigx,iigy,iigz
 
       type (var_array) :: varray
 
 c Local variables
 
-      integer(4) :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz,order
+      integer    :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz,order
 
       real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
 
@@ -581,7 +581,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: i,j,k,bconds(6)
+      integer    :: i,j,k,bconds(6)
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
 c Local variables

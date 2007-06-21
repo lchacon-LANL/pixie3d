@@ -41,7 +41,7 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc,order
+      integer    :: ieq,dim,loc,order
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
      .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1)
 
@@ -74,14 +74,14 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc,order,ivar
+      integer    :: ieq,dim,loc,order,ivar
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,*)
      .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1,*)
 
 c     Local variables
 
-      integer(4) :: imax,imin,jmax,jmin,kmax,kmin
-      integer(4) :: i,j,k,ig,jg,kg,nvar,ibc
+      integer    :: imax,imin,jmax,jmin,kmax,kmin
+      integer    :: i,j,k,ig,jg,kg,nvar,ibc
       real(8)    :: x1,x2,x3,dh(3),diver
 
       real(8)    :: gsuper(3,3),jac0
@@ -318,13 +318,13 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc
+      integer    :: ieq,dim,loc
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
 
 c     Local variables
 
-      integer(4) :: imax,imin,jmax,jmin,kmax,kmin
-      integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
+      integer    :: imax,imin,jmax,jmin,kmax,kmin
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0
 
 c     Begin program
@@ -530,13 +530,13 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer(4) :: ieq,dim,loc,ivar
+      integer    :: ieq,dim,loc,ivar
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,*)
 
 c     Local variables
 
-      integer(4) :: imax,imin,jmax,jmin,kmax,kmin
-      integer(4) :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
+      integer    :: imax,imin,jmax,jmin,kmax,kmin
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
       real(8)    :: x1,x2,x3,dh(3),jac0,jxx,jyy,jzz,ee,alp,vec(3),cnv(3)
      .             ,cov(3),J0(3),bnorm
       real(8)    :: gsuper(3,3),hessian(3,3,3)

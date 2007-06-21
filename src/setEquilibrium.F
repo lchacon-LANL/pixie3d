@@ -39,17 +39,17 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4)    :: iigx,iigy,iigz
+      integer       :: iigx,iigy,iigz
 
       real(8)       :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
 
       character(20) :: label(neqd)
 
-      integer(4)    :: bcs(6,neqd)
+      integer       :: bcs(6,neqd)
 
 c Local variables
 
-      integer(4)    :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh,it
+      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh,it
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -1734,7 +1734,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: i,j,k,ig,jg,kg
+        integer    :: i,j,k,ig,jg,kg
         real(8)    :: qq,qqp,ff,x1,dh,offset(1),r1,btheta,Iz,r0(1)
 
         real(8)    :: rint(0:nxdp)
@@ -1814,13 +1814,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: iigx,iigy,iigz
+      integer    :: iigx,iigy,iigz
       real(8)    :: a(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: bc
 
 c Local variables
 
-      integer(4) :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
+      integer    :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
       real(8)    :: x1,y1,z1,eps
       real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
@@ -1974,7 +1974,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: igrid,ii,bcnd(6,3)
+      integer    :: igrid,ii,bcnd(6,3)
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
      .             ,cai_rhs(ntotdp),caiv(ntotdp)
      .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
@@ -2175,7 +2175,7 @@ cc     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
 cc
 ccc Local variables
 cc
-cc      integer(4) :: igrid,ii,bcnd(6,1)
+cc      integer    :: igrid,ii,bcnd(6,1)
 cc      real(8)    :: phi_rhs(ntotdp),phiv(ntotdp),cov(3)
 cc     .             ,dum(ilom:ihip,jlom:jhip,klom:khip,3),dvol
 cc

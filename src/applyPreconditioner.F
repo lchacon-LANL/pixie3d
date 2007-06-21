@@ -27,7 +27,7 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: ntot,iout
+      integer    :: ntot,iout
       real(8)    :: x(ntot),y(ntot)
 
 c Local variables
@@ -38,7 +38,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dv_cnv,dv_cov
 
-      integer(4) :: ii,iii,igrid,ntotp,guess
+      integer    :: ii,iii,igrid,ntotp,guess
 
       logical      :: hall
 
@@ -512,7 +512,7 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        integer(4) :: flag
+        integer    :: flag
         real(8)    :: x(ntot/neqd,neqd),yyy(ntot/neqd,neqd),rr(ntot)
 
 c     Local variables
@@ -928,7 +928,7 @@ c     Call variables
 
 c     Local variables
 
-        integer(4) :: ii,iii,i,j,k
+        integer    :: ii,iii,i,j,k
         real(8)    :: dum(ntot/neqd,neqd),dvol
 
 c     Begin program
@@ -1097,7 +1097,7 @@ c     --------------------------------------------------------------
         character(10) :: solf,resf,rhsf,crsf,fldf,divf
 
 #if defined(vec_pot)
-        integer(4) :: ivar
+        integer    :: ivar
 
         real(8),allocatable,dimension(:,:,:,:) :: da_cov
 
@@ -1273,12 +1273,12 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: ntotp,igrid
+      integer    :: ntotp,igrid
       real(8)    :: xxx(ntotp,neqd),eom_rhs(ntotp,3)
 
 c Local variables
 
-      integer(4) :: ii,isig,ivar,ip,im
+      integer    :: ii,isig,ivar,ip,im
       real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz
      .             ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1476,12 +1476,12 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: ntotp,igrid
+      integer    :: ntotp,igrid
       real(8)    :: xxx(ntotp,neqd),yyy(ntotp,3),rhs_si(ntotp,3)
 
 c Local variables
 
-      integer(4) :: ii,iig,isig,ivar,ip,im
+      integer    :: ii,iig,isig,ivar,ip,im
       real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(ntotp,3)
 
 c Begin program
@@ -1543,13 +1543,13 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: ntotp,igrid
+      integer    :: ntotp,igrid
       real(8)    :: xxx(ntotp,neqd),crhs(ntotp,3)
      .             ,dv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Local variables
 
-      integer(4) :: ii,iig,isig,ivar,ip,im
+      integer    :: ii,iig,isig,ivar,ip,im
       real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(ntotp,3)
      .             ,nabla_vv0(3,3),mul,veclap(3),advc(3)
 
@@ -1641,12 +1641,12 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
       real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
 
 c Local variables
 
-      integer(4) :: ii
+      integer    :: ii
 cc      real(8)    :: rhodv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Begin program
@@ -1711,12 +1711,12 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
       real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
 
 c Local variables
 
-      integer(4) :: ii
+      integer    :: ii
 
 c Begin program
 
@@ -1770,7 +1770,7 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
       real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz,3)
 
@@ -1778,7 +1778,7 @@ c Local variables
 
 cc      real(8)    :: dummy  (0:nx+1,0:ny+1,0:nz+1,3)
 cc     .             ,dum_cov(0:nx+1,0:ny+1,0:nz+1,3)
-      integer(4) :: ii
+      integer    :: ii
 
 c Begin program
 
@@ -1861,14 +1861,14 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
       real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,crhs(nx*ny*nz,3)
 
 c Local variables
 
-      integer(4) :: ii
+      integer    :: ii
       real(8)    :: minv
 
 c Begin program
@@ -1924,13 +1924,13 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
 
       real(8)    :: yyy(nx*ny*nz,neqd)
 
 c Local variables
 
-      integer(4) :: ii
+      integer    :: ii
 
       real(8)    :: dgv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,dgv_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1989,13 +1989,13 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: igrid
+      integer    :: igrid
 
       real(8)    :: yyy(nx*ny*nz,neqd)
 
 c Local variables
 
-      integer(4) :: ii
+      integer    :: ii
       real(8)    :: cov(3),cnv(3)
 
 c Begin program
@@ -2040,12 +2040,12 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer(4) :: ntotp,igrid
+      integer    :: ntotp,igrid
       real(8)    :: xxx(ntotp,3)
 
 c Local variables
 
-      integer(4) :: ii,ivar,bcnd(6,3)
+      integer    :: ii,ivar,bcnd(6,3)
       real(8)    :: a1,a2,a3,etal
      .             ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,da_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -2118,12 +2118,12 @@ cc      use mg_internal
 
 c Call variables
 
-      integer(4) :: ntotp,igrid,neq,bcnd(6,neq)
+      integer    :: ntotp,igrid,neq,bcnd(6,neq)
       real(8)    :: xxx(ntotp,neq)
 
 c Local variables
 
-      integer(4) :: ii,ntot
+      integer    :: ii,ntot
       real(8)    :: xi(ntotp*neq),bi(ntotp*neq)
 
 c Begin program

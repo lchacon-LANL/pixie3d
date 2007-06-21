@@ -30,9 +30,9 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg
+      integer    :: i,j,k,ig,jg,kg
 
-      integer(4) :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
+      integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
       real(8)    :: dh,vmax,cnv(3),minrho,mintmp
      .             ,pe(ilom:ihip,jlom:jhip,klom:khip)

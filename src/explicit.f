@@ -114,7 +114,7 @@ c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg
+      integer    :: i,j,k,ig,jg,kg
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
