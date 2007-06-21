@@ -289,7 +289,7 @@ $(SUBDIRS):
 
 setup: ;
 	-cd plot ; ln -s ../src/Makefile
-	-for subdir in common plot tests/serial ; do \
+	-for subdir in common plot tests/serial tests/parallel ; do \
 		$(MAKE) -C $$subdir setup;  done
 
 # SERIAL TESTS
