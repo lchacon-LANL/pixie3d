@@ -30,3 +30,6 @@ test test-a test-b: ;
 	-@([ -z "`diff -bB pixie3d.tst pixie3d.out`" ] || diff -bB  pixie3d.tst pixie3d.out)
 	-@([ -z "`diff -bB pixie3d.tst pixie3d.out`" ] && echo "No differences found in $(LOCALDIR)")
 	-@([ -z "`diff -bB pixie3d.tst pixie3d.out`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
+
+run: ;
+	@$(PAREXEC)
