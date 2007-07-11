@@ -24,6 +24,10 @@
 FC  = f90
 OPT = O 
 
+PETSC_DIR =/usr/local/petsc-2.3.3
+HDF5_HOME =/usr/local/hdf5/parallel/mpich2_f90_
+MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
+
 # System-dependent variables
 
 ifndef HOST
@@ -34,19 +38,15 @@ ifeq ($(HOST),ra4.igi.cnr.it)
   PETSC_DIR =/ricercatori/ft/petsc-2.2.0
   HDF5_HOME =
   CPPFLAGS += -DRFX
-else ifeq ($(HOST),moscato.lanl.gov)
-  PETSC_DIR =/usr/local/petsc-2.3.3
-  HDF5_HOME =/usr/local/hdf5/parallel/mpich2_f90_
-  MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
-else ifeq ($(HOST),cayenne1)
+endif
+
+ifeq ($(HOST),cayenne1)
   MPI_HOME  =/packages/mpi/mpich2-1.0.5p4-gcc-4.1-pgi-7.0-debug
   OPT       = g
   FC        = pgf95
   PETSC_C   = t
-  FFLAGS    += -i8
-else
-  PETSC_DIR =/usr/local/petsc-2.2.0
-  HDF5_HOME =/usr/local/hdf5/parallel/f90_
+  BOPT      = O
+#  FFLAGS    += -i8
 endif
 
 #Define compiler flags
@@ -164,7 +164,6 @@ ifeq ($(FC),g95)
     endif
   endif
 endif
-
 
 # Flags for Portland Group f90
 ifeq ($(FC),pgf95)
