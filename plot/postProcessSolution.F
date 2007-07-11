@@ -149,6 +149,18 @@ c Find Cartesian components of ALL vectors
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,bx_car,by_car,bz_car,'cnv','car')
 
+c diag **** VMEC
+cc      do k = 0,nz+1
+cc        do j = 0,ny+1
+cc          do i = 0,nx+1
+cc            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc            by_car(i,j,k) = by_car(i,j,k)*sqrt(x1**2+y1**2)
+cc          enddo
+cc        enddo
+cc      enddo
+c diag **** VMEC
+
       !Find Cartesian J components
       jx_car = jcnv(:,:,:,1)
       jy_car = jcnv(:,:,:,2)
