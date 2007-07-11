@@ -390,8 +390,8 @@ c Read computation initializations (external)
 
 c Graphics defaults
 
-      ndplot = 1          ! Postprocessing interval (# of time steps; integer)
-      dplot  = 1d0        !       "          "      (time interval; real)
+      ndplot = 0          ! Postprocessing interval (# of time steps; integer)
+      dplot  = 0d0        !       "          "      (time interval; real)
       hdf_plot =.false.   ! Whether an HDF5 file is to be created
 
       !Line profile configuration (XDRAW)
