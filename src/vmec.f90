@@ -133,8 +133,9 @@
                 istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupumnc_v, bsupumnc_spline, istat)   
 
-                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
-!!                CALL Convert_From_Nyq(bsupvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
+!!L. Chacon 6/21/07:  Use cov component of B_tor (flux function) instead of cnv
+!!                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
+                CALL Convert_From_Nyq(bsupvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupvmnc_v)
 !LC  6/5/07                istat = 1
                 istat = 0    !Changed by L. Chacon, 6/5/07
@@ -144,7 +145,7 @@
 
              IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT'
           END DO
-   
+
 !       Spline 1-D arrays: careful -> convert phipf VMEC and multiply
 !       by ds-vmec/ds-island, since phipf_i = d(PHI)/ds-island
 
@@ -450,8 +451,6 @@
          RETURN
       END IF
 
-!LC      write (*,*) 'ns_vmec',ns_vmec
-
       fac1 = 0
       hs_vmec = one/(ns_vmec-1)
       DO js = 2, ns_vmec
@@ -462,8 +461,6 @@
          istat = 2
          RETURN
       END IF
-
-!LC      write (*,*) 'ns_i',ns_i
 
       ohs_i = ns_i-1
       hs_i = one/ohs_i
@@ -1590,7 +1587,7 @@
           if (PRESENT(order)) then
              ordr = order
           else
-             ordr = 1
+             ordr = 2
           endif
 
           pos(1:4) = (/ 0d0,1d0,2d0,3d0 /)
@@ -1655,7 +1652,10 @@
 !     Local variables
 
         integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-        real(8)    :: r1,z1,ph1,sgn
+        real(8)    :: r1,z1,ph1,sgn,rr1(0:nx+1),zz1(0:nx+1)   &
+     &               ,local_rad(0:nx+1),ds
+
+        real(8),allocatable,dimension(:) :: vmec_rad
 
 !     Begin program
 
@@ -1686,45 +1686,108 @@
 
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
 
+!!$        do k=0,nz+1
+!!$          do j=0,ny+1
+!!$            do i=0,nx+1
+!!$
+!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$
+!!$              !Find global limits
+!!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+!!$
+!!$!!              !Ensures we don't step over physical periodic boundaries
+!!$!!              if (    (jgl < 1 .or. jgl > nyg)                       &
+!!$!!                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
+!!$!!
+!!$!!              !Singular point boundary
+!!$!!              if (igl == 0) then
+!!$!!                jgl = mod(jgl+nyg/2,nyg)
+!!$!!                igl = 1
+!!$!!              endif
+!!$
+!!$              !Periodic boundary in theta (other boundary enforced by symmetry)
+!!$              if (jgl == 0) jgl = nyg
+!!$
+!!$              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+!!$              sgn = 1d0
+!!$              if (jgl > nyg/2+1) then
+!!$                 jgl = nyg + 2 - jgl
+!!$                 sgn = -1d0
+!!$              endif
+!!$
+!!$              !Periodic boundary in phi
+!!$              if (kgl == 0) kgl = nzg
+!!$              if (kgl == nzg+1) kgl = 1
+!!$
+!!$              !Average to our radial mesh (half-mesh in VMEC)
+!!$              !(except for radial ghost cells, where we extrapolate the boundary value)
+!!$              call half_to_int(igl,jgl,kgl,rr,r1,order=3)
+!!$              call half_to_int(igl,jgl,kgl,zz,z1,order=3)
+!!$
+!!$              ph1 = -grid_params%zz(kg)  !Minus sign to preserve a right-handed ref. sys.
+!!$
+!!$              !Transform to Cartesian geometry
+!!$              xcar(i,j,k,1)=r1*cos(ph1)
+!!$              xcar(i,j,k,2)=r1*sin(ph1)
+!!$              xcar(i,j,k,3)=sgn*z1
+!!$
+!!$            enddo
+!!$          enddo
+!!$        enddo
+
+        !Global VMEC radial positions
+        allocate(vmec_rad(ns_i))
+        ds = 1d0/(ns_i-1)
+        do ig = 1,ns_i
+           vmec_rad(ig) = ds*(ig-1)
+        enddo
+
+        !Local radial positions
+        i = 0 ; j = 1 ; k = 1
+        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+        local_rad = grid_params%xx(ig:ig+nx+1)
+
+        !Transfer map using 3rd order spline interpolation in radius
         do k=0,nz+1
           do j=0,ny+1
+
+            i = 1
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            !Find global limits
+            call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+
+            !Singular point boundary
+            if (igl == 0) then
+              jgl = mod(jgl+nyg/2,nyg)
+              igl = 1
+            endif
+
+            !Periodic boundary in theta (other boundary enforced by symmetry)
+            if (jgl == 0) jgl = nyg
+
+            !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+            sgn = 1d0
+            if (jgl > nyg/2+1) then
+               jgl = nyg + 2 - jgl
+               sgn = -1d0
+            endif
+
+            !Periodic boundary in phi
+            if (kgl == 0) kgl = nzg
+            if (kgl == nzg+1) kgl = 1
+
+            !Perform radial interpolation
+            call IntDriver1d(ns_i,vmec_rad,rr(:,jgl,kgl),nx+2,local_rad,rr1,3)
+            call IntDriver1d(ns_i,vmec_rad,zz(:,jgl,kgl),nx+2,local_rad,zz1,3)
+
             do i=0,nx+1
-
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              !Find global limits
-              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
-
-              !Ensures we don't step over physical periodic boundaries
-!!$              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!$                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
-
-              !Periodic boundary in theta (other boundary enforced by symmetry)
-              if (jgl == 0) jgl = nyg
-
-              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
-              sgn = 1d0
-              if (jgl > nyg/2+1) then
-                 jgl = nyg + 2 - jgl
-                 sgn = -1d0
-              endif
-
-              !Periodic boundary in phi
-              if (kgl == 0) kgl = nzg
-              if (kgl == nzg+1) kgl = 1
-
-              !Average to our radial mesh (half-mesh in VMEC)
-              !(except for radial ghost cells, where we extrapolate the boundary value)
-              call half_to_int(igl,jgl,kgl,rr,r1)
-              call half_to_int(igl,jgl,kgl,zz,z1)
-
               ph1 = -grid_params%zz(kg)  !Minus sign to preserve a right-handed ref. sys.
 
               !Transform to Cartesian geometry
-              xcar(i,j,k,1)=r1*cos(ph1)
-              xcar(i,j,k,2)=r1*sin(ph1)
-              xcar(i,j,k,3)=sgn*z1
-
+              xcar(i,j,k,1)=rr1(i)*cos(ph1)
+              xcar(i,j,k,2)=rr1(i)*sin(ph1)
+              xcar(i,j,k,3)=sgn*zz1(i)
             enddo
           enddo
         enddo
@@ -1747,6 +1810,7 @@
 
 !     Free work space (to allow multiple calls to vmec_map for different grid levels)
 
+        deallocate(vmec_rad)
         call vmec_cleanup
 
 !     End program
@@ -1934,6 +1998,12 @@
 !!$              if (    (jgl < 1 .or. jgl > nyg)                       &
 !!$                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
 
+              !Singular point boundary
+              if (igl == 0) then
+                jgl = mod(jgl+nyg/2,nyg)
+                igl = 1
+              endif
+
               !Periodic boundary in theta (other boundary enforced by symmetry)
               if (jgl == 0) jgl = nyg
 
@@ -1964,12 +2034,15 @@
               b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)   !This correction comes because here
                                                                  !the variable is x1=sqrt(s), s-> VMEC.
               b2(i,j,k) = jac*b2(i,j,k)
-              b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
-!!$              if (load_metrics) then
-!!$                 b3(i,j,k) = b3(i,j,k)*hvv(igl+1,jgl,kgl)*jac
-!!$              else
-!!$                 b3(i,j,k) = b3(i,j,k)*gmetric%grid(igrid)%gsup(i,j,k,3,3)
-!!$              endif
+!!            Cnv component
+!!              b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
+!!            Cov component
+              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
+     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
+     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
+     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
+     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
+                        
             enddo
           enddo
         enddo
