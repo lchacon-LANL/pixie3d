@@ -1591,9 +1591,9 @@ cc        enddo
       case ('tor')
 
         RR = grid_params%params(1)
-        mm = grid_params%params(2)
-        nn = grid_params%params(3)
-        q0 = grid_params%params(4)
+        mm = grid_params%params(4)
+        nn = grid_params%params(5)
+        q0 = grid_params%params(6)
 
         kk = 0d0   !To avoid affecting q-profile
 
@@ -1632,25 +1632,34 @@ c     Read VMEC equilibrium
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
               !X-Y equilibrium
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ)  = gmetric%grid(igx)%jac(i,j,k)*bz0
+              var(i,j,k,IBY)  = btheta
+              var(i,j,k,IBZ)  = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
             enddo
           enddo
         enddo
 #else
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              !X-Y equilibrium
               b(i,j,k,1) = 0d0
-              b(i,j,k,2) = btheta + kk*x1/mm*bz0
-              b(i,j,k,3) = gmetric%grid(igx)%jac(i,j,k)*bz0
+              b(i,j,k,2) = btheta
+              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
             enddo
           enddo
         enddo
