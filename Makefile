@@ -31,10 +31,10 @@ MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
 # System-dependent variables
 
 ifndef HOST
-   HOST = `hostname`
+  HOST = `hostname`
 endif
 
-ifeq ($(HOST),ra4.igi.cnr.it)
+ifeq ($(HOST),ra4)
   PETSC_DIR =/ricercatori/ft/petsc-2.2.0
   HDF5_HOME =
   CPPFLAGS += -DRFX
@@ -47,6 +47,12 @@ ifeq ($(HOST),cayenne1)
   PETSC_C   = t
   BOPT      = O
 #  FFLAGS    += -i8
+endif
+
+ifeq ($(HOST),gongora.lanl.gov)
+  PETSC_DIR =/usr/local/petsc-2.2.0
+  HDF5_HOME =/usr/local/hdf5/parallel/f90_
+  MPI_HOME  =/usr/local/mpich-1.2.5.2/f90_
 endif
 
 #Define compiler flags
@@ -232,7 +238,7 @@ endif
 
 # HDF5 setup
 
-ifdef HDF5
+ifeq ($(HDF5),t)
   H5LIBS    = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
   CPPFLAGS += -Dhdf5 -I$(HDF5_HOME)/include
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
@@ -295,6 +301,8 @@ setup: ;
 
 all-serial-tests: serial-tests-a serial-tests-b
 
+rebuild-all-serial-tests: rebuild-serial-tests-a rebuild-serial-tests-b
+
 serial-tests-a: ;
 	$(MAKE) -C tests/serial test-a
 
@@ -310,6 +318,8 @@ rebuild-serial-tests-b: ;
 # PARALLEL TESTS
 
 all-parallel-tests: parallel-tests-a parallel-tests-b
+
+rebuild-all-parallel-tests: rebuild-parallel-tests-a rebuild-parallel-tests-b
 
 parallel-tests-a: ;
 	$(MAKE) -C tests/parallel test-a

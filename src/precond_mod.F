@@ -47,7 +47,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         integer   , allocatable, dimension(:,:) :: bcs
 
-        type (var_array),target :: varray
+        type(var_array),pointer :: varray
 
         type (mg_array ),target :: gp0,gb0,gv0,grho0,gb0_cov
 

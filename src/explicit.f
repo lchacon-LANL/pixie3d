@@ -25,7 +25,7 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer          :: iter,iout
-      type (var_array) :: vnp,vn
+      type(var_array),pointer :: vnp,vn
 
 c Local variables
 

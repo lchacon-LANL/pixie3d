@@ -63,16 +63,21 @@ c Begin program
 
         allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,jcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,grd   (ilom:ihip,jlom:jhip,klom:khip,3))
+
+cc        allocate (jcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+cc
+cc        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
         allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vlap_a(ilom:ihip,jlom:jhip,klom:khip,3))
+#else
+        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 #endif
 
 c SI operator
@@ -80,6 +85,12 @@ c SI operator
      .          ,p_n(ilom:ihip,jlom:jhip,klom:khip,1)
      .          ,dv_dt (ilom:ihip,jlom:jhip,klom:khip,3))
 c SI operator
+
+c Auxiliary variables
+
+        call allocAuxVariables
+
+c Preconditioner
 
         call allocPrecVariables
 

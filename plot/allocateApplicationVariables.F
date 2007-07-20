@@ -93,7 +93,13 @@ c Begin program
       allocate (eeta (ilom:ihip,jlom:jhip,klom:khip)
      .         ,nuu  (ilom:ihip,jlom:jhip,klom:khip))
 
+c Setup grid aliases
+
       call defineGridAliases
+
+c Allocate auxiliary variables
+
+      call allocAuxVariables
 
 c End programs
 

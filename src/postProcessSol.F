@@ -25,7 +25,7 @@ cc      implicit none
 cc
 ccc Call variables
 cc
-cc      type(var_array) :: v_arr
+cc      type(var_array),pointer :: v_arr
 cc
 ccc Local variables
 cc

@@ -21,7 +21,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      type(var_array) :: v_arr
+      type(var_array),pointer :: v_arr
 
 c Local variables
 
@@ -36,6 +36,16 @@ c Externals
 
       external   v_mtvc,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
      .          ,mstar_mtvc,hall_mtvc,a_mtvc
+
+c Interfaces
+
+      INTERFACE
+        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        type(var_array),pointer :: varray
+        end subroutine imposeBoundaryConditions
+      END INTERFACE
 
 c Begin program
 
@@ -59,16 +69,16 @@ cc        mg_glrkin = si_car
 
 c Unpack vector x
 
-      varray = v_arr
+      call equateDerivedType(varray,v_arr)
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
 c Extract arrays and BC's
 
       rho => varray%array_var(IRHO)%array
-      px => varray%array_var(IVX )%array
-      py => varray%array_var(IVY )%array
-      pz => varray%array_var(IVZ )%array
+      px  => varray%array_var(IVX )%array
+      py  => varray%array_var(IVY )%array
+      pz  => varray%array_var(IVZ )%array
 #if !defined(vec_pot)
       bx  => varray%array_var(IBX )%array
       by  => varray%array_var(IBY )%array

@@ -29,7 +29,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: pos 
       real(8),pointer,dimension(:,:,:) :: array
 
-      type (var_array),target :: vref,vsol
+      type(var_array),pointer :: vref,vsol
 
 c Interpolation
 

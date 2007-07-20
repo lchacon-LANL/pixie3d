@@ -65,11 +65,22 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer          :: iigx,iigy,iigz
-      type (var_array) :: varray
+      type(var_array),pointer :: varray
 
 c Local variables
 
       logical :: initialize
+
+c Interfaces
+
+      INTERFACE
+        subroutine evaluateDiagnostics(varray,iigx,iigy,iigz,init)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        logical    :: init
+        type(var_array),pointer :: varray
+        end subroutine evaluateDiagnostics
+      END INTERFACE
 
 c Begin program
 
@@ -260,7 +271,7 @@ c Call variables
       integer          :: iigx,iigy,iigz
       logical          :: init
 
-      type (var_array) :: varray
+      type(var_array),pointer :: varray
 
 c Local variables
 

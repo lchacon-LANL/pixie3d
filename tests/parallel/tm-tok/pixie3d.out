@@ -1,5 +1,5 @@
- Processor:  0 ; Grid limits:  1  32  1  32  1  1
- Processor:  1 ; Grid limits:  33  64  1  32  1  1
+Processor:  0; Grid limits:  1 32  1 32  1  1
+Processor:  1; Grid limits: 33 64  1 32  1  1
  Reading KAI TM perturbations
  Reading KAI TM perturbations
  Reading KAI TM perturbations
@@ -54,3 +54,5 @@ Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt  Whst/GMRES
    10       4.3        5.9        1.4        0.0
+rank 0 in job 264  moscato.lanl.gov_38714   caused collective abort of all ranks
+  exit status of rank 0: return code 0 

@@ -1,5 +1,5 @@
- Processor:  1 ; Grid limits:  65  128  1  32  1  1
- Processor:  0 ; Grid limits:  1  64  1  32  1  1
+Processor:  1; Grid limits: 65128  1 32  1  1
+Processor:  0; Grid limits:  1 64  1 32  1  1
  Calculating equilibrium ppnch...
  
  Equilibrium converged in  10 iterations with error =  0.19E-05
@@ -40,14 +40,18 @@
       2    0.010  5.0E-03   0.012  0.000  0.000     3     3     0.500
       3    0.015  5.0E-03   0.012  0.000  0.000     4     3     0.500
       4    0.020  5.0E-03   0.012  0.000  0.000     7     4     0.500
-      5    0.025  5.0E-03   0.012  0.000  0.000    14     6     0.500
-      6    0.030  5.0E-03   0.012  0.000  0.000     9     5     0.500
-      7    0.035  5.0E-03   0.012  0.000  0.000    10     5     0.500
-      8    0.040  5.0E-03   0.012  0.000  0.000    13     5     0.500
-      9    0.045  5.0E-03   0.012  0.000  0.000    15     5     0.500
-     10    0.050  5.0E-03   0.012  0.000  0.000    13     5     0.500
+      5    0.025  5.0E-03   0.012  0.000  0.000    13     6     0.500
+      6    0.030  5.0E-03   0.012  0.000  0.000    11     5     0.500
+      7    0.035  5.0E-03   0.012  0.000  0.000    14     5     0.500
+      8    0.040  5.0E-03   0.012  0.000  0.000    14     5     0.500
+      9    0.045  5.0E-03   0.012  0.000  0.000    13     5     0.500
+     10    0.050  5.0E-03   0.012  0.000  0.000    14     5     0.500
 
 Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt  Whst/GMRES
-   10       4.4        9.1        2.1        0.0
+   10       4.4        9.6        2.2        0.0
+rank 1 in job 260  moscato.lanl.gov_38714   caused collective abort of all ranks
+  exit status of rank 1: return code 0 
+rank 0 in job 260  moscato.lanl.gov_38714   caused collective abort of all ranks
+  exit status of rank 0: return code 0 

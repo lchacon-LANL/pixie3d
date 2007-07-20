@@ -8,7 +8,7 @@ c------------------------------------------------------------------
 
       use parameters
 
-      use variables
+      use variable_setup
 
       use nlfunction_setup
 
@@ -26,7 +26,7 @@ c------------------------------------------------------------------
 
 c Call variables
 
-      type (var_array),target :: varray
+      type(var_array),pointer :: varray
 
 c Local variables
 
@@ -36,6 +36,16 @@ c Local variables
 
       real(8)    :: dh,vmax,cnv(3),minrho,mintmp
      .             ,pe(ilom:ihip,jlom:jhip,klom:khip)
+
+c Interfaces
+
+      INTERFACE
+        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        type(var_array),pointer :: varray
+        end subroutine imposeBoundaryConditions
+      END INTERFACE
 
 c Begin program
 
