@@ -97,7 +97,7 @@ c *******************************************************************
               do ieq=1,neqd
                 iii = ieq + neqd*(ii-1)
                 if (vol_wgt) then !Residuals are volume-weighed by default
-                  dvol = volume(i,j,k,igx,igy,igz)
+                  dvol = gmetric%grid(igx)%dvol(i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -568,7 +568,7 @@ c     Begin program
               iii = neqd*(ii-1)
 
               if (vol_wgt) then !Residuals are volume-weighed by default
-                dvol = volume(i,j,k,igx,igy,igz)
+                dvol = gmetric%grid(igx)%dvol(i,j,k)
               else
                 dvol = 1d0
               endif
@@ -728,7 +728,7 @@ cc     .                ,order_prol=2)
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
                 if (vol_wgt) then !Residuals are volume-weighed by default
-                  dvol = volume(i,j,k,igx,igy,igz)
+                  dvol = gmetric%grid(igx)%dvol(i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -1373,7 +1373,7 @@ c Find rhs_v'
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
             if (vol_wgt) then
-              dvol = volume(i,j,k,igrid,igrid,igrid)
+              dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1497,7 +1497,7 @@ c Find rhs_v
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               iig = ii + isig - 1
               if (vol_wgt) then
-                dvol = volume(i,j,k,igrid,igrid,igrid)
+                dvol = gmetric%grid(igrid)%dvol(i,j,k)
               else
                 dvol = 1d0
               endif
@@ -1572,7 +1572,7 @@ c Find advection-diffusion part
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
             if (vol_wgt) then
-              dvol = volume(i,j,k,igrid,igrid,igrid)
+              dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
             endif

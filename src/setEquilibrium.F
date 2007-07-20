@@ -2089,7 +2089,7 @@ c Transform A to gauge div(A)=0
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             if (vol_wgt) then
-              dvol = volume(i,j,k,igrid,igrid,igrid)
+              dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
             endif

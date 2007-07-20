@@ -12,7 +12,7 @@ c     The result of Fi(Uj) at node (i,j) for all equations neqd
 c     is returned in the vector ff of dimension neqd.
 c-----------------------------------------------------------------
 
-      use variables
+      use variable_setup
 
       use timeStepping
 
@@ -28,7 +28,7 @@ c Call variables
 
       integer :: i,j,k
 
-      type (var_array) :: varray
+      type(var_array),pointer :: varray
 
 c Local variables
 

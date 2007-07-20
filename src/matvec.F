@@ -1676,7 +1676,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (vol_wgt) then
-              vol = volume(i,j,k,igrid,igrid,igrid)
+cc              vol = volume(i,j,k,igrid,igrid,igrid)
+              vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
             endif

@@ -7,7 +7,7 @@ c     Postprocess solution in varray to find derived quantities
 c     for plotting.
 c--------------------------------------------------------------------
 
-      use variables
+      use variable_setup
 
       use graphics
 
@@ -35,7 +35,7 @@ c Call variables
 
       integer    :: iigx,iigy,iigz
 
-      type(var_array) :: varray
+      type(var_array),pointer :: varray
 
 c Local variables
 
@@ -44,6 +44,16 @@ c Local variables
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
       real(8),allocatable,dimension(:,:) :: b00,j00_cov,v00,q00,l00
+
+c Interfaces
+
+      INTERFACE
+        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        type(var_array),pointer :: varray
+        end subroutine imposeBoundaryConditions
+      END INTERFACE
 
 c Begin program
 

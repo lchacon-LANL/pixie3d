@@ -20,6 +20,69 @@ c####################################################################
 
         use transport_params
 
+      contains
+
+c     setBCsched
+c     ###################################################################
+      subroutine setBCsched
+
+c     -------------------------------------------------------------------
+c     Sets BC schedule for dependent and auxiliary variables
+c     -------------------------------------------------------------------
+
+c     Begin program
+
+      if (.not.associated(gv%bc_seq)) then
+
+#if defined(vec_pot)
+      gv%nbc_seq = 6
+#else
+      gv%nbc_seq = 5
+#endif
+
+      allocate(gv%bc_seq(gv%nbc_seq,2))
+
+#if defined(vec_pot)
+      gv%bc_seq(1,1) = IRHO !Dep. Variable (>0)
+      gv%bc_seq(1,2) = 0    !Scalar
+
+      gv%bc_seq(2,1) = IAX  !Dep. variable (>0)
+      gv%bc_seq(2,2) = 1    !Vector
+
+      gv%bc_seq(3,1) =-IBX  !Aux. variable (<0)
+      gv%bc_seq(3,2) = 1    !Vector
+
+      gv%bc_seq(4,1) =-IJX  !Aux. variable (<0)
+      gv%bc_seq(4,2) = 1    !Vector
+
+      gv%bc_seq(5,1) = IVX  !Dep. variable (<0)
+      gv%bc_seq(5,2) = 1    !Vector
+
+      gv%bc_seq(6,1) = ITMP !Dep. variable (>0)
+      gv%bc_seq(6,2) = 0    !Scalar
+#else
+      gv%bc_seq(1,1) = IRHO !Dep. Variable (>0)
+      gv%bc_seq(1,2) = 0    !Scalar
+
+      gv%bc_seq(2,1) = IBX  !Dep. variable (<0)
+      gv%bc_seq(2,2) = 1    !Vector
+
+      gv%bc_seq(3,1) =-IJX  !Aux. variable (<0)
+      gv%bc_seq(3,2) = 1    !Vector
+
+      gv%bc_seq(4,1) = IVX  !Dep. variable (<0)
+      gv%bc_seq(4,2) = 1    !Vector
+
+      gv%bc_seq(5,1) = ITMP !Dep. variable (>0)
+      gv%bc_seq(5,2) = 0    !Scalar
+#endif
+
+      endif
+
+c     End program
+
+      end subroutine setBCsched
+
       end module local_BCS_variables
 
 c scalarDirichletBC
