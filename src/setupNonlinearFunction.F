@@ -245,11 +245,11 @@ c Local variables
 
 c Begin program
 
-#if !defined(vec_pot)
-      nullify(rho,bx,by,bz,px,py,pz,tmp)
-#else
-      nullify(rho,ax,ay,az,px,py,pz,tmp)
-#endif
+cc#if !defined(vec_pot)
+cc      nullify(rho,bx,by,bz,px,py,pz,tmp)
+cc#else
+cc      nullify(rho,ax,ay,az,px,py,pz,tmp)
+cc#endif
 
 c End program
 
