@@ -33,7 +33,16 @@ c Local variables
 
       double precision :: ftemp(ntotd)
 
-c Externals
+c Interfaces
+
+      INTERFACE
+        subroutine evaluateNonlinearFunction(varray,fi)
+        use parameters
+        use variable_setup
+        real(8)          :: fi(ntotd)
+        type(var_array),pointer :: varray
+        end subroutine evaluateNonlinearFunction
+      END INTERFACE
 
 c Begin program
 
