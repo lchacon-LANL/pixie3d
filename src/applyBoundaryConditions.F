@@ -144,6 +144,13 @@ c$$$      case ('ic')
 c$$$
 c$$$        bbcs(2,:) = EQU
 
+      case ('vmec','tor')
+
+        !Dirichlet boundary conditions for tangential components
+        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY) = DIR
+        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ) = DIR
+cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+
       end select
 
 c BCs for auxiliary variables
@@ -158,7 +165,7 @@ c End subroutine
 
       end subroutine defineBoundaryConditions
 
-# if 0
+# if 1
 
 c imposeBoundaryConditions
 c####################################################################
@@ -194,8 +201,6 @@ c Local variables
 c Begin program
 
       order = 2   !Order of extrapolation in BCs
-
-cc      call setup_petsc_BC !Setup parallel BC flags
 
 c Local grid sizes
 
@@ -486,12 +491,6 @@ c     BC setup
      .             +0.5*(/ bcnv(i+1,j,k,1)
      .                    ,bcnv(i+1,j,k,2)
      .                    ,bcnv(i+1,j,k,3) /)
-cc            bbcnv = 0.5*(/ bx(i  ,j,k)
-cc     .                    ,by(i  ,j,k)
-cc     .                    ,bz(i  ,j,k) /)
-cc     .             +0.5*(/ bx(i+1,j,k)
-cc     .                    ,by(i+1,j,k)
-cc     .                    ,bz(i+1,j,k) /)
 #endif
             bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
      .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
@@ -552,7 +551,6 @@ c Temperature BCs
      .               ,u_0   %array_var(ITMP)%array
      .               ,varray%array_var(ITMP)%bconds
      .               ,iigx,iigy,iigz,iorder=order)
-
 
 c Deallocate variables 
 
