@@ -28,6 +28,8 @@ PETSC_DIR =/usr/local/petsc-2.3.3
 HDF5_HOME =/usr/local/hdf5/parallel/mpich2_f90_
 MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
 
+PREPROC = -D
+
 # System-dependent variables
 
 ifndef HOST
@@ -104,7 +106,7 @@ ifeq ($(FC),lf95)
     FFLAGS    += --ml cdecl
     PETSC_ARCH = linux_lahey
     include ${PETSC_DIR}/bmake/common/base
-    FC         = $(MPI_HOME)/bin/mpif90
+    override FC = $(MPI_HOME)/bin/mpif90
   else
     FFLAGS    += -X9
     LDFLAGS    =
@@ -132,7 +134,7 @@ ifeq ($(FC),ifort)
   ifdef BOPT
     PETSC_ARCH = linux_intel
     include ${PETSC_DIR}/bmake/common/base
-    FC         = $(MPI_HOME)/bin/mpif90
+    override FC = $(MPI_HOME)/bin/mpif90
   else
     FFLAGS      += -vec_report0 -w
     LDFLAGS      = 
@@ -160,7 +162,7 @@ ifeq ($(FC),g95)
   ifdef BOPT
     PETSC_ARCH = linux_intel
     include ${PETSC_DIR}/bmake/common/base
-    FC         = $(MPI_HOME)/bin/mpif90
+    override FC = $(MPI_HOME)/bin/mpif90
   else
     FFLAGS      += 
     ifeq ($(HOST),nip.lanl.gov)
@@ -186,7 +188,7 @@ ifeq ($(FC),pgf95)
   ifdef BOPT
 #    PETSC_ARCH = linux64_gcc_pgf90
     include ${PETSC_DIR}/bmake/common/base
-    FC         = $(MPI_HOME)/bin/mpif90
+    override  FC = $(MPI_HOME)/bin/mpif90
   else
 #    FFLAGS       = -Minform=severe
     LDFLAGS      = 
@@ -197,6 +199,57 @@ ifeq ($(FC),pgf95)
     endif
   endif
 
+endif
+
+# Flags for IBM xlf95  (NERSC's Bassi)
+ifeq ($(FC),xlf95)
+  OPTIMIZATION = -O3 -qstrict -qarch=pwr3 -qtune=pwr3
+#  DEBUG        = -g -C
+  DEBUG        = -g
+  PROFILE      = -P
+  STATIC       = -s
+  MODFLAG      = -I
+  ADDMODFLAG   = -I
+  VERBOSE      = -v
+#  FFLAGS       = -qmaxmem=-1 -bmaxstack:0x22000000 -qsave -blpdata -qsmallstack -qfixed=72
+  FFLAGS       = -qfixed=72
+
+  PREPROC      = -WF,-D
+  CPPFLAGS    += $(PREPROC)xlf
+
+  ifdef BOPT
+    include ${PETSC_DIR}/bmake/common/base
+    override FC = mpxlf95_r $(FFLAGS)
+  else
+    LDFLAGS      = 
+    LIBS      += $(LAPACK) -lblas
+  endif
+
+  HDF5 = f
+endif
+
+# Flags for NERSC's Franklin ftn (wrapper for pgf90)
+ifeq ($(FC),ftn)
+  OPTIMIZATION = -fastsse -Mipa=fast
+  DEBUG        = -g -Mbounds -Mchkptr -Ktrap=fp
+#  DEBUG        = -g
+  PROFILE      = -pg
+  STATIC       =
+  MODFLAG      = -module 
+  ADDMODFLAG   = -module 
+  VERBOSE      = -v
+  CPPFLAGS    += -Dpgf90
+
+  ifdef BOPT
+    include ${PETSC_DIR}/bmake/common/base
+    override  FC = ftn $(FFLAGS)
+  else
+#    FFLAGS       = -Minform=severe
+    LDFLAGS      =
+#    LIBS      += $(LAPACK) -lblas
+  endif
+
+  HDF5 = f
 endif
 
 #Assemble compiler options
@@ -219,6 +272,8 @@ endif
 
 #Define relevant directories
 
+BINDIR = $(PWD)/bin
+
 SUBDIRS = src plot
 
 MODPATH = $(MODFLAG).
@@ -227,10 +282,10 @@ MODPATH = $(MODFLAG).
 
 REL1=0
 REL2=9
-CPPFLAGS += -DREL1=$(REL1) -DREL2=$(REL2)
+CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifdef VECPOT
-  CPPFLAGS += -Dvec_pot
+  CPPFLAGS += $(PREPROC)vec_pot
   ifdef VECPOT
     TARGET = code_a
   endif
@@ -240,7 +295,7 @@ endif
 
 ifeq ($(HDF5),t)
   H5LIBS    = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-  CPPFLAGS += -Dhdf5 -I$(HDF5_HOME)/include
+  CPPFLAGS += $(PREPROC)hdf5 -I$(HDF5_HOME)/include
   MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
 endif
 
@@ -248,7 +303,7 @@ endif
 
 ifdef VMEC
   VMECLIBS  = -L../contrib/vmec/lib -lstell
-  CPPFLAGS += -Dvmec
+  CPPFLAGS += $(PREPROC)vmec
   MODPATH  += $(ADDMODFLAG)../contrib/vmec/lib
 endif
 
@@ -261,17 +316,19 @@ ifdef BOPT
     TARGET = petsc
   endif
 
-  CPPFLAGS += -Dpetsc -DNVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
+  CPPFLAGS += $(PREPROC)petsc $(PREPROC)NVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH) -I$(MPI_HOME)/include
 
   ifdef PETSC_C
-    CPPFLAGS += -Dpetsc_c
+    CPPFLAGS += $(PREPROC)petsc_c
+    SNES_OPT = -snes_mf
   endif
 endif
 
 #Export required variables
 
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC VMECLIBS
+       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC VMECLIBS SNES_OPT \
+       BINDIR
 
 #Define targets
 
@@ -335,9 +392,9 @@ rebuild-parallel-tests-b: ;
 
 # CONTRIBUTED SOFTWARE
 
-contrib: vmec
+contrib: vmec ftracer
 
-contrib_clean: vmec_clean
+contrib_clean: vmec_clean ftracer_clean
 
 vmec:
 ifdef VMEC
@@ -348,6 +405,13 @@ vmec_clean:
 ifdef VMEC
 	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
 endif
+
+ftracer:
+	$(MAKE) -e -C contrib/field_tracer
+
+ftracer_clean:
+	$(MAKE) -e -C contrib/field_tracer distclean
+
 
 # CLEAN ALL
 
