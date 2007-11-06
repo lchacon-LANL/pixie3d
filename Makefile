@@ -57,6 +57,14 @@ ifeq ($(HOST),gongora.lanl.gov)
   MPI_HOME  =/usr/local/mpich-1.2.5.2/f90_
 endif
 
+ifeq ($(HOST),bassi)
+  FC = xlf95
+endif
+
+ifeq ($(HOST),franklin)
+  FC = ftn
+endif
+
 #Define compiler flags
 
 # Flags for Absoft f90
@@ -69,7 +77,7 @@ ifeq ($(FC),f90)
   MODFLAG      = -p
   ADDMODFLAG   = -p
   VERBOSE      = -v
-  CPPFLAGS    += -Dabsoft_ 
+  CPPFLAGS    += $(PREPROC)absoft_ 
 
   ifdef BOPT
     PETSC_ARCH = linux_absoft_
@@ -100,7 +108,7 @@ ifeq ($(FC),lf95)
   MODFLAG      = -M
   ADDMODFLAG   = -I
   VERBOSE      = --verbose
-  CPPFLAGS    += -Dlf95 
+  CPPFLAGS    += $(PREPROC)lf95 
 
   ifdef BOPT
     FFLAGS    += --ml cdecl
@@ -129,7 +137,7 @@ ifeq ($(FC),ifort)
   MODFLAG      = -I
   ADDMODFLAG   = -I
   VERBOSE      = -v
-  CPPFLAGS    += -Difort
+  CPPFLAGS    += $(PREPROC)ifort
 
   ifdef BOPT
     PETSC_ARCH = linux_intel
@@ -157,7 +165,7 @@ ifeq ($(FC),g95)
   MODFLAG      = -I
   ADDMODFLAG   = -I
   VERBOSE      = -v
-  CPPFLAGS    += -Dg95
+  CPPFLAGS    += $(PREPROC)g95
 
   ifdef BOPT
     PETSC_ARCH = linux_intel
@@ -183,7 +191,7 @@ ifeq ($(FC),pgf95)
   MODFLAG      = -module 
   ADDMODFLAG   = -module 
   VERBOSE      = -v
-  CPPFLAGS    += -Dpgf90
+  CPPFLAGS    += $(PREPROC)pgf90
 
   ifdef BOPT
 #    PETSC_ARCH = linux64_gcc_pgf90
