@@ -40,9 +40,9 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      vx_max = maxval(abs(u_n%array_var(IVX)%array))
-      vy_max = maxval(abs(u_n%array_var(IVY)%array))
-      vz_max = maxval(abs(u_n%array_var(IVZ)%array))
+      vx_max = maxval(abs(u_np%array_var(IVX)%array))
+      vy_max = maxval(abs(u_np%array_var(IVY)%array))
+      vz_max = maxval(abs(u_np%array_var(IVZ)%array))
 
 #if defined(petsc)      
       lvx_max = vx_max
@@ -94,7 +94,6 @@ cc            advective = 'PBRKCT'
             ts = ' BDF2'
           endif
 
-cc          write (*,10) nxd,nyd,nzd,ngrd,precon,timecorr,source
           write (*,10)nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid
      .              ,advective,ts
 
@@ -174,6 +173,8 @@ c     Warnings
      .       write (*,*) 'Using non-conservative div(vv) part of EOM'
         if (.not.solenoidal)
      .       write (*,*) 'Using non-solenoidal version'
+        if (sym_st)
+     .       write (*,*) 'Using symmetric viscous stress tensor in EOM'
       
         write (*,*) '****************** NOTICE ******************'
       endif
