@@ -48,7 +48,7 @@ ifdef BOPT
   include ${PETSC_DIR}/bmake/common/base
   SRC2      = $(SRC)
   ifdef PETSC_C
-    EXCLUDE  += %explicit.f %newtonGMRES.f
+    EXCLUDE  += %explicit.f
   endif
   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
@@ -73,10 +73,6 @@ COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
 #Define linker flags
 
 #LDFLAGS = 
-
-#Define relevant directories
-
-BINDIR = ../bin
 
 #Module search path
 
