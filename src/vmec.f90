@@ -24,28 +24,27 @@
 !-----------------------------------------------
       LOGICAL :: load_metrics=.false.
 
-      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE ::                       &
+      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE ::                     &
      &             sqrtg,                                               &!sqrt(g): Jacobian on half grid
      &             gss, gsu, gsv, guu, guv, gvv,                        &!symmetric elements of lower metric tensor (full mesh)
      &             hss, hsu, hsv, huu, huv, hvv                          !symmetric elements of upper metric tensor (half mesh)
 
       REAL(rprec), DIMENSION(:,:), ALLOCATABLE ::                       &
      &             rmnc_spline, zmns_spline, bsupumnc_spline,           &
-     &             bsupvmnc_spline
+     &             bsupvmnc_spline, bsubvmnc_spline
 
       REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE ::                     &
-     &             rmnc_i, zmns_i, bsupumncf_i, bsupvmncf_i
+     &             rmnc_i, zmns_i, bsupumncf_i, bsupvmncf_i, bsubvmncf_i
 
       REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE :: rr,zz
 
-      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE:: bsupuijcf,           &
-     &  bsupvijcf, bsupsijsf, presijf
+      REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE :: bsupuijcf,          &
+     &  bsupvijcf, bsubvijcf, bsupsijsf, presijf
 
 !     LOCAL (PRIVATE) HELPER ROUTINES (NOT ACCESSIBLE FROM OUTSIDE THIS MODULE)
 !
 !LC 2/2/07      PRIVATE spline_fourier_modes, loadrzl_vmec,       &
-      PRIVATE spline_fourier_modes,       &
-     &        convert_to_full_mesh, vmec_load_rz
+      PRIVATE spline_fourier_modes,convert_to_full_mesh, vmec_load_rz
 
       CONTAINS
 
@@ -75,7 +74,7 @@
 
           INTEGER                  :: istat, ntype, imesh, js
           REAL(rprec), DIMENSION(:,:), ALLOCATABLE ::                       &
-     &                            bsupumnc_v,  bsupvmnc_v
+     &                            bsupumnc_v,  bsupvmnc_v,  bsubvmnc_v
           REAL(rprec) :: t1, t2
           INTEGER     :: m, n, mn
 
@@ -110,8 +109,9 @@
           ALLOCATE(rr(ns_i,nu_i,nv_i),zz(ns_i,nu_i,nv_i))
 
           ALLOCATE(rmnc_spline(mnmax,ns_i), zmns_spline(mnmax,ns_i),        &
-     &             bsupumnc_v(mnmax,ns_vmec),  bsupvmnc_v(mnmax,ns_vmec),   &
-     &             bsupumnc_spline(mnmax,ns_i), bsupvmnc_spline(mnmax,ns_i),&
+     &             bsupumnc_v(mnmax,ns_vmec),bsupumnc_spline(mnmax,ns_i),   &
+     &             bsupvmnc_v(mnmax,ns_vmec),bsupvmnc_spline(mnmax,ns_i),   &
+     &             bsubvmnc_v(mnmax,ns_vmec),bsubvmnc_spline(mnmax,ns_i),   &
      &             phipf_i(ns_i), iotaf_i(ns_i),presf_i(ns_i),              &
      &             stat=istat)
           IF (istat .ne. 0) STOP 'Allocation error 1 in VMEC_INIT'
@@ -133,14 +133,16 @@
                 istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupumnc_v, bsupumnc_spline, istat)   
 
-!!L. Chacon 6/21/07:  Use cov component of B_tor (flux function) instead of cnv
-!!                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
-                CALL Convert_From_Nyq(bsupvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
+!!L. Chacon 9/10/07:  Added cov component of B_tor (flux function)
+                CALL Convert_From_Nyq(bsupvmnc_v,bsupvmnc_vmec)       !These have mnmax_nyq members
+                CALL Convert_From_Nyq(bsubvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupvmnc_v)
+                CALL Convert_To_Full_Mesh(bsubvmnc_v)
 !LC  6/5/07                istat = 1
                 istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupvmnc_v, bsupvmnc_spline, istat)   
-                DEALLOCATE(bsupumnc_v, bsupvmnc_v)
+                CALL Spline_Fourier_Modes(bsubvmnc_v, bsubvmnc_spline, istat)   
+                DEALLOCATE(bsupumnc_v, bsupvmnc_v, bsubvmnc_v)
              END IF
 
              IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT'
@@ -301,7 +303,7 @@
           DEALLOCATE(phipf_i,iotaf_i,presf_i,stat=istat)
           IF (istat .ne. 0) STOP 'Deallocation error 2 in vmec_cleanup'
 
-          DEALLOCATE(bsupumncf_i,bsupvmncf_i,stat=istat)
+          DEALLOCATE(bsupumncf_i,bsupvmncf_i,bsubvmncf_i,stat=istat)
           IF (istat .ne. 0) STOP 'Deallocation error 3 in vmec_cleanup'
 
           call DEALLOC_FIXARRAY
@@ -956,10 +958,11 @@
      &         zmns_i(ns_i,0:mpol_i,-ntor_i:ntor_i),                    &
      &         bsupumncf_i(ns_i,0:mpol_i,-ntor_i:ntor_i),               &
      &         bsupvmncf_i(ns_i,0:mpol_i,-ntor_i:ntor_i),               &
+     &         bsubvmncf_i(ns_i,0:mpol_i,-ntor_i:ntor_i),               &
      &         stat=istat)
 
       IF (istat .ne. 0) STOP 'Allocation error in REPACK'
-      rmnc_i = 0;  zmns_i = 0;  bsupumncf_i = 0; bsupvmncf_i = 0
+      rmnc_i = 0;  zmns_i = 0;  bsupumncf_i = 0; bsupvmncf_i = 0 ; bsubvmncf_i =0
 
 !
 !     LOAD n>=0 ONLY FOR M=0
@@ -985,11 +988,14 @@
       &                        + bsupumnc_spline(modes,js)
                bsupvmncf_i(js,m,n1) = bsupvmncf_i(js,m,n1)              &
       &                        + bsupvmnc_spline(modes,js)
+               bsubvmncf_i(js,m,n1) = bsubvmncf_i(js,m,n1)              &
+      &                        + bsubvmnc_spline(modes,js)
             ELSE
                rmnc_i(js,m,-n) = rmnc_spline(modes,js)
                zmns_i(js,m,-n) = zmns_spline(modes,js)
                bsupumncf_i(js,m,-n) = bsupumnc_spline(modes,js)
                bsupvmncf_i(js,m,-n) = bsupvmnc_spline(modes,js)
+               bsubvmncf_i(js,m,-n) = bsubvmnc_spline(modes,js)
             ENDIF
          END DO
       END DO
@@ -1004,10 +1010,12 @@
       bsupumncf_i = nfactor2*bsupumncf_i
       bsupumncf_i(:,0,0) = bsupumncf_i(:,0,0)*nfactor
       bsupvmncf_i = nfactor2*bsupvmncf_i
+      bsubvmncf_i = nfactor2*bsubvmncf_i
       bsupvmncf_i(:,0,0) = bsupvmncf_i(:,0,0)*nfactor
+      bsubvmncf_i(:,0,0) = bsubvmncf_i(:,0,0)*nfactor
 
       DEALLOCATE (rmnc_spline, zmns_spline, bsupumnc_spline,                &
-     &            bsupvmnc_spline, stat=istat)
+     &            bsupvmnc_spline, bsubvmnc_spline, stat=istat)
 
       END SUBROUTINE repack
 
@@ -1572,14 +1580,14 @@
 
 !       Call variables
 
-          integer(4)  :: igl,jgl,kgl
-          integer(4),optional :: order
+          integer     :: igl,jgl,kgl
+          integer   ,optional :: order
 
           real(rprec) :: vmec_arr(ns_i,nu_i,nv_i),local_val
 
 !       Local variables
 
-          integer(4)  :: ordr
+          integer     :: ordr
           real(8)     :: pos(5),val(5)
 
 !       Begin program
@@ -1645,13 +1653,13 @@
 
 !     Input variables
 
-        integer(4) :: igrid,nx,ny,nz
+        integer    :: igrid,nx,ny,nz
         real(8)    :: xcar(0:nx+1,0:ny+1,0:nz+1,3)
         logical    :: metrics
 
 !     Local variables
 
-        integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
+        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
         real(8)    :: r1,z1,ph1,sgn,rr1(0:nx+1),zz1(0:nx+1)   &
      &               ,local_rad(0:nx+1),ds
 
@@ -1834,14 +1842,14 @@
 
 !     Input variables
 
-        integer(4) :: igrid,nx,ny,nz
+        integer    :: igrid,nx,ny,nz
         real(8)    :: jac (0:nx+1,0:ny+1,0:nz+1)            &
      &               ,gsub(0:nx+1,0:ny+1,0:nz+1,3,3)        &
      &               ,gsup(0:nx+1,0:ny+1,0:nz+1,3,3)
 
 !     Local variables
 
-        integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,jkg,m,l
+        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,jkg,m,l
         real(8)    :: sgn,ds
 
 !     Begin program
@@ -1955,13 +1963,18 @@
 
 !      Call variables
 
-        integer(4) :: igrid,nx,ny,nz
+        integer :: igrid,nx,ny,nz
         real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs
 
 !     Local variables
 
-        integer(4) :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
-        real(8)    :: r1,z1,ph1,sgn,jac
+        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
+        real(8) :: r1,z1,ph1,sgn,jac,ds,dum1,dum2,ppi
+
+        real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
+        real(8),allocatable, dimension(:,:,:) :: bsup1,bsup2,bsub3,prsg
+
+        integer :: udcon=1111
 
 !     Begin program
 
@@ -1983,7 +1996,194 @@
 
         call vmec_init_fields
 
-!     Transfer variables (from GLOBAL in VMEC to LOCAL)
+!     DCON dump
+
+        if (dcon .and. my_rank == 0) then
+
+          write (*,*)
+          write (*,*) 'Dumping DCON file with VMEC solution...'
+
+          allocate(pflx(ns_i),ff_i(ns_i),q_i(ns_i))
+
+          !VMEC POLOIDAL flux surface positions (integral of 2*pi*jac*B^2)
+          ds = 1d0/(ns_i-1)
+          ppi = acos(-1d0)
+          pflx(1) = 0d0
+          do i = 2,ns_i
+            pflx(i) = pflx(i-1) + ppi*ds*sqrtg(i,1,1)*(bsupuijcf(i,1,1)+bsupuijcf(i-1,1,1))
+          enddo
+
+          !F factor (R*Bt=B_3)
+          ff_i = bsubvijcf(:,1,1)
+
+          !q-profile
+          q_i = 1d0/iotaf_i
+
+          !DCON dump
+          open(unit=udcon,file='pixie-dcon.bin',form='unformatted',status='unknown')
+
+          !Poloidal plane size
+          write (udcon) nxg,nyg
+
+          write (udcon) pflx      !Poloidal flux
+          write (udcon) ff_i      !R*B_t (flux function)
+          write (udcon) presf_i   !Pressure
+          write (udcon) q_i       !Q-profile
+
+          !R(psi,theta), Z(psi,theta)
+
+          k = 1  !Fix poloidal plane
+          do j=1,nyg/2+1   !Cycle in poloidal angle (only half-plane)
+            write (udcon) rr(:,j,k)
+            write (udcon) zz(:,j,k)
+          enddo
+
+          close (udcon)
+
+!! diag ********
+!!$          nxg = 0 ; nyg = 0
+!!$
+!!$          pflx = 0d0 ; ff_i = 0d0 ; presf_i = 0d0 ; q_i = 0d0
+!!$          rr = 0d0
+!!$          zz = 0d0
+!!$
+!!$          !Check reading
+!!$          write (*,*) 'Reading DCON file...'
+!!$
+!!$          open(unit=udcon,file='dcon.bin',form='unformatted',status='unknown')
+!!$
+!!$          !Poloidal plane size
+!!$          read (udcon) nxg,nyg
+!!$          write (*,*) nxg,nyg
+!!$
+!!$          read (udcon) pflx      !Poloidal flux
+!!$          write (*,*) 'Flux',pflx      !Poloidal flux
+!!$          read (udcon) ff_i      !R*B_t (flux function)
+!!$          write (*,*) 'Bt',ff_i      !R*B_t (flux function)
+!!$          read (udcon) presf_i   !Pressure
+!!$          write (*,*) 'Pres',presf_i   !Pressure
+!!$          read (udcon) q_i       !Q-profile
+!!$          write (*,*) 'Q-prof',q_i       !Q-profile
+!!$
+!!$          !R(psi,theta), Z(psi,theta)
+!!$
+!!$          k = 1  !Fix poloidal plane
+!!$          do j=1,nyg/2+1   !Cycle in poloidal angle (only half-plane)
+!!$            read (udcon) rr(:,j,k)
+!!$            write (*,*) 'R, j=',j,rr(:,j,k)
+!!$            read (udcon) zz(:,j,k)
+!!$            write (*,*) 'Z, j=',j,zz(:,j,k)
+!!$          enddo
+!!$
+!!$          close (udcon)
+!!$
+!!$          stop
+!! diag ********
+
+          deallocate(pflx,ff_i,q_i)
+        endif
+
+!     Find half-mesh PIXIE3D magnetic field components (flux functions)
+
+!!$        allocate(bsup1(0:nxg+1,0:nyg+1,0:nzg+1))
+!!$        allocate(bsup2(0:nxg+1,0:nyg+1,0:nzg+1))
+!!$        allocate(bsub3(0:nxg+1,0:nyg+1,0:nzg+1))
+!!$        allocate(prsg (0:nxg+1,0:nyg+1,0:nzg+1))
+!!$
+!!$        do k=0,nzg+1
+!!$          do j=0,nyg+1
+!!$            do i=0,nxg+1
+!!$               igl = i
+!!$               jgl = j
+!!$               kgl = k
+!!$
+!!$              !Singular point boundary
+!!$              if (i == 0) then
+!!$                jgl = mod(j+nyg/2,nyg)
+!!$                igl = 1
+!!$              endif
+!!$
+!!$              !Periodic boundary in theta (other boundary enforced by symmetry)
+!!$              if (j == 0) jgl = nyg
+!!$
+!!$              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+!!$              sgn = 1d0
+!!$              if (j > nyg/2+1) then
+!!$                 jgl = nyg + 2 - j
+!!$                 sgn = -1d0
+!!$              endif
+!!$
+!!$              !Periodic boundary in phi
+!!$              if (k == 0) kgl = nzg
+!!$              if (k == nzg+1) kgl = 1
+!!$
+!!$              !Interpolate VMEC fields to PIXIE3D's radial mesh
+!!$              call half_to_int(igl,jgl,kgl,bsupsijsf,bsup1(i,j,k))
+!!$              call half_to_int(igl,jgl,kgl,bsupuijcf,bsup2(i,j,k))
+!!$              call half_to_int(igl,jgl,kgl,bsubvijcf,bsub3(i,j,k))
+!!$              call half_to_int(igl,jgl,kgl,presijf  ,prsg (i,j,k))
+!!$
+!!$              !Find flux functions
+!!$              if (load_metrics) then
+!!$                 jac = sqrtg(igl+1,jgl,kgl)
+!!$              else
+!!$                 jac = gmetric%grid(igrid)%jac(i,j,k)
+!!$              endif
+!!$
+!!$              bsup1(i,j,k) = jac*bsup1(i,j,k)
+!!$              bsup2(i,j,k) = jac*bsup2(i,j,k)   !Flux coordinate
+!!$
+!!$            enddo
+!!$          enddo
+!!$        enddo
+!!$
+!!$        !Clean flux functions
+!!$        do k= 0,nzg+1
+!!$        do i=0,nxg+1
+!!$           do j=1,nyg
+!!$              dum1 = dum1 + bsup2(i,j,k)
+!!$              dum2 = dum2 + bsub3(i,j,k)
+!!$           enddo
+!!$           dum1 = dum1/nyg
+!!$           dum2 = dum2/nyg
+!!$
+!!$           bsup2(i,:,k) = dum1
+!!$           bsub3(i,:,k) = dum2
+!!$           
+!!$!           bsup2(
+!!$!              dum = sum(bsup2(i,:,k))/(nyg+2)
+!!$!              bsup2(i,:,k) = dum
+!!$!              dum = sum(bsub3(i,:,k))/(nyg+2)
+!!$!              bsub3(i,:,k) = dum
+!!$          enddo
+!!$        enddo
+!!$        enddo
+!!$
+!!$!     Transfer variables (from GLOBAL in VMEC to LOCAL)
+!!$
+!!$        do k=0,nz+1
+!!$          do j=0,ny+1
+!!$            do i=0,nx+1
+!!$
+!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$
+!!$              !Find global limits
+!!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+!!$
+!!$              b1(i,j,k) = bsup1(igl,jgl,kgl)*0.5/grid_params%xx(ig)   !This correction comes because here
+!!$                                                                 !the variable is x1=sqrt(s), s-> VMEC.
+!!$              b2(i,j,k) = bsup2(igl,jgl,kgl)   !Flux coordinate
+!!$
+!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)                     &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*bsup2(igl,jgl,kgl)  &
+!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)                     &
+!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2                  &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*bsub3(igl,jgl,kgl)
+!!$
+!!$              prs(i,j,k) = prsg(igl,jgl,kgl)
+!!$            enddo
+!!$          enddo
+!!$        enddo
 
         do k=0,nz+1
           do j=0,ny+1
@@ -1995,8 +2195,8 @@
               call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
 
               !Ensures we don't step over physical periodic boundaries
-!!$              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!$                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
+!!              if (    (jgl < 1 .or. jgl > nyg)                       &
+!!                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
 
               !Singular point boundary
               if (igl == 0) then
@@ -2021,7 +2221,8 @@
               !Average to our integer radial mesh (half-mesh in VMEC)
               call half_to_int(igl,jgl,kgl,bsupsijsf,b1 (i,j,k))
               call half_to_int(igl,jgl,kgl,bsupuijcf,b2 (i,j,k))
-              call half_to_int(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
+!!              call half_to_int(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
+              call half_to_int(igl,jgl,kgl,bsubvijcf,b3 (i,j,k))
               call half_to_int(igl,jgl,kgl,presijf  ,prs(i,j,k))
 
               if (load_metrics) then
@@ -2031,12 +2232,12 @@
               endif
 
               !Transform to PIXIE's contravariant representation
-              b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)   !This correction comes because here
-                                                                 !the variable is x1=sqrt(s), s-> VMEC.
-              b2(i,j,k) = jac*b2(i,j,k)
+              b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)  !This correction comes because here
+                                                                !the variable is x1=sqrt(s), s-> VMEC.
+              b2(i,j,k) = jac*b2(i,j,k)   !Flux coordinate
 !!            Cnv component
 !!              b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
-!!            Cov component
+!!            Cov component               !Flux coordinate
               b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
      &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
      &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
@@ -2049,7 +2250,9 @@
 
 !     Free work space (to allow multiple calls to vmec_map for different grid levels)
 
-        DEALLOCATE(bsupuijcf,bsupvijcf, bsupsijsf, presijf,stat=istat)
+        DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
+
+        DEALLOCATE(bsupuijcf,bsupvijcf,bsubvijcf,bsupsijsf,presijf,stat=istat)
         IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
 
         call vmec_cleanup
@@ -2074,8 +2277,9 @@
        USE island_params, ns=>ns_i, ntheta=>nu_i, nzeta=>nv_i,                &
     &          mpol=>mpol_i, ntor=>ntor_i, nuv=>nuv_i, mnmax=>mnmax_i,        &
     &          ohs=>ohs_i, nfp=>nfp_i
-       USE vmec_mod, ONLY: bsupumncf_i,bsupvmncf_i,presf_i                    &
-                          ,bsupuijcf  ,bsupvijcf  ,bsupsijsf,presijf
+       USE vmec_mod, ONLY: bsupumncf_i,bsupvmncf_i,bsubvmncf_i,presf_i        &
+                          ,bsupuijcf  ,bsupvijcf  ,bsubvijcf  ,bsupsijsf      &
+                          ,presijf
        USE fourier, ONLY:  toijsp
 
        IMPLICIT NONE
@@ -2090,7 +2294,8 @@
 
        ALLOCATE (bsupsijsf(ns,ntheta,nzeta)  &
                 ,bsupuijcf(ns,ntheta,nzeta)  &
-                ,bsupvijcf(ns,ntheta,nzeta), stat=istat)
+                ,bsupvijcf(ns,ntheta,nzeta)  &
+                ,bsubvijcf(ns,ntheta,nzeta), stat=istat)
        IF (istat .ne. 0) STOP 'Allocation error in vmec_init_fields'
 
        ALLOCATE(presijf(ns,ntheta,nzeta), stat=istat)
@@ -2102,6 +2307,7 @@
        bsupsijsf = zero                                ! It is zero in VMEC (flux surfaces)
        CALL toijsp (bsupumncf_i, bsupuijcf, 0, 0, 0, 0)
        CALL toijsp (bsupvmncf_i, bsupvijcf, 0, 0, 0, 0)
+       CALL toijsp (bsubvmncf_i, bsubvijcf, 0, 0, 0, 0)
 
        DO jk = 1, ns
          presijf(jk,:,:) =  presf_i(jk)                ! Init pressure
