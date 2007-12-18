@@ -159,6 +159,10 @@ c Call variables
 
 c Local variables
 
+        character(30) :: ft_file
+        integer :: uft=2345
+        logical :: tor
+
 c Begin program
 
         if (.not.isProcessor) return
@@ -170,6 +174,30 @@ c Finalize time traces output (separator)
 c Close time traces file
 
         close(unit=ulineplot)
+
+c Poincare output (field tracer)
+
+#if !defined(petsc)
+        write (*,*)
+        write (*,*) 'Dumping Poincare file...'
+        ft_file = 'poincare.bin'
+        open(unit=uft,file=trim(ft_file)
+     .      ,status='unknown',form='unformatted')
+
+        tor = (coords == 'vmc' .or. coords == 'tor')
+
+        write (uft) nxd,nyd,nzd,bcond,tor
+        write (uft) grid_params%xx(1:nxd+2)
+        write (uft) grid_params%yy(1:nyd+2)
+        write (uft) grid_params%zz(1:nzd+2)
+        write (uft) u_np%array_var(IBX)%array
+        write (uft) u_np%array_var(IBY)%array
+        write (uft) u_np%array_var(IBZ)%array
+        write (uft) gmetric%grid(1)%jac
+        write (uft) gmetric%grid(1)%car
+
+        close(uft)
+#endif
 
 c End program
 
