@@ -58,14 +58,16 @@ c Local variables
       real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
-     $                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
+     .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
      .                ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
      .                ,jz0 (0:nxdp),bth0_old(0:nxdp)
      .                ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
-     .                ,dum(klom:khip,2),ldum(klom:khip,2)
+     .                ,dum (ilom:ihip,2)
+     .                ,ldum(ilom:ihip,2)
+     $                ,r2  (ilom:ihip,jlom:jhip)
 
       real(8)       :: a(ilom:ihip,jlom:jhip,klom:khip,3)
 
@@ -591,7 +593,7 @@ c     GEM challenge
 
         p0     = grid_params%params(1)
         eps    = grid_params%params(2)
-        dlambda = (ymax-ymin)/2./pi/2.
+        dlambda = (ymax-ymin)/4./pi
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
@@ -1515,67 +1517,84 @@ c     Read VMEC equilibrium
         call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
 
-c     Clean up toroidal magnetic field component
+c     Clean up flux surface quantities
 
-        !Transform to covariant
-cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-cc     .                    ,'cnv','cov')
-
-        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
-        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
-        do i = ilo,ihi
-          dum = 0
-          do j = jlo,jhi
-
-cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
-
-            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
-     .                           /gmetric%grid(igx)%jac(i,j,:)
-            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
-          enddo
-
-#if defined(petsc)
-          ldum = dum
-          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
-     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
-#endif
-
-          dum = dum/nyd         !Average
-
-          do j = jlo,jhi
-            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-cc            var(i,j,:,IBZ) = dum  !For covariant B_3
-            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
-     .                              /(x1**2+y1**2)
-            var(i,j,:,IBY) = dum(:,1)
+        k = klo   !Fix k slice
+        !Find R^2
+        do i = ilom,ihip
+          do j = jlom,jhip
+            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                  ,x1,y1,z1)
+            r2(i,j) = x1**2+y1**2
           enddo
         enddo
 
-cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-cc     .                    ,'cov','cnv')
+cc        do k = klom,khip
+        !Average in j as a function of i (for a single k slice per processor)
+        dum = 0
+        do j = jlo,jhi
+          dum(:,2) = dum(:,2) + var(:,j,k,IBZ)*r2(:,j)
+     .                         /gmetric%grid(igx)%jac(:,j,k)
+          dum(:,1) = dum(:,1) + var(:,j,k,IBY)
+        enddo
 
-cc        !Divergence clean
-cc        call curl_inv(nx,ny,nz,igx,igy,igz,var(:,:,:,IBX:IBZ),a)
-cc
-cc        do k = klo,khi
-cc          do j = jlo,jhi
-cc            do i = ilo,ihi
-cccc              var(i,j,k,IBX:IBZ)=curl(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                               ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3))
-cc              var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-cc              var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                            ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
-cc            enddo
-cc          enddo
-cc        enddo
+#if defined(petsc)
+        ldum = dum
+        call MPI_Allreduce(ldum,dum,2*(nx+2),MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
+#endif
+        dum = dum/nyd           !Average in j
+
+        !Fill flux (j,k) surfaces
+        do k = klom,khip
+           do j = jlom,jhip
+              var(:,j,k,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(:,j,k)
+     $                                 /r2(:,j)
+              var(:,j,k,IBY) = dum(:,1)
+           enddo
+        enddo
+
+c$$$        !Transform to covariant
+c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+c$$$cc     .                    ,'cnv','cov')
+c$$$
+c$$$        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
+c$$$        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
+c$$$        do i = ilom,ihip
+c$$$          dum = 0
+c$$$          do j = jlo,jhi
+c$$$
+c$$$cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
+c$$$
+c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+c$$$     .                                    ,x1,y1,z1)
+c$$$            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
+c$$$     .                           /gmetric%grid(igx)%jac(i,j,:)
+c$$$            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
+c$$$          enddo
+c$$$
+c$$$#if defined(petsc)
+c$$$          ldum = dum
+c$$$          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
+c$$$     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
+c$$$#endif
+c$$$
+c$$$          dum = dum/nyd         !Average
+c$$$
+c$$$          do j = jlo,jhi
+c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+c$$$     .                                    ,x1,y1,z1)
+c$$$cc            var(i,j,:,IBZ) = dum  !For covariant B_3
+c$$$            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
+c$$$     .                              /(x1**2+y1**2)
+c$$$            var(i,j,:,IBY) = dum(:,1)
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+c$$$cc     .                    ,'cov','cnv')
 
 #else
         call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
@@ -1586,6 +1605,7 @@ cc        enddo
      .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
+        var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p   !Transform to temperature
 #endif
 
       case ('tor')
@@ -1698,7 +1718,7 @@ c Transfer electric field info to postprocessor via input file
 
         if (ierr /= 0) then  !Replace E0
           command='sed -e"/graphdef/{" -e' // achar(39)
-#if defined(pgf90)
+#if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
 #else
      .       // 'a\' // achar(39) //' -e"'
@@ -1707,7 +1727,7 @@ c Transfer electric field info to postprocessor via input file
      .       // trim(inputfile) // ' > temp'
         else                 !Add E0
           command='sed -e"/E0/{" -e' // achar(39)
-#if defined(pgf90)
+#if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
 #else
      .       // 'c\' // achar(39) //' -e"'
