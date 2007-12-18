@@ -464,7 +464,7 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(10)%descr = 'avrgd lambda'
 
       graph(4)%array_graph(11)%array => p_tot
-      graph(4)%array_graph(11)%descr = 'Total pressure'
+      graph(4)%array_graph(11)%descr = 'Pressure'
 
       graph(4)%array_graph(12)%array => vpar
       graph(4)%array_graph(12)%descr = 'V||'
