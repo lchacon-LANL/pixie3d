@@ -39,7 +39,7 @@ endif
 ifeq ($(HOST),ra4)
   PETSC_DIR =/ricercatori/ft/petsc-2.2.0
   HDF5_HOME =
-  CPPFLAGS += -DRFX
+  CPPFLAGS += $(PREPROC)RFX
 endif
 
 ifeq ($(HOST),cayenne1)
@@ -246,7 +246,7 @@ ifeq ($(FC),ftn)
   MODFLAG      = -module 
   ADDMODFLAG   = -module 
   VERBOSE      = -v
-  CPPFLAGS    += -Dpgf90
+  CPPFLAGS    += $(PREPROC)pgf90
 
   ifdef BOPT
     include ${PETSC_DIR}/bmake/common/base
