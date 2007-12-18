@@ -34,7 +34,7 @@ c Local variables
 
       integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
-      real(8)    :: dh,vmax,cnv(3),minrho,mintmp
+      real(8)    :: dh,vmax,cnv(3),minrho,mintmp,lrmin,ltmin
      .             ,pe(ilom:ihip,jlom:jhip,klom:khip)
 
 c Interfaces
@@ -61,8 +61,6 @@ c Impose boundary conditions and find auxiliary quantities
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
 
-cc      write (*,*) 'DIAG -- setupNLF'
-
 c Set aliases
 
       rho => varray%array_var(IRHO)%array
@@ -82,14 +80,13 @@ c Set aliases
 
 c Safeguards
 
+      !Mass density positivity
+      minrho = minval(rho(1:nx,1:ny,1:nz))
+
 #if defined(petsc)
-      call MPI_Allreduce(minval(rho),minrho,1,MPI_REAL8,MPI_MIN
-     .                    ,MPI_COMM_WORLD,mpierr)
-      call MPI_Allreduce(minval(tmp),mintmp,1,MPI_REAL8,MPI_MIN
-     .                    ,MPI_COMM_WORLD,mpierr)
-#else
-      minrho = minval(rho)
-      mintmp = minval(tmp)
+      lrmin = minrho
+      call MPI_Allreduce(lrmin,minrho,1
+     .                  ,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
 #endif
 
       if (minrho < 0d0) then
@@ -99,9 +96,19 @@ c Safeguards
      .             'Warning: negative densities are occurring')
       endif
 
+      !Temperature positivity (enforce)
+      mintmp = minval(tmp(1:nx,1:ny,1:nz))
+
+#if defined(petsc)
+      ltmin = mintmp
+      call MPI_Allreduce(ltmin,mintmp,1
+     .                  ,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#endif
+
       if (mintmp < 0d0) then
         close (urecord) !Close record file before exiting
-        if (my_rank == 0) write (*,*) 'tmp=',mintmp
+        write(*,*)'proc=',my_rank,'tmp=',ltmin,'loc='
+     $            ,minloc(tmp(1:nx,1:ny,1:nz))
         call pstop('setupNonlinearFunction',
      .             'Warning: negative temperatures are occurring')
       endif
@@ -183,8 +190,7 @@ cc        vlap_a = -jcov
             do i=1,nx
 cc              vlap_a(i,j,k,:) =
 cc       .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-              cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,ax,ay,az
-     .                     ,vol=.false.)
+              cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
               call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .             ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
      .             ,cnv(1),cnv(2),cnv(3),.false.)
