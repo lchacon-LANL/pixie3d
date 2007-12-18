@@ -34,7 +34,7 @@ c Call variables
 
 c Local variables
 
-      integer       :: dim(1),loc(1)
+      integer       :: dim(1),loc(1),ioerr
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)       :: prndtl,hrtmn,temp_ratio
       character*(3) :: bcs(6)
@@ -42,8 +42,9 @@ c Local variables
 
       logical       :: nc_eom_f
 
-c Namelist
+c Namelists
 
+      !Old namelist, for backward compatibility
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz
@@ -59,11 +60,43 @@ c Namelist
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
      .                   ,asm_PC
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
-     .                   ,ndstep,sm_flag,sm_pass,predictor
+     .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,k_si,solve_rho,advect,sym_st,adiabatic
-     .                ,inputfile,recordfile,equ_file
+     .                ,inputfile,recordfile,equ_file,dcon
+
+      !Problem setup
+      namelist /setup/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+     .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
+     .                   ,npx,npy,npz,gp1,gp2,gp3,equ_file
+
+      !Physics setup
+      namelist /phys/  nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
+     .                   ,nn_eta,aa_eta,c_hyper
+     .                   ,equil,dlambda,rshear,vparflow,vperflow
+
+      !Spatial discretization
+      namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
+     .                   ,solve_rho,advect,sym_st,adiabatic
+
+      !Temporal discretization
+      namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
+     .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
+     .                   ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,odd,random,source,k_si
+
+      !Newton-Krylov
+      namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
+     .                   ,maxitgm,global,method,damp,dt0,vol_wgt
+
+      !Preconditioner
+      namelist /pc/    precon,maxvcyc,nsweep,mgtol,iguess,precpass
+     .                   ,asm_PC,iguess
+
+      !I/O
+      namelist /io/    ilevel,debug,debug_it,check_grid
+     .                ,recordfile,dcon,chk_src
 
 c ******************************************************************
 
@@ -264,12 +297,44 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
       prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
 
+      dcon       = .false.     ! If using VMEC input, whether to dump DCON output
+
 c Read initialization parameters
 
       inputfile  ='pixie3d.in' ! Default input file
 
       open(unit=uinput,file=inputfile,status='old')
-      read(uinput,datin)
+
+      read(uinput,datin,iostat=ioerr)    !Compatibility mode
+
+      if (ioerr /= 0) then
+        !Reopen input file
+        close(unit=uinput)
+        open(unit=uinput,file=inputfile,status='old')
+
+        ioerr = 0
+        read(uinput,setup,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
+
+        read(uinput,phys,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
+
+        read(uinput,fv,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
+
+        read(uinput,ts,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
+
+        read(uinput,nks,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
+
+        read(uinput,pc,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
+
+        read(uinput,io,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "io"')
+      endif
+
       close(unit=uinput)
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
@@ -376,9 +441,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: i
+      integer    :: i,ioerr
 
+      !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
+     .                   ,prof_conf,cont_conf,clean,E0
+     .                   ,iplot,jplot,kplot
+
+
+      namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0
      .                   ,iplot,jplot,kplot
 
@@ -416,7 +487,17 @@ c Graphics defaults
 c Read graphics initialization parameters
 
       open(unit=uinput,file=inputfile,status='old')
-      read(uinput,graphdef)
+
+      read(uinput,graphdef,iostat=ioerr)
+      if (ioerr /= 0) then
+        close(uinput)
+        open(unit=uinput,file=inputfile,status='old')
+        read(uinput,plots,iostat=ioerr)
+        if (ioerr /= 0) then
+          write (*,*) 'Problem reading "plots"' ; stop
+        endif
+      endif
+
       close(unit=uinput)
 
 c End program
