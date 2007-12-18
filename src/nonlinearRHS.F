@@ -20,6 +20,10 @@ c-----------------------------------------------------------------
 
       use equilibrium
 
+#if defined(petsc) && !defined(petsc_c)
+      use nk_mod
+#endif
+
       implicit none
 
 c Call variables
@@ -243,6 +247,7 @@ c       Heat flux
 
 c       Heat sources
 
+cc        if ((.not.adiabatic).and.(chi/= 0d0)) then
         if (.not.adiabatic) then
           !Joule heating
           joule = eeta(i,j,k)*( jcnv(i,j,k,1)*jcov(i,j,k,1)
@@ -308,11 +313,6 @@ c     EOM
      .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
         enddo
 
-        cnv = cnv
-     .      - veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
-     .                    ,alt_eom,nuu,vol=.false.)
-     .       /rho(i,j,k)
-
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
       else
@@ -324,6 +324,24 @@ c     EOM
      .                          ,vol=.false.)
         nullify(vec1,vec2)
       endif
+
+      !Diffusion
+      if (nu /= 0d0) then
+        vec1 => vcnv
+        cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                  ,eom_diff_x,eom_diff_y,eom_diff_z
+     .                  ,vol=.false.)
+        nullify(vec1)
+      endif
+
+      ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+
+c Special case: source
+
+cc      if (jit==-2 .and. (coords == 'vmc' .or. coords == 'tor')) then
+cccc         write (*,*) 'DIAG -- nonlinearRHS'
+cc         ff(IRHO) = 0d0 ; ff(ITMP) = 0d0 !; ff(IVX:IVZ) = 0d0
+cc      endif
 
 c End
 
