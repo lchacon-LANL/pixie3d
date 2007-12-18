@@ -1,6 +1,6 @@
 c output
 c######################################################################
-      subroutine output
+      subroutine output(varr)
 
 c----------------------------------------------------------------------
 c     Writes program output to standard output
@@ -26,6 +26,8 @@ c----------------------------------------------------------------------
 
 c Call variables
 
+      type(var_array),pointer :: varr
+
 c Local variables
 
       integer       :: ngrd(3)
@@ -40,9 +42,9 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      vx_max = maxval(abs(u_np%array_var(IVX)%array))
-      vy_max = maxval(abs(u_np%array_var(IVY)%array))
-      vz_max = maxval(abs(u_np%array_var(IVZ)%array))
+      vx_max = maxval(abs(varr%array_var(IVX)%array))
+      vy_max = maxval(abs(varr%array_var(IVY)%array))
+      vz_max = maxval(abs(varr%array_var(IVZ)%array))
 
 #if defined(petsc)      
       lvx_max = vx_max
