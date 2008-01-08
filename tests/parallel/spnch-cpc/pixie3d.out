@@ -1,5 +1,5 @@
-Processor:  1; Grid limits: 17 32  1 32  1  1
-Processor:  0; Grid limits:  1 16  1 32  1  1
+Processor:   0; Grid limits:    1   16    1   32    1    1
+Processor:   1; Grid limits:   17   32    1   32    1    1
  
  ***********************************************
  ****** PIXIE3D Extended MHD code, V. 0.9 ******
@@ -38,7 +38,3 @@ Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt  Whst/GMRES
    10       3.2        3.3        1.0        0.0
-rank 1 in job 261  moscato.lanl.gov_38714   caused collective abort of all ranks
-  exit status of rank 1: return code 0 
-rank 0 in job 261  moscato.lanl.gov_38714   caused collective abort of all ranks
-  exit status of rank 0: return code 0 
