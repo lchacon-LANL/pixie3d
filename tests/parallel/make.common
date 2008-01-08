@@ -6,7 +6,7 @@ NP=2
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-PAREXEC=$(MPI_HOME)/bin/mpirun -np $(NP) $(EXEC) -snes_mf 
+PAREXEC=$(MPI_HOME)/bin/mpirun -np $(NP) $(EXEC) $(SNES_OPT) -test 
 
 #Define targets
 
