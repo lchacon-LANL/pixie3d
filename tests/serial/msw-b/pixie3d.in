@@ -1,0 +1,61 @@
+ &datin
+    ilevel   = 0
+
+    nxd      = 32
+    nyd      = 32
+    nzd      = 1
+
+    xmax     = 1.
+    ymax     = 1.
+    zmax     = 1.
+
+    bcs      = 'per','per','per','per','per','per'
+
+    eta      = 0d-2
+    nu       = 0d-3
+    dd       = 0d-3
+    chi      = 0d-2
+    
+    equil    = 'msw'
+
+    coords   = 'car'
+
+    vperflow = 0.
+    gamma    = 1d0
+
+    dt       = .01
+    tmax     = .1
+    dstep    = .1
+
+    prho     = 1d-3
+    pbz      = 1d-3
+    pvx      = -0d-3
+    pvy      = -0d-3
+
+    cnfactor = 0.5 
+
+    rtol     = 1d-8
+
+    restart  = f
+    timecorr = f
+
+    source   = f
+
+    nc_eom_v = f
+    nc_eom_f = f
+
+    debug    = f
+
+    precon   = 'id'
+ /
+
+&graphdef
+    sel_diag  = 1,2,3,7,15,16,17,18,19
+    sel_graph = 1,2,3,4,5,6,7,8,11
+    dplot = 1d-2
+    prof_conf = 1,'x',1,10,1
+    cont_conf = 3,'x','y',1,1,1
+    iplot = 64
+    jplot = 1
+    kplot = 1
+ /
