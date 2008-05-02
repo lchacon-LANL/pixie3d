@@ -21,6 +21,8 @@ c     -----------------------------------------------------------------
 
       use equilibrium
 
+      use transport_params
+
       implicit none
 
 c     Call variables
@@ -74,11 +76,55 @@ c     Begin program
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
-              jac = gmetric%grid(igx)%jac(i,j,k)
-              if (ieq == 1) jac = 1d0
-              array(i,j,k) = array(i,j,k)
-     .                     + jac*perturb*cos(2*pi*(x1-xmin)/(xmax-xmin)
-     .                                      +2*pi*(y1-ymin)/(ymax-ymin))
+cc              jac = gmetric%grid(igx)%jac(i,j,k)
+cc              if (ieq == IRHO) jac = 1d0
+              jac = 1d0
+              if (ieq == IRHO) then
+                array(i,j,k) = array(i,j,k)
+     .                       + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+     .                                 +2*pi*(y1-ymin)/(ymax-ymin))
+#if defined(vec_pot) 
+              elseif (ieq == IAY) then
+                array(i,j,k) = array(i,j,k)
+     .                     + jac*1d-3*(xmax-xmin)/2./pi
+     .                          *sin(2*pi*(x1-xmin)/(xmax-xmin)
+     .                              +2*pi*(y1-ymin)/(ymax-ymin))
+#else
+              elseif (ieq == IBZ) then
+                array(i,j,k) = array(i,j,k)
+     .                     + jac*1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
+     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
+#endif
+              endif
+            enddo
+          enddo
+        enddo
+
+      case ('whslr')
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+#if !defined(vec_pot) 
+              if (ieq == IBY) then
+                array(i,j,k) = array(i,j,k)
+     .                       + 1d-3*cos(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+c$$$              elseif (ieq == IBZ) then   !This sets a traveling wave
+c$$$                array(i,j,k) = array(i,j,k)
+c$$$     .                       + 1d-3*sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+#else
+              if (ieq == IAZ) then
+                array(i,j,k) = array(i,j,k)
+     .                       - 1d-3*(xmax-xmin)/2./pi/nh1
+     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+#endif
+              elseif (ieq == IVY) then
+                array(i,j,k) = array(i,j,k)
+     .                       - 1d-3*(xmax-xmin)/2./pi/nh1/di
+     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+              endif
             enddo
           enddo
         enddo
@@ -260,7 +306,7 @@ c     Local variables
 
 c     Begin program
 
-      if (ieq == IBX .or. ieq == IBY .or. ieq == IBZ) return
+cc      if (ieq == IBX .or. ieq == IBY .or. ieq == IBZ) return
 
       igx = 1
       igy = 1
@@ -286,6 +332,8 @@ c     Read perturbation file
       enddo
 
       close (111)
+
+      ii = -ii
 
 c     Find perturbations
 
