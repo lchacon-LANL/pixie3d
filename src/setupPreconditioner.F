@@ -59,13 +59,13 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-cc      si_car = .false.
+cc      si_car = .true.
+cc      mg_glrkin = .true.
 cc      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)
-      if (si_car) then
-        si_car = .not.(coords == 'car')
-cc        mg_glrkin = si_car
-        mg_glrkin = .false.
-      endif
+cc      if (si_car) then
+cc        si_car = .not.(coords == 'car')
+cccc        mg_glrkin = si_car
+cc      endif
 
 c Unpack vector x
 
@@ -135,17 +135,17 @@ c Find required diagonals in all grids
         form_diag = .true.
 
         call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
-     .                   ,rho_diag,ncolors,vol_wgt,.false.)
+     .                   ,rho_diag,ncolors,vol_wgt,mg_glrkin)
 
         call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
-     .                   ,tmp_diag,ncolors,vol_wgt,.false.)
+     .                   ,tmp_diag,ncolors,vol_wgt,mg_glrkin)
 
 #if !defined(vec_pot)
         call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
-     .                   ,b_diag,ncolors,vol_wgt,.false.)
+     .                   ,b_diag,ncolors,vol_wgt,mg_glrkin)
 #else
         call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                   ,a_diag,ncolors,vol_wgt,.false.)
+     .                   ,a_diag,ncolors,vol_wgt,mg_glrkin)
 #endif
 
         if (.not.gm_smooth) then
@@ -156,8 +156,7 @@ cc              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
 cc     .                       ,v_diag,1,vol_wgt,mg_glrkin)
 cc            else
               call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-cc     .                       ,v_diag,ncolors,vol_wgt,si_car)
-     .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
+     .                         ,v_diag,ncolors,vol_wgt,mg_glrkin)
 cc            endif
           elseif (precon == 's2') then
 cc           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
@@ -260,6 +259,9 @@ cc      enddo
 cc      close(110)
 cc
 cc      deallocate(v_mat)
+cc
+cc      write (*,*) 'Done!'
+cc
 cccc      stop
 cc      endif
 c diag *****
