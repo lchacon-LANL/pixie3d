@@ -445,12 +445,12 @@ c Local variables
 
       !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean,E0
+     .                   ,prof_conf,cont_conf,clean,E0,B0
      .                   ,iplot,jplot,kplot
 
 
       namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean,E0
+     .                   ,prof_conf,cont_conf,clean,E0,B0
      .                   ,iplot,jplot,kplot
 
 c Begin program
