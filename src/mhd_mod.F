@@ -33,8 +33,8 @@ c ######################################################################
 
         use equilibrium
 
-        real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,di,a_p,heta=0d0
-     $            ,aa_eta,c_hyper
+        real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,B0(3)=0d0,di,a_p
+     .            ,heta=0d0,aa_eta,c_hyper
 
         integer :: nn_eta
 
