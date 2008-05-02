@@ -110,21 +110,21 @@ c Find perturbed quantities (u_graph = varray - u_ic)
 
 c Assignments
 
-      bx_cov = bcov(:,:,:,1)
-      by_cov = bcov(:,:,:,2)
-      bz_cov = bcov(:,:,:,3)
-
       jx = jcnv(:,:,:,1)
       jy = jcnv(:,:,:,2)
       jz = jcnv(:,:,:,3)
 
-      jx_cov = jcov(:,:,:,1)
-      jy_cov = jcov(:,:,:,2)
-      jz_cov = jcov(:,:,:,3)
-
       vx = vcnv(:,:,:,1)
       vy = vcnv(:,:,:,2)
       vz = vcnv(:,:,:,3)
+
+      bx_cov = bcov(:,:,:,1)
+      by_cov = bcov(:,:,:,2)
+      bz_cov = bcov(:,:,:,3)
+
+      jx_cov = jcov(:,:,:,1)
+      jy_cov = jcov(:,:,:,2)
+      jz_cov = jcov(:,:,:,3)
 
       vx_cov = vcov(:,:,:,1)
       vy_cov = vcov(:,:,:,2)
@@ -134,6 +134,10 @@ c Assignments
       ax_cnv = acnv(:,:,:,1)
       ay_cnv = acnv(:,:,:,2)
       az_cnv = acnv(:,:,:,3)
+
+      bx = bcnv(:,:,:,1)
+      by = bcnv(:,:,:,2)
+      bz = bcnv(:,:,:,3)
 #endif
 
 c Find Cartesian components of ALL vectors
