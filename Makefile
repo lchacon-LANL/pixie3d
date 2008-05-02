@@ -101,7 +101,7 @@ endif
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
 #  DEBUG        = -g --chkglobal --warn --f95
-  DEBUG        = -g --chk ase --warn --f95
+  DEBUG        = -g --chk ase --warn --f95 --trap
 #  DEBUG        = -g --f95
   PROFILE      =
   STATIC       = 
@@ -158,7 +158,7 @@ endif
 # Flags for Intel ifort
 ifeq ($(FC),g95)
   OPTIMIZATION = -O2
-  DEBUG = -g
+  DEBUG        = -g -fbounds-check -ftrace=full
 #  DEBUG        = -g -check -traceback
   PROFILE      = -pg
   STATIC       =
