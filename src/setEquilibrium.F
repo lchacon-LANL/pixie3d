@@ -165,21 +165,25 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
           enddo
         enddo
 #else
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+        B0(3) = 1d0
 
-              var(i,j,k,IAX)  = 0d0
-              var(i,j,k,IAY)  = x1
-              var(i,j,k,IAZ)  = 0d0
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IAX:IAZ) = 0d0
+
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              var(i,j,k,IAX)  = 0d0
+cc              var(i,j,k,IAY)  = x1
+cc              var(i,j,k,IAZ)  = 0d0
+cc            enddo
+cc          enddo
+cc        enddo
 #endif
 
-      case ('mswsn') !Magnetosonic wave
+      case ('mswsn') !Magnetosonic wave in sinusoidal geometry
 
         gamma = 1d0
 
@@ -227,6 +231,55 @@ cc
 cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
 cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('whslr') !Whistler wave
+
+        gamma = 1d0
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Uniform medium with constant magnetic field in cartesian coordinates
+
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d0
+
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+
+              var(i,j,k,IBX)  = 1d0
+              var(i,j,k,IBY)  = 0d0
+              var(i,j,k,IBZ)  = 0d0
+            enddo
+          enddo
+        enddo
+#else
+        B0(1) = 1d0
+
+        var(:,:,:,IAX:IAZ) = 0d0
+
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              var(i,j,k,IAX)  = 0d0
+cc              var(i,j,k,IAY)  = x1
+cc              var(i,j,k,IAZ)  = 0d0
+cc            enddo
+cc          enddo
+cc        enddo
 #endif
 
       case ('khcar')
@@ -1742,6 +1795,44 @@ c Transfer electric field info to postprocessor via input file
         ierr = system(trim(command))
       endif
 
+c Transfer magnetic field info to postprocessor via input file
+
+      if (sum(B0) /= 0d0 .and. my_rank == 0) then
+
+        command = 'grep B0 ' // trim(inputfile) // ' > /dev/null'
+        ierr = system(trim(command))
+
+        write (command,*) '   B0 =',real(B0(1),4)
+     .                         ,',',real(B0(2),4)
+     .                         ,',',real(B0(3),4)
+
+
+        if (ierr /= 0) then  !Replace B0
+          command='sed -e"/graphdef/{" -e' // achar(39)
+#if defined(pgf90) || defined(xlf)
+     .       // 'a\\' // achar(39) //' -e"'
+#else
+     .       // 'a\' // achar(39) //' -e"'
+#endif
+     .       // trim(command)   // '" -e"}" '
+     .       // trim(inputfile) // ' > temp'
+        else                 !Add B0
+          command='sed -e"/B0/{" -e' // achar(39)
+#if defined(pgf90) || defined(xlf)
+     .       // 'c\\' // achar(39) //' -e"'
+#else
+     .       // 'c\' // achar(39) //' -e"'
+#endif
+     .       // trim(command)   // '" -e"}" '
+     .       // trim(inputfile) // ' > temp'
+        endif
+
+        ierr = system(trim(command))
+
+        command = 'mv temp ' // trim(inputfile)
+        ierr = system(trim(command))
+      endif
+
 c End program
 
       contains
@@ -2090,7 +2181,7 @@ c Restrict solution to current domain
       a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
      .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
 
-c Impose topological constraints and find a_cnv
+c Impose **topological constraints** and find a_cnv
 
       bcnd(:,1) = bcond
       bcnd(:,2) = bcond
