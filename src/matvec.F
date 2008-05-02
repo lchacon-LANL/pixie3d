@@ -428,6 +428,10 @@ c Map velocity components
 
 c Calculate matrix-vector product
 
+cc      write (*,*) 'DIAG -- rho_mtvc'
+cc     .            ,igrid,imin,imax,jmin,jmax,kmin,kmax
+cc     .            ,nnx,nny,nnz
+
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
@@ -484,7 +488,6 @@ cc     .                          ,drho(:,:,:,1),vol=vol_wgt)
             endif
 
             y(ijk) = cnp*drho(i,j,k,1)/dt*dvol + alpha*(upwind - dd*lap)
-
           enddo
         enddo
       enddo
@@ -1924,11 +1927,109 @@ c     #############################################################
 
       implicit none
 
-      real(8) :: coeff
+      integer :: ig,jg,kg
+      real(8) :: coeff,jac,dxx,dyy,dzz,ijac
+     .          ,j0_cnv(3),acnv(3)
+     .          ,acnvip(3),acnvim(3)
+     .          ,acnvjp(3),acnvjm(3)
+     .          ,acnvkp(3),acnvkm(3)
+     .          ,acovip(3),acovim(3)
+     .          ,acovjp(3),acovjm(3)
+     .          ,acovkp(3),acovkm(3)
 
-      cnv = div_tensor2(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
-cc      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,.true.
-     .                ,tensor_x,tensor_y,tensor_z,vol=.false.)
+      if (nc_eom_jxb) then
+cc      if (.false.) then
+        call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
+
+        jac = gmetric%grid(igr)%jac(i,j,k)
+        ijac = 1./jac
+
+        dxx = dxh(ig)
+        dyy = dyh(jg)
+        dzz = dzh(kg)
+
+        j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .               ,b0_cov(:,:,:,1)
+     .               ,b0_cov(:,:,:,2)
+     .               ,b0_cov(:,:,:,3))
+
+        acnv =
+     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,0)
+
+        acnvip =
+     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,1)
+        acnvim =
+     .      vecA(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,1)
+
+        acnvjp =
+     .      vecA(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,2)
+        acnvjm =
+     .      vecA(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,2)
+
+        acnvkp =
+     .      vecA(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,3)
+        acnvkm =
+     .      vecA(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,3)
+
+        call transformFromCurvToCurv(i,j,k,igr,igr,igr
+     .                        ,acovip(1),acovip(2),acovip(3)
+     .                        ,acnvip(1),acnvip(2),acnvip(3)
+     .                        ,.false.,half_elem=1)
+
+        call transformFromCurvToCurv(i-1,j,k,igr,igr,igr
+     .                        ,acovim(1),acovim(2),acovim(3)
+     .                        ,acnvim(1),acnvim(2),acnvim(3)
+     .                        ,.false.,half_elem=1)
+
+        call transformFromCurvToCurv(i,j,k,igr,igr,igr
+     .                        ,acovjp(1),acovjp(2),acovjp(3)
+     .                        ,acnvjp(1),acnvjp(2),acnvjp(3)
+     .                        ,.false.,half_elem=2)
+
+        call transformFromCurvToCurv(i,j-1,k,igr,igr,igr
+     .                        ,acovjm(1),acovjm(2),acovjm(3)
+     .                        ,acnvjm(1),acnvjm(2),acnvjm(3)
+     .                        ,.false.,half_elem=2)
+
+        call transformFromCurvToCurv(i,j,k,igr,igr,igr
+     .                        ,acovkp(1),acovkp(2),acovkp(3)
+     .                        ,acnvkp(1),acnvkp(2),acnvkp(3)
+     .                        ,.false.,half_elem=3)
+
+        call transformFromCurvToCurv(i,j,k-1,igr,igr,igr
+     .                        ,acovkm(1),acovkm(2),acovkm(3)
+     .                        ,acnvkm(1),acnvkm(2),acnvkm(3)
+     .                        ,.false.,half_elem=3)
+
+        cov(1) =-b0_cnv(i,j,k,2)*( (acovip(2)-acovim(2))/dxx
+     .                            -(acovjp(1)-acovjm(1))/dyy)
+     .          -b0_cnv(i,j,k,3)*( (acovip(3)-acovim(3))/dxx
+     .                            -(acovkp(1)-acovkm(1))/dzz)
+     .          +(j0_cnv(2)*acnv(3)-j0_cnv(3)*acnv(2))
+
+        cov(2) =-b0_cnv(i,j,k,1)*( (acovjp(1)-acovjm(1))/dyy
+     .                            -(acovip(2)-acovim(2))/dxx)
+     .          -b0_cnv(i,j,k,3)*( (acovjp(3)-acovjm(3))/dyy
+     .                            -(acovkp(2)-acovkm(2))/dzz)
+     .          +(j0_cnv(3)*acnv(1)-j0_cnv(1)*acnv(3))
+
+        cov(3) =-b0_cnv(i,j,k,1)*( (acovkp(1)-acovkm(1))/dzz
+     .                            -(acovip(3)-acovim(3))/dxx)
+     .          -b0_cnv(i,j,k,2)*( (acovkp(2)-acovkm(2))/dzz
+     .                            -(acovjp(3)-acovjm(3))/dyy)
+     .          +(j0_cnv(1)*acnv(2)-j0_cnv(2)*acnv(1))
+
+        cov = cov*ijac
+
+        call transformFromCurvToCurv(i,j,k,igr,igr,igr
+     .                              ,cov(1),cov(2),cov(3)
+     .                              ,cnv(1),cnv(2),cnv(3),is_cnv)
+
+
+      else
+        cnv = div_tensor2(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
+     .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
+      endif
 
       coeff = (alpha**2/cnp + k_si*alpha)
 
@@ -2563,7 +2664,7 @@ cc      else
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
-cc      endif
+cccc      endif
 
 c Calculate matrix-vector product
 
