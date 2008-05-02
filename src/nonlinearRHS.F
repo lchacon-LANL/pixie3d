@@ -218,6 +218,11 @@ cc     .                        ,.false.)
 
 c     Temperature
 
+      nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vcnv(:,:,:,1)
+     .                  ,vcnv(:,:,:,2)
+     .                  ,vcnv(:,:,:,3),0)
+
       if (gamma == 1d0) then
 
         ff(ITMP) = 0d0
@@ -255,11 +260,6 @@ cc        if ((.not.adiabatic).and.(chi/= 0d0)) then
      .                         +jcnv(i,j,k,3)*jcov(i,j,k,3) )/jac
 
           !Viscous heating
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-     .                      ,vcnv(:,:,:,1)
-     .                      ,vcnv(:,:,:,2)
-     .                      ,vcnv(:,:,:,3),0)
-
           cov_tnsr = matmul(nabla_v,gsub)
 
           if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
@@ -315,6 +315,18 @@ c     EOM
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
+cc        vec1 => vcnv
+cc        vec2 => vcnv
+cc        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k)
+cc     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
+cc     .                          ,vol=.false.)
+cc     .              - vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                 ,vcnv(:,:,:,1)
+cc     .                                 ,vcnv(:,:,:,2)
+cc     .                                 ,vcnv(:,:,:,3))
+cc        nullify(vec1,vec2)
+
       else
         vec1 => vcnv
         vec2 => pcnv
@@ -332,16 +344,9 @@ c     EOM
      .                  ,eom_diff_x,eom_diff_y,eom_diff_z
      .                  ,vol=.false.)
         nullify(vec1)
+
+        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
-
-      ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
-
-c Special case: source
-
-cc      if (jit==-2 .and. (coords == 'vmc' .or. coords == 'tor')) then
-cccc         write (*,*) 'DIAG -- nonlinearRHS'
-cc         ff(IRHO) = 0d0 ; ff(ITMP) = 0d0 !; ff(IVX:IVZ) = 0d0
-cc      endif
 
 c End
 
