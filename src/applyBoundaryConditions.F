@@ -331,7 +331,8 @@ c     B=curl(A)
           do i = 0,nnx+1
             do icomp=1,3
               !Here, v_cov=a per previous step
-              bcnv(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+              bcnv(i,j,k,icomp)=B0(icomp)
+     .                         +curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
      .                                ,acov(:,:,:,1)
      .                                ,acov(:,:,:,2)
      .                                ,acov(:,:,:,3),icomp)
@@ -751,8 +752,8 @@ c       Postprocessing: B=curl(A)
           do j = 0,nny+1
             do i = 0,nnx+1
               do icomp=1,3
-                b_cnv(i,j,k,icomp)
-     .                 = curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+                b_cnv(i,j,k,icomp) = B0(icomp)
+     .                 + curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
      .                        ,acov(:,:,:,1)
      .                        ,acov(:,:,:,2)
      .                        ,acov(:,:,:,3),icomp)
