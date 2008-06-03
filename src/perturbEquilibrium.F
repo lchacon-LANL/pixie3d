@@ -34,7 +34,7 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz
-      real(8)    :: x1,y1,z1,jac
+      real(8)    :: x1,y1,z1,jac,kx,ky,kk
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       integer    :: system,ierr
@@ -102,6 +102,9 @@ cc              if (ieq == IRHO) jac = 1d0
 
       case ('whslr')
 
+        kx = 2*pi*nh1/(xmax-xmin)
+        ky = 2*pi*nh2/(ymax-ymin)
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -110,20 +113,44 @@ cc              if (ieq == IRHO) jac = 1d0
 #if !defined(vec_pot) 
               if (ieq == IBY) then
                 array(i,j,k) = array(i,j,k)
-     .                       + 1d-3*cos(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+     .                       + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 c$$$              elseif (ieq == IBZ) then   !This sets a traveling wave
 c$$$                array(i,j,k) = array(i,j,k)
 c$$$     .                       + 1d-3*sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
 #else
               if (ieq == IAZ) then
                 array(i,j,k) = array(i,j,k)
-     .                       - 1d-3*(xmax-xmin)/2./pi/nh1
-     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+     .                       - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
+cc     .                       - 1d-3*(xmax-xmin)/2./pi/nh1
+cc     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin)
+cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
 #endif
-              elseif (ieq == IVY) then
+              elseif (ieq == IVZ) then
                 array(i,j,k) = array(i,j,k)
-     .                       - 1d-3*(xmax-xmin)/2./pi/nh1/di
-     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+     .                   + 1d-3/kx/di*sin(kx*(x1-xmin)+ky*(y1-ymin))
+              endif
+            enddo
+          enddo
+        enddo
+
+      case ('kaw')
+
+        kx = 2*pi*nh1/(xmax-xmin)
+        ky = 2*pi*nh2/(ymax-ymin)
+        kk = sqrt(kx**2+ky**2)
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              if (ieq == IVY) then
+                array(i,j,k) = array(i,j,k)
+     .                       - 1d-7*kx/ky*(1.-(di*kk)**2)
+     .                             *cos(kx*(x1-xmin)+ky*(y1-ymin))
+              elseif (ieq == IVX) then
+                array(i,j,k) = array(i,j,k)
+     .                       + 1d-7*cos(kx*(x1-xmin)+ky*(y1-ymin))
               endif
             enddo
           enddo
