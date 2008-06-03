@@ -64,6 +64,7 @@ c Namelists
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,k_si,solve_rho,advect,sym_st,adiabatic
+     .                   ,hall_new
      .                ,inputfile,recordfile,equ_file,dcon
 
       !Problem setup
@@ -78,7 +79,7 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,adiabatic
+     .                   ,solve_rho,advect,sym_st,adiabatic,hall_new
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -236,6 +237,8 @@ c Set defaults
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
 
+      hall_new   = .false.     ! Whether to use new Hall formulation or not
+
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
 cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
@@ -336,6 +339,43 @@ c Read initialization parameters
       endif
 
       close(unit=uinput)
+
+c Write initialization parameters to standard output
+
+      write (*,*) '-------------------'
+      write (*,*) 'SETUP configuration'
+      write (*,*) '-------------------'
+      write (*,setup)
+
+      write (*,*) '------------------'
+      write (*,*) 'PHYS configuration'
+      write (*,*) '------------------'
+      write (*,phys)
+
+      write (*,*) '----------------- '
+      write (*,*) 'FV  configuration'
+      write (*,*) '----------------- '
+      write (*,fv)
+
+      write (*,*) '----------------- '
+      write (*,*) 'TS  configuration'
+      write (*,*) '----------------- '
+      write (*,ts)
+
+      write (*,*) '----------------- '
+      write (*,*) 'NKS configuration'
+      write (*,*) '----------------- '
+      write (*,nks)
+
+      write (*,*) '----------------- '
+      write (*,*) 'PC  configuration'
+      write (*,*) '----------------- '
+      write (*,pc)
+
+      write (*,*) '----------------- '
+      write (*,*) 'IO  configuration'
+      write (*,*) '----------------- '
+      write (*,io)
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
