@@ -226,6 +226,7 @@ cc        real(8),target,allocatable,dimension(:,:,:,:) :: jcnv,jcov
         logical :: alt_eom
 
         logical :: nc_eom_jxb=.false.,nc_eom_gp=.false.,nc_eom_v=.false.
+     .            ,solve_rho=.true.
 
 c SI operator
         real(8) :: k_si=0d0
@@ -8127,7 +8128,7 @@ c ######################################################################
 
         real(8) :: max_dv_dt
 
-        logical :: solve_rho=.true.,sym_st=.false.
+        logical :: sym_st=.false.
 
       contains
 
