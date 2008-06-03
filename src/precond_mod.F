@@ -904,7 +904,7 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc
+        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc,nclrs
         real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg
         real(8), target :: ddg(neq,2*neq*ntotp)
         logical    :: gm_crse_solve,cvrg_test,lrelax,gm_drvr,glkin
@@ -921,6 +921,8 @@ c     Process optional arguments
           gm_crse_solve = gm_coarse_solve
         else
           gm_crse_solve = .false.
+cc          write (*,*) 'DIAG -- cSolver'
+cc          gm_crse_solve = .true.
         endif
 
         if (PRESENT(gm_driver)) then
@@ -987,6 +989,12 @@ cc          endif
           glkin = .false.
         endif
 
+        if (PRESENT(ncolors)) then
+          nclrs = ncolors
+        else
+          nclrs = 8
+        endif
+
 c     Gather variables for coupled solve
 
         if (.not.cvrg_test) then
@@ -998,10 +1006,10 @@ c     Gather variables for coupled solve
           enddo
         else
           bi = 0d0
+cc          call random_number(xi)
 
-          if (debug) then
           xi = 1d0
-          write (*,*) 'DIAG -- cSolver'
+          write (*,*) 'DIAG -- cSolver: initial guess'
 cc          open(unit=11000,file='inputvec',status='unknown')
 cc          do i=1,ntotp
 cc            do ieq=1,neq
@@ -1010,67 +1018,65 @@ cc              read (11000,*) xi(neq*(i-1)+ieq)
 cc            enddo
 cc          enddo
 cc          close(11000)
-          else
-          call random_number(xi)
-          endif
 
           guess = 1
         endif
 
 c diag ****
-cc        if (debug) then
-cc        write (*,*) 'DIAG -- cSolver'
+cc        if (cvrg_test) then
+cc          write (*,*) 'DIAG -- cSolver: JB/GS solve'
 cc
-ccc       Initialize solver
+ccc         Initialize solver
 cc
-cc        call solverInit
+cc          call solverInit
 cc
-ccc       Setup solver
+ccc         Setup solver
 cc
-cc        call solverOptionsInit
+cc          call solverOptionsInit
 cc
-cc        solverOptions%iter    = maxvcyc
-cc        solverOptions%tol     = mgtol
+cc          solverOptions%iter    = maxvcyc
+cc          solverOptions%tol     = mgtol
 cc
-cc        if (PRESENT(dg)) solverOptions%diag => ddg
+cc          if (PRESENT(dg)) solverOptions%diag => ddg
 cc
-cc        select case (smth)
-cc        case('gs')
-cc          solverOptions%omega   = 1d0
-cc          solverOptions%ncolors = ncolors
-cc          call assembleSolverHierarchy('gs')
-cc        case('gm')
-cc          solverOptions%stp_test = 1 
-cc          solverOptions%krylov_subspace = solverOptions%iter 
-cc          call assembleSolverHierarchy('gm')
+cccc          select case (smth)
+cccc          case('gs')
+cccc            solverOptions%omega   = 1d0
+cc            solverOptions%ncolors = ncolors
+cc            call assembleSolverHierarchy('gs')
+cccc          case('gm')
+cccc            solverOptions%stp_test = 1 
+cccc            solverOptions%krylov_subspace = solverOptions%iter 
+cccc            call assembleSolverHierarchy('gm')
+cccc
+cccccc            solverOptions%iter    = 1
+cccccc            solverOptions%omega   = omg
+cccccc            call assembleSolverHierarchy('jb')
+cccc            call assembleSolverHierarchy('id')
+cccc          case default !JB
+cccccc            solverOptions%omega   = omg
+cccc            solverOptions%omega   = 1d0
+cccc            call assembleSolverHierarchy('jb')
+cccc          end select
 cc
-cccc          solverOptions%iter    = 1
-cccc          solverOptions%omega   = omg
-cccc          call assembleSolverHierarchy('jb')
-cc          call assembleSolverHierarchy('id')
-cc        case default !JB
-cc          solverOptions%omega   = omg
-cc          call assembleSolverHierarchy('jb')
-cc        end select
+ccc         Invoke solver
 cc
-ccc       Invoke solver
+cc          ntot=neq*ntotp
+cc          call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
 cc
-cc        ntot=neq*ntotp
-cc        call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
+ccc         Kill solver
 cc
-ccc       Kill solver
+cc          call solverKill
 cc
-cc        call solverKill
+ccc         Scatter solution
 cc
-ccc       Scatter solution
-cc
-cc        do i = 1,ntotp
-cc          do ieq=1,neq
-cc            x(i,ieq) = xi(neq*(i-1)+ieq)
+cc          do i = 1,ntotp
+cc            do ieq=1,neq
+cc              x(i,ieq) = xi(neq*(i-1)+ieq)
+cc            enddo
 cc          enddo
-cc        enddo
 cc
-cc        return
+cc          return
 cc        endif
 c diag ****
 
@@ -1106,7 +1112,10 @@ c       MG solver options
 cc        if (np > 1) then
 cc          solverOptions%igridmin = 1
 cc        else
+cc          write (*,*) 'DIAG -- cSolver'
+cc          solverOptions%igridmin = 4
           solverOptions%igridmin = 2
+cc          solverOptions%igridmin = 6
 cc        endif
         solverOptions%orderres = iorder_res
         solverOptions%orderprol= iorder_prol
@@ -1116,7 +1125,7 @@ cc        endif
 
         if (PRESENT(dg)) solverOptions%diag => ddg
 
-        if (PRESENT(ncolors)) solverOptions%ncolors  = ncolors
+        solverOptions%ncolors  = nclrs
 
         !Coarse solve
         if (gm_crse_solve) then
@@ -1130,8 +1139,9 @@ cc        endif
             solverOptions%mg_coarse_solver_depth = 3
           endif
         else
-        !Use smoother as coarse solver
-          solverOptions%mg_coarse_solver_depth = 0
+          solverOptions%mg_coarse_solver_depth = 0 !Use smoother as coarse solver
+cc          write (*,*) 'DIAG -- cSolver'
+cc          solverOptions%mg_coarse_solver_depth = 5
         endif
 
         !Vertex relaxation
@@ -1171,7 +1181,7 @@ c       MG smoother
         select case (smth)
         case('gs')
           solverOptions%omega   = 1d0
-          solverOptions%ncolors = ncolors
+          solverOptions%ncolors = nclrs
           call assembleSolverHierarchy('gs')
         case('gm')
           solverOptions%stp_test        = 1 
@@ -1211,7 +1221,9 @@ c       Coarsest grid solve for inner line/plane MG
         solverOptions%omega   = 1d0
         solverOptions%iter    = 100
         solverOptions%tol     = 1d-4
+        solverOptions%ncolors = nclrs
 
+cc        call assembleSolverHierarchy('jb')
         call assembleSolverHierarchy('gs')
 
 c       Invoke solver
@@ -1411,7 +1423,7 @@ cc     .                              ,idx,idy,idz,vxx,vyy,vzz)
 cc     .           +nu*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.))
 
 cc          minv = minv*di/alpha
-          minv = di*cnp/dt/alpha
+          minv = cnp/dt*di/alpha
 
           !Hall term correction
           cnv = cnv
