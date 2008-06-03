@@ -2201,8 +2201,8 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: ip,igrid
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3)
+        integer    :: ip,igrid,iisig,iig,ijk
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3),vol
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
@@ -2239,6 +2239,20 @@ c     Begin program
           acnv =
      .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
         endif
+
+cc        if (precon == 's2') then
+cc          iisig = istart (igrid)
+cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+cc          iig = 3*(ijk-1) + iisig - 1
+cc
+cc          if (vol_wgt) then
+cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
+cc          else
+cc            vol = 1d0
+cc          endif
+cc
+cc          acnv = matmul(transpose(b_diag(:,iig+1:iig+3)),acnv)*vol
+cc        endif
 
         b0cnv = 0.5*(b0_cnv(ip,j,k,:)+b0_cnv(i,j,k,:))
 cc        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
@@ -2312,9 +2326,9 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: jp,igrid
+        integer    :: jp,igrid,iisig,iig,ijk
         real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
-     .                ,scalar_prod
+     .               ,scalar_prod,vol
 
 c     Begin program
 
@@ -2337,6 +2351,20 @@ c     Begin program
           acnv =
      .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
         endif
+
+cc        if (precon == 's2') then
+cc          iisig = istart (igrid)
+cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+cc          iig = 3*(ijk-1) + iisig - 1
+cc
+cc          if (vol_wgt) then
+cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
+cc          else
+cc            vol = 1d0
+cc          endif
+cc
+cc          acnv = matmul(transpose(b_diag(:,iig+1:iig+3)),acnv)*vol
+cc        endif
 
         b0cnv = 0.5*(b0_cnv(i,jp,k,:)+b0_cnv(i,j,k,:))
         b0cov = 0.5*(b0_cov(i,jp,k,:)+b0_cov(i,j,k,:))
@@ -2383,9 +2411,9 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: kp,igrid
+        integer    :: kp,igrid,iisig,iig,ijk
         real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
-     .               ,scalar_prod
+     .               ,scalar_prod,vol
 
 c     Begin program
 
@@ -2408,6 +2436,20 @@ c     Begin program
           acnv =
      .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
         endif
+
+cc        if (precon == 's2') then
+cc          iisig = istart (igrid)
+cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+cc          iig = 3*(ijk-1) + iisig - 1
+cc
+cc          if (vol_wgt) then
+cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
+cc          else
+cc            vol = 1d0
+cc          endif
+cc
+cc          acnv = matmul(transpose(b_diag(:,iig+1:iig+3)),acnv)*vol
+cc        endif
 
         b0cnv = 0.5*(b0_cnv(i,j,kp,:)+b0_cnv(i,j,k,:))
         b0cov = 0.5*(b0_cov(i,j,kp,:)+b0_cov(i,j,k,:))
@@ -2654,17 +2696,9 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      !Higher-order interpolation than 1 is JB-unstable for cyl.
-cc      if (debug) then
-cc        write (*,*) 'DIAG--v_mtvc'
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
-cc      else
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
-cccc      endif
 
 c Calculate matrix-vector product
 
@@ -2718,51 +2752,13 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
              
             if (precon == 's2') then
 
-cc              !Find Minv ****************************
-cc              !!Cov vector k
-cc              idx  = 1./grid_params%dxh(ig)
-cc              if (nxd == 1) idx = 0d0
-cc              idy  = 1./grid_params%dyh(jg)
-cc              if (nyd == 1) idy = 0d0
-cc              idz  = 1./grid_params%dzh(kg)
-cc              if (nzd == 1) idz = 0d0
-cc
-cc              !!Cnv vector v
-cc              vxx = abs(v0_cnv(i,j,k,1))
-cc              vyy = abs(v0_cnv(i,j,k,2))
-cc              vzz = abs(v0_cnv(i,j,k,3))
-cc
-cc              minv = cnp/dt
-cc     .              + alpha*(scalarProduct(i,j,k,igx,igy,igz
-cc     .                                 ,idx,idy,idz,vxx,vyy,vzz)
-cc     .              + max(eta,dd,chi)*vectorNorm(i,j,k,igx,igy,igz
-cc     .                               ,idx,idy,idz,.true.))
-cc
-cc              minv = 1./minv
-cc
-cc              cnv = cnv*minv
-
-cc              --------------------------
-
-cc              iig = 3*(ijk-1) + iisig - 1
-cc
-cc              cnv = matmul(transpose(mstar_diag(:,iig+1:iig+3)),cnv)
-cccc              cnv = matmul(transpose(b_diag(:,iig+1:iig+3)),cnv)*vol
-
-cc              --------------------------
-
-cccc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
+cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psib = psib*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
 
+cc              write (*,*) max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
+
               cnv = (psit + psib)
-
-cc              --------------------------
-
-cc              psib = dt*psib
-cc              psit = dt*psit
-
-cc              cnv = (psit + psib)
 
 cc              --------------------------
 
@@ -2770,7 +2766,7 @@ cc              psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
 cc
 cc              iig = 3*(ijk-1) + iisig - 1
 cc              psib = matmul(transpose(b_diag(:,iig+1:iig+3)),psib)*vol
-
+cc
 cc              cnv = (psit + psib)
 
             else
@@ -3126,6 +3122,8 @@ c Local variables
 
       real(8)    :: z(ntot)
 
+      integer    :: bcnd_zz(6,neq)
+
       real(8),allocatable,dimension(:,:,:,:) :: dzz
 
 c Begin program
@@ -3166,8 +3164,9 @@ c Define pointers to MG arrays
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
-      allocate(dv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dzz(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dzz   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       !Velocity array
       dv = 0d0
@@ -3177,8 +3176,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=1)
-cc     .            ,result_is_vec=.true.)
+     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
 
       !M_star*dv array
       dzz = 0d0
@@ -3190,7 +3188,7 @@ cc     .            ,result_is_vec=.true.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=3)
+     .            ,result_is_vec=.true.,iorder=2)
 
 c Calculate matrix-vector product
 
@@ -3216,7 +3214,7 @@ c Calculate matrix-vector product
             jackm  = gmetric%grid(igrid)%jac(i,j,km)
             jac    = gmetric%grid(igrid)%jac(i,j,k )
 
-            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
+cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
@@ -3241,9 +3239,34 @@ cc            call findPsiv(dv)
 
             call findPsib
 
-            do ieq=1,3
-              y(neq*(ijk-1)+ieq) = psiv(ieq) + psit(ieq) + psib(ieq)
-            enddo
+            !Form total operator
+
+            cnv = psit + psib
+
+            if (nc_eom_v) then
+              cnv = (psiv + cnv/rho0(i,j,k,1))*vol
+            else
+              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
+            endif
+
+            if (si_car) then
+              call transformVectorToCartesian
+     .              (i,j,k,igrid,igrid,igrid
+     .               ,cnv(1),cnv(2),cnv(3),.false.
+     .               ,car(1),car(2),car(3))
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = car(ieq)
+              enddo
+            else
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = cnv(ieq)
+              enddo
+            endif
+
+cc            do ieq=1,3
+cc              y(neq*(ijk-1)+ieq) = psiv(ieq) + psit(ieq) + psib(ieq)
+cc            enddo
 
           enddo
         enddo
@@ -3251,7 +3274,7 @@ cc            call findPsiv(dv)
 
 c End program
 
-      deallocate(dv,dzz)
+      deallocate(dv,dv_cov,dzz)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -3375,21 +3398,22 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            diff = max(eta,chi,dd)
+cc            diff = max(eta,chi,dd)
+cc            diff = min(eta,chi,dd)
 
 cc            cnv = gradDiv(i,j,k,nxx,nyy,nzz,igx,igy,igz,da,vol=.false.)
 cc            cnv = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),cnv)
-            cnv = gradDiv2(da)
+cc            if (diff /= 0d0) cnv = gradDiv2(da)
 
             do ieq=1,neq
-              hex = floor(sign(1d0,v0_cnv(i,j,k,ieq)))
-cc              hex = 0
+cc              hex = floor(sign(1d0,v0_cnv(i,j,k,ieq)))
+              hex = 0
 
-              upwind = v0_cnv(i,j,k,ieq)*div_upwd(da,hex)/rho0(i,j,k,1)
+              upwind = v0_cnv(i,j,k,ieq)*div_upwd(da,hex)
 
               cnv(ieq) = cnp*da(i,j,k,ieq)/dt
      .                 + alpha*upwind
-     .                 - alpha*diff*cnv(ieq)/rho0(i,j,k,1)
+cc     .                 - alpha*diff*cnv(ieq)
 
               !No volume weighing in M_star
               y(neq*(ijk-1)+ieq) = cnv(ieq)
