@@ -154,21 +154,21 @@ c Calculate CFL
             ca2 = bnorm/rho(i,j,k)
 
             !Maximum kk
-            idx  = 1./dx(ig)
+            idx  = pi/dx(ig)
             if (nxd == 1) idx = 0d0
-            idy  = 1./dy(jg)
+            idy  = pi/dy(jg)
             if (nyd == 1) idy = 0d0
-            idz  = 1./dz(kg)
+            idz  = pi/dz(kg)
             if (nzd == 1) idz = 0d0
 
-            k2 = 4*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+            k2 = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
 
             k2max = max(k2max,k2)
 
             !Maximum k.v
-            vxx = px(i,j,k)/rho(i,j,k)
-            vyy = py(i,j,k)/rho(i,j,k)
-            vzz = pz(i,j,k)/rho(i,j,k)
+            vxx = abs(px(i,j,k)/rho(i,j,k))
+            vyy = abs(py(i,j,k)/rho(i,j,k))
+            vzz = abs(pz(i,j,k)/rho(i,j,k))
             kv_par = scalarProduct(i,j,k,igx,igy,igz
      .                            ,idx,idy,idz,vxx,vyy,vzz)
 
@@ -181,8 +181,7 @@ c Calculate CFL
             cs2 = a_p*gamma*tmp(i,j,k)
 
             !Find CFL
-            w_cfl = max((icfl(cs2,ca2,k2,kb_par2,di)+abs(kv_par))
-     .                  ,w_cfl)
+            w_cfl = max((icfl(cs2,ca2,k2,kb_par2,di)+kv_par),w_cfl)
 
           enddo
         enddo
@@ -190,16 +189,16 @@ c Calculate CFL
 
 c Calculate courant number
 
-      w_cour = diffmax*k2max
+      w_cour = max(diffmax*k2max,heta*k2max**2)
 
 c Calculate time step
 
       if (w_cfl <= w_cour) then
-        dt = 1d0/w_cour
+        dt = 1d0*pi/w_cour
 cc        write (*,*) 'Courant'
       else
-        dt = 1d0*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
-     .             (w_cour**3 + w_cfl**3)
+        dt = 0.9*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
+     .              (w_cour**3 + w_cfl**3)
 cc        write (*,*) 'CFL'
       endif
 
@@ -232,27 +231,45 @@ c     Call variables
 c     Local variables
 
       real(8)   :: a,b,c,d,root(3),ckpar
+      complex(16):: a3,a2,a1,a0,r(3)
 
 c     Begin program
 
       ckpar = ca2*k2par
 
-c     Solve cubic dispersion relation for omega^2
+c     Solve cubic dispersion relation for omega^2 (Checked, Luis 6/3/08)
 
-      a =  ckpar**2*cs2
-      b = -ckpar*(ca2 + 2*cs2 + cs2*k2*di**2)
-      c = (ca2+cs2) + ckpar*(1d0/k2 + di**2)
-      d = -1d0/k2
+      a =  1.
+      b = -ckpar*(1+k2*di**2)-k2*(ca2 + cs2)
+      c = ckpar*(k2**2*cs2*di**2+2*k2*cs2+k2*ca2)
+      d = -ckpar**2*cs2*k2
 
-      root = solve_cubic(a,b,c,d)
+      a3=cmplx(a,0.)
+      a2=cmplx(b,0.)
+      a1=cmplx(c,0.)
+      a0=cmplx(d,0.)
+      
+      r = solve_cubic(a3,a2,a1,a0)
 
-c     Find maximum real root
+c     Find CFL constraint
 
-      where (root > 0d0) 
-        root = sqrt(root)
-      elsewhere
-        root = 0d0
-      end where
+      root = sqrt(abs(r))
+
+ccc     Eliminate complex roots
+cc
+cc      where (aImag(r) < 1d-10) 
+cc        root = Real(r)
+cc      elsewhere
+cc        root = 0d0
+cc      end where
+cc
+ccc     Find maximum real root
+cc
+cc      where (root > 0d0) 
+cc        root = sqrt(root)
+cc      elsewhere
+cc        root = 0d0
+cc      end where
 
       icfl = maxval(root)
 
