@@ -163,7 +163,8 @@ c     Initial message
 c     Warnings
 
       if (nc_eom_jxb .or. nc_eom_gp .or. nc_eom_v
-     .    .or. (.not.solenoidal)) then
+     .    .or. (.not.solenoidal) .or. (.not.solve_rho)
+     .    .or. sym_st) then
         write (*,*)
         write (*,*) '****************** NOTICE ******************'
 
@@ -175,6 +176,8 @@ c     Warnings
      .       write (*,*) 'Using non-conservative div(vv) part of EOM'
         if (.not.solenoidal)
      .       write (*,*) 'Using non-solenoidal version'
+        if (.not.solve_rho)
+     .       write (*,*) 'Not solving for density'
         if (sym_st)
      .       write (*,*) 'Using symmetric viscous stress tensor in EOM'
       
