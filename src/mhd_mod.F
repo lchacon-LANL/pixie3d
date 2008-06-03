@@ -38,7 +38,7 @@ c ######################################################################
 
         integer :: nn_eta
 
-        logical :: adiabatic
+        logical :: adiabatic,hall_new=.false.
 
       contains
 
@@ -1839,8 +1839,11 @@ c     Local variables
 
 c     Begin program
 
-      vol_wgt = .true.
-      if (PRESENT(vol)) vol_wgt = vol
+      if (PRESENT(vol)) then
+        vol_wgt = vol
+      else
+        vol_wgt = .true.
+      endif
 
       igrid = igx
 
@@ -1859,87 +1862,111 @@ c     Begin program
         write (*,*) 'Error in laplace; i,j,k=nmax+1'
       endif
 
-      gsup => gmetric%grid(igrid)%gsup
+      if (coords == 'car') then
 
-cc      if (isSP(i,j,k,igx,igy,igz)) then
-cc        gsup(im,jm:jp,km:kp,:,:) = gsup(i,jm:jp,km:kp,:,:)
-cc      endif
+        laplacian = 
+     .     dyh(jg)*dzh(kg)*( (arr(ip,j,k)-arr(i,j,k))/dx(ig)
+     .                      +(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
+     .    +dxh(ig)*dzh(kg)*( (arr(i,jp,k)-arr(i,j,k))/dy(jg)
+     .                      +(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
+     .    +dxh(ig)*dyh(jg)*( (arr(i,j,kp)-arr(i,j,k))/dz(kg)
+     .                      +(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
+     .    +0.5*( dzh(kg)*( (arr(ip,jp,k)-arr(i,j,k))
+     .                    +(arr(im,jm,k)-arr(i,j,k))
+     .                    -(arr(ip,jm,k)-arr(i,j,k))
+     .                    -(arr(im,jp,k)-arr(i,j,k)) )
+     .          +dyh(jg)*( (arr(ip,j,kp)-arr(i,j,k))
+     .                    +(arr(im,j,km)-arr(i,j,k))
+     .                    -(arr(ip,j,km)-arr(i,j,k))
+     .                    -(arr(im,j,kp)-arr(i,j,k)) )
+     .          +dxh(ig)*( (arr(i,jp,kp)-arr(i,j,k))
+     .                    +(arr(i,jm,km)-arr(i,j,k))
+     .                    -(arr(i,jp,km)-arr(i,j,k))
+     .                    -(arr(i,jm,kp)-arr(i,j,k)) ) )
 
-      d_xx_ip = 0.5*(gsup(i ,j,k,1,1)
-     .              +gsup(ip,j,k,1,1))
-      d_xx_im = 0.5*(gsup(i ,j,k,1,1)
-     .              +gsup(im,j,k,1,1))
+      else
 
-      d_yy_jp = 0.5*(gsup(i,j ,k,2,2)
-     .              +gsup(i,jp,k,2,2))
-      d_yy_jm = 0.5*(gsup(i,j ,k,2,2)
-     .              +gsup(i,jm,k,2,2))
+        gsup => gmetric%grid(igrid)%gsup
 
-      d_zz_kp = 0.5*(gsup(i,j,k ,3,3)
-     .              +gsup(i,j,kp,3,3))
-      d_zz_km = 0.5*(gsup(i,j,k ,3,3)
-     .              +gsup(i,j,km,3,3))
+cc        if (isSP(i,j,k,igx,igy,igz)) then
+cc          gsup(im,jm:jp,km:kp,:,:) = gsup(i,jm:jp,km:kp,:,:)
+cc        endif
 
-      d_xy_ipjp = 0.25*(gsup(i ,j ,k,1,2)
-     .                 +gsup(ip,j ,k,1,2)
-     .                 +gsup(i ,jp,k,1,2)
-     .                 +gsup(ip,jp,k,1,2))
-      d_xy_ipjm = 0.25*(gsup(i ,j ,k,1,2)
-     .                 +gsup(ip,j ,k,1,2)
-     .                 +gsup(i ,jm,k,1,2)
-     .                 +gsup(ip,jm,k,1,2))
-      d_xy_imjp = 0.25*(gsup(i ,j ,k,1,2)
-     .                 +gsup(im,j ,k,1,2)
-     .                 +gsup(i ,jp,k,1,2)
-     .                 +gsup(im,jp,k,1,2))
-      d_xy_imjm = 0.25*(gsup(i ,j ,k,1,2)
-     .                 +gsup(im,j ,k,1,2)
-     .                 +gsup(i ,jm,k,1,2)
-     .                 +gsup(im,jm,k,1,2))
+        d_xx_ip = 0.5*(gsup(i ,j,k,1,1)
+     .                +gsup(ip,j,k,1,1))
+        d_xx_im = 0.5*(gsup(i ,j,k,1,1)
+     .                +gsup(im,j,k,1,1))
 
-      d_xz_ipkp = 0.25*(gsup(i ,j,k ,1,3)
-     .                 +gsup(ip,j,k ,1,3)
-     .                 +gsup(i ,j,kp,1,3)
-     .                 +gsup(ip,j,kp,1,3))
-      d_xz_ipkm = 0.25*(gsup(i ,j,k ,1,3)
-     .                 +gsup(ip,j,k ,1,3)
-     .                 +gsup(i ,j,km,1,3)
-     .                 +gsup(ip,j,km,1,3))
-      d_xz_imkp = 0.25*(gsup(i ,j,k ,1,3)
-     .                 +gsup(im,j,k ,1,3)
-     .                 +gsup(i ,j,kp,1,3)
-     .                 +gsup(im,j,kp,1,3))
-      d_xz_imkm = 0.25*(gsup(i ,j,k ,1,3)
-     .                 +gsup(im,j,k ,1,3)
-     .                 +gsup(i ,j,km,1,3)
-     .                 +gsup(im,j,km,1,3))
+        d_yy_jp = 0.5*(gsup(i,j ,k,2,2)
+     .                +gsup(i,jp,k,2,2))
+        d_yy_jm = 0.5*(gsup(i,j ,k,2,2)
+     .                +gsup(i,jm,k,2,2))
 
-      d_yz_jpkp = 0.25*(gsup(i,j ,k ,2,3)
-     .                 +gsup(i,jp,k ,2,3)
-     .                 +gsup(i,j ,kp,2,3)
-     .                 +gsup(i,jp,kp,2,3))
-      d_yz_jpkm = 0.25*(gsup(i,j ,k ,2,3)
-     .                 +gsup(i,jp,k ,2,3)
-     .                 +gsup(i,j ,km,2,3)
-     .                 +gsup(i,jp,km,2,3))
-      d_yz_jmkp = 0.25*(gsup(i,j ,k ,2,3)
-     .                 +gsup(i,jm,k ,2,3)
-     .                 +gsup(i,j ,kp,2,3)
-     .                 +gsup(i,jm,kp,2,3))
-      d_yz_jmkm = 0.25*(gsup(i,j ,k ,2,3)
-     .                 +gsup(i,jm,k ,2,3)
-     .                 +gsup(i,j ,km,2,3)
-     .                 +gsup(i,jm,km,2,3))
+        d_zz_kp = 0.5*(gsup(i,j,k ,3,3)
+     .                +gsup(i,j,kp,3,3))
+        d_zz_km = 0.5*(gsup(i,j,k ,3,3)
+     .                +gsup(i,j,km,3,3))
 
-cc      if (isSP(i,j,k,igx,igy,igz)) then
-cc        d_xx_im   = 0d0
-cc        d_xy_imjp = 0d0
-cc        d_xy_imjm = 0d0
-cc        d_xz_imkp = 0d0
-cc        d_xz_imkm = 0d0
-cc      endif
+        d_xy_ipjp = 0.25*(gsup(i ,j ,k,1,2)
+     .                   +gsup(ip,j ,k,1,2)
+     .                   +gsup(i ,jp,k,1,2)
+     .                   +gsup(ip,jp,k,1,2))
+        d_xy_ipjm = 0.25*(gsup(i ,j ,k,1,2)
+     .                   +gsup(ip,j ,k,1,2)
+     .                   +gsup(i ,jm,k,1,2)
+     .                   +gsup(ip,jm,k,1,2))
+        d_xy_imjp = 0.25*(gsup(i ,j ,k,1,2)
+     .                   +gsup(im,j ,k,1,2)
+     .                   +gsup(i ,jp,k,1,2)
+     .                   +gsup(im,jp,k,1,2))
+        d_xy_imjm = 0.25*(gsup(i ,j ,k,1,2)
+     .                   +gsup(im,j ,k,1,2)
+     .                   +gsup(i ,jm,k,1,2)
+     .                   +gsup(im,jm,k,1,2))
 
-      laplacian = 
+        d_xz_ipkp = 0.25*(gsup(i ,j,k ,1,3)
+     .                   +gsup(ip,j,k ,1,3)
+     .                   +gsup(i ,j,kp,1,3)
+     .                   +gsup(ip,j,kp,1,3))
+        d_xz_ipkm = 0.25*(gsup(i ,j,k ,1,3)
+     .                   +gsup(ip,j,k ,1,3)
+     .                   +gsup(i ,j,km,1,3)
+     .                   +gsup(ip,j,km,1,3))
+        d_xz_imkp = 0.25*(gsup(i ,j,k ,1,3)
+     .                   +gsup(im,j,k ,1,3)
+     .                   +gsup(i ,j,kp,1,3)
+     .                   +gsup(im,j,kp,1,3))
+        d_xz_imkm = 0.25*(gsup(i ,j,k ,1,3)
+     .                   +gsup(im,j,k ,1,3)
+     .                   +gsup(i ,j,km,1,3)
+     .                   +gsup(im,j,km,1,3))
+
+        d_yz_jpkp = 0.25*(gsup(i,j ,k ,2,3)
+     .                   +gsup(i,jp,k ,2,3)
+     .                   +gsup(i,j ,kp,2,3)
+     .                   +gsup(i,jp,kp,2,3))
+        d_yz_jpkm = 0.25*(gsup(i,j ,k ,2,3)
+     .                   +gsup(i,jp,k ,2,3)
+     .                   +gsup(i,j ,km,2,3)
+     .                   +gsup(i,jp,km,2,3))
+        d_yz_jmkp = 0.25*(gsup(i,j ,k ,2,3)
+     .                   +gsup(i,jm,k ,2,3)
+     .                   +gsup(i,j ,kp,2,3)
+     .                   +gsup(i,jm,kp,2,3))
+        d_yz_jmkm = 0.25*(gsup(i,j ,k ,2,3)
+     .                   +gsup(i,jm,k ,2,3)
+     .                   +gsup(i,j ,km,2,3)
+     .                   +gsup(i,jm,km,2,3))
+
+cc        if (isSP(i,j,k,igx,igy,igz)) then
+cc          d_xx_im   = 0d0
+cc          d_xy_imjp = 0d0
+cc          d_xy_imjm = 0d0
+cc          d_xz_imkp = 0d0
+cc          d_xz_imkm = 0d0
+cc        endif
+
+        laplacian = 
      .     dyh(jg)*dzh(kg)*( d_xx_ip*(arr(ip,j,k)-arr(i,j,k))/dx(ig)
      .                      +d_xx_im*(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
      .    +dxh(ig)*dzh(kg)*( d_yy_jp*(arr(i,jp,k)-arr(i,j,k))/dy(jg)
@@ -1958,6 +1985,9 @@ cc      endif
      .                    +d_yz_jmkm*(arr(i,jm,km)-arr(i,j,k))
      .                    -d_yz_jpkm*(arr(i,jp,km)-arr(i,j,k))
      .                    -d_yz_jmkp*(arr(i,jm,kp)-arr(i,j,k)) ) )
+
+      endif
+
 
       if (.not.vol_wgt) laplacian=laplacian
      .                           /gmetric%grid(igx)%dvol(i,j,k)
@@ -3499,6 +3529,14 @@ c     Defaults
 
         jac  = gmetric%grid(igx)%jac(i,j,k)
 
+        if (coords == 'car') then
+          ijacip  = 1d0
+          ijacim  = 1d0
+          ijacjp  = 1d0
+          ijacjm  = 1d0
+          ijackp  = 1d0
+          ijackm  = 1d0
+        endif
 cc        sing_point = isSP(i,j,k,igx,igy,igz)
 
 c     Exceptions
@@ -3508,27 +3546,29 @@ c     Exceptions
           idhx = 1./dx(ig)
           im = i
 
-          jacip  = gmetric%grid(igx)%jac(ip,j,k)
-          jacim  = gmetric%grid(igx)%jac(i ,j,k)
-          jacjp  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
-     .                 +gmetric%grid(igx)%jac(i ,jp,k))
-          jacjm  = 0.5*(gmetric%grid(igx)%jac(ip,jm,k)
-     .                 +gmetric%grid(igx)%jac(i ,jm,k))
-          jackp  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
-     .                 +gmetric%grid(igx)%jac(i ,j,kp))
-          jackm  = 0.5*(gmetric%grid(igx)%jac(ip,j,km)
-     .                 +gmetric%grid(igx)%jac(i ,j,km))
+          if (coords /= 'car') then
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(i ,j,k)
+            jacjp  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+     .                   +gmetric%grid(igx)%jac(i ,jp,k))
+            jacjm  = 0.5*(gmetric%grid(igx)%jac(ip,jm,k)
+     .                   +gmetric%grid(igx)%jac(i ,jm,k))
+            jackp  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+     .                   +gmetric%grid(igx)%jac(i ,j,kp))
+            jackm  = 0.5*(gmetric%grid(igx)%jac(ip,j,km)
+     .                   +gmetric%grid(igx)%jac(i ,j,km))
 
-          if (isSP(i+1,j,k,igx,igy,igz)) then
-            jacjp = SP_flsv
-            jacjm = SP_flsv
-            jackp = SP_flsv
-            jackm = SP_flsv
-cc            write (*,*) 'DIAG -- curl_bxv'
-cc            jacjp = 1d0!SP_flsv
-cc            jacjm = 1d0!SP_flsv
-cc            jackp = 1d0!SP_flsv
-cc            jackm = 1d0!SP_flsv
+            if (isSP(i+1,j,k,igx,igy,igz)) then
+              jacjp = SP_flsv
+              jacjm = SP_flsv
+              jackp = SP_flsv
+              jackm = SP_flsv
+cc              write (*,*) 'DIAG -- curl_bxv'
+cc              jacjp = 1d0!SP_flsv
+cc              jacjm = 1d0!SP_flsv
+cc              jackp = 1d0!SP_flsv
+cc              jackm = 1d0!SP_flsv
+            endif
           endif
 
           vxip = vv(ip,j,k,1)
@@ -3578,16 +3618,18 @@ cc            jackm = 1d0!SP_flsv
           idhy = 1./dy(jg)
           jm = j
 
-          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
-     .                 +gmetric%grid(igx)%jac(ip,j ,k))
-          jacim  = 0.5*(gmetric%grid(igx)%jac(im,jp,k)
-     .                 +gmetric%grid(igx)%jac(im,j ,k))
-          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-          jacjm  = gmetric%grid(igx)%jac(i,j ,k)
-          jackp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
-     .                 +gmetric%grid(igx)%jac(i,j ,kp))
-          jackm  = 0.5*(gmetric%grid(igx)%jac(i,jp,km)
-     .                 +gmetric%grid(igx)%jac(i,j ,km))
+          if (coords /= 'car') then
+            jacip  = 0.5*(gmetric%grid(igx)%jac(ip,jp,k)
+     .                   +gmetric%grid(igx)%jac(ip,j ,k))
+            jacim  = 0.5*(gmetric%grid(igx)%jac(im,jp,k)
+     .                   +gmetric%grid(igx)%jac(im,j ,k))
+            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igx)%jac(i,j ,k)
+            jackp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+     .                   +gmetric%grid(igx)%jac(i,j ,kp))
+            jackm  = 0.5*(gmetric%grid(igx)%jac(i,jp,km)
+     .                   +gmetric%grid(igx)%jac(i,j ,km))
+          endif
 
           vxip = (vv(ip,j,k,1)+vv(ip,jp,k,1))*0.5
           vxim = (vv(im,j,k,1)+vv(im,jp,k,1))*0.5
@@ -3635,16 +3677,18 @@ cc            jackm = 1d0!SP_flsv
           idhz = 1./dz(kg)
           km = k
 
-          jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
-     .                 +gmetric%grid(igx)%jac(ip,j,k ))
-          jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,kp)
-     .                 +gmetric%grid(igx)%jac(im,j,k ))
-          jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
-     .                 +gmetric%grid(igx)%jac(i,jp,k ))
-          jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,kp)
-     .                 +gmetric%grid(igx)%jac(i,jm,k ))
-          jackp  = gmetric%grid(igx)%jac(i,j,kp)
-          jackm  = gmetric%grid(igx)%jac(i,j,km)
+          if (coords /= 'car') then
+            jacip  = 0.5*(gmetric%grid(igx)%jac(ip,j,kp)
+     .                   +gmetric%grid(igx)%jac(ip,j,k ))
+            jacim  = 0.5*(gmetric%grid(igx)%jac(im,j,kp)
+     .                   +gmetric%grid(igx)%jac(im,j,k ))
+            jacjp  = 0.5*(gmetric%grid(igx)%jac(i,jp,kp)
+     .                   +gmetric%grid(igx)%jac(i,jp,k ))
+            jacjm  = 0.5*(gmetric%grid(igx)%jac(i,jm,kp)
+     .                   +gmetric%grid(igx)%jac(i,jm,k ))
+            jackp  = gmetric%grid(igx)%jac(i,j,kp)
+            jackm  = gmetric%grid(igx)%jac(i,j,km)
+          endif
 
           vxip = (vv(ip,j,k,1)+vv(ip,j,kp,1))*0.5
           vxim = (vv(im,j,k,1)+vv(im,j,kp,1))*0.5
@@ -3689,13 +3733,15 @@ cc            jackm = 1d0!SP_flsv
           bzkm = bb(i,j,k ,3)
 
         case default
-          
-          jacip  = gmetric%grid(igx)%jac(ip,j,k)
-          jacim  = gmetric%grid(igx)%jac(im,j,k)
-          jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-          jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-          jackp  = gmetric%grid(igx)%jac(i,j,kp)
-          jackm  = gmetric%grid(igx)%jac(i,j,km)
+
+          if (coords /= 'car') then
+            jacip  = gmetric%grid(igx)%jac(ip,j,k)
+            jacim  = gmetric%grid(igx)%jac(im,j,k)
+            jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+            jackp  = gmetric%grid(igx)%jac(i,j,kp)
+            jackm  = gmetric%grid(igx)%jac(i,j,km)
+          endif
 
           vxip = vv(ip,j,k,1)
           vxim = vv(im,j,k,1)
@@ -3743,20 +3789,14 @@ cc            jackm = 1d0!SP_flsv
 
 c     Components
 
-        ijacip  = 1d0/jacip
-        ijacim  = 1d0/jacim
-        ijacjp  = 1d0/jacjp
-        ijacjm  = 1d0/jacjm
-        ijackp  = 1d0/jackp
-        ijackm  = 1d0/jackm
-
-cc        write (*,*) 'DIAG -- curl_bxv'
-cc        ijacip  = 1d0
-cc        ijacim  = 1d0
-cc        ijacjp  = 1d0
-cc        ijacjm  = 1d0
-cc        ijackp  = 1d0
-cc        ijackm  = 1d0
+        if (coords /= 'car') then
+          ijacip  = 1d0/jacip
+          ijacim  = 1d0/jacim
+          ijacjp  = 1d0/jacjp
+          ijacjm  = 1d0/jacjm
+          ijackp  = 1d0/jackp
+          ijackm  = 1d0/jackm
+        endif
 
         !component 1
 
