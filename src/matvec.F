@@ -1662,7 +1662,7 @@ c     #####################################################################
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
      .             ,divip,divim,divjp,divjm,divkp,divkm
-     .             ,coeff
+     .             ,coeff,gamm
 
 c     Fluxes at faces for calculation of grad(dv.grad(p0))
 
@@ -1886,22 +1886,28 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
      .        +dv(i,jp,km,2)-dv(i,jm,km,2))/dyh(jg)*0.25
      .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/dz(kg-1)
 
+      if (solve_rho) then
+        gamm = gamma
+      else
+        gamm = gamma - 1
+      endif
+
       flxip = flxip
-     .      + gamma*(pp0(i,j,k,1)+pp0(ip,j,k,1))*divip/(jac+jacip)
+     .      + gamm*(pp0(i,j,k,1)+pp0(ip,j,k,1))*divip/(jac+jacip)
       if (.not.isSP(i,j,k,igx,igy,igz)) then
         flxim = flxim
-     .      + gamma*(pp0(i,j,k,1)+pp0(im,j,k,1))*divim/(jac+jacim)
+     .      + gamm*(pp0(i,j,k,1)+pp0(im,j,k,1))*divim/(jac+jacim)
       endif
 
       flxjp = flxjp
-     .      + gamma*(pp0(i,j,k,1)+pp0(i,jp,k,1))*divjp/(jac+jacjp)
+     .      + gamm*(pp0(i,j,k,1)+pp0(i,jp,k,1))*divjp/(jac+jacjp)
       flxjm = flxjm
-     .      + gamma*(pp0(i,j,k,1)+pp0(i,jm,k,1))*divjm/(jac+jacjm)
+     .      + gamm*(pp0(i,j,k,1)+pp0(i,jm,k,1))*divjm/(jac+jacjm)
 
       flxkp = flxkp
-     .      + gamma*(pp0(i,j,k,1)+pp0(i,j,kp,1))*divkp/(jac+jackp)
+     .      + gamm*(pp0(i,j,k,1)+pp0(i,j,kp,1))*divkp/(jac+jackp)
       flxkm = flxkm
-     .      + gamma*(pp0(i,j,k,1)+pp0(i,j,km,1))*divkm/(jac+jackm)
+     .      + gamm*(pp0(i,j,k,1)+pp0(i,j,km,1))*divkm/(jac+jackm)
 
 cc      if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
 
@@ -2698,7 +2704,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 
