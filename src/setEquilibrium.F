@@ -268,18 +268,47 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IAX:IAZ) = 0d0
 
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc              var(i,j,k,IAX)  = 0d0
-cc              var(i,j,k,IAY)  = x1
-cc              var(i,j,k,IAZ)  = 0d0
-cc            enddo
-cc          enddo
-cc        enddo
+#endif
+
+      case ('kaw') !KAW wave
+
+        gamma = 1d0
+
+        bb = 1d4
+
+        di = (xmax-xmin)/2/pi/nh1*sqrt(bb/(bb-2))  !di k_par = 1
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Uniform medium with constant magnetic field in cartesian coordinates
+
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = bb/2.
+
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+
+              var(i,j,k,IBX)  = 1d0
+              var(i,j,k,IBY)  = 0d0
+              var(i,j,k,IBZ)  = 0d0
+            enddo
+          enddo
+        enddo
+#else
+        B0(1) = 1d0
+
+        var(:,:,:,IAX:IAZ) = 0d0
+
 #endif
 
       case ('khcar')
