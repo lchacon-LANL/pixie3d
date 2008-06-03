@@ -96,8 +96,8 @@ cc            advective = 'PBRKCT'
             ts = ' BDF2'
           endif
 
-          write (*,10)nxd,nyd,nzd,ngrd,timecorr,source,numerical_grid
-     .              ,advective,ts
+          write (*,10)nxd,nyd,nzd,ngrd,precon,timecorr,source
+     .               ,numerical_grid,advective,ts
 
           write (*,*) 
           write (*,100)
@@ -122,7 +122,7 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-cc     .        /,'  Preconditioning method:...',a11,
+     .        /,'  Preconditioning method:...',a11,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
