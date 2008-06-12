@@ -29,7 +29,7 @@ c Call variables
 
 c Local variables
 
-      integer          :: i,j,k,ii,ieq
+      integer          :: i,j,k,ii,ieq,igx,igy,igz,nx,ny,nz
 
       double precision :: ftemp(ntotd)
 
@@ -149,6 +149,7 @@ c Begin program
 c Calculate CFL
 
       w_cfl = 0d0
+      k2max = 0d0
 
       do k=1,nz
         do j=1,ny
@@ -165,11 +166,11 @@ c Calculate CFL
 
             !Maximum kk
             idx  = pi/dx(ig)
-            if (nxd == 1) idx = 0d0
+            if (nx == 1) idx = 0d0
             idy  = pi/dy(jg)
-            if (nyd == 1) idy = 0d0
+            if (ny == 1) idy = 0d0
             idz  = pi/dz(kg)
-            if (nzd == 1) idz = 0d0
+            if (nz == 1) idz = 0d0
 
             k2 = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
 
