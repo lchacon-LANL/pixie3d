@@ -63,13 +63,9 @@ c Begin program
 
         allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,grd   (ilom:ihip,jlom:jhip,klom:khip,3))
-
-cc        allocate (jcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3))
-cc
-cc        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+     .           ,vlap_v(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
         allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -83,6 +79,7 @@ cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 c SI operator
         allocate(b_n(ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,p_n(ilom:ihip,jlom:jhip,klom:khip,1)
+     .          ,vcov_n(ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,dv_dt (ilom:ihip,jlom:jhip,klom:khip,3))
 c SI operator
 
