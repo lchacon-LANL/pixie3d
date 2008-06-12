@@ -213,15 +213,16 @@ c ######################################################################
 #else
         real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,bcov
 #endif
-cc        real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,bcov
 
         real(8),target,allocatable,dimension(:,:,:) :: eeta,nuu,divrgV
 
         real(8),target,allocatable,dimension(:,:,:,:) ::vcnv,vcov
-     .         ,pcnv,vecnv,vdummy,grd
+     .                                                 ,pcnv,vecnv
+     .                                                 ,vdummy,E_ni
+     .                                                 ,vlap_v
+     .                                                 ,jcov_0
 
         real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
-cc        real(8),target,allocatable,dimension(:,:,:,:) :: jcnv,jcov
 
         logical :: alt_eom
 
@@ -231,6 +232,7 @@ cc        real(8),target,allocatable,dimension(:,:,:,:) :: jcnv,jcov
 c SI operator
         real(8) :: k_si=0d0
         real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
+     .                                                  ,vcov_n
 c SI operator
 
       contains
@@ -464,6 +466,10 @@ c ######################################################################
 
         INTERFACE veclaplacian
           module procedure veclap_diff,veclap_ndiff,veclap2
+        end INTERFACE
+
+        INTERFACE veclap_cov
+          module procedure veclap_cov_diff,veclap_cov_ndiff
         end INTERFACE
 
         INTERFACE laplacian
@@ -2003,8 +2009,14 @@ c     ###############################################################
      .                   ,tsrx,tsry,tsrz,vol) result (divt)
 
 c     ---------------------------------------------------------------
-c     Calculates div(tensor) at cell centers in general non-orthogonal
-c     coordinates.
+c     Calculatesthe contravariant components of div(tensor) at cell
+c     centers in general non-orthogonal coordinates, given by:
+c
+c         div(T)^i = partial_j(T^ji/jac) + T^lm/jac Gamma(i)_lm)
+c
+c     The routines tsrx,tsry,tsrz must provide the contravariant
+c     tersor components T^lm (if flag /= 0, they actually provide
+c     T^lm/jac).
 c     ---------------------------------------------------------------
 
       implicit none           !For safe fortran
@@ -2148,8 +2160,13 @@ c     ###############################################################
      .                       ,tsrx,tsry,tsrz,vol) result (divt)
 
 c     ---------------------------------------------------------------
-c     Calculates div(tensor) at cell centers in general non-orthogonal
-c     coordinates.
+c     Calculates covariant components of div(tensor) at cell centers in
+c     general non-orthogonal coordinates, which is given by:
+c
+c         div(T)_i = jac^(-1)*[ partial_j(T^j_i)-T^l_m Gamma(m)_il) ]
+c
+c     The routinex tsrx,tsry,tsrz must provide mixed representation 
+c     tensor components T^l_m.
 c     ---------------------------------------------------------------
 
       implicit none           !For safe fortran
@@ -2170,7 +2187,7 @@ c     Local variables
 
       real(8)    :: jac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
 
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
      .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
@@ -2228,14 +2245,14 @@ c     Begin program
       msource = 0d0
 
       !Component 1
-      flxip = t11p
-      flxim = t11m
-
-      flxjp = t21p
-      flxjm = t21m
-
-      flxkp = t31p
-      flxkm = t31m
+cc      flxip = t11p
+cc      flxim = t11m
+ccc
+cc      flxjp = t21p
+cc      flxjm = t21m
+cc
+cc      flxkp = t31p
+cc      flxkm = t31m
 
       if (coords /= 'car') then
         msource =  (t11o*hess(1,1,1)+t12o*hess(2,1,1)+t13o*hess(3,1,1)
@@ -2243,19 +2260,22 @@ c     Begin program
      .             +t31o*hess(1,3,1)+t32o*hess(2,3,1)+t33o*hess(3,3,1))
       endif
 
-      divt(1) =  (flxip - flxim)/dxx
-     .          +(flxjp - flxjm)/dyy
-     .          +(flxkp - flxkm)/dzz - msource
+cc      divt(1) =  (flxip - flxim)/dxx
+cc     .          +(flxjp - flxjm)/dyy
+cc     .          +(flxkp - flxkm)/dzz - msource
+      divt(1) =  (t11p - t11m)/dxx
+     .          +(t21p - t21m)/dyy
+     .          +(t31p - t31m)/dzz - msource
 
       !Component 2
-      flxip = t12p
-      flxim = t12m
-
-      flxjp = t22p
-      flxjm = t22m
-
-      flxkp = t32p
-      flxkm = t32m
+cc      flxip = t12p
+cc      flxim = t12m
+cc
+cc      flxjp = t22p
+cc      flxjm = t22m
+cc
+cc      flxkp = t32p
+cc      flxkm = t32m
 
       if (coords /= 'car') then
         msource=  (t11o*hess(1,1,2)+t12o*hess(2,1,2)+t13o*hess(3,1,2)
@@ -2263,19 +2283,22 @@ c     Begin program
      .            +t31o*hess(1,3,2)+t32o*hess(2,3,2)+t33o*hess(3,3,2))
       endif
 
-      divt(2) =  (flxip - flxim)/dxx
-     .          +(flxjp - flxjm)/dyy
-     .          +(flxkp - flxkm)/dzz  - msource
+cc      divt(2) =  (flxip - flxim)/dxx
+cc     .          +(flxjp - flxjm)/dyy
+cc     .          +(flxkp - flxkm)/dzz  - msource
+      divt(2) =  (t12p - t12m)/dxx
+     .          +(t22p - t22m)/dyy
+     .          +(t32p - t32m)/dzz  - msource
 
       !Component 3
-      flxip = t13p
-      flxim = t13m
-
-      flxjp = t23p
-      flxjm = t23m
-
-      flxkp = t33p
-      flxkm = t33m
+cc      flxip = t13p
+cc      flxim = t13m
+cc
+cc      flxjp = t23p
+cc      flxjm = t23m
+cc
+cc      flxkp = t33p
+cc      flxkm = t33m
 
       if (coords /= 'car') then
         msource = (t11o*hess(1,1,3)+t12o*hess(2,1,3)+t13o*hess(3,1,3)
@@ -2283,9 +2306,12 @@ c     Begin program
      .            +t31o*hess(1,3,3)+t32o*hess(2,3,3)+t33o*hess(3,3,3))
       endif
 
-      divt(3) =  (flxip - flxim)/dxx
-     .          +(flxjp - flxjm)/dyy
-     .          +(flxkp - flxkm)/dzz - msource
+cc      divt(3) =  (flxip - flxim)/dxx
+cc     .          +(flxjp - flxjm)/dyy
+cc     .          +(flxkp - flxkm)/dzz - msource
+      divt(3) =  (t13p - t13m)/dxx
+     .          +(t23p - t23m)/dyy
+     .          +(t33p - t33m)/dzz - msource
 
       divt = divt/jac
 
@@ -2400,6 +2426,7 @@ c     Begin program
         vlap = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alteom
      .                   ,nabtensor_x,nabtensor_y,nabtensor_z
      $                   ,vol=vol_wgt)
+        nullify(coef)
       endif
 
 c     End program
@@ -2518,18 +2545,6 @@ c     Begin program
         t12 = dd*nabla_v_cnv(1,2)
         t13 = dd*nabla_v_cnv(1,3)
 
-cc        t11 =dd*( gsuper(1,1)*nabla_v(1,1)
-cc     .           +gsuper(1,2)*nabla_v(2,1)
-cc     .           +gsuper(1,3)*nabla_v(3,1) )
-cc
-cc        t12 =dd*( gsuper(1,1)*nabla_v(1,2)
-cc     .           +gsuper(1,2)*nabla_v(2,2)
-cc     .           +gsuper(1,3)*nabla_v(3,2) )
-cc
-cc        t13 =dd*( gsuper(1,1)*nabla_v(1,3)
-cc     .           +gsuper(1,2)*nabla_v(2,3)
-cc     .           +gsuper(1,3)*nabla_v(3,3) )
-
         if (flag /= 0) then
           t11 = t11*ijac
           if (.not.alteom) t12 = t12*ijac
@@ -2597,18 +2612,6 @@ c     Begin program
         t21 = dd*nabla_v_cnv(2,1)
         t22 = dd*nabla_v_cnv(2,2)
         t23 = dd*nabla_v_cnv(2,3)
-
-cc        t21 =dd*( gsuper(2,1)*nabla_v(1,1)
-cc     .           +gsuper(2,2)*nabla_v(2,1)
-cc     .           +gsuper(2,3)*nabla_v(3,1) )
-cc
-cc        t22 =dd*( gsuper(2,1)*nabla_v(1,2)
-cc     .           +gsuper(2,2)*nabla_v(2,2)
-cc     .           +gsuper(2,3)*nabla_v(3,2) )
-cc
-cc        t23 =dd*( gsuper(2,1)*nabla_v(1,3)
-cc     .           +gsuper(2,2)*nabla_v(2,3)
-cc     .           +gsuper(2,3)*nabla_v(3,3) )
 
         if (flag /= 0) then
           t21 = t21*ijac
@@ -2678,18 +2681,6 @@ c     Begin program
         t32 = dd*nabla_v_cnv(3,2)
         t33 = dd*nabla_v_cnv(3,3)
 
-cc        t31 =dd*( gsuper(3,1)*nabla_v(1,1)
-cc     .           +gsuper(3,2)*nabla_v(2,1)
-cc     .           +gsuper(3,3)*nabla_v(3,1) )
-cc
-cc        t32 =dd*( gsuper(3,1)*nabla_v(1,2)
-cc     .           +gsuper(3,2)*nabla_v(2,2)
-cc     .           +gsuper(3,3)*nabla_v(3,2) )
-cc
-cc        t33 =dd*( gsuper(3,1)*nabla_v(1,3)
-cc     .           +gsuper(3,2)*nabla_v(2,3)
-cc     .           +gsuper(3,3)*nabla_v(3,3) )
-
         if (flag /= 0) then
           t31 = t31*ijac
           if (.not.alteom) t32 = t32*ijac
@@ -2700,14 +2691,15 @@ c     End program
 
       end subroutine nabtensor_z
 
-c     veclap_cov
+c     veclap_cov_ndiff
 c     ###############################################################
-      function veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vfield
-     .                   ,vol) result (vlap)
+      function veclap_cov_ndiff(i,j,k,nx,ny,nz,igx,igy,igz,vfield
+     .                         ,vol) result (vlap)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
-c     coordinates. Vector is assumed in covariant representation.
+c     Calculates covariant components of dvol*lap(vfield) at cell
+c     centers in general non-orthogonal coordinates. Vector vfield
+c     in covariant representation.
 c     ---------------------------------------------------------------
 
       implicit none           !For safe fortran
@@ -2740,6 +2732,7 @@ c     Begin program
         enddo
       else
         vec => vfield !Pointer passed to nabtensor routines
+        nullify(coef)
         vlap = div_tensor_cov(i,j,k,nx,ny,nz,igx,igy,igz
      .             ,nabtensor_cov_x,nabtensor_cov_y,nabtensor_cov_z
      $             ,vol=vol_wgt)
@@ -2747,14 +2740,69 @@ c     Begin program
 
 c     End program
 
-      end function veclap_cov
+      end function veclap_cov_ndiff
+
+c     veclap_cov_diff
+c     ###############################################################
+      function veclap_cov_diff(i,j,k,nx,ny,nz,igx,igy,igz,vfield,diff
+     .                         ,vol) result (vlap)
+
+c     ---------------------------------------------------------------
+c     Calculates covariant components of dvol*lap(vfield) at cell
+c     centers in general non-orthogonal coordinates. Vector vfield
+c     in covariant representation.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+
+      real(8),target :: vfield (0:nx+1,0:ny+1,0:nz+1,3)
+     .                 ,diff   (0:nx+1,0:ny+1,0:nz+1)
+
+      real(8)    :: vlap(3)
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer    :: icomp
+
+      logical    :: vol_wgt
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+      if (coords == 'car') then
+        do icomp=1,3
+          vlap(icomp)=laplacian(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,vfield(:,:,:,icomp),diff
+     .                         ,vol=vol_wgt)
+        enddo
+      else
+        vec  => vfield !Pointer passed to nabtensor routines
+        coef => diff   !Pointer passed to nabtensor routines
+        vlap = div_tensor_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .             ,nabtensor_cov_x,nabtensor_cov_y,nabtensor_cov_z
+     $             ,vol=vol_wgt)
+        nullify(coef)
+      endif
+
+c     End program
+
+      end function veclap_cov_diff
 
 c     nabtensor_cov_x
 c     #############################################################
       subroutine nabtensor_cov_x(i,j,k,nx,ny,nz,igx,igy,igz
      .                      ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t11-t13 for nabla(vec)
+c     Calculates mixed representation tensor components t11-t13 for
+c     nabla(vec), [nab(vec))^l_m.
 c     -------------------------------------------------------------
 
         implicit none
@@ -2768,7 +2816,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,igrid
         real(8)    :: x,y,z,jac,jac0,jacp
-        real(8)    :: nabla_v(3,3),gsuper(3,3)
+        real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
 c     Begin program
 
@@ -2796,17 +2844,23 @@ c     Begin program
      .                          ,vec(:,:,:,3),0)
         endif
 
-        t11 =( gsuper(1,1)*nabla_v(1,1)
-     .        +gsuper(1,2)*nabla_v(2,1)
-     .        +gsuper(1,3)*nabla_v(3,1) )
+        if (associated(coef)) then
+          dd = 2./(1./coef(ip,j,k) + 1./coef(i,j,k))
+        else
+          dd = 1d0
+        endif
 
-        t12 =( gsuper(1,1)*nabla_v(1,2)
-     .        +gsuper(1,2)*nabla_v(2,2)
-     .        +gsuper(1,3)*nabla_v(3,2) )
+        t11 = dd*( gsuper(1,1)*nabla_v(1,1)
+     .            +gsuper(1,2)*nabla_v(2,1)
+     .            +gsuper(1,3)*nabla_v(3,1) )
 
-        t13 =( gsuper(1,1)*nabla_v(1,3)
-     .        +gsuper(1,2)*nabla_v(2,3)
-     .        +gsuper(1,3)*nabla_v(3,3) )
+        t12 = dd*( gsuper(1,1)*nabla_v(1,2)
+     .            +gsuper(1,2)*nabla_v(2,2)
+     .            +gsuper(1,3)*nabla_v(3,2) )
+
+        t13 = dd*( gsuper(1,1)*nabla_v(1,3)
+     .            +gsuper(1,2)*nabla_v(2,3)
+     .            +gsuper(1,3)*nabla_v(3,3) )
 
 c     End program
 
@@ -2817,7 +2871,8 @@ c     #############################################################
       subroutine nabtensor_cov_y(i,j,k,nx,ny,nz,igx,igy,igz
      .                      ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t21-t23 for EOM
+c     Calculates mixed representation tensor components t21-t23 for
+c     nabla(vec), [nab(vec))^l_m.
 c     -------------------------------------------------------------
 
         implicit none
@@ -2831,7 +2886,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,igrid
         real(8)    :: x,y,z,jac
-        real(8)    :: nabla_v(3,3),gsuper(3,3)
+        real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
 c     Begin program
 
@@ -2857,17 +2912,23 @@ c     Begin program
      .                          ,vec(:,:,:,3),0)
         endif
 
-        t21 =( gsuper(2,1)*nabla_v(1,1)
-     .        +gsuper(2,2)*nabla_v(2,1)
-     .        +gsuper(2,3)*nabla_v(3,1) )
+        if (associated(coef)) then
+          dd = 2./(1./coef(i,jp,k) + 1./coef(i,j,k))
+        else
+          dd = 1d0
+        endif
 
-        t22 =( gsuper(2,1)*nabla_v(1,2)
-     .        +gsuper(2,2)*nabla_v(2,2)
-     .        +gsuper(2,3)*nabla_v(3,2) )
+        t21 = dd*( gsuper(2,1)*nabla_v(1,1)
+     .            +gsuper(2,2)*nabla_v(2,1)
+     .            +gsuper(2,3)*nabla_v(3,1) )
 
-        t23 =( gsuper(2,1)*nabla_v(1,3)
-     .        +gsuper(2,2)*nabla_v(2,3)
-     .        +gsuper(2,3)*nabla_v(3,3) )
+        t22 = dd*( gsuper(2,1)*nabla_v(1,2)
+     .            +gsuper(2,2)*nabla_v(2,2)
+     .            +gsuper(2,3)*nabla_v(3,2) )
+
+        t23 = dd*( gsuper(2,1)*nabla_v(1,3)
+     .            +gsuper(2,2)*nabla_v(2,3)
+     .            +gsuper(2,3)*nabla_v(3,3) )
 
 c     End program
 
@@ -2878,7 +2939,8 @@ c     #############################################################
       subroutine nabtensor_cov_z(i,j,k,nx,ny,nz,igx,igy,igz
      .                      ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
-c     Calculates tensor components t31-t33 for EOM
+c     Calculates mixed representation tensor components t31-t33 for
+c     nabla(vec), [nab(vec))^l_m.
 c     -------------------------------------------------------------
 
         implicit none
@@ -2892,7 +2954,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,kp,igrid
         real(8)    :: x,y,z,jac
-        real(8)    :: nabla_v(3,3),gsuper(3,3)
+        real(8)    :: nabla_v(3,3),gsuper(3,3),dd
 
 c     Begin program
 
@@ -2918,17 +2980,23 @@ c     Begin program
      .                          ,vec(:,:,:,3),0)
         endif
 
-        t31 =( gsuper(3,1)*nabla_v(1,1)
-     .        +gsuper(3,2)*nabla_v(2,1)
-     .        +gsuper(3,3)*nabla_v(3,1) )
+        if (associated(coef)) then
+          dd = 2./(1./coef(i,j,kp) + 1./coef(i,j,k))
+        else
+          dd = 1d0
+        endif
 
-        t32 =( gsuper(3,1)*nabla_v(1,2)
-     .        +gsuper(3,2)*nabla_v(2,2)
-     .        +gsuper(3,3)*nabla_v(3,2) )
+        t31 = dd*( gsuper(3,1)*nabla_v(1,1)
+     .            +gsuper(3,2)*nabla_v(2,1)
+     .            +gsuper(3,3)*nabla_v(3,1) )
 
-        t33 =( gsuper(3,1)*nabla_v(1,3)
-     .        +gsuper(3,2)*nabla_v(2,3)
-     .        +gsuper(3,3)*nabla_v(3,3) )
+        t32 = dd*( gsuper(3,1)*nabla_v(1,2)
+     .            +gsuper(3,2)*nabla_v(2,2)
+     .            +gsuper(3,3)*nabla_v(3,2) )
+
+        t33 = dd*( gsuper(3,1)*nabla_v(1,3)
+     .            +gsuper(3,2)*nabla_v(2,3)
+     .            +gsuper(3,3)*nabla_v(3,3) )
 
 c     End program
 
@@ -5295,8 +5363,8 @@ c     #############################################################
      .                 ,half_elem,cnv)
      .         result(tensor)
 c     -------------------------------------------------------------
-c     Calculates the tensor components T_l^m of nabla(vec v) and
-c     fills tensor(l,m) at the following positions:
+c     Calculates the tensor components T_l^m of nabla(vec v), with v
+c     contravariant, and fills tensor(l,m) at the following positions:
 c       + half_elem=0 --> i,j,k
 c       + half_elem=1 --> i+1/2,j,k
 c       + half_elem=2 --> i,j+1/2,k
@@ -5363,13 +5431,7 @@ c     Begin program
             gsuper = 0.5*(gmetric%grid(igrid)%gsup(i ,j,k,:,:)
      .                   +gmetric%grid(igrid)%gsup(ip,j,k,:,:))
 
-            if (isSP(ip,j,k,igx,igy,igz)) then
-              gsuper = 0d0
-cc              gsuper(1,1) = 0d0
-cc              gsuper(2,2) = 0d0
-cc              gsuper(3,3) = 0d0
-cc              write (*,*) 'DIAG -- fnabla_v',gsuper
-            endif
+            if (isSP(ip,j,k,igx,igy,igz)) gsuper = 0d0
           endif
 
           vxip = ax(ip,j,k)
