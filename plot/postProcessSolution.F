@@ -211,10 +211,10 @@ c Poloidal flux diagnostics
         enddo
       enddo
 
-      bcs = bcond
-      where (bcs == DEF) bcs = EXT
+cc      bcs = bcond
+cc      where (bcs == DEF) bcs = EXT
 
-      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
+cc      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
 #else
       Pflux = az
 #endif
