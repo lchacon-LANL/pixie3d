@@ -140,7 +140,7 @@ c Set defaults
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
-      tmax     = 0d0           ! Target time, in Alfven times.
+      tmax     = -1d0          ! Target time, in Alfven times.
       numtime  = -1            ! Number of time steps
       ndstep   = 0             ! # time steps between plots (if zero,
                                !        ndstep is calculated in code)
@@ -342,40 +342,46 @@ c Read initialization parameters
 
 c Write initialization parameters to standard output
 
-      write (*,*) '-------------------'
-      write (*,*) 'SETUP configuration'
-      write (*,*) '-------------------'
-      write (*,setup)
+#if defined(petsc)
+      call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
+#endif
 
-      write (*,*) '------------------'
-      write (*,*) 'PHYS configuration'
-      write (*,*) '------------------'
-      write (*,phys)
+      if (my_rank == 0) then
+        write (*,*) '-------------------'
+        write (*,*) 'SETUP configuration'
+        write (*,*) '-------------------'
+        write (*,setup)
 
-      write (*,*) '----------------- '
-      write (*,*) 'FV  configuration'
-      write (*,*) '----------------- '
-      write (*,fv)
+        write (*,*) '------------------'
+        write (*,*) 'PHYS configuration'
+        write (*,*) '------------------'
+        write (*,phys)
 
-      write (*,*) '----------------- '
-      write (*,*) 'TS  configuration'
-      write (*,*) '----------------- '
-      write (*,ts)
+        write (*,*) '----------------- '
+        write (*,*) 'FV  configuration'
+        write (*,*) '----------------- '
+        write (*,fv)
 
-      write (*,*) '----------------- '
-      write (*,*) 'NKS configuration'
-      write (*,*) '----------------- '
-      write (*,nks)
+        write (*,*) '----------------- '
+        write (*,*) 'TS  configuration'
+        write (*,*) '----------------- '
+        write (*,ts)
 
-      write (*,*) '----------------- '
-      write (*,*) 'PC  configuration'
-      write (*,*) '----------------- '
-      write (*,pc)
+        write (*,*) '----------------- '
+        write (*,*) 'NKS configuration'
+        write (*,*) '----------------- '
+        write (*,nks)
 
-      write (*,*) '----------------- '
-      write (*,*) 'IO  configuration'
-      write (*,*) '----------------- '
-      write (*,io)
+        write (*,*) '----------------- '
+        write (*,*) 'PC  configuration'
+        write (*,*) '----------------- '
+        write (*,pc)
+
+        write (*,*) '----------------- '
+        write (*,*) 'IO  configuration'
+        write (*,*) '----------------- '
+        write (*,io)
+      endif
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
@@ -412,6 +418,8 @@ cc      if (precon == 'id') iguess = 0
         nc_eom_jxb = .true.
         nc_eom_gp  = .true.
       endif
+
+      if (cnfactor == 1d0) hall_new = .false.
 
 c Map perturbations
 
