@@ -164,9 +164,9 @@ c     Warnings
 
       if (nc_eom_jxb .or. nc_eom_gp .or. nc_eom_v
      .    .or. (.not.solenoidal) .or. (.not.solve_rho)
-     .    .or. sym_st) then
+     .    .or. sym_st .or. hall_new) then
         write (*,*)
-        write (*,*) '****************** NOTICE ******************'
+        write (*,*) '****************** NOTICES ******************'
 
         if (nc_eom_jxb)
      .       write (*,*) 'Using non-conservative JxB     part of EOM'
@@ -177,11 +177,13 @@ c     Warnings
         if (.not.solenoidal)
      .       write (*,*) 'Using non-solenoidal version'
         if (.not.solve_rho)
-     .       write (*,*) 'Not solving for density'
+     .       write (*,*) 'Not solving for density: rho = 1'
         if (sym_st)
      .       write (*,*) 'Using symmetric viscous stress tensor in EOM'
+        if (hall_new)
+     .       write (*,*) 'Solving alternative Hall MHD formulation'
       
-        write (*,*) '****************** NOTICE ******************'
+        write (*,*) '****************** NOTICES ******************'
       endif
 
       end subroutine warnings
