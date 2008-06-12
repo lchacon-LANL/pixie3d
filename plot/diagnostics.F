@@ -178,25 +178,25 @@ c Close time traces file
 c Poincare output (field tracer)
 
 #if !defined(petsc)
-        write (*,*)
-        write (*,*) 'Dumping Poincare file...'
-        ft_file = 'poincare.bin'
-        open(unit=uft,file=trim(ft_file)
-     .      ,status='unknown',form='unformatted')
-
-        tor = (coords == 'vmc' .or. coords == 'tor')
-
-        write (uft) nxd,nyd,nzd,bcond,tor
-        write (uft) grid_params%xx(1:nxd+2)
-        write (uft) grid_params%yy(1:nyd+2)
-        write (uft) grid_params%zz(1:nzd+2)
-        write (uft) u_np%array_var(IBX)%array
-        write (uft) u_np%array_var(IBY)%array
-        write (uft) u_np%array_var(IBZ)%array
-        write (uft) gmetric%grid(1)%jac
-        write (uft) gmetric%grid(1)%car
-
-        close(uft)
+cc        write (*,*)
+cc        write (*,*) 'Dumping Poincare file...'
+cc        ft_file = 'poincare.bin'
+cc        open(unit=uft,file=trim(ft_file)
+cc     .      ,status='unknown',form='unformatted')
+cc
+cc        tor = (coords == 'vmc' .or. coords == 'tor')
+cc
+cc        write (uft) nxd,nyd,nzd,bcond,tor
+cc        write (uft) grid_params%xx(1:nxd+2)
+cc        write (uft) grid_params%yy(1:nyd+2)
+cc        write (uft) grid_params%zz(1:nzd+2)
+cc        write (uft) u_np%array_var(IBX)%array
+cc        write (uft) u_np%array_var(IBY)%array
+cc        write (uft) u_np%array_var(IBZ)%array
+cc        write (uft) gmetric%grid(1)%jac
+cc        write (uft) gmetric%grid(1)%car
+cc
+cc        close(uft)
 #endif
 
 c End program
@@ -311,6 +311,14 @@ c Local variables
      .             ,tn=0d0,ez,lrflux,rflux
       logical    :: cartsn
 
+      INTERFACE
+        subroutine postProcessSolution(varray,iigx,iigy,iigz)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        type(var_array),pointer :: varray
+        end subroutine postProcessSolution
+      END INTERFACE
+
 c Begin program
 
       igx = iigx
@@ -348,6 +356,10 @@ c Begin program
 #endif
       tmp => varray%array_var(ITMP)%array
 
+c Postprocess solution
+
+      call postProcessSolution(varray,igx,igy,igz)
+
 c Particle diagnostics
 
       Npar = integral(nx,ny,nz,rho,igx,igy,igz,.false.) - Npar0
@@ -367,7 +379,7 @@ c Energy diagnostics
 
       !Magnetic energy
 
-      array = rho*(bx_car**2 + by_car**2 + bz_car**2)
+      array = (bx_car**2 + by_car**2 + bz_car**2)
       Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Ion kinetic energy
@@ -375,19 +387,15 @@ c Energy diagnostics
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
       Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
-c diag *****
-cc      array = (vx_car**2 + vy_car**2)
-cc      write (*,*) 'DIAG -- diagnostics, vpol_max=',sqrt(maxval(array))
-c diag *****
-
       !Thermal energy
 
+      array = rho*tmp
+
       if (gamma /= 1d0) then
-        array = 2*rho*tmp/(gamma-1.)
+        Et = a_p/(gamma-1)*integral(nx,ny,nz,array,igx,igy,igz,.false.)
       else
-        array = 0d0
+        Et = 0d0
       endif
-      Et = integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Total energy
 
@@ -510,35 +518,11 @@ cc      enddo
 
 c Dump diagnostics
 
-      call dumpDiagnostics
-
-c End 
-
-      end subroutine evaluateDiagnostics
-
-c dumpDiagnostics
-c######################################################################
-      subroutine dumpDiagnostics
-
-c -------------------------------------------------------------------
-c     Dumps time plots
-c -------------------------------------------------------------------
-
-      use diag_setup
-
-      implicit none
-
-c Call variables
-
-c Local variables
- 
-c Begin program
-
       if (isProcessor) then
         write(ulineplot) real(time),real(diagnostics)
 cc      write(*,*) real(time),real(diagnostics)
       endif
 
-c End program
+c End 
 
-      end subroutine dumpDiagnostics
+      end subroutine evaluateDiagnostics
