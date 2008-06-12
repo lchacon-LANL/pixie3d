@@ -48,17 +48,23 @@ c Begin program
 
       iter = 0
 
+      igx = 1
+      igy = 1
+      igz = 1
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
 c Predictor
 
       ftemp = fold
 
-cc      call evaluateNonlinearFunction(vnp,ftemp)
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
 
-      do k = 1,nzd
-        do j = 1,nyd
-          do i = 1,nxd
-
-            ii = neqd*(i-1 + nxd*(j-1) + nxd*nyd*(k-1))
+            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
 
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
@@ -74,11 +80,11 @@ c Corrector
 
       call evaluateNonlinearFunction(vnp,ftemp)
 
-      do k = 1,nzd
-        do j = 1,nyd
-          do i = 1,nxd
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
 
-            ii = neqd*(i-1 + nxd*(j-1) + nxd*nyd*(k-1))
+            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
 
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
@@ -127,22 +133,26 @@ c Local variables
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
-      real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz
+      real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical    :: cartsn
 
 c Begin program
 
-c Calculate maximum transport coefficient on grid
+      igx = 1
+      igy = 1
+      igz = 1
 
-      diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
 c Calculate CFL
 
       w_cfl = 0d0
 
-      do k=1,nzd
-        do j=1,nyd
-          do i=1,nxd
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
 
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -189,6 +199,8 @@ c Calculate CFL
 
 c Calculate courant number
 
+      diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
+
       w_cour = max(diffmax*k2max,heta*k2max**2)
 
 c Calculate time step
@@ -197,10 +209,20 @@ c Calculate time step
         dt = 1d0*pi/w_cour
 cc        write (*,*) 'Courant'
       else
-        dt = 0.9*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
+        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
      .              (w_cour**3 + w_cfl**3)
 cc        write (*,*) 'CFL'
       endif
+
+c Synchronize time step among all processors
+
+#if defined(petsc)
+      ldt = dt
+      call MPI_Allreduce(ldt,dt,1,MPI_DOUBLE_PRECISION
+     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#endif
+
+c Compare with input time step
 
       dt = min(dt,dtbase)
 
