@@ -35,7 +35,7 @@ c Diag
 c Externals
 
       external   v_mtvc,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
-     .          ,mstar_mtvc,hall_mtvc,a_mtvc
+     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp
 
 c Interfaces
 
@@ -147,6 +147,13 @@ c Find required diagonals in all grids
         call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
      .                   ,a_diag,ncolors,vol_wgt,mg_glrkin)
 #endif
+
+        if (heta > 0d0) then
+          bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+          call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
+     .                     ,b_diag_hyp,ncolors,vol_wgt,mg_glrkin)
+        endif
 
         if (.not.gm_smooth) then
           if (precon == 's1') then
