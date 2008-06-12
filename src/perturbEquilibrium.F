@@ -156,7 +156,7 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
           enddo
         enddo
 
-      case ('gem')
+      case ('gem','tmcar','tmsin')
 
         call perturbEquilibrium_gem(array,bcs,perturb,ieq)
 
