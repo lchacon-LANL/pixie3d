@@ -36,6 +36,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
      .                                            ,b_diag,v_diag
      .                                            ,mstar_diag,a_diag
+     .                                            ,b_diag_hyp
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
@@ -45,7 +46,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:)      :: mgdivV0
 
-        integer   , allocatable, dimension(:,:) :: bcs
+        integer, allocatable, dimension(:,:)    :: bcs,bcs_hyp
 
         type(var_array),pointer :: varray
 
@@ -91,12 +92,13 @@ c     Begin program
         allocate (mgnablaV0  (ntotd2p,3,3))
         allocate (mgdivV0    (ntotd2p))
 
-        allocate (bcs(6,neqd+3))
+        allocate (bcs(6,neqd+3),bcs_hyp(6,6))
 
         allocate (rho_diag  (1,  ntotd2p)
      .           ,tmp_diag  (1,  ntotd2p)
 #if !defined(vec_pot)
-     .           ,  b_diag  (3,3*ntotd2p)
+     .           ,  b_diag    (3,3*ntotd2p)
+     .           ,  b_diag_hyp(6,6*ntotd2p)
 #else
      .           ,  a_diag  (3,3*ntotd2p)
 #endif
@@ -133,7 +135,7 @@ c     Begin program
         deallocate (mgdivV0)
         deallocate (mgadvdiffV0)
         deallocate (mgnablaV0)
-        deallocate (bcs)
+        deallocate (bcs,bcs_hyp)
 
         call deallocateMGArray(gp0)
         call deallocateMGArray(grho0)
@@ -496,7 +498,6 @@ c     Setup BCs
         where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
 #endif
 
-cc      call setASMflag(.false.)                  !THIS COMMUNICATES COEFF.
         call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
 
 c     Store density in all grids (w/o BCs)
@@ -510,81 +511,21 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
 cc        call restrict_B(.true.)
 
         gb0%grid(igrid)%array = bcnv
-cc        gb0%grid(igrid)%array(:,:,:,1) = bx
-cc        gb0%grid(igrid)%array(:,:,:,2) = by
-cc        gb0%grid(igrid)%array(:,:,:,3) = bz
 
         call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order)
-
-c diag ****
-cc        write (*,*) 'DIAG -- findCoeffs'
-cc
-cc        gb0%grid(igrid)%array(:,:,:,1) = 0d0
-cc        gb0%grid(igrid)%array(:,:,:,2) = 0d0
-cc        gb0%grid(igrid)%array(:,:,:,3) = 1d0
-cc
-cc        do igr=1,grid_params%ngrid
-cc          gb0%grid(igr)%array(:,:,:,1) = 0d0
-cc          gb0%grid(igr)%array(:,:,:,2) = 0d0
-cc          gb0%grid(igr)%array(:,:,:,3) = 1d0
-cc        enddo
-c diag ****
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
         gb0_cov%grid(igrid)%array = bcov
-cc        gb0_cov%grid(igrid)%array(:,:,:,1) = bx_cov
-cc        gb0_cov%grid(igrid)%array(:,:,:,2) = by_cov
-cc        gb0_cov%grid(igrid)%array(:,:,:,3) = bz_cov
 
         call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
 
-c diag ****
-cc        write (*,*) 'DIAG -- findCoeffs'
-cc
-cc        gb0_cov%grid(igrid)%array(:,:,:,1) = 0d0
-cc        gb0_cov%grid(igrid)%array(:,:,:,2) = 0d0
-cc        gb0_cov%grid(igrid)%array(:,:,:,3) = 1d0
-cc
-cc        do igr=1,grid_params%ngrid
-cc          gb0_cov%grid(igr)%array(:,:,:,1) = 0d0
-cc          gb0_cov%grid(igr)%array(:,:,:,2) = 0d0
-cc          gb0_cov%grid(igr)%array(:,:,:,3) = 1d0
-cc        enddo
-c diag ****
-
 c     Store ion velocity components in all grids (w/ BCs)
 
         gv0%grid(igrid)%array = vcnv
-cc        gv0%grid(igrid)%array(:,:,:,1) = vx
-cc        gv0%grid(igrid)%array(:,:,:,2) = vy
-cc        gv0%grid(igrid)%array(:,:,:,3) = vz
 
         call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
-
-c diag ****
-cc        write (*,*) 'DIAG -- findCoeffs'
-cc
-cc        gv0%grid(igrid)%array(:,:,:,1) = 0d0
-cc        gv0%grid(igrid)%array(:,:,:,2) = 0d0
-cc        gv0%grid(igrid)%array(:,:,:,3) = 0d0
-cc
-cc        do igr=1,grid_params%ngrid
-cc          gv0%grid(igr)%array(:,:,:,1) = 0d0
-cc          gv0%grid(igr)%array(:,:,:,2) = 0d0
-cc          gv0%grid(igr)%array(:,:,:,3) = 0d0
-cc        enddo
-c diag ****
-
-c     Store current components in all grids (w/o BCs)
-
-cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jx,mgj0cnv(:,1),igrid
-cc     .                  ,order,.false.)
-cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jy,mgj0cnv(:,2),igrid
-cc     .                  ,order,.false.)
-cc        call restrictArrayToMGVector(1,nxx,nyy,nzz,jz,mgj0cnv(:,3),igrid
-cc     .                  ,order,.false.)
 
 c     Find auxiliary quantities and store them in all grids
 
@@ -598,7 +539,6 @@ c     Find auxiliary quantities and store them in all grids
      .                           ,vcnv(:,:,:,1)
      .                           ,vcnv(:,:,:,2)
      .                           ,vcnv(:,:,:,3))
-cc              divrgV(i,j,k) = 0d0
             enddo
           enddo
         enddo
@@ -680,7 +620,7 @@ cc              divrgV(i,j,k) = 0d0
               else
                 do ivar=1,3
                   vector(i,j,k,ivar) = 
-     .                          gv0%grid(igrid)%array(i,j,k,ivar)/dt
+     .                          cnp*gv0%grid(igrid)%array(i,j,k,ivar)/dt
      .                        + alpha*vcnv(i,j,k,1)*nabla_v(1,ivar)/jac
      .                        + alpha*vcnv(i,j,k,2)*nabla_v(2,ivar)/jac
      .                        + alpha*vcnv(i,j,k,3)*nabla_v(3,ivar)/jac
