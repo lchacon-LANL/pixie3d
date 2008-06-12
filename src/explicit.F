@@ -176,14 +176,14 @@ c Calculate CFL
 
             k2max = max(k2max,k2)
 
-            !Maximum k.v
+            !k.v
             vxx = abs(px(i,j,k)/rho(i,j,k))
             vyy = abs(py(i,j,k)/rho(i,j,k))
             vzz = abs(pz(i,j,k)/rho(i,j,k))
             kv_par = scalarProduct(i,j,k,igx,igy,igz
      .                            ,idx,idy,idz,vxx,vyy,vzz)
 
-            !Maximum k.B
+            !(k.B/B)^2
             kb_par2 = scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
      .                 ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))**2
      .               /bnorm
@@ -202,7 +202,7 @@ c Calculate courant number
 
       diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
 
-      w_cour = max(diffmax*k2max,heta*k2max**2)
+      w_cour = max(diffmax*k2max,di*heta*k2max**2)
 
 c Calculate time step
 
