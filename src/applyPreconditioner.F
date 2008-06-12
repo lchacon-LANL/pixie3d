@@ -47,7 +47,7 @@ c Debug
 c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,test_mtvc
-     .          ,v_mtvc3,hall_mtvc,a_mtvc
+     .          ,v_mtvc3,hall_mtvc,a_mtvc,b_mtvc_hyp
 
 c Begin program
 
@@ -126,7 +126,7 @@ c     Create auxiliary arrays
 
 c     Preprocess B/A rhs
 
-        if (di > 0d0) then
+        if (di > 0d0 .and. (.not.hall_new)) then
 #if !defined(vec_pot)
           call preprocessBflRHS(yyy,igrid)
 #else
@@ -296,7 +296,7 @@ c     Create auxiliary arrays
 
 c     Preprocess B/A rhs
 
-        if (di > 0d0) then
+        if (di > 0d0 .and. (.not.hall_new)) then
 #if !defined(vec_pot)
           call preprocessBflRHS(yyy,igrid)
 #else
@@ -544,6 +544,8 @@ c     Call variables
 
 c     Local variables
 
+        real(8)    :: xc(ntot/neqd,6),rhsc(ntot/neqd,6)
+
 c     Begin program
 
         if (.not.hall) then
@@ -587,25 +589,41 @@ cc     .                  ,line_relax=line_relax)
           !Magnetic field
           if (si_car) call XtoCar(igrid,rhs(:,IBX:IBZ))
 
-          if (gm_smooth) then
-            call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .                ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc
-     .                ,ncolors=4,smooth='gm',line_relax=line_relax)
-          else
-            if (bcSP()) then
+          if (di*heta == 0d0) then
+            if (gm_smooth) then
               call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .                ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
-     .                ,ncolors=4,line_relax=line_relax,order_res=0
-     .                ,order_prol=2,smooth='gs')
+     .                  ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc
+     .                  ,ncolors=4,smooth='gm',line_relax=line_relax)
             else
-              call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .                ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
-     .                ,ncolors=4,line_relax=line_relax,order_res=2
-     .                ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
-cc     .                ,ncolors=4,line_relax=line_relax,order_res=0
-cc     .                ,order_prol=2)
-cc     .                ,ncolors=4,line_relax=line_relax)
+              if (bcSP()) then
+                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+     .               ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+     .               ,ncolors=4,line_relax=line_relax,order_res=0
+     .               ,order_prol=2,smooth='gs')
+              else
+                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+     .               ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+     .               ,ncolors=4,line_relax=line_relax,order_res=2
+     .               ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
+cc     .                  ,ncolors=4,line_relax=line_relax,order_res=0
+cc     .                  ,order_prol=2)
+cc     .                  ,ncolors=4,line_relax=line_relax)
+              endif
             endif
+          else
+            xc(:,1:3) = x(:,IBX:IBZ)
+            xc(:,4:6) = 0d0
+
+            rhsc(:,1:3) = rhs(:,IBX:IBZ)
+            rhsc(:,4:6) = 0d0
+
+            call cSolver(6,ntotp,rhsc,xc,bcs_hyp
+     .                 ,igrid,iout,guess,b_mtvc_hyp,dg=b_diag_hyp
+     .                 ,ncolors=4,line_relax=line_relax,order_res=2
+     .                 ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
+
+            x(:,IBX:IBZ) = xc(:,1:3)
+cc            pause 'here'
           endif
 
           if (si_car) call XtoCurv(igrid,x(:,IBX:IBZ))
