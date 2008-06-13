@@ -219,7 +219,7 @@ c ######################################################################
         real(8),target,allocatable,dimension(:,:,:,:) ::vcnv,vcov
      .                                                 ,pcnv,vecnv
      .                                                 ,vdummy,E_ni
-     .                                                 ,vlap_v
+     .                                                 ,vlap
      .                                                 ,jcov_0
 
         real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
@@ -2439,8 +2439,8 @@ c     ###############################################################
      .                     ,alteom,vol) result (vlap)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
-c     coordinates. Vector is assumed in contravariant representation.
+c     Calculates dvol*lap(vector) at cell centers in contravarian
+c     representation. Vector vfield is contravariant.
 c     ---------------------------------------------------------------
 
       implicit none           !For safe fortran
@@ -6686,7 +6686,7 @@ cc        if (isSP(i+1,j,k,igx,igy,igz)) ijac = 1d0/SP_flsv
 
         t11 = 0d0
 
-        if (solenoidal) then
+cc        if (solenoidal) then
           t12 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,2)*ijac0
      .               +vec1(ip,j,k,1)*vec2(ip,j,k,2)*ijacp)*jac
      .         -0.5*( vec1(i ,j,k,2)*vec2(i ,j,k,1)*ijac0
@@ -6696,17 +6696,17 @@ cc        if (isSP(i+1,j,k,igx,igy,igz)) ijac = 1d0/SP_flsv
      .               +vec1(ip,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
      .         -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)*ijac0
      .               +vec1(ip,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
-        else
-          t12 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0)*jac
-     .         -0.5*( vec1(ip,j,k,2)*vec2(i ,j,k,1)*ijac0
-     .               +vec1(i ,j,k,2)*vec2(ip,j,k,1)*ijacp)*jac
-
-          t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
-     .         -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)*ijac0
-     .               +vec1(i ,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
-        endif
+cc        else
+cc          t12 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
+cc     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0)*jac
+cc     .         -0.5*( vec1(ip,j,k,2)*vec2(i ,j,k,1)*ijac0
+cc     .               +vec1(i ,j,k,2)*vec2(ip,j,k,1)*ijacp)*jac
+cc
+cc          t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0
+cc     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
+cc     .         -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)*ijac0
+cc     .               +vec1(i ,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
+cc        endif
 
 cc        if (isSP(i+1,j,k,igx,igy,igz)) then
 cc          write (*,*) t12,t13
@@ -6766,7 +6766,7 @@ cc        jac  = 1d0
 
         t22 = 0d0
 
-        if (solenoidal) then
+cc        if (solenoidal) then
           t21 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,1)*ijac0
      .               +vec1(i,jp,k,2)*vec2(i,jp,k,1)*ijacp)*jac
      .         -0.5*( vec1(i,j ,k,1)*vec2(i,j ,k,2)*ijac0
@@ -6776,17 +6776,17 @@ cc        jac  = 1d0
      .               +vec1(i,jp,k,2)*vec2(i,jp,k,3)*ijacp)*jac
      .         -0.5*( vec1(i,j ,k,3)*vec2(i,j ,k,2)*ijac0
      .               +vec1(i,jp,k,3)*vec2(i,jp,k,2)*ijacp)*jac
-        else
-          t21 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijac0
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijacp)*jac
-     .         -0.5*( vec1(i,jp,k,1)*vec2(i,j ,k,2)*ijacp
-     .               +vec1(i,j ,k,1)*vec2(i,jp,k,2)*ijac0)*jac
-
-          t23 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp)*jac
-     .         -0.5*( vec1(i,jp,k,3)*vec2(i,j ,k,2)*ijac0
-     .               +vec1(i,j ,k,3)*vec2(i,jp,k,2)*ijacp)*jac
-        endif
+cc        else
+cc          t21 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijac0
+cc     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijacp)*jac
+cc     .         -0.5*( vec1(i,jp,k,1)*vec2(i,j ,k,2)*ijacp
+cc     .               +vec1(i,j ,k,1)*vec2(i,jp,k,2)*ijac0)*jac
+cc
+cc          t23 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
+cc     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp)*jac
+cc     .         -0.5*( vec1(i,jp,k,3)*vec2(i,j ,k,2)*ijac0
+cc     .               +vec1(i,j ,k,3)*vec2(i,jp,k,2)*ijacp)*jac
+cc        endif
 
         if (flag /= 0) then
           t21 = t21*ijac
@@ -6841,7 +6841,7 @@ cc        endif
 
         t33 = 0d0
 
-        if (solenoidal) then
+cc        if (solenoidal) then
           t31 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,1)*ijac0
      .               +vec1(i,j,kp,3)*vec2(i,j,kp,1)*ijacp)*jac
      .         -0.5*( vec1(i,j,k ,1)*vec2(i,j,k ,3)*ijac0
@@ -6851,17 +6851,17 @@ cc        endif
      .               +vec1(i,j,kp,3)*vec2(i,j,kp,2)*ijacp)*jac
      .         -0.5*( vec1(i,j,k ,2)*vec2(i,j,k ,3)*ijac0
      .               +vec1(i,j,kp,2)*vec2(i,j,kp,3)*ijacp)*jac
-        else
-          t31 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijac0
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijacp)*jac
-     .         -0.5*( vec1(i,j,kp,1)*vec2(i,j,k ,3)*ijac0
-     .               +vec1(i,j,k ,1)*vec2(i,j,kp,3)*ijacp)*jac
-
-          t32 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijac0
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijacp)*jac
-     .         -0.5*( vec1(i,j,kp,2)*vec2(i,j,k ,3)*ijac0
-     .               +vec1(i,j,k ,2)*vec2(i,j,kp,3)*ijacp)*jac
-        endif
+cc        else
+cc          t31 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijac0
+cc     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijacp)*jac
+cc     .         -0.5*( vec1(i,j,kp,1)*vec2(i,j,k ,3)*ijac0
+cc     .               +vec1(i,j,k ,1)*vec2(i,j,kp,3)*ijacp)*jac
+cc
+cc          t32 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijac0
+cc     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijacp)*jac
+cc     .         -0.5*( vec1(i,j,kp,2)*vec2(i,j,k ,3)*ijac0
+cc     .               +vec1(i,j,k ,2)*vec2(i,j,kp,3)*ijacp)*jac
+cc        endif
 
         if (flag /= 0) then
           t31 = t31*ijac
