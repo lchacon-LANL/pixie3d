@@ -63,7 +63,7 @@ c Begin program
 
         allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vlap_v(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vlap  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3))
 
