@@ -50,7 +50,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         type(var_array),pointer :: varray
 
-        type (mg_array ),target :: gp0,gb0,gv0,grho0,gb0_cov
+        type (mg_array ),target :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
 
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
@@ -108,8 +108,10 @@ c     Begin program
         call allocateMGArray(1,gp0)
         call allocateMGArray(1,grho0)
         call allocateMGArray(3,gv0)
+        call allocateMGArray(3,gv0_cov)
         call allocateMGArray(3,gb0)
         call allocateMGArray(3,gb0_cov)
+        call allocateMGArray(3,ga0)   !B + di curl(v)
 
 c     End program
 
@@ -142,6 +144,8 @@ c     Begin program
         call deallocateMGArray(gb0)
         call deallocateMGArray(gb0_cov)
         call deallocateMGArray(gv0)
+        call deallocateMGArray(gv0_cov)
+        call deallocateMGArray(ga0)
 
         call deallocateDerivedType(varray)
 
@@ -454,7 +458,7 @@ c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
      .               ,bc_pc(size(bcs,1),size(bcs,2))
-     .               ,i,j,k,ip,im,jp,jm,kp,km
+     .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
 
@@ -526,6 +530,50 @@ c     Store ion velocity components in all grids (w/ BCs)
         gv0%grid(igrid)%array = vcnv
 
         call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
+
+c     Store magnetic field cov components in all grids (w/ BCs)
+
+        if (di > 0d0) then
+          gv0_cov%grid(igrid)%array = vcov
+
+          call restrictMGArray(IBX,3,gv0_cov,bc_pc(:,IVX:IVZ),igrid
+     .                        ,order,iscnv=.false.)
+        endif
+
+c     Store (B + di curl(v) in all grids
+
+        if (di > 0d0) then
+
+          do igr=1,grid_params%ngrid
+            nxg = grid_params%nxv(igr)
+            nyg = grid_params%nyv(igr)
+            nzg = grid_params%nzv(igr)
+
+            do k=1,nzg
+              do j=1,nyg
+                do i=1,nxg
+
+                  do ieq=1,3
+                    cnv(ieq) = curl2(i,j,k,nxg,nyg,nzg,igr,igr,igr
+     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
+     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
+     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
+     .                           ,ieq)
+                  enddo
+
+                  ga0%grid(igr)%array(i,j,k,:)
+     .                 = gb0%grid(igr)%array(i,j,k,:) + di*cnv
+                enddo
+              enddo
+            enddo
+
+          enddo
+
+        else
+
+          call equateMGArray(ga0,gb0)
+
+        endif
 
 c     Find auxiliary quantities and store them in all grids
 
