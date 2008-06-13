@@ -459,11 +459,11 @@ c     BC setup
       if (.not.nc_eom_v) then
         where (varray%array_var(IRHO)%array /= 0d0)
           vcnv(:,:,:,1) = varray%array_var(IVX )%array
-     .                    /varray%array_var(IRHO)%array
+     .                   /varray%array_var(IRHO)%array
           vcnv(:,:,:,2) = varray%array_var(IVY )%array
-     .                    /varray%array_var(IRHO)%array
+     .                   /varray%array_var(IRHO)%array
           vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-     .                    /varray%array_var(IRHO)%array
+     .                   /varray%array_var(IRHO)%array
         end where
       else
         vcnv(:,:,:,1) = varray%array_var(IVX)%array
