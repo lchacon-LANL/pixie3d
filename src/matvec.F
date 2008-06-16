@@ -428,10 +428,6 @@ c Map velocity components
 
 c Calculate matrix-vector product
 
-cc      write (*,*) 'DIAG -- rho_mtvc'
-cc     .            ,igrid,imin,imax,jmin,jmax,kmin,kmax
-cc     .            ,nnx,nny,nnz
-
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
@@ -1872,7 +1868,7 @@ c ##################################################################
       real(8),allocatable,dimension(:,:,:,:) :: dv,dv_cov
 
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,b0_cov
-     .                                         ,rho0,pp0
+     .                                         ,rho0,pp0,a0_cnv
 
       integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: imin,imax,jmin,jmax,kmin,kmax
@@ -2253,6 +2249,7 @@ c     #############################################################
 
       if (nc_eom_jxb) then
 cc      if (.false.) then
+cc      if (.true.) then
         call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
 
         jac = gmetric%grid(igr)%jac(i,j,k)
@@ -2268,22 +2265,22 @@ cc      if (.false.) then
      .               ,b0_cov(:,:,:,3))
 
         acnv =
-     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,0)
+     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
 
         acnvip =
-     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,1)
+     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
         acnvim =
-     .      vecA(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,1)
+     .      vecA(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
 
         acnvjp =
-     .      vecA(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,2)
+     .      vecA(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
         acnvjm =
-     .      vecA(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,2)
+     .      vecA(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
 
         acnvkp =
-     .      vecA(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,3)
+     .      vecA(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
         acnvkm =
-     .      vecA(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,b0_cnv,3)
+     .      vecA(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
 
         call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                        ,acovip(1),acovip(2),acovip(3)
@@ -2490,7 +2487,6 @@ c     Begin program
      .          +(t33p - t33m)/dzz + msource
 
       !Volume factor
-cc      if (vol_wgt) divt=divt*volume(i,j,k,igx,igy,igz)
       if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
 
 c     End program
@@ -2548,10 +2544,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,1)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,1)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -2660,10 +2656,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,2)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,2)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -2745,10 +2741,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,3)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,3)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,b0_cnv,0)
+     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3000,6 +2996,8 @@ c Define pointers to MG arrays
 
       b0_cov => gb0_cov%grid(igrid)%array
 
+      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
@@ -3012,7 +3010,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 
