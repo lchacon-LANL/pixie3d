@@ -22,6 +22,8 @@ c------------------------------------------------------------------
 
       use imposeBCinterface
 
+      use nk_mod
+
       implicit none
 
 c Call variables
@@ -34,8 +36,8 @@ c Local variables
 
       integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
-      real(8)    :: dh,vmax,cnv(3),minrho,mintmp,lrmin,ltmin
-     .             ,pe(ilom:ihip,jlom:jhip,klom:khip)
+      real(8)    :: dh,vmax,cnv(3),cov(3),minrho,mintmp,lrmin,ltmin
+     .             ,pp(ilom:ihip,jlom:jhip,klom:khip)
 
 c Interfaces
 
@@ -113,100 +115,337 @@ c Safeguards
      .             'Warning: negative temperatures are occurring')
       endif
 
-c Electron velocity
-
-      if (di > 0d0) then
-        vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-        vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-        vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
-      else
-        vecnv = vcnv
-      endif
-
-c Electron forces (covariant vector)
-
-      if (di > 0d0) then
-        pe = rho*tmp
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              !Electron pressure
-              call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                 ,grd(i,j,k,1),grd(i,j,k,2),grd(i,j,k,3))
-              !Electron hall (normally included directly via ve in vexB tem)
-cc              fx_cov(i,j,k) = fx_cov(i,j,k)
-cc     .                    - (jy(i,j,k)*bz(i,j,k)
-cc     .                      -jz(i,j,k)*by(i,j,k))
-cc     .                      /gmetric%grid(igx)%jac(i,j,k)
-cc              fy_cov(i,j,k) = fy_cov(i,j,k)
-cc     .                    - (jz(i,j,k)*bx(i,j,k)
-cc     .                      -jx(i,j,k)*bz(i,j,k))
-cc     .                      /gmetric%grid(igx)%jac(i,j,k)
-cc              fz_cov(i,j,k) = fz_cov(i,j,k)
-cc     .                    - (jx(i,j,k)*by(i,j,k)
-cc     .                      -jy(i,j,k)*bx(i,j,k))
-cc     .                      /gmetric%grid(igx)%jac(i,j,k)
-            enddo
-          enddo
-        enddo
-
-        grd(:,:,:,1) = di*grd(:,:,:,1)/rho
-        grd(:,:,:,2) = di*grd(:,:,:,2)/rho
-        grd(:,:,:,3) = di*grd(:,:,:,3)/rho
-      else
-        grd = 0d0
-      endif
-        
 c Viscosity (resistivity found in BC routine)
 
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
             nuu(i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
-cc            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
           enddo
         enddo
       enddo
 
-c Auxiliary variables
+c Resistive term
+
+      E_ni = 0d0
+
+      if (source)  then           !Source processing
+        if (jit == -2) jcov_0 = jcov
+      else
+        jcov_0 = 0d0
+      endif
 
 #if !defined(vec_pot)
-      if (solenoidal) then  !Add resistivity term to grad(pe) term
-        grd(:,:,:,1) = eeta*jcov(:,:,:,1) - grd(:,:,:,1)
-        grd(:,:,:,2) = eeta*jcov(:,:,:,2) - grd(:,:,:,2)
-        grd(:,:,:,3) = eeta*jcov(:,:,:,3) - grd(:,:,:,3)
-      endif
-#else
-      acov(:,:,:,1) = ax
-      acov(:,:,:,2) = ay
-      acov(:,:,:,3) = az
+      E_ni(:,:,:,1) = E_ni(:,:,:,1) - eeta*(jcov  (:,:,:,1)
+     .                                     -jcov_0(:,:,:,1))
+      E_ni(:,:,:,2) = E_ni(:,:,:,2) - eeta*(jcov  (:,:,:,2)
+     .                                     -jcov_0(:,:,:,2))
+      E_ni(:,:,:,3) = E_ni(:,:,:,3) - eeta*(jcov  (:,:,:,3)
+     .                                     -jcov_0(:,:,:,3))
+#endif
 
-      !Covariant vec-laplacian/curlcurl on A (w/ BCs)
-      if (heta > 0d0) then
-cc        vlap_a = -jcov
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-cc              vlap_a(i,j,k,:) =
-cc       .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-              cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-              call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .             ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
-     .             ,cnv(1),cnv(2),cnv(3),.false.)
+c Electron forces (covariant vector)
+
+      if (di > 0d0) then
+
+        !Standard Hall formulation: E_ni = di*(heta*lap(j) + grad(pe)/rho)
+        if (.not.hall_new) then
+ 
+          !Electron velocity
+cc          vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+cc          vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+cc          vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+
+          vecnv = vcnv
+
+          !Electron pressure
+          pp = rho*tmp
+
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+              !Electron pressure
+
+                call grad(i,j,k,nx,ny,nz,igx,igy,igz,pp
+     .                   ,cov(1),cov(2),cov(3))
+
+              !Electron hall (normally included directly via ve in vexB tem)
+
+                cov(1) = cov(1) - (jcnv(i,j,k,2)*bcnv(i,j,k,3)
+     .                            -jcnv(i,j,k,3)*bcnv(i,j,k,2))
+     .                            /gmetric%grid(igx)%jac(i,j,k)
+                cov(2) = cov(2) - (jcnv(i,j,k,3)*bcnv(i,j,k,1)
+     .                            -jcnv(i,j,k,1)*bcnv(i,j,k,3))
+     .                            /gmetric%grid(igx)%jac(i,j,k)
+                cov(3) = cov(3) - (jcnv(i,j,k,1)*bcnv(i,j,k,2)
+     .                            -jcnv(i,j,k,2)*bcnv(i,j,k,1))
+     .                            /gmetric%grid(igx)%jac(i,j,k)
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov/rho(i,j,k)
+
+cc                cov(1) = cov(1) + (vecnv(i,j,k,2)*bcnv(i,j,k,3)
+cc     .                            -vecnv(i,j,k,3)*bcnv(i,j,k,2))
+cc     .                            /gmetric%grid(igx)%jac(i,j,k)
+cc                cov(2) = cov(2) + (vecnv(i,j,k,3)*bcnv(i,j,k,1)
+cc     .                            -vecnv(i,j,k,1)*bcnv(i,j,k,3))
+cc     .                            /gmetric%grid(igx)%jac(i,j,k)
+cc                cov(3) = cov(3) + (vecnv(i,j,k,1)*bcnv(i,j,k,2)
+cc     .                            -vecnv(i,j,k,2)*bcnv(i,j,k,1))
+cc     .                            /gmetric%grid(igx)%jac(i,j,k)
+cc
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) + cov
+
+              enddo
             enddo
           enddo
-        enddo
 
-        bcnd(:,1) = varray%array_var(IAX)%bconds
-        bcnd(:,2) = varray%array_var(IAY)%bconds
-        bcnd(:,3) = varray%array_var(IAZ)%bconds
+          !Impose topological BCs
+          bcnd(:,1) = bcond
+          bcnd(:,2) = bcond
+          bcnd(:,3) = bcond
 
-        call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
-     .            ,iorder=2,is_cnv=.false.)
-      endif
+          call setBC(IVX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
+        !Alternate Hall formulation
+        else
+
+          !Form E_ni = di*(-d_t v + v x curl(v) + nu*lap(v) + heta*lap(j) - grad(pi)/rho)
+
+          pp = (a_p - 1d0)*rho*tmp  !Ion pressure
+
+          if (jit < 0) vcov_n = vcov  !Store time n info
+
+cc          do k=1,nz
+cc            do j=1,ny
+cc              do i=1,nx
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+
+              !Temporal term
+
+                 E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     $                          -di*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+     $                          *cnp/dt/alpha
+
+              !Add -grad(pi)/rho
+
+                if (a_p - 1d0 > 0d0) then
+                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pp
+     .                   ,cov(1),cov(2),cov(3))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
+                endif
+
+cc              !Add v.grad(v)
+cc                nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                ,vcov(:,:,:,1)
+cc     .                                ,vcov(:,:,:,2)
+cc     .                                ,vcov(:,:,:,3),0)
+cc
+cc                do ieq=1,3
+cc                  cov(ieq) =( vcov(i,j,k,1)*nabla_v(1,ieq)
+cc     .                       +vcov(i,j,k,2)*nabla_v(2,ieq)
+cc     .                       +vcov(i,j,k,3)*nabla_v(3,ieq))
+cc     .                      /gmetric%grid(igx)%jac(i,j,k)
+cc                enddo
+cc
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+
+              !Add v x curl(v)
+ 
+                !Find curl(v)
+                do ieq=1,3
+                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vcov(:,:,:,1)
+     .                            ,vcov(:,:,:,2)
+     .                            ,vcov(:,:,:,3),ieq)
+                enddo
+
+                !Find v x curl(v)
+                cov(1) = (vcnv(i,j,k,2)*cnv(3)
+     .                   -vcnv(i,j,k,3)*cnv(2))
+                cov(2) = (vcnv(i,j,k,3)*cnv(1)
+     .                   -vcnv(i,j,k,1)*cnv(3))
+                cov(3) = (vcnv(i,j,k,1)*cnv(2)
+     .                   -vcnv(i,j,k,2)*cnv(1))
+
+                cov = cov/gmetric%grid(igx)%jac(i,j,k)
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+
+cc              !Add div(nu*grad(v))/rho
+cc
+cc                if (nu > 0d0) then
+cc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+cc     .                            ,vol=.false.)/rho(i,j,k)
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+cc                endif
+
+cc              !Add hyperresistive term (heta*lap(j))
+cc
+cc                if (heta > 0d0) then
+cc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov
+cc     .                            ,vol=.false.)
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*heta*cov
+cc                endif
+
+              enddo
+            enddo
+          enddo
+
+cc          !Impose BCs on dissipation (perfect conductor E x n = 0)
+cc          bcnd(:,1) = varray%array_var(IBX)%bconds
+cc          bcnd(:,2) = varray%array_var(IBY)%bconds
+cc          bcnd(:,3) = varray%array_var(IBZ)%bconds
+cc          where (bcnd == -NEU) bcnd = -EQU  !Use covariant components for tangential BCs
+cc
+cc          call setBC(IJX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
+          !Impose topological BCs
+          bcnd(:,1) = bcond
+          bcnd(:,2) = bcond
+          bcnd(:,3) = bcond
+
+          call setBC(IVX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
+          !Add viscosity (with BCs)
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+
+              !Add div(nu*grad(v))/rho
+
+                if (nu > 0d0) then
+                  vlap(i,j,k,:) =
+     .                  veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+     .                            ,vol=.false.)/rho(i,j,k)
+                endif
+
+cc              !Add hyperresistive term (heta*lap(j))
+cc
+cc                if (heta > 0d0) then
+cc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov
+cc     .                            ,vol=.false.)
+cc
+cc                  vlap(i,j,k,:) = vlap(i,j,k,:) + heta*cov
+cccc                  vlap(i,j,k,:) = heta*cov
+cc                endif
+
+              enddo
+            enddo
+          enddo
+
+          !Impose BCs on dissipation (extrapolation)
+          bcnd(:,1) = bcond
+          bcnd(:,2) = bcond
+          bcnd(:,3) = bcond
+          where (bcnd == DEF) bcnd =-EXT !Extrapolation BCs on covariant components
+
+          call setBC(IVX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
+          E_ni = E_ni + di*vlap
+
+        endif
+
+        !Add hyperresistive term
+        if (heta > 0d0) then
+
+#if !defined(vec_pot)
+          if (solenoidal) then
+
+            !Solenoidal: de*nu_e*curl(lap(j))
+            do k=1,nz
+              do j=1,ny
+                do i=1,nx
+                   vlap(i,j,k,:)
+     .                 = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov
+     .                              ,vol=.false.)
+                enddo
+              enddo
+            enddo
+
+            !Impose BCs on dissipation (extrapolation)
+            bcnd(:,1) = bcond
+            bcnd(:,2) = bcond
+            bcnd(:,3) = bcond
+            where (bcnd == DEF) bcnd =-EXT !Extrapolation BCs on covariant components
+
+            call setBC(IVX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+     .                ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
+            E_ni = E_ni + di*heta*vlap
+
+          else
+
+            !Not solenoidal, but compact di*nu_e*lap^2(B)
+            do k=1,nz
+              do j=1,ny
+                do i=1,nx
+                  vlap(i,j,k,:)
+     .                =veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,bcnv
+     .                             ,.false.,vol=.false.)
+                enddo
+              enddo
+            enddo
+
+cc            bcnd(:,1) = bcond
+cc            bcnd(:,2) = bcond
+cc            bcnd(:,3) = bcond
+cc            where (bcnd == DEF) bcnd = EXT !Extrapolation BCs on contravariant components
+            bcnd(:,1) = varray%array_var(IBX)%bconds
+            bcnd(:,2) = varray%array_var(IBY)%bconds
+            bcnd(:,3) = varray%array_var(IBZ)%bconds
+            where (bcnd == -NEU) bcnd = -EQU !Use covariant components for tangential BCs
+
+            call setBC(IJX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+     .                ,igx,igy,igz,iorder=2,is_cnv=.true.)
+ 
+          endif
+
+#else
+
+cc        vlap_a = -jcov
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+cc              vlap_a(i,j,k,:) =
+cc       .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+                cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .             ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
+     .             ,cnv(1),cnv(2),cnv(3),.false.)
+              enddo
+            enddo
+          enddo
+
+          bcnd(:,1) = varray%array_var(IAX)%bconds
+          bcnd(:,2) = varray%array_var(IAY)%bconds
+          bcnd(:,3) = varray%array_var(IAZ)%bconds
+
+          call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd,igx,igy,igz
+     .              ,iorder=2,is_cnv=.false.)
 
 #endif
+
+       endif
+
+      !Resistive MHD
+      else
+
+        E_ni = 0d0
+
+        vecnv = vcnv
+
+      endif
+
+c Other auxiliary variables
 
       pcnv(:,:,:,1) = px
       pcnv(:,:,:,2) = py
