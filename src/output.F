@@ -88,12 +88,18 @@ cc          else
 cc            advective = 'PBRKCT'
           endif
 
-          if     (sm_flag.eq.0) then
-            ts = ' Theta'
-          elseif (sm_flag.eq.1) then
-            ts = ' Rannacher'
-          elseif (sm_flag.eq.2) then
-            ts = ' BDF2'
+          if (cnfactor < 1d0) then
+            if     (sm_flag.eq.0) then
+              ts = ' Theta'
+            elseif (sm_flag.eq.1) then
+              ts = ' Rannacher'
+            elseif (sm_flag.eq.2) then
+              ts = ' BDF2'
+            endif
+          elseif (cnfactor == 1d0) then
+            ts = ' Explicit'
+          else
+            call pstop('output','cnfactor not within allowed limits')
           endif
 
           write (*,10)nxd,nyd,nzd,ngrd,precon,timecorr,source
