@@ -224,6 +224,8 @@ c ######################################################################
 
         real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
 
+        integer :: advect
+
         logical :: alt_eom
 
         logical :: nc_eom_jxb=.false.,nc_eom_gp=.false.,nc_eom_v=.false.
@@ -5363,8 +5365,9 @@ c     #############################################################
      .                 ,half_elem,cnv)
      .         result(tensor)
 c     -------------------------------------------------------------
-c     Calculates the tensor components T_l^m of nabla(vec v), with v
-c     contravariant, and fills tensor(l,m) at the following positions:
+c     Calculates the tensor components T_l^m (if cnv = .false.) or T^lm
+c     (if cnv = .true.) of nabla(vec v), with v contravariant, and fills
+c     tensor(l,m) at the following positions:
 c       + half_elem=0 --> i,j,k
 c       + half_elem=1 --> i+1/2,j,k
 c       + half_elem=2 --> i,j+1/2,k
@@ -5608,22 +5611,21 @@ c     Call variables
 c     Local variables
 
         integer    :: l,m
-        real(8)    :: hessian(3,3,3),cnv(3)
+        real(8)    :: cnv(3)
 
 c     Begin program
-
-        hessian = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
 
         cnv = (/ ax(i,j,k),ay(i,j,k),az(i,j,k) /)
 
         do l=1,3
           do m=1,3
-            tensor(l,m) = cnv(1)*hessian(m,1,l)
-     .                   +cnv(2)*hessian(m,2,l)
-     .                   +cnv(3)*hessian(m,3,l)
-     .                   -cnv(m)*(hessian(1,1,l)
-     .                           +hessian(2,2,l)
-     .                           +hessian(3,3,l))
+            tensor(l,m) =
+     .           cnv(1)* gmetric%grid(igrid)%Gamma(i,j,k,m,1,l)
+     .          +cnv(2)* gmetric%grid(igrid)%Gamma(i,j,k,m,2,l)
+     .          +cnv(3)* gmetric%grid(igrid)%Gamma(i,j,k,m,3,l)
+     .          -cnv(m)*(gmetric%grid(igrid)%Gamma(i,j,k,1,1,l)
+     .                  +gmetric%grid(igrid)%Gamma(i,j,k,2,2,l)
+     .                  +gmetric%grid(igrid)%Gamma(i,j,k,3,3,l))
           enddo
         enddo
 
@@ -6878,8 +6880,8 @@ c     ###############################################################
       subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global)
 
 c     ---------------------------------------------------------------
-c     Finds COVARIANT vector potential from CONTRAVARIANT vector
-c     field components. Employs gauge A1 = 0d0. In SP systems,
+c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
+c     field components "b". Employs gauge A1 = 0d0. In SP systems,
 c     it integrates at faces in r, and then averages to nodes.
 c     
 c     Integrals done by Numerical Recipes p. 128, 4.1.12 -- actually
@@ -6991,10 +6993,18 @@ cc            dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
       if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
      .                                    +a(0:nx  ,:,:,2:3))
 
+cc      !Boundary conditions: topological constraints (SP, PER)
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc
+cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
+
       return
 
-c     New code (SP-ready, NOT parallel-ready, version II)
-
+ccc     New code (SP-ready, NOT parallel-ready, version II)
+cc
 cc      a(:,:,:,1)=0d0  !Gauge
 cc
 cc      if (bcSP()) then
@@ -7093,9 +7103,9 @@ cc        bcnd(:,3) = bcond
 cc        
 cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
 cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-
-c     JOHN FINN's code (assumes uniform mesh)
-
+cc
+ccc     JOHN FINN's code (assumes uniform mesh)
+cc
 cc        cm=-0.0833333333333
 cc        c0= 0.6666666666667
 cc        cp= 0.4166666666667
@@ -7104,8 +7114,7 @@ cc        a(1,1,:,3) = 0d0
 cc
 cc        do k=1,nz
 cc          do j=2,ny
-cc            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                  ,x1,y1,z1)
+cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
 cc            dyy = grid_params%dyh(jg)
 cc
@@ -7125,8 +7134,7 @@ cc        do k=1,nz
 cc          do j=1,ny
 cc            do i=2,nx
 cc
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz
-cc     .                                    ,ig,jg,kg,x1,y1,z1)
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
 cc              dxx = grid_params%dxh(ig)
 cc
@@ -7571,7 +7579,7 @@ c     ###################################################################
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of the EOM force term
-c     (jxb)-grad(rho*tmp) at cell centers. Vectors are taken as
+c     (jxb)-grad(ap*rho*tmp) at cell centers. Vectors are taken as
 c     contravariant if vec_cnv=.true., and covariant otherwise
 c     -------------------------------------------------------------------
 
@@ -8185,8 +8193,6 @@ c ######################################################################
 #else
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 #endif
-
-        integer    :: advect
 
         real(8) :: max_dv_dt
 
