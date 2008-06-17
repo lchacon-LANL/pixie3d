@@ -51,15 +51,6 @@ c Externals
 
 c Begin program
 
-cc      call setASMflag(asm_PC.and.(np>1))
-cc
-cc#if defined(petsc)
-cc      if (iout >= 0) then
-cc        write (*,*) 'Proc ',my_rank,': asm    in applyPC',asm
-cc        write (*,*) 'Proc ',my_rank,': par_bc in applyPC',par_bc
-cc      endif
-cc#endif
-
       igx = 1
       igy = 1
       igz = 1
@@ -379,7 +370,9 @@ c     Begin program
           call find_Udv(x,zz)
 
           if (solve_rho) x(:,IRHO)=x(:,IRHO)-dt*alpha/cnp*zz(:,IRHO)
+
           x(:,ITMP)   = x(:,ITMP)    - dt*alpha/cnp*zz(:,ITMP)
+
 #if !defined(vec_pot)
           x(:,IBX:IBZ)= x(:,IBX:IBZ) - dt*alpha/cnp*zz(:,IBX:IBZ)
 #else
@@ -558,10 +551,8 @@ c     Begin program
           else
             call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
      .                ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag
-     .                ,ncolors=2,line_relax=line_relax,order_res=2
+     .                ,ncolors=2,line_relax=line_relax,order_res=0
      .                ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
-cccc     .                ,line_relax=line_relax,order_res=0,order_prol=2)
-cc     .                ,line_relax=line_relax)
           endif
 
           !Density
@@ -578,10 +569,8 @@ cc     .                  ,line_relax=line_relax,order_res=0,order_prol=0
             else
               call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
      .                 ,igrid,iout,guess,rho_mtvc,dg=rho_diag
-     .                 ,ncolors=2,line_relax=line_relax,order_res=2
+     .                 ,ncolors=2,line_relax=line_relax,order_res=0
      .                 ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
-cc     .                  ,line_relax=line_relax,order_res=0,order_prol=2)
-cc     .                  ,line_relax=line_relax)
             endif
           endif
 
@@ -603,11 +592,8 @@ cc     .                  ,line_relax=line_relax)
               else
                 call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
      .               ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
-     .               ,ncolors=4,line_relax=line_relax,order_res=2
+     .               ,ncolors=4,line_relax=line_relax,order_res=0
      .               ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
-cc     .                  ,ncolors=4,line_relax=line_relax,order_res=0
-cc     .                  ,order_prol=2)
-cc     .                  ,ncolors=4,line_relax=line_relax)
               endif
             endif
           else
@@ -619,11 +605,11 @@ cc     .                  ,ncolors=4,line_relax=line_relax)
 
             call cSolver(6,ntotp,rhsc,xc,bcs_hyp
      .                 ,igrid,iout,guess,b_mtvc_hyp,dg=b_diag_hyp
-     .                 ,ncolors=4,line_relax=line_relax,order_res=2
+     .                 ,ncolors=4,line_relax=line_relax,order_res=0
      .                 ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
 
             x(:,IBX:IBZ) = xc(:,1:3)
-cc            pause 'here'
+            pause 'here'
           endif
 
           if (si_car) call XtoCurv(igrid,x(:,IBX:IBZ))
@@ -780,12 +766,8 @@ cc     .                ,order_prol=1,gm_drvr=.true.,mvcyc=2)
           else
             call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
      .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
-     .                ,ncolors=4,line_relax=line_relax,order_res=2
+     .                ,ncolors=4,line_relax=line_relax,order_res=0
      .                ,order_prol=2,smooth='jb',gm_coarse_solve=.true.)
-cc     .                ,ncolors=4,line_relax=line_relax,order_res=2
-cc     .                ,order_prol=2,smooth='jb')
-cc     .                ,ncolors=4,line_relax=line_relax,order_res=0
-cc     .                ,order_prol=1,smooth='gm')
           endif
         endif
 
@@ -1348,91 +1330,49 @@ c Find rhs_v'
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
+
+              cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                 ,drho(:,:,:,1),tmp,db_cov,jcov,.false.
+     .                 ,.true.,.true.,.false.,vol=vol_wgt)
+
+              cnv = cnv
+     .             +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                 ,rho,dtmp(:,:,:,1),bcov,dj_cov,.false.
+     .                 ,.true.,.true.,.false.,vol=vol_wgt)
+
+cc            if (nc_eom_jxb) then
+cc              cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                 ,drho(:,:,:,1),tmp,db_cov,jcov,.false.
+cc     .                 ,nc_eom_jxb,nc_eom_gp,.false.
+cc     .                 ,vol=vol_wgt)
+cc
+cc              cnv = cnv
+cc     .             +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                 ,rho,dtmp(:,:,:,1),bcov,dj_cov,.false.
+cc     .                 ,nc_eom_jxb,nc_eom_gp,.false.
+cc     .                 ,vol=vol_wgt)
+cc            else
+cc              cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                 ,drho(:,:,:,1),tmp,db_cnv,jcnv,.true.
+cc     .                 ,nc_eom_jxb,nc_eom_gp,.false.
+cc     .                 ,vol=vol_wgt)
+cc
+cc              cnv = cnv
+cc     .             +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                 ,rho,dtmp(:,:,:,1),bcnv,dj_cnv,.true.
+cc     .                 ,nc_eom_jxb,nc_eom_gp,.false.
+cc     .                 ,vol=vol_wgt)
+cc            endif
+cc
+            !Correct rhs_v
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-            jac = gmetric%grid(igrid)%jac(i,j,k)
-
-            if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-            else
-              dvol = 1d0
-            endif
-
-            !Pressure correction
-            ip = i+1
-            im = i-1
-
-            idx = 0.5/dxh(ig)
-            idy = 0.5/dyh(jg)
-            idz = 0.5/dzh(kg)
-
-cc            cov(1) = jy(i,j,k)*db_cnv(i,j,k,3)/jac
-cc     .             - jz(i,j,k)*db_cnv(i,j,k,2)/jac
-cc     .             - by(i,j,k)*dj_cnv(i,j,k,3)/jac
-cc     .             + bz(i,j,k)*dj_cnv(i,j,k,2)/jac
-cccc     .             -(dpres(ip,j,k)-dpres(im,j,k))*idx
-cc     .             -a_p*(rho(i,j,k)*(dtmp(i+1,j,k)-dtmp(i-1,j,k))*idx
-cc     .                  +tmp(i,j,k)*(drho(i+1,j,k)-drho(i-1,j,k))*idx)
-cc
-cc            cov(2) = jz(i,j,k)*db_cnv(i,j,k,1)/jac
-cc     .             - jx(i,j,k)*db_cnv(i,j,k,3)/jac
-cc     .             - bz(i,j,k)*dj_cnv(i,j,k,1)/jac
-cc     .             + bx(i,j,k)*dj_cnv(i,j,k,3)/jac
-cccc     .             -(dpres(i,j+1,k)-dpres(i,j-1,k))*idy
-cc     .             -a_p*(rho(i,j,k)*(dtmp(i,j+1,k)-dtmp(i,j-1,k))*idy
-cc     .                  +tmp(i,j,k)*(drho(i,j+1,k)-drho(i,j-1,k))*idy)
-cc
-cc            cov(3) = jx(i,j,k)*db_cnv(i,j,k,2)/jac
-cc     .             - jy(i,j,k)*db_cnv(i,j,k,1)/jac
-cc     .             - bx(i,j,k)*dj_cnv(i,j,k,2)/jac
-cc     .             + by(i,j,k)*dj_cnv(i,j,k,1)/jac
-cccc     .             -(dpres(i,j,k+1)-dpres(i,j,k-1))*idz
-cc     .             -a_p*(rho(i,j,k)*(dtmp(i,j,k+1)-dtmp(i,j,k-1))*idz
-cc     .                  +tmp(i,j,k)*(drho(i,j,k+1)-drho(i,j,k-1))*idz)
-
-            cov(1) =
-     .         -a_p*(rho(i,j,k)*(dtmp(i+1,j,k,1)-dtmp(i-1,j,k,1))*idx
-     .              +tmp(i,j,k)*(drho(i+1,j,k,1)-drho(i-1,j,k,1))*idx)
-
-            cov(2) =
-     .         -a_p*(rho(i,j,k)*(dtmp(i,j+1,k,1)-dtmp(i,j-1,k,1))*idy
-     .              +tmp(i,j,k)*(drho(i,j+1,k,1)-drho(i,j-1,k,1))*idy)
-
-            cov(3) =
-     .         -a_p*(rho(i,j,k)*(dtmp(i,j,k+1,1)-dtmp(i,j,k-1,1))*idz
-     .              +tmp(i,j,k)*(drho(i,j,k+1,1)-drho(i,j,k-1,1))*idz)
-
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-     .                                  ,cov(1),cov(2),cov(3)
-     .                                  ,cnv(1),cnv(2),cnv(3),.true.)
-
-            !Add Lorentz force correction
-            cnv(1) = cnv(1)
-     .             + jcov(i,j,k,2)*db_cov(i,j,k,3)
-     .             - jcov(i,j,k,3)*db_cov(i,j,k,2)
-     .             - bcov(i,j,k,2)*dj_cov(i,j,k,3)
-     .             + bcov(i,j,k,3)*dj_cov(i,j,k,2)
-
-            cnv(2) = cnv(2)
-     .             + jcov(i,j,k,3)*db_cov(i,j,k,1)
-     .             - jcov(i,j,k,1)*db_cov(i,j,k,3)
-     .             - bcov(i,j,k,3)*dj_cov(i,j,k,1)
-     .             + bcov(i,j,k,1)*dj_cov(i,j,k,3)
-
-            cnv(3) = cnv(3)
-     .             + jcov(i,j,k,1)*db_cov(i,j,k,2)
-     .             - jcov(i,j,k,2)*db_cov(i,j,k,1)
-     .             - bcov(i,j,k,1)*dj_cov(i,j,k,2)
-     .             + bcov(i,j,k,2)*dj_cov(i,j,k,1)
-
-            !Correct rhs_v
             if (nc_eom_v) then
-              eom_rhs(ii,:) = alpha*dvol*cnv(:)/rho(i,j,k)
+              eom_rhs(ii,:) = alpha*cnv(:)/rho(i,j,k)
             else
-              eom_rhs(ii,:) = alpha*dvol*cnv(:)
+              eom_rhs(ii,:) = alpha*cnv(:)
             endif
+
           enddo
         enddo
       enddo
@@ -1451,8 +1391,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-cc      use mg_internal
 
       implicit none
 
@@ -1518,8 +1456,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-cc      use mg_internal
 
       implicit none
 
@@ -1617,8 +1553,6 @@ c--------------------------------------------------------------------
 
       use operators
 
-cc      use mg_internal
-
       implicit none
 
 c Call variables
@@ -1629,13 +1563,8 @@ c Call variables
 c Local variables
 
       integer    :: ii
-cc      real(8)    :: rhodv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Begin program
-
-cc      rhodv_cnv(:,:,:,1) = dv_cnv(:,:,:,1)*rho
-cc      rhodv_cnv(:,:,:,2) = dv_cnv(:,:,:,2)*rho
-cc      rhodv_cnv(:,:,:,3) = dv_cnv(:,:,:,3)*rho
 
       do k = 1,nz
         do j = 1,ny
@@ -1645,28 +1574,7 @@ cc      rhodv_cnv(:,:,:,3) = dv_cnv(:,:,:,3)*rho
             crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                      ,dv_cnv(:,:,:,1)
      .                      ,dv_cnv(:,:,:,2)
-     .                      ,dv_cnv(:,:,:,3),rho,4,vol=.false.)
-
-cc            crhs(ii) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                    ,rhodv_cnv(:,:,:,1)
-cc     .                    ,rhodv_cnv(:,:,:,2)
-cccc     .                    ,rhodv_cnv(:,:,:,3),sp=bcSP())
-cc     .                    ,rhodv_cnv(:,:,:,3))
-
-cc            crhs(ii) = ( rho(i,j,k)
-cc     $                           *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     $                               ,dv_cnv(:,:,:,1)
-cc     $                               ,dv_cnv(:,:,:,2)
-cc     $                               ,dv_cnv(:,:,:,3))
-cc     $                   +dv_cnv(i,j,k,1)/jac
-cc     $                       *(rho(i+1,j,k)-rho(i-1,j,k))/dxh(ig)/2.
-cc     $                   +dv_cnv(i,j,k,2)/jac
-cc     $                       *(rho(i,j+1,k)-rho(i,j-1,k))/dyh(jg)/2.
-cc     $                   +dv_cnv(i,j,k,3)/jac
-cc     $                       *(rho(i,j,k+1)-rho(i,j,k-1))/dzh(kg)/2. )
-
-cc            crhs(ii) = 0d0
- 
+     .                      ,dv_cnv(:,:,:,3),rho,advect,vol=.false.)
           enddo
         enddo
       enddo
@@ -1686,8 +1594,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-cc      use mg_internal
 
       implicit none
 
@@ -1713,17 +1619,27 @@ c Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
 
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
-            crhs(ii) = ( (gamma-1)*tmp(i,j,k)
-     $                           *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     $                               ,dv_cnv(:,:,:,1)
-     $                               ,dv_cnv(:,:,:,2)
-     $                               ,dv_cnv(:,:,:,3))
-     $                   +dv_cnv(i,j,k,1)/jac
-     $                       *(tmp(i+1,j,k)-tmp(i-1,j,k))/dxh(ig)/2.
-     $                   +dv_cnv(i,j,k,2)/jac
-     $                       *(tmp(i,j+1,k)-tmp(i,j-1,k))/dyh(jg)/2.
-     $                   +dv_cnv(i,j,k,3)/jac
-     $                       *(tmp(i,j,k+1)-tmp(i,j,k-1))/dzh(kg)/2. )
+cc            crhs(ii) = ( (gamma-1)*tmp(i,j,k)
+cc     $                           *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     $                               ,dv_cnv(:,:,:,1)
+cc     $                               ,dv_cnv(:,:,:,2)
+cc     $                               ,dv_cnv(:,:,:,3))
+cc     $                   +dv_cnv(i,j,k,1)/jac
+cc     $                       *(tmp(i+1,j,k)-tmp(i-1,j,k))/dxh(ig)/2.
+cc     $                   +dv_cnv(i,j,k,2)/jac
+cc     $                       *(tmp(i,j+1,k)-tmp(i,j-1,k))/dyh(jg)/2.
+cc     $                   +dv_cnv(i,j,k,3)/jac
+cc     $                       *(tmp(i,j,k+1)-tmp(i,j,k-1))/dzh(kg)/2. )
+
+            crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                      ,dv_cnv(:,:,:,1)
+     .                      ,dv_cnv(:,:,:,2)
+     .                      ,dv_cnv(:,:,:,3),tmp,advect,vol=.false.)
+     .                +(gamma-2)*tmp(i,j,k)
+     $                          *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     $                              ,dv_cnv(:,:,:,1)
+     $                              ,dv_cnv(:,:,:,2)
+     $                              ,dv_cnv(:,:,:,3))
           enddo
         enddo
       enddo
@@ -1743,8 +1659,6 @@ c--------------------------------------------------------------------
       use precond_variables
 
       use operators
-
-cc      use mg_internal
 
       use matvec
 
@@ -1770,6 +1684,19 @@ c Begin program
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             crhs(ii,:) = vecA(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                       ,dv_cnv,dv_cov
+     .                       ,ga0%grid(igrid)%array,0)
+          enddo
+        enddo
+      enddo
+
+      return
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+            crhs(ii,:) = curl_bxv(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                       ,dv_cnv
      .                       ,gb0%grid(igrid)%array,0)
           enddo
         enddo
@@ -1777,18 +1704,6 @@ c Begin program
 
       return
 
-cc      do k = 1,nz
-cc        do j = 1,ny
-cc          do i = 1,nx
-cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc            crhs(ii,:) = curl_bxv(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                       ,dv_cnv
-cc     .                       ,gb0%grid(igrid)%array,0)
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      return
 ccc Find Dv.dv --> dummy
 cc
 cc      do k = 1,nz
@@ -1963,8 +1878,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-cc      use mg_internal
-
       implicit none
 
 c Call variables
@@ -2032,8 +1945,8 @@ c Local variables
 
 c Begin program
 
-      write (*,*) 'DIAG -- divClean: no divergence cleaning'
-      return
+cc      write (*,*) 'DIAG -- divClean: no divergence cleaning'
+cc      return
 
 c Find dB* (w/ BCs)
 
@@ -2094,8 +2007,6 @@ c--------------------------------------------------------------------
       use operators
 
       use imposeBCinterface
-
-cc      use mg_internal
 
       implicit none
 
