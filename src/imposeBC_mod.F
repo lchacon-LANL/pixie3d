@@ -112,7 +112,8 @@ c     Local variables
 
 c     Begin program
 
-      call extrapolateBC(array,array0,dim,loc,order)
+cc      call extrapolateBC(array,array0,dim,loc,order)
+      call extrapolateBC(array,array0,dim,loc,1)
 
 c     End program
 
@@ -165,10 +166,11 @@ c     Begin program
 cc      case (IVX,IVY,IVZ,IAX,IAY,IAZ)
 
         call extrapolateBC(array(:,:,:,ivar),array0(:,:,:,ivar)
-     .                    ,dim,loc,order)
+cc     .                    ,dim,loc,order)
+     .                    ,dim,loc,1)
 
 cc      case (IBX,IBY,IBZ,IJX,IJY,IJZ,IAX,IAY,IAZ) !Imposes divergence-free constraint on B, J, and A
-      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B, J, and A
+      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B, J
 
         if (ivar /= dim) then
 
