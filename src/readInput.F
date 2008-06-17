@@ -421,6 +421,8 @@ cc      if (precon == 'id') iguess = 0
 
       if (cnfactor == 1d0) hall_new = .false.
 
+      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
+
 c Map perturbations
 
       pert(IRHO)= prho
