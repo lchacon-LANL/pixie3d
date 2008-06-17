@@ -536,7 +536,7 @@ c     Store magnetic field cov components in all grids (w/ BCs)
         if (di > 0d0) then
           gv0_cov%grid(igrid)%array = vcov
 
-          call restrictMGArray(IBX,3,gv0_cov,bc_pc(:,IVX:IVZ),igrid
+          call restrictMGArray(IVX,3,gv0_cov,bc_pc(:,IVX:IVZ),igrid
      .                        ,order,iscnv=.false.)
         endif
 
@@ -544,30 +544,58 @@ c     Store (B + di curl(v) in all grids
 
         if (di > 0d0) then
 
-          do igr=1,grid_params%ngrid
-            nxg = grid_params%nxv(igr)
-            nyg = grid_params%nyv(igr)
-            nzg = grid_params%nzv(igr)
+          bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
+          where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = EXT !Use contravariant components 
+cc          bc_pc(:,IJX) = bcond
+cc          bc_pc(:,IJY) = bcond
+cc          bc_pc(:,IJY) = bcond
+cc
+cc          where (bc_pc(:,IJX:IJZ) == DEF) bc_pc(:,IJX:IJZ) = EXT
+cc
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
 
-            do k=1,nzg
-              do j=1,nyg
-                do i=1,nxg
-
-                  do ieq=1,3
-                    cnv(ieq) = curl2(i,j,k,nxg,nyg,nzg,igr,igr,igr
-     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
-     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
-     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
+                do ieq=1,3
+                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                           ,gv0_cov%grid(igrid)%array(:,:,:,1)
+     .                           ,gv0_cov%grid(igrid)%array(:,:,:,2)
+     .                           ,gv0_cov%grid(igrid)%array(:,:,:,3)
      .                           ,ieq)
-                  enddo
-
-                  ga0%grid(igr)%array(i,j,k,:)
-     .                 = gb0%grid(igr)%array(i,j,k,:) + di*cnv
                 enddo
+
+                ga0%grid(igrid)%array(i,j,k,:)
+     .                 = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
               enddo
             enddo
-
           enddo
+
+          call restrictMGArray(IJX,3,ga0,bc_pc(:,IJX:IJZ),igrid,order)
+
+cc          do igr=1,grid_params%ngrid
+cc            nxg = grid_params%nxv(igr)
+cc            nyg = grid_params%nyv(igr)
+cc            nzg = grid_params%nzv(igr)
+cc
+cc            do k=0,nzg+1
+cc              do j=0,nyg+1
+cc                do i=0,nxg+1
+cc
+cc                  do ieq=1,3
+cc                    cnv(ieq) = curl2(i,j,k,nxg,nyg,nzg,igr,igr,igr
+cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
+cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,2)
+cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,3)
+cc     .                           ,ieq)
+cc                  enddo
+cc
+cc                  ga0%grid(igr)%array(i,j,k,:)
+cc     .                 = gb0%grid(igr)%array(i,j,k,:) + di*cnv
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc          enddo
 
         else
 
