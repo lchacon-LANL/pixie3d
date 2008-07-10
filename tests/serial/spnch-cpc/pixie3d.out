@@ -7,13 +7,15 @@
  ******           LA-CC 07-005            ******
  ***********************************************
  
- ****************** NOTICE ******************
+ ****************** NOTICES ******************
+ Using MAGNETIC FIELD version
  Using non-conservative JxB     part of EOM
  Using non-conservative grad(p) part of EOM
- ****************** NOTICE ******************
+ ****************** NOTICES ******************
 
   Grid mesh:................   32x   32x    1
   Number of grid levels:....    4,    4,    1
+  Preconditioning method:... id        
   Time correction...........   F
   External source...........   T
   Numerical grid............   F
@@ -34,5 +36,5 @@
 
 Final statistics
 
- itime  Newt/ndt  GMRES/ndt  GMRES/Newt  Whst/GMRES
-   10       3.2        3.3        1.0        0.0
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       3.2        3.3        1.0
