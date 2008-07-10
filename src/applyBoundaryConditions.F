@@ -109,13 +109,6 @@ cc      where (bcsq == DEF) bcsq = -EQU  !On contravariant components
 c Exceptions for specific equilibria
 
       select case (equil)
-
-      case ('rfp1')
-
-cc        bbcs(2,IBY) = EQU  !Imposed by equilibrium
-cc
-cc        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
-
       case ('tmcyz','3dkh')
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = -NEU
@@ -126,13 +119,9 @@ cc        bbcs(2,IBZ) = EQU  !Imposed by equilibrium
 
       case ('ppnch','ppn3d','ppnst')   !No stress BCs
 
-cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
-
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
       case ('ppnsl')                   !No slip BCs
-
-cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
@@ -140,10 +129,7 @@ cc        where (bbcs(:,IRHO) == NEU) bbcs(:,IRHO) = EQU
         where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
 
-c$$$      case ('ic')
-c$$$
-c$$$        bbcs(2,:) = EQU
-
+cc      case ('vmec','tor','gem')
       case ('vmec','tor')
 
         !Dirichlet boundary conditions for tangential components
