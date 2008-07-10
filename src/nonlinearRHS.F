@@ -36,7 +36,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km
+      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,hex,hey,hez
 
       !Marder B cleaning
       real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
@@ -115,12 +115,7 @@ c     Rho
 c     Faraday's law
 
 #if !defined(vec_pot)
-      if (hall_new) then
-        vec1 => vcnv
-      else
-        vec1 => vecnv
-      endif
-
+      vec1 => vecnv
       vec2 => bcnv
 
       ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
@@ -220,7 +215,7 @@ cc     .                        ,.false.)
         vlap2=0d0
       endif
 
-      ff(IAX:IAZ) = -(cov + eeta(i,j,k)*vlap1 - heta*vlap2)
+      ff(IAX:IAZ) = -cov - eeta(i,j,k)*vlap1 + di*heta*vlap2
 
 #endif
 
@@ -275,8 +270,8 @@ c       Heat sources
 
           heat_src = joule + viscous
 
-          if (heat_src < 0d0) then
-            call pstop('nonlinearRHS','Heat source is negative')
+          if (viscous < 0d0) then
+            call pstop('nonlinearRHS','Viscous heat source is negative')
           endif
         else
           heat_src = 0d0
@@ -305,7 +300,7 @@ c     EOM
      $           ,vol=.false.)
       else
         cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .           ,bcnv,jcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
+     .           ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       endif
 
@@ -313,14 +308,25 @@ c     EOM
 
       !Advection
       if (nc_eom_v) then
+        if (advect == 1) then !Upwinding
+          hex = 1
+          hey = 1
+          hez = 1
+          if (vcnv(i,j,k,1) > 0d0) hex = -1
+          if (vcnv(i,j,k,2) > 0d0) hey = -1
+          if (vcnv(i,j,k,3) > 0d0) hez = -1
+
+          nabla_v = fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,vcnv(:,:,:,1)
+     .                           ,vcnv(:,:,:,2)
+     .                           ,vcnv(:,:,:,3),hex,hey,hez)
+        endif
+
         do ieq=1,3
           cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
      .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
      .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
         enddo
-
-cc        write (*,*) 'DIAG -- nonlinearRHS'
-cc        cnv = 0d0
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -349,10 +355,11 @@ cc        nullify(vec1,vec2)
       !Diffusion
       if (nu /= 0d0) then
         vec1 => vcnv
+        coef => nuu
         cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                  ,eom_diff_x,eom_diff_y,eom_diff_z
      .                  ,vol=.false.)
-        nullify(vec1)
+        nullify(vec1,coef)
 
         if (nc_eom_v) cnv = cnv/rho(i,j,k)
 
