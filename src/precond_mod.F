@@ -29,14 +29,15 @@ c ######################################################################
         real(8)    :: x1,y1,z1
         logical    :: cartsn,covariant,to_cartsn,to_cnv
 
-        integer    :: ntotd2p,si_it
+        integer    :: ntotd2p,si_it,ores=2,oprol=2
+
+        character(2) :: smooth
 
 cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
-     .                                            ,b_diag,v_diag
-     .                                            ,mstar_diag,a_diag
-     .                                            ,b_diag_hyp
+     .                                            ,b_diag,v_diag,v_diag2
+     .                                            ,a_diag,b_diag_hyp
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
@@ -58,12 +59,8 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 
 #endif
-        logical :: form_diag=.true.,gm_smooth=.false.,mg_glrkin=.false.
-     .            ,si_car=.false.,line_relax=.false.,rat_limit=.true.
-
-cc        INTERFACE ASSIGNMENT (=)
-cc          module procedure scatter,gather
-cc        END INTERFACE
+        logical :: gm_smooth,mg_glrkin,si_car,gm_coarse
+     .            ,line_relax,inv_B,divCln,v_solve
 
       contains
 
@@ -103,7 +100,7 @@ c     Begin program
      .           ,  a_diag  (3,3*ntotd2p)
 #endif
      .           ,  v_diag  (3,3*ntotd2p)
-     .           ,mstar_diag(3,3*ntotd2p),STAT=alloc_stat)
+     .           ,  v_diag2 (3,3*ntotd2p),STAT=alloc_stat)
 
         call allocateMGArray(1,gp0)
         call allocateMGArray(1,grho0)
