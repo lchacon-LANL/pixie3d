@@ -361,8 +361,9 @@ cc        nullify(vec1,vec2)
      .                  ,vol=.false.)
         nullify(vec1,coef)
 
+#if !defined(RFX)
         if (nc_eom_v) cnv = cnv/rho(i,j,k)
-
+#endif
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
            
       endif
