@@ -1895,11 +1895,44 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
+
+c     Local variables
+
+      real(8) :: mul
 
 c     Begin program
 
+      if (.not.nc_eom_v) then
+
+        psiv = cnp*da(i,j,k,:)/dt
+
+        vec1 => v0_cnv
+        vec2 => da
+        psiv = psiv
+     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+     .                   ,vol=.false.)
+        nullify(vec1,vec2)
+
+        vec1 => da
+        vec2 => v0_cnv
+        psiv = psiv
+     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+     .                   ,vol=.false.)
+        nullify(vec1,vec2)
+
+        mul = vis(i,j,k,nxx,nyy,nzz,igr,igr,igr)
+        psiv = psiv
+     .        -mul*alpha*veclaplacian(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+     .                         ,alt_eom,vol=.false.)
+
+      else
+
         psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
+
+      endif
 
       end subroutine findPsiv
 
@@ -2954,11 +2987,15 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq),iig
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
      .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 
 c Local variables
+
+      integer    :: iig
+
+      real(8),allocatable,dimension(:,:,:,:) :: dpp
 
 c Begin program
 
@@ -3001,16 +3038,29 @@ c Define pointers to MG arrays
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
       
       dv = 0d0
 
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+      if (di > 0) then
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+      else
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+      endif
+
+      if (.not.nc_eom_v) then
+        dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
+        dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
+        dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
+      endif
 
 c Calculate matrix-vector product
 
@@ -3050,7 +3100,11 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            call findPsiv(dv)
+            if (.not.nc_eom_v) then
+              call findPsiv(dpp)
+            else
+              call findPsiv(dv)
+            endif
 
             !P_si^T  ******************************
 
@@ -3092,7 +3146,8 @@ cc              cnv = (psit + psib)
             if (nc_eom_v) then
               cnv = (psiv + cnv/rho0(i,j,k,1))*vol
             else
-              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
+cc              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
+              cnv = (psiv + cnv)*vol
             endif
 
             if (si_car) then
@@ -3116,15 +3171,198 @@ cc              cnv = (psit + psib)
 
 c End program
 
-      deallocate(dv,dv_cov)
+      deallocate(dv,dv_cov,dpp)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
-      nullify(v0_cnv)
+      nullify(v0_cnv,a0_cnv)
 
       call deallocPointers(fpointers)
 
       end subroutine v_mtvc
+
+c v_mtvc2
+c####################################################################
+      subroutine v_mtvc2(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for the velocity SI system.
+c     In call:
+c      * gpos: vector index of position on the numerical grid:
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use nlfunction_setup
+
+      use v_mtvc_mod
+
+      implicit none
+
+c Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
+     .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
+
+c Local variables
+
+      integer    :: iig
+
+      real(8),allocatable,dimension(:,:,:,:) :: dpp
+
+c Begin program
+
+      igr = igrid
+
+      is_cnv = .true.
+
+      call allocPointers(neq,fpointers)
+
+      isig  = MGgrid%istartp(igrid)
+      iisig = istart (igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Define pointers to MG arrays
+
+      rho0   => grho0  %grid(igrid)%array
+
+      pp0    => gp0    %grid(igrid)%array
+
+      v0_cnv => gv0    %grid(igrid)%array
+
+      b0_cnv => gb0    %grid(igrid)%array
+
+      b0_cov => gb0_cov%grid(igrid)%array
+
+      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+
+c Map vector x to array for processing (return dv in curvilinear comp.)
+
+      allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      
+      dv = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
+     .                       ,.false.)
+
+      if (di > 0) then
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+      else
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+      endif
+
+      if (.not.nc_eom_v) then
+        dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
+        dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
+        dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
+      endif
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            !Preparations
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k)
+            jacim  = gmetric%grid(igrid)%jac(im,j,k)
+            jacjp  = gmetric%grid(igrid)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igrid)%jac(i,jm,k)
+            jackp  = gmetric%grid(igrid)%jac(i,j,kp)
+            jackm  = gmetric%grid(igrid)%jac(i,j,km)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
+
+cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            ijkg   = ijk + isig - 1
+
+            if (vol_wgt) then
+              vol = gmetric%grid(igrid)%dvol(i,j,k)
+            else
+              vol = 1d0
+            endif
+
+            !P_si^v  ******************************
+
+            if (.not.nc_eom_v) then
+              call findPsiv(dpp)
+            else
+              call findPsiv(dv)
+            endif
+
+            cnv = psiv*vol
+
+            if (si_car) then
+              call transformVectorToCartesian
+     .              (i,j,k,igrid,igrid,igrid
+     .               ,cnv(1),cnv(2),cnv(3),.false.
+     .               ,car(1),car(2),car(3))
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = car(ieq)
+              enddo
+            else
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = cnv(ieq)
+              enddo
+            endif
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(dv,dv_cov,dpp)
+
+      nullify(pp0,rho0)
+      nullify(b0_cnv,b0_cov)
+      nullify(v0_cnv,a0_cnv)
+
+      call deallocPointers(fpointers)
+
+      end subroutine v_mtvc2
 
 ccc v_mtvc_pr
 ccc####################################################################
@@ -3434,8 +3672,6 @@ c Local variables
 
       real(8)    :: z(ntot)
 
-      integer    :: bcnd_zz(6,neq)
-
       real(8),allocatable,dimension(:,:,:,:) :: dzz
 
 c Begin program
@@ -3474,6 +3710,9 @@ c Define pointers to MG arrays
 
       b0_cov => gb0_cov%grid(igrid)%array
 
+      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+
+
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
@@ -3501,6 +3740,12 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2)
+
+      if (.not.nc_eom_v) then
+        dzz(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
+        dzz(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
+        dzz(:,:,:,3)=rho0(:,:,:,1)*dzz(:,:,:,3)
+      endif
 
 c Calculate matrix-vector product
 
@@ -3541,7 +3786,6 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
             !P_si^v  ******************************
 
             call findPsiv(dzz)
-cc            call findPsiv(dv)
 
             !P_si^T  ******************************
 
@@ -3576,10 +3820,6 @@ cc            call findPsiv(dv)
               enddo
             endif
 
-cc            do ieq=1,3
-cc              y(neq*(ijk-1)+ieq) = psiv(ieq) + psit(ieq) + psib(ieq)
-cc            enddo
-
           enddo
         enddo
       enddo
@@ -3590,7 +3830,7 @@ c End program
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
-      nullify(v0_cnv)
+      nullify(v0_cnv,a0_cnv)
 
       call deallocPointers(fpointers)
 
@@ -3636,6 +3876,8 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: da
 
+      logical :: flg_rho,flg_v
+
 c Begin program
 
       igr = igrid
@@ -3662,9 +3904,17 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      rho0   => grho0  %grid(igrid)%array
+      flg_rho = .false.      !To prevent interference with v_mtvc3
+      if (.not.associated(rho0  )) then
+        flg_rho = .true.
+        rho0   => grho0%grid(igrid)%array
+      endif
 
-      v0_cnv => gv0    %grid(igrid)%array
+      flg_v = .false.        !To prevent interference with v_mtvc3
+      if (.not.associated(v0_cnv)) then
+        flg_v = .true.
+        v0_cnv => gv0  %grid(igrid)%array
+      endif
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3678,7 +3928,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2)
-cc     .            ,result_is_vec=.true.)
 
 c Calculate matrix-vector product
 
@@ -3740,7 +3989,8 @@ c End program
 
       deallocate(da)
 
-      nullify(v0_cnv,rho0)
+      if (flg_rho) nullify(rho0)
+      if (flg_v  ) nullify(v0_cnv)
 
       call deallocPointers(fpointers)
 
