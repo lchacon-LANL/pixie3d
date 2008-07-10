@@ -430,7 +430,6 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IRHO) = 1d0
 
         var(:,:,:,ITMP) = 1d0
-cc        var(:,:,:,ITMP) = 0d0
 
         bz0 = 1d0
 
@@ -448,6 +447,7 @@ cc        var(:,:,:,ITMP) = 0d0
         enddo
 #else
 cc        var(:,:,:,IAX:IAZ) = a
+
         do k = 0,nzdp
           do j = 0,nydp
             do i = 0,nxdp
@@ -663,7 +663,6 @@ c     GEM challenge
      .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
              var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
      .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-             var(i,j,k,IBZ)=0d0
             enddo
           enddo
         enddo
@@ -1799,29 +1798,32 @@ c Transfer electric field info to postprocessor via input file
 
 
         if (ierr /= 0) then  !Replace E0
-          command='sed -e"/graphdef/{" -e' // achar(39)
+cc          command='sed -e"/graphdef/{" -e' // achar(39)
+          command='sed -i -e"/graphdef/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
 #else
      .       // 'a\' // achar(39) //' -e"'
 #endif
      .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile) // ' > temp'
+cc     .       // trim(inputfile) // ' > temp'
+     .       // trim(inputfile)
         else                 !Add E0
-          command='sed -e"/E0/{" -e' // achar(39)
+cc          command='sed -e"/E0/{" -e' // achar(39)
+          command='sed -i -e"/E0/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
 #else
      .       // 'c\' // achar(39) //' -e"'
 #endif
      .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile) // ' > temp'
+     .       // trim(inputfile)
         endif
 
         ierr = system(trim(command))
 
-        command = 'mv temp ' // trim(inputfile)
-        ierr = system(trim(command))
+cc        command = 'mv temp ' // trim(inputfile)
+cc        ierr = system(trim(command))
       endif
 
 c Transfer magnetic field info to postprocessor via input file
@@ -1970,7 +1972,7 @@ c Call variables
 c Local variables
 
       integer    :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8)    :: x1,y1,z1,eps
+      real(8)    :: x1,y1,z1,eps,car(3)
       real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
 
@@ -2009,6 +2011,7 @@ c Begin program
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda
      .             *dlog(cosh((x1-0.5d0*(xmax+xmin))/dlambda)) 
+
             enddo
           enddo
         enddo
@@ -2148,60 +2151,6 @@ cc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
 cc     .                        ,phi)
 
 c Find vector potential with gauge Ax = 0 in GLOBAL domain
-
-cc      a(:,:,:,1)=0d0  !Gauge
-cc
-cc      a(0,0,:,3)=0d0
-cc
-cc      i = 0
-cc
-cccc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
-cc      spoint = .false.
-cc
-cc      do j=1,nyd+1
-cc        dyy = grid_params%yg(j)-grid_params%yg(j-1)
-cc
-cc        if (spoint) then  !r=0 face
-cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
-cc     .                                         +b(i  ,j  ,:,1)
-cc     .                                         +b(i+1,j-1,:,1)
-cc     .                                         +b(i+1,j  ,:,1))
-cc        else
-cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
-cc     .                                         +b(i,j  ,:,1))
-cc        endif
-cc      enddo
-cc
-cc      a(0,:,:,2)=0d0
-cc
-cc      do i=1,nxd+1
-cc        if (spoint) then
-cc
-cc          dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
-cc
-cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
-cc
-cc          if (isSP(i,1,1,igx,igy,igz)) then
-cc            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
-cc          else
-cc            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
-cc          endif
-cc
-cc        else
-cc
-cc          dxx = grid_params%xg(i)-grid_params%xg(i-1)
-cc
-cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
-cc     .                                         +b(i  ,:,:,2))
-cc          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
-cc     .                                         +b(i  ,:,:,3))
-cc
-cc        endif
-cc      enddo
-cc
-cc      !Average from radial faces to nodes in SP coordinate systems
-cc      if (spoint) a(1:nxd+1,:,:,2:3) = 0.5*(a(1:nxd+1,:,:,2:3)
-cc     .                                     +a(0:nxd  ,:,:,2:3))
 
       call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
 
