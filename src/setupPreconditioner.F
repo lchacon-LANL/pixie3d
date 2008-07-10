@@ -63,6 +63,7 @@ c PC SETUP *************************************
 
       inv_B      =.false.  !Whether to invert M_B or not
       divCln     =.false.  !Whether to do divergence cleaning (only if inv_B = t)
+      v_solve    =.false.  !Whether to perform final v corrector step
       gm_smooth  =.false.  !Whether to use GMRES smoothing in MG
       gm_coarse  =.true.   !Whether to use GMRES as the coarse solve
       mg_glrkin  =.false.  !Whether to use Galerking MG
@@ -163,24 +164,27 @@ c Find required diagonals in all grids
         call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
      .                   ,tmp_diag,ncolors,vol_wgt,mg_glrkin)
 
-#if !defined(vec_pot)
-        call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
-     .                   ,b_diag,ncolors,vol_wgt,mg_glrkin)
-#else
-        call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                   ,a_diag,ncolors,vol_wgt,mg_glrkin)
-#endif
-
-        if (heta > 0d0) then
-          bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
-          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-          call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
-     .                     ,b_diag_hyp,ncolors,vol_wgt,mg_glrkin)
-        endif
-
         if (.not.gm_smooth) then
-          call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
-     .                     ,v_diag2,ncolors,vol_wgt,mg_glrkin)
+
+#if !defined(vec_pot)
+          if (heta > 0d0) then
+            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
+     .                       ,b_diag_hyp,ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
+     .                       ,b_diag,ncolors,vol_wgt,mg_glrkin)
+          endif
+#else
+          call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                     ,a_diag,ncolors,vol_wgt,mg_glrkin)
+#endif
+          if (v_solve) then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag2,ncolors,vol_wgt,mg_glrkin)
+          endif
+
           if (precon == 's1' .or. precon == 's2') then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
