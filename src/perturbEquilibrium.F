@@ -463,6 +463,45 @@ c     Begin program
           enddo
         enddo
 
+      elseif (ieq == IVX .or. ieq == IVY) then
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              psi(i,j,k)=sin(2*pi*(x1-xmin)/(xmax-xmin))
+     .                  *sin(2*pi*(y1-ymin)/(ymax-ymin))
+            enddo
+          enddo
+        enddo
+        
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              ip = min(i+1,ihip)
+              im = max(i-1,ilom)
+              jp = min(j+1,jhip)
+              jm = max(j-1,jlom)
+
+              if (ieq == IVX) then
+                array(i,j,k) = array(i,j,k)
+     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+     .                              /(grid_params%yy(jg+jp-j)
+     .                               -grid_params%yy(jg+jm-j))
+              else
+                array(i,j,k) = array(i,j,k)
+     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+     .                              /(grid_params%xx(ig+ip-i)
+     .                               -grid_params%xx(ig+im-i))
+              endif
+            enddo
+          enddo
+        enddo
+
       else
 
         call perturbEquilibrium_def(array,bcs,perturb,ieq)
