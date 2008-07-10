@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 64
     nyd      = 32
@@ -52,9 +53,9 @@
     mf_eps   = 1d-6
 
     solenoidal = t
-    nc_eom_jxb = t
-    nc_eom_gp  = t
+    nc_eom_f   = t
     nc_eom_v   = f
+    adiabatic  = t
 
     k_si     = 0.0
 
@@ -67,7 +68,7 @@
  &graphdef
     sel_diag  = 2,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,4,5,6,7,8,11
-    dplot = 1d-1
+    dplot = 1d-2
     prof_conf = 1,'r',1,10,1
     cont_conf = 3,'x','y',1,1,1
  /
