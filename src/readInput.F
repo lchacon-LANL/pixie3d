@@ -40,7 +40,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f
+      logical       :: nc_eom_f,test
 
 c Namelists
 
@@ -48,7 +48,7 @@ c Namelists
       namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz
-     .                ,ilevel,debug,debug_it
+     .                ,ilevel,debug,debug_it,test
      .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
      .                   ,nn_eta,aa_eta,c_hyper
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -97,7 +97,7 @@ c Namelists
 
       !I/O
       namelist /io/    ilevel,debug,debug_it,check_grid
-     .                ,recordfile,dcon,chk_src
+     .                ,recordfile,dcon,chk_src,test
 
 c ******************************************************************
 
@@ -293,6 +293,8 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
                                !   - >4: Preconditioner level (advanced)
                                ! Each level encompasses previous ones.
 
+      test       = .false.     ! Whether we are performing tests (do not dump namelist)
+
       debug      = .false.     ! PC debugging flag
       debug_it   = 1           ! Newton iteration level for debugging
 
@@ -346,7 +348,7 @@ c Write initialization parameters to standard output
       call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
 #endif
 
-      if (my_rank == 0) then
+      if (my_rank == 0 .and. (.not. test)) then
         write (*,*) '-------------------'
         write (*,*) 'SETUP configuration'
         write (*,*) '-------------------'
