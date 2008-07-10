@@ -228,9 +228,6 @@ c ######################################################################
 
         logical :: alt_eom
 
-        logical :: nc_eom_jxb=.false.,nc_eom_gp=.false.,nc_eom_v=.false.
-     .            ,solve_rho=.true.
-
 c SI operator
         real(8) :: k_si=0d0
         real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
@@ -464,7 +461,10 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:,:) :: vec,vec1,vec2
         real(8),pointer,dimension(:,:,:)   :: coef,sc1,sc2
 
-        logical    :: solenoidal=.true.
+        logical    :: solenoidal=.true.,sym_st=.false.
+
+        logical :: nc_eom_jxb=.false.,nc_eom_gp=.false.
+     .            ,nc_eom_v=.false.,solve_rho=.true.
 
         INTERFACE veclaplacian
           module procedure veclap_diff,veclap_ndiff,veclap2
@@ -2072,9 +2072,9 @@ c     Begin program
       jac = gmetric%grid(igrid)%jac(i,j,k)
       ijac = 1./jac
 
-      dxx = dxh(ig)
-      dyy = dyh(jg)
-      dzz = dzh(kg)
+      dxx = grid_params%dxh(ig)
+      dyy = grid_params%dyh(jg)
+      dzz = grid_params%dzh(kg)
 
       if (coords /= 'car') then
         hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
@@ -2441,7 +2441,7 @@ c     ###############################################################
      .                     ,alteom,vol) result (vlap)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(vector) at cell centers in contravarian
+c     Calculates dvol*lap(vector) at cell centers in contravariant
 c     representation. Vector vfield is contravariant.
 c     ---------------------------------------------------------------
 
@@ -6881,7 +6881,7 @@ c     ###############################################################
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
-c     field components "b". Employs gauge A1 = 0d0. In SP systems,
+c     field components "b". Employs gauge A_1 = 0d0. In SP systems,
 c     it integrates at faces in r, and then averages to nodes.
 c     
 c     Integrals done by Numerical Recipes p. 128, 4.1.12 -- actually
@@ -6922,84 +6922,156 @@ c     Consistency check
         call pstop('curl_inv','Inconsistent grid level')
       endif
 
+c     Gauge
+
+      a(:,:,:,1)=0d0
+
+c     Quadrant-based code (SP ready, parallel-ready)
+
+      !Lower-left quadrant
+      call line_int(nx/2-1,1,ny/2-1,1
+     .             ,b(0:nx/2,0:ny/2,0:nz+1,1:3)
+     .             ,a(0:nx/2,0:ny/2,0:nz+1,1:3))
+
+      !Lower-right quadrant
+      call line_int(nx/2+1,nx,ny/2-1,1
+     .             ,b(nx/2:nx+1,0:ny/2,0:nz+1,1:3)
+     .             ,a(nx/2:nx+1,0:ny/2,0:nz+1,1:3))
+
+      !Upper-left quadrant
+      call line_int(nx/2-1,1,ny/2+1,ny
+     .             ,b(0:nx/2,ny/2:ny+1,0:nz+1,1:3)
+     .             ,a(0:nx/2,ny/2:ny+1,0:nz+1,1:3))
+
+      !Upper-right quadrant
+      call line_int(nx/2+1,nx,ny/2+1,ny
+     .             ,b(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3)
+     .             ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3))
+
+#if !defined(petsc)
+cc      if (spoint) then
+cc        !Impose BCs
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc        where (bcnd /= SP) bcnd = DEF
+cccc        where (bcnd == DEF) bcnd = EXT
+cc
+cc        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
+cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igrid
+cccc     .            ,is_cnv=.false.,iorder=2)
+cc
+cc      endif
+
+      !Boundary conditions: topological constraints (SP, PER)
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+
+      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .            ,is_vec=.true.,is_cnv=.false.,iorder=2)
+#endif
+
+      return
+
 c     New code (SP ready, parallel-ready, version I)
 
-      a(:,:,:,1)=0d0  !Gauge
+      call line_int(1,nx,1,ny,b,a)
 
-      a(0,0,:,3)=0d0
-
-      i = 0
-
-cc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
-      spoint = .false.
-
-      do j=1,ny+1
-        if (.not.glbl) then
-          call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
-          dyy = grid_params%dy(jg-1)
-        else
-          dyy = grid_params%yg(j)-grid_params%yg(j-1)
-        endif
-
-        if (spoint) then  !r=0 face
-          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
-     .                                         +b(i  ,j  ,:,1)
-     .                                         +b(i+1,j-1,:,1)
-     .                                         +b(i+1,j  ,:,1))
-        else
-          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
-     .                                         +b(i,j  ,:,1))
-        endif
-      enddo
-
-      a(0,:,:,2)=0d0
-
-      do i=1,nx+1
-        if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-
-        if (spoint) then
-          if (.not.glbl) then
-            dxx = grid_params%dxh(ig-1)
-          else
-cc            dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
-            dxx = grid_params%xg(i)-grid_params%xg(i-1)
-          endif
-
-          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
-
-          if (isSP(i,1,1,igx,igy,igz)) then
-            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
-          else
-            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
-          endif
-
-        else
-
-          if (.not.glbl) then
-            dxx = grid_params%dx(ig-1)
-          else
-            dxx = grid_params%xg(i)-grid_params%xg(i-1)
-          endif
-
-          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
-     .                                         +b(i  ,:,:,2))
-          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
-     .                                         +b(i  ,:,:,3))
-
-        endif
-      enddo
-
-      !Average from radial faces to nodes in SP coordinate systems
-      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
-     .                                    +a(0:nx  ,:,:,2:3))
-
-cc      !Boundary conditions: topological constraints (SP, PER)
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
+cc      a(0,0,:,3)=0d0
 cc
-cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
-cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cc      i = 0
+cc
+cccc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
+cc      spoint = .false.
+cc
+cc      do j=1,ny+1
+cc        if (.not.glbl) then
+cc          call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
+cc          dyy = grid_params%dy(jg-1)
+cc        else
+cc          dyy = grid_params%yg(j)-grid_params%yg(j-1)
+cc        endif
+cc
+cc        if (spoint) then  !r=0 face
+cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
+cc     .                                         +b(i  ,j  ,:,1)
+cc     .                                         +b(i+1,j-1,:,1)
+cc     .                                         +b(i+1,j  ,:,1))
+cc        else
+cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
+cc     .                                         +b(i,j  ,:,1))
+cc        endif
+cc      enddo
+cc
+cc      a(0,:,:,2)=0d0
+cc
+cc      do i=1,nx+1
+cc        if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+cc
+cc        if (spoint) then
+cc          if (.not.glbl) then
+cc            dxx = grid_params%dxh(ig-1)
+cc          else
+cccc            dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
+cc            dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc          endif
+cc
+cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+cc
+cc          if (isSP(i,1,1,igx,igy,igz)) then
+cc            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
+cc          else
+cc            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
+cc          endif
+cc
+cc        else
+cc
+cc          if (.not.glbl) then
+cc            dxx = grid_params%dx(ig-1)
+cc          else
+cc            dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc          endif
+cc
+cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
+cc     .                                         +b(i  ,:,:,2))
+cc          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
+cc     .                                         +b(i  ,:,:,3))
+cc
+cc        endif
+cc      enddo
+cc
+cc      !Average from radial faces to nodes in SP coordinate systems
+cc      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
+cc     .                                    +a(0:nx  ,:,:,2:3))
+cc
+
+#if !defined(petsc)
+cc      if (spoint) then
+cc        !Impose BCs
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc        where (bcnd /= SP) bcnd = DEF
+cccc        where (bcnd == DEF) bcnd = EXT
+cc
+cc        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
+cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igrid
+cccc     .            ,is_cnv=.false.,iorder=2)
+cc
+cc      endif
+
+      !Boundary conditions: topological constraints (SP, PER)
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+
+      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
+
+#endif
 
       return
 
@@ -7165,8 +7237,123 @@ cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
 cc
 cc      endif
 
-
 c     End program
+
+      contains
+
+c     line_int
+c     #############################################################
+      subroutine line_int(ilo,ihi,jlo,jhi,bb,aa)
+
+c     -------------------------------------------------------------
+c     Performs line integral to find vector potential from magnetic
+c     field from starting point (ilo,jlo) in any given quadrant
+c     defined by [ilo,ihi]x[jlo,jhi]. We do NOT assume ilo<ihi or
+c     jlo<jhi.
+c     -------------------------------------------------------------
+
+c     Call variables
+
+        integer :: ilo,ihi,jlo,jhi
+        real(8) :: bb(min(ilo,ihi)-1:max(ilo,ihi)+1
+     .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
+        real(8) :: aa(min(ilo,ihi)-1:max(ilo,ihi)+1
+     .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
+
+c     Local variables
+
+        integer :: i,im,ip,imin,imax,istep
+     .            ,j,jm,jp,jmin,jmax,jstep
+
+c     Begin program
+
+        istep = -1
+        if (ilo < ihi) istep = 1
+
+        jstep = -1
+        if (jlo < jhi) jstep = 1
+
+        a(ilo-istep,jlo-jstep,:,3)=0d0
+
+        i = ilo-istep
+
+        jmin = jlo-min(jstep,0)
+        jmax = jhi+max(jstep,0)
+
+        do j=jmin,jmax,jstep
+          jm = j-max(jstep,0)
+          jp = j+min(jstep,0)
+
+          if (.not.glbl) then
+            call getMGmap(i,jm,1,igx,igy,igz,ig,jg,kg)
+            dyy = sign(1,jstep)*grid_params%dy(jg)
+          else
+            dyy = grid_params%yg(jp)
+     .           -grid_params%yg(jm)
+          endif
+
+cc          if (spoint) then  !r=0 face
+cc            aa(i,j,:,3)=aa(i,j-1,:,3) + dyy*2.5d-1*(bb(i  ,j-1,:,1)
+cc     .                                             +bb(i  ,j  ,:,1)
+cc     .                                             +bb(i+1,j-1,:,1)
+cc     .                                             +bb(i+1,j  ,:,1))
+cc          else
+            aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*5d-1*(bb(i,jm,:,1)
+     .                                           +bb(i,jp,:,1))
+cc          endif
+        enddo
+
+        aa(ilo-istep,:,:,2)=0d0
+
+        imin = ilo-min(istep,0)
+        imax = ihi+max(istep,0)
+
+        do i=imin,imax,istep
+
+          im = i-max(istep,0)
+          ip = i+min(istep,0)
+
+cc          if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+cc
+cc          if (spoint) then
+cc            if (.not.glbl) then
+cc              dxx = grid_params%dxh(ig-1)
+cc            else
+cccc              dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
+cc              dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc            endif
+cc
+cc            a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+cc
+cc            if (isSP(i,1,1,igx,igy,igz)) then
+cc              a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
+cc            else
+cc              a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
+cc            endif
+cc
+cc          else
+
+            if (.not.glbl) then
+              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
+              dxx = sign(1,istep)*grid_params%dx(ig)
+            else
+              dxx = grid_params%xg(ip)
+     .             -grid_params%xg(im)
+            endif
+
+            aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
+     .                                             +bb(ip,:,:,2))
+            aa(ip,:,:,2) = aa(im,:,:,2) + dxx*5d-1*(bb(im,:,:,3)
+     .                                             +bb(ip,:,:,3))
+
+cc          endif
+        enddo
+
+      !Average from radial faces to nodes in SP coordinate systems
+cc        if (spoint) aa(1:nx+1,:,:,2:3) = 0.5*(aa(1:nx+1,:,:,2:3)
+cc     .                                       +aa(0:nx  ,:,:,2:3))
+
+      end subroutine line_int
 
       end subroutine curl_inv
 
@@ -7637,9 +7824,10 @@ c     Begin program
      .      call pstop('eom_f','Magnetic field should be contravariant')
 
           vec1 => bb
+          vec2 => jj
           cnv =-div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                    ,eom_jxb_x,eom_jxb_y,eom_jxb_z,vol=vol_wgt)
-          nullify(vec1)
+          nullify(vec1,vec2)
         endif
 
         !Pressure force
@@ -7756,7 +7944,7 @@ c     Begin program
         call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,cov0(1),cov0(2),cov0(3)
      .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-        cnvp = vec1(ip,j,k,:)
+        cnvp = vec2(ip,j,k,:)
         call transformFromCurvToCurv(ip,j,k,igx,igy,igz
      .                              ,covp(1),covp(2),covp(3)
      .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
@@ -7768,28 +7956,16 @@ c     Begin program
      .             +cnvp(3)*cov0(3)*ijacp
      .             +cnv0(3)*covp(3)*ijac0)*0.25
 
-cc        pmag = jac*(bx(ip,j,k)*bx_cov(i ,j,k)*ijacp
-cc     .             +bx(i ,j,k)*bx_cov(ip,j,k)*ijac0
-cc     .             +by(ip,j,k)*by_cov(i ,j,k)*ijac0
-cc     .             +by(i ,j,k)*by_cov(ip,j,k)*ijacp
-cc     .             +bz(ip,j,k)*bz_cov(i ,j,k)*ijacp
-cc     .             +bz(i ,j,k)*bz_cov(ip,j,k)*ijac0)*0.25
-cccc     .        +(bx(ip,j,k)*bx_cov(i ,j,k)
-cccc     .         +bx(i ,j,k)*bx_cov(ip,j,k)
-cccc     .         +by(ip,j,k)*by_cov(i ,j,k)
-cccc     .         +by(i ,j,k)*by_cov(ip,j,k)
-cccc     .         +bz(ip,j,k)*bz_cov(i ,j,k)
-cccc     .         +bz(i ,j,k)*bz_cov(ip,j,k))*0.25
-
-        t11 = -( vec1(ip,j,k,1)*vec1(i ,j,k,1)*ijacp*ijac0 )*jac**2
+        t11 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
+     .              +vec1(ip,j,k,1)*vec2(i ,j,k,1))*ijacp*ijac0*jac**2
      .        +gsuper(1,1)*pmag
 
-        t12 = -0.5*( vec1(ip,j,k,1)*vec1(i ,j,k,2)*ijacp
-     .              +vec1(i ,j,k,1)*vec1(ip,j,k,2)*ijac0 )*jac
+        t12 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
+     .              +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0 )*jac
      .        +gsuper(1,2)*pmag
 
-        t13 = -0.5*( vec1(ip,j,k,1)*vec1(i ,j,k,3)*ijacp*ijac0
-     .              +vec1(i ,j,k,1)*vec1(ip,j,k,3)*ijacp*ijac0)*jac**2
+        t13 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
+     .              +vec1(i ,j,k,1)*vec2(ip,j,k,3))*ijacp*ijac0*jac**2
      .        +gsuper(1,3)*pmag
 
         if (flag /= 0) then
@@ -7851,7 +8027,7 @@ c     Begin program
         call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,cov0(1),cov0(2),cov0(3)
      .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-        cnvp = vec1(i,jp,k,:)
+        cnvp = vec2(i,jp,k,:)
         call transformFromCurvToCurv(i,jp,k,igx,igy,igz
      .                              ,covp(1),covp(2),covp(3)
      .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
@@ -7863,16 +8039,16 @@ c     Begin program
      .         +cnvp(3)*cov0(3)
      .         +cnv0(3)*covp(3))*0.25
 
-        t21 = -0.5*( vec1(i,jp,k,2)*vec1(i,j ,k,1)
-     .              +vec1(i,j ,k,2)*vec1(i,jp,k,1) )
+        t21 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)
+     .              +vec1(i,j ,k,2)*vec2(i,jp,k,1) )
      .        +gsuper(2,1)*pmag
 
-        t22 = -0.5*( vec1(i,jp,k,2)*vec1(i,j ,k,2)
-     .              +vec1(i,j ,k,2)*vec1(i,jp,k,2) )
+        t22 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)
+     .              +vec1(i,j ,k,2)*vec2(i,jp,k,2) )
      .        +gsuper(2,2)*pmag
 
-        t23 = -0.5*( vec1(i,jp,k,2)*vec1(i,j ,k,3)
-     .              +vec1(i,j ,k,2)*vec1(i,jp,k,3) )
+        t23 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
+     .              +vec1(i,j ,k,2)*vec2(i,jp,k,3) )
      .        +gsuper(2,3)*pmag
 
         if (flag /= 0) then
@@ -7934,7 +8110,7 @@ c     Begin program
         call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                              ,cov0(1),cov0(2),cov0(3)
      .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-        cnvp = vec1(i,j,kp,:)
+        cnvp = vec2(i,j,kp,:)
         call transformFromCurvToCurv(i,j,kp,igx,igy,igz
      .                              ,covp(1),covp(2),covp(3)
      .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
@@ -7946,16 +8122,16 @@ c     Begin program
      .         +cnvp(3)*cov0(3)
      .         +cnv0(3)*covp(3))*0.25
 
-        t31 = -0.5*( vec1(i,j,kp,3)*vec1(i,j,k ,1)
-     .              +vec1(i,j,k ,3)*vec1(i,j,kp,1) )
+        t31 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
+     .              +vec1(i,j,k ,3)*vec2(i,j,kp,1) )
      .        +gsuper(3,1)*pmag
 
-        t32 = -0.5*( vec1(i,j,kp,3)*vec1(i,j,k ,2)
-     .              +vec1(i,j,k ,3)*vec1(i,j,kp,2) )
+        t32 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)
+     .              +vec1(i,j,k ,3)*vec2(i,j,kp,2) )
      .        +gsuper(3,2)*pmag
 
-        t33 = -0.5*( vec1(i,j,kp,3)*vec1(i,j,k ,3)
-     .              +vec1(i,j,k ,3)*vec1(i,j,kp,3) )
+        t33 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
+     .              +vec1(i,j,k ,3)*vec2(i,j,kp,3) )
      .        +gsuper(3,3)*pmag
 
         if (flag /= 0) then
@@ -8167,740 +8343,6 @@ c     End program
 
       end subroutine eom_grad_p_z
 
-      end module operators
-
-c module nlfunction_setup
-c ######################################################################
-      module nlfunction_setup
-
-        use grid
-
-        use grid_aliases
-
-        use parameters
-
-        use transport_params
-
-        use equilibrium
-
-        use auxiliaryVariables
-
-        use operators
-
-        use timeStepping
-#if !defined(vec_pot)
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
-#else
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-#endif
-
-        real(8) :: max_dv_dt
-
-        logical :: sym_st=.false.
-
-      contains
-
-ccc     eom_advc_x
-ccc     #############################################################
-cc      subroutine eom_advc_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t11,t12,t13,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t11-t13 for EOM. In the call
-ccc     sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t11,t12,t13: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine assumes vec1->v (velocity), vec2->p (momentum).
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t11,t12,t13
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
-cc        real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
-cc        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
-cc
-ccc     Begin program
-cc
-cc        ip = i+1
-cc        if (flag == 0) ip = i
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
-cc     .               +gmetric%grid(igx)%jac (i ,j,k))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
-cc
-cc        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
-cc     .      .and. bcSP()
-cc     .      .and. flag /= 0           ) then
-cc          jacp = gmetric%grid(igx)%jac(ip,j,k)
-cc          jac0 = gmetric%grid(igx)%jac(i ,j,k)
-cc        else
-cc          jacp = jac
-cc          jac0 = jac
-cc        endif
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc
-cc        ijac0 = 1d0/jac0
-cc        ijacp = 1d0/jacp
-cc
-ccc       Advective part
-cc
-cc        t11 = 0.25*( vec2(ip,j,k,1)*vec1(i ,j,k,1)
-cc     .              +vec2(i ,j,k,1)*vec1(ip,j,k,1)
-cc     .              +vec1(i ,j,k,1)*vec2(ip,j,k,1)
-cc     .              +vec1(ip,j,k,1)*vec2(i ,j,k,1))
-cc     .            *ijacp*ijac0*jac**2
-cc
-cc        t12 = 0.25*( vec2(ip,j,k,1)*vec1(i ,j,k,2)*ijacp
-cc     .              +vec2(i ,j,k,1)*vec1(ip,j,k,2)*ijac0
-cc     .              +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0
-cc     .              +vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp)
-cc     .            *jac
-cc
-cc        t13 = 0.25*( vec2(ip,j,k,1)*vec1(i ,j,k,3)
-cc     .              +vec2(i ,j,k,1)*vec1(ip,j,k,3)
-cc     .              +vec1(i ,j,k,1)*vec2(ip,j,k,3)
-cc     .              +vec1(ip,j,k,1)*vec2(i ,j,k,3))
-cc     .            *ijacp*ijac0*jac**2
-cc
-cccc        if (flag /= 0 .and. advect /= 2) then
-cccc          ipp = min(ip+1,nx+1)
-cccc          im  = max(i -1,0   )
-cccc
-cccc          igp  = ig + (ip  - i)
-cccc          igm  = ig + (im  - i)
-cccc          igpp = ig + (ipp - i)
-cccc        endif
-cccc
-cccc        !Advection of px
-cccc        t11 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
-cccc     .             +vec1(i ,j,k,1)*vec2(ip,j,k,1))
-cccc     .       *ijacp*ijac0*jac**2
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,1)+vec2(ip,j,k,1))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t11    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vxp = t11/ph
-cccc          vxp = 0.5*(vec1(ip,j,k,1)*ijacp+vec1(i,j,k,1)*ijac0)*jac
-cccc
-cccc          if (i == nx .or. i == 0) then
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,1),xx(igp),vec2(ip,j,k,1)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,1),xx(igm),vec2(im,j,k,1)
-cccc     .               ,vxp,min(advect,2))
-cccc          else
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,1),xx(igp),vec2(ip,j,k,1)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,1),xx(igm),vec2(im,j,k,1)
-cccc     .               ,vxp,advect)
-cccc          endif
-cccc
-cccc          t11 = vxp*qip
-cccc        endif
-cccc
-cccc        !Advection of py
-cccc        t12 = 0.5*( vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0
-cccc     .            + vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp)*jac
-cccc        ph = 0.5*(vec2(i,j,k,2)+vec2(ip,j,k,2))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t12    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vxp = t12/ph
-cccc          vxp = 0.5*(vec1(ip,j,k,1)*ijacp+vec1(i,j,k,1)*ijac0)*jac
-cccc
-cccc          if (i == nx .or. i == 0) then
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,2),xx(igp),vec2(ip,j,k,2)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,2),xx(igm),vec2(im,j,k,2)
-cccc     .               ,vxp,min(advect,2))
-cccc          else
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,2),xx(igp),vec2(ip,j,k,2)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,2),xx(igm),vec2(im,j,k,2)
-cccc     .               ,vxp,advect)
-cccc          endif
-cccc
-cccc          t12 = vxp*qip
-cccc        endif
-cccc
-cccc        !Advection of pz
-cccc        t13 = 0.5*( vec1(i ,j,k,1)*vec2(ip,j,k,3)
-cccc     .            + vec1(ip,j,k,1)*vec2(i ,j,k,3))
-cccc     .           *ijacp*ijac0*jac**2
-cccc        ph = 0.5*(vec2(i,j,k,3)+vec2(ip,j,k,3))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t13    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vxp = t13/ph
-cccc          vxp = 0.5*(vec1(ip,j,k,1)*ijacp+vec1(i,j,k,1)*ijac0)*jac
-cccc
-cccc          if (i == nx .or. i == 0) then
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,3),xx(igp),vec2(ip,j,k,3)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,3),xx(igm),vec2(im,j,k,3)
-cccc     .               ,vxp,min(advect,2))
-cccc          else
-cccc            qip=inter(xx(igpp),vec2(ipp,j,k,3),xx(igp),vec2(ip,j,k,3)
-cccc     .               ,xx(ig  ),vec2(i  ,j,k,3),xx(igm),vec2(im,j,k,3)
-cccc     .               ,vxp,advect)
-cccc          endif
-cccc
-cccc          t13 = vxp*qip
-cccc        endif
-cc
-ccc       Diffusive part
-cc
-cc        !Harmonic average for calculation of viscosity coeff. at faces
-cc        if (nu /= 0d0) then
-cc          vis = 2.*nuu(ip,j,k)*nuu(i,j,k)/(nuu(ip,j,k) + nuu(i,j,k))
-cc
-cccc          if (flag /= 0) then
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                        ,vec1(:,:,:,1)
-cccc     .                        ,vec1(:,:,:,2)
-cccc     .                        ,vec1(:,:,:,3),1)
-cccc          else
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                        ,vec1(:,:,:,1)
-cccc     .                        ,vec1(:,:,:,2)
-cccc     .                        ,vec1(:,:,:,3),0)
-cccc          endif
-cccc
-cccc          if (sym_st) then
-cccc            nabla_v_cnv = matmul(gsuper,nabla_v)
-cccc
-cccc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cccc
-cccc            t11 = t11 - vis*nabla_v_cnv(1,1)
-cccc            t12 = t12 - vis*nabla_v_cnv(1,2)
-cccc            t13 = t13 - vis*nabla_v_cnv(1,3)
-cccc          else
-cccc            t11 = t11 - vis*( gsuper(1,1)*nabla_v(1,1)  
-cccc     .                       +gsuper(1,2)*nabla_v(2,1)  
-cccc     .                       +gsuper(1,3)*nabla_v(3,1) )
-cccc
-cccc            t12 = t12 - vis*( gsuper(1,1)*nabla_v(1,2)  
-cccc     .                       +gsuper(1,2)*nabla_v(2,2)  
-cccc     .                       +gsuper(1,3)*nabla_v(3,2) )
-cccc
-cccc            t13 = t13 - vis*( gsuper(1,1)*nabla_v(1,3)  
-cccc     .                       +gsuper(1,2)*nabla_v(2,3)  
-cccc     .                       +gsuper(1,3)*nabla_v(3,3) )
-cccc          endif
-cc
-cc          if (flag /= 0) then
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),1,cnv=.true.)
-cc          else
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),0,cnv=.true.)
-cc          endif
-cc
-cc          if (sym_st) then
-cc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cc          endif
-cc
-cc          t11 = t11 - vis*nabla_v_cnv(1,1)
-cc          t12 = t12 - vis*nabla_v_cnv(1,2)
-cc          t13 = t13 - vis*nabla_v_cnv(1,3)
-cc
-cc        endif
-cc
-ccc       Postprocessing
-cc
-cc        if (flag /= 0) then
-cc          ijac  = 1d0/jac
-cc
-cc          t11 = t11*ijac
-cc          if (.not.alt_eom) t12 = t12*ijac
-cc          t13 = t13*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine eom_advc_x
-cc
-ccc     eom_advc_y
-ccc     #############################################################
-cc      subroutine eom_advc_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t21,t22,t23,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t21-t23 for EOM. In the call
-ccc     sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t21,t22,t23: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-ccc     head.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t21,t22,t23
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
-cc        real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
-cc        real(8)    :: jac,ijac,vis
-cc
-ccc     Begin program
-cc
-cc        jp = j+1
-cc        if (flag == 0) jp = j
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
-cc     .               +gmetric%grid(igx)%jac (i,j ,k))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-ccc       Advective part
-cc
-cc        t21 = 0.25*( vec2(i,jp,k,2)*vec1(i,j ,k,1)
-cc     .              +vec2(i,j ,k,2)*vec1(i,jp,k,1)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,1)
-cc     .              +vec1(i,jp,k,2)*vec2(i,j ,k,1))
-cc
-cc        t22 = 0.25*( vec2(i,jp,k,2)*vec1(i,j ,k,2)
-cc     .              +vec2(i,j ,k,2)*vec1(i,jp,k,2)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,2)
-cc     .              +vec1(i,jp,k,2)*vec2(i,j ,k,2))
-cc
-cc        t23 = 0.25*( vec2(i,jp,k,2)*vec1(i,j ,k,3)
-cc     .              +vec2(i,j ,k,2)*vec1(i,jp,k,3)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,3)
-cc     .              +vec1(i,jp,k,2)*vec2(i,j ,k,3))
-cc
-cccc        if (flag /= 0 .and. advect /= 2) then
-cccc          jpp = min(jp+1,ny+1)
-cccc          jm  = max(j-1 ,0   )
-cccc
-cccc          jgp  = jg + (jp  - j)
-cccc          jgm  = jg + (jm  - j)
-cccc          jgpp = jg + (jpp - j)
-cccc        endif
-cccc
-cccc        t21 = 0.5*(vec1(i,j ,k,2)*vec1(i,jp,k,1)
-cccc     .            +vec1(i,jp,k,2)*vec1(i,j ,k,1))
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,1)+vec2(i,jp,k,1))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t21    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vyp = t21/ph
-cccc          vyp = 0.5*(vec1(i,jp,k,2)+vec1(i,j,k,2))
-cccc
-cccc          if (j == ny .or. j == 0) then
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,1),yy(jgp),vec2(i,jp,k,1)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,1),yy(jgm),vec2(i,jm,k,1)
-cccc     .               ,vyp,min(advect,2))
-cccc          else
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,1),yy(jgp),vec2(i,jp,k,1)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,1),yy(jgm),vec2(i,jm,k,1)
-cccc     .               ,vyp,advect)
-cccc          endif
-cccc
-cccc          t21 = vyp*qjp
-cccc        endif
-cccc
-cccc        t22 = 0.5*( vec1(i,j ,k,2)*vec2(i,jp,k,2)
-cccc     .            + vec1(i,jp,k,2)*vec2(i,j ,k,2))
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,2)+vec2(i,jp,k,2))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t22    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vyp = t22/ph
-cccc          vyp = 0.5*(vec1(i,jp,k,2)+vec1(i,j,k,2))
-cccc
-cccc          if (j == ny .or. j == 0) then
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,2),yy(jgp),vec2(i,jp,k,2)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,2),yy(jgm),vec2(i,jm,k,2)
-cccc     .               ,vyp,min(advect,2))
-cccc          else
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,2),yy(jgp),vec2(i,jp,k,2)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,2),yy(jgm),vec2(i,jm,k,2)
-cccc     .               ,vyp,advect)
-cccc          endif
-cccc
-cccc          t22 = vyp*qjp
-cccc        endif
-cccc
-cccc        t23 = 0.5*( vec1(i,j ,k,2)*vec2(i,jp,k,3)
-cccc     .            + vec1(i,jp,k,2)*vec2(i,j ,k,3))
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,3)+vec2(i,jp,k,3))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t23    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vyp = t23/ph
-cccc          vyp = 0.5*(vec1(i,jp,k,2)+vec1(i,j,k,2))
-cccc
-cccc          if (j == ny .or. j == 0) then
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,3),yy(jgp),vec2(i,jp,k,3)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,3),yy(jgm),vec2(i,jm,k,3)
-cccc     .               ,vyp,min(advect,2))
-cccc          else
-cccc            qjp=inter(yy(jgpp),vec2(i,jpp,k,3),yy(jgp),vec2(i,jp,k,3)
-cccc     .               ,yy(jg  ),vec2(i,j  ,k,3),yy(jgm),vec2(i,jm,k,3)
-cccc     .               ,vyp,advect)
-cccc          endif
-cccc
-cccc          t23 = vyp*qjp
-cccc        endif
-cc
-ccc       Diffusive part
-cc
-cc        if (nu /= 0d0) then
-cc          vis = 2.*nuu(i,jp,k)*nuu(i,j,k)/(nuu(i,jp,k) + nuu(i,j,k))
-cc
-cccc          if (flag /= 0) then
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                      ,vec1(:,:,:,1)
-cccc     .                      ,vec1(:,:,:,2)
-cccc     .                      ,vec1(:,:,:,3),2)
-cccc          else
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                      ,vec1(:,:,:,1)
-cccc     .                      ,vec1(:,:,:,2)
-cccc     .                      ,vec1(:,:,:,3),0)
-cccc          endif
-cccc
-cccc          if (sym_st) then
-cccc            nabla_v_cnv = matmul(gsuper,nabla_v)
-cccc
-cccc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cccc
-cccc            t21 = t21 - vis*nabla_v_cnv(2,1)
-cccc            t22 = t22 - vis*nabla_v_cnv(2,2)
-cccc            t23 = t23 - vis*nabla_v_cnv(2,3)
-cccc          else
-cccc            t21 = t21 - vis*( gsuper(2,1)*nabla_v(1,1)  
-cccc     .                       +gsuper(2,2)*nabla_v(2,1)  
-cccc     .                       +gsuper(2,3)*nabla_v(3,1) )
-cccc
-cccc            t22 = t22 - vis*( gsuper(2,1)*nabla_v(1,2)  
-cccc     .                       +gsuper(2,2)*nabla_v(2,2)  
-cccc     .                       +gsuper(2,3)*nabla_v(3,2) )
-cccc
-cccc            t23 = t23 - vis*( gsuper(2,1)*nabla_v(1,3)  
-cccc     .                       +gsuper(2,2)*nabla_v(2,3)  
-cccc     .                       +gsuper(2,3)*nabla_v(3,3) )
-cccc          endif
-cc
-cc         if (flag /= 0) then
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),2,cnv=.true.)
-cc          else
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),0,cnv=.true.)
-cc          endif
-cc
-cc          if (sym_st) then
-cc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cc          endif
-cc
-cc          t21 = t21 - vis*nabla_v_cnv(2,1)
-cc          t22 = t22 - vis*nabla_v_cnv(2,2)
-cc          t23 = t23 - vis*nabla_v_cnv(2,3)
-cc
-cc        endif
-cc
-ccc       Postprocessing
-cc
-cc        if (flag /= 0) then
-cc          ijac = 1d0/jac
-cc
-cc          t21 = t21*ijac
-cc          if (.not.alt_eom) t22 = t22*ijac
-cc          t23 = t23*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine eom_advc_y
-cc
-ccc     eom_advc_z
-ccc     #############################################################
-cc      subroutine eom_advc_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t31,t32,t33,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t31-t33 for EOM. In the call
-ccc     sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t31,t32,t33: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-ccc     head.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t31,t32,t33
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
-cc        real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
-cc        real(8)    :: jac,ijac,vis
-cc
-ccc     Begin program
-cc
-cc        kp = k+1
-cc        if (flag == 0) kp = k
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
-cc     .               +gmetric%grid(igx)%jac (i,j,k ))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-ccc       Advective part
-cc
-cc        t31 = 0.25*( vec2(i,j,kp,3)*vec1(i,j,k ,1)
-cc     .              +vec2(i,j,k ,3)*vec1(i,j,kp,1)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,1)
-cc     .              +vec1(i,j,kp,3)*vec2(i,j,k ,1))
-cc
-cc        t32 = 0.25*( vec2(i,j,kp,3)*vec1(i,j,k ,2)
-cc     .              +vec2(i,j,k ,3)*vec1(i,j,kp,2)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,2)
-cc     .              +vec1(i,j,kp,3)*vec2(i,j,k ,2))
-cc
-cc        t33 = 0.25*( vec2(i,j,kp,3)*vec1(i,j,k ,3)
-cc     .              +vec2(i,j,k ,3)*vec1(i,j,kp,3)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,3)
-cc     .              +vec1(i,j,kp,3)*vec2(i,j,k ,3))
-cc
-cccc        if (flag /= 0 .and. advect /= 2) then
-cccc          kpp = min(kp+1,nx+1)
-cccc          km  = max(k -1,0   )
-cccc
-cccc          kgp  = kg + (kp  - k)
-cccc          kgm  = kg + (km  - k)
-cccc          kgpp = kg + (kpp - k)
-cccc        endif
-cccc
-cccc        t31 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,kp,1)
-cccc     .            + vec1(i,j,kp,3)*vec2(i,j,k ,1) )
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,1)+vec2(i,j,kp,1))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t31    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vzp = t31/ph
-cccc          vzp = 0.5*(vec1(i,j,kp,3)+vec1(i,j,k,3))
-cccc
-cccc          if (k == nz .or. k == 0) then
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,1),zz(kgp),vec2(i,j,kp,1)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,1),zz(kgm),vec2(i,j,km,1)
-cccc     .               ,vzp,min(advect,2))
-cccc          else
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,1),zz(kgp),vec2(i,j,kp,1)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,1),zz(kgm),vec2(i,j,km,1)
-cccc     .               ,vzp,advect)
-cccc          endif
-cccc
-cccc          t31 = vzp*qkp
-cccc        endif
-cccc
-cccc        t32 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,kp,2)
-cccc     .            + vec1(i,j,kp,3)*vec2(i,j,k ,2) )
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,2)+vec2(i,j,kp,2))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t32    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vzp = t32/ph
-cccc          vzp = 0.5*(vec1(i,j,kp,3)+vec1(i,j,k,3))
-cccc
-cccc          if (k == nz .or. k == 0) then
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,2),zz(kgp),vec2(i,j,kp,2)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,2),zz(kgm),vec2(i,j,km,2)
-cccc     .               ,vzp,min(advect,2))
-cccc          else
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,2),zz(kgp),vec2(i,j,kp,2)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,2),zz(kgm),vec2(i,j,km,2)
-cccc     .               ,vzp,advect)
-cccc          endif
-cccc
-cccc          t32 = vzp*qkp
-cccc        endif
-cccc
-cccc        t33 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
-cccc     .            + vec1(i,j,k ,3)*vec2(i,j,kp,3) )
-cccc
-cccc        ph = 0.5*(vec2(i,j,k,3)+vec2(i,j,kp,3))
-cccc
-cccc        if (      flag   /= 0
-cccc     .      .and. advect /= 2
-cccc     .      .and. t33    /= 0d0
-cccc     .      ) then
-cccccc     .      .and. abs(ph) > 1d-5) then
-cccc
-cccccc          vzp = t33/ph
-cccc          vzp = 0.5*(vec1(i,j,kp,3)+vec1(i,j,k,3))
-cccc
-cccc          if (k == nz .or. k == 0) then
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,3),zz(kgp),vec2(i,j,kp,3)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,3),zz(kgm),vec2(i,j,km,3)
-cccc     .               ,vzp,min(advect,2))
-cccc          else
-cccc            qkp=inter(zz(kgpp),vec2(i,j,kpp,3),zz(kgp),vec2(i,j,kp,3)
-cccc     .               ,zz(kg  ),vec2(i,j,k  ,3),zz(kgm),vec2(i,j,km,3)
-cccc     .               ,vzp,advect)
-cccc          endif
-cccc
-cccc          t33 = vzp*qkp
-cccc        endif
-cc
-ccc       Diffusive part
-cc
-cc        if (nu /= 0d0) then
-cc          vis = 2.*nuu(i,j,kp)*nuu(i,j,k)/(nuu(i,j,kp) + nuu(i,j,k))
-cc
-cccc          if (flag /= 0) then
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                      ,vec1(:,:,:,1)
-cccc     .                      ,vec1(:,:,:,2)
-cccc     .                      ,vec1(:,:,:,3),3)
-cccc          else
-cccc            nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                      ,vec1(:,:,:,1)
-cccc     .                      ,vec1(:,:,:,2)
-cccc     .                      ,vec1(:,:,:,3),0)
-cccc          endif
-cccc
-cccc          if (sym_st) then
-cccc            nabla_v_cnv = matmul(gsuper,nabla_v)
-cccc
-cccc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cccc
-cccc            t31 = t31 - vis*nabla_v_cnv(3,1)
-cccc            t32 = t32 - vis*nabla_v_cnv(3,2)
-cccc            t33 = t33 - vis*nabla_v_cnv(3,3)
-cccc          else
-cccc            t31 = t31 - vis*( gsuper(3,1)*nabla_v(1,1)
-cccc     .                       +gsuper(3,2)*nabla_v(2,1)
-cccc     .                       +gsuper(3,3)*nabla_v(3,1) )
-cccc
-cccc            t32 = t32 - vis*( gsuper(3,1)*nabla_v(1,2)
-cccc     .                       +gsuper(3,2)*nabla_v(2,2)
-cccc     .                       +gsuper(3,3)*nabla_v(3,2) )
-cccc
-cccc            t33 = t33 - vis*( gsuper(3,1)*nabla_v(1,3)
-cccc     .                       +gsuper(3,2)*nabla_v(2,3)
-cccc     .                       +gsuper(3,3)*nabla_v(3,3) )
-cccc          endif
-cc
-cc          if (flag /= 0) then
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),3,cnv=.true.)
-cc          else
-cc            nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                      ,vec1(:,:,:,1)
-cc     .                      ,vec1(:,:,:,2)
-cc     .                      ,vec1(:,:,:,3),0,cnv=.true.)
-cc          endif
-cc
-cc          if (sym_st) then
-cc            nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
-cc          endif
-cc
-cc          t31 = t31 - vis*nabla_v_cnv(3,1)
-cc          t32 = t32 - vis*nabla_v_cnv(3,2)
-cc          t33 = t33 - vis*nabla_v_cnv(3,3)
-cc
-cc        endif
-cc
-ccc       Postprocessing
-cc
-cc        if (flag /= 0) then
-cc          ijac = 1d0/jac
-cc
-cc          t31 = t31*ijac
-cc          if (.not.alt_eom) t32 = t32*ijac
-cc          t33 = t33*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine eom_advc_z
 
 c     eom_advc_x
 c     #############################################################
@@ -9454,6 +8896,11 @@ c     Local variables
 
 c     Begin program
 
+        if (     .not.associated(coef)
+     .      .or. .not.associated(vec1)) then
+          call pstop('eom_diff_x','Pointers not associated')
+        endif
+
         ip = i+1
         if (flag == 0) ip = i
 
@@ -9482,7 +8929,7 @@ c     Begin program
 c     Diffusive part
 
         !Harmonic average for calculation of viscosity coeff. at faces
-        vis = 2.*nuu(ip,j,k)*nuu(i,j,k)/(nuu(ip,j,k) + nuu(i,j,k))
+        vis = 2.*coef(ip,j,k)*coef(i,j,k)/(coef(ip,j,k) + coef(i,j,k))
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9553,6 +9000,11 @@ c     Local variables
 
 c     Begin program
 
+        if (     .not.associated(coef)
+     .      .or. .not.associated(vec1)) then
+          call pstop('eom_diff_y','Pointers not associated')
+        endif
+
         jp = j+1
         if (flag == 0) jp = j
 
@@ -9565,7 +9017,7 @@ c     Begin program
 
 c       Diffusive part
 
-        vis = 2.*nuu(i,jp,k)*nuu(i,j,k)/(nuu(i,jp,k) + nuu(i,j,k))
+        vis = 2.*coef(i,jp,k)*coef(i,j,k)/(coef(i,jp,k) + coef(i,j,k))
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9636,6 +9088,11 @@ c     Local variables
 
 c     Begin program
 
+        if (     .not.associated(coef)
+     .      .or. .not.associated(vec1)) then
+          call pstop('eom_diff_z','Pointers not associated')
+        endif
+
         kp = k+1
         if (flag == 0) kp = k
 
@@ -9648,7 +9105,7 @@ c     Begin program
 
 c       Diffusive part
 
-        vis = 2.*nuu(i,j,kp)*nuu(i,j,k)/(nuu(i,j,kp) + nuu(i,j,k))
+        vis = 2.*coef(i,j,kp)*coef(i,j,k)/(coef(i,j,kp) + coef(i,j,k))
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9683,6 +9140,37 @@ c       Postprocessing
 c     End program
 
       end subroutine eom_diff_z
+
+      end module operators
+
+c module nlfunction_setup
+c ######################################################################
+      module nlfunction_setup
+
+        use grid
+
+        use grid_aliases
+
+        use parameters
+
+        use transport_params
+
+        use equilibrium
+
+        use auxiliaryVariables
+
+        use operators
+
+        use timeStepping
+#if !defined(vec_pot)
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+#else
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
+#endif
+
+        real(8) :: max_dv_dt
+
+      contains
 
 c     si_op
 c     #####################################################################
