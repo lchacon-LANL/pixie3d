@@ -34,7 +34,7 @@ c Diag
 
 c Externals
 
-      external   v_mtvc,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
+      external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
      .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp
 
 c Interfaces
@@ -59,13 +59,39 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-cc      si_car = .true.
-cc      mg_glrkin = .true.
-cc      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)
-cc      if (si_car) then
-cc        si_car = .not.(coords == 'car')
-cccc        mg_glrkin = si_car
-cc      endif
+c PC SETUP *************************************
+
+      inv_B      =.false.  !Whether to invert M_B or not
+      divCln     =.false.  !Whether to do divergence cleaning (only if inv_B = t)
+      gm_smooth  =.false.  !Whether to use GMRES smoothing in MG
+      gm_coarse  =.true.   !Whether to use GMRES as the coarse solve
+      mg_glrkin  =.false.  !Whether to use Galerking MG
+      si_car     =.false.  !Whether to solve SI operator using Cartesian vectors
+      line_relax =.false.  !Whether to perform line relaxation in MG
+
+      ores  = 2            !Restriction order for MG
+      oprol = 2            !Prolongation order for MG
+
+      !SCIDAC 08 conference data
+cc      ores   = 0
+cc      inv_B  = .true.
+cc      divCln = .true.
+cc      gm_coarse = .true.
+cccc      ores   = 2
+cccc      inv_B  = .false.
+cccc      divCln = .false.
+
+      !Setup for TM PC (PoP 2008)
+      inv_B = .true.
+
+      !Consistency checks
+      if (precon == 's3') inv_B = .true.    !Invert B for large flows
+      if (.not.inv_B) divCln = .false.      !Do not divergence clean if invB=.false.
+      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)  !si_car only for non-cartesian
+                                                                  !  and without GM smoothing
+      if (np > 1) gm_coarse = .false.       !Do not perform GMRES coarse solve in parallel
+
+c PC SETUP *************************************
 
 c Unpack vector x
 
@@ -114,7 +140,6 @@ c Setup BCs for diagonal formation
 
       if (asm_PC.and.(np>1)) then
         call setASM_PC_BC(igx,igy,igz,bcs)
-cc        call setASM_PC_BC(igx,igy,igz,bcs,IIBC=DIR)
       else
         call setASMflag(.false.)
       endif
@@ -132,8 +157,6 @@ c Find required diagonals in all grids
       ncolors = 8
 
       if (jit == 1) then
-        form_diag = .true.
-
         call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
      .                   ,rho_diag,ncolors,vol_wgt,mg_glrkin)
 
@@ -156,29 +179,17 @@ c Find required diagonals in all grids
         endif
 
         if (.not.gm_smooth) then
-          if (precon == 's1') then
-cc            if (debug) then
-cc              write (*,*) 'DIAG -- setupPC: Building diagonal...'
-cc              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-cc     .                       ,v_diag,1,vol_wgt,mg_glrkin)
-cc            else
-              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                         ,v_diag,ncolors,vol_wgt,mg_glrkin)
-cc            endif
-          elseif (precon == 's2') then
-cc           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
-cc     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
-           call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                      ,v_diag,ncolors,vol_wgt,mg_glrkin)
+          call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+     .                     ,v_diag2,ncolors,vol_wgt,mg_glrkin)
+          if (precon == 's1' .or. precon == 's2') then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
           elseif (precon == 's3') then
-           call find_mf_diag(3,1,3*ntotdp,mstar_mtvc,1,bcs(:,IVX:IVZ)
-     .                      ,mstar_diag,ncolors,vol_wgt,.false.)
-           call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
-     .                      ,v_diag,ncolors,vol_wgt,mg_glrkin)
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
           endif
         endif
 
-        form_diag = .false.
       endif
 
 c Initialize PC Jacobi it. counter
