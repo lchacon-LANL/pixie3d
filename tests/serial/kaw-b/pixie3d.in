@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 32
     nyd      = 128
@@ -21,6 +22,8 @@
     temp_ratio = 0.
 
     di       = 1d-2
+
+    hall_new = f
 
     equil    = 'kaw'
     coords   = 'car'
