@@ -183,29 +183,35 @@ cp $eigfile $code_ifile.eig  2>/dev/null
 
 if [ "$restart" = "t" ]
 then
-   sed  -e '/restart/{' \
+#   sed  -e '/restart/{' \
+   sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = t' \
         -e '}' \
-        $code_ifile.in > $code_ifile.out
-   mv $code_ifile.out $code_ifile.in
+        $code_ifile.in 
+#        $code_ifile.in > $code_ifile.out
+#   mv $code_ifile.out $code_ifile.in
 else
-   sed  -e '/restart/{' \
+#   sed  -e '/restart/{' \
+   sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = f' \
         -e '}' \
-        $code_ifile.in > $code_ifile.out
-   mv $code_ifile.out $code_ifile.in
+        $code_ifile.in 
+#        $code_ifile.in > $code_ifile.out
+#   mv $code_ifile.out $code_ifile.in
 fi
 
 if [ "$tmax" != "" -a "$tmax" != "0" ]
 then
+#    sed -e '/tmax/{' \
     sed -e '/tmax/{' \
         -e 'c\' \
         -e "    tmax     = $tmax" \
         -e '}' \
-        $code_ifile.in > $code_ifile.out
-   mv $code_ifile.out $code_ifile.in
+        $code_ifile.in
+#        $code_ifile.in > $code_ifile.out
+#   mv $code_ifile.out $code_ifile.in
 fi
 
 # Execute
