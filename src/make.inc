@@ -7,7 +7,7 @@ MODS := mhd_mod.F imposeBC_mod.F precond_mod.F
 
 COMMONDIR = ../common
 
-ifdef BOPT
+ifdef BOPT 
 ifdef PETSC_C
   SUBDIRS = $(COMMONDIR)/driver-petsc\
 	    $(COMMONDIR)/math\
@@ -20,31 +20,19 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG
-else
-  SUBDIRS = $(COMMONDIR)/driver\
-	    $(COMMONDIR)/math\
-	    $(COMMONDIR)/grid\
-	    $(COMMONDIR)/newtonGMRES\
-	    $(COMMONDIR)/interpolation/1d_int\
-	    $(COMMONDIR)/interpolation/slatec/1d_spline\
-	    $(COMMONDIR)/interpolation/slatec/2d_spline\
-	    $(COMMONDIR)/interpolation/slatec/3d_spline\
-	    $(COMMONDIR)/interpolation/slatec/spline_common\
-	    $(COMMONDIR)/interpolation/slatec/xerror\
-	    $(COMMONDIR)/matrixLightSolver\
-	    $(COMMONDIR)/MG
 endif
-else
-  SUBDIRS = $(COMMONDIR)/driver\
-	    $(COMMONDIR)/math\
-	    $(COMMONDIR)/grid\
-	    $(COMMONDIR)/newtonGMRES\
-	    $(COMMONDIR)/interpolation/1d_int\
-	    $(COMMONDIR)/interpolation/slatec/1d_spline\
-	    $(COMMONDIR)/interpolation/slatec/2d_spline\
-	    $(COMMONDIR)/interpolation/slatec/3d_spline\
-	    $(COMMONDIR)/interpolation/slatec/spline_common\
-	    $(COMMONDIR)/interpolation/slatec/xerror\
-	    $(COMMONDIR)/matrixLightSolver\
-	    $(COMMONDIR)/MG
 endif
+
+SUBDIRS = $(COMMONDIR)/driver\
+	  $(COMMONDIR)/math\
+	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/eigen\
+	  $(COMMONDIR)/interpolation/1d_int\
+	  $(COMMONDIR)/interpolation/slatec/1d_spline\
+	  $(COMMONDIR)/interpolation/slatec/2d_spline\
+	  $(COMMONDIR)/interpolation/slatec/3d_spline\
+	  $(COMMONDIR)/interpolation/slatec/spline_common\
+	  $(COMMONDIR)/interpolation/slatec/xerror\
+	  $(COMMONDIR)/matrixLightSolver\
+	  $(COMMONDIR)/MG
