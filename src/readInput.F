@@ -61,6 +61,7 @@ c Namelists
      .                   ,asm_PC
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
+     .                   ,eigen
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,k_si,solve_rho,advect,sym_st,adiabatic
@@ -85,7 +86,7 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,k_si
+     .                   ,odd,random,source,k_si,eigen
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -149,6 +150,8 @@ c Set defaults
 
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
+
+      eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
 
       cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
@@ -424,6 +427,12 @@ cc      if (precon == 'id') iguess = 0
       if (cnfactor == 1d0) hall_new = .false.
 
       if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
+
+      if (eigen) then
+        vol_wgt = .false.
+        source  = .false.
+        cnfactor = 0d0
+      endif
 
 c Map perturbations
 
