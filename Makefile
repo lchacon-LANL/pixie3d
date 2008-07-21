@@ -92,6 +92,12 @@ ifeq ($(FC),f90)
     else
       LIBS      += -llapack -lblas
     endif
+
+#    ifeq ($(HOST),gongora.lanl.gov)
+#      LIBS      += -llapack_g77 -lblas_g77 -ltmglib_g77 -L/usr/lib/gcc/i386-redhat-linux/3.4.6/ -lg2c
+#    else
+#      LIBS      += -llapack_f90g -lblas_f90g -ltmglib_f90g
+#    endif
   endif
 
   HDF5 = t
@@ -122,6 +128,7 @@ ifeq ($(FC),lf95)
       LIBS      += -llapack -lblas -lg2c
     else
       LIBS      += -llapack -lblas
+#      LIBS      += -llapack_lahey_g -lblas_lahey_g
     endif
 #    LIBS       = -llapackmt -lblasmt
   endif
@@ -302,17 +309,24 @@ endif
 # HDF5 setup
 
 ifeq ($(HDF5),t)
-  H5LIBS    = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-  CPPFLAGS += $(PREPROC)hdf5 -I$(HDF5_HOME)/include
-  MODPATH  += $(ADDMODFLAG)$(HDF5_HOME)/lib
+  CONTRIBLIBS = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
+  CPPFLAGS   += $(PREPROC)hdf5 -I$(HDF5_HOME)/include
+  MODPATH    += $(ADDMODFLAG)$(HDF5_HOME)/lib
 endif
 
 # VMEC setup
 
 ifdef VMEC
-  VMECLIBS  = -L../contrib/vmec/lib -lstell
-  CPPFLAGS += $(PREPROC)vmec
-  MODPATH  += $(ADDMODFLAG)../contrib/vmec/lib
+  CONTRIBLIBS += -L../contrib/vmec/lib -lstell
+  CPPFLAGS    += $(PREPROC)vmec
+  MODPATH     += $(ADDMODFLAG)../contrib/vmec/lib
+endif
+
+# ARPACK setup
+
+ifdef ARPACK
+  CONTRIBLIBS += -L../contrib/arpack/ -larpack_$(FC)
+  CPPFLAGS    += $(PREPROC)arpack
 endif
 
 # Petsc setup
@@ -335,8 +349,8 @@ endif
 #Export required variables
 
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC VMECLIBS SNES_OPT \
-       BINDIR
+       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
+       BINDIR CONTRIBLIBS
 
 #Define targets
 
@@ -400,9 +414,9 @@ rebuild-parallel-tests-b: ;
 
 # CONTRIBUTED SOFTWARE
 
-contrib: vmec ftracer
+contrib: vmec ftracer arpack
 
-contrib_clean: vmec_clean ftracer_clean
+contrib_clean: vmec_clean ftracer_clean arpack_clean
 
 vmec:
 ifdef VMEC
@@ -420,6 +434,18 @@ ftracer:
 ftracer_clean:
 	$(MAKE) -e -C contrib/field_tracer distclean
 
+arpack:
+ifdef ARPACK
+	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack lib
+ifdef BOPT
+	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack plib
+endif
+endif
+
+arpack_clean:
+ifdef ARPACK
+	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack clean
+endif
 
 # CLEAN ALL
 
