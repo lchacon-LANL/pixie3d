@@ -254,7 +254,7 @@ c     Call variables
 c     Local variables
 
       real(8)   :: a,b,c,d,root(3),ckpar
-      complex(16):: a3,a2,a1,a0,r(3)
+      complex(8):: a3,a2,a1,a0,r(3)
 
 c     Begin program
 
