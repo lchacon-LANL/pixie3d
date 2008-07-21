@@ -88,7 +88,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(VMECLIBS) $(H5LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 code_a: common $(A_CODE)
@@ -97,7 +97,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(LIBS) $(VMECLIBS) $(H5LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE)
@@ -106,7 +106,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} $(H5LIBS)
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) ${PETSC_SNES_LIB} $(CONTRIBLIBS)
 	@mv $@ $(BINDIR)
 
 petsc_a: common $(PETSC_A_CODE)
@@ -115,7 +115,7 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} $(H5LIBS)
+	${FLINKER} -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} 
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
