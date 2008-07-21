@@ -404,6 +404,7 @@ c Begin program
         bdfnm = 0d0
         cnf   = cnfactor
       endif
+
       one_over_dt = 1d0/dt
 
 c End program
