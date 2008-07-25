@@ -26,9 +26,14 @@ OPT = O
 
 PETSC_DIR =/usr/local/petsc-2.3.3
 HDF5_HOME =/usr/local/hdf5/parallel/mpich2_f90_
+HDF5_LIBS = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
 MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
 
 PREPROC = -D
+
+HDF5 = t
+
+LIBS = -llapack -lblas
 
 # System-dependent variables
 
@@ -36,10 +41,22 @@ ifndef HOST
   HOST = `hostname`
 endif
 
+ifeq ($(HOST),nip.lanl.gov)
+   LIBS := -llapack -lblas -lg2c 
+endif
+
 ifeq ($(HOST),ra4)
   PETSC_DIR =/ricercatori/ft/petsc-2.2.0
   HDF5_HOME =
   CPPFLAGS += $(PREPROC)RFX
+endif
+
+ifeq ($(HOST),ra22)
+  PETSC_DIR =/ricercatori/ft/petsc-2.3.3
+  MPI_HOME  =/ricercatori/ft/mpich2-1.0.5/gcc-pgf90
+  HDF5_HOME =
+  CPPFLAGS += $(PREPROC)RFX
+  FC        = pgf95
 endif
 
 ifeq ($(HOST),cayenne1)
@@ -58,11 +75,43 @@ ifeq ($(HOST),gongora.lanl.gov)
 endif
 
 ifeq ($(HOST),bassi)
-  FC = xlf95
+  OPTIMIZATION = -O3 -qstrict -qarch=pwr3 -qtune=pwr3
+  DEBUG        = -g
+  PROFILE      = -P
+  STATIC       = -s
+  MODFLAG      = -I
+  ADDMODFLAG   = -I
+  VERBOSE      = -v
+#  FFLAGS       = -qmaxmem=-1 -bmaxstack:0x22000000 -qsave -blpdata -qsmallstack -qfixed=72
+  FFLAGS       = -qfixed=72
+
+  PREPROC      = -WF,-D
+  CPPFLAGS    += $(PREPROC)xlf
+
+  BOPT = t
+  include ${PETSC_DIR}/bmake/common/base
+
+  FC = mpxlf95_r
 endif
 
 ifeq ($(HOST),franklin)
   FC = ftn
+  MPI_HOME  = $(MPICH_DIR)
+  HDF5_HOME = $(HDF5_PAR_DIR)
+  HDF5_LIBS:= $(HDF5)
+  override HDF5 = t
+
+  OPTIMIZATION = -fastsse -Mipa=fast
+  DEBUG        = -g -Mbounds -Mchkptr -Ktrap=fp
+  PROFILE      = -pg
+  STATIC       =
+  MODFLAG      = -module 
+  ADDMODFLAG   = -module 
+  VERBOSE      = -v
+  CPPFLAGS    += $(PREPROC)pgf90
+
+  BOPT = t
+  include ${PETSC_DIR}/bmake/common/base
 endif
 
 #Define compiler flags
@@ -79,36 +128,14 @@ ifeq ($(FC),f90)
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)absoft_ 
 
-  ifdef BOPT
-    PETSC_ARCH = linux_absoft_
-    include ${PETSC_DIR}/bmake/common/base
-#    FC         = $(MPI_HOME)/bin/mpif90
-  else
-    FFLAGS       = -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
-    LDFLAGS      = -lU77 
-    ifeq ($(HOST),nip.lanl.gov)
-#      LIBS      += -llapack -lblas -lg2c 
-      LIBS      += -llapack_f90_ -lblas_f90_
-    else
-      LIBS      += -llapack -lblas
-    endif
-
-#    ifeq ($(HOST),gongora.lanl.gov)
-#      LIBS      += -llapack_g77 -lblas_g77 -ltmglib_g77 -L/usr/lib/gcc/i386-redhat-linux/3.4.6/ -lg2c
-#    else
-#      LIBS      += -llapack_f90g -lblas_f90g -ltmglib_f90g
-#    endif
-  endif
-
-  HDF5 = t
+  FFLAGS      += -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+  LDFLAGS      = -lU77 
 endif
 
 # Flags for Lahey lf95
 ifeq ($(FC),lf95)
   OPTIMIZATION = -O
-#  DEBUG        = -g --chkglobal --warn --f95
   DEBUG        = -g --chk ase --warn --f95 --trap
-#  DEBUG        = -g --f95
   PROFILE      =
   STATIC       = 
   MODFLAG      = -M
@@ -118,19 +145,6 @@ ifeq ($(FC),lf95)
 
   ifdef BOPT
     FFLAGS    += --ml cdecl
-    PETSC_ARCH = linux_lahey
-    include ${PETSC_DIR}/bmake/common/base
-    override FC = $(MPI_HOME)/bin/mpif90
-  else
-    FFLAGS    += -X9
-    LDFLAGS    =
-    ifeq ($(HOST),nip.lanl.gov)
-      LIBS      += -llapack -lblas -lg2c
-    else
-      LIBS      += -llapack -lblas
-#      LIBS      += -llapack_lahey_g -lblas_lahey_g
-    endif
-#    LIBS       = -llapackmt -lblasmt
   endif
 endif
 
@@ -145,21 +159,6 @@ ifeq ($(FC),ifort)
   ADDMODFLAG   = -I
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)ifort
-
-  ifdef BOPT
-    PETSC_ARCH = linux_intel
-    include ${PETSC_DIR}/bmake/common/base
-    override FC = $(MPI_HOME)/bin/mpif90
-  else
-    FFLAGS      += -vec_report0 -w
-    LDFLAGS      = 
-    ifeq ($(HOST),nip.lanl.gov)
-      LIBS      += -llapack -lblas -lg2c
-    else
-      LIBS      += -llapack -lblas
-    endif
-#    LIBS         = -llapack_intel -lblas_intel
-  endif
 endif
 
 # Flags for Intel ifort
@@ -173,98 +172,18 @@ ifeq ($(FC),g95)
   ADDMODFLAG   = -I
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)g95
-
-  ifdef BOPT
-    PETSC_ARCH = linux_intel
-    include ${PETSC_DIR}/bmake/common/base
-    override FC = $(MPI_HOME)/bin/mpif90
-  else
-    FFLAGS      += 
-    ifeq ($(HOST),nip.lanl.gov)
-      LIBS      += -llapack -lblas -lg2c
-    else
-      LIBS      += -llapack -lblas
-    endif
-  endif
 endif
 
 # Flags for Portland Group f90
 ifeq ($(FC),pgf95)
   OPTIMIZATION = -fastsse -Mipa=fast
   DEBUG        = -g -Mbounds -Mchkptr -Ktrap=fp
-#  DEBUG        = -g
   PROFILE      = -pg
   STATIC       = 
   MODFLAG      = -module 
   ADDMODFLAG   = -module 
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)pgf90
-
-  ifdef BOPT
-#    PETSC_ARCH = linux64_gcc_pgf90
-    include ${PETSC_DIR}/bmake/common/base
-    override  FC = $(MPI_HOME)/bin/mpif90
-  else
-#    FFLAGS       = -Minform=severe
-    LDFLAGS      = 
-    ifeq ($(HOST),nip.lanl.gov)
-      LIBS      += -llapack -lblas -lg2c 
-    else
-      LIBS      += -llapack -lblas
-    endif
-  endif
-
-endif
-
-# Flags for IBM xlf95  (NERSC's Bassi)
-ifeq ($(FC),xlf95)
-  OPTIMIZATION = -O3 -qstrict -qarch=pwr3 -qtune=pwr3
-#  DEBUG        = -g -C
-  DEBUG        = -g
-  PROFILE      = -P
-  STATIC       = -s
-  MODFLAG      = -I
-  ADDMODFLAG   = -I
-  VERBOSE      = -v
-#  FFLAGS       = -qmaxmem=-1 -bmaxstack:0x22000000 -qsave -blpdata -qsmallstack -qfixed=72
-  FFLAGS       = -qfixed=72
-
-  PREPROC      = -WF,-D
-  CPPFLAGS    += $(PREPROC)xlf
-
-  ifdef BOPT
-    include ${PETSC_DIR}/bmake/common/base
-    override FC = mpxlf95_r $(FFLAGS)
-  else
-    LDFLAGS      = 
-    LIBS      += $(LAPACK) -lblas
-  endif
-
-  HDF5 = f
-endif
-
-# Flags for NERSC's Franklin ftn (wrapper for pgf90)
-ifeq ($(FC),ftn)
-  OPTIMIZATION = -fastsse -Mipa=fast
-  DEBUG        = -g -Mbounds -Mchkptr -Ktrap=fp
-#  DEBUG        = -g
-  PROFILE      = -pg
-  STATIC       =
-  MODFLAG      = -module 
-  ADDMODFLAG   = -module 
-  VERBOSE      = -v
-  CPPFLAGS    += $(PREPROC)pgf90
-
-  ifdef BOPT
-    include ${PETSC_DIR}/bmake/common/base
-    override  FC = ftn $(FFLAGS)
-  else
-#    FFLAGS       = -Minform=severe
-    LDFLAGS      =
-#    LIBS      += $(LAPACK) -lblas
-  endif
-
-  HDF5 = f
 endif
 
 #Assemble compiler options
@@ -306,10 +225,17 @@ ifdef VECPOT
   endif
 endif
 
+# PETSC setup
+
+ifdef BOPT
+  LIBS :=
+  include ${PETSC_DIR}/bmake/common/base
+endif
+
 # HDF5 setup
 
 ifeq ($(HDF5),t)
-  CONTRIBLIBS = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
+  CONTRIBLIBS = $(HDF5_LIBS)
   CPPFLAGS   += $(PREPROC)hdf5 -I$(HDF5_HOME)/include
   MODPATH    += $(ADDMODFLAG)$(HDF5_HOME)/lib
 endif
