@@ -7,6 +7,9 @@ NP=2
 LOCALDIR = $(shell basename $(CURDIR))
 
 PAREXEC=$(MPI_HOME)/bin/mpirun -np $(NP) $(EXEC) $(SNES_OPT) -test 
+ifeq ($(HOST),franklin)
+  PAREXEC=aprun -n $(NP) -N 2 $(EXEC) $(SNES_OPT) -test
+endif
 
 #Define targets
 
@@ -26,10 +29,10 @@ test test-a test-b: ;
 	@echo "Running parallel test in $(LOCALDIR)"
 	-@rename "bin" "bak" record.bin* 2> /dev/null
 	@$(PAREXEC) > pixie3d.tst
-	-@([ -z "`diff -bB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
-	-@([ -z "`diff -bB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.tst pixie3d.out)
-	-@([ -z "`diff -bB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")
-	-@([ -z "`diff -bB pixie3d.out pixie3d.tst`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.out pixie3d.tst)
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
 
 run: ;
 	@$(PAREXEC)
