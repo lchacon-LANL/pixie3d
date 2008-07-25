@@ -73,7 +73,7 @@ c PC SETUP *************************************
       ores  = 2            !Restriction order for MG
       oprol = 2            !Prolongation order for MG
 
-      !SCIDAC 08 conference data
+      !SCIDAC 08 conference data for Hall MHD
 cc      ores   = 0
 cc      inv_B  = .true.
 cc      divCln = .true.
