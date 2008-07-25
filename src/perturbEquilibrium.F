@@ -49,7 +49,7 @@ c     Begin program
       select case(equil)
       case ('kaitm','kai3d')
 
-        command = 'ls '//trim(prt_file)//' >& /dev/null'
+        command = 'test -f '//trim(prt_file)
         ierr = system(trim(command))
 
         if (ierr == 0) then
@@ -60,7 +60,7 @@ c     Begin program
 
       case ('ppnch','ppn3d','ppnsl','ppnst')
 
-        command = 'ls '//trim(prt_file)//' >& /dev/null'
+        command = 'test -f '//trim(prt_file)
         ierr = system(trim(command))
 
         if (ierr == 0) then
