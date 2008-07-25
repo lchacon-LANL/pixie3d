@@ -22,7 +22,7 @@ c------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use nk_mod
+      use newtongm
 
       implicit none
 
