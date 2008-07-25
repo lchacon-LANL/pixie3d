@@ -434,6 +434,8 @@ cc      if (precon == 'id') iguess = 0
         cnfactor = 0d0
       endif
 
+      if (tst_flg) test = .true.
+
 c Map perturbations
 
       pert(IRHO)= prho
