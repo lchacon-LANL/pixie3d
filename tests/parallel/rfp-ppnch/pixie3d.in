@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 128
     nyd      = 32
