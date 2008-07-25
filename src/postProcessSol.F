@@ -38,8 +38,6 @@ c Begin program
 
 #if !defined(vec_pot) 
 
-cc      write (*,*) 'DIAG -- postprocesssol'
-cc      return
       if ((.not.inv_B) .or. divCln) return
 
       !Setup grid info
