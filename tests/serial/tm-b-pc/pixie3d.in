@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 32
     nyd      = 32
@@ -59,6 +60,7 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
+    adiabatic  = t
 
     k_si     = 0.0
 

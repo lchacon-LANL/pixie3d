@@ -6,9 +6,14 @@
  ******       Los Alamos, NM 87545        ******
  ******           LA-CC 07-005            ******
  ***********************************************
+ 
+ ****************** NOTICES ******************
+ Using VECTOR POTENTIAL version
+ ****************** NOTICES ******************
 
   Grid mesh:................   64x   64x    1
   Number of grid levels:....    5,    5,    1
+  Preconditioning method:... id        
   Time correction...........   T
   External source...........   F
   Numerical grid............   F
@@ -29,5 +34,5 @@
 
 Final statistics
 
- itime  Newt/ndt  GMRES/ndt  GMRES/Newt  Whst/GMRES
-   10       3.0        3.0        1.0        0.0
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       3.0        3.0        1.0

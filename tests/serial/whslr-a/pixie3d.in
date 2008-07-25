@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 32
     nyd      = 1
@@ -19,6 +20,8 @@
     chi      = 0.
 
     temp_ratio = 1.
+
+    hall_new = f
 
     di       = 1d1
 

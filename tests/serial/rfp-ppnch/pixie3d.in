@@ -1,5 +1,6 @@
  &datin
     ilevel   = 0
+    test     = t
 
     nxd      = 128
     nyd      = 32
@@ -29,7 +30,7 @@
 
     dt       = 5d-3
     tmax     = 5d-2
-    dstep    = 5d-1
+    dstep    = 5d-2
 
     pvx      = 1d-4
     odd      = f
@@ -54,7 +55,6 @@
     method   = 1
     mf_eps   = 1d-6
     vol_wgt  = t
-
 
     nc_eom_f = t
     nc_eom_v = f
