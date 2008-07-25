@@ -1798,7 +1798,6 @@ c Transfer electric field info to postprocessor via input file
 
 
         if (ierr /= 0) then  !Replace E0
-cc          command='sed -e"/graphdef/{" -e' // achar(39)
           command='sed -i -e"/graphdef/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
@@ -1806,10 +1805,8 @@ cc          command='sed -e"/graphdef/{" -e' // achar(39)
      .       // 'a\' // achar(39) //' -e"'
 #endif
      .       // trim(command)   // '" -e"}" '
-cc     .       // trim(inputfile) // ' > temp'
      .       // trim(inputfile)
         else                 !Add E0
-cc          command='sed -e"/E0/{" -e' // achar(39)
           command='sed -i -e"/E0/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
@@ -1821,9 +1818,6 @@ cc          command='sed -e"/E0/{" -e' // achar(39)
         endif
 
         ierr = system(trim(command))
-
-cc        command = 'mv temp ' // trim(inputfile)
-cc        ierr = system(trim(command))
       endif
 
 c Transfer magnetic field info to postprocessor via input file
@@ -1839,28 +1833,25 @@ c Transfer magnetic field info to postprocessor via input file
 
 
         if (ierr /= 0) then  !Replace B0
-          command='sed -e"/graphdef/{" -e' // achar(39)
+          command='sed -i -e"/graphdef/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
 #else
      .       // 'a\' // achar(39) //' -e"'
 #endif
      .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile) // ' > temp'
+     .       // trim(inputfile)
         else                 !Add B0
-          command='sed -e"/B0/{" -e' // achar(39)
+          command='sed -i -e"/B0/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
 #else
      .       // 'c\' // achar(39) //' -e"'
 #endif
      .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile) // ' > temp'
+     .       // trim(inputfile)
         endif
 
-        ierr = system(trim(command))
-
-        command = 'mv temp ' // trim(inputfile)
         ierr = system(trim(command))
       endif
 
