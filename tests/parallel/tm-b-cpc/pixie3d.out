@@ -1,0 +1,38 @@
+ 
+ ***********************************************
+ ****** PIXIE3D Extended MHD code, V. 0.9 ******
+ ******       Developer: L. Chacon        ******
+ ******  Los Alamos National Laboratory   ******
+ ******       Los Alamos, NM 87545        ******
+ ******           LA-CC 07-005            ******
+ ***********************************************
+ 
+ ****************** NOTICES ******************
+ Using MAGNETIC FIELD version
+ ****************** NOTICES ******************
+
+  Grid mesh:................   32x   32x    1
+  Number of grid levels:....    3,    4,    1
+  Preconditioning method:... id        
+  Time correction...........   F
+  External source...........   T
+  Numerical grid............   F
+  Advection scheme..........   ZIP    
+  TS scheme................. Theta    
+ 
+   itime    time     dt    vx_max vy_max vz_max GMRES  Newton  CN factor
+      1    0.010  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      2    0.020  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      3    0.030  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      4    0.040  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      5    0.050  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      6    0.060  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      7    0.070  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      8    0.080  1.0E-02   0.000  0.001  0.000     4     4     0.500
+      9    0.090  1.0E-02   0.000  0.001  0.000     4     4     0.500
+     10    0.100  1.0E-02   0.000  0.001  0.000     4     4     0.500
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       4.0        4.0        1.0
