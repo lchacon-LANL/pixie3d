@@ -134,7 +134,16 @@ c     Begin program
         deallocate (mgdivV0)
         deallocate (mgadvdiffV0)
         deallocate (mgnablaV0)
+
         deallocate (bcs,bcs_hyp)
+
+        deallocate (rho_diag,tmp_diag  
+#if !defined(vec_pot)
+     .             ,b_diag,b_diag_hyp
+#else
+     .             ,a_diag 
+#endif
+     .             ,v_diag,v_diag2)
 
         call deallocateMGArray(gp0)
         call deallocateMGArray(grho0)
