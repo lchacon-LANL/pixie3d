@@ -84,6 +84,10 @@ c Interfaces
 
 c Begin program
 
+      igx = iigx
+      igy = iigy
+      igz = iigz
+
 c Define processor for local diagnostics
 
       !Identify local diagnostic proc
