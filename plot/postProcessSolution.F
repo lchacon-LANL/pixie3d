@@ -40,7 +40,8 @@ c Call variables
 c Local variables
 
       integer    :: i,j,k,ig,jg,kg,ieq,bcs(6)
-      real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3),vr,vth,norm,cov(3),cnv(3)
+      real(8)    :: mm,kk,RR,ll,x1,y1,z1,ee(3),vr,vth,norm,lnorm
+     .             ,cov(3),cnv(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
       real(8),allocatable,dimension(:,:) :: b00,j00_cov,v00,q00,l00
@@ -219,6 +220,21 @@ cc      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
       Pflux = az
 #endif
 
+c Poloidal velocity diagnostic
+
+      if (     equil == 'ppnch'
+     .    .or. equil == 'ppnsl'
+     .    .or. equil == 'ppnst') then
+        norm = maxval(sqrt(vx_car**2+vy_car**2))
+
+#if defined(petsc)
+        lnorm = norm
+        call MPI_Reduce(lnorm,norm,1,MPI_DOUBLE_PRECISION
+     .                 ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+#endif 
+        if (my_rank == 0) write (*,*) 'Maximum Poloidal velocity=',norm
+      endif
+
 c Velocity intrinsic components (wrt B)
 
       do k = kming,kmaxg
@@ -281,7 +297,6 @@ cc            vpsi(i,j,k) = cov(1)
           enddo
         enddo
       enddo
-
 
 c Ohm's law diagnostic
 
