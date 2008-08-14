@@ -1,16 +1,16 @@
  Calculating equilibrium ppnch...
  
- Equilibrium converged in  10 iterations with error =  0.19E-05
+ Equilibrium converged in  10 iterations with error =  1.85E-06
  
- Force free error=  4.304117187015763E-005
- Ohms law   error=  8.247988233499633E-005
+ Force-free error = 4.3041172E-05
+ Ohms law   error = 8.2479882E-05
  
  Pinch equilibrium features:
-   Theta  =  1.64824680760764
-   Bz(r=0)=  1.00000000000000
-   I0     =  2.05448122853488
-   E0/eta =  4.00000000000000
-   T_flux =  0.623232279004647
+   Theta  = 1.6482468
+   Bz(r=0)= 1.0000000
+   I0     = 2.0544812
+   E0/eta = 4.0000000
+   T_flux = 0.6232323
  
  ***********************************************
  ****** PIXIE3D Extended MHD code, V. 0.9 ******
