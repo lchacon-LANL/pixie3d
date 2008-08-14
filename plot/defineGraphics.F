@@ -1,6 +1,30 @@
-c defineGraphics
+c setGraphicsGroups
 c####################################################################
-      subroutine defineGraphics
+      subroutine setGraphicsGroups
+
+c--------------------------------------------------------------------
+c     Set number of graphics groups
+c--------------------------------------------------------------------
+
+      use graphics
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+      ngroups = 5   !Number of plotting groups
+
+c End program
+
+      end subroutine setGraphicsGroups
+
+c defineGraphicsGroups
+c####################################################################
+      subroutine defineGraphicsGroups
 
 c--------------------------------------------------------------------
 c     Set graphics files and dumping intervals
@@ -27,16 +51,6 @@ c Local variables
       integer    :: ieq,i
 
 c Begin program
-
-c Allocate auxiliary graphics variables
-
-c Define number of graphics groups
-
-      ngroups = 5
-
-c Allocate graphics arrays
-
-      call allocateGraphicsVariables(ngroups)
 
 c Define I/O
 
@@ -506,69 +520,79 @@ c Define graphics group #5: Perturbations
 
 c End program
 
-      contains
+      end subroutine defineGraphicsGroups
 
-c     defineGraphicsIO
-c     ##################################################################
+c defineGraphicsIO
+c ##################################################################
       subroutine defineGraphicsIO
 
-        implicit none
+c--------------------------------------------------------------------
+c     Set graphics files
+c--------------------------------------------------------------------
 
-        graphfile(1) = 'drawcnv.bin'
-        ugraph(1)    = 20
+      use graphics
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+      hdf5_fname   = 'pixie3d.h5'
+
+      if (np > 1) return
+
+      graphfile(1) = 'drawcnv.bin'
+      ugraph(1)    = 20
 #if defined(RFX)
-        graphfile(2) = 'drawcyl.bin'
+      graphfile(2) = 'drawcyl.bin'
 #else
-        graphfile(2) = 'drawcov.bin'
+      graphfile(2) = 'drawcov.bin'
 #endif
-        ugraph(2)    = 21
-        graphfile(3) = 'drawcar.bin'
-        ugraph(3)    = 22
-        graphfile(4) = 'drawdiag.bin'
-        ugraph(4)    = 23
-        graphfile(5) = 'drawpert.bin'
-        ugraph(5)    = 24
+      ugraph(2)    = 21
+      graphfile(3) = 'drawcar.bin'
+      ugraph(3)    = 22
+      graphfile(4) = 'drawdiag.bin'
+      ugraph(4)    = 23
+      graphfile(5) = 'drawpert.bin'
+      ugraph(5)    = 24
 
-        profilefile(1)= 'drawcnv-prof.bin'
-        uprofile(1)   = 30
+      profilefile(1)= 'drawcnv-prof.bin'
+      uprofile(1)   = 30
 #if defined(RFX)
-        profilefile(2)= 'drawcyl-prof.bin'
+      profilefile(2)= 'drawcyl-prof.bin'
 #else
-        profilefile(2)= 'drawcov-prof.bin'
+      profilefile(2)= 'drawcov-prof.bin'
 #endif
-        uprofile(2)   = 31
-        profilefile(3)= 'drawcar-prof.bin'
-        uprofile(3)   = 32
-        profilefile(4)= 'drawdiag-prof.bin'
-        uprofile(4)   = 33
-        profilefile(5)= 'drawpert-prof.bin'
-        uprofile(5)   = 34
+      uprofile(2)   = 31
+      profilefile(3)= 'drawcar-prof.bin'
+      uprofile(3)   = 32
+      profilefile(4)= 'drawdiag-prof.bin'
+      uprofile(4)   = 33
+      profilefile(5)= 'drawpert-prof.bin'
+      uprofile(5)   = 34
 
-        debugfile    = 'debug.bin'
-        udebug       = 40
+      debugfile    = 'debug.bin'
+      udebug       = 40
 
-        hdf5_fname   = 'pixie3d.h5'
-
-        drawgraph(1) = 'drawcnv.in'
+      drawgraph(1) = 'drawcnv.in'
 #if defined(RFX)
-        drawgraph(2) = 'drawcyl.in'
+      drawgraph(2) = 'drawcyl.in'
 #else
-        drawgraph(2) = 'drawcov.in'
+      drawgraph(2) = 'drawcov.in'
 #endif
-        drawgraph(3) = 'drawcar.in'
-        drawgraph(4) = 'drawdiag.in'
-        drawgraph(5) = 'drawpert.in'
+      drawgraph(3) = 'drawcar.in'
+      drawgraph(4) = 'drawdiag.in'
+      drawgraph(5) = 'drawpert.in'
 
-        drawprof(1)  = 'drawcnv-prof.in'
+      drawprof(1)  = 'drawcnv-prof.in'
 #if defined(RFX)
-        drawprof(2)  = 'drawcyl-prof.in'
+      drawprof(2)  = 'drawcyl-prof.in'
 #else
-        drawprof(2)  = 'drawcov-prof.in'
-#endif
-        drawprof(3)  = 'drawcar-prof.in'
-        drawprof(4)  = 'drawdiag-prof.in'
-        drawprof(5)  = 'drawpert-prof.in'
+      drawprof(2)  = 'drawcov-prof.in'
+#endif  
+      drawprof(3)  = 'drawcar-prof.in'
+      drawprof(4)  = 'drawdiag-prof.in'
+      drawprof(5)  = 'drawpert-prof.in'
 
       end subroutine defineGraphicsIO
-
-      end subroutine defineGraphics
