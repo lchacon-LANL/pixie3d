@@ -67,7 +67,7 @@ c Local variables
      .                ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
      .                ,dum (ilom:ihip,2)
      .                ,ldum(ilom:ihip,2)
-     $                ,r2  (ilom:ihip,jlom:jhip)
+     .                ,r2  (ilom:ihip,jlom:jhip)
 
       real(8)       :: a(ilom:ihip,jlom:jhip,klom:khip,3)
 
@@ -1008,8 +1008,8 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           if (ilevel == 0 .and. my_rank == 0) then
              write (*,*)
-             write (*,'(a,i3,a,e10.2)') ' Equilibrium converged in ',it
-     $                  ,' iterations with error =',err
+             write (*,'(a,i3,a,1pe10.2)') ' Equilibrium converged in '
+     .            ,it,' iterations with error =',err
           endif
 
           !Check force free diagnostic
@@ -1023,7 +1023,8 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           if (my_rank == 0) then
             write(*,*)
-            write(*,*)'Force free error=',sqrt(sum(dummy(1:nxd)**2)/nxd)
+            write(*,'(a,1pe14.7)') ' Force-free error ='
+     .                          ,sqrt(sum(dummy(1:nxd)**2)/nxd)
           endif
 
           !Check Ohm's law
@@ -1037,7 +1038,8 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           enddo
 
           if (my_rank == 0) then
-            write(*,*)'Ohms law   error=',sqrt(sum(dummy(1:nxd)**2)/nxd)
+            write(*,'(a,1pe14.7)') ' Ohms law   error ='
+     .                          ,sqrt(sum(dummy(1:nxd)**2)/nxd)
           endif
 
           !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
@@ -1049,12 +1051,13 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           if (my_rank == 0) then
             write (*,*) 
-            write (*,*) 'Pinch equilibrium features:'
-            write (*,*) '  Theta  =',bth0(nxd)/bz_avg
-            write (*,*) '  Bz(r=0)=',bzz0(0)
-            write (*,*) '  I0     =',2*pi*xmax*bth0(nxd)
-            write (*,*) '  E0/eta =',e0_over_eta
-            write (*,*) '  T_flux =',pi*xmax**2*bz_avg
+            write (*,999) ' Pinch equilibrium features:'
+            write (*,999) '   Theta  =',bth0(nxd)/bz_avg
+            write (*,999) '   Bz(r=0)=',bzz0(0)
+            write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
+            write (*,999) '   E0/eta =',e0_over_eta
+            write (*,999) '   T_flux =',pi*xmax**2*bz_avg
+ 999        format (a,f10.7)
           endif
 
 	  !Transfer to integer grid
