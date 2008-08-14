@@ -417,6 +417,24 @@ c     End program
 
       end subroutine defineAuxBCs
 
+c     deallocAuxVariables
+c     ###################################################################
+      subroutine deallocAuxVariables
+
+c     -------------------------------------------------------------------
+c     Allocates auxiliary variable storage.
+c     -------------------------------------------------------------------
+
+c     Begin program
+
+c     Deallocate storage
+
+        call deallocateAuxStruct(gv%aux)
+
+c     End program
+
+      end subroutine deallocAuxVariables
+
       end module auxiliaryVariables
 
 c module auxPlotVariables
