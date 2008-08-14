@@ -528,6 +528,11 @@ c Graphics defaults
       dplot  = 0d0        !       "          "      (time interval; real)
       hdf_plot =.false.   ! Whether an HDF5 file is to be created
 
+      !Local (point) diagnostic configuration (XDRAW)
+      iplot = 1
+      jplot = 1
+      kplot = 1
+
       !Line profile configuration (XDRAW)
       prof_conf%line   = 1          ! Direction (1 -> x, 2 -> y, 3 -> z)
       prof_conf%label  ='x'         ! Label
@@ -538,14 +543,13 @@ c Graphics defaults
       cont_conf%label  = (/'x','y'/)! Contour plot axes labels
       cont_conf%coords =(/1,1,1/)   ! Plane coordinates along normal
 
-      sel_diag = 0   !Array of size "xdraw_cont_lim (currently set to 16)
+      sel_diag = 0   !Array of size "xdraw_cont_lim" (currently set to 16)
                      !  indicating time histories to be dumped (see
                      !  drawgamma.in --generated after postprocessing--
                      !  or diagnostics.F for information on available variables)
 
       sel_graph = (/ (i,i=1,xdraw_cont_lim) /)  !(obsolete)
                      !Selects graphics to be shown with XDRAW contour plotter.
-
 
 c Read graphics initialization parameters
 
