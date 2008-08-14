@@ -24,10 +24,6 @@ c Begin program
 
       allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .         ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .         ,bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .         ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .         ,jcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .         ,jcov  (ilom:ihip,jlom:jhip,klom:khip,3)
      .         ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
@@ -44,7 +40,11 @@ c Begin program
       allocate (ax_car (ilom:ihip,jlom:jhip,klom:khip)
      .         ,ay_car (ilom:ihip,jlom:jhip,klom:khip)
      .         ,az_car (ilom:ihip,jlom:jhip,klom:khip))
+
 #endif
+
+      allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .         ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 
       allocate (bx_cov (ilom:ihip,jlom:jhip,klom:khip)
      .         ,by_cov (ilom:ihip,jlom:jhip,klom:khip)
@@ -141,3 +141,57 @@ c Begin program
 c End
 
       end subroutine defineGridAliases
+
+c deallocateApplicationVariables
+c######################################################################
+      subroutine deallocateApplicationVariables
+
+c----------------------------------------------------------------------
+c     Allocates application-related arrays
+c----------------------------------------------------------------------
+
+      use parameters
+
+      use auxiliaryVariables
+
+      use auxPlotVariables
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+      deallocate(vcnv,vcov,vecnv)
+
+#if defined(vec_pot)
+      deallocate (acnv)
+
+      deallocate (bx,by,bz,ax_cnv,ay_cnv,az_cnv)
+
+      deallocate (ax_car,ay_car,az_car)
+#endif
+
+      deallocate (bcnv,bcov)
+
+      deallocate (bx_cov,by_cov,bz_cov)
+
+      deallocate (jx,jy,jz,jx_cov,jy_cov,jz_cov)
+
+      deallocate (vx,vy,vz,vx_cov,vy_cov,vz_cov,vex,vey,vez)
+
+      deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
+     .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
+     .           ,divrgB,divrgV,divrgJ,Pflux,p_tot )
+
+      deallocate (qfactor,lambda,qfactr2,lambda2)
+
+      deallocate (eeta,nuu )
+
+      call deallocAuxVariables
+
+c End programs
+
+      end subroutine deallocateApplicationVariables
