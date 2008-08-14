@@ -20,7 +20,7 @@ c Local variables
 
 c Begin program
 
-      call allocateSpecificVariables
+      call allocateApplicationVariables
 
       call defineGridAliases
 
@@ -32,9 +32,9 @@ c End programs
 
       end subroutine createNonlinearFunction
 
-c allocateSpecificVariables
+c allocateApplicationVariables
 c######################################################################
-      subroutine allocateSpecificVariables
+      subroutine allocateApplicationVariables
 
 c----------------------------------------------------------------------
 c     Allocates application-related arrays
@@ -93,7 +93,7 @@ c Preconditioner
 
 c End program
 
-      end subroutine allocateSpecificVariables
+      end subroutine allocateApplicationVariables
 
 c defineGridAliases
 c####################################################################
@@ -131,3 +131,49 @@ c Begin program
 c End
 
       end subroutine defineGridAliases
+
+c destroyNonlinearFunction
+c######################################################################
+      subroutine destroyNonlinearFunction
+
+c----------------------------------------------------------------------
+c     Allocates application-related arrays
+c----------------------------------------------------------------------
+
+      use parameters
+
+      use nlfunction_setup
+
+      use precond_variables
+
+      implicit none
+
+c Call variables
+
+c Local variables
+
+c Begin program
+
+        deallocate (pcnv,vecnv,vdummy)
+
+        deallocate (eeta,nuu)
+
+        deallocate (vcnv,vcov,vlap,E_ni,jcov_0)
+
+#if defined(vec_pot)
+        deallocate (acnv,acov,vlap_a)
+#else
+        deallocate (bcnv,bcov)
+#endif
+
+c SI operator
+        deallocate(b_n,p_n,vcov_n,dv_dt)
+c SI operator
+
+        call deallocAuxVariables
+
+        call deallocPrecVariables
+
+c End programs
+
+      end subroutine destroyNonlinearFunction
