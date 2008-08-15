@@ -27,7 +27,7 @@ OPT = O
 PETSC_DIR =/usr/local/petsc-2.3.3
 HDF5_HOME =/usr/local/hdf5/parallel/mpich2_f90_
 HDF5_LIBS = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-MPI_HOME  =/usr/local/mpich2-1.0.5/f90_
+MPI_HOME  =/usr/local/mpich2-1.0.7/absoft_
 
 PREPROC = -D
 
@@ -37,12 +37,21 @@ LIBS = -llapack -lblas
 
 # System-dependent variables
 
-ifndef HOST
-  HOST = `hostname`
+HOST?=$(HOSTNAME)
+
+ifeq ($(HOST),quevedo.ornl.gov)
+  ifdef BOPT
+    PETSC_DIR =$(HOME)/lib/petsc-2.3.3
+    HDF5_HOME =$(HOME)/lib/hdf5-1.6.7/absoft_/parallel
+  else
+    LIBS := -L/usr/lib64 -llapack -lblas
+    HDF5_HOME =$(HOME)/lib/hdf5-1.6.7/absoft_/serial
+  endif
+  HDF5_LIBS = -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5 -lz -lm
 endif
 
 ifeq ($(HOST),nip.lanl.gov)
-   LIBS := -llapack -lblas -lg2c 
+  LIBS := -llapack -lblas -lg2c 
 endif
 
 ifeq ($(HOST),ra4)
@@ -128,13 +137,13 @@ ifeq ($(FC),f90)
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)absoft_ 
 
-  FFLAGS      += -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1
+  FFLAGS      += -w -YEXT_NAMES=LCS -YEXT_SFX=_ -YCFRL=1 -m64 -lU77
   LDFLAGS      = -lU77 
 endif
 
 # Flags for Lahey lf95
 ifeq ($(FC),lf95)
-  OPTIMIZATION = -O
+  OPTIMIZATION = --nap --nchk --fast --npca --nsav --ntrace
   DEBUG        = -g --chk ase --warn --f95 --trap
   PROFILE      =
   STATIC       = 
@@ -161,17 +170,30 @@ ifeq ($(FC),ifort)
   CPPFLAGS    += $(PREPROC)ifort
 endif
 
-# Flags for Intel ifort
+# Flags for g95
 ifeq ($(FC),g95)
   OPTIMIZATION = -O2
   DEBUG        = -g -fbounds-check -ftrace=full
-#  DEBUG        = -g -check -traceback
   PROFILE      = -pg
-  STATIC       =
+  STATIC       = -fstatic
   MODFLAG      = -I
   ADDMODFLAG   = -I
   VERBOSE      = -v
   CPPFLAGS    += $(PREPROC)g95
+  FFLAGS      += -fstatic
+endif
+
+# Flags for gfortran
+ifeq ($(FC),gfortran)
+  OPTIMIZATION = -O3
+  DEBUG        = -g -fbounds-check -fbacktrace
+  PROFILE      = -pg
+  STATIC       = -fno-automatic
+  MODFLAG      = -I
+  ADDMODFLAG   = -I
+  VERBOSE      = -v
+  CPPFLAGS    += $(PREPROC)gfortran
+  FFLAGS      += -fno-automatic
 endif
 
 # Flags for Portland Group f90
@@ -228,7 +250,6 @@ endif
 # PETSC setup
 
 ifdef BOPT
-  LIBS :=
   include ${PETSC_DIR}/bmake/common/base
 endif
 
