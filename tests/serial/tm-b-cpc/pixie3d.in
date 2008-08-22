@@ -31,6 +31,7 @@
     tmax     = 1d-1
     dstep    = 1d-1
 
+    nh2      = 1
     pvy      = 1d-3
     odd      = t
 
