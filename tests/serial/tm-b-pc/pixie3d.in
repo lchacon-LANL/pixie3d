@@ -31,6 +31,7 @@
     tmax     = 1d1
     dstep    = 1d1
 
+    nh2      = 1
     prho     = 1d-3
     odd      = t
 
