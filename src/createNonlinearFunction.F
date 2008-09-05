@@ -24,10 +24,6 @@ c Begin program
 
       call defineGridAliases
 
-c$$$c Find hyperresistivity
-c$$$
-c$$$      if (di > 0d0) heta = hres(nxd,nyd,nzd,1,1,1)
-
 c End programs
 
       end subroutine createNonlinearFunction
