@@ -28,11 +28,6 @@
     tmax     = .1
     dstep    = .1
 
-    prho     = 1d-3
-    pbz      = 1d-3
-    pvx      = -0d-3
-    pvy      = -0d-3
-
     cnfactor = 0.5 
 
     rtol     = 1d-8
