@@ -1624,14 +1624,6 @@
 
           local_val = val(5)
 
-!!$          if (igl == 0) then
-!!$             local_val = 1.5*vmec_arr(1,jgl,kgl)-0.5*vmec_arr(2,jgl,kgl)
-!!$          elseif (igl == ns_i) then
-!!$             local_val = 1.5*vmec_arr(igl,jgl,kgl)-0.5*vmec_arr(igl-1,jgl,kgl)
-!!$          else
-!!$             local_val = 0.5*(vmec_arr(igl,jgl,kgl)+vmec_arr(igl+1,jgl,kgl))
-!!$          endif
-
         end subroutine half_to_int
 
       END MODULE vmec_mod
@@ -1956,6 +1948,7 @@
 !     -----------------------------------------------------------------
 
         use vmec_mod
+        use app_iosetup
         use equilibrium
         use grid
 
@@ -2039,46 +2032,6 @@
           enddo
 
           close (udcon)
-
-!! diag ********
-!!$          nxg = 0 ; nyg = 0
-!!$
-!!$          pflx = 0d0 ; ff_i = 0d0 ; presf_i = 0d0 ; q_i = 0d0
-!!$          rr = 0d0
-!!$          zz = 0d0
-!!$
-!!$          !Check reading
-!!$          write (*,*) 'Reading DCON file...'
-!!$
-!!$          open(unit=udcon,file='dcon.bin',form='unformatted',status='unknown')
-!!$
-!!$          !Poloidal plane size
-!!$          read (udcon) nxg,nyg
-!!$          write (*,*) nxg,nyg
-!!$
-!!$          read (udcon) pflx      !Poloidal flux
-!!$          write (*,*) 'Flux',pflx      !Poloidal flux
-!!$          read (udcon) ff_i      !R*B_t (flux function)
-!!$          write (*,*) 'Bt',ff_i      !R*B_t (flux function)
-!!$          read (udcon) presf_i   !Pressure
-!!$          write (*,*) 'Pres',presf_i   !Pressure
-!!$          read (udcon) q_i       !Q-profile
-!!$          write (*,*) 'Q-prof',q_i       !Q-profile
-!!$
-!!$          !R(psi,theta), Z(psi,theta)
-!!$
-!!$          k = 1  !Fix poloidal plane
-!!$          do j=1,nyg/2+1   !Cycle in poloidal angle (only half-plane)
-!!$            read (udcon) rr(:,j,k)
-!!$            write (*,*) 'R, j=',j,rr(:,j,k)
-!!$            read (udcon) zz(:,j,k)
-!!$            write (*,*) 'Z, j=',j,zz(:,j,k)
-!!$          enddo
-!!$
-!!$          close (udcon)
-!!$
-!!$          stop
-!! diag ********
 
           deallocate(pflx,ff_i,q_i)
         endif
@@ -2194,10 +2147,6 @@
               !Find global limits
               call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
 
-              !Ensures we don't step over physical periodic boundaries
-!!              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
-
               !Singular point boundary
               if (igl == 0) then
                 jgl = mod(jgl+nyg/2,nyg)
@@ -2222,7 +2171,7 @@
               call half_to_int(igl,jgl,kgl,bsupsijsf,b1 (i,j,k))
               call half_to_int(igl,jgl,kgl,bsupuijcf,b2 (i,j,k))
 !!              call half_to_int(igl,jgl,kgl,bsupvijcf,b3 (i,j,k))
-              call half_to_int(igl,jgl,kgl,bsubvijcf,b3 (i,j,k))
+              call half_to_int(igl,jgl,kgl,bsubvijcf,b3 (i,j,k))   !Use covariant component (flux function)
               call half_to_int(igl,jgl,kgl,presijf  ,prs(i,j,k))
 
               if (load_metrics) then
