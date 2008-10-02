@@ -6,7 +6,7 @@ NP=2
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-PAREXEC=$(MPI_HOME)/bin/mpirun -np $(NP) $(EXEC) $(SNES_OPT) -test 
+PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(SNES_OPT) -test 
 ifeq ($(HOST),franklin)
   PAREXEC=aprun -n $(NP) -N 2 $(EXEC) $(SNES_OPT) -test
 endif

@@ -31,6 +31,7 @@
     tmax     = 1d1
     dstep    = 1d1
 
+    nh2      = 1
     prho     = 1d-3
     odd      = t
 
@@ -60,6 +61,7 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
+    adiabatic  = t
 
     k_si     = 0.0
 

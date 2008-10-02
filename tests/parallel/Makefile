@@ -11,12 +11,12 @@ DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a\-")
 setup: ;
 	-@for subdir in $(DIRS); do \
 		ln -s ../make.common $$subdir/makefile; \
-		$(MAKE) --no-print-directory -C $$subdir $@; done
+		$(MAKE) --no-print-directory -e -C $$subdir $@; done
 
 test-a rebuild-a: ;
 	-@for subdir in $(DIRS_A) ; do \
-		$(MAKE) --no-print-directory -C $$subdir $@;  done
+		$(MAKE) --no-print-directory -e -C $$subdir $@;  done
 
 test-b rebuild-b: ;
 	-@for subdir in $(DIRS_B) ; do \
-		$(MAKE) --no-print-directory -C $$subdir $@;  done
+		$(MAKE) --no-print-directory -e -C $$subdir $@;  done
