@@ -23,7 +23,7 @@ c##########################################################################
 c Local variables
 
       integer        :: i,j,k,ig,jg,kg,nx,ny,nz
-      integer        :: ierr,system,nplot,igx,igy,igz
+      integer        :: ierr,nplot,igx,igy,igz
 
       real(8)        :: mag,mag0,jac
       real(8),allocatable,dimension(:,:,:,:) :: pos 
