@@ -14,7 +14,7 @@ c----------------------------------------------------------------------
 
       use counters
 
-      use iosetup
+      use app_iosetup
 
       use grid
 
@@ -68,7 +68,7 @@ c Output
 
         if (itime.lt.inewtime) then
 
-          call warnings
+          if (.not.test) call warnings
 
           if     (advect.eq.1 .or. advect == 7) then
             advective = 'UPWIND'
@@ -191,6 +191,8 @@ c     Warnings
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
       if (hall_new)
      .     write (*,*) 'Solving alternative Hall MHD formulation'
+      if (adiabatic)    write (*,*) 'Using polytropic EOS'
+      if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'
 
