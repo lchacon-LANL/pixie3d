@@ -1247,7 +1247,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             endif
 
-            cnv=(cnp*db(i,j,k,:)/dt + alpha*cnv - alpha*etal*veclap)*vol
+            cnv=(cnp*db(i,j,k,:)/dt+alpha*cnv-alpha*etal*veclap)*vol
 
             if (si_car) then
               call transformVectorToCartesian
