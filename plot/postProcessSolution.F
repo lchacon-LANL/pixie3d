@@ -29,6 +29,8 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
+      use diag_setup
+
       implicit none
 
 c Call variables
@@ -78,11 +80,11 @@ cc      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_graph)
 cc      varray = u_graph
 cc      varray%array_var(1)%array = u_0%array_var(1)%array
 
-      if (chk_src) then
-        varray%array_var(IRHO)%array = 1d0
-      endif
+cc      if (chk_src) then
+cc        varray%array_var(IRHO)%array = 1d0
+cc      endif
 
-      call imposeBoundaryConditions(varray,igx,igy,igz)
+      if(.not.chk_src) call imposeBoundaryConditions(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
       px  => varray%array_var(IVX )%array
@@ -177,7 +179,7 @@ c Find Cartesian components of ALL vectors
 
 c Return if checking sources
 
-      if (chk_src) return
+cc      if (chk_src) return
 
 c Electron velocity
 
@@ -333,129 +335,118 @@ c Mean-field (poloidally averaged) q-factor (use graphics limits)
 c FIX PARALLEL
       if (np == 1) then
 
-      qfactor = 0d0
-      if (    coords == 'hel'
-     .   .or. coords == 'cyl'
-     .   .or. coords == 'tor'
-     .   .or. coords == 'vmc') then
+        qfactor = 0d0
+        if (    coords == 'hel'
+     .     .or. coords == 'cyl'
+     .     .or. coords == 'tor'
+     .     .or. coords == 'vmc') then
 
-        allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
-     .          ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
-     .          ,l00(iming:imaxg,1))
+          allocate(b00(iming:imaxg,3),j00_cov(iming:imaxg,3)
+     .            ,v00(iming:imaxg,3),q00    (iming:imaxg,1)
+     .            ,l00(iming:imaxg,1))
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
+          if (    coords == 'hel'
+     .       .or. coords == 'cyl'
+     .       .or. coords == 'tor') then
+            mm = grid_params%params(1)
+            kk = grid_params%params(2)
+            RR = grid_params%params(3)
+          else !Define to avoid affecting q-profile
+            mm = 1d0
+            kk = 0d0
+            RR = 1d0
+          endif
 
-        !Find mean fields
-        do k = kming,kmaxg
-          do i = iming,imaxg
-            b00    (i,:) = 0d0
-            j00_cov(i,:) = 0d0
-            v00    (i,:) = 0d0
-            q00    (i,:) = 0d0
-            l00    (i,:) = 0d0
-            ll = 0d0
-            do j = jming,jmaxg-1  !Careful with the periodic limits
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-              b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dyh(jg)
-              b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dyh(jg)
-              b00(i,3) = b00(i,3) + bcnv(i,j,k,3)*dyh(jg)
-              j00_cov(i,1) = j00_cov(i,1) + jcov(i,j,k,1)*dyh(jg)
-              j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dyh(jg)
-              j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dyh(jg)
-              v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dyh(jg)
-              if (coords == 'hel') then
-                q00(i,1) = q00(i,1)
-     .              + mm*bcnv(i,j,k,3)/RR
-     .                 /(bcnv(i,j,k,2)-kk*bcnv(i,j,k,3))*dyh(jg)
-              else
-                q00(i,1) = q00(i,1)
-     .                   + bcnv(i,j,k,3)/bcnv(i,j,k,2)*dyh(jg)
-              endif
-              l00(i,1) = l00(i,1)
-     .              + scalarProduct(i,j,k,igx,igy,igz
-     .                     ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
-     .                     ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))
-     .                /vectorNorm(i,j,k,igx,igy,igz
-     .                           ,bcnv(i,j,k,1)
-     .                           ,bcnv(i,j,k,2)
-     .                           ,bcnv(i,j,k,3),.false.)
-     .               *dyh(jg)
+          !Find mean fields
+          do k = kming,kmaxg
+            do i = iming,imaxg
+              b00    (i,:) = 0d0
+              j00_cov(i,:) = 0d0
+              v00    (i,:) = 0d0
+              q00    (i,:) = 0d0
+              l00    (i,:) = 0d0
+              ll = 0d0
+              do j = jming,jmaxg-1  !Careful with the periodic limits
+                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+                b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dyh(jg)
+                b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dyh(jg)
+                b00(i,3) = b00(i,3) + bcnv(i,j,k,3)*dyh(jg)
+                j00_cov(i,1) = j00_cov(i,1) + jcov(i,j,k,1)*dyh(jg)
+                j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dyh(jg)
+                j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dyh(jg)
+                v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dyh(jg)
+                if (coords == 'hel') then
+                  q00(i,1) = q00(i,1)
+     .                + mm*bcnv(i,j,k,3)/RR
+     .                   /(bcnv(i,j,k,2)-kk*bcnv(i,j,k,3))*dyh(jg)
+                else
+                  q00(i,1) = q00(i,1)
+     .                     + bcnv(i,j,k,3)/bcnv(i,j,k,2)*dyh(jg)
+                endif
+                l00(i,1) = l00(i,1)
+     .                + scalarProduct(i,j,k,igx,igy,igz
+     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
+     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))
+     .                  /vectorNorm(i,j,k,igx,igy,igz
+     .                             ,bcnv(i,j,k,1)
+     .                             ,bcnv(i,j,k,2)
+     .                             ,bcnv(i,j,k,3),.false.)
+     .                 *dyh(jg)
 
-              ll = ll + dyh(jg)
-            enddo
-            b00    (i,:) = b00    (i,:)/ll
-            j00_cov(i,:) = j00_cov(i,:)/ll
-            v00    (i,:) = v00    (i,:)/ll
-            q00    (i,:) = q00    (i,:)/ll
-            l00    (i,:) = l00    (i,:)/ll
-          enddo
-        enddo
-
-        !Find q-factor and lambda profile
-        do k = kming,kmaxg
-          do i = iming,imaxg
-            do j = jming,jmaxg
-              if (coords == 'hel') then
-                qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
-              else
-                qfactor(i,j,k) = b00(i,3)/b00(i,2)
-              endif
-              lambda (i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                          ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)
-     .                          ,b00    (i,1),b00    (i,2),b00    (i,3))
-     .                        /vectorNorm(i,j,k,igx,igy,igz
-     .                          ,b00(i,1),b00(i,2),b00(i,3),.false.)
-              qfactr2(i,j,k) = q00(i,1)
-              lambda2(i,j,k) = l00(i,1)
+                ll = ll + dyh(jg)
+              enddo
+              b00    (i,:) = b00    (i,:)/ll
+              j00_cov(i,:) = j00_cov(i,:)/ll
+              v00    (i,:) = v00    (i,:)/ll
+              q00    (i,:) = q00    (i,:)/ll
+              l00    (i,:) = l00    (i,:)/ll
             enddo
           enddo
-          qfactor(iming,jming:jmaxg,k) = qfactor(iming+1,jming:jmaxg,k)
-          lambda (iming,jming:jmaxg,k) = lambda (iming+1,jming:jmaxg,k)
-          qfactr2(iming,jming:jmaxg,k) = qfactr2(iming+1,jming:jmaxg,k)
-          lambda2(iming,jming:jmaxg,k) = lambda2(iming+1,jming:jmaxg,k)
-        enddo
 
-c diag: dump text data
-        if (time == 0d0) then
-          open(unit=1000,file='q-lambda.txt',status='unknown')
-        else
-          open(unit=1000,file='q-lambda.txt',status='unknown'
-     .      ,position='append')
+          !Find q-factor and lambda profile
+          do k = kming,kmaxg
+            do i = iming,imaxg
+              do j = jming,jmaxg
+                if (coords == 'hel') then
+                  qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+                else
+                  qfactor(i,j,k) = b00(i,3)/b00(i,2)
+                endif
+                lambda (i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                         ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)
+     .                         ,b00    (i,1),b00    (i,2),b00    (i,3))
+     .                          /vectorNorm(i,j,k,igx,igy,igz
+     .                            ,b00(i,1),b00(i,2),b00(i,3),.false.)
+                qfactr2(i,j,k) = q00(i,1)
+                lambda2(i,j,k) = l00(i,1)
+              enddo
+            enddo
+            qfactor(iming,jming:jmaxg,k)=qfactor(iming+1,jming:jmaxg,k)
+            lambda (iming,jming:jmaxg,k)=lambda (iming+1,jming:jmaxg,k)
+            qfactr2(iming,jming:jmaxg,k)=qfactr2(iming+1,jming:jmaxg,k)
+            lambda2(iming,jming:jmaxg,k)=lambda2(iming+1,jming:jmaxg,k)
+          enddo
+
+c diag  : dump text data
+          if (time == 0d0) then
+            open(unit=1000,file='q-lambda.txt',status='unknown')
+          else
+            open(unit=1000,file='q-lambda.txt',status='unknown'
+     .        ,position='append')
+          endif
+          write(1000,*) 'Time = ',time
+          write(1000,*)'      Qlnr Q-prof    Avgd Q-prof    Qlnr Lambda'
+     .                 ,'      Avgd Lambda         Vr'
+          do i=iming,imaxg
+            write (1000,*) qfactor(i,1,1),qfactr2(i,1,1)
+     .                    ,lambda (i,1,1),lambda2(i,1,1),v00(i,1)
+          enddo
+          write (1000,*)
+          close(1000)
+
+          deallocate(b00,j00_cov,v00,q00,l00)
+
         endif
-        write (1000,*) 'Time = ',time
-        write (1000,*) '      Qlnr Q-prof    Avgd Q-prof    Qlnr Lambda'
-     .                ,'      Avgd Lambda         Vr'
-        do i=iming,imaxg
-          write (1000,*) qfactor(i,1,1),qfactr2(i,1,1)
-     .                  ,lambda (i,1,1),lambda2(i,1,1),v00(i,1)
-        enddo
-        write (1000,*)
-        close(1000)
-c diag: dump text data
-
-        deallocate(b00,j00_cov,v00)
-
-c diag: dump text data
-cc        if (time == 0d0) then
-          open(unit=1000,file='fourier.txt',status='unknown')
-cc        else
-cc          open(unit=1000,file='q-lambda.txt',status='unknown'
-cc     .      ,position='append')
-cc        endif
-          write (*,*) 'Dumping fourier.txt'
-        do i=1,nxd
-          do j=1,nyd
-            do k=1,nzd
-              write (1000,*) bx_car(i,j,k),by_car(i,j,k),bz_car(i,j,k)
-            enddo
-          enddo
-        enddo
-        write (1000,*)
-        close(1000)
-c diag: dump text data
-      endif
 
       else
          if (my_rank == 0) then
@@ -464,6 +455,14 @@ c diag: dump text data
          endif
       endif
 c FIX PARALLEL
+
+c Fourier output
+
+      if (np == 1 .and. fourier) call fourier_dump !FIX PARALLEL
+
+c Poincare output (field tracer)
+
+      if (np == 1 .and. poincare) call poincare_plot  !FIX PARALLEL
 
 c Divergence diagnostics
 
@@ -549,8 +548,123 @@ c Transform to cylindrical
 
 c End program
 
-cc      contains
-cc
+      contains
+
+c     poincare_plot
+c     ################################################################
+      subroutine poincare_plot
+
+c     ---------------------------------------------------------------
+c     Integrates array(i,j,k) on periodic dimensions of domain
+c     (nx)x(ny)x(nz) to find quasi-linear profiles.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      character(30) :: ft_file,ft_file_old=''
+      integer :: uft=2345
+      logical :: tor
+
+      save :: ft_file_old
+
+c     Begin program
+
+c     Open file
+
+cc      write (ft_file,'(1pe9.3)') 0.01*int(time*100)
+      write (ft_file,'(1pe9.3)') time
+
+      if (trim(ft_file) == trim(ft_file_old)) then
+        return
+      else
+        ft_file_old = ft_file
+      endif
+
+      ft_file = 'poinc_t='//trim(ft_file)//'.bin'
+
+      open(unit=uft,file=trim(ft_file)
+     .    ,status='unknown',form='unformatted')
+
+c     Dump arrays
+
+      write (*,*) 'Dumping Poincare file ',ft_file
+
+      tor = (coords == 'vmc' .or. coords == 'tor')
+
+      write (uft) nxd,nyd,nzd,bcond,tor
+      write (uft) grid_params%xx(1:nxd+2)
+      write (uft) grid_params%yy(1:nyd+2)
+      write (uft) grid_params%zz(1:nzd+2)
+      write (uft) varray%array_var(IBX)%array
+      write (uft) varray%array_var(IBY)%array
+      write (uft) varray%array_var(IBZ)%array
+      write (uft) bx_car
+      write (uft) by_car
+      write (uft) bz_car
+      write (uft) gmetric%grid(1)%jac
+      write (uft) gmetric%grid(1)%car
+
+c     Close file
+
+      close(uft)
+
+c     End program
+
+      end subroutine poincare_plot
+
+c     fourier_dump
+c     ################################################################
+      subroutine fourier_dump
+
+c     ---------------------------------------------------------------
+c     Integrates array(i,j,k) on periodic dimensions of domain
+c     (nx)x(ny)x(nz) to find quasi-linear profiles.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      character(30) :: ft_file
+      integer :: uft=2345
+
+c     Begin program
+
+c     Open file
+
+      write (ft_file,'(1pe9.3)') 0.01*int(time*100)
+      ft_file = 'fourier_t='//trim(ft_file)//'.txt'
+
+      open(unit=uft,file=trim(ft_file),status='unknown')
+
+c     Dump arrays
+
+      write (*,*) 'Dumping Fourier file ',ft_file
+
+      do i=1,nxd
+        do j=1,nyd
+          do k=1,nzd
+            write (uft,*) bx_car(i,j,k),by_car(i,j,k),bz_car(i,j,k)
+          enddo
+        enddo
+      enddo
+
+      write (uft,*)
+
+c     Close file
+
+      close(uft)
+
+c     End program
+
+      end subroutine fourier_dump
+
 ccc     ql_integral
 ccc     ################################################################
 cc      function ql_integral(nx,ny,nz,array,igx,igy,igz,avg) result(qlp)
