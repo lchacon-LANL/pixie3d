@@ -73,6 +73,9 @@ c PC SETUP *************************************
       ores  = 2            !Restriction order for MG
       oprol = 2            !Prolongation order for MG
 
+      smooth     = 'jb'    !Type of smoother ('jg','gs','gm')
+      omeg_smth  = 0.7     !Damping for MG smoother (only when 'jb' is chosen)
+
       !SCIDAC 08 conference data for Hall MHD
 cc      ores   = 0
 cc      inv_B  = .true.
@@ -85,12 +88,25 @@ cccc      divCln = .false.
       !Setup for TM PC (PoP 2008)
       inv_B = .true.
 
+cc      !Setup for 3-wave test
+cc      inv_B = .true.
+cc      ores  = 2
+cc      oprol = 2
+
       !Consistency checks
-      if (precon == 's3') inv_B = .true.    !Invert B for large flows
-      if (.not.inv_B) divCln = .false.      !Do not divergence clean if invB=.false.
+      if (precon == 's3') inv_B = .true.    !Invert B for large-flow PC
+      if (.not.inv_B) divCln = .false.      !Do not divergence clean if inv_B=.false.
       if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)  !si_car only for non-cartesian
                                                                   !  and without GM smoothing
       if (np > 1) gm_coarse = .false.       !Do not perform GMRES coarse solve in parallel
+
+      if (gm_smooth) then
+        smooth = 'gm'
+      elseif (bcSP()) then
+        smooth = 'gs'
+      endif
+
+      if (smooth /= 'jb') omeg_smth = 1d0
 
 c PC SETUP *************************************
 
