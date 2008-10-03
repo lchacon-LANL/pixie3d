@@ -14,17 +14,17 @@ c----------------------------------------------------------------------
 
       use timeStepping
 
-      use newtongm
+      use nk_setup
 
       use nlfunction_setup
 
       use precond_setup
 
-      use iosetup
+      use app_iosetup
 
       use constants
 
-      use transport_params
+      use equilibrium
 
       use icond
 
@@ -40,7 +40,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,test
+      logical       :: nc_eom_f
 
 c Namelists
 
@@ -75,12 +75,12 @@ c Namelists
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
-     .                   ,nn_eta,aa_eta,c_hyper
+     .                   ,nn_eta,aa_eta,c_hyper,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,adiabatic,hall_new
+     .                   ,solve_rho,advect,sym_st,hall_new
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -150,6 +150,7 @@ c Set defaults
 
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
+      postprocess = .false.    ! Whether to run solution postprocessing after time step
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
 
@@ -213,6 +214,8 @@ c Set defaults
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+
       di       = 0d0           ! Hall parameter
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio
@@ -228,7 +231,6 @@ c Set defaults
       solve_rho  = .true.      ! Whether we solver continuity equation or not
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
       advect     = 2           ! Type of advective scheme (currently available only
@@ -260,9 +262,9 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       pby      = 0d0           ! By perturbation
       pbz      = 0d0           ! Bz perturbation
       ptemp    = 0d0           ! Temperature perturbation
-      nh1      = 1             ! Harmonic number for perturbation in axis 1
-      nh2      = 1             ! Harmonic number for perturbation in axis 2
-      nh3      = 1             ! Harmonic number for perturbation in axis 3
+      nh1      = 0             ! Harmonic number for perturbation in axis 1
+      nh2      = 0             ! Harmonic number for perturbation in axis 2
+      nh3      = 0             ! Harmonic number for perturbation in axis 3
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
@@ -436,6 +438,13 @@ cc      if (precon == 'id') iguess = 0
 
       if (tst_flg) test = .true.
 
+      if (restart) dcon = .false.
+
+      if (adiabatic.and.gamma /= 1d0) then
+        solve_rho = .false.
+        postprocess = .true.
+      endif
+
 c Map perturbations
 
       pert(IRHO)= prho
@@ -492,11 +501,11 @@ c----------------------------------------------------------------------
 c     Initializes MG and creates grid
 c----------------------------------------------------------------------
 
-      use iosetup
+      use app_iosetup
 
-      use graphics_variables
+      use graphics_io
 
-      use transport_params
+      use equilibrium
 
       implicit none
 
@@ -509,12 +518,12 @@ c Local variables
       !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
-     .                   ,iplot,jplot,kplot
+     .                   ,iplot,jplot,kplot,poincare
 
 
       namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
-     .                   ,iplot,jplot,kplot
+     .                   ,iplot,jplot,kplot,poincare
 
 c Begin program
 
