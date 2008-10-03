@@ -8,7 +8,10 @@ MODS := mhd_mod.F imposeBC_mod.F
 COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/math\
+	  $(COMMONDIR)/io\
 	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/var_setup\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/interpolation/slatec/1d_spline\
 	  $(COMMONDIR)/interpolation/slatec/2d_spline\
@@ -21,4 +24,5 @@ LNK_FILES = ../src/applyBoundaryConditions.F\
 	    ../src/imposeBC_mod.F\
 	    ../src/mhd_mod.F\
 	    ../src/readInput.F\
+	    ../src/setEquilibrium.F\
             ../src/vmec.f90 
