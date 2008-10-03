@@ -7,9 +7,12 @@ MODS := mhd_mod.F imposeBC_mod.F precond_mod.F
 
 COMMONDIR = ../common
 
-SUBDIRS = $(COMMONDIR)/driver\
-	  $(COMMONDIR)/math\
+SUBDIRS = $(COMMONDIR)/math\
+	  $(COMMONDIR)/io\
 	  $(COMMONDIR)/grid\
+	  $(COMMONDIR)/var_setup\
+	  $(COMMONDIR)/driver_setup\
+	  $(COMMONDIR)/driver\
 	  $(COMMONDIR)/newtonGMRES\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/interpolation/1d_int\
@@ -23,8 +26,13 @@ SUBDIRS = $(COMMONDIR)/driver\
 
 ifdef BOPT 
 ifdef PETSC_C
-  SUBDIRS = $(COMMONDIR)/driver-petsc\
-	    $(COMMONDIR)/math\
+  SUBDIRS = $(COMMONDIR)/math\
+	    $(COMMONDIR)/io\
+	    $(COMMONDIR)/grid\
+	    $(COMMONDIR)/var_setup\
+	    $(COMMONDIR)/driver_setup\
+	    $(COMMONDIR)/driver-petsc\
+	    $(COMMONDIR)/io\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/interpolation/slatec/1d_spline\
