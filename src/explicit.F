@@ -130,7 +130,7 @@ c Call variables
 c Local variables
 
       integer    :: i,j,k,ig,jg,kg
-      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,beta,bnorm,norm,vnorm
+      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
