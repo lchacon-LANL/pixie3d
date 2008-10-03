@@ -138,7 +138,7 @@
                 CALL Convert_From_Nyq(bsubvmnc_v,bsubvmnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupvmnc_v)
                 CALL Convert_To_Full_Mesh(bsubvmnc_v)
-!LC  6/5/07                istat = 1
+!!L. Chacon 6/5/07                istat = 1
                 istat = 0    !Changed by L. Chacon, 6/5/07
                 CALL Spline_Fourier_Modes(bsupvmnc_v, bsupvmnc_spline, istat)   
                 CALL Spline_Fourier_Modes(bsubvmnc_v, bsubvmnc_spline, istat)   
@@ -1970,6 +1970,11 @@
         integer :: udcon=1111
 
 !     Begin program
+
+        if (my_rank == 0) then
+           write (*,*)
+           write (*,*) 'Reading VMEC solution...'
+        endif
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
