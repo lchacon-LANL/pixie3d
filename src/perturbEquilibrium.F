@@ -35,9 +35,11 @@ c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz
       real(8)    :: x1,y1,z1,jac,kx,ky,kk
+     .             ,vplus,vminus,vshear,dummy1,kdotB,cth,vxx,vyy,xi
+     .             ,w_fast,w_slow,w_shr,freq
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      integer    :: system,ierr
+      integer    :: ierr
       character(50) :: command
 
 c     Begin program
@@ -95,6 +97,79 @@ cc              if (ieq == IRHO) jac = 1d0
      .                     + jac*1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
      .                                   +2*pi*(y1-ymin)/(ymax-ymin))
 #endif
+              endif
+            enddo
+          enddo
+        enddo
+
+      case ('3wv')
+
+        kx = 2*pi*nh1/(xmax-xmin)
+        ky = 2*pi*nh2/(ymax-ymin)
+
+        kdotB = kx*B0(1)+ky*B0(2)
+
+        kk = sqrt(kx**2+ky**2)
+
+        dummy1 = 0.5*gamma*beta
+
+        cth = kdotB/kk
+
+        vplus = sqrt(0.5*(1+dummy1+sqrt((1+dummy1)**2-4*dummy1*cth**2)))
+        vminus= sqrt(0.5*(1+dummy1-sqrt((1+dummy1)**2-4*dummy1*cth**2)))
+        vshear= cth
+
+        w_fast = kk*vplus
+        w_slow = kk*vminus
+        w_shr  = kk*vshear
+
+        if (ieq == 1) then
+          write (*,*) 'angle   =',grid_params%params(1)
+          write (*,*) 'shear fq=',w_shr
+          write (*,*) 'fast  fq=',w_fast
+          write (*,*) 'slow  fq=',w_slow
+        endif
+
+        freq = w_slow
+
+cc        dt = pi/16./freq
+
+#if defined(vec_pot)
+        call pstop('perturbEquilibrium'
+     .            ,'Test case not working for vector potential')
+#endif
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              jac = 1d0
+
+              vxx = 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+
+              vyy =-(dummy1*kdotB*kx/freq**2-B0(1))*vxx
+     .             /(dummy1*kdotB*ky/freq**2-B0(2))
+
+              xi  = kx*vxx + ky*vyy
+
+              if (ieq == IRHO) then
+                array(i,j,k) = array(i,j,k) + xi/freq
+              elseif (ieq == ITMP) then
+                array(i,j,k) = array(i,j,k)
+     .                       +(dummy1/a_p-array(i,j,k))*xi/freq
+              elseif (ieq == IBX) then
+                array(i,j,k) = array(i,j,k) + (xi*B0(1)-kdotB*vxx)/freq
+              elseif (ieq == IBY) then
+                array(i,j,k) = array(i,j,k) + (xi*B0(2)-kdotB*vyy)/freq
+              elseif (ieq == IBZ) then
+                array(i,j,k) = array(i,j,k)
+              elseif (ieq == IVX) then
+                array(i,j,k) = array(i,j,k) + vxx
+              elseif (ieq == IVY) then
+                array(i,j,k) = array(i,j,k) + vyy
+              elseif (ieq == IVZ) then
+                array(i,j,k) = array(i,j,k)
               endif
             enddo
           enddo
@@ -267,7 +342,7 @@ c     Begin program
       mm = grid_params%params(1)
       kk = grid_params%params(2)
 
-      write (*,*) 'Reading KAI TM perturbations'
+      if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
 
       open(unit=111,file=trim(prt_file),status='old')
 
@@ -344,7 +419,7 @@ cc      if (ieq == IBX .or. ieq == IBY .or. ieq == IBZ) return
 
 c     Read perturbation file
 
-      write (*,*) 'Reading PPNCH eigenmodes...'
+      if (my_rank == 0) write (*,*) 'Reading PPNCH eigenmodes...'
 
       open(unit=111,file=trim(prt_file),status='old')
 
@@ -595,6 +670,7 @@ cc            do i = ilom,ihip
 c     End program
 
       end subroutine perturbEquilibrium_ic
+
 c     factor
 c     ####################################################################
       function factor(xmin,xmax,x,bcs,nh) result(ff)
@@ -606,9 +682,15 @@ c     ####################################################################
 
         logical    :: neumann(2),dirichlet(2),spoint(2)
 
+c     Begin program
+
         spoint    = (bcs == SP)
         neumann   = (abs(bcs) == NEU) .or. (bcs == SYM)
         dirichlet = (bcs == DIR) .or. (bcs ==-SYM) .or. (bcs == EQU)
+
+        if (nh == 0 .and. spoint(1)) then
+          call pstop('factor','m for r^m perturbation is zero')
+        endif
 
         period = pi
         if (odd) period = 2*pi
