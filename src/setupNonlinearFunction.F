@@ -93,7 +93,9 @@ c Safeguards
 
       if (minrho < 0d0) then
         close (urecord)  !Close record file before exiting
-        if (my_rank == 0) write (*,*) 'rho=',minrho
+cc        if (my_rank == 0) write (*,*) 'rho=',minrho
+        write(*,*)'proc=',my_rank,'rho=',lrmin,'loc='
+     $            ,minloc(rho(1:nx,1:ny,1:nz))
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
       endif
@@ -127,19 +129,21 @@ c Viscosity (resistivity found in BC routine)
 
 c Resistive term
 
-      if (source)  then           !Source processing
-        if (jit == -2) jcov_0 = jcov
-      else
-        jcov_0 = 0d0
-      endif
+cc      if (source .and. jit == -2) jcov_0 = jcov
 
 #if !defined(vec_pot)
-      E_ni(:,:,:,1) = -eeta*(jcov  (:,:,:,1)
-     .                      -jcov_0(:,:,:,1))
-      E_ni(:,:,:,2) = -eeta*(jcov  (:,:,:,2)
-     .                      -jcov_0(:,:,:,2))
-      E_ni(:,:,:,3) = -eeta*(jcov  (:,:,:,3)
-     .                      -jcov_0(:,:,:,3))
+      if (source) then
+        E_ni(:,:,:,1) = -eeta*(jcov  (:,:,:,1)
+     .                        -jcov_0(:,:,:,1))
+        E_ni(:,:,:,2) = -eeta*(jcov  (:,:,:,2)
+     .                        -jcov_0(:,:,:,2))
+        E_ni(:,:,:,3) = -eeta*(jcov  (:,:,:,3)
+     .                        -jcov_0(:,:,:,3))
+      else
+        E_ni(:,:,:,1) = -eeta*jcov  (:,:,:,1)
+        E_ni(:,:,:,2) = -eeta*jcov  (:,:,:,2)
+        E_ni(:,:,:,3) = -eeta*jcov  (:,:,:,3)
+      endif
 #else
       E_ni = 0d0
 #endif
