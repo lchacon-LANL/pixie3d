@@ -28,6 +28,8 @@ c####################################################################
 
         use nlfunction_setup
 
+        use app_iosetup
+
         implicit none
 
         integer    :: ulineplot
@@ -40,7 +42,7 @@ c####################################################################
 
         integer    :: ndiag
 
-        integer    :: drank,dnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
+        integer    :: drank,ddnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
         logical    :: isProcessor
 
         real(8) :: diagnostics(ngraph)
@@ -114,10 +116,10 @@ c Define processor for local diagnostics
 
       if (split_key /= MPI_UNDEFINED) then
         call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
-        call MPI_Comm_size(MPI_COMM_DIAG,dnp  ,mpierr)
+        call MPI_Comm_size(MPI_COMM_DIAG,ddnp ,mpierr)
       endif
 
-cc      write (*,*) 'Proc:',drank,dnp
+cc      write (*,*) 'Proc:',drank,ddnp
 #else
       iplt = iplot
       jplt = jplot
@@ -163,10 +165,6 @@ c Call variables
 
 c Local variables
 
-        character(30) :: ft_file
-        integer :: uft=2345
-        logical :: tor
-
 c Begin program
 
         if (.not.isProcessor) return
@@ -178,30 +176,6 @@ c Finalize time traces output (separator)
 c Close time traces file
 
         close(unit=ulineplot)
-
-c Poincare output (field tracer)
-
-#if !defined(petsc)
-cc        write (*,*)
-cc        write (*,*) 'Dumping Poincare file...'
-cc        ft_file = 'poincare.bin'
-cc        open(unit=uft,file=trim(ft_file)
-cc     .      ,status='unknown',form='unformatted')
-cc
-cc        tor = (coords == 'vmc' .or. coords == 'tor')
-cc
-cc        write (uft) nxd,nyd,nzd,bcond,tor
-cc        write (uft) grid_params%xx(1:nxd+2)
-cc        write (uft) grid_params%yy(1:nyd+2)
-cc        write (uft) grid_params%zz(1:nzd+2)
-cc        write (uft) u_np%array_var(IBX)%array
-cc        write (uft) u_np%array_var(IBY)%array
-cc        write (uft) u_np%array_var(IBZ)%array
-cc        write (uft) gmetric%grid(1)%jac
-cc        write (uft) gmetric%grid(1)%car
-cc
-cc        close(uft)
-#endif
 
 c End program
 
@@ -268,8 +242,9 @@ c Define diagnostics
       diag_desc(neqd+15)= 'Toroidal flux'
       diag_desc(neqd+16)= 'Ez'
       diag_desc(neqd+17)= 'Reconnected flux'
+      diag_desc(neqd+18)= 'RMS |J|'
 
-      diag_desc(neqd+18:ngraph) = ''
+      diag_desc(neqd+19:ngraph) = ''
 
 c Define corresponding independent variables
 
@@ -312,7 +287,7 @@ c Local variables
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .             ,tn=0d0,ez,lrflux,rflux
+     .             ,tn=0d0,ez,lrflux,rflux,rmsj
       logical    :: cartsn
 
       INTERFACE
@@ -360,6 +335,21 @@ c Begin program
 #endif
       tmp => varray%array_var(ITMP)%array
 
+c Find equilibrium current
+
+      if (init) then
+#if defined(vec_pot)
+        acov(:,:,:,1) = varray%array_var(IAX)%array
+        acov(:,:,:,2) = varray%array_var(IAY)%array
+        acov(:,:,:,3) = varray%array_var(IAZ)%array
+#else   
+        bcnv(:,:,:,1) = varray%array_var(IBX)%array
+        bcnv(:,:,:,2) = varray%array_var(IBY)%array
+        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+#endif
+        call findEquilJ
+      endif
+
 c Postprocess solution
 
       call postProcessSolution(varray,igx,igy,igz)
@@ -384,12 +374,12 @@ c Energy diagnostics
       !Magnetic energy
 
       array = (bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Em0
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ek0
 
       !Thermal energy
 
@@ -397,17 +387,26 @@ c Energy diagnostics
 
       if (gamma /= 1d0) then
         Et = a_p/(gamma-1)*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+     .      -Et0
       else
         Et = 0d0
       endif
 
       !Total energy
 
-      energy = Ek + Em + Et - Ek0 - Em0 - Et0
+      energy = Ek + Em + Et
 
 c Current diagnostics
 
       Iz = integral(nx,ny,1,jz_car,igx,igy,igz,.false.) - Iz0
+
+      array =(jcnv(:,:,:,1)*jcov(:,:,:,1)
+     .       +jcnv(:,:,:,2)*jcov(:,:,:,2)
+     .       +jcnv(:,:,:,3)*jcov(:,:,:,3))/gmetric%grid(igx)%jac
+
+      rmsj = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+
+      rmsj = sqrt(rmsj)
 
 c Toroidal flux diagnostics
 
@@ -462,7 +461,7 @@ c Reconnected flux (GEM challenge)
 
 #if defined(petsc)
       if (split_key /= MPI_UNDEFINED) then
-        if (dnp == 1) then
+        if (ddnp == 1) then
           rflux = Pflux(iplt,jplt      ,1)
      .          - Pflux(iplt,jplt-nyd/2,1)
         else
@@ -495,6 +494,8 @@ cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
 
       enddo
 
+c Current diagnostic
+
 c Diagnostic assignment
 
       diagnostics(1:neqd) = dpert(:)
@@ -515,6 +516,7 @@ c Diagnostic assignment
       diagnostics(neqd+15)= Tflux
       diagnostics(neqd+16)= Ez
       diagnostics(neqd+17)= rflux
+      diagnostics(neqd+18)= rmsj
 
 cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)
