@@ -502,6 +502,7 @@ cc      sel_gr(4,:) = (/ (i,i=1,9) /)
 c Define graphics group #5: Perturbations
 
       graph(5)%cartesian=.false.
+cc      graph(5)%cartesian=.true.
       graph(5)%descr='Perturbations'
 
       do ieq = 1,neqd
