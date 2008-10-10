@@ -2417,8 +2417,9 @@ c     ###############################################################
      .                     ,alteom,diff,vol) result (vlap)
 
 c     ---------------------------------------------------------------
-c     Calculates dvol*lap(vector) at cell centers in general non-orthog.
-c     coordinates. Vector is assumed in contravariant representation.
+c     Calculates dvol*div(diff grad(vector)) at cell centers in general
+c     non-orthog.  coordinates. Vector is assumed in contravariant
+c     representation.
 c     ---------------------------------------------------------------
 
       implicit none           !For safe fortran
