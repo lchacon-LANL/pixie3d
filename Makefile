@@ -174,16 +174,32 @@ all-parallel-tests: parallel-tests-a parallel-tests-b
 rebuild-all-parallel-tests: rebuild-parallel-tests-a rebuild-parallel-tests-b
 
 parallel-tests-a: ;
+ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-a
+else
+	-@echo "Please, specify BOPT in make command"
+endif
 
 parallel-tests-b: ;
+ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-b
+else
+	-@echo "Please, specify BOPT in make command"
+endif
 
 rebuild-parallel-tests-a: ;
+ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-a
+else
+	-@echo "Please, specify BOPT in make command"
+endif
 
 rebuild-parallel-tests-b: ;
+ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-b
+else
+	-@echo "Please, specify BOPT in make command"
+endif
 
 # CONTRIBUTED LIBRARIES
 
