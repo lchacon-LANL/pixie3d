@@ -42,6 +42,12 @@ c Local variables
 
 c Begin program
 
+c Reset BCs
+
+      do ieq=1,neq
+        bbcs(:,ieq) = bcond
+      enddo
+
 c Default boundary conditions
 
       bcsq = bbcs(:,IRHO)
@@ -135,7 +141,10 @@ cc      case ('vmec','tor','gem')
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ) = DIR
-cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+cc        if (solve_rho) 
+cc     .       where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
+        if (gamma > 1d0)
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       end select
 
@@ -222,19 +231,38 @@ c     Resistivity (needed for BCs; may depend on T)
 
 c     BC setup
 
-      bcnd(:,1) = varray%array_var(IBX)%bconds
-      bcnd(:,2) = varray%array_var(IBY)%bconds
-      bcnd(:,3) = varray%array_var(IBZ)%bconds
-
       bcnv(:,:,:,1) = varray%array_var(IBX)%array
       bcnv(:,:,:,2) = varray%array_var(IBY)%array
       bcnv(:,:,:,3) = varray%array_var(IBZ)%array
 
-      v0(:,:,:,1) = u_0%array_var(IBX)%array
-      v0(:,:,:,2) = u_0%array_var(IBY)%array
-      v0(:,:,:,3) = u_0%array_var(IBZ)%array
+cc      v0(:,:,:,1) = u_0%array_var(IBX)%array
+cc      v0(:,:,:,2) = u_0%array_var(IBY)%array
+cc      v0(:,:,:,3) = u_0%array_var(IBZ)%array
 
-c     Fill ghost nodes
+      v0 = jcov_0   !To fix current at boundary
+
+c     BC predictor (extrapolate)
+
+cc      bcsq = bcond
+cc      where (bcsq == DEF) bcsq = DIR
+cc      bcnd(:,1) = bcsq
+cc
+cc      bcsq = bcond
+cc      where (bcsq == DEF) bcsq = -EXT !On covariant components
+cc      bcnd(:,2) = bcsq
+cc
+cc      bcsq = bcond
+cc      where (bcsq == DEF) bcsq = -EXT !On covariant components
+cc      bcnd(:,3) = bcsq
+cc
+cc      call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
+cc     .          ,iorder=order)
+
+c     BC (Neumann)
+
+      bcnd(:,1) = varray%array_var(IBX)%bconds
+      bcnd(:,2) = varray%array_var(IBY)%bconds
+      bcnd(:,3) = varray%array_var(IBZ)%bconds
 
       call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
      .          ,iorder=order)
@@ -345,8 +373,7 @@ c     BC setup
       bcnd(:,2) = varray%array_var(IBY)%bconds
       bcnd(:,3) = varray%array_var(IBZ)%bconds
       where (bcnd == -NEU)
-cc        bcnd = -DIR  !Use covariant components for tangential BCs
-        bcnd = -EQU  !Use covariant components for tangential BCs
+        bcnd = -EQU             !Use covariant components for tangential BCs
       end where
 #else
 cc      if (equil == 'spnch' .or. equil == 'rfp2') then
@@ -414,7 +441,8 @@ cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
      .            /(gmetric%grid(iigx)%jac(i  ,j,k)
      .             +gmetric%grid(iigx)%jac(i+1,j,k))
 
-            J0 = E0*2./(eeta(i,j,k)+eeta(i+1,j,k))
+cc            J0 = E0*2./(eeta(i,j,k)+eeta(i+1,j,k))
+            J0 = 0.5*(jcov_0(i+1,j,k,:)+jcov_0(i,j,k,:))
 
             v0(i+1,j,k,:) = scalarProduct(i,j,k,iigx,iigy,iigz
      .                                 ,J0   (1),J0   (2),J0   (3)
@@ -425,7 +453,20 @@ cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
 
       else
 
-        v0 = 0d0
+        v0(nnx+1,:,:,:) = 0.5*(jcov_0(nnx  ,:,:,:)
+     .                        +jcov_0(nnx+1,:,:,:))
+        v0(0    ,:,:,:) = 0.5*(jcov_0(1    ,:,:,:)
+     .                        +jcov_0(0    ,:,:,:))
+
+        v0(:,nny+1,:,:) = 0.5*(jcov_0(:,nny  ,:,:)
+     .                        +jcov_0(:,nny+1,:,:))
+        v0(:,0    ,:,:) = 0.5*(jcov_0(:,1    ,:,:)
+     .                        +jcov_0(:,0    ,:,:))
+
+        v0(:,:,nnz+1,:) = 0.5*(jcov_0(:,:,nnz  ,:)
+     .                        +jcov_0(:,:,nnz+1,:))
+        v0(:,:,0    ,:) = 0.5*(jcov_0(:,:,1    ,:)
+     .                        +jcov_0(:,:,0    ,:))
 
       endif
 
