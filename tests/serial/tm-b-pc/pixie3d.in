@@ -32,7 +32,7 @@
     dstep    = 1d1
 
     nh2      = 1
-    prho     = 1d-3
+    ptemp     = 1d-3
     odd      = t
 
     cnfactor = 0.5
