@@ -38,10 +38,6 @@ c Local variables
 
       integer    :: ii,iii,igrid,ntotp,guess
 
-c Debug
-
-      real(8),allocatable,dimension(:,:,:,:) :: dbg
-
 c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
@@ -534,34 +530,44 @@ c     Local variables
 c     Begin program
 
         !Temperature
-        if (bcSP()) then
-          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
-     .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag,ncolors=2
-     .              ,line_relax=line_relax,order_res=ores
-     .              ,order_prol=oprol,smooth='gs')
-        else
-          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+        call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
      .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag
      .              ,ncolors=2,line_relax=line_relax
      .              ,order_res=ores,order_prol=oprol
-     .              ,smooth='jb',gm_coarse_solve=gm_coarse)
-        endif
+     .              ,smooth=smooth,gm_coarse_solve=gm_coarse)
+cc        if (bcSP()) then
+cc          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+cc     .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag,ncolors=2
+cc     .              ,line_relax=line_relax,order_res=ores
+cc     .              ,order_prol=oprol,smooth='gs')
+cc        else
+cc          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+cc     .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag
+cc     .              ,ncolors=2,line_relax=line_relax
+cc     .              ,order_res=ores,order_prol=oprol
+cc     .              ,smooth='jb',gm_coarse_solve=gm_coarse)
+cc        endif
 
         !Density
         if (solve_rho) then
-          if (bcSP()) then
-cc            write (*,*) 'DIAG -- applyPC'
-            call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
-     .               ,igrid,iout,guess,rho_mtvc,dg=rho_diag,ncolors=2
-     .               ,line_relax=line_relax,order_res=ores
-     .               ,order_prol=oprol ,smooth='gs')
-          else
-            call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
+          call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
      .               ,igrid,iout,guess,rho_mtvc,dg=rho_diag
      .               ,ncolors=2,line_relax=line_relax
-     .               ,order_res=ores,order_prol=oprol
-     .               ,smooth='jb',gm_coarse_solve=gm_coarse)
-          endif
+     .               ,order_res=ores,order_prol=oprol,omega=omeg_smth
+     .               ,smooth=smooth,gm_coarse_solve=gm_coarse)
+cc          if (bcSP()) then
+cccc            write (*,*) 'DIAG -- applyPC'
+cc            call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
+cc     .               ,igrid,iout,guess,rho_mtvc,dg=rho_diag,ncolors=2
+cc     .               ,line_relax=line_relax,order_res=ores
+cc     .               ,order_prol=oprol ,smooth='gs')
+cc          else
+cc            call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
+cc     .               ,igrid,iout,guess,rho_mtvc,dg=rho_diag
+cc     .               ,ncolors=2,line_relax=line_relax
+cc     .               ,order_res=ores,order_prol=oprol
+cc     .               ,smooth='jb',gm_coarse_solve=gm_coarse)
+cc          endif
         endif
 
 #if !defined(vec_pot)
@@ -570,24 +576,29 @@ cc            write (*,*) 'DIAG -- applyPC'
           if (si_car) call XtoCar(igrid,rhs(:,IBX:IBZ))
 
           if (di*heta == 0d0) then
-            if (gm_smooth) then
-              call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .                  ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc
-     .                  ,ncolors=4,smooth='gm',line_relax=line_relax)
-            else
-              if (bcSP()) then
-                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
-     .              ,ncolors=4,line_relax=line_relax,order_res=ores
-     .              ,order_prol=oprol,smooth='gs')
-              else
-                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+            call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
      .             ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
      .             ,ncolors=4,line_relax=line_relax,order_res=ores
-     .             ,order_prol=oprol,smooth='jb'
+     .             ,order_prol=oprol,smooth=smooth,omega=omeg_smth
      .             ,gm_coarse_solve=gm_coarse)
-              endif
-            endif
+cc            if (gm_smooth) then
+cc              call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+cc     .                  ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc
+cc     .                  ,ncolors=4,smooth='gm',line_relax=line_relax)
+cc            else
+cc              if (bcSP()) then
+cc                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+cc     .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+cc     .              ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .              ,order_prol=oprol,smooth='gs')
+cc              else
+cc                call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+cc     .             ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
+cc     .             ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .             ,order_prol=oprol,smooth='jb'
+cc     .             ,gm_coarse_solve=gm_coarse)
+cc              endif
+cc            endif
           else
             xc(:,1:3) = x(:,IBX:IBZ)
             xc(:,4:6) = 0d0
@@ -632,22 +643,26 @@ cc            write (*,*) 'DIAG -- applyPC'
         !Vector potential
         if (si_car) call XtoCar(igrid,rhs(:,IAX:IAZ))
 
-        if (gm_smooth) then
-          call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
-     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc
-     .            ,ncolors=4,smooth='gm',line_relax=line_relax)
-        else
-          if (bcSP()) then
-            call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
+        call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
      .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,dg=a_diag
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
-     .            ,order_prol=oprol,smooth='gs')
-          else
-            call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
-     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,dg=a_diag
-     .            ,ncolors=4,line_relax=line_relax)
-          endif
-        endif
+     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth)
+cc        if (gm_smooth) then
+cc          call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
+cc     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc
+cc     .            ,ncolors=4,smooth='gm',line_relax=line_relax)
+cc        else
+cc          if (bcSP()) then
+cc            call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
+cc     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,dg=a_diag
+cc     .            ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .            ,order_prol=oprol,smooth='gs')
+cc          else
+cc            call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
+cc     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,dg=a_diag
+cc     .            ,ncolors=4,line_relax=line_relax)
+cc          endif
+cc        endif
 
         if (si_car) call XtoCurv(igrid,x(:,IAX:IAZ))
 #endif
@@ -738,25 +753,31 @@ c     Begin program
 cc        if (.not.(jit == debug_it .and. debug)) then
 
         !Solve Schur-complement SI system
-        if (gm_smooth) then
-          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
-     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc
-     .                ,ncolors=4,smooth='gm',line_relax=line_relax)
-        else
-          if (bcSP()) then
-            call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
-     .            ,order_prol=oprol,smooth='gs',omega=1d0
+     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
      .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse)
-          else
-            call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
-     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
-     .            ,ncolors=4,line_relax=line_relax,order_res=ores
-     .            ,order_prol=oprol,smooth='jb'
-     .            ,gm_coarse_solve=gm_coarse)
-          endif
-        endif
+
+cc        if (gm_smooth) then
+cc          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+cc     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc
+cc     .                ,ncolors=4,smooth='gm',line_relax=line_relax)
+cc        else
+cc          if (bcSP()) then
+cc            call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+cc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+cc     .            ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .            ,order_prol=oprol,smooth='gs',omega=1d0
+cc     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse)
+cc          else
+cc            call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+cc     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+cc     .            ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .            ,order_prol=oprol,smooth='jb'
+cc     .            ,gm_coarse_solve=gm_coarse)
+cc          endif
+cc        endif
 
         if (si_car) call XtoCurv(igrid,x(:,IVX:IVZ))
 
@@ -804,19 +825,24 @@ c     Begin program
         call formSIrhs(ntotp,x,y(:,IVX:IVZ),rhspc(:,IVX:IVZ),igrid)
 
         !Solve Schur-complement SI system
-        if (gm_smooth) then
-          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
-     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc3
-     .                ,ncolors=4,smooth='gm'
-     .                ,line_relax=line_relax)
-cc                      ,line_relax=line_relax,cvrg_tst=debug)
-        else
-          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
-     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc3,dg=v_diag
-     .           ,ncolors=4,line_relax=line_relax,order_res=ores
-     .           ,order_prol=oprol ,smooth='jb'
-     .           ,gm_coarse_solve=gm_coarse)
-        endif
+        call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+     .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
+     .            ,ncolors=4,line_relax=line_relax,order_res=ores
+     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
+     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse)
+cc        if (gm_smooth) then
+cc          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+cc     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc3
+cc     .                ,ncolors=4,smooth='gm'
+cc     .                ,line_relax=line_relax)
+cccc                      ,line_relax=line_relax,cvrg_tst=debug)
+cc        else
+cc          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+cc     .           ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc3,dg=v_diag
+cc     .           ,ncolors=4,line_relax=line_relax,order_res=ores
+cc     .           ,order_prol=oprol ,smooth='jb'
+cc     .           ,gm_coarse_solve=gm_coarse)
+cc        endif
 
         !Post-process solution with M_star
 
@@ -1605,7 +1631,7 @@ c Solve for advection-diffusion part
       call cSolver(3,ntotp,nrhs,x(:,IVX:IVZ)
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc2,dg=v_diag2
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
-     .            ,order_prol=oprol,smooth='jb'
+     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
      .            ,gm_coarse_solve=gm_coarse)
 
       return
