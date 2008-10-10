@@ -440,10 +440,10 @@ cc      if (precon == 'id') iguess = 0
 
       if (restart) dcon = .false.
 
-      if (adiabatic.and.gamma /= 1d0) then
-        solve_rho = .false.
-        postprocess = .true.
-      endif
+cc      if (adiabatic.and.gamma /= 1d0) then
+cc        solve_rho = .false.
+cc        postprocess = .true.
+cc      endif
 
 c Map perturbations
 
