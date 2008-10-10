@@ -42,9 +42,10 @@ c Local variables
 c Interfaces
 
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
+        integer,optional :: obc
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
