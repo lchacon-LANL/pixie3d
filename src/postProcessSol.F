@@ -27,18 +27,15 @@ c Local variables
 c Interfaces
 
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
+        integer,optional :: obc
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
 
 c Begin program
-
-#if !defined(vec_pot) 
-
-      if ((.not.inv_B) .or. divCln) return
 
       !Setup grid info
       igx = 1
@@ -48,6 +45,17 @@ c Begin program
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
+
+cc      if (adiabatic .and. (.not.solve_rho)) then
+cc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+cc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
+cc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+cc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+cc      endif
+
+#if !defined(vec_pot) 
+
+      if (.not.(inv_B.and.divCln)) return
 
       if (ilevel > 0 .and. my_rank == 0) then
         write (*,*)
