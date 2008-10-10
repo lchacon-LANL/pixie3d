@@ -109,7 +109,15 @@ c     Rho
 
         ff(IRHO) = advc - diffus
       else
-        ff(IRHO) = 0d0
+cc        !If this is added, need to add stuff in defineTSparameters below
+cc        if (adiabatic) then
+cc          ff(IRHO) = rho(i,j,k)
+cc     .             - u_0%array_var(IRHO)%array(i,j,k)
+cc     .             *(tmp(i,j,k)
+cc     .              /u_0%array_var(ITMP)%array(i,j,k))**(1./gamma)
+cc        else
+          ff(IRHO) = 0d0
+cc        endif
       endif
 
 c     Faraday's law
@@ -227,18 +235,6 @@ c     Temperature
 
       else
 
-c       Advection
-
-        advc= flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,vcnv(:,:,:,1)
-     .                 ,vcnv(:,:,:,2)
-     .                 ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
-     .      +(gamma-2.)*tmp(i,j,k)
-     .                 *div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                     ,vcnv(:,:,:,1)
-     .                     ,vcnv(:,:,:,2)
-     .                     ,vcnv(:,:,:,3))
-
 c       Heat flux
 
         if (chi /= 0d0) then
@@ -248,9 +244,31 @@ c       Heat flux
           heat_flx = 0d0
         endif
 
-c       Heat sources
+c       Advection + sources
 
-        if (.not.adiabatic) then
+        if (adiabatic) then  !Pressure equation
+          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vcnv(:,:,:,1)
+     .                  ,vcnv(:,:,:,2)
+     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .        +(gamma-1.)*tmp(i,j,k)
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                       ,vcnv(:,:,:,1)
+     .                       ,vcnv(:,:,:,2)
+     .                       ,vcnv(:,:,:,3))
+
+          ff(ITMP) = advc + (gamma-1.)*heat_flx
+        else                 !Temperature equation
+          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vcnv(:,:,:,1)
+     .                  ,vcnv(:,:,:,2)
+     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .        +(gamma-2.)*tmp(i,j,k)
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
+     .                       ,vcnv(:,:,:,1)
+     .                       ,vcnv(:,:,:,2)
+     .                       ,vcnv(:,:,:,3))
+
           !Joule heating
           joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
      .                                        -jcov_0(i,j,k,1))
@@ -273,13 +291,12 @@ c       Heat sources
           if (viscous < 0d0) then
             call pstop('nonlinearRHS','Viscous heat source is negative')
           endif
-        else
-          heat_src = 0d0
-        endif
 
-c       Add contributions
-        ff(ITMP) = advc
-     .           +(gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
+          !Add contributions
+          ff(ITMP) = advc
+     .             +(gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
+
+        endif
 
       endif
 
@@ -297,6 +314,8 @@ c     EOM
       if (nc_eom_jxb) then
         cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
+cc        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       else
         cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
@@ -385,6 +404,8 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
+      use transport_params
+
       implicit none
 
 c Call variables
@@ -406,6 +427,11 @@ c Begin program
       endif
 
       one_over_dt = 1d0/dt
+
+cc      if (adiabatic) then
+cc        one_over_dt(IRHO) = 0d0
+cc        cnf(IRHO) = 0d0
+cc      endif
 
 c End program
 
