@@ -1,3 +1,15 @@
+c module app_iosetup
+c ######################################################################
+      module app_iosetup
+
+        use iosetup
+
+        logical :: dcon=.false.
+
+        logical :: poincare=.false.,fourier=.false.,test=.false.
+
+      end module app_iosetup
+
 c module equilibrium
 c ######################################################################
       module equilibrium
@@ -16,12 +28,11 @@ c ######################################################################
 #endif
 
         real(8)    :: dlambda,rshear,vparflow,vperflow
+     .               ,beta,E0(3),B0(3)
 
         character(5)  :: equil
         character(20) :: equ_file,prt_file
         real(8)       :: eq_params(6)
-
-        logical       :: dcon=.false.
 
       end module equilibrium
 
@@ -33,7 +44,7 @@ c ######################################################################
 
         use equilibrium
 
-        real(8) :: nu,eta,dd,chi,gamma,E0(3)=0d0,B0(3)=0d0,di,a_p
+        real(8) :: nu,eta,dd,chi,gamma,di,a_p
      .            ,heta=0d0,aa_eta,c_hyper
 
         integer :: nn_eta
@@ -467,8 +478,6 @@ c ######################################################################
 c module operators
 c ######################################################################
       module operators
-
-        use grid
 
         use grid_aliases
 
@@ -1332,7 +1341,11 @@ c     Find ZIP fluxes
      .               + v1(i ,j,k)*arr(im,j,k)/jac  )*jach
         endif
       elseif (igl == grid_params%nxgl(igx)) then
-        flxip = 0.5*(v1(ip,j,k)*arr(i,j,k) + v1(i,j,k)*arr(ip,j,k))
+        if (v1(ip,j,k) == -v1(i,j,k)) then
+          flxip = 0d0    !Shut off flux for vn=0 BC
+        else
+          flxip = 0.5*(v1(ip,j,k)*arr(i,j,k) + v1(i,j,k)*arr(ip,j,k))
+        endif
 
         jach  = 0.5*(jac+jacim)
         flxim = 0.5*(v1(im,j,k)*arr(i ,j,k)/jacim
@@ -1688,7 +1701,7 @@ c     ###############################################################
       function lap_diff(i,j,k,nx,ny,nz,igx,igy,igz,arr,dff,vol)
      .         result (laplacian)
 c     ---------------------------------------------------------------
-c     Calculates lap(arr) at cell centers in general non-orthog.
+c     Calculates div(dff grad(arr)) at cell centers in general non-orthog.
 c     coordinates, preserving the SPD property.
 c     ---------------------------------------------------------------
 
@@ -8209,9 +8222,13 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
-       !Recall p=a_p nT
-        ptot = a_p*0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
-     .                     +sc1(i ,j,k)*sc2(ip,j,k))
+       
+        if (adiabatic) then    !p=a_p T
+          ptot = a_p*0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
+        else                   !p=a_p nT
+          ptot = a_p*0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
+     .                       +sc1(i ,j,k)*sc2(ip,j,k))
+        endif
 
         t11 = gsuper(1,1)*ptot
 
@@ -8274,9 +8291,12 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        !Recall p=2nT
-        ptot = a_p*0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
-     .                     +sc1(i,j ,k)*sc2(i,jp,k))
+        if (adiabatic) then    !p=a_p T
+          ptot = a_p*0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
+        else                   !p=a_p nT
+          ptot = a_p*0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
+     .                       +sc1(i,j ,k)*sc2(i,jp,k))
+        endif
 
         t21 = gsuper(2,1)*ptot
 
@@ -8339,9 +8359,12 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        !Recall p=2nT
-        ptot = a_p*0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
-     .                     +sc1(i,j,k )*sc2(i,j,kp))
+        if (adiabatic) then    !p=a_p T
+          ptot = a_p*0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
+        else                   !p=a_p nT
+          ptot = a_p*0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
+     .                       +sc1(i,j,k )*sc2(i,j,kp))
+        endif
 
         t31 = gsuper(3,1)*ptot
 
@@ -8360,7 +8383,6 @@ c     Begin program
 c     End program
 
       end subroutine eom_grad_p_z
-
 
 c     eom_advc_x
 c     #############################################################
