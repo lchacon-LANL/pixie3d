@@ -35,6 +35,10 @@ c--------------------------------------------------------------------
 
       use vectorOps
 
+      use imposeBCinterface
+
+      use app_iosetup
+
       implicit none
 
 c Call variables
@@ -49,7 +53,8 @@ c Call variables
 
 c Local variables
 
-      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,system,sh,it
+      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,sh,it
+     .                ,icomp,bcnd(6,3),brank
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -59,6 +64,7 @@ c Local variables
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
+     .                ,phi,rho_norm
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
@@ -92,6 +98,10 @@ c Begin program
       ldaflow = dlambda/rshear
 
       var = 0d0
+
+      jcov_0 = 0d0
+
+      E0 = 0d0 ; B0 = 0d0
 
 #if !defined(vec_pot) 
       a_bc = .false.
@@ -181,6 +191,44 @@ cc              var(i,j,k,IAZ)  = 0d0
 cc            enddo
 cc          enddo
 cc        enddo
+#endif
+
+      case ('3wv') !3-wave MHD test
+
+        gamma = 5./3.
+
+        phi   = grid_params%params(1)   !Angle of B with x-axis, in degrees
+        beta  = grid_params%params(2)   !plasma beta
+
+        phi   = phi/180.*pi             !Phi in radians
+
+        nh2   = nh1                     !This is required by setup
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Uniform medium with constant magnetic field in cartesian coordinates
+
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 0.5*beta/a_p
+
+        B0(1) = cos(phi)
+        B0(2) = sin(phi)
+        B0(3) = 0d0
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX)  = B0(1)
+        var(:,:,:,IBY)  = B0(2)
+        var(:,:,:,IBZ)  = B0(3)
+#else
+        var(:,:,:,IAX:IAZ) = 0d0
 #endif
 
       case ('mswsn') !Magnetosonic wave in sinusoidal geometry
@@ -364,6 +412,12 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
+        if (adiabatic.or.(a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
 c     Tearing mode in cartesian coordinates
 
         do k = klo,khi
@@ -446,23 +500,23 @@ c     Tearing mode in cartesian coordinates
           enddo
         enddo
 #else
-cc        var(:,:,:,IAX:IAZ) = a
+        var(:,:,:,IAX:IAZ) = a
 
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
-
-              b(i,j,k,1)  = 0d0                  
-              b(i,j,k,2)  = tanh((x1-0.5d0*(xmax+xmin))/dlambda)
-              b(i,j,k,3)  = sqrt(bz0**2 - b(i,j,k,2)**2)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1)  = 0d0                  
+cc              b(i,j,k,2)  = tanh((x1-0.5d0*(xmax+xmin))/dlambda)
+cc              b(i,j,k,3)  = sqrt(bz0**2 - b(i,j,k,2)**2)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
 cc      case ('tmcxz')
@@ -634,6 +688,12 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
+        if (adiabatic.or.(a_p /= 6d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
 c     GEM challenge
 
         var(:,:,:,IVX)  = 0d0
@@ -739,6 +799,12 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
+        if ((a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
 c     Tokamak equilibria (analytical)
 
         mm = grid_params%params(1)
@@ -748,7 +814,9 @@ c     Tokamak equilibria (analytical)
         Iz           = 2.22
         bb           = 0.5*Iz
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
@@ -772,32 +840,32 @@ c     Tokamak equilibria (analytical)
               var(i,j,k,IBZ)  = x1*bz0
 #endif
               var(i,j,k,ITMP) = 1d0
-     .                        + 1/16./var(i,j,k,IRHO)
-     .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
-cc              var(i,j,k,ITMP) = 1d-0
+     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
             enddo
           enddo
         enddo
 
 #if defined(vec_pot)
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              btheta = bb*x1/(1+(x1/dlambda)**2)
-              bz0    = RR
-
-              b(i,j,k,1)  = 0d0                  
-              b(i,j,k,2)  = btheta + kk*x1/mm*bz0
-              b(i,j,k,3)  = x1*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              btheta = bb*x1/(1+(x1/dlambda)**2)
+cc              bz0    = RR
+cc
+cc              b(i,j,k,1)  = 0d0                  
+cc              b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+cc              b(i,j,k,3)  = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('kai3d')
@@ -818,13 +886,21 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
+        if ((a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
 c     Tokamak equilibria (analytical)
 
         Iz = 2.22
         bb = 0.5*Iz
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2      !For perturbations to be of the right order
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
@@ -849,32 +925,33 @@ c     Tokamak equilibria (analytical)
               var(i,j,k,IBZ)  = x1*bz0
 #endif
               var(i,j,k,ITMP) = 1d-5
-     .                        + 1/16./var(i,j,k,IRHO)
-     .                         *(Iz*dlambda/(1+(x1/dlambda)**2))**2
+     .                     + 1/16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
 
             enddo
           enddo
         enddo
 
 #if defined(vec_pot)
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              btheta = bb*x1/(1+(x1/dlambda)**2)
-              bz0    = RR
-
-              b(i,j,k,1)  = 0d0                  
-              b(i,j,k,2)  = btheta
-              b(i,j,k,3)  = x1*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              btheta = bb*x1/(1+(x1/dlambda)**2)
+cc              bz0    = RR
+cc
+cc              b(i,j,k,1)  = 0d0                  
+cc              b(i,j,k,2)  = btheta
+cc              b(i,j,k,3)  = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('ppnch','ppnsl','ppnst')
@@ -886,7 +963,9 @@ c     Tokamak equilibria (analytical)
         e0_over_eta = grid_params%params(5)
         bz0         = grid_params%params(6)
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -1120,21 +1199,23 @@ c$$$        enddo
         enddo
 
 #if defined(vec_pot)
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
-              b(i,j,k,3) = x1*bzz0(i)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
         !Shift vr for EQU BC
@@ -1156,6 +1237,8 @@ cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -1224,21 +1307,23 @@ c     Equilibria (numerical)
         enddo
 
 #if defined(vec_pot)
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = bth0(i)
-              b(i,j,k,3) = x1*bzz0(i)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
         !Shift vr for EQU BC
@@ -1258,7 +1343,9 @@ cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
         kk = grid_params%params(2)
         RR = grid_params%params(3)
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -1322,21 +1409,23 @@ cc        call B_from_q(bth0,bzz0)
           enddo
         enddo
 #else
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
-              b(i,j,k,3) = x1*bzz0(i)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('rfp2','spnch')  !SCREW PINCH EQ.
@@ -1355,7 +1444,9 @@ c     RFP equilibria (analytical)
         RR = grid_params%params(3)
         aa = grid_params%params(4)
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
         !Build equilibrium
 
@@ -1395,34 +1486,36 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 #else
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
-
-              bb     = (dlambda**2+aa)
-     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              if (coords == 'hel') then
-                b(i,j,k,1)  = 0d0
-                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
-                b(i,j,k,3)  = x1*bz0
-              else
-                b(i,j,k,1)  = 0d0
-                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
-                b(i,j,k,3)  = bz0
-              endif
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
+cc
+cc              bb     = (dlambda**2+aa)
+cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              if (coords == 'hel') then
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+cc                b(i,j,k,3)  = x1*bz0
+cc              else
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
+cc                b(i,j,k,3)  = bz0
+cc              endif
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('rfp3d')
@@ -1448,6 +1541,8 @@ c     RFP equilibria (analytical)
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2      !For radial perturbations to be of the right order
 
         !Build equilibrium
 
@@ -1478,26 +1573,28 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 #else
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              bb     = (dlambda**2+aa)
-     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = btheta
-              b(i,j,k,3) = x1*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              bb     = (dlambda**2+aa)
+cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta
+cc              b(i,j,k,3) = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('tok')
@@ -1509,7 +1606,9 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         RR = grid_params%params(3)
         q0 = grid_params%params(4)
 
-        nh2 = mm !To set the right perturbation wavelength
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
 
         bb = dlambda/RR/q0
 
@@ -1546,36 +1645,48 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
           enddo
         enddo
 #else
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = btheta + kk*x1/mm*bz0
-              b(i,j,k,3) = x1*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta + kk*x1/mm*bz0
+cc              b(i,j,k,3) = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
 #if defined(vmec)
 
       case ('vmec')
 
-        mm = grid_params%params(1)
-        nn = grid_params%params(2)
+cc        mm = grid_params%params(1)
+cc        nn = grid_params%params(2)
 
-        RR = 1d0   !To avoid affecting q-profile
+cc        RR = 1d0   !To avoid affecting q-profile
+cc
+cc        kk = 0d0   !To avoid affecting q-profile
 
-        kk = 0d0   !To avoid affecting q-profile
+cc        nh2 =  mm       !To set the right perturbation wavelength
+cc        nh3 = -nn       !To set the right perturbation wavelength
+
+        nh1 = nh2       !For perturbations to be of the right order in radius
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics for "vmec" equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c     Check coordinates
 
@@ -1586,16 +1697,11 @@ c     Check coordinates
 
 c     Read VMEC equilibrium
 
-        nh2 =  mm       !To set the right perturbation wavelength
-        nh3 = -nn       !To set the right perturbation wavelength
-
         !Build equilibrium
 
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
 
 #if !defined(vec_pot)
         call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
@@ -1604,6 +1710,7 @@ c     Read VMEC equilibrium
 c     Clean up flux surface quantities
 
         k = klo   !Fix k slice
+
         !Find R^2
         do i = ilom,ihip
           do j = jlom,jhip
@@ -1613,7 +1720,6 @@ c     Clean up flux surface quantities
           enddo
         enddo
 
-cc        do k = klom,khip
         !Average in j as a function of i (for a single k slice per processor)
         dum = 0
         do j = jlo,jhi
@@ -1681,15 +1787,38 @@ c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
 c$$$cc     .                    ,'cov','cnv')
 
 #else
-        call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
-     .                            ,b(:,:,:,3),var(:,:,:,ITMP))
+        call pstop('setEquilibrium','Equilibrium not working')
 
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
+cc     .                            ,b(:,:,:,3),var(:,:,:,ITMP))
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-        var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p   !Transform to temperature
+        var(:,:,:,IRHO) = var(:,:,:,ITMP)**(1d0/gamma)   !Find density from pressure
+
+cc        if (solve_rho) then
+          rho_norm = var(1,1,1,IRHO)
+#if defined(petsc)
+          !Broadcast value of rho at SP
+          if (      grid_params%ilog == 1
+     .        .and. grid_params%jlog == 1
+     .        .and. grid_params%klog == 1) brank = my_rank
+          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
+     .                  ,MPI_COMM_WORLD,mpierr)
+#endif
+          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
+cc        else
+cc          var(:,:,:,IRHO) = 1d0
+cc        endif
+
+        if (adiabatic) then
+          var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p !Transform to electron pressure
+        else
+          var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Transform to temperature
+        endif
 #endif
 
       case ('tor')
@@ -1714,6 +1843,8 @@ c     Read VMEC equilibrium
 
         nh2 =  mm       !To set the right perturbation wavelength
         nh3 = -nn       !To set the right perturbation wavelength
+
+        nh1 = nh2       !For perturbations to be of the right order
 
         !Build equilibrium
 
@@ -1747,30 +1878,32 @@ c     Read VMEC equilibrium
           enddo
         enddo
 #else
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
+        call pstop('setEquilibrium','Equilibrium not working')
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-
-              !X-Y equilibrium
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = btheta
-              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              !X-Y equilibrium
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta
+cc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
       case default
@@ -1787,6 +1920,16 @@ c Find momentum components
         var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
         var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
       endif
+
+c Find equilibrium current (-> jcov_0)
+
+#if defined(vec_pot)
+      acov = var(:,:,:,IAX:IAZ)
+#else
+      bcnv = var(:,:,:,IBX:IBZ)
+#endif
+
+      call findEquilJ
 
 c Transfer electric field info to postprocessor via input file
 
@@ -2080,161 +2223,299 @@ c End program
 
       end subroutine fillVectorPotential
 
-c findVectorPotential
+ccc findVectorPotential
+ccc####################################################################
+cc      subroutine findVectorPotential(v,b,a_cov)
+cc
+ccc--------------------------------------------------------------------
+ccc     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
+ccc     field components with gauge:
+ccc                grad(phi + eta div(a)) = 0
+ccc
+ccc     On input:
+ccc       * v -> cnv velocity
+ccc       * b -> cnv magnetic field
+ccc     On output:
+ccc       * a -> cov vector potential
+ccc--------------------------------------------------------------------
+cc
+cc      use parameters
+cc
+cc      use grid_aliases
+cc
+cc      use equilibrium
+cc
+cc      use precond_variables, ONLY: poisson
+cc
+cc      use  mg_internal, ONLY: mapMGVectorToArray
+cc
+cc      use operators
+cc
+cc      use imposeBCinterface
+cc
+cc      use timeStepping
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .             ,b(0:nxdp,0:nydp,0:nzdp,3)
+cc
+ccc Local variables
+cc
+cc      integer    :: i,j,k,igrid,ii,bcnd(6,3)
+cc      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
+cc     .             ,cai_rhs(ntotdp),caiv(ntotdp)
+cc     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
+cc     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
+cc     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .             ,a(0:nxdp,0:nydp,0:nzdp,3)
+cc
+cc      logical    :: spoint
+cc
+ccc Begin program
+cc
+cc      igrid = 1
+cc
+cc      nx = grid_params%nxv(igrid)
+cc      ny = grid_params%nyv(igrid)
+cc      nz = grid_params%nzv(igrid)
+cc
+ccc Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
+cc
+cccc      call findScalarPotential(v
+cccc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+cccc     .                        ,phi)
+cc
+ccc Find vector potential with gauge Ax = 0 in GLOBAL domain
+cc
+cc      call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
+cc
+ccc Restrict solution to current domain
+cc
+cc      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
+cc     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+cc
+ccc Impose **topological constraints** and find a_cnv
+cc
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cccc      where (bcnd == DEF) bcnd = EXT
+cc
+cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+cc     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
+cc
+ccc Transform A to gauge div(A)=0
+cc
+cc      !Find gauge transformation potential cai
+cc      do k=klo,khi
+cc        do j=jlo,jhi
+cc          do i=ilo,ihi
+cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc            if (vol_wgt) then
+cc              dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc            else
+cc              dvol = 1d0
+cc            endif
+cc
+cc            cai_rhs(ii)=-dvol*(div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                            ,a_cnv(:,:,:,1)
+cc     .                            ,a_cnv(:,:,:,2)
+cc     .                            ,a_cnv(:,:,:,3)))
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      !Transform A (if rhs /= 0d0)
+cc      if (sqrt(sum(cai_rhs*cai_rhs)) > 0d0) then
+cc
+cc        !Solve Poisson problem to find Gauge potential cai
+cc#if defined(petsc)
+cc        call pstop('findVectorPotential'
+cc     .          ,'Poisson solver not implemented in parallel')
+cc#else
+cc        write (*,*) 'Solving for Gauge potential'
+cc
+cc        !Define BCs
+cc        bcnd(:,1) = bcond
+cc        where (bcnd == DEF) bcnd = DIR
+cc
+cc        !Solve Poisson eq
+cc        call poisson(ntotdp,cai_rhs,caiv,30,1d-6,bcnd(:,1),ilevel,0)
+cc
+cc        !Map to array (w BCs)
+cc        call mapMGVectorToArray(0,1,caiv,nx,ny,nz,cai,igrid,.false.)
+cc
+cc        call setBC(IRHO,nx,ny,nz,cai,zeros,bcnd(:,1),igrid,igrid,igrid
+cc     .            ,iorder=2)
+cc#endif
+cc
+cc        !Gauge transformation A' = A + grad(cai)
+cc        do k=klom,khip
+cc          do j=jlom,jhip
+cc            do i=ilom,ihip
+cc              call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,cai
+cc     .                 ,cov(1),cov(2),cov(3))
+cc              a_cov(i,j,k,:) = a_cov(i,j,k,:) + cov
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      endif
+cc
+ccc Set boundary values to face values for EQU BC
+cc
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc      where (bcnd == DEF) bcnd = -IFC
+cc
+cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,a,bcnd,igrid,igrid,igrid
+cc     .          ,is_cnv=.false.)
+cc
+ccc End program
+cc
+cc      end subroutine findVectorPotential
+
+c findEquilJ
 c####################################################################
-      subroutine findVectorPotential(v,b,a_cov)
+      subroutine findEquilJ
 
 c--------------------------------------------------------------------
-c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
-c     field components with gauge:
-c                grad(phi + eta div(a)) = 0
-c
-c     On input:
-c       * v -> cnv velocity
-c       * b -> cnv magnetic field
-c     On output:
-c       * a -> cov vector potential
+c     Finds equilibrium current from vector vv (either acov, or bcnv,
+c     depending on whether we are using B or A).
 c--------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
-      use equilibrium
-
-      use precond_variables
-
-      use matvec
+      use auxiliaryVariables
 
       use operators
-
-      use imposeBCinterface
 
       implicit none
 
 c Call variables
 
-      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,b(0:nxdp,0:nydp,0:nzdp,3)
-
 c Local variables
 
-      integer    :: igrid,ii,bcnd(6,3)
-      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
-     .             ,cai_rhs(ntotdp),caiv(ntotdp)
-     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,a(0:nxdp,0:nydp,0:nzdp,3)
-
-      logical    :: spoint
+      integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
 
 c Begin program
 
-      igrid = 1
+cc      jcov_0 = 0d0
+cc      return
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      igx = 1
+      igy = 1
+      igz = 1
 
-c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
-cc      call findScalarPotential(v
-cc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-cc     .                        ,phi)
+c Check for imposed electric field
 
-c Find vector potential with gauge Ax = 0 in GLOBAL domain
+      if (sum(E0) /= 0d0) then
+        jcov_0(:,:,:,1) = E0(1)/eta
+        jcov_0(:,:,:,2) = E0(2)/eta
+        jcov_0(:,:,:,3) = E0(3)/eta
+        return
+      endif
 
-      call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
+c Define extrapolation BCs
 
-c Restrict solution to current domain
+      call defineBoundaryConditions(neqd,bcs)
 
-      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
-     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc      where (bcnd == DEF) bcnd = -EXT !Extrapolate covariant components
 
-c Impose **topological constraints** and find a_cnv
+c Find magnetic field (A version)
 
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
-cc      where (bcnd == DEF) bcnd = EXT
+#if defined(vec_pot)
 
-      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
+      bcnd = bcs(:,IAX:IAZ)
+      where (bcnd == -EQU)
+        bcnd = -EXT             !Extrapolate covariant components
+      end where
 
-c Transform A to gauge div(A)=0
+      call setBC(IAX,3,nx,ny,nz,acnv,acov,acov,bcnd,igx,igy,igz
+     .          ,is_cnv=.false.,iorder=2)
 
-      !Find gauge transformation potential cai
-      do k=klo,khi
-        do j=jlo,jhi
-          do i=ilo,ihi
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            do icomp=1,3
+              bcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                ,acov(:,:,:,1)
+     .                                ,acov(:,:,:,2)
+     .                                ,acov(:,:,:,3),icomp)
+            enddo
+          enddo
+        enddo
+      enddo
+#else
 
-            if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-            else
-              dvol = 1d0
-            endif
+      bcnd = bcs(:,IBX:IBZ)
+      where (bcnd == -NEU)
+        bcnd = -EXT             !Extrapolate covariant components
+      end where
 
-            cai_rhs(ii)=-dvol*(div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                            ,a_cnv(:,:,:,1)
-     .                            ,a_cnv(:,:,:,2)
-     .                            ,a_cnv(:,:,:,3)))
+#endif
+
+c     Extrapolate covariant magnetic field to ghost cells
+
+      call setBC(IBX,3,nx,ny,nz,bcnv,bcov,vzeros,bcnd,igx,igy,igz
+#if defined(vec_pot)
+     .          ,is_cnv=.true.,iorder=1)
+#else
+     .          ,is_cnv=.true.,iorder=3)
+#endif
+cc      do k = 0,nz+1
+cc        do j = 0,ny+1
+cc          do i = 0,nx+1
+cc            bcov(i,j,k,:)=matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
+cc     .                          ,bcnv(i,j,k,:))
+cc          enddo
+cc        enddo
+cc      enddo
+
+      !Find equilibrium current (with BCs)
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            do icomp=1,3
+              jcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                ,bcov(:,:,:,1)
+     .                                ,bcov(:,:,:,2)
+     .                                ,bcov(:,:,:,3),icomp)
+            enddo
+
+cc            jcov_0(i,j,k,:) =
+cc     .             matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
+cc     .                   ,jcnv(i,j,k,:))
           enddo
         enddo
       enddo
 
-      !Transform A (if rhs /= 0d0)
-      if (sqrt(sum(cai_rhs*cai_rhs)) > 0d0) then
-
-        !Solve Poisson problem to find Gauge potential cai
-#if defined(petsc)
-        call pstop('findVectorPotential'
-     .          ,'Poisson solver not implemented in parallel')
+      call setBC(IJX,3,nx,ny,nz,jcnv,jcov_0,vzeros,bcnd,igx,igy,igz
+#if defined(vec_pot)
+     .          ,is_cnv=.true.,iorder=1)
 #else
-        write (*,*) 'Solving for Gauge potential'
-
-        !Define BCs
-        bcnd(:,1) = bcond
-        where (bcnd == DEF) bcnd = DIR
-
-        !Solve Poisson eq
-        call poisson(ntotdp,cai_rhs,caiv,30,1d-6,bcnd(:,1),ilevel,0)
-
-        !Map to array (w BCs)
-        call mapMGVectorToArray(0,1,caiv,nx,ny,nz,cai,igrid,.false.)
-
-        call setBC(IRHO,nx,ny,nz,cai,zeros,bcnd(:,1),igrid,igrid,igrid
-     .            ,iorder=2)
+     .          ,is_cnv=.true.,iorder=2)
 #endif
-
-        !Gauge transformation A' = A + grad(cai)
-        do k=klom,khip
-          do j=jlom,jhip
-            do i=ilom,ihip
-              call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,cai
-     .                 ,cov(1),cov(2),cov(3))
-              a_cov(i,j,k,:) = a_cov(i,j,k,:) + cov
-            enddo
-          enddo
-        enddo
-
-      endif
-
-c Set boundary values to face values for EQU BC
-
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
-      where (bcnd == DEF) bcnd = -IFC
-
-      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,a,bcnd,igrid,igrid,igrid
-     .          ,is_cnv=.false.)
+cc      write (*,*) jcov_0(:,10,1,1)
+cc      write (*,*)
+cc      write (*,*) jcov_0(:,10,1,2)
+cc      write (*,*)
+cc      write (*,*) jcov_0(:,10,1,3)
 
 c End program
 
-      end subroutine findVectorPotential
+      end subroutine findEquilJ
 
 ccc findScalarPotential
 ccc####################################################################
