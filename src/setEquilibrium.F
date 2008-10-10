@@ -2404,8 +2404,8 @@ c Local variables
 
 c Begin program
 
-cc      jcov_0 = 0d0
-cc      return
+      jcov_0 = 0d0
+      return
 
       igx = 1
       igy = 1
