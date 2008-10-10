@@ -25,13 +25,17 @@ c ######################################################################
 
         use newtongm
 
-        integer    :: i,j,k,ig,jg,kg,ieq
-        real(8)    :: x1,y1,z1
-        logical    :: cartsn,covariant,to_cartsn,to_cnv
+        use grid_debug
 
-        integer    :: ntotd2p,si_it,ores=2,oprol=2
+        integer :: i,j,k,ig,jg,kg,ieq
+        real(8) :: x1,y1,z1
+        logical :: cartsn,covariant,to_cartsn,to_cnv
 
+        integer :: ntotd2p,si_it,ores=2,oprol=2
+        real(8) :: omeg_smth
         character(2) :: smooth
+        logical :: gm_smooth,mg_glrkin,si_car,gm_coarse
+     .            ,line_relax,inv_B,divCln=.false.,v_solve
 
 cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
@@ -59,8 +63,6 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 
 #endif
-        logical :: gm_smooth,mg_glrkin,si_car,gm_coarse
-     .            ,line_relax,inv_B,divCln,v_solve
 
       contains
 
