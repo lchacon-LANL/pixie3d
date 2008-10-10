@@ -1,17 +1,3 @@
- 
- ***********************************************
- ****** PIXIE3D Extended MHD code, V. 0.9 ******
- ******       Developer: L. Chacon        ******
- ******  Los Alamos National Laboratory   ******
- ******       Los Alamos, NM 87545        ******
- ******           LA-CC 07-005            ******
- ***********************************************
- 
- ****************** NOTICES ******************
- Using MAGNETIC FIELD version
- Using non-conservative JxB     part of EOM
- Using non-conservative grad(p) part of EOM
- ****************** NOTICES ******************
 
   Grid mesh:................   32x   32x    1
   Number of grid levels:....    4,    4,    1
