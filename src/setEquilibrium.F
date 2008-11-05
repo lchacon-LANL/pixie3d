@@ -33,8 +33,6 @@ c--------------------------------------------------------------------
 
       use oned_int
 
-      use vectorOps
-
       use imposeBCinterface
 
       use app_iosetup
@@ -64,14 +62,14 @@ c Local variables
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
-     .                ,phi,rho_norm
+     .                ,phi,rho_norm,beta_tor
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
      .                ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
-     .                ,jz0 (0:nxdp),bth0_old(0:nxdp)
+     .                ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
      .                ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
-     .                ,dum (ilom:ihip,2)
+     .                ,q00(0:nxdp),dum (ilom:ihip,2)
      .                ,ldum(ilom:ihip,2)
      .                ,r2  (ilom:ihip,jlom:jhip)
 
@@ -84,6 +82,9 @@ c Local variables
 #endif
 
 c Functions
+
+      real(8) :: qprof,pprof
+      external   qprof,pprof
 
       !q-profile
       qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
@@ -1669,19 +1670,10 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 #if defined(vmec)
 
-      case ('vmec')
-
-cc        mm = grid_params%params(1)
-cc        nn = grid_params%params(2)
-
-cc        RR = 1d0   !To avoid affecting q-profile
-cc
-cc        kk = 0d0   !To avoid affecting q-profile
-
-cc        nh2 =  mm       !To set the right perturbation wavelength
-cc        nh3 = -nn       !To set the right perturbation wavelength
+      case ('vmec')    
 
         nh1 = nh2       !For perturbations to be of the right order in radius
+                        !(nh2,nh3 set by input file)
 
         if (nh2 == 0 .or. nh3 == 0) then
           messg='Perturbation harmonics for "vmec" equilibrium not set'
@@ -1906,6 +1898,100 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
+      case ('ntm2d')
+
+        bootstrap= .true.
+
+        mm       = grid_params%params(1) !Poloidal mode number
+        kk       = grid_params%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
+        RR       = grid_params%params(3) !Major radius (determines aspect ratio)
+        bz0      = grid_params%params(4) !Toroidal field at magnetic axis
+        beta_tor = grid_params%params(5) !Beta toroidal
+
+        nh2 = mm  !To set the right perturbation wavelength
+        nh1 = nh2 !For perturbations to be of the right order
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Equilibria (numerical)
+
+        !Find pressure and q-profiles
+        do i=0,nxdp
+          x1  = grid_params%xg(i)
+          p00(i) = 0.5*beta_tor*bz0**2*pprof(x1)/pprof(0d0)
+          q00(i) = RR*qprof(x1)
+        enddo
+
+        !Initialize toroidal field
+        bzz0 = bz0  
+
+        !Solve 1D Grad-Shafranov equation
+        call GS_equil_1d(q00,p00,bth0,bzz0)
+
+        !Build equilibrium
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              iglobal = i + grid_params%ilo(igx) - 1
+
+              !X-Y equilibrium
+#if !defined(vec_pot)
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/nh2*bzz0(iglobal)
+              var(i,j,k,IBZ) = x1*bzz0(iglobal)
+#endif
+              var(i,j,k,IVX) = 0d0
+              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVZ) = 0d0
+
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,ITMP) = 0.5*p00(iglobal)/var(i,j,k,IRHO)
+
+            enddo
+          enddo
+        enddo
+
+#if defined(vec_pot)
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+cc        !Shift vr for EQU BC
+cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cccc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
+cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+cc     .                              +var(ihi+1,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+cc        endif
+
       case default
 
         messg = 'Equilibrium '//trim(equil)//' undefined'
@@ -2080,6 +2166,237 @@ c     Evaluate magnetic field
       end subroutine B_from_q
 
       end subroutine setEquilibrium
+
+c     GS_equil_1d
+c     ###############################################################
+      subroutine GS_equil_1d(Rxq0,p0,bth0,bzz0)
+
+c     ---------------------------------------------------------------
+c     Solves 1D Grad-Shafranov equation to find cylindrical components
+c     of magnetic field B_theta, B_z from specified q-profile and
+c     pressure profile. On input:
+c       * RR: major radius (aspect ratio -> 1/RR)
+c       * Rxq0,p0: normalized q-profile (RR x q) and pressure profile
+c       * bth0,bzz0: output magnetic field components (bzz0 contains
+c                    initial guess, and bzz0(0) contains value at axis)
+c     ---------------------------------------------------------------
+
+        use parameters
+
+        use equilibrium
+
+        use grid
+
+        use app_iosetup
+
+        implicit none
+
+c     Call variables
+
+        real(8)    :: bth0(0:nxdp),bzz0(0:nxdp)
+     .               ,p0(0:nxdp),Rxq0(0:nxdp)
+
+c     Local variables
+
+        integer    :: i,j,k,ig,jg,kg,it
+        real(8)    :: dr,bz_avg,x1,bzh,bth,err,rh
+
+        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
+     .               ,bzz0_old(0:nxdp),p0h(0:nxdp),q0h(0:nxdp)
+
+c     Begin program
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,*) '************************************'
+          write (*,*) '1D Grad-Shafranov equilibrium solver'
+          write (*,*) '************************************'
+          write (*,*)
+        endif
+
+c       Initialize iteration
+
+        bz0 = bzz0(0)
+
+        !Average pressure and q-profiles to half mesh
+        do i=0,nxd
+          p0h(i) = 0.5*(p0(i)+p0(i+1)) !Average pressure to half mesh
+          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average pressure to half mesh
+        enddo
+
+c       Iteration
+
+        do it=1,100
+
+          bth0_old = bth0
+          bzz0_old = bzz0
+
+          !Perform integral of B_z/qprof on half-mesh
+          dummy(0) = 0d0
+          bzz0 (0) = bz0
+          do i=1,nxd
+cc            x1 = i*dr
+cc            rh  = 0.5*(2*i-1)*dr
+
+            x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+            dr  =      grid_params%xg(i+1)-grid_params%xg(i)
+            rh  = grid_params%xg(i)
+
+            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+
+            dummy(i) = dummy(i-1) + 2*(bzh/Rxq0(i))**2*rh*dr
+          enddo
+
+          !Calculate Bz, Btheta on half-mesh
+          do i=0,nxd
+cc            x1 = i*dr
+            x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+
+cc            p0  (i) = p00*pprof(x1)
+            bzz0(i) = sqrt((bz0**2+2*(p0h(0)-p0h(i))
+     .                 -dummy(i))/((x1/q0h(i))**2+1))
+            bth0(i) = x1*bzz0(i)/q0h(i)
+          enddo
+
+          !Check convergence
+          err = sqrt(0.5*(sum((bth0-bth0_old)**2)
+     .                   +sum((bzz0-bzz0_old)**2))/nxdp)
+
+          if (ilevel > 0 .and. my_rank == 0) then
+            write (*,*) '1D Grad-Shafranov equilibrium iter =',it
+     .                 ,' ; Error=',err
+          endif
+
+          dr = xmax/nxd
+          if (err < 0.01*dr**2) exit
+
+        enddo
+
+        if (ilevel == 0 .and. my_rank == 0) then
+           write (*,'(a,i3,a,1pe10.2)')
+     .          ' 1D equilibrium converged in '
+     .          ,it,' iterations with error =',err
+        endif
+
+        !Check force balance
+        do i=1,nxd
+cc          rh  = 0.5*(2*i-1)*dr
+          dr  = grid_params%xg(i+1)-grid_params%xg(i)
+          rh  = grid_params%xg(i)
+
+          bzh = 0.5*(bzz0(i)+bzz0(i-1))
+          bth = 0.5*(bth0(i)+bth0(i-1))
+          dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr
+     .                   +(p0h (i)-p0h (i-1))/dr
+     $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+        enddo
+
+        if (my_rank == 0) then
+          write(*,*)
+          write(*,'(a,1pe14.7)') ' Force-balance error ='
+     .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
+        endif
+
+        !Calculate GS equilibrium properties
+        bz_avg = 0d0
+        do i=1,nxd
+          x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr  =      grid_params%xg(i+1)-grid_params%xg(i)
+          bz_avg = bz_avg + 2*bzz0(i)*x1*dr
+        enddo
+
+        if (my_rank == 0) then
+          write (*,*) 
+          write (*,999) ' 1D GS equilibrium properties:'
+          write (*,999) '   Theta  =',bth0(nxd)/bz_avg
+          write (*,999) '   Bz(r=0)=',bzz0(0)
+          write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
+          write (*,999) '   beta_t =',2*p0h(0)/(bzz0(0)**2)
+          write (*,999) '   beta_p =',2*p0h(0)/(bth0(nxd)**2)
+ 999      format (a,f10.7)
+        endif
+
+        !Save some equilibrium properties (to calculate bootstrap current)
+        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+
+        !Transfer to integer mesh
+        bth0(1:nxd) = 0.5*(bth0(0:nxd-1)+bth0(1:nxd))
+        bzz0(1:nxd) = 0.5*(bzz0(0:nxd-1)+bzz0(1:nxd))
+
+      end subroutine GS_equil_1d
+
+c     qprof
+c     ###############################################################
+      function qprof(r)
+
+c     ---------------------------------------------------------------
+c     Finds cylindrical components of magnetic field B_theta, B_z
+c     from q profile.
+c     ---------------------------------------------------------------
+
+        use equilibrium
+
+        implicit none
+
+c     Call variables
+
+        real(8)    :: qprof,r
+
+c     Local variables
+
+        integer :: p
+        real(8) :: q0,qa
+
+c     Begin program
+
+        select case(equil)
+        case('ntm2d')
+
+          q0 = 1.02
+          qa = 4.
+          p  = 1
+
+          qprof = q0*(1+r**(2*p)*( (qa/q0)**p - 1 ))**(1./p)
+
+        end select
+
+c     End program
+
+      end function qprof
+
+c     pprof
+c     ###############################################################
+      function pprof(r)
+
+c     ---------------------------------------------------------------
+c     Finds cylindrical components of magnetic field B_theta, B_z
+c     from q profile.
+c     ---------------------------------------------------------------
+
+        use equilibrium
+
+        implicit none
+
+c     Call variables
+
+        real(8)    :: pprof,r
+
+c     Local variables
+
+c     Begin program
+
+        select case(equil)
+        case('ntm2d')
+
+          pprof = (1-r**2)**4
+
+        end select
+
+c     End program
+
+      end function pprof
 
 c fillVectorPotential
 c####################################################################
@@ -2404,8 +2721,8 @@ c Local variables
 
 c Begin program
 
-      jcov_0 = 0d0
-      return
+cc      jcov_0 = 0d0
+cc      return
 
       igx = 1
       igy = 1
