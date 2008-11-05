@@ -37,7 +37,8 @@ c Local variables
       integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
       real(8)    :: dh,vmax,cnv(3),cov(3),minrho,mintmp,lrmin,ltmin
-     .             ,pp(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,pp(ilom:ihip,jlom:jhip,klom:khip),eps,betap,qa,jbs
+     .             ,x1,y1,z1,bnorm
 
 c Interfaces
 
@@ -112,7 +113,7 @@ cc        if (my_rank == 0) write (*,*) 'rho=',minrho
 
       if (mintmp < 0d0) then
         close (urecord) !Close record file before exiting
-        write(*,*)'proc=',my_rank,'tmp=',ltmin,'loc='
+        write(*,*)'proc=',my_rank,'tmp=',mintmp,'loc='
      $            ,minloc(tmp(1:nx,1:ny,1:nz))
         call pstop('setupNonlinearFunction',
      .             'Warning: negative temperatures are occurring')
@@ -128,25 +129,82 @@ c Viscosity (resistivity found in BC routine)
         enddo
       enddo
 
+c Bootstrap current (NTM)
+
+      if (bootstrap) then
+        !Get equilibrium configuration
+        eps   = eq_params(1)
+        betap = eq_params(2)
+        qa    = eq_params(3)
+
+        pp = a_p*rho*tmp
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                      ,ig,jg,kg,x1,y1,z1)
+
+              call grad(i,j,k,nx,ny,nz,igx,igy,igz,pp
+     .                 ,cov(1),cov(2),cov(3))
+
+              bnorm = vectorNorm(i,j,k,igx,igy,igz
+     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
+     .                       ,.false.)
+
+              bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)  !Store B/|B| unit vector for nabla_// operator
+
+              jbs = -0.5*sqrt(eps*abs(x1)/bnorm)*betap/qa*cov(1)
+
+              j_bs(i,j,k,:) = jbs*bcov(i,j,k,:)          !Form J_parallel
+            enddo
+          enddo
+        enddo
+
+cc        if (my_rank == 0) write (*,*) 'DIAG -- setupNLF'
+cc        j_bs = 0d0
+
+      else
+        j_bs = 0d0
+
+        if (chi_par > 0d0) then
+          !Store B/|B| unit vector
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                bnorm = vectorNorm(i,j,k,igx,igy,igz
+     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
+     .                       ,.false.)
+
+                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+              enddo
+            enddo
+          enddo
+        endif
+
+      endif
+
 c Resistive term
 
 cc      if (source .and. jit == -2) jcov_0 = jcov
 
 #if !defined(vec_pot)
+      E_ni(:,:,:,1) = -eeta*(jcov(:,:,:,1)-j_bs(:,:,:,1))
+      E_ni(:,:,:,2) = -eeta*(jcov(:,:,:,2)-j_bs(:,:,:,2))
+      E_ni(:,:,:,3) = -eeta*(jcov(:,:,:,3)-j_bs(:,:,:,3))
+
       if (source) then
-        E_ni(:,:,:,1) = -eeta*(jcov  (:,:,:,1)
-     .                        -jcov_0(:,:,:,1))
-        E_ni(:,:,:,2) = -eeta*(jcov  (:,:,:,2)
-     .                        -jcov_0(:,:,:,2))
-        E_ni(:,:,:,3) = -eeta*(jcov  (:,:,:,3)
-     .                        -jcov_0(:,:,:,3))
-      else
-        E_ni(:,:,:,1) = -eeta*jcov  (:,:,:,1)
-        E_ni(:,:,:,2) = -eeta*jcov  (:,:,:,2)
-        E_ni(:,:,:,3) = -eeta*jcov  (:,:,:,3)
+        E_ni(:,:,:,1) = E_ni(:,:,:,1)+eeta*jcov_0(:,:,:,1)
+        E_ni(:,:,:,2) = E_ni(:,:,:,2)+eeta*jcov_0(:,:,:,2)
+        E_ni(:,:,:,3) = E_ni(:,:,:,3)+eeta*jcov_0(:,:,:,3)
       endif
 #else
-      E_ni = 0d0
+      E_ni(:,:,:,1) = eeta*j_bs(:,:,:,1)
+      E_ni(:,:,:,2) = eeta*j_bs(:,:,:,2)
+      E_ni(:,:,:,3) = eeta*j_bs(:,:,:,3)
 #endif
 
 c Electron forces (covariant vector)
