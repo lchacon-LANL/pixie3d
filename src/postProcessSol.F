@@ -46,12 +46,13 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-cc      if (adiabatic .and. (.not.solve_rho)) then
-cc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-cc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
-cc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-cc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
-cc      endif
+      if (adiabatic .and. (.not.solve_rho)) then
+        if (my_rank == 0) write (*,*) 'Postprocessing density'
+        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
+     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+      endif
 
 #if !defined(vec_pot) 
 
