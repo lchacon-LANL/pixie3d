@@ -25,8 +25,6 @@ c--------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use vectorOps
-
       use imposeBCinterface
 
       use diag_setup
@@ -378,8 +376,8 @@ c FIX PARALLEL
                 v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dyh(jg)
                 if (coords == 'hel') then
                   q00(i,1) = q00(i,1)
-     .                + mm*bcnv(i,j,k,3)/RR
-     .                   /(bcnv(i,j,k,2)-kk*bcnv(i,j,k,3))*dyh(jg)
+     .                + bcnv(i,j,k,3)/RR
+     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dyh(jg)
                 else
                   q00(i,1) = q00(i,1)
      .                     + bcnv(i,j,k,3)/bcnv(i,j,k,2)*dyh(jg)
@@ -409,7 +407,8 @@ c FIX PARALLEL
             do i = iming,imaxg
               do j = jming,jmaxg
                 if (coords == 'hel') then
-                  qfactor(i,j,k) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
+                  qfactor(i,j,k) = b00(i,3)/RR
+     .                           /(b00(i,2)-kk/mm*b00(i,3))
                 else
                   qfactor(i,j,k) = b00(i,3)/b00(i,2)
                 endif
