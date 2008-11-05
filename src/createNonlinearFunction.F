@@ -61,7 +61,9 @@ c Begin program
      .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vlap  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3))
+     .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,j_bs  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bhat  (ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
         allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -154,7 +156,7 @@ c Begin program
 
         deallocate (eeta,nuu)
 
-        deallocate (vcnv,vcov,vlap,E_ni,jcov_0)
+        deallocate (vcnv,vcov,vlap,E_ni,jcov_0,j_bs,bhat)
 
 #if defined(vec_pot)
         deallocate (acnv,acov,vlap_a)
