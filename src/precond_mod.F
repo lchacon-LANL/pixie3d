@@ -797,8 +797,6 @@ c     ---------------------------------------------------------------
 
       use setMGBC_interface
 
-      use vectorOps
-
       implicit none
 
 c     Call variables
