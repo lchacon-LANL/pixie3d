@@ -41,6 +41,7 @@
     timecorr = f
     predictor= f
 
+    solve_rho= t
     adiabatic= t
     source   = t
 
