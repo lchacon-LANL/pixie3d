@@ -1078,7 +1078,6 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-cc     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.,iorder=2)
      .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=2)
 
@@ -1179,7 +1178,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
               if (isSP(i,j,k,igrid,igrid,igrid)) then
                 flxim = 0d0
               else
-                flxim = 0.5/(jac+jacim+ SP_flsv)*(
+                flxim = 0.5/(jac+jacim)*(
      .           (    (v0_cnv(i,j,k,1)+v0_cnv(im,j,k,1))
      .            +abs(v0_cnv(i,j,k,1)+v0_cnv(im,j,k,1)) )*db(im,j,k,2)
      .          +(    (v0_cnv(i,j,k,1)+v0_cnv(im,j,k,1))          
@@ -3021,6 +3020,8 @@ c Find limits for loops
       call limits(abs(gpos),nxx,nyy,nzz,igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
 
+cc      write (*,*) 'v_mtvc'
+
 c Define pointers to MG arrays
 
       rho0   => grho0  %grid(igrid)%array
@@ -3046,6 +3047,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
+cc      if (di > 0 .or. bcSP()) then
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
