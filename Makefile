@@ -32,8 +32,6 @@ PREPROC = -D
 
 HDF5 = t
 
-VMEC = t
-
 LIBS = -llapack -lblas
 
 # System-dependent variables
