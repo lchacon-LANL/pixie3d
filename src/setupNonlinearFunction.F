@@ -161,6 +161,16 @@ c Bootstrap current (NTM)
           enddo
         enddo
 
+        !Impose BCs on bootstrap current (extrapolate to wall)
+        bcnd(:,1) = varray%array_var(IBX)%bconds
+        bcnd(:,2) = varray%array_var(IBY)%bconds
+        bcnd(:,3) = varray%array_var(IBZ)%bconds
+cc        where (bcnd == -NEU) bcnd = -EQU !Use covariant components for tangential BCs
+        where (bcnd == -NEU) bcnd = -EXT !Use covariant components for tangential BCs
+
+        call setBC(IJX,3,nx,ny,nz,vdummy,j_bs,vzeros,bcnd
+     .            ,igx,igy,igz,iorder=2,is_cnv=.false.)
+
 cc        if (my_rank == 0) write (*,*) 'DIAG -- setupNLF'
 cc        j_bs = 0d0
 
