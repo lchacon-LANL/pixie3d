@@ -44,7 +44,7 @@ c ######################################################################
 
         use equilibrium
 
-        real(8) :: nu,eta,dd,chi,gamma,di,a_p
+        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,a_p
      .            ,heta=0d0,aa_eta,c_hyper
 
         integer :: nn_eta
@@ -230,8 +230,8 @@ c ######################################################################
         real(8),target,allocatable,dimension(:,:,:,:) ::vcnv,vcov
      .                                                 ,pcnv,vecnv
      .                                                 ,vdummy,E_ni
-     .                                                 ,vlap
-     .                                                 ,jcov_0
+     .                                                 ,vlap,bhat
+     .                                                 ,jcov_0,j_bs
 
         real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
 
@@ -2556,6 +2556,7 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
         ijac = 1d0/jac
+cc        if (isSP2(i+1,igx)) ijac = 0d0
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -6710,41 +6711,24 @@ cc        endif
         jac  = 0.5*(jacp+jac0)
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = 0d0
 
         ijac  = 1d0/jac
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
 cc        if (isSP(i+1,j,k,igx,igy,igz)) ijac = 1d0/SP_flsv
+cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = 0d0
 
         t11 = 0d0
 
-cc        if (solenoidal) then
-          t12 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,2)*ijac0
-     .               +vec1(ip,j,k,1)*vec2(ip,j,k,2)*ijacp)*jac
-     .         -0.5*( vec1(i ,j,k,2)*vec2(i ,j,k,1)*ijac0
-     .               +vec1(ip,j,k,2)*vec2(ip,j,k,1)*ijacp)*jac
-
-          t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)*ijac0
-     .               +vec1(ip,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
-     .         -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)*ijac0
-     .               +vec1(ip,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
-cc        else
-cc          t12 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
-cc     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0)*jac
-cc     .         -0.5*( vec1(ip,j,k,2)*vec2(i ,j,k,1)*ijac0
-cc     .               +vec1(i ,j,k,2)*vec2(ip,j,k,1)*ijacp)*jac
-cc
-cc          t13 = 0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0
-cc     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
-cc     .         -0.5*( vec1(ip,j,k,3)*vec2(i ,j,k,1)*ijac0
-cc     .               +vec1(i ,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
-cc        endif
-
-cc        if (isSP(i+1,j,k,igx,igy,igz)) then
-cc          write (*,*) t12,t13
-cc        endif
+        t12 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,2)*ijac0
+     .             +vec1(ip,j,k,1)*vec2(ip,j,k,2)*ijacp)*jac
+     .       -0.5*( vec1(i ,j,k,2)*vec2(i ,j,k,1)*ijac0
+     .             +vec1(ip,j,k,2)*vec2(ip,j,k,1)*ijacp)*jac                                                         
+        t13 = 0.5*( vec1(i ,j,k,1)*vec2(i ,j,k,3)*ijac0
+     .             +vec1(ip,j,k,1)*vec2(ip,j,k,3)*ijacp)*jac
+     .       -0.5*( vec1(i ,j,k,3)*vec2(i ,j,k,1)*ijac0
+     .             +vec1(ip,j,k,3)*vec2(ip,j,k,1)*ijacp)*jac
 
         if (flag /= 0) then
           t11 = t11*ijac
@@ -6792,7 +6776,6 @@ cc        endif
         jacp = gmetric%grid(igx)%jac(i,jp,k)
         jac0 = gmetric%grid(igx)%jac(i,j ,k)
         jac  = 0.5*(jacp+jac0)
-cc        jac  = 1d0
 
         ijac  = 1d0/jac
         ijacp = 1d0/jacp
@@ -6800,27 +6783,15 @@ cc        jac  = 1d0
 
         t22 = 0d0
 
-cc        if (solenoidal) then
-          t21 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,1)*ijac0
-     .               +vec1(i,jp,k,2)*vec2(i,jp,k,1)*ijacp)*jac
-     .         -0.5*( vec1(i,j ,k,1)*vec2(i,j ,k,2)*ijac0
-     .               +vec1(i,jp,k,1)*vec2(i,jp,k,2)*ijacp)*jac
+        t21 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,1)*ijac0
+     .             +vec1(i,jp,k,2)*vec2(i,jp,k,1)*ijacp)*jac
+     .       -0.5*( vec1(i,j ,k,1)*vec2(i,j ,k,2)*ijac0
+     .             +vec1(i,jp,k,1)*vec2(i,jp,k,2)*ijacp)*jac
 
-          t23 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,3)*ijac0
-     .               +vec1(i,jp,k,2)*vec2(i,jp,k,3)*ijacp)*jac
-     .         -0.5*( vec1(i,j ,k,3)*vec2(i,j ,k,2)*ijac0
-     .               +vec1(i,jp,k,3)*vec2(i,jp,k,2)*ijacp)*jac
-cc        else
-cc          t21 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijac0
-cc     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijacp)*jac
-cc     .         -0.5*( vec1(i,jp,k,1)*vec2(i,j ,k,2)*ijacp
-cc     .               +vec1(i,j ,k,1)*vec2(i,jp,k,2)*ijac0)*jac
-cc
-cc          t23 = 0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
-cc     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp)*jac
-cc     .         -0.5*( vec1(i,jp,k,3)*vec2(i,j ,k,2)*ijac0
-cc     .               +vec1(i,j ,k,3)*vec2(i,jp,k,2)*ijacp)*jac
-cc        endif
+        t23 = 0.5*( vec1(i,j ,k,2)*vec2(i,j ,k,3)*ijac0
+     .             +vec1(i,jp,k,2)*vec2(i,jp,k,3)*ijacp)*jac
+     .       -0.5*( vec1(i,j ,k,3)*vec2(i,j ,k,2)*ijac0
+     .             +vec1(i,jp,k,3)*vec2(i,jp,k,2)*ijacp)*jac
 
         if (flag /= 0) then
           t21 = t21*ijac
@@ -6875,27 +6846,15 @@ cc        endif
 
         t33 = 0d0
 
-cc        if (solenoidal) then
-          t31 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,1)*ijac0
-     .               +vec1(i,j,kp,3)*vec2(i,j,kp,1)*ijacp)*jac
-     .         -0.5*( vec1(i,j,k ,1)*vec2(i,j,k ,3)*ijac0
-     .               +vec1(i,j,kp,1)*vec2(i,j,kp,3)*ijacp)*jac
+        t31 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,1)*ijac0
+     .             +vec1(i,j,kp,3)*vec2(i,j,kp,1)*ijacp)*jac
+     .       -0.5*( vec1(i,j,k ,1)*vec2(i,j,k ,3)*ijac0
+     .             +vec1(i,j,kp,1)*vec2(i,j,kp,3)*ijacp)*jac
 
-          t32 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,2)*ijac0
-     .               +vec1(i,j,kp,3)*vec2(i,j,kp,2)*ijacp)*jac
-     .         -0.5*( vec1(i,j,k ,2)*vec2(i,j,k ,3)*ijac0
-     .               +vec1(i,j,kp,2)*vec2(i,j,kp,3)*ijacp)*jac
-cc        else
-cc          t31 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijac0
-cc     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijacp)*jac
-cc     .         -0.5*( vec1(i,j,kp,1)*vec2(i,j,k ,3)*ijac0
-cc     .               +vec1(i,j,k ,1)*vec2(i,j,kp,3)*ijacp)*jac
-cc
-cc          t32 = 0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijac0
-cc     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijacp)*jac
-cc     .         -0.5*( vec1(i,j,kp,2)*vec2(i,j,k ,3)*ijac0
-cc     .               +vec1(i,j,k ,2)*vec2(i,j,kp,3)*ijacp)*jac
-cc        endif
+        t32 = 0.5*( vec1(i,j,k ,3)*vec2(i,j,k ,2)*ijac0
+     .             +vec1(i,j,kp,3)*vec2(i,j,kp,2)*ijacp)*jac
+     .       -0.5*( vec1(i,j,k ,2)*vec2(i,j,k ,3)*ijac0
+     .             +vec1(i,j,kp,2)*vec2(i,j,kp,3)*ijacp)*jac
 
         if (flag /= 0) then
           t31 = t31*ijac
@@ -9182,6 +9141,330 @@ c     End program
 
       end subroutine eom_diff_z
 
+c     par_flux_2nd
+c     ################################################################
+      function par_flux_2nd(i,j,k,nx,ny,nz,igx,igy,igz,tmp,Bx,By,Bz
+     .                     ,limited,vol) result(par2)
+c     ----------------------------------------------------------------
+c     Calculates div.(BB.grad) in 2D with 2nd order accuracy. Vector
+c     B *must* be unitary.
+c     ----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer  :: i,j,k,nx,ny,nz,igx,igy,igz
+      real(8)  :: tmp(0:nx+1,0:ny+1,0:nz+1),par2
+      real(8)  :: Bx(0:nx+1,0:ny+1,0:nz+1)
+     .           ,By(0:nx+1,0:ny+1,0:nz+1)
+     .           ,Bz(0:nx+1,0:ny+1,0:nz+1)
+
+      logical,optional :: limited,vol
+
+c     Local variables
+
+      real(8)  :: Fluxx(i-1:i,j-1:j,k-1:k)
+     .           ,Fluxy(i-1:i,j-1:j,k-1:k)
+     .           ,Fluxz(i-1:i,j-1:j,k-1:k)
+
+      real(8)  :: bx2,by2,bxby,dtx,dty,a1,a2,sgn,bb,flx0,flxp
+      integer  :: ii,jj,kk,ig,jg,kg
+      logical  :: limit,symm,vol_wgt
+
+      real(8),dimension(:,:,:),pointer :: jac
+
+c     Begin program
+
+      Fluxx=0
+      Fluxy=0
+      Fluxz=0
+
+      if (PRESENT(limited)) then
+        limit = limited
+      else
+        limit = .true.
+      endif
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+cc      if (PRESENT(symmetric)) then
+cc        symm = symmetric
+cc      else
+cc        symm = .false.
+cc      endif
+
+      jac => gmetric%grid(igx)%jac
+
+c     Symmetric discretization
+
+cc      if (symm) then
+
+        do kk = k-1,k
+          do jj = j-1,j
+            do ii = i-1,i
+              call getMGmap(ii,jj,kk,igx,igy,igz,ig,jg,kg)
+
+              bx2 = (.25*(bx(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
+     .                   +bx(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
+     .                   +bx(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
+     .                   +bx(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
+     .             *(.25*(bx(ii  ,jj  ,kk)
+     .                   +bx(ii+1,jj  ,kk)
+     .                   +bx(ii  ,jj+1,kk)
+     .                   +bx(ii+1,jj+1,kk)))
+              bxby= (.25*(bx(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
+     .                   +bx(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
+     .                   +bx(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
+     .                   +bx(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
+     .             *(.25*(by(ii  ,jj  ,kk)
+     .                   +by(ii+1,jj  ,kk)
+     .                   +by(ii  ,jj+1,kk)
+     .                   +by(ii+1,jj+1,kk)))
+              by2 = (.25*(by(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
+     .                   +by(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
+     .                   +by(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
+     .                   +by(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
+     .             *(.25*(by(ii  ,jj  ,kk)
+     .                   +by(ii+1,jj  ,kk)
+     .                   +by(ii  ,jj+1,kk)
+     .                   +by(ii+1,jj+1,kk)))
+
+              dtx = .5*(tmp(ii+1,jj  ,kk)-tmp(ii,jj  ,kk)
+     .                 +tmp(ii+1,jj+1,kk)-tmp(ii,jj+1,kk))/dx(ig)
+              dty = .5*(tmp(ii  ,jj+1,kk)-tmp(ii  ,jj,kk)
+     .                 +tmp(ii+1,jj+1,kk)-tmp(ii+1,jj,kk))/dy(jg)
+
+              Fluxx(ii,jj,kk)= bx2*dtx + bxby*dty
+              Fluxy(ii,jj,kk)= by2*dty + bxby*dtx
+              Fluxz(ii,jj,kk) = 0d0
+            enddo
+          enddo
+        enddo
+
+        !Average fluxes from vertices to faces
+        Fluxx(:,j,k) = 0.25*(Fluxx(:,j,k  )+Fluxx(:,j-1,k  )
+     .                      +Fluxx(:,j,k-1)+Fluxx(:,j-1,k-1))
+
+        Fluxy(i,:,k) = 0.25*(Fluxy(i,:,k  )+Fluxy(i-1,:,k  )
+     .                      +Fluxy(i,:,k-1)+Fluxy(i-1,:,k-1))
+
+        Fluxz(i,j,:) = 0.25*(Fluxz(i,j  ,:)+Fluxz(i-1,j  ,:)
+     .                      +Fluxz(i,j-1,:)+Fluxz(i-1,j-1,:))
+
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+        par2 = (Fluxx(i,j,k)-Fluxx(i-1,j,k))/dxh(ig)
+     .        +(Fluxy(i,j,k)-Fluxy(i,j-1,k))/dyh(jg)
+     .        +(Fluxz(i,j,k)-Fluxz(i,j,k-1))/dzh(kg)
+
+        if (vol_wgt) par2=par2*gmetric%grid(igx)%dvol(i,j,k)
+
+ccc     Uncomment this for dding straight co-directed derivatives
+cc
+cc        !Add diagonally dominant part
+cc        do i = 0,nx
+cc          call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz)
+cc     .                +(0.5*(bx (i+1,1:ny,1:nz)+bx (i,1:ny,1:nz)))**2
+cc     .                     *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
+cc        enddo
+cc
+cc        do j = 0,ny
+cc          call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz)
+cc     .                +(0.5*(by (1:nx,j+1,1:nz)+by (1:nx,j,1:nz)))**2
+cc     .                     *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
+cc        enddo
+cc
+cc        do k = 0,nz
+cc          call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
+cc     .                +(0.5*(bz (1:nx,1:ny,k+1)+bz (1:nx,1:ny,k)))**2
+cc     .                     *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
+cc        enddo
+
+ccc     Asymmetric discretization
+cc
+cc      else
+cc
+cc        if (limit) then !Limited differences (Sharma, Hammett, JCP 227 (2007))
+cc
+cc          !X-component cross flux
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 0,nx
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                bxby = 0.5*(bx(i  ,j,k)*by(i  ,j,k)
+cc     .                     +bx(i+1,j,k)*by(i+1,j,k))
+cc
+cc                flx0 = mc(tmp(i,j  ,k)-tmp(i,j-1,k)
+cc     .                   ,tmp(i,j+1,k)-tmp(i,j  ,k))
+cc                flxp = mc(tmp(i+1,j  ,k)-tmp(i+1,j-1,k)
+cc     .                   ,tmp(i+1,j+1,k)-tmp(i+1,j  ,k))
+cc
+cc                Fluxx(i,j,k)= bxby/dyh(jg)*mc(flx0,flxp)
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc          !Y-component cross flux 
+cc          do k = 1,nz
+cc            do j = 0,ny
+cc              do i = 1,nx
+cc
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                bxby = 0.5*(bx(i,j  ,k)*by(i,j  ,k)
+cc     .                     +bx(i,j+1,k)*by(i,j+1,k))
+cc
+cc                flx0 = mc(tmp(i  ,j,k)-tmp(i-1,j,k)
+cc     .                   ,tmp(i+1,j,k)-tmp(i  ,j,k))
+cc                flxp = mc(tmp(i  ,j+1,k)-tmp(i-1,j+1,k)
+cc     .                   ,tmp(i+1,j+1,k)-tmp(i  ,j+1,k))
+cc
+cc                Fluxy(i,j,k)= bxby/dxh(ig)*mc(flx0,flxp)
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        else !Standard central average
+cc
+cc          !X-component cross flux
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 0,nx
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                Fluxx(i,j,k)= 0.125/dyh(jg)
+cc     .             *(bx(i  ,j,k)*by(i  ,j,k)
+cc     .              +bx(i+1,j,k)*by(i+1,j,k))
+cc     .             *(tmp(i  ,j+1,k)-tmp(i  ,j-1,k)
+cc     .              +tmp(i+1,j+1,k)-tmp(i+1,j-1,k))
+cccc                Fluxx(i,j,k)= 0.25/dyh(jg)
+cccc     .             *(bx(i  ,j,k)*by(i  ,j,k)
+cccc     .                 *(tmp(i  ,j+1,k)-tmp(i  ,j-1,k))
+cccc     .              +bx(i+1,j,k)*by(i+1,j,k)
+cccc     .                 *(tmp(i+1,j+1,k)-tmp(i+1,j-1,k)))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc          !Y-component cross flux 
+cc          do k = 1,nz
+cc            do j = 0,ny
+cc              do i = 1,nx
+cc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc                Fluxy(i,j,k)= 0.125/dxh(ig)
+cc     .             *(bx(i,j  ,k)*by(i,j  ,k)
+cc     .              +bx(i,j+1,k)*by(i,j+1,k))
+cc     .             *(tmp(i+1,j  ,k)-tmp(i-1,j  ,k)
+cc     .              +tmp(i+1,j+1,k)-tmp(i-1,j+1,k))
+cccc                Fluxy(i,j,k)= 0.25/dxh(ig)
+cccc     .             *(bx(i,j  ,k)*by(i,j  ,k)
+cccc     .                 *(tmp(i+1,j  ,k)-tmp(i-1,j  ,k))
+cccc     .              +bx(i,j+1,k)*by(i,j+1,k)
+cccc     .                 *(tmp(i+1,j+1,k)-tmp(i-1,j+1,k)))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
+cc
+cc        !Add co-derivative terms: standard centered
+cc        do i = 0,nx
+cc          call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz)
+cc     .                +(0.5*(bx (i+1,1:ny,1:nz)+bx (i,1:ny,1:nz)))**2
+cc     .                     *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
+cc        enddo
+cc
+cc        do j = 0,ny
+cc          call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz)
+cc     .                +(0.5*(by (1:nx,j+1,1:nz)+by (1:nx,j,1:nz)))**2
+cc     .                     *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
+cc        enddo
+cc
+cc        do k = 0,nz
+cc          call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
+cc
+cc          Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
+cc     .                +(0.5*(bz (1:nx,1:ny,k+1)+bz (1:nx,1:ny,k)))**2
+cc     .                     *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
+cc        enddo
+cc
+cccc      !Add co-derivative terms: ZIP
+cccc      do i = 0,nx
+cccc        call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
+cccc
+cccc        Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz) 
+cccc     .              +bx(i+1,1:ny,1:nz)*bx(i,1:ny,1:nz)
+cccc     .                   *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
+cccc      enddo
+cccc
+cccc      do j = 0,ny
+cccc        call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
+cccc
+cccc        Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz) 
+cccc     .              +by(1:nx,j+1,1:nz)*by(1:nx,j,1:nz)
+cccc     .                   *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
+cccc      enddo
+cccc
+cccc      do k = 0,nz
+cccc        call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
+cccc
+cccc        Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
+cccc     .              +bz(1:nx,1:ny,k+1)*bz(1:nx,1:ny,k)
+cccc     .                   *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
+cccc      enddo
+cc
+cc      endif
+
+c     End program
+
+      contains
+
+c     minmod
+c     #################################################################
+      function minmod(a,b)
+
+      real(8) :: a,b,minmod
+
+      if (a*b <= 0d0) then
+        minmod = 0d0
+        return
+      endif
+
+      if (a > 0d0) then
+        minmod = min(a,b)
+      else
+        minmod = max(a,b)
+      endif
+
+      end function minmod
+
+c     mc
+c     #################################################################
+      function mc(a,b)
+
+      real(8) :: a,b,mc
+
+      mc = minmod(2*minmod(a,b),0.5*(a+b))
+
+      end function mc
+
+      end function par_flux_2nd
+
       end module operators
 
 c module nlfunction_setup
@@ -9210,6 +9493,8 @@ c ######################################################################
 #endif
 
         real(8) :: max_dv_dt
+
+        logical :: bootstrap=.false.
 
       contains
 
@@ -9647,164 +9932,56 @@ c     #####################################################################
 
       end module nlfunction_setup
 
-c module vectorOps
-c #########################################################################
-      module vectorOps
-
-      contains
-
-c     transformVector
-c     ######################################################################
-      subroutine transformVector(igx,igy,igz
-     .                          ,imin,imax,jmin,jmax,kmin,kmax
-     .                          ,arr1,arr2,arr3,in_repr,out_repr)
-
-c     ----------------------------------------------------------------------
-c     Transforms vectors components in arrays arr1,arr2,arr3 from
-c     Cartesian to curvilinear and viceversa, or from curvilinear to
-c     curvilinear, depending on the value of in_repr (which indicates the
-c     representation of the input vector) and out_repr (which indicates
-c     representation of the input vector). Possible representations are:
-c     'car','cnv',and 'cov'.
-c     ----------------------------------------------------------------------
-
-      use grid
-
-      implicit none
-
-c     Input variables
-
-        integer    :: imin,imax,jmin,jmax,kmin,kmax
-        integer    :: igx,igy,igz
-        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
-     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
-     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
-
-        character(3) :: in_repr,out_repr
-
-c     Local variables
-
-        integer    :: i,j,k
-        real(8)    :: vec(3)
-
-        logical    :: covariant,cnvariant,cartesian
-
-c     Begin program
-
-        cartesian = (in_repr == 'car')
-        covariant = (in_repr == 'cov')
-        cnvariant = (.not. cartesian .and. .not. covariant)
-
-        select case(out_repr)
-        case('car')
-
-          if (cartesian) return
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-
-                call transformVectorToCartesian
-     .               (i,j,k,igx,igy,igz
-     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .               ,covariant
-     .               ,vec(1),vec(2),vec(3))
-
-                arr1(i,j,k) = vec(1)
-                arr2(i,j,k) = vec(2)
-                arr3(i,j,k) = vec(3)
-                
-              enddo
-            enddo
-          enddo
-
-        case('cnv')
-
-          if (cnvariant) return
-
-          if (cartesian) then
-            do k=kmin,kmax
-              do j=jmin,jmax
-                do i=imin,imax
-
-                  call transformVectorToCurvilinear
-     .                 (i,j,k,igx,igy,igz
-     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .                 ,covariant
-     .                 ,vec(1),vec(2),vec(3))
-
-                  arr1(i,j,k) = vec(1)
-                  arr2(i,j,k) = vec(2)
-                  arr3(i,j,k) = vec(3)
-                  
-                enddo
-              enddo
-            enddo
-          else
-            do k=kmin,kmax
-              do j=jmin,jmax
-                do i=imin,imax
-
-                  call transformFromCurvToCurv
-     .                 (i,j,k,igx,igy,igz
-     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .                 ,vec(1),vec(2),vec(3)
-     .                 ,covariant,0)
-
-                  arr1(i,j,k) = vec(1)
-                  arr2(i,j,k) = vec(2)
-                  arr3(i,j,k) = vec(3)
-                  
-                enddo
-              enddo
-            enddo
-          endif
-
-        case('cov')
-
-          if (covariant) return
-
-          if (cartesian) then
-            do k=kmin,kmax
-              do j=jmin,jmax
-                do i=imin,imax
-
-                  call transformVectorToCurvilinear
-     .                 (i,j,k,igx,igy,igz
-     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .                 ,covariant
-     .                 ,vec(1),vec(2),vec(3))
-
-                  arr1(i,j,k) = vec(1)
-                  arr2(i,j,k) = vec(2)
-                  arr3(i,j,k) = vec(3)
-                  
-                enddo
-              enddo
-            enddo
-          else
-            do k=kmin,kmax
-              do j=jmin,jmax
-                do i=imin,imax
-
-                  call transformFromCurvToCurv
-     .                 (i,j,k,igx,igy,igz
-     .                 ,vec(1),vec(2),vec(3)
-     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-     .                 ,covariant,0)
-
-                  arr1(i,j,k) = vec(1)
-                  arr2(i,j,k) = vec(2)
-                  arr3(i,j,k) = vec(3)
-                  
-                enddo
-              enddo
-            enddo
-          endif
-
-        end select
-
-cc        if (to_cartsn) then
+ccc module vectorOps
+ccc #########################################################################
+cc      module vectorOps
+cc
+cc      contains
+cc
+ccc     transformVector
+ccc     ######################################################################
+cc      subroutine transformVector(igx,igy,igz
+cc     .                          ,imin,imax,jmin,jmax,kmin,kmax
+cc     .                          ,arr1,arr2,arr3,in_repr,out_repr)
+cc
+ccc     ----------------------------------------------------------------------
+ccc     Transforms vectors components in arrays arr1,arr2,arr3 from
+ccc     Cartesian to curvilinear and viceversa, or from curvilinear to
+ccc     curvilinear, depending on the value of in_repr (which indicates the
+ccc     representation of the input vector) and out_repr (which indicates
+ccc     representation of the input vector). Possible representations are:
+ccc     'car','cnv',and 'cov'.
+ccc     ----------------------------------------------------------------------
+cc
+cc      use grid
+cc
+cc      implicit none
+cc
+ccc     Input variables
+cc
+cc        integer    :: imin,imax,jmin,jmax,kmin,kmax
+cc        integer    :: igx,igy,igz
+cc        real(8)    :: arr1(imin:imax,jmin:jmax,kmin:kmax)
+cc     .               ,arr2(imin:imax,jmin:jmax,kmin:kmax)
+cc     .               ,arr3(imin:imax,jmin:jmax,kmin:kmax)
+cc
+cc        character(3) :: in_repr,out_repr
+cc
+ccc     Local variables
+cc
+cc        integer    :: i,j,k
+cc        real(8)    :: vec(3)
+cc
+cc        logical    :: covariant,cnvariant,cartesian
+cc
+ccc     Begin program
+cc
+cc        cartesian = (in_repr == 'car')
+cc        covariant = (in_repr == 'cov')
+cc        cnvariant = (.not. cartesian .and. .not. covariant)
+cc
+cc        select case(out_repr)
+cc        case('car')
 cc
 cc          if (cartesian) return
 cc
@@ -9826,7 +10003,9 @@ cc              enddo
 cc            enddo
 cc          enddo
 cc
-cc        else
+cc        case('cnv')
+cc
+cc          if (cnvariant) return
 cc
 cc          if (cartesian) then
 cc            do k=kmin,kmax
@@ -9854,8 +10033,8 @@ cc
 cc                  call transformFromCurvToCurv
 cc     .                 (i,j,k,igx,igy,igz
 cc     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
-cc     .                 ,covariant
-cc     .                 ,vec(1),vec(2),vec(3))
+cc     .                 ,vec(1),vec(2),vec(3)
+cc     .                 ,covariant,0)
 cc
 cc                  arr1(i,j,k) = vec(1)
 cc                  arr2(i,j,k) = vec(2)
@@ -9866,8 +10045,114 @@ cc              enddo
 cc            enddo
 cc          endif
 cc
-cc        endif
-
-      end subroutine transformVector
-
-      end module vectorOps
+cc        case('cov')
+cc
+cc          if (covariant) return
+cc
+cc          if (cartesian) then
+cc            do k=kmin,kmax
+cc              do j=jmin,jmax
+cc                do i=imin,imax
+cc
+cc                  call transformVectorToCurvilinear
+cc     .                 (i,j,k,igx,igy,igz
+cc     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+cc     .                 ,covariant
+cc     .                 ,vec(1),vec(2),vec(3))
+cc
+cc                  arr1(i,j,k) = vec(1)
+cc                  arr2(i,j,k) = vec(2)
+cc                  arr3(i,j,k) = vec(3)
+cc                  
+cc                enddo
+cc              enddo
+cc            enddo
+cc          else
+cc            do k=kmin,kmax
+cc              do j=jmin,jmax
+cc                do i=imin,imax
+cc
+cc                  call transformFromCurvToCurv
+cc     .                 (i,j,k,igx,igy,igz
+cc     .                 ,vec(1),vec(2),vec(3)
+cc     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+cc     .                 ,covariant,0)
+cc
+cc                  arr1(i,j,k) = vec(1)
+cc                  arr2(i,j,k) = vec(2)
+cc                  arr3(i,j,k) = vec(3)
+cc                  
+cc                enddo
+cc              enddo
+cc            enddo
+cc          endif
+cc
+cc        end select
+cc
+cccc        if (to_cartsn) then
+cccc
+cccc          if (cartesian) return
+cccc
+cccc          do k=kmin,kmax
+cccc            do j=jmin,jmax
+cccc              do i=imin,imax
+cccc
+cccc                call transformVectorToCartesian
+cccc     .               (i,j,k,igx,igy,igz
+cccc     .               ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+cccc     .               ,covariant
+cccc     .               ,vec(1),vec(2),vec(3))
+cccc
+cccc                arr1(i,j,k) = vec(1)
+cccc                arr2(i,j,k) = vec(2)
+cccc                arr3(i,j,k) = vec(3)
+cccc                
+cccc              enddo
+cccc            enddo
+cccc          enddo
+cccc
+cccc        else
+cccc
+cccc          if (cartesian) then
+cccc            do k=kmin,kmax
+cccc              do j=jmin,jmax
+cccc                do i=imin,imax
+cccc
+cccc                  call transformVectorToCurvilinear
+cccc     .                 (i,j,k,igx,igy,igz
+cccc     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+cccc     .                 ,covariant
+cccc     .                 ,vec(1),vec(2),vec(3))
+cccc
+cccc                  arr1(i,j,k) = vec(1)
+cccc                  arr2(i,j,k) = vec(2)
+cccc                  arr3(i,j,k) = vec(3)
+cccc                  
+cccc                enddo
+cccc              enddo
+cccc            enddo
+cccc          else
+cccc            do k=kmin,kmax
+cccc              do j=jmin,jmax
+cccc                do i=imin,imax
+cccc
+cccc                  call transformFromCurvToCurv
+cccc     .                 (i,j,k,igx,igy,igz
+cccc     .                 ,arr1(i,j,k),arr2(i,j,k),arr3(i,j,k)
+cccc     .                 ,covariant
+cccc     .                 ,vec(1),vec(2),vec(3))
+cccc
+cccc                  arr1(i,j,k) = vec(1)
+cccc                  arr2(i,j,k) = vec(2)
+cccc                  arr3(i,j,k) = vec(3)
+cccc                  
+cccc                enddo
+cccc              enddo
+cccc            enddo
+cccc          endif
+cccc
+cccc        endif
+cc
+cc      end subroutine transformVector
+cc
+cc      end module vectorOps
