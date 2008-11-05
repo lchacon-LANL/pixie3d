@@ -131,7 +131,7 @@ c Local variables
 
       integer    :: i,j,k,ig,jg,kg
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
-      real(8)    :: k2,k2max,kv_par,kb_par2,w_cfl,w_cour
+      real(8)    :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical    :: cartsn
@@ -188,6 +188,8 @@ c Calculate CFL
      .                 ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))**2
      .               /bnorm
 
+            kbp2max = max(kbp2max,kb_par2)
+
             !Sound speed
             cs2 = a_p*gamma*tmp(i,j,k)
 
@@ -202,7 +204,7 @@ c Calculate courant number
 
       diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
 
-      w_cour = max(diffmax*k2max,di*heta*k2max**2)
+      w_cour = max(diffmax*k2max,di*heta*k2max**2,chi_par*kbp2max)
 
 c Calculate time step
 
