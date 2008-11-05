@@ -237,11 +237,20 @@ c     Temperature
 
 c       Heat flux
 
+        heat_flx = 0d0
+
         if (chi /= 0d0) then
           heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
      .                            ,vol=.false.)
-        else
-          heat_flx = 0d0
+        endif
+
+        if (chi_par /= 0d0) then
+          heat_flx = heat_flx
+     .              -(chi_par-chi)
+     .              *par_flux_2nd(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                           ,bhat(:,:,:,1)
+     .                           ,bhat(:,:,:,2)
+     .                           ,bhat(:,:,:,3),vol=.false.)
         endif
 
 c       Advection + sources
