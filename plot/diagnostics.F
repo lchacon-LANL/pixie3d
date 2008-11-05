@@ -135,9 +135,10 @@ c Create draw*.in file
       if (isProcessor) then
         ndiag = count (sel_diag /= 0)
 
-        call createDrawInGfile(ndiag,lineplotfile,'Time histories'
+        call createDrawInGfile(ndiag,ngraph,lineplotfile
+     .           ,'Time histories'
      .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
-     .           ,'drawgamma.in',.false.)
+     .           ,'drawgamma.in',.true.,.false.)
       endif
 
 c Initialize diagnostic value references
