@@ -49,8 +49,8 @@ c Namelists
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it,test
-     .                ,nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
-     .                   ,nn_eta,aa_eta,c_hyper
+     .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
+     .                   ,temp_ratio,nn_eta,aa_eta,c_hyper
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
@@ -74,8 +74,8 @@ c Namelists
      .                   ,npx,npy,npz,gp1,gp2,gp3,equ_file
 
       !Physics setup
-      namelist /phys/  nu,eta,dd,chi,gamma,prndtl,hrtmn,di,temp_ratio
-     .                   ,nn_eta,aa_eta,c_hyper,adiabatic
+      namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
+     .                   ,temp_ratio,nn_eta,aa_eta,c_hyper,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
 
       !Spatial discretization
@@ -202,7 +202,8 @@ c Set defaults
       nu       = 1d-3          ! Reynolds number
       eta      = 1d-3          ! Lundquist number
       dd       = 1d-3          ! Particle diffusion
-      chi      = 1d-3          ! Thermal diffusivity
+      chi      = 1d-3          ! Perpendicular thermal diffusivity
+      chi_par  = 0d-3          ! Parallel thermal diffusivity
 
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
@@ -440,10 +441,10 @@ cc      if (precon == 'id') iguess = 0
 
       if (restart) dcon = .false.
 
-cc      if (adiabatic.and.gamma /= 1d0) then
+      if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
 cc        solve_rho = .false.
-cc        postprocess = .true.
-cc      endif
+        postprocess = .true.
+      endif
 
 c Map perturbations
 
