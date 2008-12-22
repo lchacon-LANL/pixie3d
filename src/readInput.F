@@ -50,7 +50,8 @@ c Namelists
      .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
-     .                   ,temp_ratio,nn_eta,aa_eta,c_hyper
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
+     .                   ,aa_nu,bb_nu,cc_nu,c_hyper
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
@@ -75,7 +76,8 @@ c Namelists
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
-     .                   ,temp_ratio,nn_eta,aa_eta,c_hyper,adiabatic
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
+     .                   ,aa_nu,bb_nu,cc_nu,c_hyper,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
 
       !Spatial discretization
@@ -208,8 +210,12 @@ c Set defaults
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
 
-      nn_eta   = 0             ! Exponent for eta profile
       aa_eta   = 0d0           ! Coefficient for eta profile
+      bb_eta   = 0d0           ! Coefficient for eta profile
+      cc_eta   = 1d0           ! Coefficient for eta profile
+      aa_nu    = 0d0           ! Coefficient for nu profile
+      bb_nu    = 0d0           ! Coefficient for nu profile
+      cc_nu    = 1d0           ! Coefficient for nu profile
 
       c_hyper  = 0d0           ! Coefficient for hyper-resistivity
 
