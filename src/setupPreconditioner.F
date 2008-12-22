@@ -103,8 +103,12 @@ cc      oprol = 2
 
       if (gm_smooth) then
         smooth = 'gm'
-      elseif (bcSP()) then
+      endif
+
+      if (bcSP()) then
         smooth = 'gs'
+        ores  = 1
+        oprol = 1
       endif
 
       if (smooth /= 'jb') omeg_smth = 1d0
@@ -175,6 +179,7 @@ c Find required diagonals in all grids
       ncolors = 8
 
       if (jit == 1) then
+
         call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
      .                   ,rho_diag,ncolors,vol_wgt,mg_glrkin)
 
