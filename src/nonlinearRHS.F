@@ -244,13 +244,12 @@ c       Heat flux
      .                            ,vol=.false.)
         endif
 
-        if (chi_par /= 0d0) then
+        if (chi_par /= chi) then
           heat_flx = heat_flx
      .              -(chi_par-chi)
-     .              *par_flux_2nd(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-     .                           ,bhat(:,:,:,1)
-     .                           ,bhat(:,:,:,2)
-     .                           ,bhat(:,:,:,3),vol=.false.)
+     .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
+     .                   ,symmetric=.true.,limited=.false.,vol=.false.)
         endif
 
 c       Advection + sources
