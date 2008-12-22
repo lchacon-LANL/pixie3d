@@ -122,6 +122,8 @@ cc            advective = 'PBRKCT'
 
         endif
 
+        call flush(6)
+
       endif
 
 c End program
@@ -136,8 +138,12 @@ c End program
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
      .        '  Newton  CN factor')
- 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
 
+#if defined(RFX)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.2,0p,2i6,3x,f7.3)
+#else
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
+#endif
       contains
 
 c     #################################################################
