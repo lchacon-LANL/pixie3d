@@ -18,6 +18,8 @@ c####################################################################
 
         use equilibrium
 
+        logical :: pinch_flow=.false.
+
       contains
 
 c     setBCsched
@@ -156,18 +158,17 @@ c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
 
-      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
       case (IVX,IVY,IVZ)
-cc      case (IVX,IVY,IVZ,IAX,IAY,IAZ)
 
         call extrapolateBC(array(:,:,:,ivar),array0(:,:,:,ivar)
 cc     .                    ,dim,loc,order)
      .                    ,dim,loc,1)
 
-cc      case (IBX,IBY,IBZ,IJX,IJY,IJZ,IAX,IAY,IAZ) !Imposes divergence-free constraint on B, J, and A
       case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B, J
 
         if (ivar /= dim) then
@@ -891,8 +892,7 @@ cc     .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                if (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .              .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then  !Finite flow
+                if (pinch_flow) then     !Finite flow
 
                   !THIS WON'T WORK FOR LINEARIZED EQUATIONS; SHOULD USE ACTUAL B
                   !   BUT THIS DOESN'T WORK YET.
