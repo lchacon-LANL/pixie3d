@@ -24,5 +24,4 @@ LNK_FILES = ../src/applyBoundaryConditions.F\
 	    ../src/imposeBC_mod.F\
 	    ../src/mhd_mod.F\
 	    ../src/readInput.F\
-	    ../src/setEquilibrium.F\
             ../src/vmec.f90 
