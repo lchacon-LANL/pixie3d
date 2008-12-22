@@ -123,30 +123,41 @@ c Exceptions for specific equilibria
         where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
         where (bbcs(:,IBY) == NEU) bbcs(:,IBY) =  DIR
 
-      case ('ppnch','ppn3d','ppnst')   !No stress BCs
+      case ('ppnch','ppn3d','ppnst','2dhel')   !No stress BCs, pinch flow
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
-      case ('ppnsl')                   !No slip BCs
+      case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
-        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY ) == NEU) bbcs(:,IVY ) = DIR
-        where (bbcs(:,IVZ ) == NEU) bbcs(:,IVZ ) = DIR
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
 
 cc      case ('vmec','tor','gem')
       case ('vmec','tor')
 
         !Dirichlet boundary conditions for tangential components
-        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY) = DIR
-        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ) = DIR
+        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
+        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 cc        if (solve_rho) 
 cc     .       where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
+cc      case ('ntm2d')                   !No slip BCs
+cc
+cc        !Dirichlet boundary conditions for tangential components
+cc        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
+cc        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
+
       end select
+
+      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
+     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
+     .              .or.equil == 'ohtor')
 
 c BCs for auxiliary variables
 
@@ -164,7 +175,7 @@ c End subroutine
 
 c imposeBoundaryConditions
 c####################################################################
-      subroutine imposeBoundaryConditions(varray,iigx,iigy,iigz)
+      subroutine imposeBoundaryConditions(varray,iigx,iigy,iigz,obc)
 c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
@@ -182,6 +193,7 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer    :: iigx,iigy,iigz
+      integer,optional :: obc
 
       type(var_array),pointer :: varray
 
@@ -195,7 +207,11 @@ c Local variables
 
 c Begin program
 
-      order = 2   !Order of extrapolation in BCs
+      if (PRESENT(obc)) then
+        order = obc
+      else
+        order = 2            !Order of extrapolation in BCs
+      endif
 
 c Local grid sizes
 
@@ -355,7 +371,7 @@ c     B=curl(A)
         enddo
       enddo
 
-      v0 = bcnv
+      v0 = jcov_0   !To fix current at boundary
 
 c     Fill ghost nodes
 
@@ -410,8 +426,7 @@ cc      endif
         enddo
       enddo
 
-      if (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .    .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then       !Jt = alpha*Bt in cov representation
+      if (pinch_flow) then               !Jt = alpha*Bt in cov representation
 cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
 
         i = nnx
@@ -498,8 +513,7 @@ c     BC setup
         vcnv(:,:,:,3) = varray%array_var(IVZ)%array
       endif
 
-      if (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .    .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then
+      if (pinch_flow) then
 
         i = nnx
 
@@ -592,7 +606,7 @@ c End
 
 c imposeBoundaryConditions
 c####################################################################
-      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz)
+      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
 c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
@@ -610,6 +624,7 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer    :: iigx,iigy,iigz
+      integer,optional :: obc
 
       type(var_array),pointer :: varray
 
@@ -888,8 +903,7 @@ c       BC setup
           vcnv(:,:,:,3) = varray%array_var(IVZ)%array
         endif
 
-        if (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .      .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then
+        if (pinch_flow) then
 
           i = nnx
 
@@ -1056,8 +1070,7 @@ c     Current BC
 
         bcnd = vaux%vec_list(IJCNV)%bconds
 
-        if (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .      .or.equil == 'ppnsl' .or. equil == 'ppnst' ) then       !Jt = alpha*Bt in cov representation
+        if (pinch_flow) then !Jt = alpha*Bt in cov representation
 
           i = nnx
 
