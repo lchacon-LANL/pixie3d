@@ -1,0 +1,202 @@
+c module rfx
+c ######################################################################
+! daniele, 09/12/2008
+! sposto tutto ciò che mi serve per il post-processing in questo modulo
+      module rfx
+
+      use variables
+
+      use graphics
+
+      use auxiliaryVariables
+
+      use auxPlotVariables
+
+      use timeStepping
+
+      use constants
+
+      use operators
+
+      use equilibrium
+
+      use nlfunction_setup
+
+      use imposeBCinterface
+
+      implicit none
+
+      contains
+
+      subroutine rfx_dump_mean_profiles(b00,j00_cov,v00)
+
+c Call variables
+
+      real(8)    :: b00(iming:imaxg,3)
+      real(8)    :: j00_cov(iming:imaxg,3)
+      real(8)    :: v00(iming:imaxg,3)
+
+c Local variables
+
+      integer(4) :: i
+      real(8)    :: kk
+
+      kk = grid_params%params(2)
+
+c diag: dump text data
+      if (time == 0d0) then
+         open(unit=1011,file='profiles.txt',status='unknown')
+      else
+         open(unit=1011,file='profiles.txt',status='old'
+     .          ,position='append')
+      endif
+      write (1011,1000) time
+      do i=iming,imaxg
+           write (1011,1001) b00(i,1),b00(i,2)-kk*b00(i,3),b00(i,3)
+     .      ,j00_cov(i,1),j00_cov(i,2),j00_cov(i,3)+kk*j00_cov(i,2)
+     .            ,v00(i,1),v00(i,2),v00(i,3)+kk*v00(i,2)
+        enddo
+        write (1011,*)
+        close(1011)
+c diag: dump text data
+
+ 1000   FORMAT(f12.5)
+ 1001   FORMAT(e17.10,' ',e17.10,' ',e17.10,' '
+     .         ,e17.10,' ',e17.10,' ',e17.10,' '
+     .         ,e17.10,' ',e17.10,' ',e17.10)
+
+      end subroutine rfx_dump_mean_profiles
+
+      subroutine rfx_dump_fields()
+
+c Call variables
+
+c Local variables
+
+      integer(4) :: i,j,k,ig,jg,kg
+      real(8)    :: x1,y1,z1
+      real(8),allocatable,dimension(:,:,:,:) :: ecar,ecyl
+
+c Begin programs
+
+c Transform to cylindrical
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+            vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
+     $                     +vy_car(i,j,k)*sin(y1)
+            vy_cov(i,j,k) =-vx_car(i,j,k)*sin(y1)
+     $                     +vy_car(i,j,k)*cos(y1)
+            vz_cov(i,j,k) = vz_car(i,j,k)
+
+#if defined(vec_pot)
+            ax_cnv(i,j,k) = ax_car(i,j,k)*cos(y1)
+     $                     +ay_car(i,j,k)*sin(y1)
+            ay_cnv(i,j,k) =-ax_car(i,j,k)*sin(y1)
+     $                     +ay_car(i,j,k)*cos(y1)
+            az_cnv(i,j,k) = az_car(i,j,k)
+#endif
+
+            bx_cov(i,j,k) = bx_car(i,j,k)*cos(y1)
+     $                     +by_car(i,j,k)*sin(y1)
+            by_cov(i,j,k) =-bx_car(i,j,k)*sin(y1)
+     $                     +by_car(i,j,k)*cos(y1)
+            bz_cov(i,j,k) = bz_car(i,j,k)
+
+            jx_cov(i,j,k) = jx_car(i,j,k)*cos(y1)
+     $                     +jy_car(i,j,k)*sin(y1)
+            jy_cov(i,j,k) =-jx_car(i,j,k)*sin(y1)
+     $                     +jy_car(i,j,k)*cos(y1)
+            jz_cov(i,j,k) = jz_car(i,j,k)
+
+          enddo
+        enddo
+      enddo
+
+c Find electric field
+
+      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3),
+     .       ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            ecar(i,j,k,1) = eeta(i,j,k)*jx_car(i,j,k)
+     .              - vy_car(i,j,k)*bz_car(i,j,k)
+     .              + vz_car(i,j,k)*by_car(i,j,k)
+            ecar(i,j,k,2) = eeta(i,j,k)*jy_car(i,j,k)
+     .              + vx_car(i,j,k)*bz_car(i,j,k)
+     .              - vz_car(i,j,k)*bx_car(i,j,k)
+            ecar(i,j,k,3) = eeta(i,j,k)*jz_car(i,j,k)
+     .              - vx_car(i,j,k)*by_car(i,j,k)
+     .              + vy_car(i,j,k)*bx_car(i,j,k)
+          enddo
+        enddo
+      enddo
+
+c Transform to cylindrical
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+            ecyl(i,j,k,1) = ecar(i,j,k,1)*cos(y1)
+     $                     +ecar(i,j,k,2)*sin(y1)
+            ecyl(i,j,k,2) = -ecar(i,j,k,1)*sin(y1)
+     $                      +ecar(i,j,k,2)*cos(y1)
+            ecyl(i,j,k,3) = ecar(i,j,k,3)
+
+          enddo
+        enddo
+      enddo
+
+c diag: dump text data
+        if (time == 0d0) then
+          open(unit=1012,file='fields.txt',status='unknown')
+        else
+          open(unit=1012,file='fields.txt',status='unknown'
+     .      ,position='append')
+!          open(unit=1012,file='fields.txt',status='unknown')
+        endif
+        write (*,*) 'Dumping fields.txt'
+        write (1012,1000) time
+!        do i=1,nxd
+        do i=0,nxd+1
+          do j=1,nyd
+            do k=1,nzd
+
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+            write (1012,1002) bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+     .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
+     .                ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .                ,ecyl(i,j,k,1),ecyl(i,j,k,2),ecyl(i,j,k,3)
+            enddo
+          enddo
+        enddo
+        write (1012,*)
+        close(1012)
+c diag: dump text data
+
+        deallocate(ecar,ecyl)
+
+ 1000   FORMAT(f12.5)
+ 1002   FORMAT(e17.10,' ',e17.10,' ',e17.10,' '
+     .         ,e17.10,' ',e17.10,' ',e17.10,' '
+     .         ,e17.10,' ',e17.10,' ',e17.10,' '
+     .         ,e17.10,' ',e17.10,' ',e17.10)
+c$$$ 1003   FORMAT(e13.6,' ',e13.6,' ',e13.6,' '
+c$$$     .         ,e13.6,' ',e13.6,' ',e13.6,' '
+c$$$     .         ,e13.6,' ',e13.6,' ',e13.6,' '
+c$$$     .         ,e13.6,' ',e13.6,' ',e13.6,' '
+c$$$     .         ,e13.6)
+
+      end subroutine rfx_dump_fields
+
+      end module rfx
