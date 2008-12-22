@@ -873,7 +873,7 @@ c #   ##################################################################
       subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
      .                  ,matvec,dg,ncolors,line_relax,gm_coarse_solve
      .                  ,gm_driver,cvrg_tst,order_res,order_prol,smooth
-     .                  ,omega,mvcyc,mu_cycle,galerkin)
+     .                  ,omega,mvcyc,mu_cycle,galerkin,tol,sm_it)
 c     ---------------------------------------------------------------
 c     This subroutine solves a coupled system of neq equations. 
 c     In call sequence:
@@ -898,11 +898,13 @@ c       * cvrg_tst: whether we want to perform a convergence test
 c       * order_res: restriction order
 c       * order_prol: restriction order
 c       * smooth: determines smoothing (jb,gs,gm; default jb)
+c       * sm_it: smoother iterations
 c       * omega: damping for JB smoother
 c       * mvcyc: maximum number of MG V-cycles (default 1)
 c       * mu_cycle: number of mu_cycles in MG (default 1)
 c       * galerkin: whether to do Galerkin coarsening of operator
 c                  (true) or rediscretization (default: false)
+c       * tol: convergence tolerance
 c     ---------------------------------------------------------------
 
         use mlsolverSetup
@@ -914,9 +916,9 @@ c     Call variables
         integer    :: neq,ntotp,igrid,bcnd(6,neq),out,guess
         real(8)    :: x(ntotp,neq),b(ntotp,neq)
 
-        real(8)   ,optional,intent(IN) :: dg(neq,2*neq*ntotp),omega
+        real(8)   ,optional,intent(IN) :: dg(neq,2*neq*ntotp),omega,tol
         integer   ,optional,intent(IN) :: ncolors,order_res,order_prol
-     .                                   ,mvcyc,mu_cycle
+     .                                   ,mvcyc,mu_cycle,sm_it
         logical   ,optional,intent(IN) :: line_relax,gm_coarse_solve
      .                                   ,cvrg_tst,gm_driver,galerkin
 
@@ -926,8 +928,8 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc,nclrs
-        real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg
+        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc,nclrs,smit
+        real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg,rtol
         real(8), target :: ddg(neq,2*neq*ntotp)
         logical    :: gm_crse_solve,cvrg_test,lrelax,gm_drvr,glkin
 
@@ -999,10 +1001,22 @@ cc          endif
           smth = 'jb'
         endif
 
+        if(PRESENT(sm_it)) then
+          smit = sm_it
+        else
+          smit = nsweep
+        endif
+
         if(PRESENT(omega)) then
           omg = omega
         else
           omg = 0.7
+        endif
+
+        if(PRESENT(tol)) then
+          rtol = tol
+        else
+          rtol = mgtol
         endif
 
         if(PRESENT(galerkin)) then
@@ -1057,7 +1071,7 @@ cc
 cc          call solverOptionsInit
 cc
 cc          solverOptions%iter    = maxvcyc
-cc          solverOptions%tol     = mgtol
+cc          solverOptions%tol     = rtol
 cc
 cc          if (PRESENT(dg)) solverOptions%diag => ddg
 cc
@@ -1114,7 +1128,7 @@ c       Check whether GMRES is driving solve
           call solverOptionsInit
 
           solverOptions%iter    = vcyc
-          solverOptions%tol     = mgtol
+          solverOptions%tol     = rtol
 
           solverOptions%stp_test = 1 
           solverOptions%krylov_subspace = solverOptions%iter 
@@ -1125,7 +1139,8 @@ c       MG solver options
 
         call solverOptionsInit
 
-        solverOptions%tol      = mgtol
+        solverOptions%tol      = rtol
+
         if (gm_drvr .and. vcyc > 1) then
           solverOptions%vcyc     = 1
         else
@@ -1194,7 +1209,7 @@ c       MG smoother
         call solverOptionsInit
 
         solverOptions%iter    = nsweep
-        solverOptions%tol     = mgtol
+        solverOptions%tol     = rtol
 
         if (lrelax) then
           solverOptions%iter  = 2
@@ -1210,14 +1225,14 @@ c       MG smoother
           solverOptions%krylov_subspace = solverOptions%iter 
           call assembleSolverHierarchy('gm')
 
-          if (gm_smooth) then
+cc          if (gm_smooth) then
             call assembleSolverHierarchy('id')
-          else
-            call solverOptionsInit
-            solverOptions%iter    = 1
-            solverOptions%omega   = omg
-            call assembleSolverHierarchy('jb')
-          endif
+cc          else
+cc            call solverOptionsInit
+cc            solverOptions%iter    = 1
+cc            solverOptions%omega   = omg
+cc            call assembleSolverHierarchy('jb')
+cc          endif
         case default !JB
           solverOptions%omega   = omg
           call assembleSolverHierarchy('jb')
