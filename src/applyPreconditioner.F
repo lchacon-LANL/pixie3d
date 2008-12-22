@@ -530,11 +530,13 @@ c     Local variables
 c     Begin program
 
         !Temperature
-        call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+        if (gamma > 1d0) then
+          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
      .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag
      .              ,ncolors=2,line_relax=line_relax
      .              ,order_res=ores,order_prol=oprol
      .              ,smooth=smooth,gm_coarse_solve=gm_coarse)
+        endif
 cc        if (bcSP()) then
 cc          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
 cc     .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag,ncolors=2
@@ -1070,11 +1072,14 @@ c     --------------------------------------------------------------
 
         character(1) :: plot
 
+        integer :: iplot
+
         real(8) :: mag0,mag,lxmin,lxmax,lymin,lymax
 
         real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
 
         character(10) :: solf,resf,rhsf,crsf,fldf,divf
+        character(4)  :: dbg_desc(neqd)
 
 #if defined(vec_pot)
         integer    :: ivar
@@ -1101,6 +1106,36 @@ c     Create output files
         crsf='crs_p'//trim(int2char(my_rank))//'.bin'
         fldf='fld_p'//trim(int2char(my_rank))//'.bin'
         divf='div_p'//trim(int2char(my_rank))//'.bin'
+
+        do iplot=1,neqd
+          dbg_desc(iplot) = 'dgb'//trim(int2char(iplot))
+        enddo
+
+        call createDrawInCfile(neqd,trim(solf),'Solution'
+     .          ,'t','x','y',dbg_desc,'-c -X0 -L57'
+     .          ,'drawsol_p'//trim(int2char(my_rank))//'.in')
+
+        call createDrawInCfile(neqd,trim(resf),'Residual'
+     .          ,'t','x','y',dbg_desc,'-c -X0 -L57'
+     .          ,'drawres_p'//trim(int2char(my_rank))//'.in')
+
+        call createDrawInCfile(neqd,trim(rhsf),'RHS     '
+     .          ,'t','x','y',dbg_desc,'-c -X0 -L57'
+     .          ,'drawrhs_p'//trim(int2char(my_rank))//'.in')
+
+        call createDrawInCfile(neqd,trim(crsf),'Corr. residual'
+     .          ,'t','x','y',dbg_desc,'-c -X0 -L57'
+     .          ,'drawcrhs_p'//trim(int2char(my_rank))//'.in')
+
+        call createDrawInCfile(6,trim(fldf),'Vector fields'
+     .          ,'t','x','y',(/'V1','V2','V3','B1','B2','B3'/)
+     .          ,'-c -X0 -L57'
+     .          ,'drawvfld_p'//trim(int2char(my_rank))//'.in')
+
+        call createDrawInCfile(1,trim(divf),'div(B)'
+     .          ,'t','x','y',(/'div(B)'/)
+     .          ,'-c -X0 -L57'
+     .          ,'drawdiv_p'//trim(int2char(my_rank))//'.in')
 
 c     Dump graphics
 
