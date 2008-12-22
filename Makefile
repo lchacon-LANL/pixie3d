@@ -34,6 +34,8 @@ HDF5 = t
 
 LIBS = -llapack -lblas
 
+#CPPFLAGS += -DRFX
+
 # System-dependent variables
 
 -include common/make/make.mach.inc
