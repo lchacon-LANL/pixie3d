@@ -60,7 +60,7 @@ c     Begin program
           call perturbEquilibrium_def  (array,bcs,perturb,ieq)
         endif
 
-      case ('ppnch','ppn3d','ppnsl','ppnst')
+      case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
 
         command = 'test -f '//trim(prt_file)
         ierr = system(trim(command))
@@ -684,9 +684,9 @@ c     ####################################################################
 
 c     Begin program
 
-        spoint    = (bcs == SP)
-        neumann   = (abs(bcs) == NEU) .or. (bcs == SYM)
-        dirichlet = (bcs == DIR) .or. (bcs ==-SYM) .or. (bcs == EQU)
+        spoint    = (abs(bcs)==SP)
+        neumann   = (abs(bcs)==NEU).or.(bcs== SYM)
+        dirichlet = (abs(bcs)==DIR).or.(bcs==-SYM).or.(abs(bcs)==EQU)
 
         if (nh == 0 .and. spoint(1)) then
           call pstop('factor','m for r^m perturbation is zero')
