@@ -33,7 +33,7 @@ c--------------------------------------------------------------------
 
       use oned_int
 
-      use imposeBCinterface
+      use local_BCS_variables
 
       use app_iosetup
 
@@ -51,8 +51,8 @@ c Call variables
 
 c Local variables
 
-      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,ierr,sh,it
-     .                ,icomp,bcnd(6,3),brank
+      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
+     .                ,ierr,sh,it,icomp,bcnd(6,3),brank
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -62,7 +62,7 @@ c Local variables
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
-     .                ,phi,rho_norm,beta_tor
+     .                ,phi,rho_norm,beta_tor,Rtor
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
@@ -72,8 +72,17 @@ c Local variables
      .                ,q00(0:nxdp),dum (ilom:ihip,2)
      .                ,ldum(ilom:ihip,2)
      .                ,r2  (ilom:ihip,jlom:jhip)
+     .                ,br02d (0:nxdp,0:nydp),bth02d(0:nxdp,0:nydp)
+     .                ,bzz02d(0:nxdp,0:nydp)
+     .                ,vth02d(0:nxdp,0:nydp),vr02d(0:nxdp,0:nydp)
 
-      real(8)       :: a(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8)       :: a (ilom:ihip,jlom:jhip,klom:khip,3)
+     .                ,b1(ilom:ihip,jlom:jhip)
+     .                ,b2(ilom:ihip,jlom:jhip)
+     .                ,b3(ilom:ihip,jlom:jhip)
+     .                ,v1(ilom:ihip,jlom:jhip)
+     .                ,v2(ilom:ihip,jlom:jhip)
+     .                ,pp(ilom:ihip,jlom:jhip)
 
       character(200):: command
 
@@ -86,13 +95,13 @@ c Functions
       real(8) :: qprof,pprof
       external   qprof,pprof
 
-      !q-profile
-      qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
-      qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)
-cc      qq(r1)  = 0.3*(1 - 1.8748*r1**2 + 0.8323*r1**4)
-cc      qqp(r1) = 0.3*( -2*1.8748*r1   +4*0.8323*r1**3)
-
-      ff(r1) = r1**2 + qq(r1)**2
+cc      !q-profile
+cc      qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+cc      qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)
+cccc      qq(r1)  = 0.3*(1 - 1.8748*r1**2 + 0.8323*r1**4)
+cccc      qqp(r1) = 0.3*( -2*1.8748*r1   +4*0.8323*r1**3)
+cc
+cc      ff(r1) = r1**2 + qq(r1)**2
 
 c Begin program
 
@@ -179,19 +188,6 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         B0(3) = 1d0
 
         var(:,:,:,IAX:IAZ) = 0d0
-
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc              var(i,j,k,IAX)  = 0d0
-cc              var(i,j,k,IAY)  = x1
-cc              var(i,j,k,IAZ)  = 0d0
-cc            enddo
-cc          enddo
-cc        enddo
 #endif
 
       case ('3wv') !3-wave MHD test
@@ -316,7 +312,6 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         B0(1) = 1d0
 
         var(:,:,:,IAX:IAZ) = 0d0
-
 #endif
 
       case ('kaw') !KAW wave
@@ -519,78 +514,6 @@ cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
 cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
-
-cc      case ('tmcxz')
-cc
-ccc     Define vector potential (in curvilinear coordinates) for initialization
-cc
-cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
-cc
-ccc     Check coordinates
-cc
-cc        if (coords /= 'car') then
-cc          messg = 'Wrong coordinates for equilibrium '//equil
-cc          call pstop('setEquilibrium',messg)
-cc        endif
-cc
-ccc     Tearing mode in cartesian coordinates
-cc
-cc        bz0 = 1d0
-cc
-cc        do k = klo,khi
-cc          do j = jlo,jhi
-cc            do i = ilo,ihi
-cc             !X-Z equilibrium
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,1)
-cc             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-cc             var(i,j,k,IBY)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        var(:,:,:,IVX)  = 0d0
-cc        var(:,:,:,IVY)  = 0d0
-cc        var(:,:,:,IVZ)  = 0d0
-cc
-cc        var(:,:,:,IRHO) = 1d0
-cc
-cc        var(:,:,:,ITMP) = 1d0
-cc
-cc      case ('tmcyz')
-cc
-ccc     Define vector potential (in curvilinear coordinates) for initialization
-cc
-cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
-cc
-ccc     Check coordinates
-cc
-cc        if (coords /= 'car') then
-cc          messg = 'Wrong coordinates for equilibrium '//equil
-cc          call pstop('setEquilibrium',messg)
-cc        endif
-cc
-ccc     Tearing mode in cartesian coordinates
-cc
-cc        bz0 = 1d0
-cc
-cc        do k = klo,khi
-cc          do j = jlo,jhi
-cc            do i = ilo,ihi
-cc             !X-Z equilibrium
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,2)
-cc             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz,a1,a2,a3,3)
-cc             var(i,j,k,IBX)=sqrt(bz0**2 - var(i,j,k,IBZ)**2)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        var(:,:,:,IVX)  = 0d0
-cc        var(:,:,:,IVY)  = 0d0
-cc        var(:,:,:,IVZ)  = 0d0
-cc
-cc        var(:,:,:,IRHO) = 1d0
-cc
-cc        var(:,:,:,ITMP) = 1d0
 
       case ('tmsin')
 
@@ -962,7 +885,7 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
         RR = grid_params%params(3)
         theta_ppnch = grid_params%params(4)
         e0_over_eta = grid_params%params(5)
-        bz0         = grid_params%params(6)
+        beta_tor    = grid_params%params(6)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -977,11 +900,6 @@ c     Check coordinates
 
 c     Equilibria (numerical)
 
-cc        command = '[ -f '//trim(equ_file)//' ]'
-
-cc        ierr = system(trim(command))
-
-cc        if (ierr == 0) then     !External file equilibrium
         if (e0_over_eta == 0d0) then     !External file equilibrium
 
           if (my_rank == 0)
@@ -1017,153 +935,50 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           if (my_rank == 0)
      .       write (*,*) 'Calculating equilibrium ',equil,'...'
 
+          bz0 = 1d0
+
+          !Find pressure and q-profiles
           do i=0,nxdp
-            x1 = i*xmax/nxd
-            bth0(i) = 0.5*x1*e0_over_eta
+            x1  = grid_params%xg(i)
+            p00(i) = 0.5*beta_tor*bz0**2*pprof(x1,0)
           enddo
 
-	  !Initialize iteration
-          bzz0 = 1d0
+	  !Initialize toroidal field
+          bzz0 = bz0
 
-	  !Iteration
-          dr = xmax/nxd
-
-          do it=1,100
-
-            bth0_old = bth0
-            bzz0_old = bzz0
-
-	    !Perform integral of B_theta
-            dummy(0) = 0d0
-            bth0 (0) = 0d0
-            do i=1,nxdp
-              x1 = i*dr
-              bzh = 0.5*(bzz0(i)+bzz0(i-1))
-              bth = 0.5*(bth0(i)+bth0(i-1))
-              rh  = 0.5*(2*i-1)*dr
-
-              dummy(i) = dummy(i-1) + bzh**2/(bzh**2+bth**2)*rh*dr
-
-              bth0(i) = e0_over_eta*dummy(i)/x1
-            enddo
-
-            !Perform integral of Bz
-            dummy(0) = 0d0
-            do i=1,nxdp
-              x1 = i*xmax/nxd
-              bzh = 0.5*(bzz0(i)+bzz0(i-1))
-              bth = 0.5*(bth0(i)+bth0(i-1))
-              rh  = 0.5*(2*i-1)*dr
-              dummy(i) = dummy(i-1) + bth/(bzh**2+bth**2)*dr
-            enddo
-
-            bzz0 = exp(-e0_over_eta*dummy)
-
-            if (theta_ppnch /= 0d0) then
-              bz_avg = 0d0
-              do i=1,nxd
-                 bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr**2
-              enddo
-              bz_avg = bz_avg/xmax**2
-              bzz0 = bth0(nxd)/theta_ppnch/bz_avg*bzz0
-            elseif (bz0 /= 0d0) then
-              bzz0 = bz0*bzz0
-            else
-              call pstop('setEquilibrium'
-     $                  ,'Can not find PPNCH equilibrium:'
-     $                   //'Both Bz0 and theta are zero')
-            endif
-
-	    !Check convergence
-            err = sqrt(0.5*(sum((bth0-bth0_old)**2)
-     .                     +sum((bzz0-bzz0_old)**2))/nxdp)
-
-            if (ilevel > 0 .and. my_rank == 0) then
-              write (*,*) 'Equilibrium iter =',it,' ; Error=',err
-            endif
-
-            if (err < 0.1*dr**2) exit
-
-          enddo
-
-          if (ilevel == 0 .and. my_rank == 0) then
-             write (*,*)
-             write (*,'(a,i3,a,1pe10.2)') ' Equilibrium converged in '
-     .            ,it,' iterations with error =',err
-          endif
-
-          !Check force free diagnostic
-          do i=1,nxd
-            bzh = 0.5*(bzz0(i)+bzz0(i-1))
-            bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = 0.5*(2*i-1)*dr
-            dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr
-     $                 +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
-          enddo
-
-          if (my_rank == 0) then
-            write(*,*)
-            write(*,'(a,1pe14.7)') ' Force-free error ='
-     .                          ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-          endif
-
-          !Check Ohm's law
-          do i=1,nxd
-            bzh = 0.5*(bzz0(i)+bzz0(i-1))
-            bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = 0.5*(2*i-1)*dr
-            dummy(i) = e0_over_eta*bzh
-     $                -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
-     $                +bth*(bzz0(i)-bzz0(i-1))/dr
-          enddo
-
-          if (my_rank == 0) then
-            write(*,'(a,1pe14.7)') ' Ohms law   error ='
-     .                          ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-          endif
-
-          !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
-          bz_avg = 0d0
-          do i=1,nxd
-            x1 = i*xmax/nxd
-            bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr**2
-          enddo
-
-          if (my_rank == 0) then
-            write (*,*) 
-            write (*,999) ' Pinch equilibrium features:'
-            write (*,999) '   Theta  =',bth0(nxd)/bz_avg
-            write (*,999) '   Bz(r=0)=',bzz0(0)
-            write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
-            write (*,999) '   E0/eta =',e0_over_eta
-            write (*,999) '   T_flux =',pi*xmax**2*bz_avg
- 999        format (a,f10.7)
-          endif
-
-	  !Transfer to integer grid
-          bth0(1:nxdp) = 0.5*(bth0(0:nxd)+bth0(1:nxdp))
-          bzz0(1:nxdp) = 0.5*(bzz0(0:nxd)+bzz0(1:nxdp))
+          call Ohm_equil_1d(e0_over_eta,theta_ppnch
+     .                     ,p00,bth0,bzz0,vr0)
 
 	  !Find electric field
           E0(1:2) = 0d0
           E0(3) = e0_over_eta*eta
           ieta = eta
 
-          !Find radial flow
-          vr0 = -(E0(3)*bth0-E0(2)*bzz0)/(bzz0**2+bth0**2)
+          !Adjust radial flow to actual resistivity
+          vr0 = eta*vr0
 
 	  !Find density
           rho0 = 1d0
 
         endif
 
-c$$$        write (*,*) 'r,bth0,bzz0,jth0,jz0,vr0'
-c$$$        do i=0,nxdp
-c$$$          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
-c$$$     .                                  ,x1,y1,z1)
-c$$$          write(*,*) x1,bth0(i),bzz0(i),jth0(i),jz0(i),vr0(i)
-c$$$        enddo
-
+#if defined(RFX)
+        if (my_rank == 0) then
+          write (*,*) 'r,bth0,bzz0,q0,vr0'
+          do i=0,nxdp
+            x1 = grid_params%xg(i) !Global coordinate
+            write(*,10) x1,bth0(i),bzz0(i)
+     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i)
+          enddo
+        endif
+#else
+cc        write (*,*) 'r,bth0,bzz0,vr0'
+cc        do i=0,nxdp
+cc          x1 = grid_params%xg(i) !Global coordinate
+cc          write(*,*) x1,bth0(i),bzz0(i),vr0(i)
+cc        enddo
+cc        stop
+#endif
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
@@ -1184,6 +999,114 @@ c$$$        enddo
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
+              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVZ) = 0d0
+
+              if (solve_rho) then
+                var(i,j,k,IRHO) = rho0(iglobal)
+              else
+                var(i,j,k,IRHO) = 1d0
+              endif
+
+              var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
+            enddo
+          enddo
+        enddo
+
+#if defined(vec_pot)
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+        !Shift vr for EQU BC
+        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+     .                              +var(ihi+1,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+        endif
+
+      case ('2dhel')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        theta_ppnch = grid_params%params(4)
+        e0_over_eta = grid_params%params(5)
+        bz0         = grid_params%params(6)
+
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Equilibria (numerical)
+
+        if (my_rank == 0)
+     .     write (*,*) 'Calculating equilibrium ',equil,'...'
+
+	!Initialize toroidal field
+        bzz02d = 1d0
+
+        call Ohm_equil_2d(-kk,nh2,e0_over_eta,theta_ppnch,bth02d,bzz02d)
+
+	!Find electric field
+        E0(1:2) = 0d0
+        E0(3) = e0_over_eta*eta
+        ieta = eta
+
+        !Find radial flow
+        vr02d = -(E0(3)*bth02d-E0(2)*bzz02d)/(bzz02d**2+bth02d**2)
+
+	!Find density
+        rho0 = 1d0
+
+        !Convert current to covariant at r=1d0
+        E0(3) = -kk/mm*E0(2) + E0(3)
+
+        !Build equilibrium
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              iglobal = i + grid_params%ilo(igx) - 1
+              jglobal = j + grid_params%jlo(igy) - 1
+
+              !X-Y equilibrium
+#if !defined(vec_pot)
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = bth02d(iglobal,jglobal)
+     .                       + kk*x1/mm*bzz02d(iglobal,jglobal)
+              var(i,j,k,IBZ) = x1*bzz02d(iglobal,jglobal)
+#endif
+              var(i,j,k,IVX) = x1*vr02d(iglobal,jglobal)*eta/ieta
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
@@ -1221,7 +1144,6 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
         !Shift vr for EQU BC
         if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
           var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
      .                              /gmetric%grid(igx)%jac(ihi,:,:)
      .                              +var(ihi+1,:,:,IVX)
@@ -1230,11 +1152,15 @@ cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
      .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
         endif
 
-      case ('ppn3d')
+      case ('ppn3d','p3nsl')
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
+        theta_ppnch = grid_params%params(4)
+        e0_over_eta = grid_params%params(5)
+        bz0         = grid_params%params(6)
+        beta_tor    = grid_params%params(7)
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
@@ -1255,29 +1181,83 @@ c     Check coordinates
 
 c     Equilibria (numerical)
 
-        write (*,*) 'Reading numerical equilibrium ',equil,'...'
+        if (e0_over_eta == 0d0) then     !External file equilibrium
 
-        !Read file
-        open (unit=1000,file=trim(equ_file),status='old')
+          if (my_rank == 0)
+     .      write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
-        read(1000,'(a)')
-        do i=0,nxdp
-          read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                ,vr0(i),ez0(i),eth0(i),rho0(i)
-        enddo
+          !Read file
+          open (unit=1000,file=trim(equ_file),status='old')
 
-        read(1000)
-        read(1000,'(a)')
-        read(1000,*) ieta
+          read(1000,'(a)')
+          do i=0,nxdp
+            read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+          enddo
 
-        close(1000)
+          read(1000,'(a)')
+          read(1000,'(a)')
+          read(1000,'(f7.1)') ieta
 
-        write (*,*) 'Done!'
+          close(1000)
 
-        !Find electric field at face r=1d0
-        E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
-        E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
-        E0 = E0*eta/ieta
+          if (my_rank ==0) write (*,*) 'Done!'
+
+          !Find electric field at face r=1d0
+          E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
+          E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
+          E0 = E0*eta/ieta
+
+        else   !Calculate equilibrium
+
+          if (my_rank == 0)
+     .       write (*,*) 'Calculating equilibrium ',equil,'...'
+
+          bz0 = 1d0
+
+          !Find pressure and q-profiles
+          do i=0,nxdp
+            x1  = grid_params%xg(i)
+            p00(i) = 0.5*beta_tor*bz0**2*pprof(x1,0)
+          enddo
+
+	  !Initialize toroidal field
+          bzz0 = bz0
+
+          call Ohm_equil_1d(e0_over_eta,theta_ppnch
+     .                     ,p00,bth0,bzz0,vr0)
+
+          !Find electric field
+          E0(1:2) = 0d0
+          E0(3) = e0_over_eta*eta
+          ieta = eta
+
+          !Adjust radial flow to actual resistivity
+          vr0 = eta*vr0
+
+          !Find density
+          rho0 = 1d0
+
+        endif
+
+#if defined(RFX)
+        if (my_rank == 0) then
+          write (*,*) 'r,bth0,bzz0,q0,vr0'
+          do i=0,nxdp
+            x1 = grid_params%xg(i) !Global coordinate
+            write(*,10) x1,bth0(i),bzz0(i)
+     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i)
+          enddo
+        endif
+#else
+cc        write (*,*) 'r,bth0,bzz0,jth0,jz0,vr0'
+cc        do i=0,nxdp
+cc          call getCurvilinearCoordinates(i,1,1,igx,igy,igz,ig,jg,kg
+cc     .                                  ,x1,y1,z1)
+cc          write(*,*) x1,bth0(i),bzz0(i),vr0(i)
+cc        enddo
+cc        stop
+#endif
 
         !Build equilibrium
         do k = klom,khip
@@ -1294,6 +1274,9 @@ c     Equilibria (numerical)
               var(i,j,k,IBY) = bth0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
+              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVZ) = 0d0
 
               if (solve_rho) then
                 var(i,j,k,IRHO) = rho0(iglobal)
@@ -1329,7 +1312,6 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
         !Shift vr for EQU BC
         if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
           var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
      .                              /gmetric%grid(igx)%jac(ihi,:,:)
      .                              +var(ihi+1,:,:,IVX)
@@ -1338,7 +1320,16 @@ cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
      .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
         endif
 
-      case ('rfp1')      !RFP EQUILIBRIA (Caramana et al, PoP, 1983)
+      case ('rfp83')
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)
@@ -1348,51 +1339,28 @@ cc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
 
         nh1 = nh2 !For perturbations to be of the right order
 
-c     Check coordinates
+        !Find pressure and q-profiles
+        bz0      = 1d0
+        beta_tor = 0d0
 
-        if (coords /= 'hel') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     RFP equilibria (Caramana et al, PoP, 1983)
-
-        !Integral in r
-        rint(nxdp) = 0d0  !First guess to rint(r=1d0) = 0d0
-        do i=nxd,1,-1
-          x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
-          dh = grid_params%xg(i+1)-grid_params%xg(i)
-          rint(i) = rint(i+1) + dh*qq(x1)*qqp(x1)/ff(x1)
+        do i=0,nxdp
+          x1  = grid_params%xg(i)
+          p00(i) = 2d-5
+          q00(i) = RR*qprof(x1)
         enddo
-        rint(0) = rint(1)  !Neumann BC for integral at r=0d0
 
-        !Correction to ensure rint(r=1d0) = 0d0
-        r0 = 1d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
-     .                  ,rint,1,r0,offset,2)
+        !Initialize toroidal field
+        bzz0 = bz0  
 
-        rint = rint - offset(1)
-
-        !Determine Iz so that Bz(r=0)=1
-        r0 = 0d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
-     .                  ,rint,1,r0,offset,2)
-
-cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
-        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-offset(1))
-        Iz = 1./btheta/qq(0d0)
-
-cc        call B_from_q(bth0,bzz0)
+        !Solve 1D Grad-Shafranov equation
+        call GS_equil_1d(q00,p00,bth0,bzz0)
 
         !Build equilibrium
-
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
         var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-5
 
 #if !defined(vec_pot)
         do k = klom,khip
@@ -1406,6 +1374,9 @@ cc        call B_from_q(bth0,bzz0)
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ)  = x1*bzz0(iglobal)
+
+              var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
             enddo
           enddo
         enddo
@@ -1429,7 +1400,7 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-      case ('rfp2','spnch')  !SCREW PINCH EQ.
+      case ('spnch')  !SCREW PINCH EQ.
 
 c     Check coordinates
 
@@ -1789,7 +1760,7 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-        var(:,:,:,IRHO) = var(:,:,:,ITMP)**(1d0/gamma)   !Find density from pressure
+        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
 
 cc        if (solve_rho) then
           rho_norm = var(1,1,1,IRHO)
@@ -1898,6 +1869,105 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
+      case ('ohtor')
+
+        !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
+        RR = grid_params%params(1)              !Major radius
+        mm = grid_params%params(4)              !m mode
+        nn = grid_params%params(5)              !n mode
+        e0_over_eta = grid_params%params(6)*RR  !Covariant component is constant, needs RR factor
+        beta_tor    = grid_params%params(7)     !Toroidal beta
+
+        kk = 0d0   !To avoid affecting q-profile
+
+        nh2 =  mm       !To set the right perturbation wavelength
+        nh3 = -nn       !To set the right perturbation wavelength
+
+        nh1 = nh2       !For perturbations to be of the right order
+
+c     Check coordinates
+
+        if (coords /= 'tor') then
+          messg = 'Need "tor" coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Ohmic GS equilibrium
+
+        !Build equilibrium
+        call Ohm_GS_equil_2d(RR,e0_over_eta,beta_tor,nx,ny,nz,b1,b2,b3
+     .                      ,v1,v2,pp)
+
+	!Find electric field
+        E0(1:2) = 0d0
+        E0(3)   = e0_over_eta*eta
+        ieta    = eta
+
+        !Adjust pinch flow to current resistivity
+        v1 = v1*eta
+        v2 = v2*eta
+
+        !Fill arrays
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              var(i,j,k,IRHO) = 1d0
+
+              !R-Z equilibrium
+              var(i,j,k,IBX)  = b1(i,j)
+              var(i,j,k,IBY)  = b2(i,j)
+              var(i,j,k,IBZ)  = b3(i,j)
+
+              var(i,j,k,IVX)  = v1(i,j)
+              var(i,j,k,IVY)  = v2(i,j)
+              var(i,j,k,IVZ)  = 0d0
+
+              var(i,j,k,ITMP) = pp(i,j)/a_p/var(i,j,k,IRHO)
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              !X-Y equilibrium
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta
+cc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+        !Shift vr for EQU BC
+        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+     .                              +var(ihi+1,:,:,IVX)
+     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+          var(ihi+1,:,:,IVY) = 0.5*(var(ihi  ,:,:,IVY)
+     .                             +var(ihi+1,:,:,IVY))
+        endif
+
       case ('ntm2d')
 
         bootstrap= .true.
@@ -1923,7 +1993,7 @@ c     Equilibria (numerical)
         !Find pressure and q-profiles
         do i=0,nxdp
           x1  = grid_params%xg(i)
-          p00(i) = 0.5*beta_tor*bz0**2*pprof(x1)/pprof(0d0)
+          p00(i) = 0.5*beta_tor*bz0**2*pprof(x1,0)/pprof(0d0,0)
           q00(i) = RR*qprof(x1)
         enddo
 
@@ -1934,6 +2004,11 @@ c     Equilibria (numerical)
         call GS_equil_1d(q00,p00,bth0,bzz0)
 
         !Build equilibrium
+
+        var(:,:,:,IVX:IVZ) = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -1943,17 +2018,11 @@ c     Equilibria (numerical)
 
               iglobal = i + grid_params%ilo(igx) - 1
 
-              !X-Y equilibrium
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
               var(i,j,k,IBY) = bth0(iglobal) + kk*x1/nh2*bzz0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
-              var(i,j,k,IVX) = 0d0
-              var(i,j,k,IVY) = 0d0
-              var(i,j,k,IVZ) = 0d0
-
-              var(i,j,k,IRHO) = 1d0
 
               var(i,j,k,ITMP) = 0.5*p00(iglobal)/var(i,j,k,IRHO)
 
@@ -1962,35 +2031,24 @@ c     Equilibria (numerical)
         enddo
 
 #if defined(vec_pot)
-        call pstop('setEquilibrium','Equilibrium not working')
+cc        call pstop('setEquilibrium','Equilibrium not working')
 
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
-cc              b(i,j,k,3) = x1*bzz0(i)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
+              b(i,j,k,3) = x1*bzz0(i)
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
 #endif
-
-cc        !Shift vr for EQU BC
-cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cccc          var(ihi+1,:,:,IVX) = 0.5*(var(ihi,:,:,IVX)+var(ihi+1,:,:,IVX))
-cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-cc     .                              +var(ihi+1,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-cc        endif
 
       case default
 
@@ -2089,81 +2147,7 @@ c Transfer magnetic field info to postprocessor via input file
 
 c End program
 
-      contains
-
-c     B_from_q
-c     ###############################################################
-      subroutine B_from_q(bth0,bz0)
-
-c     ---------------------------------------------------------------
-c     Finds cylindrical components of magnetic field B_theta, B_z
-c     from q profile.
-c     ---------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8)    :: bth0(0:nxdp),bz0(0:nxdp)
-
-c     Local variables
-
-        integer    :: i,j,k,ig,jg,kg
-        real(8)    :: qq,qqp,ff,x1,dh,offset(1),r1,btheta,Iz,r0(1)
-
-        real(8)    :: rint(0:nxdp)
-
-c     Functions
-
-        !q-profile
-        qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
-        qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)
-cc        qq(r1)  = 0.3*(1 - 1.8748*r1**2 + 0.8323*r1**4)
-cc        qqp(r1) = 0.3*( -2*1.8748*r1   +4*0.8323*r1**3)
-
-        ff(r1) = r1**2 + qq(r1)**2
-
-c     Begin program
-
-c     Find integrals
-
-        !Integral in r
-        rint(nxdp) = 0d0  !First guess to rint(r=1d0) = 0d0
-        do i=nxd,1,-1
-          x1 = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))  !Position in global grid
-          dh = grid_params%xg(i+1)-grid_params%xg(i)
-          rint(i) = rint(i+1) + dh*qq(x1)*qqp(x1)/ff(x1)
-        enddo
-        rint(0) = rint(1)  !Neumann BC for integral at r=0d0
-
-        !Correction to ensure rint(r=1d0) = 0d0
-        r0 = 1d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
-     .                  ,rint,1,r0,offset,2)
-
-        rint = rint - offset(1)
-
-        !Determine Iz so that Bz(r=0)=1
-        r0 = 0d0
-        call IntDriver1d(nxd+2,grid_params%xg(0:nxdp)
-     .                  ,rint,1,r0,offset,2)
-
-cc        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-rint(0))
-        btheta = 1./2./pi*ff(1d0)/ff(0d0)*exp(-offset(1))
-        Iz = 1./btheta/qq(0d0)
-
-c     Evaluate magnetic field
-
-        do i = 0,nxdp
-
-          x1 = grid_params%xg(i)  !Position in global grid
-
-          bth0(i) = Iz/2./pi*x1*ff(1d0)/ff(x1)*exp(-rint(i))
-          bz0 (i) = qq(x1)*bth0(i)/x1
-
-        enddo
-
-      end subroutine B_from_q
+10    format (4f7.3,e12.3)
 
       end subroutine setEquilibrium
 
@@ -2199,10 +2183,11 @@ c     Call variables
 c     Local variables
 
         integer    :: i,j,k,ig,jg,kg,it
-        real(8)    :: dr,bz_avg,x1,bzh,bth,err,rh
+        real(8)    :: bz_avg,x1,bzh,bth,gs_err,rh,dh
 
-        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
-     .               ,bzz0_old(0:nxdp),p0h(0:nxdp),q0h(0:nxdp)
+        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp)
+     .               ,p0h(0:nxdp),q0h(0:nxdp)
+     .               ,xh(0:nxd),dr(0:nxd)
 
 c     Begin program
 
@@ -2218,10 +2203,229 @@ c       Initialize iteration
 
         bz0 = bzz0(0)
 
+        !Find half-mesh positions
+        do i=0,nxd
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+        enddo
+
         !Average pressure and q-profiles to half mesh
         do i=0,nxd
-          p0h(i) = 0.5*(p0(i)+p0(i+1)) !Average pressure to half mesh
-          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average pressure to half mesh
+          p0h(i) = 0.5*(p0(i)  +p0  (i+1)) !Average pressure  to half mesh
+          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average q-profile to half mesh
+        enddo
+
+c       Iteration
+
+        do it=1,100
+
+cc          !Perform integral of B_z/qprof on half-mesh
+cc          dummy(0) = 0d0
+cc          bzz0 (0) = bz0
+cc          do i=1,nxd
+cc            rh  = grid_params%xg(i)
+cc
+cc            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+cc
+cc            dummy(i) = dummy(i-1) + 2*(bzh/Rxq0(i))**2*rh*dr(i)
+cc          enddo
+
+          !Perform integral of B_th^2/r on half-mesh
+          dummy(0) = 0d0
+          do i=1,nxd
+            rh  = grid_params%xg(i)
+            bth = 0.5*(bth0(i)+bth0(i-1))
+            dummy(i) = dummy(i-1) + 2*bth**2/rh*dr(i)
+          enddo
+
+          !Safeguard for solvability
+          where (dummy>bz0**2+2*(p0h(0)-p0h))
+     .           dummy=bz0**2+2*(p0h(0)-p0h)
+
+          !Calculate Bz, Btheta on half-mesh
+          do i=0,nxd
+            x1  = xh(i)
+            bth0(i) = x1*bzz0(i)/q0h(i)
+            bzz0(i) = sign(1d0,q0h(i))
+     .               *sqrt((bz0**2+2*(p0h(0)-p0h(i))-dummy(i))
+     .                    /((x1/q0h(i))**2+1))
+          enddo
+
+          !Check convergence (force balance)
+          gs_err = 0d0
+          do i=1,nxd
+            rh  = grid_params%xg(i)
+
+            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+            bth = 0.5*(bth0(i)+bth0(i-1))
+            gs_err = gs_err
+     .                +(bzh*(bzz0(i)-bzz0(i-1))/dr(i)
+     .                     +(p0h (i)-p0h (i-1))/dr(i)
+cc     $                 +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1)))**2
+     $                 +0.5*(bth0(i)**2-bth0(i-1)**2)/dr(i)
+     .                 +bth**2/rh)**2
+          enddo
+          gs_err = sqrt(gs_err/nxd)
+
+          if (ilevel > 0 .and. my_rank == 0) then
+            write (*,*) '1D Grad-Shafranov equilibrium iter =',it
+     .                 ,' ; Force balance rror=',gs_err
+          endif
+
+          dh = xmax/nxd
+          if (gs_err < 0.01*dh**2) exit
+
+        enddo
+
+        if (ilevel == 0 .and. my_rank == 0) then
+           write (*,'(a,i3,a,1pe10.2)')
+     .          ' 1D equilibrium converged in '
+     .          ,it,' iterations with force-balance error =',gs_err
+        endif
+
+cc        !Check force balance
+cc        do i=1,nxd
+cc          rh  = grid_params%xg(i)
+cc
+cc          bzh = 0.5*(bzz0(i)+bzz0(i-1))
+cc          bth = 0.5*(bth0(i)+bth0(i-1))
+cc          dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr(i)
+cc     .                   +(p0h (i)-p0h (i-1))/dr(i)
+cc     $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+cc        enddo
+cc
+cc        if (my_rank == 0) then
+cc          write(*,*)
+cc          write(*,'(a,1pe14.7)') ' Force-balance error ='
+cc     .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
+cccc          write (*,*) dummy(1:nxd)
+cc        endif
+
+        !Calculate equilibrium properties
+        bz_avg = 0d0
+        do i=1,nxd
+          x1  = xh(i)
+          bz_avg = bz_avg + 2*bzz0(i)*x1*dr(i)
+        enddo
+
+        if (my_rank == 0) then
+          write (*,*) 
+          write (*,999) ' 1D Grad-Shafranov equilibrium properties:'
+          write (*,999) '   Theta  =',bth0(nxd)/bz_avg
+          write (*,999) '   Bz(r=0)=',bzz0(0)
+          write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
+          write (*,999) '   beta_t =',2*p0h(0)/(bzz0(0)**2)
+          write (*,999) '   beta_p =',2*p0h(0)/(bth0(nxd)**2)
+ 999      format (a,f10.5)
+        endif
+
+        !Save some equilibrium properties (to calculate bootstrap current)
+        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+
+        !Transfer to integer mesh
+        call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,2,0)
+        bth0 = dummy
+
+        call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,2,0)
+        bzz0 = dummy
+
+        !Extrapolate linearly in radius @ r=0
+        bth0(0) = -bth0(1)
+        bzz0(0) = bzz0(1)
+
+        !Dump equilibrium for eigen code
+
+        if (my_rank == 0 .and. equil == 'ntm2d') then
+          open(unit=123,file='ntm2d.txt',status='unknown')
+          write (123,*) nxdp+1
+          write (123,*) grid_params%xg(0:nxdp)
+          write (123,*) bth0
+          write (123,*) bzz0
+          write (123,*) 0.5*p0
+          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+          close(123)
+cc          stop
+        endif
+
+      end subroutine GS_equil_1d
+
+c     Ohm_equil_1d
+c     ###############################################################
+      subroutine Ohm_equil_1d(Eoeta,theta,p0,bth0,bzz0,vr0)
+
+c     ---------------------------------------------------------------
+c     Solves 1D Ohmic eq. equations to find cylindrical components
+c     of magnetic field B_theta, B_z and radial velocity vr from 
+c     imposed electric field, theta parameter, and pressure profile.
+c     On input:
+c       * Eoeta: electric field over eta
+c       * theta: RFP theta parameter
+c       * b_tor: toroidal beta
+c       * p0: input presure profile
+c       * bth0,bzz0: output magnetic field components (bzz0 contains
+c                    initial guess, and bzz0(0) contains value at axis)
+c       * vr0: output radial pinch flow
+c     ---------------------------------------------------------------
+
+        use parameters
+
+        use equilibrium
+
+        use transport_params
+
+        use grid
+
+        use app_iosetup
+
+        implicit none
+
+c     Call variables
+
+        real(8)    :: bth0(0:nxdp),bzz0(0:nxdp),vr0(0:nxdp)
+     .               ,p0(0:nxdp),Eoeta,theta,b_tor
+
+c     Local variables
+
+        integer    :: i,j,k,ig,jg,kg,it
+        real(8)    :: bz_avg,x1,bzh,bth,err,rh,dh,etah,p00
+
+        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
+     .               ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
+
+        real(8)    :: pprof
+        external      pprof
+
+c     Begin program
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,*) '************************************'
+          write (*,*) '1D Ohmic equilibrium solver'
+          write (*,*) '************************************'
+          write (*,*)
+        endif
+
+c       Initialize iteration
+
+        bz0 = bzz0(0)
+
+cc        p00 = 0.5*b_tor*bz0**2
+
+        !Find half-mesh positions
+        do i=0,nxd
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+        enddo
+
+        !Initial guess for B_theta
+        do i=0,nxd
+          bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
 c       Iteration
@@ -2231,44 +2435,70 @@ c       Iteration
           bth0_old = bth0
           bzz0_old = bzz0
 
-          !Perform integral of B_z/qprof on half-mesh
+          !Perform integral of B_theta
           dummy(0) = 0d0
-          bzz0 (0) = bz0
+          bth0 (0) = 0d0
           do i=1,nxd
-cc            x1 = i*dr
-cc            rh  = 0.5*(2*i-1)*dr
-
-            x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-            dr  =      grid_params%xg(i+1)-grid_params%xg(i)
-            rh  = grid_params%xg(i)
+            x1 = xh(i)
+            rh = grid_params%xg(i)
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
+            bth = 0.5*(bth0(i)+bth0(i-1))
+cc            etah = (1.+aa_eta*rh**bb_eta)**cc_eta
+            etah =res(i,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
 
-            dummy(i) = dummy(i-1) + 2*(bzh/Rxq0(i))**2*rh*dr
+            dummy(i)=dummy(i-1)
+cc     .               + (Eoeta/etah*bzh**2-bth*p00*pprof(rh,1))
+     .              +(Eoeta/etah*bzh**2-bth*(p0(i+1)-p0(i-1))/2./dr(i))
+     .                /(bzh**2+bth**2)*rh*dr(i)
+
+            bth0(i) = dummy(i)/x1
           enddo
 
-          !Calculate Bz, Btheta on half-mesh
-          do i=0,nxd
-cc            x1 = i*dr
-            x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          !Perform integral of Bz
+          dummy(0) = 0d0
+          do i=1,nxd
+            x1 = xh(i)
+            bzh = 0.5*(bzz0(i)+bzz0(i-1))
+            bth = 0.5*(bth0(i)+bth0(i-1))
+            rh  = grid_params%xg(i)
+cc            etah= (1.+aa_eta*rh**bb_eta)**cc_eta
+            etah =res(i,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
 
-cc            p0  (i) = p00*pprof(x1)
-            bzz0(i) = sqrt((bz0**2+2*(p0h(0)-p0h(i))
-     .                 -dummy(i))/((x1/q0h(i))**2+1))
-            bth0(i) = x1*bzz0(i)/q0h(i)
+            dummy(i) = dummy(i-1)
+cc     .                +(Eoeta/etah*bth+p00*pprof(rh,1))
+     .                +(Eoeta/etah*bth+(p0(i+1)-p0(i-1))/2./dr(i))
+     .                /(bzh**2+bth**2)*dr(i)
           enddo
+
+          bzz0 = exp(-dummy)
+
+          if (theta /= 0d0) then
+            bz_avg = 0d0
+            do i=1,nxd
+               bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
+            enddo
+            bz_avg = bz_avg/xmax**2
+            bzz0 = bth0(nxd)/theta/bz_avg*bzz0
+          elseif (bz0 /= 0d0) then
+            bzz0 = bz0*bzz0
+          else
+            call pstop('setEquilibrium'
+     $                ,'Cannot find PPNCH equilibrium:'
+     $                 //' Both Bz0 and theta are zero')
+          endif
 
           !Check convergence
           err = sqrt(0.5*(sum((bth0-bth0_old)**2)
      .                   +sum((bzz0-bzz0_old)**2))/nxdp)
 
           if (ilevel > 0 .and. my_rank == 0) then
-            write (*,*) '1D Grad-Shafranov equilibrium iter =',it
+            write (*,*) '1D Ohmic equilibrium iter =',it
      .                 ,' ; Error=',err
           endif
 
-          dr = xmax/nxd
-          if (err < 0.01*dr**2) exit
+          dh = xmax/nxd
+          if (err < 0.01*dh**2) exit
 
         enddo
 
@@ -2280,15 +2510,14 @@ cc            p0  (i) = p00*pprof(x1)
 
         !Check force balance
         do i=1,nxd
-cc          rh  = 0.5*(2*i-1)*dr
-          dr  = grid_params%xg(i+1)-grid_params%xg(i)
           rh  = grid_params%xg(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
-          dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr
-     .                   +(p0h (i)-p0h (i-1))/dr
+          dummy(i) = bzh*(bzz0(i)-bzz0(i-1))/dr(i)
      $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+cc     .              +p00*pprof(rh,1)
+     .              +(p0(i+1)-p0(i-1))/2./dr(i)
         enddo
 
         if (my_rank == 0) then
@@ -2297,35 +2526,1000 @@ cc          rh  = 0.5*(2*i-1)*dr
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
-        !Calculate GS equilibrium properties
+        !Check Ohm's law
+        do i=1,nxd
+          bzh = 0.5*(bzz0(i)+bzz0(i-1))
+          bth = 0.5*(bth0(i)+bth0(i-1))
+          rh  = grid_params%xg(i)
+cc          etah= (1.+aa_eta*rh**bb_eta)**cc_eta
+          etah =res(i,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+          dummy(i) = Eoeta*bzh/etah
+     $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+     $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
+        enddo
+
+        if (my_rank == 0) then
+          write(*,'(a,1pe14.7)') ' Ohms law      error ='
+     .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
+        endif
+
+        !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
         bz_avg = 0d0
         do i=1,nxd
-          x1  = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-          dr  =      grid_params%xg(i+1)-grid_params%xg(i)
-          bz_avg = bz_avg + 2*bzz0(i)*x1*dr
+          bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
         enddo
 
         if (my_rank == 0) then
           write (*,*) 
-          write (*,999) ' 1D GS equilibrium properties:'
+          write (*,999) ' Pinch equilibrium features:'
           write (*,999) '   Theta  =',bth0(nxd)/bz_avg
           write (*,999) '   Bz(r=0)=',bzz0(0)
           write (*,999) '   I0     =',2*pi*xmax*bth0(nxd)
-          write (*,999) '   beta_t =',2*p0h(0)/(bzz0(0)**2)
-          write (*,999) '   beta_p =',2*p0h(0)/(bth0(nxd)**2)
+          write (*,999) '   E0/eta =',Eoeta
+          write (*,999) '   T_flux =',pi*xmax**2*bz_avg
  999      format (a,f10.7)
         endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
-        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
-        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
 
         !Transfer to integer mesh
-        bth0(1:nxd) = 0.5*(bth0(0:nxd-1)+bth0(1:nxd))
-        bzz0(1:nxd) = 0.5*(bzz0(0:nxd-1)+bzz0(1:nxd))
+        call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,2,0)
+        bth0 = dummy
 
-      end subroutine GS_equil_1d
+        call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,2,0)
+        bzz0 = dummy
+
+        !Extrapolate linearly in radius @ r=0
+        bth0(0) = -bth0(1)
+        bzz0(0) = bzz0(1)
+
+        !Find pinch flow (normalized to nominal resistivity)
+        do i=1,nxd
+          rh  = grid_params%xg(i)
+cc          etah= (1.+aa_eta*rh**bb_eta)**cc_eta
+          etah =res(i,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+cc          vr0(i) = -(Eoeta*bth0(i)+etah*p00*pprof(rh,1))
+          vr0(i) = -(Eoeta*bth0(i)+etah*(p0(i+1)-p0(i-1))/2./dr(i))
+     .             /(bzz0(i)**2+bth0(i)**2)
+        enddo
+
+        !Find pressure
+cc        do i=1,nxd
+cc          rh  = grid_params%xg(i)
+cc          p0(i) = p00*pprof(rh,0)
+cc        enddo
+
+        !Dump equilibrium for eigen code
+cc        if (my_rank == 0) then
+cc          open(unit=123,file='ntm2d.txt',status='unknown')
+cc          write (123,*) nxdp+1
+cc          write (123,*) grid_params%xg(0:nxdp)
+cc          write (123,*) bth0
+cc          write (123,*) bzz0
+cc          write (123,*) 0.5*p0
+cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cc          close(123)
+cccc          stop
+cc        endif
+
+      end subroutine Ohm_equil_1d
+
+c     Ohm_equil_2d
+c     ###############################################################
+      subroutine Ohm_equil_2d(kk,mm,Eoeta,theta,bth0,bzz0)
+
+c     ---------------------------------------------------------------
+c     Solves 2D helical Ohmic equil. equations to find cylindrical
+c     components of magnetic field B_theta, B_z. On input:
+c       * kk: helical parameter (n/m/R) (defined as theta-kk*z)
+c       * Eoeta: electric field over eta
+c       * theta: RFP theta parameter
+c       * bth0,bzz0: output magnetic field components (on input, bzz0
+c                    contains initial guess, and bzz0(0) contains
+c                    value at axis)
+c
+c     In the calculation below, Psi is at cell centers, and magnetic
+c     fields for iteration are at faces. They are transferred to
+c     cell centers at end of computation.
+c     ---------------------------------------------------------------
+
+        use parameters
+
+        use equilibrium
+
+        use grid
+
+        use app_iosetup
+
+        use precond_variables, ONLY: csolver
+
+        use mg_internal, ONLY: mapMGVectorToArray
+
+        use imposeBCinterface
+
+        use ts_setup, ONLY: vol_wgt
+
+        implicit none
+
+c     Call variables
+
+        integer    :: mm
+        real(8)    :: bth0(0:nxdp,0:nydp)
+     .               ,bzz0(0:nxdp,0:nydp)
+     .               ,Eoeta,theta,kk
+
+c     Local variables
+
+        integer    :: i,j,k,ig,jg,kg,ii,it,bcnd(6)
+        real(8)    :: bz_avg,bth_avg,x1,err,rh,dh,I0
+     .               ,bth(0:nydp),bzh(0:nydp),dbz(0:nydp),xih(0:nydp)
+
+        real(8)    :: bz0,rint(0:nxdp,0:nydp),dummy(0:nxdp,0:nydp)
+     .               ,bth0_old(0:nxdp,0:nydp),bzz0_old(0:nxdp,0:nydp)
+     .               ,xh(0:nxd),dr(0:nxd),psi(0:nxdp,0:nydp,0:nzdp)
+     .               ,psi_rhs(nxd*nyd),psiv(nxd*nyd)
+
+        external   cyl_lap
+
+c     Begin program
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,*) '************************************'
+          write (*,*) '2D Ohmic equilibrium solver'
+          write (*,*) '************************************'
+          write (*,*)
+        endif
+
+        if (Eoeta == 0d0) then
+          messg = 'E0/eta = 0!!'
+          call pstop('Ohm_equil_2d',messg)
+        endif
+
+c       Initialize iteration
+
+        bz0 = bzz0(0,1)
+
+        !Find half-mesh positions
+        do i=0,nxd
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+        enddo
+
+        !Initial guess for B_theta and psi=integral_r(Bth-k*r*Bz)
+        do j=0,nydp
+cc          bth0(0:nxd,j) = 0.5*xh*Eoeta+0.001*sin(grid_params%yg(j)*mm)
+cc          psi (:,j,1) = 0.25  *grid_params%xg(0:nxdp)**2*Eoeta
+cc     .                - 0.5*kk*grid_params%xg(0:nxdp)**2*bz0
+          psi (:,j,1) = sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1)
+     .                 *sin(grid_params%yg(j)*mm)
+          bth0(1:nxd,j) = (psi(2:nxdp,j,1)-psi(0:nxd-1,j,1))
+     .                   /(dr(1:nxd)+dr(0:nxd-1))
+     .                  + kk*grid_params%xg(1:nxd)*bzz0(1:nxd,j)
+        enddo
+
+c       Iteration
+
+        do it=1,100
+
+          bth0_old = bth0
+          bzz0_old = bzz0
+
+          !Find GS equation RHS (at cell centers)
+          do j=1,nyd
+            do i=1,nxd
+              ii  = i + nxd*(j-1)
+
+              x1 = xh(i)
+              rh = grid_params%xg(i)
+              dh = 0.5*(dr(i)+dr(i-1))
+
+              bzh(j) = 0.5*(bzz0(i,j)+bzz0(i-1,j))
+              xih(j) = (psi(i+1,j,1)-psi(i-1,j,1))/(dr(i)+dr(i-1))
+              bth(j) = xih(j) + kk*rh*bzh(j)
+
+              dbz(j) = kk*(xh(i  )**2*bzz0(i  ,j)
+     .                    -xh(i-1)**2*bzz0(i-1,j))/dh/rh
+
+              psi_rhs(ii)= Eoeta*bzh(j)**2/(bzh(j)**2+bth(j)**2)-dbz(j)
+
+              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)*rh*dh*2*pi/nyd
+            enddo
+          enddo
+
+          !Solve GS Poisson eq (find psi at cell centers)
+          !Define BCs
+          bcnd = bcond
+          where (bcnd == DEF) bcnd = DIR
+
+          call cSolver(1,nxd*nyd,psi_rhs,psiv,bcnd
+     .               ,1,ilevel,1,cyl_lap,gm_driver=.true.
+     .               ,ncolors=2,order_res=0,order_prol=0
+     .               ,smooth='jb',gm_coarse_solve=.true.
+     .               ,mvcyc=10)
+
+          !Map to array (w BCs)
+          call mapMGVectorToArray(0,1,psiv,nxd,nyd,nzd,psi,1,.false.)
+
+          call setBC(IRHO,nxd,nyd,nzd,psi,zeros,bcnd,1,1,1,iorder=2)
+
+          !Perform integral of Bz (at faces)
+          dummy(0,:) = 0d0
+          do i=1,nxd
+            x1 = xh(i)
+            rh  = grid_params%xg(i)
+
+            bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
+            xih = (psi (i+1,:,1)-psi (i-1,:,1))/(dr(i)+dr(i-1))
+            bth = xih + kk*rh*bzh
+
+            dummy(i,:) = dummy(i-1,:) + bzh*xih/(bzh**2+bth**2)*dr(i)
+          enddo
+
+          do i=0,nxd
+            bzz0(i,:)=( bz0
+     .                 -kk*xh(i)*(psi(i+1,:,1)-psi(i,:,1))/dr(i)
+     .                 -Eoeta*dummy(i,:) )/(1+(kk*xh(i))**2)
+          enddo
+
+          !Find B_theta (at faces)
+          do i=0,nxd
+            bth0(i,:) = (psi(i+1,:,1)-psi(i,:,1))/dr(i)
+     .                 + kk*xh(i)*bzz0(i,:)
+          enddo
+
+          !Normalize Bz
+cc          if (theta /= 0d0) then
+cc            bz_avg = 0d0
+cc            bth_avg = 0d0
+cc            do j=1,nyd
+cc              do i=1,nxd
+cc                bz_avg = bz_avg
+cc     .                 + (bzz0(i,j)*i + bzz0(i-1,j)*(i-1))*dr(i)**2
+cc     .                  *2*pi/nyd
+cc              enddo
+cc              bth_avg = bth_avg + bth0(nxd,j)*2*pi/nyd
+cc            enddo
+cc            bz_avg = 0.5*bz_avg/pi/xmax**2
+cc            bzz0 = bth_avg/theta/bz_avg*bzz0
+cccc          elseif (bz0 /= 0d0) then
+cccc            bzz0 = bz0*bzz0
+cccc          else
+cccc            call pstop('setEquilibrium'
+cccc     $                ,'Cannot find PPNCH equilibrium:'
+cccc     $                 //' Both Bz0 and theta are zero')
+cc          endif
+
+          !Check convergence
+          err = sqrt(0.5*(sum((bth0-bth0_old)**2)
+     .                   +sum((bzz0-bzz0_old)**2))/nxdp/nydp)
+
+          if (ilevel > 0 .and. my_rank == 0) then
+            write (*,*) '2D Ohmic equilibrium iter =',it
+     .                 ,' ; Error=',err
+          endif
+
+          dh = xmax/nxd
+          if (err < 0.1*dh**2) exit
+
+        enddo
+
+        if (ilevel == 0 .and. my_rank == 0) then
+           write (*,'(a,i3,a,1pe10.2)')
+     .          ' 2D equilibrium converged in '
+     .          ,it,' iterations with error =',err
+        endif
+
+        !Check force balance
+        do i=1,nxd
+          rh  = grid_params%xg(i)
+
+          bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
+          bth = 0.5*(bth0(i,:)+bth0(i-1,:))
+          dummy(i,:) =  bzh*(bzz0(i,:)-bzz0(i-1,:))/dr(i)
+     $                 +bth/rh*(bth0(i,:)*i-bth0(i-1,:)*(i-1))
+        enddo
+
+        if (my_rank == 0) then
+          write(*,*)
+          write(*,'(a,1pe14.7)') ' Force-balance error ='
+     .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
+        endif
+
+        !Check Ohm's law
+        do i=1,nxd
+          bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
+          bth = 0.5*(bth0(i,:)+bth0(i-1,:))
+          rh  = grid_params%xg(i)
+          dummy(i,:) = Eoeta*bzh
+     $              -bzh/rh*(bth0(i,:)*i-bth0(i-1,:)*(i-1))
+     $              +bth*(bzz0(i,:)-bzz0(i-1,:))/dr(i)
+        enddo
+
+        if (my_rank == 0) then
+          write(*,'(a,1pe14.7)') ' Ohms law      error ='
+     .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
+        endif
+
+        !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
+        bz_avg = 0d0
+        do j=1,nyd
+          do i=1,nxd
+            bz_avg = bz_avg
+     .             + (bzz0(i,j)*i + bzz0(i-1,j)*(i-1))*dr(i)**2*2*pi/nyd
+          enddo
+        enddo
+        bz_avg = 0.5*bz_avg/pi/xmax**2
+
+        I0 = 0d0
+        do j=1,nyd
+          I0 = I0 + bth0(nxd,j)*2*pi*xmax/nyd
+        enddo
+        bth_avg = I0/2/pi/xmax
+
+        if (my_rank == 0) then
+          write (*,*) 
+          write (*,999) ' Pinch equilibrium features:'
+          write (*,999) '   Theta  =',bth_avg/bz_avg
+          write (*,999) '   Bz(r=0)=',bzz0(0,1)
+          write (*,999) '   I0     =',I0
+          write (*,999) '   E0/eta =',Eoeta
+          write (*,999) '   T_flux =',pi*xmax**2*bz_avg
+ 999      format (a,f10.7)
+        endif
+
+        !Save some equilibrium properties (to calculate bootstrap current)
+cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+
+        !Transfer to integer mesh
+        do j=0,nydp
+          call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd,j)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
+     .                  ,2,0)
+        enddo
+        bth0 = dummy
+
+        do j=0,nydp
+          call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd,j)
+     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
+     .                  ,2,0)
+        enddo
+        bzz0 = dummy
+
+        !Extrapolate linearly in radius @ r=0
+        bth0(0,:) = -bth0(1,:)
+        bzz0(0,:) =  bzz0(1,:)
+
+        !Dump equilibrium for eigen code
+cc        if (my_rank == 0) then
+cc          open(unit=123,file='ntm2d.txt',status='unknown')
+cc          write (123,*) nxdp+1
+cc          write (123,*) grid_params%xg(0:nxdp)
+cc          write (123,*) bth0
+cc          write (123,*) bzz0
+cc          write (123,*) 0.5*p0
+cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cc          close(123)
+cccc          stop
+cc        endif
+
+      end subroutine Ohm_equil_2d
+
+c     Ohm_GS_equil_2d
+c     ###############################################################
+      subroutine Ohm_GS_equil_2d(R0,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
+     .                          ,v1,v2,pp)
+
+c     ---------------------------------------------------------------
+c     Solves 2D Ohmic Grad-Shafranov equilibrium equations to find 
+c     contravariant components of magnetic field. On input:
+c       * R0: Major radius
+c       * Eoeta: electric field over eta
+c       * b_tor: toroidal beta
+c       * nx,ny,nz: local (processor) dimensions
+c       * b1,b2,b3: output magnetic field contravariant components 
+c       * v1,v2: output velocity contravariant components
+c
+c     In the calculation below, psi is at cell centers, and B_3=I(psi)
+c     is defined at faces.
+c     ---------------------------------------------------------------
+
+        use parameters
+
+        use equilibrium
+
+        use grid
+
+        use grid_debug
+
+        use app_iosetup
+
+        use precond_variables, ONLY: csolver
+
+        use mg_internal, ONLY: mapMGVectorToArray
+
+        use imposeBCinterface
+
+        use ts_setup, ONLY: vol_wgt
+
+        use operators, ONLY: laplacian
+
+        use transport_params
+
+        implicit none
+
+c     Call variables
+
+        integer    :: nx,ny,nz
+        real(8)    :: b1(0:nx+1,0:ny+1)
+     .               ,b2(0:nx+1,0:ny+1)
+     .               ,b3(0:nx+1,0:ny+1)
+     .               ,v1(0:nx+1,0:ny+1)
+     .               ,v2(0:nx+1,0:ny+1)
+     .               ,pp(0:nx+1,0:ny+1),Eoeta,R0,b_tor
+
+c     Local variables
+
+        integer    :: i,j,k,ig,jg,kg,ii,it,bcnd(6),igrid,guess
+     .               ,iglobal,jglobal,pos(2)
+
+        real(8)    :: bz_avg,bth_avg,gserr,ohmerr,rh,dh,dt,I0,bnorm2
+     .               ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
+     .               ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim
+     .               ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3
+     .               ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol
+
+        real(8)    :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
+     .               ,RR(0:nxdp,0:nydp)
+
+        real(8)    :: psi    (0:nx+1,0:ny+1,0:nz+1)
+     .               ,iR2    (0:nx+1,0:ny+1,0:nz+1)
+     .               ,qprof  (0:nx+1,0:ny+1)
+     .               ,dummy  (0:nxdp,0:ny+1)
+     .               ,psig   (0:nxdp,0:ny+1)
+     .               ,III    (0:nxdp,0:ny+1)
+
+        real(8),allocatable,dimension(:) :: psi_rhs,psiv,mpivec,errv
+
+        real(8)    :: pprof
+        external   del_star,pprof
+
+c     Begin program
+
+        igrid = 1
+
+        allocate(psi_rhs(nx*ny*nz),psiv(nx*ny*nz),errv(nx*ny*nz))
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,*) '************************************'
+          write (*,*) '2D Ohmic GS equilibrium solver'
+          write (*,*) '************************************'
+          write (*,*)
+        endif
+
+        if (Eoeta == 0d0) then
+          messg = 'E0/eta = 0!!'
+          call pstop('Ohm_GS_equil_2d',messg)
+        endif
+
+c       Initialize iteration
+
+        !Find half-mesh positions
+        do i=0,nxd
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+        enddo
+
+        do j=0,nyd
+          dth(j)=      grid_params%yg(j+1)-grid_params%yg(j)
+        enddo
+
+        !Initial guess for psi
+        psi = 0d0
+
+        !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
+        do j=0,nydp
+          do i=0,nxdp
+cc            call getCartesianCoordinates(i,j,1,igrid,igrid,igrid
+cc     .                                  ,ig,jg,kg,x1,y1,z1)
+cc            RR(i,j) = sqrt(x1**2+y1**2)
+
+            RR(i,j) = R0 +  grid_params%xg(i)*cos(grid_params%yg(j))
+          enddo
+        enddo
+
+        if (minval(RR) < 0d0) then
+          call pstop('Ohm_GS_equil_2d','r > R in torus')
+        endif
+
+        do j=0,ny+1
+          do i=0,nx+1
+            iglobal = i + grid_params%ilo(igrid) - 1
+            jglobal = j + grid_params%jlo(igrid) - 1
+
+            iR2(i,j,:) = 1d0/RR(iglobal,jglobal)**2
+          enddo
+        enddo
+
+        !Initial guess for III=B_phi*R
+        do j=0,ny+1
+          do iglobal=0,nxdp
+            jglobal = j + grid_params%jlo(igrid) - 1
+
+            III(iglobal,j) = RR(iglobal,jglobal)   !B_phi=1 uniform
+          enddo
+        enddo
+
+        !Maximum pressure
+        p00 = 0.5*b_tor
+
+c       Iteration
+
+        psi0 =-1d0
+        psia = 0d0
+
+        do it=1,100
+
+          !Find GS equation RHS (at cell centers)
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              iglobal = i + grid_params%ilo(igrid) - 1
+              jglobal = j + grid_params%jlo(igrid) - 1
+
+              x1 = xh(iglobal)
+              rh = grid_params%xg(iglobal)
+              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+
+              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+
+cc              psir   = (psi(i+1,j,k)-psi(i-1,j,k))
+cc     .                /(dr (iglobal)+dr (iglobal-1))
+cc              psith  = (psi(i,j+1,k)-psi(i,j-1,k))
+cc     .                /(dth(jglobal)+dth(jglobal-1))/rh
+cc              bnorm2 = IIh**2 + psir**2 + psith**2
+              psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
+              psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+              gpsi2  = psir**2 + psith**2
+              bnorm2 = IIh**2 + gpsi2
+
+              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+cc              spsi = sqrt(1d0-psi(i,j,1)/psi0)+1d-8
+cc              dsdpsi =-0.5/spsi/psi0
+cc              dpdpsi = dsdpsi*p00*pprof(spsi,1)
+
+              spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+              spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+cc              psip  = 0.5*(psi(i+1,j,1)+psi(i,j,1))
+cc              psim  = 0.5*(psi(i-1,j,1)+psi(i,j,1))
+cc              spsip = sqrt(1d0-psip/psi0)
+cc              spsim = sqrt(1d0-psim/psi0)
+cc              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+
+              spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+              spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+              dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+cc              psip  = 0.5*(psi(i,j+1,1)+psi(i,j,1))
+cc              psim  = 0.5*(psi(i,j-1,1)+psi(i,j,1))
+cc              spsip = sqrt(1d0-psip/psi0)
+cc              spsim = sqrt(1d0-psim/psi0)
+cc              dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
+
+              psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
+     .                     -psir*dpdr-psith*dpdth)/bnorm2
+cc     .                     -gpsi2*dpdpsi)/bnorm2
+
+              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
+     .                                *gmetric%grid(igrid)%dvol(i,j,k)
+
+              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                             ,psi,dff=iR2,vol=vol_wgt)
+     .                   -psi_rhs(ii))*RR(iglobal,jglobal)  !Multiply by R to ensure proper limit R->inf
+              enddo
+            enddo
+          enddo
+
+          !Calculate L2 norm of error
+          gserr = sqrt(dot(nx*ny*nz,errv,errv))
+
+          !Solve GS Poisson eq (find psi at cell centers)
+          !Define BCs
+          bcnd = bcond
+          where (bcnd == DEF) bcnd = DIR
+
+          guess = 1
+
+          call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
+     .               ,1,ilevel,guess,del_star,gm_driver=.true.
+     .               ,ncolors=2,order_res=0,order_prol=1
+     .               ,smooth='gm',gm_coarse_solve=.true.
+     .               ,mvcyc=10,tol=1d-1,sm_it=5)
+
+          !Map to array (w BCs)
+          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid
+     .                           ,.false.)
+
+          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
+     .              ,iorder=2)
+
+          !Gather global psi in radius
+#if defined(petsc)
+          if (npx > 1) then
+            allocate(mpivec(npx*(nx+2)*(ny+2)))
+            call MPI_Allgather(psi(0:nx+1,0:ny+1,1)
+     .                             ,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+     .                      ,mpivec,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+     .                      ,MPI_COMM_RAD,mpierr)
+
+            do j=1,npx
+              psig(nx*(j-1):nx*j+1,:)
+     .         = reshape(mpivec(1+(nx+2)*(ny+2)*(j-1):(nx+2)*(ny+2)*j)
+     .                   ,(/nx+2,ny+2/))
+            enddo
+            deallocate(mpivec)
+cc            allocate(mpivec(npx*(nx+2)))
+cc            do j=0,ny+1
+cc              call MPI_Allgather(psi(0:nx+1,j,1)
+cc     .                                 ,(nx+2),MPI_DOUBLE_PRECISION
+cc     .                          ,mpivec
+cc     .                                 ,(nx+2),MPI_DOUBLE_PRECISION
+cc     .                          ,MPI_COMM_RAD,mpierr)
+cc
+cc              do i=1,npx
+cc                psig(nx*(i-1):nx*i+1,j)= mpivec(1+(nx+2)*(i-1):(nx+2)*i)
+cc              enddo
+cc            enddo
+cc            deallocate(mpivec)
+          else
+            psig = psi(:,:,1)
+          endif
+#else
+          psig = psi(:,:,1)
+#endif
+          !Perform integral of III (at half-mesh on global grid in radius)
+
+          psi0 = minval(psi)
+#if defined (petsc)
+          lpsi0 = psi0
+          call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
+     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#endif
+
+          do j=1,ny
+            jglobal = j + grid_params%jlo(igrid) - 1
+
+            dummy(0,j) = 0d0
+            do iglobal=1,nxd
+              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+
+              rh = grid_params%xg(iglobal)
+              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+
+              psir   = (psig(iglobal+1,j)-psig(iglobal-1,j))/2./dh
+              psith  = (psig(iglobal,j+1)-psig(iglobal,j-1))/2./dt/rh
+              bnorm2 = IIh**2 + psir**2 + psith**2
+
+cc              spsi = sqrt(1d0-psig(iglobal,j)/psi0)+1d-8
+cc              dsdpsi =-0.5/spsi/psi0
+cc              dpdpsi = dsdpsi*p00*pprof(spsi,1)
+
+              psip  = 0.5*(psig(iglobal+1,j)+psig(iglobal,j))
+              psim  = 0.5*(psig(iglobal-1,j)+psig(iglobal,j))
+              spsip = sqrt(1d0-psip/psi0)
+              spsim = sqrt(1d0-psim/psi0)
+              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+
+              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+              dummy(iglobal,j) = dummy(iglobal-1,j)
+     .                         - RR(iglobal,jglobal)**2/bnorm2
+     .                          *(Eoeta*psir/etah/RR(iglobal,jglobal)**2
+     .                          + dpdr)*dr(iglobal)
+cc     .                         - RR(iglobal,jglobal)**2*psir/bnorm2
+cc     .                          *(Eoeta/etah/RR(iglobal,jglobal)**2
+cc     .                          + dpdpsi)*dr(iglobal)
+            enddo
+          enddo
+
+          III = R0*exp(dummy)
+
+          !Check convergence
+          if (ilevel > 0 .and. my_rank == 0) then
+            write (*,*) '2D Ohmic equilibrium iter =',it
+     .                 ,' ; GS error=',gserr!!,' Ohm error=',ohmerr
+            if (ilevel > 1) write (*,*)
+          endif
+
+          dh = xmax/nxd
+          if (gserr < 0.001*dh**2) exit
+
+        enddo
+
+        if (ilevel == 0 .and. my_rank == 0) then
+           write (*,'(a,i3,a,1pe10.2)')
+     .          ' 2D equilibrium converged in '
+     .          ,it,' iterations with error =',gserr
+        endif
+
+c       Find vectors and scalars
+
+        do j=1,ny
+          do i=1,nx
+            iglobal = i + grid_params%ilo(igrid) - 1
+            jglobal = j + grid_params%jlo(igrid) - 1
+
+            rh = grid_params%xg(iglobal)
+            dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+            dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+
+            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+            psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
+            psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+
+           !Find contravariant magnetic field components in integer mesh
+            b1(i,j) =-psith*rh
+            b2(i,j) = psir
+            b3(i,j) = IIh*rh/RR(iglobal,jglobal)
+
+            !Find contravariant velocity components
+            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+cc            spsi = sqrt(1d0-psi(i,j,1)/psi0)+1d-8
+cc            dsdpsi =-0.5/spsi/psi0
+cc            dpdpsi = dsdpsi*p00*pprof(spsi,1)
+cc
+cc            cc = (Eoeta/RR(iglobal,jglobal)**2+etah*dpdpsi)
+cc     .           *RR(iglobal,jglobal)/bnorm2
+cc
+cc            v1(i,j) =-cc*rh*psir
+cc            v2(i,j) =-cc   *psith
+
+cc            psip  = 0.5*(psi(i+1,j,1)+psi(i,j,1))
+cc            psim  = 0.5*(psi(i-1,j,1)+psi(i,j,1))
+cc            spsip = sqrt(1d0-psip/psi0)
+cc            spsim = sqrt(1d0-psim/psi0)
+cc            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+
+cc            psip  = 0.5*(psi(i,j+1,1)+psi(i,j,1))
+cc            psim  = 0.5*(psi(i,j-1,1)+psi(i,j,1))
+cc            spsip = sqrt(1d0-psip/psi0)
+cc            spsim = sqrt(1d0-psim/psi0)
+cc            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
+            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+
+            v1(i,j) =-(Eoeta*psir /RR(iglobal,jglobal)**2+etah*dpdr )
+     .                *RR(iglobal,jglobal)*rh/bnorm2
+            v2(i,j) =-(Eoeta*psith/RR(iglobal,jglobal)**2+etah*dpdth)
+     .                *RR(iglobal,jglobal)/bnorm2
+
+            !Find pressure
+            spsi = sqrt(1d0-psi(i,j,1)/psi0)
+            pp(i,j) = p00*pprof(spsi,0)
+          enddo
+        enddo
+
+c       Calculate GS equilibrium properties
+
+        !Convergence properties
+        e1 = 0d0
+        e2 = 0d0
+        e3 = 0d0
+
+        tor_flx = 0d0
+        p_avg   = 0d0
+        bz2_avg = 0d0
+
+        do j=2,ny-1
+          do i=2,nx-1
+            iglobal = i + grid_params%ilo(igrid) - 1
+            jglobal = j + grid_params%jlo(igrid) - 1
+
+            rh = grid_params%xg(iglobal)
+            dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+            dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+
+            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+            psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
+            psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+
+            jac = rh*RR(iglobal,jglobal)
+
+            !Find pressure derivatives
+            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+cc            psip  = 0.5*(psi(i+1,j,1)+psi(i,j,1))
+cc            psim  = 0.5*(psi(i-1,j,1)+psi(i,j,1))
+cc            spsip = sqrt(1d0-psip/psi0)
+cc            spsim = sqrt(1d0-psim/psi0)
+cc            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+
+            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
+cc            psip  = 0.5*(psi(i,j+1,1)+psi(i,j,1))
+cc            psim  = 0.5*(psi(i,j-1,1)+psi(i,j,1))
+cc            spsip = sqrt(1d0-psip/psi0)
+cc            spsim = sqrt(1d0-psim/psi0)
+cc            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/dt
+
+            !Find contravariant current components
+            j1 = (III(iglobal,j+1)+III(iglobal-1,j+1)
+     .           -III(iglobal,j-1)-III(iglobal-1,j-1))/4./dt
+            j2 =-(III(iglobal,j)  -III(iglobal-1,j))/dh
+            j3 = jac*laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
+     .                        ,psi,dff=iR2,vol=.false.)
+
+            !Find covariant EOM force components
+            f_1 = (j2*b3(i,j)-j3*b2(i,j))/jac - dpdr
+            f_2 = (j3*b1(i,j)-j1*b3(i,j))/jac - dpdth
+            f_3 = (j1*b2(i,j)-j2*b1(i,j))/jac
+
+cc            write (*,*) 'jxb equil',i,j,f_1+dpdr,f_2+dpdth,f_3
+
+            !Accumulate errors
+            e1 = e1 + f_1**2
+            e2 = e2 + f_2**2
+            e3 = e3 + f_3**2
+
+            !Q-profile
+            qprof(i,j) = b3(i,j)/b2(i,j)
+
+            !Toroidal flux
+            tor_flx = tor_flx + b3(i,j)*dr(iglobal)*dth(jglobal)
+
+            !Bz^2 average
+            bz2_avg = bz2_avg + (b3(i,j))**2/rh*dr(iglobal)*dth(jglobal)
+
+            !Pressure average
+            p_avg = p_avg + pp(i,j)*rh*dr(iglobal)*dth(jglobal)
+
+          enddo
+        enddo
+
+#if defined (petsc)
+        lpsi0 = e1
+        call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+
+        lpsi0 = e2
+        call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+
+        lpsi0 = e3
+        call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+
+#endif
+        gserr = e1 + e2 + e3
+
+        e1 = sqrt(e1)/(nxd-2)/(nyd-2)
+        e2 = sqrt(e2)/(nxd-2)/(nyd-2)
+        e3 = sqrt(e3)/(nxd-2)/(nyd-2)
+        gserr = sqrt(gserr)/(nxd-2)/(nyd-2)
+
+        if (my_rank == 0) then
+          write (*,*) 'EOM force residual comp 1=',e1
+          write (*,*) 'EOM force residual comp 2=',e2
+          write (*,*) 'EOM force residual comp 3=',e3
+          write (*,*) 'EOM force residual total =',gserr
+        endif
+
+        !Q-profile diagnostics (not working)
+cc        q0 = mval(qprof)
+cc#if defined (petsc)
+cc        lpsi0 = q0
+cc        call MPI_Allreduce(lpsi0,q0,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc        qa = maxval(qprof)
+cc#if defined (petsc)
+cc        lpsi0 = qa
+cc        call MPI_Allreduce(lpsi0,qa,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+cc#endif
+
+        !Poloidal beta (2*p(0)/Bth(r=a)^2)
+        I0 = 0d0
+        do j=1,ny
+          jglobal = j + grid_params%jlo(igrid) - 1
+          bth_avg = (psig(nxd+1,j)-psig(nxd,j))/dr(iglobal)
+     .              /RR(iglobal,jglobal)
+          I0 = I0 + bth_avg*xmax*dth(jglobal)
+        enddo
+
+#if defined (petsc)
+        lpsi0 = I0
+        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
+#endif
+
+        bth_avg = I0/2/pi/xmax
+
+        b_pol = 2*p00*pprof(0,0)/bth_avg**2
+
+        !Toroidal beta
+#if defined (petsc)
+        lpsi0 = bz2_avg
+        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+        lpsi0 = p_avg
+        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+#endif
+
+        b_tor = 2*p_avg/bz2_avg
+
+        !Toroidal flux
+#if defined (petsc)
+        lpsi0 = tor_flx
+        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+#endif
+
+        bz_avg = 0.5*tor_flx/pi/xmax**2
+
+        if (my_rank == 0) then
+          write (*,*) 
+          write (*,999) ' Toroidal Ohmic equilibrium features:'
+          write (*,999) '   Theta   =',bth_avg/bz_avg
+          write (*,999) '   Bz(r=0) =',1d0
+          write (*,999) '   I0      =',I0
+          write (*,999) '   E0/eta  =',Eoeta/R0
+          write (*,999) '   Tor_flx =',tor_flx
+cc          write (*,999) '   q(psi=0)=',q0
+cc          write (*,999) '   q(psi=1)=',qa
+          write (*,999) '   beta_pol=',b_pol
+          write (*,999) '   beta_tor=',b_tor
+ 999      format (a,f10.7)
+        endif
+
+        !Save some equilibrium properties (to calculate bootstrap current)
+cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+
+        !Dump equilibrium for eigen code
+cc        if (my_rank == 0) then
+cc          open(unit=123,file='ntm2d.txt',status='unknown')
+cc          write (123,*) nxdp+1
+cc          write (123,*) grid_params%xg(0:nxdp)
+cc          write (123,*) bth0
+cc          write (123,*) bzz0
+cc          write (123,*) 0.5*p0
+cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cc          close(123)
+cccc          stop
+cc        endif
+
+        deallocate(psi_rhs,psiv,errv)
+
+      end subroutine Ohm_GS_equil_2d
 
 c     qprof
 c     ###############################################################
@@ -2337,6 +3531,8 @@ c     from q profile.
 c     ---------------------------------------------------------------
 
         use equilibrium
+
+        use app_iosetup
 
         implicit none
 
@@ -2360,6 +3556,14 @@ c     Begin program
 
           qprof = q0*(1+r**(2*p)*( (qa/q0)**p - 1 ))**(1./p)
 
+        case('rfp83')
+
+          qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)
+
+        case default
+
+          call pstop('qprof','Undefined q profile')
+
         end select
 
 c     End program
@@ -2368,11 +3572,11 @@ c     End program
 
 c     pprof
 c     ###############################################################
-      function pprof(r)
+      function pprof(s,der)
 
 c     ---------------------------------------------------------------
-c     Finds cylindrical components of magnetic field B_theta, B_z
-c     from q profile.
+c     Specifies pressure profile (der = 0) and its derivative (der=1)
+c     as a function of poloidal flux.
 c     ---------------------------------------------------------------
 
         use equilibrium
@@ -2381,16 +3585,33 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        real(8)    :: pprof,r
+        integer    :: der
+        real(8)    :: pprof,s
 
 c     Local variables
 
 c     Begin program
 
         select case(equil)
-        case('ntm2d')
+        case('ntm2d','ppnsl')
 
-          pprof = (1-r**2)**4
+          if (der == 0) then
+            pprof = (1-s**2)**4
+          else
+            pprof =-8*s*(1-s**2)**3
+          endif
+
+        case('ohtor')
+
+          if (der == 0) then
+            pprof = (1-s**2)**2
+          else
+            pprof =-4*s*(1-s**2)
+          endif
+
+        case default
+
+          pprof = 0d0
 
         end select
 
@@ -2540,81 +3761,81 @@ c End program
 
       end subroutine fillVectorPotential
 
-ccc findVectorPotential
-ccc####################################################################
-cc      subroutine findVectorPotential(v,b,a_cov)
-cc
-ccc--------------------------------------------------------------------
-ccc     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
-ccc     field components with gauge:
-ccc                grad(phi + eta div(a)) = 0
-ccc
-ccc     On input:
-ccc       * v -> cnv velocity
-ccc       * b -> cnv magnetic field
-ccc     On output:
-ccc       * a -> cov vector potential
-ccc--------------------------------------------------------------------
-cc
-cc      use parameters
-cc
-cc      use grid_aliases
-cc
-cc      use equilibrium
-cc
+c findVectorPotential
+c####################################################################
+      subroutine findVectorPotential(v,b,a_cov)
+
+c--------------------------------------------------------------------
+c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
+c     field components with gauge:
+c                grad(phi + eta div(a)) = 0
+c
+c     On input:
+c       * v -> cnv velocity
+c       * b -> cnv magnetic field
+c     On output:
+c       * a -> cov vector potential
+c--------------------------------------------------------------------
+
+      use parameters
+
+      use grid_aliases
+
+      use equilibrium
+
 cc      use precond_variables, ONLY: poisson
 cc
 cc      use  mg_internal, ONLY: mapMGVectorToArray
-cc
-cc      use operators
-cc
-cc      use imposeBCinterface
-cc
-cc      use timeStepping
-cc
-cc      implicit none
-cc
-ccc Call variables
-cc
-cc      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .             ,b(0:nxdp,0:nydp,0:nzdp,3)
-cc
-ccc Local variables
-cc
-cc      integer    :: i,j,k,igrid,ii,bcnd(6,3)
-cc      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
-cc     .             ,cai_rhs(ntotdp),caiv(ntotdp)
-cc     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
-cc     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
-cc     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .             ,a(0:nxdp,0:nydp,0:nzdp,3)
-cc
-cc      logical    :: spoint
-cc
-ccc Begin program
-cc
-cc      igrid = 1
-cc
-cc      nx = grid_params%nxv(igrid)
-cc      ny = grid_params%nyv(igrid)
-cc      nz = grid_params%nzv(igrid)
-cc
-ccc Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
-cc
-cccc      call findScalarPotential(v
-cccc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-cccc     .                        ,phi)
-cc
-ccc Find vector potential with gauge Ax = 0 in GLOBAL domain
-cc
-cc      call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
-cc
-ccc Restrict solution to current domain
-cc
-cc      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
-cc     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-cc
+
+      use operators
+
+      use imposeBCinterface
+
+      use timeStepping
+
+      implicit none
+
+c Call variables
+
+      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,b(0:nxdp,0:nydp,0:nzdp,3)
+
+c Local variables
+
+      integer    :: i,j,k,igrid,ii,bcnd(6,3)
+      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
+     .             ,cai_rhs(ntotdp),caiv(ntotdp)
+     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,a(0:nxdp,0:nydp,0:nzdp,3)
+
+      logical    :: spoint
+
+c Begin program
+
+      igrid = 1
+
+      nx = grid_params%nxv(igrid)
+      ny = grid_params%nyv(igrid)
+      nz = grid_params%nzv(igrid)
+
+c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
+
+cc      call findScalarPotential(v
+cc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+cc     .                        ,phi)
+
+c Find vector potential with gauge Ax = 0 in GLOBAL domain
+
+      call curl_inv(nxd,nyd,nzd,igrid,igrid,igrid,b,a,global=.true.)
+
+c Restrict solution to current domain
+
+      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
+     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
+
 ccc Impose **topological constraints** and find a_cnv
 cc
 cc      bcnd(:,1) = bcond
@@ -2683,156 +3904,21 @@ cc          enddo
 cc        enddo
 cc
 cc      endif
-cc
-ccc Set boundary values to face values for EQU BC
-cc
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cc      where (bcnd == DEF) bcnd = -IFC
-cc
-cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,a,bcnd,igrid,igrid,igrid
-cc     .          ,is_cnv=.false.)
-cc
-ccc End program
-cc
-cc      end subroutine findVectorPotential
 
-c findEquilJ
-c####################################################################
-      subroutine findEquilJ
+c Set boundary values to face values for EQU BC
 
-c--------------------------------------------------------------------
-c     Finds equilibrium current from vector vv (either acov, or bcnv,
-c     depending on whether we are using B or A).
-c--------------------------------------------------------------------
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+      where (bcnd == DEF) bcnd = -IFC
+cc      where (bcnd == DEF) bcnd = -EXT
 
-      use auxiliaryVariables
-
-      use operators
-
-      implicit none
-
-c Call variables
-
-c Local variables
-
-      integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
-
-c Begin program
-
-cc      jcov_0 = 0d0
-cc      return
-
-      igx = 1
-      igy = 1
-      igz = 1
-
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-c Check for imposed electric field
-
-      if (sum(E0) /= 0d0) then
-        jcov_0(:,:,:,1) = E0(1)/eta
-        jcov_0(:,:,:,2) = E0(2)/eta
-        jcov_0(:,:,:,3) = E0(3)/eta
-        return
-      endif
-
-c Define extrapolation BCs
-
-      call defineBoundaryConditions(neqd,bcs)
-
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cc      where (bcnd == DEF) bcnd = -EXT !Extrapolate covariant components
-
-c Find magnetic field (A version)
-
-#if defined(vec_pot)
-
-      bcnd = bcs(:,IAX:IAZ)
-      where (bcnd == -EQU)
-        bcnd = -EXT             !Extrapolate covariant components
-      end where
-
-      call setBC(IAX,3,nx,ny,nz,acnv,acov,acov,bcnd,igx,igy,igz
-     .          ,is_cnv=.false.,iorder=2)
-
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            do icomp=1,3
-              bcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                ,acov(:,:,:,1)
-     .                                ,acov(:,:,:,2)
-     .                                ,acov(:,:,:,3),icomp)
-            enddo
-          enddo
-        enddo
-      enddo
-#else
-
-      bcnd = bcs(:,IBX:IBZ)
-      where (bcnd == -NEU)
-        bcnd = -EXT             !Extrapolate covariant components
-      end where
-
-#endif
-
-c     Extrapolate covariant magnetic field to ghost cells
-
-      call setBC(IBX,3,nx,ny,nz,bcnv,bcov,vzeros,bcnd,igx,igy,igz
-#if defined(vec_pot)
-     .          ,is_cnv=.true.,iorder=1)
-#else
-     .          ,is_cnv=.true.,iorder=3)
-#endif
-cc      do k = 0,nz+1
-cc        do j = 0,ny+1
-cc          do i = 0,nx+1
-cc            bcov(i,j,k,:)=matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
-cc     .                          ,bcnv(i,j,k,:))
-cc          enddo
-cc        enddo
-cc      enddo
-
-      !Find equilibrium current (with BCs)
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            do icomp=1,3
-              jcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                ,bcov(:,:,:,1)
-     .                                ,bcov(:,:,:,2)
-     .                                ,bcov(:,:,:,3),icomp)
-            enddo
-
-cc            jcov_0(i,j,k,:) =
-cc     .             matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
-cc     .                   ,jcnv(i,j,k,:))
-          enddo
-        enddo
-      enddo
-
-      call setBC(IJX,3,nx,ny,nz,jcnv,jcov_0,vzeros,bcnd,igx,igy,igz
-#if defined(vec_pot)
-     .          ,is_cnv=.true.,iorder=1)
-#else
-     .          ,is_cnv=.true.,iorder=2)
-#endif
-cc      write (*,*) jcov_0(:,10,1,1)
-cc      write (*,*)
-cc      write (*,*) jcov_0(:,10,1,2)
-cc      write (*,*)
-cc      write (*,*) jcov_0(:,10,1,3)
+      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .          ,igrid,igrid,igrid,is_cnv=.false.)
 
 c End program
 
-      end subroutine findEquilJ
+      end subroutine findVectorPotential
 
 ccc findScalarPotential
 ccc####################################################################
@@ -2953,5 +4039,3 @@ cc
 ccc End program
 cc
 cc      end subroutine findScalarPotential
-
-

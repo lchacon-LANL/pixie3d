@@ -89,6 +89,253 @@ c End program
 
       end subroutine lap_mtvc
 
+c cyl_lap
+c####################################################################
+      subroutine cyl_lap(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec test, y = A.x.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
+      real(8),pointer    ,dimension(:,:,:)   :: ljac
+
+      logical    :: fpointers
+
+c Begin program
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+
+c Calculate matrix-vector product
+
+      ljac => gmetric%grid(igrid)%jac
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+      
+            y(ijk) = 1d0/ljac(i,j,k)/dxh(ig)
+     .                *( 0.5*(ljac(ip,j,k)+ljac(i,j,k))
+     .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))/dx(ig)
+     .                  +0.5*(ljac(im,j,k)+ljac(i,j,k))
+     .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))/dx(ig-1))
+     .              +1d0/ljac(i,j,k)**2/dyh(jg)
+     .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))/dy(jg)
+     .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))/dy(jg-1) )
+
+            if (vol_wgt) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr)
+
+      call deallocPointers(fpointers)
+
+      end subroutine cyl_lap
+
+c del_star
+c####################################################################
+      subroutine del_star(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec test, y = A.x.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
+cc      real(8),pointer    ,dimension(:,:,:)   :: ljac
+      real(8),allocatable,dimension(:,:,:)   :: iRR
+
+      logical    :: fpointers
+
+c Begin program
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+cc      nzz = 1
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+
+c Calculate matrix-vector product
+
+      !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
+      allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
+
+      do k = kmin-1,kmax+1
+        do j = jmin-1,jmax+1
+          do i = imin-1,imax+1
+
+            call getCartesianCoordinates(i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+
+            iRR(i,j,k) = 1d0/(x1**2+y1**2)
+cc          call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+cc          RR(i,j,k) =  grid_params%params(1)
+cc     .             + grid_params%xx(ig)*cos(grid_params%yy(jg))
+          enddo
+        enddo
+      enddo
+
+      !Main loop
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
+
+cc            y(ijk) = y(ijk)/sqrt(iRR(i,j,k))   !Multiply by R
+
+cc            y(ijk) = 1d0/ljac(i,j,k)/dxh(ig)
+cc     .                *( 0.5*(ljac(ip,j,k)/RR(ip,j)**2
+cc     .                       +ljac(i ,j,k)/RR(i ,j)**2)
+cc     .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))/dx(ig)
+cc     .                  +0.5*(ljac(im,j,k)/RR(im,j)**2
+cc     .                       +ljac(i ,j,k)/RR(i ,j)**2)
+cc     .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))/dx(ig-1))
+cc     .              +1d0/ljac(i,j,k)/dyh(jg)
+cc     .                *( 0.5*(1d0/ljac(i,jp,k)
+cc     .                       +1d0/ljac(i,j ,k))
+cc     .                      *(xarr(i,jp,k,1)-xarr(i,j,k,1))/dy(jg)
+cc     .                  +0.5*(1d0/ljac(i,jm,k)
+cc     .                       +1d0/ljac(i,j ,k))
+cc     .                      *(xarr(i,jm,k,1)-xarr(i,j,k,1))/dy(jg-1) )
+cc
+cc            y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr,iRR)
+
+      call deallocPointers(fpointers)
+
+      end subroutine del_star
+
 c test_mtvc
 c####################################################################
       subroutine test_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
