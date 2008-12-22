@@ -1,3 +1,7 @@
+#if defined(RFX)
+      include "rfx_module"
+#endif
+
 c postProcessSolution
 c####################################################################
       subroutine postProcessSolution(varray,iigx,iigy,iigz)
@@ -25,9 +29,13 @@ c--------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use imposeBCinterface
+      use local_BCS_variables
 
       use diag_setup
+
+#if defined(RFX)
+      use rfx
+#endif
 
       implicit none
 
@@ -223,9 +231,7 @@ cc      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
 
 c Poloidal velocity diagnostic
 
-      if (     equil == 'ppnch'
-     .    .or. equil == 'ppnsl'
-     .    .or. equil == 'ppnst') then
+      if (pinch_flow) then
         norm = maxval(sqrt(vx_car**2+vy_car**2))
 
 #if defined(petsc)
@@ -233,7 +239,7 @@ c Poloidal velocity diagnostic
         call MPI_Reduce(lnorm,norm,1,MPI_DOUBLE_PRECISION
      .                 ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif 
-        if (my_rank == 0) write (*,*) 'Maximum Poloidal velocity=',norm
+        if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
 c Velocity intrinsic components (wrt B)
@@ -374,6 +380,8 @@ c FIX PARALLEL
                 j00_cov(i,2) = j00_cov(i,2) + jcov(i,j,k,2)*dyh(jg)
                 j00_cov(i,3) = j00_cov(i,3) + jcov(i,j,k,3)*dyh(jg)
                 v00(i,1) = v00(i,1) + vcov(i,j,k,1)*dyh(jg)
+                v00(i,2) = v00(i,2) + vcov(i,j,k,2)*dyh(jg)
+                v00(i,3) = v00(i,3) + vcov(i,j,k,3)*dyh(jg)
                 if (coords == 'hel') then
                   q00(i,1) = q00(i,1)
      .                + bcnv(i,j,k,3)/RR
@@ -444,6 +452,9 @@ c diag  : dump text data
           write (1000,*)
           close(1000)
 
+#if defined(RFX)
+          call rfx_dump_mean_profiles(b00,j00_cov,v00)
+#endif
           deallocate(b00,j00_cov,v00,q00,l00)
 
         endif
@@ -458,11 +469,19 @@ c FIX PARALLEL
 
 c Fourier output
 
-      if (np == 1 .and. fourier) call fourier_dump !FIX PARALLEL
+      if (np == 1 .and. fourier) then
+        call fourier_dump
+      elseif (np > 1 .and. fourier .and. my_rank == 0) then
+        write (*,*) 'Fourier dump not available in parallel'
+      endif
 
 c Poincare output (field tracer)
 
-      if (np == 1 .and. poincare) call poincare_plot  !FIX PARALLEL
+      if (np == 1 .and. poincare) then
+        call poincare_plot
+      elseif (np > 1 .and. fourier .and. my_rank == 0) then
+        write (*,*) 'Poincare dump not available in parallel'
+      endif
 
 c Divergence diagnostics
 
@@ -485,12 +504,6 @@ c Divergence diagnostics
         enddo
       enddo
 
-cc      call setASMflag(.false.) !Allow BC communication
-cc
-cc      call setBC(IRHO,nx,ny,nz,divrgJ,zeros,bcond,igx,igy,igz)
-cc      call setBC(IRHO,nx,ny,nz,divrgB,zeros,bcond,igx,igy,igz)
-cc      call setBC(IRHO,nx,ny,nz,divrgV,zeros,bcond,igx,igy,igz)
-
 c Thermal pressure (use graphics limits)
 
       p_tot = a_p*rho*tmp
@@ -506,44 +519,9 @@ c Transport coefficients
         enddo
       enddo
 
-c Transform to cylindrical
-
 #if defined(RFX)
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-
-            vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
-     $                     +vy_car(i,j,k)*sin(y1)
-            vy_cov(i,j,k) = vx_car(i,j,k)*sin(y1)
-     $                     -vy_car(i,j,k)*cos(y1)
-            vz_cov(i,j,k) = vz_car(i,j,k)
-
-#if defined(vec_pot)
-            ax_cnv(i,j,k) = ax_car(i,j,k)*cos(y1)
-     $                     +ay_car(i,j,k)*sin(y1)
-            ay_cnv(i,j,k) = ax_car(i,j,k)*sin(y1)
-     $                     -ay_car(i,j,k)*cos(y1)
-            az_cnv(i,j,k) = az_car(i,j,k)
-#endif
-
-            bx_cov(i,j,k) = bx_car(i,j,k)*cos(y1)
-     $                     +by_car(i,j,k)*sin(y1)
-            by_cov(i,j,k) = bx_car(i,j,k)*sin(y1)
-     $                     -by_car(i,j,k)*cos(y1)
-            bz_cov(i,j,k) = bz_car(i,j,k)
-
-            jx_cov(i,j,k) = jx_car(i,j,k)*cos(y1)
-     $                     +jy_car(i,j,k)*sin(y1)
-            jy_cov(i,j,k) = jx_car(i,j,k)*sin(y1)
-     $                     -jy_car(i,j,k)*cos(y1)
-            jz_cov(i,j,k) = jz_car(i,j,k)
-
-          enddo
-        enddo
-      enddo
+c RFX dump
+      call rfx_dump_fields
 #endif
 
 c End program
