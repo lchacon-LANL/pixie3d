@@ -336,23 +336,13 @@ c     BC setup  (only topological constraints)
       where (bcsq == DEF) bcsq = DIR
       bcnd(:,1) = bcsq
 
-cc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc        bcnd(:,2) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc        bcnd(:,3) = bcsq
-cc      else
-        bcsq = bcond
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-        bcnd(:,2) = bcsq
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = -NEU !On covariant components
+      bcnd(:,2) = bcsq
 
-        bcsq = bcond
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-        bcnd(:,3) = bcsq
-cc      endif
+      bcsq = bcond
+      where (bcsq == DEF) bcsq = -NEU !On covariant components
+      bcnd(:,3) = bcsq
 
 c     B=curl(A)
 
@@ -392,25 +382,9 @@ c     BC setup
         bcnd = -EQU             !Use covariant components for tangential BCs
       end where
 #else
-cc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = DIR
-cc        bcnd(:,1) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = EXT
-cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cc        bcnd(:,2) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = EXT
-cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cc        bcnd(:,3) = bcsq
-cc      else
-        bcnd(:,1) = varray%array_var(IAX)%bconds
-        bcnd(:,2) = varray%array_var(IAY)%bconds
-        bcnd(:,3) = varray%array_var(IAZ)%bconds
-cc      endif
+      bcnd(:,1) = varray%array_var(IAX)%bconds
+      bcnd(:,2) = varray%array_var(IAY)%bconds
+      bcnd(:,3) = varray%array_var(IAZ)%bconds
 #endif
 
       do k = 0,nnz+1
