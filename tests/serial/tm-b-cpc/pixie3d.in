@@ -42,6 +42,7 @@
     predictor= f
 
     adiabatic= t
+    solve_rho= t
     source   = t
 
     precon   = 'id'
