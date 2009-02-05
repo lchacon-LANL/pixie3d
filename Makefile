@@ -69,12 +69,6 @@ ifdef PER_BC_SYNC
   endif
 endif
 
-# PETSC setup
-
-ifdef BOPT
-  include ${PETSC_DIR}/bmake/common/base
-endif
-
 # HDF5 setup
 
 ifeq ($(HDF5),t)
@@ -102,9 +96,11 @@ ifdef ARPACK
   CPPFLAGS    += $(PREPROC)arpack
 endif
 
-# Petsc setup
+# PETSC setup
 
 ifdef BOPT
+  include ${PETSC_DIR}/bmake/common/base
+
   ifdef VECPOT
     TARGET = petsc_a
   else
