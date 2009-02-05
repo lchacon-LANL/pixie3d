@@ -1148,7 +1148,7 @@ c     Dump graphics
         call MGplot(neqd,y,igrid,0,rhsf)
 
         !Residual plot
-#if !defined(petsc)
+#if !defined(petsc_c)
         call matrixFreeMatVec(ntot,x,rr)
 #else
         rr = 0d0
