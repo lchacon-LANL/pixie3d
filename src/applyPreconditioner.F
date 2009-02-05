@@ -1074,7 +1074,7 @@ c     --------------------------------------------------------------
 
         integer :: iplot
 
-        real(8) :: mag0,mag,lxmin,lxmax,lymin,lymax
+        real(8) :: mag0,mag,gxmin,gxmax,gymin,gymax
 
         real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
 
@@ -1092,11 +1092,11 @@ c     --------------------------------------------------------------
 
 c     Begin program
 
-        lxmin = grid_params%lxmin
-        lxmax = grid_params%lxmax
+        gxmin = grid_params%gxmin
+        gxmax = grid_params%gxmax
 
-        lymin = grid_params%lymin
-        lymax = grid_params%lymax
+        gymin = grid_params%gymin
+        gymax = grid_params%gymax
 
 c     Create output files
 
@@ -1215,26 +1215,26 @@ c     Dump graphics
 
         open(unit=110,file=fldf,form='unformatted'
      .     ,status='replace')
-        call contour(dv_cnv(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,0,110)
-        call contour(dv_cnv(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
-        call contour(dv_cnv(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,1),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,0,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,2),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
+        call contour(dv_cnv(0:nx+1,1:ny,1,3),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
 #if !defined(vec_pot)
-        call contour(db_cnv(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
-        call contour(db_cnv(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
-        call contour(db_cnv(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,1),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,2),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
+        call contour(db_cnv(0:nx+1,1:ny,1,3),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
 #else
-        call contour(da_cov(0:nx+1,1:ny,1,1),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
-        call contour(da_cov(0:nx+1,1:ny,1,2),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
-        call contour(da_cov(0:nx+1,1:ny,1,3),nx+2,ny,lxmin
-     .              ,lxmax,lymin,lymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,1),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,2),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
+        call contour(da_cov(0:nx+1,1:ny,1,3),nx+2,ny,gxmin
+     .              ,gxmax,gymin,gymax,1,110)
 #endif
         close(110)
 
@@ -1256,7 +1256,7 @@ c     Dump graphics
         if (my_rank == 0) write (*,*) 'L-2 norm of div(dB)',mag
 
         open(unit=110,file=divf,form='unformatted',status='replace')
-        call contour(dbg(:,:,1,1),nx,ny,lxmin,lxmax,lymin,lymax
+        call contour(dbg(:,:,1,1),nx,ny,gxmin,gxmax,gymin,gymax
      .              ,0,110)
         close(110)
 
