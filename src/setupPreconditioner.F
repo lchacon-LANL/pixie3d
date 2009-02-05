@@ -87,6 +87,8 @@ cccc      inv_B  = .false.
 cccc      divCln = .false.
 
       !Setup for TM PC (PoP 2008)
+      ores  = 2
+      oprol = 2
       inv_B = .true.
 
 cc      !Setup for 3-wave test
