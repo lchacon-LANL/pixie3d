@@ -2974,11 +2974,12 @@ c     Local variables
         integer    :: i,j,k,ig,jg,kg,ii,it,bcnd(6),igrid,guess
      .               ,iglobal,jglobal,pos(2)
 
-        real(8)    :: bz_avg,bth_avg,gserr,ohmerr,rh,dh,dt,I0,bnorm2
+        real(8)    :: bz_avg,bth_avg,gserr,oherr,rh,dh,dt,I0,bnorm2
      .               ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
      .               ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim
      .               ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3
      .               ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol
+     .               ,cov(3),e4,e5,e6
 
         real(8)    :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
      .               ,RR(0:nxdp,0:nydp)
@@ -3069,6 +3070,7 @@ c       Iteration
 
         psi0 =-1d0
         psia = 0d0
+        oherr = 0d0
 
         do it=1,100
 
@@ -3132,12 +3134,19 @@ cc     .                     -gpsi2*dpdpsi)/bnorm2
               errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                             ,psi,dff=iR2,vol=vol_wgt)
      .                   -psi_rhs(ii))*RR(iglobal,jglobal)  !Multiply by R to ensure proper limit R->inf
+
+              oherr = oherr
+     .               +(Eoeta/etah*IIh/RR(iglobal,jglobal)**2*psir
+     .                +IIh*dpdr
+     .                +bnorm2/RR(iglobal,jglobal)**2
+     .                *(III(iglobal,j)-III(iglobal-1,j))/dh)**2
               enddo
             enddo
           enddo
 
           !Calculate L2 norm of error
           gserr = sqrt(dot(nx*ny*nz,errv,errv))
+          oherr = sqrt(oherr)
 
           !Solve GS Poisson eq (find psi at cell centers)
           !Define BCs
@@ -3149,8 +3158,9 @@ cc     .                     -gpsi2*dpdpsi)/bnorm2
           call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
      .               ,1,ilevel,guess,del_star,gm_driver=.true.
      .               ,ncolors=2,order_res=0,order_prol=1
-     .               ,smooth='gm',gm_coarse_solve=.true.
-     .               ,mvcyc=10,tol=1d-1,sm_it=5)
+cc     .               ,smooth='gm',gm_coarse_solve=.true.
+     .               ,smooth='jb',gm_coarse_solve=.true.
+     .               ,mvcyc=10,tol=5d-1,sm_it=5)
 
           !Map to array (w BCs)
           call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid
@@ -3244,7 +3254,7 @@ cc     .                          + dpdpsi)*dr(iglobal)
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,*) '2D Ohmic equilibrium iter =',it
-     .                 ,' ; GS error=',gserr!!,' Ohm error=',ohmerr
+     .                 ,' ; GS error=',gserr,' Ohm error=',oherr
             if (ilevel > 1) write (*,*)
           endif
 
@@ -3281,7 +3291,7 @@ c       Find vectors and scalars
             b3(i,j) = IIh*rh/RR(iglobal,jglobal)
 
             !Find contravariant velocity components
-            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+            etah =res(iglobal,jglobal,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
 
 cc            spsi = sqrt(1d0-psi(i,j,1)/psi0)+1d-8
 cc            dsdpsi =-0.5/spsi/psi0
@@ -3328,6 +3338,9 @@ c       Calculate GS equilibrium properties
         e1 = 0d0
         e2 = 0d0
         e3 = 0d0
+        e4 = 0d0
+        e5 = 0d0
+        e6 = 0d0
 
         tor_flx = 0d0
         p_avg   = 0d0
@@ -3387,6 +3400,20 @@ cc            write (*,*) 'jxb equil',i,j,f_1+dpdr,f_2+dpdth,f_3
             e2 = e2 + f_2**2
             e3 = e3 + f_3**2
 
+            !Find covariant Ohm's law components
+            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
+
+            cov = matmul(gmetric%grid(1)%gsub(i,j,1,:,:),(/ j1,j2,j3/))
+
+            f_1 =      (v2(i,j)*b3(i,j)                )/jac-etah*cov(1)
+            f_2 =      (               -v1(i,j)*b3(i,j))/jac-etah*cov(2)
+            f_3 =Eoeta+(v1(i,j)*b2(i,j)-v2(i,j)*b1(i,j))/jac-etah*cov(3)
+
+            !Accumulate errors
+            e4 = e4 + f_1**2
+            e5 = e5 + f_2**2
+            e6 = e6 + f_3**2
+
             !Q-profile
             qprof(i,j) = b3(i,j)/b2(i,j)
 
@@ -3415,6 +3442,17 @@ cc            write (*,*) 'jxb equil',i,j,f_1+dpdr,f_2+dpdth,f_3
         call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
      .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
 
+        lpsi0 = e4
+        call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+
+        lpsi0 = e5
+        call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+
+        lpsi0 = e6
+        call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
 #endif
         gserr = e1 + e2 + e3
 
@@ -3423,11 +3461,23 @@ cc            write (*,*) 'jxb equil',i,j,f_1+dpdr,f_2+dpdth,f_3
         e3 = sqrt(e3)/(nxd-2)/(nyd-2)
         gserr = sqrt(gserr)/(nxd-2)/(nyd-2)
 
+        oherr = e4 + e5 + e6
+
+        e4 = sqrt(e4)/(nxd-2)/(nyd-2)
+        e5 = sqrt(e5)/(nxd-2)/(nyd-2)
+        e6 = sqrt(e6)/(nxd-2)/(nyd-2)
+        oherr = sqrt(oherr)/(nxd-2)/(nyd-2)
+
         if (my_rank == 0) then
           write (*,*) 'EOM force residual comp 1=',e1
           write (*,*) 'EOM force residual comp 2=',e2
           write (*,*) 'EOM force residual comp 3=',e3
           write (*,*) 'EOM force residual total =',gserr
+          write (*,*)
+          write (*,*) 'Ohms law residual comp 1=',e4
+          write (*,*) 'Ohms law residual comp 2=',e5
+          write (*,*) 'Ohms law residual comp 3=',e6
+          write (*,*) 'Ohms law residual total =',oherr
         endif
 
         !Q-profile diagnostics (not working)
