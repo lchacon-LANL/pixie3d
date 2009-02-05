@@ -36,6 +36,7 @@
     odd      = t
 
     cnfactor = 0.5
+    sm_flag  = 0
 
     restart  = f
     timecorr = f
