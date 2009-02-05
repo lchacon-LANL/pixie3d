@@ -487,9 +487,18 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(13)%descr = 'V.grad(psi)'
 
       graph(4)%array_graph(14)%array => vperp
-      graph(4)%array_graph(14)%descr = 'V.(bxgrad(psi))'
+      graph(4)%array_graph(14)%descr = 'V.(b x grad(psi))'
 
-      graph(4)%array_graph(15:ngraph)%descr = ''
+      graph(4)%array_graph(15)%array => jpar
+      graph(4)%array_graph(15)%descr = 'J||'
+
+      graph(4)%array_graph(16)%array => jpsi
+      graph(4)%array_graph(16)%descr = 'J.grad(psi)'
+
+      graph(4)%array_graph(17)%array => jperp
+      graph(4)%array_graph(17)%descr = 'J.(b x grad(psi))'
+
+      graph(4)%array_graph(18:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)

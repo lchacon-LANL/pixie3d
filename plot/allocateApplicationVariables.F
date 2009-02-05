@@ -80,6 +80,9 @@ c Begin program
      .         ,vpar   (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vpsi   (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vperp  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jpar   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jpsi   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jperp  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgB (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgJ (ilom:ihip,jlom:jhip,klom:khip)
@@ -185,7 +188,8 @@ c Begin program
 
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
-     .           ,divrgB,divrgV,divrgJ,Pflux,p_tot )
+     .           ,divrgB,divrgV,divrgJ,Pflux,p_tot
+     .           ,jpar,jpsi,jperp)
 
       deallocate (qfactor,lambda,qfactr2,lambda2)
 
