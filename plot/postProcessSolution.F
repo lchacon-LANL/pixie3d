@@ -242,7 +242,7 @@ c Poloidal velocity diagnostic
         if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
-c Velocity intrinsic components (wrt B)
+c Velocity and current intrinsic components (wrt B)
 
       do k = kming,kmaxg
         do j = jming,jmaxg
@@ -282,17 +282,17 @@ c Velocity intrinsic components (wrt B)
 cc            vpsi(i,j,k) = cov(1)
 
             !V.(b x grad(psi))/|(b x grad(psi))|
-            cnv(1) = bcnv(i,j,k,2)*cov(3)
-     .              -bcnv(i,j,k,3)*cov(2)
-            cnv(2) = bcnv(i,j,k,3)*cov(1)
-     .              -bcnv(i,j,k,1)*cov(3)
-            cnv(3) = bcnv(i,j,k,1)*cov(2)
-     .              -bcnv(i,j,k,2)*cov(1)
+            cnv(1) = bcov(i,j,k,2)*cov(3)
+     .              -bcov(i,j,k,3)*cov(2)
+            cnv(2) = bcov(i,j,k,3)*cov(1)
+     .              -bcov(i,j,k,1)*cov(3)
+            cnv(3) = bcov(i,j,k,1)*cov(2)
+     .              -bcov(i,j,k,2)*cov(1)
 
             norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
      .                            ,cnv(1),cnv(2),cnv(3),.false.))
 
-            if (norm == 0) then
+            if (norm == 0d0) then
               vperp(i,j,k) = 0d0
             else
               vperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
@@ -301,6 +301,69 @@ cc            vpsi(i,j,k) = cov(1)
      .                       /norm
             endif
             
+            !J_parallel
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                            ,bcnv(i,j,k,1)
+     .                            ,bcnv(i,j,k,2)
+     .                            ,bcnv(i,j,k,3),.false.))
+
+            if (norm == 0d0) then
+              jpar(i,j,k) = 0d0
+            else
+              jpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
+     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+     .                     /norm
+            endif
+
+            !J.grad(psi)/|grad(psi)|
+            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
+     .               ,cov(1),cov(2),cov(3))
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                             ,cov(1),cov(2),cov(3),.true.))
+
+            if (norm == 0d0) then
+              jpsi(i,j,k) = 0d0
+            else
+              jpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                     ,cov(1),cov(2),cov(3)
+     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+     .                     /norm
+            endif
+cc            vpsi(i,j,k) = cov(1)
+
+            !J.(b x grad(psi))/|(b x grad(psi))|
+            cnv(1) = bcov(i,j,k,2)*cov(3)
+     .              -bcov(i,j,k,3)*cov(2)
+            cnv(2) = bcov(i,j,k,3)*cov(1)
+     .              -bcov(i,j,k,1)*cov(3)
+            cnv(3) = bcov(i,j,k,1)*cov(2)
+     .              -bcov(i,j,k,2)*cov(1)
+
+            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+     .                            ,cnv(1),cnv(2),cnv(3),.false.))
+
+            if (norm == 0) then
+              jperp(i,j,k) = 0d0
+            else
+              jperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
+     .                       ,cnv(1),cnv(2),cnv(3))
+     .                       /norm
+            endif
+            
+          enddo
+        enddo
+      enddo
+
+c Velocity intrinsic components (wrt B)
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
           enddo
         enddo
       enddo
