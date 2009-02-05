@@ -1,6 +1,8 @@
 #Define variables
 
+MPIEXEC=mpiexec
 NP=2
+EXEC=$(wildcard pixie3d*petsc.x)
 
 -include make.inc
 
