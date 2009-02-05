@@ -481,7 +481,7 @@ c ######################################################################
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgJ,Pflux
      .         ,qfactor,lambda,qfactr2,lambda2,p_tot
-     .         ,vpar,vpsi,vperp
+     .         ,vpar,vpsi,vperp,jpar,jpsi,jperp
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -1927,26 +1927,9 @@ c     Begin program
      .                      +(arr(i,jm,k)-arr(i,j,k))/dy(jg-1) )
      .    +dxh(ig)*dyh(jg)*( (arr(i,j,kp)-arr(i,j,k))/dz(kg)
      .                      +(arr(i,j,km)-arr(i,j,k))/dz(kg-1) )
-     .    +0.5*( dzh(kg)*( (arr(ip,jp,k)-arr(i,j,k))
-     .                    +(arr(im,jm,k)-arr(i,j,k))
-     .                    -(arr(ip,jm,k)-arr(i,j,k))
-     .                    -(arr(im,jp,k)-arr(i,j,k)) )
-     .          +dyh(jg)*( (arr(ip,j,kp)-arr(i,j,k))
-     .                    +(arr(im,j,km)-arr(i,j,k))
-     .                    -(arr(ip,j,km)-arr(i,j,k))
-     .                    -(arr(im,j,kp)-arr(i,j,k)) )
-     .          +dxh(ig)*( (arr(i,jp,kp)-arr(i,j,k))
-     .                    +(arr(i,jm,km)-arr(i,j,k))
-     .                    -(arr(i,jp,km)-arr(i,j,k))
-     .                    -(arr(i,jm,kp)-arr(i,j,k)) ) )
-
       else
 
         gsup => gmetric%grid(igrid)%gsup
-
-cc        if (isSP(i,j,k,igx,igy,igz)) then
-cc          gsup(im,jm:jp,km:kp,:,:) = gsup(i,jm:jp,km:kp,:,:)
-cc        endif
 
         d_xx_ip = 0.5*(gsup(i ,j,k,1,1)
      .                +gsup(ip,j,k,1,1))
@@ -10411,8 +10394,10 @@ c Local variables
 
 c Begin program
 
+c diag********
 cc      jcov_0 = 0d0
 cc      return
+c diag********
 
       igx = 1
       igy = 1
