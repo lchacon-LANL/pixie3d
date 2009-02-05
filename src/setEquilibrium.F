@@ -2498,7 +2498,7 @@ cc     .                +(Eoeta/etah*bth+p00*pprof(rh,1))
           endif
 
           dh = xmax/nxd
-          if (err < 0.01*dh**2) exit
+          if (err < 0.1*dh**2) exit
 
         enddo
 
