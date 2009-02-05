@@ -142,6 +142,7 @@ $(SUBDIRS):
 
 setup:
 	-cd plot ; ln -s ../src/Makefile
+	-tar xzf contrib.tgz
 	-for subdir in common plot tests/serial tests/parallel ; do \
 		$(MAKE) -C $$subdir setup;  done
 
