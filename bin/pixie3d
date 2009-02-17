@@ -205,7 +205,7 @@ fi
 if [ "$tmax" != "" -a "$tmax" != "0" ]
 then
 #    sed -e '/tmax/{' \
-    sed -e '/tmax/{' \
+    sed -i -e '/tmax/{' \
         -e 'c\' \
         -e "    tmax     = $tmax" \
         -e '}' \
