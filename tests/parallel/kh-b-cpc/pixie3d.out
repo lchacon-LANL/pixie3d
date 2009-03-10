@@ -1,6 +1,6 @@
 
   Grid mesh:................   32x   32x    1
-  Number of grid levels:....    3,    4,    1
+  Number of grid levels:....    4,    3,    1
   Preconditioning method:... id        
   Time correction...........   F
   External source...........   T
