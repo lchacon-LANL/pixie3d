@@ -38,6 +38,8 @@ c Local variables
 
       integer    :: ii,iii,igrid,ntotp,guess
 
+      logical    :: pc_diag
+
 c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
@@ -67,7 +69,8 @@ c *******************************************************************
 c     Identity preconditioner
 c *******************************************************************
 
-      if (precon.eq.'id') then
+      select case(precon)
+      case('id')
 
         do k = 1,nz
           do j = 1,ny
@@ -90,7 +93,7 @@ c *******************************************************************
 c     Semi-implicit preconditioner version I (w/o flow)
 c *******************************************************************
 
-      elseif (precon == 's1') then
+      case('s1')
 
         xxx = 0d0
 
@@ -138,12 +141,19 @@ c     Gather solution in "x"
 
 c     Diagnostics
 
-#if defined(petsc_c)
-        si_it = mod(si_it,max(precpass,1))+1
-        if (si_it == debug_it .and. debug) call PCdiagnostics
-#else
-        if (jit == debug_it .and. debug) call PCdiagnostics
-#endif
+        if (debug) then
+          write (*,*) 'Run PC diagnostics (t or f)?'
+          read(*,*) pc_diag
+
+          if (pc_diag) call PCdiagnostics
+        endif
+
+cc#if defined(petsc_c)
+cc        si_it = mod(si_it,max(precpass,1))+1
+cc        if (si_it == debug_it .and. debug) call PCdiagnostics
+cc#else
+cc        if (jit == debug_it .and. debug) call PCdiagnostics
+cc#endif
 
 c     Deallocate variables
 
@@ -153,7 +163,7 @@ c *******************************************************************
 c     Semi-implicit preconditioner version II (with flow)
 c *******************************************************************
 
-      elseif (precon == 's2') then
+      case('s2')
 
 c     Set up vectors
 
@@ -248,7 +258,19 @@ c     Final SI norm calculation
 
 c     Diagnostics
 
-        if (jit == debug_it .and. debug) call PCdiagnostics
+        if (debug) then
+          write (*,*) 'Run PC diagnostics (t or f)?'
+          read(*,*) pc_diag
+
+          if (pc_diag) call PCdiagnostics
+        endif
+
+cc#if defined(petsc_c)
+cc        si_it = mod(si_it,max(precpass,1))+1
+cc        if (si_it == debug_it .and. debug) call PCdiagnostics
+cc#else
+cc        if (jit == debug_it .and. debug) call PCdiagnostics
+cc#endif
 
 c     Deallocate variables
 
@@ -258,7 +280,7 @@ c *******************************************************************
 c     Semi-implicit preconditioner version III (with flow)
 c *******************************************************************
 
-      elseif (precon == 's3') then
+      case('s3')
 
 c     Set up vectors
 
@@ -305,18 +327,29 @@ c     Gather solution in "x"
 
 c     Diagnostics
 
-#if defined(petsc_c)
-        si_it = mod(si_it,max(precpass,1))+1
-        if (si_it == debug_it .and. debug) call PCdiagnostics
-#else
-        if (jit == debug_it .and. debug) call PCdiagnostics
-#endif
+        if (debug) then
+          write (*,*) 'Run PC diagnostics (t or f)?'
+          read(*,*) pc_diag
+
+          if (pc_diag) call PCdiagnostics
+        endif
+
+cc#if defined(petsc_c)
+cc        si_it = mod(si_it,max(precpass,1))+1
+cc        if (si_it == debug_it .and. debug) call PCdiagnostics
+cc#else
+cc        if (jit == debug_it .and. debug) call PCdiagnostics
+cc#endif
 
 c     Deallocate variables
 
         deallocate(dv_cnv,dv_cov)
 
-      endif
+      case default
+
+        call pstop('applyPC','Cannot use PC option'//precon)
+
+      end select
 
 c End program
 
@@ -354,7 +387,8 @@ c     Begin program
         !Correct dx rhs
 
         !Solve for dx
-        if (flag == 0) then
+        select case(flag)
+        case(0)
 
           call find_Udv(x,zz)
 
@@ -367,12 +401,12 @@ c     Begin program
 #else
           x(:,IAX:IAZ)= x(:,IAX:IAZ) - dt*alpha/cnp*zz(:,IAX:IAZ)
 #endif
-        elseif (flag == 1) then
+        case(1)
 
           call correct_dx_rhs(x,rr,yyy)
           call invert_D_M(yyy,x)
 
-        elseif (flag == 2) then
+        case(2)
           zz = 0d0
 
           call correct_dx_rhs(x,zz,yyy)
@@ -386,12 +420,12 @@ c     Begin program
 #else
           x(:,IAX:IAZ) = x(:,IAX:IAZ) + zz(:,IAX:IAZ)
 #endif
-        elseif (flag == 3) then
+        case(3)
 
           call correct_dx_rhs(x,rr,yyy)
           call invert_M(yyy,x)
 
-        elseif (flag == 4) then
+        case(4)
           zz = 0d0
 
           call correct_dx_rhs(x,zz,yyy)
@@ -406,10 +440,12 @@ c     Begin program
           x(:,IAX:IAZ) = x(:,IAX:IAZ) + zz(:,IAX:IAZ)
 #endif
 
-        else
+        case default
+
           call pstop('find_dx'
      .              ,'Stationary iteration type not implemented')
-        endif
+
+        end select
 
 c     End program
 
@@ -535,7 +571,8 @@ c     Begin program
      .              ,igrid,iout,guess,tmp_mtvc,dg=tmp_diag
      .              ,ncolors=2,line_relax=line_relax
      .              ,order_res=ores,order_prol=oprol
-     .              ,smooth=smooth,gm_coarse_solve=gm_coarse)
+     .              ,smooth=smooth,gm_coarse_solve=gm_coarse
+     .              ,mg_min=mg_coarse_size)
         endif
 cc        if (bcSP()) then
 cc          call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
@@ -556,7 +593,8 @@ cc        endif
      .               ,igrid,iout,guess,rho_mtvc,dg=rho_diag
      .               ,ncolors=2,line_relax=line_relax
      .               ,order_res=ores,order_prol=oprol,omega=omeg_smth
-     .               ,smooth=smooth,gm_coarse_solve=gm_coarse)
+     .               ,smooth=smooth,gm_coarse_solve=gm_coarse
+     .               ,mg_min=mg_coarse_size)
 cc          if (bcSP()) then
 cccc            write (*,*) 'DIAG -- applyPC'
 cc            call cSolver(1,ntotp,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
@@ -582,7 +620,7 @@ cc          endif
      .             ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,dg=b_diag
      .             ,ncolors=4,line_relax=line_relax,order_res=ores
      .             ,order_prol=oprol,smooth=smooth,omega=omeg_smth
-     .             ,gm_coarse_solve=gm_coarse)
+     .             ,gm_coarse_solve=gm_coarse,mg_min=mg_coarse_size)
 cc            if (gm_smooth) then
 cc              call cSolver(3,ntotp,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
 cc     .                  ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc
@@ -612,7 +650,7 @@ cc            endif
      .             ,igrid,iout,guess,b_mtvc_hyp,dg=b_diag_hyp
      .             ,ncolors=4,line_relax=line_relax,order_res=ores
      .             ,order_prol=oprol,smooth='jb'
-     .             ,gm_coarse_solve=gm_coarse)
+     .             ,gm_coarse_solve=gm_coarse,mg_min=mg_coarse_size)
 
             x(:,IBX:IBZ) = xc(:,1:3)
             pause 'here'
@@ -648,7 +686,8 @@ cc            endif
         call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
      .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,dg=a_diag
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
-     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth)
+     .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
+     .            ,mg_min=mg_coarse_size)
 cc        if (gm_smooth) then
 cc          call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
 cc     .            ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc
@@ -759,7 +798,9 @@ cc        if (.not.(jit == debug_it .and. debug)) then
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
      .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
-     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse)
+     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse
+     .            ,mg_min=mg_coarse_size)
+cc     .            ,mg_min=mg_coarse_size,cvrg_tst=.true.)
 
 cc        if (gm_smooth) then
 cc          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
@@ -831,7 +872,8 @@ c     Begin program
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,dg=v_diag
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
      .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
-     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse)
+     .            ,galerkin=mg_glrkin,gm_coarse_solve=gm_coarse
+     .            ,mg_min=mg_coarse_size)
 cc        if (gm_smooth) then
 cc          call cSolver(3,ntotp,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
 cc     .                ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc3
@@ -1667,7 +1709,7 @@ c Solve for advection-diffusion part
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc2,dg=v_diag2
      .            ,ncolors=4,line_relax=line_relax,order_res=ores
      .            ,order_prol=oprol,smooth=smooth,omega=omeg_smth
-     .            ,gm_coarse_solve=gm_coarse)
+     .            ,gm_coarse_solve=gm_coarse,mg_min=mg_coarse_size)
 
       return
 
