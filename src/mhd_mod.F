@@ -5466,7 +5466,7 @@ c     Begin program
             gsuper = 0.5*(gmetric%grid(igrid)%gsup(i ,j,k,:,:)
      .                   +gmetric%grid(igrid)%gsup(ip,j,k,:,:))
 
-            if (isSP(ip,j,k,igx,igy,igz)) gsuper = 0d0
+cc            if (isSP(ip,j,k,igx,igy,igz)) gsuper = 0d0
           endif
 
           vxip = ax(ip,j,k)
@@ -10378,25 +10378,29 @@ c     Finds equilibrium current from either acov, or bcnv,
 c     depending on whether we are using B or A.
 c     ---------------------------------------------------------------
 
-        use auxiliaryVariables
+      use auxiliaryVariables
 
-        use operators
+      use operators
 
-        implicit none
+      use app_iosetup
+
+      implicit none
 
 c Call variables
 
 c Local variables
 
-        integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
+      integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
 
-        real(8) :: etal
+      real(8) :: etal
 
 c Begin program
 
 c diag********
-cc      jcov_0 = 0d0
-cc      return
+      if (test) then
+        jcov_0 = 0d0
+        return
+      endif
 c diag********
 
       igx = 1
@@ -10418,9 +10422,7 @@ c Check for imposed electric field
           do j=0,ny+1
             do i=0,nx+1
               etal = res(i,j,k,nx,ny,nz,igx,igy,igz)
-              jcov_0(i,j,k,1) = E0(1)/etal
-              jcov_0(i,j,k,2) = E0(2)/etal
-              jcov_0(i,j,k,3) = E0(3)/etal
+              jcov_0(i,j,k,:) = E0/etal
             enddo
           enddo
         enddo
