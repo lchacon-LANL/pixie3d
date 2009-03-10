@@ -71,6 +71,10 @@ c PC SETUP *************************************
       si_car     =.false.  !Whether to solve SI operator using Cartesian vectors
       line_relax =.false.  !Whether to perform line relaxation in MG
 
+      mg_coarse_size  = 2  !Minimum coarse grid size (mg_ratio^mg_coarse_size)
+
+      mg_debug = .false.    !Whether to go into debugging mode in MG
+
       ores  = 2            !Restriction order for MG
       oprol = 2            !Prolongation order for MG
 
@@ -110,7 +114,7 @@ cc      oprol = 2
       if (bcSP()) then
         smooth = 'gs'
         ores  = 1
-        oprol = 1
+        oprol = 2
       endif
 
       if (smooth /= 'jb') omeg_smth = 1d0
