@@ -99,7 +99,7 @@ c Namelists
      .                   ,asm_PC,iguess
 
       !I/O
-      namelist /io/    ilevel,debug,debug_it,check_grid
+      namelist /i_o/    ilevel,debug,debug_it,check_grid
      .                ,recordfile,dcon,chk_src,test
 
 c ******************************************************************
@@ -348,8 +348,8 @@ c Read initialization parameters
         read(uinput,pc,iostat=ioerr)
         if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
 
-        read(uinput,io,iostat=ioerr)
-        if (ioerr/=0) call pstop('readInput','Problem reading "io"')
+        read(uinput,i_o,iostat=ioerr)
+        if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
       endif
 
       close(unit=uinput)
@@ -394,7 +394,7 @@ c Write initialization parameters to standard output
         write (*,*) '----------------- '
         write (*,*) 'IO  configuration'
         write (*,*) '----------------- '
-        write (*,io)
+        write (*,i_o)
       endif
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
