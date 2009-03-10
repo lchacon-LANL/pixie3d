@@ -1,5 +1,5 @@
 #if defined(RFX)
-      include "rfx_module"
+#include "rfx_module"
 #endif
 
 c postProcessSolution
