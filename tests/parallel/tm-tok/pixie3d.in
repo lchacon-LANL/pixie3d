@@ -19,7 +19,7 @@
     dd       = 1d-4
     chi      = 0d-3
     
-    equil    = 'kaitm'
+    equil    = '2dkai'
 
     coords   = 'hel'
 
