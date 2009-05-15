@@ -11,7 +11,7 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use precond_variables, only: inv_B,divCln
+      use precond_variables, only: inv_B,divCln,precon
 
       implicit none
 
@@ -56,7 +56,7 @@ c Begin program
 
 #if !defined(vec_pot) 
 
-      if (.not.(inv_B.and.divCln)) return
+      if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
 
       if (ilevel > 0 .and. my_rank == 0) then
         write (*,*)
