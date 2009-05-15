@@ -444,7 +444,7 @@ cc      sel_gr(3,:) = sel_graph
 c Define graphics group #4: Diagnostics
 
       graph(4)%cartesian=.true.
-cc      graph(4)%cartesian=.false.
+      graph(4)%cartesian=.false.
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
@@ -466,39 +466,39 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(6)%descr = 'Poloidal flux'
 
       graph(4)%array_graph(7)%array => qfactor
-      graph(4)%array_graph(7)%descr = 'qlnr q factor'
+      graph(4)%array_graph(7)%descr = 'q factor'
 
-      graph(4)%array_graph(8)%array => qfactr2
-      graph(4)%array_graph(8)%descr = 'avrgd q factor'
+cc      graph(4)%array_graph(7)%array => qfactr2
+cc      graph(4)%array_graph(7)%descr = 'avrgd q factor'
 
-      graph(4)%array_graph(9)%array => lambda
-      graph(4)%array_graph(9)%descr = 'qlnr lambda'
+      graph(4)%array_graph(8)%array => lambda
+      graph(4)%array_graph(8)%descr = 'lambda'
 
-      graph(4)%array_graph(10)%array => lambda2
-      graph(4)%array_graph(10)%descr = 'avrgd lambda'
+cc      graph(4)%array_graph(8)%array => lambda2
+cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
 
-      graph(4)%array_graph(11)%array => p_tot
-      graph(4)%array_graph(11)%descr = 'Pressure'
+      graph(4)%array_graph(9)%array => p_tot
+      graph(4)%array_graph(9)%descr = 'Pressure'
 
-      graph(4)%array_graph(12)%array => vpar
-      graph(4)%array_graph(12)%descr = 'V||'
+      graph(4)%array_graph(10)%array => vpar
+      graph(4)%array_graph(10)%descr = 'V||'
 
-      graph(4)%array_graph(13)%array => vpsi
-      graph(4)%array_graph(13)%descr = 'V.grad(psi)'
+      graph(4)%array_graph(11)%array => vpsi
+      graph(4)%array_graph(11)%descr = 'V.grad(psi)'
 
-      graph(4)%array_graph(14)%array => vperp
-      graph(4)%array_graph(14)%descr = 'V.(b x grad(psi))'
+      graph(4)%array_graph(12)%array => vperp
+      graph(4)%array_graph(12)%descr = 'V.(b x grad(psi))'
 
-      graph(4)%array_graph(15)%array => jpar
-      graph(4)%array_graph(15)%descr = 'J||'
+      graph(4)%array_graph(13)%array => jpar
+      graph(4)%array_graph(13)%descr = 'J||'
 
-      graph(4)%array_graph(16)%array => jpsi
-      graph(4)%array_graph(16)%descr = 'J.grad(psi)'
+      graph(4)%array_graph(14)%array => jpsi
+      graph(4)%array_graph(14)%descr = 'J.grad(psi)'
 
-      graph(4)%array_graph(17)%array => jperp
-      graph(4)%array_graph(17)%descr = 'J.(b x grad(psi))'
+      graph(4)%array_graph(15)%array => jperp
+      graph(4)%array_graph(15)%descr = 'J.(b x grad(psi))'
 
-      graph(4)%array_graph(18:ngraph)%descr = ''
+      graph(4)%array_graph(16:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
