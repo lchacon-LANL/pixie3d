@@ -90,9 +90,7 @@ c Begin program
      .         ,p_tot  (ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
-     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,qfactr2(ilom:ihip,jlom:jhip,klom:khip)
-     .         ,lambda2(ilom:ihip,jlom:jhip,klom:khip))
+     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (eeta (ilom:ihip,jlom:jhip,klom:khip)
      .         ,nuu  (ilom:ihip,jlom:jhip,klom:khip))
@@ -191,7 +189,7 @@ c Begin program
      .           ,divrgB,divrgV,divrgJ,Pflux,p_tot
      .           ,jpar,jpsi,jperp)
 
-      deallocate (qfactor,lambda,qfactr2,lambda2)
+      deallocate (qfactor,lambda)
 
       deallocate (eeta,nuu )
 
