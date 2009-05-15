@@ -56,10 +56,10 @@ c Namelists
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src
-     .                ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random
+     .                ,nh1,nh2,nh3,npw1,npw2,npw3
+     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
-     .                   ,asm_PC
+     .                   ,asm_PC,zebra_relax
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen
@@ -87,7 +87,8 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,nh1,nh2,nh3,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,nh1,nh2,nh3,npw1,npw2,npw3
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,odd,random,source,k_si,eigen
 
       !Newton-Krylov
@@ -96,11 +97,11 @@ c Namelists
 
       !Preconditioner
       namelist /pc/    precon,maxvcyc,nsweep,mgtol,iguess,precpass
-     .                   ,asm_PC,iguess
+     .                   ,asm_PC,iguess,zebra_relax
 
       !I/O
-      namelist /i_o/    ilevel,debug,debug_it,check_grid
-     .                ,recordfile,dcon,chk_src,test
+      namelist /i_o/   ilevel,debug,debug_it,check_grid
+     .                   ,recordfile,dcon,chk_src,test
 
 c ******************************************************************
 
@@ -269,9 +270,12 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       pby      = 0d0           ! By perturbation
       pbz      = 0d0           ! Bz perturbation
       ptemp    = 0d0           ! Temperature perturbation
-      nh1      = 0             ! Harmonic number for perturbation in axis 1
-      nh2      = 0             ! Harmonic number for perturbation in axis 2
-      nh3      = 0             ! Harmonic number for perturbation in axis 3
+      nh1      = 0             ! Starting harmonic number for perturbation in axis 1
+      nh2      = 0             ! Starting harmonic number for perturbation in axis 2
+      nh3      = 0             ! Starting harmonic number for perturbation in axis 3
+      npw1     = 1             ! Number of harmonics for perturbation in axis 1
+      npw2     = 1             ! Number of harmonics for perturbation in axis 2
+      npw3     = 1             ! Number of harmonics for perturbation in axis 3
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
@@ -406,7 +410,11 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
 
 c Find hyperresistivity
 
-      if (di > 0d0) heta = c_hyper
+      if (di > 0d0) then
+        heta = c_hyper
+      else
+        heta = 0d0
+      endif
 
 c Find alpha_p
 
