@@ -25,7 +25,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ncolors,igrid,ii,jj,isig
+      integer    :: igrid,ii,jj,isig
 
 c Diag
 
@@ -60,66 +60,9 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-c PC SETUP *************************************
+c Setup PC
 
-      inv_B      =.false.  !Whether to invert M_B or not
-      divCln     =.false.  !Whether to do divergence cleaning (only if inv_B = t)
-      v_solve    =.false.  !Whether to perform final v corrector step
-      gm_smooth  =.false.  !Whether to use GMRES smoothing in MG
-      gm_coarse  =.true.   !Whether to use GMRES as the coarse solve
-      mg_glrkin  =.false.  !Whether to use Galerking MG
-      si_car     =.false.  !Whether to solve SI operator using Cartesian vectors
-      line_relax =.false.  !Whether to perform line relaxation in MG
-
-      mg_coarse_size  = 2  !Minimum coarse grid size (mg_ratio^mg_coarse_size)
-
-      mg_debug = .false.    !Whether to go into debugging mode in MG
-
-      ores  = 2            !Restriction order for MG
-      oprol = 2            !Prolongation order for MG
-
-      smooth     = 'jb'    !Type of smoother ('jg','gs','gm')
-      omeg_smth  = 0.7     !Damping for MG smoother (only when 'jb' is chosen)
-
-      !SCIDAC 08 conference data for Hall MHD
-cc      ores   = 0
-cc      inv_B  = .true.
-cc      divCln = .true.
-cc      gm_coarse = .true.
-cccc      ores   = 2
-cccc      inv_B  = .false.
-cccc      divCln = .false.
-
-      !Setup for TM PC (PoP 2008)
-      ores  = 2
-      oprol = 2
-      inv_B = .true.
-
-cc      !Setup for 3-wave test
-cc      inv_B = .true.
-cc      ores  = 2
-cc      oprol = 2
-
-      !Consistency checks
-      if (precon == 's3') inv_B = .true.    !Invert B for large-flow PC
-      if (.not.inv_B) divCln = .false.      !Do not divergence clean if inv_B=.false.
-      if (si_car) si_car = .not.(coords == 'car' .or. gm_smooth)  !si_car only for non-cartesian
-                                                                  !  and without GM smoothing
-      if (np > 1) gm_coarse = .false.       !Do not perform GMRES coarse solve in parallel
-
-      if (gm_smooth) then
-        smooth = 'gm'
-      endif
-
-      if (bcSP()) then
-        smooth = 'gs'
-        ores  = 1
-        oprol = 2
-      endif
-
-      if (smooth /= 'jb') omeg_smth = 1d0
-
-c PC SETUP *************************************
+      call PC_setup
 
 c Unpack vector x
 
@@ -181,8 +124,6 @@ c Setup BCs for diagonal formation
 #endif
 
 c Find required diagonals in all grids
-
-      ncolors = 8
 
       if (jit == 1) then
 
