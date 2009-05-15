@@ -34,7 +34,7 @@ c Local variables
 
       character(10) :: advective,ts
 
-      real(8)       :: lvx_max,lvy_max,lvz_max
+      real(8)       :: vmax(3),lvmax(3)
 
 c Begin program
 
@@ -46,15 +46,11 @@ c Find maximum velocity and magnetic field components (cartesian)
       vy_max = maxval(abs(varr%array_var(IVY)%array))
       vz_max = maxval(abs(varr%array_var(IVZ)%array))
 
-#if defined(petsc)      
-      lvx_max = vx_max
-      lvy_max = vy_max
-      lvz_max = vz_max
-      call MPI_Reduce(lvx_max,vx_max,1,MPI_DOUBLE_PRECISION
-     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
-      call MPI_Reduce(lvy_max,vy_max,1,MPI_DOUBLE_PRECISION
-     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
-      call MPI_Reduce(lvz_max,vz_max,1,MPI_DOUBLE_PRECISION
+      vmax = (/ vx_max,vy_max,vz_max /)
+
+#if defined(petsc)
+      lvmax = vmax
+      call MPI_Reduce(lvmax,vmax,3,MPI_DOUBLE_PRECISION
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
 
@@ -108,7 +104,7 @@ cc            advective = 'PBRKCT'
           write (*,*) 
           write (*,100)
 
-          if (restart) write (*,110) itime,time,dt,vx_max,vy_max,vz_max
+          if (restart) write (*,110) itime,time,dt,vmax
 
         else
 
@@ -117,8 +113,7 @@ cc            advective = 'PBRKCT'
             write (*,100)
           endif
 
-          write(*,110) itime,time,dt,vx_max,vy_max,vz_max,itgmres,itnewt
-     .                ,cnfactor
+          write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
 
         endif
 
