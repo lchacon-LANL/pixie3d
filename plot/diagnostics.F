@@ -38,7 +38,7 @@ c####################################################################
         character*(20) :: diag_desc(ngraph)
 
         integer        :: diag_ivar(ngraph)
-     .                   ,diag_log(ngraph)
+     .                   ,diag_log(0:ngraph)
 
         integer    :: ndiag
 
@@ -244,8 +244,11 @@ c Define diagnostics
       diag_desc(neqd+16)= 'Ez'
       diag_desc(neqd+17)= 'Reconnected flux'
       diag_desc(neqd+18)= 'RMS |J|'
+      diag_desc(neqd+19)= 'Max Vx'
+      diag_desc(neqd+20)= 'Max Vy'
+      diag_desc(neqd+21)= 'Max Vz'
 
-      diag_desc(neqd+19:ngraph) = ''
+      diag_desc(neqd+22:ngraph) = ''
 
 c Define corresponding independent variables
 
@@ -254,9 +257,9 @@ c Define corresponding independent variables
 
 c Specify log plots (log_plot = 1)
 
-      diag_log(1:neqd) = 1  !Log scale for perturbations of dependent variables
+      diag_log = 0
 
-      diag_log(neqd+1:ngraph) = 0
+      diag_log(1:neqd) = 1  !Log scale for perturbations of dependent variables
 
 c End program
 
@@ -288,7 +291,8 @@ c Local variables
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .             ,tn=0d0,ez,lrflux,rflux,rmsj
+     .             ,tn=0d0,ez,lrflux,rflux,rmsj,vmax(3),lvmax(3)
+
       logical    :: cartsn
 
       INTERFACE
@@ -495,7 +499,15 @@ cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
 
       enddo
 
-c Current diagnostic
+c Maximum velocity diagnostics
+
+      vmax = (/ maxval(vx_car),maxval(vy_car),maxval(vz_car) /)
+
+#if defined(petsc)      
+      lvmax = vmax
+      call MPI_Reduce(lvmax,vmax,3,MPI_DOUBLE_PRECISION
+     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+#endif
 
 c Diagnostic assignment
 
@@ -518,6 +530,9 @@ c Diagnostic assignment
       diagnostics(neqd+16)= Ez
       diagnostics(neqd+17)= rflux
       diagnostics(neqd+18)= rmsj
+      diagnostics(neqd+19)= vmax(1)
+      diagnostics(neqd+20)= vmax(2)
+      diagnostics(neqd+21)= vmax(3)
 
 cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)
