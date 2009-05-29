@@ -49,7 +49,7 @@ c     Begin program
       igz = 1
 
       select case(equil)
-      case ('kaitm','kai3d')
+      case ('2dkai','3dkai')
 
         command = 'test -f '//trim(prt_file)
         ierr = system(trim(command))
@@ -231,13 +231,17 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
           enddo
         enddo
 
-      case ('gem','tmcar','tmsin')
+      case ('gem','tmcar','tmsin','kai1')
 
         call perturbEquilibrium_gem(array,bcs,perturb,ieq)
 
       case ('ic')
 
         call perturbEquilibrium_ic(array,bcs,perturb,ieq)
+
+      case ('3dpar')
+
+        call perturbEquilibrium_3dpar(array,bcs,perturb,ieq)
 
       case default
 
@@ -268,8 +272,8 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
-      real(8)    :: x1,y1,z1,kk,mm
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,ipw,mode
+      real(8)    :: x1,y1,z1
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
 c     Begin program
@@ -278,22 +282,31 @@ c     Begin program
       igy = 1
       igz = 1
 
-      do i = ilom,ihip
-        call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz,ig,jg,kg
+      do ipw=0,npw1-1
+        mode = nh1+sign(ipw,nh1)
+        do i = ilom,ihip
+          call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz,ig,jg,kg
      .                                ,x1,y1,z1)
-        fx(i) = factor(xmin,xmax,x1,bcs(1:2),nh1)
+          fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode)
+        enddo
       enddo
 
-      do j = jlom,jhip
-        call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz,ig,jg,kg
+      do ipw=0,npw2-1
+        mode = nh2+sign(ipw,nh2)
+        do j = jlom,jhip
+          call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz,ig,jg,kg
      .                                ,x1,y1,z1)
-        fy(j) = factor(ymin,ymax,y1,bcs(3:4),nh2)
+          fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode)
+        enddo
       enddo
 
-      do k = klom,khip
-        call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz,ig,jg,kg
+      do ipw=0,npw3-1
+        mode = nh3+sign(ipw,nh3)
+        do k = klom,khip
+          call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz,ig,jg,kg
      .                                ,x1,y1,z1)
-        fz(k) = factor(zmin,zmax,z1,bcs(5:6),nh3)
+          fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode)
+        enddo
       enddo
 
       do k = klom,khip
@@ -363,11 +376,11 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
             pert(2) = x1*pert(2)
-            if (equil == 'kaitm') pert(3) = pert(3)+kk*x1/mm*pert(4)
+            if (equil == '2dkai') pert(3) = pert(3)+kk*x1/mm*pert(4)
             pert(4) = x1*pert(4)
 
             pert(5) = x1*pert(5)
-            if (equil == 'kaitm') pert(6) = pert(6)+kk*x1/mm*pert(7)
+            if (equil == '2dkai') pert(6) = pert(6)+kk*x1/mm*pert(7)
             pert(7) = x1*pert(7)
 
             array(i,j,k) = array(i,j,k) + pert(ieq)
@@ -586,6 +599,175 @@ cc        enddo
 c     End program
 
       end subroutine perturbEquilibrium_gem
+
+c     perturbEquilibrium_3dpar
+c     #################################################################
+      subroutine perturbEquilibrium_3dpar(array,bcs,perturb,ieq)
+
+c     -----------------------------------------------------------------
+c     Perturbs equilibrium quantity in array0 with a sinusoidal
+c     perturbation of magnitude perturb, and introduces it in array.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer    :: bcs(6),ieq
+      real(8)    :: perturb
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+
+c     Local variables
+
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
+     .             ,ipw1,ipw2,ipw3
+      real(8)    :: x1,y1,z1,kk,mm,nn,rs,q0,RR,sigma,r0
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
+
+c     Begin program
+
+      igx = 1
+      igy = 1
+      igz = 1
+
+      if (ieq == IBX .or. ieq == IBY) then
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        q0 = grid_params%params(4)
+
+        nn = abs(kk*RR)
+
+cc        !mm = 2, nn=1
+cc        mm = 2
+cc        nn = 1
+cc
+cc        kk = -nn/RR
+cc
+cc        sigma = 0.1
+cc
+cc        rs = dlambda*sqrt(q0*mm/nn-1)
+cc
+cc        r0 = rs-mm*sigma**2/rs
+cc
+cc        write (*,*) 'here',rs,r0,sigma,mm,nn,q0
+cc
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              psi(i,j,k)=(x1/dlambda)**mm
+cc     .                  *exp(-.5*((x1-r0)/sigma)**2)
+cc     .                  *cos(mm*y1+kk*z1)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        !mm = 3, nn=2
+cc        mm = 3
+cc        nn = 2
+cc
+cc        kk = -nn/RR
+cc
+cc        sigma = 0.1
+cc
+cc        rs = dlambda*sqrt(q0*mm/nn-1)
+cc
+cc        r0 = rs-mm*sigma**2/rs
+cc
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              psi(i,j,k)=psi(i,j,k) + (x1/dlambda)**mm
+cc     .                  *exp(-.5*((x1-r0)/sigma)**2)
+cc     .                  *cos(mm*y1+kk*z1)
+cc            enddo
+cc          enddo
+cc        enddo
+
+        sigma = 0.1
+
+        psi = 0d0
+
+        do ipw3=nh3,nh3+sign(npw3-1,nh3),sign(1,nh3)
+          do ipw2=max(ipw3,nh2),nh2+sign(npw2-1,nh2),sign(1,nh2)
+
+            mm = ipw2
+            nn = ipw3
+
+            kk = -nn/RR
+
+cc            if (mm == 3d0 .and. nn == 1d0) cycle
+            if (q0*mm/nn < 1d0) cycle
+
+            rs = dlambda*sqrt(q0*mm/nn-1)
+
+            if (rs > 1d0) cycle
+
+            write (*,*) 'n,m=',nn,mm
+
+            r0 = rs-mm*sigma**2/rs
+
+            do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
+                  call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                          ,ig,jg,kg,x1,y1,z1)
+
+                  psi(i,j,k)=psi(i,j,k) + (x1/dlambda)**mm
+     .                      *exp(-.5*((x1-r0)/sigma)**2)*(1-x1)**mm
+     .                      *cos(mm*y1+kk*z1)
+                enddo
+              enddo
+            enddo
+
+          enddo
+        enddo
+
+        !Add perturbation
+        
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              ip = min(i+1,ihip)
+              im = max(i-1,ilom)
+              jp = min(j+1,jhip)
+              jm = max(j-1,jlom)
+
+              if (ieq == IBX) then
+                array(i,j,k) = array(i,j,k)
+     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+     .                              /(grid_params%yy(jg+jp-j)
+     .                               -grid_params%yy(jg+jm-j))
+              else
+                array(i,j,k) = array(i,j,k)
+     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+     .                              /(grid_params%xx(ig+ip-i)
+     .                               -grid_params%xx(ig+im-i))
+              endif
+            enddo
+          enddo
+        enddo
+
+      else
+
+        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+
+      endif
+
+c     End program
+
+      end subroutine perturbEquilibrium_3dpar
 
 c     perturbEquilibrium_ic
 c     #################################################################
