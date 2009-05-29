@@ -21,7 +21,7 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k
+      integer :: i,j,k,igx,igy,igz,nx,ny,nz
       real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov
 
 c Interfaces
@@ -58,10 +58,10 @@ c Begin program
 
       if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
 
-      if (ilevel > 0 .and. my_rank == 0) then
+cc      if (ilevel > 0 .and. my_rank == 0) then
         write (*,*)
         write (*,*) 'Performing divergence cleaning...'
-      endif
+cc      endif
 
 c Apply boundary conditions
 
