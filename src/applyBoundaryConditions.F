@@ -210,7 +210,7 @@ c Begin program
       if (PRESENT(obc)) then
         order = obc
       else
-        order = 2            !Order of extrapolation in BCs
+        order = bc_order     !Order of extrapolation in BCs (defined in imposeBC_mod.F)
       endif
 
 c Local grid sizes
@@ -251,28 +251,11 @@ c     BC setup
       bcnv(:,:,:,2) = varray%array_var(IBY)%array
       bcnv(:,:,:,3) = varray%array_var(IBZ)%array
 
-cc      v0(:,:,:,1) = u_0%array_var(IBX)%array
-cc      v0(:,:,:,2) = u_0%array_var(IBY)%array
-cc      v0(:,:,:,3) = u_0%array_var(IBZ)%array
-
-      v0 = jcov_0   !To fix current at boundary
-
-c     BC predictor (extrapolate)
-
-cc      bcsq = bcond
-cc      where (bcsq == DEF) bcsq = DIR
-cc      bcnd(:,1) = bcsq
-cc
-cc      bcsq = bcond
-cc      where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc      bcnd(:,2) = bcsq
-cc
-cc      bcsq = bcond
-cc      where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc      bcnd(:,3) = bcsq
-cc
-cc      call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
-cc     .          ,iorder=order)
+      if (pinch_flow) then
+        v0 = 0d0
+      else
+        v0 = jcov_0             !To fix current at boundary
+      endif
 
 c     BC (Neumann)
 
@@ -400,43 +383,19 @@ c     BC setup
         enddo
       enddo
 
-      if (pinch_flow) then               !Jt = alpha*Bt in cov representation
-cc      if (sum(abs(E0)) /= 0d0) then  !Jt = alpha*Bt in cov representation
+      if (pinch_flow) then  !Jt = alpha*Bt in cov representation
 
         i = nnx
 
         do k=1,nnz
           do j=1,nny
-#if !defined(vec_pot)
-            bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
-     .                    ,varray%array_var(IBY)%array(i  ,j,k)
-     .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
-     .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
-     .                    ,varray%array_var(IBY)%array(i+1,j,k)
-     .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
-#else
-            bbcnv = 0.5*(/ bcnv(i  ,j,k,1)
-     .                    ,bcnv(i  ,j,k,2)
-     .                    ,bcnv(i  ,j,k,3) /)
-     .             +0.5*(/ bcnv(i+1,j,k,1)
-     .                    ,bcnv(i+1,j,k,2)
-     .                    ,bcnv(i+1,j,k,3) /)
-#endif
-            bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
-     .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
-     .                    ,bbcnv)
+            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))
+            bbcov = 0.5*(bcov(i+1,j,k,:)+bcov(i,j,k,:))
 
-            b2   = 2*dot_product(bbcnv,bbcov)
-     .            /(gmetric%grid(iigx)%jac(i  ,j,k)
-     .             +gmetric%grid(iigx)%jac(i+1,j,k))
-
-cc            J0 = E0*2./(eeta(i,j,k)+eeta(i+1,j,k))
             J0 = 0.5*(jcov_0(i+1,j,k,:)+jcov_0(i,j,k,:))
 
-            v0(i+1,j,k,:) = scalarProduct(i,j,k,iigx,iigy,iigz
-     .                                 ,J0   (1),J0   (2),J0   (3)
-     .                                 ,bbcnv(1),bbcnv(2),bbcnv(3))/b2
-     .                     *bbcov(:)
+            v0(i+1,j,k,:) = dot_product(J0   ,bbcnv)
+     .                     /dot_product(bbcov,bbcnv)*bbcov
           enddo
         enddo
 
@@ -487,58 +446,11 @@ c     BC setup
         vcnv(:,:,:,3) = varray%array_var(IVZ)%array
       endif
 
-      if (pinch_flow) then
-
-        i = nnx
-
-        do k=1,nnz
-          do j=1,nny
-#if !defined(vec_pot)
-            bbcnv = 0.5*(/ varray%array_var(IBX)%array(i  ,j,k)
-     .                    ,varray%array_var(IBY)%array(i  ,j,k)
-     .                    ,varray%array_var(IBZ)%array(i  ,j,k) /)
-     .             +0.5*(/ varray%array_var(IBX)%array(i+1,j,k)
-     .                    ,varray%array_var(IBY)%array(i+1,j,k)
-     .                    ,varray%array_var(IBZ)%array(i+1,j,k) /)
-#else
-            bbcnv = 0.5*(/ bcnv(i  ,j,k,1)
-     .                    ,bcnv(i  ,j,k,2)
-     .                    ,bcnv(i  ,j,k,3) /)
-     .             +0.5*(/ bcnv(i+1,j,k,1)
-     .                    ,bcnv(i+1,j,k,2)
-     .                    ,bcnv(i+1,j,k,3) /)
-#endif
-            bbcov = matmul(0.5*(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
-     .                         +gmetric%grid(iigx)%gsub(i+1,j,k,:,:))
-     .                    ,bbcnv)
-
-            b2   = 2*dot_product(bbcnv,bbcov)
-     .            /(gmetric%grid(iigx)%jac(i  ,j,k)
-     .             +gmetric%grid(iigx)%jac(i+1,j,k))
-
-            if (b2 > 0d0) then
-cc              E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,1)
-cc     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,1))
-              E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,2)
-     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,2))
-              E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,3)
-     .                             +eeta(i+1,j,k)*jcov(i+1,j,k,3))
-
-              v0(i+1,j,k,1) = -(bbcov(2)*E00(3)-bbcov(3)*E00(2))/b2 !ExB velocity
-            else
-              v0(i+1,j,k,1) = 0d0
-            endif
-          enddo
-        enddo
-
-      else
-
-        v0(:,:,:,1) = u_0%array_var(IVX)%array
-
-      endif
-
+      v0(:,:,:,1) = u_0%array_var(IVX)%array
       v0(:,:,:,2) = u_0%array_var(IVY)%array
       v0(:,:,:,3) = u_0%array_var(IVZ)%array
+
+      call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv,bcov,v0)
 
 c     Fill ghost nodes
 
@@ -907,14 +819,15 @@ c       BC setup
      .               +gmetric%grid(iigx)%jac(i+1,j,k))
 
               if (b2 > 0d0) then
-cc                E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,1)
-cc       .                             +eeta(i+1,j,k)*jcov(i+1,j,k,1))
-                E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,2)
-     .                               +eeta(i+1,j,k)*jcov(i+1,j,k,2))
-                E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,3)
-     .                               +eeta(i+1,j,k)*jcov(i+1,j,k,3))
-
-                v0(i+1,j,k,1) = -(bbcov(2)*E00(3)-bbcov(3)*E00(2))/b2 !ExB velocity
+cccc                E00(1) = E0(1) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,1)
+cccc       .                             +eeta(i+1,j,k)*jcov(i+1,j,k,1))
+cc                E00(2) = E0(2) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,2)
+cc     .                               +eeta(i+1,j,k)*jcov(i+1,j,k,2))
+cc                E00(3) = E0(3) - 0.5*(eeta(i  ,j,k)*jcov(i  ,j,k,3)
+cc     .                               +eeta(i+1,j,k)*jcov(i+1,j,k,3))
+cc
+cc                v0(i+1,j,k,1) = -(bbcov(2)*E00(3)-bbcov(3)*E00(2))/b2 !ExB velocity
+                v0(i+1,j,k,1) = -(bbcov(2)*E0(3)-bbcov(3)*E0(2))/b2 !ExB velocity
               else
                 v0(i+1,j,k,1) = 0d0
               endif
