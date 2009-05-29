@@ -20,6 +20,8 @@ c####################################################################
 
         logical :: pinch_flow=.false.
 
+        integer :: bc_order=1
+
       contains
 
 c     setBCsched
@@ -27,7 +29,13 @@ c     ###################################################################
       subroutine setBCsched
 
 c     -------------------------------------------------------------------
-c     Sets BC schedule for dependent and auxiliary variables
+c     Sets BC schedule for dependent and auxiliary variables, which
+c     are identified by a 2-dim integer array, bc_seq. The first
+c     dimension sets order of treatment. The second dimension (with two
+c     2 components) has the following convention:
+c       * First component identifies whether quantities are dependent (>0)
+c         or auxiliary (<0) variables.
+c       * Second component identifies scalars (=0) or vectors (=1).
 c     -------------------------------------------------------------------
 
 c     Begin program
@@ -55,7 +63,7 @@ c     Begin program
       gv%bc_seq(4,1) =-IJX  !Aux. variable (<0)
       gv%bc_seq(4,2) = 1    !Vector
 
-      gv%bc_seq(5,1) = IVX  !Dep. variable (<0)
+      gv%bc_seq(5,1) = IVX  !Dep. variable (>0)
       gv%bc_seq(5,2) = 1    !Vector
 
       gv%bc_seq(6,1) = ITMP !Dep. variable (>0)
@@ -64,13 +72,13 @@ c     Begin program
       gv%bc_seq(1,1) = IRHO !Dep. Variable (>0)
       gv%bc_seq(1,2) = 0    !Scalar
 
-      gv%bc_seq(2,1) = IBX  !Dep. variable (<0)
+      gv%bc_seq(2,1) = IBX  !Dep. variable (>0)
       gv%bc_seq(2,2) = 1    !Vector
 
       gv%bc_seq(3,1) =-IJX  !Aux. variable (<0)
       gv%bc_seq(3,2) = 1    !Vector
 
-      gv%bc_seq(4,1) = IVX  !Dep. variable (<0)
+      gv%bc_seq(4,1) = IVX  !Dep. variable (>0)
       gv%bc_seq(4,2) = 1    !Vector
 
       gv%bc_seq(5,1) = ITMP !Dep. variable (>0)
@@ -82,6 +90,58 @@ c     Begin program
 c     End program
 
       end subroutine setBCsched
+
+c     ExB_flow_bc
+c     #################################################################
+      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,bcov,v0,dbcov)
+
+c     -----------------------------------------------------------------
+c     Finds ExB flow boundary condition when Eo is imposed at boundary
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: igrid,nx,ny,nz
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,bcov,v0
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3),optional :: dbcov
+
+c     Local variables
+
+      integer :: i,j,k
+      real(8) :: b2,bbcnv(3),bbcov(3),dum(3)
+
+c     Begin program
+
+      if (.not.pinch_flow) return
+
+      i = nx
+
+      do k=1,nz
+        do j=1,ny
+          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
+          bbcov = 0.5*(bcov(i,j,k,:)+bcov(i+1,j,k,:))
+
+          b2 = dot_product(bbcnv,bbcov)
+
+          if (b2 > 0d0) then
+            if (PRESENT(dbcov)) then  !Linearize ExB flow BC
+              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
+              bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+            endif
+
+            b2 = 2*b2/(gmetric%grid(igrid)%jac(i  ,j,k)
+     .                +gmetric%grid(igrid)%jac(i+1,j,k))
+
+            v0(i+1,j,k,1) = -(bbcov(2)*E0(3)-bbcov(3)*E0(2))/b2 !ExB velocity
+          endif
+        enddo
+      enddo
+
+c     End program
+
+      end subroutine ExB_flow_bc
 
       end module local_BCS_variables
 
@@ -132,7 +192,7 @@ c     This routine fills up the bi-dimensional array rhs, which
 c     contains the right hand side of the Dirichlet BC.
 c ---------------------------------------------------------------------
         
-      use local_BCS_variables, jac_mod=>jac0,gsup_mod=>gsuper
+      use local_BCS_variables
 
       implicit none
 
@@ -376,7 +436,7 @@ c     This routine fills up the bi-dimensional array rhs, which
 c     contains the right hand side of the Neumann BC.
 c ---------------------------------------------------------------------
 
-      use local_BCS_variables, jac_mod=>jac0,gsup_mod=>gsuper
+      use local_BCS_variables
 
       implicit none
 
@@ -389,7 +449,7 @@ c     Local variables
 
       integer    :: imax,imin,jmax,jmin,kmax,kmin
       integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
-      real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0
+      real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0,hessian(3,3,3)
 
 c     Begin program
 
@@ -590,31 +650,32 @@ c     This routine fills up the bi-dimensional array rhs, which
 c     contains the right hand side of the Neumann BC.
 c     -----------------------------------------------------------------
 
-      use local_BCS_variables, jac_mod=>jac0,gsup_mod=>gsuper
-     .                       ,hess_mod=>hessian, vec_mod=>vec
+      use local_BCS_variables, vec_mod=>vec
 
       implicit none
 
 c     Call variables
 
-      integer    :: ieq,dim,loc,ivar
-      real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,3)
-     .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
+      integer :: ieq,dim,loc,ivar
+      real(8) :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,3)
+     .          ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
 
 c     Local variables
 
-      integer    :: imax,imin,jmax,jmin,kmax,kmin
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn,avg
-     .             ,igp,igm,jgp,jgm,kgp,kgm
-      real(8)    :: x1,x2,x3,dh(3),jac0,ee,alp,vec(3),cnv(3)
-     .             ,cov(3),J0(3),bnorm,jn
-      real(8)    :: gsuper(3,3),hessian(3,3,3)
-     .             ,gsupip(3,3),gsupim(3,3)
-     .             ,gsupjp(3,3),gsupjm(3,3)
-     .             ,gsupkp(3,3),gsupkm(3,3),gsupavg(3,3)
-     .             ,cov00(3),covip(3),covim(3)
-     .             ,covjp(3),covjm(3)
-     .             ,covkp(3),covkm(3)
+      integer :: imax,imin,jmax,jmin,kmax,kmin
+      integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
+     .          ,igp,igm,jgp,jgm,kgp,kgm,i1,j1,k1
+      real(8) :: x1,x2,x3,dh(3),jac0,ee,alp,vec(3),cnv(3)
+     .          ,cov(3),J0(3),bnorm,jn,etal,B00(3)
+      real(8) :: gsuper(3,3),hessian(3,3,3)
+     .          ,gsupip(3,3),gsupim(3,3)
+     .          ,gsupjp(3,3),gsupjm(3,3)
+     .          ,gsupkp(3,3),gsupkm(3,3),gsupavg(3,3)
+     .          ,cov00(3),covip(3),covim(3)
+     .          ,covjp(3),covjm(3)
+     .          ,covkp(3),covkm(3)
+
+      logical :: nonlinear
 
 c     Begin program
 
@@ -626,8 +687,6 @@ c     Begin program
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
-cc      case (IVX,IVY,IVZ,IBX,IBY,IBZ) !Velocity components
-cc      case (IVX,IVY,IVZ,IJX,IJY,IJZ) !Velocity components
       case (IVX,IVY,IVZ) !Velocity components
 
         do i=imin,imax
@@ -798,25 +857,6 @@ cc      case (IVX,IVY,IVZ,IJX,IJY,IJZ) !Velocity components
               kp = min(k+1,nzbc)
               km = max(k-1,1   )
 
-cc              ip = i+1
-cc              im = i-1
-cc              jp = j+1
-cc              jm = j-1
-cc              kp = k+1
-cc              km = k-1
-
-cc              igp = ig+(ip-i)
-cc              igm = ig-(i-im)
-cc              dh(1)= (grid_params%xx(igp)-grid_params%xx(igm))
-cc
-cc              jgp = jg+(jp-j)
-cc              jgm = jg-(j-jm)
-cc              dh(2)= (grid_params%yy(jgp)-grid_params%yy(jgm))
-cc
-cc              kgp = kg+(kp-k)
-cc              kgm = kg-(k-km)
-cc              dh(3)= (grid_params%zz(kgp)-grid_params%zz(kgm))
-
               dh(1) = 2.*dxh(ig)
               if (i == nxbc) dh(1) = dx(ig-1)
               if (i == 1   ) dh(1) = dx(ig)
@@ -832,92 +872,100 @@ cc              dh(3)= (grid_params%zz(kgp)-grid_params%zz(kgm))
               if (dim == 1) then
 
                 if (ibc == 1) then
-cc                  cov = 0.5*(cov00 + covim)
-cc                  cnv = 0.5*(matmul(gsuper,cov00)
-cc     .                      +matmul(gsupim,covim))
-cc                  avg = i-1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = i
-
                   gsupavg = 0.5*(gsuper+gsupim)
 
-                  J0 = 0.5*(array0(i-1,j,k,:)
-     .                     +array0(i  ,j,k,:))
-                  J0 = matmul(gsupavg,J0)
-
-cc                  J0 = 0.5*(matmul(gsupim,array0(i-1,j,k,:))
-cc     .                     +matmul(gsuper,array0(i  ,j,k,:)))
+cc                  J0 = 0.5*(array0(i-1,j,k,:)
+cc     .                     +array0(i  ,j,k,:))
                 elseif (ibc == 2) then
-cc                  cov = 0.5*(cov00 + covip)
-cc                  cnv = 0.5*(matmul(gsuper,cov00)
-cc     .                      +matmul(gsupip,covip))
-cc                  avg = i+1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = i
-
                   gsupavg = 0.5*(gsuper+gsupip)
 
-                  J0 = 0.5*(array0(i+1,j,k,:)
-     .                     +array0(i  ,j,k,:))
-                  J0 = matmul(gsupavg,J0)
-
-cc                  J0 = 0.5*(matmul(gsupip,array0(i+1,j,k,:))
-cc     .                     +matmul(gsuper,array0(i  ,j,k,:)))
+cc                  J0 = 0.5*(array0(i+1,j,k,:)
+cc     .                     +array0(i  ,j,k,:))
                 endif
 
                 jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
      .              -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
-
-                jn = 0.5*(jn +
-     .               (array(avg,jp,k,3)-array(avg,jm,k,3))/dh(2)
-     .              -(array(avg,j,kp,2)-array(avg,j,km,2))/dh(3))
 
                 if (ivar == 2) then
                   icomp = 3
                   isgn  = 1
 
                   rhs(j,k) = 
-cc     .               ( (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                 0.5*( array(i  ,jp,k,dim)-array(i  ,jm,k,dim)
-     .                      +array(avg,jp,k,dim)-array(avg,jm,k,dim))
-     .                     /dh(ivar)
+     .                (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 elseif (ivar == 3) then
                   icomp = 2
                   isgn  =-1
 
                   rhs(j,k) =
-cc     .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                 0.5*( array(i  ,j,kp,dim)-array(i  ,j,km,dim)
-     .                      +array(avg,j,kp,dim)-array(avg,j,km,dim))
-     .                     /dh(ivar)
-     .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+     .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                if (pinch_flow) then     !Finite flow
+                if (pinch_flow) then     !Finite flow at wall
 
-                  !THIS WON'T WORK FOR LINEARIZED EQUATIONS; SHOULD USE ACTUAL B
-                  !   BUT THIS DOESN'T WORK YET.
+                  if (ibc == 1) then
+                    etal =
+     .               0.5*(res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
+     .                   +res(i-1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
 
-                  cov =(/array(i,j,k,1),array(i,j,k,2),array(i,j,k,3)/)
-                  cnv = matmul(gsuper,cov)
+                    B00 = 0.5*(array0(i-1,j,k,:)
+     .                        +array0(i  ,j,k,:))
+                  elseif (ibc == 2) then
+                    etal =
+     .               0.5*(res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
+     .                   +res(i+1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
 
-                  bnorm = scalarProduct(i,j,k,igxbc,igybc,igzbc
-     .                                 ,cov(1),cov(2),cov(3)
-     .                                 ,cnv(1),cnv(2),cnv(3))
-
-                  if (bnorm > 0d0) then
-                    alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
-     .                                 ,cov(1),cov(2),cov(3)
-     .                                 ,J0 (1),J0 (2),J0 (3))
-     .                   /bnorm
-                  else
-                    alp = 0d0
+                    B00 = 0.5*(array0(i+1,j,k,:)
+     .                        +array0(i  ,j,k,:))
                   endif
 
-                  ee = alp*cnv(icomp)
+                  J0 = E0/etal   !Applied current at wall
 
-                else
+                  nonlinear = (sum(B00**2) == 0d0)
 
-                  ee = J0(icomp)
+cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
+
+                  if (nonlinear) then
+                    cov = array(i,j,k,:)
+                    cnv = matmul(gsuper,cov)
+                  else
+                    cnv = B00
+                    cov =matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:),cnv)
+                  endif
+
+                  bnorm = dot_product(cov,cnv)
+
+                  if (bnorm > 0d0) then
+                    alp = dot_product(J0,cnv)/bnorm
+
+                    if (.not.nonlinear) then
+                      J0 = J0 - 2*alp*cov  !Correct linearizde current (Bnorm effect)
+
+                      cov = array(i,j,k,:)
+                      cnv = matmul(gsuper,cov)
+                    endif
+
+                    ee = alp*cnv(icomp)
+
+                    if (.not.nonlinear) then
+                      ee = ee + dot_product(J0,cnv)/bnorm*B00(icomp)
+                    endif
+                  else
+                    ee = 0d0
+                  endif
+
+                else       !Finite current at wall
+
+                  if (ibc == 1) then
+                    J0 = 0.5*(array0(i-1,j,k,:)
+     .                       +array0(i  ,j,k,:))
+                  elseif (ibc == 2) then
+                    J0 = 0.5*(array0(i+1,j,k,:)
+     .                       +array0(i  ,j,k,:))
+                  endif
+
+                  ee =  dot_product(gsupavg(icomp,:),J0)
 
                 endif
 
@@ -926,143 +974,76 @@ cc     .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
               elseif (dim == 2) then
 
                 if (ibc == 3) then
-cc                  avg = j-1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = j
-
                   gsupavg = 0.5*(gsuper+gsupjm)
 
                   J0 = 0.5*(array0(i,j-1,k,:)
      .                     +array0(i,j  ,k,:))
-                  J0 = matmul(gsupavg,J0)
 
                 elseif (ibc == 4) then
-cc                  avg = j+1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = j
-
                   gsupavg = 0.5*(gsuper+gsupjp)
 
                   J0 = 0.5*(array0(i,j+1,k,:)
      .                     +array0(i,j  ,k,:))
-                  J0 = matmul(gsupavg,J0)
-
                 endif
 
                 jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
      .              -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
-
-                jn = 0.5*(jn +
-     .               (array(i,avg,kp,1)-array(i,avg,km,1))/dh(3)
-     .              -(array(ip,avg,k,3)-array(im,avg,k,3))/dh(1))
 
                 if (ivar == 3) then
                   icomp = 1
                   isgn  = 1
 
                   rhs(i,k) =
-cc     .                 (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                 0.5*( array(i,j  ,kp,dim)-array(i,j  ,km,dim)
-     .                      +array(i,avg,kp,dim)-array(i,avg,km,dim))
-     .                     /dh(ivar)
+     .                 (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 elseif (ivar == 1) then
                   icomp = 3
                   isgn  =-1
 
                   rhs(i,k) = 
-cc     .                (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                 0.5*( array(ip,j  ,k,dim)-array(im,j  ,k,dim)
-     .                      +array(ip,avg,k,dim)-array(im,avg,k,dim))
-     .                     /dh(ivar)
+     .                (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                ee = J0(icomp)
-
-cc                bnorm = scalarProduct(i,j,k,igxbc,igybc,igzbc
-cc     .                               ,cov(1),cov(2),cov(3)
-cc     .                               ,cnv(1),cnv(2),cnv(3))
-cc
-cc                if (bnorm > 0d0) then
-cc                  alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
-cc     .                               ,J0 (1),J0 (2),J0 (3)
-cc     .                               ,cnv(1),cnv(2),cnv(3))
-cc     .                 /bnorm
-cc                else
-cc                  alp = 0d0
-cc                endif
-cc
-cc                ee = alp*cnv(icomp)
+                ee =  dot_product(gsupavg(icomp,:),J0)
 
                 rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
 
               elseif (dim == 3) then
 
                 if (ibc == 5) then
-cc                  avg = k-1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = k
-
                   gsupavg = 0.5*(gsuper+gsupkm)
 
                   J0 = 0.5*(array0(i,j,k-1,:)
      .                     +array0(i,j,k  ,:))
-                  J0 = matmul(gsupavg,J0)
 
                 elseif (ibc == 6) then
-cc                  avg = k+1  !This requires setting predictor (extrapolation) step in applyBC
-                  avg = k
-
                   gsupavg = 0.5*(gsuper+gsupkp)
 
                   J0 = 0.5*(array0(i,j,k+1,:)
      .                     +array0(i,j,k  ,:))
-                  J0 = matmul(gsupavg,J0)
                 endif
 
                 jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
      .              -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
-
-                jn = 0.5*(jn +
-     .               (array(ip,j,avg,2)-array(im,j,avg,2))/dh(1)
-     .              -(array(i,jp,avg,1)-array(i,jm,avg,1))/dh(2))
 
                 if (ivar == 1) then
                   icomp = 2
                   isgn  = 1
 
                   rhs(i,j) =
-cc     .                 (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                 0.5*( array(ip,j,k  ,dim)-array(im,j,k  ,dim)
-     .                      +array(ip,j,avg,dim)-array(im,j,avg,dim))
-     .                     /dh(ivar)
+     .                 (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 elseif (ivar == 2) then
                   icomp = 1
                   isgn  =-1
 
                   rhs(i,j) = 
-cc     .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                 0.5*( array(i,jp,k  ,dim)-array(i,jm,k  ,dim)
-     .                      +array(i,jp,avg,dim)-array(i,jm,avg,dim))
-     .                     /dh(ivar)
+     .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                ee = J0(icomp)
-
-cc                bnorm = scalarProduct(i,j,k,igxbc,igybc,igzbc
-cc     .                               ,cov(1),cov(2),cov(3)
-cc     .                               ,cnv(1),cnv(2),cnv(3))
-cc
-cc                if (bnorm > 0d0) then
-cc                  alp = scalarProduct(i,j,k,igxbc,igybc,igzbc
-cc     .                               ,J0 (1),J0 (2),J0 (3)
-cc     .                               ,cnv(1),cnv(2),cnv(3))
-cc     .                 /bnorm
-cc                else
-cc                  alp = 0d0
-cc                endif
-cc
-cc                ee = alp*cnv(icomp)
+                ee =  dot_product(gsupavg(icomp,:),J0)
 
                 rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
 
@@ -1084,32 +1065,26 @@ c     Assign value
       case (1)
         array(0     ,jmin:jmax,kmin:kmax,ivar)
      $                         = array(1,jmin:jmax,kmin:kmax,ivar)
-cc     $                         = array(2,jmin:jmax,kmin:kmax,ivar)
      $                         - rhs(jmin:jmax,kmin:kmax)
       case (2)
         array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
      $                         = array(nxbc,jmin:jmax,kmin:kmax,ivar)
-cc     $                         = array(nxbc-1,jmin:jmax,kmin:kmax,ivar)
      $                         + rhs(jmin:jmax,kmin:kmax)
       case (3)
         array(imin:imax,0     ,kmin:kmax,ivar)
      $                         = array(imin:imax,1,kmin:kmax,ivar)
-cc     $                         = array(imin:imax,2,kmin:kmax,ivar)
      $                         - rhs(imin:imax,kmin:kmax)
       case (4)
         array(imin:imax,nybc+1,kmin:kmax,ivar)
      $                         = array(imin:imax,nybc,kmin:kmax,ivar)
-cc     $                         = array(imin:imax,nybc-1,kmin:kmax,ivar)
      $                         + rhs(imin:imax,kmin:kmax)
       case (5)
         array(imin:imax,jmin:jmax,0     ,ivar)
      $                         = array(imin:imax,jmin:jmax,1,ivar)
-cc     $                         = array(imin:imax,jmin:jmax,0,ivar)
      $                         - rhs(imin:imax,jmin:jmax)
       case (6)
         array(imin:imax,jmin:jmax,nzbc+1,ivar)
      $                         = array(imin:imax,jmin:jmax,nzbc,ivar)
-cc     $                         = array(imin:imax,jmin:jmax,nzbc-1,ivar)
      $                         + rhs(imin:imax,jmin:jmax)
       end select
 
