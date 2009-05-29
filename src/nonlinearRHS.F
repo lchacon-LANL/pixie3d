@@ -1,6 +1,6 @@
 c nonlinearRHS
 c#################################################################
-      subroutine nonlinearRHS(i,j,k,varray,ff)
+      subroutine nonlinearRHS(i,j,k,igx,igy,igz,varray,ff)
 
 c-----------------------------------------------------------------
 c     This function computes the nonlinear rhs for the 
@@ -30,13 +30,18 @@ c Call variables
 
       real(8) :: ff(neqd)
 
-      integer :: i,j,k
+      integer :: i,j,k,igx,igy,igz
 
       type(var_array),pointer :: varray
 
 c Local variables
 
       integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,hex,hey,hez
+      integer    :: ieq,nx,ny,nz
+
+      real(8)    :: cnv(3),cov(3),kappa,vlap1(3),vlap2(3),nabla_v(3,3)
+     .             ,cov_tnsr(3,3),cnv_tnsr(3,3),gsub(3,3),gsuper(3,3)
+     .             ,jac
 
       !Marder B cleaning
       real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
@@ -48,9 +53,6 @@ c Local variables
       ! tmp equation
       real(8)    :: heat_flx,heat_src,joule,viscous
 
-      integer    :: ieq
-      real(8)    :: cnv(3),cov(3),kappa,vlap1(3),vlap2(3)
-
 c Begin program
 
       ip = i+1
@@ -59,6 +61,10 @@ c Begin program
       jm = j-1
       kp = k+1
       km = k-1
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
 
       alt_eom = alt__eom()
 cc      alt_eom = .false.
@@ -78,13 +84,6 @@ c     Grid parameters
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
       jac    = gmetric%grid(igx)%jac (i,j,k)
-
-      jacip  = gmetric%grid(igx)%jac(ip,j,k)
-      jacim  = gmetric%grid(igx)%jac(im,j,k)
-      jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-      jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-      jackp  = gmetric%grid(igx)%jac(i,j,kp)
-      jackm  = gmetric%grid(igx)%jac(i,j,km)
 
       if (.not.adiabatic .or. nc_eom_v)
      .   nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -310,13 +309,13 @@ c       Advection + sources
 
 c     EOM
 
+      ff(IVX:IVZ) = 0d0
+
       !SI contribution
-      if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
-        ff(IVX:IVZ) = ff(IVX:IVZ)
-     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)
-      else
-        ff(IVX:IVZ) = 0d0
-      endif
+cc      if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
+cc        ff(IVX:IVZ) = ff(IVX:IVZ)
+cc     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)
+cc      endif
 
       !Volume force
       if (nc_eom_jxb) then
@@ -388,6 +387,8 @@ cc        nullify(vec1,vec2)
      .                  ,vol=.false.)
         nullify(vec1,coef)
 
+cc        cnv =-nuu(i,j,k)* veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+cc     .                               ,.false.,vol=.false.)
 #if !defined(RFX)
         if (nc_eom_v) cnv = cnv/rho(i,j,k)
 #endif
