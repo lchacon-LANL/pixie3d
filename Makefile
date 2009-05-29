@@ -21,7 +21,7 @@
 
 # Defaults
 
-FC  = f90
+FC  = gfortran
 OPT = O 
 
 PETSC_DIR ?=/usr/local/petsc-2.3.3
