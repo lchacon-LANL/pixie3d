@@ -3,7 +3,7 @@ A_CODE       = pixie3d_a.x
 PETSCCODE    = pixie3d.petsc.x
 PETSC_A_CODE = pixie3d_a.petsc.x
 
-MODS := mhd_mod.F imposeBC_mod.F precond_mod.F
+MODS := mhd_mod.F precond_mod.F imposeBC_mod.F 
 
 COMMONDIR = ../common
 
@@ -22,7 +22,9 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/slatec/spline_common\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/matrixLightSolver\
-	  $(COMMONDIR)/MG
+	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/orbit\
+	  $(COMMONDIR)/lsode
 
 ifdef BOPT 
 ifdef PETSC_C
@@ -41,6 +43,7 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/slatec/spline_common\
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
-	    $(COMMONDIR)/MG
+	    $(COMMONDIR)/MG\
+	    $(COMMONDIR)/orbit
 endif
 endif
