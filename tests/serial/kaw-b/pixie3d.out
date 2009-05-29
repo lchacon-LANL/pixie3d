@@ -7,7 +7,7 @@
   Numerical grid............   F
   Advection scheme..........   ZIP    
   TS scheme................. Theta    
- 
+
    itime    time     dt    vx_max vy_max vz_max GMRES  Newton  CN factor
       1    0.000  4.0E-05   0.000  0.000  0.000     3     2     0.500
       2    0.000  4.0E-05   0.000  0.000  0.000     3     2     0.500
