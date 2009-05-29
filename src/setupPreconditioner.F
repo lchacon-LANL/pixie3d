@@ -25,11 +25,11 @@ c Call variables
 
 c Local variables
 
-      integer    :: igrid,ii,jj,isig
+      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz
 
 c Diag
 
-      integer    :: nxx,nyy,nzz,nt,icomp
+      integer :: nxx,nyy,nzz,nt,icomp
       real(8),allocatable,dimension(:,:) :: v_mat
 
 c Externals
@@ -89,7 +89,7 @@ c Extract arrays and BC's
 
 c Find coefficients for linearized systems
 
-      if (jit == 1) call findPCcoeffs
+      if (jit == 1) call findPCcoeffs(igx,igy,igz)
 
 c Setup BCs for diagonal formation
 
@@ -116,7 +116,7 @@ c Setup BCs for diagonal formation
       endif
 
 #if defined(petsc)
-      if (ilevel >= 4) then
+      if (ilevel >= 5) then
         write (*,*) 'Proc ',my_rank,': asm     in setupPC',asm
         write (*,*) 'Proc ',my_rank,': par_bc  in setupPC',par_bc
         write (*,*) 'Proc ',my_rank,': asm_dir in setupPC',asm_dir
