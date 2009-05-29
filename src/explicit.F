@@ -129,7 +129,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .             ,cs2,ca2,tmp_max
@@ -184,9 +184,13 @@ c Calculate CFL
      .                            ,idx,idy,idz,vxx,vyy,vzz)
 
             !(k.B/B)^2
-            kb_par2 = scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+            if (bnorm > 0d0) then
+              kb_par2 = scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
      .                 ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))**2
      .               /bnorm
+            else
+              kb_par2 = 0d0
+            endif
 
             kbp2max = max(kbp2max,kb_par2)
 
