@@ -53,6 +53,7 @@ c Local variables
 
       integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
      .                ,ierr,sh,it,icomp,bcnd(6,3),brank
+     .                ,igx,igy,igz,nx,ny,nz
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -62,7 +63,7 @@ c Local variables
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
      .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
-     .                ,phi,rho_norm,beta_tor,Rtor
+     .                ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3)
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
@@ -153,6 +154,10 @@ c Define boundary conditions
 c Set initial guess
 
       select case (trim(equil))
+
+c     --------------------------------------------
+c     ---------------  WAVE TESTS ----------------
+c     --------------------------------------------
 
       case ('msw') !Magnetosonic wave
 
@@ -355,6 +360,53 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
 #endif
 
+c     --------------------------------------------
+c     ------------  ADVECTION TESTS --------------
+c     --------------------------------------------
+
+      case ('adv1') !Advection test
+
+        gamma = 2d0
+
+        eps   = grid_params%params(1)
+        sigma = grid_params%params(2)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Opposite Gaussian perturbations in rho, T, uniform V, no B
+
+        var(:,:,:,IVX)  = 1d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              var(i,j,k,IRHO) = 1d0 + eps*exp(-0.5*x1**2/sigma**2)
+              var(i,j,k,ITMP) = 1d0 - eps*exp(-0.5*x1**2/sigma**2)
+
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = 0d0
+#else
+        var(:,:,:,IAX:IAZ) = 0d0
+#endif
+
+c     --------------------------------------------------
+c     ---------------  KELVIN-HELMHOLTZ ----------------
+c     --------------------------------------------------
+
       case ('khcar')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
@@ -457,6 +509,10 @@ c     Tearing mode in cartesian coordinates
 #endif
 
         var(:,:,:,ITMP) = 0.25
+
+c     ----------------------------------------------
+c     ---------------  TEARING MODE ----------------
+c     ----------------------------------------------
 
       case ('tmcar')
 
@@ -654,6 +710,65 @@ c     GEM challenge
         var(:,:,:,IAX:IAZ) = a
 #endif
 
+      case ('kai1')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+c     Check coordinates
+
+        if (coords /= 'car' .and. coords /= 'scl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (adiabatic.or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Kai TM test
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,ITMP) = 1d0/a_p !Required for pressure balance
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IRHO)=0.5/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
+     .                      +1d0
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
+             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
+            enddo
+          enddo
+        enddo
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
+
+c     -------------------------------------------------
+c     ---------------  ISLAND COALESCENCE -------------
+c     -------------------------------------------------
+
       case ('ic')
 
         p0     = grid_params%params(1)
@@ -714,7 +829,449 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IAX:IAZ) = a
 #endif
 
-      case ('kaitm')
+c     ------------------------------------------------
+c     ---------------  3D CYLINDRICAL ----------------
+c     ------------------------------------------------
+
+      case ('3dkai')
+
+cc        mm = grid_params%params(1)
+cc        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if ((a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tokamak equilibria (analytical)
+
+        Iz = 2.22
+        bb = 0.5*Iz
+
+cc        nh2 = mm       !To set the right perturbation wavelength
+cc        nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2      !For perturbations to be of the right order
+                        !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        !Build equilibrium
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              btheta = bb*x1/(1+(x1/dlambda)**2)
+              bz0    = RR
+
+#if !defined(vec_pot)
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta
+              var(i,j,k,IBZ)  = x1*bz0
+#endif
+              var(i,j,k,ITMP) = 1d-5
+     .                     + 1/16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+
+            enddo
+          enddo
+        enddo
+
+#if defined(vec_pot)
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              btheta = bb*x1/(1+(x1/dlambda)**2)
+cc              bz0    = RR
+cc
+cc              b(i,j,k,1)  = 0d0                  
+cc              b(i,j,k,2)  = btheta
+cc              b(i,j,k,3)  = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('3dpar')  !EQ for parallel transport test
+
+cc        mm = grid_params%params(1)
+cc        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        q0 = grid_params%params(4)
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Simple screw pinch equilibria
+
+cc        nh2 = mm       !To set the right perturbation wavelength
+cc        nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2      !For perturbations to be of the right order
+                       !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+cc              btheta = x1  !Green's function orbit test
+cc              bz0 = 1d0
+cc
+cc              btheta = 2*x1  !CosT orbit test
+cc              bz0 = 1d0
+
+              bz0 = 1d0
+              bb  = q0*bz0*dlambda/RR
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = btheta
+              var(i,j,k,IBZ) = x1*bz0
+
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
+cc
+cc              bb     = (dlambda**2+aa)
+cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              if (coords == 'hel') then
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+cc                b(i,j,k,3)  = x1*bz0
+cc              else
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
+cc                b(i,j,k,3)  = bz0
+cc              endif
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('3drfp')
+
+cc        mm = grid_params%params(1)
+cc        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        aa = grid_params%params(4)
+
+c     Check coordinates
+
+        if (coords /= 'cyl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (abs(RR-zmax/2./pi) > 1d-5) then
+          messg = 'Major radius and zmax do not agree'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP equilibria (analytical)
+
+cc        nh2 = mm       !To set the right perturbation wavelength
+cc        nh3 = kk*RR    !To set the right perturbation wavelength
+
+        nh1 = nh2      !For radial perturbations to be of the right order
+                       !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              bb     = (dlambda**2+aa)
+     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta
+              var(i,j,k,IBZ)  = x1*bz0
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              bb     = (dlambda**2+aa)
+cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta
+cc              b(i,j,k,3) = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+c     ----------------------------------------------------
+c     ---------------  HELICAL EQUILIBRIA ----------------
+c     ----------------------------------------------------
+
+      case ('spnch')  !SCREW PINCH EQ.
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP equilibria (analytical)
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        aa = grid_params%params(4)
+
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-5
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              bb     = (dlambda**2+aa)
+     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              if (coords == 'hel') then
+                var(i,j,k,IBX)  = 0d0
+                var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+                var(i,j,k,IBZ)  = x1*bz0
+              endif
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
+cc
+cc              bb     = (dlambda**2+aa)
+cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              if (coords == 'hel') then
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+cc                b(i,j,k,3)  = x1*bz0
+cc              else
+cc                b(i,j,k,1)  = 0d0
+cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
+cc                b(i,j,k,3)  = bz0
+cc              endif
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('2dtok')
+
+c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+        RR = grid_params%params(3)
+        q0 = grid_params%params(4)
+
+        nh2 = mm  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
+
+        bb = dlambda/RR/q0
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        !Build equilibrium
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+        var(:,:,:,ITMP) = 1d-3
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              !X-Y equilibrium
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = btheta + kk*x1/mm*bz0
+cc              b(i,j,k,3) = x1*bz0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('2dkai')
 
 c     Check coordinates
 
@@ -792,44 +1349,124 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-      case ('kai3d')
+      case ('rfp83')
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
         mm = grid_params%params(1)
         kk = grid_params%params(2)
         RR = grid_params%params(3)
 
-c     Check coordinates
+        nh2 = mm  !To set the right perturbation wavelength
 
-        if (coords /= 'cyl') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
+        nh1 = nh2 !For perturbations to be of the right order
 
-        if (abs(RR-zmax/2./pi) > 1d-5) then
-          messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
-        endif
+        !Find pressure and q-profiles
+        bz0      = 1d0
+        beta_tor = 0d0
 
-        if ((a_p /= 2d0).or. (.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho'
-          call pstop('setEquilibrium',messg)
-        endif
+        do i=0,nxdp
+          x1  = grid_params%xg(i)
+          p00(i) = 2d-5
+          q00(i) = RR*qprof(x1)
+        enddo
 
-c     Tokamak equilibria (analytical)
+        !Initialize toroidal field
+        bzz0 = bz0  
 
-        Iz = 2.22
-        bb = 0.5*Iz
-
-        nh2 = mm       !To set the right perturbation wavelength
-        nh3 = kk*RR    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For perturbations to be of the right order
+        !Solve 1D Grad-Shafranov equation
+        call GS_equil_1d(q00,p00,bth0,bzz0)
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
+
+              iglobal = i + grid_params%ilo(igx) - 1
+
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
+              var(i,j,k,IBZ)  = x1*bzz0(iglobal)
+
+              var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
+            enddo
+          enddo
+        enddo
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              b(i,j,k,1) = 0d0
+cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+cc              b(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,b
+cc     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+      case ('ntm2d')
+
+        bootstrap= .true.
+
+        mm       = grid_params%params(1) !Poloidal mode number
+        kk       = grid_params%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
+        RR       = grid_params%params(3) !Major radius (determines aspect ratio)
+        bz0      = grid_params%params(4) !Toroidal field at magnetic axis
+        beta_tor = grid_params%params(5) !Beta toroidal
+
+        nh2 = mm  !To set the right perturbation wavelength
+        nh1 = nh2 !For perturbations to be of the right order
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Equilibria (numerical)
+
+        !Find pressure and q-profiles
+        do i=0,nxdp
+          x1  = grid_params%xg(i)
+          p00(i) = 0.5*beta_tor*bz0**2*pprof(x1,0)/pprof(0d0,0)
+          q00(i) = RR*qprof(x1)
+        enddo
+
+        !Initialize toroidal field
+        bzz0 = bz0  
+
+        !Solve 1D Grad-Shafranov equation
+        call GS_equil_1d(q00,p00,bth0,bzz0)
+
+        !Build equilibrium
+
+        var(:,:,:,IVX:IVZ) = 0d0
 
         var(:,:,:,IRHO) = 1d0
 
@@ -840,43 +1477,286 @@ c     Tokamak equilibria (analytical)
               call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
-              btheta = bb*x1/(1+(x1/dlambda)**2)
-              bz0    = RR
+              iglobal = i + grid_params%ilo(igx) - 1
 
 #if !defined(vec_pot)
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = x1*bz0
+              var(i,j,k,IBX) = 0d0
+              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/nh2*bzz0(iglobal)
+              var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
-              var(i,j,k,ITMP) = 1d-5
-     .                     + 1/16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+
+              var(i,j,k,ITMP) = 0.5*p00(iglobal)/var(i,j,k,IRHO)
 
             enddo
           enddo
         enddo
 
 #if defined(vec_pot)
-        call pstop('setEquilibrium','Equilibrium not working')
+cc        call pstop('setEquilibrium','Equilibrium not working')
 
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+        do k = 0,nzdp
+          do j = 0,nydp
+            do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              b(i,j,k,1) = 0d0
+              b(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
+              b(i,j,k,3) = x1*bzz0(i)
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(var(:,:,:,IVX:IVZ)
+     .                          ,b
+     .                          ,var(:,:,:,IAX:IAZ))
+#endif
+
+cc      case ('3dtok')
 cc
-cc              btheta = bb*x1/(1+(x1/dlambda)**2)
-cc              bz0    = RR
+ccc     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 cc
-cc              b(i,j,k,1)  = 0d0                  
-cc              b(i,j,k,2)  = btheta
-cc              b(i,j,k,3)  = x1*bz0
+cc        RR = grid_params%params(1)
+cccc        mm = grid_params%params(4)
+cccc        nn = grid_params%params(5)
+cc        q0 = grid_params%params(6)
+cc
+cc        kk = 0d0   !To avoid affecting q-profile
+cc
+cc        bb = dlambda/RR/q0
+cc
+ccc     Check coordinates
+cc
+cc        if (coords /= 'tor') then
+cc          messg = 'Need "tor" coordinates for equilibrium '//equil
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     Failsafes
+cc
+cccc        nh2 =  mm       !To set the right perturbation wavelength
+cccc        nh3 = -nn       !To set the right perturbation wavelength
+cc
+cc        nh1 = nh2       !For perturbations to be of the right order
+cc                        !(nh2, nh3 set in input file)
+cc
+cc        if (nh2 == 0 .or. nh3 == 0) then
+cc          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+cc     .          //' equilibrium not set'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     Build equilibrium
+cc
+cc        var(:,:,:,IVX)  = 0d0
+cc        var(:,:,:,IVY)  = 0d0
+cc        var(:,:,:,IVZ)  = 0d0
+cc
+cc        var(:,:,:,IRHO) = 1d0
+cc
+cc        var(:,:,:,ITMP) = 1d-3
+cc
+cc#if !defined(vec_pot)
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              !X-Y equilibrium
+cc              var(i,j,k,IBX)  = 0d0
+cc              var(i,j,k,IBY)  = btheta
+cc              var(i,j,k,IBZ)  = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
 cc            enddo
 cc          enddo
 cc        enddo
+cc#else
+cc        call pstop('setEquilibrium','Equilibrium not working')
+cc
+cccc        do k = klom,khip
+cccc          do j = jlom,jhip
+cccc            do i = ilom,ihip
+cccc
+cccc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc     .                                      ,x1,y1,z1)
+cccc
+cccc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cccc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cccc
+cccc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc     .                                    ,x1,y1,z1)
+cccc
+cccc              !X-Y equilibrium
+cccc              b(i,j,k,1) = 0d0
+cccc              b(i,j,k,2) = btheta
+cccc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
+cccc            enddo
+cccc          enddo
+cccc        enddo
+cccc
+cccc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cccc     .                          ,b
+cccc     .                          ,var(:,:,:,IAX:IAZ))
+cc#endif
+
+#if defined(vmec)
+
+c     --------------------------------------------------
+c     ---------------  VMEC EQUILIBRIUM ----------------
+c     --------------------------------------------------
+      case ('vmec')    
+
+        nh1 = nh2       !For perturbations to be of the right order in radius
+                        !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Check coordinates
+
+        if (coords /= 'vmc') then
+          messg = 'Need "vmc" coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Read VMEC equilibrium
+
+        !Build equilibrium
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+#if !defined(vec_pot)
+        call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
+     .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
+
+c     Clean up flux surface quantities
+
+        k = klo   !Fix k slice
+
+        !Find R^2
+        do i = ilom,ihip
+          do j = jlom,jhip
+            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                  ,x1,y1,z1)
+            r2(i,j) = x1**2+y1**2
+          enddo
+        enddo
+
+        !Average in j as a function of i (for a single k slice per processor)
+        dum = 0
+        do j = jlo,jhi
+          dum(:,2) = dum(:,2) + var(:,j,k,IBZ)*r2(:,j)
+     .                         /gmetric%grid(igx)%jac(:,j,k)
+          dum(:,1) = dum(:,1) + var(:,j,k,IBY)
+        enddo
+
+#if defined(petsc)
+        ldum = dum
+        call MPI_Allreduce(ldum,dum,2*(nx+2),MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
+#endif
+        dum = dum/nyd           !Average in j
+
+        !Fill flux (j,k) surfaces
+        do k = klom,khip
+           do j = jlom,jhip
+              var(:,j,k,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(:,j,k)
+     $                                 /r2(:,j)
+              var(:,j,k,IBY) = dum(:,1)
+           enddo
+        enddo
+
+c$$$        !Transform to covariant
+c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+c$$$cc     .                    ,'cnv','cov')
+c$$$
+c$$$        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
+c$$$        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
+c$$$        do i = ilom,ihip
+c$$$          dum = 0
+c$$$          do j = jlo,jhi
+c$$$
+c$$$cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
+c$$$
+c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+c$$$     .                                    ,x1,y1,z1)
+c$$$            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
+c$$$     .                           /gmetric%grid(igx)%jac(i,j,:)
+c$$$            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
+c$$$          enddo
+c$$$
+c$$$#if defined(petsc)
+c$$$          ldum = dum
+c$$$          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
+c$$$     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
+c$$$#endif
+c$$$
+c$$$          dum = dum/nyd         !Average
+c$$$
+c$$$          do j = jlo,jhi
+c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
+c$$$     .                                    ,x1,y1,z1)
+c$$$cc            var(i,j,:,IBZ) = dum  !For covariant B_3
+c$$$            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
+c$$$     .                              /(x1**2+y1**2)
+c$$$            var(i,j,:,IBY) = dum(:,1)
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+c$$$cc     .                    ,'cov','cnv')
+
+#else
+        call pstop('setEquilibrium','Equilibrium not working')
+
+cc        call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
+cc     .                            ,b(:,:,:,3),var(:,:,:,ITMP))
 cc
 cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
 cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
+
+        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
+
+cc        if (solve_rho) then
+          rho_norm = var(1,1,1,IRHO)
+#if defined(petsc)
+          !Broadcast value of rho at SP
+          if (      grid_params%ilog == 1
+     .        .and. grid_params%jlog == 1
+     .        .and. grid_params%klog == 1) brank = my_rank
+          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
+     .                  ,MPI_COMM_WORLD,mpierr)
+#endif
+          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
+cc        else
+cc          var(:,:,:,IRHO) = 1d0
+cc        endif
+
+        if (adiabatic) then
+          var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p !Transform to electron pressure
+        else
+          var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Transform to temperature
+        endif
+#endif
+
+c     --------------------------------------------------
+c     ---------------  OHMIC EQUILIBRIA ----------------
+c     --------------------------------------------------
 
       case ('ppnch','ppnsl','ppnst')
 
@@ -1154,18 +2034,25 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
       case ('ppn3d','p3nsl')
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
+cc        mm = grid_params%params(1)
+cc        kk = grid_params%params(2)
         RR = grid_params%params(3)
         theta_ppnch = grid_params%params(4)
         e0_over_eta = grid_params%params(5)
         bz0         = grid_params%params(6)
         beta_tor    = grid_params%params(7)
 
-        nh2 = mm       !To set the right perturbation wavelength
-        nh3 = kk*RR    !To set the right perturbation wavelength
+cc        nh2 = mm       !To set the right perturbation wavelength
+cc        nh3 = kk*RR    !To set the right perturbation wavelength
 
-        nh1 = nh2 !For perturbations to be of the right order
+        nh1 = nh2      !For perturbations to be of the right order
+                       !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c     Check coordinates
 
@@ -1320,570 +2207,28 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
      .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
         endif
 
-      case ('rfp83')
-
-c     Check coordinates
-
-        if (coords /= 'hel') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
-
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
-
-        !Find pressure and q-profiles
-        bz0      = 1d0
-        beta_tor = 0d0
-
-        do i=0,nxdp
-          x1  = grid_params%xg(i)
-          p00(i) = 2d-5
-          q00(i) = RR*qprof(x1)
-        enddo
-
-        !Initialize toroidal field
-        bzz0 = bz0  
-
-        !Solve 1D Grad-Shafranov equation
-        call GS_equil_1d(q00,p00,bth0,bzz0)
-
-        !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              iglobal = i + grid_params%ilo(igx) - 1
-
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              var(i,j,k,IBZ)  = x1*bzz0(iglobal)
-
-              var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
-
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
-cc              b(i,j,k,3) = x1*bzz0(i)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
-      case ('spnch')  !SCREW PINCH EQ.
-
-c     Check coordinates
-
-        if (coords /= 'hel' .and. coords /= 'hl2') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     RFP equilibria (analytical)
-
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        aa = grid_params%params(4)
-
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
-
-        !Build equilibrium
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-5
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
-
-              bb     = (dlambda**2+aa)
-     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              if (coords == 'hel') then
-                var(i,j,k,IBX)  = 0d0
-                var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-                var(i,j,k,IBZ)  = x1*bz0
-              else
-                var(i,j,k,IBX)  = 0d0
-                var(i,j,k,IBY)  = btheta/x1 + kk/mm*bz0
-                var(i,j,k,IBZ)  = bz0
-              endif
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
-cc
-cc              bb     = (dlambda**2+aa)
-cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              if (coords == 'hel') then
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
-cc                b(i,j,k,3)  = x1*bz0
-cc              else
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
-cc                b(i,j,k,3)  = bz0
-cc              endif
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
-      case ('rfp3d')
-
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        aa = grid_params%params(4)
-
-c     Check coordinates
-
-        if (coords /= 'cyl') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-        if (abs(RR-zmax/2./pi) > 1d-5) then
-          messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     RFP equilibria (analytical)
-
-        nh2 = mm       !To set the right perturbation wavelength
-        nh3 = kk*RR    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For radial perturbations to be of the right order
-
-        !Build equilibrium
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-5
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              bb     = (dlambda**2+aa)
-     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = x1*bz0
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              bb     = (dlambda**2+aa)
-cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = btheta
-cc              b(i,j,k,3) = x1*bz0
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
-      case ('tok')
-
-c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
-
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        q0 = grid_params%params(4)
-
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
-
-        bb = dlambda/RR/q0
-
-        if (coords /= 'hel') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-        !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-3
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              !X-Y equilibrium
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ)  = x1*bz0
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = btheta + kk*x1/mm*bz0
-cc              b(i,j,k,3) = x1*bz0
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
-#if defined(vmec)
-
-      case ('vmec')    
-
-        nh1 = nh2       !For perturbations to be of the right order in radius
-                        !(nh2,nh3 set by input file)
-
-        if (nh2 == 0 .or. nh3 == 0) then
-          messg='Perturbation harmonics for "vmec" equilibrium not set'
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Check coordinates
-
-        if (coords /= 'vmc') then
-          messg = 'Need "vmc" coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Read VMEC equilibrium
-
-        !Build equilibrium
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-#if !defined(vec_pot)
-        call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
-     .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
-
-c     Clean up flux surface quantities
-
-        k = klo   !Fix k slice
-
-        !Find R^2
-        do i = ilom,ihip
-          do j = jlom,jhip
-            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-            r2(i,j) = x1**2+y1**2
-          enddo
-        enddo
-
-        !Average in j as a function of i (for a single k slice per processor)
-        dum = 0
-        do j = jlo,jhi
-          dum(:,2) = dum(:,2) + var(:,j,k,IBZ)*r2(:,j)
-     .                         /gmetric%grid(igx)%jac(:,j,k)
-          dum(:,1) = dum(:,1) + var(:,j,k,IBY)
-        enddo
-
-#if defined(petsc)
-        ldum = dum
-        call MPI_Allreduce(ldum,dum,2*(nx+2),MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
-#endif
-        dum = dum/nyd           !Average in j
-
-        !Fill flux (j,k) surfaces
-        do k = klom,khip
-           do j = jlom,jhip
-              var(:,j,k,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(:,j,k)
-     $                                 /r2(:,j)
-              var(:,j,k,IBY) = dum(:,1)
-           enddo
-        enddo
-
-c$$$        !Transform to covariant
-c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-c$$$cc     .                    ,'cnv','cov')
-c$$$
-c$$$        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
-c$$$        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
-c$$$        do i = ilom,ihip
-c$$$          dum = 0
-c$$$          do j = jlo,jhi
-c$$$
-c$$$cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
-c$$$
-c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-c$$$     .                                    ,x1,y1,z1)
-c$$$            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
-c$$$     .                           /gmetric%grid(igx)%jac(i,j,:)
-c$$$            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
-c$$$          enddo
-c$$$
-c$$$#if defined(petsc)
-c$$$          ldum = dum
-c$$$          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
-c$$$     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
-c$$$#endif
-c$$$
-c$$$          dum = dum/nyd         !Average
-c$$$
-c$$$          do j = jlo,jhi
-c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-c$$$     .                                    ,x1,y1,z1)
-c$$$cc            var(i,j,:,IBZ) = dum  !For covariant B_3
-c$$$            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
-c$$$     .                              /(x1**2+y1**2)
-c$$$            var(i,j,:,IBY) = dum(:,1)
-c$$$          enddo
-c$$$        enddo
-c$$$
-c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-c$$$cc     .                    ,'cov','cnv')
-
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        call vmec_equ(igx,nx,ny,nz,b(:,:,:,1),b(:,:,:,2)
-cc     .                            ,b(:,:,:,3),var(:,:,:,ITMP))
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
-        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
-
-cc        if (solve_rho) then
-          rho_norm = var(1,1,1,IRHO)
-#if defined(petsc)
-          !Broadcast value of rho at SP
-          if (      grid_params%ilog == 1
-     .        .and. grid_params%jlog == 1
-     .        .and. grid_params%klog == 1) brank = my_rank
-          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
-     .                  ,MPI_COMM_WORLD,mpierr)
-#endif
-          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
-cc        else
-cc          var(:,:,:,IRHO) = 1d0
-cc        endif
-
-        if (adiabatic) then
-          var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p !Transform to electron pressure
-        else
-          var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Transform to temperature
-        endif
-#endif
-
-      case ('tor')
-
-        RR = grid_params%params(1)
-        mm = grid_params%params(4)
-        nn = grid_params%params(5)
-        q0 = grid_params%params(6)
-
-        kk = 0d0   !To avoid affecting q-profile
-
-        bb = dlambda/RR/q0
-
-c     Check coordinates
-
-        if (coords /= 'tor') then
-          messg = 'Need "tor" coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Read VMEC equilibrium
-
-        nh2 =  mm       !To set the right perturbation wavelength
-        nh3 = -nn       !To set the right perturbation wavelength
-
-        nh1 = nh2       !For perturbations to be of the right order
-
-        !Build equilibrium
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-3
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-
-              !X-Y equilibrium
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta
-              var(i,j,k,IBZ)  = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc
-cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
-cc
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc              !X-Y equilibrium
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = btheta
-cc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
-
       case ('ohtor')
 
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR = grid_params%params(1)              !Major radius
-        mm = grid_params%params(4)              !m mode
-        nn = grid_params%params(5)              !n mode
+cc        mm = grid_params%params(4)              !m mode
+cc        nn = grid_params%params(5)              !n mode
         e0_over_eta = grid_params%params(6)*RR  !Covariant component is constant, needs RR factor
         beta_tor    = grid_params%params(7)     !Toroidal beta
 
         kk = 0d0   !To avoid affecting q-profile
 
-        nh2 =  mm       !To set the right perturbation wavelength
-        nh3 = -nn       !To set the right perturbation wavelength
+cc        nh2 =  mm       !To set the right perturbation wavelength
+cc        nh3 = -nn       !To set the right perturbation wavelength
 
         nh1 = nh2       !For perturbations to be of the right order
+                        !(nh2, nh3 set in input file)
+
+        if (nh2 == 0 .or. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c     Check coordinates
 
@@ -1967,88 +2312,6 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
           var(ihi+1,:,:,IVY) = 0.5*(var(ihi  ,:,:,IVY)
      .                             +var(ihi+1,:,:,IVY))
         endif
-
-      case ('ntm2d')
-
-        bootstrap= .true.
-
-        mm       = grid_params%params(1) !Poloidal mode number
-        kk       = grid_params%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
-        RR       = grid_params%params(3) !Major radius (determines aspect ratio)
-        bz0      = grid_params%params(4) !Toroidal field at magnetic axis
-        beta_tor = grid_params%params(5) !Beta toroidal
-
-        nh2 = mm  !To set the right perturbation wavelength
-        nh1 = nh2 !For perturbations to be of the right order
-
-c     Check coordinates
-
-        if (coords /= 'hel') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Equilibria (numerical)
-
-        !Find pressure and q-profiles
-        do i=0,nxdp
-          x1  = grid_params%xg(i)
-          p00(i) = 0.5*beta_tor*bz0**2*pprof(x1,0)/pprof(0d0,0)
-          q00(i) = RR*qprof(x1)
-        enddo
-
-        !Initialize toroidal field
-        bzz0 = bz0  
-
-        !Solve 1D Grad-Shafranov equation
-        call GS_equil_1d(q00,p00,bth0,bzz0)
-
-        !Build equilibrium
-
-        var(:,:,:,IVX:IVZ) = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              iglobal = i + grid_params%ilo(igx) - 1
-
-#if !defined(vec_pot)
-              var(i,j,k,IBX) = 0d0
-              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/nh2*bzz0(iglobal)
-              var(i,j,k,IBZ) = x1*bzz0(iglobal)
-#endif
-
-              var(i,j,k,ITMP) = 0.5*p00(iglobal)/var(i,j,k,IRHO)
-
-            enddo
-          enddo
-        enddo
-
-#if defined(vec_pot)
-cc        call pstop('setEquilibrium','Equilibrium not working')
-
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
-
-              b(i,j,k,1) = 0d0
-              b(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
-              b(i,j,k,3) = x1*bzz0(i)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,b
-     .                          ,var(:,:,:,IAX:IAZ))
-#endif
 
       case default
 
@@ -2621,6 +2884,7 @@ c     ---------------------------------------------------------------
 c     Solves 2D helical Ohmic equil. equations to find cylindrical
 c     components of magnetic field B_theta, B_z. On input:
 c       * kk: helical parameter (n/m/R) (defined as theta-kk*z)
+c       * mm: poloidal perturbation number
 c       * Eoeta: electric field over eta
 c       * theta: RFP theta parameter
 c       * bth0,bzz0: output magnetic field components (on input, bzz0
@@ -2640,13 +2904,15 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
-        use precond_variables, ONLY: csolver
+        use mg_solver
 
         use mg_internal, ONLY: mapMGVectorToArray
 
         use imposeBCinterface
 
         use ts_setup, ONLY: vol_wgt
+
+        use orbit
 
         implicit none
 
@@ -2659,16 +2925,26 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: i,j,k,ig,jg,kg,ii,it,bcnd(6)
-        real(8)    :: bz_avg,bth_avg,x1,err,rh,dh,I0
+        integer    :: i,j,k,ig,jg,kg,ii,jj,it,bcnd(6),guess
+     .               ,ip,im,jp,jm,kp,km
+        real(8)    :: bz_avg,bth_avg,x1,err,rh,dh,I0,th
      .               ,bth(0:nydp),bzh(0:nydp),dbz(0:nydp),xih(0:nydp)
 
         real(8)    :: bz0,rint(0:nxdp,0:nydp),dummy(0:nxdp,0:nydp)
      .               ,bth0_old(0:nxdp,0:nydp),bzz0_old(0:nxdp,0:nydp)
      .               ,xh(0:nxd),dr(0:nxd),psi(0:nxdp,0:nydp,0:nzdp)
      .               ,psi_rhs(nxd*nyd),psiv(nxd*nyd)
+     .               ,ffpsi(0:nxdp,0:nydp)
 
         external   cyl_lap
+
+        !Interfaces
+        INTERFACE
+          function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
+          logical :: hel_flux_avg,fwd
+          real(8) :: xo,x,yo,y,zo,z,so,ss
+          end function hel_flux_avg
+        END INTERFACE
 
 c     Begin program
 
@@ -2685,7 +2961,7 @@ c     Begin program
           call pstop('Ohm_equil_2d',messg)
         endif
 
-c       Initialize iteration
+c     Initialize iteration (Psi -> integer mesh; bth, bz -> half mesh)
 
         bz0 = bzz0(0,1)
 
@@ -2696,23 +2972,34 @@ c       Initialize iteration
         enddo
 
         !Initial guess for B_theta and psi=integral_r(Bth-k*r*Bz)
-        do j=0,nydp
-cc          bth0(0:nxd,j) = 0.5*xh*Eoeta+0.001*sin(grid_params%yg(j)*mm)
-cc          psi (:,j,1) = 0.25  *grid_params%xg(0:nxdp)**2*Eoeta
-cc     .                - 0.5*kk*grid_params%xg(0:nxdp)**2*bz0
-          psi (:,j,1) = sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1)
-     .                 *sin(grid_params%yg(j)*mm)
-          bth0(1:nxd,j) = (psi(2:nxdp,j,1)-psi(0:nxd-1,j,1))
-     .                   /(dr(1:nxd)+dr(0:nxd-1))
-     .                  + kk*grid_params%xg(1:nxd)*bzz0(1:nxd,j)
+        do k=0,nzd+1
+          do j=0,nyd+1
+            psi (:,j,k) = 0.25  *grid_params%xg(0:nxdp)**2*Eoeta
+     .                  - 0.5*kk*grid_params%xg(0:nxdp)**2*bz0
+cc            psi (:,j,k) = psi(:,j,k)
+cc     .         +0.05*(sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1))
+cccc     .         +0.05*(0.1+sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1))
+cc     .                 *sin(grid_params%yg(j)*mm)
+cccc            psi (:,j,k) = sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1)
+cccc     .                   *sin(grid_params%yg(j)*mm)
+            bth0(1:nxd,j) = (psi(2:nxdp,j,k)-psi(0:nxd-1,j,k))
+     .                    /(dr(1:nxd)+dr(0:nxd-1))
+     .                    + kk*grid_params%xg(1:nxd)*bzz0(1:nxd,j)
+          enddo
         enddo
 
-c       Iteration
+        call mapArrayToMGVector(1,nxd,nyd,nzd,psi,psiv,1)
+
+c     Iteration
 
         do it=1,100
 
           bth0_old = bth0
           bzz0_old = bzz0
+
+#if 1
+          call flux_average(psi,hel_flux_avg)
+#endif
 
           !Find GS equation RHS (at cell centers)
           do j=1,nyd
@@ -2724,14 +3011,17 @@ c       Iteration
               dh = 0.5*(dr(i)+dr(i-1))
 
               bzh(j) = 0.5*(bzz0(i,j)+bzz0(i-1,j))
-              xih(j) = (psi(i+1,j,1)-psi(i-1,j,1))/(dr(i)+dr(i-1))
-              bth(j) = xih(j) + kk*rh*bzh(j)
 
               dbz(j) = kk*(xh(i  )**2*bzz0(i  ,j)
      .                    -xh(i-1)**2*bzz0(i-1,j))/dh/rh
-
+#if 0
+              xih(j) = (psi(i+1,j,1)-psi(i-1,j,1))/(dr(i)+dr(i-1))
+              bth(j) = xih(j) + kk*rh*bzh(j)
+              
               psi_rhs(ii)= Eoeta*bzh(j)**2/(bzh(j)**2+bth(j)**2)-dbz(j)
-
+#else
+              psi_rhs(ii)= ffpsi(i,j)*bzh(j) - dbz(j)
+#endif
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)*rh*dh*2*pi/nyd
             enddo
           enddo
@@ -2741,34 +3031,45 @@ c       Iteration
           bcnd = bcond
           where (bcnd == DEF) bcnd = DIR
 
+          guess = 1
           call cSolver(1,nxd*nyd,psi_rhs,psiv,bcnd
-     .               ,1,ilevel,1,cyl_lap,gm_driver=.true.
-     .               ,ncolors=2,order_res=0,order_prol=0
-     .               ,smooth='jb',gm_coarse_solve=.true.
-     .               ,mvcyc=10)
+     .                ,1,ilevel,guess,cyl_lap,vol_wgt
+     .                ,tol=1d-2
+     .                ,gm_driver=.true.
+     .                ,gm_it=10
+     .                ,mg_order_res  = 0
+     .                ,mg_order_prol = 0
+     .                ,mg_smooth     = 'jb'
+     .                ,mg_gm_coarse_solve  =.true.
+     .                ,mg_vcyc       = 1
+     .                ,sm_ncolors    = 2  !Star stencil
+     .                ,sm_zebra_relax=.true.
+     .                )
 
           !Map to array (w BCs)
           call mapMGVectorToArray(0,1,psiv,nxd,nyd,nzd,psi,1,.false.)
 
-          call setBC(IRHO,nxd,nyd,nzd,psi,zeros,bcnd,1,1,1,iorder=2)
+          call setBC(IRHO,nxd,nyd,nzd,psi,zeros,bcnd,1,1,1,iorder=1)
 
           !Perform integral of Bz (at faces)
           dummy(0,:) = 0d0
           do i=1,nxd
-            x1 = xh(i)
-            rh  = grid_params%xg(i)
-
-            bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
             xih = (psi (i+1,:,1)-psi (i-1,:,1))/(dr(i)+dr(i-1))
+#if 0
+            rh  = grid_params%xg(i)
+            bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
             bth = xih + kk*rh*bzh
 
-            dummy(i,:) = dummy(i-1,:) + bzh*xih/(bzh**2+bth**2)*dr(i)
+            dummy(i,:)=dummy(i-1,:)+Eoeta*bzh*xih/(bzh**2+bth**2)*dr(i)
+#else
+            dummy(i,:)=dummy(i-1,:) + ffpsi(i,:)*xih*dr(i)
+#endif
           enddo
 
           do i=0,nxd
             bzz0(i,:)=( bz0
      .                 -kk*xh(i)*(psi(i+1,:,1)-psi(i,:,1))/dr(i)
-     .                 -Eoeta*dummy(i,:) )/(1+(kk*xh(i))**2)
+     .                 -dummy(i,:) )/(1+(kk*xh(i))**2)
           enddo
 
           !Find B_theta (at faces)
@@ -2776,28 +3077,6 @@ c       Iteration
             bth0(i,:) = (psi(i+1,:,1)-psi(i,:,1))/dr(i)
      .                 + kk*xh(i)*bzz0(i,:)
           enddo
-
-          !Normalize Bz
-cc          if (theta /= 0d0) then
-cc            bz_avg = 0d0
-cc            bth_avg = 0d0
-cc            do j=1,nyd
-cc              do i=1,nxd
-cc                bz_avg = bz_avg
-cc     .                 + (bzz0(i,j)*i + bzz0(i-1,j)*(i-1))*dr(i)**2
-cc     .                  *2*pi/nyd
-cc              enddo
-cc              bth_avg = bth_avg + bth0(nxd,j)*2*pi/nyd
-cc            enddo
-cc            bz_avg = 0.5*bz_avg/pi/xmax**2
-cc            bzz0 = bth_avg/theta/bz_avg*bzz0
-cccc          elseif (bz0 /= 0d0) then
-cccc            bzz0 = bz0*bzz0
-cccc          else
-cccc            call pstop('setEquilibrium'
-cccc     $                ,'Cannot find PPNCH equilibrium:'
-cccc     $                 //' Both Bz0 and theta are zero')
-cc          endif
 
           !Check convergence
           err = sqrt(0.5*(sum((bth0-bth0_old)**2)
@@ -2808,7 +3087,7 @@ cc          endif
      .                 ,' ; Error=',err
           endif
 
-          dh = xmax/nxd
+          dh = (xmax-xmin)/nxd
           if (err < 0.1*dh**2) exit
 
         enddo
@@ -2819,7 +3098,8 @@ cc          endif
      .          ,it,' iterations with error =',err
         endif
 
-        !Check force balance
+c     Check force balance
+
         do i=1,nxd
           rh  = grid_params%xg(i)
 
@@ -2835,7 +3115,8 @@ cc          endif
      .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
         endif
 
-        !Check Ohm's law
+c     Check Ohm's law
+
         do i=1,nxd
           bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
           bth = 0.5*(bth0(i,:)+bth0(i-1,:))
@@ -2850,7 +3131,8 @@ cc          endif
      .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
         endif
 
-        !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
+c     Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
+
         bz_avg = 0d0
         do j=1,nyd
           do i=1,nxd
@@ -2882,7 +3164,8 @@ cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
 cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
 cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
 
-        !Transfer to integer mesh
+c       Transfer magnetic field components to integer mesh
+
         do j=0,nydp
           call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd,j)
      .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
@@ -2914,7 +3197,282 @@ cc          close(123)
 cccc          stop
 cc        endif
 
+      contains
+
+c     flux_average
+c     ##############################################################
+      subroutine flux_average(psi,flux_avg)
+
+c     --------------------------------------------------------------
+c     Performs flux averages according to psi and flux_avg routine.
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi(0:nxdp,0:nydp,0:nzdp)
+
+        INTERFACE
+          function flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
+          logical :: flux_avg,fwd
+          real(8) :: xo,x,yo,y,zo,z,so,ss
+          end function flux_avg
+        END INTERFACE
+
+c     Local variables
+
+        real(8),allocatable,dimension(:,:,:) :: bx,by,bz
+     .                                         ,bxcar,bycar,bzcar,jac
+        real(8),allocatable,dimension(:,:,:,:) :: xmap
+
+c     Begin program
+
+c     Initialize orbit integrator work space
+
+        allocate(bx   (0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,by   (0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,bz   (0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,bxcar(0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,bycar(0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,bzcar(0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,jac  (0:nxd+1,0:nyd+1,0:nzd+1)
+     .          ,xmap (0:nxd+1,0:nyd+1,0:nzd+1,3))
+
+c diag ****
+cc        open(unit=110,file='debug.bin',form='unformatted'
+cc     .      ,status='replace')
+cc        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .              ,0d0,xmax,0d0,ymax,0,110)
+cc        close(110)
+cccc        stop
+c diag ****
+
+c     Orbit integrator setup: cnv components (with BCs)
+
+        do k=0,nzd+1
+          do j=0,nyd+1
+            do i=0,nxd+1
+              rh = grid_params%xg(i)
+
+              ip = min(i+1,nxd+1)
+              im = max(i-1,0)
+              jp = min(j+1,nyd+1)
+              jm = max(j-1,0)
+              kp = min(k+1,nzd+1)
+              km = max(k-1,0)
+
+              !Cell center cnv components
+              bx(i,j,k) =-(psi(i,jp,k)-psi(i,jm,k))
+     .                   /(grid_params%yg(jp)-grid_params%yg(jm))
+              by(i,j,k) = (psi(ip,j,k)-psi(im,j,k))
+     .                   /(grid_params%xg(ip)-grid_params%xg(im))
+              bz(i,j,k) = rh*0.5*(bzz0(i,j)+bzz0(im,j))
+
+            enddo
+          enddo
+        enddo
+
+        !Periodic BCs
+        bx(:,0    ,:)=bx(:,nyd,:)
+        bx(:,nyd+1,:)=bx(:,1  ,:)
+        by(:,0    ,:)=by(:,nyd,:)
+        by(:,nyd+1,:)=by(:,1  ,:)
+        bz(:,0    ,:)=bz(:,nyd,:)
+        bz(:,nyd+1,:)=bz(:,1  ,:)
+
+        bx(:,:,0    )=bx(:,:,nzd)
+        bx(:,:,nzd+1)=bx(:,:,1  )
+        by(:,:,0    )=by(:,:,nzd)
+        by(:,:,nzd+1)=by(:,:,1  )
+        bz(:,:,0    )=bz(:,:,nzd)
+        bz(:,:,nzd+1)=bz(:,:,1  )
+
+        !SP BCs
+        do k=0,nzd+1
+          do j=0,nyd+1
+            jj = mod(j+nyd/2,nyd)
+            if (jj == 0) jj = nyd
+
+            bx(0,j,k) = bx(1,jj,k)
+            by(0,j,k) =-by(1,jj,k)
+            bz(0,j,k) =-bz(1,jj,k)
+          enddo
+        enddo
+
+        !Cartesian components, maps
+        do k=0,nzd+1
+          do j=0,nyd+1
+            do i=0,nxd+1
+              rh = grid_params%xg(i)
+
+              !Cartesian components
+              th = grid_params%yg(j)
+
+              bxcar(i,j,k) = bx(i,j,k)/rh*cos(th)
+     .                     -(by(i,j,k)+kk*bz(i,j,k))*sin(th)
+              bycar(i,j,k) = bx(i,j,k)/rh*sin(th)
+     .                     +(by(i,j,k)+kk*bz(i,j,k))*cos(th)
+              bzcar(i,j,k) = bz(i,j,k)/rh
+
+              !Map (cylindrical)
+              jac(i,j,k)   = rh
+              xmap(i,j,k,1)= rh*cos(th)
+              xmap(i,j,k,2)= rh*sin(th)
+              xmap(i,j,k,3)= grid_params%zg(k)
+            enddo
+          enddo
+        enddo
+
+c     Orbit setup (input Az directly)
+
+        bx = 0d0
+        by = 0d0
+        bz = -psi
+        call orbit_setup(nxd+2,nyd+2,nzd+2
+     .                  ,grid_params%xg
+     .                  ,grid_params%yg
+     .                  ,grid_params%zg
+     .                  ,bx,by,bz,bxcar,bycar,bzcar,jac,xmap
+     .                  ,dtime=1d-1,solen=.false.,B_input_is_A=.true.
+     .                  ,r_min=1d-3)
+
+        !Orbit average (at cell centers)
+        if (my_rank == 0) then
+          if (ilevel == 1) then
+            write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
+          elseif (ilevel == 0) then
+            write (*,*) 'Orbit averaging...'
+          endif
+        endif
+
+c     Orbit integration
+
+        k = 1
+        do j=1,nyd
+          do i=1,nxd
+
+            x0 = grid_params%xg(i)
+            y0 = grid_params%yg(j)
+            z0 = grid_params%zg(k)
+
+            bzz_avg = 0d0
+            b2_avg  = 0d0
+            ssmax    = 0d0
+
+            call orbit_find(ilevel-2,x0,y0,z0,.true.
+     .                     ,line_int=flux_avg)
+
+            if ((my_rank == 0).and.(ilevel == 1))
+     .                  write (*,FMT="(a)",ADVANCE="NO") '+'
+
+            ffpsi(i,j) = Eoeta*bzz_avg/b2_avg
+cc            ffpsi(i,j) = ssmax  !diag
+
+          enddo
+        enddo
+
+        ffpsi(:,0    )=ffpsi(:,nyd)
+        ffpsi(:,nyd+1)=ffpsi(:,1  )
+
+c diag ****
+cc          open(unit=110,file='debug.bin',form='unformatted'
+cc     .        ,status='replace')
+cc          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .                ,0d0,xmax,0d0,ymax,0,110)
+cc          close(110)
+cccc          stop
+cc
+cccc          write (*,*) 'here'
+cc          open(unit=110,file='debug2.bin',form='unformatted'
+cc     .        ,status='replace')
+cc          call contour(ffpsi(1:nxd,1:nyd),nxd,nyd
+cc     .                ,0d0,xmax,0d0,ymax,0,110)
+cc          close(110)
+cc          stop
+c diag ****
+
+c     Free up orbit integral work space
+
+        if ((my_rank == 0).and.(ilevel == 1)) write (*,*)
+
+        call orbit_destroy
+
+        deallocate(bx,by,bz,bxcar,bycar,bzcar,jac,xmap)
+
+      end subroutine flux_average
+
       end subroutine Ohm_equil_2d
+
+c     hel_flux_avg
+c     ###################################################################
+      function hel_flux_avg(fwd,xold,x,yold,y,zold,z,sold,ss)
+     .         result(exit_loop)
+
+c     -------------------------------------------------------------------
+c     Performs flux average of various quantities for 2D helical
+c     equilibrium
+c     -------------------------------------------------------------------
+
+        use orbit, xo => xold, yo => yold, zo => zold
+
+        use equilibrium
+
+        use constants
+
+        implicit none
+
+c     Call variables
+
+        logical :: exit_loop,fwd
+        real(8) :: xold,x,yold,y,zold,z,sold,ss
+
+c     Local variables
+
+        real(8) :: xh,yh,zh,sh,bb,bx,by,bz
+     .            ,xs,ys,zs,ts,y00,dy0
+        save dy0
+
+c     Begin program
+
+c     Check whether orbit should terminate
+
+        if (yold == y0) dy0 = y-y0
+
+        call ss_init(1,.false.,0d0,.true.,y0,.false.,0d0)
+
+        ts = 0d0
+        call sschk(1,0d0,sold,ss,0d0,xold,x,0d0,yold,y,0d0,zold,z
+     .            ,xs,ys,zs,ts)
+
+c     Update current position
+
+        if ( ts /= 0d0 .and. (y-yold)*dy0 > 0d0 ) then
+          x = xs ; y = ys ; z = zs
+          exit_loop = .true.
+        else
+          ts = ss
+          exit_loop = .false.
+        endif
+
+c     Find middle points
+
+        xh = 0.5*(x +xold)
+        yh = 0.5*(y +yold)
+        zh = 0.5*(z +zold)
+        sh = 0.5*(ts+sold)
+
+c     Find magnetic field Cartesian components
+
+        call getB(xh,yh,zh,bx,by,bz,.false.,.true.)
+
+        bb = sqrt(bx**2+by**2+bz**2)
+
+c     Perform flux averages
+
+        bzz_avg = bzz_avg + bz*(ts-sold)/bb
+        b2_avg  = b2_avg  + bb*(ts-sold)
+        ssmax   = ssmax   + (ts-sold)/bb
+
+      end function hel_flux_avg
 
 c     Ohm_GS_equil_2d
 c     ###############################################################
@@ -2945,7 +3503,7 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
-        use precond_variables, ONLY: csolver
+        use mg_solver
 
         use mg_internal, ONLY: mapMGVectorToArray
 
@@ -2982,7 +3540,6 @@ c     Local variables
      .               ,cov(3),e4,e5,e6
 
         real(8)    :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
-     .               ,RR(0:nxdp,0:nydp)
 
         real(8)    :: psi    (0:nx+1,0:ny+1,0:nz+1)
      .               ,iR2    (0:nx+1,0:ny+1,0:nz+1)
@@ -2990,11 +3547,22 @@ c     Local variables
      .               ,dummy  (0:nxdp,0:ny+1)
      .               ,psig   (0:nxdp,0:ny+1)
      .               ,III    (0:nxdp,0:ny+1)
+     .               ,iR2psi (0:nxdp,0:nydp)
+     .               ,B2psi  (0:nxdp,0:nydp)
+     .               ,RR     (0:nxdp,0:nydp)
 
         real(8),allocatable,dimension(:) :: psi_rhs,psiv,mpivec,errv
 
         real(8)    :: pprof
         external   del_star,pprof
+
+        !Interfaces
+        INTERFACE
+          function tor_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
+          logical :: tor_flux_avg,fwd
+          real(8) :: xo,x,yo,y,zo,z,so,ss
+          end function tor_flux_avg
+        END INTERFACE
 
 c     Begin program
 
@@ -3068,11 +3636,15 @@ cc            RR(i,j) = sqrt(x1**2+y1**2)
 
 c       Iteration
 
+        psig = 0d0
+
         psi0 =-1d0
         psia = 0d0
         oherr = 0d0
 
         do it=1,100
+
+cc          if (it > 1) call flux_average(psig,tor_flux_avg)
 
           !Find GS equation RHS (at cell centers)
           do k=1,nz
@@ -3098,13 +3670,13 @@ cc              bnorm2 = IIh**2 + psir**2 + psith**2
               psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
               psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
               gpsi2  = psir**2 + psith**2
-              bnorm2 = IIh**2 + gpsi2
+cc              bnorm2 = IIh**2 + gpsi2
 
               etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
 
-cc              spsi = sqrt(1d0-psi(i,j,1)/psi0)+1d-8
-cc              dsdpsi =-0.5/spsi/psi0
-cc              dpdpsi = dsdpsi*p00*pprof(spsi,1)
+              spsi = sqrt(1d0-psi(i,j,1)/psi0)+1d-8
+              dsdpsi =-0.5/spsi/psi0
+              dpdpsi = dsdpsi*p00*pprof(spsi,1)
 
               spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
               spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
@@ -3125,8 +3697,10 @@ cc              spsim = sqrt(1d0-psim/psi0)
 cc              dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
 
               psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
-     .                     -psir*dpdr-psith*dpdth)/bnorm2
-cc     .                     -gpsi2*dpdpsi)/bnorm2
+     .                     *iR2psi(iglobal,jglobal)
+     .                      /B2psi(iglobal,jglobal))
+     .                    +dpdpsi*((IIh/RR(iglobal,jglobal))**2
+     .                             /B2psi(iglobal,jglobal) - 1)
 
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
      .                                *gmetric%grid(igrid)%dvol(i,j,k)
@@ -3156,12 +3730,20 @@ cc     .                     -gpsi2*dpdpsi)/bnorm2
           guess = 1
 
           call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
-     .               ,1,ilevel,guess,del_star,gm_driver=.true.
-     .               ,ncolors=2,order_res=0,order_prol=1
-cc     .               ,smooth='gm',gm_coarse_solve=.true.
-     .               ,smooth='jb',gm_coarse_solve=.true.
-     .               ,mvcyc=10,tol=5d-1,sm_it=5)
-
+     .              ,1,ilevel,guess,del_star,vol_wgt
+     .              ,tol=5d-1
+     .              ,gm_driver=.true.
+     .              ,mg_order_res  = 0
+     .              ,mg_order_prol = 1
+     .              ,mg_gm_coarse_solve=.true.
+     .              ,mg_smooth     = 'jb'
+     .              ,mg_vcyc       = 10
+     .              ,sm_ncolors    = 2  !Star stencil
+     .              )
+cc     .               ,ncolors=2,order_res=0,order_prol=1
+cccc     .               ,smooth='gm',gm_coarse_solve=.true.
+cc     .               ,smooth='jb',gm_coarse_solve=.true.
+cc     .               ,mvcyc=10,tol=5d-1,sm_it=5)
           !Map to array (w BCs)
           call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid
      .                           ,.false.)
@@ -3285,7 +3867,7 @@ c       Find vectors and scalars
             psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
             bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
 
-           !Find contravariant magnetic field components in integer mesh
+            !Find contravariant magnetic field components in integer mesh
             b1(i,j) =-psith*rh
             b2(i,j) = psir
             b3(i,j) = IIh*rh/RR(iglobal,jglobal)
@@ -3569,6 +4151,214 @@ cc        endif
 
         deallocate(psi_rhs,psiv,errv)
 
+cc      contains
+cc
+ccc     flux_average
+ccc     ##############################################################
+cc      subroutine flux_average(psi,flux_avg)
+cc
+ccc     --------------------------------------------------------------
+ccc     Performs flux averages according to psi and flux_avg routine.
+ccc     --------------------------------------------------------------
+cc
+ccc     Call variables
+cc
+cc        real(8) :: psi(0:nxdp,0:nydp,0:nzdp)
+cc
+cc        INTERFACE
+cc          function flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
+cc          logical :: flux_avg,fwd
+cc          real(8) :: xo,x,yo,y,zo,z,so,ss
+cc          end function flux_avg
+cc        END INTERFACE
+cc
+ccc     Local variables
+cc
+cc        integer :: ip,im,jp,jm,kp,km
+cc        real(8) :: th
+cc
+cc        real(8),allocatable,dimension(:,:,:) :: bx,by,bz
+cc     .                                         ,bxcar,bycar,bzcar,jac
+cc        real(8),allocatable,dimension(:,:,:,:) :: xmap
+cc
+ccc     Begin program
+cc
+ccc     Initialize orbit integrator work space
+cc
+cc        allocate(bx   (0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,by   (0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,bz   (0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,bxcar(0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,bycar(0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,bzcar(0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,jac  (0:nxd+1,0:nyd+1,0:nzd+1)
+cc     .          ,xmap (0:nxd+1,0:nyd+1,0:nzd+1,3))
+cc
+ccc diag ****
+cccc        open(unit=110,file='debug.bin',form='unformatted'
+cccc     .      ,status='replace')
+cccc        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cccc     .              ,0d0,xmax,0d0,ymax,0,110)
+cccc        close(110)
+cccccc        stop
+ccc diag ****
+cc
+ccc     Orbit integrator setup: cnv components (with BCs)
+cc
+cc        do k=0,nzd+1
+cc          do j=0,nyd+1
+cc            do i=0,nxd+1
+cc              rh = grid_params%xg(i)
+cc
+cc              ip = min(i+1,nxd+1)
+cc              im = max(i-1,0)
+cc              jp = min(j+1,nyd+1)
+cc              jm = max(j-1,0)
+cc              kp = min(k+1,nzd+1)
+cc              km = max(k-1,0)
+cc
+cc              !Cell center cnv components
+cc              bx(i,j,k) =-(psi(i,jp,k)-psi(i,jm,k))
+cc     .                   /(grid_params%yg(jp)-grid_params%yg(jm))
+cc              by(i,j,k) = (psi(ip,j,k)-psi(im,j,k))
+cc     .                   /(grid_params%xg(ip)-grid_params%xg(im))
+cc              bz(i,j,k) = rh*0.5*(bzz0(i,j)+bzz0(im,j))
+cc
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        !Periodic BCs
+cc        bx(:,0    ,:)=bx(:,nyd,:)
+cc        bx(:,nyd+1,:)=bx(:,1  ,:)
+cc        by(:,0    ,:)=by(:,nyd,:)
+cc        by(:,nyd+1,:)=by(:,1  ,:)
+cc        bz(:,0    ,:)=bz(:,nyd,:)
+cc        bz(:,nyd+1,:)=bz(:,1  ,:)
+cc
+cc        bx(:,:,0    )=bx(:,:,nzd)
+cc        bx(:,:,nzd+1)=bx(:,:,1  )
+cc        by(:,:,0    )=by(:,:,nzd)
+cc        by(:,:,nzd+1)=by(:,:,1  )
+cc        bz(:,:,0    )=bz(:,:,nzd)
+cc        bz(:,:,nzd+1)=bz(:,:,1  )
+cc
+cc        !SP BCs
+cc        do k=0,nzd+1
+cc          do j=0,nyd+1
+cc            jj = mod(j+nyd/2,nyd)
+cc            if (jj == 0) jj = nyd
+cc
+cc            bx(0,j,k) = bx(1,jj,k)
+cc            by(0,j,k) =-by(1,jj,k)
+cc            bz(0,j,k) =-bz(1,jj,k)
+cc          enddo
+cc        enddo
+cc
+cc        !Cartesian components, maps
+cc        do k=0,nzd+1
+cc          do j=0,nyd+1
+cc            do i=0,nxd+1
+cc              rh = grid_params%xg(i)
+cc
+cc              !Cartesian components
+cc              th = grid_params%yg(j)
+cc
+cc              bxcar(i,j,k) = bx(i,j,k)/rh*cos(th)
+cc     .                     -(by(i,j,k)+kk*bz(i,j,k))*sin(th)
+cc              bycar(i,j,k) = bx(i,j,k)/rh*sin(th)
+cc     .                     +(by(i,j,k)+kk*bz(i,j,k))*cos(th)
+cc              bzcar(i,j,k) = bz(i,j,k)/rh
+cc
+cc              !Map (cylindrical)
+cc              jac(i,j,k)   = rh
+cc              xmap(i,j,k,1)= rh*cos(th)
+cc              xmap(i,j,k,2)= rh*sin(th)
+cc              xmap(i,j,k,3)= grid_params%zg(k)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+ccc     Orbit setup (input Az directly)
+cc
+cc        bx = 0d0
+cc        by = 0d0
+cc        bz = -psi
+cc        call orbit_setup(nxd+2,nyd+2,nzd+2
+cc     .                  ,grid_params%xg
+cc     .                  ,grid_params%yg
+cc     .                  ,grid_params%zg
+cc     .                  ,bx,by,bz,bxcar,bycar,bzcar,jac,xmap
+cc     .                  ,dtime=1d-1,solen=.false.,B_input_is_A=.true.)
+cc
+cc        !Orbit average (at cell centers)
+cc        if (my_rank == 0) then
+cc          if (ilevel == 1) then
+cc            write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
+cc          elseif (ilevel == 0) then
+cc            write (*,*) 'Orbit averaging...'
+cc          endif
+cc        endif
+cc
+ccc     Orbit integration
+cc
+cc        k = 1
+cc        do j=1,nyd
+cc          do i=1,nxd
+cc
+cc            x0 = grid_params%xg(i)
+cc            y0 = grid_params%yg(j)
+cc            z0 = grid_params%zg(k)
+cc
+cc            bzz_avg = 0d0
+cc            b2_avg  = 0d0
+cc            ssmax   = 0d0
+cc
+cc            call orbit_find(ilevel-2,x0,y0,z0,.true.
+cc     .                     ,line_int=flux_avg)
+cc
+cc            if ((my_rank == 0).and.(ilevel == 1))
+cc     .                  write (*,FMT="(a)",ADVANCE="NO") '+'
+cc
+cc            iR2psi(i,j) = iR2
+cc            B2psi (i,j) = b2_avg
+cc
+cc          enddo
+cc        enddo
+cc
+cc        B2psi(:,0    )=B2psi(:,nyd)
+cc        B2psi(:,nyd+1)=B2psi(:,1  )
+cc
+cc        iR2psi(:,0    )=iR2psi(:,nyd)
+cc        iR2psi(:,nyd+1)=iR2psi(:,1  )
+cc
+ccc diag ****
+cccc          open(unit=110,file='debug.bin',form='unformatted'
+cccc     .        ,status='replace')
+cccc          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cccc     .                ,0d0,xmax,0d0,ymax,0,110)
+cccc          close(110)
+cccccc          stop
+cccc
+cccccc          write (*,*) 'here'
+cccc          open(unit=110,file='debug2.bin',form='unformatted'
+cccc     .        ,status='replace')
+cccc          call contour(ffpsi(1:nxd,1:nyd),nxd,nyd
+cccc     .                ,0d0,xmax,0d0,ymax,0,110)
+cccc          close(110)
+cccc          stop
+ccc diag ****
+cc
+ccc     Free up orbit integral work space
+cc
+cc        if ((my_rank == 0).and.(ilevel == 1)) write (*,*)
+cc
+cc        call orbit_destroy
+cc
+cc        deallocate(bx,by,bz,bxcar,bycar,bzcar,jac,xmap)
+cc
+cc      end subroutine flux_average
+
       end subroutine Ohm_GS_equil_2d
 
 c     qprof
@@ -3724,7 +4514,7 @@ c Begin program
           enddo
         enddo
 
-      case ('gem')
+      case ('gem','kai1')
 
         do k = klom,khip
           do j = jlom,jhip
@@ -3853,7 +4643,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,igrid,ii,bcnd(6,3)
+      integer    :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
      .             ,cai_rhs(ntotdp),caiv(ntotdp)
      .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
