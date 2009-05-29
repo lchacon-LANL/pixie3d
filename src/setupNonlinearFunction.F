@@ -1,6 +1,6 @@
 c setupNonlinearFunction
 c#################################################################
-      subroutine setupNonlinearFunction(varray)
+      subroutine setupNonlinearFunction(igx,igy,igz,varray)
 c------------------------------------------------------------------
 c     This function calculates auxiliary quantities for the
 c     Jacobian-free product
@@ -28,11 +28,12 @@ c------------------------------------------------------------------
 
 c Call variables
 
+      integer :: igx,igy,igz
       type(var_array),pointer :: varray
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg
+      integer    :: i,j,k,ig,jg,kg,nx,ny,nz
 
       integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
 
@@ -52,10 +53,6 @@ c Interfaces
       END INTERFACE
 
 c Begin program
-
-      igx = 1
-      igy = 1
-      igz = 1
 
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
