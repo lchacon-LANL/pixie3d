@@ -312,7 +312,7 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       test       = .false.     ! Whether we are performing tests (do not dump namelist)
 
       debug      = .false.     ! PC debugging flag
-      debug_it   = 1           ! Newton iteration level for debugging
+      debug_it   = 0           ! Newton iteration level for debugging (0 --> ask)
 
       recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
@@ -357,49 +357,6 @@ c Read initialization parameters
       endif
 
       close(unit=uinput)
-
-c Write initialization parameters to standard output
-
-#if defined(petsc)
-      call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
-#endif
-
-      if (my_rank == 0 .and. (.not. test)) then
-        write (*,*) '-------------------'
-        write (*,*) 'SETUP configuration'
-        write (*,*) '-------------------'
-        write (*,setup)
-
-        write (*,*) '------------------'
-        write (*,*) 'PHYS configuration'
-        write (*,*) '------------------'
-        write (*,phys)
-
-        write (*,*) '----------------- '
-        write (*,*) 'FV  configuration'
-        write (*,*) '----------------- '
-        write (*,fv)
-
-        write (*,*) '----------------- '
-        write (*,*) 'TS  configuration'
-        write (*,*) '----------------- '
-        write (*,ts)
-
-        write (*,*) '----------------- '
-        write (*,*) 'NKS configuration'
-        write (*,*) '----------------- '
-        write (*,nks)
-
-        write (*,*) '----------------- '
-        write (*,*) 'PC  configuration'
-        write (*,*) '----------------- '
-        write (*,pc)
-
-        write (*,*) '----------------- '
-        write (*,*) 'IO  configuration'
-        write (*,*) '----------------- '
-        write (*,i_o)
-      endif
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
@@ -502,6 +459,49 @@ c Translate boundary conditions
         write (*,*) 'Aborting'
         write (*,*) bcond
         stop
+      endif
+
+c Write initialization parameters to standard output
+
+#if defined(petsc)
+      call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
+#endif
+
+      if (my_rank == 0 .and. (.not. test)) then
+        write (*,*) '-------------------'
+        write (*,*) 'SETUP configuration'
+        write (*,*) '-------------------'
+        write (*,setup)
+
+        write (*,*) '------------------'
+        write (*,*) 'PHYS configuration'
+        write (*,*) '------------------'
+        write (*,phys)
+
+        write (*,*) '----------------- '
+        write (*,*) 'FV  configuration'
+        write (*,*) '----------------- '
+        write (*,fv)
+
+        write (*,*) '----------------- '
+        write (*,*) 'TS  configuration'
+        write (*,*) '----------------- '
+        write (*,ts)
+
+        write (*,*) '----------------- '
+        write (*,*) 'NKS configuration'
+        write (*,*) '----------------- '
+        write (*,nks)
+
+        write (*,*) '----------------- '
+        write (*,*) 'PC  configuration'
+        write (*,*) '----------------- '
+        write (*,pc)
+
+        write (*,*) '----------------- '
+        write (*,*) 'IO  configuration'
+        write (*,*) '----------------- '
+        write (*,i_o)
       endif
 
 c End program
