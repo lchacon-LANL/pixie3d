@@ -47,7 +47,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ieq,bcs(6)
+      integer    :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz
       real(8)    :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
      .             ,cov(3),cnv(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv

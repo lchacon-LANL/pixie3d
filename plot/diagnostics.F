@@ -71,6 +71,7 @@ c Call variables
 
 c Local variables
 
+      integer :: igx,igy,igz
       logical :: initialize
 
 c Interfaces
@@ -286,7 +287,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ieq
+      integer    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
