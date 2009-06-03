@@ -132,9 +132,15 @@ c Local variables
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
-     .             ,cs2,ca2,tmp_max
+     .             ,cs2,ca2,tmp_max,root(3)
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical    :: cartsn
+
+      INTERFACE
+      function icfl(cs2,ca2,k2,k2par,di) result(root)
+      real(8)   :: cs2,ca2,k2,k2par,di,root(3)
+      end function icfl
+      END INTERFACE
 
 c Begin program
 
@@ -197,8 +203,9 @@ c Calculate CFL
             !Sound speed
             cs2 = a_p*gamma*tmp(i,j,k)
 
-            !Find CFL
-            w_cfl = max((icfl(cs2,ca2,k2,kb_par2,di)+kv_par),w_cfl)
+            !Find CFL frequency
+            root = icfl(cs2,ca2,k2,kb_par2,di)
+            w_cfl=max(maxval(root)+kv_par,w_cfl)
 
           enddo
         enddo
@@ -239,11 +246,11 @@ c Accumulate explicit time step for average computation
 
 c End program
 
-      contains
+      end subroutine findExplicitDt
 
 c     icfl
 c     ##########################################################
-      function icfl(cs2,ca2,k2,k2par,di)
+      function icfl(cs2,ca2,k2,k2par,di) result(root)
 
       use math
 
@@ -255,12 +262,12 @@ c     ----------------------------------------------------------
 
 c     Call variables
 
-      real(8)   :: icfl,cs2,ca2,k2,k2par,di
+      real(8)   :: cs2,ca2,k2,k2par,di,root(3)
 
 c     Local variables
 
-      real(8)   :: a,b,c,d,root(3),ckpar
-      complex(8):: a3,a2,a1,a0,r(3)
+      real(8)   :: a,b,c,d,ckpar
+      complex(8):: r(3)
 
 c     Begin program
 
@@ -273,12 +280,16 @@ c     Solve cubic dispersion relation for omega^2 (Checked, Luis 6/3/08)
       c = ckpar*(k2**2*cs2*di**2+2*k2*cs2+k2*ca2)
       d = -ckpar**2*cs2*k2
 
-      a3=cmplx(a,0.)
-      a2=cmplx(b,0.)
-      a1=cmplx(c,0.)
-      a0=cmplx(d,0.)
-      
-      r = solve_cubic(a3,a2,a1,a0)
+      r = solve_cubic(a,b,c,d)
+
+ccc     Check roots
+cc
+cc      write (*,*) 'Coefficients=',a,b,c,d
+cc
+cc      r = a*r**3 + b*r**2 + c*r + d
+cc
+cc      write (*,*) 'Dispersion relation=',r
+cc      stop
 
 c     Find CFL constraint
 
@@ -300,10 +311,8 @@ cc      elsewhere
 cc        root = 0d0
 cc      end where
 
-      icfl = maxval(root)
+cc      icfl = maxval(root)
 
 c     End program
 
       end function icfl
-
-      end subroutine findExplicitDt
