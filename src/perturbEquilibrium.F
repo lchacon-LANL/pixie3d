@@ -34,13 +34,24 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz
-      real(8)    :: x1,y1,z1,jac,kx,ky,kk
-     .             ,vplus,vminus,vshear,dummy1,kdotB,cth,vxx,vyy,xi
-     .             ,w_fast,w_slow,w_shr,freq
+      real(8)    :: x1,y1,z1,jac,kx,ky,kk,eps
+     .             ,vplus,vminus,vshear,cs2,kdotB,cth
+     .             ,vxx,vyy,vzz,xi,ivxx,ivyy,ivzz,ixi,bxx,byy,bzz,yy,iyy
+     .             ,w_fast,w_slow,w_shr,freq,root(3),X,iX
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      logical    :: check
 
       integer    :: ierr
       character(50) :: command
+
+      save  :: w_fast,w_slow,w_shr,freq
+
+      INTERFACE
+      function icfl(cs2,ca2,k2,k2par,di) result(root)
+      real(8)   :: cs2,ca2,k2,k2par,di,root(3)
+      end function icfl
+      END INTERFACE
 
 c     Begin program
 
@@ -104,6 +115,11 @@ cc              if (ieq == IRHO) jac = 1d0
 
       case ('3wv')
 
+#if defined(vec_pot)
+        call pstop('perturbEquilibrium'
+     .            ,'Test case not working for vector potential')
+#endif
+
         kx = 2*pi*nh1/(xmax-xmin)
         ky = 2*pi*nh2/(ymax-ymin)
 
@@ -111,65 +127,124 @@ cc              if (ieq == IRHO) jac = 1d0
 
         kk = sqrt(kx**2+ky**2)
 
-        dummy1 = 0.5*gamma*beta
+        cs2 = 0.5*gamma*beta
 
         cth = kdotB/kk
 
-        vplus = sqrt(0.5*(1+dummy1+sqrt((1+dummy1)**2-4*dummy1*cth**2)))
-        vminus= sqrt(0.5*(1+dummy1-sqrt((1+dummy1)**2-4*dummy1*cth**2)))
-        vshear= cth
+        eps = 1d-5
 
-        w_fast = kk*vplus
-        w_slow = kk*vminus
-        w_shr  = kk*vshear
-
+        !Find MHD frequencies  (do this only once)
         if (ieq == 1) then
-          write (*,*) 'angle   =',grid_params%params(1)
+          root = icfl(cs2,1d0,kk**2,kdotB**2,di)
+
+          w_fast = maxval(root)
+          w_slow = minval(root)
+          w_shr  = fmed(root(1),root(2),root(3))
+
+          write (*,*) 'B angle =',grid_params%params(1)
+          write (*,*)
           write (*,*) 'shear fq=',w_shr
           write (*,*) 'fast  fq=',w_fast
           write (*,*) 'slow  fq=',w_slow
+          write (*,*)
+
+          !Select frequency
+          select case(nint(grid_params%params(3)))
+          case(1)
+            if (my_rank == 0)
+     .           write (*,*) '===> Selecting fast freq...'
+            freq = w_fast
+          case(2)
+            if (my_rank == 0)
+     .           write (*,*) '===> Selecting slow freq...'
+            freq = w_slow
+          case(3)
+            if (my_rank == 0)
+     .           write (*,*) '===> Selecting shear freq...'
+            freq = w_shr
+          case default
+            call pstop('perturbEquilibrium','Select frequency!')
+          end select
+
+          if (my_rank == 0) then
+            write (*,*)
+            write (*,*) 'Time step should be dt <=',pi/16./freq
+
+            write (*,*)
+            write (*,*) 'Is this OK?'
+            read(*,*) check
+          endif
+
+#if defined(petsc) || defined(petsc_c)
+          call MPI_Bcast(check,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpierr)
+#endif
+
+          if (.not.check) stop
         endif
 
-        freq = w_slow
-
-cc        dt = pi/16./freq
-
-#if defined(vec_pot)
-        call pstop('perturbEquilibrium'
-     .            ,'Test case not working for vector potential')
-#endif
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
-              jac = 1d0
+              if ((cs2*kdotB*ky/freq**2-B0(2)) /= 0d0) then
+                vxx = eps*cos(kx*(x1-xmin)+ky*(y1-ymin))
+                vyy =-(cs2*kdotB*kx/freq**2-B0(1))*vxx
+     .               /(cs2*kdotB*ky/freq**2-B0(2))
+              else
+                vyy = eps*cos(kx*(x1-xmin)+ky*(y1-ymin))
+                vxx =-(cs2*kdotB*ky/freq**2-B0(2))*vyy
+     .               /(cs2*kdotB*kx/freq**2-B0(1))
+              endif
 
-              vxx = 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+              xi = kx*vxx + ky*vyy
+              X  = cs2*kdotB*xi/freq**2
 
-              vyy =-(dummy1*kdotB*kx/freq**2-B0(1))*vxx
-     .             /(dummy1*kdotB*ky/freq**2-B0(2))
+              if ((cs2*kdotB*ky/freq**2-B0(2)) /= 0d0) then
+                ivxx = eps*sin(kx*(x1-xmin)+ky*(y1-ymin))
+                ivyy =-(cs2*kdotB*kx/freq**2-B0(1))*ivxx
+     .                /(cs2*kdotB*ky/freq**2-B0(2))
+              else
+                ivyy = eps*sin(kx*(x1-xmin)+ky*(y1-ymin))
+                ivxx =-(cs2*kdotB*ky/freq**2-B0(2))*ivyy
+     .                /(cs2*kdotB*kx/freq**2-B0(1))
+              endif
 
-              xi  = kx*vxx + ky*vyy
+              ixi = kx*ivxx + ky*ivyy
+              iX  = cs2*kdotB*ixi/freq**2
+
+              yy  = iX*kdotB*di*(freq**2/cs2-kk**2)/(freq-kdotB**2/freq)
+              iyy = -X*kdotB*di*(freq**2/cs2-kk**2)/(freq-kdotB**2/freq)
+
+              vzz =( yy + B0(3)*(ky* vxx - kx* vyy))/(ky*B0(1)-kx*B0(2))
+              ivzz=(iyy + B0(3)*(ky*ivxx - kx*ivyy))/(ky*B0(1)-kx*B0(2))
+
+              bxx = (kdotB*vxx-xi*B0(1))/freq +di*ky*ivzz
+              byy = (kdotB*vyy-xi*B0(2))/freq -di*kx*ivzz
+              bzz = (kdotB*vzz-xi*B0(3))/freq +di*(kx*ivyy-ky*ivxx)
 
               if (ieq == IRHO) then
-                array(i,j,k) = array(i,j,k) + xi/freq
+                array(i,j,k) = array(i,j,k) - xi/freq
               elseif (ieq == ITMP) then
-                array(i,j,k) = array(i,j,k)
-     .                       +(dummy1/a_p-array(i,j,k))*xi/freq
+                if (adiabatic) then
+                  array(i,j,k) = array(i,j,k) - cs2*xi/(a_p*freq) !For e pressure
+                else
+                  array(i,j,k) = array(i,j,k)
+     .                         -(cs2/a_p-array(i,j,k))*xi/freq    !For temperature
+                endif
               elseif (ieq == IBX) then
-                array(i,j,k) = array(i,j,k) + (xi*B0(1)-kdotB*vxx)/freq
+                array(i,j,k) = array(i,j,k) + bxx
               elseif (ieq == IBY) then
-                array(i,j,k) = array(i,j,k) + (xi*B0(2)-kdotB*vyy)/freq
+                array(i,j,k) = array(i,j,k) + byy
               elseif (ieq == IBZ) then
-                array(i,j,k) = array(i,j,k)
+                array(i,j,k) = array(i,j,k) + bzz
               elseif (ieq == IVX) then
                 array(i,j,k) = array(i,j,k) + vxx
               elseif (ieq == IVY) then
                 array(i,j,k) = array(i,j,k) + vyy
               elseif (ieq == IVZ) then
-                array(i,j,k) = array(i,j,k)
+                array(i,j,k) = array(i,j,k) + vzz
               endif
             enddo
           enddo
