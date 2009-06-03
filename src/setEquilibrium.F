@@ -13,6 +13,16 @@ c       * label (")   : array with labels              "   "     "
 c
 c     Boundary conditions specification in bcs is defined in routine
 c     applyBoundaryConditions.f. 
+c
+c     Equilibrium quantities are:
+c       * ieq=IRHO: density
+c       * ieq=IVX:IVZ: momentum if conservative, velocity otherwise
+c       * ieq=IBX:IBZ: magnetic field
+c       * ieq=IAX:IAZ: vector potential
+c       * ieq=ITMP: electron temperature (adiabatic=.false.) or
+c                   electron pressure (adiabatic=.true.). Total
+c                   pressure is found as p=n*(Ti+Te)=a_p*n*Te (or
+c                   p=a_p*Te if adiabatic).
 c--------------------------------------------------------------------
 
       use parameters
@@ -145,7 +155,11 @@ c Label variables
       label(IVX)  = 'P^1'
       label(IVY)  = 'P^2'
       label(IVZ)  = 'P^3'
-      label(ITMP) = 'Temp'
+      if (adiabatic) then
+        label(ITMP) = 'P_e'        
+      else
+        label(ITMP) = 'T_e'
+      endif
 
 c Define boundary conditions
 
@@ -197,14 +211,14 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
       case ('3wv') !3-wave MHD test
 
-        gamma = 5./3.
+cc        gamma = 5./3.
 
         phi   = grid_params%params(1)   !Angle of B with x-axis, in degrees
         beta  = grid_params%params(2)   !plasma beta
 
         phi   = phi/180.*pi             !Phi in radians
 
-        nh2   = nh1                     !This is required by setup
+cc        nh2   = nh1                     !This is required by setup(???)
 
 c     Check coordinates
 
@@ -340,7 +354,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,ITMP) = bb/2.
+        var(:,:,:,ITMP) = 0.5*bb
 
 #if !defined(vec_pot)
         do k = klo,khi
@@ -468,6 +482,8 @@ c     Check coordinates
 
 c     Tearing mode in cartesian coordinates
 
+        var(:,:,:,ITMP) = 0.25
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
@@ -507,8 +523,6 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IAX:IAZ) = a
 
 #endif
-
-        var(:,:,:,ITMP) = 0.25
 
 c     ----------------------------------------------
 c     ---------------  TEARING MODE ----------------
@@ -1610,6 +1624,7 @@ cc#endif
 c     --------------------------------------------------
 c     ---------------  VMEC EQUILIBRIUM ----------------
 c     --------------------------------------------------
+
       case ('vmec')    
 
         nh1 = nh2       !For perturbations to be of the right order in radius
