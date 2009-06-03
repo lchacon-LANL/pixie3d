@@ -25,18 +25,13 @@ c ######################################################################
 
         use newtongm
 
-        use grid_debug
+        use mg_solver
 
-        integer :: i,j,k,ig,jg,kg,ieq
+        integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
         real(8) :: x1,y1,z1
         logical :: cartsn,covariant,to_cartsn,to_cnv
 
-        integer :: ntotd2p,si_it,ores=2,oprol=2,mg_coarse_size=2
-        real(8) :: omeg_smth
-        character(2) :: smooth
-        logical :: gm_smooth,mg_glrkin,si_car,gm_coarse
-     .            ,line_relax,inv_B,divCln=.false.,v_solve
-
+        !PC storage
 cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
@@ -56,6 +51,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         type(var_array),pointer :: varray
 
         type (mg_array ),target :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
+     .                            ,gdb_cov
 
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
@@ -111,6 +107,7 @@ c     Begin program
         call allocateMGArray(3,gb0)
         call allocateMGArray(3,gb0_cov)
         call allocateMGArray(3,ga0)   !B + di curl(v)
+        call allocateMGArray(3,gdb_cov)
 
 c     End program
 
@@ -154,6 +151,7 @@ c     Begin program
         call deallocateMGArray(gv0)
         call deallocateMGArray(gv0_cov)
         call deallocateMGArray(ga0)
+        call deallocateMGArray(gdb_cov)
 
         call deallocateDerivedType(varray)
 
@@ -183,15 +181,10 @@ c     Local variables
 
 c     Begin program
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-              do ieq=1,neqd
-                iii = ieq + neqd*(ii-1)
-                xout(iii) = xin(ii,ieq)
-              enddo
-            enddo
+        do ii=1,size(xin,1)
+          do ieq=1,size(xin,2)
+            iii = ieq + size(xin,2)*(ii-1)
+            xout(iii) = xin(ii,ieq)
           enddo
         enddo
 
@@ -221,17 +214,10 @@ c     Local variables
 
 c     Begin program
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-              do ieq=1,neqd
-                iii = ieq + neqd*(ii-1)
-                xout(ii,ieq) = xin(iii)
-              enddo
-
-            enddo
+        do ii=1,size(xout,1)
+          do ieq=1,size(xout,2)
+            iii = ieq + size(xout,2)*(ii-1)
+            xout(ii,ieq) = xin(iii)
           enddo
         enddo
 
@@ -393,7 +379,7 @@ c     End program
 
 c     fillArray
 c     ###################################################################
-      subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov
+      subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov,arr0
      .                    ,is_vec,is_cnv)
 
 c     -------------------------------------------------------------------
@@ -406,18 +392,22 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer    :: igrid,icomp,neq,iorder,bcs(:,:)
+        integer :: igrid,icomp,neq,iorder,bcs(:,:)
         real(8),dimension(:,:) :: x
         real(8),dimension(:,:,:,:) :: arr
-        real(8),optional,dimension(:,:,:,:) :: arr_cov
+        real(8),optional,dimension(:,:,:,:) :: arr_cov,arr0
         logical,optional :: is_vec,is_cnv
 
 c     Local variables
 
-        integer    :: ieq
+        integer    :: ieq,nx,ny,nz
         logical    :: isvec,iscnv
 
 c     Begin program
+
+        nx = grid_params%nxv(igrid)
+        ny = grid_params%nyv(igrid)
+        nz = grid_params%nzv(igrid)
 
         if (PRESENT(is_vec)) then
           isvec = is_vec
@@ -436,10 +426,18 @@ c     Begin program
      .                       ,arr(:,:,:,ieq),igrid,.false.)
         enddo
 
-        if (PRESENT(arr_cov)) then
+        if (PRESENT(arr0).and.PRESENT(arr_cov)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
+        elseif (PRESENT(arr_cov)) then
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
      .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr_cov=arr_cov)
+        elseif (PRESENT(arr0)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder,arr0=arr0)
         else
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
      .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
@@ -452,7 +450,7 @@ c     End program
 
 c     findPCcoeffs
 c     ###################################################################
-      subroutine findPCcoeffs
+      subroutine findPCcoeffs(igx,igy,igz)
 
 c     -------------------------------------------------------------------
 c     Finds coefficients for linearized systems in preconditioner
@@ -462,6 +460,8 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
+        integer :: igx,igy,igz
+
 c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
@@ -469,6 +469,7 @@ c     Local variables
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
+     .               ,nabla_v(3,3),jac
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
@@ -484,9 +485,9 @@ c     Begin program
         nyy = grid_params%nyv(igy)
         nzz = grid_params%nzv(igz)
 
-        nx  = nxx
-        ny  = nyy
-        nz  = nzz
+cc        nx  = nxx
+cc        ny  = nyy
+cc        nz  = nzz
 
         igrid = igx
 
@@ -548,7 +549,21 @@ c     Store magnetic field cov components in all grids (w/ BCs)
      .                        ,order,iscnv=.false.)
         endif
 
-c     Store (B + di curl(v) in all grids
+c     Store equilibrium current cov components in all grids (w/ BCs)
+
+cc        gj00_cov%grid(igrid)%array = jcov_0
+cc
+cc        call restrictMGArray(IJX,3,gj00_cov,bc_pc(:,IJX:IJZ),igrid
+cc     .                      ,order,iscnv=.false.)
+
+c     Store current cov components in all grids (w/ BCs)
+cc
+cc        gj0_cov%grid(igrid)%array = jcov
+cc
+cc        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
+cc     .                      ,order,iscnv=.false.)
+
+c     Store (B + di curl(v)) in all grids
 
         if (di > 0d0) then
 
@@ -560,12 +575,12 @@ cc          bc_pc(:,IJY) = bcond
 cc
 cc          where (bc_pc(:,IJX:IJZ) == DEF) bc_pc(:,IJX:IJZ) = EXT
 cc
-          do k=0,nz+1
-            do j=0,ny+1
-              do i=0,nx+1
+          do k=0,nzz+1
+            do j=0,nyy+1
+              do i=0,nxx+1
 
                 do ieq=1,3
-                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
+                  cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                           ,gv0_cov%grid(igrid)%array(:,:,:,1)
      .                           ,gv0_cov%grid(igrid)%array(:,:,:,2)
      .                           ,gv0_cov%grid(igrid)%array(:,:,:,3)
@@ -868,447 +883,6 @@ c     End program
 
       end subroutine findPCcoeffs
 
-c     cSolver
-c #   ##################################################################
-      subroutine cSolver(neq,ntotp,b,x,bcnd,igrid,out,guess
-     .                  ,matvec,dg,ncolors,line_relax,gm_coarse_solve
-     .                  ,gm_driver,cvrg_tst,order_res,order_prol,smooth
-     .                  ,omega,mvcyc,mu_cycle,galerkin,tol,sm_it,mg_min)
-c     ---------------------------------------------------------------
-c     This subroutine solves a coupled system of neq equations. 
-c     In call sequence:
-c       * neq: number of coupled equations
-c       * ntotp: number of mesh points
-c       * b: rhs
-c       * x: solution
-c       * bcnd: boundary condition defs.
-c       * igrid: MG grid level (igrid=1 is finest level)
-c       * out: level of output information
-c       * guess: whether a non-trivial initial guess is provided
-c               (iguess=1) or not (iguess=0)
-c       * matvec (external): matrix-vector product definition.
-c
-c     Optional variables:
-c       * dg: matrix neq*neq diagonal block (for stationary its).
-c       * ncolors: number of colors in grid (for GS).
-c       * line_relax: whether we want line relaxation
-c       * gm_smooth: whether we want GMRES as a smoother
-c       * gm_driver: whether we want GMRES as a driver
-c       * cvrg_tst: whether we want to perform a convergence test
-c       * order_res: restriction order
-c       * order_prol: restriction order
-c       * smooth: determines smoothing (jb,gs,gm; default jb)
-c       * sm_it: smoother iterations
-c       * omega: damping for JB smoother
-c       * mvcyc: maximum number of MG V-cycles (default 1)
-c       * mu_cycle: number of mu_cycles in MG (default 1)
-c       * galerkin: whether to do Galerkin coarsening of operator
-c                  (true) or rediscretization (default: false)
-c       * mg_min: minimum coarse mesh (roughly mg_ratio^mg_min per
-c                 direction.
-c       * tol: convergence tolerance
-c     ---------------------------------------------------------------
-
-        use mlsolverSetup
-
-        implicit none
-
-c     Call variables
-
-        integer    :: neq,ntotp,igrid,bcnd(6,neq),out,guess
-        real(8)    :: x(ntotp,neq),b(ntotp,neq)
-
-        real(8)   ,optional,intent(IN) :: dg(neq,2*neq*ntotp),omega,tol
-        integer   ,optional,intent(IN) :: ncolors,order_res,order_prol
-     .                                   ,mvcyc,mu_cycle,sm_it,mg_min
-        logical   ,optional,intent(IN) :: line_relax,gm_coarse_solve
-     .                                   ,cvrg_tst,gm_driver,galerkin
-
-        character(2),optional :: smooth
-
-        external   matvec
-
-c     Local variables
-
-        integer    :: ntot,iorder_res,iorder_prol,vcyc,mu_cyc,nclrs,smit
-     .               ,mgmin
-        real(8)    :: xi(ntotp*neq),bi(ntotp*neq),omg,rtol
-        real(8), target :: ddg(neq,2*neq*ntotp)
-        logical    :: gm_crse_solve,cvrg_test,lrelax,gm_drvr,glkin
-
-        character(2) :: smth
-
-c     Begin program
-
-c     Process optional arguments
-
-        if (PRESENT(dg)) ddg = dg
-
-        if (PRESENT(gm_coarse_solve)) then
-          gm_crse_solve = gm_coarse_solve
-        else
-          gm_crse_solve = .false.
-cc          write (*,*) 'DIAG -- cSolver'
-cc          gm_crse_solve = .true.
-        endif
-
-        if (PRESENT(gm_driver)) then
-          gm_drvr = gm_driver
-        else
-          gm_drvr = .false.
-        endif
-
-        if (PRESENT(cvrg_tst)) then
-          cvrg_test = cvrg_tst
-        else
-          cvrg_test = .false.
-        endif
-
-        if (PRESENT(line_relax)) then
-          lrelax = line_relax
-        else
-          lrelax = .false.
-        endif
-
-        if(PRESENT(order_res)) then
-          iorder_res = order_res
-        else
-          iorder_res = 2
-        endif
-
-        if(PRESENT(order_prol)) then
-          iorder_prol = order_prol
-        else
-          iorder_prol = 2
-        endif
-
-        if(PRESENT(mvcyc)) then
-          vcyc = mvcyc
-        else
-          vcyc = maxvcyc
-        endif
-
-        if(PRESENT(mu_cycle)) then
-          mu_cyc = mu_cycle
-        else
-cc          if (bcSP()) then
-cc            mu_cyc = 2
-cc          else
-            mu_cyc = 1
-cc          endif
-        endif
-
-        if(PRESENT(smooth)) then
-          smth = smooth
-        else
-          smth = 'jb'
-        endif
-
-        if(PRESENT(sm_it)) then
-          smit = sm_it
-        else
-          smit = nsweep
-        endif
-
-        if(PRESENT(omega)) then
-          omg = omega
-        else
-          omg = 0.7
-        endif
-
-        if(PRESENT(tol)) then
-          rtol = tol
-        else
-          rtol = mgtol
-        endif
-
-        if(PRESENT(galerkin)) then
-          glkin = galerkin
-        else
-          glkin = .false.
-        endif
-
-        if (PRESENT(ncolors)) then
-          nclrs = ncolors
-        else
-          nclrs = 8
-        endif
-
-        if (PRESENT(mg_min)) then
-          mgmin = mg_min
-        else
-          mgmin = 2
-        endif
-
-c     Gather variables for coupled solve
-
-        if (.not.cvrg_test) then
-
-          do i=1,ntotp
-            do ieq=1,neq
-              xi(neq*(i-1)+ieq) = x(i,ieq)
-              bi(neq*(i-1)+ieq) = b(i,ieq)
-            enddo
-          enddo
-
-        else
-
-          bi = 0d0
-
-          call random_number(xi)
-cc          xi = 1d0
-cc          write (*,*) 'DIAG -- cSolver: initial guess'
-
-          guess = 1
-
-          write (*,*) 'DIAG -- cSolver: JB/GS solve'
-
-c         Initialize solver
-
-          call solverInit
-
-c         Setup solver
-
-          call solverOptionsInit
-
-          solverOptions%iter    = smit
-          solverOptions%tol     = rtol
-
-          if (PRESENT(dg)) solverOptions%diag => ddg
-
-          select case (smth)
-          case('gs')
-            solverOptions%omega   = 1d0
-            solverOptions%ncolors = nclrs
-            call assembleSolverHierarchy('gs')
-          case('gm')
-            solverOptions%stp_test = 1 
-            solverOptions%krylov_subspace = solverOptions%iter 
-            call assembleSolverHierarchy('gm')
-            call assembleSolverHierarchy('id')
-          case default !JB
-            solverOptions%omega   = omg
-            call assembleSolverHierarchy('jb')
-          end select
-
-c         Invoke solver
-
-          ntot=neq*ntotp
-          call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
-
-c         Kill solver
-
-          call solverKill
-
-c         Scatter solution
-
-          do i = 1,ntotp
-            do ieq=1,neq
-              x(i,ieq) = xi(neq*(i-1)+ieq)
-            enddo
-          enddo
-
-          return
-        endif
-
-c     Solve coupled MG
-
-c       Initialize solver
-
-        call solverInit
-
-c       Check whether GMRES is driving solve
-
-        if (gm_drvr.and.vcyc > 1) then
-          call solverOptionsInit
-
-          solverOptions%iter    = vcyc
-          solverOptions%tol     = rtol
-
-          solverOptions%stp_test = 1 
-          solverOptions%krylov_subspace = solverOptions%iter 
-          call assembleSolverHierarchy('gm')
-        endif
-
-c       MG solver options
-
-        call solverOptionsInit
-
-        solverOptions%tol      = rtol
-
-        if (gm_drvr .and. vcyc > 1) then
-          solverOptions%vcyc     = 1
-        else
-          solverOptions%vcyc     = vcyc
-        endif
-        solverOptions%igridmin = mgmin
-        solverOptions%orderres = iorder_res
-        solverOptions%orderprol= iorder_prol
-        solverOptions%mg_mu    = mu_cyc
-        solverOptions%vol_res  = vol_wgt
-        solverOptions%galerkin = glkin
-
-        if (PRESENT(dg)) solverOptions%diag => ddg
-
-        solverOptions%ncolors  = nclrs
-
-        !Coarse solve
-        if (gm_crse_solve) then
-        !With GMRES as coarse solver (defined below)
-          if (         (gm_drvr  .and. smth/='gm')
-     .       .or.((.not.gm_drvr) .and. smth=='gm') ) then
-            solverOptions%mg_coarse_solver_depth = 4
-          elseif (gm_drvr .and. smth=='gm') then
-            solverOptions%mg_coarse_solver_depth = 5
-          else
-            solverOptions%mg_coarse_solver_depth = 3
-          endif
-        else
-          solverOptions%mg_coarse_solver_depth = 0 !Use smoother as coarse solver
-cc          write (*,*) 'DIAG -- cSolver'
-cc          solverOptions%mg_coarse_solver_depth = 5
-        endif
-
-        !Vertex relaxation
-cc        solverOptions%vertex_based_relax = .true.
-
-        !Plane/line relaxation
-        if (lrelax) then
-          solverOptions%igridmin        = 3
-          solverOptions%orderres        = 0
-          solverOptions%orderprol       = 2
-          solverOptions%mg_mu           = 1    
-          solverOptions%mg_line_relax   = .true.
-          solverOptions%mg_line_nsweep  = 1
-          solverOptions%mg_line_vcyc    = 100
-          solverOptions%mg_line_tol     = 1d-1
-          solverOptions%mg_line_omega   = 1d0
-          solverOptions%mg_line_x       = .true.
-          solverOptions%mg_line_y       = .true.
-          solverOptions%mg_line_z       = .true.
-          solverOptions%mg_line_solve   = "mg"
-          solverOptions%mg_line_coarse_solver_depth = 0
-        elseif (bcSP()) then
-          solverOptions%igridmin        = 3
-          solverOptions%orderres        = 0
-          solverOptions%orderprol       = 2
-          solverOptions%mg_mu           = 1    
-          solverOptions%mg_line_relax   = .true.
-          solverOptions%mg_line_nsweep  = 2
-          solverOptions%mg_line_vcyc    = 1
-          solverOptions%mg_line_tol     = 1d-1
-          solverOptions%mg_line_omega   = 1d0
-          solverOptions%mg_line_x       = .true.
-          solverOptions%mg_line_y       = .false.
-          solverOptions%mg_line_z       = .false.
-          solverOptions%mg_line_solve   = "jb"
-
-cc          solverOptions%igridmin        = 3
-cc          solverOptions%orderres        = 0
-cc          solverOptions%orderprol       = 2
-cc          solverOptions%mg_mu           = 1    
-cc          solverOptions%mg_line_relax   = .true.
-cc          solverOptions%mg_line_nsweep  = 2
-cc          solverOptions%mg_line_vcyc    = 1
-cc          solverOptions%mg_line_tol     = 1d-1
-cc          solverOptions%mg_line_omega   = 1d0
-cc          solverOptions%mg_line_x       = .true.
-cc          solverOptions%mg_line_y       = .false.
-cc          solverOptions%mg_line_z       = .false.
-cc          solverOptions%mg_line_solve   = "jb"
-cc          solverOptions%mg_line_coarse_solver_depth = 0
-        endif
-
-        call assembleSolverHierarchy('mg')
-
-c       MG smoother
-
-        call solverOptionsInit
-
-        solverOptions%iter    = nsweep
-        solverOptions%tol     = rtol
-
-        if (PRESENT(dg)) solverOptions%diag => ddg
-
-        if (lrelax) then
-          solverOptions%iter  = 2
-        endif
-
-        select case (smth)
-        case('gs')
-          solverOptions%omega   = 1d0
-          solverOptions%ncolors = nclrs
-          call assembleSolverHierarchy('gs')
-        case('gm')
-          solverOptions%stp_test        = 1 
-          solverOptions%krylov_subspace = solverOptions%iter 
-          call assembleSolverHierarchy('gm')
-
-cc          if (gm_smooth) then
-            call assembleSolverHierarchy('id')
-cc          else
-cc            call solverOptionsInit
-cc            solverOptions%iter    = 1
-cc            solverOptions%omega   = omg
-cc            call assembleSolverHierarchy('jb')
-cc          endif
-        case default !JB
-          solverOptions%omega   = omg
-          call assembleSolverHierarchy('jb')
-        end select
-
-c       MG coarsest grid solve
-
-        call solverOptionsInit
-
-        solverOptions%tol             = 1d-5
-        solverOptions%krylov_subspace = 100
-        solverOptions%iter            = 100
-        solverOptions%stp_test        = 1 
-        solverOptions%omega           = 1d0
-
-        call assembleSolverHierarchy('gm')
-        call assembleSolverHierarchy('id') !GMRES preconditioner
-
-c       Coarsest grid solve for inner line/plane MG
-
-        call solverOptionsInit
-
-        if (PRESENT(dg)) solverOptions%diag => ddg
-
-        solverOptions%omega   = 1d0
-        solverOptions%iter    = 100
-        solverOptions%tol     = 1d-4
-        solverOptions%ncolors = nclrs
-
-cc        call assembleSolverHierarchy('jb')
-        call assembleSolverHierarchy('gs')
-
-c       Invoke solver
-
-        ntot=neq*ntotp
-        call getSolver(neq,ntot,bi,xi,matvec,igrid,bcnd,guess,out,1)
-
-c       Get output data
-
-cc      call getSolverOptions(1)
-
-c       Kill solver
-
-        call solverKill
-
-c     Scatter solution for output
-
-        do i = 1,ntotp
-          do ieq=1,neq
-            x(i,ieq) = xi(neq*(i-1)+ieq)
-          enddo
-        enddo
-
-c     End program
-
-      end subroutine cSolver
-
 c     poisson
 c     ###############################################################
       subroutine poisson(nn,b,x,iter,tol,bcnd,iout,guess)
@@ -1360,7 +934,7 @@ c     Next level solver
 
         solverOptions%vcyc     = 1
 cc        solverOptions%vcyc     = iter
-        solverOptions%igridmin = 2
+        solverOptions%mg_gmin  = 2
         solverOptions%orderres = 0
         solverOptions%orderprol= 2
         solverOptions%mg_mu    = 1
@@ -1517,7 +1091,7 @@ c     Call variables
 c     Local Variables
 
       integer    :: hex,hey,hez
-      real(8)    :: upwind,mul,nabla_vv0(3,3),veclap(3)
+      real(8)    :: upwind,mul,nabla_v(3,3),nabla_vv0(3,3),veclap(3),jac
 
 c     Begin program
 
@@ -1530,6 +1104,8 @@ c     Begin program
 cc      hex = 0
 cc      hey = 0
 cc      hez = 0
+
+      jac = gmetric%grid(igx)%jac(i,j,k)
 
       nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
      .                       ,da(:,:,:,1),da(:,:,:,2),da(:,:,:,3)
@@ -1614,13 +1190,3 @@ c     End program
       end subroutine diagonalScaling
 
       end module precond_variables
-
-c  module matvec
-c ###################################################################
-      module matvec
-
-        use setMGBC_interface
-
-        use precond_variables
-
-      end module matvec
