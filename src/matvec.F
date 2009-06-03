@@ -1,3 +1,16 @@
+
+c  module matvec
+c ###################################################################
+      module matvec
+
+        use setMGBC_interface
+
+        use precond_variables
+
+        use local_BCS_variables, ONLY: bc_order
+
+      end module matvec
+
 c lap_mtvc
 c####################################################################
       subroutine lap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
@@ -62,7 +75,8 @@ cc      xarr = 0d0
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+     .            ,iorder=bc_order)
 
 c Calculate matrix-vector product
 
@@ -149,12 +163,11 @@ c Map vector x to array for processing
 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
-cc      xarr = 0d0
-
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+     .            ,iorder=bc_order,icomp=IRHO)
 
 c Calculate matrix-vector product
 
@@ -264,7 +277,8 @@ cc      xarr = 0d0
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd,iorder=2)
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+     .            ,iorder=bc_order)
 
 c Calculate matrix-vector product
 
@@ -375,7 +389,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: xarr
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      real(8)    :: upwind,nu2
+      real(8)    :: upwind,nu2,jac
 
       logical    :: fpointers
 
@@ -503,7 +517,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      real(8)    :: upwind,nu2,dvol,lap
+      real(8)    :: upwind,nu2,dvol,lap,gm,jac
 
       logical    :: fpointers
 
@@ -532,7 +546,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dtmp,bcnd
-     .            ,icomp=IRHO)   !Use rho since velocities are not included yet
+     .            ,icomp=IRHO,iorder=bc_order)   !Use rho since velocities are not included yet
 cc     .            ,icomp=ITMP)
 
 c Map velocity components
@@ -540,6 +554,12 @@ c Map velocity components
       v0_cnv => gv0%grid(igrid)%array
 
 c Calculate matrix-vector product
+
+      if (adiabatic) then
+        gm = gamma
+      else
+        gm = gamma - 1d0
+      endif
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -580,7 +600,7 @@ c Calculate matrix-vector product
               lap = 0d0
             endif
 
-            y(ijk) = ((cnp/dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
+            y(ijk) = ((cnp/dt + alpha*gm*mgdivV0(ijkg))*x(ijk)
      .            + alpha*upwind )*dvol - alpha*chi*lap
 
           enddo
@@ -637,6 +657,7 @@ c Local variables
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
       real(8)    :: upwind,lap,dvol,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+     .             ,jac
 
       logical    :: fpointers
 
@@ -667,7 +688,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
-     .            ,icomp=IRHO)
+     .            ,icomp=IRHO,iorder=bc_order)
 
 c Map velocity components
 
@@ -1269,6 +1290,8 @@ c--------------------------------------------------------------------
 
       use matvec
 
+      use local_BCS_variables, ONLY: pinch_flow
+
       implicit none
 
 c Call variables
@@ -1279,14 +1302,16 @@ c Call variables
 c Local variables
 
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
-      real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
      .             ,veclap(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind,etal
 
       real(8),allocatable,dimension(:,:,:,:) :: db
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv
 
       logical    :: fpointers,alt_eom_b,is_cnv
 
@@ -1324,9 +1349,17 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
      .                       ,.false.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
+      if (pinch_flow) then
+        b0_cnv => gb0%grid(igrid)%array
+
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
      .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2)
+     .            ,result_is_vec=.true.,iorder=bc_order,arr0=b0_cnv)
+      else
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
+     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=bc_order)
+      endif
 
 c Velocity field (including BCs)
 
@@ -1354,9 +1387,6 @@ c Calculate matrix-vector product
             jackp  = gmetric%grid(igrid)%jac(i,j,kp)
             jackm  = gmetric%grid(igrid)%jac(i,j,km)
             jac    = gmetric%grid(igrid)%jac(i,j,k)
-
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
@@ -1559,11 +1589,13 @@ c Call variables
 c Local variables
 
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
-      real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
      .             ,veclap_b(3),veclap_b2(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind,etal
 
       real(8),allocatable,dimension(:,:,:,:) :: db
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -1608,7 +1640,8 @@ c Map vector x to array for processing
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
      .            ,bcnd,icomp=IBX,is_cnv=is_cnv
-     .            ,is_vec=.not.si_car,result_is_vec=.true.,iorder=2)
+     .            ,is_vec=.not.si_car,result_is_vec=.true.
+     .            ,iorder=bc_order)
 
 c Velocity field (including BCs)
 
@@ -1867,11 +1900,11 @@ c Call variables
 c Local variables
 
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
       real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,veclap(3),cnv(3),cov(3),car(3)
+     .             ,veclap(3),cnv(3),cov(3),car(3),jac
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -1915,7 +1948,7 @@ cc      da_cnv = 0d0
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
 cc     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.,iorder=2)
      .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2)
+     .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Velocity field (including BCs)
 
@@ -2118,9 +2151,11 @@ c ##################################################################
 
       integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: imin,imax,jmin,jmax,kmin,kmax
-     .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr
+     .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr,igx,igy,igz
 
       real(8),allocatable,dimension(:,:)     :: a_sp,a_vol
+
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
 
       real(8)    :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
      .             ,mag(3),veclap(3)
@@ -2469,7 +2504,7 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
      .        +dv(i,jp,km,2)-dv(i,jm,km,2))/dyh(jg)*0.25
      .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/dz(kg-1)
 
-      if (solve_rho) then
+      if (solve_rho.or.adiabatic) then
         gamm = gamma
       else
         gamm = gamma - 1
@@ -2526,13 +2561,13 @@ c     #############################################################
      .          ,acovjp(3),acovjm(3)
      .          ,acovkp(3),acovkm(3)
 
-      if (nc_eom_jxb) then
+      if (nc_eom_jxb.and.(.not.bcSP()) ) then  !Force conservative form in SP geometries
 cc      if (.false.) then
 cc      if (.true.) then
         call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
 
         jac = gmetric%grid(igr)%jac(i,j,k)
-        ijac = 1./jac
+        ijac = 1d0/jac
 
         dxx = dxh(ig)
         dyy = dyh(jg)
@@ -3229,19 +3264,24 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
+      use local_BCS_variables, ONLY: ExB_flow_bc
+
       implicit none
 
 c Call variables
 
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
-      real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
-     .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot),minv,idx,idy,idz
+     .          ,idxcnv,idycnv,idzcnv,vxx,vyy,vzz
 
 c Local variables
 
-      integer    :: iig
+      integer :: iig
+      real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
 
-      real(8),allocatable,dimension(:,:,:,:) :: dpp
+      real(8),allocatable,dimension(:,:,:,:) :: dpp,v0
+
+      real(8),pointer,dimension(:,:,:,:) :: j0_cov,db_cov
 
 c Begin program
 
@@ -3267,8 +3307,6 @@ c Find limits for loops
       call limits(abs(gpos),nxx,nyy,nzz,igrid
      .           ,imin,imax,jmin,jmax,kmin,kmax)
 
-cc      write (*,*) 'v_mtvc'
-
 c Define pointers to MG arrays
 
       rho0   => grho0  %grid(igrid)%array
@@ -3282,6 +3320,16 @@ c Define pointers to MG arrays
       b0_cov => gb0_cov%grid(igrid)%array
 
       a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+
+      db_cov => gdb_cov%grid(igrid)%array
+
+c ExB flow BC (if applicable)
+
+      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      v0 = 0d0
+
+      call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,b0_cov,v0,dbcov=db_cov)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3298,11 +3346,13 @@ cc      if (di > 0 .or. bcSP()) then
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
+     .            ,arr0=v0)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov
+     .            ,arr0=v0)
       endif
 
       if (.not.nc_eom_v) then
@@ -3334,8 +3384,6 @@ c Calculate matrix-vector product
             jackp  = gmetric%grid(igrid)%jac(i,j,kp)
             jackm  = gmetric%grid(igrid)%jac(i,j,km)
             jac    = gmetric%grid(igrid)%jac(i,j,k )
-
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
@@ -3388,6 +3436,41 @@ cc              cnv = (psit + psib)
 
               cnv = dt*(psit + psib)
 
+cc              if (i>1 .and. i<nxx) then
+cc                cnv(1) = cnv(1)
+cc     .               +dv(i+2,j,k,1)
+cc     .             -4*dv(i+1,j,k,1)
+cc     .             +6*dv(i  ,j,k,1)
+cc     .             -4*dv(i-1,j,k,1)
+cc     .               +dv(i-2,j,k,1)
+cc              else
+cc                cnv(1) = cnv(1)
+cc     .               +dv(i+1,j,k,1)-2*dv(i,j,k,1)+dv(i-1,j,k,1)
+cc              endif
+cc
+cc              if (j>1.and.j<nyy) then
+cc                cnv(2) = cnv(2)
+cc     .               +dv(i,j+2,k,2)
+cc     .             -4*dv(i,j+1,k,2)
+cc     .             +6*dv(i,j  ,k,2)
+cc     .             -4*dv(i,j-1,k,2)
+cc     .               +dv(i,j-2,k,2)
+cc              else
+cc                cnv(2) = cnv(2)
+cc     .                +dv(i,j+1,k,2)-2*dv(i,j,k,2)+dv(i,j-1,k,2)
+cc              endif
+cc
+cc              if (k>1.and.k<nzz) then
+cc                cnv(3) = cnv(3)
+cc     .               +dv(i,j,k+2,3)
+cc     .             -4*dv(i,j,k+1,3)
+cc     .             +6*dv(i,j,k  ,3)
+cc     .             -4*dv(i,j,k-1,3)
+cc     .               +dv(i,j,k-2,3)
+cc              else
+cc                cnv(3) = cnv(3)
+cc     .                +dv(i,j,k+1,3)-2*dv(i,j,k,3)+dv(i,j,k-1,3)
+cc              endif
             endif
 
             !Form total operator
@@ -3420,7 +3503,7 @@ cc              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
 
 c End program
 
-      deallocate(dv,dv_cov,dpp)
+      deallocate(dv,dv_cov,dpp,v0)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -3527,7 +3610,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
       endif
 
       if (.not.nc_eom_v) then
@@ -3976,7 +4059,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
       !M_star*dv array
       dzz = 0d0
@@ -3988,7 +4071,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2)
+     .            ,result_is_vec=.true.,iorder=bc_order)
 
       if (.not.nc_eom_v) then
         dzz(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
@@ -4176,7 +4259,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=2)
+     .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Calculate matrix-vector product
 
@@ -4323,7 +4406,7 @@ cc      where (bcnd == DIR) bcnd = NEU
       !Higher-order than 1 is JB-unstable for cyl.
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 
