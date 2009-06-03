@@ -417,6 +417,8 @@ cc        solve_rho = .false.
         postprocess = .true.
       endif
 
+      if (gamma == 1d0) adiabatic = .false.
+
 c Map perturbations
 
       pert(IRHO)= prho
