@@ -45,7 +45,6 @@ prefix = .
 
 DRIVERDIR = driver
 ifdef BOPT
-  include ${PETSC_DIR}/bmake/common/base
   SRC2      = $(SRC)
   ifdef PETSC_C
     EXCLUDE  += %explicit.f
