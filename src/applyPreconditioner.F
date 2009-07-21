@@ -135,7 +135,7 @@ c     Postprocessing of velocity -> momentum
 c     Postprocessing of B
 
 #if !defined(vec_pot)
-cc        if (divCln) call divClean(ntotp,xxx(:,IBX:IBZ),igrid)
+cc        if (eigen) call divClean(iout,ntotp,xxx(:,IBX:IBZ),igrid)
 #endif
 
 c     Gather solution in "x"
@@ -202,7 +202,7 @@ c       Postprocessing of velocity -> momentum
 c       Postprocessing of B
 
 #if !defined(vec_pot)
-cc          if (divCln) call divClean(ntotp,xxx(:,IBX:IBZ),igrid)
+          if (eigen) call divClean(iout,ntotp,xxx(:,IBX:IBZ),igrid)
 #endif
 
 c       Map solution xxx to x (jacobi iterate)
@@ -281,7 +281,7 @@ c     Postprocessing of velocity -> momentum
 c     Postprocessing of B
 
 #if !defined(vec_pot)
-cc        if (divCln) call divClean(ntotp,xxx(:,IBX:IBZ),igrid)
+cc        if (divCln) call divClean(iout,ntotp,xxx(:,IBX:IBZ),igrid)
 #endif
 
 c     Gather solution in "x"
@@ -673,7 +673,7 @@ cc        return
 
           if (si_car) call XtoCurv(igrid,x(:,IBX:IBZ))
 
-cc          if (divCln) call divClean(ntotp,x(:,IBX:IBZ),igrid)
+cc          if (divCln) call divClean(iout,ntotp,x(:,IBX:IBZ),igrid)
 
         else
 
@@ -2273,7 +2273,7 @@ c End program
 
 c divClean
 c ###################################################################
-      subroutine divClean(ntotp,xxx,igrid)
+      subroutine divClean(iout,ntotp,xxx,igrid)
 c--------------------------------------------------------------------
 c     This subroutine divergence-cleans B by integrating a vector
 c     potential and the differentiating it. It takes B in cartesian
@@ -2292,7 +2292,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: ntotp,igrid
+      integer    :: iout,ntotp,igrid
       real(8)    :: xxx(ntotp,3)
 
 c Local variables
@@ -2303,8 +2303,7 @@ c Local variables
 
 c Begin program
 
-cc      write (*,*) 'DIAG -- divClean: no divergence cleaning'
-cc      return
+      if (iout > 0) write (*,*) 'Performing divergence cleaning...'
 
       nx = grid_params%nxv(igrid)
       ny = grid_params%nyv(igrid)
