@@ -89,7 +89,23 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
-      if(.not.chk_src) call imposeBoundaryConditions(varray,igx,igy,igz)
+      if(.not.chk_src) then
+        call imposeBoundaryConditions(varray,igx,igy,igz)
+      else
+        vcnv(:,:,:,1) = varray%array_var(IVX)%array
+        vcnv(:,:,:,2) = varray%array_var(IVY)%array
+        vcnv(:,:,:,3) = varray%array_var(IVZ)%array
+
+#if defined(vec_pot)
+        acov(:,:,:,1) = varray%array_var(IAX)%array
+        acov(:,:,:,2) = varray%array_var(IAY)%array
+        acov(:,:,:,3) = varray%array_var(IAZ)%array
+#else
+        bcnv(:,:,:,1) = varray%array_var(IBX)%array
+        bcnv(:,:,:,2) = varray%array_var(IBY)%array
+        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+#endif
+      endif
 
       rho => varray%array_var(IRHO)%array
       px  => varray%array_var(IVX )%array
