@@ -940,7 +940,7 @@ cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
                     alp = dot_product(J0,cnv)/bnorm
 
                     if (.not.nonlinear) then
-                      J0 = J0 - 2*alp*cov  !Correct linearizde current (Bnorm effect)
+                      J0 = J0 - 2*alp*cov  !Correctly linearized current (Bnorm effect)
 
                       cov = array(i,j,k,:)
                       cnv = matmul(gsuper,cov)
