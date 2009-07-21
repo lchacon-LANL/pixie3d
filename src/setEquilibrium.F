@@ -212,13 +212,18 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
       case ('3wv') !3-wave MHD test
 
 cc        gamma = 5./3.
+cc        nh2   = nh1                     !This is required by setup(???)
 
         phi   = grid_params%params(1)   !Angle of B with x-axis, in degrees
         beta  = grid_params%params(2)   !plasma beta
 
         phi   = phi/180.*pi             !Phi in radians
 
-cc        nh2   = nh1                     !This is required by setup(???)
+#if !defined(PER_BC_SYNC)
+        if (di > 0d0) then
+          call pstop('setEquilibrium','Compile with PER_BC_SYNC=t')
+        endif
+#endif
 
 c     Check coordinates
 
