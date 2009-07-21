@@ -73,14 +73,14 @@ endif
 
 ifeq ($(HDF5),t)
   CONTRIBLIBS = $(HDF5_LIBS)
-  CPPFLAGS   += $(PREPROC)hdf5 -I$(HDF5_HOME)/include
-  MODPATH    += $(ADDMODFLAG)$(HDF5_HOME)/lib
+  CPPFLAGS   += $(PREPROC)hdf5 $(HDF5_INC)
+  MODPATH    += $(ADDMODFLAG)$(HDF5_MOD)
 endif
 
 # VMEC setup
 
-ifdef VMEC
-  ifdef NETCDF
+ifeq ($(VMEC),t)
+  ifeq ($(NETCDF),t)
     CPPFLAGS   += $(PREPROC)NETCDF 
   endif
 
@@ -99,7 +99,8 @@ endif
 # PETSC setup
 
 ifdef BOPT
-  include ${PETSC_DIR}/bmake/common/base
+#  include ${PETSC_DIR}/bmake/common/base
+  include ${PETSC_DIR}/conf/base
 
   ifdef VECPOT
     TARGET = petsc_a
@@ -107,7 +108,7 @@ ifdef BOPT
     TARGET = petsc
   endif
 
-  CPPFLAGS += $(PREPROC)petsc $(PREPROC)NVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/bmake/$(PETSC_ARCH)
+  CPPFLAGS += $(PREPROC)petsc $(PREPROC)NVAR=8 -I$(PETSC_DIR)/include -I${PETSC_DIR}/$(PETSC_ARCH)/include
 
   ifdef PETSC_C
     CPPFLAGS += $(PREPROC)petsc_c
@@ -119,7 +120,7 @@ endif
 
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
-       BINDIR CONTRIBLIBS MPIEXEC
+       BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB
 
 #Define targets
 
