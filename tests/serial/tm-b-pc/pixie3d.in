@@ -49,6 +49,8 @@
     maxvcyc  = 1
     nsweep   = 4
     precpass = 1
+    ores     = 2
+    oprol    = 2
 
     iguess   = 0
 
