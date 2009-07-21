@@ -10591,12 +10591,6 @@ cc     .          ,is_cnv=.true.,iorder=1)
 cc#else
      .          ,is_cnv=.true.,iorder=2)
 cc#endif
-cc      write (*,*) jcov_0(:,10,1,1)
-cc      write (*,*)
-cc      write (*,*) jcov_0(:,10,1,2)
-cc      write (*,*)
-cc      write (*,*) jcov_0(:,10,1,3)
-cc      stop
 
 c End program
 
@@ -10633,8 +10627,8 @@ c ######################################################################
 
         logical :: bootstrap=.false.
 
-      contains
-
+cc      contains
+cc
 ccc     si_op
 ccc     #####################################################################
 cc      function si_op(i,j,k,nx,ny,nz,igx,igy,igz) result(cnv)
@@ -11097,7 +11091,7 @@ c ######################################################################
 
         integer :: nsweep,maxvcyc,precpass,debug_it
 
-        integer :: si_it,ores=2,oprol=2,mg_coarse_size=2,ncolors=8
+        integer :: si_it,ores,oprol,mg_coarse_size,ncolors
 
         real(8) :: mgtol,omeg_smth
 
@@ -11116,6 +11110,32 @@ c ######################################################################
      .            ,cvrg_test
      .            ,asm_PC
      .            ,si_car
+
+cc        type :: pcsetup
+cc          integer :: nsweep,maxvcyc,precpass,debug_it
+cc
+cc          integer :: si_it,ores,oprol,mg_coarse_size,ncolors
+cc
+cc          real(8) :: mgtol,omeg_smth
+cc
+cc          character(2) :: smooth
+cc          character(10):: precon
+cc
+cc          logical :: gm_smooth
+cc     .              ,mg_glrkin
+cc     .              ,gm_coarse
+cc     .              ,line_relax
+cc     .              ,zebra_relax
+cc     .              ,inv_B
+cc     .              ,divCln
+cc     .              ,v_solve
+cc     .              ,mg_debug
+cc     .              ,cvrg_test
+cc     .              ,asm_PC
+cc     .              ,si_car
+cc        end type pcsetup
+cc
+cc        type(pcsetup) :: pc__setup
 
       contains
 
@@ -11151,8 +11171,8 @@ cc                           !  smoother defaults to GS
       mg_debug    = .false.!Whether to go into debugging mode in MG
       cvrg_test   = .false.!Whether to perform convergence test of smoother
 
-      ores        = 2      !Restriction order for MG
-      oprol       = 2      !Prolongation order for MG
+cc      ores        = 2      !Restriction order for MG
+cc      oprol       = 2      !Prolongation order for MG
 
       smooth      = 'jb'   !Type of smoother ('jg','gs','gm')
       omeg_smth   = 0.7    !Damping for MG smoother (only when 'jb' is chosen)
@@ -11166,9 +11186,9 @@ cccc      ores   = 2
 cccc      inv_B  = .false.
 cccc      divCln = .false.
 
-      !Setup for TM PC (PoP 2008) and 3-wave test
-      ores  = 2
-      oprol = 2
+      !Standard setup (ores, oprol now defined through namelist)
+cc      ores  = 0
+cc      oprol = 2
       inv_B = .true.
 
       !Setup for singular point geometries
