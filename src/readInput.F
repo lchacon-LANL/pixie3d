@@ -59,10 +59,10 @@ c Namelists
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
-     .                   ,asm_PC,zebra_relax
+     .                   ,asm_PC,zebra_relax,ores,oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen
+     .                   ,eigen,eigstep
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,k_si,solve_rho,advect,sym_st,adiabatic
@@ -89,7 +89,7 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,k_si,eigen
+     .                   ,odd,random,source,k_si,eigen,eigstep
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -106,6 +106,10 @@ c Namelists
 c ******************************************************************
 
 c Begin program
+
+#if defined(petsc)
+      call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
+#endif
 
 c Set defaults
 
@@ -156,6 +160,7 @@ c Set defaults
       postprocess = .false.    ! Whether to run solution postprocessing after time step
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
+      eigstep  = 1d0           ! Time step for eigenvalue dynamical system
 
       cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
@@ -193,6 +198,8 @@ c Set defaults
       nsweep   = 5             ! Number of MG smoothing passes
       maxvcyc  = 1             ! Maximum number of MG V-cycles
       mgtol    = 1d-3          ! MG convergence tolerance
+      ores     = 0             ! Restriction order for MG
+      oprol    = 2             ! Prolongation order for MG
 
       precon   = 'id'          ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -419,6 +426,15 @@ cc        solve_rho = .false.
 
       if (gamma == 1d0) adiabatic = .false.
 
+      if (coords == 'hel') then   !Special case for 2D helical equilibria
+         nh2 = gparams(1)
+         nh1 = nh2
+      endif
+
+      if (nh1 == 0 .and. nh2 == 0 .and. nh3 == 0) then
+        call pstop('readInput','No sinusoidal perturbation specified')
+      endif
+
 c Map perturbations
 
       pert(IRHO)= prho
@@ -464,10 +480,6 @@ c Translate boundary conditions
       endif
 
 c Write initialization parameters to standard output
-
-#if defined(petsc)
-      call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
-#endif
 
       if (my_rank == 0 .and. (.not. test)) then
         write (*,*) '-------------------'
