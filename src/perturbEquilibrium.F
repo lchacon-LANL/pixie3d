@@ -37,7 +37,7 @@ c     Local variables
       real(8)    :: x1,y1,z1,jac,kx,ky,kk,eps
      .             ,vplus,vminus,vshear,cs2,kdotB,cth
      .             ,vxx,vyy,vzz,xi,ivxx,ivyy,ivzz,ixi,bxx,byy,bzz,yy,iyy
-     .             ,w_fast,w_slow,w_shr,freq,root(3),X,iX
+     .             ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       logical    :: check
@@ -84,6 +84,9 @@ c     Begin program
 
       case ('msw')
 
+        kx = 2*pi*nh1/(xmax-xmin)
+        ky = 2*pi*nh2/(ymax-ymin)
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -94,19 +97,16 @@ cc              if (ieq == IRHO) jac = 1d0
               jac = 1d0
               if (ieq == IRHO) then
                 array(i,j,k) = array(i,j,k)
-     .                       + 1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-     .                                 +2*pi*(y1-ymin)/(ymax-ymin))
+     .                       + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 #if defined(vec_pot) 
               elseif (ieq == IAY) then
                 array(i,j,k) = array(i,j,k)
      .                     + jac*1d-3*(xmax-xmin)/2./pi
-     .                          *sin(2*pi*(x1-xmin)/(xmax-xmin)
-     .                              +2*pi*(y1-ymin)/(ymax-ymin))
+     .                          *sin(kx*(x1-xmin)+ky*(y1-ymin))
 #else
               elseif (ieq == IBZ) then
                 array(i,j,k) = array(i,j,k)
-     .                     + jac*1d-3*cos(2*pi*(x1-xmin)/(xmax-xmin)
-     .                                   +2*pi*(y1-ymin)/(ymax-ymin))
+     .                     + jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 #endif
               endif
             enddo
@@ -135,11 +135,11 @@ cc              if (ieq == IRHO) jac = 1d0
 
         !Find MHD frequencies  (do this only once)
         if (ieq == 1) then
-          root = icfl(cs2,1d0,kk**2,kdotB**2,di)
+          roots = icfl(cs2,1d0,kk**2,kdotB**2,di)
 
-          w_fast = maxval(root)
-          w_slow = minval(root)
-          w_shr  = fmed(root(1),root(2),root(3))
+          w_fast = maxval(roots)
+          w_slow = minval(roots)
+          w_shr  = fmed(roots(1),roots(2),roots(3))
 
           write (*,*) 'B angle =',grid_params%params(1)
           write (*,*)
