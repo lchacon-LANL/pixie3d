@@ -132,7 +132,7 @@ c Local variables
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
       real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8)    :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
-     .             ,cs2,ca2,tmp_max,root(3)
+     .             ,cs2,ca2,tmp_max,roots(3)
       real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical    :: cartsn
 
@@ -204,8 +204,8 @@ c Calculate CFL
             cs2 = a_p*gamma*tmp(i,j,k)
 
             !Find CFL frequency
-            root = icfl(cs2,ca2,k2,kb_par2,di)
-            w_cfl=max(maxval(root)+kv_par,w_cfl)
+            roots = icfl(cs2,ca2,k2,kb_par2,di)
+            w_cfl=max(maxval(roots)+kv_par,w_cfl)
 
           enddo
         enddo
