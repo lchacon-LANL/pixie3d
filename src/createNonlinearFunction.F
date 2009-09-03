@@ -51,7 +51,6 @@ c Local variables
 c Begin program
 
         allocate (pcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
      $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
@@ -62,13 +61,11 @@ c Begin program
      .           ,vlap  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,j_bs  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,bhat  (ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
         allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,vlap_a(ilom:ihip,jlom:jhip,klom:khip,3))
+     $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3))
 #else
         allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
@@ -152,14 +149,14 @@ c Local variables
 
 c Begin program
 
-        deallocate (pcnv,vecnv,vdummy)
+        deallocate (pcnv,vdummy)
 
         deallocate (eeta,nuu)
 
-        deallocate (vcnv,vcov,vlap,E_ni,jcov_0,j_bs,bhat)
+        deallocate (vcnv,vcov,vlap,E_ni,jcov_0,bhat)
 
 #if defined(vec_pot)
-        deallocate (acnv,acov,vlap_a)
+        deallocate (acnv,acov)
 #else
         deallocate (bcnv,bcov)
 #endif
@@ -167,8 +164,6 @@ c Begin program
 c SI operator
         deallocate(b_n,p_n,vcov_n,dv_dt)
 c SI operator
-
-        call deallocAuxVariables
 
         call deallocPrecVariables
 
