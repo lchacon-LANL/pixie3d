@@ -166,20 +166,14 @@ cc              if (ieq == IRHO) jac = 1d0
             call pstop('perturbEquilibrium','Select frequency!')
           end select
 
-          if (my_rank == 0) then
-            write (*,*)
-            write (*,*) 'Time step should be dt <=',pi/16./freq
+          check = (dt <= pi/16./freq)
 
-            write (*,*)
-            write (*,*) 'Is this OK?'
-            read(*,*) check
+          if (.not.check) then
+            if (my_rank == 0) write (*,*) 'Time step limit=',pi/16./freq
+            call pstop('perturbEquilibrium'
+     .                ,'Time step must be < than this!')
           endif
 
-#if defined(petsc) || defined(petsc_c)
-          call MPI_Bcast(check,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpierr)
-#endif
-
-          if (.not.check) stop
         endif
 
         do k = klom,khip
