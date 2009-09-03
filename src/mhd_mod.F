@@ -217,7 +217,6 @@ c ######################################################################
 
 #if defined(vec_pot)
         real(8),target,allocatable,dimension(:,:,:,:) :: acov,acnv
-     .                                                  ,vlap_a
         real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #else
         real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,bcov
@@ -226,10 +225,10 @@ c ######################################################################
         real(8),target,allocatable,dimension(:,:,:) :: eeta,nuu,divrgV
 
         real(8),target,allocatable,dimension(:,:,:,:) ::vcnv,vcov
-     .                                                 ,pcnv,vecnv
+     .                                                 ,pcnv
      .                                                 ,vdummy,E_ni
      .                                                 ,vlap,bhat
-     .                                                 ,jcov_0,j_bs
+     .                                                 ,jcov_0
 
         real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
 
@@ -425,24 +424,6 @@ cc      endif
 c     End program
 
       end subroutine defineAuxBCs
-
-c     deallocAuxVariables
-c     ###################################################################
-      subroutine deallocAuxVariables
-
-c     -------------------------------------------------------------------
-c     Allocates auxiliary variable storage.
-c     -------------------------------------------------------------------
-
-c     Begin program
-
-c     Deallocate storage
-
-        call deallocateAuxStruct(gv%aux)
-
-c     End program
-
-      end subroutine deallocAuxVariables
 
       end module auxiliaryVariables
 
@@ -6728,7 +6709,7 @@ cc        endif
         jac0 = gmetric%grid(igx)%jac(i ,j,k)
         jac  = 0.5*(jacp+jac0)
 
-        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
+cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
         ijac  = 1d0/jac
         ijac0 = 1d0/jac0
@@ -7820,7 +7801,7 @@ c     Begin program
 
         cnv = eom_jxb(i,j,k,nx,ny,nz,igx,igy,igz,bb,jj,vec_cnv
      $               ,nc_eom_jxb,alt_eom,vol)
-     .       -eom_gp (i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,nc_eom_gp
+     .   -a_p*eom_gp (i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,nc_eom_gp
      .               ,alt_eom,vol)
 
 c     End program
@@ -8234,7 +8215,7 @@ cc          cov(2)=0.5*(rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
 cc          cov(3)=0.5*(rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
           endif
 
-          cov = cov*a_p         !Multiply by alpha_p=1 + Ti/Te to get total pressure
+cc          cov = cov*a_p         !Multiply by alpha_p=1 + Ti/Te to get total pressure
 
           call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                ,cov(1),cov(2),cov(3)
@@ -8300,13 +8281,14 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
-       
-        if (adiabatic) then    !p=a_p T
-          ptot = a_p*0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
-        else                   !p=a_p nT
-          ptot = a_p*0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
+        if (adiabatic) then    !p=T
+          ptot = 0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
+        else                   !p=nT
+          ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
      .                       +sc1(i ,j,k)*sc2(ip,j,k))
         endif
+
+cc        ptot = a_p*ptot
 
         t11 = gsuper(1,1)*ptot
 
@@ -8369,12 +8351,14 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        if (adiabatic) then    !p=a_p T
-          ptot = a_p*0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
-        else                   !p=a_p nT
-          ptot = a_p*0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
-     .                       +sc1(i,j ,k)*sc2(i,jp,k))
+        if (adiabatic) then    !p=T
+          ptot = 0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
+        else                   !p=nT
+          ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
+     .                   +sc1(i,j ,k)*sc2(i,jp,k))
         endif
+
+cc        ptot = a_p*ptot
 
         t21 = gsuper(2,1)*ptot
 
@@ -8437,12 +8421,14 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        if (adiabatic) then    !p=a_p T
-          ptot = a_p*0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
-        else                   !p=a_p nT
-          ptot = a_p*0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
-     .                       +sc1(i,j,k )*sc2(i,j,kp))
+        if (adiabatic) then    !p=T
+          ptot = 0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
+        else                   !p=nT
+          ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
+     .                   +sc1(i,j,k )*sc2(i,j,kp))
         endif
+
+cc        ptot = a_p*ptot
 
         t31 = gsuper(3,1)*ptot
 
@@ -10617,6 +10603,7 @@ c ######################################################################
         use operators
 
         use timeStepping
+
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
 #else
@@ -10627,457 +10614,592 @@ c ######################################################################
 
         logical :: bootstrap=.false.
 
-cc      contains
+      contains
+
+c     find_E
+c     #####################################################################
+      subroutine find_E(nx,ny,nz,igx,igy,igz,E_ni)
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz
+      real(8) :: E_ni(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
+      real(8) :: pe(ilom:ihip,jlom:jhip,klom:khip)
+     .          ,eps,betap,qa,jbs,cov(3),cnv(3),bnorm
+     .          ,x1,y1,z1
+
+c     Begin program
+
+      E_ni = 0d0
+
+      pe = rho*tmp
+
+c     Resistive term
+
+      if (eta > 0d0) then
+
+        !Bootstrap current
+        if (bootstrap) then
+          !Get equilibrium configuration
+          eps   = eq_params(1)
+          betap = eq_params(2)
+          qa    = eq_params(3)
+
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                !Find grad(p)
+                call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
+     .                   ,cov(1),cov(2),cov(3))
+
+                bnorm = vectorNorm(i,j,k,igx,igy,igz
+     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
+     .                       ,.false.)
+
+                jbs = -0.5*sqrt(eps*abs(x1)/bnorm)*betap/qa*(a_p*cov(1))
+
+                E_ni(i,j,k,:) =-eeta(i,j,k)*jbs*bcov(i,j,k,:)    !Form J_parallel
+              enddo
+            enddo
+          enddo
+
+#if !defined(vec_pot)
+          !Impose topological BCs
+          bcnd(:,1) = bcond
+          bcnd(:,2) = bcond
+          bcnd(:,3) = bcond
+
+          call setBC(IAX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+#endif
+        endif
+
+        !Ohmic current
+#if !defined(vec_pot)
+        E_ni(:,:,:,1) = E_ni(:,:,:,1)+eeta*jcov(:,:,:,1)
+        E_ni(:,:,:,2) = E_ni(:,:,:,2)+eeta*jcov(:,:,:,2)
+        E_ni(:,:,:,3) = E_ni(:,:,:,3)+eeta*jcov(:,:,:,3)
+
+        if (source) then
+          E_ni(:,:,:,1) = E_ni(:,:,:,1)-eeta*jcov_0(:,:,:,1)
+          E_ni(:,:,:,2) = E_ni(:,:,:,2)-eeta*jcov_0(:,:,:,2)
+          E_ni(:,:,:,3) = E_ni(:,:,:,3)-eeta*jcov_0(:,:,:,3)
+        endif
+#else
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     .           - eeta(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                   ,acov,vol=.false.)
+            enddo
+          enddo
+        enddo
+#endif
+
+      endif
+
+c     VxB term
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+
+            cov(1) = (vcnv(i,j,k,2)*bcnv(i,j,k,3)
+     .               -vcnv(i,j,k,3)*bcnv(i,j,k,2))
+     .               /gmetric%grid(igx)%jac(i,j,k)
+            cov(2) = (vcnv(i,j,k,3)*bcnv(i,j,k,1)
+     .               -vcnv(i,j,k,1)*bcnv(i,j,k,3))
+     .               /gmetric%grid(igx)%jac(i,j,k)
+            cov(3) = (vcnv(i,j,k,1)*bcnv(i,j,k,2)
+     .               -vcnv(i,j,k,2)*bcnv(i,j,k,1))
+     .               /gmetric%grid(igx)%jac(i,j,k)
+
+            E_ni(i,j,k,:) = E_ni(i,j,k,:) - cov
+
+          enddo
+        enddo
+      enddo
+
+c     Hall term
+
+      if (di > 0d0) then
+
+        !Standard Hall
+        if (.not.hall_new) then
+
+          !Form E_ni = di*(j x B - grad(pe))/rho
+
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+
+                !Electron Hall
+
+                cov(1) = (jcnv(i,j,k,2)*bcnv(i,j,k,3)
+     .                   -jcnv(i,j,k,3)*bcnv(i,j,k,2))
+     .                   /gmetric%grid(igx)%jac(i,j,k)
+                cov(2) = (jcnv(i,j,k,3)*bcnv(i,j,k,1)
+     .                   -jcnv(i,j,k,1)*bcnv(i,j,k,3))
+     .                   /gmetric%grid(igx)%jac(i,j,k)
+                cov(3) = (jcnv(i,j,k,1)*bcnv(i,j,k,2)
+     .                   -jcnv(i,j,k,2)*bcnv(i,j,k,1))
+     .                   /gmetric%grid(igx)%jac(i,j,k)
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov/rho(i,j,k)
+
+                !Electron pressure
+
+                call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
+     .                   ,cov(1),cov(2),cov(3))
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
+
+              enddo
+            enddo
+          enddo
+
+        !Alternate Hall
+        else
+
+          !Form E_ni = di*(dv/dt - v x curl(v) - div(nu*grad(v))/rho + grad(pi)/rho)
+
+cc          do k=0,nz+1
+cc            do j=0,ny+1
+cc              do i=0,nx+1
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+
+              !Temporal term: dv/dt
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     $                +di*cnp/dt/alpha*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+
+              !Ion pressure term: grad(pi)/rho
+
+                if (a_p - 1d0 > 0d0) then
+                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
+     .                   ,cov(1),cov(2),cov(3))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
+
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+cc     .                   ,cov(1),cov(2),cov(3))
 cc
-ccc     si_op
-ccc     #####################################################################
-cc      function si_op(i,j,k,nx,ny,nz,igx,igy,igz) result(cnv)
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
 cc
-cc      implicit none
+cccc#if defined(vec_pot)
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                   ,cov(1),cov(2),cov(3))
 cc
-cc      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
-cc      real(8)    :: cnv(3)
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
+cccc#endif
+                endif
+
+              !Add -v x curl(v)
+ 
+                do ieq=1,3
+                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vcov(:,:,:,1)
+     .                            ,vcov(:,:,:,2)
+     .                            ,vcov(:,:,:,3),ieq)
+                enddo
+
+                cov(1) = (vcnv(i,j,k,2)*cnv(3)
+     .                   -vcnv(i,j,k,3)*cnv(2))
+                cov(2) = (vcnv(i,j,k,3)*cnv(1)
+     .                   -vcnv(i,j,k,1)*cnv(3))
+                cov(3) = (vcnv(i,j,k,1)*cnv(2)
+     .                   -vcnv(i,j,k,2)*cnv(1))
+
+                cov = cov/gmetric%grid(igx)%jac(i,j,k)
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+
+              !Add viscosity: -div(nu*grad(v))/rho
+
+                if (nu > 0d0) then
+                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+     .                            ,vol=.false.)/rho(i,j,k)
+                  
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+                endif
+
+              enddo
+            enddo
+          enddo
+
+        endif
+
+c       Hyperresistive term:  E_ni = E_ni - di*nu_e*lap(j-j0)
+
+        if (di*heta > 0d0) then
+
+          vdummy = jcov - jcov_0
+
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+                vlap(i,j,k,:) = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                    ,vdummy,vol=.false.)
+              enddo
+            enddo
+          enddo
+
+          E_ni = E_ni - di*heta*vlap
+
+        endif
+
+c       Impose boundary conditions (for magnetic field version, to calculate curl)
+
+#if !defined(vec_pot)
+        bcnd(:,1) = u_n%array_var(IBX)%bconds
+        bcnd(:,2) = u_n%array_var(IBY)%bconds
+        bcnd(:,3) = u_n%array_var(IBZ)%bconds
+cc        where (bcnd == -NEU) bcnd = -EQU !Use covariant components for tangential BCs
+        where (bcnd == -NEU) bcnd = -EXT !Use covariant components for tangential BCs
+
+        call setBC(IJX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+     .            ,igx,igy,igz,iorder=2,is_cnv=.false.)
+#endif
+
+      endif
+
+c     End program
+
+cc      !Resistive MHD
+cc      if (di == 0d0) then
 cc
-cc      real(8)    :: psib(3),psit(3)
+cc        vecnv = vcnv
 cc
-cc      !EM part
-cc      psib = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                ,si_tnsr_x,si_tnsr_y,si_tnsr_z,vol=.false.)
+cc      !Hall MHD
+cc      else
 cc
-cc      !Pressure part
-cc      call psi_t(i,j,k,igx,igy,igz,psit)
+cc        !Standard Hall formulation: E_ni = di*(heta*lap(j) + grad(pe)/rho)
+cc        if (.not.hall_new) then
+cc 
+cc          !Electron velocity
+cc#if defined(vec_pot)
+cc          vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+cc          vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+cc          vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+cc#else
+cc          vecnv = vcnv
+cc#endif
 cc
-cc      !SI operator
-cc      cnv = dt**2*k_si*(0*psib + psit)
+cc          do k=0,nz+1
+cc            do j=0,ny+1
+cc              do i=0,nx+1
 cc
-cc      end function si_op
+cc              !Electron pressure (only tmp*grad(rho)/rho survives curl)
 cc
-ccc     si_tnsr_x
-ccc     #############################################################
-cc      subroutine si_tnsr_x(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .                   ,t11,t12,t13,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t11-t13 for EOM
-ccc     -------------------------------------------------------------
+cc                call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+cc     .                   ,cov(1),cov(2),cov(3))
 cc
-cc        implicit none
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     $                        + di*tmp(i,j,k)*cov/rho(i,j,k)
 cc
-ccc     Call variables
+cc#if defined(vec_pot)
+cc                call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                   ,cov(1),cov(2),cov(3))
 cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t11,t12,t13
-cc        logical    :: alt_eom
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+cc#endif
+cc              !Electron hall (normally included directly via ve in vexB tem)
 cc
-ccc     Local variables
+cccc                cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
+cccc     .                   -vecnv(i,j,k,3)*bcnv(i,j,k,2))
+cccc     .                   /gmetric%grid(igx)%jac(i,j,k)
+cccc                cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
+cccc     .                   -vecnv(i,j,k,1)*bcnv(i,j,k,3))
+cccc     .                   /gmetric%grid(igx)%jac(i,j,k)
+cccc                cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
+cccc     .                   -vecnv(i,j,k,2)*bcnv(i,j,k,1))
+cccc     .                   /gmetric%grid(igx)%jac(i,j,k)
+cccc
+cccc                E_ni(i,j,k,:) = E_ni(i,j,k,:) + cov
+cc#if !defined(vec_pot)
+cc                cov(1) = (jcnv(i,j,k,2)*bcnv(i,j,k,3)
+cc     .                   -jcnv(i,j,k,3)*bcnv(i,j,k,2))
+cc     .                   /gmetric%grid(igx)%jac(i,j,k)
+cc                cov(2) = (jcnv(i,j,k,3)*bcnv(i,j,k,1)
+cc     .                   -jcnv(i,j,k,1)*bcnv(i,j,k,3))
+cc     .                   /gmetric%grid(igx)%jac(i,j,k)
+cc                cov(3) = (jcnv(i,j,k,1)*bcnv(i,j,k,2)
+cc     .                   -jcnv(i,j,k,2)*bcnv(i,j,k,1))
+cc     .                   /gmetric%grid(igx)%jac(i,j,k)
 cc
-cc        integer    :: ip,igrid
-cc        real(8)    :: jac,jac0,jacp,gsuper(3,3)
-cc     .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
+cc#endif
 cc
-ccc     Begin program
+cc              enddo
+cc            enddo
+cc          enddo
 cc
-cc        igrid = igx
+cc          !Impose topological BCs
+cc          bcnd(:,1) = bcond
+cc          bcnd(:,2) = bcond
+cc          bcnd(:,3) = bcond
 cc
-cc        ip = i+1
-cc        if (flag == 0) ip = i
+cc          call setBC(IVX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
 cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
-cc     .               +gmetric%grid(igrid)%jac (i ,j,k))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
-cc
-cccc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc
-cc        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
-cc     .      .and. bcSP()
-cc     .      .and. flag /= 0           ) then
-cc          jacp = gmetric%grid(igrid)%jac(ip,j,k)
-cc          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
+cc        !Alternate Hall formulation
 cc        else
-cc          jacp = jac
-cc          jac0 = jac
+cc
+cc          !Form E_ni = di*(-d_t v + v x curl(v) + nu*lap(v) + heta*lap(j) - grad(pi)/rho)
+cc          vecnv = vcnv
+cc
+cc          if (jit < 0) vcov_n = vcov  !Store time n info
+cc
+cc          do k=0,nz+1
+cc            do j=0,ny+1
+cc              do i=0,nx+1
+cc
+cc              !Temporal term
+cc
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     $                         -di*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+cc     $                            *cnp/dt/alpha
+cc
+cc              !Ion pressure term (only T*grad(rho)/rho survives curl)
+cc
+cc                if (a_p - 1d0 > 0d0) then
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+cc     .                   ,cov(1),cov(2),cov(3))
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     $                          - di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
+cc
+cc#if defined(vec_pot)
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                   ,cov(1),cov(2),cov(3))
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*(a_p-1d0)*cov
+cc#endif
+cc                endif
+cc
+cccc              !Add v.grad(v)
+cccc                nabla_v = fnabla_v_cov(i,j,k,nx,ny,nz,igx,igy,igz
+cccc     .                                ,vcov(:,:,:,1)
+cccc     .                                ,vcov(:,:,:,2)
+cccc     .                                ,vcov(:,:,:,3),0)
+cccc
+cccc                do ieq=1,3
+cccc                  cov(ieq) =( vcov(i,j,k,1)*nabla_v(1,ieq)
+cccc     .                       +vcov(i,j,k,2)*nabla_v(2,ieq)
+cccc     .                       +vcov(i,j,k,3)*nabla_v(3,ieq))
+cccc     .                      /gmetric%grid(igx)%jac(i,j,k)
+cccc                enddo
+cccc
+cccc                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+cc
+cc              !Add v x curl(v)
+cc 
+cc                do ieq=1,3
+cc                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                            ,vcov(:,:,:,1)
+cc     .                            ,vcov(:,:,:,2)
+cc     .                            ,vcov(:,:,:,3),ieq)
+cc                enddo
+cc
+cc                !Find v x curl(v)
+cc                cov(1) = (vcnv(i,j,k,2)*cnv(3)
+cc     .                   -vcnv(i,j,k,3)*cnv(2))
+cc                cov(2) = (vcnv(i,j,k,3)*cnv(1)
+cc     .                   -vcnv(i,j,k,1)*cnv(3))
+cc                cov(3) = (vcnv(i,j,k,1)*cnv(2)
+cc     .                   -vcnv(i,j,k,2)*cnv(1))
+cc
+cc                cov = cov/gmetric%grid(igx)%jac(i,j,k)
+cc
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+cc
+cccc              !Add div(nu*grad(v))/rho
+cccc
+cccc                if (nu > 0d0) then
+cccc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+cccc     .                            ,vol=.false.)/rho(i,j,k)
+cccc
+cccc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+cccc                endif
+cc
+cccc              !Add hyperresistive term (heta*lap(j))
+cccc
+cccc                if (heta > 0d0) then
+cccc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov
+cccc     .                            ,vol=.false.)
+cccc
+cccc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*heta*cov
+cccc                endif
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cccc          !Impose BCs on dissipation (perfect conductor E x n = 0)
+cccc          bcnd(:,1) = varray%array_var(IBX)%bconds
+cccc          bcnd(:,2) = varray%array_var(IBY)%bconds
+cccc          bcnd(:,3) = varray%array_var(IBZ)%bconds
+cccc          where (bcnd == -NEU) bcnd = -EQU  !Use covariant components for tangential BCs
+cccc
+cccc          call setBC(IJX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+cccc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+cc
+cc          !Impose topological BCs
+cc          bcnd(:,1) = bcond
+cc          bcnd(:,2) = bcond
+cc          bcnd(:,3) = bcond
+cc
+cc          call setBC(IVX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
+cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+cc
+cc          !Add viscosity (with BCs)
+cc          do k=1,nz
+cc            do j=1,ny
+cc              do i=1,nx
+cc
+cc              !Add div(nu*grad(v))/rho
+cc
+cc                if (nu > 0d0) then
+cc                  vlap(i,j,k,:) =
+cc     .                  veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+cc     .                            ,vol=.false.)/rho(i,j,k)
+cc                endif
+cc
+cccc              !Add hyperresistive term (heta*lap(j))
+cccc
+cccc                if (heta > 0d0) then
+cccc                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,jcov
+cccc     .                            ,vol=.false.)
+cccc
+cccc                  vlap(i,j,k,:) = vlap(i,j,k,:) + heta*cov
+cccccc                  vlap(i,j,k,:) = heta*cov
+cccc                endif
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc          !Impose BCs on dissipation (extrapolation)
+cc          bcnd(:,1) = bcond
+cc          bcnd(:,2) = bcond
+cc          bcnd(:,3) = bcond
+cc          where (bcnd == DEF) bcnd =-EXT !Extrapolation BCs on covariant components
+cc
+cc          call setBC(IVX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+cc
+cc          E_ni = E_ni + di*vlap
+cc
 cc        endif
-cc
-cc        if (flag /= 0) then
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,1)
-cc        else
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,0)
-cc        endif
-cc
-cc        b0cnv(1) = 0.5*(b_n(ip,j,k,1)/jacp+b_n(i,j,k,1)/jac0)*jac
-cc        b0cnv(2) = 0.5*(b_n(ip,j,k,2)     +b_n(i,j,k,2))
-cc        b0cnv(3) = 0.5*(b_n(ip,j,k,3)/jacp+b_n(i,j,k,3)/jac0)*jac
-cc
-cc        if (flag /= 0) then
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=1)
-cc        else
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc        endif
-cc
-cc        scalar_prod = dot_product(acnv,b0cov)
-cc
-cc        t11 =( acnv(1)*b0cnv(1)
-cc     .        +acnv(1)*b0cnv(1)
-cc     .        -gsuper(1,1)*scalar_prod )
-cc
-cc        t12 =( acnv(1)*b0cnv(2)
-cc     .        +acnv(2)*b0cnv(1)
-cc     .        -gsuper(1,2)*scalar_prod )
-cc
-cc        t13 =( acnv(1)*b0cnv(3)
-cc     .        +acnv(3)*b0cnv(1)
-cc     .        -gsuper(1,3)*scalar_prod )
-cc
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc
-cc        if (flag /= 0) then
-cc          t11 = t11/jac
-cc          if (.not.alt_eom) t12 = t12/jac
-cc          t13 = t13/jac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine si_tnsr_x
-cc
-ccc     si_tnsr_y
-ccc     #############################################################
-cc      subroutine si_tnsr_y(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .                   ,t21,t22,t23,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t21-t23 for EM SI operator
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t21,t22,t23
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: jp,igrid
-cc        real(8)    :: jac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
-cc     .                ,scalar_prod
-cc
-ccc     Begin program
-cc
-cc        igrid = igx
-cc
-cc        jp = j+1
-cc        if (flag == 0) jp = j
-cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (i,jp,k)
-cc     .               +gmetric%grid(igrid)%jac (i,j ,k))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,jp,k,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i,j ,k,:,:))
-cc
-cc        if (flag /= 0) then
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,2)
-cc        else
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,0)
-cc        endif
-cc
-cc        b0cnv = 0.5*(b_n(i,jp,k,:)+b_n(i,j,k,:))
-cc
-cc        if (flag /= 0) then
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=2)
-cc        else
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc        endif
-cc
-cc        scalar_prod = dot_product(acnv,b0cov)
-cc
-cc        t21 =( acnv(2)*b0cnv(1)
-cc     .        +acnv(1)*b0cnv(2)
-cc     .        -gsuper(2,1)*scalar_prod )
-cc
-cc        t22 =( acnv(2)*b0cnv(2)
-cc     .        +acnv(2)*b0cnv(2)
-cc     .        -gsuper(2,2)*scalar_prod )
-cc
-cc        t23 =( acnv(2)*b0cnv(3)
-cc     .        +acnv(3)*b0cnv(2)
-cc     .        -gsuper(2,3)*scalar_prod )
-cc
-cc        if (flag /= 0) then
-cc          t21 = t21/jac
-cc          if (.not.alt_eom) t22 = t22/jac
-cc          t23 = t23/jac
-cc        endif
-cc
-cc
-ccc     End program
-cc
-cc      end subroutine si_tnsr_y
-cc
-ccc     si_tnsr_z
-ccc     #############################################################
-cc      subroutine si_tnsr_z(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .                   ,t31,t32,t33,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t31-t33 for EM SI operator
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t31,t32,t33
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: kp,igrid
-cc        real(8)    :: jac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
-cc     .               ,scalar_prod
-cc
-ccc     Begin program
-cc
-cc        igrid = igx
-cc
-cc        kp=k+1
-cc        if (flag == 0) kp = k
-cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (i,j,kp)
-cc     .               +gmetric%grid(igrid)%jac (i,j,k ))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,j,kp,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i,j,k ,:,:))
-cc
-cc        if (flag /= 0) then
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,3)
-cc        else
-cc          acnv=curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_dt,b_n,0)
-cc        endif
-cc
-cc        b0cnv = 0.5*(b_n(i,j,kp,:)+b_n(i,j,k,:))
-cc
-cc        if (flag /= 0) then
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=3)
-cc        else
-cc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,b0cov(1),b0cov(2),b0cov(3)
-cc     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc        endif
-cc
-cc        scalar_prod = dot_product(acnv,b0cov)
-cc
-cc        t31 =( acnv(3)*b0cnv(1)
-cc     .        +acnv(1)*b0cnv(3)
-cc     .        -gsuper(3,1)*scalar_prod )
-cc
-cc        t32 =( acnv(3)*b0cnv(2)
-cc     .        +acnv(2)*b0cnv(3)
-cc     .        -gsuper(3,2)*scalar_prod )
-cc
-cc        t33 =( acnv(3)*b0cnv(3)
-cc     .        +acnv(3)*b0cnv(3)
-cc     .        -gsuper(3,3)*scalar_prod )
-cc
-cc        if (flag /= 0) then
-cc          t31 = t31/jac
-cc          if (.not.alt_eom) t32 = t32/jac
-cc          t33 = t33/jac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine si_tnsr_z
-cc
-ccc     psi_t
-ccc     #####################################################################
-cc      subroutine psi_t(i,j,k,igx,igy,igz,psit)
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer    :: i,j,k,igx,igy,igz
-cc      real(8)    :: psit(3)
-cc
-ccc     Local variables
-cc
-cc      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
-cc
-cc      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
-cc     .             ,jacp,jacm,jac
-cc
-cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-cc     $             ,divip,divim,divjp,divjm,divkp,divkm
-cc     .             ,cov(3),cnv(3),car(3)
-cc
-ccc     Begin program
-cc
-cc      ip = i+1
-cc      im = i-1
-cc      jp = j+1
-cc      jm = j-1
-cc      kp = k+1
-cc      km = k-1
-cc
-cc      jac    = gmetric%grid(igx)%jac (i,j,k)
-cc
-cc      jacip  = gmetric%grid(igx)%jac(ip,j,k)
-cc      jacim  = gmetric%grid(igx)%jac(im,j,k)
-cc      jacjp  = gmetric%grid(igx)%jac(i,jp,k)
-cc      jacjm  = gmetric%grid(igx)%jac(i,jm,k)
-cc      jackp  = gmetric%grid(igx)%jac(i,j,kp)
-cc      jackm  = gmetric%grid(igx)%jac(i,j,km)
-cc
-cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc      !Fluxes at faces for calculation of grad[div(dv_dt p_n)]
-cc      flxip =( (dv_dt(ip,j ,k ,1)*p_n(ip,j ,k ,1)
-cc     .         -dv_dt(i ,j ,k ,1)*p_n(i ,j ,k ,1))/dx(ig)
-cc     .        +(dv_dt(ip,jp,k ,2)*p_n(ip,jp,k ,1)
-cc     .         -dv_dt(ip,jm,k ,2)*p_n(ip,jm,k ,1)
-cc     .         +dv_dt(i ,jp,k ,2)*p_n(i ,jp,k ,1)
-cc     .         -dv_dt(i ,jm,k ,2)*p_n(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv_dt(ip,j ,kp,3)*p_n(ip,j ,kp,1)
-cc     .         -dv_dt(ip,j ,km,3)*p_n(ip,j ,km,1)
-cc     .         +dv_dt(i ,j ,kp,3)*p_n(i ,j ,kp,1)
-cc     .         -dv_dt(i ,j ,km,3)*p_n(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacip)*2
-cc      flxim =( (dv_dt(i ,j ,k ,1)*p_n(i ,j ,k ,1)
-cc     .         -dv_dt(im,j ,k ,1)*p_n(im,j ,k ,1))/dx(ig-1)
-cc     .        +(dv_dt(im,jp,k ,2)*p_n(im,jp,k ,1)
-cc     .         -dv_dt(im,jm,k ,2)*p_n(im,jm,k ,1)
-cc     .         +dv_dt(i ,jp,k ,2)*p_n(i ,jp,k ,1)
-cc     .         -dv_dt(i ,jm,k ,2)*p_n(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv_dt(im,j ,kp,3)*p_n(im,j ,kp,1)
-cc     .         -dv_dt(im,j ,km,3)*p_n(im,j ,km,1)
-cc     .         +dv_dt(i ,j ,kp,3)*p_n(i ,j ,kp,1)
-cc     .         -dv_dt(i ,j ,km,3)*p_n(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacim)*2
-cc
-cc      flxjp =( (dv_dt(ip,jp,k ,1)*p_n(ip,jp,k ,1)
-cc     .         -dv_dt(im,jp,k ,1)*p_n(im,jp,k ,1)
-cc     .         +dv_dt(ip,j ,k ,1)*p_n(ip,j ,k ,1)
-cc     .         -dv_dt(im,j ,k ,1)*p_n(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(dv_dt(i ,jp,k ,2)*p_n(i ,jp,k ,1)
-cc     .         -dv_dt(i ,j ,k ,2)*p_n(i ,j ,k ,1))/dy(jg)
-cc     .        +(dv_dt(i ,jp,kp,3)*p_n(i ,jp,kp,1)
-cc     .         -dv_dt(i ,jp,km,3)*p_n(i ,jp,km,1)
-cc     .         +dv_dt(i ,j ,kp,3)*p_n(i ,j ,kp,1)
-cc     .         -dv_dt(i ,j ,km,3)*p_n(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacjp)*2
-cc      flxjm =( (dv_dt(ip,jm,k ,1)*p_n(ip,jm,k ,1)
-cc     .         -dv_dt(im,jm,k ,1)*p_n(im,jm,k ,1)
-cc     .         +dv_dt(ip,j ,k ,1)*p_n(ip,j ,k ,1)
-cc     .         -dv_dt(im,j ,k ,1)*p_n(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(dv_dt(i ,j ,k ,2)*p_n(i ,j ,k ,1)
-cc     .         -dv_dt(i ,jm,k ,2)*p_n(i ,jm,k ,1))/dy(jg-1)
-cc     .        +(dv_dt(i ,jm,kp,3)*p_n(i ,jm,kp,1)
-cc     .         -dv_dt(i ,jm,km,3)*p_n(i ,jm,km,1)
-cc     .         +dv_dt(i ,j ,kp,3)*p_n(i ,j ,kp,1)
-cc     .         -dv_dt(i ,j ,km,3)*p_n(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacjm)*2
-cc
-cc      flxkp =( (dv_dt(ip,j ,kp,1)*p_n(ip,j ,kp,1)
-cc     .         -dv_dt(im,j ,kp,1)*p_n(im,j ,kp,1)
-cc     .         +dv_dt(ip,j ,k ,1)*p_n(ip,j ,k ,1)
-cc     .         -dv_dt(im,j ,k ,1)*p_n(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(dv_dt(i ,jp,kp,2)*p_n(i ,jp,kp,1)
-cc     .         -dv_dt(i ,jm,kp,2)*p_n(i ,jm,kp,1)
-cc     .         +dv_dt(i ,jp,k ,2)*p_n(i ,jp,k ,1)
-cc     .         -dv_dt(i ,jm,k ,2)*p_n(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv_dt(i ,j ,kp,3)*p_n(i ,j ,kp,1)
-cc     .         -dv_dt(i ,j ,k ,3)*p_n(i ,j ,k ,1))/dz(kg) )
-cc     $        /(jac+jackp)*2
-cc      flxkm =( (dv_dt(ip,j ,km,1)*p_n(ip,j ,km,1)
-cc     .         -dv_dt(im,j ,km,1)*p_n(im,j ,km,1)
-cc     .         +dv_dt(ip,j ,k ,1)*p_n(ip,j ,k ,1)
-cc     .         -dv_dt(im,j ,k ,1)*p_n(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(dv_dt(i ,jp,km,2)*p_n(i ,jp,km,1)
-cc     .         -dv_dt(i ,jm,km,2)*p_n(i ,jm,km,1)
-cc     .         +dv_dt(i ,jp,k ,2)*p_n(i ,jp,k ,1)
-cc     .         -dv_dt(i ,jm,k ,2)*p_n(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv_dt(i ,j ,k ,3)*p_n(i ,j ,k ,1)
-cc     .         -dv_dt(i ,j ,km,3)*p_n(i ,j ,km,1))/dz(kg-1) )
-cc     $        /(jac+jackm)*2
-cc
-cc      !Fluxes at faces for calculation of grad[(gamma-1)*p_n*div(dv_dt)]
-cc
-cc      !!Divergence at faces i+-1/2, etc.
-cc      divip = (dv_dt(ip,j ,k,1)-dv_dt(i ,j ,k,1))/dx(ig)
-cc     .       +(dv_dt(i ,jp,k,2)-dv_dt(i ,jm,k,2)
-cc     .        +dv_dt(ip,jp,k,2)-dv_dt(ip,jm,k,2))/dyh(jg)/4.
-cc     .       +(dv_dt(i ,j,kp,3)-dv_dt(i ,j,km,3)
-cc     .        +dv_dt(ip,j,kp,3)-dv_dt(ip,j,km,3))/dzh(kg)/4.
-cc      divim = (dv_dt(i ,j ,k,1)-dv_dt(im,j ,k,1))/dx(ig-1)
-cc     .       +(dv_dt(i ,jp,k,2)-dv_dt(i ,jm,k,2)
-cc     .        +dv_dt(im,jp,k,2)-dv_dt(im,jm,k,2))/dyh(jg)/4.
-cc     .       +(dv_dt(i ,j,kp,3)-dv_dt(i ,j,km,3)
-cc     .        +dv_dt(im,j,kp,3)-dv_dt(im,j,km,3))/dzh(kg)/4.
-cc
-cc      divjp = (dv_dt(ip,j ,k,1)-dv_dt(im,j ,k,1)
-cc     .        +dv_dt(ip,jp,k,1)-dv_dt(im,jp,k,1))/dxh(ig)/4.
-cc     .       +(dv_dt(i ,jp,k,2)-dv_dt(i ,j ,k,2))/dy(jg)
-cc     .       +(dv_dt(i,j ,kp,3)-dv_dt(i,j ,km,3)
-cc     .        +dv_dt(i,jp,kp,3)-dv_dt(i,jp,km,3))/dzh(kg)/4.
-cc      divjm = (dv_dt(ip,j ,k,1)-dv_dt(im,j ,k,1)
-cc     .        +dv_dt(ip,jm,k,1)-dv_dt(im,jm,k,1))/dxh(ig)/4.
-cc     .       +(dv_dt(i ,j ,k,2)-dv_dt(i ,jm,k,2))/dy(jg-1)
-cc     .       +(dv_dt(i,j ,kp,3)-dv_dt(i,j ,km,3)
-cc     .        +dv_dt(i,jm,kp,3)-dv_dt(i,jm,km,3))/dzh(kg)/4.
-cc
-cc      divkp = (dv_dt(ip,j,k ,1)-dv_dt(im,j,k ,1)
-cc     .        +dv_dt(ip,j,kp,1)-dv_dt(im,j,kp,1))/dxh(ig)/4.
-cc     .       +(dv_dt(i,jp,k ,2)-dv_dt(i,jm,k ,2)
-cc     .        +dv_dt(i,jp,kp,2)-dv_dt(i,jm,kp,2))/dyh(jg)/4.
-cc     .       +(dv_dt(i,j ,kp,3)-dv_dt(i,j ,k ,3))/dz(kg)
-cc      divkm = (dv_dt(ip,j,k ,1)-dv_dt(im,j,k ,1)
-cc     .        +dv_dt(ip,j,km,1)-dv_dt(im,j,km,1))/dxh(ig)/4.
-cc     .       +(dv_dt(i,jp,k ,2)-dv_dt(i,jm,k ,2)
-cc     .        +dv_dt(i,jp,km,2)-dv_dt(i,jm,km,2))/dyh(jg)/4.
-cc     .       +(dv_dt(i,j ,k ,3)-dv_dt(i,j ,km,3))/dz(kg-1)
-cc
-cc      flxip = flxip
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(ip,j,k,1))*divip/(jac+jacip)
-cc      flxim = flxim
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(im,j,k,1))*divim/(jac+jacim)
-cc
-cc      flxjp = flxjp
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(i,jp,k,1))*divjp/(jac+jacjp)
-cc      flxjm = flxjm
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(i,jm,k,1))*divjm/(jac+jacjm)
-cc
-cc      flxkp = flxkp
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(i,j,kp,1))*divkp/(jac+jackp)
-cc      flxkm = flxkm
-cc     .      + (gamma-1.)*(p_n(i,j,k,1)+p_n(i,j,km,1))*divkm/(jac+jackm)
-cc
-cc      if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
-cc
-cc      cov(1) = (flxip - flxim)/dxh(ig)
-cc      cov(2) = (flxjp - flxjm)/dyh(jg)
-cc      cov(3) = (flxkp - flxkm)/dzh(kg)
-cc
-cc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                            ,cov(1),cov(2),cov(3)
-cc     .                            ,cnv(1),cnv(2),cnv(3),.true.)
-cc      psit = -cnv
-cc
-cc      end subroutine psi_t
+cc======================================================================
+cc        if (di*heta > 0d0) then
+cc
+cc#if !defined(vec_pot)
+cc          if (solenoidal) then
+cc
+cc            !Solenoidal: E_ni = E_ni - di*nu_e*lap(j-j0)
+cc            vdummy = jcov - jcov_0
+cc
+cc            do k=1,nz
+cc              do j=1,ny
+cc                do i=1,nx
+cc                  vlap(i,j,k,:) = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                    ,vdummy,vol=.false.)
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc            !Impose BCs on dissipation (extrapolation)
+cc            bcnd(:,1) = bcond
+cc            bcnd(:,2) = bcond
+cc            bcnd(:,3) = bcond
+cc            where (bcnd == DEF) bcnd =-EXT !Extrapolation BCs on covariant components
+cc
+cc            call setBC(IVX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+cc     .                ,igx,igy,igz,iorder=2,is_cnv=.false.)
+cc
+cc            E_ni = E_ni - di*heta*vlap
+cc
+cc          else
+cc
+cc            !Not solenoidal, but compact di*nu_e*lap^2(B)
+cc            do k=1,nz
+cc              do j=1,ny
+cc                do i=1,nx
+cc                  vlap(i,j,k,:)
+cc     .                =veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,bcnv
+cc     .                             ,.false.,vol=.false.)
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cccc            bcnd(:,1) = bcond
+cccc            bcnd(:,2) = bcond
+cccc            bcnd(:,3) = bcond
+cccc            where (bcnd == DEF) bcnd = EXT !Extrapolation BCs on contravariant components
+cc            bcnd(:,1) = u_n%array_var(IBX)%bconds
+cc            bcnd(:,2) = u_n%array_var(IBY)%bconds
+cc            bcnd(:,3) = u_n%array_var(IBZ)%bconds
+cc            where (bcnd == -NEU) bcnd = -EQU !Use covariant components for tangential BCs
+cc
+cc            call setBC(IJX,3,nx,ny,nz,vdummy,vlap,vzeros,bcnd
+cc     .                ,igx,igy,igz,iorder=2,is_cnv=.true.)
+cc 
+cc          endif
+cc
+cc#else
+cc            vdummy = (jcov - jcov_0)
+cc
+cc            do k=1,nz
+cc              do j=1,ny
+cc                do i=1,nx
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     .                  -di*heta*veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                     ,vdummy,vol=.false.)
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cccc          do k=1,nz
+cccc            do j=1,ny
+cccc              do i=1,nx
+cccccc              vlap_a(i,j,k,:) =
+cccccc       .           veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+cccc                cnv=-curlcurl(i,j,k,nx,ny,nz,igx,igy,igz,acov
+cccc     .                       ,vol=.false.)
+cccc                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cccc     .             ,vlap_a(i,j,k,1),vlap_a(i,j,k,2),vlap_a(i,j,k,3)
+cccc     .             ,cnv(1),cnv(2),cnv(3),.false.)
+cccc              enddo
+cccc            enddo
+cccc          enddo
+cccc
+cccc          bcnd(:,1) = varray%array_var(IAX)%bconds
+cccc          bcnd(:,2) = varray%array_var(IAY)%bconds
+cccc          bcnd(:,3) = varray%array_var(IAZ)%bconds
+cccc
+cccc          call setBC(IJX,3,nx,ny,nz,vdummy,vlap_a,vzeros,bcnd
+cccc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
+cc
+cc#endif
+cc
+cc       endif
+
+      end subroutine find_E
 
       end module nlfunction_setup
 
@@ -11144,7 +11266,7 @@ c     ##################################################################
       subroutine PC_setup
 
 c     ------------------------------------------------------------------
-c     Define setup variables for PC
+c     Hardwire setup variables for PC and perform consistency checks.
 c     ------------------------------------------------------------------
 
 c     Begin program
@@ -11153,7 +11275,7 @@ c     Begin program
 
       asm_PC      =.false. !Whether to do additive Schwartz PC
 
-      inv_B       =.false. !Whether to invert M_B or not
+      inv_B       =.true.  !Whether to invert M_B or not
       divCln      =.false. !Whether to do divergence cleaning (only if inv_B = t)
 
       v_solve     =.false. !Whether to perform final v corrector step
@@ -11171,25 +11293,16 @@ cc                           !  smoother defaults to GS
       mg_debug    = .false.!Whether to go into debugging mode in MG
       cvrg_test   = .false.!Whether to perform convergence test of smoother
 
-cc      ores        = 2      !Restriction order for MG
-cc      oprol       = 2      !Prolongation order for MG
-
       smooth      = 'jb'   !Type of smoother ('jg','gs','gm')
       omeg_smth   = 0.7    !Damping for MG smoother (only when 'jb' is chosen)
 
       !SCIDAC 08 conference data for Hall MHD
-cc      ores   = 0
 cc      inv_B  = .true.
 cc      divCln = .true.
 cc      gm_coarse = .true.
 cccc      ores   = 2
 cccc      inv_B  = .false.
 cccc      divCln = .false.
-
-      !Standard setup (ores, oprol now defined through namelist)
-cc      ores  = 0
-cc      oprol = 2
-      inv_B = .true.
 
       !Setup for singular point geometries
       if (bcSP()) then
