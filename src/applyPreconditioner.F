@@ -1119,6 +1119,7 @@ c     Read graphics configuration
 
 cc        call readGraphicsInput
 
+        !WARNING: This is using default config. Need to use one in pixie3d.in
         xlabel=cont_conf%label(1)
         ylabel=cont_conf%label(2)
 
@@ -1136,28 +1137,29 @@ c     Create output files
         enddo
 
         call createDrawInCfile(neqd,trim(solf),'Solution'
-     .          ,'t',xlabel,ylabel,dbg_desc,'-c -X0 -L57'
+     .          ,'t',trim(xlabel),trim(ylabel),dbg_desc,'-c -X0 -L57'
      .          ,'drawsol_p'//trim(int2char(my_rank))//'.in')
 
         call createDrawInCfile(neqd,trim(resf),'Residual'
-     .          ,'t',xlabel,ylabel,dbg_desc,'-c -X0 -L57'
+     .          ,'t',trim(xlabel),trim(ylabel),dbg_desc,'-c -X0 -L57'
      .          ,'drawres_p'//trim(int2char(my_rank))//'.in')
 
         call createDrawInCfile(neqd,trim(rhsf),'RHS     '
-     .          ,'t',xlabel,ylabel,dbg_desc,'-c -X0 -L57'
+     .          ,'t',trim(xlabel),trim(ylabel),dbg_desc,'-c -X0 -L57'
      .          ,'drawrhs_p'//trim(int2char(my_rank))//'.in')
 
         call createDrawInCfile(neqd,trim(crsf),'Corr. residual'
-     .          ,'t',xlabel,ylabel,dbg_desc,'-c -X0 -L57'
+     .          ,'t',trim(xlabel),trim(ylabel),dbg_desc,'-c -X0 -L57'
      .          ,'drawcrhs_p'//trim(int2char(my_rank))//'.in')
 
         call createDrawInCfile(6,trim(fldf),'Vector fields'
-     .          ,'t',xlabel,ylabel,(/'V1','V2','V3','B1','B2','B3'/)
+     .          ,'t',trim(xlabel),trim(ylabel)
+     .          ,(/'V1','V2','V3','B1','B2','B3'/)
      .          ,'-c -X0 -L57'
      .          ,'drawvfld_p'//trim(int2char(my_rank))//'.in')
 
         call createDrawInCfile(1,trim(divf),'div(B)'
-     .          ,'t',xlabel,ylabel,(/'div(B)'/)
+     .          ,'t',trim(xlabel),trim(ylabel),(/'div(B)'/)
      .          ,'-c -X0 -L57'
      .          ,'drawdiv_p'//trim(int2char(my_rank))//'.in')
 
@@ -2175,7 +2177,7 @@ c Local variables
 
       integer :: ii,nx,ny,nz
 
-      real(8) :: cnv(3)
+      real(8) :: cnv(3),dvol
 
       real(8),allocatable,dimension(:,:,:,:) :: dgv_cnv,dgv_cov
 
@@ -2193,7 +2195,14 @@ c Store velocity RHS in array format w/ BCs
       call fillArray(igrid,IVX,3,yyy(:,IVX:IVZ),dgv_cnv,bcs(:,IVX:IVZ)
      .              ,2,arr_cov=dgv_cov,is_vec=.true.,is_cnv=.true.)
 
-c Divide by density
+c Divide by density and volume
+
+      if (vol_wgt) then
+        do ieq=1,3
+          dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)
+     .                        /gmetric%grid(igrid)%dvol
+        enddo
+      endif
 
       if (.not.nc_eom_v) then
         do ieq=1,3
@@ -2207,8 +2216,13 @@ c Find curl
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
+            if (vol_wgt) then   !Residuals are volume-weighed by default
+              dvol = gmetric%grid(igrid)%dvol(i,j,k)
+            else
+              dvol = 1d0
+            endif
             yyy(ii,IBX:IBZ) = yyy(ii,IBX:IBZ)
-     .                        + di*curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                   + di*dvol*curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                                 ,dgv_cov(:,:,:,1)
      .                                 ,dgv_cov(:,:,:,2)
      .                                 ,dgv_cov(:,:,:,3))
