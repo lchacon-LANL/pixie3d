@@ -2371,7 +2371,8 @@ c Transfer electric field info to postprocessor via input file
 
 
         if (ierr /= 0) then  !Replace E0
-          command='sed -i -e"/graphdef/{" -e' // achar(39)
+          command=
+     .       'sed -i --follow-symlinks -e"/graphdef/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
 #else
@@ -2380,7 +2381,7 @@ c Transfer electric field info to postprocessor via input file
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile)
         else                 !Add E0
-          command='sed -i -e"/E0/{" -e' // achar(39)
+          command='sed -i --follow-symlinks -e"/E0/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
 #else
@@ -2406,7 +2407,8 @@ c Transfer magnetic field info to postprocessor via input file
 
 
         if (ierr /= 0) then  !Replace B0
-          command='sed -i -e"/graphdef/{" -e' // achar(39)
+          command=
+     .       'sed -i --follow-symlinks -e"/graphdef/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'a\\' // achar(39) //' -e"'
 #else
@@ -2415,7 +2417,7 @@ c Transfer magnetic field info to postprocessor via input file
      .       // trim(command)   // '" -e"}" '
      .       // trim(inputfile)
         else                 !Add B0
-          command='sed -i -e"/B0/{" -e' // achar(39)
+          command='sed -i --follow-symlinks -e"/B0/{" -e' // achar(39)
 #if defined(pgf90) || defined(xlf)
      .       // 'c\\' // achar(39) //' -e"'
 #else
