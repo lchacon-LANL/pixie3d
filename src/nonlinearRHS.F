@@ -122,22 +122,29 @@ cc        endif
 c     Faraday's law
 
 #if !defined(vec_pot)
-      vec1 => vecnv
-      vec2 => bcnv
+cc      vec1 => vecnv
+cc      vec2 => bcnv
+cc
+cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+cc     .                       ,btensor_x,btensor_y,btensor_z
+cc     .                       ,vol=.false.)
+cc     .            -curl(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
+cc
+cc      nullify(vec1,vec2)
 
-      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                       ,btensor_x,btensor_y,btensor_z
-     .                       ,vol=.false.)
-     .            -curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
+      ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz
+     .                 ,E_ni(:,:,:,1)
+     .                 ,E_ni(:,:,:,2)
+     .                 ,E_ni(:,:,:,3))
 
-      if (heta > 0d0 .and. (.not.solenoidal) ) then
-        vlap2=veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vlap
-     .                     ,.false.,vol=.false.)
-
-        ff(IBX:IBZ) = ff(IBX:IBZ) + di*heta*vlap2
-      endif
-
+cc      if (heta > 0d0 .and. (.not.solenoidal) ) then
+cc        vlap2=veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vlap
+cc     .                    ,.false.,vol=.false.)
+cc
+cc        ff(IBX:IBZ) = ff(IBX:IBZ) + di*heta*vlap2
+cc      endif
+cc
 cc      if (.not.solenoidal) then
 cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
 cc     .                         ,btensor_x,btensor_y,btensor_z
@@ -190,39 +197,40 @@ cccc     .              - kappa*gsuper(:,2)*jac*dS2*(flxjp-flxjm)
 cccc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 cc      endif
 
-
-      nullify(vec1,vec2)
-
 #else
 
 c     Vector potential
 
-      cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
-     .         -vecnv(i,j,k,3)*bcnv(i,j,k,2))/jac + E_ni(i,j,k,1)
-
-      cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
-     .         -vecnv(i,j,k,1)*bcnv(i,j,k,3))/jac + E_ni(i,j,k,2)
-
-      cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
-     .         -vecnv(i,j,k,2)*bcnv(i,j,k,1))/jac + E_ni(i,j,k,3)
-
-      vlap1  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-cc      vlap1  = vlap_a(i,j,k,:)
-cc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
-cc     .                     ,.false.,vol=.false.)
+cc      cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
+cc     .         -vecnv(i,j,k,3)*bcnv(i,j,k,2))/jac + E_ni(i,j,k,1)
 cc
-cc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,vlap1(1),vlap1(2),vlap1(3)
-cc     .                        ,cnv (1),cnv (2),cnv (3)
-cc     .                        ,.false.)
+cc      cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
+cc     .         -vecnv(i,j,k,1)*bcnv(i,j,k,3))/jac + E_ni(i,j,k,2)
+cc
+cc      cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
+cc     .         -vecnv(i,j,k,2)*bcnv(i,j,k,1))/jac + E_ni(i,j,k,3)
+cc
+cc
+cc      vlap1  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
+cccc      vlap1  = vlap_a(i,j,k,:)
+cccc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
+cccc     .                     ,.false.,vol=.false.)
+cccc
+cccc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cccc     .                        ,vlap1(1),vlap1(2),vlap1(3)
+cccc     .                        ,cnv (1),cnv (2),cnv (3)
+cccc     .                        ,.false.)
+cc
+cc      if (heta > 0d0) then
+cc        vlap2=veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vlap_a,vol=.false.)
+cc      else
+cc        vlap2=0d0
+cc      endif
+cc
+cc      ff(IAX:IAZ) = -cov - eeta(i,j,k)*vlap1 + di*heta*vlap2
 
-      if (heta > 0d0) then
-        vlap2=veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vlap_a,vol=.false.)
-      else
-        vlap2=0d0
-      endif
-
-      ff(IAX:IAZ) = -cov - eeta(i,j,k)*vlap1 + di*heta*vlap2
+cc      ff(IAX:IAZ) = E_ni(i,j,k,:) - eeta(i,j,k)*vlap1 + di*heta*vlap2
+      ff(IAX:IAZ) = E_ni(i,j,k,:)
 
 #endif
 
