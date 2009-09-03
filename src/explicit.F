@@ -223,8 +223,8 @@ c Calculate time step
         dt = 1d0*pi/w_cour
 cc        write (*,*) 'Courant'
       else
-        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
-     .              (w_cour**3 + w_cfl**3)
+        dt = 0.25*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+     .              /(w_cour**3 + w_cfl**3)
 cc        write (*,*) 'CFL'
       endif
 
