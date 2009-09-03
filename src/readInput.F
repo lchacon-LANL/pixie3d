@@ -605,6 +605,13 @@ c Read graphics initialization parameters
 
       close(unit=uinput)
 
+c Consistency check
+
+      if (iplot > nxd .or. jplot > nyd .or. kplot > nzd) then
+        call pstop('readGraphicsInput'
+     .            ,'Plot indices out of range')
+      endif
+
 c End program
 
       end subroutine readGraphicsInput
