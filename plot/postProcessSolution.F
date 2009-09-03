@@ -204,13 +204,17 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+      vex = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+      vey = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+      vez = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
 
-      vex = vecnv(:,:,:,1)
-      vey = vecnv(:,:,:,2)
-      vez = vecnv(:,:,:,3)
+cc      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+cc      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+cc      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+cc
+cc      vex = vecnv(:,:,:,1)
+cc      vey = vecnv(:,:,:,2)
+cc      vez = vecnv(:,:,:,3)
 
 c Poloidal flux diagnostics
 
