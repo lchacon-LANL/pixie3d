@@ -2164,59 +2164,6 @@ c ##################################################################
 
       contains
 
-c     findPsiv
-c     #####################################################################
-      subroutine findPsiv(da)
-
-c     ---------------------------------------------------------------------
-c     Find advection/diffusion component of SI operator
-c     ---------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8),target :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
-
-c     Local variables
-
-      real(8) :: mul
-
-c     Begin program
-
-      if (.not.nc_eom_v) then
-
-        psiv = cnp*da(i,j,k,:)/dt
-
-        vec1 => v0_cnv
-        vec2 => da
-        psiv = psiv
-     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
-     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-     .                   ,vol=.false.)
-        nullify(vec1,vec2)
-
-        vec1 => da
-        vec2 => v0_cnv
-        psiv = psiv
-     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
-     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-     .                   ,vol=.false.)
-        nullify(vec1,vec2)
-
-        mul = vis(i,j,k,nxx,nyy,nzz,igr,igr,igr)
-        psiv = psiv
-     .        -mul*alpha*veclaplacian(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
-     .                         ,alt_eom,vol=.false.)
-
-      else
-
-        psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
-
-      endif
-
-      end subroutine findPsiv
-
 c     div_upwd
 c     #####################################################################
       function div_upwd(da,half_elem)
@@ -3279,7 +3226,7 @@ c Local variables
       integer :: iig
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
 
-      real(8),allocatable,dimension(:,:,:,:) :: dpp,v0
+      real(8),allocatable,dimension(:,:,:,:) :: v0
 
       real(8),pointer,dimension(:,:,:,:) :: j0_cov,db_cov
 
@@ -3334,8 +3281,7 @@ c ExB flow BC (if applicable)
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
       
       dv = 0d0
 
@@ -3353,12 +3299,6 @@ cc      if (di > 0 .or. bcSP()) then
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov
      .            ,arr0=v0)
-      endif
-
-      if (.not.nc_eom_v) then
-        dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
-        dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
-        dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
       endif
 
 c Calculate matrix-vector product
@@ -3397,11 +3337,7 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            if (.not.nc_eom_v) then
-              call findPsiv(dpp)
-            else
-              call findPsiv(dv)
-            endif
+            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv)
 
             !P_si^T  ******************************
 
@@ -3503,7 +3439,7 @@ cc              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
 
 c End program
 
-      deallocate(dv,dv_cov,dpp,v0)
+      deallocate(dv,dv_cov,v0)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -3552,8 +3488,6 @@ c Local variables
 
       integer    :: iig
 
-      real(8),allocatable,dimension(:,:,:,:) :: dpp
-
 c Begin program
 
       igr = igrid
@@ -3595,8 +3529,7 @@ c Define pointers to MG arrays
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
       
       dv = 0d0
 
@@ -3611,12 +3544,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
-      endif
-
-      if (.not.nc_eom_v) then
-        dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
-        dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
-        dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
       endif
 
 c Calculate matrix-vector product
@@ -3657,11 +3584,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            if (.not.nc_eom_v) then
-              call findPsiv(dpp)
-            else
-              call findPsiv(dv)
-            endif
+            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv)
 
             cnv = psiv*vol
 
@@ -3686,7 +3609,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
 c End program
 
-      deallocate(dv,dv_cov,dpp)
+      deallocate(dv,dv_cov)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -4073,12 +3996,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=bc_order)
 
-      if (.not.nc_eom_v) then
-        dzz(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
-        dzz(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
-        dzz(:,:,:,3)=rho0(:,:,:,1)*dzz(:,:,:,3)
-      endif
-
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -4117,7 +4034,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            call findPsiv(dzz)
+            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz)
 
             !P_si^T  ******************************
 

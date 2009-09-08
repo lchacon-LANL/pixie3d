@@ -10616,6 +10616,173 @@ c ######################################################################
 
       contains
 
+c     EOM_advc
+c     #####################################################################
+      function EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0,dv,upwind) result(cnv)
+
+c     ---------------------------------------------------------------------
+c     Find advection/diffusion of EOM. Return contravariant components.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,nxx,nyy,nzz,igr
+      real(8) :: cnv(3)
+      real(8),target :: dv  (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .                 ,v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
+      logical,optional :: upwind
+
+c     Local variables
+
+      integer    :: ieq,hex,hey,hez
+      real(8)    :: nabla_v(3,3),jac
+      logical    :: upwd
+
+c     Begin program
+
+      if (PRESENT(upwind)) then
+        upwd = upwind
+      else
+        upwd = .false.
+      endif
+
+      if (.not.nc_eom_v) then
+
+        vec1 => v0
+        vec2 => dv
+        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                  ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+     .                  ,vol=.false.)
+        nullify(vec1,vec2)
+
+      else
+
+        jac = gmetric%grid(igr)%jac(i,j,k)
+
+        if (upwd) then !Upwinding
+          hex = 1
+          hey = 1
+          hez = 1
+          if (v0(i,j,k,1) > 0d0) hex = -1
+          if (v0(i,j,k,2) > 0d0) hey = -1
+          if (v0(i,j,k,3) > 0d0) hez = -1
+
+          nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                           ,dv(:,:,:,1)
+     .                           ,dv(:,:,:,2)
+     .                           ,dv(:,:,:,3),hex,hey,hez)
+        else
+          nabla_v = fnabla_v(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                      ,dv(:,:,:,1)
+     .                      ,dv(:,:,:,2)
+     .                      ,dv(:,:,:,3),0)
+        endif
+
+        do ieq=1,3
+          cnv(ieq) = ( v0(i,j,k,1)*nabla_v(1,ieq)
+     .                +v0(i,j,k,2)*nabla_v(2,ieq)
+     .                +v0(i,j,k,3)*nabla_v(3,ieq))/jac
+        enddo
+
+      endif
+
+      end function EOM_advc
+
+ccc     nc_EOM_advc
+ccc     #####################################################################
+cc      function nc_EOM_advc(i,j,k,nxx,nyy,nzz,igx,igy,igz,rho0,v0,da,upwind)
+cc     .         result(psiv)
+cc
+ccc     ---------------------------------------------------------------------
+ccc     Find advection/diffusion component of non-conservative EOM.
+ccc     ---------------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer    :: i,j,k,igx,igy,igz,nxx,nyy,nzz
+cc      real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
+cc     .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+cc     .             ,rho0(0:nxx+1,0:nyy+1,0:nzz+1,1),psiv(3)
+cc      logical,optional :: upwind
+cc
+ccc     Local Variables
+cc
+cc      integer    :: hex,hey,hez
+cc      real(8)    :: upwind,mul,nabla_v(3,3),nabla_vv0(3,3),veclap(3),jac
+cc      logical    :: upwd
+cc
+ccc     Begin program
+cc
+cc      if (PRESENT(upwind)) then
+cc        upwd = upwind
+cc      else
+cc        upwd = .false.
+cc      endif
+cc
+cc      if (upwd) then
+cc        hex = 1
+cc        hey = 1
+cc        hez = 1
+cc        if (v0(i,j,k,1) > 0d0) hex = -1
+cc        if (v0(i,j,k,2) > 0d0) hey = -1
+cc        if (v0(i,j,k,3) > 0d0) hez = -1
+cc
+cc        jac = gmetric%grid(igx)%jac(i,j,k)
+cc
+cc        nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                       ,da(:,:,:,1),da(:,:,:,2),da(:,:,:,3)
+cc     .                       ,hex,hey,hez)
+cc
+cc        nabla_vv0 =fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                        ,v0(:,:,:,1)
+cc     .                        ,v0(:,:,:,2)
+cc     .                        ,v0(:,:,:,3)
+cc     .                        ,0,0,0)
+cc      else
+cc        nabla_v = fnabla_v(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                    ,da(:,:,:,1),da(:,:,:,2),da(:,:,:,3)
+cc     .                    ,0)
+cc
+cc        nabla_vv0 =fnabla_v(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                     ,v0(:,:,:,1)
+cc     .                     ,v0(:,:,:,2)
+cc     .                     ,v0(:,:,:,3)
+cc     .                     ,0)
+cc      endif
+cc
+cc      mul = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
+cc
+cc      veclap = veclaplacian(i,j,k,nxx,nyy,nzz,igx,igy,igz,da
+cc     .                     ,alt_eom,vol=.false.)
+cc
+cc      do ieq=1,3
+cc        upwind =( v0(i,j,k,1)*nabla_v(1,ieq)
+cc     .           +v0(i,j,k,2)*nabla_v(2,ieq)
+cc     .           +v0(i,j,k,3)*nabla_v(3,ieq))/jac
+cc
+cc        upwind = upwind
+cc     .           +( da(i,j,k,1)*nabla_vv0(1,ieq)
+cc     .             +da(i,j,k,2)*nabla_vv0(2,ieq)
+cc     .             +da(i,j,k,3)*nabla_vv0(3,ieq))/jac
+cc
+cccc        if (.not.nc_eom_v) then
+cccc          hex = floor(sign(1d0,-mgadvdiffV0(ijkg,ieq)))
+cccccc          hex = 0
+cccc          upwind = upwind
+cccc     .          -dt*mgadvdiffV0(ijkg,ieq)*div_upwd(da,hex)/rho0(i,j,k,1)
+cccc        endif
+cc
+cc        psiv(ieq) = cnp*da(i,j,k,ieq)/dt
+cc     .            + alpha*upwind
+cc     .            - alpha*mul*veclap(ieq)/rho0(i,j,k,1)
+cc      enddo
+cc
+cc      end function nc_EOM_advc
+
 c     find_E
 c     #####################################################################
       subroutine find_E(nx,ny,nz,igx,igy,igz,E_ni)
@@ -10785,28 +10952,6 @@ cc              do i=0,nx+1
                 E_ni(i,j,k,:) = E_ni(i,j,k,:)
      $                +di*cnp/dt/alpha*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
 
-              !Ion pressure term: grad(pi)/rho
-
-                if (a_p - 1d0 > 0d0) then
-                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                   ,cov(1),cov(2),cov(3))
-
-                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
-     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
-
-cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
-cc     .                   ,cov(1),cov(2),cov(3))
-cc
-cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
-cc     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
-cc
-cccc#if defined(vec_pot)
-cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cc     .                   ,cov(1),cov(2),cov(3))
-cc
-cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
-cccc#endif
-                endif
 
               !Add -v x curl(v)
  
@@ -10835,6 +10980,29 @@ cccc#endif
      .                            ,vol=.false.)/rho(i,j,k)
                   
                   E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+                endif
+
+              !Ion pressure term: grad(pi)/rho
+
+                if (a_p - 1d0 > 0d0) then
+                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
+     .                   ,cov(1),cov(2),cov(3))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
+
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+cc     .                   ,cov(1),cov(2),cov(3))
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+cc     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
+cc
+cccc#if defined(vec_pot)
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                   ,cov(1),cov(2),cov(3))
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
+cccc#endif
                 endif
 
               enddo
@@ -11303,6 +11471,9 @@ cc      gm_coarse = .true.
 cccc      ores   = 2
 cccc      inv_B  = .false.
 cccc      divCln = .false.
+
+      !Specific setup
+cc      inv_B  = .false.
 
       !Setup for singular point geometries
       if (bcSP()) then
