@@ -27,7 +27,7 @@ c ######################################################################
 
         use mg_solver
 
-        use nlfunction_setup, ONLY: EOM_advc
+        use nlfunction_setup, ONLY: EOM_advc,EOM_divPi
 
         integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
         real(8) :: x1,y1,z1
@@ -1008,7 +1008,7 @@ c     #####################################################################
      .         result(psiv)
 
 c     ---------------------------------------------------------------------
-c     Find advection/diffusion component of SI operator
+c     Find linearized advection/diffusion component of SI operator
 c     ---------------------------------------------------------------------
 
       implicit none
@@ -1028,51 +1028,38 @@ c     Local variables
 
 c     Begin program
 
-      if (.not.nc_eom_v) then
+      if (nc_eom_v) then
+        !TS
+        psiv = cnp*da(i,j,k,:)/dt
 
+        !Advection
+        psiv = psiv
+     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,da
+     .                        ,upwind=.true.)
+     .       +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,da,v0_cnv
+     .                        ,upwind=(advect == 1)))
+
+        !Diffusion
+        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da)
+#if !defined(RFX)
+     .                     /rho0(i,j,k,1)
+#endif
+      else
+       !TS
         dp(:,:,:,1)=rho0(:,:,:,1)*da(:,:,:,1)
         dp(:,:,:,2)=rho0(:,:,:,1)*da(:,:,:,2)
         dp(:,:,:,3)=rho0(:,:,:,1)*da(:,:,:,3)
 
         psiv = cnp*dp(i,j,k,:)/dt
 
+        !Advection
         psiv = psiv
      .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,dp)
      .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dp,v0_cnv))
 
-cc        vec1 => v0_cnv
-cc        vec2 => dp
-cc        psiv = psiv
-cc     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
-cc     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-cc     .                   ,vol=.false.)
-cc        nullify(vec1,vec2)
-cc
-cc        vec1 => dp
-cc        vec2 => v0_cnv
-cc        psiv = psiv
-cc     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
-cc     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-cc     .                   ,vol=.false.)
-cc        nullify(vec1,vec2)
-
-      else
-cc        psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
-
-        psiv = cnp*da(i,j,k,:)/dt
-
-        psiv = psiv
-     .      + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,da
-     .                       ,upwind=.true.)
-     .      +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,da,v0_cnv
-     .                       ,upwind=(advect == 1)))
-
+        !Diffusion
+        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da)
       endif
-
-      mul = vis(i,j,k,nxx,nyy,nzz,igr,igr,igr)
-      psiv = psiv
-     .        -mul*alpha*veclaplacian(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
-     .                         ,alt_eom,vol=.false.)
 
       end function findPsiv
 
