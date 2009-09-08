@@ -395,14 +395,16 @@ cc        nullify(vec1,vec2)
 
       endif
 
-      !Diffusion
+      !Stress tensor
       if (nu /= 0d0) then
-        vec1 => vcnv
-        coef => nuu
-        cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                  ,eom_diff_x,eom_diff_y,eom_diff_z
-     .                  ,vol=.false.)
-        nullify(vec1,coef)
+        cnv = EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,diff=nuu)
+
+cc        vec1 => vcnv
+cc        coef => nuu
+cc        cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+cc     .                  ,eom_diff_x,eom_diff_y,eom_diff_z
+cc     .                  ,vol=.false.)
+cc        nullify(vec1,coef)
 
 cc        cnv =-nuu(i,j,k)* veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
 cc     .                               ,.false.,vol=.false.)
