@@ -213,7 +213,7 @@ c Set defaults
       eta      = 1d-3          ! Lundquist number
       dd       = 1d-3          ! Particle diffusion
       chi      = 1d-3          ! Perpendicular thermal diffusivity
-      chi_par  = 0d-3          ! Parallel thermal diffusivity
+      chi_par  = 0d0           ! Parallel thermal diffusivity
 
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
@@ -434,6 +434,8 @@ cc        solve_rho = .false.
       if (nh1 == 0 .and. nh2 == 0 .and. nh3 == 0) then
         call pstop('readInput','No sinusoidal perturbation specified')
       endif
+
+      if (chi_par == 0d0) chi_par = chi
 
 c Map perturbations
 
