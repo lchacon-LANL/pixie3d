@@ -362,7 +362,7 @@ cc     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
 cc     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
 cc        enddo
 
-        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,vcnv,vcnv
+        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
      .                ,upwind=(advect==1))
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
@@ -388,7 +388,7 @@ cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
 cc     .                          ,vol=.false.)
 cc        nullify(vec1,vec2)
 
-        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,vcnv,pcnv
+        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
      .                ,upwind=(advect==1))
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv

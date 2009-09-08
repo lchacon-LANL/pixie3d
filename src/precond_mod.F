@@ -52,7 +52,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         type(var_array),pointer :: varray
 
-        type (mg_array ),target :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
+        type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov
 
 #if !defined(vec_pot)
@@ -1037,8 +1037,8 @@ c     Begin program
         psiv = cnp*dp(i,j,k,:)/dt
 
         psiv = psiv
-     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0_cnv,dp)
-     .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,dp,v0_cnv))
+     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,dp)
+     .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dp,v0_cnv))
 
 cc        vec1 => v0_cnv
 cc        vec2 => dp
@@ -1062,9 +1062,9 @@ cc        psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
         psiv = cnp*da(i,j,k,:)/dt
 
         psiv = psiv
-     .      + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0_cnv,da
+     .      + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,da
      .                       ,upwind=.true.)
-     .      +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,da,v0_cnv
+     .      +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,da,v0_cnv
      .                       ,upwind=(advect == 1)))
 
       endif
