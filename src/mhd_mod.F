@@ -9000,8 +9000,9 @@ c     Local variables
 
 c     Begin program
 
-        if (     .not.associated(coef)
-     .      .or. .not.associated(vec1)) then
+cc        if (     .not.associated(coef)
+cc     .      .or. .not.associated(vec1)) then
+        if (.not.associated(vec1)) then
           call pstop('eom_diff_x','Pointers not associated')
         endif
 
@@ -9110,8 +9111,9 @@ c     Local variables
 
 c     Begin program
 
-        if (     .not.associated(coef)
-     .      .or. .not.associated(vec1)) then
+cc        if (     .not.associated(coef)
+cc     .      .or. .not.associated(vec1)) then
+        if (.not.associated(vec1)) then
           call pstop('eom_diff_y','Pointers not associated')
         endif
 
@@ -9204,8 +9206,9 @@ c     Local variables
 
 c     Begin program
 
-        if (     .not.associated(coef)
-     .      .or. .not.associated(vec1)) then
+cc        if (     .not.associated(coef)
+cc     .      .or. .not.associated(vec1)) then
+        if (.not.associated(vec1)) then
           call pstop('eom_diff_z','Pointers not associated')
         endif
 
@@ -10636,7 +10639,7 @@ c ######################################################################
 
 c     EOM_advc
 c     #####################################################################
-      function EOM_advc(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,dv,upwind)
+      function EOM_advc(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,dv,cons,upwind)
      .                 result(cnv)
 
 c     ---------------------------------------------------------------------
@@ -10651,13 +10654,13 @@ c     Call variables
       real(8) :: cnv(3)
       real(8),target :: dv  (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .                 ,v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
-      logical,optional :: upwind
+      logical,optional :: upwind,cons
 
 c     Local variables
 
       integer    :: ieq,hex,hey,hez
       real(8)    :: nabla_v(3,3),jac
-      logical    :: upwd
+      logical    :: upwd,conserv
 
 c     Begin program
 
@@ -10667,7 +10670,13 @@ c     Begin program
         upwd = .false.
       endif
 
-      if (.not.nc_eom_v) then
+      if (PRESENT(cons)) then
+        conserv = cons
+      else
+        conserv = .not.nc_eom_v
+      endif
+
+      if (conserv) then
 
         vec1 => v0
         vec2 => dv
@@ -10709,13 +10718,13 @@ c     Begin program
 
       end function EOM_advc
 
-c     EOM_diff
+c     EOM_divPi
 c     #####################################################################
-      function EOM_diff(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
+      function EOM_divPi(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
      .         result(cnv)
 
 c     ---------------------------------------------------------------------
-c     Find diffusion piece of EOM. Return contravariant components.
+c     Find stress tensor piece of EOM. Return contravariant components.
 c     ---------------------------------------------------------------------
 
       implicit none
@@ -10745,7 +10754,7 @@ c     Begin program
 
       nullify(vec1,coef)
 
-      end function EOM_diff
+      end function EOM_divPi
 
 ccc     nc_EOM_advc
 ccc     #####################################################################
@@ -11004,23 +11013,25 @@ cc              do i=0,nx+1
             do j=1,ny
               do i=1,nx
 
-              !Temporal term: dv/dt
+cc                if (nc_eom_v) then
 
-                cov = cnp/dt*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+                !Temporal term: dv/dt
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di/alpha*cov
+                  cov = cnp/dt*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di/alpha*cov
 
 
-              !Advective term
-                cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                        ,upwind=(advect==1))
+                !Advective term
+                  cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                          ,upwind=(advect==1),cons=.false.)
 
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+                  call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                      ,cov(1),cov(2),cov(3)
      .                                      ,cnv(1),cnv(2),cnv(3)
      .                                      ,.false.)
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
 
 cc              !Add -v x curl(v)
 cc 
@@ -11042,13 +11053,42 @@ cc                cov = cov/gmetric%grid(igx)%jac(i,j,k)
 cc
 cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
 
-              !Add viscosity: -div(nu*grad(v))/rho
+cc                else
+cc
+cc                !Temporal term: dv/dt
+cc
+cc                  cov = cnp/dt*(pcov(i,j,k,:)-vcov_n(i,j,k,:))
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di/alpha*cov/rho(i,j,k)
+cc
+cc                !Advective term
+cc                  cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
+cc     .                          ,upwind=(advect==1))
+cc
+cc                  call transformFromCurvToCurv(i,j,k,igx,igy,igz
+cc     .                                      ,cov(1),cov(2),cov(3)
+cc     .                                      ,cnv(1),cnv(2),cnv(3)
+cc     .                                      ,.false.)
+cc
+cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov/rho(i,j,k)
+cc
+cc                endif
+
+              !Add viscosity: div(Pi)/rho
 
                 if (nu > 0d0) then
-                  cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
-     .                            ,vol=.false.)
+                  cnv = EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+     .                           ,diff=nuu)
+
+                  call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                                      ,cov(1),cov(2),cov(3)
+     .                                      ,cnv(1),cnv(2),cnv(3)
+     .                                      ,.false.)
+
+cc                  cov =-veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
+cc     .                            ,vol=.false.)
                   
-                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov/rho(i,j,k)
                 endif
 
               !Ion pressure term: grad(pi)/rho
@@ -11061,14 +11101,14 @@ cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
 cc     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
 
                   call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
-     .                   ,cov(1),cov(2),cov(3))
+     .                     ,cov(1),cov(2),cov(3))
 
                   E_ni(i,j,k,:) = E_ni(i,j,k,:)
-     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
+     .                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
 
 #if defined(vec_pot)
                   call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-     .                   ,cov(1),cov(2),cov(3))
+     .                     ,cov(1),cov(2),cov(3))
 
                   E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
 #endif
