@@ -342,25 +342,28 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
 
       !Advection
       if (nc_eom_v) then
-        if (advect == 1) then !Upwinding
-          hex = 1
-          hey = 1
-          hez = 1
-          if (vcnv(i,j,k,1) > 0d0) hex = -1
-          if (vcnv(i,j,k,2) > 0d0) hey = -1
-          if (vcnv(i,j,k,3) > 0d0) hez = -1
+cc        if (advect == 1) then !Upwinding
+cc          hex = 1
+cc          hey = 1
+cc          hez = 1
+cc          if (vcnv(i,j,k,1) > 0d0) hex = -1
+cc          if (vcnv(i,j,k,2) > 0d0) hey = -1
+cc          if (vcnv(i,j,k,3) > 0d0) hez = -1
+cc
+cc          nabla_v = fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                           ,vcnv(:,:,:,1)
+cc     .                           ,vcnv(:,:,:,2)
+cc     .                           ,vcnv(:,:,:,3),hex,hey,hez)
+cc        endif
+cc
+cc        do ieq=1,3
+cc          cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
+cc     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
+cc     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
+cc        enddo
 
-          nabla_v = fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz
-     .                           ,vcnv(:,:,:,1)
-     .                           ,vcnv(:,:,:,2)
-     .                           ,vcnv(:,:,:,3),hex,hey,hez)
-        endif
-
-        do ieq=1,3
-          cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
-     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
-     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
-        enddo
+        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,vcnv,vcnv
+     .                ,upwind=(advect==1))
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -377,13 +380,19 @@ cc     .                                 ,vcnv(:,:,:,3))
 cc        nullify(vec1,vec2)
 
       else
-        vec1 => vcnv
-        vec2 => pcnv
-        ff(IVX:IVZ) = ff(IVX:IVZ)
-     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
-     .                          ,vol=.false.)
-        nullify(vec1,vec2)
+cc        vec1 => vcnv
+cc        vec2 => pcnv
+cc        ff(IVX:IVZ) = ff(IVX:IVZ)
+cc     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
+cc     .                          ,vol=.false.)
+cc        nullify(vec1,vec2)
+
+        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,vcnv,pcnv
+     .                ,upwind=(advect==1))
+
+        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+
       endif
 
       !Diffusion
