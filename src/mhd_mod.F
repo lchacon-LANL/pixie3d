@@ -8996,7 +8996,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
         real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vis
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vish,visp,vis0
 
 c     Begin program
 
@@ -9033,7 +9033,13 @@ cc     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 c     Diffusive part
 
         !Harmonic average for calculation of viscosity coeff. at faces
-        vis = 2.*coef(ip,j,k)*coef(i,j,k)/(coef(ip,j,k) + coef(i,j,k))
+        if (associated(coef)) then
+          vish = 2.*coef(ip,j,k)*coef(i,j,k)/(coef(ip,j,k)+coef(i,j,k))
+        else
+          visp = vis(ip,j,k,nx,ny,nz,igx,igy,igz)
+          vis0 = vis(i ,j,k,nx,ny,nz,igx,igy,igz)
+          vish = 2.*visp*vis0/(visp+vis0)
+        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9051,9 +9057,9 @@ c     Diffusive part
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
-        t11 = -vis*nabla_v_cnv(1,1)
-        t12 = -vis*nabla_v_cnv(1,2)
-        t13 = -vis*nabla_v_cnv(1,3)
+        t11 = -vish*nabla_v_cnv(1,1)
+        t12 = -vish*nabla_v_cnv(1,2)
+        t13 = -vish*nabla_v_cnv(1,3)
 
 c       Postprocessing
 
@@ -9100,7 +9106,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
         real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,ijac,vis
+        real(8)    :: jac,ijac,vish,visp,vis0
 
 c     Begin program
 
@@ -9121,7 +9127,13 @@ cc     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
 c       Diffusive part
 
-        vis = 2.*coef(i,jp,k)*coef(i,j,k)/(coef(i,jp,k) + coef(i,j,k))
+        if (associated(coef)) then
+          vish = 2.*coef(i,jp,k)*coef(i,j,k)/(coef(i,jp,k)+coef(i,j,k))
+        else
+          visp = vis(i,jp,k,nx,ny,nz,igx,igy,igz)
+          vis0 = vis(i,j ,k,nx,ny,nz,igx,igy,igz)
+          vish = 2.*visp*vis0/(visp+vis0)
+        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9139,9 +9151,9 @@ c       Diffusive part
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
-        t21 = -vis*nabla_v_cnv(2,1)
-        t22 = -vis*nabla_v_cnv(2,2)
-        t23 = -vis*nabla_v_cnv(2,3)
+        t21 = -vish*nabla_v_cnv(2,1)
+        t22 = -vish*nabla_v_cnv(2,2)
+        t23 = -vish*nabla_v_cnv(2,3)
 
 c       Postprocessing
 
@@ -9188,7 +9200,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
         real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,ijac,vis
+        real(8)    :: jac,ijac,vish,visp,vis0
 
 c     Begin program
 
@@ -9209,7 +9221,13 @@ cc     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
 c       Diffusive part
 
-        vis = 2.*coef(i,j,kp)*coef(i,j,k)/(coef(i,j,kp) + coef(i,j,k))
+        if (associated(coef)) then
+          vish = 2.*coef(i,j,kp)*coef(i,j,k)/(coef(i,j,kp)+coef(i,j,k))
+        else
+          visp = vis(i,j,kp,nx,ny,nz,igx,igy,igz)
+          vis0 = vis(i,j,k ,nx,ny,nz,igx,igy,igz)
+          vish = 2.*visp*vis0/(visp+vis0)
+        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -9227,9 +9245,9 @@ c       Diffusive part
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
-        t31 = -vis*nabla_v_cnv(3,1)
-        t32 = -vis*nabla_v_cnv(3,2)
-        t33 = -vis*nabla_v_cnv(3,3)
+        t31 = -vish*nabla_v_cnv(3,1)
+        t32 = -vish*nabla_v_cnv(3,2)
+        t33 = -vish*nabla_v_cnv(3,3)
 
 c       Postprocessing
 
@@ -10618,7 +10636,8 @@ c ######################################################################
 
 c     EOM_advc
 c     #####################################################################
-      function EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0,dv,upwind) result(cnv)
+      function EOM_advc(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,dv,upwind)
+     .                 result(cnv)
 
 c     ---------------------------------------------------------------------
 c     Find advection/diffusion of EOM. Return contravariant components.
@@ -10628,7 +10647,7 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer :: i,j,k,nxx,nyy,nzz,igr
+      integer :: i,j,k,nxx,nyy,nzz,igx,igy,igz
       real(8) :: cnv(3)
       real(8),target :: dv  (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .                 ,v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -10652,14 +10671,14 @@ c     Begin program
 
         vec1 => v0
         vec2 => dv
-        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igx,igy,igz
      .                  ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
      .                  ,vol=.false.)
         nullify(vec1,vec2)
 
       else
 
-        jac = gmetric%grid(igr)%jac(i,j,k)
+        jac = gmetric%grid(igx)%jac(i,j,k)
 
         if (upwd) then !Upwinding
           hex = 1
@@ -10669,12 +10688,12 @@ c     Begin program
           if (v0(i,j,k,2) > 0d0) hey = -1
           if (v0(i,j,k,3) > 0d0) hez = -1
 
-          nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igr,igr,igr
+          nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
      .                           ,dv(:,:,:,1)
      .                           ,dv(:,:,:,2)
      .                           ,dv(:,:,:,3),hex,hey,hez)
         else
-          nabla_v = fnabla_v(i,j,k,nxx,nyy,nzz,igr,igr,igr
+          nabla_v = fnabla_v(i,j,k,nxx,nyy,nzz,igx,igy,igz
      .                      ,dv(:,:,:,1)
      .                      ,dv(:,:,:,2)
      .                      ,dv(:,:,:,3),0)
@@ -10689,6 +10708,44 @@ c     Begin program
       endif
 
       end function EOM_advc
+
+c     EOM_diff
+c     #####################################################################
+      function EOM_diff(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
+     .         result(cnv)
+
+c     ---------------------------------------------------------------------
+c     Find diffusion piece of EOM. Return contravariant components.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,nxx,nyy,nzz,igx,igy,igz
+      real(8) :: cnv(3)
+      real(8),target :: v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+
+c     Local variables
+
+c     Begin program
+
+      vec1 => v0
+
+      if (PRESENT(diff)) then
+        coef => diff
+      else
+        nullify(coef)
+      endif
+
+      cnv = div_tensor(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
+     .                ,eom_diff_x,eom_diff_y,eom_diff_z
+     .                ,vol=.false.)
+
+      nullify(vec1,coef)
+
+      end function EOM_diff
 
 ccc     nc_EOM_advc
 ccc     #####################################################################
@@ -10949,60 +11006,72 @@ cc              do i=0,nx+1
 
               !Temporal term: dv/dt
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:)
-     $                +di*cnp/dt/alpha*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+                cov = cnp/dt*(vcov(i,j,k,:)-vcov_n(i,j,k,:))
+
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di/alpha*cov
 
 
-              !Add -v x curl(v)
- 
-                do ieq=1,3
-                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vcov(:,:,:,1)
-     .                            ,vcov(:,:,:,2)
-     .                            ,vcov(:,:,:,3),ieq)
-                enddo
+              !Advective term
+                cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                        ,upwind=(advect==1))
 
-                cov(1) = (vcnv(i,j,k,2)*cnv(3)
-     .                   -vcnv(i,j,k,3)*cnv(2))
-                cov(2) = (vcnv(i,j,k,3)*cnv(1)
-     .                   -vcnv(i,j,k,1)*cnv(3))
-                cov(3) = (vcnv(i,j,k,1)*cnv(2)
-     .                   -vcnv(i,j,k,2)*cnv(1))
+                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                                      ,cov(1),cov(2),cov(3)
+     .                                      ,cnv(1),cnv(2),cnv(3)
+     .                                      ,.false.)
 
-                cov = cov/gmetric%grid(igx)%jac(i,j,k)
+                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+cc              !Add -v x curl(v)
+cc 
+cc                do ieq=1,3
+cc                  cnv(ieq) = curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                            ,vcov(:,:,:,1)
+cc     .                            ,vcov(:,:,:,2)
+cc     .                            ,vcov(:,:,:,3),ieq)
+cc                enddo
+cc
+cc                cov(1) = (vcnv(i,j,k,2)*cnv(3)
+cc     .                   -vcnv(i,j,k,3)*cnv(2))
+cc                cov(2) = (vcnv(i,j,k,3)*cnv(1)
+cc     .                   -vcnv(i,j,k,1)*cnv(3))
+cc                cov(3) = (vcnv(i,j,k,1)*cnv(2)
+cc     .                   -vcnv(i,j,k,2)*cnv(1))
+cc
+cc                cov = cov/gmetric%grid(igx)%jac(i,j,k)
+cc
+cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
 
               !Add viscosity: -div(nu*grad(v))/rho
 
                 if (nu > 0d0) then
                   cov = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vcov,nuu
-     .                            ,vol=.false.)/rho(i,j,k)
+     .                            ,vol=.false.)
                   
-                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
                 endif
 
               !Ion pressure term: grad(pi)/rho
 
                 if (a_p - 1d0 > 0d0) then
-                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                   ,cov(1),cov(2),cov(3))
-
-                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
-     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
-
-cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
 cc     .                   ,cov(1),cov(2),cov(3))
 cc
 cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
-cc     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
-cc
-cccc#if defined(vec_pot)
-cc                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cc     .                   ,cov(1),cov(2),cov(3))
-cc
-cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
-cccc#endif
+cc     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
+
+                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,rho
+     .                   ,cov(1),cov(2),cov(3))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
+     $                          + di*(a_p-1d0)*tmp(i,j,k)*cov/rho(i,j,k)
+
+#if defined(vec_pot)
+                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                   ,cov(1),cov(2),cov(3))
+
+                  E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*(a_p-1d0)*cov
+#endif
                 endif
 
               enddo
