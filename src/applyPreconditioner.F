@@ -696,28 +696,49 @@ cc          if (divCln) call divClean(iout,ntotp,x(:,IBX:IBZ),igrid)
         endif
 #else
         !Vector potential
-        if (si_car) call XtoCar(igrid,rhs(:,IAX:IAZ))
+        if (inv_B) then
+          if (si_car) call XtoCar(igrid,rhs(:,IAX:IAZ))
 
-        call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
-     .              ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
-     .              ,tol           = mgtol
-     .              ,dg            = a_diag
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = ores
-     .              ,mg_order_prol = oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = gm_coarse
-     .              ,mg_smooth     = smooth
-     .              ,mg_vcyc       = maxvcyc
-     .              ,sm_it         = nsweep
-     .              ,sm_omega      = omeg_smth
-     .              ,sm_ncolors    = ncolors
-     .              ,sm_line_relax = line_relax
-     .              ,sm_zebra_relax= zebra_relax
-     .              )
+          call cSolver(3,ntotp,yyy(:,IAX:IAZ),xxx(:,IAX:IAZ)
+     .                ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
+     .                ,tol           = mgtol
+     .                ,dg            = a_diag
+     .                ,mg_debug      = mg_debug
+     .                ,mg_galerkin   = mg_glrkin
+     .                ,mg_order_res  = ores
+     .                ,mg_order_prol = oprol
+     .                ,mg_coarse_grid_size = mg_coarse_size
+     .                ,mg_gm_coarse_solve  = gm_coarse
+     .                ,mg_smooth     = smooth
+     .                ,mg_vcyc       = maxvcyc
+     .                ,sm_it         = nsweep
+     .                ,sm_omega      = omeg_smth
+     .                ,sm_ncolors    = ncolors
+     .                ,sm_line_relax = line_relax
+     .                ,sm_zebra_relax= zebra_relax
+     .                )
 
-        if (si_car) call XtoCurv(igrid,x(:,IAX:IAZ))
+          if (si_car) call XtoCurv(igrid,x(:,IAX:IAZ))
+
+        else
+
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+                if (vol_wgt) then
+                  dvol = gmetric%grid(igx)%dvol(i,j,k)
+                else
+                  dvol = 1d0
+                endif
+
+                x(ii,IAX:IAZ) = dt*rhs(ii,IAX:IAZ)/cnp/dvol
+              enddo
+            enddo
+          enddo
+
+        endif
 #endif
 
 c     End program
@@ -2119,7 +2140,8 @@ c Call variables
 c Local variables
 
       integer    :: ii
-      real(8)    :: minv,jac
+      real(8)    :: minv,cnv(3),cov(3)
+     .             ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Begin program
 
@@ -2127,7 +2149,6 @@ c Begin program
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            jac = gmetric%grid(igrid)%jac(i,j,k)
 
             crhs(ii,1) = dv_cnv(i,j,k,2)*gb0%grid(igrid)%array(i,j,k,3)
      .                 - dv_cnv(i,j,k,3)*gb0%grid(igrid)%array(i,j,k,2)
@@ -2138,12 +2159,21 @@ c Begin program
             crhs(ii,3) = dv_cnv(i,j,k,1)*gb0%grid(igrid)%array(i,j,k,2)
      .                 - dv_cnv(i,j,k,2)*gb0%grid(igrid)%array(i,j,k,1)
 
-            crhs(ii,:) = -crhs(ii,:)/jac
+            crhs(ii,:) = -crhs(ii,:)/gmetric%grid(igrid)%jac(i,j,k)
 
             !Hall MHD part
             if (di > 0d0) then
-              minv = di*cnp/dt/alpha
-              crhs(ii,:) = crhs(ii,:) + minv*dv_cov(i,j,k,:)
+              cnv = findPsiv(i,j,k,nx,ny,nz,igrid
+     .                      ,grho0%grid(igrid)%array
+     .                      ,gv0  %grid(igrid)%array,dv_cnv)
+
+              call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                                    ,cov(1),cov(2),cov(3)
+     .                                    ,cnv(1),cnv(2),cnv(3),.false.)
+              crhs(ii,:) = crhs(ii,:) + di/alpha*cov
+
+cc              minv = di*cnp/dt/alpha
+cc              crhs(ii,:) = crhs(ii,:) + minv*dv_cov(i,j,k,:)
             endif
 
           enddo
@@ -2276,7 +2306,9 @@ c Begin program
      .           ,cov(1),cov(2),cov(3)
      .           ,cnv(1),cnv(2),cnv(3),.false.)
 
-            yyy(ii,IAX:IAZ) = yyy(ii,IAX:IAZ) + di*cov/rho(i,j,k)
+            if (nc_eom_v) cov = cov/rho(i,j,k)
+
+            yyy(ii,IAX:IAZ) = yyy(ii,IAX:IAZ) + di*cov
           enddo
         enddo
       enddo
