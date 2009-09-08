@@ -36,7 +36,8 @@ c     Local variables
       integer    :: i,j,k,ig,jg,kg,igx,igy,igz
       real(8)    :: x1,y1,z1,jac,kx,ky,kk,eps
      .             ,vplus,vminus,vshear,cs2,kdotB,cth
-     .             ,vxx,vyy,vzz,xi,ivxx,ivyy,ivzz,ixi,bxx,byy,bzz,yy,iyy
+     .             ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
+     .             ,bxx,byy,bzz,ibxx,ibyy,ibzz,axx,ayy,azz
      .             ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -101,7 +102,7 @@ cc              if (ieq == IRHO) jac = 1d0
 #if defined(vec_pot) 
               elseif (ieq == IAY) then
                 array(i,j,k) = array(i,j,k)
-     .                     + jac*1d-3*(xmax-xmin)/2./pi
+     .                     + jac*1d-3/kx
      .                          *sin(kx*(x1-xmin)+ky*(y1-ymin))
 #else
               elseif (ieq == IBZ) then
@@ -115,10 +116,10 @@ cc              if (ieq == IRHO) jac = 1d0
 
       case ('3wv')
 
-#if defined(vec_pot)
-        call pstop('perturbEquilibrium'
-     .            ,'Test case not working for vector potential')
-#endif
+cc#if defined(vec_pot)
+cc        call pstop('perturbEquilibrium'
+cc     .            ,'Test case not working for vector potential')
+cc#endif
 
         kx = 2*pi*nh1/(xmax-xmin)
         ky = 2*pi*nh2/(ymax-ymin)
@@ -218,6 +219,22 @@ cc              if (ieq == IRHO) jac = 1d0
               byy = (kdotB*vyy-xi*B0(2))/freq -di*kx*ivzz
               bzz = (kdotB*vzz-xi*B0(3))/freq +di*(kx*ivyy-ky*ivxx)
 
+#if defined(vec_pot)
+              ibxx = (kdotB*ivxx-ixi*B0(1))/freq -di*ky*vzz
+              ibyy = (kdotB*ivyy-ixi*B0(2))/freq +di*kx*vzz
+              ibzz = (kdotB*ivzz-ixi*B0(3))/freq -di*(kx*vyy-ky*vxx)
+
+              if (kx /= 0d0) then
+                axx = 0d0
+                azz =-ibyy/kx
+                ayy = ibzz/kx
+              elseif (ky /= 0d0) then
+                ayy = 0d0
+                azz = ibxx/ky
+                axx =-ibzz/ky
+              endif
+#endif
+
               if (ieq == IRHO) then
                 array(i,j,k) = array(i,j,k) - xi/freq
               elseif (ieq == ITMP) then
@@ -227,12 +244,21 @@ cc              if (ieq == IRHO) jac = 1d0
                   array(i,j,k) = array(i,j,k)
      .                         -(cs2/a_p-array(i,j,k))*xi/freq    !For temperature
                 endif
+#if !defined(vec_pot)
               elseif (ieq == IBX) then
                 array(i,j,k) = array(i,j,k) + bxx
               elseif (ieq == IBY) then
                 array(i,j,k) = array(i,j,k) + byy
               elseif (ieq == IBZ) then
                 array(i,j,k) = array(i,j,k) + bzz
+#else
+              elseif (ieq == IAX) then
+                array(i,j,k) = array(i,j,k) + axx
+              elseif (ieq == IAY) then
+                array(i,j,k) = array(i,j,k) + ayy
+              elseif (ieq == IAZ) then
+                array(i,j,k) = array(i,j,k) + azz
+#endif
               elseif (ieq == IVX) then
                 array(i,j,k) = array(i,j,k) + vxx
               elseif (ieq == IVY) then
