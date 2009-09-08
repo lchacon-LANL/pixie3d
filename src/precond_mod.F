@@ -27,6 +27,8 @@ c ######################################################################
 
         use mg_solver
 
+        use nlfunction_setup, ONLY: EOM_advc
+
         integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
         real(8) :: x1,y1,z1
         logical :: cartsn,covariant,to_cartsn,to_cnv
@@ -87,18 +89,22 @@ c     Begin program
         allocate (mgnablaV0  (ntotd2p,3,3))
         allocate (mgdivV0    (ntotd2p))
 
-        allocate (bcs(6,neqd+3),bcs_hyp(6,6))
-
-        allocate (rho_diag  (1,  ntotd2p)
-     .           ,tmp_diag  (1,  ntotd2p)
 #if !defined(vec_pot)
-     .           ,  b_diag    (3,3*ntotd2p)
-     .           ,  b_diag_hyp(6,6*ntotd2p)
+        allocate (bcs(6,neqd+3),bcs_hyp(6,6))
 #else
-     .           ,  a_diag  (3,3*ntotd2p)
+        allocate (bcs(6,neqd+6),bcs_hyp(6,6))
 #endif
-     .           ,  v_diag  (3,3*ntotd2p)
-     .           ,  v_diag2 (3,3*ntotd2p),STAT=alloc_stat)
+
+        allocate (rho_diag(1,  ntotd2p)
+     .           ,tmp_diag(1,  ntotd2p)
+#if !defined(vec_pot)
+     .           ,b_diag    (3,3*ntotd2p)
+     .           ,b_diag_hyp(6,6*ntotd2p)
+#else
+     .           ,a_diag  (3,3*ntotd2p)
+#endif
+     .           ,v_diag  (3,3*ntotd2p)
+     .           ,v_diag2 (3,3*ntotd2p),STAT=alloc_stat)
 
         call allocateMGArray(1,gp0)
         call allocateMGArray(1,grho0)
@@ -996,6 +1002,80 @@ c     End
 
       end subroutine poisson
 
+c     findPsiv
+c     #####################################################################
+      function findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,da)
+     .         result(psiv)
+
+c     ---------------------------------------------------------------------
+c     Find advection/diffusion component of SI operator
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,nxx,nyy,nzz,igr
+      real(8) :: psiv(3)
+      real(8),target :: da    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .                 ,v0_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .                 ,rho0  (0:nxx+1,0:nyy+1,0:nzz+1,1)
+
+c     Local variables
+
+      real(8) :: mul
+      real(8),target :: dp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+
+c     Begin program
+
+      if (.not.nc_eom_v) then
+
+        dp(:,:,:,1)=rho0(:,:,:,1)*da(:,:,:,1)
+        dp(:,:,:,2)=rho0(:,:,:,1)*da(:,:,:,2)
+        dp(:,:,:,3)=rho0(:,:,:,1)*da(:,:,:,3)
+
+        psiv = cnp*dp(i,j,k,:)/dt
+
+        psiv = psiv
+     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0_cnv,dp)
+     .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,dp,v0_cnv))
+
+cc        vec1 => v0_cnv
+cc        vec2 => dp
+cc        psiv = psiv
+cc     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+cc     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+cc     .                   ,vol=.false.)
+cc        nullify(vec1,vec2)
+cc
+cc        vec1 => dp
+cc        vec2 => v0_cnv
+cc        psiv = psiv
+cc     .        +alpha*div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr
+cc     .                   ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+cc     .                   ,vol=.false.)
+cc        nullify(vec1,vec2)
+
+      else
+cc        psiv = adv_diff_v(i,j,k,nxx,nyy,nzz,igr,igr,igr,rho0,v0_cnv,da)
+
+        psiv = cnp*da(i,j,k,:)/dt
+
+        psiv = psiv
+     .      + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,v0_cnv,da
+     .                       ,upwind=.true.)
+     .      +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,da,v0_cnv
+     .                       ,upwind=(advect == 1)))
+
+      endif
+
+      mul = vis(i,j,k,nxx,nyy,nzz,igr,igr,igr)
+      psiv = psiv
+     .        -mul*alpha*veclaplacian(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+     .                         ,alt_eom,vol=.false.)
+
+      end function findPsiv
+
 c     vecA
 c     ###################################################################
       function vecA(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,half_elem)
@@ -1069,82 +1149,6 @@ cc          minv = minv*di/alpha
 c     End program
 
       end function vecA
-
-c     adv_diff_v
-c     #####################################################################
-      function adv_diff_v(i,j,k,nxx,nyy,nzz,igx,igy,igz,rho0,v0,da)
-     .         result(psiv)
-
-c     ---------------------------------------------------------------------
-c     Find advection/diffusion component of SI operator
-c     ---------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer    :: i,j,k,igx,igy,igz,nxx,nyy,nzz
-      real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .             ,v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .             ,rho0(0:nxx+1,0:nyy+1,0:nzz+1,1),psiv(3)
-
-c     Local Variables
-
-      integer    :: hex,hey,hez
-      real(8)    :: upwind,mul,nabla_v(3,3),nabla_vv0(3,3),veclap(3),jac
-
-c     Begin program
-
-      hex = 1
-      hey = 1
-      hez = 1
-      if (v0(i,j,k,1) > 0d0) hex = -1
-      if (v0(i,j,k,2) > 0d0) hey = -1
-      if (v0(i,j,k,3) > 0d0) hez = -1
-cc      hex = 0
-cc      hey = 0
-cc      hez = 0
-
-      jac = gmetric%grid(igx)%jac(i,j,k)
-
-      nabla_v = fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
-     .                       ,da(:,:,:,1),da(:,:,:,2),da(:,:,:,3)
-     .                       ,hex,hey,hez)
-
-      nabla_vv0 =fnabla_v_upwd(i,j,k,nxx,nyy,nzz,igx,igy,igz
-     .                        ,v0(:,:,:,1)
-     .                        ,v0(:,:,:,2)
-     .                        ,v0(:,:,:,3)
-     .                        ,0,0,0)
-
-      mul = vis(i,j,k,nxx,nyy,nzz,igx,igy,igz)
-
-      veclap = veclaplacian(i,j,k,nxx,nyy,nzz,igx,igy,igz,da
-     .                     ,alt_eom,vol=.false.)
-
-      do ieq=1,3
-        upwind =( v0(i,j,k,1)*nabla_v(1,ieq)
-     .           +v0(i,j,k,2)*nabla_v(2,ieq)
-     .           +v0(i,j,k,3)*nabla_v(3,ieq))/jac
-
-        upwind = upwind
-     .           +( da(i,j,k,1)*nabla_vv0(1,ieq)
-     .             +da(i,j,k,2)*nabla_vv0(2,ieq)
-     .             +da(i,j,k,3)*nabla_vv0(3,ieq))/jac
-
-cc        if (.not.nc_eom_v) then
-cc          hex = floor(sign(1d0,-mgadvdiffV0(ijkg,ieq)))
-cccc          hex = 0
-cc          upwind = upwind
-cc     .          -dt*mgadvdiffV0(ijkg,ieq)*div_upwd(da,hex)/rho0(i,j,k,1)
-cc        endif
-
-        psiv(ieq) = cnp*da(i,j,k,ieq)/dt
-     .            + alpha*upwind
-     .            - alpha*mul*veclap(ieq)/rho0(i,j,k,1)
-      enddo
-
-      end function adv_diff_v
 
 c     diagonalScaling
 c     #####################################################################
