@@ -23,7 +23,7 @@
 
 # Exclude files
 
-ifdef VMEC
+ifeq ($(VMEC),t)
   EXCLUDE = %test.f
 else
   EXCLUDE = %test.f %vmec.f90

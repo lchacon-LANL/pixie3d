@@ -213,12 +213,12 @@ contrib: vmec arpack
 contrib_clean: vmec_clean arpack_clean
 
 vmec:
-ifdef VMEC
+ifeq ($(VMEC),t)
 	$(MAKE) -e -C contrib/vmec/LIBSTELL release INC_PATH=$(NETCDF_INC)
 endif
 
 vmec_clean:
-ifdef VMEC
+ifeq ($(VMEC),t)
 	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
 endif
 
