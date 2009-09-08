@@ -158,20 +158,20 @@ c Other auxiliary variables
 
 c SI operator
 
-      if (k_si > 0d0) then
-        b_n(:,:,:,1) = u_n%array_var(IBX)%array
-        b_n(:,:,:,2) = u_n%array_var(IBY)%array
-        b_n(:,:,:,3) = u_n%array_var(IBZ)%array
-
-        p_n(:,:,:,1) = 2*u_n%array_var(IRHO)%array
-     .                  *u_n%array_var(ITMP)%array
-
-        dv_dt(:,:,:,1) = (vcnv(:,:,:,1)-u_n%array_var(IVX)%array)/dt
-        dv_dt(:,:,:,2) = (vcnv(:,:,:,2)-u_n%array_var(IVY)%array)/dt
-        dv_dt(:,:,:,3) = (vcnv(:,:,:,3)-u_n%array_var(IVZ)%array)/dt
-
-        max_dv_dt = maxval(dv_dt)
-      endif
+cc      if (k_si > 0d0) then
+cc        b_n(:,:,:,1) = u_n%array_var(IBX)%array
+cc        b_n(:,:,:,2) = u_n%array_var(IBY)%array
+cc        b_n(:,:,:,3) = u_n%array_var(IBZ)%array
+cc
+cc        p_n(:,:,:,1) = 2*u_n%array_var(IRHO)%array
+cc     .                  *u_n%array_var(ITMP)%array
+cc
+cc        dv_dt(:,:,:,1) = (vcnv(:,:,:,1)-u_n%array_var(IVX)%array)/dt
+cc        dv_dt(:,:,:,2) = (vcnv(:,:,:,2)-u_n%array_var(IVY)%array)/dt
+cc        dv_dt(:,:,:,3) = (vcnv(:,:,:,3)-u_n%array_var(IVZ)%array)/dt
+cc
+cc        max_dv_dt = maxval(dv_dt)
+cc      endif
 
 c End program
 
