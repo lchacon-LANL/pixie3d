@@ -33,6 +33,7 @@
 
     pvy      = 1d-3
     odd      = t
+    nh2      = 1
 
     cnfactor = 0.5
 

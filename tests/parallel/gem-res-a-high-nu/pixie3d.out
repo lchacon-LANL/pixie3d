@@ -1,25 +1,13 @@
- 
- ***********************************************
- ****** PIXIE3D Extended MHD code, V. 0.9 ******
- ******       Developer: L. Chacon        ******
- ******  Los Alamos National Laboratory   ******
- ******       Los Alamos, NM 87545        ******
- ******           LA-CC 07-005            ******
- ***********************************************
- 
- ****************** NOTICES ******************
- Using VECTOR POTENTIAL version
- ****************** NOTICES ******************
 
   Grid mesh:................   64x   64x    1
-  Number of grid levels:....    5,    4,    1
+  Number of grid levels:....    4,    5,    1
   Preconditioning method:... id        
   Time correction...........   T
   External source...........   F
   Numerical grid............   F
   Advection scheme..........   ZIP    
   TS scheme................. Theta    
- 
+
    itime    time     dt    vx_max vy_max vz_max GMRES  Newton  CN factor
       1    0.010  1.0E-02   0.001  0.000  0.000     3     3     0.500
       2    0.020  1.0E-02   0.001  0.001  0.000     3     3     0.500

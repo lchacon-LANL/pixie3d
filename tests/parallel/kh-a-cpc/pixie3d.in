@@ -34,6 +34,7 @@
 
     pvy      = 1d-4
     odd      = f
+    nh2      = 1
 
     cnfactor = 0.5
 
