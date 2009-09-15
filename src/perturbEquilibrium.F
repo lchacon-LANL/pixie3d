@@ -615,8 +615,8 @@ c     Begin program
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
-              psi(i,j,k)=sin(  pi*(x1-xmin)/(xmax-xmin))
-     .                  *sin(2*pi*(y1-ymin)/(ymax-ymin))
+              psi(i,j,k)=-sin(  pi*(x1-xmin)/(xmax-xmin))
+     .                   *cos(2*pi*(y1-ymin)/(ymax-ymin))
             enddo
           enddo
         enddo

@@ -2340,16 +2340,9 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
       end select
 
-c Find momentum components
+c Find auxiliary equilibrium quantities
 
-      if (.not.nc_eom_v) then
-        var(:,:,:,IVX) = var(:,:,:,IRHO)*var(:,:,:,IVX)
-        var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
-        var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
-      endif
-
-c Find equilibrium current (-> jcov_0)
-
+      !Current
 #if defined(vec_pot)
       acov = var(:,:,:,IAX:IAZ)
 #else
@@ -2357,6 +2350,14 @@ c Find equilibrium current (-> jcov_0)
 #endif
 
       call findEquilJ
+
+c Find momentum components
+
+      if (.not.nc_eom_v) then
+        var(:,:,:,IVX) = var(:,:,:,IRHO)*var(:,:,:,IVX)
+        var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
+        var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
+      endif
 
 c Transfer electric field info to postprocessor via input file
 

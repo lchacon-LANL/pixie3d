@@ -49,7 +49,7 @@ c Namelists
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it,test
-     .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
+     .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
      .                   ,aa_nu,bb_nu,cc_nu,c_hyper
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -75,7 +75,7 @@ c Namelists
      .                   ,npx,npy,npz,gp1,gp2,gp3,equ_file
 
       !Physics setup
-      namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di
+      namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
      .                   ,aa_nu,bb_nu,cc_nu,c_hyper,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
@@ -218,6 +218,9 @@ c Set defaults
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
 
+      di       = 0d0           ! Ion inertia parameter
+      de       = 0d0           ! Electron inertia parameter
+
       aa_eta   = 0d0           ! Coefficient for eta profile
       bb_eta   = 0d0           ! Coefficient for eta profile
       cc_eta   = 1d0           ! Coefficient for eta profile
@@ -230,8 +233,6 @@ c Set defaults
       gamma    = 5./3.         ! Polytropic constant of plasma
 
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
-
-      di       = 0d0           ! Hall parameter
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio
 
@@ -436,6 +437,12 @@ cc        solve_rho = .false.
       endif
 
       if (chi_par == 0d0) chi_par = chi
+
+      if (di == 0d0) de = 0d0
+
+      if (de > di) then
+        call pstop('readInput','Unphysical value for di and/or de')
+      endif
 
 c Map perturbations
 
