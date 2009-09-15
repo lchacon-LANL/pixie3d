@@ -144,9 +144,51 @@ c Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
         enddo
       endif
 
+c Divergence of ion stress tensor
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            div_pi(i,j,k,:)=EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
+     .                               ,diff=nuu)
+          enddo
+        enddo
+      enddo
+
+c Electron velocity
+
+      vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+      vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+      vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+
+      vecov(:,:,:,1) = vcov(:,:,:,1)-di*jcov(:,:,:,1)/rho
+      vecov(:,:,:,2) = vcov(:,:,:,2)-di*jcov(:,:,:,2)/rho
+      vecov(:,:,:,3) = vcov(:,:,:,3)-di*jcov(:,:,:,3)/rho
+
+      if (jit == -2) vecnv_0 = vecnv   !Store equilibrium info
+
+c Divergence of electron stress tensor
+
+      if (di*heta > 0d0) then
+        vdummy = vecnv - vecnv_0
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              div_pe(i,j,k,:)=heta
+     .                     *EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vdummy)
+            enddo
+          enddo
+        enddo
+      else
+        div_pe = 0d0
+      endif
+
 c Electric field (covariant vector)
 
       if (hall_new .and. jit < 0) vcov_n = vcov !Store time n info
+
+      if (de > 0d0 .and. jit < 0) vecov_n = vecov !Store time n info
 
       call find_E(nx,ny,nz,igx,igy,igz,E_ni)
 
@@ -155,23 +197,6 @@ c Other auxiliary variables
       pcnv(:,:,:,1) = px
       pcnv(:,:,:,2) = py
       pcnv(:,:,:,3) = pz
-
-c SI operator
-
-cc      if (k_si > 0d0) then
-cc        b_n(:,:,:,1) = u_n%array_var(IBX)%array
-cc        b_n(:,:,:,2) = u_n%array_var(IBY)%array
-cc        b_n(:,:,:,3) = u_n%array_var(IBZ)%array
-cc
-cc        p_n(:,:,:,1) = 2*u_n%array_var(IRHO)%array
-cc     .                  *u_n%array_var(ITMP)%array
-cc
-cc        dv_dt(:,:,:,1) = (vcnv(:,:,:,1)-u_n%array_var(IVX)%array)/dt
-cc        dv_dt(:,:,:,2) = (vcnv(:,:,:,2)-u_n%array_var(IVY)%array)/dt
-cc        dv_dt(:,:,:,3) = (vcnv(:,:,:,3)-u_n%array_var(IVZ)%array)/dt
-cc
-cc        max_dv_dt = maxval(dv_dt)
-cc      endif
 
 c End program
 

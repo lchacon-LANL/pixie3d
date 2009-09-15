@@ -51,7 +51,7 @@ c Local variables
       real(8)    :: advc,diffus
 
       ! tmp equation
-      real(8)    :: heat_flx,heat_src,joule,viscous
+      real(8)    :: heat_flx,heat_src,joule,viscous,pi_tnsr(3,3)
 
 c Begin program
 
@@ -201,35 +201,6 @@ cc      endif
 
 c     Vector potential
 
-cc      cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
-cc     .         -vecnv(i,j,k,3)*bcnv(i,j,k,2))/jac + E_ni(i,j,k,1)
-cc
-cc      cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
-cc     .         -vecnv(i,j,k,1)*bcnv(i,j,k,3))/jac + E_ni(i,j,k,2)
-cc
-cc      cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
-cc     .         -vecnv(i,j,k,2)*bcnv(i,j,k,1))/jac + E_ni(i,j,k,3)
-cc
-cc
-cc      vlap1  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-cccc      vlap1  = vlap_a(i,j,k,:)
-cccc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
-cccc     .                     ,.false.,vol=.false.)
-cccc
-cccc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,vlap1(1),vlap1(2),vlap1(3)
-cccc     .                        ,cnv (1),cnv (2),cnv (3)
-cccc     .                        ,.false.)
-cc
-cc      if (heta > 0d0) then
-cc        vlap2=veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vlap_a,vol=.false.)
-cc      else
-cc        vlap2=0d0
-cc      endif
-cc
-cc      ff(IAX:IAZ) = -cov - eeta(i,j,k)*vlap1 + di*heta*vlap2
-
-cc      ff(IAX:IAZ) = E_ni(i,j,k,:) - eeta(i,j,k)*vlap1 + di*heta*vlap2
       ff(IAX:IAZ) = E_ni(i,j,k,:)
 
 #endif
@@ -292,14 +263,31 @@ c       Advection + sources
      .                         +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
      .                                        -jcov_0(i,j,k,3)))/jac
 
-          !Viscous heating
-          cov_tnsr = matmul(nabla_v,gsub)
+          !Viscous heating: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
+          if (nu > 0d0) then
+            vec1 => vcnv
+            coef => nuu
+            call eom_diff_x(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(1,1),pi_tnsr(1,2),pi_tnsr(1,3),0)
+            call eom_diff_y(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(2,1),pi_tnsr(2,2),pi_tnsr(2,3),0)
+            call eom_diff_z(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(3,1),pi_tnsr(3,2),pi_tnsr(3,3),0)
+            nullify(vec1,coef)
 
-          if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
+cc            cov_tnsr = matmul(nabla_v,gsub)
+cc            if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
 
-          cnv_tnsr = matmul(gsuper,nabla_v)
+cc            cov_tnsr = matmul(pi_tnsr,gsub)
+cc            cnv_tnsr = matmul(gsuper,nabla_v)
+cc            viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
 
-          viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
+            !Make nabla_v covariant on both sides, and do dot product
+            viscous =-tensorScalarProduct(i,j,k,igx,igy,igz
+     .                                   ,matmul(nabla_v,gsub),pi_tnsr)
+          else
+            viscous = 0d0
+          endif
 
           heat_src = joule + viscous
 
@@ -317,102 +305,35 @@ c       Advection + sources
 
 c     EOM
 
-      ff(IVX:IVZ) = 0d0
-
-      !SI contribution
-cc      if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
-cc        ff(IVX:IVZ) = ff(IVX:IVZ)
-cc     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)
-cc      endif
-
-      !Volume force
+      !Volume force: (jxB-grad(p))
       if (nc_eom_jxb) then
-        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
 cc        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
 cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       else
-        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       endif
 
-      ff(IVX:IVZ) = ff(IVX:IVZ) - cnv
+      ff(IVX:IVZ) = -cnv
 
-      !Advection
+      !Advection + stress tensor
       if (nc_eom_v) then
-cc        if (advect == 1) then !Upwinding
-cc          hex = 1
-cc          hey = 1
-cc          hez = 1
-cc          if (vcnv(i,j,k,1) > 0d0) hex = -1
-cc          if (vcnv(i,j,k,2) > 0d0) hey = -1
-cc          if (vcnv(i,j,k,3) > 0d0) hez = -1
-cc
-cc          nabla_v = fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,vcnv(:,:,:,1)
-cc     .                           ,vcnv(:,:,:,2)
-cc     .                           ,vcnv(:,:,:,3),hex,hey,hez)
-cc        endif
-cc
-cc        do ieq=1,3
-cc          cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
-cc     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
-cc     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
-cc        enddo
-
         cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
      .                ,upwind=(advect==1))
+     .       +(div_pi(i,j,k,:)+div_pe(i,j,k,:))/rho(i,j,k)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
-cc        vec1 => vcnv
-cc        vec2 => vcnv
-cc        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k)
-cc     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
-cc     .                          ,vol=.false.)
-cc     .              - vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                 ,vcnv(:,:,:,1)
-cc     .                                 ,vcnv(:,:,:,2)
-cc     .                                 ,vcnv(:,:,:,3))
-cc        nullify(vec1,vec2)
-
       else
-cc        vec1 => vcnv
-cc        vec2 => pcnv
-cc        ff(IVX:IVZ) = ff(IVX:IVZ)
-cc     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
-cc     .                          ,vol=.false.)
-cc        nullify(vec1,vec2)
-
         cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
      .                ,upwind=(advect==1))
+     .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
-
-      endif
-
-      !Stress tensor
-      if (nu /= 0d0) then
-        cnv = EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,diff=nuu)
-
-cc        vec1 => vcnv
-cc        coef => nuu
-cc        cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                  ,eom_diff_x,eom_diff_y,eom_diff_z
-cc     .                  ,vol=.false.)
-cc        nullify(vec1,coef)
-
-cc        cnv =-nuu(i,j,k)* veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
-cc     .                               ,.false.,vol=.false.)
-#if !defined(RFX)
-        if (nc_eom_v) cnv = cnv/rho(i,j,k)
-#endif
-        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
-           
       endif
 
 c End

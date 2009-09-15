@@ -53,7 +53,7 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         type(var_array),pointer :: varray
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
-     .                            ,gdb_cov
+     .                            ,gdb_cov,gvis,geta
 
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
@@ -114,6 +114,8 @@ c     Begin program
         call allocateMGArray(3,gb0_cov)
         call allocateMGArray(3,ga0)   !B + di curl(v)
         call allocateMGArray(3,gdb_cov)
+        call allocateMGArray(1,gvis)
+        call allocateMGArray(1,geta)
 
 c     End program
 
@@ -158,6 +160,8 @@ c     Begin program
         call deallocateMGArray(gv0_cov)
         call deallocateMGArray(ga0)
         call deallocateMGArray(gdb_cov)
+        call deallocateMGArray(gvis)
+        call deallocateMGArray(geta)
 
         call deallocateDerivedType(varray)
 
@@ -471,7 +475,7 @@ c     Call variables
 c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
-     .               ,bc_pc(size(bcs,1),size(bcs,2))
+     .               ,bc_pc(size(bcs,1),size(bcs,2)),bc_sc(6)
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
@@ -568,6 +572,29 @@ cc        gj0_cov%grid(igrid)%array = jcov
 cc
 cc        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
 cc     .                      ,order,iscnv=.false.)
+
+c     Store viscosity
+
+        gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
+
+        bc_sc = bcond
+        where (bc_sc == DEF) bc_sc = EXT
+
+        call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
+
+        do igr=igrid,grid_params%ngrid
+          gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
+        enddo
+
+c     Store resistivity
+
+        geta%grid(igrid)%array(:,:,:,1) = eeta
+
+        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order)
+
+cc        do igr=igrid,grid_params%ngrid
+cc          geta%grid(igr)%array = 1d0/geta%grid(igr)%array
+cc        enddo
 
 c     Store (B + di curl(v)) in all grids
 
@@ -1040,7 +1067,8 @@ c     Begin program
      .                        ,upwind=(advect == 1)))
 
         !Diffusion
-        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da)
+        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+     .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
 #if !defined(RFX)
      .                     /rho0(i,j,k,1)
 #endif
@@ -1058,7 +1086,8 @@ c     Begin program
      .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dp,v0_cnv))
 
         !Diffusion
-        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da)
+        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+     .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
       endif
 
       end function findPsiv

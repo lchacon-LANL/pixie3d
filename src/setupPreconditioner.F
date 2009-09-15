@@ -152,6 +152,7 @@ c Find required diagonals in all grids
           if (v_solve) then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
      .                       ,v_diag2,ncolors,vol_wgt,mg_glrkin)
+          stop
           endif
 
           if (precon == 's1' .or. precon == 's2') then

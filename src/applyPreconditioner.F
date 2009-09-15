@@ -1413,6 +1413,7 @@ c Local variables
      .                                                ,dv_cnv
      .                                                ,dv0cnv
      .                                                ,dp_cnv
+     .                                                ,dve_cnv
      .                                                ,drho  
      .                                                ,dtmp  
 #if defined(vec_pot)
@@ -1442,6 +1443,7 @@ c Allocate variables
      .        ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,drho  (0:nx+1,0:ny+1,0:nz+1,1)
      .        ,dtmp  (0:nx+1,0:ny+1,0:nz+1,1)
 #if defined(vec_pot)
@@ -1548,6 +1550,14 @@ c Find dp_cnv
         dp_cnv(:,:,:,3)=rho*dv_cnv(:,:,:,3)+drho(:,:,:,1)*vcnv(:,:,:,3)
       endif
 
+c Find electron velocity
+
+      if (di*heta > 0d0) then
+        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)-di*dj_cnv(:,:,:,1)/rho
+        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)-di*dj_cnv(:,:,:,2)/rho
+        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)-di*dj_cnv(:,:,:,3)/rho
+      endif
+
 c Find rhs_v'
 
       do k = 1,nz
@@ -1572,35 +1582,42 @@ c Find rhs_v'
                   cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,drho(:,:,:,1),tmp,db_cov,jcov,.false.
      .                     ,nc_eom_jxb,nc_eom_gp,.false.
-     .                     ,vol=vwgt)
+     .                     ,vol=.false.)
                 else
                   cnv = eom_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,db_cov,jcov,.false.,nc_eom_jxb,.false.
-     .                     ,vol=vwgt)
+     .                     ,vol=.false.)
                 endif
 
                 cnv = cnv
      .               +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,rho,dtmp(:,:,:,1),bcov,dj_cov,.false.
      .                     ,nc_eom_jxb,nc_eom_gp,.false.
-     .                     ,vol=vwgt)
+     .                     ,vol=.false.)
               else
                 if (.not.adiabatic) then
                   cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                   ,drho(:,:,:,1),tmp,db_cnv,bcnv,.true.
      .                   ,nc_eom_jxb,nc_eom_gp,.false.
-     .                   ,vol=vwgt)
+     .                   ,vol=.false.)
                 else
                   cnv = eom_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                   ,db_cnv,bcnv,.true.,nc_eom_jxb,.false.
-     .                   ,vol=vwgt)
+     .                   ,vol=.false.)
                 endif
 
                 cnv = cnv
      .               +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                   ,rho,dtmp(:,:,:,1),bcnv,db_cnv,.true.
      .                   ,nc_eom_jxb,nc_eom_gp,.false.
-     .                   ,vol=vwgt)
+     .                   ,vol=.false.)
+              endif
+
+              !Substract div_pe piece corresponding to (-di*j/rho)
+              if (di*heta > 0d0 .and. part == 'lfz') then
+                cnv = cnv
+     .              - heta*EOM_divPi(i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid,dve_cnv)
               endif
 
               if (nc_eom_v) then
@@ -1616,61 +1633,36 @@ c Find rhs_v'
               
               if (nc_eom_v) then
 
-                nabla_v   = fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                              ,dv_cnv(:,:,:,1)
-     .                              ,dv_cnv(:,:,:,2)
-     .                              ,dv_cnv(:,:,:,3),0)
-
-                nabla_vv0 = fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                              ,vcnv(:,:,:,1)
-     .                              ,vcnv(:,:,:,2)
-     .                              ,vcnv(:,:,:,3),0)
-
                 cnv = cnv
-     .              + ( vcnv  (i,j,k,1)*nabla_v  (1,:)
-     .                 +vcnv  (i,j,k,2)*nabla_v  (2,:)
-     .                 +vcnv  (i,j,k,3)*nabla_v  (3,:)
-     .                 +dv_cnv(i,j,k,1)*nabla_vv0(1,:)
-     .                 +dv_cnv(i,j,k,2)*nabla_vv0(2,:)
-     .                 +dv_cnv(i,j,k,3)*nabla_vv0(3,:))/jac*dvol
-                
+     .              +(EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,vcnv,dv_cnv,upwind=(advect == 1))
+     .               +EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dv_cnv,vcnv,upwind=(advect == 1)))
               else
-                vec1 => vcnv
-                vec2 => dp_cnv
-                cnv = cnv + div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                         ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-     .                         ,vol=vwgt)
-                nullify(vec1,vec2)
-
-                vec1 => dv_cnv
-                vec2 => pcnv
-                cnv = cnv + div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                         ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-     .                         ,vol=vwgt)
-                nullify(vec1,vec2)
-
+                cnv = cnv
+     .              +(EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,vcnv,dp_cnv,upwind=(advect == 1))
+     .               +EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dp_cnv,vcnv,upwind=(advect == 1)))
               endif
 
-              !Diffusion
-              if (nu /= 0d0) then
-                vec1 => dv_cnv
-                coef => nuu
-                if (nc_eom_v) then
-                  cnv = cnv +div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,alt_eom,eom_diff_x,eom_diff_y,eom_diff_z
-     .                        ,vol=vwgt)/rho(i,j,k)
-                else
-                  cnv = cnv +div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,alt_eom,eom_diff_x,eom_diff_y,eom_diff_z
-     .                        ,vol=vwgt)
-                endif
-                nullify(vec1,coef)
+              !Ion stress tensor
+              cnv = cnv
+     .            + EOM_divPi(i,j,k,nx,ny,nz,igrid,igrid,igrid,dv_cnv
+     .                       ,diff=gvis%grid(igrid)%array(:,:,:,1))
+
+              !Electron stress tensor
+              if (heta > 0d0) then
+                cnv = cnv
+     .            + heta
+     .             *EOM_divPi(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
               endif
-     
+
+              if (nc_eom_v) cnv = cnv/rho(i,j,k)     
             endif
 
             !Correct rhs_v
-            eom_rhs(ii,:) = alpha*cnv(:)
+            eom_rhs(ii,:) = alpha*dvol*cnv(:)
 
           enddo
         enddo
@@ -1685,6 +1677,7 @@ c Free memory
      .          ,dv_cnv
      .          ,dv0cnv
      .          ,dp_cnv
+     .          ,dve_cnv
      .          ,drho  
      .          ,dtmp  
 #if defined(vec_pot)
