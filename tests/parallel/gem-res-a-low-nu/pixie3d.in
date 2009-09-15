@@ -38,6 +38,7 @@
     pbz      = 0.1
     prho     = 0d-3
     odd      = f
+    nh2      = 1
 
     cnfactor = 0.5
     sm_flag  = 0
