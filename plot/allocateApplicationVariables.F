@@ -24,7 +24,8 @@ c Begin program
 
       allocate (vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
      .         ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .         ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3))
+     .         ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3)
+     .         ,jcnv_0(ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(vec_pot)
       allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -165,7 +166,7 @@ c Local variables
 
 c Begin program
 
-      deallocate (vcnv,vcov,jcov_0)
+      deallocate (vcnv,vcov,jcov_0,jcnv_0)
 
 #if defined(vec_pot)
       deallocate (acnv)
