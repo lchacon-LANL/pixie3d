@@ -120,8 +120,6 @@ c Begin program
 
       var = 0d0
 
-      jcov_0 = 0d0
-
       E0 = 0d0 ; B0 = 0d0
 
 #if !defined(vec_pot) 
@@ -2342,14 +2340,11 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 c Find auxiliary equilibrium quantities
 
-      !Current
-#if defined(vec_pot)
-      acov = var(:,:,:,IAX:IAZ)
-#else
-      bcnv = var(:,:,:,IBX:IBZ)
-#endif
-
-      call findEquilJ
+cc#if defined(vec_pot)
+cc      call findEquilJ(igx,igy,igz,nx,ny,nz,var(:,:,:,IAX:IAZ))
+cc#else
+cc      call findEquilJ(igx,igy,igz,nx,ny,nz,var(:,:,:,IBX:IBZ))
+cc#endif
 
 c Find momentum components
 
