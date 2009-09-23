@@ -15,16 +15,20 @@ c ######################################################################
       module equil_def
 
         integer    :: IRHO,IVX,IVY,IVZ,IBX,IBY,IBZ,ITMP,IJX,IJY,IJZ
-     .               ,IAX,IAY,IAZ,IBCNV,IBCOV,IJCNV,IJCOV
+     .               ,IAX,IAY,IAZ
+
+        integer    :: IACNV,IACOV,IBCNV,IBCOV,IJCNV,IJCOV,IJ0CNV,IJ0COV
 
 #if !defined(vec_pot)
         parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7,ITMP=8
      .               ,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
-     .               ,IJCNV=1,IJCOV=2,IBCNV=3,IBCOV=4)
+     .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
+     .               ,IVCNV=7,IVCOV=8)
 #else
         parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7,ITMP=8
      .               ,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
-     .               ,IJCNV=1,IJCOV=2,IBCNV=3,IBCOV=4)
+     .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
+     .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10)
 #endif
 
         character(5)  :: equil
@@ -216,33 +220,41 @@ c ######################################################################
         use equil_def
 
 #if defined(vec_pot)
-        real(8),target,allocatable,dimension(:,:,:,:) :: acov,acnv
+        real(8),pointer,dimension(:,:,:,:) :: acov,acnv
         real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #else
-        real(8),target,allocatable,dimension(:,:,:,:) :: bcnv,bcov
+        real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #endif
 
-        real(8),target,allocatable,dimension(:,:,:) :: eeta,nuu,divrgV
+        real(8),pointer,dimension(:,:,:)   :: eeta,nuu,divrgV
 
-        real(8),target,allocatable,dimension(:,:,:,:) ::vcnv,vcov,vcov_n
-     .                                                 ,pcnv
-     .                                                 ,vdummy,E_ni,bhat
-     .                                                 ,div_pi,div_pe
-     .                                                 ,jcov_0,jcnv_0
-     .                                                 ,vecnv,vecnv_0
-     .                                                 ,vecov,vecov_n
-
-        real(8),pointer,dimension(:,:,:,:) :: jcnv,jcov
+        real(8),pointer,dimension(:,:,:,:) :: vcnv
+     .                                       ,vcov
+     .                                       ,vcov_n
+     .                                       ,pcnv
+     .                                       ,bhat
+     .                                       ,vdummy
+     .                                       ,E_ni
+     .                                       ,E_h
+     .                                       ,div_pi
+     .                                       ,div_pe
+     .                                       ,jcov_0
+     .                                       ,jcnv_0
+     .                                       ,vecnv
+     .                                       ,vecnv_0
+     .                                       ,vecov
+     .                                       ,vecov_n
+     .                                       ,jcnv
+     .                                       ,jcov
 
         integer :: advect
 
         logical :: alt_eom
 
-c SI operator
-        real(8) :: k_si=0d0
-        real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
-     .                                                  
-c SI operator
+ccc SI operator
+cc        real(8) :: k_si=0d0
+cc        real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
+ccc SI operator
 
       contains
 
@@ -260,11 +272,17 @@ c     Allocate storage
 
         if (.not.associated(gv%aux)) then
 #if defined(vec_pot)
-          call allocateAuxStruct(0,4,gv%aux)
+          call allocateAuxStruct(0,10,gv%aux)
 #else
-          call allocateAuxStruct(0,2,gv%aux)
+          call allocateAuxStruct(0,8,gv%aux)
 #endif
         endif
+
+        gv%aux%vec_list(IBCNV)%cnv = .true.
+        bcnv => gv%aux%vec_list(IBCNV)%vec
+
+        gv%aux%vec_list(IBCOV)%cnv = .false.
+        bcov => gv%aux%vec_list(IBCOV)%vec
 
         gv%aux%vec_list(IJCNV)%cnv = .true.
         jcnv => gv%aux%vec_list(IJCNV)%vec
@@ -272,160 +290,95 @@ c     Allocate storage
         gv%aux%vec_list(IJCOV)%cnv = .false.
         jcov => gv%aux%vec_list(IJCOV)%vec
 
-#if defined(vec_pot)
-        gv%aux%vec_list(IBCNV)%cnv = .true.
-        bcnv => gv%aux%vec_list(IBCNV)%vec
+        gv%aux%vec_list(IJ0CNV)%cnv = .true.
+        jcnv_0 => gv%aux%vec_list(IJ0CNV)%vec
 
-        gv%aux%vec_list(IBCOV)%cnv = .false.
-        bcov => gv%aux%vec_list(IBCOV)%vec
+        gv%aux%vec_list(IJ0COV)%cnv = .false.
+        jcov_0 => gv%aux%vec_list(IJ0COV)%vec
+
+        gv%aux%vec_list(IVCNV)%cnv = .true.
+        vcnv => gv%aux%vec_list(IVCNV)%vec
+
+        gv%aux%vec_list(IVCOV)%cnv = .false.
+        vcov => gv%aux%vec_list(IVCOV)%vec
+
+#if defined(vec_pot)
+        gv%aux%vec_list(IACNV)%cnv = .true.
+        acnv => gv%aux%vec_list(IACNV)%vec
+
+        gv%aux%vec_list(IACOV)%cnv = .false.
+        acov => gv%aux%vec_list(IACOV)%vec
 #endif
+
+        allocate (pcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
+
+        allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
+
+        allocate (vcov_n(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecov (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecov_n(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,E_h   (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,div_pi(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,div_pe(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,jcnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bhat  (ilom:ihip,jlom:jhip,klom:khip,3))
+
+cc#if defined(vec_pot)
+cc        allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3))
+cc#else
+cc        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
+cc#endif
 
 c     End program
 
       end subroutine allocAuxVariables
 
-c     defineAuxBCs
+c     deallocAuxVariables
 c     ###################################################################
-cc      subroutine defineAuxBCs(neq,bbcs)
-      subroutine defineAuxBCs
+      subroutine deallocAuxVariables
 
 c     -------------------------------------------------------------------
-c     Defines BCs for auxiliary quantities
+c     Deallocates auxiliary variable storage.
 c     -------------------------------------------------------------------
-
-c     Call variables
-
-cc      integer    :: neq,bbcs(6,neq)
-
-c     Local variables
-
-      integer    :: ieq,bcsq(6)
 
 c     Begin program
 
-cc#if defined(vec_pot)
-cc      !Magnetic field
-cc      bcsq = bcond
-cc      where (bcsq == DEF) bcsq = DIR
-cc      gv%aux%vec_list(IBCNV)%bconds(:,1) = bcsq
-cc
-cccc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cccc        bcsq = bcond
-cccc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cccc        gv%aux%vec_list(IBCNV)%bconds(:,2) = bcsq
-cccc
-cccc        bcsq = bcond
-cccc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cccc        gv%aux%vec_list(IBCNV)%bconds(:,3) = bcsq
-cccc      else
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -NEU !On covariant components
-cc        gv%aux%vec_list(IBCNV)%bconds(:,2) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -NEU !On covariant components
-cc        gv%aux%vec_list(IBCNV)%bconds(:,3) = bcsq
-cccc      endif
-cc
-cc      gv%aux%vec_list(IBCOV)%bconds = gv%aux%vec_list(IBCNV)%bconds
-cc
-cc      !Current
-cccc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cccc        bcsq = bcond
-cccc        where (bcsq == DEF) bcsq = DIR
-cccc        bcnd(:,1) = bcsq
-cccc
-cccc        bcsq = bcond
-cccc        where (bcsq == DEF) bcsq = EXT
-cccccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cccc        bcnd(:,2) = bcsq
-cccc
-cccc        bcsq = bcond
-cccc        where (bcsq == DEF) bcsq = EXT
-cccccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cccc        bcnd(:,3) = bcsq
-cccc      else
-cc        gv%aux%vec_list(IJCNV)%bconds(:,1) = bbcs(:,IAX)
-cc        gv%aux%vec_list(IJCNV)%bconds(:,2) = bbcs(:,IAY)
-cc        gv%aux%vec_list(IJCNV)%bconds(:,3) = bbcs(:,IAZ)
-cccc      endif
-cc
-cc      gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
-cc#else
-cc      !Current
-cc      gv%aux%vec_list(IJCNV)%bconds = bbcs(:,IBX:IBZ)
-cc      where (gv%aux%vec_list(IJCNV)%bconds == -NEU)
-cccc        gv%aux%vec_list(IJCNV)%bconds = -DIR  !Use covariant components for tangential BCs
-cc        gv%aux%vec_list(IJCNV)%bconds = -EQU  !Use covariant components for tangential BCs
-cc      end where
-cc
-cc      gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
-cc#endif
+c     Allocate storage
 
-#if defined(vec_pot)
-      !Magnetic field
-      bcsq = bcond
-      where (bcsq == DEF) bcsq = DIR
-      gv%aux%vec_list(IBCNV)%bconds(:,1) = bcsq
-
-cc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc        gv%aux%vec_list(IBCNV)%bconds(:,2) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = -EXT !On covariant components
-cc        gv%aux%vec_list(IBCNV)%bconds(:,3) = bcsq
-cc      else
-        bcsq = bcond
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-        gv%aux%vec_list(IBCNV)%bconds(:,2) = bcsq
-
-        bcsq = bcond
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-        gv%aux%vec_list(IBCNV)%bconds(:,3) = bcsq
-cc      endif
-
-      gv%aux%vec_list(IBCOV)%bconds = gv%aux%vec_list(IBCNV)%bconds
-
-      !Current
-cc      if (equil == 'spnch' .or. equil == 'rfp2') then
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = DIR
-cc        bcnd(:,1) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = EXT
-cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cc        bcnd(:,2) = bcsq
-cc
-cc        bcsq = bcond
-cc        where (bcsq == DEF) bcsq = EXT
-cccc        where (bcsq == DEF) bcsq = -EQU  !On covariant components
-cc        bcnd(:,3) = bcsq
-cc      else
-        gv%aux%vec_list(IJCNV)%bconds(:,1) = u_0%array_var(IAX)%bconds
-        gv%aux%vec_list(IJCNV)%bconds(:,2) = u_0%array_var(IAY)%bconds
-        gv%aux%vec_list(IJCNV)%bconds(:,3) = u_0%array_var(IAZ)%bconds
-cc      endif
-
-      gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
-#else
-      !Current
-      gv%aux%vec_list(IJCNV)%bconds(:,1) = u_0%array_var(IBX)%bconds
-      gv%aux%vec_list(IJCNV)%bconds(:,2) = u_0%array_var(IBY)%bconds
-      gv%aux%vec_list(IJCNV)%bconds(:,3) = u_0%array_var(IBZ)%bconds
-
-      where (gv%aux%vec_list(IJCNV)%bconds == -NEU)
-        gv%aux%vec_list(IJCNV)%bconds = -EQU  !Use covariant components for tangential BCs
-      end where
-
-      gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
+#if !defined(samrai)
+      call deallocateAuxStruct(gv%aux)
 #endif
+
+      deallocate (pcnv,vdummy)
+
+      deallocate (eeta,nuu)
+
+      deallocate (vcov_n,vecnv,vecov,vecnv_0,vecov_n
+     .           ,E_ni,E_h,div_pi,div_pe
+     .           ,bhat
+     .           )
+
+cc      deallocate (vcnv,vcov,jcov_0,jcnv_0)
+cc
+cc#if defined(vec_pot)
+cc      deallocate (acnv,acov)
+cc#else
+cc      deallocate (bcnv,bcov)
+cc#endif
 
 c     End program
 
-      end subroutine defineAuxBCs
+      end subroutine deallocAuxVariables
 
       end module auxiliaryVariables
 
@@ -720,6 +673,68 @@ c     Begin program
 c     End program
 
       end function curl_vrtx
+
+c     graddiv_vrtx
+c     ###############################################################
+      function graddiv_vrtx(i,j,k,nx,ny,nz,igx,igy,igz,aa,vol)
+     .         result(cov)
+
+c     ---------------------------------------------------------------
+c     Calculates grad(div(A)) in general non-orthogonal
+c     coordinates, preserving the self-adjoint property. The vector A
+c     is contravariant, and returns covariant components.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+
+      real(8)    :: aa(0:nx+1,0:ny+1,0:nz+1,3),cov(3)
+
+      logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+      integer    :: il,jl,kl,ii,jj,kk
+
+      real(8)    :: div(2,2,2)
+
+      logical    :: vol_wgt
+
+c     Begin program
+
+      vol_wgt = .true.
+      if (PRESENT(vol)) vol_wgt = vol
+
+c     Divergence at vertices
+
+      do kl=1,2
+        do jl=1,2
+          do il=1,2
+            ii = i+il-2
+            jj = j+jl-2
+            kk = k+kl-2
+
+            div(il,jl,kl) = div_vrtx(ii,jj,kk,igx,igy,igz
+     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,1)
+     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,2)
+     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,3)
+     .                         ,.true.)
+          enddo
+        enddo
+      enddo
+
+c     Gradient at cell centers
+
+      cov = grad_vrtx(i,j,k,igx,igy,igz,div,.false.)
+
+      if (vol_wgt) cov=cov*gmetric%grid(igx)%dvol(i,j,k)
+
+c     End program
+
+      end function graddiv_vrtx
 
 c     div
 c     ###############################################################
@@ -1884,7 +1899,6 @@ c     Begin program
       endif
 
       if (coords == 'car') then
-
         laplacian = 
      .     dyh(jg)*dzh(kg)*( (arr(ip,j,k)-arr(i,j,k))/dx(ig)
      .                      +(arr(im,j,k)-arr(i,j,k))/dx(ig-1) )
@@ -5331,31 +5345,34 @@ ccc     End program
 cc
 cc      end function graddiv
 
-c     graddiv
-c     ###############################################################
-      function graddiv(i,j,k,nx,ny,nz,igx,igy,igz,aa,vol) result(cov)
+c     gradDiv
+c     #####################################################################
+      function gradDiv(i,j,k,nx,ny,nz,igx,igy,igz,da,vol) result(cov)
 
 c     ---------------------------------------------------------------
 c     Calculates grad(div(A)) in general non-orthogonal
-c     coordinates, preserving the self-adjoint property. The vector A
+c     coordinates in a compact form. The vector A
 c     is contravariant, and returns covariant components.
 c     ---------------------------------------------------------------
 
-      implicit none           !For safe fortran
+      implicit none
 
 c     Call variables
 
       integer    :: i,j,k,nx,ny,nz,igx,igy,igz
 
-      real(8)    :: aa(0:nx+1,0:ny+1,0:nz+1,3),cov(3)
+      real(8)    :: cov(3)
+      real(8)    :: da(0:nx+1,0:ny+1,0:nz+1,3)
 
       logical,optional,intent(IN) :: vol
 
 c     Local variables
 
-      integer    :: il,jl,kl,ii,jj,kk
+      integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
 
-      real(8)    :: div(2,2,2)
+      real(8)    :: divip,divim,divjp,divjm,divkp,divkm
+     .             ,jacip,jacim,jacjp,jacjm,jackp,jackm
+     .             ,jac
 
       logical    :: vol_wgt
 
@@ -5364,33 +5381,81 @@ c     Begin program
       vol_wgt = .true.
       if (PRESENT(vol)) vol_wgt = vol
 
-c     Divergence at vertices
+      ip = i+1
+      im = i-1
+      jp = j+1
+      jm = j-1
+      kp = k+1
+      km = k-1
 
-      do kl=1,2
-        do jl=1,2
-          do il=1,2
-            ii = i+il-2
-            jj = j+jl-2
-            kk = k+kl-2
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-            div(il,jl,kl) = div_vrtx(ii,jj,kk,igx,igy,igz
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,1)
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,2)
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,3)
-     .                         ,.true.)
-          enddo
-        enddo
-      enddo
+      jacip  = gmetric%grid(igx)%jac(ip,j,k)
+      jacim  = gmetric%grid(igx)%jac(im,j,k)
+      jacjp  = gmetric%grid(igx)%jac(i,jp,k)
+      jacjm  = gmetric%grid(igx)%jac(i,jm,k)
+      jackp  = gmetric%grid(igx)%jac(i,j,kp)
+      jackm  = gmetric%grid(igx)%jac(i,j,km)
+      jac    = gmetric%grid(igx)%jac(i,j,k )
 
-c     Gradient at cell centers
+c     Fluxes at faces for calculation of grad[div(da)]
 
-      cov = grad_vrtx(i,j,k,igx,igy,igz,div,.false.)
+      !!Divergence at faces i+-1/2, etc.
+      divip = (da(ip,j ,k,1)-da(i ,j ,k,1))/dx(ig)
+     .       +(da(i ,jp,k,2)-da(i ,jm,k,2)
+     .        +da(ip,jp,k,2)-da(ip,jm,k,2))/dyh(jg)*0.25
+     .       +(da(i ,j,kp,3)-da(i ,j,km,3)
+     .        +da(ip,j,kp,3)-da(ip,j,km,3))/dzh(kg)*0.25
+      divim = (da(i ,j ,k,1)-da(im,j ,k,1))/dx(ig-1)
+     .       +(da(i ,jp,k,2)-da(i ,jm,k,2)
+     .        +da(im,jp,k,2)-da(im,jm,k,2))/dyh(jg)*0.25
+     .       +(da(i ,j,kp,3)-da(i ,j,km,3)
+     .        +da(im,j,kp,3)-da(im,j,km,3))/dzh(kg)*0.25
+
+      divjp = (da(ip,j ,k,1)-da(im,j ,k,1)
+     .        +da(ip,jp,k,1)-da(im,jp,k,1))/dxh(ig)*0.25
+     .       +(da(i ,jp,k,2)-da(i ,j ,k,2))/dy(jg)
+     .       +(da(i,j ,kp,3)-da(i,j ,km,3)
+     .        +da(i,jp,kp,3)-da(i,jp,km,3))/dzh(kg)*0.25
+      divjm = (da(ip,j ,k,1)-da(im,j ,k,1)
+     .        +da(ip,jm,k,1)-da(im,jm,k,1))/dxh(ig)*0.25
+     .       +(da(i ,j ,k,2)-da(i ,jm,k,2))/dy(jg-1)
+     .       +(da(i,j ,kp,3)-da(i,j ,km,3)
+     .        +da(i,jm,kp,3)-da(i,jm,km,3))/dzh(kg)*0.25
+
+      divkp = (da(ip,j,k ,1)-da(im,j,k ,1)
+     .        +da(ip,j,kp,1)-da(im,j,kp,1))/dxh(ig)*0.25
+     .       +(da(i,jp,k ,2)-da(i,jm,k ,2)
+     .        +da(i,jp,kp,2)-da(i,jm,kp,2))/dyh(jg)*0.25
+     .       +(da(i,j ,kp,3)-da(i,j ,k ,3))/dz(kg)
+      divkm = (da(ip,j,k ,1)-da(im,j,k ,1)
+     .        +da(ip,j,km,1)-da(im,j,km,1))/dxh(ig)*0.25
+     .       +(da(i,jp,k ,2)-da(i,jm,k ,2)
+     .        +da(i,jp,km,2)-da(i,jm,km,2))/dyh(jg)*0.25
+     .       +(da(i,j ,k ,3)-da(i,j ,km,3))/dz(kg-1)
+
+      divip = 2*divip/(jac+jacip)
+      if (.not.isSP(i,j,k,igx,igy,igz)) then
+        divim = 2*divim/(jac+jacim)
+      else
+        divim = 0d0
+      endif
+
+      divjp = 2*divjp/(jac+jacjp)
+      divjm = 2*divjm/(jac+jacjm)
+
+      divkp = 2*divkp/(jac+jackp)
+      divkm = 2*divkm/(jac+jackm)
+
+c     Calculate gradient
+
+      cov(1) = (divip - divim)/dxh(ig)
+      cov(2) = (divjp - divjm)/dyh(jg)
+      cov(3) = (divkp - divkm)/dzh(kg)
 
       if (vol_wgt) cov=cov*gmetric%grid(igx)%dvol(i,j,k)
 
-c     End program
-
-      end function graddiv
+      end function gradDiv
 
 c     fnabla_v
 c     #############################################################
@@ -10478,138 +10543,130 @@ c ######################################################################
 
       contains
 
-c     findEquilJ
-c     ###############################################################
-      subroutine findEquilJ
-
-c     ---------------------------------------------------------------
-c     Finds equilibrium current from either acov, or bcnv,
-c     depending on whether we are using B or A.
-c     ---------------------------------------------------------------
-
-      use auxiliaryVariables
-
-      use operators
-
-      use app_iosetup
-
-      implicit none
-
-c Call variables
-
-c Local variables
-
-      integer :: igx,igy,igz,nx,ny,nz
-
-      integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
-
-      real(8) :: etal
-
-c Begin program
-
-c diag********
-      if (test) then
-        jcov_0 = 0d0
-        jcnv_0 = 0d0
-        return
-      endif
-c diag********
-
-      igx = 1
-      igy = 1
-      igz = 1
-
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
-c Define extrapolation BCs
-
-      call defineBoundaryConditions(neqd,bcs)
-
-c Check for imposed electric field
-
-      if (sum(E0) /= 0d0) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              etal = res(i,j,k,nx,ny,nz,igx,igy,igz)
-              jcov_0(i,j,k,:) = E0/etal
-              jcnv_0(i,j,k,:) = matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
-     .                                ,jcov_0(i,j,k,:))
-            enddo
-          enddo
-        enddo
-        return
-      endif
-
-c Find magnetic field (A version)
-
-#if defined(vec_pot)
-
-      bcnd = bcs(:,IAX:IAZ)
-      where (bcnd == -EQU)
-        bcnd = -EXT             !Extrapolate covariant components
-      end where
-
-      call setBC(IAX,3,nx,ny,nz,acnv,acov,acov,bcnd,igx,igy,igz
-     .          ,is_cnv=.false.,iorder=2)
-
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            do icomp=1,3
-              bcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                ,acov(:,:,:,1)
-     .                                ,acov(:,:,:,2)
-     .                                ,acov(:,:,:,3),icomp)
-            enddo
-          enddo
-        enddo
-      enddo
-#else
-
-      bcnd = bcs(:,IBX:IBZ)
-      where (bcnd == -NEU)
-        bcnd = -EXT             !Extrapolate covariant components
-      end where
-
-#endif
-
-c     Extrapolate covariant magnetic field to ghost cells
-
-      call setBC(IBX,3,nx,ny,nz,bcnv,bcov,vzeros,bcnd,igx,igy,igz
+ccc     findEquilJ
+ccc     ###############################################################
+cc      subroutine findEquilJ(igx,igy,igz,nx,ny,nz,vv)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Finds equilibrium current from either acov, or bcnv,
+ccc     depending on whether we are using B or A.
+ccc     ---------------------------------------------------------------
+cc
+cc      use auxiliaryVariables
+cc
+cc      use operators
+cc
+cc      use app_iosetup
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      integer :: igx,igy,igz,nx,ny,nz
+cc
+cc      real(8) :: vv(0:nx+1,0:ny+1,0:nz+1,3)
+cc
+ccc Local variables
+cc
+cc      integer :: i,j,k,icomp,bcs(6,neqd),bcnd(6,3)
+cc
+cc      real(8) :: etal
+cc
+cccc      real(8),pointers,dimension(:,:,:,:) :: a_cov,b_cnv
+cc
+ccc Begin program
+cc
+ccc Define BCs
+cc
+cccc      call defineBoundaryConditions(neqd,bcs)
+cc
+ccc diag********
+cc      if (test) then
+cc        jcov_0 = 0d0
+cc        jcnv_0 = 0d0
+cc        return
+cc      endif
+ccc diag********
+cc
+ccc Check for imposed electric field
+cc
+cc      if (sum(E0) /= 0d0) then
+cc        do k=0,nz+1
+cc          do j=0,ny+1
+cc            do i=0,nx+1
+cc              etal = res(i,j,k,nx,ny,nz,igx,igy,igz)
+cc              jcov_0(i,j,k,:) = E0/etal
+cc              jcnv_0(i,j,k,:) = matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
+cc     .                                ,jcov_0(i,j,k,:))
+cc            enddo
+cc          enddo
+cc        enddo
+cc        return
+cc      endif
+cc
+ccc Find magnetic field (A version)
+cc
+cc      bcnd = gv%aux%vec_list(IJ0CNV)%bconds
+cc
 cc#if defined(vec_pot)
-cc     .          ,is_cnv=.true.,iorder=1)
+cc
+cccc      bcnd = bcs(:,IAX:IAZ)
+cccc      where (bcnd == -EQU)
+cccc        bcnd = -EXT             !Extrapolate covariant components
+cccc      end where
+cc      acov = vv
+cc
+cc      call setBC(IAX,3,nx,ny,nz,acnv,acov,acov,bcnd,igx,igy,igz
+cc     .          ,is_cnv=.false.,iorder=2)
+cc
+cc      do k = 0,nz+1
+cc        do j = 0,ny+1
+cc          do i = 0,nx+1
+cc            do icomp=1,3
+cc              bcnv(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                ,acov(:,:,:,1)
+cc     .                                ,acov(:,:,:,2)
+cc     .                                ,acov(:,:,:,3),icomp)
+cc            enddo
+cc          enddo
+cc        enddo
+cc      enddo
 cc#else
-     .          ,is_cnv=.true.,iorder=2)
-cc     .          ,is_cnv=.true.,iorder=3)
+cccc
+cccc      bcnd = bcs(:,IBX:IBZ)
+cccc      where (bcnd == -NEU)
+cccc        bcnd = -EXT             !Extrapolate covariant components
+cccc      end where
+cc
+cc      bcnv = vv
+cc
 cc#endif
-
-      !Find equilibrium current (with BCs)
-      do k = 0,nz+1
-        do j = 0,ny+1
-          do i = 0,nx+1
-            do icomp=1,3
-              jcnv_0(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                ,bcov(:,:,:,1)
-     .                                ,bcov(:,:,:,2)
-     .                                ,bcov(:,:,:,3),icomp)
-            enddo
-          enddo
-        enddo
-      enddo
-
-      call setBC(IJX,3,nx,ny,nz,jcnv_0,jcov_0,vzeros,bcnd,igx,igy,igz
-cc#if defined(vec_pot)
-cc     .          ,is_cnv=.true.,iorder=1)
-cc#else
-     .          ,is_cnv=.true.,iorder=2)
-cc#endif
-
-c End program
-
-      end subroutine findEquilJ
+cc
+ccc     Extrapolate covariant magnetic field to ghost cells
+cc
+cc      call setBC(IBX,3,nx,ny,nz,bcnv,bcov,vzeros,bcnd,igx,igy,igz
+cc     .          ,is_cnv=.true.,iorder=2)
+cc
+cc      !Find equilibrium current (with BCs)
+cc      do k = 0,nz+1
+cc        do j = 0,ny+1
+cc          do i = 0,nx+1
+cc            do icomp=1,3
+cc              jcnv_0(i,j,k,icomp)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                ,bcov(:,:,:,1)
+cc     .                                ,bcov(:,:,:,2)
+cc     .                                ,bcov(:,:,:,3),icomp)
+cc            enddo
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      call setBC(IJX,3,nx,ny,nz,jcnv_0,jcov_0,vzeros,bcnd,igx,igy,igz
+cc     .          ,is_cnv=.true.,iorder=2)
+cc
+ccc End program
+cc
+cc      end subroutine findEquilJ
 
       end module equilibrium
 
@@ -10732,7 +10789,8 @@ c     #####################################################################
      .         result(cnv)
 
 c     ---------------------------------------------------------------------
-c     Find stress tensor piece of EOM. Return contravariant components.
+c     Find divergence of ion pressure stress tensor. Return contravariant
+c     components.
 c     ---------------------------------------------------------------------
 
       implicit none
@@ -10767,7 +10825,38 @@ c     Begin program
 
       nullify(vec1,coef)
 
+c     End program
+
       end function EOM_divPi
+
+c     EOM_divPe
+c     #####################################################################
+      function EOM_divPe(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0)
+     .         result(cnv)
+
+c     ---------------------------------------------------------------------
+c     Find divergence of electron pressure stress tensor. Returns
+c     contravariant components.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,nxx,nyy,nzz,igx,igy,igz
+      real(8) :: cnv(3)
+      real(8),target :: v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+cc      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+
+c     Local variables
+
+c     Begin program
+
+      cnv = heta*EOM_divPi(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0)
+
+c     End program
+
+      end function EOM_divPe
 
 c     find_E
 c     #####################################################################
@@ -10795,9 +10884,9 @@ c     Begin program
       pe = rho*tmp
 
       if (de > 0d0) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
               cnv = curl(i,j,k,nx,ny,nz,igx,igy,igz
      .                  ,vecov(:,:,:,1)
      .                  ,vecov(:,:,:,2)
@@ -10904,7 +10993,7 @@ c     Hall term
 
       if (di > 0d0) then
 
-        !Standard Hall:  E_ni = di*(j x B - grad(pe) - div(Pi_e))/rho
+        !Standard Hall:  E_hall = di*(j x B* - grad(pe) - div(Pi_e))/rho - de^2/di*d(v_e)/dt
         if (.not.hall_new) then
 
           do k=1,nz
@@ -10912,24 +11001,33 @@ c     Hall term
               do i=1,nx
 
                 !Electron Hall
-                cov(1) = (jcnv(i,j,k,2)*bcnv_star(i,j,k,3)
-     .                   -jcnv(i,j,k,3)*bcnv_star(i,j,k,2))
+#if defined(vec_pot)
+cc                cov = -veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                           ,acov,vol=.false.)
+cc     .                +graddiv(i,j,k,nx,ny,nz,igx,igy,igz,acnv
+cc     .                        ,vol=.false.)
+cc                cnv = matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
+                cnv = jcnv(i,j,k,:)
+#else
+                cnv = jcnv(i,j,k,:)
+#endif
+                cov(1) = (cnv(2)*bcnv_star(i,j,k,3)
+     .                   -cnv(3)*bcnv_star(i,j,k,2))
      .                   /gmetric%grid(igx)%jac(i,j,k)
-                cov(2) = (jcnv(i,j,k,3)*bcnv_star(i,j,k,1)
-     .                   -jcnv(i,j,k,1)*bcnv_star(i,j,k,3))
+                cov(2) = (cnv(3)*bcnv_star(i,j,k,1)
+     .                   -cnv(1)*bcnv_star(i,j,k,3))
      .                   /gmetric%grid(igx)%jac(i,j,k)
-                cov(3) = (jcnv(i,j,k,1)*bcnv_star(i,j,k,2)
-     .                   -jcnv(i,j,k,2)*bcnv_star(i,j,k,1))
+                cov(3) = (cnv(1)*bcnv_star(i,j,k,2)
+     .                   -cnv(2)*bcnv_star(i,j,k,1))
      .                   /gmetric%grid(igx)%jac(i,j,k)
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov/rho(i,j,k)
+                E_h(i,j,k,:) = cov
 
                 !Electron pressure
                 call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
      .                   ,cov(1),cov(2),cov(3))
 
-                E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
-
+                E_h(i,j,k,:) = E_h(i,j,k,:) - cov
 
                 !Hyperresistive term:  E_ni = E_ni - di*nu_e*lap(j-j0)
 
@@ -10937,14 +11035,22 @@ c     Hall term
                   cov = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
      .                        ,div_pe(i,j,k,:))
 
-                  E_ni(i,j,k,:) = E_ni(i,j,k,:) - di*cov/rho(i,j,k)
+                  E_h(i,j,k,:) = E_h(i,j,k,:) - cov
                 endif
 
+                E_h(i,j,k,:) = E_h(i,j,k,:)*di/rho(i,j,k)
               enddo
             enddo
           enddo
 
-        !Alternate Hall: E_ni = di*(dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
+          E_ni = E_ni + E_h
+
+          !Electron inertia term
+          if (de > 0d0) then
+            E_ni = E_ni - de**2/di/alpha*cnp/dt*(vecov-vecov_n)
+          endif
+
+        !Alternate Hall: E_hall = di*(dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         else
 
           !Temporal term: dv/dt
@@ -10975,11 +11081,6 @@ c     Hall term
             enddo
           enddo
 
-        endif
-
-        !Electron inertia term
-        if (de > 0d0) then
-          E_ni = E_ni + de**2/di/alpha*cnp/dt*(vecov-vecov_n)
         endif
 
 c       Impose boundary conditions (for magnetic field version, to calculate curl)
