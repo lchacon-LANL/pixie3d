@@ -65,7 +65,7 @@ c Namelists
      .                   ,eigen,eigstep
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,k_si,solve_rho,advect,sym_st,adiabatic
+     .                   ,solve_rho,advect,sym_st,adiabatic
      .                   ,hall_new
      .                ,inputfile,recordfile,equ_file,dcon
 
@@ -89,7 +89,7 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,k_si,eigen,eigstep
+     .                   ,odd,random,source,eigen,eigstep
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -237,8 +237,6 @@ c Set defaults
       temp_ratio = 1d0         ! Ion-electron temperature ratio
 
       !Nonlinear function parameters
-      k_si       = 0d0         ! SI constant
-
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
