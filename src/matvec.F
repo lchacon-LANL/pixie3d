@@ -1996,7 +1996,8 @@ cc     .                        ,veclap(1),veclap(2),veclap(3)
 cc     .                        ,cnv   (1),cnv   (2),cnv   (3)
 cc     .                        ,.false.)
 
-            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
+cc            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
+            etal   = geta%grid(igrid)%array(i,j,k,1)
 
             !Convective part
 
@@ -2137,6 +2138,341 @@ cc      deallocate(da_cnv)
       call deallocPointers(fpointers)
 
       end subroutine a_mtvc
+
+c a_mtvc_hyp
+c####################################################################
+      subroutine a_mtvc_hyp(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for Faraday's law, with a hyper-resistive term.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+     .             ,a_res(3),curlcurla(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind,etal
+
+      real(8),allocatable,dimension(:,:,:,:),target :: du
+      real(8),allocatable,dimension(:,:,:,:) :: das,db_cov
+      real(8),pointer    ,dimension(:,:,:,:) :: ve0_cnv,da_cov,dj_cnv
+     .                                         ,rho0,bs0_cnv,da_cnv
+
+      logical    :: fpointers,alt_eom_a,is_cnv
+
+c Begin program
+
+      if (neq /= 6) call pstop('b_mtvc_hyp','neq /= 6; aborting...')
+      
+      is_cnv = .false.
+
+      alt_eom_a = .false.
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz
+     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(das   (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,db_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,da_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+      allocate(du(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      du = 0d0
+
+      !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
+      !For finding the diagonal, gpos > 0
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du,igrid
+     .                       ,.false.)
+
+cc      da_cov => du(:,:,:,1:3)
+cc      dj_cnv => du(:,:,:,4:6)
+      da_cov = du(:,:,:,1:3)
+      dj_cnv = du(:,:,:,4:6)
+
+      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,da_cnv,bcnd(:,1:3)
+     .            ,icomp=IAX,is_cnv=.false.,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=da_cov)
+
+      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcnd(:,4:6)
+     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=das)
+
+c Auxiliary quantities
+
+      ve0_cnv => gve0%grid(igrid)%array
+      bs0_cnv => gbs0%grid(igrid)%array
+      rho0    => grho0%grid(igrid)%array
+
+      dj_cnv(:,:,:,1) = di*dj_cnv(:,:,:,1)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
+      dj_cnv(:,:,:,2) = di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
+      dj_cnv(:,:,:,3) = di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
+
+      das(:,:,:,1) = da_cov(:,:,:,1) + de**2*das(:,:,:,1)/rho0(:,:,:,1)  !da_star (covariant)
+      das(:,:,:,2) = da_cov(:,:,:,2) + de**2*das(:,:,:,2)/rho0(:,:,:,1)  !da_star (covariant)
+      das(:,:,:,3) = da_cov(:,:,:,3) + de**2*das(:,:,:,3)/rho0(:,:,:,1)  !da_star (covariant)
+
+      !Magnetic field db_cov
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+            cnv = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,da_cov(:,:,:,1)
+     .                  ,da_cov(:,:,:,2)
+     .                  ,da_cov(:,:,:,3))
+            db_cov(i,j,k,:) =
+     .           matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
+          enddo
+        enddo
+      enddo
+
+      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cov,bcs(:,IBX:IBZ)
+     .            ,icomp=IBX,is_cnv=.false.,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=bc_order)
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            jac = gmetric%grid(igrid)%jac(i,j,k)
+
+            ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            if (vol_wgt) then
+              vol = gmetric%grid(igrid)%dvol(i,j,k)
+            else
+              vol = 1d0
+            endif
+
+            !Temporal piece
+            a_res = cnp*das(i,j,k,:)/dt
+
+            !Resistive piece
+            cov = veclap_cov(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cov
+     .                      ,vol=.false.)
+
+            etal= geta%grid(igrid)%array(i,j,k,1)
+
+            a_res = a_res - alpha*etal*cov
+
+            !Curlcurl piece: curl(curl) = grad(div)-veclap
+cc            curlcurla = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                     ,db_cov(:,:,:,1)
+cc     .                     ,db_cov(:,:,:,2)
+cc     .                     ,db_cov(:,:,:,3))
+
+            cov =-cov
+     .          +graddiv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
+     .                  ,vol=.false.)
+cc     .          +graddiv_vrtx(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
+cc     .                  ,vol=.false.)
+
+            curlcurla = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),cov)
+
+            !Convective part (-ve x curl(da_star)): component 1
+            flxip = -ve0_cnv(i,j,k,2)*0.5*(das(ip,j,k,2)+das(i,j,k,2))
+     .              -ve0_cnv(i,j,k,3)*0.5*(das(ip,j,k,3)+das(i,j,k,3))
+
+            flxim = -ve0_cnv(i,j,k,2)*0.5*(das(im,j,k,2)+das(i,j,k,2))
+     .              -ve0_cnv(i,j,k,3)*0.5*(das(im,j,k,3)+das(i,j,k,3))
+
+            flxjp = 0.5*(    ve0_cnv(i,j,k,2)
+     .                  +abs(ve0_cnv(i,j,k,2)))*das(i,j ,k,1)
+     .             +0.5*(    ve0_cnv(i,j,k,2)
+     .                  -abs(ve0_cnv(i,j,k,2)))*das(i,jp,k,1)
+            flxjm = 0.5*(    ve0_cnv(i,j,k,2)
+     .                  +abs(ve0_cnv(i,j,k,2)))*das(i,jm,k,1)
+     .             +0.5*(    ve0_cnv(i,j,k,2)
+     .                  -abs(ve0_cnv(i,j,k,2)))*das(i,j ,k,1)
+
+            flxkp = 0.5*(    ve0_cnv(i,j,k,3)
+     .                  +abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,1)
+     .             +0.5*(    ve0_cnv(i,j,k,3)            
+     .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,kp,1)
+            flxkm = 0.5*(    ve0_cnv(i,j,k,3)            
+     .                  +abs(ve0_cnv(i,j,k,3)))*das(i,j,km,1)
+     .             +0.5*(    ve0_cnv(i,j,k,3)            
+     .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,1)
+
+            cov(1) =  (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg)
+
+            !Convective part (-ve x curl(da_star)): component 2
+            flxip = 0.5*(    ve0_cnv(i,j,k,1)
+     .                  +abs(ve0_cnv(i,j,k,1)))*das(i ,j,k,2)
+     .             +0.5*(    ve0_cnv(i,j,k,1)        
+     .                  -abs(ve0_cnv(i,j,k,1)))*das(ip,j,k,2)
+            flxim = 0.5*(    ve0_cnv(i,j,k,1)        
+     .                  +abs(ve0_cnv(i,j,k,1)))*das(im,j,k,2)
+     .             +0.5*(    ve0_cnv(i,j,k,1)        
+     .                  -abs(ve0_cnv(i,j,k,1)))*das(i ,j,k,2)
+
+            flxjp = -ve0_cnv(i,j,k,1)*0.5*(das(i,jp,k,1)+das(i,j,k,1))
+     .              -ve0_cnv(i,j,k,3)*0.5*(das(i,jp,k,3)+das(i,j,k,3))
+
+            flxjm = -ve0_cnv(i,j,k,1)*0.5*(das(i,jm,k,1)+das(i,j,k,1))
+     .              -ve0_cnv(i,j,k,3)*0.5*(das(i,jm,k,3)+das(i,j,k,3))
+
+            flxkp = 0.5*(    ve0_cnv(i,j,k,3)
+     .                  +abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,2)
+     .             +0.5*(    ve0_cnv(i,j,k,3)            
+     .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,kp,2)
+            flxkm = 0.5*(    ve0_cnv(i,j,k,3)            
+     .                  +abs(ve0_cnv(i,j,k,3)))*das(i,j,km,2)
+     .             +0.5*(    ve0_cnv(i,j,k,3)            
+     .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,2)
+
+            cov(2) =  (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg)
+
+            !Convective part (-ve x curl(da_star)): component 3
+            flxip = 0.5*(    ve0_cnv(i,j,k,1)
+     .                  +abs(ve0_cnv(i,j,k,1)))*das(i ,j,k,3)
+     .             +0.5*(    ve0_cnv(i,j,k,1)        
+     .                  -abs(ve0_cnv(i,j,k,1)))*das(ip,j,k,3)
+            flxim = 0.5*(    ve0_cnv(i,j,k,1)        
+     .                  +abs(ve0_cnv(i,j,k,1)))*das(im,j,k,3)
+     .             +0.5*(    ve0_cnv(i,j,k,1)        
+     .                  -abs(ve0_cnv(i,j,k,1)))*das(i ,j,k,3)
+
+            flxjp = 0.5*(    ve0_cnv(i,j,k,2)
+     .                  +abs(ve0_cnv(i,j,k,2)))*das(i,j ,k,3)
+     .             +0.5*(    ve0_cnv(i,j,k,2)
+     .                  -abs(ve0_cnv(i,j,k,2)))*das(i,jp,k,3)
+            flxjm = 0.5*(    ve0_cnv(i,j,k,2)
+     .                  +abs(ve0_cnv(i,j,k,2)))*das(i,jm,k,3)
+     .             +0.5*(    ve0_cnv(i,j,k,2)
+     .                  -abs(ve0_cnv(i,j,k,2)))*das(i,j ,k,3)
+
+            flxkp = -ve0_cnv(i,j,k,1)*0.5*(das(i,j,kp,1)+das(i,j,k,1))
+     .              -ve0_cnv(i,j,k,2)*0.5*(das(i,j,kp,2)+das(i,j,k,2))
+                                                   
+            flxkm = -ve0_cnv(i,j,k,1)*0.5*(das(i,j,km,1)+das(i,j,k,1))
+     .              -ve0_cnv(i,j,k,2)*0.5*(das(i,j,km,2)+das(i,j,k,2))
+
+            cov(3) =( (flxip-flxim)/dxh(ig)
+     .               +(flxjp-flxjm)/dyh(jg)
+     .               +(flxkp-flxkm)/dzh(kg))/jac
+
+            a_res = a_res + alpha*cov
+
+            !Electron Hall piece: dj x B_star
+cc            cnv = di*curlcurla/rho0(i,j,k,1)
+            cnv = dj_cnv(i,j,k,:)
+
+            cov(1) = (cnv(2)*bs0_cnv(i,j,k,3)
+     .               -cnv(3)*bs0_cnv(i,j,k,2))/jac
+            cov(2) = (cnv(3)*bs0_cnv(i,j,k,1)
+     .               -cnv(1)*bs0_cnv(i,j,k,3))/jac
+            cov(3) = (cnv(1)*bs0_cnv(i,j,k,2)
+     .               -cnv(2)*bs0_cnv(i,j,k,1))/jac
+
+            a_res = a_res + alpha*cov
+
+            !Electron pressure tensor piece: di/rho*div(pe(dj))
+            cnv= heta
+     .          *EOM_divPi(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv)
+cc            cnv=-heta
+cc     .          *veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv
+cc     .                       ,.false.,vol=.false.)
+
+            a_res = a_res + alpha*di/rho0(i,j,k,1)
+     .             *matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
+
+            !Assemble residual
+            if (si_car) then
+              call pstop('a_mtvc_hyp','si_car option not implemented')
+            else
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = a_res(ieq)*vol
+              enddo
+
+              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq+3) = vol*(dj_cnv(i,j,k,ieq)
+cc     .                                 -di*curlcurla(ieq)/rho0(i,j,k,1))
+                y(neq*(ijk-1)+ieq+3) = vol*(x(neq*(ijk-1)+ieq+3)
+     .                                     -curlcurla(ieq))
+              enddo
+            endif
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+cc      deallocate(du,das,db_cov)
+cc      nullify(ve0_cnv,da_cov,dj_cnv,rho0,bs0_cnv)
+      deallocate(du,das
+     .          ,db_cov
+     .          ,dj_cnv
+     .          ,da_cov
+     .          ,da_cnv)
+      nullify(ve0_cnv,rho0,bs0_cnv)
+
+      call deallocPointers(fpointers)
+
+      end subroutine a_mtvc_hyp
 
 c module v_mtvc_mod
 c ##################################################################
@@ -2486,7 +2822,8 @@ c     Transform to contravariant
      .                            ,cov(1),cov(2),cov(3)
      .                            ,cnv(1),cnv(2),cnv(3),is_cnv)
 
-      coeff = (alpha**2/cnp + k_si*alpha)
+cc      coeff = (alpha**2/cnp + k_si*alpha)
+      coeff = alpha**2/cnp
 
       psit = -coeff*cnv
 
@@ -2603,7 +2940,8 @@ cc      if (.true.) then
      .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
       endif
 
-      coeff = (alpha**2/cnp + k_si*alpha)
+cc      coeff = (alpha**2/cnp + k_si*alpha)
+      coeff = alpha**2/cnp
 
       psib = coeff*cnv
 
@@ -3048,139 +3386,6 @@ cc        endif
 c     End program
 
       end subroutine tensor_z
-
-c     gradDiv2
-c     #####################################################################
-      function gradDiv2(da) result(cnv)
-
-      implicit none
-
-      real(8)    :: cnv(3)
-      real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,3)
-
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-     .             ,divip,divim,divjp,divjm,divkp,divkm
-     .             ,coeff
-
-cc      !Fluxes at faces for calculation of grad[div(da p0)]
-cc      flxip =( (da(ip,j ,k ,1)*rho0(ip,j ,k ,1)
-cc     .         -da(i ,j ,k ,1)*rho0(i ,j ,k ,1))/dx(ig)
-cc     .        +(da(ip,jp,k ,2)*rho0(ip,jp,k ,1)
-cc     .         -da(ip,jm,k ,2)*rho0(ip,jm,k ,1)
-cc     .         +da(i ,jp,k ,2)*rho0(i ,jp,k ,1)
-cc     .         -da(i ,jm,k ,2)*rho0(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(da(ip,j ,kp,3)*rho0(ip,j ,kp,1)
-cc     .         -da(ip,j ,km,3)*rho0(ip,j ,km,1)
-cc     .         +da(i ,j ,kp,3)*rho0(i ,j ,kp,1)
-cc     .         -da(i ,j ,km,3)*rho0(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacip)*2
-cc      flxim =( (da(i ,j ,k ,1)*rho0(i ,j ,k ,1)
-cc     .         -da(im,j ,k ,1)*rho0(im,j ,k ,1))/dx(ig-1)
-cc     .        +(da(im,jp,k ,2)*rho0(im,jp,k ,1)
-cc     .         -da(im,jm,k ,2)*rho0(im,jm,k ,1)
-cc     .         +da(i ,jp,k ,2)*rho0(i ,jp,k ,1)
-cc     .         -da(i ,jm,k ,2)*rho0(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(da(im,j ,kp,3)*rho0(im,j ,kp,1)
-cc     .         -da(im,j ,km,3)*rho0(im,j ,km,1)
-cc     .         +da(i ,j ,kp,3)*rho0(i ,j ,kp,1)
-cc     .         -da(i ,j ,km,3)*rho0(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacim)*2
-cc
-cc      flxjp =( (da(ip,jp,k ,1)*rho0(ip,jp,k ,1)
-cc     .         -da(im,jp,k ,1)*rho0(im,jp,k ,1)
-cc     .         +da(ip,j ,k ,1)*rho0(ip,j ,k ,1)
-cc     .         -da(im,j ,k ,1)*rho0(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(da(i ,jp,k ,2)*rho0(i ,jp,k ,1)
-cc     .         -da(i ,j ,k ,2)*rho0(i ,j ,k ,1))/dy(jg)
-cc     .        +(da(i ,jp,kp,3)*rho0(i ,jp,kp,1)
-cc     .         -da(i ,jp,km,3)*rho0(i ,jp,km,1)
-cc     .         +da(i ,j ,kp,3)*rho0(i ,j ,kp,1)
-cc     .         -da(i ,j ,km,3)*rho0(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacjp)*2
-cc      flxjm =( (da(ip,jm,k ,1)*rho0(ip,jm,k ,1)
-cc     .         -da(im,jm,k ,1)*rho0(im,jm,k ,1)
-cc     .         +da(ip,j ,k ,1)*rho0(ip,j ,k ,1)
-cc     .         -da(im,j ,k ,1)*rho0(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(da(i ,j ,k ,2)*rho0(i ,j ,k ,1)
-cc     .         -da(i ,jm,k ,2)*rho0(i ,jm,k ,1))/dy(jg-1)
-cc     .        +(da(i ,jm,kp,3)*rho0(i ,jm,kp,1)
-cc     .         -da(i ,jm,km,3)*rho0(i ,jm,km,1)
-cc     .         +da(i ,j ,kp,3)*rho0(i ,j ,kp,1)
-cc     .         -da(i ,j ,km,3)*rho0(i ,j ,km,1))/dzh(kg)/4.)
-cc     $        /(jac+jacjm)*2
-cc
-cc      flxkp =( (da(ip,j ,kp,1)*rho0(ip,j ,kp,1)
-cc     .         -da(im,j ,kp,1)*rho0(im,j ,kp,1)
-cc     .         +da(ip,j ,k ,1)*rho0(ip,j ,k ,1)
-cc     .         -da(im,j ,k ,1)*rho0(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(da(i ,jp,kp,2)*rho0(i ,jp,kp,1)
-cc     .         -da(i ,jm,kp,2)*rho0(i ,jm,kp,1)
-cc     .         +da(i ,jp,k ,2)*rho0(i ,jp,k ,1)
-cc     .         -da(i ,jm,k ,2)*rho0(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(da(i ,j ,kp,3)*rho0(i ,j ,kp,1)
-cc     .         -da(i ,j ,k ,3)*rho0(i ,j ,k ,1))/dz(kg) )
-cc     $        /(jac+jackp)*2
-cc      flxkm =( (da(ip,j ,km,1)*rho0(ip,j ,km,1)
-cc     .         -da(im,j ,km,1)*rho0(im,j ,km,1)
-cc     .         +da(ip,j ,k ,1)*rho0(ip,j ,k ,1)
-cc     .         -da(im,j ,k ,1)*rho0(im,j ,k ,1))/dxh(ig)/4.
-cc     .        +(da(i ,jp,km,2)*rho0(i ,jp,km,1)
-cc     .         -da(i ,jm,km,2)*rho0(i ,jm,km,1)
-cc     .         +da(i ,jp,k ,2)*rho0(i ,jp,k ,1)
-cc     .         -da(i ,jm,k ,2)*rho0(i ,jm,k ,1))/dyh(jg)/4.
-cc     .        +(da(i ,j ,k ,3)*rho0(i ,j ,k ,1)
-cc     .         -da(i ,j ,km,3)*rho0(i ,j ,km,1))/dz(kg-1) )
-cc     $        /(jac+jackm)*2
-cc
-cc      cov(1) = (flxip - flxim)/dxh(ig)
-cc      cov(2) = (flxjp - flxjm)/dyh(jg)
-cc      cov(3) = (flxkp - flxkm)/dzh(kg)
-
-      !Fluxes at faces for calculation of grad[div(da)]
-
-      !!Divergence at faces i+-1/2, etc.
-      divip = (da(ip,j ,k,1)-da(i ,j ,k,1))/dx(ig)
-     .       +(da(i ,jp,k,2)-da(i ,jm,k,2)
-     .        +da(ip,jp,k,2)-da(ip,jm,k,2))/dyh(jg)/4.
-     .       +(da(i ,j,kp,3)-da(i ,j,km,3)
-     .        +da(ip,j,kp,3)-da(ip,j,km,3))/dzh(kg)/4.
-      divim = (da(i ,j ,k,1)-da(im,j ,k,1))/dx(ig-1)
-     .       +(da(i ,jp,k,2)-da(i ,jm,k,2)
-     .        +da(im,jp,k,2)-da(im,jm,k,2))/dyh(jg)/4.
-     .       +(da(i ,j,kp,3)-da(i ,j,km,3)
-     .        +da(im,j,kp,3)-da(im,j,km,3))/dzh(kg)/4.
-
-      divjp = (da(ip,j ,k,1)-da(im,j ,k,1)
-     .        +da(ip,jp,k,1)-da(im,jp,k,1))/dxh(ig)/4.
-     .       +(da(i ,jp,k,2)-da(i ,j ,k,2))/dy(jg)
-     .       +(da(i,j ,kp,3)-da(i,j ,km,3)
-     .        +da(i,jp,kp,3)-da(i,jp,km,3))/dzh(kg)/4.
-      divjm = (da(ip,j ,k,1)-da(im,j ,k,1)
-     .        +da(ip,jm,k,1)-da(im,jm,k,1))/dxh(ig)/4.
-     .       +(da(i ,j ,k,2)-da(i ,jm,k,2))/dy(jg-1)
-     .       +(da(i,j ,kp,3)-da(i,j ,km,3)
-     .        +da(i,jm,kp,3)-da(i,jm,km,3))/dzh(kg)/4.
-
-      divkp = (da(ip,j,k ,1)-da(im,j,k ,1)
-     .        +da(ip,j,kp,1)-da(im,j,kp,1))/dxh(ig)/4.
-     .       +(da(i,jp,k ,2)-da(i,jm,k ,2)
-     .        +da(i,jp,kp,2)-da(i,jm,kp,2))/dyh(jg)/4.
-     .       +(da(i,j ,kp,3)-da(i,j ,k ,3))/dz(kg)
-      divkm = (da(ip,j,k ,1)-da(im,j,k ,1)
-     .        +da(ip,j,km,1)-da(im,j,km,1))/dxh(ig)/4.
-     .       +(da(i,jp,k ,2)-da(i,jm,k ,2)
-     .        +da(i,jp,km,2)-da(i,jm,km,2))/dyh(jg)/4.
-     .       +(da(i,j ,k ,3)-da(i,j ,km,3))/dz(kg-1)
-
-      cov(1) = (divip - divim)/dxh(ig)
-      cov(2) = (divjp - divjm)/dyh(jg)
-      cov(3) = (divkp - divkm)/dzh(kg)
-
-      call transformFromCurvToCurv(i,j,k,igr,igr,igr
-     .                            ,cov(1),cov(2),cov(3)
-     .                            ,cnv(1),cnv(2),cnv(3),is_cnv)
-
-      end function gradDiv2
 
       end module v_mtvc_mod
 
