@@ -71,7 +71,7 @@ c Call variables
 
 c Local variables
 
-      integer :: igx,igy,igz
+      integer :: igx,igy,igz,bcs(6,neqd)
       logical :: initialize
 
 c Interfaces
@@ -126,6 +126,10 @@ cc      write (*,*) 'Proc:',drank,ddnp
       jplt = jplot
       kplt = kplot
 #endif
+
+c Define BCs
+
+      call defineBoundaryConditions(neqd,bcs)
 
 c Define diagnostics
 
@@ -289,6 +293,7 @@ c Local variables
 
       integer    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+     .             ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
      .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
@@ -343,18 +348,18 @@ c Begin program
 
 c Find equilibrium current
 
-      if (init) then
-#if defined(vec_pot)
-        acov(:,:,:,1) = varray%array_var(IAX)%array
-        acov(:,:,:,2) = varray%array_var(IAY)%array
-        acov(:,:,:,3) = varray%array_var(IAZ)%array
-#else   
-        bcnv(:,:,:,1) = varray%array_var(IBX)%array
-        bcnv(:,:,:,2) = varray%array_var(IBY)%array
-        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
-#endif
-        call findEquilJ
-      endif
+cc      if (init) then
+cc#if defined(vec_pot)
+cc        vv(:,:,:,1) = varray%array_var(IAX)%array
+cc        vv(:,:,:,2) = varray%array_var(IAY)%array
+cc        vv(:,:,:,3) = varray%array_var(IAZ)%array
+cc#else   
+cc        vv(:,:,:,1) = varray%array_var(IBX)%array
+cc        vv(:,:,:,2) = varray%array_var(IBY)%array
+cc        vv(:,:,:,3) = varray%array_var(IBZ)%array
+cc#endif
+cc        call findEquilJ(igx,igy,igz,nx,ny,nz,vv)
+cc      endif
 
 c Postprocess solution
 
