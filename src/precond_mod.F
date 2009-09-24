@@ -37,8 +37,9 @@ c ######################################################################
 cc        real(8), allocatable, dimension(:,:,:,:):: p0
 
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
-     .                                            ,b_diag,v_diag,v_diag2
-     .                                            ,a_diag,b_diag_hyp
+     .                                            ,v_diag,v_diag2
+     .                                            ,b_diag,b_diag_hyp
+     .                                            ,a_diag,a_diag_hyp
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
@@ -53,7 +54,8 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         type(var_array),pointer :: varray
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
-     .                            ,gdb_cov,gvis,geta
+     .                            ,gdb_cov,gvis,geta,gve0,gbs0,gj0,gtmp0
+     .                            ,gEh0_cov
 
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
@@ -101,21 +103,29 @@ c     Begin program
      .           ,b_diag    (3,3*ntotd2p)
      .           ,b_diag_hyp(6,6*ntotd2p)
 #else
-     .           ,a_diag  (3,3*ntotd2p)
+     .           ,a_diag    (3,3*ntotd2p)
+     .           ,a_diag_hyp(6,6*ntotd2p)
 #endif
      .           ,v_diag  (3,3*ntotd2p)
      .           ,v_diag2 (3,3*ntotd2p),STAT=alloc_stat)
 
         call allocateMGArray(1,gp0)
         call allocateMGArray(1,grho0)
+        call allocateMGArray(1,gtmp0)
         call allocateMGArray(3,gv0)
         call allocateMGArray(3,gv0_cov)
+        call allocateMGArray(3,gve0)  !v_e = v_i - di*j/rho
+        call allocateMGArray(3,gv0)
         call allocateMGArray(3,gb0)
         call allocateMGArray(3,gb0_cov)
+        call allocateMGArray(3,gj0)
         call allocateMGArray(3,ga0)   !B + di curl(v)
-        call allocateMGArray(3,gdb_cov)
+        call allocateMGArray(3,gbs0)  !B - de^2/di curl(v_e)
+        call allocateMGArray(3,gEh0_cov)  !Hall electric field
         call allocateMGArray(1,gvis)
         call allocateMGArray(1,geta)
+
+        call allocateMGArray(3,gdb_cov)
 
 c     End program
 
@@ -148,17 +158,22 @@ c     Begin program
 #if !defined(vec_pot)
      .             ,b_diag,b_diag_hyp
 #else
-     .             ,a_diag 
+     .             ,a_diag,a_diag_hyp
 #endif
      .             ,v_diag,v_diag2)
 
         call deallocateMGArray(gp0)
         call deallocateMGArray(grho0)
+        call deallocateMGArray(gtmp0)
         call deallocateMGArray(gb0)
         call deallocateMGArray(gb0_cov)
+        call deallocateMGArray(gj0)
+        call deallocateMGArray(gve0)
         call deallocateMGArray(gv0)
         call deallocateMGArray(gv0_cov)
         call deallocateMGArray(ga0)
+        call deallocateMGArray(gbs0)
+        call deallocateMGArray(gEh0_cov)
         call deallocateMGArray(gdb_cov)
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
@@ -475,7 +490,8 @@ c     Call variables
 c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
-     .               ,bc_pc(size(bcs,1),size(bcs,2)),bc_sc(6)
+     .               ,bc_pc(size(bcs,1),size(bcs,2))
+     .               ,bc_sc(6,1),bc_vec(6,3)
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
@@ -519,15 +535,44 @@ c     Setup BCs
         !Magnetic field conditions
         bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
         where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
+
+        bc_pc(:,IJX:IJZ) = bc_pc(:,IAX:IAZ)
 #endif
 
-        call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS DOES NOT COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+
+        bc_sc(:,1) = bcond
+        where (bc_sc == DEF) bc_sc = EXT
+
+        call setASM_PC_BC(igx,igy,igz,bc_sc,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+
+        bc_vec(:,1) = bcond
+        bc_vec(:,2) = bcond
+        bc_vec(:,3) = bcond
+        where (bc_vec == DEF) bc_vec = EXT
+
+        call setASM_PC_BC(igx,igy,igz,bc_vec,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
 c     Store density in all grids (w/o BCs)
 
         grho0%grid(igrid)%array(:,:,:,1) = rho
 
         call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order)
+
+c     Store temperature (w/ BCs)
+
+        gtmp0%grid(igrid)%array(:,:,:,1) = tmp
+
+        call restrictMGArray(ITMP,1,gtmp0,bc_pc(:,ITMP),igrid,order)
+
+c     Store pressure (w/ BCs)
+
+        do igr=igrid,grid_params%ngrid
+          gp0%grid(igrid)%array = a_p*grho0%grid(igrid)%array
+     .                               *gtmp0%grid(igrid)%array
+        enddo
+
+cc        call restrictMGArray(IRHO,1,gp0,bc_pc(:,IRHO),igrid,order)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
@@ -550,15 +595,6 @@ c     Store ion velocity components in all grids (w/ BCs)
 
         call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
 
-c     Store magnetic field cov components in all grids (w/ BCs)
-
-        if (di > 0d0) then
-          gv0_cov%grid(igrid)%array = vcov
-
-          call restrictMGArray(IVX,3,gv0_cov,bc_pc(:,IVX:IVZ),igrid
-     .                        ,order,iscnv=.false.)
-        endif
-
 c     Store equilibrium current cov components in all grids (w/ BCs)
 
 cc        gj00_cov%grid(igrid)%array = jcov_0
@@ -566,7 +602,14 @@ cc
 cc        call restrictMGArray(IJX,3,gj00_cov,bc_pc(:,IJX:IJZ),igrid
 cc     .                      ,order,iscnv=.false.)
 
-c     Store current cov components in all grids (w/ BCs)
+c     Store current cnv components in all grids (w/ BCs)
+
+        gj0%grid(igrid)%array = jcnv
+
+        call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid
+     .                      ,order)
+
+ccc     Store current cov components in all grids (w/ BCs)
 cc
 cc        gj0_cov%grid(igrid)%array = jcov
 cc
@@ -575,16 +618,19 @@ cc     .                      ,order,iscnv=.false.)
 
 c     Store viscosity
 
-        gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
+        if (nu > 0d0) then
+          gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
 
-        bc_sc = bcond
-        where (bc_sc == DEF) bc_sc = EXT
+          call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
 
-        call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
-
-        do igr=igrid,grid_params%ngrid
-          gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
-        enddo
+          do igr=igrid,grid_params%ngrid
+            gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
+          enddo
+        else
+          do igr=igrid,grid_params%ngrid
+            gvis%grid(igr)%array = 0d0
+          enddo
+        endif
 
 c     Store resistivity
 
@@ -592,74 +638,80 @@ c     Store resistivity
 
         call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order)
 
-cc        do igr=igrid,grid_params%ngrid
-cc          geta%grid(igr)%array = 1d0/geta%grid(igr)%array
-cc        enddo
-
-c     Store (B + di curl(v)) in all grids
+c     Store Hall MHD auxiliary variables
 
         if (di > 0d0) then
 
-          bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
-          where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = EXT !Use contravariant components 
-cc          bc_pc(:,IJX) = bcond
-cc          bc_pc(:,IJY) = bcond
-cc          bc_pc(:,IJY) = bcond
-cc
-cc          where (bc_pc(:,IJX:IJZ) == DEF) bc_pc(:,IJX:IJZ) = EXT
-cc
-          do k=0,nzz+1
-            do j=0,nyy+1
-              do i=0,nxx+1
+          !Store electron velocity components in all grids (w/ BCs)
+          gve0%grid(igrid)%array = vecnv
 
-                do ieq=1,3
-                  cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                           ,gv0_cov%grid(igrid)%array(:,:,:,1)
-     .                           ,gv0_cov%grid(igrid)%array(:,:,:,2)
-     .                           ,gv0_cov%grid(igrid)%array(:,:,:,3)
-     .                           ,ieq)
+          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
+
+          !Store Hall electric field
+          gEh0_cov%grid(igrid)%array = E_h
+          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IJX:IJZ),igrid
+     .                        ,order,iscnv=.false.)
+
+          !Store b_star = b - de^2/di curl(ve)
+          if (de > 0d0) then
+            do k=1,nzz
+              do j=1,nyy
+                do i=1,nxx
+
+                  do ieq=1,3
+                    cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                              ,vecov(:,:,:,1)
+     .                              ,vecov(:,:,:,2)
+     .                              ,vecov(:,:,:,3)
+     .                              ,ieq)
+                  enddo
+
+                  gbs0%grid(igrid)%array(i,j,k,:)
+     .                   = gb0%grid(igrid)%array(i,j,k,:) -de**2/di*cnv
                 enddo
-
-                ga0%grid(igrid)%array(i,j,k,:)
-     .                 = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
               enddo
             enddo
-          enddo
 
-          call restrictMGArray(IJX,3,ga0,bc_pc(:,IJX:IJZ),igrid,order)
+            call restrictMGArray(IBX,3,gbs0,bc_pc(:,IBX:IBZ),igrid
+     .                          ,order)
+          else
+            call equateMGArray(gbs0,gb0)
+          endif
 
-cc          do igr=1,grid_params%ngrid
-cc            nxg = grid_params%nxv(igr)
-cc            nyg = grid_params%nyv(igr)
-cc            nzg = grid_params%nzv(igr)
-cc
-cc            do k=0,nzg+1
-cc              do j=0,nyg+1
-cc                do i=0,nxg+1
-cc
-cc                  do ieq=1,3
-cc                    cnv(ieq) = curl2(i,j,k,nxg,nyg,nzg,igr,igr,igr
-cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,1)
-cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,2)
-cc     .                           ,gv0_cov%grid(igr)%array(:,:,:,3)
-cc     .                           ,ieq)
-cc                  enddo
-cc
-cc                  ga0%grid(igr)%array(i,j,k,:)
-cc     .                 = gb0%grid(igr)%array(i,j,k,:) + di*cnv
-cc                enddo
-cc              enddo
-cc            enddo
-cc
-cc          enddo
+          !Auxiliary quantities for new Hall MHD formulation: A = B + di*curl(v) 
+          if (hall_new) then
+            do k=0,nzz+1
+              do j=0,nyy+1
+                do i=0,nxx+1
 
+                  do ieq=1,3
+                    cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                             ,vcov(:,:,:,1)
+     .                             ,vcov(:,:,:,2)
+     .                             ,vcov(:,:,:,3)
+     .                             ,ieq)
+                  enddo
+
+                  ga0%grid(igrid)%array(i,j,k,:)
+     .                   = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
+                enddo
+              enddo
+            enddo
+
+            call restrictMGArray(IJX,3,ga0,bc_vec,igrid,order)
+
+          !Auxiliary quantities for std Hall MHD formulation: A = B_star
+          else
+            call equateMGArray(ga0,gbs0)
+          endif
+
+        !Resistive MHD
         else
-
-          call equateMGArray(ga0,gb0)
-
+          call equateMGArray(ga0 ,gb0)
+          call equateMGArray(gbs0,gb0)
         endif
 
-c     Find auxiliary quantities and store them in all grids
+c     Find other auxiliary quantities and store them in all grids
 
         !Velocity divergence (w/o BCs)
         allocate(divrgV(0:nxx+1,0:nyy+1,0:nzz+1))
@@ -685,7 +737,7 @@ c     Find auxiliary quantities and store them in all grids
 
         call restrictMGArray(IRHO,1,gp0,bc_pc(:,IRHO),igrid,order)
 
-        !v0/dt+theta(v0.grad(v0)-mu*veclap(v0)) and nabla_v0
+        !jxB-grad(p)
         allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .          ,tensor(0:nxx+1,0:nyy+1,0:nzz+1,3,3))
 
@@ -711,9 +763,10 @@ c     Find auxiliary quantities and store them in all grids
               tensor(i,j,k,:,:) = nabla_v
 
               if (nc_eom_v) then
-                veclap = veclaplacian(i,j,k,nxx,nyy,nzz
-     .                               ,igrid,igrid,igrid
-     .                               ,vcnv,alt_eom,nuu,vol=.false.)
+cc                veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+cc     .                               ,igrid,igrid,igrid
+cc     .                               ,vcnv,alt_eom,nuu,vol=.false.)
+                veclap =-div_pi(i,j,k,:)
 
                 call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -770,14 +823,14 @@ c     Find auxiliary quantities and store them in all grids
      .                              ,igrid,order,.false.)
         enddo
 
-        do i=1,3
-          do j=1,3
-            call restrictArrayToMGVector(1,nxx,nyy,nzz
-     .                              ,tensor(:,:,:,i,j)
-     .                              ,mgnablaV0(:,i,j)
-     .                              ,igrid,order,.false.)
-          enddo
-        enddo
+cc        do i=1,3
+cc          do j=1,3
+cc            call restrictArrayToMGVector(1,nxx,nyy,nzz
+cc     .                              ,tensor(:,:,:,i,j)
+cc     .                              ,mgnablaV0(:,i,j)
+cc     .                              ,igrid,order,.false.)
+cc          enddo
+cc        enddo
 
         deallocate(vector,tensor)
 
@@ -1067,8 +1120,9 @@ c     Begin program
      .                        ,upwind=(advect == 1)))
 
         !Diffusion
-        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+        psiv = psiv +alpha*(EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
      .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
+     .                +heta*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da))
 #if !defined(RFX)
      .                     /rho0(i,j,k,1)
 #endif
@@ -1086,8 +1140,9 @@ c     Begin program
      .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dp,v0_cnv))
 
         !Diffusion
-        psiv = psiv + alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
+        psiv = psiv +alpha*(EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
      .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
+     .                +heta*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da))
       endif
 
       end function findPsiv
@@ -1131,35 +1186,36 @@ c     Hall MHD part
 
         if (di > 0d0) then
 
-          !Hall term coefficient
-cc          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          if (hall_new) then
+             !Hall term coefficient
+cc             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc          idx  = 1./grid_params%dxh(ig)
-cc          if (nxd == 1) idx = 0d0
-cc          idy  = 1./grid_params%dyh(jg)
-cc          if (nyd == 1) idy = 0d0
-cc          idz  = 1./grid_params%dzh(kg)
-cc          if (nzd == 1) idz = 0d0
+cc             idx  = 1./grid_params%dxh(ig)
+cc             if (nxd == 1) idx = 0d0
+cc             idy  = 1./grid_params%dyh(jg)
+cc             if (nyd == 1) idy = 0d0
+cc             idz  = 1./grid_params%dzh(kg)
+cc             if (nzd == 1) idz = 0d0
 cc
-cc          vxx = abs(vv(i,j,k,1))
-cc          vyy = abs(vv(i,j,k,2))
-cc          vzz = abs(vv(i,j,k,3))
+cc             vxx = abs(vv(i,j,k,1))
+cc             vyy = abs(vv(i,j,k,2))
+cc             vzz = abs(vv(i,j,k,3))
 cc
-cc          minv = cnp/dt
-cc     .           +alpha*(scalarProduct(i,j,k,igx,igy,igz
-cc     .                              ,idx,idy,idz,vxx,vyy,vzz)
-cc     .           +nu*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.))
+cc             minv = cnp/dt
+cc     .              +alpha*(scalarProduct(i,j,k,igx,igy,igz
+cc     .                                 ,idx,idy,idz,vxx,vyy,vzz)
+cc     .              +nu*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.))
 
-cc          minv = minv*di/alpha
-          minv = cnp/dt*di/alpha
+cc             minv = minv*di/alpha
+            minv = cnp/dt*di/alpha
+          else
+            minv =-de**2/di/dt/alpha
+          endif
 
-          !Hall term correction
-          cnv = cnv
-     .        + minv*curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                   ,vv_cov(:,:,:,1)
-     .                   ,vv_cov(:,:,:,2)
-     .                   ,vv_cov(:,:,:,3),he=half_elem)
-     .         
+          cnv = cnv + minv*curl(i,j,k,nx,ny,nz,igx,igy,igz
+     .                         ,vv_cov(:,:,:,1)
+     .                         ,vv_cov(:,:,:,2)
+     .                         ,vv_cov(:,:,:,3),he=half_elem)
         endif
 
 c     End program
