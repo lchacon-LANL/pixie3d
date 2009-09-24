@@ -71,7 +71,7 @@ c Local variables
 
       real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
      .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
-     .                ,r0(1),aa,dummy1,dummy2,dummy3,ieta,err,bz_avg,dr
+     .                ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
      .                ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3)
 
@@ -1817,7 +1817,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           read(1000,'(a)')
           read(1000,'(a)')
-          read(1000,'(f7.1)') ieta
+          read(1000,'(f7.1)') eta_in
 
           close(1000)
 
@@ -1826,7 +1826,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           !Find electric field at face r=1d0
           E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
           E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
-          E0 = E0*eta/ieta
+          E0 = E0*eta/eta_in
 
         else   !Calculate equilibrium
 
@@ -1850,7 +1850,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 	  !Find electric field
           E0(1:2) = 0d0
           E0(3) = e0_over_eta*eta
-          ieta = eta
+          eta_in = eta
 
           !Adjust radial flow to actual resistivity
           vr0 = eta*vr0
@@ -1896,7 +1896,7 @@ cc        stop
               var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
-              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
@@ -1975,7 +1975,7 @@ c     Equilibria (numerical)
 	!Find electric field
         E0(1:2) = 0d0
         E0(3) = e0_over_eta*eta
-        ieta = eta
+        eta_in = eta
 
         !Find radial flow
         vr02d = -(E0(3)*bth02d-E0(2)*bzz02d)/(bzz02d**2+bth02d**2)
@@ -2004,7 +2004,7 @@ c     Equilibria (numerical)
      .                       + kk*x1/mm*bzz02d(iglobal,jglobal)
               var(i,j,k,IBZ) = x1*bzz02d(iglobal,jglobal)
 #endif
-              var(i,j,k,IVX) = x1*vr02d(iglobal,jglobal)*eta/ieta
+              var(i,j,k,IVX) = x1*vr02d(iglobal,jglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
@@ -2102,7 +2102,7 @@ c     Equilibria (numerical)
 
           read(1000,'(a)')
           read(1000,'(a)')
-          read(1000,'(f7.1)') ieta
+          read(1000,'(f7.1)') eta_in
 
           close(1000)
 
@@ -2111,7 +2111,7 @@ c     Equilibria (numerical)
           !Find electric field at face r=1d0
           E0(2) = 0.5*(eth0(nxd)+eth0(nxdp))
           E0(3) = 0.5*(ez0 (nxd)+ez0 (nxdp))
-          E0 = E0*eta/ieta
+          E0 = E0*eta/eta_in
 
         else   !Calculate equilibrium
 
@@ -2135,7 +2135,7 @@ c     Equilibria (numerical)
           !Find electric field
           E0(1:2) = 0d0
           E0(3) = e0_over_eta*eta
-          ieta = eta
+          eta_in = eta
 
           !Adjust radial flow to actual resistivity
           vr0 = eta*vr0
@@ -2179,7 +2179,7 @@ cc        stop
               var(i,j,k,IBY) = bth0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
-              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/ieta
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = 0d0
 
@@ -2264,7 +2264,7 @@ c     Ohmic GS equilibrium
 	!Find electric field
         E0(1:2) = 0d0
         E0(3)   = e0_over_eta*eta
-        ieta    = eta
+        eta_in  = eta
 
         !Adjust pinch flow to current resistivity
         v1 = v1*eta
