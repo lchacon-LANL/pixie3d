@@ -71,8 +71,6 @@
 
     advect     = 2
 
-    k_si     = 0.0
-
     debug    = f
     debug_it = 5
 
