@@ -219,6 +219,8 @@ c ######################################################################
 
         use equil_def
 
+        use grid_aliases
+
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov,acnv
         real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
@@ -339,6 +341,34 @@ cc        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
 cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
 cc#endif
 
+c       Grid aliases
+
+        if (.not.associated(xx)) then
+          xx => grid_params%xx
+          yy => grid_params%yy
+          zz => grid_params%zz
+
+          dxh => grid_params%dxh
+          dyh => grid_params%dyh
+          dzh => grid_params%dzh
+
+          dx => grid_params%dx
+          dy => grid_params%dy
+          dz => grid_params%dz
+        endif
+
+c       Constant arrays
+
+#if defined(samrai)
+        allocate(zeros (ilom:ihip,jlom:jhip,klom:khip))
+        allocate(vzeros(ilom:ihip,jlom:jhip,klom:khip,3))
+        allocate(ones  (ilom:ihip,jlom:jhip,klom:khip))
+
+        zeros  = 0d0
+        vzeros = 0d0
+        ones   = 1d0
+#endif
+
 c     End program
 
       end subroutine allocAuxVariables
@@ -375,6 +405,10 @@ cc      deallocate (acnv,acov)
 cc#else
 cc      deallocate (bcnv,bcov)
 cc#endif
+
+#if defined(samrai)
+      deallocate(zeros,vzeros,ones)
+#endif
 
 c     End program
 
