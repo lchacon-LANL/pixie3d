@@ -157,13 +157,18 @@ c Divergence of ion stress tensor
 
 c Electron velocity
 
-      vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
-      vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
-      vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+      if (di > 0d0) then
+        vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+        vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+        vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
 
-      vecov(:,:,:,1) = vcov(:,:,:,1)-di*jcov(:,:,:,1)/rho
-      vecov(:,:,:,2) = vcov(:,:,:,2)-di*jcov(:,:,:,2)/rho
-      vecov(:,:,:,3) = vcov(:,:,:,3)-di*jcov(:,:,:,3)/rho
+        vecov(:,:,:,1) = vcov(:,:,:,1)-di*jcov(:,:,:,1)/rho
+        vecov(:,:,:,2) = vcov(:,:,:,2)-di*jcov(:,:,:,2)/rho
+        vecov(:,:,:,3) = vcov(:,:,:,3)-di*jcov(:,:,:,3)/rho
+      else
+        vecnv = vcnv
+        vecov = vcov
+      endif
 
       if (jit == -2) vecnv_0 = vecnv   !Store equilibrium info
 
@@ -171,6 +176,7 @@ c Divergence of electron stress tensor
 
       if (di*heta > 0d0) then
         vdummy = vecnv - vecnv_0
+cc        vdummy = vcnv
 
         do k=1,nz
           do j=1,ny
@@ -225,6 +231,10 @@ cc      nullify(rho,bx,by,bz,px,py,pz,tmp)
 cc#else
 cc      nullify(rho,ax,ay,az,px,py,pz,tmp)
 cc#endif
+
+#if defined(samrai)
+      call deallocAuxVariables
+#endif
 
 c End program
 
