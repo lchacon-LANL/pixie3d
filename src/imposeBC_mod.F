@@ -26,7 +26,7 @@ c####################################################################
 
 c     setBCsched
 c     ###################################################################
-      subroutine setBCsched
+      subroutine setBCsched(itime)
 
 c     -------------------------------------------------------------------
 c     Sets BC schedule for dependent and auxiliary variables, which
@@ -38,51 +38,77 @@ c         or auxiliary (<0) variables.
 c       * Second component identifies scalars (=0) or vectors (=1).
 c     -------------------------------------------------------------------
 
+c     Call variables
+
+      integer :: itime
+
+c     Local variables
+
+      integer :: ierr,offset=0
+
+      save :: offset
+
 c     Begin program
+
+c     Select offset based on whether we are at the beginning of calculation
+
+      if (itime == 0) then
+        offset = 1
+      elseif (offset == 1 .and. itime > 0) then
+        deallocate(gv%bc_seq)
+        offset = 0
+      endif
+
+c     Setup schedule
 
       if (.not.associated(gv%bc_seq)) then
 
 #if defined(vec_pot)
-      gv%nbc_seq = 6
+        gv%nbc_seq = 6+offset
 #else
-      gv%nbc_seq = 5
+        gv%nbc_seq = 5+offset
 #endif
 
-      allocate(gv%bc_seq(gv%nbc_seq,2))
+        allocate(gv%bc_seq(gv%nbc_seq,2),STAT=ierr)
+
+        if (offset == 1) then
+          gv%bc_seq(1,1) =-IJ0CNV    !Aux. variable (<0)
+          gv%bc_seq(1,2) = 1         !Vector
+        endif
 
 #if defined(vec_pot)
-      gv%bc_seq(1,1) = IRHO !Dep. Variable (>0)
-      gv%bc_seq(1,2) = 0    !Scalar
+        gv%bc_seq(1+offset,1) = IRHO !Dep. Variable (>0)
+        gv%bc_seq(1+offset,2) = 0    !Scalar
 
-      gv%bc_seq(2,1) = IAX  !Dep. variable (>0)
-      gv%bc_seq(2,2) = 1    !Vector
+        gv%bc_seq(2+offset,1) = IAX  !Dep. variable (>0)
+        gv%bc_seq(2+offset,2) = 1    !Vector
 
-      gv%bc_seq(3,1) =-IBX  !Aux. variable (<0)
-      gv%bc_seq(3,2) = 1    !Vector
+        gv%bc_seq(3+offset,1) =-IBX  !Aux. variable (<0)
+        gv%bc_seq(3+offset,2) = 1    !Vector
 
-      gv%bc_seq(4,1) =-IJX  !Aux. variable (<0)
-      gv%bc_seq(4,2) = 1    !Vector
+        gv%bc_seq(4+offset,1) =-IJX  !Aux. variable (<0)
+        gv%bc_seq(4+offset,2) = 1    !Vector
 
-      gv%bc_seq(5,1) = IVX  !Dep. variable (>0)
-      gv%bc_seq(5,2) = 1    !Vector
+        gv%bc_seq(5+offset,1) = IVX  !Dep. variable (>0)
+        gv%bc_seq(5+offset,2) = 1    !Vector
 
-      gv%bc_seq(6,1) = ITMP !Dep. variable (>0)
-      gv%bc_seq(6,2) = 0    !Scalar
+        gv%bc_seq(6+offset,1) = ITMP !Dep. variable (>0)
+        gv%bc_seq(6+offset,2) = 0    !Scalar
 #else
-      gv%bc_seq(1,1) = IRHO !Dep. Variable (>0)
-      gv%bc_seq(1,2) = 0    !Scalar
+        gv%bc_seq(1+offset,1) = IRHO !Dep. Variable (>0)
+        gv%bc_seq(1+offset,2) = 0    !Scalar
 
-      gv%bc_seq(2,1) = IBX  !Dep. variable (>0)
-      gv%bc_seq(2,2) = 1    !Vector
+        gv%bc_seq(2+offset,1) = IBX  !Dep. variable (>0)
+        gv%bc_seq(2+offset,2) = 1    !Vector
 
-      gv%bc_seq(3,1) =-IJX  !Aux. variable (<0)
-      gv%bc_seq(3,2) = 1    !Vector
+        gv%bc_seq(3+offset,1) =-IJX  !Aux. variable (<0)
+        gv%bc_seq(3+offset,2) = 1    !Vector
 
-      gv%bc_seq(4,1) = IVX  !Dep. variable (>0)
-      gv%bc_seq(4,2) = 1    !Vector
+        gv%bc_seq(4+offset,1) = IVX  !Dep. variable (>0)
+        gv%bc_seq(4+offset,2) = 1    !Vector
 
-      gv%bc_seq(5,1) = ITMP !Dep. variable (>0)
-      gv%bc_seq(5,2) = 0    !Scalar
+        gv%bc_seq(5+offset,1) = ITMP !Dep. variable (>0)
+        gv%bc_seq(5+offset,2) = 0    !Scalar
 #endif
 
       endif
@@ -922,7 +948,7 @@ cc     .                     +array0(i  ,j,k,:))
 
                   J0 = E0/etal   !Applied current at wall
 
-                  nonlinear = (sum(B00**2) == 0d0)
+                  nonlinear = (sum(B00**2) == 0d0)  !If true, we are doing NLF
 
 cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
 
