@@ -316,7 +316,8 @@ c     Allocate storage
      $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
 
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
+     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip)
+     .           ,divrgV(ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (vcov_n(ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -387,28 +388,17 @@ c     Allocate storage
 
 #if !defined(samrai)
       call deallocateAuxStruct(gv%aux)
+#else
+      deallocate(zeros,vzeros,ones)
 #endif
 
       deallocate (pcnv,vdummy)
 
-      deallocate (eeta,nuu)
+      deallocate (eeta,nuu,divrgV)
 
       deallocate (vcov_n,vecnv,vecov,vecnv_0,vecov_n
-     .           ,E_ni,E_h,div_pi,div_pe
-     .           ,bhat
+     .           ,E_ni,E_h,div_pi,div_pe,bhat
      .           )
-
-cc      deallocate (vcnv,vcov,jcov_0,jcnv_0)
-cc
-cc#if defined(vec_pot)
-cc      deallocate (acnv,acov)
-cc#else
-cc      deallocate (bcnv,bcov)
-cc#endif
-
-#if defined(samrai)
-      deallocate(zeros,vzeros,ones)
-#endif
 
 c     End program
 
@@ -419,6 +409,8 @@ c     End program
 c module auxPlotVariables
 c ######################################################################
       module auxPlotVariables
+
+        use variables
 
 #if defined(vec_pot)
         real(8),target,allocatable,dimension(:,:,:) ::
@@ -440,6 +432,100 @@ c ######################################################################
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
      .         ,vex,vey,vez
+
+      contains
+
+c     allocAuxPlotVar
+c     ##################################################################
+      subroutine allocAuxPlotVar
+
+      implicit none
+
+#if defined(vec_pot)
+      allocate (bx    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,by    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,bz    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,ax_cnv(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,ay_cnv(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,az_cnv(ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (ax_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,ay_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,az_car(ilom:ihip,jlom:jhip,klom:khip))
+#endif
+
+      allocate (bx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,by_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,bz_cov(ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (jx    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jy    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jz    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jy_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jz_cov(ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (vx    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vy    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vz    (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vx_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vy_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vz_cov(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vex   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vey   (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vez   (ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (bx_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,by_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,bz_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jx_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jy_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jz_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vx_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vy_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vz_car(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vpar  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vpsi  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,vperp (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jpar  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jpsi  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,jperp (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,divrgB(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip))
+
+      allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
+
+      end subroutine allocAuxPlotVar
+
+
+c     deallocAuxPlotVar
+c     ##################################################################
+      subroutine deallocAuxPlotVar
+
+      implicit none
+
+#if defined(vec_pot)
+      deallocate (bx,by,bz,ax_cnv,ay_cnv,az_cnv)
+      deallocate (ax_car,ay_car,az_car)
+#endif
+
+      deallocate (bx_cov,by_cov,bz_cov)
+
+      deallocate (jx,jy,jz,jx_cov,jy_cov,jz_cov)
+
+      deallocate (vx,vy,vz,vx_cov,vy_cov,vz_cov,vex,vey,vez)
+
+      deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
+     .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
+     .           ,divrgB,divrgJ,Pflux,p_tot
+     .           ,jpar,jpsi,jperp)
+
+      deallocate (qfactor,lambda)
+
+      end subroutine deallocAuxPlotVar
 
       end module auxPlotVariables
 
