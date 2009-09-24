@@ -117,6 +117,19 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} 
 	@mv $@ $(BINDIR)
 
+samrai: common $(SAMRAICODE)
+
+$(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
+	@echo 'Before linking the common objs' $(COMMON_OBJS)
+	@echo 'Before linking the obj' $(OBJ)
+	@echo 'Before linking the objmod' $(OBJMOD)
+	@echo $(OBJ)
+	@echo ''
+	@echo 'Linking ' $@ ' code'
+	@echo ''
+	${CXX} $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} ${H5LIBS} ${LDFLAGS} ${LIBSAMRAI3D} ${LIBSAMRAI} ${LDLIBS} -o $@
+	@mv $@ $(BINDIR)
+
 common: $(SUBDIRS)
 
 $(SUBDIRS):
