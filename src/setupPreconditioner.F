@@ -35,7 +35,7 @@ c Diag
 c Externals
 
       external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
-     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp
+     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
 
 c Interfaces
 
@@ -98,16 +98,20 @@ c Setup BCs for diagonal formation
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
 
-#if !defined(vec_pot)
-      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
-      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
-#else
+cc#if !defined(vec_pot)
+cc      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
+cc      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
+cc#else
+#if defined(vec_pot)
       where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
 
       !Magnetic field conditions
       bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
       where (bcs(:,IBX:IBZ) == -DIR) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
 #endif
+
+      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
+      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
 
       if (asm_PC.and.(np>1)) then
         call setASM_PC_BC(igx,igy,igz,bcs)
@@ -134,9 +138,8 @@ c Find required diagonals in all grids
      .                   ,tmp_diag,ncolors,vol_wgt,mg_glrkin)
 
         if (.not.gm_smooth) then
-
 #if !defined(vec_pot)
-          if (heta > 0d0) then
+          if (di > 0d0 .and. (.not.hall_new)) then
             bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
             bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
             call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
@@ -146,13 +149,19 @@ c Find required diagonals in all grids
      .                       ,b_diag,ncolors,vol_wgt,mg_glrkin)
           endif
 #else
-          call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                     ,a_diag,ncolors,vol_wgt,mg_glrkin)
+          if (di > 0d0 .and. (.not.hall_new)) then
+            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
+     .                       ,a_diag_hyp,ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                       ,a_diag,ncolors,vol_wgt,mg_glrkin)
+          endif
 #endif
           if (v_solve) then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
      .                       ,v_diag2,ncolors,vol_wgt,mg_glrkin)
-          stop
           endif
 
           if (precon == 's1' .or. precon == 's2') then
@@ -269,5 +278,9 @@ c###################################################################
       use precond_variables
 
 c     Deallocate variables
+
+#if defined(samrai)
+      call deallocAuxVariables
+#endif
 
       end subroutine killPreconditioner
