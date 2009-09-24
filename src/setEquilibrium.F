@@ -3423,7 +3423,7 @@ c     Free up orbit integral work space
 c     hel_flux_avg
 c     ###################################################################
       function hel_flux_avg(fwd,xold,x,yold,y,zold,z,sold,ss)
-     .         result(exit_loop)
+     .         result(exloop)
 
 c     -------------------------------------------------------------------
 c     Performs flux average of various quantities for 2D helical
@@ -3440,7 +3440,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        logical :: exit_loop,fwd
+        logical :: exloop,fwd
         real(8) :: xold,x,yold,y,zold,z,sold,ss
 
 c     Local variables
@@ -3465,10 +3465,10 @@ c     Update current position
 
         if ( ts /= 0d0 .and. (y-yold)*dy0 > 0d0 ) then
           x = xs ; y = ys ; z = zs
-          exit_loop = .true.
+          exloop = .true.
         else
           ts = ss
-          exit_loop = .false.
+          exloop = .false.
         endif
 
 c     Find middle points
