@@ -18,17 +18,18 @@ c ######################################################################
      .               ,IAX,IAY,IAZ
 
         integer    :: IACNV,IACOV,IBCNV,IBCOV,IJCNV,IJCOV,IJ0CNV,IJ0COV
+     .               ,IETA
 
 #if !defined(vec_pot)
         parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7,ITMP=8
      .               ,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
      .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
-     .               ,IVCNV=7,IVCOV=8)
+     .               ,IVCNV=7,IVCOV=8,IETA=1)
 #else
         parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7,ITMP=8
      .               ,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
      .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
-     .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10)
+     .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10,IETA=1)
 #endif
 
         character(5)  :: equil
@@ -228,7 +229,8 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #endif
 
-        real(8),pointer,dimension(:,:,:)   :: eeta,nuu
+        real(8),pointer,dimension(:,:,:)   :: nuu
+        real(8),pointer,dimension(:,:,:)   :: eeta
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcov
@@ -269,9 +271,9 @@ c     Allocate storage
 
         if (.not.associated(gv%aux)) then
 #if defined(vec_pot)
-          call allocateAuxStruct(0,10,gv%aux)
+          call allocateAuxStruct(1,10,gv%aux)
 #else
-          call allocateAuxStruct(0,8,gv%aux)
+          call allocateAuxStruct(1,8 ,gv%aux)
 #endif
         endif
 
@@ -307,8 +309,9 @@ c     Allocate storage
         acov => gv%aux%vec_list(IACOV)%vec
 #endif
 
-        allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
+        eeta => gv%aux%var_list(IETA)%array
+
+        allocate (nuu    (ilom:ihip,jlom:jhip,klom:khip))
 
         allocate (vcov_n (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vecnv  (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -373,11 +376,9 @@ c     Allocate storage
       deallocate(zeros,vzeros,ones)
 #endif
 
-      deallocate(pcnv,vdummy)
+      deallocate(nuu)
 
-      deallocate(eeta,nuu)
-
-      deallocate(vcov_n,vecnv,vecov,vecnv_0,vecov_n
+      deallocate(pcnv,vdummy,vcov_n,vecnv,vecov,vecnv_0,vecov_n
      .          ,E_ni,E_h,div_pi,div_pe,bhat
      .          )
 
