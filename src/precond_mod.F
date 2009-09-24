@@ -714,12 +714,12 @@ c     Store Hall MHD auxiliary variables
 c     Find other auxiliary quantities and store them in all grids
 
         !Velocity divergence (w/o BCs)
-        allocate(divrgV(0:nxx+1,0:nyy+1,0:nzz+1))
+        allocate(debug2(0:nxx+1,0:nyy+1,0:nzz+1))
 
         do k=1,nzz
           do j=1,nyy
             do i=1,nxx
-              divrgV(i,j,k) = div(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+              debug2(i,j,k) = div(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                           ,vcnv(:,:,:,1)
      .                           ,vcnv(:,:,:,2)
      .                           ,vcnv(:,:,:,3))
@@ -727,10 +727,10 @@ c     Find other auxiliary quantities and store them in all grids
           enddo
         enddo
 
-        call restrictArrayToMGVector(1,nxx,nyy,nzz,divrgV,mgdivV0,igrid
+        call restrictArrayToMGVector(1,nxx,nyy,nzz,debug2,mgdivV0,igrid
      .                            ,order,.false.)
 
-        deallocate(divrgV)
+        deallocate(debug2)
 
         !pressure (w/ BCs)
         gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
