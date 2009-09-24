@@ -695,10 +695,10 @@ c Allocate auxiliary variables
 
 c Set boundary conditions
 
-      if (gv%bc_seq(i+1,1)>0) then  !Process dep. variable
+      if (gv%bc_seq(i+1,1)*AUX < 0) then  !Process dep. variable
         call applyDepVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
      .                    ,order=order)
-      else                          !Process aux. variable
+      else                                !Process aux. variable
         call applyAuxVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
      .                    ,order=order)
       endif
@@ -776,10 +776,10 @@ c Set BC schedule (see imposeBC_mod.F)
 c Impose BCs
 
       do i = 1,gv%nbc_seq
-        if (gv%bc_seq(i,1)>0) then  !Process dep. variable
+        if (gv%bc_seq(i,1)*AUX < 0) then  !Process dep. variable
           call applyDepVarBC(gv%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
-        else                          !Process aux. variable
+        else                              !Process aux. variable
           call applyAuxVarBC(gv%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
         endif
@@ -823,7 +823,6 @@ c Local variables
       real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
-cc      real(8),pointer,dimension(:,:,:,:) :: b_cnv,b_cov,j_cnv,j_cov
 
 c Begin program
 
@@ -837,14 +836,6 @@ c Allocate auxiliary variables in local domain
 
       allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
 
-cc      j_cnv => vaux%vec_list(IJCNV)%vec
-cc      j_cov => vaux%vec_list(IJCOV)%vec
-cc
-cc#if defined(vec_pot)
-cc      b_cnv => vaux%vec_list(IBCNV)%vec
-cc      b_cov => vaux%vec_list(IBCOV)%vec
-cc#endif
-
 c Select variable
 
       select case(abs(bc_inf(1)))
@@ -852,7 +843,7 @@ c Select variable
 
 c     Density BCs
 
-        if (bc_inf(2) /= 0) then
+        if (bc_inf(2) /= SCALAR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be scalar (0)')
         endif
@@ -868,20 +859,10 @@ c     Density BCs
 
 c     Vector Pot. BC
 
-        if (bc_inf(2) /= 1) then
+        if (bc_inf(2) /= VECTOR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be vector (1)')
         endif
-
-c       Resistivity (needed for BCs; may depend on T)
-
-        do k=0,nnz+1
-          do j=0,nny+1
-            do i=0,nnx+1
-              eeta (i,j,k) = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
-            enddo
-          enddo
-        enddo
 
 c       BC setup
 
@@ -931,20 +912,10 @@ cc     .            ,.false.)
 
 c     Magnetic field BC
 
-        if (bc_inf(2) /= 1) then
+        if (bc_inf(2) /= VECTOR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be vector (1)')
         endif
-
-c       Resistivity (needed for BCs; may depend on T)
-
-        do k=0,nnz+1
-          do j=0,nny+1
-            do i=0,nnx+1
-              eeta (i,j,k) = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
-            enddo
-          enddo
-        enddo
 
 c       BC setup
 
@@ -997,7 +968,7 @@ cc     .            ,.false.)
 
 c     Velocity BC
 
-        if (bc_inf(2) /= 1) then
+        if (bc_inf(2) /= VECTOR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be vector (1)')
         endif
@@ -1053,7 +1024,7 @@ c       Postprocessing
 
 c     Temperature BCs
 
-        if (bc_inf(2) /= 0) then
+        if (bc_inf(2) /= SCALAR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be scalar (0)')
         endif
@@ -1069,7 +1040,6 @@ c     Temperature BCs
 c Deallocate variables 
 
       deallocate(v0)
-cc      nullify(j_cnv,j_cov,b_cnv,b_cov)
 
 c End
 
@@ -1107,12 +1077,11 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
+      integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
 
-      real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
-cc      real(8),pointer,dimension(:,:,:,:) :: b_cnv,b_cov,j_cnv,j_cov
 
 c Begin program
 
@@ -1122,202 +1091,223 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
-c Allocate auxiliary variables in local domain
-
-      allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
-
-cc      j_cnv => vaux%vec_list(IJCNV)%vec
-cc      j_cov => vaux%vec_list(IJCOV)%vec
-cc
-cc#if defined(vec_pot)
-cc      b_cnv => vaux%vec_list(IBCNV)%vec
-cc      b_cov => vaux%vec_list(IBCOV)%vec
-cc#endif
-
 c Select variable
 
-      select case(abs(bc_inf(1)))
-      case(IJX,IJCNV)
+      select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
+      case(SCALAR)
 
-c     Current BC
+        select case(abs(bc_inf(1)))
+        case(IETA)
 
-        if (bc_inf(2) /= 1) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
+c       Resistivity (needed for BCs; may depend on T)
 
-        bcnd = vaux%vec_list(IJCNV)%bconds
-
-        if (pinch_flow) then  !Jt = alpha*Bt in cov representation
-
-          i = nnx
-
-          do k=1,nnz
-            do j=1,nny
-              bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))
-              bbcov = 0.5*(bcov(i+1,j,k,:)+bcov(i,j,k,:))
-
-              J0 = 0.5*(jcov_0(i+1,j,k,:)+jcov_0(i,j,k,:))
-
-              v0(i+1,j,k,:) = dot_product(J0   ,bbcnv)
-     .                       /dot_product(bbcov,bbcnv)*bbcov
-            enddo
-          enddo
-
-        else
-
-          v0(nnx+1,:,:,:) = 0.5*(jcov_0(nnx  ,:,:,:)
-     .                          +jcov_0(nnx+1,:,:,:))
-          v0(0    ,:,:,:) = 0.5*(jcov_0(1    ,:,:,:)
-     .                          +jcov_0(0    ,:,:,:))
-
-          v0(:,nny+1,:,:) = 0.5*(jcov_0(:,nny  ,:,:)
-     .                          +jcov_0(:,nny+1,:,:))
-          v0(:,0    ,:,:) = 0.5*(jcov_0(:,1    ,:,:)
-     .                          +jcov_0(:,0    ,:,:))
-
-          v0(:,:,nnz+1,:) = 0.5*(jcov_0(:,:,nnz  ,:)
-     .                          +jcov_0(:,:,nnz+1,:))
-          v0(:,:,0    ,:) = 0.5*(jcov_0(:,:,1    ,:)
-     .                          +jcov_0(:,:,0    ,:))
-
-        endif
-
-c       Fill ghost nodes
-
-        call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
-     .            ,iorder=order)
-
-      case(IJ0CNV)
-
-        v0 = 0d0
-
-c     Current BC
-
-        if (bc_inf(2) /= 1) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
-
-c diag ****
-        if (test) then
-
-          jcov_0 = 0d0
-          jcnv_0 = 0d0
-c diag ****
-
-        elseif (sum(E0) /= 0d0) then
-
-          !Enforce imposed E field
           do k=0,nnz+1
             do j=0,nny+1
               do i=0,nnx+1
-                etal = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
-                jcov_0(i,j,k,:) = E0/etal
-                jcnv_0(i,j,k,:) =
-     .               matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
-     .                     ,jcov_0(i,j,k,:))
+                eeta(i,j,k) = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
               enddo
             enddo
           enddo
 
-        else
+        case default
+          call pstop('applyDepVarBC'
+     .              ,'Scalar auxiliary variable does not exist')
+        end select
 
-          bcnd = vaux%vec_list(IJ0CNV)%bconds
+      case(VECTOR)
 
-c         Find B0
+c       Allocate auxiliary variables in local domain
+
+        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+        select case(abs(bc_inf(1)))
+        case(IJX,IJCNV)
+
+c       Current BC
+
+          if (bc_inf(2) /= 1) then
+            call pstop('applyDepVarBC'
+     .                ,'Inconsistent qty def: should be vector (1)')
+          endif
+
+          bcnd = vaux%vec_list(IJCNV)%bconds
+
+          if (pinch_flow) then  !Jt = alpha*Bt in cov representation
+
+            i = nnx
+
+            do k=1,nnz
+              do j=1,nny
+                bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))
+                bbcov = 0.5*(bcov(i+1,j,k,:)+bcov(i,j,k,:))
+
+                J0 = 0.5*(jcov_0(i+1,j,k,:)+jcov_0(i,j,k,:))
+
+                v0(i+1,j,k,:) = dot_product(J0   ,bbcnv)
+     .                         /dot_product(bbcov,bbcnv)*bbcov
+              enddo
+            enddo
+
+          else
+
+            v0(nnx+1,:,:,:) = 0.5*(jcov_0(nnx  ,:,:,:)
+     .                            +jcov_0(nnx+1,:,:,:))
+            v0(0    ,:,:,:) = 0.5*(jcov_0(1    ,:,:,:)
+     .                            +jcov_0(0    ,:,:,:))
+
+            v0(:,nny+1,:,:) = 0.5*(jcov_0(:,nny  ,:,:)
+     .                            +jcov_0(:,nny+1,:,:))
+            v0(:,0    ,:,:) = 0.5*(jcov_0(:,1    ,:,:)
+     .                            +jcov_0(:,0    ,:,:))
+
+            v0(:,:,nnz+1,:) = 0.5*(jcov_0(:,:,nnz  ,:)
+     .                            +jcov_0(:,:,nnz+1,:))
+            v0(:,:,0    ,:) = 0.5*(jcov_0(:,:,1    ,:)
+     .                            +jcov_0(:,:,0    ,:))
+
+          endif
+
+c         Fill ghost nodes
+
+          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
+     .              ,iorder=order)
+
+        case(IJ0CNV)
+
+          v0 = 0d0
+
+c       Current BC
+
+          if (bc_inf(2) /= 1) then
+            call pstop('applyDepVarBC'
+     .                ,'Inconsistent qty def: should be vector (1)')
+          endif
+
+c diag ****
+          if (test) then
+
+            jcov_0 = 0d0
+            jcnv_0 = 0d0
+c diag ****
+
+          elseif (sum(E0) /= 0d0) then
+
+            !Enforce imposed E field
+            do k=0,nnz+1
+              do j=0,nny+1
+                do i=0,nnx+1
+cc                  etal = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
+                  etal = eeta(i,j,k)
+                  jcov_0(i,j,k,:) = E0/etal
+                  jcnv_0(i,j,k,:) =
+     .                 matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
+     .                       ,jcov_0(i,j,k,:))
+                enddo
+              enddo
+            enddo
+
+          else
+
+            bcnd = vaux%vec_list(IJ0CNV)%bconds
+
+c           Find B0
 
 #if defined(vec_pot)
-          acov(:,:,:,1) = varray%array_var(IAX)%array
-          acov(:,:,:,2) = varray%array_var(IAY)%array
-          acov(:,:,:,3) = varray%array_var(IAZ)%array
+            acov(:,:,:,1) = varray%array_var(IAX)%array
+            acov(:,:,:,2) = varray%array_var(IAY)%array
+            acov(:,:,:,3) = varray%array_var(IAZ)%array
 
-          call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd
-     .              ,iigx,iigy,iigz,is_cnv=.false.,iorder=2)
+            call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd
+     .                ,iigx,iigy,iigz,is_cnv=.false.,iorder=2)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                do icomp=1,3
-                  bcnv(i,j,k,icomp)=B0(icomp)
-     .                             +curl2(i,j,k,nnx,nny,nnz
-     .                                    ,iigx,iigy,iigz
-     .                                    ,acov(:,:,:,1)
-     .                                    ,acov(:,:,:,2)
-     .                                    ,acov(:,:,:,3),icomp)
+            do k = 0,nnz+1
+              do j = 0,nny+1
+                do i = 0,nnx+1
+                  do icomp=1,3
+                    bcnv(i,j,k,icomp)=B0(icomp)
+     .                               +curl2(i,j,k,nnx,nny,nnz
+     .                                      ,iigx,iigy,iigz
+     .                                      ,acov(:,:,:,1)
+     .                                      ,acov(:,:,:,2)
+     .                                      ,acov(:,:,:,3),icomp)
+                  enddo
                 enddo
               enddo
             enddo
-          enddo
 #else
-          bcnv(:,:,:,1) = varray%array_var(IBX)%array
-          bcnv(:,:,:,2) = varray%array_var(IBY)%array
-          bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+            bcnv(:,:,:,1) = varray%array_var(IBX)%array
+            bcnv(:,:,:,2) = varray%array_var(IBY)%array
+            bcnv(:,:,:,3) = varray%array_var(IBZ)%array
 #endif
 
-          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
-     .            ,iigx,iigy,iigz,is_cnv=.true.,iorder=2)
-
-c         Find J0
-
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                do icomp=1,3
-                  jcnv_0(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz
-     .                                    ,iigx,iigy,iigz
-     .                                    ,bcov(:,:,:,1)
-     .                                    ,bcov(:,:,:,2)
-     .                                    ,bcov(:,:,:,3),icomp)
-                enddo
-              enddo
-            enddo
-          enddo
-
-          call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+            call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
      .              ,iigx,iigy,iigz,is_cnv=.true.,iorder=2)
 
-cc          call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
-cc     .              ,iigx,iigy,iigz,iorder=order)
-        endif
+c           Find J0
+
+            do k = 0,nnz+1
+              do j = 0,nny+1
+                do i = 0,nnx+1
+                  do icomp=1,3
+                    jcnv_0(i,j,k,icomp)=curl2(i,j,k,nnx,nny,nnz
+     .                                      ,iigx,iigy,iigz
+     .                                      ,bcov(:,:,:,1)
+     .                                      ,bcov(:,:,:,2)
+     .                                      ,bcov(:,:,:,3),icomp)
+                  enddo
+                enddo
+              enddo
+            enddo
+
+            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+     .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=2)
+
+cc            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+cc     .                ,iigx,iigy,iigz,iorder=order)
+          endif
 
 #if defined(vec_pot)
-      case(IBX)
+        case(IBX)
 
-c     Magnetic field BC (with fixed current at boundary)
+c       Magnetic field BC (with fixed current at boundary)
 
-        if (bc_inf(2) /= 1) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
+          if (bc_inf(2) /= 1) then
+            call pstop('applyDepVarBC'
+     .                ,'Inconsistent qty def: should be vector (1)')
+          endif
 
-        bcnd = vaux%vec_list(IBCNV)%bconds
+          bcnd = vaux%vec_list(IBCNV)%bconds
 
-        call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,jcov_0,bcnd
-     .            ,iigx,iigy,iigz,iorder=order)
+          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,jcov_0,bcnd
+     .              ,iigx,iigy,iigz,iorder=order)
 
-c       Postprocessing: J=curl(B)
+c         Postprocessing: J=curl(B)
 
-        do k = 0,nnz+1
-          do j = 0,nny+1
-            do i = 0,nnx+1
-              do icomp=1,3
-                jcnv(i,j,k,icomp)=
-     .                     curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
-     .                          ,bcov(:,:,:,1)
-     .                          ,bcov(:,:,:,2)
-     .                          ,bcov(:,:,:,3),icomp)
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
+                do icomp=1,3
+                  jcnv(i,j,k,icomp)=
+     .                       curl2(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+     .                            ,bcov(:,:,:,1)
+     .                            ,bcov(:,:,:,2)
+     .                            ,bcov(:,:,:,3),icomp)
+                enddo
               enddo
             enddo
           enddo
-        enddo
 #endif
+        case default
+          call pstop('applyDepVarBC'
+     .              ,'Vector auxiliary variable does not exist')
+
+        end select
+
+c       Deallocate variables 
+
+        deallocate(v0)
+
       end select
-
-c Deallocate variables 
-
-      deallocate(v0)
-cc      nullify(j_cnv,j_cov,b_cnv,b_cov)
 
 c End
 
