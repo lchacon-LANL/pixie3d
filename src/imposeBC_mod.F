@@ -18,9 +18,13 @@ c####################################################################
 
         use equilibrium
 
+cc        use precond_variables, ONLY: geta
+
         logical :: pinch_flow=.false.
 
         integer :: bc_order=1
+
+        integer,parameter :: VECTOR=1,SCALAR=0,AUX=-1
 
       contains
 
@@ -64,51 +68,57 @@ c     Setup schedule
       if (.not.associated(gv%bc_seq)) then
 
 #if defined(vec_pot)
-        gv%nbc_seq = 6+offset
+        gv%nbc_seq = 7+offset
 #else
-        gv%nbc_seq = 5+offset
+        gv%nbc_seq = 6+offset
 #endif
 
         allocate(gv%bc_seq(gv%nbc_seq,2),STAT=ierr)
 
         if (offset == 1) then
-          gv%bc_seq(1,1) =-IJ0CNV    !Aux. variable (<0)
-          gv%bc_seq(1,2) = 1         !Vector
+          gv%bc_seq(1,1) = IJ0CNV*AUX    !Aux. variable
+          gv%bc_seq(1,2) = VECTOR        !Vector
         endif
 
 #if defined(vec_pot)
-        gv%bc_seq(1+offset,1) = IRHO !Dep. Variable (>0)
-        gv%bc_seq(1+offset,2) = 0    !Scalar
+        gv%bc_seq(1+offset,1) = IRHO     !Dep. Variable
+        gv%bc_seq(1+offset,2) = SCALAR   !Scalar
 
-        gv%bc_seq(2+offset,1) = IAX  !Dep. variable (>0)
-        gv%bc_seq(2+offset,2) = 1    !Vector
+        gv%bc_seq(2+offset,1) = IETA*AUX !Aux. variable
+        gv%bc_seq(2+offset,2) = SCALAR   !Scalar
 
-        gv%bc_seq(3+offset,1) =-IBX  !Aux. variable (<0)
-        gv%bc_seq(3+offset,2) = 1    !Vector
+        gv%bc_seq(3+offset,1) = IAX      !Dep. variable
+        gv%bc_seq(3+offset,2) = VECTOR   !Vector
 
-        gv%bc_seq(4+offset,1) =-IJX  !Aux. variable (<0)
-        gv%bc_seq(4+offset,2) = 1    !Vector
+        gv%bc_seq(4+offset,1) = IBX*AUX  !Aux. variable
+        gv%bc_seq(4+offset,2) = VECTOR   !Vector
 
-        gv%bc_seq(5+offset,1) = IVX  !Dep. variable (>0)
-        gv%bc_seq(5+offset,2) = 1    !Vector
+        gv%bc_seq(5+offset,1) = IJX*AUX  !Aux. variable
+        gv%bc_seq(5+offset,2) = VECTOR   !Vector
 
-        gv%bc_seq(6+offset,1) = ITMP !Dep. variable (>0)
-        gv%bc_seq(6+offset,2) = 0    !Scalar
+        gv%bc_seq(6+offset,1) = IVX      !Dep. variable
+        gv%bc_seq(6+offset,2) = VECTOR   !Vector
+
+        gv%bc_seq(7+offset,1) = ITMP     !Dep. variable
+        gv%bc_seq(7+offset,2) = SCALAR   !Scalar
 #else
-        gv%bc_seq(1+offset,1) = IRHO !Dep. Variable (>0)
-        gv%bc_seq(1+offset,2) = 0    !Scalar
+        gv%bc_seq(1+offset,1) = IRHO     !Dep. Variable
+        gv%bc_seq(1+offset,2) = SCALAR   !Scalar
 
-        gv%bc_seq(2+offset,1) = IBX  !Dep. variable (>0)
-        gv%bc_seq(2+offset,2) = 1    !Vector
+        gv%bc_seq(2+offset,1) = IETA*AUX !Aux. variable
+        gv%bc_seq(2+offset,2) = SCALAR   !Scalar
 
-        gv%bc_seq(3+offset,1) =-IJX  !Aux. variable (<0)
-        gv%bc_seq(3+offset,2) = 1    !Vector
+        gv%bc_seq(3+offset,1) = IBX      !Dep. variable
+        gv%bc_seq(3+offset,2) = VECTOR   !Vector
 
-        gv%bc_seq(4+offset,1) = IVX  !Dep. variable (>0)
-        gv%bc_seq(4+offset,2) = 1    !Vector
+        gv%bc_seq(4+offset,1) = IJX*AUX  !Aux. variable
+        gv%bc_seq(4+offset,2) = VECTOR   !Vector
 
-        gv%bc_seq(5+offset,1) = ITMP !Dep. variable (>0)
-        gv%bc_seq(5+offset,2) = 0    !Scalar
+        gv%bc_seq(5+offset,1) = IVX      !Dep. variable
+        gv%bc_seq(5+offset,2) = VECTOR   !Vector
+
+        gv%bc_seq(6+offset,1) = ITMP     !Dep. variable
+        gv%bc_seq(6+offset,2) = SCALAR   !Scalar
 #endif
 
       endif
@@ -702,6 +712,8 @@ c     Local variables
      .          ,covkp(3),covkm(3)
 
       logical :: nonlinear
+
+cc      real(8),pointer,dimension(:,:,:) :: eta_bc
 
 c     Begin program
 
