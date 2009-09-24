@@ -28,22 +28,6 @@ c Preconditioner
 
       call allocPrecVariables
 
-c Grid aliases
-
-      if (.not.associated(xx)) then
-        xx => grid_params%xx
-        yy => grid_params%yy
-        zz => grid_params%zz
-
-        dxh => grid_params%dxh
-        dyh => grid_params%dyh
-        dzh => grid_params%dzh
-
-        dx => grid_params%dx
-        dy => grid_params%dy
-        dz => grid_params%dz
-      endif
-
 c End programs
 
       end subroutine createNonlinearFunction
