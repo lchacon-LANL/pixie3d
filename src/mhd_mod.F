@@ -228,7 +228,7 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #endif
 
-        real(8),pointer,dimension(:,:,:)   :: eeta,nuu,divrgV
+        real(8),pointer,dimension(:,:,:)   :: eeta,nuu
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcov
@@ -252,11 +252,6 @@ c ######################################################################
         integer :: advect
 
         logical :: alt_eom
-
-ccc SI operator
-cc        real(8) :: k_si=0d0
-cc        real(8),target,allocatable,dimension(:,:,:,:) :: b_n,p_n,dv_dt
-ccc SI operator
 
       contains
 
@@ -312,35 +307,21 @@ c     Allocate storage
         acov => gv%aux%vec_list(IACOV)%vec
 #endif
 
-        allocate (pcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     $           ,vdummy(ilom:ihip,jlom:jhip,klom:khip,3))
-
         allocate (eeta  (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip)
-     .           ,divrgV(ilom:ihip,jlom:jhip,klom:khip))
+     .           ,nuu   (ilom:ihip,jlom:jhip,klom:khip))
 
-        allocate (vcov_n(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecnv (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecov (ilom:ihip,jlom:jhip,klom:khip,3)
+        allocate (vcov_n (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vecov  (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vecnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vecov_n(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,E_ni  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,E_h   (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,div_pi(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,div_pe(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,vcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,vcov  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,jcnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,jcov_0(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,bhat  (ilom:ihip,jlom:jhip,klom:khip,3))
-
-cc#if defined(vec_pot)
-cc        allocate (acnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     $           ,acov  (ilom:ihip,jlom:jhip,klom:khip,3))
-cc#else
-cc        allocate (bcnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .           ,bcov  (ilom:ihip,jlom:jhip,klom:khip,3))
-cc#endif
+     .           ,E_ni   (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,E_h    (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,div_pi (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,div_pe (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,bhat   (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,pcnv   (ilom:ihip,jlom:jhip,klom:khip,3)
+     .           ,vdummy (ilom:ihip,jlom:jhip,klom:khip,3))
 
 c       Grid aliases
 
@@ -392,13 +373,13 @@ c     Allocate storage
       deallocate(zeros,vzeros,ones)
 #endif
 
-      deallocate (pcnv,vdummy)
+      deallocate(pcnv,vdummy)
 
-      deallocate (eeta,nuu,divrgV)
+      deallocate(eeta,nuu)
 
-      deallocate (vcov_n,vecnv,vecov,vecnv_0,vecov_n
-     .           ,E_ni,E_h,div_pi,div_pe,bhat
-     .           )
+      deallocate(vcov_n,vecnv,vecov,vecnv_0,vecov_n
+     .          ,E_ni,E_h,div_pi,div_pe,bhat
+     .          )
 
 c     End program
 
@@ -423,7 +404,7 @@ c ######################################################################
      .          bx_car,by_car,bz_car
      .         ,jx_car,jy_car,jz_car
      .         ,vx_car,vy_car,vz_car
-     .         ,divrgB,divrgJ,Pflux
+     .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
      .         ,vpar,vpsi,vperp,jpar,jpsi,jperp
 
@@ -492,6 +473,7 @@ c     ##################################################################
      .         ,jperp (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgB(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
+     .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
      .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip))
 
@@ -520,7 +502,7 @@ c     ##################################################################
 
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
-     .           ,divrgB,divrgJ,Pflux,p_tot
+     .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
      .           ,jpar,jpsi,jperp)
 
       deallocate (qfactor,lambda)
