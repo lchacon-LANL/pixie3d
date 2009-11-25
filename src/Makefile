@@ -54,17 +54,20 @@ endif
 
 ifdef SAMR
   include ${SAMRAI}/config/Makefile.config
-  PDIM = 3
-  CPPFLAGS_EXTRA += -DNDIM=$(PDIM)
-  CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
-  CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
-  CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
-#  CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/../time_integrators-debug/include
-#  CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/../time_integrators-debug/include
-  LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/lib   
-  LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
-#  LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/../time_integrators-debug/lib   
-#  LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/../time_integrators-debug/lib/libtimeintegration3d.a
+#  PDIM = 3
+#  CPPFLAGS_EXTRA += -DNDIM=$(PDIM)
+#  CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
+#   CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+#   CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+#   CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+#   CXXFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+#   LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/lib   
+#   LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
+#   LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
 
   SRC2      = $(SRC)
   EXCLUDE  += %explicit.F
