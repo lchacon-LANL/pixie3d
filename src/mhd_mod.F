@@ -270,11 +270,7 @@ c     Begin program
 c     Allocate storage
 
         if (.not.associated(gv%aux)) then
-#if defined(vec_pot)
-          call allocateAuxStruct(1,10,gv%aux)
-#else
-          call allocateAuxStruct(1,8 ,gv%aux)
-#endif
+          call allocateAuxStruct(NAUXS,NAUXV,gv%aux)
         endif
 
         gv%aux%vec_list(IBCNV)%cnv = .true.
