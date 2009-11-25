@@ -38,7 +38,7 @@ c Externals
      .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
 
 c Interfaces
-
+#if !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -47,7 +47,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
-
+#endif
 c Begin program
 
       if (precon == 'id') return
@@ -68,7 +68,9 @@ c Unpack vector x
 
       call equateDerivedType(varray,v_arr)
 
+#if !defined(samrai)
       call imposeBoundaryConditions(varray,igx,igy,igz)
+#endif
 
 c Extract arrays and BC's
 
