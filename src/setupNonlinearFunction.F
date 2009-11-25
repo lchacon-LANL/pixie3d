@@ -42,6 +42,7 @@ c Local variables
 
 c Interfaces
 
+#if !defined (samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -50,7 +51,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
-
+#endif
 c Begin program
 
       nx = grid_params%nxv(igx)
@@ -58,9 +59,9 @@ c Begin program
       nz = grid_params%nzv(igz)
 
 c Impose boundary conditions and find auxiliary quantities
-
+#if !defined (samrai)
       call imposeBoundaryConditions(varray,igx,igy,igz)
-
+#endif
 c Set aliases
 
       rho => varray%array_var(IRHO)%array
