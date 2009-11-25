@@ -25,7 +25,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov
 
 c Interfaces
-
+#if !defined(vec_pot)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -34,7 +34,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
-
+#endif
 c Begin program
 
       !Setup grid info
