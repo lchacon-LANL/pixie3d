@@ -30,7 +30,7 @@ HDF5_LIBS ?= -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
 
 PREPROC = -D
 
-#HDF5 = t
+HDF5 = t
 
 LIBS = -llapack -lblas
 
