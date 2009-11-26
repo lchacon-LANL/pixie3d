@@ -30,7 +30,7 @@ HDF5_LIBS ?= -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
 
 PREPROC = -D
 
-HDF5 = t
+#HDF5 = t
 
 LIBS = -llapack -lblas
 
@@ -130,14 +130,6 @@ ifdef SAMR
 
    TARGET = samrai
    CPPFLAGS += -Dsamrai
-
-   ifdef VECPLOT
-       CPPFLAGS_EXTRA +=-DNAUXS=0 -DNAUXV=4
-       CXXFLAGS_EXTRA +=-DNAUXS=0 -DNAUXV=4
-   else
-       CPPFLAGS_EXTRA +=-DNAUXS=0 -DNAUXV=2
-       CXXFLAGS_EXTRA +=-DNAUXS=0 -DNAUXV=2
-   endif
 
    CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
    CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
