@@ -25,7 +25,8 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov
 
 c Interfaces
-#if !defined(vec_pot)
+
+#if !defined(vec_pot) && !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -35,6 +36,7 @@ c Interfaces
         end subroutine imposeBoundaryConditions
       END INTERFACE
 #endif
+
 c Begin program
 
       !Setup grid info
@@ -54,7 +56,7 @@ c Begin program
      .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
       endif
 
-#if !defined(vec_pot) 
+#if !defined(vec_pot) && !defined(samrai)
 
       if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
 
