@@ -105,7 +105,7 @@ c Functions
 
       real(8) :: qprof,pprof
       external   qprof,pprof
-
+      
 cc      !q-profile
 cc      qq (r1) = 0.6125*(1 - 1.8748*r1**2 + 0.8323*r1**4)
 cc      qqp(r1) = 0.6125*( -2*1.8748*r1   +4*0.8323*r1**3)

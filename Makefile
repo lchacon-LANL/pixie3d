@@ -125,11 +125,14 @@ ifdef SAMR
 
    PDIM = 3
    OBJECT=${SAMRAI}
-   CPPFLAGS_EXTRA += -DNDIM=$(PDIM) $(PREPROC)NVAR=8
    CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
 
    TARGET = samrai
    CPPFLAGS += -Dsamrai
+
+ifdef VECPOT
+  CPPFLAGS += -Dvec_pot
+endif
 
    CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
    CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
