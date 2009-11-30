@@ -2359,7 +2359,7 @@ c Transfer electric field info to postprocessor via input file
       if (sum(E0) /= 0d0 .and. my_rank == 0) then
 
         command = 'grep E0 ' // trim(inputfile) // ' > /dev/null'
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
 
         write (command,*) '   E0 =',real(E0(1),4)
      .                         ,',',real(E0(2),4)
@@ -2387,7 +2387,7 @@ c Transfer electric field info to postprocessor via input file
      .       // trim(inputfile)
         endif
 
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
       endif
 
 c Transfer magnetic field info to postprocessor via input file
@@ -2395,7 +2395,7 @@ c Transfer magnetic field info to postprocessor via input file
       if (sum(B0) /= 0d0 .and. my_rank == 0) then
 
         command = 'grep B0 ' // trim(inputfile) // ' > /dev/null'
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
 
         write (command,*) '   B0 =',real(B0(1),4)
      .                         ,',',real(B0(2),4)
@@ -2423,7 +2423,7 @@ c Transfer magnetic field info to postprocessor via input file
      .       // trim(inputfile)
         endif
 
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
       endif
 
 c End program

@@ -64,7 +64,7 @@ c     Begin program
       case ('2dkai','3dkai')
 
         command = 'test -f '//trim(prt_file)
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
           call perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
@@ -75,7 +75,7 @@ c     Begin program
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
 
         command = 'test -f '//trim(prt_file)
-        ierr = system(trim(command))
+        ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
           call perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
