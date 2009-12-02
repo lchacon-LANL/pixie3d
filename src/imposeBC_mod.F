@@ -18,9 +18,7 @@ c####################################################################
 
         use equilibrium
 
-cc        use precond_variables, ONLY: geta
-
-        logical :: pinch_flow=.false.
+        logical :: pinch_flow=.false.,rfx_pinch_bc=.true.,save_Bn
 
         integer :: bc_order=1
 
@@ -129,7 +127,7 @@ c     End program
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,bcov,v0,dbcov)
+      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,v0,dbcov)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -140,7 +138,7 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer :: igrid,nx,ny,nz
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,bcov,v0
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,v0
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3),optional :: dbcov
 
 c     Local variables
@@ -157,7 +155,10 @@ c     Begin program
       do k=1,nz
         do j=1,ny
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          bbcov = 0.5*(bcov(i,j,k,:)+bcov(i+1,j,k,:))
+          bbcov = 0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                       ,bcnv(i  ,j,k,:))
+     .                +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
+     .                       ,bcnv(i+1,j,k,:)))
 
           b2 = dot_product(bbcnv,bbcov)
 
@@ -940,7 +941,8 @@ cc     .                     +array0(i  ,j,k,:))
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                if (pinch_flow) then     !Finite flow at wall
+                !!!!!!!Finite flow at wall!!!!!!!
+                if (pinch_flow) then
 
                   if (ibc == 1) then
                     etal =
@@ -965,10 +967,20 @@ cc     .                     +array0(i  ,j,k,:))
 cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
 
                   if (nonlinear) then
-                    cov = array(i,j,k,:)
-                    cnv = matmul(gsuper,cov)
+                    if (rfx_pinch_bc) then
+                      cnv = bcnv_n(i,j,k,:)   !Use bcov_n here to picard-linearize
+                      cov = matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:)
+     .                            ,cnv)
+                    else
+                      cov = array(i,j,k,:)
+                      cnv = matmul(gsuper,cov)
+                    endif
                   else
-                    cnv = B00
+                    if (rfx_pinch_bc) then
+                      cnv = 0d0   !No correction needed when lagged BC is used
+                    else
+                      cnv = B00
+                    endif
                     cov =matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:),cnv)
                   endif
 
@@ -993,7 +1005,8 @@ cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
                     ee = 0d0
                   endif
 
-                else       !Finite current at wall
+                !!!!!!!Finite current at wall!!!!!!!
+                else
 
                   if (ibc == 1) then
                     J0 = 0.5*(array0(i-1,j,k,:)
