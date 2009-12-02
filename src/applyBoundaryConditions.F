@@ -820,7 +820,7 @@ c Local variables
 
       integer    :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
 
-      real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
+cc      real(8)    :: bbcov(3),bbcnv(3),b2,J0(3),E00(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
@@ -898,15 +898,19 @@ c       Postprocessing: B=curl(A)
      .                        ,acov(:,:,:,1)
      .                        ,acov(:,:,:,2)
      .                        ,acov(:,:,:,3),icomp)
-
+              enddo
 cc                call transformFromCurvToCurv(i,j,k,iigx,iigy,iigz
 cc     .            ,b_cov(i,j,k,1),b_cov(i,j,k,2),b_cov(i,j,k,3)
 cc     .            ,b_cnv(i,j,k,1),b_cnv(i,j,k,2),b_cnv(i,j,k,3)
 cc     .            ,.false.)
-              enddo
+
             enddo
           enddo
         enddo
+
+        if (save_Bn) bcnv_n = bcnv
+      endif
+
 #else
       case(IBX)
 
@@ -933,6 +937,8 @@ c       BC setup
           v0 = jcov_0             !To fix current at boundary
         endif
 
+        if (save_Bn) bcnv_n = bcnv  !Save without BCs
+
 c       Fill ghost nodes
 
         call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
@@ -941,6 +947,8 @@ c       Fill ghost nodes
         varray%array_var(IBX)%array = bcnv(:,:,:,1)
         varray%array_var(IBY)%array = bcnv(:,:,:,2)
         varray%array_var(IBZ)%array = bcnv(:,:,:,3)
+
+        if (save_Bn) bcnv_n = bcnv  !Save with updated BCs
 
 c       Postprocessing: J=curl(B)
 
@@ -953,12 +961,11 @@ c       Postprocessing: J=curl(B)
      .                          ,bcov(:,:,:,1)
      .                          ,bcov(:,:,:,2)
      .                          ,bcov(:,:,:,3),icomp)
-
+              enddo
 cc                call transformFromCurvToCurv(i,j,k,iigx,iigy,iigz
 cc     .            ,j_cov(i,j,k,1),j_cov(i,j,k,2),j_cov(i,j,k,3)
 cc     .            ,j_cnv(i,j,k,1),j_cnv(i,j,k,2),j_cnv(i,j,k,3)
 cc     .            ,.false.)
-              enddo
             enddo
           enddo
         enddo
@@ -998,7 +1005,11 @@ c       BC setup
         v0(:,:,:,2) = u_0%array_var(IVY)%array
         v0(:,:,:,3) = u_0%array_var(IVZ)%array
 
-        call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv,bcov,v0)
+        if (rfx_pinch_bc) then
+          call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,v0)
+        else
+          call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv,v0)
+        endif
 
 c       Fill ghost nodes
 
@@ -1138,8 +1149,18 @@ c       Current BC
 
             do k=1,nnz
               do j=1,nny
-                bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))
-                bbcov = 0.5*(bcov(i+1,j,k,:)+bcov(i,j,k,:))
+                if (rfx_pinch_bc) then
+                  bbcnv = 0.5*(bcnv_n(i+1,j,k,:)+bcnv_n(i,j,k,:))
+                  bbcov =
+     .               0.5*(matmul(gmetric%grid(iigx)%gsub(i  ,j,k,:,:)
+     .                          ,bcnv_n(i  ,j,k,:))
+     .                   +matmul(gmetric%grid(iigx)%gsub(i+1,j,k,:,:)
+     .                          ,bcnv_n(i+1,j,k,:)))
+
+                else
+                  bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))
+                  bbcov = 0.5*(bcov(i+1,j,k,:)+bcov(i,j,k,:))
+                endif
 
                 J0 = 0.5*(jcov_0(i+1,j,k,:)+jcov_0(i,j,k,:))
 
@@ -1196,8 +1217,8 @@ c diag ****
             do k=0,nnz+1
               do j=0,nny+1
                 do i=0,nnx+1
-cc                  etal = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
-                  etal = eeta(i,j,k)
+                  etal = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
+cc                  etal = eeta(i,j,k)
                   jcov_0(i,j,k,:) = E0/etal
                   jcnv_0(i,j,k,:) =
      .                 matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
@@ -1281,7 +1302,7 @@ c       Magnetic field BC (with fixed current at boundary)
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,jcov_0,bcnd
      .              ,iigx,iigy,iigz,iorder=order)
 
-c         Postprocessing: J=curl(B)
+c         Postprocessing: J=curl(B)=curl(curl(A))
 
           do k = 0,nnz+1
             do j = 0,nny+1
@@ -1293,9 +1314,21 @@ c         Postprocessing: J=curl(B)
      .                            ,bcov(:,:,:,2)
      .                            ,bcov(:,:,:,3),icomp)
                 enddo
+cc              jcnv(i,j,k,:)= matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:),
+cc     .             -veclap_cov(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov
+cc     .                        ,vol=.false.)
+cc     .                +graddiv(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acnv
+cc     .                        ,vol=.false.))
+
+cc              call transformFromCurvToCurv(i,j,k,iigx,iigy,iigz
+cc     .            ,j_cov(i,j,k,1),j_cov(i,j,k,2),j_cov(i,j,k,3)
+cc     .            ,j_cnv(i,j,k,1),j_cnv(i,j,k,2),j_cnv(i,j,k,3)
+cc     .            ,.false.)
+
               enddo
             enddo
           enddo
+
 #endif
         case default
           call pstop('applyDepVarBC'
