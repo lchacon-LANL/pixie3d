@@ -22,7 +22,8 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,igx,igy,igz,nx,ny,nz
-      real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov
+      real(8) :: mag
+      real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov,dbg
 
 c Interfaces
 
@@ -54,14 +55,38 @@ c Begin program
      .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
       endif
 
+c Save previous time step information for next time step (for BCs)
+
+cc      bcnv_n = bcnv
+
+c Divergence-clean magnetic field when PC is on
+
+      allocate(dbg(nx,ny,nz,1))
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            dbg(i,j,k,1) = div(i,j,k,nx,ny,nz,igx,igy,igz
+     $                        ,bcnv(:,:,:,1)
+     $                        ,bcnv(:,:,:,2)
+     $                        ,bcnv(:,:,:,3))
+          enddo
+        enddo
+      enddo
+
+      mag = sqrt(dot(ntotdp,dbg,dbg))
+      if (my_rank == 0) write (*,*) 'L-2 norm of div(dB)',mag
+
+      deallocate(dbg)
+
 #if !defined(vec_pot) 
 
       if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
 
 cc      if (ilevel > 0 .and. my_rank == 0) then
+      if (my_rank == 0) then
         write (*,*)
         write (*,*) 'Performing divergence cleaning...'
-cc      endif
+      endif
 
 c Apply boundary conditions
 
