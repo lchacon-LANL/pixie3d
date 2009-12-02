@@ -14,23 +14,25 @@ c module equil_def
 c ######################################################################
       module equil_def
 
-        integer    :: IRHO,IVX,IVY,IVZ,IBX,IBY,IBZ,ITMP,IJX,IJY,IJZ
-     .               ,IAX,IAY,IAZ
-
-        integer    :: IACNV,IACOV,IBCNV,IBCOV,IJCNV,IJCOV,IJ0CNV,IJ0COV
-     .               ,IETA
+        implicit none
 
 #if !defined(vec_pot)
-        parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7,ITMP=8
-     .               ,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
+        integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7
+     .               ,ITMP=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
      .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
-     .               ,IVCNV=7,IVCOV=8,IETA=1)
+     .               ,IVCNV=7,IVCOV=8,IVCOV_N=9,IVECNV=10,IVECOV=11
+     .               ,IVE0CNV=12,IVECOV_N=13,IENI=14,IEH=15,IDIVPI=16
+     .               ,IDIVPE=17,IBHAT=18,IPCNV=19,IVDUM=20,IVZRS=21
 #else
-        parameter    (IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7,ITMP=8
-     .               ,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
+        integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
+     .               ,ITMP=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
      .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
-     .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10,IETA=1)
+     .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10
+     .               ,IVCOV_N=11,IVECNV=12,IVECOV=13
+     .               ,IVE0CNV=14,IVECOV_N=15,IENI=16,IEH=17,IDIVPI=18
+     .               ,IDIVPE=19,IBHAT=20,IPCNV=21,IVDUM=22,IVZRS=23
 #endif
+     .               ,IETA=1,INU=2,IZRS=3,IONES=4
 
         character(5)  :: equil
         character(20) :: equ_file,prt_file
@@ -307,20 +309,73 @@ c     Allocate storage
 
         eeta => gv%aux%var_list(IETA)%array
 
-        allocate (nuu    (ilom:ihip,jlom:jhip,klom:khip))
+        nuu  => gv%aux%var_list(INU )%array
 
-        allocate (vcov_n (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecnv  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecov  (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vecov_n(ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,E_ni   (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,E_h    (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,div_pi (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,div_pe (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,bhat   (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,pcnv   (ilom:ihip,jlom:jhip,klom:khip,3)
-     .           ,vdummy (ilom:ihip,jlom:jhip,klom:khip,3))
+        gv%aux%vec_list(IVCOV_N)%cnv = .false.
+        vcov_n => gv%aux%vec_list(IVCOV_N)%vec
+
+        gv%aux%vec_list(IVECNV)%cnv = .true.
+        vecnv => gv%aux%vec_list(IVECNV)%vec
+
+        gv%aux%vec_list(IVECOV)%cnv = .false.
+        vecov => gv%aux%vec_list(IVECOV)%vec
+
+        gv%aux%vec_list(IVE0CNV)%cnv = .true.
+        vecnv_0 => gv%aux%vec_list(IVE0CNV)%vec
+
+        gv%aux%vec_list(IVECOV_N)%cnv = .false.
+        vecov_n => gv%aux%vec_list(IVECOV_N)%vec
+
+        gv%aux%vec_list(IENI)%cnv = .false.
+        E_ni => gv%aux%vec_list(IENI)%vec
+
+        gv%aux%vec_list(IEH)%cnv = .false.
+        E_h => gv%aux%vec_list(IEH)%vec
+
+        gv%aux%vec_list(IDIVPI)%cnv = .true.
+        div_pi => gv%aux%vec_list(IDIVPI)%vec
+
+        gv%aux%vec_list(IDIVPE)%cnv = .true.
+        div_pe => gv%aux%vec_list(IDIVPE)%vec
+
+        gv%aux%vec_list(IBHAT)%cnv = .true.
+        bhat => gv%aux%vec_list(IBHAT)%vec
+
+        gv%aux%vec_list(IPCNV)%cnv = .true.
+        pcnv => gv%aux%vec_list(IPCNV)%vec
+
+        gv%aux%vec_list(IVDUM)%cnv = .true.
+        vdummy => gv%aux%vec_list(IVDUM)%vec
+
+cc        allocate (nuu    (ilom:ihip,jlom:jhip,klom:khip))
+cc
+cc        allocate (vcov_n (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vecnv  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vecov  (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vecnv_0(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vecov_n(ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,E_ni   (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,E_h    (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,div_pi (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,div_pe (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,bhat   (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,pcnv   (ilom:ihip,jlom:jhip,klom:khip,3)
+cc     .           ,vdummy (ilom:ihip,jlom:jhip,klom:khip,3))
+
+#if defined(samrai)
+cc        allocate(zeros (ilom:ihip,jlom:jhip,klom:khip))
+cc        allocate(vzeros(ilom:ihip,jlom:jhip,klom:khip,3))
+cc        allocate(ones  (ilom:ihip,jlom:jhip,klom:khip))
+        zeros=> gv%aux%var_list(IZRS )%array
+        ones => gv%aux%var_list(IONES)%array
+
+        gv%aux%vec_list(IVZRS)%cnv = .true.
+        vzeros => gv%aux%vec_list(IVZRS)%vec
+
+        zeros  = 0d0
+        vzeros = 0d0
+        ones   = 1d0
+#endif
 
 c       Grid aliases
 
@@ -337,18 +392,6 @@ c       Grid aliases
           dy => grid_params%dy
           dz => grid_params%dz
         endif
-
-c       Constant arrays
-
-#if defined(samrai)
-        allocate(zeros (ilom:ihip,jlom:jhip,klom:khip))
-        allocate(vzeros(ilom:ihip,jlom:jhip,klom:khip,3))
-        allocate(ones  (ilom:ihip,jlom:jhip,klom:khip))
-
-        zeros  = 0d0
-        vzeros = 0d0
-        ones   = 1d0
-#endif
 
 c     End program
 
@@ -368,15 +411,13 @@ c     Allocate storage
 
 #if !defined(samrai)
       call deallocateAuxStruct(gv%aux)
-#else
-      deallocate(zeros,vzeros,ones)
 #endif
 
-      deallocate(nuu)
-
-      deallocate(pcnv,vdummy,vcov_n,vecnv,vecov,vecnv_0,vecov_n
-     .          ,E_ni,E_h,div_pi,div_pe,bhat
-     .          )
+cc      deallocate(nuu)
+cc
+cc      deallocate(pcnv,vdummy,vcov_n,vecnv,vecov,vecnv_0,vecov_n
+cc     .          ,E_ni,E_h,div_pi,div_pe,bhat
+cc     .          )
 
 c     End program
 
