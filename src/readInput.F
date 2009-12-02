@@ -170,6 +170,7 @@ c Set defaults
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
+      fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
       rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
