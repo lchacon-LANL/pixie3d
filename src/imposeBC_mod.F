@@ -37,8 +37,8 @@ c     Sets BC schedule for dependent and auxiliary variables, which
 c     are identified by a 2-dim integer array, bc_seq. The first
 c     dimension sets order of treatment. The second dimension (with two
 c     2 components) has the following convention:
-c       * First component identifies whether quantities are dependent (>0)
-c         or auxiliary (<0) variables.
+c       * First component identifies variable, and indicates whether
+c         quantities are dependent (>0) or auxiliary (<0) variables.
 c       * Second component identifies scalars (=0) or vectors (=1).
 c     -------------------------------------------------------------------
 
@@ -74,6 +74,8 @@ c     Setup schedule
 #endif
 
         allocate(gv%bc_seq(gv%nbc_seq,2),STAT=ierr)
+
+        gv%bc_seq = 0
 
         if (offset == 1) then
           gv%bc_seq(1,1) = IJ0CNV*AUX    !Aux. variable
@@ -180,6 +182,39 @@ c     End program
       end subroutine ExB_flow_bc
 
       end module local_BCS_variables
+
+c setup_app_BC
+c #####################################################################
+      subroutine setup_app_BC(it)
+c ---------------------------------------------------------------------
+c     Sets up application BC
+c ---------------------------------------------------------------------
+
+      use local_BCS_variables
+
+      implicit none
+
+c Call variables
+
+      integer :: it
+
+c Local variables
+
+c Begin program
+
+c Set BC schedule
+
+      call setBCsched(it)
+
+c Allocate auxiliary variables
+
+#if defined(samrai)
+      call allocAuxVariables
+#endif
+
+c End program
+
+      end subroutine setup_app_BC
 
 c scalarDirichletBC
 c #####################################################################
