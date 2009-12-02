@@ -52,6 +52,7 @@ c Interfaces
         end subroutine imposeBoundaryConditions
       END INTERFACE
 #endif
+
 c Begin program
 
       nx = grid_params%nxv(igx)
@@ -59,9 +60,13 @@ c Begin program
       nz = grid_params%nzv(igz)
 
 c Impose boundary conditions and find auxiliary quantities
+
 #if !defined (samrai)
       call imposeBoundaryConditions(varray,igx,igy,igz)
+#else
+      call allocAuxVariables
 #endif
+
 c Set aliases
 
       rho => varray%array_var(IRHO)%array
@@ -213,8 +218,7 @@ c killNonlinearFunction
 c#################################################################
       subroutine killNonlinearFunction
 c------------------------------------------------------------------
-c     This function calculates auxiliary quantities for the
-c     Jacobian-free product
+c     Frees memory
 c------------------------------------------------------------------
 
       use nlfunction_setup
@@ -226,12 +230,6 @@ c Call variables
 c Local variables
 
 c Begin program
-
-cc#if !defined(vec_pot)
-cc      nullify(rho,bx,by,bz,px,py,pz,tmp)
-cc#else
-cc      nullify(rho,ax,ay,az,px,py,pz,tmp)
-cc#endif
 
 #if defined(samrai)
       call deallocAuxVariables
