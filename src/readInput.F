@@ -115,12 +115,30 @@ c Set fundamental problem parameters (number of equations, number of aux variabl
 
       neqd = 8
 
+cc#if defined(vec_pot)
+cc      NAUXV=10  !Number of auxiliary vectors
+cc      NAUXS=1               !Number of auxiliary scalars
+cc#else
+cc      NAUXV=8   !Number of auxiliary vectors
+cc      NAUXS=1   !Number of auxiliary scalars
+cc#endif
+
+#if defined(samrai)
 #if defined(vec_pot)
-      NAUXV=10  !Number of auxiliary vectors
-      NAUXS=1   !Number of auxiliary scalars
+      NAUXV=23  !Number of auxiliary vectors
+      NAUXS=4   !Number of auxiliary scalars
 #else
-      NAUXV=8   !Number of auxiliary vectors
-      NAUXS=1   !Number of auxiliary scalars
+      NAUXV=21  !Number of auxiliary vectors
+      NAUXS=4   !Number of auxiliary scalars
+#endif
+#else
+#if defined(vec_pot)
+      NAUXV=22  !Number of auxiliary vectors
+      NAUXS=2   !Number of auxiliary scalars
+#else
+      NAUXV=20  !Number of auxiliary vectors
+      NAUXS=2   !Number of auxiliary scalars
+#endif
 #endif
 
 c Set defaults
