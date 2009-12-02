@@ -280,6 +280,8 @@ c--------------------------------------------------------------------
 
       use diag_setup
 
+      use local_BCS_variables
+
       implicit none
 
 c Call variables
@@ -346,20 +348,15 @@ c Begin program
 #endif
       tmp => varray%array_var(ITMP)%array
 
-c Find equilibrium current
+c Code for explicit pinch flow BC
 
-cc      if (init) then
-cc#if defined(vec_pot)
-cc        vv(:,:,:,1) = varray%array_var(IAX)%array
-cc        vv(:,:,:,2) = varray%array_var(IAY)%array
-cc        vv(:,:,:,3) = varray%array_var(IAZ)%array
-cc#else   
-cc        vv(:,:,:,1) = varray%array_var(IBX)%array
-cc        vv(:,:,:,2) = varray%array_var(IBY)%array
-cc        vv(:,:,:,3) = varray%array_var(IBZ)%array
-cc#endif
-cc        call findEquilJ(igx,igy,igz,nx,ny,nz,vv)
-cc      endif
+      if (rfx_pinch_bc) then
+        save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
+
+        bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
+        bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
+        bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
+      endif
 
 c Postprocess solution
 
