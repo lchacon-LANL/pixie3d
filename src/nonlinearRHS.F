@@ -20,9 +20,9 @@ c-----------------------------------------------------------------
 
       use equilibrium
 
-#if defined(petsc) && !defined(petsc_c)
-      use nk_mod
-#endif
+cc#if defined(petsc) && !defined(petsc_c) && !defined(samrai)
+cc      use nk_mod
+cc#endif
 
       implicit none
 

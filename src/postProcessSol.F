@@ -27,6 +27,7 @@ c Local variables
 
 c Interfaces
 
+#if !defined(vec_pot) && !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -35,6 +36,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
+#endif
 
 c Begin program
 
@@ -78,7 +80,7 @@ c Divergence-clean magnetic field when PC is on
 
       deallocate(dbg)
 
-#if !defined(vec_pot) 
+#if !defined(vec_pot) && !defined(samrai)
 
       if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
 

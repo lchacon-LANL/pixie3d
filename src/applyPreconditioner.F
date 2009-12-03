@@ -169,7 +169,7 @@ cc        if (di > 0d0) then
 cc          call preprocessBflRHS(ntotp,neqd,y,igrid)
 cc        endif
 
-#if !defined(petsc_c)
+#if !defined(petsc_c) && !defined(samrai)
 
         do si_it=1,precpass
 
@@ -210,7 +210,7 @@ c       Postprocessing of B
 
 c       Map solution xxx to x (jacobi iterate)
 
-#if !defined(petsc_c)
+#if !defined(petsc_c)  && !defined(samrai)
           omg = 1d0
           omg(IVX:IVZ) = 1d0
 
@@ -1296,7 +1296,7 @@ c     Dump graphics
         call MGplot(neqd,y,igrid,0,rhsf)
 
         !Residual plot
-#if !defined(petsc_c)
+#if !defined(petsc_c) && !defined(samrai)
         call matrixFreeMatVec(ntot,x,rr)
 #else
         rr = 0d0
