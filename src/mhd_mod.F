@@ -224,13 +224,14 @@ c ######################################################################
 
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov,acnv
-        real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
-#else
-        real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #endif
 
         real(8),pointer,dimension(:,:,:)   :: nuu
         real(8),pointer,dimension(:,:,:)   :: eeta
+
+        real(8),pointer,dimension(:,:,:,:) :: bcnv
+     .                                       ,bcov
+     .                                       ,bcnv_n
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcov
@@ -326,6 +327,8 @@ c     Allocate storage
      .           ,pcnv   (ilom:ihip,jlom:jhip,klom:khip,3)
      .           ,vdummy (ilom:ihip,jlom:jhip,klom:khip,3))
 
+        allocate (bcnv_n (ilom:ihip,jlom:jhip,klom:khip,3))
+
 c       Grid aliases
 
         if (.not.associated(xx)) then
@@ -381,6 +384,8 @@ c     Allocate storage
       deallocate(pcnv,vdummy,vcov_n,vecnv,vecov,vecnv_0,vecov_n
      .          ,E_ni,E_h,div_pi,div_pe,bhat
      .          )
+
+      deallocate(bcnv_n)
 
 c     End program
 
@@ -7038,7 +7043,7 @@ c     End program
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global)
+      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global,bc)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -7058,14 +7063,14 @@ c     Call variables
       integer    :: nx,ny,nz,igx,igy,igz
       real(8)    :: a(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,b(0:nx+1,0:ny+1,0:nz+1,3)
-      logical,optional :: global
+      logical,optional :: global,bc
 
 c     Local variables
 
       integer    :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
 
-      logical    :: spoint,glbl
+      logical    :: spoint,glbl,do_bc
 
 c     Begin program
 
@@ -7073,6 +7078,12 @@ c     Begin program
         glbl = global
       else
         glbl = .false.
+      endif
+
+      if (PRESENT(bc)) then
+        do_bc = bc
+      else
+        do_bc = (.not.glbl).or.(np == 1)
       endif
 
       igrid = igx
@@ -7126,36 +7137,31 @@ cc        call line_int(1,nx,1,ny,b,a)
      .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3))
       endif
 
-#if !defined(petsc)
-cc      if (spoint) then
-cc        !Impose BCs
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        where (bcnd /= SP) bcnd = DEF
-cccc        where (bcnd == DEF) bcnd = EXT
-cc
-cc        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
-cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igrid
-cccc     .            ,is_cnv=.false.,iorder=2)
-cc
-cc      endif
-
       !Boundary conditions: topological constraints (SP, PER)
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
+      if (do_bc) then
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
 
-      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
-     .            ,is_vec=.true.,is_cnv=.false.,iorder=2)
-#endif
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+      endif
 
       return
 
 c     New code (SP ready, parallel-ready, version I)
 
       call line_int(1,nx,1,ny,b,a)
+
+      !Boundary conditions: topological constraints (SP, PER)
+      if (do_bc) then
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
+
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+      endif
 
 cc      a(0,0,:,3)=0d0
 cc
@@ -7225,7 +7231,7 @@ cc      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
 cc     .                                    +a(0:nx  ,:,:,2:3))
 cc
 
-#if !defined(petsc)
+cc#if !defined(petsc)
 cc      if (spoint) then
 cc        !Impose BCs
 cc        bcnd(:,1) = bcond
@@ -7240,16 +7246,16 @@ cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igri
 cccc     .            ,is_cnv=.false.,iorder=2)
 cc
 cc      endif
-
-      !Boundary conditions: topological constraints (SP, PER)
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
-
-      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
-     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
-
-#endif
+cc
+cc      !Boundary conditions: topological constraints (SP, PER)
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc
+cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cc
+cc#endif
 
       return
 
@@ -10952,6 +10958,11 @@ c     Call variables
 cc      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
 
 c     Local variables
+
+      if (heta  == 0d0) then
+        cnv = 0d0
+        return
+      endif
 
 c     Begin program
 
