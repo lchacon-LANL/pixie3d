@@ -44,6 +44,7 @@ c Local variables
 
 c Interfaces
 
+#if !defined (samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -52,6 +53,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
+#endif
 
 c Begin program
 
@@ -78,10 +80,14 @@ c Set aliases
 
 c Impose boundary conditions and find auxiliary quantities
 
+#if !defined (samrai)
 cc      save_Bn = (jit == -2 .and. rfx_pinch_bc)  !Initialize Bn when processing source
       save_Bn = (jit < 0 .and. rfx_pinch_bc)  !Initialize Bn when processing source
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
+#else
+      call allocAuxVariables
+#endif
 
 c Safeguards
 
@@ -217,8 +223,7 @@ c killNonlinearFunction
 c#################################################################
       subroutine killNonlinearFunction
 c------------------------------------------------------------------
-c     This function calculates auxiliary quantities for the
-c     Jacobian-free product
+c     Frees memory
 c------------------------------------------------------------------
 
       use nlfunction_setup
@@ -230,12 +235,6 @@ c Call variables
 c Local variables
 
 c Begin program
-
-cc#if !defined(vec_pot)
-cc      nullify(rho,bx,by,bz,px,py,pz,tmp)
-cc#else
-cc      nullify(rho,ax,ay,az,px,py,pz,tmp)
-cc#endif
 
 #if defined(samrai)
       call deallocAuxVariables

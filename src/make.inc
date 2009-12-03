@@ -27,14 +27,13 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/orbit\
 	  $(COMMONDIR)/lsode
 
-ifdef BOPT 
 ifdef SAMR
   SUBDIRS = $(COMMONDIR)/math\
   	    $(COMMONDIR)/io\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/var_setup\
 	    $(COMMONDIR)/driver_setup\
-	    $(COMMONDIR)/driver_samrai\
+	    $(COMMONDIR)/driver-samrai\
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/interpolation/slatec/1d_spline\
 	    $(COMMONDIR)/interpolation/slatec/2d_spline\
@@ -42,10 +41,12 @@ ifdef SAMR
 	    $(COMMONDIR)/interpolation/slatec/spline_common\
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
-	    $(COMMONDIR)/MG
+	    $(COMMONDIR)/MG\
 	    $(COMMONDIR)/orbit\
 	    $(COMMONDIR)/lsode
-else
+endif
+
+ifdef BOPT 
 ifdef PETSC_C
   SUBDIRS = $(COMMONDIR)/math\
 	    $(COMMONDIR)/io\
@@ -61,8 +62,7 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit
+	    $(COMMONDIR)/orbit\
 	    $(COMMONDIR)/lsode
-endif
 endif
 endif

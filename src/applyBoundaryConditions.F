@@ -685,20 +685,12 @@ c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
         order = bc_order     
       endif
 
-c Set BC schedule (see imposeBC_mod.F)
-
-      call setBCsched(itime)
-
-c Allocate auxiliary variables
-
-      call allocAuxVariables
-
 c Set boundary conditions
 
-      if (gv%bc_seq(i+1,1)*AUX < 0) then  !Process dep. variable
+      if (gv%bc_seq(i+1,1)*AUX < 0) then     !Process dep. variable
         call applyDepVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
      .                    ,order=order)
-      else                                !Process aux. variable
+      elseif (gv%bc_seq(i+1,1)*AUX > 0) then !Process aux. variable
         call applyAuxVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
      .                    ,order=order)
       endif
@@ -769,17 +761,17 @@ c Begin program
         order = bc_order     !Order of extrapolation in BCs (defined in imposeBC_mod.F)
       endif
 
-c Set BC schedule (see imposeBC_mod.F)
+c Set application BCs (see imposeBC_mod.F)
 
-      call setBCsched(itime)
+      call setup_app_BC(itime)
 
 c Impose BCs
 
       do i = 1,gv%nbc_seq
-        if (gv%bc_seq(i,1)*AUX < 0) then  !Process dep. variable
+        if (gv%bc_seq(i,1)*AUX < 0) then      !Process dep. variable
           call applyDepVarBC(gv%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
-        else                              !Process aux. variable
+        elseif (gv%bc_seq(i,1)*AUX > 0) then  !Process aux. variable
           call applyAuxVarBC(gv%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
         endif

@@ -48,10 +48,34 @@ ifdef BOPT
   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
+ifdef SAMR
+  include ${SAMRAI}/config/Makefile.config
+#  PDIM = 3
+#  CPPFLAGS_EXTRA += -DNDIM=$(PDIM)
+#  CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
+#   CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+#   CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+#   CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+#   CXXFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+#   LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/lib   
+#   LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
+#   LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
+#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
+
+  SRC2      = $(SRC)
+  EXCLUDE  += %explicit.F
+  EXCLUDE  += output.F
+  SRC      := $(filter-out $(EXCLUDE),$(SRC2))
+endif
+
 # Objects
 
 OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.c,%.o,$(filter-out $(MODS),$(SRC)))\
+                        $(patsubst %.C,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.F,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.f90,%.o,$(filter-out $(MODS),$(SRC)))\
                         $(patsubst %.F90,%.o,$(filter-out $(MODS),$(SRC))))
@@ -60,9 +84,10 @@ OBJ    := $(filter %.o, $(patsubst %.f,%.o,$(filter-out $(MODS),$(SRC)))\
 OBJMOD := $(patsubst %.f,%.o,$(patsubst %.F,%.f,$(patsubst %.f90,%.f,$(patsubst %.F90,%.f,$(MODS)))))
 
 COMMON_MODS = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*_mod.[f,F] $(dir)/*_mod.f90 $(dir)/*_mod.F90))
-COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(EXCLUDE),$(wildcard $(dir)/*.[f,F,c] $(dir)/*.f90 $(dir)/*.F90)))
+COMMON_SRC  = $(foreach dir,$(SUBDIRS),$(filter-out $(EXCLUDE),$(wildcard $(dir)/*.[f,F,c,C] $(dir)/*.f90 $(dir)/*.F90)))
 COMMON_OBJS = $(filter %.o, $(patsubst %.f,%.o,$(COMMON_SRC))\
                             $(patsubst %.c,%.o,$(COMMON_SRC))\
+                            $(patsubst %.C,%.o,$(COMMON_SRC))\
                             $(patsubst %.F,%.o,$(COMMON_SRC))\
                             $(patsubst %.f90,%.o,$(COMMON_SRC))\
                             $(patsubst %.F90,%.o,$(COMMON_SRC)))

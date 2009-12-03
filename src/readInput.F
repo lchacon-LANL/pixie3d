@@ -45,7 +45,7 @@ c Local variables
 c Namelists
 
       !Old namelist, for backward compatibility
-      namelist /datin/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz
      .                ,ilevel,debug,debug_it,test
@@ -70,7 +70,7 @@ c Namelists
      .                ,inputfile,recordfile,equ_file,dcon
 
       !Problem setup
-      namelist /setup/ neqd,nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,equ_file
 
@@ -111,11 +111,44 @@ c Begin program
       call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
 #endif
 
+c Set fundamental problem parameters (number of equations, number of aux variables)
+
+      neqd = 8
+
+#if !defined(vec_pot)
+#if defined(samrai)
+      NAUXV=22  !Number of auxiliary vectors
+      NAUXS=4   !Number of auxiliary scalars
+#else
+      NAUXV=21  !Number of auxiliary vectors
+      NAUXS=2   !Number of auxiliary scalars
+#endif
+#else
+#if defined(samrai)
+      NAUXV=24  !Number of auxiliary vectors
+      NAUXS=4   !Number of auxiliary scalars
+#else
+      NAUXV=23  !Number of auxiliary vectors
+      NAUXS=2   !Number of auxiliary scalars
+#endif
+#endif
+cc#if defined(samrai)
+cc#if defined(vec_pot)
+cc      NAUXV=24  !Number of auxiliary vectors
+cc      NAUXS=4   !Number of auxiliary scalars
+cc#else
+cc#endif
+cc#else
+cc#if defined(vec_pot)
+cc      NAUXV=23  !Number of auxiliary vectors
+cc      NAUXS=2   !Number of auxiliary scalars
+cc#else
+cc#endif
+cc#endif
+
 c Set defaults
 
       !General setup
-      neqd     = 8             ! Number of degrees of freedom (equations)
-
       nxd      = 64            ! Mesh points in x-direction
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
