@@ -62,7 +62,7 @@ c Namelists
      .                   ,asm_PC,zebra_relax,ores,oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eigstep
+     .                   ,eigen,eig_dt
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
@@ -89,7 +89,7 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,eigen,eigstep
+     .                   ,odd,random,source,eigen,eig_dt
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -193,7 +193,7 @@ c Set defaults
       postprocess = .false.    ! Whether to run solution postprocessing after time step
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
-      eigstep  = 1d0           ! Time step for eigenvalue dynamical system
+      eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
 
       cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
