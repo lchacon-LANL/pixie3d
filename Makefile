@@ -32,6 +32,8 @@ PREPROC = -D
 
 HDF5 = t
 
+FPA = t
+
 LIBS = -llapack -lblas
 
 #CPPFLAGS += -DRFX
@@ -94,6 +96,14 @@ endif
 ifdef ARPACK
   CONTRIBLIBS += $(ARPACK_LIBS)
   CPPFLAGS    += $(PREPROC)arpack
+endif
+
+# FPA setup
+
+ifdef FPA
+  CONTRIBLIBS += -L../contrib/fpa/lib -lfpa
+  CPPFLAGS    += $(PREPROC)FPA
+  MODPATH     += $(ADDMODFLAG)../contrib/fpa/lib
 endif
 
 # PETSC setup
@@ -236,9 +246,9 @@ endif
 
 # contrib_setup: ftracer_setup
 
-contrib: vmec arpack
+contrib: vmec arpack fpa
 
-contrib_clean: vmec_clean arpack_clean
+contrib_clean: vmec_clean arpack_clean fpa_clean
 
 vmec:
 ifeq ($(VMEC),t)
@@ -249,15 +259,6 @@ vmec_clean:
 ifeq ($(VMEC),t)
 	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
 endif
-
-# ftracer:
-# 	$(MAKE) -e -C contrib/field_tracer
-
-# ftracer_clean:
-# 	$(MAKE) -e -C contrib/field_tracer distclean
-
-# ftracer_setup:
-# 	$(MAKE) -e -C contrib/field_tracer setup
 
 arpack:
 ifdef ARPACK
@@ -270,6 +271,16 @@ endif
 arpack_clean:
 ifdef ARPACK
 	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack clean
+endif
+
+fpa:
+ifdef FPA
+	$(MAKE) -e -C contrib/fpa/src lib
+endif
+
+fpa_clean:
+ifdef FPA
+	$(MAKE) -e -C contrib/fpa/src clean
 endif
 
 # CLEAN ALL
