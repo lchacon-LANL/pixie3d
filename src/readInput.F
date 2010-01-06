@@ -446,6 +446,7 @@ cc      if (precon == 'id') iguess = 0
         vol_wgt = .false.
         source  = .false.
         cnfactor = 0d0
+        sm_flag  = 0
       endif
 
       if (tst_flg) test = .true.
