@@ -1822,8 +1822,7 @@
       subroutine vmec_metrics(igrid,nx,ny,nz,jac,gsub,gsup)
 
 !     -----------------------------------------------------------------
-!     Give Cartesian coordinates of each logical mesh point at grid
-!     level (igrid).
+!     Give metrics at each logical mesh point in grid level (igrid).
 !     -----------------------------------------------------------------
 
         use vmec_mod
@@ -1943,7 +1942,7 @@
       subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs)
 
 !     -----------------------------------------------------------------
-!     Give Cartesian coordinates of each logical mesh point at grid
+!     Give equilibrium fields at each logical mesh point in grid
 !     level (igrid).
 !     -----------------------------------------------------------------
 
@@ -2161,7 +2160,7 @@
               !Periodic boundary in theta (other boundary enforced by symmetry)
               if (jgl == 0) jgl = nyg
 
-              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+              !Up-down symmetry in theta (temporary, until SIESTA interface is fixed)
               sgn = 1d0
               if (jgl > nyg/2+1) then
                  jgl = nyg + 2 - jgl
