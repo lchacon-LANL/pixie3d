@@ -514,10 +514,6 @@ c     Begin program
         nyy = grid_params%nyv(igy)
         nzz = grid_params%nzv(igz)
 
-cc        nx  = nxx
-cc        ny  = nyy
-cc        nz  = nzz
-
         igrid = igx
 
         order = 0
