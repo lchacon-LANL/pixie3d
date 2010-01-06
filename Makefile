@@ -82,13 +82,14 @@ endif
 # VMEC setup
 
 ifeq ($(VMEC),t)
+  VMEC_DIR     = contrib/vmec/LIBSTELL
   ifeq ($(NETCDF),t)
     CPPFLAGS   += $(PREPROC)NETCDF 
   endif
 
-  CONTRIBLIBS += -L../contrib/vmec/lib -lstell $(NETCDF_LIBS)
+  CONTRIBLIBS += -L$(PWD)/contrib/vmec/lib -lstell $(NETCDF_LIBS)
   CPPFLAGS    += $(PREPROC)vmec $(NETCDF_INC)
-  MODPATH     += $(ADDMODFLAG)../contrib/vmec/lib
+  MODPATH     += $(ADDMODFLAG)$(PWD)/contrib/vmec/lib
 endif
 
 # ARPACK setup
@@ -101,15 +102,18 @@ endif
 # FPA setup
 
 ifdef FPA
-  CONTRIBLIBS += -L../contrib/fpa/lib -lfpa
+  CONTRIBLIBS += -L$(PWD)/common/contrib/fpa/lib -lfpa
   CPPFLAGS    += $(PREPROC)FPA
-  MODPATH     += $(ADDMODFLAG)../contrib/fpa/lib
+  MODPATH     += $(ADDMODFLAG)$(PWD)/common/contrib/fpa/lib
 endif
+
+# LSODE setup
+
+CONTRIBLIBS += -L$(PWD)/common/contrib/lsode -llsode
 
 # PETSC setup
 
 ifdef BOPT
-#  include ${PETSC_DIR}/bmake/common/base
   include ${PETSC_DIR}/conf/base
 
   ifdef VECPOT
@@ -156,7 +160,7 @@ endif
 #Export required variables
 
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
+       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB SAMR CPPFLAGS_EXTRA \
        CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA LIBSAMRAI3D LIBSAMRAI
 
@@ -240,51 +244,22 @@ endif
 
 # CONTRIBUTED LIBRARIES
 
-# contrib: vmec ftracer arpack
-
-# contrib_clean: vmec_clean ftracer_clean arpack_clean
-
-# contrib_setup: ftracer_setup
-
-contrib: vmec arpack fpa
-
-contrib_clean: vmec_clean arpack_clean fpa_clean
-
-vmec:
+contrib:
+	$(MAKE) -e -C common contrib
 ifeq ($(VMEC),t)
-	$(MAKE) -e -C contrib/vmec/LIBSTELL release INC_PATH=$(NETCDF_INC)
+	$(MAKE) -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
 
-vmec_clean:
+contrib_clean:
+	$(MAKE) -e -C common contrib_clean
 ifeq ($(VMEC),t)
-	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
-endif
-
-arpack:
-ifdef ARPACK
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack lib
-ifdef BOPT
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack plib
-endif
-endif
-
-arpack_clean:
-ifdef ARPACK
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack clean
-endif
-
-fpa:
-ifdef FPA
-	$(MAKE) -e -C contrib/fpa/src lib
-endif
-
-fpa_clean:
-ifdef FPA
-	$(MAKE) -e -C contrib/fpa/src clean
+	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
 
 # CLEAN ALL
 
-distclean: contrib_clean
+allclean: contrib_clean distclean
+
+distclean:
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
