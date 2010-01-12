@@ -1523,7 +1523,7 @@ c Calculate matrix-vector product
 
             endif
 
-            cnv=(cnp*db(i,j,k,:)/dt+alpha*cnv-alpha*etal*veclap)*vol
+            cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-etal*veclap))*vol
 
             if (si_car) then
               call transformVectorToCartesian
@@ -2191,7 +2191,7 @@ c Local variables
 
 c Begin program
 
-      if (neq /= 6) call pstop('b_mtvc_hyp','neq /= 6; aborting...')
+      if (neq /= 6) call pstop('a_mtvc_hyp','neq /= 6; aborting...')
       
       is_cnv = .false.
 
@@ -2429,8 +2429,7 @@ cc            cnv = di*curlcurla/rho0(i,j,k,1)
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece: di/rho*div(pe(dj))
-            cnv= heta
-     .          *EOM_divPi(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv)
+            cnv= EOM_divPe(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv)
 cc            cnv=-heta
 cc     .          *veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv
 cc     .                       ,.false.,vol=.false.)
@@ -2445,14 +2444,13 @@ cc     .                       ,.false.,vol=.false.)
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = a_res(ieq)*vol
-              enddo
 
-              do ieq=1,3
 cc                y(neq*(ijk-1)+ieq+3) = vol*(dj_cnv(i,j,k,ieq)
 cc     .                                 -di*curlcurla(ieq)/rho0(i,j,k,1))
                 y(neq*(ijk-1)+ieq+3) = vol*(x(neq*(ijk-1)+ieq+3)
      .                                     -curlcurla(ieq))
               enddo
+
             endif
 
           enddo
@@ -2483,7 +2481,8 @@ c ##################################################################
       real(8),allocatable,dimension(:,:,:,:) :: dv,dv_cov
 
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,b0_cov
-     .                                         ,rho0,pp0,a0_cnv
+     .                                         ,rho0,pp0,a0_cnv,j0_cov
+     .                                         ,db_cov
 
       integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: imin,imax,jmin,jmax,kmin,kmax
@@ -2499,6 +2498,42 @@ c ##################################################################
       logical    :: fpointers,is_cnv,is_car,postproc
 
       contains
+
+c     defineLocalPointers
+c     #####################################################################
+      subroutine defineLocalPointers(igrid)
+
+      integer :: igrid
+
+c     Begin program
+
+      rho0   => grho0  %grid(igrid)%array
+
+      pp0    => gp0    %grid(igrid)%array
+
+      v0_cnv => gv0    %grid(igrid)%array
+
+      b0_cnv => gb0    %grid(igrid)%array
+
+      b0_cov => gb0_cov%grid(igrid)%array
+
+      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+
+      db_cov => gdb_cov%grid(igrid)%array
+
+      end subroutine defineLocalPointers
+
+c     nullLocalPointers
+c     #####################################################################
+      subroutine nullLocalPointers
+
+c     Begin program
+
+      nullify(pp0,rho0)
+      nullify(b0_cnv,b0_cov)
+      nullify(v0_cnv,a0_cnv)
+
+      end subroutine nullLocalPointers
 
 c     div_upwd
 c     #####################################################################
@@ -2557,13 +2592,13 @@ cc          return
 
 c     findPsit
 c     #####################################################################
-      subroutine findPsit
+      function findPsit() result(psit)
 
       implicit none
 
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
      .             ,divip,divim,divjp,divjm,divkp,divkm
-     .             ,coeff,gamm
+     .             ,coeff,gamm,psit(3)
 
 c     Fluxes at faces for calculation of grad(dv.grad(p0))
 
@@ -2823,20 +2858,19 @@ c     Transform to contravariant
      .                            ,cnv(1),cnv(2),cnv(3),is_cnv)
 
 cc      coeff = (alpha**2/cnp + k_si*alpha)
-      coeff = alpha**2/cnp
 
-      psit = -coeff*cnv
+      psit = -alpha**2*cnv
 
-      end subroutine findPsit
+      end function findPsit
 
 c     findPsib
 c     #############################################################
-      subroutine findPsib
+      function findPsib() result(psib)
 
       implicit none
 
       integer :: ig,jg,kg
-      real(8) :: coeff,jac,dxx,dyy,dzz,ijac
+      real(8) :: coeff,jac,dxx,dyy,dzz,ijac,psib(3)
      .          ,j0_cnv(3),acnv(3)
      .          ,acnvip(3),acnvim(3)
      .          ,acnvjp(3),acnvjm(3)
@@ -2863,22 +2897,22 @@ cc      if (.true.) then
      .               ,b0_cov(:,:,:,3))
 
         acnv =
-     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
+     .      U_Bv(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
 
         acnvip =
-     .      vecA(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
+     .      U_Bv(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
         acnvim =
-     .      vecA(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
+     .      U_Bv(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
 
         acnvjp =
-     .      vecA(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
+     .      U_Bv(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
         acnvjm =
-     .      vecA(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
+     .      U_Bv(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
 
         acnvkp =
-     .      vecA(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
+     .      U_Bv(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
         acnvkm =
-     .      vecA(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
+     .      U_Bv(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
 
         call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                        ,acovip(1),acovip(2),acovip(3)
@@ -2936,161 +2970,158 @@ cc      if (.true.) then
 
 
       else
-        cnv = div_tensor2(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
+        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
      .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
       endif
 
-cc      coeff = (alpha**2/cnp + k_si*alpha)
-      coeff = alpha**2/cnp
+      psib = alpha*cnv
 
-      psib = coeff*cnv
+      end function findPsib
 
-      end subroutine findPsib
-
-c     div_tensor2
-c     ###############################################################
-      function div_tensor2(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                   ,tsrx,tsry,tsrz,vol) result (divt)
-
-c     ---------------------------------------------------------------
-c     Calculates div(tensor) at cell centers in general non-orthogonal
-c     coordinates.
-c     ---------------------------------------------------------------
-
-      implicit none           !For safe fortran
-
-c     Call variables
-
-      real(8)    :: divt(3)
-
-      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
-
-      logical    :: alt_eom
-
-      external   tsrx,tsry,tsrz
-
-      logical,optional,intent(IN) :: vol
-
-c     Local variables
-
-      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
-
-      real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
-
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-
-      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
-     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
-     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
-
-      real(8)    :: hess(3,3,3),msource,dx1,dx2,ll
-
-      logical    :: vol_wgt
-
-      real(8)    :: dum1,dum2,coeff
-
-c     Begin program
-
-      vol_wgt = .true.
-      if (PRESENT(vol)) vol_wgt = vol
-
-      igrid = igx
-
-      ip = i+1
-      im = i-1
-      jp = j+1
-      jm = j-1
-      kp = k+1
-      km = k-1
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      jac = gmetric%grid(igrid)%jac(i,j,k)
-      ijac = 1./jac
-
-      dxx = dxh(ig)
-      dyy = dyh(jg)
-      dzz = dzh(kg)
-
-      if (coords /= 'car') then
-        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
-      endif
-
-      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11p,t12p,t13p, 1)
-      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11m,t12m,t13m,-1)
-      if (coords /= 'car')
-     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11o,t12o,t13o,0)
-
-      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,alt_eom,t21p,t22p,t23p, 1)
-      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,alt_eom,t21m,t22m,t23m,-1)
-      if (coords /= 'car')
-     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t21o,t22o,t23o,0)
-
-      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,alt_eom,t31p,t32p,t33p, 1)
-      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,alt_eom,t31m,t32m,t33m,-1)
-      if (coords /= 'car')
-     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t31o,t32o,t33o,0)
-
-      msource = 0d0
-
-      !Component 1
-      if (coords /= 'car') then
-        msource =  (t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
-     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
-     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
-     .             *ijac
-      endif
-
-      divt(1) =  (t11p - t11m)/dxx
-     .          +(t21p - t21m)/dyy
-     .          +(t31p - t31m)/dzz + msource
-
-      !Component 2
-      coeff = 1d0
-
-      if (coords /= 'car') then
-        if (alt_eom) then
-
-          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
-     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
-     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
-     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))*ijac
-
-          coeff = ijac
-
-        else
-          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
-     .              *ijac
-        endif
-
-      endif
-
-      divt(2) = ( (t12p - t12m)/dxx
-     .           +(t22p - t22m)/dyy
-     .           +(t32p - t32m)/dzz)*coeff  + msource
-
-      !Component 3
-      if (coords /= 'car') then
-        msource = (t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
-     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
-     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
-     .            *ijac
-      endif
-
-      divt(3) =  (t13p - t13m)/dxx
-     .          +(t23p - t23m)/dyy
-     .          +(t33p - t33m)/dzz + msource
-
-      !Volume factor
-      if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
-
-c     End program
-
-      end function div_tensor2
+ccc     div_tensor2
+ccc     ###############################################################
+cc      function div_tensor2(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+cc     .                   ,tsrx,tsry,tsrz,vol) result (divt)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Calculates div(tensor) at cell centers in general non-orthogonal
+ccc     coordinates.
+ccc     ---------------------------------------------------------------
+cc
+cc      implicit none           !For safe fortran
+cc
+ccc     Call variables
+cc
+cc      real(8)    :: divt(3)
+cc
+cc      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
+cc
+cc      logical    :: alt_eom
+cc
+cc      external   tsrx,tsry,tsrz
+cc
+cc      logical,optional,intent(IN) :: vol
+cc
+ccc     Local variables
+cc
+cc      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
+cc
+cc      real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
+cc
+cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc
+cc      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
+cc     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
+cc     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
+cc
+cc      real(8)    :: hess(3,3,3),msource,dx1,dx2,ll
+cc
+cc      logical    :: vol_wgt
+cc
+cc      real(8)    :: dum1,dum2,coeff
+cc
+ccc     Begin program
+cc
+cc      vol_wgt = .true.
+cc      if (PRESENT(vol)) vol_wgt = vol
+cc
+cc      igrid = igx
+cc
+cc      ip = i+1
+cc      im = i-1
+cc      jp = j+1
+cc      jm = j-1
+cc      kp = k+1
+cc      km = k-1
+cc
+cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc      jac = gmetric%grid(igrid)%jac(i,j,k)
+cc      ijac = 1./jac
+cc
+cc      dxx = dxh(ig)
+cc      dyy = dyh(jg)
+cc      dzz = dzh(kg)
+cc
+cc      if (coords /= 'car') then
+cc        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
+cc      endif
+cc
+cc      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11p,t12p,t13p, 1)
+cc      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11m,t12m,t13m,-1)
+cc      if (coords /= 'car')
+cc     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11o,t12o,t13o,0)
+cc
+cc      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,alt_eom,t21p,t22p,t23p, 1)
+cc      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,alt_eom,t21m,t22m,t23m,-1)
+cc      if (coords /= 'car')
+cc     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t21o,t22o,t23o,0)
+cc
+cc      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,alt_eom,t31p,t32p,t33p, 1)
+cc      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,alt_eom,t31m,t32m,t33m,-1)
+cc      if (coords /= 'car')
+cc     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t31o,t32o,t33o,0)
+cc
+cc      msource = 0d0
+cc
+cc      !Component 1
+cc      if (coords /= 'car') then
+cc        msource =  (t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
+cc     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
+cc     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
+cc     .             *ijac
+cc      endif
+cc
+cc      divt(1) =  (t11p - t11m)/dxx
+cc     .          +(t21p - t21m)/dyy
+cc     .          +(t31p - t31m)/dzz + msource
+cc
+cc      !Component 2
+cc      coeff = 1d0
+cc
+cc      if (coords /= 'car') then
+cc        if (alt_eom) then
+cc
+cc          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+cc     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+cc     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
+cc     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
+cc     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
+cc     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))*ijac
+cc
+cc          coeff = ijac
+cc
+cc        else
+cc          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
+cc     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
+cc     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
+cc     .              *ijac
+cc        endif
+cc
+cc      endif
+cc
+cc      divt(2) = ( (t12p - t12m)/dxx
+cc     .           +(t22p - t22m)/dyy
+cc     .           +(t32p - t32m)/dzz)*coeff  + msource
+cc
+cc      !Component 3
+cc      if (coords /= 'car') then
+cc        msource = (t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
+cc     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
+cc     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
+cc     .            *ijac
+cc      endif
+cc
+cc      divt(3) =  (t13p - t13m)/dxx
+cc     .          +(t23p - t23m)/dyy
+cc     .          +(t33p - t33m)/dzz + msource
+cc
+cc      !Volume factor
+cc      if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
+cc
+ccc     End program
+cc
+cc      end function div_tensor2
 
 c     tensor_x
 c     #############################################################
@@ -3143,10 +3174,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,1)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,1)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3255,10 +3286,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,2)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,2)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3340,10 +3371,10 @@ c     Begin program
 
         if (flag /= 0) then
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,3)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,3)
         else
           acnv =
-     .      vecA(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3416,7 +3447,7 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc,rfx_pinch_bc
 
       implicit none
 
@@ -3432,8 +3463,6 @@ c Local variables
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
-
-      real(8),pointer,dimension(:,:,:,:) :: j0_cov,db_cov
 
 c Begin program
 
@@ -3461,19 +3490,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      rho0   => grho0  %grid(igrid)%array
-
-      pp0    => gp0    %grid(igrid)%array
-
-      v0_cnv => gv0    %grid(igrid)%array
-
-      b0_cnv => gb0    %grid(igrid)%array
-
-      b0_cov => gb0_cov%grid(igrid)%array
-
-      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
-
-      db_cov => gdb_cov%grid(igrid)%array
+      call defineLocalPointers(igrid)
 
 c ExB flow BC (if applicable)
 
@@ -3481,7 +3498,8 @@ c ExB flow BC (if applicable)
 
       v0 = 0d0
 
-      call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,b0_cov,v0,dbcov=db_cov)
+      if (.not.rfx_pinch_bc)
+     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3542,76 +3560,27 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv)
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
+     .                     ,.not.nc_eom_v)
 
             !P_si^T  ******************************
 
-            call findPsit
+            psit = findPsit()
 
             !P_si^B  ******************************
 
-            call findPsib
+            psib = findPsib()
 
             !Diagonal scaling
              
             if (precon == 's2') then
-
 cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psib = psib*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
 
-cc              write (*,*) max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
-
               cnv = (psit + psib)
-
-cc              --------------------------
-
-cc              psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
-cc
-cc              iig = 3*(ijk-1) + iisig - 1
-cc              psib = matmul(transpose(b_diag(:,iig+1:iig+3)),psib)*vol
-cc
-cc              cnv = (psit + psib)
-
             else
-
-              cnv = dt*(psit + psib)
-
-cc              if (i>1 .and. i<nxx) then
-cc                cnv(1) = cnv(1)
-cc     .               +dv(i+2,j,k,1)
-cc     .             -4*dv(i+1,j,k,1)
-cc     .             +6*dv(i  ,j,k,1)
-cc     .             -4*dv(i-1,j,k,1)
-cc     .               +dv(i-2,j,k,1)
-cc              else
-cc                cnv(1) = cnv(1)
-cc     .               +dv(i+1,j,k,1)-2*dv(i,j,k,1)+dv(i-1,j,k,1)
-cc              endif
-cc
-cc              if (j>1.and.j<nyy) then
-cc                cnv(2) = cnv(2)
-cc     .               +dv(i,j+2,k,2)
-cc     .             -4*dv(i,j+1,k,2)
-cc     .             +6*dv(i,j  ,k,2)
-cc     .             -4*dv(i,j-1,k,2)
-cc     .               +dv(i,j-2,k,2)
-cc              else
-cc                cnv(2) = cnv(2)
-cc     .                +dv(i,j+1,k,2)-2*dv(i,j,k,2)+dv(i,j-1,k,2)
-cc              endif
-cc
-cc              if (k>1.and.k<nzz) then
-cc                cnv(3) = cnv(3)
-cc     .               +dv(i,j,k+2,3)
-cc     .             -4*dv(i,j,k+1,3)
-cc     .             +6*dv(i,j,k  ,3)
-cc     .             -4*dv(i,j,k-1,3)
-cc     .               +dv(i,j,k-2,3)
-cc              else
-cc                cnv(3) = cnv(3)
-cc     .                +dv(i,j,k+1,3)-2*dv(i,j,k,3)+dv(i,j,k-1,3)
-cc              endif
+              cnv = dt/cnp*(psit + psib)
             endif
 
             !Form total operator
@@ -3619,7 +3588,6 @@ cc              endif
             if (nc_eom_v) then
               cnv = (psiv + cnv/rho0(i,j,k,1))*vol
             else
-cc              cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
               cnv = (psiv + cnv)*vol
             endif
 
@@ -3646,13 +3614,289 @@ c End program
 
       deallocate(dv,dv_cov,v0)
 
-      nullify(pp0,rho0)
-      nullify(b0_cnv,b0_cov)
-      nullify(v0_cnv,a0_cnv)
+      call nullLocalPointers
 
       call deallocPointers(fpointers)
 
       end subroutine v_mtvc
+
+c v_mtvc_hyp
+c####################################################################
+      subroutine v_mtvc_hyp(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for the velocity SI system.
+c     In call:
+c      * gpos: vector index of position on the numerical grid:
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use nlfunction_setup
+
+      use v_mtvc_mod
+
+      use local_BCS_variables, ONLY: ExB_flow_bc,rfx_pinch_bc
+
+      implicit none
+
+c Call variables
+
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot),minv,idx,idy,idz
+     .          ,idxcnv,idycnv,idzcnv,vxx,vyy,vzz
+
+c Local variables
+
+      integer :: iig
+      real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),v_res(3),divpe(3)
+     .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
+
+
+      real(8),allocatable,dimension(:,:,:,:) :: v0,dve,dve_cov,du
+
+c Begin program
+
+      if (neq /= 6) call pstop('a_mtvc_hyp','neq /= 6; aborting...')
+
+      igr = igrid
+
+      is_cnv = .true.
+
+      call allocPointers(neq,fpointers)
+
+      isig  = MGgrid%istartp(igrid)
+      iisig = istart (igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Define pointers to MG arrays
+
+      call defineLocalPointers(igrid)
+
+c Map vector x to array for processing (return dv in curvilinear comp.)
+
+      allocate(du(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      du = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du,igrid
+     .                       ,.false.)
+
+      allocate(dv     (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dv_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dve    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dve_cov(0:nxx+1,0:nyy+1,0:nzz+1,3))
+      
+      dv  = du(:,:,:,1:3)
+      dve = du(:,:,:,4:6)
+
+c BCs on dv
+
+      !ExB flow BC (if applicable)
+      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+      v0 = 0d0
+
+      if (.not.rfx_pinch_bc)
+     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
+
+      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dv,bcnd(:,1:3)
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
+     .            ,arr0=v0)
+
+c BCs on dj
+
+      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dve,bcnd(:,4:6)
+     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dve_cov)
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            !Preparations
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            jacip  = gmetric%grid(igrid)%jac(ip,j,k)
+            jacim  = gmetric%grid(igrid)%jac(im,j,k)
+            jacjp  = gmetric%grid(igrid)%jac(i,jp,k)
+            jacjm  = gmetric%grid(igrid)%jac(i,jm,k)
+            jackp  = gmetric%grid(igrid)%jac(i,j,kp)
+            jackm  = gmetric%grid(igrid)%jac(i,j,km)
+            jac    = gmetric%grid(igrid)%jac(i,j,k )
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            ijkg   = ijk + isig - 1
+
+            if (vol_wgt) then
+              vol = gmetric%grid(igrid)%dvol(i,j,k)
+            else
+              vol = 1d0
+            endif
+
+            !P_si^v  ******************************
+
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
+     .                ,.not.nc_eom_v)
+
+            !P_si^T  ******************************
+
+            psit = findPsit()
+
+            !P_si^B  ******************************
+
+            psib = findPsib()
+
+            !Electron viscosity piece *************
+
+            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve)
+ctest            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv)
+
+            !Diagonal scaling
+            cnv = psit + psib + divpe
+
+            if (precon == 's2') then
+              cnv = max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol*cnv
+            else
+              cnv = dt/cnp*cnv
+            endif
+
+            !Form total operator
+            if (nc_eom_v) then
+              v_res = (psiv + cnv/rho0(i,j,k,1))
+            else
+              v_res = (psiv + cnv)
+            endif
+
+            !Find dj=-dt*curl(U_Bv)~curl(curl(-di*dv)
+cc            cnv = U_Bv(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=1)
+cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+cc     .                                ,aip(1),aip(2),aip(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv = U_Bv(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=1)
+cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+cc     .                                ,aim(1),aim(2),aim(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv = U_Bv(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=2)
+cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+cc     .                                ,ajp(1),ajp(2),ajp(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv = U_Bv(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=2)
+cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+cc     .                                ,ajm(1),ajm(2),ajm(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv = U_Bv(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=3)
+cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+cc     .                                ,akp(1),akp(2),akp(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv = U_Bv(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc     .                ,a0_cnv,he=3)
+cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+cc     .                                ,akm(1),akm(2),akm(3)
+cc     .                                ,cnv(1),cnv(2),cnv(3)
+cc     .                                ,.false.,half_elem=1)
+cc
+cc            cnv(1) = (ajp(3)-ajm(3))/grid_params%dyh(jg)
+cc     .              -(akp(2)-akm(2))/grid_params%dzh(kg)
+cc
+cc            cnv(2) = (akp(1)-akm(1))/grid_params%dzh(kg)
+cc     .              -(aip(3)-aim(3))/grid_params%dxh(ig)
+cc
+cc            cnv(3) = (aip(2)-aim(2))/grid_params%dxh(ig)
+cc     .              -(ajp(1)-ajm(1))/grid_params%dyh(jg)
+cc
+cc            dj = -dt/cnp*cnv
+
+            cov =+graddiv   (i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                      ,vol=.false.)
+     .           -veclap_cov(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_cov
+     .                      ,vol=.false.)
+
+            dj = -di*matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),cov)
+
+cc            cnv = curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                        ,dv_cov,vol=.false.)
+cc            dj = -di*cnv
+
+            if (si_car) then
+              call pstop('a_mtvc_hyp','si_car option not implemented')
+            else
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq)   = vol*v_res(ieq)
+                y(neq*(ijk-1)+ieq+3) = vol*(dve(i,j,k,ieq)
+     .                                     -dv (i,j,k,ieq)
+     .                                     +di*dj(ieq)/rho0(i,j,k,1))
+
+cc                y(neq*(ijk-1)+ieq+3) = vol*(dj_cnv(i,j,k,ieq)
+cc     .                                 -di*curlcurla(ieq)/rho0(i,j,k,1))
+cc                y(neq*(ijk-1)+ieq+3) = vol*(x(neq*(ijk-1)+ieq+3)
+cc     .                                     -curlcurla(ieq))
+
+              enddo
+            endif
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(du,dv,dv_cov,v0,dve,dve_cov)
+
+      call nullLocalPointers
+
+      call deallocPointers(fpointers)
+
+      end subroutine v_mtvc_hyp
 
 c v_mtvc2
 c####################################################################
@@ -3789,7 +4033,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv)
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
+     .                     ,.not.nc_eom_v)
 
             cnv = psiv*vol
 
@@ -4046,7 +4291,7 @@ cc            endif
 cc
 cc            !P_si^v  ******************************
 cc
-cc            call findPsiv(dv)
+cc            call D_v(dv)
 cc
 cc            !P_si^T  ******************************
 cc
@@ -4239,15 +4484,16 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            psiv = findPsiv(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz)
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz
+     .                     ,.not.nc_eom_v)
 
             !P_si^T  ******************************
 
-            call findPsit
+            psit = findPsit()
 
             !P_si^B  ******************************
 
-            call findPsib
+            psib = findPsib()
 
             !Form total operator
 

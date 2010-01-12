@@ -24,6 +24,8 @@ c------------------------------------------------------------------
 
       use newtongm
 
+      use local_BCS_variables
+
       implicit none
 
 c Call variables
@@ -59,14 +61,6 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-c Impose boundary conditions and find auxiliary quantities
-
-#if !defined (samrai)
-      call imposeBoundaryConditions(varray,igx,igy,igz)
-#else
-      call allocAuxVariables
-#endif
-
 c Set aliases
 
       rho => varray%array_var(IRHO)%array
@@ -83,6 +77,17 @@ c Set aliases
       az  => varray%array_var(IAZ )%array
 #endif
       tmp => varray%array_var(ITMP)%array
+
+c Impose boundary conditions and find auxiliary quantities
+
+#if !defined (samrai)
+cc      save_Bn = (jit == -2 .and. rfx_pinch_bc)  !Initialize Bn when processing source
+      save_Bn = (jit < 0 .and. rfx_pinch_bc)  !Initialize Bn when processing source
+
+      call imposeBoundaryConditions(varray,igx,igy,igz)
+#else
+      call allocAuxVariables
+#endif
 
 c Safeguards
 
@@ -182,13 +187,13 @@ c Divergence of electron stress tensor
 
       if (di*heta > 0d0) then
         vdummy = vecnv - vecnv_0
-cc        vdummy = vcnv
+ctest        vdummy = vcnv
 
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              div_pe(i,j,k,:)=heta
-     .                     *EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vdummy)
+              div_pe(i,j,k,:)=EOM_divPe(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                 ,vdummy)
             enddo
           enddo
         enddo

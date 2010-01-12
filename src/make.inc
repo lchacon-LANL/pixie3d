@@ -62,7 +62,7 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit
+	    $(COMMONDIR)/orbit\
 	    $(COMMONDIR)/lsode
 endif
 endif

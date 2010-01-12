@@ -62,7 +62,7 @@ c Namelists
      .                   ,asm_PC,zebra_relax,ores,oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eigstep
+     .                   ,eigen,eig_dt
      .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
@@ -89,7 +89,7 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,eigen,eigstep
+     .                   ,odd,random,source,eigen,eig_dt
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -115,31 +115,36 @@ c Set fundamental problem parameters (number of equations, number of aux variabl
 
       neqd = 8
 
-cc#if defined(vec_pot)
-cc      NAUXV=10  !Number of auxiliary vectors
-cc      NAUXS=1               !Number of auxiliary scalars
-cc#else
-cc      NAUXV=8   !Number of auxiliary vectors
-cc      NAUXS=1   !Number of auxiliary scalars
-cc#endif
-
+#if !defined(vec_pot)
 #if defined(samrai)
-#if defined(vec_pot)
-      NAUXV=23  !Number of auxiliary vectors
+      NAUXV=22  !Number of auxiliary vectors
       NAUXS=4   !Number of auxiliary scalars
 #else
       NAUXV=21  !Number of auxiliary vectors
+      NAUXS=2   !Number of auxiliary scalars
+#endif
+#else
+#if defined(samrai)
+      NAUXV=24  !Number of auxiliary vectors
       NAUXS=4   !Number of auxiliary scalars
-#endif
 #else
-#if defined(vec_pot)
-      NAUXV=22  !Number of auxiliary vectors
-      NAUXS=2   !Number of auxiliary scalars
-#else
-      NAUXV=20  !Number of auxiliary vectors
+      NAUXV=23  !Number of auxiliary vectors
       NAUXS=2   !Number of auxiliary scalars
 #endif
 #endif
+cc#if defined(samrai)
+cc#if defined(vec_pot)
+cc      NAUXV=24  !Number of auxiliary vectors
+cc      NAUXS=4   !Number of auxiliary scalars
+cc#else
+cc#endif
+cc#else
+cc#if defined(vec_pot)
+cc      NAUXV=23  !Number of auxiliary vectors
+cc      NAUXS=2   !Number of auxiliary scalars
+cc#else
+cc#endif
+cc#endif
 
 c Set defaults
 
@@ -188,7 +193,7 @@ c Set defaults
       postprocess = .false.    ! Whether to run solution postprocessing after time step
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
-      eigstep  = 1d0           ! Time step for eigenvalue dynamical system
+      eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
 
       cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
@@ -198,6 +203,7 @@ c Set defaults
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
+      fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
       rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
