@@ -150,7 +150,7 @@ $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${CXX} $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(VMECLIBS) ${PETSC_SNES_LIB} ${H5LIBS} ${LDFLAGS} ${LIBSAMRAI3D} ${LIBSAMRAI} ${LDLIBS} -o $@
+	${CXX} $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(VMECLIBS) ${PETSC_SNES_LIB} ${H5LIBS} ${LDFLAGS} ${LIBSAMRAI3D} ${LIBSAMRAI} ${LDLIBS} -o $@
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
