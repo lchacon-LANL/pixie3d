@@ -52,10 +52,6 @@ SUBDIRS = src plot
 
 MODPATH = $(MODFLAG).
 
-#SAMRAI setup
-
-
-
 # PIXIE setup
 
 REL1=0
@@ -119,6 +115,8 @@ ifdef BOPT
     SNES_OPT = -snes_mf
   endif
 endif
+
+#SAMRAI setup
 
 ifdef SAMR
    include ${SAMRAI}/config/Makefile.config

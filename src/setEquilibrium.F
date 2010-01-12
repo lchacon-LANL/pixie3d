@@ -943,106 +943,106 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-      case ('3dpar')  !EQ for parallel transport test
-
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        q0 = grid_params%params(4)
-
-c     Check coordinates
-
-        if (coords /= 'cyl') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-        if (abs(RR-zmax/2./pi) > 1d-5) then
-          messg = 'Major radius and zmax do not agree'
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     Simple screw pinch equilibria
-
-cc        nh2 = mm       !To set the right perturbation wavelength
-cc        nh3 = kk*RR    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For perturbations to be of the right order
-                       !(nh2,nh3 set by input file)
-
-        if (nh2 == 0 .or. nh3 == 0) then
-          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
-     .          //' equilibrium not set'
-          call pstop('setEquilibrium',messg)
-        endif
-
-        !Build equilibrium
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,ITMP) = 1d-5
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-cc              btheta = x1  !Green's function orbit test
+cc      case ('3dpar')  !EQ for parallel transport test
+cc
+cccc        mm = grid_params%params(1)
+cccc        kk = grid_params%params(2)
+cc        RR = grid_params%params(3)
+cc        q0 = grid_params%params(4)
+cc
+ccc     Check coordinates
+cc
+cc        if (coords /= 'cyl') then
+cc          messg = 'Wrong coordinates for equilibrium '//equil
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+cc        if (abs(RR-zmax/2./pi) > 1d-5) then
+cc          messg = 'Major radius and zmax do not agree'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     Simple screw pinch equilibria
+cc
+cccc        nh2 = mm       !To set the right perturbation wavelength
+cccc        nh3 = kk*RR    !To set the right perturbation wavelength
+cc
+cc        nh1 = nh2      !For perturbations to be of the right order
+cc                       !(nh2,nh3 set by input file)
+cc
+cc        if (nh2 == 0 .or. nh3 == 0) then
+cc          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+cc     .          //' equilibrium not set'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+cc        !Build equilibrium
+cc
+cc        var(:,:,:,IVX)  = 0d0
+cc        var(:,:,:,IVY)  = 0d0
+cc        var(:,:,:,IVZ)  = 0d0
+cc
+cc        var(:,:,:,IRHO) = 1d0
+cc
+cc        var(:,:,:,ITMP) = 1d-5
+cc
+cc#if !defined(vec_pot)
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cccc              btheta = x1  !Green's function orbit test
+cccc              bz0 = 1d0
+cccc
+cccc              btheta = 2*x1  !CosT orbit test
+cccc              bz0 = 1d0
+cc
 cc              bz0 = 1d0
-cc
-cc              btheta = 2*x1  !CosT orbit test
-cc              bz0 = 1d0
-
-              bz0 = 1d0
-              bb  = q0*bz0*dlambda/RR
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-
-              var(i,j,k,IBX) = 0d0
-              var(i,j,k,IBY) = btheta
-              var(i,j,k,IBZ) = x1*bz0
-
-            enddo
-          enddo
-        enddo
-#else
-        call pstop('setEquilibrium','Equilibrium not working')
-
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
-cc
-cc              bb     = (dlambda**2+aa)
-cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cc              bb  = q0*bz0*dlambda/RR
 cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 cc
-cc              if (coords == 'hel') then
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
-cc                b(i,j,k,3)  = x1*bz0
-cc              else
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
-cc                b(i,j,k,3)  = bz0
-cc              endif
+cc              var(i,j,k,IBX) = 0d0
+cc              var(i,j,k,IBY) = btheta
+cc              var(i,j,k,IBZ) = x1*bz0
+cc
 cc            enddo
 cc          enddo
 cc        enddo
+cc#else
+cc        call pstop('setEquilibrium','Equilibrium not working')
 cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
-#endif
+cccc        do k = 0,nzdp
+cccc          do j = 0,nydp
+cccc            do i = 0,nxdp
+cccc              x1 = grid_params%xg(i)  !Global coordinate
+cccc
+cccc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
+cccc
+cccc              bb     = (dlambda**2+aa)
+cccc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+cccc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cccc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cccc
+cccc              if (coords == 'hel') then
+cccc                b(i,j,k,1)  = 0d0
+cccc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
+cccc                b(i,j,k,3)  = x1*bz0
+cccc              else
+cccc                b(i,j,k,1)  = 0d0
+cccc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
+cccc                b(i,j,k,3)  = bz0
+cccc              endif
+cccc            enddo
+cccc          enddo
+cccc        enddo
+cccc
+cccc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cccc     .                          ,b
+cccc     .                          ,var(:,:,:,IAX:IAZ))
+cc#endif
 
       case ('3drfp')
 

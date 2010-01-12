@@ -94,10 +94,10 @@ c     Grid parameters
 c     Rho
 
       if (solve_rho) then
-        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,vcnv(:,:,:,1)
-     .                 ,vcnv(:,:,:,2)
-     .                 ,vcnv(:,:,:,3),rho,advect,sp=bcSP(),vol=.false.)
+        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vcnv(:,:,:,1)
+     .                  ,vcnv(:,:,:,2)
+     .                  ,vcnv(:,:,:,3),rho,advect,sp=bcSP(),vol=.false.)
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho
@@ -138,13 +138,6 @@ cc      nullify(vec1,vec2)
      .                 ,E_ni(:,:,:,2)
      .                 ,E_ni(:,:,:,3))
 
-cc      if (heta > 0d0 .and. (.not.solenoidal) ) then
-cc        vlap2=veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vlap
-cc     .                    ,.false.,vol=.false.)
-cc
-cc        ff(IBX:IBZ) = ff(IBX:IBZ) + di*heta*vlap2
-cc      endif
-cc
 cc      if (.not.solenoidal) then
 cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
 cc     .                         ,btensor_x,btensor_y,btensor_z

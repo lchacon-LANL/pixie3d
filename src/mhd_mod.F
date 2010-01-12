@@ -22,7 +22,10 @@ c ######################################################################
      .               ,IJCNV=1,IJCOV=2,IJ0CNV=3,IJ0COV=4,IBCNV=5,IBCOV=6
      .               ,IVCNV=7,IVCOV=8,IVCOV_N=9,IVECNV=10,IVECOV=11
      .               ,IVE0CNV=12,IVECOV_N=13,IENI=14,IEH=15,IDIVPI=16
-     .               ,IDIVPE=17,IBHAT=18,IPCNV=19,IVDUM=20,IVZRS=21
+     .               ,IDIVPE=17,IBHAT=18,IPCNV=19,IVDUM=20,IBCNV_N=21
+#if defined(samrai)
+     .               ,IVZRS=22
+#endif
 #else
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
      .               ,ITMP=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
@@ -30,9 +33,15 @@ c ######################################################################
      .               ,IVCNV=7,IVCOV=8,IACNV=9,IACOV=10
      .               ,IVCOV_N=11,IVECNV=12,IVECOV=13
      .               ,IVE0CNV=14,IVECOV_N=15,IENI=16,IEH=17,IDIVPI=18
-     .               ,IDIVPE=19,IBHAT=20,IPCNV=21,IVDUM=22,IVZRS=23
+     .               ,IDIVPE=19,IBHAT=20,IPCNV=21,IVDUM=22,IBCNV_N=23
+#if defined(samrai)
+     .               ,IVZRS=24
 #endif
-     .               ,IETA=1,INU=2,IZRS=3,IONES=4
+#endif
+     .               ,IETA=1,INU=2
+#if defined(samrai)
+     .               ,IZRS=3,IONES=4
+#endif
 
         character(5)  :: equil
         character(20) :: equ_file,prt_file
@@ -226,13 +235,14 @@ c ######################################################################
 
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov,acnv
-        real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
-#else
-        real(8),pointer,dimension(:,:,:,:) :: bcnv,bcov
 #endif
 
         real(8),pointer,dimension(:,:,:)   :: nuu
         real(8),pointer,dimension(:,:,:)   :: eeta
+
+        real(8),pointer,dimension(:,:,:,:) :: bcnv
+     .                                       ,bcov
+     .                                       ,bcnv_n
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcov
@@ -347,6 +357,9 @@ c     Allocate storage
         gv%aux%vec_list(IVDUM)%cnv = .true.
         vdummy => gv%aux%vec_list(IVDUM)%vec
 
+        gv%aux%vec_list(IBCNV_N)%cnv = .true.
+        bcnv_n => gv%aux%vec_list(IBCNV_N)%vec
+
 cc        allocate (nuu    (ilom:ihip,jlom:jhip,klom:khip))
 cc
 cc        allocate (vcov_n (ilom:ihip,jlom:jhip,klom:khip,3)
@@ -361,6 +374,8 @@ cc     .           ,div_pe (ilom:ihip,jlom:jhip,klom:khip,3)
 cc     .           ,bhat   (ilom:ihip,jlom:jhip,klom:khip,3)
 cc     .           ,pcnv   (ilom:ihip,jlom:jhip,klom:khip,3)
 cc     .           ,vdummy (ilom:ihip,jlom:jhip,klom:khip,3))
+cc
+cc        allocate (bcnv_n (ilom:ihip,jlom:jhip,klom:khip,3))
 
 #if defined(samrai)
 cc        allocate(zeros (ilom:ihip,jlom:jhip,klom:khip))
@@ -418,6 +433,8 @@ cc
 cc      deallocate(pcnv,vdummy,vcov_n,vecnv,vecov,vecnv_0,vecov_n
 cc     .          ,E_ni,E_h,div_pi,div_pe,bhat
 cc     .          )
+cc
+cc      deallocate(bcnv_n)
 
 c     End program
 
@@ -7075,7 +7092,7 @@ c     End program
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global)
+      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global,bc)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -7095,14 +7112,14 @@ c     Call variables
       integer    :: nx,ny,nz,igx,igy,igz
       real(8)    :: a(0:nx+1,0:ny+1,0:nz+1,3)
      .             ,b(0:nx+1,0:ny+1,0:nz+1,3)
-      logical,optional :: global
+      logical,optional :: global,bc
 
 c     Local variables
 
       integer    :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
 
-      logical    :: spoint,glbl
+      logical    :: spoint,glbl,do_bc
 
 c     Begin program
 
@@ -7110,6 +7127,12 @@ c     Begin program
         glbl = global
       else
         glbl = .false.
+      endif
+
+      if (PRESENT(bc)) then
+        do_bc = bc
+      else
+        do_bc = (.not.glbl).or.(np == 1)
       endif
 
       igrid = igx
@@ -7163,36 +7186,31 @@ cc        call line_int(1,nx,1,ny,b,a)
      .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3))
       endif
 
-#if !defined(petsc)
-cc      if (spoint) then
-cc        !Impose BCs
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        where (bcnd /= SP) bcnd = DEF
-cccc        where (bcnd == DEF) bcnd = EXT
-cc
-cc        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
-cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igrid
-cccc     .            ,is_cnv=.false.,iorder=2)
-cc
-cc      endif
-
       !Boundary conditions: topological constraints (SP, PER)
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
+      if (do_bc) then
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
 
-      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
-     .            ,is_vec=.true.,is_cnv=.false.,iorder=2)
-#endif
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+      endif
 
       return
 
 c     New code (SP ready, parallel-ready, version I)
 
       call line_int(1,nx,1,ny,b,a)
+
+      !Boundary conditions: topological constraints (SP, PER)
+      if (do_bc) then
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
+
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+      endif
 
 cc      a(0,0,:,3)=0d0
 cc
@@ -7262,7 +7280,7 @@ cc      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
 cc     .                                    +a(0:nx  ,:,:,2:3))
 cc
 
-#if !defined(petsc)
+cc#if !defined(petsc)
 cc      if (spoint) then
 cc        !Impose BCs
 cc        bcnd(:,1) = bcond
@@ -7277,16 +7295,16 @@ cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igri
 cccc     .            ,is_cnv=.false.,iorder=2)
 cc
 cc      endif
-
-      !Boundary conditions: topological constraints (SP, PER)
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
-
-      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
-     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
-
-#endif
+cc
+cc      !Boundary conditions: topological constraints (SP, PER)
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc
+cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
+cc
+cc#endif
 
       return
 
@@ -10989,6 +11007,11 @@ c     Call variables
 cc      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
 
 c     Local variables
+
+      if (heta  == 0d0) then
+        cnv = 0d0
+        return
+      endif
 
 c     Begin program
 

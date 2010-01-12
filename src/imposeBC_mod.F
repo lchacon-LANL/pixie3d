@@ -18,9 +18,7 @@ c####################################################################
 
         use equilibrium
 
-cc        use precond_variables, ONLY: geta
-
-        logical :: pinch_flow=.false.
+        logical :: pinch_flow=.false.,rfx_pinch_bc=.true.,save_Bn
 
         integer :: bc_order=1
 
@@ -35,11 +33,17 @@ c     ###################################################################
 c     -------------------------------------------------------------------
 c     Sets BC schedule for dependent and auxiliary variables, which
 c     are identified by a 2-dim integer array, bc_seq. The first
-c     dimension sets order of treatment. The second dimension (with two
-c     2 components) has the following convention:
-c       * First component identifies variable, and indicates whether
-c         quantities are dependent (>0) or auxiliary (<0) variables.
-c       * Second component identifies scalars (=0) or vectors (=1).
+c     dimension is of size nbc_seq, and indicates order of treatment
+c     lexicographically (i.e., first component of first dimension is
+c     to be treated first, second component of second dimension is
+c     to be treated second, and so on).
+c
+c     The second dimension is of size two, and has the following convention:
+c       * First component of the second dimension identifies variable,
+c         and its sign indicates whether the variable is dependent (>0) or
+c         auxiliary (<0).
+c       * Second component of the second dimension identifies scalars (=0)
+c         or vectors (=1).
 c     -------------------------------------------------------------------
 
 c     Call variables
@@ -131,7 +135,7 @@ c     End program
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,bcov,v0,dbcov)
+      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,v0,dbcov)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -142,7 +146,7 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer :: igrid,nx,ny,nz
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,bcov,v0
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,v0
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3),optional :: dbcov
 
 c     Local variables
@@ -159,7 +163,10 @@ c     Begin program
       do k=1,nz
         do j=1,ny
           bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
-          bbcov = 0.5*(bcov(i,j,k,:)+bcov(i+1,j,k,:))
+          bbcov = 0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                       ,bcnv(i  ,j,k,:))
+     .                +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
+     .                       ,bcnv(i+1,j,k,:)))
 
           b2 = dot_product(bbcnv,bbcov)
 
@@ -975,7 +982,8 @@ cc     .                     +array0(i  ,j,k,:))
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-                if (pinch_flow) then     !Finite flow at wall
+                !!!!!!!Finite flow at wall!!!!!!!
+                if (pinch_flow) then
 
                   if (ibc == 1) then
                     etal =
@@ -1000,10 +1008,20 @@ cc     .                     +array0(i  ,j,k,:))
 cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
 
                   if (nonlinear) then
-                    cov = array(i,j,k,:)
-                    cnv = matmul(gsuper,cov)
+                    if (rfx_pinch_bc) then
+                      cnv = bcnv_n(i,j,k,:)   !Use bcov_n here to picard-linearize
+                      cov = matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:)
+     .                            ,cnv)
+                    else
+                      cov = array(i,j,k,:)
+                      cnv = matmul(gsuper,cov)
+                    endif
                   else
-                    cnv = B00
+                    if (rfx_pinch_bc) then
+                      cnv = 0d0   !No correction needed when lagged BC is used
+                    else
+                      cnv = B00
+                    endif
                     cov =matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:),cnv)
                   endif
 
@@ -1028,7 +1046,8 @@ cc                  write (*,*) 'DIAG -- imposeBC',nonlinear
                     ee = 0d0
                   endif
 
-                else       !Finite current at wall
+                !!!!!!!Finite current at wall!!!!!!!
+                else
 
                   if (ibc == 1) then
                     J0 = 0.5*(array0(i-1,j,k,:)
