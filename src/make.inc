@@ -24,8 +24,7 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/orbit\
-	  $(COMMONDIR)/lsode
+	  $(COMMONDIR)/orbit
 
 ifdef SAMR
   SUBDIRS = $(COMMONDIR)/math\
@@ -42,8 +41,7 @@ ifdef SAMR
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit\
-	    $(COMMONDIR)/lsode
+	    $(COMMONDIR)/orbit
 endif
 
 ifdef BOPT 
@@ -62,7 +60,6 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit\
-	    $(COMMONDIR)/lsode
+	    $(COMMONDIR)/orbit
 endif
 endif
