@@ -1,6 +1,7 @@
 c setupPreconditioner
 c####################################################################
-      subroutine setupPreconditioner(v_arr)
+cc      subroutine setupPreconditioner(v_arr)
+      subroutine setupPC(ntot,x)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -21,7 +22,12 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      type(var_array),pointer :: v_arr
+      integer    :: ntot
+      real(8)    :: x(ntot)
+
+c Local variables
+
+cc      type(var_array),pointer :: v_arr
 
 c Local variables
 
@@ -61,13 +67,18 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+cc      ntot = size(x)
+
 c Setup PC
 
       call PC_setup
 
 c Unpack vector x
 
-      call equateDerivedType(varray,v_arr)
+cc      nullify(varray)
+      call mapVectorToStructure(varray,x)
+
+cc      call equateDerivedType(varray,v_arr)
 
 #if !defined(samrai)
       call imposeBoundaryConditions(varray,igx,igy,igz)
@@ -279,11 +290,11 @@ c diag *****
 
 c End program
 
-      end subroutine setupPreconditioner
+      end subroutine setupPC
 
 c killPreconditioner
 c###################################################################
-      subroutine killPreconditioner
+      subroutine killPC
 
       use precond_variables
 
@@ -293,4 +304,6 @@ c     Deallocate variables
       call deallocAuxVariables
 #endif
 
-      end subroutine killPreconditioner
+cc      call deallocateDerivedType(varray)
+
+      end subroutine killPC
