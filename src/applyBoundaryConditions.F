@@ -614,7 +614,7 @@ cc#else
 
 c applybc
 c######################################################################
-      subroutine applybc(i,patch_var,obc)
+      subroutine applybc(i,patch_var)
 
 c----------------------------------------------------------------------
 c     Applies the boundary conditions for SAMRAI
@@ -679,11 +679,7 @@ c Begin program
 
 c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
 
-      if (obc >= 0) then
-        order = obc
-      else
-        order = bc_order     
-      endif
+      order = bc_order     
 
 c Set boundary conditions
 
