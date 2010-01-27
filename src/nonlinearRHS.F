@@ -20,6 +20,10 @@ c-----------------------------------------------------------------
 
       use equilibrium
 
+      use transport_params
+      
+      use operators
+      
 cc#if defined(petsc) && !defined(petsc_c) && !defined(samrai)
 cc      use nk_mod
 cc#endif
