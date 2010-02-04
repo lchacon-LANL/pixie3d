@@ -681,6 +681,8 @@ c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
 
       order = bc_order     
 
+      call allocAuxVariables
+
 c Set boundary conditions
 
       if (gv%bc_seq(i+1,1)*AUX < 0) then     !Process dep. variable
