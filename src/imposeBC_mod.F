@@ -62,9 +62,11 @@ c     Select offset based on whether we are at the beginning of calculation
 
       if (itime == 0) then
         offset = 1
-      elseif (offset == 1 .and. itime > 0) then
+      elseif (itime == 1) then
         deallocate(gv%bc_seq)
         offset = 0
+      elseif (itime > 1) then
+         offset = 0
       endif
 
 c     Setup schedule
