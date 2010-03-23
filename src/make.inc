@@ -17,11 +17,6 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/newtonGMRES\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/interpolation/1d_int\
-	  $(COMMONDIR)/interpolation/slatec/1d_spline\
-	  $(COMMONDIR)/interpolation/slatec/2d_spline\
-	  $(COMMONDIR)/interpolation/slatec/3d_spline\
-	  $(COMMONDIR)/interpolation/slatec/spline_common\
-	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
 	  $(COMMONDIR)/orbit
@@ -34,11 +29,6 @@ ifdef SAMR
 	    $(COMMONDIR)/driver_setup\
 	    $(COMMONDIR)/driver-samrai\
 	    $(COMMONDIR)/interpolation/1d_int\
-	    $(COMMONDIR)/interpolation/slatec/1d_spline\
-	    $(COMMONDIR)/interpolation/slatec/2d_spline\
-	    $(COMMONDIR)/interpolation/slatec/3d_spline\
-	    $(COMMONDIR)/interpolation/slatec/spline_common\
-	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
 	    $(COMMONDIR)/orbit
@@ -53,11 +43,6 @@ ifdef PETSC_C
 	    $(COMMONDIR)/driver_setup\
 	    $(COMMONDIR)/driver-petsc\
 	    $(COMMONDIR)/interpolation/1d_int\
-	    $(COMMONDIR)/interpolation/slatec/1d_spline\
-	    $(COMMONDIR)/interpolation/slatec/2d_spline\
-	    $(COMMONDIR)/interpolation/slatec/3d_spline\
-	    $(COMMONDIR)/interpolation/slatec/spline_common\
-	    $(COMMONDIR)/interpolation/slatec/xerror\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
 	    $(COMMONDIR)/orbit
