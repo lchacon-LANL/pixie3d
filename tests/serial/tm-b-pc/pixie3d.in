@@ -67,7 +67,7 @@
     adiabatic  = t
 
     debug    = f
-    debug_it = 1
+    debug_it = 0
 
  /
  &graphdef
