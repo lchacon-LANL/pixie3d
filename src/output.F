@@ -20,8 +20,6 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use icond
-
       implicit none
 
 c Call variables
@@ -85,8 +83,10 @@ cc            advective = 'PBRKCT'
           endif
 
           if (cnfactor < 1d0) then
-            if     (sm_flag.eq.0) then
+            if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
               ts = ' Theta'
+            elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
+              ts = ' BDF1 (BE)'
             elseif (sm_flag.eq.1) then
               ts = ' Rannacher'
             elseif (sm_flag.eq.2) then
@@ -98,7 +98,7 @@ cc            advective = 'PBRKCT'
             call pstop('output','cnfactor not within allowed limits')
           endif
 
-          write (*,10)nxd,nyd,nzd,ngrd,precon,timecorr,source
+          write (*,10)nxd,nyd,nzd,ngrd,pc_type,timecorr,source
      .               ,numerical_grid,advective,ts
 
           write (*,*) 
@@ -125,7 +125,7 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-     .        /,'  Preconditioning method:...',a11,
+     .        /,'  Preconditioning method:...',a,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
@@ -190,8 +190,8 @@ c     Warnings
      .     write (*,*) 'Not solving for density: rho = 1'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
-      if (hall_new)
-     .     write (*,*) 'Solving alternative Hall MHD formulation'
+      if (ion_hall)
+     .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (adiabatic)    write (*,*) 'Using polytropic EOS'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
