@@ -13,11 +13,6 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/interpolation/1d_int\
-	  $(COMMONDIR)/interpolation/slatec/1d_spline\
-	  $(COMMONDIR)/interpolation/slatec/2d_spline\
-	  $(COMMONDIR)/interpolation/slatec/3d_spline\
-	  $(COMMONDIR)/interpolation/slatec/spline_common\
-	  $(COMMONDIR)/interpolation/slatec/xerror\
 	  $(COMMONDIR)/3dplot
 
 LNK_FILES = ../src/applyBoundaryConditions.F\
