@@ -12,8 +12,6 @@ c####################################################################
 
         use graphics
 
-        use icond
-
         use auxiliaryVariables
 
         use auxPlotVariables
@@ -350,13 +348,39 @@ c Begin program
 
 c Code for explicit pinch flow BC
 
-      if (rfx_pinch_bc) then
+      if (lag_pinch_bc.and.pinch_flow) then
+
+#if defined(vec_pot)
+        save_Bn = .true.
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              bcnv_n(i,j,k,:) = curl(i,j,k,nx,ny,nz,igx,igy,igz
+     .                              ,u_n%array_var(IAX)%array
+     .                              ,u_n%array_var(IAY)%array
+     .                              ,u_n%array_var(IAZ)%array)
+            enddo
+          enddo
+        enddo
+#else
         save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
 
         bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
         bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
         bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
+#endif
       endif
+
+c Code for electric field BC
+
+      save_tn = .false.
+
+      vcov_n(:,:,:,1) = u_n%array_var(IVX)%array
+      vcov_n(:,:,:,2) = u_n%array_var(IVY)%array
+      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
+
+      alpha = 1.-cnfactor
 
 c Postprocess solution
 
