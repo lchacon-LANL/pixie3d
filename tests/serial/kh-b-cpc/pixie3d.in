@@ -19,6 +19,8 @@
     dd       = 0d-1
     chi      = 0d-2
 
+    adiabatic = t
+
     equil    = 'khcar'
     coords   = 'car'
 
@@ -30,13 +32,12 @@
     tmax     = 1d-1
     dstep    = 1d-1
 
-    sm_flag  = 0
-
     nh2      = 1
     pvy      = 1d-4
     odd      = f
 
     cnfactor = 0.5
+    sm_flag  = 0
 
     restart  = f
     timecorr = f
