@@ -111,6 +111,11 @@ endif
 
 CONTRIBLIBS += -L$(PWD)/common/contrib/lsode -llsode
 
+# SLATEC setup
+
+CONTRIBLIBS += -L$(PWD)/common/contrib/slatec/lib -lslatec
+MODPATH     += $(ADDMODFLAG)$(PWD)/common/contrib/slatec/lib
+
 # PETSC setup
 
 ifdef BOPT
@@ -240,7 +245,6 @@ ifdef BOPT
 else
 	-@echo "Please, specify BOPT in make command"
 endif
-
 
 # CONTRIBUTED LIBRARIES
 
