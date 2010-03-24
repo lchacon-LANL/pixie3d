@@ -67,7 +67,7 @@ c     Select offset based on whether we are at the beginning of calculation
         offset = 2
 
 #if defined(vec_pot)
-        gv%nbc_seq = 18
+        gv%nbc_seq = 17
 #else
         gv%nbc_seq = 15
 #endif
@@ -77,7 +77,7 @@ c     Select offset based on whether we are at the beginning of calculation
         offset = 0
 
 #if defined(vec_pot)
-        gv%nbc_seq = 15
+        gv%nbc_seq = 14
 #else
         gv%nbc_seq = 12
 #endif
@@ -93,10 +93,10 @@ c     Setup schedule
         gv%bc_seq = 0
 
         if (itime == 0) then
-          gv%bc_seq(1,1) = IJ0COV*AUX       !Aux. variable
+          gv%bc_seq(1,1) = IJ0CNV*AUX       !Aux. variable
           gv%bc_seq(1,2) = VECTOR           !Vector
 
-          gv%bc_seq(2,1) = IJ0CNV*AUX       !Aux. variable
+          gv%bc_seq(2,1) = IJ0COV*AUX       !Aux. variable
           gv%bc_seq(2,2) = VECTOR           !Vector
         endif
 
@@ -110,51 +110,51 @@ c     Setup schedule
         gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
         gv%bc_seq(3+offset,2) = SCALAR      !Scalar
 
-        gv%bc_seq(4+offset,1) = IAX         !Dep. variable
+        gv%bc_seq(4+offset,1) = IACNV*AUX   !Aux. variable
         gv%bc_seq(4+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(6+offset,1) = IACNV*AUX   !Aux. variable
+        gv%bc_seq(5+offset,1) = IAX         !Dep. variable
+        gv%bc_seq(5+offset,2) = VECTOR      !Vector
+
+        gv%bc_seq(6+offset,1) = IBCNV*AUX   !Aux. variable
         gv%bc_seq(6+offset,2) = VECTOR      !Vector
 
         gv%bc_seq(7+offset,1) = IBCOV*AUX   !Aux. variable
         gv%bc_seq(7+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(8+offset,1) = IBCNV*AUX   !Aux. variable
-        gv%bc_seq(8+offset,2) = VECTOR      !Vector
+        gv%bc_seq(8+offset,1)= IJCNV*AUX   !Aux. variable
+        gv%bc_seq(8+offset,2)= VECTOR      !Vector
 
         gv%bc_seq(9+offset,1) = IJCOV*AUX   !Aux. variable
         gv%bc_seq(9+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(10+offset,1)= IJCNV*AUX   !Aux. variable
+        gv%bc_seq(10+offset,1)= IVX         !Dep. variable
         gv%bc_seq(10+offset,2)= VECTOR      !Vector
 
         gv%bc_seq(11+offset,1)= IVCOV*AUX   !Aux. variable
         gv%bc_seq(11+offset,2)= VECTOR      !Vector
 
-        gv%bc_seq(12+offset,1)= IVX         !Dep. variable
-        gv%bc_seq(12+offset,2)= VECTOR      !Vector
-
         if (itime == 0) then
-          gv%bc_seq(13+offset,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_seq(12+offset,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+
+          gv%bc_seq(13+offset,1) = IVECOV*AUX !Aux. variable
           gv%bc_seq(13+offset,2) = VECTOR      !Vector
 
-          gv%bc_seq(14+offset,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_seq(14+offset,1) = IENI0*AUX   !Aux. variable
           gv%bc_seq(14+offset,2) = VECTOR      !Vector
 
-          gv%bc_seq(15+offset,1) = IENI0*AUX   !Aux. variable
-          gv%bc_seq(15+offset,2) = VECTOR      !Vector
-
-          gv%bc_seq(16+offset,1) = IHETA*AUX   !Aux. variable
-          gv%bc_seq(16+offset,2) = SCALAR      !Scalar
+          gv%bc_seq(15+offset,1) = IHETA*AUX   !Aux. variable
+          gv%bc_seq(15+offset,2) = SCALAR      !Scalar
         else
-          gv%bc_seq(13+offset,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_seq(12+offset,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+
+          gv%bc_seq(13+offset,1) = IVECNV*AUX  !Aux. variable
           gv%bc_seq(13+offset,2) = VECTOR      !Vector
 
-          gv%bc_seq(14+offset,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_seq(14+offset,1) = IENI*AUX    !Dep. variable
           gv%bc_seq(14+offset,2) = VECTOR      !Vector
-
-          gv%bc_seq(15+offset,1) = IENI*AUX    !Dep. variable
-          gv%bc_seq(15+offset,2) = VECTOR      !Vector
         endif
 
 #else
@@ -167,29 +167,29 @@ c     Setup schedule
         gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
         gv%bc_seq(3+offset,2) = SCALAR      !Scalar
 
-        gv%bc_seq(4+offset,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_seq(4+offset,1) = IBX         !Dep. variable
         gv%bc_seq(4+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(5+offset,1) = IBX         !Dep. variable
+        gv%bc_seq(5+offset,1) = IBCOV*AUX   !Aux. variable
         gv%bc_seq(5+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(6+offset,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_seq(6+offset,1) = IJCNV*AUX   !Aux. variable
         gv%bc_seq(6+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(7+offset,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_seq(7+offset,1) = IJCOV*AUX   !Aux. variable
         gv%bc_seq(7+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(8+offset,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_seq(8+offset,1) = IVX         !Dep. variable
         gv%bc_seq(8+offset,2) = VECTOR      !Vector
 
-        gv%bc_seq(9+offset,1) = IVX         !Dep. variable
+        gv%bc_seq(9+offset,1) = IVCOV*AUX !Aux. variable
         gv%bc_seq(9+offset,2) = VECTOR      !Vector
 
         if (itime == 0) then
-          gv%bc_seq(10+offset,1) = IVECOV*AUX    !Aux. variable
+          gv%bc_seq(10+offset,1) = IVE0CNV*AUX   !Aux. variable
           gv%bc_seq(10+offset,2) = VECTOR        !Vector
 
-          gv%bc_seq(11+offset,1) = IVE0CNV*AUX   !Aux. variable
+          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
           gv%bc_seq(11+offset,2) = VECTOR        !Vector
 
           gv%bc_seq(12+offset,1) = IENI0*AUX     !Aux. variable
@@ -198,10 +198,10 @@ c     Setup schedule
           gv%bc_seq(13+offset,1) = IHETA*AUX     !Aux. variable
           gv%bc_seq(13+offset,2) = SCALAR        !Scalar
         else
-          gv%bc_seq(10+offset,1) = IVECOV*AUX    !Aux. variable
+          gv%bc_seq(10+offset,1) = IVECNV*AUX    !Aux. variable
           gv%bc_seq(10+offset,2) = VECTOR        !Vector
 
-          gv%bc_seq(11+offset,1) = IVECNV*AUX    !Aux. variable
+          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
           gv%bc_seq(11+offset,2) = VECTOR        !Vector
 
           gv%bc_seq(12+offset,1) = IENI*AUX      !Dep. variable
