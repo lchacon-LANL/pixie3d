@@ -26,8 +26,6 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
-      use icond
-
       implicit none
 
 c Call variables
@@ -42,32 +40,41 @@ c Local variables
 
       logical       :: nc_eom_f
 
+      !Legacy parameters
+      character(2)  :: precon
+      integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
+      logical       :: zebra_relax,hall_new
+      real(8)       :: mgtol
+
 c Namelists
 
       !Old namelist, for backward compatibility
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz
-     .                ,ilevel,debug,debug_it,test
+     .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid
+     .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
-     .                   ,aa_nu,bb_nu,cc_nu,c_hyper
+     .                   ,aa_nu,bb_nu,cc_nu,heta
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                ,precon,maxvcyc,nsweep,mgtol,iguess,precpass
-     .                   ,asm_PC,zebra_relax,ores,oprol
+     .                ,pc_type,pc_tol,pc_max_iter,pc_asm,pc_debug
+     .                   ,pc_debug_it,pc_divclean,mg_vcyc,sm_iter
+     .                   ,mg_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt
-     .                ,gp1,gp2,gp3,check_grid
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,hall_new
+     .                   ,ion_hall
      .                ,inputfile,recordfile,equ_file,dcon
+     .           !Legacy parameters
+     .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
+     .                   ,zebra_relax,ores,oprol,debug,debug_it
 
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -77,30 +84,31 @@ c Namelists
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
-     .                   ,aa_nu,bb_nu,cc_nu,c_hyper,adiabatic
+     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,hall_new
+     .                   ,solve_rho,advect,sym_st,ion_hall
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                   ,odd,random,source,eigen,eig_dt
+     .                   ,odd,random,source,eigen,eig_dt,iguess
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,maxitgm,global,method,damp,dt0,vol_wgt
 
       !Preconditioner
-      namelist /pc/    precon,maxvcyc,nsweep,mgtol,iguess,precpass
-     .                   ,asm_PC,iguess,zebra_relax
+      namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_max_iter
+     .                   ,pc_asm,mg_zebra_relax,pc_debug,pc_debug_it
+     .                   ,pc_divclean
 
       !I/O
-      namelist /i_o/   ilevel,debug,debug_it,check_grid
+      namelist /i_o/   ilevel,debug,check_grid
      .                   ,recordfile,dcon,chk_src,test
 
 c ******************************************************************
@@ -113,38 +121,7 @@ c Begin program
 
 c Set fundamental problem parameters (number of equations, number of aux variables)
 
-      neqd = 8
-
-#if !defined(vec_pot)
-#if defined(samrai)
-      NAUXV=22  !Number of auxiliary vectors
-      NAUXS=4   !Number of auxiliary scalars
-#else
-      NAUXV=21  !Number of auxiliary vectors
-      NAUXS=2   !Number of auxiliary scalars
-#endif
-#else
-#if defined(samrai)
-      NAUXV=24  !Number of auxiliary vectors
-      NAUXS=4   !Number of auxiliary scalars
-#else
-      NAUXV=23  !Number of auxiliary vectors
-      NAUXS=2   !Number of auxiliary scalars
-#endif
-#endif
-cc#if defined(samrai)
-cc#if defined(vec_pot)
-cc      NAUXV=24  !Number of auxiliary vectors
-cc      NAUXS=4   !Number of auxiliary scalars
-cc#else
-cc#endif
-cc#else
-cc#if defined(vec_pot)
-cc      NAUXV=23  !Number of auxiliary vectors
-cc      NAUXS=2   !Number of auxiliary scalars
-cc#else
-cc#endif
-cc#endif
+      call setupProblemDims
 
 c Set defaults
 
@@ -226,22 +203,6 @@ c Set defaults
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 0             ! Whether preconditioner is used to give initial
                                !   guess to GMRES (when =1) 
-
-      !Preconditioner parameters
-      mg_ratio = 2             ! MG coarsening ratio
-      nsweep   = 5             ! Number of MG smoothing passes
-      maxvcyc  = 1             ! Maximum number of MG V-cycles
-      mgtol    = 1d-3          ! MG convergence tolerance
-      ores     = 0             ! Restriction order for MG
-      oprol    = 2             ! Prolongation order for MG
-
-      precon   = 'id'          ! Type of preconditioner. Currently:
-                               !   - 'id': identity (default)
-                               !   - 's1': SI without flow
-                               !   - 's2': SI with flow
-      precpass = 1             ! Number of SI iterations in preconditioner
-      asm_PC   = .false.       ! Whether we are doing additive Schwartz PC (in parallel)
-
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
       eta      = 1d-3          ! Lundquist number
@@ -262,11 +223,12 @@ c Set defaults
       bb_nu    = 0d0           ! Coefficient for nu profile
       cc_nu    = 1d0           ! Coefficient for nu profile
 
-      c_hyper  = 0d0           ! Coefficient for hyper-resistivity
+      heta     = 0d0           ! Coefficient for hyper-resistivity
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not, if true, ITMP is electron pressure,
+                               !   otherwise it is electron temperature
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio
 
@@ -290,7 +252,28 @@ c Set defaults
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
 
-      hall_new   = .false.     ! Whether to use new Hall formulation or not
+      ion_hall   = .false.     ! Whether to use new Hall formulation or not
+
+      !Preconditioner parameters
+      pc_type  = 'id'          ! Type of preconditioner. Currently:
+                               !   - 'id': identity (default)
+                               !   - 's1': SI without flow
+                               !   - 's2': SI with flow
+      pc_max_iter = 1          ! Number of SI iterations in preconditioner
+      pc_tol      = 1d-3       ! PC solvers convergence tolerance
+      pc_debug_it = 0          ! Newton iteration level for debugging (0 --> ask)
+
+      pc_asm      = .false.    ! Whether we are doing additive Schwartz PC (in parallel)
+      pc_debug    = .false.    ! PC debugging flag
+      pc_divclean = .false.    ! Whether to perform divergence cleaning in PC or not
+
+      mg_ratio = 2             ! MG coarsening ratio
+      mg_vcyc  = 1             ! Maximum number of MG V-cycles
+      mg_ores  = 0             ! Restriction order for MG
+      mg_oprol = 2             ! Prolongation order for MG
+      mg_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+
+      sm_iter  = 5             ! Number of MG smoothing passes
 
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
@@ -351,14 +334,24 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
 
       test       = .false.     ! Whether we are performing tests (do not dump namelist)
 
-      debug      = .false.     ! PC debugging flag
-      debug_it   = 0           ! Newton iteration level for debugging (0 --> ask)
-
       recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
       prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
 
       dcon       = .false.     ! If using VMEC input, whether to dump DCON output
+
+      !Legacy parameters
+      precon   = ''
+      mgtol    = 0d0
+      maxvcyc  = 0
+      precpass = 0
+      nsweep   = 0
+      zebra_relax = .false.
+      ores     = 0
+      oprol    = 0
+      debug    = .false.
+      debug_it = -1
+      hall_new = .false.
 
 c Read initialization parameters
 
@@ -398,6 +391,23 @@ c Read initialization parameters
 
       close(unit=uinput)
 
+c Check legacy parameters
+
+      if (hall_new     )  ion_hall = .true.
+
+      if (precon /= '' )  pc_type = precon
+      if (mgtol  /= 0d0)  pc_tol  = mgtol
+      if (precpass/=0  )  pc_max_iter = precpass
+      if (debug        )  pc_debug = debug
+      if (debug_it >= 0)  pc_debug_it = debug_it
+
+      if (maxvcyc/= 0  )  mg_vcyc = maxvcyc
+      if (zebra_relax  )  mg_zebra_relax = .true.
+      if (ores   /= 0  )  mg_ores = ores
+      if (oprol  /= 0  )  mg_oprol= oprol
+
+      if (nsweep /= 0  )  sm_iter = nsweep
+
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
       if (hrtmn.gt.0d0.and.prndtl.gt.0d0) then
@@ -405,15 +415,7 @@ c Obtain eta, nu, dd from Prandtl, Hartmann
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
 
-c Find hyperresistivity
-
-      if (di > 0d0) then
-        heta = c_hyper
-      else
-        heta = 0d0
-      endif
-
-c Find alpha_p
+c Find alpha_p=p_t/p_e; p_t=p_i+p_e
 
       a_p = 1d0+temp_ratio
 
@@ -424,6 +426,8 @@ c Initialize grid packing structure
       g_pack%dim(3) = gp3
 
 c Consistency check
+
+cc      if (di == 0d0) heta = 0d0
 
 cc      if (precon == 'id') iguess = 0
 
@@ -438,7 +442,7 @@ cc      if (precon == 'id') iguess = 0
         nc_eom_gp  = .true.
       endif
 
-      if (cnfactor == 1d0) hall_new = .false.
+      if (cnfactor == 1d0) ion_hall = .false.
 
       if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
@@ -476,6 +480,9 @@ cc        solve_rho = .false.
       if (de > di) then
         call pstop('readInput','Unphysical value for di and/or de')
       endif
+
+      !Performs divergence cleaning at postprocessing stage
+      if (solenoidal.and.(.not.pc_divclean)) postprocess = .true.
 
 c Map perturbations
 
