@@ -680,8 +680,6 @@ c       Fill ghost nodes
 
 c       Postprocessing
 
-        if (save_tn .and. ion_hall) vcov_n = vcov
-
         if (.not.nc_eom_v) then
           varray%array_var(IVX)%array = vcnv(:,:,:,1)
      .                                 *varray%array_var(IRHO)%array
@@ -1042,21 +1040,21 @@ c$$$
               enddo
             enddo
           enddo
+         
+          if (save_tn .and. ion_hall) vcov_n = vcov
 
         case(IBCOV)
 
-#if defined(vec_pot)
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-c$$$                bcnv(i,j,k,:) = B0
-c$$$     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
                 bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,bcnv(i,j,k,:))
               enddo
             enddo
           enddo
 
+#if defined(vec_pot)
        case(IACNV)
 
           do k = 0,nnz+1
@@ -1077,8 +1075,6 @@ c       Magnetic field BC (with fixed current at boundary)
               do i = 0,nnx+1
                 bcnv(i,j,k,:) = B0
      .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
-cc                bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
-cc     .                              ,bcnv(i,j,k,:))
               enddo
             enddo
           enddo
@@ -1193,7 +1189,7 @@ cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
      .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
           endif
 #endif
-          E_ni = E_ni_0
+cc          E_ni = E_ni_0
 
 cc#if !defined(vec_pot)
 cc          if (di > 0d0) then
