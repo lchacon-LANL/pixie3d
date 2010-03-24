@@ -618,6 +618,7 @@ c       Fill ghost nodes
         varray%array_var(IBZ)%array = bcnv(:,:,:,3)
 
 cc        if (save_Bn) bcnv_n = bcnv  !Save previous time step
+
 #endif
 
       case(IVX)
@@ -782,7 +783,7 @@ c Select variable
           vzeros= 0d0
 
 c       Resistivity and viscosity (needed for BCs; may depend on T)
-
+ 
           do k=0,nnz+1
             do j=0,nny+1
               do i=0,nnx+1
