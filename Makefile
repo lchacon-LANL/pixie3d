@@ -76,7 +76,7 @@ endif
 ifeq ($(HDF5),t)
   CONTRIBLIBS = $(HDF5_LIBS)
   CPPFLAGS   += $(PREPROC)hdf5 $(HDF5_INC)
-  MODPATH    += $(ADDMODFLAG).$(HDF5_MOD)
+  MODPATH    += $(ADDMODFLAG)$(HDF5_MOD)
 endif
 
 # VMEC setup
