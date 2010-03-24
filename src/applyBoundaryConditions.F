@@ -636,20 +636,20 @@ c       BC setup
         bcnd(:,2) = varray%array_var(IVY)%bconds
         bcnd(:,3) = varray%array_var(IVZ)%bconds
 
-cc        if (.not.nc_eom_v) then
-cc          where (varray%array_var(IRHO)%array /= 0d0)
-cc            vcnv(:,:,:,1) = varray%array_var(IVX )%array
-cc     .                     /varray%array_var(IRHO)%array
-cc            vcnv(:,:,:,2) = varray%array_var(IVY )%array
-cc     .                     /varray%array_var(IRHO)%array
-cc            vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-cc     .                     /varray%array_var(IRHO)%array
-cc          end where
-cc        else
-cc          vcnv(:,:,:,1) = varray%array_var(IVX)%array
-cc          vcnv(:,:,:,2) = varray%array_var(IVY)%array
-cc          vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-cc        endif
+        if (.not.nc_eom_v) then
+          where (varray%array_var(IRHO)%array /= 0d0)
+            vcnv(:,:,:,1) = varray%array_var(IVX )%array
+     .                     /varray%array_var(IRHO)%array
+            vcnv(:,:,:,2) = varray%array_var(IVY )%array
+     .                     /varray%array_var(IRHO)%array
+            vcnv(:,:,:,3) = varray%array_var(IVZ )%array
+     .                     /varray%array_var(IRHO)%array
+          end where
+        else
+          vcnv(:,:,:,1) = varray%array_var(IVX)%array
+          vcnv(:,:,:,2) = varray%array_var(IVY)%array
+          vcnv(:,:,:,3) = varray%array_var(IVZ)%array
+        endif
 
         if (pinch_flow) then
           if (adiabatic) then
@@ -887,8 +887,8 @@ c       Allocate auxiliary variables in local domain
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-                jcnv(i,j,k,:)=curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
-     .                            ,bcov)
+c$$$                jcnv(i,j,k,:)=curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
+c$$$     .                            ,bcov)
                 jcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,jcnv(i,j,k,:))
               enddo
@@ -899,6 +899,8 @@ c       Allocate auxiliary variables in local domain
 
           bcnd = vaux%vec_list(IJCNV)%bconds
 
+          jcnv=curl(nnx,nny,nnz,iigx,iigy,iigz,bcov)
+          
           if (pinch_flow) then  !Jt = alpha*Bt in cov representation
             if (lag_pinch_bc) then
               call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*rho*tmp,eeta
@@ -928,7 +930,6 @@ c         Fill ghost nodes
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
      .              ,iorder=1)
-
 
         case(IJ0COV)
 
@@ -1018,21 +1019,21 @@ c           Find J0
 
         case(IVCOV)
 
-          if (.not.nc_eom_v) then
-            where (varray%array_var(IRHO)%array /= 0d0)
-              vcnv(:,:,:,1) = varray%array_var(IVX )%array
-     .                       /varray%array_var(IRHO)%array
-              vcnv(:,:,:,2) = varray%array_var(IVY )%array
-     .                       /varray%array_var(IRHO)%array
-              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-     .                       /varray%array_var(IRHO)%array
-            end where
-          else
-            vcnv(:,:,:,1) = varray%array_var(IVX)%array
-            vcnv(:,:,:,2) = varray%array_var(IVY)%array
-            vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-          endif
-
+c$$$          if (.not.nc_eom_v) then
+c$$$            where (varray%array_var(IRHO)%array /= 0d0)
+c$$$              vcnv(:,:,:,1) = varray%array_var(IVX )%array
+c$$$     .                       /varray%array_var(IRHO)%array
+c$$$              vcnv(:,:,:,2) = varray%array_var(IVY )%array
+c$$$     .                       /varray%array_var(IRHO)%array
+c$$$              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
+c$$$     .                       /varray%array_var(IRHO)%array
+c$$$            end where
+c$$$          else
+c$$$            vcnv(:,:,:,1) = varray%array_var(IVX)%array
+c$$$            vcnv(:,:,:,2) = varray%array_var(IVY)%array
+c$$$            vcnv(:,:,:,3) = varray%array_var(IVZ)%array
+c$$$          endif
+c$$$
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
@@ -1044,21 +1045,19 @@ c           Find J0
 
         case(IBCOV)
 
+#if defined(vec_pot)
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-#if defined(vec_pot)
-                bcnv(i,j,k,:) = B0
-     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
-#endif
+c$$$                bcnv(i,j,k,:) = B0
+c$$$     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
                 bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,bcnv(i,j,k,:))
               enddo
             enddo
           enddo
 
-#if defined(vec_pot)
-        case(IACNV)
+       case(IACNV)
 
           do k = 0,nnz+1
             do j = 0,nny+1
@@ -1073,6 +1072,17 @@ c           Find J0
 
 c       Magnetic field BC (with fixed current at boundary)
 
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
+                bcnv(i,j,k,:) = B0
+     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
+cc                bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+cc     .                              ,bcnv(i,j,k,:))
+              enddo
+            enddo
+          enddo
+         
           bcnd = vaux%vec_list(IBCNV)%bconds
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
