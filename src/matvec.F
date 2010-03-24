@@ -76,7 +76,8 @@ cc      xarr = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order)
+cc     .            ,iorder=bc_order)
+     .            ,iorder=0,icomp=IRHO)
 
 c Calculate matrix-vector product
 
@@ -89,7 +90,7 @@ c Calculate matrix-vector product
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+     .                        ,xarr(:,:,:,1),vol=volf)
 
           enddo
         enddo
@@ -102,6 +103,124 @@ c End program
       call deallocPointers(fpointers)
 
       end subroutine lap_mtvc
+
+c avlap_mtvc
+c####################################################################
+      subroutine avlap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates lap(vector) in contravariant form.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      use local_BCS_variables, ONLY: pinch_flow
+
+      implicit none
+
+c Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+     .             ,veclap(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind,etal
+
+      real(8),allocatable,dimension(:,:,:,:) :: vv,v0
+
+      logical    :: fpointers,alt_eom_b,is_cnv
+
+c Begin program
+
+      is_cnv = .true.
+
+      alt_eom_b = .false.
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz
+     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(vv(0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
+      !For finding the diagonal, gpos > 0
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,vv,igrid
+     .                       ,.false.)
+
+      if (coords == 'car') then
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
+     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=0)
+      else
+        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
+     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=bc_order+1)
+      endif
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+     .                           ,igrid,igrid,igrid,vv
+     .                           ,vol=volf)
+
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = veclap(ieq)
+            enddo
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(vv,v0)
+
+      call deallocPointers(fpointers)
+
+      end subroutine avlap_mtvc
 
 c cyl_lap
 c####################################################################
@@ -197,7 +316,7 @@ c Calculate matrix-vector product
      .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))/dy(jg)
      .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))/dy(jg-1) )
 
-            if (vol_wgt) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
+            if (volf) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
       enddo
@@ -318,7 +437,7 @@ cc     .             + grid_params%xx(ig)*cos(grid_params%yy(jg))
             km = k-1
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
+     .                        ,xarr(:,:,:,1),dff=iRR,vol=volf)
 
 cc            y(ijk) = y(ijk)/sqrt(iRR(i,j,k))   !Multiply by R
 
@@ -463,7 +582,7 @@ cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igri
 cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+     .                        ,xarr(:,:,:,1),vol=volf)
 
           enddo
         enddo
@@ -587,7 +706,7 @@ c Calculate matrix-vector product
 
             upwind = upwind/jac
 
-            if (vol_wgt) then
+            if (volf) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
@@ -595,7 +714,7 @@ c Calculate matrix-vector product
 
             if (chi > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,dtmp(:,:,:,1),vol=vol_wgt)
+     .                          ,dtmp(:,:,:,1),vol=volf)
             else
               lap = 0d0
             endif
@@ -706,7 +825,7 @@ c Calculate matrix-vector product
 
             ijk = i + nnx*(j-1) + nnx*nny*(k-1)
 
-            if (vol_wgt) then
+            if (volf) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
@@ -733,7 +852,7 @@ cc            y(ijk) = ( (cnp/dt + alpha*mgdivV0(ijkg))*x(ijk)
 cc     .            + alpha*upwind )*dvol
 cc     .            - alpha*dd
 cc     .                *laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                          ,drho(:,:,:,1),vol=vol_wgt)
+cc     .                          ,drho(:,:,:,1),vol=volf)
 
             !Conservative advection
             upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
@@ -741,12 +860,12 @@ cc     .                          ,drho(:,:,:,1),vol=vol_wgt)
      .                    ,v0_cnv(:,:,:,2)
      .                    ,v0_cnv(:,:,:,3)
      .                    ,drho  (:,:,:,1)
-     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
+     .                    ,vol=volf,upwind=.true.,sp=bcSP())
 
             ! Diffusion
             if (dd > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,drho(:,:,:,1),vol=vol_wgt)
+     .                          ,drho(:,:,:,1),vol=volf)
             else
               lap = 0d0
             endif
@@ -882,7 +1001,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
 cc
 cc            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc
-cc            if (vol_wgt) then
+cc            if (volf) then
 cc              vol = volume(i,j,k,igrid,igrid,igrid)
 cc            else
 cc              vol = 1d0
@@ -1313,13 +1432,11 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: db
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv
 
-      logical    :: fpointers,alt_eom_b,is_cnv
+      logical    :: fpointers,is_cnv
 
 c Begin program
 
       is_cnv = .true.
-
-      alt_eom_b = .false.
 
       call allocPointers(neq,fpointers)
 
@@ -1353,11 +1470,13 @@ c Map vector x to array for processing
         b0_cnv => gb0%grid(igrid)%array
 
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr0=b0_cnv)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+cc   .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
       endif
 
@@ -1390,7 +1509,7 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -1398,11 +1517,11 @@ c Calculate matrix-vector product
 
             veclap = veclaplacian(i,j,k,nxx,nyy,nzz
      .                           ,igrid,igrid,igrid,db
-     .                           ,alt_eom_b,vol=.false.)
+     .                           ,vol=.false.)
 
-            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
+            etal   = geta%grid(igrid)%array(i,j,k,1)
 
-            if (gm_smooth) then
+            if (sm_type == 'gm') then
 
               cnv = curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                      ,v0_cnv,db,0)
@@ -1525,21 +1644,21 @@ c Calculate matrix-vector product
 
             cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-etal*veclap))*vol
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3)
-     .               ,.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3)
+cc     .               ,.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cnv(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo
@@ -1600,15 +1719,13 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: db
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
-      logical    :: fpointers,alt_eom_b,is_cnv
+      logical    :: fpointers,is_cnv
 
 c Begin program
 
       if (neq /= 6) call pstop('b_mtvc_hyp','neq /= 6; aborting...')
       
       is_cnv = .true.
-
-      alt_eom_b = .false.
 
       call allocPointers(neq,fpointers)
 
@@ -1640,7 +1757,8 @@ c Map vector x to array for processing
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
      .            ,bcnd,icomp=IBX,is_cnv=is_cnv
-     .            ,is_vec=.not.si_car,result_is_vec=.true.
+cc     .            ,is_vec=.not.si_car,result_is_vec=.true.
+     .            ,is_vec=.true.,result_is_vec=.true.
      .            ,iorder=bc_order)
 
 c Velocity field (including BCs)
@@ -1675,7 +1793,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -1683,15 +1801,15 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             veclap_b = veclaplacian(i,j,k,nxx,nyy,nzz
      .                             ,igrid,igrid,igrid,db(:,:,:,1:3)
-     .                             ,alt_eom_b,vol=.false.)
+     .                             ,vol=.false.)
 
             veclap_b2= veclaplacian(i,j,k,nxx,nyy,nzz
      .                             ,igrid,igrid,igrid,db(:,:,:,4:6)
-     .                             ,alt_eom_b,vol=.false.)
+     .                             ,vol=.false.)
 
-            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
+            etal   = geta%grid(igrid)%array(i,j,k,1)
 
-            if (gm_smooth) then
+            if (sm_type == 'gm') then
 
               cnv = curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                      ,v0_cnv,db(:,:,:,1:3),0)
@@ -1812,33 +1930,33 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             endif
 
-            if (si_car) then
-              cnv=(cnp*db(i,j,k,1:3)/dt + alpha*cnv
-     .            - alpha*etal*veclap_b + alpha*di*heta*veclap_b2)*vol
-
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3)
-     .               ,.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-
-              cnv = (db(i,j,k,4:6) + veclap_b)*vol
-
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3)
-     .               ,.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=4,6
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-
-            else
+cc            if (si_car) then
+cc              cnv=(cnp*db(i,j,k,1:3)/dt + alpha*cnv
+cc     .            - alpha*etal*veclap_b + alpha*di*heta*veclap_b2)*vol
+cc
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3)
+cc     .               ,.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc
+cc              cnv = (db(i,j,k,4:6) + veclap_b)*vol
+cc
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3)
+cc     .               ,.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=4,6
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = (cnp*db(i,j,k,ieq)/dt
      .                               + alpha*cnv(ieq)
@@ -1850,7 +1968,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
                 y(neq*(ijk-1)+ieq) = (db(i,j,k,ieq)-veclap_b(ieq-3))*vol
               enddo
 
-            endif
+cc            endif
 
           enddo
         enddo
@@ -1946,8 +2064,8 @@ cc      da_cnv = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-cc     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.,iorder=2)
-     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Velocity field (including BCs)
@@ -1975,7 +2093,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (volf) then
 cc              vol = volume(i,j,k,igrid,igrid,igrid)
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
@@ -1989,14 +2107,13 @@ cc              vol = volume(i,j,k,igrid,igrid,igrid)
 
 cc            cnv = veclaplacian(i,j,k,nxx,nyy,nzz
 cc     .                           ,igrid,igrid,igrid,da_cnv
-cc     .                           ,.false.,vol=.false.)
+cc     .                           ,vol=.false.)
 cc
 cc            call transformFromCurvToCurv(i,j,k,igx,igy,igz
 cc     .                        ,veclap(1),veclap(2),veclap(3)
 cc     .                        ,cnv   (1),cnv   (2),cnv   (3)
 cc     .                        ,.false.)
 
-cc            etal   = res(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid)
             etal   = geta%grid(igrid)%array(i,j,k,1)
 
             !Convective part
@@ -2109,21 +2226,21 @@ cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
 
             cov=(cnp*da(i,j,k,:)/dt + alpha*(cov/jac - etal*veclap))*vol
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cov(1),cov(2),cov(3)
-     .               ,.true.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cov(1),cov(2),cov(3)
+cc     .               ,.true.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cov(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo
@@ -2187,15 +2304,13 @@ c Local variables
       real(8),pointer    ,dimension(:,:,:,:) :: ve0_cnv,da_cov,dj_cnv
      .                                         ,rho0,bs0_cnv,da_cnv
 
-      logical    :: fpointers,alt_eom_a,is_cnv
+      logical    :: fpointers,is_cnv
 
 c Begin program
 
       if (neq /= 6) call pstop('a_mtvc_hyp','neq /= 6; aborting...')
       
       is_cnv = .false.
-
-      alt_eom_a = .false.
 
       call allocPointers(neq,fpointers)
 
@@ -2237,11 +2352,13 @@ cc      dj_cnv => du(:,:,:,4:6)
       dj_cnv = du(:,:,:,4:6)
 
       call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,da_cnv,bcnd(:,1:3)
-     .            ,icomp=IAX,is_cnv=.false.,is_vec=.not.si_car
+cc     .            ,icomp=IAX,is_cnv=.false.,is_vec=.not.si_car
+     .            ,icomp=IAX,is_cnv=.false.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=da_cov)
 
       call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcnd(:,4:6)
-     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
+cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
+     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=das)
 
 c Auxiliary quantities
@@ -2262,10 +2379,7 @@ c Auxiliary quantities
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
-            cnv = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                  ,da_cov(:,:,:,1)
-     .                  ,da_cov(:,:,:,2)
-     .                  ,da_cov(:,:,:,3))
+            cnv = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cov)
             db_cov(i,j,k,:) =
      .           matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
           enddo
@@ -2273,7 +2387,8 @@ c Auxiliary quantities
       enddo
 
       call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cov,bcs(:,IBX:IBZ)
-     .            ,icomp=IBX,is_cnv=.false.,is_vec=.not.si_car
+cc     .            ,icomp=IBX,is_cnv=.false.,is_vec=.not.si_car
+     .            ,icomp=IBX,is_cnv=.false.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Calculate matrix-vector product
@@ -2295,7 +2410,7 @@ c Calculate matrix-vector product
 
             ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -2319,9 +2434,9 @@ cc     .                     ,db_cov(:,:,:,2)
 cc     .                     ,db_cov(:,:,:,3))
 
             cov =-cov
-     .          +graddiv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
+     .          +gradDiv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
      .                  ,vol=.false.)
-cc     .          +graddiv_vrtx(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
+cc     .          +gradDiv_vrtx(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,da_cnv
 cc     .                  ,vol=.false.)
 
             curlcurla = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),cov)
@@ -2430,17 +2545,14 @@ cc            cnv = di*curlcurla/rho0(i,j,k,1)
 
             !Electron pressure tensor piece: di/rho*div(pe(dj))
             cnv= EOM_divPe(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv)
-cc            cnv=-heta
-cc     .          *veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv
-cc     .                       ,.false.,vol=.false.)
 
             a_res = a_res + alpha*di/rho0(i,j,k,1)
      .             *matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
             !Assemble residual
-            if (si_car) then
-              call pstop('a_mtvc_hyp','si_car option not implemented')
-            else
+cc            if (si_car) then
+cc              call pstop('a_mtvc_hyp','si_car option not implemented')
+cc            else
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = a_res(ieq)*vol
@@ -2451,7 +2563,7 @@ cc     .                                 -di*curlcurla(ieq)/rho0(i,j,k,1))
      .                                     -curlcurla(ieq))
               enddo
 
-            endif
+cc            endif
 
           enddo
         enddo
@@ -2891,10 +3003,7 @@ cc      if (.true.) then
         dyy = dyh(jg)
         dzz = dzh(kg)
 
-        j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr
-     .               ,b0_cov(:,:,:,1)
-     .               ,b0_cov(:,:,:,2)
-     .               ,b0_cov(:,:,:,3))
+        j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr,b0_cov)
 
         acnv =
      .      U_Bv(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
@@ -2978,151 +3087,6 @@ cc      if (.true.) then
 
       end function findPsib
 
-ccc     div_tensor2
-ccc     ###############################################################
-cc      function div_tensor2(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                   ,tsrx,tsry,tsrz,vol) result (divt)
-cc
-ccc     ---------------------------------------------------------------
-ccc     Calculates div(tensor) at cell centers in general non-orthogonal
-ccc     coordinates.
-ccc     ---------------------------------------------------------------
-cc
-cc      implicit none           !For safe fortran
-cc
-ccc     Call variables
-cc
-cc      real(8)    :: divt(3)
-cc
-cc      integer    :: i,j,k,igx,igy,igz,nx,ny,nz
-cc
-cc      logical    :: alt_eom
-cc
-cc      external   tsrx,tsry,tsrz
-cc
-cc      logical,optional,intent(IN) :: vol
-cc
-ccc     Local variables
-cc
-cc      integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igrid
-cc
-cc      real(8)    :: jac,ijac,dvol,dS1,dS2,dS3,dxx,dyy,dzz
-cc
-cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-cc
-cc      real(8)    :: t11p,t12p,t13p,t11m,t12m,t13m,t11o,t12o,t13o
-cc     .             ,t21p,t22p,t23p,t21m,t22m,t23m,t21o,t22o,t23o
-cc     .             ,t31p,t32p,t33p,t31m,t32m,t33m,t31o,t32o,t33o
-cc
-cc      real(8)    :: hess(3,3,3),msource,dx1,dx2,ll
-cc
-cc      logical    :: vol_wgt
-cc
-cc      real(8)    :: dum1,dum2,coeff
-cc
-ccc     Begin program
-cc
-cc      vol_wgt = .true.
-cc      if (PRESENT(vol)) vol_wgt = vol
-cc
-cc      igrid = igx
-cc
-cc      ip = i+1
-cc      im = i-1
-cc      jp = j+1
-cc      jm = j-1
-cc      kp = k+1
-cc      km = k-1
-cc
-cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc      jac = gmetric%grid(igrid)%jac(i,j,k)
-cc      ijac = 1./jac
-cc
-cc      dxx = dxh(ig)
-cc      dyy = dyh(jg)
-cc      dzz = dzh(kg)
-cc
-cc      if (coords /= 'car') then
-cc        hess = gmetric%grid(igrid)%Gamma(i,j,k,:,:,:)
-cc      endif
-cc
-cc      call tsrx(i ,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11p,t12p,t13p, 1)
-cc      call tsrx(im,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11m,t12m,t13m,-1)
-cc      if (coords /= 'car')
-cc     .    call tsrx(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t11o,t12o,t13o,0)
-cc
-cc      call tsry(i,j ,k,nx,ny,nz,igx,igy,igz,alt_eom,t21p,t22p,t23p, 1)
-cc      call tsry(i,jm,k,nx,ny,nz,igx,igy,igz,alt_eom,t21m,t22m,t23m,-1)
-cc      if (coords /= 'car')
-cc     .    call tsry(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t21o,t22o,t23o,0)
-cc
-cc      call tsrz(i,j,k ,nx,ny,nz,igx,igy,igz,alt_eom,t31p,t32p,t33p, 1)
-cc      call tsrz(i,j,km,nx,ny,nz,igx,igy,igz,alt_eom,t31m,t32m,t33m,-1)
-cc      if (coords /= 'car')
-cc     .    call tsrz(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom,t31o,t32o,t33o,0)
-cc
-cc      msource = 0d0
-cc
-cc      !Component 1
-cc      if (coords /= 'car') then
-cc        msource =  (t11o*hess(1,1,1)+t12o*hess(1,1,2)+t13o*hess(1,1,3)
-cc     .             +t21o*hess(1,2,1)+t22o*hess(1,2,2)+t23o*hess(1,2,3)
-cc     .             +t31o*hess(1,3,1)+t32o*hess(1,3,2)+t33o*hess(1,3,3))
-cc     .             *ijac
-cc      endif
-cc
-cc      divt(1) =  (t11p - t11m)/dxx
-cc     .          +(t21p - t21m)/dyy
-cc     .          +(t31p - t31m)/dzz + msource
-cc
-cc      !Component 2
-cc      coeff = 1d0
-cc
-cc      if (coords /= 'car') then
-cc        if (alt_eom) then
-cc
-cc          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-cc     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-cc     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3)
-cc     .              -t12o*(hess(1,1,1)+hess(2,1,2)+hess(3,1,3))
-cc     .              -t22o*(hess(1,2,1)+hess(2,2,2)+hess(3,2,3))
-cc     .              -t32o*(hess(1,3,1)+hess(2,3,2)+hess(3,3,3)))*ijac
-cc
-cc          coeff = ijac
-cc
-cc        else
-cc          msource=  (t11o*hess(2,1,1)+t12o*hess(2,1,2)+t13o*hess(2,1,3)
-cc     .              +t21o*hess(2,2,1)+t22o*hess(2,2,2)+t23o*hess(2,2,3)
-cc     .              +t31o*hess(2,3,1)+t32o*hess(2,3,2)+t33o*hess(2,3,3))
-cc     .              *ijac
-cc        endif
-cc
-cc      endif
-cc
-cc      divt(2) = ( (t12p - t12m)/dxx
-cc     .           +(t22p - t22m)/dyy
-cc     .           +(t32p - t32m)/dzz)*coeff  + msource
-cc
-cc      !Component 3
-cc      if (coords /= 'car') then
-cc        msource = (t11o*hess(3,1,1)+t12o*hess(3,1,2)+t13o*hess(3,1,3)
-cc     .            +t21o*hess(3,2,1)+t22o*hess(3,2,2)+t23o*hess(3,2,3)
-cc     .            +t31o*hess(3,3,1)+t32o*hess(3,3,2)+t33o*hess(3,3,3))
-cc     .            *ijac
-cc      endif
-cc
-cc      divt(3) =  (t13p - t13m)/dxx
-cc     .          +(t23p - t23m)/dyy
-cc     .          +(t33p - t33m)/dzz + msource
-cc
-cc      !Volume factor
-cc      if (vol_wgt) divt=divt*gmetric%grid(igrid)%dvol(i,j,k)
-cc
-ccc     End program
-cc
-cc      end function div_tensor2
-
 c     tensor_x
 c     #############################################################
       subroutine tensor_x(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
@@ -3185,7 +3149,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (vol_wgt) then
+cc          if (volf) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -3297,7 +3261,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (vol_wgt) then
+cc          if (volf) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -3382,7 +3346,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (vol_wgt) then
+cc          if (volf) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -3447,7 +3411,7 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc,rfx_pinch_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc,lag_pinch_bc
 
       implicit none
 
@@ -3462,7 +3426,7 @@ c Local variables
       integer :: iig
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
 
-      real(8),allocatable,dimension(:,:,:,:) :: v0
+      real(8),allocatable,dimension(:,:,:,:) :: v0,dpp
 
 c Begin program
 
@@ -3498,12 +3462,13 @@ c ExB flow BC (if applicable)
 
       v0 = 0d0
 
-      if (.not.rfx_pinch_bc)
-     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
+cc      if (.not.lag_pinch_bc)
+cc     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
-      allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+      allocate(dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
       
       dv = 0d0
@@ -3514,15 +3479,19 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 cc      if (di > 0 .or. bcSP()) then
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
      .            ,arr0=v0)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov
      .            ,arr0=v0)
       endif
+
+      dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
+      dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
+      dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
 
 c Calculate matrix-vector product
 
@@ -3552,7 +3521,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -3560,7 +3529,7 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
      .                     ,.not.nc_eom_v)
 
             !P_si^T  ******************************
@@ -3573,7 +3542,7 @@ c Calculate matrix-vector product
 
             !Diagonal scaling
              
-            if (precon == 's2') then
+            if (pc_type == 's2') then
 cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               psib = psib*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
@@ -3591,20 +3560,20 @@ cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               cnv = (psiv + cnv)*vol
             endif
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cnv(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo
@@ -3612,7 +3581,7 @@ cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
 
 c End program
 
-      deallocate(dv,dv_cov,v0)
+      deallocate(dv,dv_cov,v0,dpp)
 
       call nullLocalPointers
 
@@ -3647,7 +3616,7 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc,rfx_pinch_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc,lag_pinch_bc
 
       implicit none
 
@@ -3664,11 +3633,12 @@ c Local variables
      .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
 
 
-      real(8),allocatable,dimension(:,:,:,:) :: v0,dve,dve_cov,du
+      real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
+     .                                     ,dve_cnv
 
 c Begin program
 
-      if (neq /= 6) call pstop('a_mtvc_hyp','neq /= 6; aborting...')
+      if (neq /= 6) call pstop('v_mtvc_hyp','neq /= 6; aborting...')
 
       igr = igrid
 
@@ -3698,7 +3668,8 @@ c Define pointers to MG arrays
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
-      allocate(du(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(du    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       du = 0d0
 
@@ -3707,34 +3678,67 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv     (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dve    (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dve_cov(0:nxx+1,0:nyy+1,0:nzz+1,3))
-      
-      dv  = du(:,:,:,1:3)
-      dve = du(:,:,:,4:6)
+     .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-c BCs on dv
+c BCs
 
       !ExB flow BC (if applicable)
-      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,3))
+      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       v0 = 0d0
 
-      if (.not.rfx_pinch_bc)
-     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
-
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dv,bcnd(:,1:3)
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
      .            ,arr0=v0)
 
-c BCs on dj
+      dv      = du    (:,:,:,1:3)
+      dv_cov  = du_cov(:,:,:,1:3)
 
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dve,bcnd(:,4:6)
-     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dve_cov)
+      dve_cnv(:,:,:,1) = dv(:,:,:,1) - di*du(:,:,:,4)/rho0(:,:,:,1)
+      dve_cnv(:,:,:,2) = dv(:,:,:,2) - di*du(:,:,:,5)/rho0(:,:,:,1)
+      dve_cnv(:,:,:,3) = dv(:,:,:,3) - di*du(:,:,:,6)/rho0(:,:,:,1)
+
+ccc BCs on dv
+cc
+cc      !ExB flow BC (if applicable)
+cc      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,3))
+cc
+cc      v0 = 0d0
+cc
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dv,bcnd(:,1:3)
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
+cc     .            ,arr0=v0)
+cc
+ccc BCs on dj
+cc
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dve,bcnd(:,4:6)
+cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dve_cov
+cc     .            ,arr0=v0)
+
+c Find dE=U_Av(dv) (with BCs)
+
+      do k = kmin-1,kmax+1
+        do j = jmin-1,jmax+1
+          do i = imin-1,imax+1
+cc            dE_cnv(i,j,k,:) = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:)
+cc     .                              ,U_Av(i,j,k,nxx,nyy,nzz
+cc     .                                   ,igrid,igrid,igrid
+cc     .                                   ,dv,dv_cov,a0_cnv))
+            dE_cnv(i,j,k,:) = cnp/dt*di*dv(i,j,k,:)
+          enddo
+        enddo
+      enddo
 
 c Calculate matrix-vector product
+
+      dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
+      dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
+      dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -3762,7 +3766,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -3770,8 +3774,19 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
      .                ,.not.nc_eom_v)
+
+            !Electron viscosity piece *************
+
+            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                             ,dve_cnv)
+
+            if (nc_eom_v) then
+              psiv = psiv + divpe/rho0(i,j,k,1)
+            else
+              psiv = psiv + divpe
+            endif
 
             !P_si^T  ******************************
 
@@ -3781,15 +3796,10 @@ c Calculate matrix-vector product
 
             psib = findPsib()
 
-            !Electron viscosity piece *************
-
-            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve)
-ctest            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv)
-
             !Diagonal scaling
-            cnv = psit + psib + divpe
+            cnv = psit + psib 
 
-            if (precon == 's2') then
+            if (pc_type == 's2') then
               cnv = max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol*cnv
             else
               cnv = dt/cnp*cnv
@@ -3802,7 +3812,7 @@ ctest            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv)
               v_res = (psiv + cnv)
             endif
 
-            !Find dj=-dt*curl(U_Bv)~curl(curl(-di*dv)
+cc            !Find dj=-dt*curl(U_Bv.dv)
 cc            cnv = U_Bv(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=1)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
@@ -3822,28 +3832,28 @@ cc     .                ,a0_cnv,he=2)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
 cc     .                                ,ajp(1),ajp(2),ajp(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
+cc     .                                ,.false.,half_elem=2)
 cc
 cc            cnv = U_Bv(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=2)
-cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+cc            call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
 cc     .                                ,ajm(1),ajm(2),ajm(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
+cc     .                                ,.false.,half_elem=2)
 cc
 cc            cnv = U_Bv(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=3)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
 cc     .                                ,akp(1),akp(2),akp(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
+cc     .                                ,.false.,half_elem=3)
 cc
 cc            cnv = U_Bv(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=3)
-cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+cc            call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
 cc     .                                ,akm(1),akm(2),akm(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
+cc     .                                ,.false.,half_elem=3)
 cc
 cc            cnv(1) = (ajp(3)-ajm(3))/grid_params%dyh(jg)
 cc     .              -(akp(2)-akm(2))/grid_params%dzh(kg)
@@ -3856,33 +3866,21 @@ cc     .              -(ajp(1)-ajm(1))/grid_params%dyh(jg)
 cc
 cc            dj = -dt/cnp*cnv
 
-            cov =+graddiv   (i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                      ,vol=.false.)
-     .           -veclap_cov(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv_cov
-     .                      ,vol=.false.)
+            !Find dj=curl(curl(-di*dv))
+cc            dj =-di*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                      ,dv,vol=.false.)
+cc            dj = di*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                      ,dv,vol=.false.)
 
-            dj = -di*matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),cov)
+            !Find dj=-dt*curl(curl(dE))
+            dj = -dt/cnp*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                           ,dE_cnv,vol=.false.)
 
-cc            cnv = curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                        ,dv_cov,vol=.false.)
-cc            dj = -di*cnv
-
-            if (si_car) then
-              call pstop('a_mtvc_hyp','si_car option not implemented')
-            else
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq)   = vol*v_res(ieq)
-                y(neq*(ijk-1)+ieq+3) = vol*(dve(i,j,k,ieq)
-     .                                     -dv (i,j,k,ieq)
-     .                                     +di*dj(ieq)/rho0(i,j,k,1))
-
-cc                y(neq*(ijk-1)+ieq+3) = vol*(dj_cnv(i,j,k,ieq)
-cc     .                                 -di*curlcurla(ieq)/rho0(i,j,k,1))
-cc                y(neq*(ijk-1)+ieq+3) = vol*(x(neq*(ijk-1)+ieq+3)
-cc     .                                     -curlcurla(ieq))
-
-              enddo
-            endif
+            !Assemble matvec
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq)   = vol*v_res(ieq)
+              y(neq*(ijk-1)+ieq+3) = vol*(du(i,j,k,ieq+3)-dj(ieq))
+            enddo
 
           enddo
         enddo
@@ -3890,7 +3888,7 @@ cc     .                                     -curlcurla(ieq))
 
 c End program
 
-      deallocate(du,dv,dv_cov,v0,dve,dve_cov)
+      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv)
 
       call nullLocalPointers
 
@@ -3936,6 +3934,7 @@ c Call variables
 c Local variables
 
       integer    :: iig
+      real(8),allocatable,dimension(:,:,:,:) :: dpp
 
 c Begin program
 
@@ -3977,7 +3976,8 @@ c Define pointers to MG arrays
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
-      allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+      allocate(dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
       
       dv = 0d0
@@ -3987,13 +3987,19 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
       endif
+
+      dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
+      dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
+      dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
 
 c Calculate matrix-vector product
 
@@ -4025,7 +4031,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -4033,25 +4039,25 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv
-     .                     ,.not.nc_eom_v)
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
+     .                ,.not.nc_eom_v)
 
             cnv = psiv*vol
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cnv(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo
@@ -4059,7 +4065,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
 c End program
 
-      deallocate(dv,dv_cov)
+      deallocate(dpp,dv,dv_cov)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -4145,7 +4151,7 @@ cc        call v_mtvc(0,neq,ntotf,MGx(1:ntotf),MGy(1:ntotf),igr,bcnd)
 cc
 ccc     Restrict residual
 cc
-cc        call restrictMGVector(neq,MGy,igr,igrid,0,vol_wgt)
+cc        call restrictMGVector(neq,MGy,igr,igrid,0,volf)
 cc
 ccc     Map coarse grid residual
 cc
@@ -4283,7 +4289,7 @@ cc            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc
 cc            ijkg   = ijk + isig - 1
 cc
-cc            if (vol_wgt) then
+cc            if (volf) then
 cc              vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc            else
 cc              vol = 1d0
@@ -4377,7 +4383,7 @@ c Local variables
 
       real(8)    :: z(ntot)
 
-      real(8),allocatable,dimension(:,:,:,:) :: dzz
+      real(8),allocatable,dimension(:,:,:,:) :: dzz,dzp
 
 c Begin program
 
@@ -4422,7 +4428,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dzz   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+     .        ,dzz   (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dzp   (0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       !Velocity array
       dv = 0d0
@@ -4431,7 +4438,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
       !M_star*dv array
@@ -4443,8 +4451,13 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
+
+      dzp(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
+      dzp(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
+      dzp(:,:,:,3)=rho0(:,:,:,1)*dzz(:,:,:,3)
 
 c Calculate matrix-vector product
 
@@ -4476,7 +4489,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -4484,7 +4497,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz
+            psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz,dzp
      .                     ,.not.nc_eom_v)
 
             !P_si^T  ******************************
@@ -4505,20 +4518,20 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
               cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
             endif
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cnv(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo
@@ -4526,7 +4539,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
 c End program
 
-      deallocate(dv,dv_cov,dzz)
+      deallocate(dv,dv_cov,dzz,dzp)
 
       nullify(pp0,rho0)
       nullify(b0_cnv,b0_cov)
@@ -4626,7 +4639,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Calculate matrix-vector product
@@ -4773,7 +4787,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 cc      where (bcnd == DIR) bcnd = NEU
       !Higher-order than 1 is JB-unstable for cyl.
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
@@ -4796,7 +4811,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (volf) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -4820,20 +4835,20 @@ cc     .          + di*b0_cnv(i,j,k,3)
 
             cnv = cnv*vol
 
-            if (si_car) then
-              call transformVectorToCartesian
-     .              (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),.false.
-     .               ,car(1),car(2),car(3))
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = car(ieq)
-              enddo
-            else
+cc            if (si_car) then
+cc              call transformVectorToCartesian
+cc     .              (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),.false.
+cc     .               ,car(1),car(2),car(3))
+cc
+cc              do ieq=1,3
+cc                y(neq*(ijk-1)+ieq) = car(ieq)
+cc              enddo
+cc            else
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = cnv(ieq)
               enddo
-            endif
+cc            endif
 
           enddo
         enddo

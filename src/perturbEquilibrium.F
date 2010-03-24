@@ -1,13 +1,11 @@
 c     perturbEquilibrium
 c     #################################################################
-      subroutine perturbEquilibrium(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium(array,bcs,ieq)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
 c     perturbation of magnitude perturb, and introduces it in array.
 c     -----------------------------------------------------------------
-
-      use icond
 
       use grid
 
@@ -28,7 +26,6 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer    :: bcs(6),ieq
-      real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
@@ -67,9 +64,9 @@ c     Begin program
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          call perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
+          call perturbEquilibrium_kaitm(array,bcs,pert(ieq),ieq)
         else
-          call perturbEquilibrium_def  (array,bcs,perturb,ieq)
+          call perturbEquilibrium_def  (array,bcs,pert(ieq),ieq)
         endif
 
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
@@ -78,9 +75,9 @@ c     Begin program
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          call perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
+          call perturbEquilibrium_ppnch(array,bcs,pert(ieq),ieq)
         else
-          call perturbEquilibrium_def  (array,bcs,perturb,ieq)
+          call perturbEquilibrium_def  (array,bcs,pert(ieq),ieq)
         endif
 
       case ('msw')
@@ -328,19 +325,19 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
 
       case ('gem','tmcar','tmsin','kai1')
 
-        call perturbEquilibrium_gem(array,bcs,perturb,ieq)
+        call perturbEquilibrium_gem(array,bcs,pert(ieq),ieq)
 
       case ('ic')
 
-        call perturbEquilibrium_ic(array,bcs,perturb,ieq)
+        call perturbEquilibrium_ic(array,bcs,pert(ieq),ieq)
 
 cc      case ('3dpar')
 cc
-cc        call perturbEquilibrium_3dpar(array,bcs,perturb,ieq)
+cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
 
       case default
 
-        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+        call perturbEquilibrium_def(array,bcs,pert(ieq),ieq)
 
       end select
 

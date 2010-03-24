@@ -41,6 +41,8 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
      .                                            ,b_diag,b_diag_hyp
      .                                            ,a_diag,a_diag_hyp
 
+        real(8), allocatable, dimension(:,:) :: lap_diag,vlap_diag
+
         real(8), allocatable, dimension(:,:),target :: d_pois
 
         real(8), allocatable, dimension(:,:)    :: mgj0cnv,mgadvdiffV0
@@ -494,7 +496,7 @@ c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
      .               ,bc_pc(size(bcs,1),size(bcs,2))
-     .               ,bc_sc(6,1),bc_vec(6,3)
+     .               ,bc_sc(6,1),bc_vec(6,3),bc_cov(6,3)
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
@@ -525,18 +527,15 @@ c     Setup BCs
           bc_pc(:,ieq) = varray%array_var(ieq)%bconds(:)
         enddo
 
-#if !defined(vec_pot)
-        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
-        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = -DIR !Use covariant components 
-#else
-        where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR !Use covariant components 
-
-        !Magnetic field conditions
+#if defined(vec_pot)
         bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
-        where (bc_pc(:,IBX:IBZ) == -DIR) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
+        where (bc_pc(:,IBX:IBZ) == -EQU) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
 
-        bc_pc(:,IJX:IJZ) = bc_pc(:,IAX:IAZ)
+        where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR !Use covariant components 
 #endif
+
+        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
+        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravariant components 
 
         call setASM_PC_BC(igx,igy,igz,bc_pc,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
@@ -552,6 +551,13 @@ c     Setup BCs
 
         call setASM_PC_BC(igx,igy,igz,bc_vec,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
+        bc_cov(:,1) = bcond
+        bc_cov(:,2) = bcond
+        bc_cov(:,3) = bcond
+        where (bc_cov == DEF) bc_cov = EXT
+
+        call setASM_PC_BC(igx,igy,igz,bc_cov,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+
 c     Store density in all grids (w/o BCs)
 
         grho0%grid(igrid)%array(:,:,:,1) = rho
@@ -566,12 +572,19 @@ c     Store temperature (w/ BCs)
 
 c     Store pressure (w/ BCs)
 
-        do igr=igrid,grid_params%ngrid
-          gp0%grid(igrid)%array = a_p*grho0%grid(igrid)%array
-     .                               *gtmp0%grid(igrid)%array
-        enddo
+        !pressure (w/ BCs)
+        if (adiabatic) then
+          gp0%grid(igrid)%array(:,:,:,1) = a_p*tmp
+        else
+          gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
+        endif
 
-cc        call restrictMGArray(IRHO,1,gp0,bc_pc(:,IRHO),igrid,order)
+        call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
+
+cc        do igr=igrid,grid_params%ngrid
+cc          gp0%grid(igrid)%array = a_p*grho0%grid(igrid)%array
+cc     .                               *gtmp0%grid(igrid)%array
+cc        enddo
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
@@ -642,13 +655,21 @@ c     Store Hall MHD auxiliary variables
         if (di > 0d0) then
 
           !Store electron velocity components in all grids (w/ BCs)
-          gve0%grid(igrid)%array = vecnv
+          gve0%grid(igrid)%array(:,:,:,1) = vcnv(:,:,:,1)
+     .                                     -di*jcnv(:,:,:,1)/rho
+          gve0%grid(igrid)%array(:,:,:,2) = vcnv(:,:,:,2)
+     .                                     -di*jcnv(:,:,:,2)/rho
+          gve0%grid(igrid)%array(:,:,:,3) = vcnv(:,:,:,3)
+     .                                     -di*jcnv(:,:,:,3)/rho
 
-          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
+          call restrictMGArray(IVX,3,gve0,bc_vec,igrid,order)
+cc          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
 
           !Store Hall electric field
           gEh0_cov%grid(igrid)%array = E_h
-          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IJX:IJZ),igrid
+cc          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IJX:IJZ),igrid
+cc     .                        ,order,iscnv=.false.)
+          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
      .                        ,order,iscnv=.false.)
 
           !Store b_star = b - de^2/di curl(ve)
@@ -656,14 +677,14 @@ c     Store Hall MHD auxiliary variables
             do k=1,nzz
               do j=1,nyy
                 do i=1,nxx
-
-                  do ieq=1,3
-                    cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                              ,vecov(:,:,:,1)
-     .                              ,vecov(:,:,:,2)
-     .                              ,vecov(:,:,:,3)
-     .                              ,ieq)
-                  enddo
+                  cnv = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,vecov)
+cc                  do ieq=1,3
+cc                    cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                              ,vecov(:,:,:,1)
+cc     .                              ,vecov(:,:,:,2)
+cc     .                              ,vecov(:,:,:,3)
+cc     .                              ,ieq)
+cc                  enddo
 
                   gbs0%grid(igrid)%array(i,j,k,:)
      .                   = gb0%grid(igrid)%array(i,j,k,:) -de**2/di*cnv
@@ -671,26 +692,17 @@ c     Store Hall MHD auxiliary variables
               enddo
             enddo
 
-            call restrictMGArray(IBX,3,gbs0,bc_pc(:,IBX:IBZ),igrid
-     .                          ,order)
+            call restrictMGArray(IBX,3,gbs0,bc_vec,igrid,order)
           else
             call equateMGArray(gbs0,gb0)
           endif
 
           !Auxiliary quantities for new Hall MHD formulation: A = B + di*curl(v) 
-          if (hall_new) then
+          if (pc_ion_hall) then
             do k=0,nzz+1
               do j=0,nyy+1
                 do i=0,nxx+1
-
-                  do ieq=1,3
-                    cnv(ieq) = curl2(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                             ,vcov(:,:,:,1)
-     .                             ,vcov(:,:,:,2)
-     .                             ,vcov(:,:,:,3)
-     .                             ,ieq)
-                  enddo
-
+                  cnv = curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,vcov)
                   ga0%grid(igrid)%array(i,j,k,:)
      .                   = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
                 enddo
@@ -730,11 +742,6 @@ c     Find other auxiliary quantities and store them in all grids
      .                            ,order,.false.)
 
         deallocate(debug2)
-
-        !pressure (w/ BCs)
-        gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
-
-        call restrictMGArray(IRHO,1,gp0,bc_pc(:,IRHO),igrid,order)
 
         !jxB-grad(p)
         allocate(vector(0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -1083,7 +1090,7 @@ c     End
 
 c     D_v
 c     #####################################################################
-      function D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,da,conserv)
+      function D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dp,conserv)
      .         result(psiv)
 
 c     ---------------------------------------------------------------------
@@ -1096,41 +1103,35 @@ c     Call variables
 
       integer :: i,j,k,nxx,nyy,nzz,igr
       real(8) :: psiv(3)
-      real(8),target :: da    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target :: dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .                 ,dp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .                 ,v0_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .                 ,rho0  (0:nxx+1,0:nyy+1,0:nzz+1,1)
       logical :: conserv
 
 c     Local variables
 
-      real(8) :: mul
-      real(8),target :: dp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
-
 c     Begin program
 
       if (.not.conserv) then
         !TS
-        psiv = cnp*da(i,j,k,:)/dt
+        psiv = cnp*dv(i,j,k,:)/dt
 
         !Advection
         psiv = psiv
-     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,da
+     .       + alpha*(EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,v0_cnv,dv
      .                        ,upwind=.true.)
-     .       +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,da,v0_cnv
+     .       +        EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv,v0_cnv
      .                        ,upwind=(advect == 1)))
 
         !Diffusion
-        psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
-     .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
-#if !defined(RFX)
+        if (nu > 0d0) then
+          psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
+     .                              ,gvis%grid(igr)%array(:,:,:,1))
      .                     /rho0(i,j,k,1)
-#endif
+        endif
       else
        !TS
-        dp(:,:,:,1)=rho0(:,:,:,1)*da(:,:,:,1)
-        dp(:,:,:,2)=rho0(:,:,:,1)*da(:,:,:,2)
-        dp(:,:,:,3)=rho0(:,:,:,1)*da(:,:,:,3)
-
         psiv = cnp*dp(i,j,k,:)/dt
 
         !Advection
@@ -1139,8 +1140,12 @@ c     Begin program
      .               +EOM_advc(i,j,k,nxx,nyy,nzz,igr,igr,igr,dp,v0_cnv))
 
         !Diffusion
-        psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,da
-     .                              ,diff=gvis%grid(igr)%array(:,:,:,1))
+        if (nu > 0d0) then
+          psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
+     .                              ,gvis%grid(igr)%array(:,:,:,1))
+cc     .                +alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv)
+
+        endif
       endif
 
       end function D_v
@@ -1201,139 +1206,67 @@ c     Resistive MHD part
 
         select case(half_elem)
         case(1)
-cc          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-cc     .           - vv(i,j,k,3)*b0(i,j,k,2)
-cc
-cc          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-cc     .           - vv(i,j,k,1)*b0(i,j,k,3)
-cc
-cc          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-cc     .           - vv(i,j,k,2)*b0(i,j,k,1)
-cc
-cc          cov(1) = cov(1)
-cc     .           + vv(ip,j,k,2)*b0(ip,j,k,3)
-cc     .           - vv(ip,j,k,3)*b0(ip,j,k,2)
-cc
-cc          cov(2) = cov(2)
-cc     .           + vv(ip,j,k,3)*b0(ip,j,k,1)
-cc     .           - vv(ip,j,k,1)*b0(ip,j,k,3)
-cc
-cc          cov(3) = cov(3)
-cc     .           + vv(ip,j,k,1)*b0(ip,j,k,2)
-cc     .           - vv(ip,j,k,2)*b0(ip,j,k,1)
-cc
-cc          cov   = cov/(gmetric%grid(igx)%jac(i ,j,k)
-cc     .                +gmetric%grid(igx)%jac(ip,j,k))
-
 
           if (isSP2(ip,igx,dim=1)) then
-            ijacip = 0d0
+            cov = 0d0
           else
-            ijacip = 2d0/(gmetric%grid(igx)%jac(i ,j,k)
-     .                   +gmetric%grid(igx)%jac(ip,j,k))
+            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,3)+b0(ip,j,k,3))
+     .              -(vv(i,j,k,3)+vv(ip,j,k,3))
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+
+            cov(2) = (vv(i,j,k,3)+vv(ip,j,k,3))
+     .              *(b0(i,j,k,1)+b0(ip,j,k,1))
+     .              -(vv(i,j,k,1)+vv(ip,j,k,1))
+     .              *(b0(i,j,k,3)+b0(ip,j,k,3))
+
+            cov(3) = (vv(i,j,k,1)+vv(ip,j,k,1))
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              -(vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,1)+b0(ip,j,k,1))
+
+            cov = 0.5*cov/(gmetric%grid(igx)%jac(i ,j,k)
+     .                    +gmetric%grid(igx)%jac(ip,j,k))
           endif
 
-          cov(1) = 0.5*(vv(i,j,k,2)+vv(ip,j,k,2))
-     .            *0.5*(b0(i,j,k,3)+b0(ip,j,k,3))
-     .           - 0.5*(vv(i,j,k,3)+vv(ip,j,k,3))
-     .            *0.5*(b0(i,j,k,2)+b0(ip,j,k,2))
-
-          cov(2) = 0.5*(vv(i,j,k,3)+vv(ip,j,k,3))
-     .            *0.5*(b0(i,j,k,1)+b0(ip,j,k,1))
-     .           - 0.5*(vv(i,j,k,1)+vv(ip,j,k,1))
-     .            *0.5*(b0(i,j,k,3)+b0(ip,j,k,3))
-
-          cov(3) = 0.5*(vv(i,j,k,1)+vv(ip,j,k,1))
-     .            *0.5*(b0(i,j,k,2)+b0(ip,j,k,2))
-     .           - 0.5*(vv(i,j,k,2)+vv(ip,j,k,2))
-     .            *0.5*(b0(i,j,k,1)+b0(ip,j,k,1))
-
-          cov   = cov*ijacip
-
         case(2)
-cc          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-cc     .           - vv(i,j,k,3)*b0(i,j,k,2)
-cc
-cc          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-cc     .           - vv(i,j,k,1)*b0(i,j,k,3)
-cc
-cc          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-cc     .           - vv(i,j,k,2)*b0(i,j,k,1)
-cc
-cc          cov(1) = cov(1)
-cc     .           + vv(i,jp,k,2)*b0(i,jp,k,3)
-cc     .           - vv(i,jp,k,3)*b0(i,jp,k,2)
-cc
-cc          cov(2) = cov(2)
-cc     .           + vv(i,jp,k,3)*b0(i,jp,k,1)
-cc     .           - vv(i,jp,k,1)*b0(i,jp,k,3)
-cc
-cc          cov(3) = cov(3)
-cc     .           + vv(i,jp,k,1)*b0(i,jp,k,2)
-cc     .           - vv(i,jp,k,2)*b0(i,jp,k,1)
-cc
-cc          cov   = cov/(gmetric%grid(igx)%jac(i,j ,k)
-cc     .                +gmetric%grid(igx)%jac(i,jp,k))
 
-          cov(1) = 0.5*(vv(i,j,k,2)+vv(i,jp,k,2))
-     .            *0.5*(b0(i,j,k,3)+b0(i,jp,k,3))
-     .           - 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
-     .            *0.5*(b0(i,j,k,2)+b0(i,jp,k,2))
-                                           
-          cov(2) = 0.5*(vv(i,j,k,3)+vv(i,jp,k,3))
-     .            *0.5*(b0(i,j,k,1)+b0(i,jp,k,1))
-     .           - 0.5*(vv(i,j,k,1)+vv(i,jp,k,1))
-     .            *0.5*(b0(i,j,k,3)+b0(i,jp,k,3))
-                                           
-          cov(3) = 0.5*(vv(i,j,k,1)+vv(i,jp,k,1))
-     .            *0.5*(b0(i,j,k,2)+b0(i,jp,k,2))
-     .           - 0.5*(vv(i,j,k,2)+vv(i,jp,k,2))
-     .            *0.5*(b0(i,j,k,1)+b0(i,jp,k,1))
+          cov(1) = (vv(i,j,k,2)+vv(i,jp,k,2))
+     .            *(b0(i,j,k,3)+b0(i,jp,k,3))
+     .            -(vv(i,j,k,3)+vv(i,jp,k,3))
+     .            *(b0(i,j,k,2)+b0(i,jp,k,2))
+                                       
+          cov(2) = (vv(i,j,k,3)+vv(i,jp,k,3))
+     .            *(b0(i,j,k,1)+b0(i,jp,k,1))
+     .            -(vv(i,j,k,1)+vv(i,jp,k,1))
+     .            *(b0(i,j,k,3)+b0(i,jp,k,3))
+                                       
+          cov(3) = (vv(i,j,k,1)+vv(i,jp,k,1))
+     .            *(b0(i,j,k,2)+b0(i,jp,k,2))
+     .            -(vv(i,j,k,2)+vv(i,jp,k,2))
+     .            *(b0(i,j,k,1)+b0(i,jp,k,1))
 
-          cov   = 2*cov/(gmetric%grid(igx)%jac(i,j ,k)
+          cov = 0.5*cov/(gmetric%grid(igx)%jac(i,j ,k)
      .                  +gmetric%grid(igx)%jac(i,jp,k))
 
         case(3)
-cc          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-cc     .           - vv(i,j,k,3)*b0(i,j,k,2)
-cc
-cc          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-cc     .           - vv(i,j,k,1)*b0(i,j,k,3)
-cc
-cc          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-cc     .           - vv(i,j,k,2)*b0(i,j,k,1)
-cc
-cc          cov(1) = cov(1)
-cc     .           + vv(i,j,kp,2)*b0(i,j,kp,3)
-cc     .           - vv(i,j,kp,3)*b0(i,j,kp,2)
-cc
-cc          cov(2) = cov(2)
-cc     .           + vv(i,j,kp,3)*b0(i,j,kp,1)
-cc     .           - vv(i,j,kp,1)*b0(i,j,kp,3)
-cc
-cc          cov(3) = cov(3)
-cc     .           + vv(i,j,kp,1)*b0(i,j,kp,2)
-cc     .           - vv(i,j,kp,2)*b0(i,j,kp,1)
-cc
-cc          cov   = cov/(gmetric%grid(igx)%jac(i,j,k )
-cc     .                +gmetric%grid(igx)%jac(i,j,kp))
 
-          cov(1) = 0.5*(vv(i,j,k,2)+vv(i,j,kp,2))
-     .            *0.5*(b0(i,j,k,3)+b0(i,j,kp,3))
-     .           - 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
-     .            *0.5*(b0(i,j,k,2)+b0(i,j,kp,2))
-                                             
-          cov(2) = 0.5*(vv(i,j,k,3)+vv(i,j,kp,3))
-     .            *0.5*(b0(i,j,k,1)+b0(i,j,kp,1))
-     .           - 0.5*(vv(i,j,k,1)+vv(i,j,kp,1))
-     .            *0.5*(b0(i,j,k,3)+b0(i,j,kp,3))
-                                             
-          cov(3) = 0.5*(vv(i,j,k,1)+vv(i,j,kp,1))
-     .            *0.5*(b0(i,j,k,2)+b0(i,j,kp,2))
-     .           - 0.5*(vv(i,j,k,2)+vv(i,j,kp,2))
-     .            *0.5*(b0(i,j,k,1)+b0(i,j,kp,1))
+          cov(1) = (vv(i,j,k,2)+vv(i,j,kp,2))
+     .            *(b0(i,j,k,3)+b0(i,j,kp,3))
+     .            -(vv(i,j,k,3)+vv(i,j,kp,3))
+     .            *(b0(i,j,k,2)+b0(i,j,kp,2))
+                                         
+          cov(2) = (vv(i,j,k,3)+vv(i,j,kp,3))
+     .            *(b0(i,j,k,1)+b0(i,j,kp,1))
+     .            -(vv(i,j,k,1)+vv(i,j,kp,1))
+     .            *(b0(i,j,k,3)+b0(i,j,kp,3))
+                                         
+          cov(3) = (vv(i,j,k,1)+vv(i,j,kp,1))
+     .            *(b0(i,j,k,2)+b0(i,j,kp,2))
+     .            -(vv(i,j,k,2)+vv(i,j,kp,2))
+     .            *(b0(i,j,k,1)+b0(i,j,kp,1))
 
-          cov   = 2*cov/(gmetric%grid(igx)%jac(i,j,k )
+          cov = 0.5*cov/(gmetric%grid(igx)%jac(i,j,k )
      .                  +gmetric%grid(igx)%jac(i,j,kp))
 
         case default
@@ -1357,7 +1290,7 @@ c     Hall MHD part
 
           minv = cnp/dt/alpha
 
-          if (hall_new) then
+          if (pc_ion_hall) then
 
             select case(half_elem)
             case(1)
@@ -1376,29 +1309,33 @@ c     Hall MHD part
 cc              select case(half_elem)
 cc              case(1)
 cc                cnv = (EOM_divPi(i ,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,diff=gvis%grid(igx)%array)
+cc     .                               ,gvis%grid(igx)%array)
 cc     .                +EOM_divPi(ip,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,diff=gvis%grid(igx)%array))
+cc     .                               ,gvis%grid(igx)%array))
 cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
 cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
 cc              case(2)
 cc                cnv = (EOM_divPi(i,j ,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,diff=gvis%grid(igx)%array)
+cc     .                          ,gvis%grid(igx)%array)
 cc     .                +EOM_divPi(i,jp,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,diff=gvis%grid(igx)%array))
+cc     .                          ,gvis%grid(igx)%array))
 cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
 cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
 cc              case(3)
 cc                cnv = (EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,diff=gvis%grid(igx)%array)
+cc     .                          ,gvis%grid(igx)%array)
 cc     .                +EOM_divPi(i,j,kp,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,diff=gvis%grid(igx)%array))
+cc     .                          ,gvis%grid(igx)%array))
 cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
 cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
 cc              case default
-                cnv = EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
-     .                         ,diff=gvis%grid(igx)%array)
-     .               /grho0%grid(igx)%array(i,j,k ,1)
+                if (nu > 0d0) then
+                  cnv = EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+     .                         ,gvis%grid(igx)%array)
+     .               /grho0%grid(igx)%array(i,j,k,1)
+                else
+                  cnv = 0d0
+                endif
 cc              end select
 
                 call transformFromCurvToCurv(i,j,k,igx,igy,igz
@@ -1413,10 +1350,8 @@ cc              end select
           else
             if (de > 0d0) then
 
-              curlv = curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vv_cov(:,:,:,1)
-     .                    ,vv_cov(:,:,:,2)
-     .                    ,vv_cov(:,:,:,3),he=half_elem)
+              curlv = curl(i,j,k,nx,ny,nz,igx,igy,igz,vv_cov
+     .                    ,he=half_elem)
 
               select case(half_elem)
               case(1)
@@ -1546,7 +1481,7 @@ ccc     Hall MHD part
 cc
 cc        if (di > 0d0) then
 cc
-cc          if (hall_new) then
+cc          if (pc_ion_hall) then
 cc             !Hall term coefficient
 cccc             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cccc

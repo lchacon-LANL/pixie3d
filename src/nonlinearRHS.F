@@ -133,10 +133,7 @@ cc     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
 cc
 cc      nullify(vec1,vec2)
 
-      ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,E_ni(:,:,:,1)
-     .                 ,E_ni(:,:,:,2)
-     .                 ,E_ni(:,:,:,3))
+      ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
 
 cc      if (.not.solenoidal) then
 cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
@@ -238,6 +235,15 @@ c       Advection + sources
 
           ff(ITMP) = advc + (gamma-1.)*heat_flx
         else                 !Temperature equation
+cc          advc= dot_product(vcnv(i,j,k,:)
+cc     .                     ,grad2(i,j,k,nx,ny,nz,igx,igy,igz,tmp,0,0,0))
+cc     .          /jac
+cc     .         +(gamma-1.)*tmp(i,j,k)
+cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                       ,vcnv(:,:,:,1)
+cc     .                       ,vcnv(:,:,:,2)
+cc     .                       ,vcnv(:,:,:,3))
+
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
      .                  ,vcnv(:,:,:,1)
      .                  ,vcnv(:,:,:,2)
@@ -249,12 +255,18 @@ c       Advection + sources
      .                       ,vcnv(:,:,:,3))
 
           !Joule heating
-          joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
-     .                                        -jcov_0(i,j,k,1))
-     .                         +jcnv(i,j,k,2)*(jcov  (i,j,k,2)
-     .                                        -jcov_0(i,j,k,2))
-     .                         +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
-     .                                        -jcov_0(i,j,k,3)))/jac
+          if ((sum(E0) /= 0d0).or.(.not.source)) then
+            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*jcov(i,j,k,1)
+     .                           +jcnv(i,j,k,2)*jcov(i,j,k,2)
+     .                           +jcnv(i,j,k,3)*jcov(i,j,k,3))/jac
+          else
+            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
+     .                                          -jcov_0(i,j,k,1))
+     .                           +jcnv(i,j,k,2)*(jcov  (i,j,k,2)
+     .                                          -jcov_0(i,j,k,2))
+     .                           +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
+     .                                          -jcov_0(i,j,k,3)))/jac
+          endif
 
           !Viscous heating: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
           if (nu > 0d0) then
@@ -283,7 +295,7 @@ cc            viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
           endif
 
           heat_src = joule + viscous
-
+          
           if (viscous < 0d0) then
             call pstop('nonlinearRHS','Viscous heat source is negative')
           endif
