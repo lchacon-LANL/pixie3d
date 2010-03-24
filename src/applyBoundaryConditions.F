@@ -271,7 +271,7 @@ c     End program
 
 c applybc
 c######################################################################
-      subroutine applybc(i,patch_var,obc)
+      subroutine applybc(i,patch_var, it)
 
 c----------------------------------------------------------------------
 c     Applies the boundary conditions for SAMRAI
@@ -289,7 +289,7 @@ c----------------------------------------------------------------------
 
 c Call variables
 
-      integer :: i,obc
+      integer :: i,obc, it
       type(patch), TARGET :: patch_var
 
 c Local variables
@@ -336,11 +336,11 @@ c Begin program
 
 c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
 
-      if (obc >= 0) then
-        order = obc
-      else
-        order = bc_order     
-      endif
+      order = bc_order     
+
+c Set application BCs (see imposeBC_mod.F)
+
+      call setup_app_BC(it)
 
 c Set boundary conditions
 

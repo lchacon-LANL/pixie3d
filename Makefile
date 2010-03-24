@@ -32,7 +32,7 @@ PREPROC = -D
 
 HDF5 = t
 
-FPA = t
+#FPA = t
 
 LIBS = -llapack -lblas
 
@@ -76,7 +76,7 @@ endif
 ifeq ($(HDF5),t)
   CONTRIBLIBS = $(HDF5_LIBS)
   CPPFLAGS   += $(PREPROC)hdf5 $(HDF5_INC)
-  MODPATH    += $(ADDMODFLAG)$(HDF5_MOD)
+  MODPATH    += $(ADDMODFLAG).$(HDF5_MOD)
 endif
 
 # VMEC setup
@@ -142,11 +142,14 @@ ifdef SAMR
 
    PDIM = 3
    OBJECT=${SAMRAI}
-   CPPFLAGS_EXTRA += -DNDIM=$(PDIM) $(PREPROC)NVAR=8
    CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
 
    TARGET = samrai
    CPPFLAGS += -Dsamrai
+
+ifdef VECPOT
+  CPPFLAGS += -Dvec_pot
+endif
 
    CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
    CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
