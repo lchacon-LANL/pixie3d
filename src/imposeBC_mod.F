@@ -67,9 +67,9 @@ c     Select offset based on whether we are at the beginning of calculation
         offset = 2
 
 #if defined(vec_pot)
-        gv%nbc_seq = 17
+        gv%nbc_seq = 18
 #else
-        gv%nbc_seq = 15
+        gv%nbc_seq = 16
 #endif
 
       elseif (itime > 0) then
@@ -144,8 +144,11 @@ c     Setup schedule
           gv%bc_seq(14+offset,1) = IENI0*AUX   !Aux. variable
           gv%bc_seq(14+offset,2) = VECTOR      !Vector
 
-          gv%bc_seq(15+offset,1) = IHETA*AUX   !Aux. variable
-          gv%bc_seq(15+offset,2) = SCALAR      !Scalar
+          gv%bc_seq(15+offset,1) = IENI*AUX !Aux. variable
+          gv%bc_seq(15+offset,2) = VECTOR      !Vector
+
+          gv%bc_seq(16+offset,1) = IHETA*AUX   !Aux. variable
+          gv%bc_seq(16+offset,2) = SCALAR      !Scalar
         else
           gv%bc_seq(12+offset,1) = IVECOV*AUX  !Aux. variable
           gv%bc_seq(12+offset,2) = VECTOR      !Vector
@@ -195,8 +198,11 @@ c     Setup schedule
           gv%bc_seq(12+offset,1) = IENI0*AUX     !Aux. variable
           gv%bc_seq(12+offset,2) = VECTOR        !Vector
 
-          gv%bc_seq(13+offset,1) = IHETA*AUX     !Aux. variable
-          gv%bc_seq(13+offset,2) = SCALAR        !Scalar
+          gv%bc_seq(13+offset,1) = IENI*AUX      !Dep. variable
+          gv%bc_seq(13+offset,2) = VECTOR        !Vector
+          
+          gv%bc_seq(14+offset,1) = IHETA*AUX     !Aux. variable
+          gv%bc_seq(14+offset,2) = SCALAR        !Scalar
         else
           gv%bc_seq(10+offset,1) = IVECNV*AUX    !Aux. variable
           gv%bc_seq(10+offset,2) = VECTOR        !Vector
