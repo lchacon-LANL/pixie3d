@@ -22,13 +22,14 @@ c Auxiliary variables
 
 #if !defined(samrai)
       call allocAuxVariables
-#endif
 
 c Preconditioner
 
       call allocPrecVariables
 
-c End programs
+#endif
+
+c     End programs
 
       end subroutine createNonlinearFunction
 
