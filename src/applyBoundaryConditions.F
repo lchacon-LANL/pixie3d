@@ -320,9 +320,16 @@ c Interfaces
           type(var_array),pointer :: varray
           type(aux_array),pointer :: vaux
           integer,optional :: order
-        end subroutine applyAuxVarBC
+          end subroutine applyAuxVarBC
       END INTERFACE
 
+      INTERFACE
+         subroutine setup_app_BC(it)
+         use local_BCS_variables
+         implicit none
+         integer :: it
+         end subroutine setup_app_BC
+      END INTERFACE
 c Begin program
 
       gv => patch_var
