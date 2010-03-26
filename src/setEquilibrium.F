@@ -5284,6 +5284,8 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
+      use B_tools
+
 cc      use precond_variables, ONLY: poisson
 cc
 cc      use  mg_internal, ONLY: mapMGVectorToArray

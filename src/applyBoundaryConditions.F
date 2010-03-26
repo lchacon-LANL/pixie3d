@@ -567,6 +567,14 @@ cccc        if (save_Bn) bcnv_n = bcnv
 #else
       case(IBX)
 
+        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+
+        if (adiabatic) then
+          prs = a_p*tmp
+        else
+          prs = a_p*rho*tmp
+        endif
+
 c     Magnetic field BC
 
         if (bc_inf(2) /= VECTOR) then
@@ -587,22 +595,11 @@ c       BC setup
         if (save_Bn) bcnv_n = bcnv  !Save previous time step
 
         if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-          if (adiabatic) then
-            if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*tmp,eeta,v0
-     .                        ,.true.)
-            else
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*tmp,eeta,v0
-     .                        ,.false.)
-            endif
+          if (lag_pinch_bc) then
+            call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
           else
-            if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*rho*tmp,eeta
-     .                        ,v0,.true.)
-            else
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*rho*tmp,eeta
-     .                        ,v0,.false.)
-            endif
+            call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                     ,first_order=.true.)
           endif
         else
           v0 = jcnv_0         !To fix current at boundary
@@ -619,6 +616,7 @@ c       Fill ghost nodes
 
 cc        if (save_Bn) bcnv_n = bcnv  !Save previous time step
 
+        deallocate(prs)
 #endif
 
       case(IVX)
@@ -628,6 +626,14 @@ c     Velocity BC
         if (bc_inf(2) /= VECTOR) then
           call pstop('applyDepVarBC'
      .              ,'Inconsistent qty def: should be vector (1)')
+        endif
+
+        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+
+        if (adiabatic) then
+          prs = a_p*tmp
+        else
+          prs = a_p*rho*tmp
         endif
 
 c       BC setup
@@ -652,20 +658,10 @@ c       BC setup
         endif
 
         if (pinch_flow) then
-          if (adiabatic) then
-            if (lag_pinch_bc) then
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*tmp,eeta,v0)
-            else
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*tmp,eeta,v0)
-            endif
+          if (lag_pinch_bc) then
+            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
           else
-            if (lag_pinch_bc) then
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*tmp*rho,eeta
-     .                        ,v0)
-            else
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*tmp*rho,eeta
-     .                        ,v0)
-            endif
+            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
           endif
         else
           v0(:,:,:,1) = u_0%array_var(IVX)%array
@@ -692,6 +688,8 @@ c       Postprocessing
           varray%array_var(IVY)%array = vcnv(:,:,:,2)
           varray%array_var(IVZ)%array = vcnv(:,:,:,3)
         endif
+
+        deallocate(prs)
 
       case(ITMP)
 
@@ -874,9 +872,17 @@ cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))/bnorm
           tmp => varray%array_var(ITMP)%array
         endif
 
+        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+
+        if (adiabatic) then
+          prs = a_p*tmp
+        else
+          prs = a_p*rho*tmp
+        endif
+
 c       Allocate auxiliary variables in local domain
 
-        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3)
+        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
      .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
 
         select case(abs(bc_inf(1)))
@@ -885,8 +891,6 @@ c       Allocate auxiliary variables in local domain
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-c$$$                jcnv(i,j,k,:)=curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz
-c$$$     .                            ,bcov)
                 jcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,jcnv(i,j,k,:))
               enddo
@@ -901,11 +905,10 @@ c$$$     .                            ,bcov)
           
           if (pinch_flow) then  !Jt = alpha*Bt in cov representation
             if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*rho*tmp,eeta
-     .                       ,v0,.true.)
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
             else
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*rho*tmp,eeta
-     .                       ,v0,.true.)
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                       ,first_order=.true.)
             endif
           else
             v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
@@ -1082,22 +1085,11 @@ c       Magnetic field BC (with fixed current at boundary)
           bcnd = vaux%vec_list(IBCNV)%bconds
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-            if (adiabatic) then
-              if (lag_pinch_bc) then
-                call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*tmp,eeta,v0
-     .                          ,.true.)
-              else
-                call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*tmp,eeta,v0
-     .                          ,.true.)  !We have extrapolated B when filling A
-              endif
+            if (lag_pinch_bc) then
+             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
             else
-              if (lag_pinch_bc) then
-                call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,a_p*rho*tmp,eeta
-     .                          ,v0,.true.)
-              else
-                call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,a_p*rho*tmp,eeta
-     .                          ,v0,.true.)  !We have extrapolated B when filling A
-              endif
+             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                      ,first_order=.true.)
             endif
           else
             v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
@@ -1242,7 +1234,7 @@ cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
 
 c       Deallocate variables 
 
-        deallocate(v0,vdum)
+        deallocate(v0,vdum,prs)
 
       end select
 

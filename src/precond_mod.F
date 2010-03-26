@@ -28,7 +28,10 @@ c ######################################################################
 
         use nlfunction_setup, ONLY: EOM_advc,EOM_divPi,EOM_divPe
 
-        integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
+        use local_BCS_variables, ONLY: bc_order
+
+cc        integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
+        integer :: ntotd2p
         real(8) :: x1,y1,z1
         logical :: cartsn,covariant,to_cartsn,to_cnv
 
@@ -495,9 +498,9 @@ c     Call variables
 c     Local variables
 
         integer    :: order,nxx,nyy,nzz,igrid,ii,ivar,igr
-     .               ,bc_pc(size(bcs,1),size(bcs,2))
+     .               ,bc_pc(size(bcs,1),size(bcs,2)),ig,jg,kg
      .               ,bc_sc(6,1),bc_vec(6,3),bc_cov(6,3)
-     .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg
+     .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
      .               ,nabla_v(3,3),jac
@@ -1641,7 +1644,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: ii
+      integer    :: i,j,k,ii
 
 c     Begin program
 
@@ -1682,7 +1685,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: ii
+      integer    :: i,j,k,ig,jg,kg,ii
       real(8)    :: jac
 
 c     Begin program
@@ -1763,7 +1766,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: ii
+      integer    :: i,j,k,ii
 
 c     Begin program
 
@@ -1801,7 +1804,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: ii
+      integer    :: i,j,k,ii
       real(8)    :: minv,cnv(3),cov(3)
      .             ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 

@@ -18,14 +18,14 @@ c####################################################################
 
         use nlfunction_setup, ONLY: res,vis,find_E,ion_hall
 
-        logical :: pinch_flow=.false.,lag_pinch_bc=.true.
+        logical :: pinch_flow=.false.,lag_pinch_bc=.false.
      .            ,save_Bn=.false.,save_tn=.false.
 
 #if defined(vec_pot)
         integer :: bc_order=2
 #else
-        integer :: bc_order=1
-cc        integer :: bc_order=2
+cc        integer :: bc_order=1
+        integer :: bc_order=2
 #endif
         integer,parameter :: VECTOR=1,SCALAR=0,AUX=-1
 
@@ -257,19 +257,12 @@ c     Begin program
 
       do k=1,nz
         do j=1,ny
-cc          jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-cc     .                +gmetric%grid(igrid)%jac(i+1,j,k))
-cc          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))/jach
           bbcnv =0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
      .               +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
           bbcov =0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .                      ,bcnv(i  ,j,k,:))
      .               +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                      ,bcnv(i+1,j,k,:)))
-
-cc          bbcnv = bcnv(i,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k)
-cc          bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cc     .                  ,bcnv(i,j,k,:))
 
           b2 = dot_product(bbcnv,bbcov)
 
@@ -279,8 +272,8 @@ cc     .                  ,bcnv(i,j,k,:))
               bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
             endif
 
-            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc            etah = 2.0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
             grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
@@ -302,7 +295,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,v0,lag)
+      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,j0,first_order)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -315,14 +308,16 @@ c     Call variables
 
       integer :: igrid,nx,ny,nz
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,eta
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,v0
-      logical :: lag
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,j0
+
+      logical,optional :: first_order
 
 c     Local variables
 
       integer :: i,j,k
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha,jach
-     .          ,gsub(3,3),etah
+     .          ,gsub(3,3),ietah
+      logical :: fo
 
 c     Begin program
 
@@ -333,9 +328,16 @@ c     Begin program
         stop
       endif
 
+      if (PRESENT(first_order)) then
+        fo = first_order
+      else
+        fo = .false.
+cc        fo = .true.
+      endif
+
       i = nx
 
-      if (lag) then
+      if (.not.fo) then
         do k=1,nz
           do j=1,ny
 cc            jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
@@ -349,51 +351,43 @@ cc            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))/jach
      .                  +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                         ,bcnv(i+1,j,k,:)))
 
-cc            jach  = gmetric%grid(igrid)%jac(i  ,j,k)
-cc            bbcnv = bcnv(i,j,k,:)/jach
-cc            bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cc     .                    ,bcnv(i,j,k,:))
-
             b2 = dot_product(bbcov,bbcnv)
 
             if (b2 > 0d0) then
-              jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-     .                    +gmetric%grid(igrid)%jac(i+1,j,k))
-
-              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc              etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
               grad_p= grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
-              alpha = dot_product(E0,bbcnv)/etah
+              alpha = dot_product(E0,bbcnv)*ietah
 
-              v0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
+              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
           enddo
         enddo
       else
         do k=1,nz
           do j=1,ny
-cc            bbcnv = bcnv(i,j,k,:)
+cc            jach = gmetric%grid(igrid)%jac(i,j,k)
             jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
      .                  +gmetric%grid(igrid)%jac(i+1,j,k))
-cc            jach = gmetric%grid(igrid)%jac(i,j,k)
             bbcnv = bcnv(i,j,k,:)/jach
-            bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-     .                    ,bcnv(i  ,j,k,:))
+
+cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
+            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+            bbcov = matmul(gsub,bcnv(i,j,k,:))
 
             b2 = dot_product(bbcov,bbcnv)
-
             if (b2 > 0d0) then
-
-              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc              etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
               grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
-              alpha = dot_product(E0,bbcnv)/etah
+              alpha = dot_product(E0,bbcnv)*ietah
 
-              v0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
+              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
           enddo
         enddo
@@ -1170,14 +1164,8 @@ c     Begin program
 
                 if (ibc == 1) then
                   gsupavg = 0.5*(gsuper+gsupim)
-
-cc                  J0 = 0.5*(array0(i-1,j,k,:)
-cc     .                     +array0(i  ,j,k,:))
                 elseif (ibc == 2) then
                   gsupavg = 0.5*(gsuper+gsupip)
-
-cc                  J0 = 0.5*(array0(i+1,j,k,:)
-cc     .                     +array0(i  ,j,k,:))
                 endif
 
                 jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
@@ -1202,98 +1190,17 @@ cc     .                     +array0(i  ,j,k,:))
                 !!!!!!!Finite flow at wall!!!!!!!
                 if (pinch_flow) then
 
-cc                  if (.not.lag_pinch_bc) then
-cc
-cc                    if (ibc == 1) then
-cc                     etal = 0.5*
-cc     .                 (res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
-cc     .                 +res(i-1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
-cc
-cc                      B00 = 0.5*(array0(i-1,j,k,:)
-cc     .                          +array0(i  ,j,k,:))
-cc                    elseif (ibc == 2) then
-cc                      etal = 0.5*
-cc     .                 (res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
-cc     .                 +res(i+1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
-cc
-cc                      B00 = 0.5*(array0(i+1,j,k,:)
-cc     .                          +array0(i  ,j,k,:))
-cc                    endif
-cc
-cc                    J0 = E0/etal   !Applied current at wall
-cc
-cc                    nonlinear = (sum(B00**2) == 0d0)  !If true, we are doing NLF
-cc
-cccc                    write (*,*) 'DIAG -- imposeBC',nonlinear
-cc
-cc                    if (nonlinear) then
-cccc                      if (lag_pinch_bc) then
-cccc                        cnv = bcnv_n(i,j,k,:)   !Use bcov_n here to picard-linearize
-cccc                        cov = matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:)
-cccc     .                              ,cnv)
-cccc                      else
-cc                        cov = array(i,j,k,:)
-cc                        cnv = matmul(gsuper,cov)
-cccc                      endif
-cc                    else
-cccc                      if (lag_pinch_bc) then
-cccc                        cnv = 0d0   !No correction needed when lagged BC is used
-cccc                      else
-cc                        cnv = B00
-cccc                      endif
-cc                     cov=matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:),cnv)
-cc                    endif
-cc
-cc                    bnorm = dot_product(cov,cnv)
-cc
-cc                    if (bnorm > 0d0) then
-cc                      alp = dot_product(J0,cnv)/bnorm
-cc
-cc                      if (.not.nonlinear) then
-cc                        J0 = J0 - 2*alp*cov  !Correctly linearized current (Bnorm effect)
-cc
-cc                        cov = array(i,j,k,:)
-cc                        cnv = matmul(gsuper,cov)
-cc                      endif
-cc
-cc                      ee = alp*cnv(icomp)
-cc
-cc                      if (.not.nonlinear) then
-cc                        ee = ee + dot_product(J0,cnv)/bnorm*B00(icomp)
-cc                      endif
-cc                    else
-cc                      ee = 0d0
-cc                    endif
-cc
-cc                  else
-cc                    J0 = array0(i+1,j,k,:)
-cc
-cc                    ee = dot_product(gsupavg(icomp,:),J0)
-cc                  endif
-
                   ee = array0(i+1,j,k,icomp)
 
                 !!!!!!!Finite current at wall!!!!!!!
                 else
                   if (ibc == 1) then
-cc                    ee = 0.5
-cc     .                 *(dot_product(gsupim(icomp,:),array0(i-1,j,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i  ,j,k,:)))
-cc                    J0 = 0.5*(array0(i-1,j,k,:)
-cc     .                       +array0(i  ,j,k,:))
                     ee = 0.5*(array0(i-1,j,k,icomp)
      .                       +array0(i  ,j,k,icomp))
                   elseif (ibc == 2) then
-cc                    ee = 0.5
-cc     .                 *(dot_product(gsupip(icomp,:),array0(i+1,j,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i  ,j,k,:)))
-cc                    J0 = 0.5*(array0(i+1,j,k,:)
-cc     .                       +array0(i  ,j,k,:))
                     ee = 0.5*(array0(i+1,j,k,icomp)
      .                       +array0(i  ,j,k,icomp))
                   endif
-
-cc                  ee =  dot_product(gsupavg(icomp,:),J0)
                 endif
 
                 rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
@@ -1303,21 +1210,11 @@ cc                  ee =  dot_product(gsupavg(icomp,:),J0)
                 if (ibc == 3) then
                   gsupavg = 0.5*(gsuper+gsupjm)
 
-cc                  J0 = 0.5*(array0(i,j-1,k,:)
-cc     .                     +array0(i,j  ,k,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupjm(icomp,:),array0(i,j-1,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
                   ee = 0.5*(array0(i,j-1,k,icomp)
      .                     +array0(i,j  ,k,icomp))
                 elseif (ibc == 4) then
                   gsupavg = 0.5*(gsuper+gsupjp)
 
-cc                  J0 = 0.5*(array0(i,j+1,k,:)
-cc     .                     +array0(i,j  ,k,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupjp(icomp,:),array0(i,j+1,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
                   ee = 0.5*(array0(i,j+1,k,icomp)
      .                     +array0(i,j  ,k,icomp))
                 endif
@@ -1341,8 +1238,6 @@ cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-cc                ee =  dot_product(gsupavg(icomp,:),J0)
-
                 rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
 
               elseif (dim == 3) then
@@ -1350,21 +1245,11 @@ cc                ee =  dot_product(gsupavg(icomp,:),J0)
                 if (ibc == 5) then
                   gsupavg = 0.5*(gsuper+gsupkm)
 
-cc                  J0 = 0.5*(array0(i,j,k-1,:)
-cc     .                     +array0(i,j,k  ,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupkm(icomp,:),array0(i,j,k-1,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
                   ee = 0.5*(array0(i,j,k-1,icomp)
      .                     +array0(i,j,k  ,icomp))
                 elseif (ibc == 6) then
                   gsupavg = 0.5*(gsuper+gsupkp)
 
-cc                  J0 = 0.5*(array0(i,j,k+1,:)
-cc     .                     +array0(i,j,k  ,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupkp(icomp,:),array0(i,j,k+1,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
                   ee = 0.5*(array0(i,j,k+1,icomp)
      .                     +array0(i,j,k  ,icomp))
                 endif
@@ -1387,8 +1272,6 @@ cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
      .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
-
-cc                ee =  dot_product(gsupavg(icomp,:),J0)
 
                 rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
 

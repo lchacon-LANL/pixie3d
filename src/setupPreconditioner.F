@@ -31,7 +31,7 @@ cc      type(var_array),pointer :: v_arr
 
 c Local variables
 
-      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz
+      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz,ieq
 
 c Diag
 
