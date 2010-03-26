@@ -125,7 +125,7 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-     .        /,'  Preconditioning method:...',a,
+     .        /,'  Preconditioning method:...',a4,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4

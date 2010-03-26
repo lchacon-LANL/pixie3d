@@ -15,6 +15,8 @@ c--------------------------------------------------------------------
 
       use xdraw_io
 
+      use B_tools
+
       implicit none
 
 c Call variables
@@ -25,7 +27,7 @@ c Local variables
 
       integer :: i,j,k,igx,igy,igz,nx,ny,nz
       real(8) :: mag
-      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
 c Interfaces
 
@@ -79,7 +81,8 @@ c Divergence-clean magnetic field when PC is on
 
 c Find db=B^(n+1)-B^n
 
-      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
       db_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
      .                 -u_n  %array_var(IBX)%array
@@ -92,7 +95,8 @@ c Clean db
 
 cc      call grad_div_clean(db_cnv)
 
-      call vlap_div_clean(db_cnv)
+      call vlap_div_clean(max(0,ilevel-1),nx,ny,nz,
+     .                   igx,igy,igz,db_cnv,dacov=da_cov)
 
 cc      call curl_div_clean(db_cnv)
 
@@ -105,9 +109,17 @@ c Find new B^(n+1)
       v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
      .                +u_n%array_var(IBZ)%array
 
+c Update BCs of all quantities
+
+      call imposeBoundaryConditions (v_arr,igx,igy,igz)
+
+c Update helical flux
+
+      psi = psi + da_cov(:,:,:,3)
+
 c End program
 
-      deallocate(db_cnv)
+      deallocate(db_cnv,da_cov)
 
       contains
 
@@ -257,154 +269,6 @@ c     Find dA from dB (w/ ghost cells)
       enddo
 
       end subroutine curl_div_clean
-
-c     vlap_div_clean
-c     #################################################################
-      subroutine vlap_div_clean(db)
-
-c     -----------------------------------------------------------------
-c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
-c     -----------------------------------------------------------------
-
-      use matvec, rhs_bc => rhs, bcs_pc => bcs
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Local variables
-
-      integer :: ii,icomp,bcsa(6,3),bcsb(6,3)
-
-      real(8) :: da     (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,da_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rhs(ntotdp,3),x(ntotdp,3),dvol
-
-      logical :: vwgt
-
-      external lap_mtvc,avlap_mtvc
-
-c     Begin program
-
-      vwgt = .true.
-
-c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
-
-      bcsb(:,1) = u_0%array_var(IBX)%bconds
-      bcsb(:,2) = u_0%array_var(IBY)%bconds
-      bcsb(:,3) = u_0%array_var(IBZ)%bconds
-
-      db_cov = db_cnv
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,db_cov(:,:,:,1)
-     .                    ,db_cov(:,:,:,2)
-     .                    ,db_cov(:,:,:,3)
-     .                    ,'cnv','cov')
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-            if (vwgt) then
-              dvol = gmetric%grid(igx)%dvol(i,j,k)
-            else
-              dvol = 1d0
-            endif
-
-            rhs(ii,:)=-dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
-          enddo
-        enddo
-      enddo
-
-c     Define BCs for dA
-
-      bcsa = bcsb
-      where (bcsa == -NEU) bcsa = -DIR  !Use covariant components for tangential BCs
-
-c     Allocate diagonal matrix
-
-      if (.not.allocated(vlap_diag)) then
-        allocate(vlap_diag(3,3*ntotd2p))
-
-        call find_mf_diag(3,1,3*ntotdp,avlap_mtvc,igx,bcsa
-     .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
-      endif
-
-c     Invert vector laplacian to find dA=-vlap^-1(dJ)
-
-      x = 0d0
-
-      !Solve Poisson equation
-      call cSolver(3,ntotdp,rhs,x,bcsa,igx
-     .            ,max(0,ilevel-1),1,avlap_mtvc,vwgt
-     .            ,dg            = vlap_diag
-     .            ,gm_sing_matrix= .false.
-     .            ,ks_it         = 20
-     .            ,mg_order_res  = 0  !To ensure conservation (avoid null space)
-     .            ,mg_order_prol = 1
-     .            ,mg_coarse_grid_size = mg_coarse_size
-     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_smooth     = sm_type
-     .            ,sm_omega      = sm_omega
-     .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            !Original parameters
-     .            ,tol           = rtol
-     .            ,gm_driver     = .true.
-     .            ,mg_vcyc       = mg_vcyc
-     .            ,sm_it         = sm_iter
-     .            ,sm_zebra_relax= mg_zebra_relax
-     .            !MG convergence test
-cc     .            ,cvrg_tst      = .true.
-cc     .            ,gm_driver     = .false.
-cc     .            ,mg_vcyc       = 20
-cc     .            ,tol           = 1d-10
-cc     .            ,sm_it         = 3
-cc     .            ,sm_zebra_relax= .false.
-     .            )
-
-c     Find new dB (with BCs)
-
-cc      call fillArray(igx,IAX,3,x,da,bcsa,bc_order
-      call fillArray(igx,IAX,3,x,da,bcsa,0
-     .              ,is_vec=.true.,is_cnv=.true.,arr_cov=da_cov)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            db(i,j,k,:)=curl(i,j,k,nx,ny,nz,igx,igy,igz,da_cov)
-          enddo
-        enddo
-      enddo
-
-      call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
-     .            ,icomp=IBX,is_vec=.true.,is_cnv=.true.
-     .            ,iorder=bc_order)
-
-c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
-cc      write (*,*) 'DIAG -- postProcessSol'
-cc
-cc      open(unit=110,file='debug.bin',form='unformatted'
-cc     .    ,status='replace')
-cc      call contour(da_cov(:,:,1,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
-cc      call contour(da_cov(:,:,1,2),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-cc      call contour(da_cov(:,:,1,3),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-cc      call contour(db    (:,:,1,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-cc      call contour(db    (:,:,1,2),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-cc      call contour(db    (:,:,1,3),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-cc      close (110)
-cc      stop
-c diag *****
-
-c     Store helical flux (for resistivity)
-
-      psi = psi + da_cov(:,:,:,3)
-
-      end subroutine vlap_div_clean
 
 #endif
 
