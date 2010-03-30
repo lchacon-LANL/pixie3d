@@ -125,20 +125,20 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-     .        /,'  Preconditioning method:...',a,
+     .        /,'  Preconditioning method:...',a4,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
      .        /,'  Advection scheme..........',a
      .        /,'  TS scheme.................',a)
- 100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
-     .        '  Newton  CN factor')
+ 100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
+     .        '  GMRES  Newton  CN factor')
 
-#if defined(RFX)
- 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.2,0p,2i6,3x,f7.3)
-#else
- 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
-#endif
+cc#if defined(RFX)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3)
+cc#else
+cc 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
+cc#endif
       contains
 
 c     #################################################################

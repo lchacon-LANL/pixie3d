@@ -44,8 +44,8 @@ c Call variables
 
 c Local variables
 
-      integer    :: isig,ijk,ijkg,nxx,nyy,nzz
-      integer    ::  imin, imax, jmin, jmax, kmin, kmax
+      integer    :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 
@@ -128,8 +128,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use local_BCS_variables, ONLY: pinch_flow
-
       implicit none
 
 c Call variables
@@ -139,8 +137,8 @@ c Call variables
 
 c Local variables
 
-      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer    :: i,j,k,ig,jg,kg,isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz,ieq
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
@@ -192,7 +190,7 @@ c Map vector x to array for processing
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
      .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order+1)
+     .            ,result_is_vec=.true.,iorder=bc_order)
       endif
 
 c Calculate matrix-vector product
@@ -205,6 +203,9 @@ c Calculate matrix-vector product
             veclap = veclaplacian(i,j,k,nxx,nyy,nzz
      .                           ,igrid,igrid,igrid,vv
      .                           ,vol=volf)
+cc            veclap =-curlcurl(i,j,k,nxx,nyy,nzz
+cc     .                           ,igrid,igrid,igrid,vv
+cc     .                           ,vol=volf)
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = veclap(ieq)
@@ -256,7 +257,7 @@ c Call variables
 c Local variables
 
       integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
       real(8),pointer    ,dimension(:,:,:)   :: ljac
@@ -363,7 +364,7 @@ c Call variables
 c Local variables
 
       integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 cc      real(8),pointer    ,dimension(:,:,:)   :: ljac
@@ -502,7 +503,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: isig,ijk,ijkg,nxx,nyy,nzz
+      integer    :: isig,ijk,ijkg,nxx,nyy,nzz,i,j,k,ig,jg,kg
       integer    ::  imin, imax, jmin, jmax, kmin, kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
@@ -630,7 +631,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: isig,ijk,ijkg,nnx,nny,nnz
+      integer    :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
       integer    :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
@@ -770,7 +771,7 @@ c Call variables
 c Local variables
 
       integer    :: isig,ijk,ijkg,nnx,nny,nnz,ip,im,jp,jm,kp,km
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
  
       real(8),allocatable,dimension(:,:,:,:) :: drho
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -1409,8 +1410,6 @@ c--------------------------------------------------------------------
 
       use matvec
 
-      use local_BCS_variables, ONLY: pinch_flow
-
       implicit none
 
 c Call variables
@@ -1423,6 +1422,7 @@ c Local variables
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
       integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
@@ -1466,19 +1466,9 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
      .                       ,.false.)
 
-      if (pinch_flow) then
-        b0_cnv => gb0%grid(igrid)%array
-
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-cc     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr0=b0_cnv)
-      else
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-cc   .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.not.si_car
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
      .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
-      endif
 
 c Velocity field (including BCs)
 
@@ -1644,21 +1634,9 @@ c Calculate matrix-vector product
 
             cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-etal*veclap))*vol
 
-cc            if (si_car) then
-cc              call transformVectorToCartesian
-cc     .              (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3)
-cc     .               ,.false.
-cc     .               ,car(1),car(2),car(3))
-cc
-cc              do ieq=1,3
-cc                y(neq*(ijk-1)+ieq) = car(ieq)
-cc              enddo
-cc            else
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = cnv(ieq)
-              enddo
-cc            endif
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = cnv(ieq)
+            enddo
 
           enddo
         enddo
@@ -1710,6 +1688,7 @@ c Local variables
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
       integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
@@ -2020,6 +1999,7 @@ c Local variables
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
       integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
      .             ,veclap(3),cnv(3),cov(3),car(3),jac
@@ -2293,6 +2273,7 @@ c Local variables
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
       integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
@@ -2599,6 +2580,7 @@ c ##################################################################
       integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: imin,imax,jmin,jmax,kmin,kmax
      .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr,igx,igy,igz
+     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8),allocatable,dimension(:,:)     :: a_sp,a_vol
 
