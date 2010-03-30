@@ -872,8 +872,10 @@ cc     .            ,mg_order_prol = 2
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
+cc     .            ,mg_smooth     = 'gm'
      .            ,mg_vcyc       = mg_vcyc
      .            ,sm_it         = sm_iter_si
+cc     .            ,sm_it         = 100
      .            ,sm_omega      = sm_omega_si
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = mg_line_relax
@@ -1634,6 +1636,15 @@ cc     .                  -di*(dj_cnv(:,:,:,3)
 cc     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
 cc     .                                      /rho0(:,:,:,1))
 cc     .                     /rho0(:,:,:,1)
+cccc        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+cccc     .                  -di*(dj_cnv(:,:,:,1)
+cccc     .                     /rho0(:,:,:,1))
+cccc        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+cccc     .                  -di*(dj_cnv(:,:,:,2)
+cccc     .                     /rho0(:,:,:,1))
+cccc        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+cccc     .                  -di*(dj_cnv(:,:,:,3)
+cccc     .                     /rho0(:,:,:,1))
 cc      else
         dve_cnv = dv_cnv
 cc      endif
@@ -2368,106 +2379,6 @@ cc     .                   ,diag_plots=.true.)
           enddo
         enddo
       enddo
-
-cc      allocate(da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .        ,da_cov (0:nx+1,0:ny+1,0:nz+1,3))
-cc
-cccc      call curl_inv(nx,ny,nz,igrid,igrid,igrid,db_cnv,da_cov
-cccccc     .             ,bc=.true.)
-cccc     .             ,bc=(np == 1))
-cc
-ccc Find dJ=curl(dB)
-cc
-cc      do k = 1,nz
-cc        do j = 1,ny
-cc          do i = 1,nx
-cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc            if (vwgt) then
-cc              dvol = gmetric%grid(igx)%dvol(i,j,k)
-cc            else
-cc              dvol = 1d0
-cc            endif
-cc
-cc            rhs2(ii,:)=-dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,db_cov)
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-ccc Define BCs for dJ and dA
-cc
-cc      bcs_a = bcs(:,IBX:IBZ)
-cc      where (bcs_a == -NEU) bcs_a = -EQU  !Use covariant components for tangential BCs
-cc
-ccc Allocate diagonal matrix
-cc
-cc      if (.not.allocated(vlap_diag)) then
-cc        allocate(vlap_diag(3,3*ntotd2p))
-cc
-cc        call find_mf_diag(3,1,3*ntotdp,avlap_mtvc,igx,bcs_a
-cc     .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
-cc      endif
-cc
-ccc Invert vector laplacian to find dA=-vlap^-1(dJ)
-cc
-cc      x = 0d0
-cc
-cc      !Solve Poisson equation
-cc      if (coords == 'car') then
-cc        call cSolver(3,ntotdp,rhs2,x,bcs_a
-cc     .            ,igx,iout,1,avlap_mtvc,vwgt
-cc     .            ,tol           = 1d-3
-cc     .            ,dg            = vlap_diag
-cc     .            ,gm_driver     = .true.
-cc     .            ,mg_order_res  = 0  !To ensure conservation (avoid null space)
-cc     .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size
-cc     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-cc     .            ,mg_vcyc       = mg_vcyc
-cc     .            ,mg_smooth     = sm_type
-cc     .            ,sm_omega      = sm_omega
-cc     .            ,sm_it         = sm_iter
-cc     .            ,sm_ncolors    = sm_ncolors
-cc     .            ,sm_line_relax = mg_line_relax
-cc     .            ,sm_zebra_relax= mg_zebra_relax
-cc     .            )
-cc      else
-cc        call cSolver(3,ntotdp,rhs2,x,bcs_a
-cc     .            ,igx,iout+2,1,avlap_mtvc,vwgt
-cc     .            ,tol           = 1d-3
-cc     .            ,dg            = vlap_diag
-cc     .            ,gm_driver     = .true.
-cc     .            ,mg_order_res  = mg_ores  !To ensure conservation (avoid null space)
-cc     .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size
-cc     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-cc     .            ,mg_vcyc       = mg_vcyc
-cc     .            ,mg_smooth     = sm_type
-cc     .            ,sm_omega      = sm_omega
-cc     .            ,sm_it         = sm_iter
-cc     .            ,sm_ncolors    = sm_ncolors
-cc     .            ,sm_line_relax = mg_line_relax
-cc     .            ,sm_zebra_relax= mg_zebra_relax
-cc     .            )
-cc      endif
-cc
-ccc Find clean dB=curl(dA)
-cc
-cc      call fillArray(igx,IAX,3,x,da_cnv,bcs_a,bc_order+1
-cc     .              ,is_vec=.true.,is_cnv=.true.,arr_cov=da_cov)
-cc
-cc      do k = 1,nz
-cc        do j = 1,ny
-cc          do i = 1,nx
-cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc            xxx(ii,:)=da_cov(i,j,k,:)
-cccc            xxx(ii,:)=curl(i,j,k,nx,ny,nz,igx,igy,igz,da_cov)
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      deallocate(da_cnv,da_cov)
 
       deallocate(db_cnv,db_cov)
 

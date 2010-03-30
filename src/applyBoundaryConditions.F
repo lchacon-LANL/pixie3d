@@ -153,14 +153,17 @@ cc        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
 cc        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
       case('tmcar','khcar')
+cc
+cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 
       case('gem')
 
         !Dirichlet boundary conditions for tangential velocity components
-        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -384,7 +387,7 @@ c Call variables
 
 c Local variables
 
-      integer :: i,order
+      integer :: i,order,igrp
 
 c Interfaces
 
@@ -410,6 +413,17 @@ c Interfaces
         end subroutine applyAuxVarBC
       END INTERFACE
 
+      INTERFACE
+        subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz
+     .                          ,order)
+          use variable_setup
+          integer    :: iigx,iigy,iigz,bc_inf(2)
+          type(var_array),pointer :: varray
+          type(aux_array),pointer :: vaux
+          integer,optional :: order
+        end subroutine preproc_AuxVar
+      END INTERFACE
+
 c Begin program
 
       if (PRESENT(obc)) then
@@ -424,14 +438,35 @@ c Set application BCs (see imposeBC_mod.F)
 
 c Impose BCs
 
-      do i = 1,gv%nbc_seq
-        if (gv%bc_seq(i,1)*AUX < 0) then      !Process dep. variable
-          call applyDepVarBC(gv%bc_seq(i,:),varray,gv%aux
+cc      do i = 1,gv%nbc_seq
+cc        if (gv%bc_seq(i,1)*AUX < 0) then      !Process dep. variable
+cc          call applyDepVarBC(gv%bc_seq(i,:),varray,gv%aux
+cc     .                      ,iigx,iigy,iigz,order=order)
+cc        elseif (gv%bc_seq(i,1)*AUX > 0) then  !Process aux. variable
+cc          call applyAuxVarBC(gv%bc_seq(i,:),varray,gv%aux
+cc     .                      ,iigx,iigy,iigz,order=order)
+cc        endif
+cc      enddo
+
+      do igrp = 1,gv%nbc_grp
+        !Fill auxiliary quantities
+        do i = 1,gv%bc_grp(igrp)%nbc_seq
+          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
+            call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .                         ,gv%aux,iigx,iigy,iigz,order=order)
+          endif
+        enddo
+
+        !Impose BCs on group
+        do i = 1,gv%bc_grp(igrp)%nbc_seq
+          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variable
+            call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
-        elseif (gv%bc_seq(i,1)*AUX > 0) then  !Process aux. variable
-          call applyAuxVarBC(gv%bc_seq(i,:),varray,gv%aux
+          elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
+            call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
-        endif
+          endif
+        enddo
       enddo
 
 c End program
@@ -545,24 +580,6 @@ c       Fill ghost nodes
         varray%array_var(IAX)%array = acov(:,:,:,1)
         varray%array_var(IAY)%array = acov(:,:,:,2)
         varray%array_var(IAZ)%array = acov(:,:,:,3)
-
-ccc       Postprocessing: B=curl(A)
-cc
-cc        do k = 0,nnz+1
-cc          do j = 0,nny+1
-cc            do i = 0,nnx+1
-cc              bcnv(i,j,k,:) = B0
-cc     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
-cccc                call transformFromCurvToCurv(i,j,k,iigx,iigy,iigz
-cccc     .            ,b_cov(i,j,k,1),b_cov(i,j,k,2),b_cov(i,j,k,3)
-cccc     .            ,b_cnv(i,j,k,1),b_cnv(i,j,k,2),b_cnv(i,j,k,3)
-cccc     .            ,.false.)
-cc
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cccc        if (save_Bn) bcnv_n = bcnv
 
 #else
       case(IBX)
@@ -716,6 +733,532 @@ c End
 
       end subroutine applyDepVarBC
 
+ccc applyAuxVarBC
+ccc####################################################################
+cc      subroutine applyAuxVarBC(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+ccc--------------------------------------------------------------------
+ccc     Sets adequate boundary conditions on array structure varray.
+ccc--------------------------------------------------------------------
+cc
+cc      use local_BCS_variables
+cc
+cc      use imposeBCinterface
+cc
+cc      use auxiliaryVariables
+cc
+cc      use variable_setup
+cc
+ccc diag ****
+cc      use app_iosetup
+ccc diag ****
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      integer    :: iigx,iigy,iigz,bc_inf(2)
+cc
+cc      type(var_array),pointer :: varray
+cc      type(aux_array),pointer :: vaux
+cc
+cc      integer,optional :: order
+cc
+ccc Local variables
+cc
+cc      integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
+cc     .          ,ig,jg,kg
+cc
+cc      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+cc     .          ,idx,idy,idz,k2,kk,k_par,bnorm,lheta,vol,lvol
+cc
+cc      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
+cc
+cc      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs,bx,by,bz
+cc
+ccc Begin program
+cc
+ccc Local grid sizes
+cc
+cc      nnx = grid_params%nxv(iigx) 
+cc      nny = grid_params%nyv(iigy)
+cc      nnz = grid_params%nzv(iigz)
+cc
+ccc Select variable
+cc
+cc      select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
+cc      case(SCALAR)
+cc
+cc        select case(abs(bc_inf(1)))
+cc        case(IETA,INU)
+cc
+cc          ones  = 1d0
+cc          zeros = 0d0
+cc          vzeros= 0d0
+cc
+ccc       Resistivity and viscosity (needed for BCs; may depend on T)
+cc 
+cc          do k=0,nnz+1
+cc            do j=0,nny+1
+cc              do i=0,nnx+1
+cc                eeta(i,j,k) = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,psi)
+cc                nuu (i,j,k) = vis(i,j,k,nnx,nny,nnz,iigx,iigy,iigz)
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        case(IHETA)
+cc
+ccc       Find hyperresistivity (e viscosity)
+cc
+cc          if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
+cc            do k=1,nnz
+cc              do j=1,nny
+cc                do i=1,nnx
+cc                  call getMGmap(i,j,k,iigx,iigy,iigz,ig,jg,kg)
+cc
+cc                  !kk
+cc                  idx  = pi/grid_params%dx(ig)
+cc                  if (nnx == 1) idx = 0d0
+cc                  idy  = pi/grid_params%dy(jg)
+cc                  if (nny == 1) idy = 0d0
+cc                  idz  = pi/grid_params%dz(kg)
+cc                  if (nnz == 1) idz = 0d0
+cc
+cc                  k2=vectorNorm(i,j,k,iigx,iigy,iigz,idx,idy,idz,.true.)
+cc                  kk=sqrt(k2)
+cc
+cc                  !k_par
+cc                  bnorm = vectorNorm(i,j,k,iigx,iigy,iigz
+cc     .                              ,bcnv(i,j,k,1)
+cc     .                              ,bcnv(i,j,k,2)
+cc     .                              ,bcnv(i,j,k,3)
+cc     .                              ,.false.)
+cccc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
+cc
+cc                  if (bnorm > 0d0) then
+cc                    k_par=scalarProduct(i,j,k,iigx,iigy,iigz,idx,idy,idz
+cc     .                                 ,bcnv(i,j,k,1)
+cc     .                                 ,bcnv(i,j,k,2)
+cc     .                                 ,bcnv(i,j,k,3))**2/bnorm
+cc                    k_par = sqrt(k_par)
+cccc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))/bnorm
+cc                  else
+cc                    k_par=0d0
+cc                  endif
+cc
+cc                  heta = heta + 0.1*di/kk/k_par
+cc     .                             *gmetric%grid(iigx)%dvol(i,j,k)
+cc                  vol  = vol + gmetric%grid(iigx)%dvol(i,j,k)
+cc
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc#if defined(petsc) && !defined(samrai)
+cc            lheta = heta
+cc            call MPI_Allreduce(lheta,heta,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc            lvol = vol
+cc            call MPI_Allreduce(lvol,vol,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#else
+cc#if defined(samrai)
+cc            call pstop('applyAuxVarBC'
+cc     .           ,'Need to fix hyperresistivity calculation in SAMRAI')
+cc#endif
+cc#endif
+cc
+cc            heta = heta/vol/di**2
+cc
+cc            if (my_rank == 0) write (*,*) 'Hyperresistivity=',heta
+cc
+cc          endif
+cc
+cc        case default
+cc          call pstop('applyDepVarBC'
+cc     .              ,'Scalar auxiliary variable does not exist')
+cc        end select
+cc
+cc      case(VECTOR)
+cc
+cc        if (lag_pinch_bc) then
+cc          rho => u_n%array_var(IRHO)%array
+cc          tmp => u_n%array_var(ITMP)%array
+cc        else
+cc          rho => varray%array_var(IRHO)%array
+cc          tmp => varray%array_var(ITMP)%array
+cc        endif
+cc
+cc        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+cc
+cc        if (adiabatic) then
+cc          prs = a_p*tmp
+cc        else
+cc          prs = a_p*rho*tmp
+cc        endif
+cc
+ccc       Allocate auxiliary variables in local domain
+cc
+cc        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
+cc     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
+cc
+cc        select case(abs(bc_inf(1)))
+cc        case(IJCOV)
+cc
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                jcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+cc     .                              ,jcnv(i,j,k,:))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        case(IJCNV)
+cc
+cc          bcnd = vaux%vec_list(IJCNV)%bconds
+cc
+cc          jcnv=curl(nnx,nny,nnz,iigx,iigy,iigz,bcov)
+cc          
+cc          if (pinch_flow) then  !Jt = alpha*Bt in cov representation
+cc            if (lag_pinch_bc) then
+cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+cc            else
+cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+cc     .                       ,first_order=.true.)
+cc            endif
+cc          else
+cc            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
+cc     .                            +jcnv_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
+cc     .                            +jcnv_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
+cc     .                            +jcnv_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
+cc     .                            +jcnv_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
+cc     .                            +jcnv_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
+cc     .                            +jcnv_0(:,:,0    ,:))
+cc          endif
+cc
+ccc         Fill ghost nodes
+cc
+cc          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
+cc     .              ,iorder=1)
+cc
+cc        case(IJ0COV)
+cc
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                jcov_0(i,j,k,:)=
+cc     .               matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+cc     .                     ,jcnv_0(i,j,k,:))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        case(IJ0CNV)
+cc
+cc          v0 = 0d0
+cc
+ccc       Current BC
+cc
+ccc diag ****
+cc          if (test .and. equil=='tmcar') then 
+cc
+cc            jcnv_0 = 0d0
+cc
+ccc diag ****
+cc
+cc          elseif (sum(E0) /= 0d0) then
+cc
+cc            !Enforce imposed E field
+cc            do k=0,nnz+1
+cc              do j=0,nny+1
+cc                do i=0,nnx+1
+cc                  etal = res(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,psi)
+cc                  jcov_0(i,j,k,:) = E0/etal
+cc                  jcnv_0(i,j,k,:) =
+cc     .                 matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
+cc     .                       ,jcov_0(i,j,k,:))
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc          elseif (sum(E0) == 0d0) then
+cc
+cc            bcnd = vaux%vec_list(IJ0CNV)%bconds
+cc
+ccc           Find B0
+cc
+cc#if defined(vec_pot)
+cc            acov(:,:,:,1) = varray%array_var(IAX)%array
+cc            acov(:,:,:,2) = varray%array_var(IAY)%array
+cc            acov(:,:,:,3) = varray%array_var(IAZ)%array
+cc
+cc            call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd
+cc     .                ,iigx,iigy,iigz,is_cnv=.false.,iorder=2)
+cc
+cc            do k = 0,nnz+1
+cc              do j = 0,nny+1
+cc                do i = 0,nnx+1
+cc                  bcnv(i,j,k,:) = B0
+cc     .                + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
+cc                enddo
+cc              enddo
+cc            enddo
+cc#else
+cc            bcnv(:,:,:,1) = varray%array_var(IBX)%array
+cc            bcnv(:,:,:,2) = varray%array_var(IBY)%array
+cc            bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+cc#endif
+cc
+cc            call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
+cc     .              ,iigx,iigy,iigz,is_cnv=.true.,iorder=2)
+cc
+ccc           Find J0
+cc
+cc            do k = 0,nnz+1
+cc              do j = 0,nny+1
+cc                do i = 0,nnx+1
+cc                  jcnv_0(i,j,k,:) = curl(i,j,k,nnx,nny,nnz
+cc     .                                  ,iigx,iigy,iigz,bcov)
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+cc     .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
+cc          endif
+cc
+cc        case(IVCOV)
+cc
+ccc$$$          if (.not.nc_eom_v) then
+ccc$$$            where (varray%array_var(IRHO)%array /= 0d0)
+ccc$$$              vcnv(:,:,:,1) = varray%array_var(IVX )%array
+ccc$$$     .                       /varray%array_var(IRHO)%array
+ccc$$$              vcnv(:,:,:,2) = varray%array_var(IVY )%array
+ccc$$$     .                       /varray%array_var(IRHO)%array
+ccc$$$              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
+ccc$$$     .                       /varray%array_var(IRHO)%array
+ccc$$$            end where
+ccc$$$          else
+ccc$$$            vcnv(:,:,:,1) = varray%array_var(IVX)%array
+ccc$$$            vcnv(:,:,:,2) = varray%array_var(IVY)%array
+ccc$$$            vcnv(:,:,:,3) = varray%array_var(IVZ)%array
+ccc$$$          endif
+ccc$$$
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                vcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+cc     .                              ,vcnv(i,j,k,:))
+cc              enddo
+cc            enddo
+cc          enddo
+cc         
+cc          if (save_tn .and. ion_hall) vcov_n = vcov
+cc
+cc        case(IBCOV)
+cc
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+cc     .                              ,bcnv(i,j,k,:))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc#if defined(vec_pot)
+cc       case(IACNV)
+cc
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                acnv(i,j,k,:)=matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
+cc     .                              ,acov(i,j,k,:))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        case(IBCNV)
+cc
+ccc       Magnetic field BC (with fixed current at boundary)
+cc
+cc          do k = 0,nnz+1
+cc            do j = 0,nny+1
+cc              do i = 0,nnx+1
+cc                bcnv(i,j,k,:) = B0
+cc     .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
+cc              enddo
+cc            enddo
+cc          enddo
+cc         
+cc          bcnd = vaux%vec_list(IBCNV)%bconds
+cc
+cc          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+cc            if (lag_pinch_bc) then
+cc             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+cc            else
+cc             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+cc     .                      ,first_order=.true.)
+cc            endif
+cc          else
+cc            v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
+cc          endif
+cc
+cc          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
+cc     .              ,iigx,iigy,iigz,iorder=order)
+cc#endif
+cc
+cc        case(IVECOV)
+cc
+cc          if (di > 0d0) then
+cc            vecov(:,:,:,1) = vcov(:,:,:,1)-di*jcov(:,:,:,1)/rho
+cc            vecov(:,:,:,2) = vcov(:,:,:,2)-di*jcov(:,:,:,2)/rho
+cc            vecov(:,:,:,3) = vcov(:,:,:,3)-di*jcov(:,:,:,3)/rho
+cc          else
+cc            vecov = vcov
+cc          endif
+cc
+cc          if (save_tn .and. de > 0d0) vecov_n = vecov
+cc
+cc        case(IVE0CNV,IVECNV)
+cc
+ccc       Electron velocity BC
+cc
+cc          !Electron velocity piece
+cc          if (di > 0d0) then
+ccc           ----------------------------------------------------
+cc            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
+cc            do k=1,nnz
+cc              do j=1,nny
+cc                do i=1,nnx
+cc                  vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
+cc     .                                  ,iigx,iigy,iigz,vcnv
+cc     .                                  ,vol=.false.)
+cccc                  vecnv(i,j,k,:) = di*veclaplacian(i,j,k,nnx,nny,nnz
+cccc     .                                  ,iigx,iigy,iigz,vcnv
+cccc     .                                  ,vol=.false.)
+cc                enddo
+cc              enddo
+cc            enddo
+cc
+cc            v0 = vecnv_0
+cc
+cc            if (abs(bc_inf(1)) == IVE0CNV) then
+cc              bcnd = vaux%vec_list(IJ0CNV)%bconds !J BCs (extrapolation)
+cc            else
+cc              bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
+cc            endif
+cc
+cc            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
+cc     .                ,iigx,iigy,iigz,iorder=order)
+cc
+cccc            v0 = 0d0
+cccc
+cccc            bcnd = vaux%vec_list(IBCNV )%bconds !B BCs (equilibrium)
+cccc
+cccc            call setBC(IBX,3,nnx,nny,nnz,vecnv,vecov,v0,bcnd
+cccc     .                ,iigx,iigy,iigz,iorder=order)
+cc
+ccc           ----------------------------------------------------
+cc            !Uncomment this to have ve=v-di*j/rho for div_pe(ve)
+cccc            vecnv = jcnv
+ccc           ----------------------------------------------------
+cc
+cc            vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*vecnv(:,:,:,1)/rho
+cc            vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*vecnv(:,:,:,2)/rho
+cc            vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
+cc          else
+cc            vecnv = vcnv
+cc          endif
+cc
+cc          if (abs(bc_inf(1)) == IVE0CNV) vecnv_0 = vecnv
+cc
+cc        case(IENI0)
+cc
+ccc       Electric field BC (time=0)
+cc
+cc          E_ni_0 = 0d0
+cc
+cc          call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni_0)
+cc
+cc#if !defined(vec_pot)
+cc          if (di > 0d0) then
+cc            bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
+cc
+cc            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,vdum,bcnd
+cccc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
+cc     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
+cc          endif
+cc#endif
+cccc          E_ni = E_ni_0
+cc
+cccc#if !defined(vec_pot)
+cccc          if (di > 0d0) then
+cccc            bcnd(:,1) = bcond
+cccc            bcnd(:,2) = bcond
+cccc            bcnd(:,3) = bcond
+cccc            where (bcnd == DEF) bcnd = -IFC !Average to face
+cccc
+cccc            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,E_ni,bcnd
+cccc     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
+cccc          endif
+cccc#endif
+cc        case(IENI)
+cc
+ccc       Electric field BC
+cc
+cc          call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni)
+cc
+cc#if !defined(vec_pot)
+cc          if (di > 0d0) then
+cc            v0(nnx+1,:,:,:) = 0.5*(E_ni_0(nnx  ,:,:,:)
+cc     .                            +E_ni_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(E_ni_0(1    ,:,:,:)
+cc     .                            +E_ni_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(E_ni_0(:,nny  ,:,:)
+cc     .                            +E_ni_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(E_ni_0(:,1    ,:,:)
+cc     .                            +E_ni_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(E_ni_0(:,:,nnz  ,:)
+cc     .                            +E_ni_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(E_ni_0(:,:,1    ,:)
+cc     .                            +E_ni_0(:,:,0    ,:))
+cc
+cc            bcnd = vaux%vec_list(IENI)%bconds
+cc
+cc            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
+cccc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
+cc     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
+cccc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
+cc          endif
+cc#endif
+cc
+cc        case default
+cc          call pstop('applyDepVarBC'
+cc     .              ,'Vector auxiliary variable does not exist')
+cc
+cc        end select
+cc
+ccc       Deallocate variables 
+cc
+cc        deallocate(v0,vdum,prs)
+cc
+cc      end select
+cc
+ccc End
+cc
+cc      end subroutine applyAuxVarBC
+
 c applyAuxVarBC
 c####################################################################
       subroutine applyAuxVarBC(bc_inf,varray,vaux,iigx,iigy,iigz,order)
@@ -755,6 +1298,274 @@ c Local variables
      .          ,idx,idy,idz,k2,kk,k_par,bnorm,lheta,vol,lvol
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
+
+      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs,bx,by,bz
+
+c Begin program
+
+c Local grid sizes
+
+      nnx = grid_params%nxv(iigx) 
+      nny = grid_params%nyv(iigy)
+      nnz = grid_params%nzv(iigz)
+
+c Select variable
+
+      select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
+      case(SCALAR)
+
+        select case(abs(bc_inf(1)))
+        case(IETA,INU)
+
+        case(IHETA)
+
+        case default
+          call pstop('applyAuxVarBC'
+     .              ,'Scalar auxiliary variable does not exist')
+        end select
+
+      case(VECTOR)
+
+        if (lag_pinch_bc) then
+          rho => u_n%array_var(IRHO)%array
+          tmp => u_n%array_var(ITMP)%array
+        else
+          rho => varray%array_var(IRHO)%array
+          tmp => varray%array_var(ITMP)%array
+        endif
+
+        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+
+        if (adiabatic) then
+          prs = a_p*tmp
+        else
+          prs = a_p*rho*tmp
+        endif
+
+c       Allocate auxiliary variables in local domain
+
+        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
+     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+        select case(abs(bc_inf(1)))
+        case(IJCOV)
+
+        case(IJCNV)
+
+          bcnd = vaux%vec_list(IJCNV)%bconds
+          
+          if (pinch_flow) then  !Jt = alpha*Bt in cov representation
+            if (lag_pinch_bc) then
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+            else
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                       ,first_order=.true.)
+            endif
+          else
+            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
+     .                            +jcnv_0(nnx+1,:,:,:))
+            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
+     .                            +jcnv_0(0    ,:,:,:))
+
+            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
+     .                            +jcnv_0(:,nny+1,:,:))
+            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
+     .                            +jcnv_0(:,0    ,:,:))
+
+            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
+     .                            +jcnv_0(:,:,nnz+1,:))
+            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
+     .                            +jcnv_0(:,:,0    ,:))
+          endif
+
+c         Fill ghost nodes
+
+          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
+     .              ,iorder=1)
+
+        case(IJ0COV)
+
+        case(IJ0CNV)
+
+c       Current BC
+
+          if (.not.(test .and. equil=='tmcar')
+     .        .and.(sum(E0) == 0d0)) then
+
+            bcnd = vaux%vec_list(IJ0CNV)%bconds
+
+            v0 = 0d0
+
+            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+     .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
+          endif
+
+        case(IVCOV)
+
+        case(IVCOV_N)
+
+          if (save_tn .and. ion_hall) vcov_n = vcov
+
+        case(IBCOV)
+
+#if defined(vec_pot)
+        case(IACNV)
+
+        case(IBCNV)
+         
+          bcnd = vaux%vec_list(IBCNV)%bconds
+
+          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+            if (lag_pinch_bc) then
+             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+            else
+             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                      ,first_order=.true.)
+            endif
+          else
+            v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
+          endif
+
+          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
+     .              ,iigx,iigy,iigz,iorder=order)
+#endif
+
+        case(IVE0CNV)
+
+c       Electron velocity BC
+
+          if (di > 0d0) then
+c           ----------------------------------------------------
+            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
+            bcnd = vaux%vec_list(IJ0CNV)%bconds !J BCs (extrapolation)
+
+            call setBC(IJX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
+     .                ,iigx,iigy,iigz,iorder=order)
+c           ----------------------------------------------------
+          endif
+
+        case(IVECOV_N)
+
+          if (save_tn .and. de > 0d0) vecov_n = vecov
+
+        case(IVECOV)
+
+        case(IVECNV)
+
+c       Electron velocity BC
+
+          if (di > 0d0) then
+c           ----------------------------------------------------
+            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
+            v0 = vecnv_0
+
+            bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
+
+            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
+     .                ,iigx,iigy,iigz,iorder=order)
+c           ----------------------------------------------------
+          endif
+
+        case(IENI0)
+
+c       Electric field BC (time=0)
+
+#if !defined(vec_pot)
+          if (di > 0d0) then
+            bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
+
+            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,vdum,bcnd
+     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
+          endif
+#endif
+
+        case(IENI)
+
+c       Electric field BC
+
+#if !defined(vec_pot)
+          if (di > 0d0) then
+            v0(nnx+1,:,:,:) = 0.5*(E_ni_0(nnx  ,:,:,:)
+     .                            +E_ni_0(nnx+1,:,:,:))
+            v0(0    ,:,:,:) = 0.5*(E_ni_0(1    ,:,:,:)
+     .                            +E_ni_0(0    ,:,:,:))
+
+            v0(:,nny+1,:,:) = 0.5*(E_ni_0(:,nny  ,:,:)
+     .                            +E_ni_0(:,nny+1,:,:))
+            v0(:,0    ,:,:) = 0.5*(E_ni_0(:,1    ,:,:)
+     .                            +E_ni_0(:,0    ,:,:))
+
+            v0(:,:,nnz+1,:) = 0.5*(E_ni_0(:,:,nnz  ,:)
+     .                            +E_ni_0(:,:,nnz+1,:))
+            v0(:,:,0    ,:) = 0.5*(E_ni_0(:,:,1    ,:)
+     .                            +E_ni_0(:,:,0    ,:))
+
+            bcnd = vaux%vec_list(IENI)%bconds
+
+            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
+cc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
+     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
+cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
+          endif
+#endif
+
+        case default
+          write (*,*) abs(bc_inf(1))
+
+          call pstop('applyAuxVarBC'
+     .              ,'Vector auxiliary variable does not exist')
+
+        end select
+
+c       Deallocate variables 
+
+        deallocate(v0,vdum,prs)
+
+      end select
+
+c End
+
+      end subroutine applyAuxVarBC
+
+c preproc_AuxVar
+c####################################################################
+      subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+c--------------------------------------------------------------------
+c     Sets adequate boundary conditions on array structure varray.
+c--------------------------------------------------------------------
+
+      use local_BCS_variables
+
+      use imposeBCinterface
+
+      use auxiliaryVariables
+
+      use variable_setup
+
+c diag ****
+      use app_iosetup
+c diag ****
+
+      implicit none
+
+c Call variables
+
+      integer    :: iigx,iigy,iigz,bc_inf(2)
+
+      type(var_array),pointer :: varray
+      type(aux_array),pointer :: vaux
+
+      integer,optional :: order
+
+c Local variables
+
+      integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
+     .          ,ig,jg,kg
+
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+     .          ,idx,idy,idz,k2,kk,k_par,bnorm,lheta,vol,lvol
+
+      real(8),allocatable,dimension(:,:,:,:) :: v0
 
       real(8),pointer,dimension(:,:,:) :: rho,tmp,prs,bx,by,bz
 
@@ -872,25 +1683,16 @@ cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))/bnorm
           tmp => varray%array_var(ITMP)%array
         endif
 
-        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
-
-        if (adiabatic) then
-          prs = a_p*tmp
-        else
-          prs = a_p*rho*tmp
-        endif
-
 c       Allocate auxiliary variables in local domain
 
-        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
-     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
+        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3))
 
         select case(abs(bc_inf(1)))
         case(IJCOV)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 jcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,jcnv(i,j,k,:))
               enddo
@@ -899,44 +1701,13 @@ c       Allocate auxiliary variables in local domain
 
         case(IJCNV)
 
-          bcnd = vaux%vec_list(IJCNV)%bconds
-
           jcnv=curl(nnx,nny,nnz,iigx,iigy,iigz,bcov)
-          
-          if (pinch_flow) then  !Jt = alpha*Bt in cov representation
-            if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-            else
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
-     .                       ,first_order=.true.)
-            endif
-          else
-            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
-     .                            +jcnv_0(nnx+1,:,:,:))
-            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
-     .                            +jcnv_0(0    ,:,:,:))
-
-            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
-     .                            +jcnv_0(:,nny+1,:,:))
-            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
-     .                            +jcnv_0(:,0    ,:,:))
-
-            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
-     .                            +jcnv_0(:,:,nnz+1,:))
-            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
-     .                            +jcnv_0(:,:,0    ,:))
-          endif
-
-c         Fill ghost nodes
-
-          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
-     .              ,iorder=1)
 
         case(IJ0COV)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 jcov_0(i,j,k,:)=
      .               matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                     ,jcnv_0(i,j,k,:))
@@ -1005,52 +1776,35 @@ c           Find B0
 
 c           Find J0
 
-            do k = 0,nnz+1
-              do j = 0,nny+1
-                do i = 0,nnx+1
+            do k = 1,nnz
+              do j = 1,nny
+                do i = 1,nnx
                   jcnv_0(i,j,k,:) = curl(i,j,k,nnx,nny,nnz
      .                                  ,iigx,iigy,iigz,bcov)
                 enddo
               enddo
             enddo
 
-            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
-     .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
           endif
+
+        case(IVCOV_N)
 
         case(IVCOV)
 
-c$$$          if (.not.nc_eom_v) then
-c$$$            where (varray%array_var(IRHO)%array /= 0d0)
-c$$$              vcnv(:,:,:,1) = varray%array_var(IVX )%array
-c$$$     .                       /varray%array_var(IRHO)%array
-c$$$              vcnv(:,:,:,2) = varray%array_var(IVY )%array
-c$$$     .                       /varray%array_var(IRHO)%array
-c$$$              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-c$$$     .                       /varray%array_var(IRHO)%array
-c$$$            end where
-c$$$          else
-c$$$            vcnv(:,:,:,1) = varray%array_var(IVX)%array
-c$$$            vcnv(:,:,:,2) = varray%array_var(IVY)%array
-c$$$            vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-c$$$          endif
-c$$$
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 vcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,vcnv(i,j,k,:))
               enddo
             enddo
           enddo
-         
-          if (save_tn .and. ion_hall) vcov_n = vcov
 
         case(IBCOV)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,bcnv(i,j,k,:))
               enddo
@@ -1060,9 +1814,9 @@ c$$$
 #if defined(vec_pot)
        case(IACNV)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 acnv(i,j,k,:)=matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
      .                              ,acov(i,j,k,:))
               enddo
@@ -1073,31 +1827,17 @@ c$$$
 
 c       Magnetic field BC (with fixed current at boundary)
 
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
+          do k = 1,nnz
+            do j = 1,nny
+              do i = 1,nnx
                 bcnv(i,j,k,:) = B0
      .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
               enddo
             enddo
           enddo
-         
-          bcnd = vaux%vec_list(IBCNV)%bconds
-
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-            if (lag_pinch_bc) then
-             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-            else
-             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
-     .                      ,first_order=.true.)
-            endif
-          else
-            v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
-          endif
-
-          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
-     .              ,iigx,iigy,iigz,iorder=order)
 #endif
+
+        case(IVECOV_N)
 
         case(IVECOV)
 
@@ -1108,8 +1848,6 @@ c       Magnetic field BC (with fixed current at boundary)
           else
             vecov = vcov
           endif
-
-          if (save_tn .and. de > 0d0) vecov_n = vecov
 
         case(IVE0CNV,IVECNV)
 
@@ -1132,32 +1870,15 @@ cc     .                                  ,vol=.false.)
               enddo
             enddo
 
-            v0 = vecnv_0
-
-            if (abs(bc_inf(1)) == IVE0CNV) then
-              bcnd = vaux%vec_list(IJ0CNV)%bconds !J BCs (extrapolation)
-            else
-              bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
-            endif
-
-            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
-     .                ,iigx,iigy,iigz,iorder=order)
-
-cc            v0 = 0d0
-cc
-cc            bcnd = vaux%vec_list(IBCNV )%bconds !B BCs (equilibrium)
-cc
-cc            call setBC(IBX,3,nnx,nny,nnz,vecnv,vecov,v0,bcnd
-cc     .                ,iigx,iigy,iigz,iorder=order)
-
 c           ----------------------------------------------------
-cc            !Uncomment this to have ve=v-di*j/rho for div_pe(ve)
+            !Uncomment this to have ve=v-di*j/rho for div_pe(ve)
 cc            vecnv = jcnv
 c           ----------------------------------------------------
 
             vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*vecnv(:,:,:,1)/rho
             vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*vecnv(:,:,:,2)/rho
             vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
+
           else
             vecnv = vcnv
           endif
@@ -1172,72 +1893,24 @@ c       Electric field BC (time=0)
 
           call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni_0)
 
-#if !defined(vec_pot)
-          if (di > 0d0) then
-            bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
-
-            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,vdum,bcnd
-cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
-     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-          endif
-#endif
-cc          E_ni = E_ni_0
-
-cc#if !defined(vec_pot)
-cc          if (di > 0d0) then
-cc            bcnd(:,1) = bcond
-cc            bcnd(:,2) = bcond
-cc            bcnd(:,3) = bcond
-cc            where (bcnd == DEF) bcnd = -IFC !Average to face
-cc
-cc            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,E_ni,bcnd
-cc     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-cc          endif
-cc#endif
         case(IENI)
 
 c       Electric field BC
 
           call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni)
 
-#if !defined(vec_pot)
-          if (di > 0d0) then
-            v0(nnx+1,:,:,:) = 0.5*(E_ni_0(nnx  ,:,:,:)
-     .                            +E_ni_0(nnx+1,:,:,:))
-            v0(0    ,:,:,:) = 0.5*(E_ni_0(1    ,:,:,:)
-     .                            +E_ni_0(0    ,:,:,:))
-
-            v0(:,nny+1,:,:) = 0.5*(E_ni_0(:,nny  ,:,:)
-     .                            +E_ni_0(:,nny+1,:,:))
-            v0(:,0    ,:,:) = 0.5*(E_ni_0(:,1    ,:,:)
-     .                            +E_ni_0(:,0    ,:,:))
-
-            v0(:,:,nnz+1,:) = 0.5*(E_ni_0(:,:,nnz  ,:)
-     .                            +E_ni_0(:,:,nnz+1,:))
-            v0(:,:,0    ,:) = 0.5*(E_ni_0(:,:,1    ,:)
-     .                            +E_ni_0(:,:,0    ,:))
-
-            bcnd = vaux%vec_list(IENI)%bconds
-
-            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-cc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
-          endif
-#endif
-
         case default
-          call pstop('applyDepVarBC'
+          call pstop('preproc_AuxVar'
      .              ,'Vector auxiliary variable does not exist')
 
         end select
 
 c       Deallocate variables 
 
-        deallocate(v0,vdum,prs)
+        deallocate(v0)
 
       end select
 
 c End
 
-      end subroutine applyAuxVarBC
+      end subroutine preproc_AuxVar
