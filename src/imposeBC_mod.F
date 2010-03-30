@@ -18,7 +18,7 @@ c####################################################################
 
         use nlfunction_setup, ONLY: res,vis,find_E,ion_hall
 
-        logical :: pinch_flow=.false.,lag_pinch_bc=.true.
+        logical :: pinch_flow=.false.,lag_pinch_bc=.false.
      .            ,save_Bn=.false.,save_tn=.false.
 
 #if defined(vec_pot)
@@ -57,161 +57,260 @@ c     Call variables
 
 c     Local variables
 
-      integer :: ierr,offset=0
+      integer :: ierr,offset=0,igr
 
 c     Begin program
 
 c     Select offset based on whether we are at the beginning of calculation
 
       if (itime == 0) then
-        offset = 2
+        offset = 1
 
 #if defined(vec_pot)
-        gv%nbc_seq = 18
+        gv%nbc_grp = 11+offset
 #else
-        gv%nbc_seq = 16
+        gv%nbc_grp = 10+offset
 #endif
 
       elseif (itime > 0) then
-        deallocate(gv%bc_seq)
+        do igr=1,size(gv%bc_grp)
+          deallocate(gv%bc_grp(igr)%bc_seq)
+        enddo
+        deallocate(gv%bc_grp)
+
         offset = 0
 
 #if defined(vec_pot)
-        gv%nbc_seq = 14
+        gv%nbc_grp = 9+offset
 #else
-        gv%nbc_seq = 12
+        gv%nbc_grp = 8+offset
 #endif
 
       endif
 
 c     Setup schedule
 
-      if (.not.associated(gv%bc_seq)) then
+      if (.not.associated(gv%bc_grp)) then
 
-        allocate(gv%bc_seq(gv%nbc_seq,2),STAT=ierr)
+        allocate(gv%bc_grp(gv%nbc_grp),STAT=ierr)
 
-        gv%bc_seq = 0
-
+        !Define group sizes
         if (itime == 0) then
-          gv%bc_seq(1,1) = IJ0CNV*AUX       !Aux. variable
-          gv%bc_seq(1,2) = VECTOR           !Vector
+          gv%bc_grp(1)%nbc_seq = 2
+        endif
+#if defined(vec_pot)
+        gv%bc_grp(1+offset)%nbc_seq = 1
+        gv%bc_grp(2+offset)%nbc_seq = 2
+        gv%bc_grp(3+offset)%nbc_seq = 2
+        gv%bc_grp(4+offset)%nbc_seq = 2
+        gv%bc_grp(5+offset)%nbc_seq = 2
+        gv%bc_grp(6+offset)%nbc_seq = 3
+        if (itime == 0) then
+          gv%bc_grp(7+offset)%nbc_seq = 1
+          gv%bc_grp(8+offset)%nbc_seq = 2
+          gv%bc_grp(9+offset)%nbc_seq = 1
+          gv%bc_grp(10+offset)%nbc_seq = 1
+          gv%bc_grp(11+offset)%nbc_seq = 1
+        else
+          gv%bc_grp(7+offset)%nbc_seq = 2
+          gv%bc_grp(8+offset)%nbc_seq = 1
+          gv%bc_grp(9+offset)%nbc_seq = 1
+        endif
+#else
+        gv%bc_grp(1+offset)%nbc_seq = 1
+        gv%bc_grp(2+offset)%nbc_seq = 2
+        gv%bc_grp(3+offset)%nbc_seq = 2
+        gv%bc_grp(4+offset)%nbc_seq = 2
+        gv%bc_grp(5+offset)%nbc_seq = 3
+        if (itime == 0) then
+          gv%bc_grp(6+offset)%nbc_seq = 1
+          gv%bc_grp(7+offset)%nbc_seq = 2
+          gv%bc_grp(8+offset)%nbc_seq = 1
+          gv%bc_grp(9+offset)%nbc_seq = 1
+          gv%bc_grp(10+offset)%nbc_seq = 1
+        else
+          gv%bc_grp(6+offset)%nbc_seq = 2
+          gv%bc_grp(7+offset)%nbc_seq = 1
+          gv%bc_grp(8+offset)%nbc_seq = 1
+        endif
+#endif
 
-          gv%bc_seq(2,1) = IJ0COV*AUX       !Aux. variable
-          gv%bc_seq(2,2) = VECTOR           !Vector
+        !Allocate groups
+        do igr=1,gv%nbc_grp
+          allocate(gv%bc_grp(igr)
+     .               %bc_seq(gv%bc_grp(igr)%nbc_seq,2),STAT=ierr)
+
+          gv%bc_grp(igr)%bc_seq = 0
+        enddo
+
+        !Set groups
+        if (itime == 0) then
+          gv%bc_grp(1)%nbc_seq = 2
+
+          gv%bc_grp(1)%bc_seq(1,1) = IJ0COV*AUX       !Aux. variable
+          gv%bc_grp(1)%bc_seq(1,2) = VECTOR           !Vector
+
+          gv%bc_grp(1)%bc_seq(2,1) = IJ0CNV*AUX       !Aux. variable
+          gv%bc_grp(1)%bc_seq(2,2) = VECTOR           !Vector
         endif
 
 #if defined(vec_pot)
-        gv%bc_seq(1+offset,1) = IRHO        !Dep. Variable
-        gv%bc_seq(1+offset,2) = SCALAR      !Scalar
+        !Group 1
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable
+        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        gv%bc_seq(2+offset,1) = ITMP        !Dep. variable
-        gv%bc_seq(2+offset,2) = SCALAR      !Scalar
+        !Group 2    
+        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP        !Dep. variable
+        gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
-        gv%bc_seq(3+offset,2) = SCALAR      !Scalar
+        gv%bc_grp(2+offset)%bc_seq(2,1) = IETA*AUX    !Aux. variable
+        gv%bc_grp(2+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
-        gv%bc_seq(4+offset,1) = IACNV*AUX   !Aux. variable
-        gv%bc_seq(4+offset,2) = VECTOR      !Vector
+        !Group 3
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IAX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(5+offset,1) = IAX         !Dep. variable
-        gv%bc_seq(5+offset,2) = VECTOR      !Vector
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IACNV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_seq(6+offset,1) = IBCNV*AUX   !Aux. variable
-        gv%bc_seq(6+offset,2) = VECTOR      !Vector
+        !Group 4
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(7+offset,1) = IBCOV*AUX   !Aux. variable
-        gv%bc_seq(7+offset,2) = VECTOR      !Vector
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_seq(8+offset,1)= IJCNV*AUX   !Aux. variable
-        gv%bc_seq(8+offset,2)= VECTOR      !Vector
+        !Group 5
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(9+offset,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_seq(9+offset,2) = VECTOR      !Vector
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_seq(10+offset,1)= IVX         !Dep. variable
-        gv%bc_seq(10+offset,2)= VECTOR      !Vector
+        !Group 6
+        gv%bc_grp(6+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(11+offset,1)= IVCOV*AUX   !Aux. variable
-        gv%bc_seq(11+offset,2)= VECTOR      !Vector
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVX         !Dep. variable
+        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         if (itime == 0) then
-          gv%bc_seq(12+offset,1) = IVE0CNV*AUX !Aux. variable
-          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(13+offset,1) = IVECOV*AUX !Aux. variable
-          gv%bc_seq(13+offset,2) = VECTOR      !Vector
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECOV*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(14+offset,1) = IENI0*AUX   !Aux. variable
-          gv%bc_seq(14+offset,2) = VECTOR      !Vector
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_seq(15+offset,1) = IENI*AUX !Aux. variable
-          gv%bc_seq(15+offset,2) = VECTOR      !Vector
+          !Group 9
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(16+offset,1) = IHETA*AUX   !Aux. variable
-          gv%bc_seq(16+offset,2) = SCALAR      !Scalar
+          !Group 10
+          gv%bc_grp(10+offset)%bc_seq(1,1) = IENI*AUX !Aux. variable
+          gv%bc_grp(10+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          !Group 11
+          gv%bc_grp(11+offset)%bc_seq(1,1) = IHETA*AUX   !Aux. variable
+          gv%bc_grp(11+offset)%bc_seq(1,2) = SCALAR      !Scalar
         else
-          gv%bc_seq(12+offset,1) = IVECOV*AUX  !Aux. variable
-          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(13+offset,1) = IVECNV*AUX  !Aux. variable
-          gv%bc_seq(13+offset,2) = VECTOR      !Vector
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_seq(14+offset,1) = IENI*AUX    !Dep. variable
-          gv%bc_seq(14+offset,2) = VECTOR      !Vector
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          !Group 9
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
         endif
 
 #else
-        gv%bc_seq(1+offset,1) = IRHO        !Dep. Variable
-        gv%bc_seq(1+offset,2) = SCALAR      !Scalar
+        !Group 1
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable
+        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        gv%bc_seq(2+offset,1) = ITMP        !Dep. variable
-        gv%bc_seq(2+offset,2) = SCALAR      !Scalar
+        !Group 2    
+        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP        !Dep. variable
+        gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
-        gv%bc_seq(3+offset,2) = SCALAR      !Scalar
+        gv%bc_grp(2+offset)%bc_seq(2,1) = IETA*AUX    !Aux. variable
+        gv%bc_grp(2+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
-        gv%bc_seq(4+offset,1) = IBX         !Dep. variable
-        gv%bc_seq(4+offset,2) = VECTOR      !Vector
+        !Group 3
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(5+offset,1) = IBCOV*AUX   !Aux. variable
-        gv%bc_seq(5+offset,2) = VECTOR      !Vector
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IBX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_seq(6+offset,1) = IJCNV*AUX   !Aux. variable
-        gv%bc_seq(6+offset,2) = VECTOR      !Vector
+        !Group 4
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(7+offset,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_seq(7+offset,2) = VECTOR      !Vector
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_seq(8+offset,1) = IVX         !Dep. variable
-        gv%bc_seq(8+offset,2) = VECTOR      !Vector
+        !Group 5
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_seq(9+offset,1) = IVCOV*AUX !Aux. variable
-        gv%bc_seq(9+offset,2) = VECTOR      !Vector
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IVX         !Dep. variable
+        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         if (itime == 0) then
-          gv%bc_seq(10+offset,1) = IVE0CNV*AUX   !Aux. variable
-          gv%bc_seq(10+offset,2) = VECTOR        !Vector
+          !Group 6
+          gv%bc_grp(6+offset)%bc_seq(1,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
-          gv%bc_seq(11+offset,2) = VECTOR        !Vector
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(12+offset,1) = IENI0*AUX     !Aux. variable
-          gv%bc_seq(12+offset,2) = VECTOR        !Vector
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_seq(13+offset,1) = IENI*AUX      !Dep. variable
-          gv%bc_seq(13+offset,2) = VECTOR        !Vector
-          
-          gv%bc_seq(14+offset,1) = IHETA*AUX     !Aux. variable
-          gv%bc_seq(14+offset,2) = SCALAR        !Scalar
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          !Group 9
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          !Group 10
+          gv%bc_grp(10+offset)%bc_seq(1,1)= IHETA*AUX   !Aux. variable
+          gv%bc_grp(10+offset)%bc_seq(1,2)= SCALAR      !Scalar
         else
-          gv%bc_seq(10+offset,1) = IVECNV*AUX    !Aux. variable
-          gv%bc_seq(10+offset,2) = VECTOR        !Vector
+          !Group 6
+          gv%bc_grp(6+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
-          gv%bc_seq(11+offset,2) = VECTOR        !Vector
+          gv%bc_grp(6+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_seq(12+offset,1) = IENI*AUX      !Dep. variable
-          gv%bc_seq(12+offset,2) = VECTOR        !Vector
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
         endif
 #endif
 
@@ -220,6 +319,196 @@ c     Setup schedule
 c     End program
 
       end subroutine setBCsched
+
+ccc     setBCsched
+ccc     ###################################################################
+cc      subroutine setBCsched(itime)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Sets BC schedule for dependent and auxiliary variables, which
+ccc     are identified by a 2-dim integer array, bc_seq. The first
+ccc     dimension is of size nbc_seq, and indicates order of treatment
+ccc     lexicographically (i.e., first component of first dimension is
+ccc     to be treated first, second component of second dimension is
+ccc     to be treated second, and so on).
+ccc
+ccc     The second dimension is of size two, and has the following convention:
+ccc       * First component of the second dimension identifies variable,
+ccc         and its sign indicates whether the variable is dependent (>0) or
+ccc         auxiliary (<0).
+ccc       * Second component of the second dimension identifies scalars (=0)
+ccc         or vectors (=1).
+ccc     -------------------------------------------------------------------
+cc
+ccc     Call variables
+cc
+cc      integer :: itime
+cc
+ccc     Local variables
+cc
+cc      integer :: ierr,offset=0
+cc
+ccc     Begin program
+cc
+ccc     Select offset based on whether we are at the beginning of calculation
+cc
+cc      if (itime == 0) then
+cc        offset = 2
+cc
+cc#if defined(vec_pot)
+cc        gv%nbc_seq = 18
+cc#else
+cc        gv%nbc_seq = 16
+cc#endif
+cc
+cc      elseif (itime > 0) then
+cc        deallocate(gv%bc_seq)
+cc        offset = 0
+cc
+cc#if defined(vec_pot)
+cc        gv%nbc_seq = 14
+cc#else
+cc        gv%nbc_seq = 12
+cc#endif
+cc
+cc      endif
+cc
+ccc     Setup schedule
+cc
+cc      if (.not.associated(gv%bc_seq)) then
+cc
+cc        allocate(gv%bc_seq(gv%nbc_seq,2),STAT=ierr)
+cc
+cc        gv%bc_seq = 0
+cc
+cc        if (itime == 0) then
+cc          gv%bc_seq(1,1) = IJ0CNV*AUX       !Aux. variable
+cc          gv%bc_seq(1,2) = VECTOR           !Vector
+cc
+cc          gv%bc_seq(2,1) = IJ0COV*AUX       !Aux. variable
+cc          gv%bc_seq(2,2) = VECTOR           !Vector
+cc        endif
+cc
+cc#if defined(vec_pot)
+cc        gv%bc_seq(1+offset,1) = IRHO        !Dep. Variable
+cc        gv%bc_seq(1+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(2+offset,1) = ITMP        !Dep. variable
+cc        gv%bc_seq(2+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
+cc        gv%bc_seq(3+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(4+offset,1) = IACNV*AUX   !Aux. variable
+cc        gv%bc_seq(4+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(5+offset,1) = IAX         !Dep. variable
+cc        gv%bc_seq(5+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(6+offset,1) = IBCNV*AUX   !Aux. variable
+cc        gv%bc_seq(6+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(7+offset,1) = IBCOV*AUX   !Aux. variable
+cc        gv%bc_seq(7+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(8+offset,1) = IJCNV*AUX   !Aux. variable
+cc        gv%bc_seq(8+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(9+offset,1) = IJCOV*AUX   !Aux. variable
+cc        gv%bc_seq(9+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(10+offset,1)= IVX         !Dep. variable
+cc        gv%bc_seq(10+offset,2)= VECTOR      !Vector
+cc
+cc        gv%bc_seq(11+offset,1)= IVCOV*AUX   !Aux. variable
+cc        gv%bc_seq(11+offset,2)= VECTOR      !Vector
+cc
+cc        if (itime == 0) then
+cc          gv%bc_seq(12+offset,1) = IVE0CNV*AUX !Aux. variable
+cc          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(13+offset,1) = IVECOV*AUX !Aux. variable
+cc          gv%bc_seq(13+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(14+offset,1) = IENI0*AUX   !Aux. variable
+cc          gv%bc_seq(14+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(15+offset,1) = IENI*AUX !Aux. variable
+cc          gv%bc_seq(15+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(16+offset,1) = IHETA*AUX   !Aux. variable
+cc          gv%bc_seq(16+offset,2) = SCALAR      !Scalar
+cc        else
+cc          gv%bc_seq(12+offset,1) = IVECOV*AUX  !Aux. variable
+cc          gv%bc_seq(12+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(13+offset,1) = IVECNV*AUX  !Aux. variable
+cc          gv%bc_seq(13+offset,2) = VECTOR      !Vector
+cc
+cc          gv%bc_seq(14+offset,1) = IENI*AUX    !Dep. variable
+cc          gv%bc_seq(14+offset,2) = VECTOR      !Vector
+cc        endif
+cc
+cc#else
+cc        gv%bc_seq(1+offset,1) = IRHO        !Dep. Variable
+cc        gv%bc_seq(1+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(2+offset,1) = ITMP        !Dep. variable
+cc        gv%bc_seq(2+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(3+offset,1) = IETA*AUX    !Aux. variable
+cc        gv%bc_seq(3+offset,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_seq(4+offset,1) = IBX         !Dep. variable
+cc        gv%bc_seq(4+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(5+offset,1) = IBCOV*AUX   !Aux. variable
+cc        gv%bc_seq(5+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(6+offset,1) = IJCNV*AUX   !Aux. variable
+cc        gv%bc_seq(6+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(7+offset,1) = IJCOV*AUX   !Aux. variable
+cc        gv%bc_seq(7+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(8+offset,1) = IVX         !Dep. variable
+cc        gv%bc_seq(8+offset,2) = VECTOR      !Vector
+cc
+cc        gv%bc_seq(9+offset,1) = IVCOV*AUX !Aux. variable
+cc        gv%bc_seq(9+offset,2) = VECTOR      !Vector
+cc
+cc        if (itime == 0) then
+cc          gv%bc_seq(10+offset,1) = IVE0CNV*AUX   !Aux. variable
+cc          gv%bc_seq(10+offset,2) = VECTOR        !Vector
+cc
+cc          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
+cc          gv%bc_seq(11+offset,2) = VECTOR        !Vector
+cc
+cc          gv%bc_seq(12+offset,1) = IENI0*AUX     !Aux. variable
+cc          gv%bc_seq(12+offset,2) = VECTOR        !Vector
+cc
+cc          gv%bc_seq(13+offset,1) = IENI*AUX      !Dep. variable
+cc          gv%bc_seq(13+offset,2) = VECTOR        !Vector
+cc          
+cc          gv%bc_seq(14+offset,1) = IHETA*AUX     !Aux. variable
+cc          gv%bc_seq(14+offset,2) = SCALAR        !Scalar
+cc        else
+cc          gv%bc_seq(10+offset,1) = IVECNV*AUX    !Aux. variable
+cc          gv%bc_seq(10+offset,2) = VECTOR        !Vector
+cc
+cc          gv%bc_seq(11+offset,1) = IVECOV*AUX !Aux. variable
+cc          gv%bc_seq(11+offset,2) = VECTOR        !Vector
+cc
+cc          gv%bc_seq(12+offset,1) = IENI*AUX      !Dep. variable
+cc          gv%bc_seq(12+offset,2) = VECTOR        !Vector
+cc        endif
+cc#endif
+cc
+cc      endif
+cc
+ccc     End program
+cc
+cc      end subroutine setBCsched
 
 c     ExB_flow_bc
 c     #################################################################
@@ -257,19 +546,12 @@ c     Begin program
 
       do k=1,nz
         do j=1,ny
-cc          jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-cc     .                +gmetric%grid(igrid)%jac(i+1,j,k))
-cc          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))/jach
           bbcnv =0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
      .               +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
           bbcov =0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .                      ,bcnv(i  ,j,k,:))
      .               +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                      ,bcnv(i+1,j,k,:)))
-
-cc          bbcnv = bcnv(i,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k)
-cc          bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cc     .                  ,bcnv(i,j,k,:))
 
           b2 = dot_product(bbcnv,bbcov)
 
@@ -279,8 +561,8 @@ cc     .                  ,bcnv(i,j,k,:))
               bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
             endif
 
-            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc            etah = 2.0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
             grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
@@ -302,7 +584,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,v0,lag)
+      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,j0,first_order)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -315,14 +597,16 @@ c     Call variables
 
       integer :: igrid,nx,ny,nz
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,eta
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,v0
-      logical :: lag
+      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,j0
+
+      logical,optional :: first_order
 
 c     Local variables
 
       integer :: i,j,k
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha,jach
-     .          ,gsub(3,3),etah
+     .          ,gsub(3,3),ietah
+      logical :: fo
 
 c     Begin program
 
@@ -333,9 +617,16 @@ c     Begin program
         stop
       endif
 
+      if (PRESENT(first_order)) then
+        fo = first_order
+      else
+        fo = .false.
+cc        fo = .true.
+      endif
+
       i = nx
 
-      if (lag) then
+      if (.not.fo) then
         do k=1,nz
           do j=1,ny
 cc            jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
@@ -349,51 +640,43 @@ cc            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))/jach
      .                  +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                         ,bcnv(i+1,j,k,:)))
 
-cc            jach  = gmetric%grid(igrid)%jac(i  ,j,k)
-cc            bbcnv = bcnv(i,j,k,:)/jach
-cc            bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cc     .                    ,bcnv(i,j,k,:))
-
             b2 = dot_product(bbcov,bbcnv)
 
             if (b2 > 0d0) then
-              jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-     .                    +gmetric%grid(igrid)%jac(i+1,j,k))
-
-              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc              etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
               grad_p= grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
-              alpha = dot_product(E0,bbcnv)/etah
+              alpha = dot_product(E0,bbcnv)*ietah
 
-              v0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
+              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
           enddo
         enddo
       else
         do k=1,nz
           do j=1,ny
-cc            bbcnv = bcnv(i,j,k,:)
+cc            jach = gmetric%grid(igrid)%jac(i,j,k)
             jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
      .                  +gmetric%grid(igrid)%jac(i+1,j,k))
-cc            jach = gmetric%grid(igrid)%jac(i,j,k)
             bbcnv = bcnv(i,j,k,:)/jach
-            bbcov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
-     .                    ,bcnv(i  ,j,k,:))
+
+cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
+            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+            bbcov = matmul(gsub,bcnv(i,j,k,:))
 
             b2 = dot_product(bbcov,bbcnv)
-
             if (b2 > 0d0) then
-
-              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-cc              etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
               grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
 
-              alpha = dot_product(E0,bbcnv)/etah
+              alpha = dot_product(E0,bbcnv)*ietah
 
-              v0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
+              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
           enddo
         enddo
@@ -1170,14 +1453,8 @@ c     Begin program
 
                 if (ibc == 1) then
                   gsupavg = 0.5*(gsuper+gsupim)
-
-cc                  J0 = 0.5*(array0(i-1,j,k,:)
-cc     .                     +array0(i  ,j,k,:))
                 elseif (ibc == 2) then
                   gsupavg = 0.5*(gsuper+gsupip)
-
-cc                  J0 = 0.5*(array0(i+1,j,k,:)
-cc     .                     +array0(i  ,j,k,:))
                 endif
 
                 jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
@@ -1202,98 +1479,17 @@ cc     .                     +array0(i  ,j,k,:))
                 !!!!!!!Finite flow at wall!!!!!!!
                 if (pinch_flow) then
 
-cc                  if (.not.lag_pinch_bc) then
-cc
-cc                    if (ibc == 1) then
-cc                     etal = 0.5*
-cc     .                 (res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
-cc     .                 +res(i-1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
-cc
-cc                      B00 = 0.5*(array0(i-1,j,k,:)
-cc     .                          +array0(i  ,j,k,:))
-cc                    elseif (ibc == 2) then
-cc                      etal = 0.5*
-cc     .                 (res(i  ,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc)
-cc     .                 +res(i+1,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc))
-cc
-cc                      B00 = 0.5*(array0(i+1,j,k,:)
-cc     .                          +array0(i  ,j,k,:))
-cc                    endif
-cc
-cc                    J0 = E0/etal   !Applied current at wall
-cc
-cc                    nonlinear = (sum(B00**2) == 0d0)  !If true, we are doing NLF
-cc
-cccc                    write (*,*) 'DIAG -- imposeBC',nonlinear
-cc
-cc                    if (nonlinear) then
-cccc                      if (lag_pinch_bc) then
-cccc                        cnv = bcnv_n(i,j,k,:)   !Use bcov_n here to picard-linearize
-cccc                        cov = matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:)
-cccc     .                              ,cnv)
-cccc                      else
-cc                        cov = array(i,j,k,:)
-cc                        cnv = matmul(gsuper,cov)
-cccc                      endif
-cc                    else
-cccc                      if (lag_pinch_bc) then
-cccc                        cnv = 0d0   !No correction needed when lagged BC is used
-cccc                      else
-cc                        cnv = B00
-cccc                      endif
-cc                     cov=matmul(gmetric%grid(igxbc)%gsub(i,j,k,:,:),cnv)
-cc                    endif
-cc
-cc                    bnorm = dot_product(cov,cnv)
-cc
-cc                    if (bnorm > 0d0) then
-cc                      alp = dot_product(J0,cnv)/bnorm
-cc
-cc                      if (.not.nonlinear) then
-cc                        J0 = J0 - 2*alp*cov  !Correctly linearized current (Bnorm effect)
-cc
-cc                        cov = array(i,j,k,:)
-cc                        cnv = matmul(gsuper,cov)
-cc                      endif
-cc
-cc                      ee = alp*cnv(icomp)
-cc
-cc                      if (.not.nonlinear) then
-cc                        ee = ee + dot_product(J0,cnv)/bnorm*B00(icomp)
-cc                      endif
-cc                    else
-cc                      ee = 0d0
-cc                    endif
-cc
-cc                  else
-cc                    J0 = array0(i+1,j,k,:)
-cc
-cc                    ee = dot_product(gsupavg(icomp,:),J0)
-cc                  endif
-
                   ee = array0(i+1,j,k,icomp)
 
                 !!!!!!!Finite current at wall!!!!!!!
                 else
                   if (ibc == 1) then
-cc                    ee = 0.5
-cc     .                 *(dot_product(gsupim(icomp,:),array0(i-1,j,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i  ,j,k,:)))
-cc                    J0 = 0.5*(array0(i-1,j,k,:)
-cc     .                       +array0(i  ,j,k,:))
                     ee = 0.5*(array0(i-1,j,k,icomp)
      .                       +array0(i  ,j,k,icomp))
                   elseif (ibc == 2) then
-cc                    ee = 0.5
-cc     .                 *(dot_product(gsupip(icomp,:),array0(i+1,j,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i  ,j,k,:)))
-cc                    J0 = 0.5*(array0(i+1,j,k,:)
-cc     .                       +array0(i  ,j,k,:))
                     ee = 0.5*(array0(i+1,j,k,icomp)
      .                       +array0(i  ,j,k,icomp))
                   endif
-
-cc                  ee =  dot_product(gsupavg(icomp,:),J0)
                 endif
 
                 rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
@@ -1303,21 +1499,11 @@ cc                  ee =  dot_product(gsupavg(icomp,:),J0)
                 if (ibc == 3) then
                   gsupavg = 0.5*(gsuper+gsupjm)
 
-cc                  J0 = 0.5*(array0(i,j-1,k,:)
-cc     .                     +array0(i,j  ,k,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupjm(icomp,:),array0(i,j-1,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
                   ee = 0.5*(array0(i,j-1,k,icomp)
      .                     +array0(i,j  ,k,icomp))
                 elseif (ibc == 4) then
                   gsupavg = 0.5*(gsuper+gsupjp)
 
-cc                  J0 = 0.5*(array0(i,j+1,k,:)
-cc     .                     +array0(i,j  ,k,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupjp(icomp,:),array0(i,j+1,k,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
                   ee = 0.5*(array0(i,j+1,k,icomp)
      .                     +array0(i,j  ,k,icomp))
                 endif
@@ -1341,8 +1527,6 @@ cc     .                  +dot_product(gsuper(icomp,:),array0(i,j  ,k,:)))
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
-cc                ee =  dot_product(gsupavg(icomp,:),J0)
-
                 rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
 
               elseif (dim == 3) then
@@ -1350,21 +1534,11 @@ cc                ee =  dot_product(gsupavg(icomp,:),J0)
                 if (ibc == 5) then
                   gsupavg = 0.5*(gsuper+gsupkm)
 
-cc                  J0 = 0.5*(array0(i,j,k-1,:)
-cc     .                     +array0(i,j,k  ,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupkm(icomp,:),array0(i,j,k-1,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
                   ee = 0.5*(array0(i,j,k-1,icomp)
      .                     +array0(i,j,k  ,icomp))
                 elseif (ibc == 6) then
                   gsupavg = 0.5*(gsuper+gsupkp)
 
-cc                  J0 = 0.5*(array0(i,j,k+1,:)
-cc     .                     +array0(i,j,k  ,:))
-cc                  ee = 0.5
-cc     .                 *(dot_product(gsupkp(icomp,:),array0(i,j,k+1,:))
-cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
                   ee = 0.5*(array0(i,j,k+1,icomp)
      .                     +array0(i,j,k  ,icomp))
                 endif
@@ -1387,8 +1561,6 @@ cc     .                  +dot_product(gsuper(icomp,:),array0(i,j,k  ,:)))
      .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
-
-cc                ee =  dot_product(gsupavg(icomp,:),J0)
 
                 rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
 

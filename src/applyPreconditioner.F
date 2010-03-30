@@ -30,7 +30,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,iii,igrid,ntotp,guess
+      integer    :: i,j,k,ieq,ii,iii,igrid,ntotp,guess
      .             ,igx,igy,igz,nx,ny,nz
 
       real(8)    :: xxx(ntot/neqd,neqd),yyy(ntot/neqd,neqd)
@@ -640,6 +640,9 @@ cc        return
           endif
 
           if (pc_divclean) call divClean(iout,ntotp,x(:,IBX:IBZ),igrid)
+cc          if (pc_divclean) then
+cc            call correctBfld(ntotp,igrid,rhs(:,IBX:IBZ),x,iout)
+cc          endif
 
         else
 
@@ -869,8 +872,10 @@ cc     .            ,mg_order_prol = 2
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
+cc     .            ,mg_smooth     = 'gm'
      .            ,mg_vcyc       = mg_vcyc
      .            ,sm_it         = sm_iter_si
+cc     .            ,sm_it         = 100
      .            ,sm_omega      = sm_omega_si
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = mg_line_relax
@@ -1465,8 +1470,6 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use local_BCS_variables, ONLY: bc_order
-
       implicit none
 
 c Call variables
@@ -1478,7 +1481,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,isig,iig,ivar,ip,im,nx,ny,nz
+      integer    :: i,j,k,ii,isig,iig,ivar,ip,im,nx,ny,nz
       real(8)    :: cov(3),cnv(3),idx,idy,idz,dvol,nabla_v(3,3)
      .             ,nabla_vv0(3,3),mul,veclap(3),advc(3),jac
       real(8),allocatable,dimension(:,:,:,:),target :: dj_cnv
@@ -1633,6 +1636,15 @@ cc     .                  -di*(dj_cnv(:,:,:,3)
 cc     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
 cc     .                                      /rho0(:,:,:,1))
 cc     .                     /rho0(:,:,:,1)
+cccc        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+cccc     .                  -di*(dj_cnv(:,:,:,1)
+cccc     .                     /rho0(:,:,:,1))
+cccc        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+cccc     .                  -di*(dj_cnv(:,:,:,2)
+cccc     .                     /rho0(:,:,:,1))
+cccc        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+cccc     .                  -di*(dj_cnv(:,:,:,3)
+cccc     .                     /rho0(:,:,:,1))
 cc      else
         dve_cnv = dv_cnv
 cc      endif
@@ -1784,7 +1796,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,iig,isig,ivar,ip,im
+      integer    :: i,j,k,ii,iig,isig,ivar,ip,im
       real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(ntotp,3)
 
       real(8),allocatable,dimension(:,:,:,:),target :: dp_cnv,drho
@@ -1882,7 +1894,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,iig,isig,ivar,ip,im,nx,ny,nz
+      integer    :: i,j,k,ii,iig,isig,ivar,ip,im,nx,ny,nz
       real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(ntotp,3)
 
       real(8),allocatable,dimension(:,:,:,:),target :: dpe,drho,vdum
@@ -1978,7 +1990,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,iig,isig,ivar,ip,im,guess,nx,ny,nz
+      integer    :: i,j,k,ii,iig,isig,ivar,ip,im,guess,nx,ny,nz
       real(8)    :: nrhs(ntotp,3),dvol,cov(3),cnv(3),idx,idy,idz
      .             ,nabla_vv0(3,3),mul,veclap(3),advc(3)
 
@@ -2047,7 +2059,7 @@ c End program
 
 c correctBfld
 c #########################################################################
-      subroutine correctBfld(ntotp,x,crhs,igrid,iout)
+      subroutine correctBfld(ntotp,igrid,crhs,x,iout)
 c--------------------------------------------------------------------
 c     This subroutine corrects the B-field update with all-new info,
 c     in a divergence-free manner.
@@ -2066,16 +2078,16 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,isig,ivar,nx,ny,nz
-      real(8)    :: dvol
+      integer    :: i,j,k,ii,isig,ivar,nx,ny,nz,bcnd(6,3)
+      real(8)    :: dvol,cov(3),cnv(3)
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
      .                                          ,db_cov
-cc     .                                          ,dv_cnv
-cc     .                                          ,dv_cov
-cc     .                                          ,dv0cnv
      .                                          ,dj_cnv
      .                                          ,dj_cov
+     .                                          ,de_cov
+
+      real(8),pointer,dimension(:,:,:,:) :: v0cnv
 
 c Begin program
 
@@ -2090,11 +2102,9 @@ c Begin program
 
       allocate ( db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3))
+     .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB
 
@@ -2112,37 +2122,37 @@ cc     .                ,arr0=dv0cnv)
 
 c Find dj* from dB*
 
-      !Find contravariant current (without BCs)
-      dj_cnv = 0d0
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            dj_cnv(i,j,k,:)=curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                          ,db_cov)
-cc            do ivar=1,3
-cc              dj_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                                ,db_cov(:,:,:,1)
-cc     .                                ,db_cov(:,:,:,2)
-cc     .                                ,db_cov(:,:,:,3)
-cc     .                                ,ivar)
-cc            enddo
-cc            dj_cnv(i,j,k,:)=curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                              ,db_cov(:,:,:,1)
-cc     .                              ,db_cov(:,:,:,2)
-cc     .                              ,db_cov(:,:,:,3))
+      dj_cnv = curl(nx,ny,nz,igrid,igrid,igrid,db_cov)
+
+      !Find covariant components of dj with BCs
+      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
+     .          ,igrid,igrid,igrid,iorder=bc_order)
+
+c Find dE* (electric field update)
+
+      v0cnv => gv0%grid(igrid)%array
+
+      do k = 0,nz+1
+        do j = 0,ny+1
+          do i = 0,nx+1
+            cov(1) = (v0cnv(i,j,k,2)*db_cnv(i,j,k,3)
+     .               -v0cnv(i,j,k,3)*db_cnv(i,j,k,2))
+     .               /gmetric%grid(igrid)%jac(i,j,k)
+            cov(2) = (v0cnv(i,j,k,3)*db_cnv(i,j,k,1)
+     .               -v0cnv(i,j,k,1)*db_cnv(i,j,k,3))
+     .               /gmetric%grid(igrid)%jac(i,j,k)
+            cov(3) = (v0cnv(i,j,k,1)*db_cnv(i,j,k,2)
+     .               -v0cnv(i,j,k,2)*db_cnv(i,j,k,1))
+     .               /gmetric%grid(igrid)%jac(i,j,k)
+
+            de_cov(i,j,k,:)= -cov
+     .                       +geta%grid(igrid)%array(i,j,k,1)
+     .                       *dj_cov(i,j,k,:)
           enddo
         enddo
       enddo
 
-      !Find covariant components of dj with BCs
-      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=2)
-
-c Find correction (only works without Hall for now)
-
-      dj_cov(:,:,:,1) = eeta*dj_cov(:,:,:,1)
-      dj_cov(:,:,:,2) = eeta*dj_cov(:,:,:,2)
-      dj_cov(:,:,:,3) = eeta*dj_cov(:,:,:,3)
+c Find correction
 
       do k = 1,nz
         do j = 1,ny
@@ -2154,36 +2164,19 @@ c Find correction (only works without Hall for now)
               dvol = 1d0
             endif
             x(ii,IBX:IBZ) = dt/cnp*(crhs(ii,:)/dvol
-cc     .           - curl_bxv(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                     ,dv_cnv,gb0%grid(igrid)%array,0)
-     .           - curl_bxv(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,gv0%grid(igrid)%array,db_cnv,0)
-cc     .           - U_Bv(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                       ,dv_cnv
-cc     .                       ,dv_cov
-cc     .                       ,gb0%grid(igrid)%array,0)
-cc     .           - U_Bv(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                       ,gv0    %grid(igrid)%array
-cc     .                       ,gv0_cov%grid(igrid)%array
-cc     .                       ,db_cnv,0)
-cc     .           -curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                ,dj_cov(:,:,:,1)
-cc     .                ,dj_cov(:,:,:,2)
-cc     .                ,dj_cov(:,:,:,3))
-     .           )
+     .             -alpha*curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,de_cov))
           enddo
         enddo
       enddo
 
+c End program
+
       deallocate(db_cnv
      .          ,db_cov
-cc     .          ,dv_cnv
-cc     .          ,dv_cov
-cc     .          ,dv0cnv
      .          ,dj_cnv
-     .          ,dj_cov)
-
-c End program
+     .          ,dj_cov
+     .          ,de_cov)
 
       end subroutine correctBfld
 
@@ -2208,7 +2201,7 @@ c Call variables
 
 c Local variables
 
-      integer :: ii,nx,ny,nz
+      integer :: i,j,k,ii,nx,ny,nz,ieq
 
       real(8) :: cnv(3),dvol
 
@@ -2288,7 +2281,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,nx,ny,nz
+      integer    :: i,j,k,ii,nx,ny,nz
       real(8)    :: cov(3),cnv(3)
 
 c Begin program
@@ -2327,13 +2320,7 @@ c     potential and the differentiating it. It takes B in cartesian
 c     or curvilinear and returns Bcnv.
 c--------------------------------------------------------------------
 
-      use precond_variables
-
-      use operators
-
-      use imposeBCinterface
-
-      use local_BCS_variables, ONLY: bc_order
+      use B_tools
 
       implicit none
 
@@ -2344,7 +2331,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,ivar,igx,igy,igz,nx,ny,nz,bcs_a(6,3)
+      integer    :: i,j,k,ii,ivar,igx,igy,igz,nx,ny,nz,bcs_a(6,3)
       real(8)    :: dvol,rhs2(ntotdp,3),x(ntotdp,3)
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
      .                                         ,da_cnv,da_cov
@@ -2369,9 +2356,7 @@ c Begin program
       nz = grid_params%nzv(igz)
 
       allocate(db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,da_cov (0:nx+1,0:ny+1,0:nz+1,3))
+     .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB* (w/ BCs)
 
@@ -2379,106 +2364,23 @@ c Find dB* (w/ BCs)
      .              ,bc_order,is_vec=.true.,is_cnv=.true.
      .              ,arr_cov=db_cov)
 
-ccc Find dA* from dB* (w/ ghost cells)
-cc
-cc      call curl_inv(nx,ny,nz,igrid,igrid,igrid,db_cnv,da_cov
-cccc     .             ,bc=.true.)
-cc     .             ,bc=(np == 1))
+c Find dA* from dB* (w/ ghost cells)
 
-c Find dJ=curl(dB)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-            if (vwgt) then
-              dvol = gmetric%grid(igx)%dvol(i,j,k)
-            else
-              dvol = 1d0
-            endif
-
-            rhs2(ii,:)=-dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                      ,db_cov)
-          enddo
-        enddo
-      enddo
-
-c Define BCs for dJ and dA
-
-      bcs_a = bcs(:,IBX:IBZ)
-      where (bcs_a == -NEU) bcs_a = -DIR  !Use covariant components for tangential BCs
-
-c Allocate diagonal matrix
-
-      if (.not.allocated(vlap_diag)) then
-        allocate(vlap_diag(3,3*ntotd2p))
-
-        call find_mf_diag(3,1,3*ntotdp,avlap_mtvc,igx,bcs_a
-     .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
-      endif
-
-c Invert vector laplacian to find dA=-vlap^-1(dJ)
-
-      x = 0d0
-
-      !Solve Poisson equation
-      if (coords == 'car') then
-        call cSolver(3,ntotdp,rhs2,x,bcs_a
-     .            ,igx,iout,1,avlap_mtvc,vwgt
-     .            ,tol           = 1d-3
-     .            ,dg            = vlap_diag
-     .            ,gm_driver     = .true.
-     .            ,mg_order_res  = 0  !To ensure conservation (avoid null space)
-     .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
-     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_vcyc       = mg_vcyc
-     .            ,mg_smooth     = sm_type
-     .            ,sm_omega      = sm_omega
-     .            ,sm_it         = sm_iter
-     .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax
-     .            )
-      else
-        call cSolver(3,ntotdp,rhs2,x,bcs_a
-     .            ,igx,iout,1,avlap_mtvc,vwgt
-     .            ,tol           = 1d-3
-     .            ,dg            = vlap_diag
-     .            ,gm_driver     = .true.
-     .            ,mg_order_res  = mg_ores  !To ensure conservation (avoid null space)
-     .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
-     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_vcyc       = mg_vcyc
-     .            ,mg_smooth     = sm_type
-     .            ,sm_omega      = sm_omega
-     .            ,sm_it         = sm_iter
-     .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax
-     .            )
-      endif
-
-c Find clean dB=curl(dA)
-
-      call fillArray(igx,IAX,3,x,da_cnv,bcs_a,bc_order
-     .              ,is_vec=.true.,is_cnv=.true.,arr_cov=da_cov)
+      call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
+     .                   ,db_cnv,dbcov=db_cov
+cc     .                   ,diag_plots=.true.)
+     .                   )
 
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-            xxx(ii,:)=curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                    ,da_cov)
-
+            xxx(ii,:)=db_cnv(i,j,k,:)
           enddo
         enddo
       enddo
 
-      deallocate(db_cnv,db_cov,da_cnv,da_cov)
+      deallocate(db_cnv,db_cov)
 
 c End program
 
@@ -2507,7 +2409,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: ii,ntot
+      integer    :: ieq,ii,ntot
       real(8)    :: xi(ntotp*neq),bi(ntotp*neq)
 
 c Begin program
