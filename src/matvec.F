@@ -2525,7 +2525,8 @@ cc            cnv = di*curlcurla/rho0(i,j,k,1)
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece: di/rho*div(pe(dj))
-            cnv= EOM_divPe(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dj_cnv)
+            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,dj_cnv)
 
             a_res = a_res + alpha*di/rho0(i,j,k,1)
      .             *matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
@@ -2988,22 +2989,22 @@ cc      if (.true.) then
         j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr,b0_cov)
 
         acnv =
-     .      U_Bv(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
+     .      U_Bv_ijk(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,0)
 
         acnvip =
-     .      U_Bv(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
+     .      U_Bv_ijk(i  ,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
         acnvim =
-     .      U_Bv(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
+     .      U_Bv_ijk(i-1,j,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,1)
 
         acnvjp =
-     .      U_Bv(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
+     .      U_Bv_ijk(i,j  ,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
         acnvjm =
-     .      U_Bv(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
+     .      U_Bv_ijk(i,j-1,k,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,2)
 
         acnvkp =
-     .      U_Bv(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
+     .      U_Bv_ijk(i,j,k  ,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
         acnvkm =
-     .      U_Bv(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
+     .      U_Bv_ijk(i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov,a0_cnv,3)
 
         call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                        ,acovip(1),acovip(2),acovip(3)
@@ -3119,11 +3120,11 @@ c     Begin program
         ijacp = 1d0/jacp
 
         if (flag /= 0) then
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,1)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,1)
         else
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3231,11 +3232,11 @@ c     Begin program
         ijac  = 1d0/jac
 
         if (flag /= 0) then
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,2)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,2)
         else
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3316,11 +3317,11 @@ c     Begin program
         ijac  = 1d0/jac
 
         if (flag /= 0) then
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,3)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,3)
         else
-          acnv =
-     .      U_Bv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov,a0_cnv,0)
+          acnv = U_Bv_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+     .                   ,a0_cnv,0)
         endif
 
 cc        if (precon == 's2') then
@@ -3444,9 +3445,6 @@ c ExB flow BC (if applicable)
 
       v0 = 0d0
 
-cc      if (.not.lag_pinch_bc)
-cc     .     call ExB_flow_bc(igrid,nxx,nyy,nzz,b0_cnv,v0,dbcov=db_cov)
-
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq)
@@ -3458,7 +3456,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-cc      if (di > 0 .or. bcSP()) then
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
@@ -3542,20 +3539,9 @@ cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
               cnv = (psiv + cnv)*vol
             endif
 
-cc            if (si_car) then
-cc              call transformVectorToCartesian
-cc     .              (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3),.false.
-cc     .               ,car(1),car(2),car(3))
-cc
-cc              do ieq=1,3
-cc                y(neq*(ijk-1)+ieq) = car(ieq)
-cc              enddo
-cc            else
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = cnv(ieq)
-              enddo
-cc            endif
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = cnv(ieq)
+            enddo
 
           enddo
         enddo
@@ -3704,13 +3690,25 @@ cc     .            ,arr0=v0)
 
 c Find dE=U_Av(dv) (with BCs)
 
-      do k = kmin-1,kmax+1
-        do j = jmin-1,jmax+1
-          do i = imin-1,imax+1
+cc      do k = kmin,kmax
+cc        do j = jmin,jmax
+cc          do i = imin,imax
 cc            dE_cnv(i,j,k,:) = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:)
 cc     .                              ,U_Av(i,j,k,nxx,nyy,nzz
 cc     .                                   ,igrid,igrid,igrid
 cc     .                                   ,dv,dv_cov,a0_cnv))
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dE_cnv
+cc     .            ,gv%aux%vec_list(IENI)%bconds
+cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=bc_order)
+
+      do k = kmin-1,kmax+1
+        do j = jmin-1,jmax+1
+          do i = imin-1,imax+1
             dE_cnv(i,j,k,:) = cnp/dt*di*dv(i,j,k,:)
           enddo
         enddo
@@ -3761,8 +3759,8 @@ c Calculate matrix-vector product
 
             !Electron viscosity piece *************
 
-            divpe = alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr
-     .                             ,dve_cnv)
+            divpe = alpha
+     .             *EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv)
 
             if (nc_eom_v) then
               psiv = psiv + divpe/rho0(i,j,k,1)
@@ -3794,43 +3792,43 @@ c Calculate matrix-vector product
               v_res = (psiv + cnv)
             endif
 
-cc            !Find dj=-dt*curl(U_Bv.dv)
-cc            cnv = U_Bv(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+            !Find dj=-dt*curl(U_Bv_ijk.dv)
+cc            cnv = U_Bv_ijk(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=1)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
 cc     .                                ,aip(1),aip(2),aip(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
 cc     .                                ,.false.,half_elem=1)
 cc
-cc            cnv = U_Bv(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc            cnv = U_Bv_ijk(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=1)
 cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
 cc     .                                ,aim(1),aim(2),aim(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
 cc     .                                ,.false.,half_elem=1)
 cc
-cc            cnv = U_Bv(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc            cnv = U_Bv_ijk(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=2)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
 cc     .                                ,ajp(1),ajp(2),ajp(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
 cc     .                                ,.false.,half_elem=2)
 cc
-cc            cnv = U_Bv(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc            cnv = U_Bv_ijk(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=2)
 cc            call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
 cc     .                                ,ajm(1),ajm(2),ajm(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
 cc     .                                ,.false.,half_elem=2)
 cc
-cc            cnv = U_Bv(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc            cnv = U_Bv_ijk(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=3)
 cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
 cc     .                                ,akp(1),akp(2),akp(3)
 cc     .                                ,cnv(1),cnv(2),cnv(3)
 cc     .                                ,.false.,half_elem=3)
 cc
-cc            cnv = U_Bv(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
+cc            cnv = U_Bv_ijk(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
 cc     .                ,a0_cnv,he=3)
 cc            call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
 cc     .                                ,akm(1),akm(2),akm(3)

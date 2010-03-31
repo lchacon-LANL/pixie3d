@@ -489,11 +489,11 @@ c     Correct rx to find Deltax (correction for rho, B, T)
 
         !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
         call U_rho_v(nx,ny,nz,dv_cnv       ,rhs(:,IRHO)   ,igrid)
-        call U_T_v  (nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
+        call U_Tv   (nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
 #if !defined(vec_pot)
-        call U_B_v  (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
+        call U_Bv   (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
 #else
-        call U_A_v  (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IAX:IAZ),igrid)
+        call U_Av   (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IAX:IAZ),igrid)
 #endif
 
 c     End program
@@ -1554,22 +1554,7 @@ c Find dA* (w/ BCs)
 
 c Find dB* from dA*
 
-      db_cnv = 0d0
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            db_cnv(i,j,k,:)=curl(i,j,k,nx,ny,nz
-     .                          ,igrid,igrid,igrid,da_cov)
-cc            do ivar=1,3
-cc              db_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                                ,da_cov(:,:,:,1)
-cc     .                                ,da_cov(:,:,:,2)
-cc     .                                ,da_cov(:,:,:,3)
-cc     .                                ,ivar)
-cc            enddo
-          enddo
-        enddo
-      enddo
+      db_cnv = curl(nx,ny,nz,igrid,igrid,igrid,da_cov)
 
       !Find covariant components of dj with BCs
       call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
@@ -1620,34 +1605,34 @@ c Find dp_cnv
 
 c Find electron velocity
 
-cc      if (di > 0d0) then
+      if (di > 0d0.and.(.not.fake_ve)) then
+        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+     .                  -di*(dj_cnv(:,:,:,1)
+     .                      - jcnv0(:,:,:,1)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
+        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+     .                  -di*(dj_cnv(:,:,:,2)
+     .                      - jcnv0(:,:,:,2)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
+        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+     .                  -di*(dj_cnv(:,:,:,3)
+     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
 cc        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
 cc     .                  -di*(dj_cnv(:,:,:,1)
-cc     .                      - jcnv0(:,:,:,1)*drho(:,:,:,1)
-cc     .                                      /rho0(:,:,:,1))
-cc     .                     /rho0(:,:,:,1)
+cc     .                     /rho0(:,:,:,1))
 cc        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
 cc     .                  -di*(dj_cnv(:,:,:,2)
-cc     .                      - jcnv0(:,:,:,2)*drho(:,:,:,1)
-cc     .                                      /rho0(:,:,:,1))
-cc     .                     /rho0(:,:,:,1)
+cc     .                     /rho0(:,:,:,1))
 cc        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
 cc     .                  -di*(dj_cnv(:,:,:,3)
-cc     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
-cc     .                                      /rho0(:,:,:,1))
-cc     .                     /rho0(:,:,:,1)
-cccc        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
-cccc     .                  -di*(dj_cnv(:,:,:,1)
-cccc     .                     /rho0(:,:,:,1))
-cccc        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
-cccc     .                  -di*(dj_cnv(:,:,:,2)
-cccc     .                     /rho0(:,:,:,1))
-cccc        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
-cccc     .                  -di*(dj_cnv(:,:,:,3)
-cccc     .                     /rho0(:,:,:,1))
-cc      else
+cc     .                     /rho0(:,:,:,1))
+      else
         dve_cnv = dv_cnv
-cc      endif
+      endif
 
 c Find rhs_v'
 
@@ -1706,8 +1691,8 @@ c Find rhs_v'
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz') then
-                cnv =cnv
-     .              -EOM_divPe(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
+                cnv =cnv - EOM_divPe_ijk(i,j,k,nx,ny,nz
+     .                                  ,igrid,igrid,igrid,dve_cnv)
               endif
 
               if (nc_eom_v) then
@@ -1737,9 +1722,10 @@ c Find rhs_v'
 
               !Stress tensors
               cnv = cnv
-     .            + EOM_divPi(i,j,k,nx,ny,nz,igrid,igrid,igrid,dv_cnv
-     .                       ,gvis%grid(igrid)%array(:,:,:,1))
-     .            + EOM_divPe(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
+     .            + EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                         ,dv_cnv,gvis%grid(igrid)%array(:,:,:,1))
+     .            + EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                         ,dve_cnv)
 
               if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
             endif
@@ -1947,7 +1933,7 @@ c Find rhs_a
             call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe
      .               ,cov(1),cov(2),cov(3),0,0,0)
 
-            cnv=EOM_divPe(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum)
+            cnv=EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum)
 
             cov = cov + matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
@@ -1957,10 +1943,6 @@ c Find rhs_a
           enddo
         enddo
       enddo
-
-c Transform to cartesian if applicable
-
-cc      if (si_car) call XtoCar(igrid,rhs_a)
 
 c Free memory
 
