@@ -153,17 +153,19 @@ cc        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
 cc        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
       case('tmcar','khcar')
-cc
-cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+
+cc        if (di > 0d0) then
+cc          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+cc        endif
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 
       case('gem')
 
         !Dirichlet boundary conditions for tangential velocity components
-cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -251,20 +253,43 @@ c     Begin program
       end where
       gv%aux%vec_list(IJ0COV)%bconds = gv%aux%vec_list(IJ0CNV)%bconds
 
-      !Electric field
-cc      gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCNV)%bconds
-      gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IBCNV)%bconds
-      where (gv%aux%vec_list(IENI)%bconds == -NEU)
-cc        gv%aux%vec_list(IENI)%bconds =-EQU
-cc        gv%aux%vec_list(IENI)%bconds =-EXT
-        gv%aux%vec_list(IENI)%bconds =-DIR
+      !Pressure tensors (extrapolation)
+      gv%aux%vec_list(IDIVPI)%bconds(:,1) = bcond
+      gv%aux%vec_list(IDIVPI)%bconds(:,2) = bcond
+      gv%aux%vec_list(IDIVPI)%bconds(:,3) = bcond
+      where (gv%aux%vec_list(IDIVPI)%bconds == DEF)
+        gv%aux%vec_list(IENI)%bconds = EXT
       end where
+
+      gv%aux%vec_list(IDIVPE)%bconds = gv%aux%vec_list(IDIVPI)%bconds
+
+      !Electric field
+      gv%aux%vec_list(IENI)%bconds(:,1) = bcond
+      gv%aux%vec_list(IENI)%bconds(:,2) = bcond
+      gv%aux%vec_list(IENI)%bconds(:,3) = bcond
+
+cccc      if (ion_hall) then
+cccc        gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCNV)%bconds
+cccc      else
+cc        gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IBCNV)%bconds
+cc        where (gv%aux%vec_list(IENI)%bconds == -NEU)
+cccc          gv%aux%vec_list(IENI)%bconds =-EQU
+cc          gv%aux%vec_list(IENI)%bconds =-EXT
+cccc          gv%aux%vec_list(IENI)%bconds =-DIR
+cc        end where
+cccc      endif
 
       !Equilibrium electric field
       gv%aux%vec_list(IENI0)%bconds = gv%aux%vec_list(IBCNV)%bconds
       where (gv%aux%vec_list(IENI0)%bconds == -NEU)
         gv%aux%vec_list(IENI0)%bconds =-EXT
       end where
+
+      !Electron velocity
+      gv%aux%vec_list(IVECNV )%bconds = gv%aux%vec_list(IVCNV )%bconds
+      gv%aux%vec_list(IVECOV )%bconds = gv%aux%vec_list(IVECNV)%bconds
+cc      gv%aux%vec_list(IVE0CNV)%bconds = gv%aux%vec_list(IVECNV)%bconds
+      gv%aux%vec_list(IVE0CNV)%bconds = gv%aux%vec_list(IJ0CNV)%bconds
 
 c     End program
 
@@ -541,10 +566,10 @@ cc      enddo
 
         !Impose BCs on group
         do i = 1,gv%bc_grp(igrp)%nbc_seq
-          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variable
+          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variables
             call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
-          elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
+          elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variables
             call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
           endif
@@ -633,32 +658,6 @@ c     Density BCs
 #if defined(vec_pot)
       case(IAX)
 
-c     Vector Pot. BC
-
-        if (bc_inf(2) /= VECTOR) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
-
-c       BC setup
-
-        bcnd(:,1) = varray%array_var(IAX)%bconds
-        bcnd(:,2) = varray%array_var(IAY)%bconds
-        bcnd(:,3) = varray%array_var(IAZ)%bconds
-
-        acov(:,:,:,1) = varray%array_var(IAX)%array
-        acov(:,:,:,2) = varray%array_var(IAY)%array
-        acov(:,:,:,3) = varray%array_var(IAZ)%array
-
-        v0(:,:,:,1) = u_0%array_var(IAX)%array
-        v0(:,:,:,2) = u_0%array_var(IAY)%array
-        v0(:,:,:,3) = u_0%array_var(IAZ)%array
-
-c       Fill ghost nodes
-
-        call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd,iigx,iigy,iigz
-     .            ,is_cnv=.false.,iorder=order)
-
         varray%array_var(IAX)%array = acov(:,:,:,1)
         varray%array_var(IAY)%array = acov(:,:,:,2)
         varray%array_var(IAZ)%array = acov(:,:,:,3)
@@ -666,115 +665,13 @@ c       Fill ghost nodes
 #else
       case(IBX)
 
-        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
-
-        if (adiabatic) then
-          prs = a_p*tmp
-        else
-          prs = a_p*rho*tmp
-        endif
-
-c     Magnetic field BC
-
-        if (bc_inf(2) /= VECTOR) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
-
-c       BC setup
-
-        bcnd(:,1) = varray%array_var(IBX)%bconds
-        bcnd(:,2) = varray%array_var(IBY)%bconds
-        bcnd(:,3) = varray%array_var(IBZ)%bconds
-
-        bcnv(:,:,:,1) = varray%array_var(IBX)%array
-        bcnv(:,:,:,2) = varray%array_var(IBY)%array
-        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
-
-        if (save_Bn) bcnv_n = bcnv  !Save previous time step
-
-        if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-          if (lag_pinch_bc) then
-            call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-          else
-            call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
-     .                     ,first_order=.true.)
-          endif
-        else
-          v0 = jcnv_0         !To fix current at boundary
-        endif
-
-c       Fill ghost nodes
-
-        call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
-     .            ,iorder=order)
-
         varray%array_var(IBX)%array = bcnv(:,:,:,1)
         varray%array_var(IBY)%array = bcnv(:,:,:,2)
         varray%array_var(IBZ)%array = bcnv(:,:,:,3)
-
-cc        if (save_Bn) bcnv_n = bcnv  !Save previous time step
-
-        deallocate(prs)
 #endif
 
       case(IVX)
 
-c     Velocity BC
-
-        if (bc_inf(2) /= VECTOR) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be vector (1)')
-        endif
-
-        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
-
-        if (adiabatic) then
-          prs = a_p*tmp
-        else
-          prs = a_p*rho*tmp
-        endif
-
-c       BC setup
-
-        bcnd(:,1) = varray%array_var(IVX)%bconds
-        bcnd(:,2) = varray%array_var(IVY)%bconds
-        bcnd(:,3) = varray%array_var(IVZ)%bconds
-
-        if (.not.nc_eom_v) then
-          where (varray%array_var(IRHO)%array /= 0d0)
-            vcnv(:,:,:,1) = varray%array_var(IVX )%array
-     .                     /varray%array_var(IRHO)%array
-            vcnv(:,:,:,2) = varray%array_var(IVY )%array
-     .                     /varray%array_var(IRHO)%array
-            vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-     .                     /varray%array_var(IRHO)%array
-          end where
-        else
-          vcnv(:,:,:,1) = varray%array_var(IVX)%array
-          vcnv(:,:,:,2) = varray%array_var(IVY)%array
-          vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-        endif
-
-        if (pinch_flow) then
-          if (lag_pinch_bc) then
-            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-          else
-            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
-          endif
-        else
-          v0(:,:,:,1) = u_0%array_var(IVX)%array
-          v0(:,:,:,2) = u_0%array_var(IVY)%array
-          v0(:,:,:,3) = u_0%array_var(IVZ)%array
-        endif
-
-c       Fill ghost nodes
-
-        call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0,bcnd,iigx,iigy,iigz
-     .            ,iorder=order)
-
-c       Postprocessing
-
         if (.not.nc_eom_v) then
           varray%array_var(IVX)%array = vcnv(:,:,:,1)
      .                                 *varray%array_var(IRHO)%array
@@ -787,8 +684,6 @@ c       Postprocessing
           varray%array_var(IVY)%array = vcnv(:,:,:,2)
           varray%array_var(IVZ)%array = vcnv(:,:,:,3)
         endif
-
-        deallocate(prs)
 
       case(ITMP)
 
@@ -1488,9 +1383,68 @@ c       Current BC
 
           if (save_tn .and. ion_hall) vcov_n = vcov
 
+        case(IVCNV)
+
+c       Velocity BC
+
+          if (bc_inf(2) /= VECTOR) then
+            call pstop('applyDepVarBC'
+     .                ,'Inconsistent qty def: should be vector (1)')
+          endif
+
+c         BC setup
+
+          bcnd(:,1) = varray%array_var(IVX)%bconds
+          bcnd(:,2) = varray%array_var(IVY)%bconds
+          bcnd(:,3) = varray%array_var(IVZ)%bconds
+
+          if (pinch_flow) then
+
+            if (lag_pinch_bc) then
+              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+            else
+              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
+            endif
+
+          else
+            v0(:,:,:,1) = u_0%array_var(IVX)%array
+            v0(:,:,:,2) = u_0%array_var(IVY)%array
+            v0(:,:,:,3) = u_0%array_var(IVZ)%array
+          endif
+
+c         Fill ghost nodes
+
+          call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0,bcnd,iigx,iigy,iigz
+     .              ,iorder=order)
+
         case(IBCOV)
 
 #if defined(vec_pot)
+
+        case(IACOV)
+
+c       Vector Pot. BC
+
+          if (bc_inf(2) /= VECTOR) then
+            call pstop('applyDepVarBC'
+     .                ,'Inconsistent qty def: should be vector (1)')
+          endif
+
+c         BC setup
+
+          bcnd(:,1) = varray%array_var(IAX)%bconds
+          bcnd(:,2) = varray%array_var(IAY)%bconds
+          bcnd(:,3) = varray%array_var(IAZ)%bconds
+
+          v0(:,:,:,1) = u_0%array_var(IAX)%array
+          v0(:,:,:,2) = u_0%array_var(IAY)%array
+          v0(:,:,:,3) = u_0%array_var(IAZ)%array
+
+c         Fill ghost nodes
+
+          call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd,iigx,iigy,iigz
+     .              ,is_cnv=.false.,iorder=order)
+
         case(IACNV)
 
         case(IBCNV)
@@ -1510,20 +1464,50 @@ c       Current BC
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
      .              ,iigx,iigy,iigz,iorder=order)
+#else
+        case(IBCNV)
+
+c       Magnetic field BC
+
+          if (bc_inf(2) /= VECTOR) then
+            call pstop('applyDepVarBC'
+     .              ,'Inconsistent qty def: should be vector (1)')
+          endif
+
+          bcnd(:,1) = varray%array_var(IBX)%bconds
+          bcnd(:,2) = varray%array_var(IBY)%bconds
+          bcnd(:,3) = varray%array_var(IBZ)%bconds
+
+          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+
+            if (lag_pinch_bc) then
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+            else
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                       ,first_order=.true.)
+            endif
+
+          else
+            v0 = jcnv_0         !To fix current at boundary
+          endif
+
+c       Fill ghost nodes
+
+        call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
+     .            ,iorder=order)
+
 #endif
+        case(IBCNV_N)
 
         case(IVE0CNV)
 
 c       Electron velocity BC
 
-          if (di > 0d0) then
-c           ----------------------------------------------------
-            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
-            bcnd = vaux%vec_list(IJ0CNV)%bconds !J BCs (extrapolation)
+          if (di > 0d0 .and. fake_ve) then
+            bcnd = vaux%vec_list(IVE0CNV)%bconds
 
-            call setBC(IJX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
+            call setBC(IVX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order)
-c           ----------------------------------------------------
           endif
 
         case(IVECOV_N)
@@ -1536,17 +1520,38 @@ c           ----------------------------------------------------
 
 c       Electron velocity BC
 
-          if (di > 0d0) then
-c           ----------------------------------------------------
-            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
+          if (di > 0d0 .and. fake_ve) then
+            !ve=v-di*j/rho with j~curl(curl(-di*v)) for div_pe(ve)
             v0 = vecnv_0
 
-            bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
-
-            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
+cc            bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
+cc            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
+            bcnd = vaux%vec_list(IVECNV)%bconds
+            call setBC(IVX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order)
-c           ----------------------------------------------------
           endif
+
+        case(IDIVPI)
+
+#if !defined(vec_pot)
+          if (di > 0d0.and.ion_hall) then
+            bcnd = vaux%vec_list(IDIVPI)%bconds !A BCs with extrapolation
+
+            call setBC(IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
+     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.true.)
+          endif
+#endif
+
+        case(IDIVPE)
+
+#if !defined(vec_pot)
+          if (di > 0d0.and.(.not.ion_hall)) then
+            bcnd = vaux%vec_list(IDIVPE)%bconds !A BCs with extrapolation
+
+            call setBC(IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
+     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.true.)
+          endif
+#endif
 
         case(IENI0)
 
@@ -1556,7 +1561,7 @@ c       Electric field BC (time=0)
           if (di > 0d0) then
             bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
 
-            call setBC(IAX,3,nnx,nny,nnz,v0,E_ni_0,vdum,bcnd
+            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni_0,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
           endif
 #endif
@@ -1587,7 +1592,6 @@ c       Electric field BC
             call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
 cc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
      .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-cc     .              ,iigx,iigy,iigz,iorder=2,is_cnv=.false.)
           endif
 #endif
 
@@ -1687,6 +1691,9 @@ c       Resistivity and viscosity (needed for BCs; may depend on T)
 c       Find hyperresistivity (e viscosity)
 
           if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
+
+            rho => varray%array_var(IRHO)%array
+
             do k=1,nnz
               do j=1,nny
                 do i=1,nnx
@@ -1709,7 +1716,6 @@ c       Find hyperresistivity (e viscosity)
      .                              ,bcnv(i,j,k,2)
      .                              ,bcnv(i,j,k,3)
      .                              ,.false.)
-cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
 
                   if (bnorm > 0d0) then
                     k_par=scalarProduct(i,j,k,iigx,iigy,iigz,idx,idy,idz
@@ -1717,13 +1723,14 @@ cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k),.false.)
      .                                 ,bcnv(i,j,k,2)
      .                                 ,bcnv(i,j,k,3))**2/bnorm
                     k_par = sqrt(k_par)
-cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))/bnorm
                   else
                     k_par=0d0
                   endif
 
-                  heta = heta + 0.1*di/kk/k_par
-     .                             *gmetric%grid(iigx)%dvol(i,j,k)
+cc                  heta = heta + 0.1*di*sqrt(bnorm)/k2
+                  heta = heta
+     .                 + 0.1*di*bnorm/sqrt(rho(i,j,k))*k_par/kk**3
+     .                         *gmetric%grid(iigx)%dvol(i,j,k)
                   vol  = vol + gmetric%grid(iigx)%dvol(i,j,k)
 
                 enddo
@@ -1745,6 +1752,9 @@ cc     .                          ,bx(i,j,k),by(i,j,k),bz(i,j,k))/bnorm
 #endif
 
             heta = heta/vol/di**2
+
+            write (*,*) 'DIAG -- preprocAux'
+            heta = 0d0
 
             if (my_rank == 0) write (*,*) 'Hyperresistivity=',heta
 
@@ -1882,6 +1892,23 @@ c           Find J0
             enddo
           enddo
 
+        case(IVCNV)
+
+          if (.not.nc_eom_v) then
+            where (varray%array_var(IRHO)%array /= 0d0)
+              vcnv(:,:,:,1) = varray%array_var(IVX )%array
+     .                       /varray%array_var(IRHO)%array
+              vcnv(:,:,:,2) = varray%array_var(IVY )%array
+     .                       /varray%array_var(IRHO)%array
+              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
+     .                       /varray%array_var(IRHO)%array
+            end where
+          else
+            vcnv(:,:,:,1) = varray%array_var(IVX)%array
+            vcnv(:,:,:,2) = varray%array_var(IVY)%array
+            vcnv(:,:,:,3) = varray%array_var(IVZ)%array
+          endif
+
         case(IBCOV)
 
           do k = 1,nnz
@@ -1894,7 +1921,14 @@ c           Find J0
           enddo
 
 #if defined(vec_pot)
-       case(IACNV)
+
+        case(IACOV)
+
+          acov(:,:,:,1) = varray%array_var(IAX)%array
+          acov(:,:,:,2) = varray%array_var(IAY)%array
+          acov(:,:,:,3) = varray%array_var(IAZ)%array
+
+        case(IACNV)
 
           do k = 1,nnz
             do j = 1,nny
@@ -1917,7 +1951,18 @@ c       Magnetic field BC (with fixed current at boundary)
               enddo
             enddo
           enddo
+
+#else
+        case(IBCNV)
+
+          bcnv(:,:,:,1) = varray%array_var(IBX)%array
+          bcnv(:,:,:,2) = varray%array_var(IBY)%array
+          bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+
 #endif
+        case(IBCNV_N)
+
+          if (save_Bn) bcnv_n = bcnv !Save previous time step
 
         case(IVECOV_N)
 
@@ -1937,35 +1982,43 @@ c       Electron velocity BC
 
           !Electron velocity piece
           if (di > 0d0) then
-c           ----------------------------------------------------
-            !Uncomment this to have j~curl(curl(-di*v)) for div_pe(ve)
-            do k=1,nnz
-              do j=1,nny
-                do i=1,nnx
-                  vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
-     .                                  ,iigx,iigy,iigz,vcnv
-     .                                  ,vol=.false.)
-cc                  vecnv(i,j,k,:) = di*veclaplacian(i,j,k,nnx,nny,nnz
-cc     .                                  ,iigx,iigy,iigz,vcnv
-cc     .                                  ,vol=.false.)
+            if (fake_ve) then
+              !ve=v-di*j/rho with j~curl(curl(-di*v)) for div_pe(ve)
+              do k=1,nnz
+                do j=1,nny
+                  do i=1,nnx
+                    vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
+     .                                           ,iigx,iigy,iigz,vcnv
+     .                                           ,vol=.false.)
+                  enddo
                 enddo
               enddo
-            enddo
-
-c           ----------------------------------------------------
-            !Uncomment this to have ve=v-di*j/rho for div_pe(ve)
-cc            vecnv = jcnv
-c           ----------------------------------------------------
+            else
+            !ve=v-di*j/rho for div_pe(ve)
+              vecnv = jcnv
+            endif
 
             vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*vecnv(:,:,:,1)/rho
             vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*vecnv(:,:,:,2)/rho
             vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
-
           else
             vecnv = vcnv
           endif
 
           if (abs(bc_inf(1)) == IVE0CNV) vecnv_0 = vecnv
+
+        case(IDIVPI)
+
+          !Divergence of ion stress tensor
+          if (nu > 0d0) then
+            div_pi = EOM_divPi(nnx,nny,nnz,iigx,iigy,iigz,vcnv,nuu)
+          else
+            div_pi = 0d0
+          endif
+
+        case(IDIVPE)
+
+          div_pe = EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv-vecnv_0)
 
         case(IENI0)
 
@@ -1982,6 +2035,9 @@ c       Electric field BC
           call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni)
 
         case default
+
+          write (*,*) abs(bc_inf(1))
+
           call pstop('preproc_AuxVar'
      .              ,'Vector auxiliary variable does not exist')
 
