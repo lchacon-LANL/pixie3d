@@ -102,7 +102,11 @@ cc            advective = 'PBRKCT'
      .               ,numerical_grid,advective,ts
 
           write (*,*) 
-          write (*,100)
+          if (cnfactor == 1d0) then
+            write (*,105)
+          else
+            write (*,100)
+          endif
 
           if (restart) write (*,110) itime,time,dt,vmax
 
@@ -113,7 +117,11 @@ cc            advective = 'PBRKCT'
             write (*,100)
           endif
 
-          write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+          if (cnfactor == 1d0) then
+            write(*,115) itime,time,dt,vmax
+          else
+            write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+          endif
 
         endif
 
@@ -133,9 +141,11 @@ c End program
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
      .        '  GMRES  Newton  CN factor')
+ 105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
 
 cc#if defined(RFX)
  110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3)
+ 115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
 cc#else
 cc 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
 cc#endif
