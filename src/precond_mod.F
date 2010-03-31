@@ -26,18 +26,16 @@ c ######################################################################
 
         use mg_solver
 
-        use nlfunction_setup, ONLY: EOM_advc,EOM_divPi,EOM_divPe
+        use nlfunction_setup, ONLY: EOM_advc,EOM_divPi_ijk
+     .                             ,EOM_divPe_ijk,fake_ve
 
         use local_BCS_variables, ONLY: bc_order
 
-cc        integer :: i,j,k,ig,jg,kg,ieq,ntotd2p
         integer :: ntotd2p
         real(8) :: x1,y1,z1
         logical :: cartsn,covariant,to_cartsn,to_cnv
 
         !PC storage
-cc        real(8), allocatable, dimension(:,:,:,:):: p0
-
         real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
      .                                            ,v_diag,v_diag_hyp
      .                                            ,v_diag2
@@ -66,7 +64,6 @@ cc        real(8), allocatable, dimension(:,:,:,:):: p0
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
 #else
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-
 #endif
 
       contains
@@ -1129,8 +1126,9 @@ c     Begin program
 
         !Diffusion
         if (nu > 0d0) then
-          psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
-     .                              ,gvis%grid(igr)%array(:,:,:,1))
+          psiv = psiv
+     .         +alpha*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
+     .                             ,gvis%grid(igr)%array(:,:,:,1))
      .                     /rho0(i,j,k,1)
         endif
       else
@@ -1144,19 +1142,18 @@ c     Begin program
 
         !Diffusion
         if (nu > 0d0) then
-          psiv = psiv +alpha*EOM_divPi(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
-     .                              ,gvis%grid(igr)%array(:,:,:,1))
-cc     .                +alpha*EOM_divPe(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv)
-
+          psiv = psiv
+     .         +alpha*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dv
+     .                             ,gvis%grid(igr)%array(:,:,:,1))
         endif
       endif
 
       end function D_v
 
-c     U_Av
+c     U_Av_ijk
 c     ###################################################################
-      function U_Av(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,b0,he,stress)
-     .              result(uav)
+      function U_Av_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,b0,he
+     .                 ,stress) result(uav)
 
 c     -------------------------------------------------------------------
 c     Finds covariant components (a1,a2,a3) of vector
@@ -1333,7 +1330,7 @@ cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
 cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
 cc              case default
                 if (nu > 0d0) then
-                  cnv = EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+                  cnv = EOM_divPi_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
      .                         ,gvis%grid(igx)%array)
      .               /grho0%grid(igx)%array(i,j,k,1)
                 else
@@ -1422,7 +1419,7 @@ cc     .               /grho0%grid(igx)%array(i,j,k ,1)
             endif
 
             if (str .and. half_elem == 0) then
-              cnv =-EOM_divPe(i,j,k,nx,ny,nz,igx,igy,igz,vv)
+              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
      .                      /grho0%grid(igx)%array(i,j,k,1)
             else
               cnv = 0d0
@@ -1443,7 +1440,7 @@ cc     .               /grho0%grid(igx)%array(i,j,k ,1)
 
 c     End program
 
-      end function U_Av
+      end function U_Av_ijk
 
 ccc     U_Bv
 ccc     ###################################################################
@@ -1520,9 +1517,9 @@ ccc     End program
 cc
 cc      end function U_Bv
 
-c     U_Bv
+c     U_Bv_ijk
 c     ###################################################################
-      function U_Bv(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he)
+      function U_Bv_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
@@ -1571,47 +1568,47 @@ c     Begin program
         case(1)
           idhx = one/grid_params%dx(ig)
 
-          aip = U_Av(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          aim = U_Av(i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          aim = U_Av_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
 
-          ajp = U_Av(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
           
-          akp = U_Av(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
 
         case(2)
           idhy = one/grid_params%dy(jg)
 
-          aip = U_Av(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
 
-          ajp = U_Av(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          ajm = U_Av(i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          ajm = U_Av_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
           
-          akp = U_Av(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
 
         case(3)
           idhz = one/grid_params%dz(kg)
 
-          aip = U_Av(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
 
-          ajp = U_Av(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
           
-          akp = U_Av(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          akm = U_Av(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
         case default
-          aip = U_Av(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
 
-          ajp = U_Av(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
           
-          akp = U_Av(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
         end select
 
         cnv(1) = (ajp(3)-ajm(3))*idhy
@@ -1625,7 +1622,7 @@ c     Begin program
 
 c     End program
 
-      end function U_Bv
+      end function U_Bv_ijk
 
 c     U_rho_v
 c     ###################################################################
@@ -1668,9 +1665,9 @@ c     End program
 
       end subroutine U_rho_v
 
-c     U_T_v
+c     U_Tv
 c     ####################################################################
-      subroutine U_T_v(nx,ny,nz,dv_cnv,crhs,igrid)
+      subroutine U_Tv(nx,ny,nz,dv_cnv,crhs,igrid)
 c     --------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the temperature
 c     solve.
@@ -1746,11 +1743,11 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
 
 c     End program
 
-      end subroutine U_T_v
+      end subroutine U_Tv
 
-c     U_B_v
+c     U_Bv
 c     ###################################################################
-      subroutine U_B_v(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
+      subroutine U_Bv(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
 c     -------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the magnetic field
 c     solve: div(dv B0 - B0 dv)
@@ -1774,7 +1771,7 @@ c     Begin program
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            crhs(ii,:) = U_Bv(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            crhs(ii,:) = U_Bv_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                       ,dv_cnv,dv_cov
      .                       ,ga0%grid(igrid)%array,0)
           enddo
@@ -1783,11 +1780,11 @@ c     Begin program
 
 c     End program
 
-      end subroutine U_B_v
+      end subroutine U_Bv
 
-c     U_A_v
+c     U_Av
 c     ###################################################################
-      subroutine U_A_v(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
+      subroutine U_Av(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
 c     --------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the vector potential
 c     solve: U_Av(dv)
@@ -1815,7 +1812,7 @@ c     Begin program
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            crhs(ii,:) = U_Av(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                       ,dv_cnv,dv_cov,ga0%grid(igrid)%array
      .                       ,stress=.true.)
           enddo
@@ -1824,7 +1821,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine U_A_v
+      end subroutine U_Av
 
 c     diagonalScaling
 c     #####################################################################

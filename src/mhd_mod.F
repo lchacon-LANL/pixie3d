@@ -9326,7 +9326,7 @@ c ######################################################################
 
         real(8) :: max_dv_dt
 
-        logical :: bootstrap=.false.,ion_hall=.false.
+        logical :: bootstrap=.false.,ion_hall=.false.,fake_ve=.true.
 
       contains
 
@@ -9415,9 +9415,9 @@ cc        enddo
 
       end function EOM_advc
 
-c     EOM_divPi
+c     EOM_divPi_ijk
 c     #####################################################################
-      function EOM_divPi(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
+      function EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
      .         result(cnv)
 
 c     ---------------------------------------------------------------------
@@ -9449,11 +9449,48 @@ c     Begin program
 
 c     End program
 
+      end function EOM_divPi_ijk
+
+c     EOM_divPi
+c     #####################################################################
+      function EOM_divPi(nxx,nyy,nzz,igx,igy,igz,v0,diff) result(cnv)
+
+c     ---------------------------------------------------------------------
+c     Find divergence of electron pressure stress tensor. Returns
+c     contravariant components.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nxx,nyy,nzz,igx,igy,igz
+      real(8) :: cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target :: v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+
+c     Local variables
+
+      integer :: i,j,k
+
+c     Begin program
+
+      do k=1,nzz
+        do j=1,nyy
+          do i=1,nxx
+            cnv(i,j,k,:) = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                                  ,v0,diff)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
       end function EOM_divPi
 
-c     EOM_divPe
+c     EOM_divPe_ijk
 c     #####################################################################
-      function EOM_divPe(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0)
+      function EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0)
      .         result(cnv)
 
 c     ---------------------------------------------------------------------
@@ -9472,14 +9509,51 @@ cc      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
 
 c     Local variables
 
+c     Begin program
+
+      cnv = heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,ones)
+
+c     End program
+
+      end function EOM_divPe_ijk
+
+c     EOM_divPe
+c     #####################################################################
+      function EOM_divPe(nxx,nyy,nzz,igx,igy,igz,v0) result(cnv)
+
+c     ---------------------------------------------------------------------
+c     Find divergence of electron pressure stress tensor. Returns
+c     contravariant components.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nxx,nyy,nzz,igx,igy,igz
+      real(8) :: cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      real(8),target :: v0(0:nxx+1,0:nyy+1,0:nzz+1,3)
+cc      real(8),target,optional :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+
+c     Local variables
+
+      integer :: i,j,k
+
+c     Begin program
+
       if (heta  == 0d0) then
         cnv = 0d0
         return
       endif
 
-c     Begin program
-
-      cnv = heta*EOM_divPi(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,ones)
+      do k=1,nzz
+        do j=1,nyy
+          do i=1,nxx
+            cnv(i,j,k,:) = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                                  ,v0)
+          enddo
+        enddo
+      enddo
 
 c     End program
 
@@ -9529,31 +9603,6 @@ c     Find required auxiliary quantities
       else
         bcnv_star = bcnv
       endif
-
-      !Divergence of ion stress tensor
-      if (nu > 0d0) then
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-              div_pi(i,j,k,:)
-     .           =EOM_divPi(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,nuu)
-            enddo
-          enddo
-        enddo
-      else
-        div_pi = 0d0
-      endif
-
-      !Divergence of electron stress tensor
-      vdummy = vecnv - vecnv_0
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-            div_pe(i,j,k,:)
-     .           =EOM_divPe(i,j,k,nx,ny,nz,igx,igy,igz,vdummy)
-          enddo
-        enddo
-      enddo
 
 c     Initialize with imposed (curl-free) electric field
 
@@ -9837,63 +9886,63 @@ c     End program
 
       end function vis
 
-c     hres
-c     ###############################################################
-      function hres(nx,ny,nz,igx,igy,igz)
-c     ---------------------------------------------------------------
-c     Finds hyper-resistivity coefficient (global on the grid)
-c     ---------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8)    :: hres
-      integer    :: nx,ny,nz,igx,igy,igz
-
-c     Local variables
-
-      real(8)    :: kk,norm,idx,idy,idz
-      integer    :: ig,jg,kg,i,j,k
-
-c     Begin program
-
-      kk = 0d0
-
-cc      do k=1,nz
-cc        do j=1,ny
-cc          do i=1,nx
+ccc     hres
+ccc     ###############################################################
+cc      function hres(nx,ny,nz,igx,igy,igz)
+ccc     ---------------------------------------------------------------
+ccc     Finds hyper-resistivity coefficient (global on the grid)
+ccc     ---------------------------------------------------------------
 cc
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc      implicit none
 cc
-cc            !Maximum kk
-cc            idx  = 1./grid_params%dx(ig)
-cc            if (nx == 1) idx = 1d-2
-cc            idy  = 1./grid_params%dy(jg)
-cc            if (ny == 1) idy = 1d-2
-cc            idz  = 1./grid_params%dz(kg)
-cc            if (nz == 1) idz = 1d-2
+ccc     Call variables
 cc
-cc            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
-cc            kk   = max(kk,norm)
+cc      real(8)    :: hres
+cc      integer    :: nx,ny,nz,igx,igy,igz
 cc
-cc          enddo
-cc        enddo
-cc      enddo
+ccc     Local variables
 cc
-cc      idx = grid_params%nxgl(igx)/(xmax-xmin)
-cc      idy = grid_params%nxgl(igy)/(ymax-ymin)
-cc      idz = grid_params%nxgl(igz)/(zmax-zmin)
+cc      real(8)    :: kk,norm,idx,idy,idz
+cc      integer    :: ig,jg,kg,i,j,k
 cc
-cc      kk = (idx**2 + idy**2 + idz**2)
+ccc     Begin program
 cc
-cc      hres = .05*di/kk
-cc      hres = di/kk
-      hres = c_hyper
-
-c     End
-
-      end function hres
+cc      kk = 0d0
+cc
+cccc      do k=1,nz
+cccc        do j=1,ny
+cccc          do i=1,nx
+cccc
+cccc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cccc
+cccc            !Maximum kk
+cccc            idx  = 1./grid_params%dx(ig)
+cccc            if (nx == 1) idx = 1d-2
+cccc            idy  = 1./grid_params%dy(jg)
+cccc            if (ny == 1) idy = 1d-2
+cccc            idz  = 1./grid_params%dz(kg)
+cccc            if (nz == 1) idz = 1d-2
+cccc
+cccc            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+cccc            kk   = max(kk,norm)
+cccc
+cccc          enddo
+cccc        enddo
+cccc      enddo
+cccc
+cccc      idx = grid_params%nxgl(igx)/(xmax-xmin)
+cccc      idy = grid_params%nxgl(igy)/(ymax-ymin)
+cccc      idz = grid_params%nxgl(igz)/(zmax-zmin)
+cccc
+cccc      kk = (idx**2 + idy**2 + idz**2)
+cccc
+cccc      hres = .05*di/kk
+cccc      hres = di/kk
+cc      hres = c_hyper
+cc
+ccc     End
+cc
+cc      end function hres
 
       end module nlfunction_setup
 
