@@ -274,7 +274,7 @@ c     End program
 
 c applybc
 c######################################################################
-      subroutine applybc(i,patch_var, it)
+      subroutine applybc(igrp,patch_var, it)
 
 c----------------------------------------------------------------------
 c     Applies the boundary conditions for SAMRAI
@@ -292,13 +292,13 @@ c----------------------------------------------------------------------
 
 c Call variables
 
-      integer :: i,obc, it
+      integer :: igrp,obc, it
       type(patch), TARGET :: patch_var
 
 c Local variables
 
       integer :: order
-
+      integer :: i
       type(var_array),pointer :: varray
       type(aux_array),pointer :: vaux
 
@@ -354,17 +354,92 @@ c Set application BCs (see imposeBC_mod.F)
 
 c Set boundary conditions
 
-      if (gv%bc_seq(i+1,1)*AUX < 0) then     !Process dep. variable
-        call applyDepVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
-     .                    ,order=order)
-      elseif (gv%bc_seq(i+1,1)*AUX > 0) then !Process aux. variable
-        call applyAuxVarBC(gv%bc_seq(i+1,:),varray,vaux,1,1,1
-     .                    ,order=order)
-      endif
+c$$$      do igrp = 1,gv%nbc_grp
+c$$$        !Fill auxiliary quantities
+c$$$        do i = 1,gv%bc_grp(igrp)%nbc_seq
+c$$$          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
+c$$$            call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
+c$$$     .                         ,gv%aux,iigx,iigy,iigz,order=order)
+c$$$          endif
+c$$$        enddo
+c$$$
+        !Impose BCs on group
+        do i = 1,gv%bc_grp(igrp)%nbc_seq
+          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variable
+             call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,vaux, 
+     .       1,1,1,order=order)
+          elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
+             call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,vaux,
+     .       1,1,1,order=order)
+          endif
+        enddo
 
 c End program
 
       end subroutine applybc
+
+c####################################################
+c     fills aux var array
+      subroutine initializeAuxVar(patch_var, igrp)
+
+      use local_BCS_variables
+cc      use imposeBCinterface
+cc      use auxiliaryVariables
+      use parameters
+      use grid
+      use variable_setup
+c diag ****
+cc      use app_iosetup
+
+      implicit none
+
+      type(patch), TARGET :: patch_var
+      integer:: igrp,i
+      integer :: order
+
+      type(var_array),pointer :: varray
+      type(aux_array),pointer :: vaux
+
+      INTERFACE
+      subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+               use local_BCS_variables
+               use imposeBCinterface
+               use auxiliaryVariables
+               use variable_setup
+c diag ****
+               use app_iosetup
+c diag ****
+               implicit none
+               
+               integer    :: iigx,iigy,iigz,bc_inf(2)             
+               type(var_array),pointer :: varray
+               type(aux_array),pointer :: vaux               
+               integer,optional :: order
+
+       end subroutine preproc_AuxVar
+      END INTERFACE
+
+      gv => patch_var
+      grid_params => gv%gparams
+      gmetric => gv%gparams%gmetric
+      call setVectorDimensions
+
+      varray => gv%u_n
+      vaux   => gv%aux
+      u_0    => gv%u_0
+
+c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
+
+      order = bc_order
+
+      do i = 1,gv%bc_grp(igrp)%nbc_seq
+         if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
+            call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .           ,vaux,1,1,1,order=order)
+         endif
+      enddo
+      
+      end subroutine initializeAuxVar
 
 #else
 
