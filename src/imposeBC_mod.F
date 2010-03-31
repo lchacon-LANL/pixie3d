@@ -16,7 +16,8 @@ c####################################################################
 
         use equilibrium
 
-        use nlfunction_setup, ONLY: res,vis,find_E,ion_hall
+        use nlfunction_setup, ONLY: res,vis,find_E,ion_hall,fake_ve
+     .                             ,EOM_divPi,EOM_divPe
 
         logical :: pinch_flow=.false.,lag_pinch_bc=.false.
      .            ,save_Bn=.false.,save_tn=.false.
@@ -67,9 +68,9 @@ c     Select offset based on whether we are at the beginning of calculation
         offset = 1
 
 #if defined(vec_pot)
-        gv%nbc_grp = 11+offset
-#else
         gv%nbc_grp = 10+offset
+#else
+        gv%nbc_grp = 9 +offset
 #endif
 
       elseif (itime > 0) then
@@ -101,37 +102,35 @@ c     Setup schedule
 #if defined(vec_pot)
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 2
-        gv%bc_grp(3+offset)%nbc_seq = 2
-        gv%bc_grp(4+offset)%nbc_seq = 2
+        gv%bc_grp(3+offset)%nbc_seq = 3
+        gv%bc_grp(4+offset)%nbc_seq = 3
         gv%bc_grp(5+offset)%nbc_seq = 2
-        gv%bc_grp(6+offset)%nbc_seq = 3
+        gv%bc_grp(6+offset)%nbc_seq = 4
         if (itime == 0) then
           gv%bc_grp(7+offset)%nbc_seq = 1
           gv%bc_grp(8+offset)%nbc_seq = 2
-          gv%bc_grp(9+offset)%nbc_seq = 1
+          gv%bc_grp(9+offset)%nbc_seq = 4
           gv%bc_grp(10+offset)%nbc_seq = 1
-          gv%bc_grp(11+offset)%nbc_seq = 1
         else
           gv%bc_grp(7+offset)%nbc_seq = 2
           gv%bc_grp(8+offset)%nbc_seq = 1
-          gv%bc_grp(9+offset)%nbc_seq = 1
+          gv%bc_grp(9+offset)%nbc_seq = 3
         endif
 #else
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 2
-        gv%bc_grp(3+offset)%nbc_seq = 2
+        gv%bc_grp(3+offset)%nbc_seq = 4
         gv%bc_grp(4+offset)%nbc_seq = 2
-        gv%bc_grp(5+offset)%nbc_seq = 3
+        gv%bc_grp(5+offset)%nbc_seq = 4
         if (itime == 0) then
           gv%bc_grp(6+offset)%nbc_seq = 1
           gv%bc_grp(7+offset)%nbc_seq = 2
-          gv%bc_grp(8+offset)%nbc_seq = 1
+          gv%bc_grp(8+offset)%nbc_seq = 4
           gv%bc_grp(9+offset)%nbc_seq = 1
-          gv%bc_grp(10+offset)%nbc_seq = 1
         else
           gv%bc_grp(6+offset)%nbc_seq = 2
           gv%bc_grp(7+offset)%nbc_seq = 1
-          gv%bc_grp(8+offset)%nbc_seq = 1
+          gv%bc_grp(8+offset)%nbc_seq = 3
         endif
 #endif
 
@@ -167,18 +166,24 @@ c     Setup schedule
         gv%bc_grp(2+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
         !Group 3
-        gv%bc_grp(3+offset)%bc_seq(1,1) = IAX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IACNV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(3+offset)%bc_seq(2,1) = IACNV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IACOV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
 
+        gv%bc_grp(3+offset)%bc_seq(3,1) = IAX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(3,2) = VECTOR      !Vector
+
         !Group 4
-        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(3,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 5
         gv%bc_grp(5+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
@@ -191,11 +196,14 @@ c     Setup schedule
         gv%bc_grp(6+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IVX         !Dep. variable
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(4,1) = IVX         !Dep. variable
+        gv%bc_grp(6+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         if (itime == 0) then
           !Group 7
@@ -210,16 +218,21 @@ c     Setup schedule
           gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
           !Group 9
-          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
           gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          !Group 10
-          gv%bc_grp(10+offset)%bc_seq(1,1) = IENI*AUX !Aux. variable
-          gv%bc_grp(10+offset)%bc_seq(1,2) = VECTOR      !Vector
+          gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          !Group 11
-          gv%bc_grp(11+offset)%bc_seq(1,1) = IHETA*AUX   !Aux. variable
-          gv%bc_grp(11+offset)%bc_seq(1,2) = SCALAR      !Scalar
+          gv%bc_grp(9+offset)%bc_seq(3,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+          !Group 10
+          gv%bc_grp(10+offset)%bc_seq(1,1) = IHETA*AUX   !Aux. variable
+          gv%bc_grp(10+offset)%bc_seq(1,2) = SCALAR      !Scalar
         else
           !Group 7
           gv%bc_grp(7+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
@@ -233,8 +246,14 @@ c     Setup schedule
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           !Group 9
-          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPI*AUX !Aux. variable
           gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+          gv%bc_grp(9+offset)%bc_seq(3,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
         endif
 
 #else
@@ -250,11 +269,17 @@ c     Setup schedule
         gv%bc_grp(2+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
         !Group 3
-        gv%bc_grp(3+offset)%bc_seq(1,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(3+offset)%bc_seq(2,1) = IBX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(3+offset)%bc_seq(3,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(3+offset)%bc_seq(4,1) = IBX         !Dep. variable
+        gv%bc_grp(3+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 4
         gv%bc_grp(4+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
@@ -267,11 +292,14 @@ c     Setup schedule
         gv%bc_grp(5+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IVX         !Dep. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(5+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(4,1) = IVX         !Dep. variable
+        gv%bc_grp(5+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         if (itime == 0) then
           !Group 6
@@ -286,16 +314,21 @@ c     Setup schedule
           gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
 
           !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          !Group 9
-          gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Aux. variable
-          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          !Group 10
-          gv%bc_grp(10+offset)%bc_seq(1,1)= IHETA*AUX   !Aux. variable
-          gv%bc_grp(10+offset)%bc_seq(1,2)= SCALAR      !Scalar
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+          !Group 9
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IHETA*AUX   !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(1,2) = SCALAR      !Scalar
         else
           !Group 6
           gv%bc_grp(6+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
@@ -309,8 +342,14 @@ c     Setup schedule
           gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IENI*AUX    !Dep. variable
+          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
         endif
 #endif
 
