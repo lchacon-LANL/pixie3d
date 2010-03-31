@@ -145,7 +145,7 @@ c     Setup schedule
 
         !Set groups
         if (itime == 0) then
-          gv%bc_grp(1)%nbc_seq = 2
+cc          gv%bc_grp(1)%nbc_seq = 2
 
           gv%bc_grp(1)%bc_seq(1,1) = IJ0COV*AUX       !Aux. variable
           gv%bc_grp(1)%bc_seq(1,2) = VECTOR           !Vector
