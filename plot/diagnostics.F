@@ -16,8 +16,6 @@ c####################################################################
 
         use auxPlotVariables
 
-        use constants
-
         use transport_params
 
         use operators
