@@ -1638,8 +1638,8 @@
 !     -----------------------------------------------------------------
 
         use vmec_mod
-        use equilibrium
         use grid
+        use equilibrium
 
         implicit none
 
@@ -1659,6 +1659,11 @@
 
 !     Begin program
 
+        if (my_rank == 0) then
+           write (*,*)
+           write (*,'(a,i3)') 'Reading VMEC map on grid',igrid
+        endif
+
         load_metrics = metrics  !Set flag for metric elements routine
 
 !     Get GLOBAL limits (VMEC operates on global domain)
@@ -1673,67 +1678,7 @@
 
         call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
 
-!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
-!!$        do k=1,nzg
-!!$           write (*,*) 'slice=',k
-!!$           do j=1,nyg/2+1
-!!$              write (*,*) 'rr',j,k,rr(:,j,k)
-!!$              write (*,*) 'zz',j,k,zz(:,j,k)
-!!$           enddo
-!!$           write (*,*)
-!!$        enddo
-!!$        stop
-
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
-
-!!$        do k=0,nz+1
-!!$          do j=0,ny+1
-!!$            do i=0,nx+1
-!!$
-!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-!!$
-!!$              !Find global limits
-!!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
-!!$
-!!$!!              !Ensures we don't step over physical periodic boundaries
-!!$!!              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!$!!                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
-!!$!!
-!!$!!              !Singular point boundary
-!!$!!              if (igl == 0) then
-!!$!!                jgl = mod(jgl+nyg/2,nyg)
-!!$!!                igl = 1
-!!$!!              endif
-!!$
-!!$              !Periodic boundary in theta (other boundary enforced by symmetry)
-!!$              if (jgl == 0) jgl = nyg
-!!$
-!!$              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
-!!$              sgn = 1d0
-!!$              if (jgl > nyg/2+1) then
-!!$                 jgl = nyg + 2 - jgl
-!!$                 sgn = -1d0
-!!$              endif
-!!$
-!!$              !Periodic boundary in phi
-!!$              if (kgl == 0) kgl = nzg
-!!$              if (kgl == nzg+1) kgl = 1
-!!$
-!!$              !Average to our radial mesh (half-mesh in VMEC)
-!!$              !(except for radial ghost cells, where we extrapolate the boundary value)
-!!$              call half_to_int(igl,jgl,kgl,rr,r1,order=3)
-!!$              call half_to_int(igl,jgl,kgl,zz,z1,order=3)
-!!$
-!!$              ph1 = -grid_params%zz(kg)  !Minus sign to preserve a right-handed ref. sys.
-!!$
-!!$              !Transform to Cartesian geometry
-!!$              xcar(i,j,k,1)=r1*cos(ph1)
-!!$              xcar(i,j,k,2)=r1*sin(ph1)
-!!$              xcar(i,j,k,3)=sgn*z1
-!!$
-!!$            enddo
-!!$          enddo
-!!$        enddo
 
         !Global VMEC radial positions
         allocate(vmec_rad(ns_i))
@@ -1792,22 +1737,6 @@
           enddo
         enddo
 
-!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
-!!$        do k=1,nz
-!!$           write (*,*) 'slice=',k
-!!$           do j=1,ny
-!!$!              write (*,*) 'X',j,k,xcar(:,j,k,1)
-!!$!              write (*,*) 'Y',j,k,xcar(:,j,k,2)
-!!$!              write (*,*) 'Z',j,k,xcar(:,j,k,3)
-!!$              write (*,*) 'X',j,k,0.5*sum(xcar(0:1,j,k,1))
-!!$              write (*,*) 'Y',j,k,0.5*sum(xcar(0:1,j,k,2))
-!!$              write (*,*) 'Z',j,k,0.5*sum(xcar(0:1,j,k,3))
-!!$              write (*,*)
-!!$           enddo
-!!$           write (*,*)
-!!$        enddo
-!!$        stop
-
 !     Free work space (to allow multiple calls to vmec_map for different grid levels)
 
         deallocate(vmec_rad)
@@ -1826,7 +1755,6 @@
 !     -----------------------------------------------------------------
 
         use vmec_mod
-        use equilibrium
         use grid
 
         implicit none
@@ -1948,8 +1876,8 @@
 
         use vmec_mod
         use app_iosetup
-        use equilibrium
         use grid
+        use equilibrium
 
         implicit none
 
@@ -2201,7 +2129,7 @@
           enddo
         enddo
 
-!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+!     Free work space
 
         DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
 
