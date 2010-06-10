@@ -22,9 +22,9 @@ c----------------------------------------------------------------------
 
       use app_iosetup
 
-      use constants
-
       use equilibrium
+
+      use local_BCS_variables, ONLY: lag_pinch_bc
 
       implicit none
 
@@ -70,8 +70,8 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,ion_hall
-     .                ,inputfile,recordfile,equ_file,dcon
+     .                   ,ion_hall,lag_pinch_bc
+     .                ,inputfile,recordfile,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
@@ -79,7 +79,7 @@ c Namelists
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz,gp1,gp2,gp3,equ_file
+     .                   ,npx,npy,npz,gp1,gp2,gp3
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
@@ -89,7 +89,7 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,ion_hall
+     .                   ,solve_rho,advect,sym_st,ion_hall,lag_pinch_bc
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -108,7 +108,7 @@ c Namelists
      .                   ,pc_divclean
 
       !I/O
-      namelist /i_o/   ilevel,debug,check_grid
+      namelist /i_o/   ilevel,debug,check_grid,equ_file,map_file
      .                   ,recordfile,dcon,chk_src,test
 
 c ******************************************************************
@@ -241,6 +241,8 @@ c Set defaults
       solve_rho  = .true.      ! Whether we solver continuity equation or not
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
+      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
+
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
       advect     = 2           ! Type of advective scheme (currently available only
@@ -337,6 +339,7 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
       prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
+      map_file   ='pixie3d.map'! Default map          file (when needed)
 
       dcon       = .false.     ! If using VMEC input, whether to dump DCON output
 
@@ -596,12 +599,12 @@ c Local variables
       !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
-     .                   ,iplot,jplot,kplot,poincare
+     .                   ,iplot,jplot,kplot,poincare,xdraw_plot
 
 
       namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
-     .                   ,iplot,jplot,kplot,poincare
+     .                   ,iplot,jplot,kplot,poincare,xdraw_plot
 
 c Begin program
 
@@ -614,6 +617,7 @@ c Graphics defaults
       ndplot = 0          ! Postprocessing interval (# of time steps; integer)
       dplot  = 0d0        !       "          "      (time interval; real)
       hdf_plot =.false.   ! Whether an HDF5 file is to be created
+      xdraw_plot = .true. ! Whether to dump XDRAW files
 
       !Local (point) diagnostic configuration (XDRAW)
       iplot = 1

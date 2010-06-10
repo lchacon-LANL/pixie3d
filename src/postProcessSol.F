@@ -57,10 +57,14 @@ c Postprocess adiabatic equation for density update
 
       if (adiabatic .and. (.not.solve_rho)) then
         if (my_rank == 0) write (*,*) 'Postprocessing density'
-        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
-     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+cc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+cc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
+cc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+cc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+        v_arr%array_var(IRHO)%array =
+     .       u_0  %array_var(IRHO)%array
+     .     *(v_arr%array_var(ITMP)%array
+     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
       endif
 
 c Divergence-clean magnetic field when PC is on
@@ -69,6 +73,7 @@ c Divergence-clean magnetic field when PC is on
 
       if (     (.not.pc_B_solve)
      .    .or.  pc_divclean
+     .    .or. (.not.solenoidal)
      .    .or. (pc_type == 'id')
      .    .or. (nxd==1.and.nyd==1)
      .    .or. (nxd==1.and.nzd==1)
@@ -95,8 +100,9 @@ c Clean db
 
 cc      call grad_div_clean(db_cnv)
 
-      call vlap_div_clean(max(0,ilevel-1),nx,ny,nz,
-     .                   igx,igy,igz,db_cnv,dacov=da_cov)
+      call vlap_div_clean(ilevel,nx,ny,nz
+     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
+     .                   )!,diag_plots=.true.)
 
 cc      call curl_div_clean(db_cnv)
 
@@ -231,44 +237,12 @@ c     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
           do i = 1,nx
             db(i,j,k,:) = db(i,j,k,:)
      .           + matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
-     .                   ,grad2(i,j,k,nx,ny,nz,igx,igy,igz,phi,0,0,0))
+     .                   ,grad(i,j,k,nx,ny,nz,igx,igy,igz,phi))
           enddo
         enddo
       enddo
 
       end subroutine grad_div_clean
-
-c     curl_div_clean
-c     #################################################################
-      subroutine curl_div_clean(db)
-
-c     -----------------------------------------------------------------
-c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Local variables
-
-      real(8) :: da(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Find dA from dB (w/ ghost cells)
-
-      call curl_inv(nx,ny,nz,igx,igy,igz,db,da)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            db(i,j,k,:)=curl(i,j,k,nx,ny,nz,igx,igy,igz,da)
-          enddo
-        enddo
-      enddo
-
-      end subroutine curl_div_clean
 
 #endif
 

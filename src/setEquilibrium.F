@@ -33,8 +33,6 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
-      use constants
-
       use nlfunction_setup
 
       use error
@@ -44,6 +42,8 @@ c--------------------------------------------------------------------
       use local_BCS_variables
 
       use app_iosetup
+
+      use B_tools, ONLY:vlap_div_clean
 
       implicit none
 
@@ -61,7 +61,7 @@ c Local variables
 
       integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
      .                ,ierr,sh,it,icomp,bcnd(6,3),brank
-     .                ,igx,igy,igz,nx,ny,nz
+     .                ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz
 
       real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
 
@@ -100,6 +100,7 @@ cc     .                ,v2(ilom:ihip,jlom:jhip)
 #if defined(vec_pot)
       real(8),allocatable,dimension(:,:,:,:) :: ag,bg
 #endif
+      real(8),allocatable,dimension(:,:,:,:) :: vmec_car
 
 c Functions
 
@@ -1462,25 +1463,25 @@ c     Equilibria (numerical)
         enddo
 
 #if defined(vec_pot)
-        allocate(bg(0:nxdp,0:nydp,0:nzdp,3))
-
-        do k = 0,nzdp
-          do j = 0,nydp
-            do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
-
-              bg(i,j,k,1) = 0d0
-              bg(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
-              bg(i,j,k,3) = x1*bzz0(i)
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(var(:,:,:,IVX:IVZ)
-     .                          ,bg
-     .                          ,var(:,:,:,IAX:IAZ))
-
-        deallocate(bg)
+cc        allocate(bg(0:nxdp,0:nydp,0:nzdp,3))
+cc
+cc        do k = 0,nzdp
+cc          do j = 0,nydp
+cc            do i = 0,nxdp
+cc              x1 = grid_params%xg(i)  !Global coordinate
+cc
+cc              bg(i,j,k,1) = 0d0
+cc              bg(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
+cc              bg(i,j,k,3) = x1*bzz0(i)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
+cc     .                          ,bg
+cc     .                          ,var(:,:,:,IAX:IAZ))
+cc
+cc        deallocate(bg)
 #endif
 
 cc      case ('3dtok')
@@ -1594,12 +1595,26 @@ c     --------------------------------------------------
           call pstop('setEquilibrium',messg)
         endif
 
-c     Check coordinates
+c     Read VMEC coordinates and fill grid hierarchy
 
-        if (coords /= 'vmc') then
-          messg = 'Need "vmc" coordinates for equilibrium '//equil
+        if (coords /= 'ext') then
+          messg = 'Need "ext" coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
+
+        call vmec_map(.false.)
+
+c     Dump VMEC map on finest mesh (for plotting)
+
+        if (my_rank == 0) call rm_file(trim(map_file))
+
+#if defined(petsc)
+        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
+#endif
+
+        call openBinFile(u_mapf,map_file,'unknown')
+        call dumpVector(u_mapf,gmetric%grid(1)%car,.false.)
+        close(u_mapf)
 
 c     Read VMEC equilibrium
 
@@ -1754,7 +1769,7 @@ c     Equilibria (numerical)
      .      write (*,*) 'Reading numerical equilibrium ',equil,'...'
 
           !Read file
-          open (unit=1000,file=trim(equ_file),status='old')
+          open (unit=u_equf,file=trim(equ_file),status='old')
 
           read(1000,'(a)')
           do i=0,nxdp
@@ -1870,6 +1885,7 @@ cc        stop
         do k = 0,nz+1
           do j = 0,ny+1
             do i = 0,nxdp
+
               x1 = grid_params%xg(i)  !Global coordinate
 
               bg(i,j,k,1) = 0d0
@@ -1881,6 +1897,31 @@ cc        stop
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
      .                          ,bg,var(:,:,:,IAX:IAZ))
+
+cc        write (*,*) nx,ny,nz
+cc        allocate(bg(0:nx+1,0:ny+1,0:nz+1,3))
+cc
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              iglobal = i + grid_params%ilo(igx) - 1
+cc
+cc              x1 = grid_params%xg(iglobal)  !Global coordinate
+cc
+cc              bg(i,j,k,1) = 0d0
+cc              bg(i,j,k,2) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
+cc              bg(i,j,k,3) = x1*bzz0(iglobal)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call vlap_div_clean(ilevel,nx,ny,nz
+cc     .                     ,igx,igy,igz,bg,dacov=var(:,:,:,IAX:IAZ)
+cc     .                  )!,diag_plots=.true.)
 
         deallocate(bg)
 #endif
@@ -2658,7 +2699,7 @@ c     Local variables
 
         real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
      .               ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
-     .               ,diag(1:nxd,-1,1),psi(0:nxdp,0:2,0:2)
+     .               ,psi(0:nxdp,0:2,0:2)
 
         real(8)    :: pprof
         external      pprof
@@ -2686,6 +2727,7 @@ cc        p00 = 0.5*b_tor*bz0**2
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
+        bth0 = 0d0
         do i=0,nxd
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
@@ -2730,7 +2772,7 @@ c       Iteration
           enddo
 
           !Perform integral of Bz
-          dummy(0) = 0d0
+          dummy = 0d0
           do i=1,nxd
             x1 = xh(i)
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
@@ -2857,6 +2899,7 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
         bzz0(0) = bzz0(1)
 
         !Find pinch flow (normalized to nominal resistivity)
+        vr0 = 0d0
         do i=1,nxd
           rh  = grid_params%xg(i)
           etah =res(i,1,1,nxd,1,1,1,1,1,psi(:,0:2,0:2),rrr=rh)/eta
@@ -3429,8 +3472,6 @@ c     -------------------------------------------------------------------
         use orbit, xo => xold, yo => yold, zo => zold
 
         use equilibrium
-
-        use constants
 
         implicit none
 

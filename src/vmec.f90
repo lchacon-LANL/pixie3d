@@ -1630,41 +1630,56 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(igrid,nx,ny,nz,xcar,metrics)
+      subroutine vmec_map(metrics)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
 !     level (igrid).
 !     -----------------------------------------------------------------
 
-        use vmec_mod
-        use grid
-        use equilibrium
+      use vmec_mod
+      use grid
+      use equilibrium
 
-        implicit none
+      implicit none
 
 !     Input variables
 
-        integer    :: igrid,nx,ny,nz
-        real(8)    :: xcar(0:nx+1,0:ny+1,0:nz+1,3)
-        logical    :: metrics
+      logical :: metrics
 
 !     Local variables
 
-        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-        real(8)    :: r1,z1,ph1,sgn,rr1(0:nx+1),zz1(0:nx+1)   &
-     &               ,local_rad(0:nx+1),ds
+      integer    :: igrid,nx,ny,nz
+      integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
+      real(8)    :: r1,z1,ph1,sgn,ds
 
-        real(8),allocatable,dimension(:) :: vmec_rad
+      real(8),allocatable,dimension(:) :: vmec_rad,rr1,zz1,local_rad
+
+      real(8),allocatable,dimension(:,:,:,:) :: xcar
 
 !     Begin program
 
+      load_metrics = metrics  !Set flag for metric elements routine
+
+      nullify(gmetric)
+
+!     Cycle grid levels
+
+      do igrid=1,grid_params%ngrid
+
         if (my_rank == 0) then
-           write (*,*)
-           write (*,'(a,i3)') 'Reading VMEC map on grid',igrid
+           write (*,'(a,i3)') ' Reading VMEC map on grid',igrid
         endif
 
-        load_metrics = metrics  !Set flag for metric elements routine
+!     Get LOCAL limits and allocate local map array
+
+        nx = grid_params%nxv(igrid)
+        ny = grid_params%nyv(igrid)
+        nz = grid_params%nzv(igrid)
+
+        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
+
+        allocate(rr1(0:nx+1),zz1(0:nx+1),local_rad(0:nx+1))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
@@ -1737,10 +1752,21 @@
           enddo
         enddo
 
-!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+!     Fill grid metrics hierarchy
 
-        deallocate(vmec_rad)
+        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+
+!     Free work space (to allow processing of different grid levels)
+
+        deallocate(xcar,vmec_rad,rr1,zz1,local_rad)
+
         call vmec_cleanup
+
+      enddo
+
+!     Set up gmetric pointer
+
+      gmetric => grid_params%gmetric
 
 !     End program
 
