@@ -67,7 +67,7 @@ c Call variables
 
 c Local variables
 
-      integer :: igx,igy,igz,bcs(6,neqd)
+      integer :: igx,igy,igz,nx,ny,nz,bcs(6,neqd),ierr,ifile
       logical :: initialize
 
 c Interfaces
@@ -86,6 +86,14 @@ c Begin program
       igx = iigx
       igy = iigy
       igz = iigz
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
+c Check for external map
+
+      if (coords == 'ext') call read_ext_map
 
 c Define processor for local diagnostics
 
@@ -148,6 +156,41 @@ c Initialize diagnostic value references
       call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
 
 c End 
+
+      contains
+
+c     read_ext_map
+c     ###############################################################
+      subroutine read_ext_map
+
+        real(8),pointer,dimension(:,:,:,:) :: ext_map
+
+        integer,pointer,dimension(:) :: mumap
+
+c     Begin program
+
+        ierr = openFiles(my_rank,u_mapf,map_file,mumap)
+
+        if (ierr /= 0) then
+          call pstop('evaluateDiagnostics'
+     .              ,'Problem reading map files')
+        endif
+
+        allocate(ext_map(0:nx+1,0:ny+1,0:nz+1,3))
+
+        do ifile=1,size(mumap)
+          ierr=readVector(mumap(ifile),ext_map,.false.)
+        enddo
+
+        call closeFiles(mumap)
+
+        call defineGridMetric(grid_params,xcar=ext_map,igr=iigx)
+
+        deallocate(ext_map)
+
+        gmetric => grid_params%gmetric
+
+      end subroutine read_ext_map
 
       end subroutine initializeDiagnostics
 
@@ -489,22 +532,26 @@ c Parallel electric field diagnostic
 
 c Reconnected flux (GEM challenge)
 
+      if (trim(equil) == 'gem') then
 #if defined(petsc)
-      if (split_key /= MPI_UNDEFINED) then
-        if (ddnp == 1) then
-          rflux = Pflux(iplt,jplt      ,1)
-     .          - Pflux(iplt,jplt-nyd/2,1)
-        else
-          lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
+        if (split_key /= MPI_UNDEFINED) then
+          if (ddnp == 1) then
+            rflux = Pflux(iplt,jplt      ,1)
+     .            - Pflux(iplt,jplt-nyd/2,1)
+          else
+            lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
 
-          call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+            call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                        ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+          endif
         endif
-      endif
 #else
-      rflux = minval(Pflux(iplt,1:nyd,1))
-     .      - maxval(Pflux(iplt,1:nyd,1))
+        rflux = minval(Pflux(iplt,1:nyd,1))
+     .        - maxval(Pflux(iplt,1:nyd,1))
 #endif
+      else
+        rflux = 0d0
+      endif
 
 c Growth rate diagnostics
 
