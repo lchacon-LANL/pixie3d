@@ -17,18 +17,24 @@ c####################################################################
         use equilibrium
 
         use nlfunction_setup, ONLY: res,vis,find_E,ion_hall,fake_ve
-     .                             ,EOM_divPi,EOM_divPe
+     .                             ,EOM_divPi,EOM_divPe,hres
+     .                             ,nc_eom_v
 
-        logical :: pinch_flow=.false.,lag_pinch_bc=.false.
-     .            ,save_Bn=.false.,save_tn=.false.
+        logical :: pinch_flow,save_Bn,save_tn
 
+c       User-specified (via input) BC configuration parameters
+
+        logical :: lag_pinch_bc=.true.  !Whether to lag the finite-flow pinch BC in time
+
+c       Hardwired BC configuration parameters
+
+        !Order of BC interpolation
 #if defined(vec_pot)
         integer :: bc_order=2
 #else
         integer :: bc_order=1
 cc        integer :: bc_order=2
 #endif
-        integer,parameter :: VECTOR=1,SCALAR=0,AUX=-1
 
       contains
 
@@ -166,10 +172,10 @@ c     Setup schedule
         gv%bc_grp(2+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
         !Group 3
-        gv%bc_grp(3+offset)%bc_seq(1,1) = IACNV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IACOV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(3+offset)%bc_seq(2,1) = IACOV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IACNV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(3+offset)%bc_seq(3,1) = IAX         !Dep. variable
@@ -179,24 +185,24 @@ c     Setup schedule
         gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(3,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(3,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 5
-        gv%bc_grp(5+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         !Group 6
-        gv%bc_grp(6+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
@@ -272,27 +278,27 @@ c     Setup schedule
         gv%bc_grp(3+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(3+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(3+offset)%bc_seq(3,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(3,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         gv%bc_grp(3+offset)%bc_seq(4,1) = IBX         !Dep. variable
         gv%bc_grp(3+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 4
-        gv%bc_grp(4+offset)%bc_seq(1,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         !Group 5
-        gv%bc_grp(5+offset)%bc_seq(1,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(5+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
@@ -603,7 +609,7 @@ c     Begin program
 cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
             etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-            grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
+            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
 
             gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
      .                   +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
@@ -685,7 +691,7 @@ cc            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))/jach
 cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
               ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-              grad_p= grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
 
               alpha = dot_product(E0,bbcnv)*ietah
 
@@ -711,7 +717,7 @@ cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
 cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
               ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-              grad_p = grad2(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,1,0,0)
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
 
               alpha = dot_product(E0,bbcnv)*ietah
 
@@ -840,8 +846,8 @@ c     Begin program
       case (IVX,IVY,IVZ)
 
         call extrapolateBC(array(:,:,:,ivar),array0(:,:,:,ivar)
-     .                    ,dim,loc,order)
-cc     .                    ,dim,loc,1)
+cc     .                    ,dim,loc,order)
+     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B, J
 
@@ -849,8 +855,6 @@ cc     .                    ,dim,loc,1)
 
           call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
      .                      ,dim,loc,order)
-cc     .                      ,dim,loc,1)
-cc     .                      ,dim,loc,2)
 
         else
 

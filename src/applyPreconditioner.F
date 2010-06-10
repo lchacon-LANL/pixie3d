@@ -67,6 +67,8 @@ c Begin program
         stop
       endif
 
+      rhspc = 0d0
+
 c *******************************************************************
 c     Identity preconditioner
 c *******************************************************************
@@ -82,6 +84,7 @@ c *******************************************************************
                 iii = ieq + neqd*(ii-1)
                 if (vol_wgt) then !Residuals are volume-weighed by default
                   dvol = gmetric%grid(igx)%dvol(i,j,k)
+cc                  write (*,*) dt,cnp,dvol
                 else
                   dvol = 1d0
                 endif
@@ -273,7 +276,7 @@ c     Gather solution in "x"
 
       case default
 
-        call pstop('applyPC','Cannot use PC option'//pc_type)
+        call pstop('applyPC','Cannot use PC option '//pc_type)
 
       end select
 
@@ -281,10 +284,11 @@ c     Diagnostics
 
         if (pc_debug) then
           if (pc_debug_it > 0) then
-            if (jit == pc_debug_it) call PCdiagnostics
+            if (nwt_iter == pc_debug_it) call PCdiagnostics
           else
             if (my_rank == 0) then
-              write (*,*) 'Run PC diagnostics (t or f)?'
+              write (*,'(a)',ADVANCE='no')
+     .             '  ==> Run PC diagnostics (t or f)? '
               read(*,*) pc_diag
             endif
 
@@ -482,13 +486,14 @@ c     Store velocity solution in array format --> dv_cnv
         dv0cnv = 0d0
 
         call fillArray(igrid,IVX,3,x(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .                ,2,arr_cov=dv_cov,is_vec=.true.,is_cnv=.true.
-     .                ,arr0=dv0cnv)
+     .                ,bc_order,arr_cov=dv_cov,is_vec=.true.
+     .                ,is_cnv=.true.,arr0=dv0cnv)
 
 c     Correct rx to find Deltax (correction for rho, B, T)
 
         !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
-        call U_rho_v(nx,ny,nz,dv_cnv       ,rhs(:,IRHO)   ,igrid)
+        if (solve_rho)
+     .       call U_rho_v(nx,ny,nz,dv_cnv       ,rhs(:,IRHO)   ,igrid)
         call U_Tv   (nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
 #if !defined(vec_pot)
         call U_Bv   (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
@@ -1267,48 +1272,31 @@ c     Dump graphics
         enddo
 
         !Corrector rhs plot
-cc        if (si_car) call XtoCurv(igrid,rhspc(:,IVX:IVZ))
-
         call gather(rr,rhspc)
         call MGplot(neqd,rr,igrid,0,crsf)
 
         !Vector components plot
 #if !defined(vec_pot)
         !Find dB* (w/ BCs)
-        call fillArray(igrid,IBX,3,xxx(:,IBX:IBZ),db_cnv
-     .                ,bcs(:,IBX:IBZ),2,is_vec=.true.,is_cnv=.true.)
+        call fillArray(igrid,IBX,3,xxx(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+     .                ,bc_order,is_vec=.true.,is_cnv=.true.)
 #else
         call fillArray(igrid,IAX,3,xxx(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
-     .                ,2,is_vec=.true.,is_cnv=.false.)
+     .                ,bc_order,is_vec=.true.,is_cnv=.false.)
 
         db_cnv = 0d0
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              db_cnv(i,j,k,:)=curl(i,j,k,nx,ny,nz
-     .                            ,igrid,igrid,igrid,da_cov)
-cc              do ivar=1,3
-cc                db_cnv(i,j,k,ivar)=curl2(i,j,k,nx,ny,nz
-cc     .                                ,igrid,igrid,igrid
-cc     .                                ,da_cov(:,:,:,1)
-cc     .                                ,da_cov(:,:,:,2)
-cc     .                                ,da_cov(:,:,:,3)
-cc     .                                ,ivar)
-cc              enddo
-            enddo
-          enddo
-        enddo
+        db_cnv = curl(nx,ny,nz,igrid,igrid,igrid,da_cov)
 
         !Find covariant components of dj with BCs
         call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
-     .          ,igrid,igrid,igrid,iorder=2)
+     .          ,igrid,igrid,igrid,iorder=bc_order)
 #endif
 
         dv0cnv = 0d0
 
         !Find dv (w/ BCs)
         call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .                ,2,is_vec=.true.,is_cnv=.true.,arr0=dv0cnv)
+     .                ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=dv0cnv)
 
         open(unit=110,file=fldf,form='unformatted'
      .     ,status='replace')
@@ -1327,19 +1315,7 @@ cc              enddo
      .                ,grid_params%gymin,grid_params%gymax
      .                ,grid_params%gzmin,grid_params%gzmax
      .                ,1,110)
-cc        call contour(dv_cnv(imin:imax,jmin:jmax,kmin:kmax,1),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,0,110)
-cc        call contour(dv_cnv(imin:imax,jmin:jmax,kmin:kmax,2),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
-cc        call contour(dv_cnv(imin:imax,jmin:jmax,kmin:kmax,3),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
 #if !defined(vec_pot)
-cc        call contour(db_cnv(imin:imax,jmin:jmax,kmin:kmax,1),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
-cc        call contour(db_cnv(imin:imax,jmin:jmax,kmin:kmax,2),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
-cc        call contour(db_cnv(imin:imax,jmin:jmax,kmin:kmax,3),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
         call C_contour(db_cnv(1:nx,1:ny,1:nz,1)
      .                ,grid_params%gxmin,grid_params%gxmax
      .                ,grid_params%gymin,grid_params%gymax
@@ -1356,12 +1332,6 @@ cc     .              ,gxmax,gymin,gymax,1,110)
      .                ,grid_params%gzmin,grid_params%gzmax
      .                ,1,110)
 #else
-cc        call contour(da_cov(imin:imax,jmin:jmax,kmin:kmax,1),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
-cc        call contour(da_cov(imin:imax,jmin:jmax,kmin:kmax,2),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
-cc        call contour(da_cov(imin:imax,jmin:jmax,kmin:kmax,3),nx,ny,gxmin
-cc     .              ,gxmax,gymin,gymax,1,110)
         call C_contour(da_cov(1:nx,1:ny,1:nz,1)
      .                ,grid_params%gxmin,grid_params%gxmax
      .                ,grid_params%gymin,grid_params%gymax
@@ -1398,8 +1368,6 @@ cc     .              ,gxmax,gymin,gymax,1,110)
         if (my_rank == 0) write (*,*) 'L-2 norm of div(dB)',mag
 
         open(unit=110,file=divf,form='unformatted',status='replace')
-cc        call contour(dbg(imin:imax,jmin:jmax,kmin:kmax,1),nx,ny
-cc     .              ,gxmin,gxmax,gymin,gymax,0,110)
         call C_contour(dbg(1:nx,1:ny,1:nz,1)
      .                ,grid_params%gxmin,grid_params%gxmax
      .                ,grid_params%gymin,grid_params%gymax
@@ -1803,7 +1771,7 @@ c Find rhs_v
       if (.not.nc_eom_v) then
 
         call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .                ,bcs(:,IRHO:IRHO),2)
+     .                ,bcs(:,IRHO:IRHO),bc_order)
 
         dp_cnv(:,:,:,1)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,1)
         dp_cnv(:,:,:,2)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,2)
@@ -1906,10 +1874,10 @@ c Auxiliary variables
       Eh0  => gEh0_cov%grid(igrid)%array
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),2)
+     .              ,bcs(:,IRHO:IRHO),bc_order)
 
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),2)
+     .              ,bcs(:,ITMP:ITMP),bc_order)
 
       dpe  = rho0*dpe + tmp0*drho
 
@@ -1930,8 +1898,7 @@ c Find rhs_a
               dvol = 1d0
             endif
 
-            call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe
-     .               ,cov(1),cov(2),cov(3),0,0,0)
+            cov = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe(:,:,:,1))
 
             cnv=EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum)
 
@@ -2051,6 +2018,8 @@ c--------------------------------------------------------------------
 
       use operators
 
+      use xdraw_io
+
       implicit none
 
 c Call variables
@@ -2068,6 +2037,7 @@ c Local variables
      .                                          ,dj_cnv
      .                                          ,dj_cov
      .                                          ,de_cov
+     .                                          ,de_cnv
 
       real(8),pointer,dimension(:,:,:,:) :: v0cnv
 
@@ -2086,21 +2056,14 @@ c Begin program
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3))
+     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,de_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB
 
       call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
-     .                ,2,arr_cov=db_cov,is_vec=.true.,is_cnv=.true.
-     .                ,arr0=gb0%grid(igrid)%array)
-
-ccc Find dv
-cc
-cc      dv0cnv = 0d0
-cc
-cc      call fillArray(igrid,IVX,3,x(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-cc     .                ,2,arr_cov=dv_cov,is_vec=.true.,is_cnv=.true.
-cc     .                ,arr0=dv0cnv)
+     .              ,bc_order,arr_cov=db_cov,is_vec=.true.
+     .              ,is_cnv=.true.)
 
 c Find dj* from dB*
 
@@ -2119,20 +2082,45 @@ c Find dE* (electric field update)
           do i = 0,nx+1
             cov(1) = (v0cnv(i,j,k,2)*db_cnv(i,j,k,3)
      .               -v0cnv(i,j,k,3)*db_cnv(i,j,k,2))
-     .               /gmetric%grid(igrid)%jac(i,j,k)
             cov(2) = (v0cnv(i,j,k,3)*db_cnv(i,j,k,1)
      .               -v0cnv(i,j,k,1)*db_cnv(i,j,k,3))
-     .               /gmetric%grid(igrid)%jac(i,j,k)
             cov(3) = (v0cnv(i,j,k,1)*db_cnv(i,j,k,2)
      .               -v0cnv(i,j,k,2)*db_cnv(i,j,k,1))
-     .               /gmetric%grid(igrid)%jac(i,j,k)
 
-            de_cov(i,j,k,:)= -cov
+            de_cov(i,j,k,:)= -cov/gmetric%grid(igrid)%jac(i,j,k)
      .                       +geta%grid(igrid)%array(i,j,k,1)
      .                       *dj_cov(i,j,k,:)
+cc            de_cnv(i,j,k,:) = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
+cc     .                              ,de_cov(i,j,k,:))
           enddo
         enddo
       enddo
+
+cc      write (*,*) 'DIAG -- correctBfld'
+cc      open(unit=110,file='divclean.bin',form='unformatted'
+cc     .    ,status='replace')
+cc      call contour(de_cov(:,:,1,1),nx+2,ny+2
+cc     .                ,grid_params%gxmin,grid_params%gxmax
+cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,0,110)
+cc      call contour(de_cov(:,:,1,2),nx+2,ny+2
+cc     .                ,grid_params%gxmin,grid_params%gxmax
+cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,1,110)
+cc      call contour(de_cov(:,:,1,3),nx+2,ny+2
+cc     .                ,grid_params%gxmin,grid_params%gxmax
+cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,1,110)
+cc      close(110)
+
+cc      !Impose topological BCs
+cc      bcnd(:,1) = bcond
+cc      bcnd(:,2) = bcond
+cc      bcnd(:,3) = bcond
+cc
+cc      call setBC(IJX,3,nx,ny,nz,de_cnv,de_cov,vzeros,bcnd
+cc     .          ,igrid,igrid,igrid,iorder=bc_order
+cc     .          ,is_cnv=.false.)
 
 c Find correction
 
@@ -2158,7 +2146,8 @@ c End program
      .          ,db_cov
      .          ,dj_cnv
      .          ,dj_cov
-     .          ,de_cov)
+     .          ,de_cov
+     .          ,de_cnv)
 
       end subroutine correctBfld
 
@@ -2201,7 +2190,8 @@ c Begin program
 c Store velocity RHS in array format w/ BCs
 
       call fillArray(igrid,IVX,3,yyy(:,IVX:IVZ),dgv_cnv,bcs(:,IVX:IVZ)
-     .              ,2,arr_cov=dgv_cov,is_vec=.true.,is_cnv=.true.)
+     .              ,bc_order,arr_cov=dgv_cov,is_vec=.true.
+     .              ,is_cnv=.true.)
 
 c Divide by density and volume
 
@@ -2295,7 +2285,7 @@ c End program
 
 c divClean
 c ###################################################################
-      subroutine divClean(iout,ntotp,xxx,igrid)
+      subroutine divClean(iout,ntotp,xb,igrid)
 c--------------------------------------------------------------------
 c     This subroutine divergence-cleans B by integrating a vector
 c     potential and the differentiating it. It takes B in cartesian
@@ -2308,23 +2298,16 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: iout,ntotp,igrid
-      real(8)    :: xxx(ntotp,3)
+      integer :: iout,ntotp,igrid
+      real(8) :: xb(ntotp,3)
 
 c Local variables
 
-      integer    :: i,j,k,ii,ivar,igx,igy,igz,nx,ny,nz,bcs_a(6,3)
-      real(8)    :: dvol,rhs2(ntotdp,3),x(ntotdp,3)
+      integer :: i,j,k,ii,igx,igy,igz,nx,ny,nz
+      real(8) :: dc_tol
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
-     .                                         ,da_cnv,da_cov
-
-      logical :: vwgt
-
-      external lap_mtvc,avlap_mtvc
 
 c Begin program
-
-      vwgt = vol_wgt
 
       if (iout > 0 .and. my_rank == 0)
      .     write (*,*) '==> Performing divergence cleaning in PC...'
@@ -2340,24 +2323,27 @@ c Begin program
       allocate(db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3))
 
-c Find dB* (w/ BCs)
+c Find dB (w/ BCs)
 
-      call fillArray(igrid,IBX,3,xxx,db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(igrid,IBX,3,xb,db_cnv,bcs(:,IBX:IBZ)
      .              ,bc_order,is_vec=.true.,is_cnv=.true.
      .              ,arr_cov=db_cov)
 
-c Find dA* from dB* (w/ ghost cells)
+c Solve dB*=-curl(lap^(-1)(curl(dB)))
+
+cc      call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
 
       call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,dbcov=db_cov
+     .                   ,db_cnv,dbcov=db_cov,pc_call=.true.)
 cc     .                   ,diag_plots=.true.)
-     .                   )
+
+c Map array to vector
 
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            xxx(ii,:)=db_cnv(i,j,k,:)
+            xb(ii,:)=db_cnv(i,j,k,:)
           enddo
         enddo
       enddo
