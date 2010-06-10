@@ -21,8 +21,6 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
-      use constants
-
       use operators
 
       use equilibrium
@@ -284,8 +282,7 @@ c Velocity and current intrinsic components (wrt B)
             endif
 
             !V.grad(psi)/|grad(psi)|
-            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
-     .               ,cov(1),cov(2),cov(3),0,0,0)
+            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
             norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
      .                             ,cov(1),cov(2),cov(3),.true.))
 
@@ -688,15 +685,20 @@ c     Dump arrays
 
       write (*,*) 'Dumping Poincare file ',ft_file
 
-      tor = (coords == 'vmc' .or. coords == 'tor')
+      tor = (equil == 'vmec' .or. coords == 'tor')
 
-#if defined(petsc)
-      write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
-#endif
       write (uft) nxd,nyd,nzd,bcond,tor
-      write (uft) grid_params%xx(1:nxl+2)
-      write (uft) grid_params%yy(1:nyl+2)
-      write (uft) grid_params%zz(1:nzl+2)
+cc      write (uft) grid_params%xx(1:nxl+2)
+cc      write (uft) grid_params%yy(1:nyl+2)
+cc      write (uft) grid_params%zz(1:nzl+2)
+      write (uft) grid_params%xg  !Dump global position array
+      write (uft) grid_params%yg  !"
+      write (uft) grid_params%zg  !"
+
+      if (np > 1) then
+        write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
+      endif
+
       write (uft) varray%array_var(IBX)%array
       write (uft) varray%array_var(IBY)%array
       write (uft) varray%array_var(IBZ)%array
