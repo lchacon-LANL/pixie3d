@@ -16,8 +16,6 @@ c--------------------------------------------------------------------
 
       use newtongm
 
-      use constants
-
       use equilibrium
 
       implicit none
@@ -213,20 +211,22 @@ c Calculate CFL
 
 c Calculate courant number
 
-      diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
+      diffmax = max(maxval(eeta),maxval(nuu+heta),dd,chi)
 
-      w_cour = max(diffmax*k2max,di*heta*k2max**2,chi_par*kbp2max)
+      w_cour = max(diffmax*k2max,di**2*heta*k2max**2,chi_par*kbp2max)
 
+cc      write (*,*) k2max,diffmax*k2max,di**2*heta*k2max**2,w_cfl
+cc      stop
 c Calculate time step
 
-      if (w_cfl <= w_cour) then
-        dt = 1d0*pi/w_cour
-cc        write (*,*) 'Courant'
-      else
-        dt = 0.25*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+cc      if (w_cfl <= w_cour) then
+cc        dt = 2d0*pi/w_cour
+cc        exp_cfl_type='Courant'
+cc      else
+        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
      .              /(w_cour**3 + w_cfl**3)
-cc        write (*,*) 'CFL'
-      endif
+cc        exp_cfl_type='CFL'
+cc      endif
 
 c Synchronize time step among all processors
 
