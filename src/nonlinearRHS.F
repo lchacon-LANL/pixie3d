@@ -48,8 +48,8 @@ c Local variables
      .             ,jac
 
       !Marder B cleaning
-      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
+cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       ! rho equation
       real(8)    :: advc,diffus
@@ -77,13 +77,13 @@ c     Grid parameters
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      dxx = dxh(ig)
-      dyy = dyh(jg)
-      dzz = dzh(kg)
-
-      dS1 = dyy*dzz
-      dS2 = dxx*dzz
-      dS3 = dxx*dyy
+cc      dxx = dxh(ig)
+cc      dyy = dyh(jg)
+cc      dzz = dzh(kg)
+cc
+cc      dS1 = dyy*dzz
+cc      dS2 = dxx*dzz
+cc      dS3 = dxx*dyy
 
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
@@ -99,9 +99,7 @@ c     Rho
 
       if (solve_rho) then
         advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),rho,advect,sp=bcSP(),vol=.false.)
+     .                  ,vcnv,rho,advect,sp=bcSP(),vol=.false.)
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho
@@ -228,35 +226,16 @@ c       Advection + sources
 
         if (adiabatic) then  !Pressure equation
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .                  ,vcnv,tmp,advect,vol=.false.)
      .        +(gamma-1.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                       ,vcnv(:,:,:,1)
-     .                       ,vcnv(:,:,:,2)
-     .                       ,vcnv(:,:,:,3))
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
           ff(ITMP) = advc + (gamma-1.)*heat_flx
         else                 !Temperature equation
-cc          advc= dot_product(vcnv(i,j,k,:)
-cc     .                     ,grad2(i,j,k,nx,ny,nz,igx,igy,igz,tmp,0,0,0))
-cc     .          /jac
-cc     .         +(gamma-1.)*tmp(i,j,k)
-cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                       ,vcnv(:,:,:,1)
-cc     .                       ,vcnv(:,:,:,2)
-cc     .                       ,vcnv(:,:,:,3))
-
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .                  ,vcnv,tmp,advect,vol=.false.)
      .        +(gamma-2.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                       ,vcnv(:,:,:,1)
-     .                       ,vcnv(:,:,:,2)
-     .                       ,vcnv(:,:,:,3))
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
           !Joule heating
           if ((sum(E0) /= 0d0).or.(.not.source)) then
@@ -331,15 +310,15 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
 
       !Advection + stress tensor
       if (nc_eom_v) then
-        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                ,upwind=(advect==1))
+        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                   ,advect,cons=.not.nc_eom_v)
      .       +(div_pi(i,j,k,:)+div_pe(i,j,k,:))/rho(i,j,k)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
       else
-        cnv = EOM_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
-     .                ,upwind=(advect==1))
+        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
+     .                   ,advect,cons=.not.nc_eom_v)
      .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
