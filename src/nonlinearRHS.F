@@ -71,7 +71,6 @@ c Begin program
       nz = grid_params%nzv(igz)
 
       alt_eom = alt__eom()
-cc      alt_eom = .false.
 
 c     Grid parameters
 
