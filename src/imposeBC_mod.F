@@ -12,11 +12,10 @@ c####################################################################
 
         use timestepping
 
-        use generalPurposeFunctions
-
         use equilibrium
 
-        use nlfunction_setup, ONLY: res,vis,find_E,ion_hall,fake_ve
+        use nlfunction_setup, ONLY: res,vis,E_fld_res,E_fld_hall
+     .                             ,ion_hall,fake_ve
      .                             ,EOM_divPi,EOM_divPe,hres
      .                             ,nc_eom_v
 
@@ -24,7 +23,7 @@ c####################################################################
 
 c       User-specified (via input) BC configuration parameters
 
-        logical :: lag_pinch_bc=.true.  !Whether to lag the finite-flow pinch BC in time
+        logical :: lag_pinch_bc=.false.  !Whether to lag the finite-flow pinch BC in time
 
 c       Hardwired BC configuration parameters
 
@@ -37,6 +36,48 @@ cc        integer :: bc_order=2
 #endif
 
       contains
+
+c     vector_symm_bc
+c     ###################################################################
+      subroutine vector_symm_bc(vbcs,normal_parity)
+
+      implicit none
+
+c     -------------------------------------------------------------------
+c     Processes symmetry BCs for vectors based on parity of normal
+c     component.
+c     -------------------------------------------------------------------
+
+c     Call variables
+
+      integer :: vbcs(6,3),normal_parity
+
+c     Local variables
+
+      integer :: diml,locl,ibcl
+
+c     Begin program
+
+      do ibcl = 1,6
+
+        locl = abs(mod(ibcl,2)-2)-1
+        diml = 1 + (ibcl-1-locl)/2
+
+        if (vbcs(ibcl,diml) == FSYM) then
+          if (normal_parity == 1) then
+            vbcs(ibcl,:)    = DIR !Tangential components
+            vbcs(ibcl,diml) = NEU !Normal component
+          else
+            vbcs(ibcl,:)    = NEU !Tangential components
+            vbcs(ibcl,diml) = DIR !Normal component
+          endif
+        endif
+
+      enddo
+
+c     End program
+
+      end subroutine vector_symm_bc
 
 c     setBCsched
 c     ###################################################################
@@ -1068,11 +1109,14 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: imax,imin,jmax,jmin,kmax,kmin
+      integer    :: imax,imin,jmax,jmin,kmax,kmin,offset
       integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0,hessian(3,3,3)
 
 c     Begin program
+
+      offset = 0
+      if (symm) offset = 1
 
       rhs = 0d0
 
@@ -1231,29 +1275,56 @@ c     Assign value
       select case (ibc)
       case (1)
         array(0     ,jmin:jmax,kmin:kmax)
-     $                           = array(1,jmin:jmax,kmin:kmax)
-     $                           - rhs(jmin:jmax,kmin:kmax)
+     $                    = array(1+offset,jmin:jmax,kmin:kmax)
+     $                    - rhs(jmin:jmax,kmin:kmax)
       case (2)
         array(nxbc+1,jmin:jmax,kmin:kmax)
-     $                           = array(nxbc,jmin:jmax,kmin:kmax)
-     $                           + rhs(jmin:jmax,kmin:kmax)
+     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax)
+     $                    + rhs(jmin:jmax,kmin:kmax)
       case (3)
         array(imin:imax,0     ,kmin:kmax)
-     $                           = array(imin:imax,1,kmin:kmax)
-     $                           - rhs(imin:imax,kmin:kmax)
+     $                    = array(imin:imax,1+offset,kmin:kmax)
+     $                    - rhs(imin:imax,kmin:kmax)
       case (4)
         array(imin:imax,nybc+1,kmin:kmax)
-     $                           = array(imin:imax,nybc,kmin:kmax)
-     $                           + rhs(imin:imax,kmin:kmax)
+     $                    = array(imin:imax,nybc-offset,kmin:kmax)
+     $                    + rhs(imin:imax,kmin:kmax)
       case (5)
         array(imin:imax,jmin:jmax,0     )
-     $                           = array(imin:imax,jmin:jmax,1)
-     $                           - rhs(imin:imax,jmin:jmax)
+     $                    = array(imin:imax,jmin:jmax,1+offset)
+     $                    - rhs(imin:imax,jmin:jmax)
       case (6)
         array(imin:imax,jmin:jmax,nzbc+1)
-     $                           = array(imin:imax,jmin:jmax,nzbc)
-     $                           + rhs(imin:imax,jmin:jmax)
+     $                    = array(imin:imax,jmin:jmax,nzbc-offset)
+     $                    + rhs(imin:imax,jmin:jmax)
       end select
+
+cc      select case (ibc)
+cc      case (1)
+cc        array(0     ,jmin:jmax,kmin:kmax)
+cc     $                           = array(1,jmin:jmax,kmin:kmax)
+cc     $                           - rhs(jmin:jmax,kmin:kmax)
+cc      case (2)
+cc        array(nxbc+1,jmin:jmax,kmin:kmax)
+cc     $                           = array(nxbc,jmin:jmax,kmin:kmax)
+cc     $                           + rhs(jmin:jmax,kmin:kmax)
+cc      case (3)
+cc        array(imin:imax,0     ,kmin:kmax)
+cc     $                           = array(imin:imax,1,kmin:kmax)
+cc     $                           - rhs(imin:imax,kmin:kmax)
+cc      case (4)
+cc        array(imin:imax,nybc+1,kmin:kmax)
+cc     $                           = array(imin:imax,nybc,kmin:kmax)
+cc     $                           + rhs(imin:imax,kmin:kmax)
+cc      case (5)
+cc        array(imin:imax,jmin:jmax,0     )
+cc     $                           = array(imin:imax,jmin:jmax,1)
+cc     $                           - rhs(imin:imax,jmin:jmax)
+cc      case (6)
+cc        array(imin:imax,jmin:jmax,nzbc+1)
+cc     $                           = array(imin:imax,jmin:jmax,nzbc)
+cc     $                           + rhs(imin:imax,jmin:jmax)
+cc      end select
 
 c     End program
 
@@ -1283,7 +1354,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: imax,imin,jmax,jmin,kmax,kmin
+      integer :: imax,imin,jmax,jmin,kmax,kmin,offset
       integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
      .          ,igp,igm,jgp,jgm,kgp,kgm,i1,j1,k1
       real(8) :: x1,x2,x3,dh(3),jac0,ee,alp,vec(3),cnv(3)
@@ -1302,6 +1373,9 @@ cc      real(8),pointer,dimension(:,:,:) :: eta_bc
 
 c     Begin program
 
+      offset = 0
+      if (symm) offset = 1
+
       ibc = (1+loc)+2*(dim-1)
 
       rhs = 0d0  !Default
@@ -1310,7 +1384,7 @@ c     Begin program
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
-      case (IVX,IVY,IVZ) !Velocity components
+      case (IVX,IVY,IVZ,IJX,IJY,IJZ,IAX,IAY,IAZ) !Velocity components, J and A components (for symmetry BCs)
 
         do i=imin,imax
           do j=jmin,jmax
@@ -1625,28 +1699,28 @@ c     Assign value
       select case (ibc)
       case (1)
         array(0     ,jmin:jmax,kmin:kmax,ivar)
-     $                         = array(1,jmin:jmax,kmin:kmax,ivar)
-     $                         - rhs(jmin:jmax,kmin:kmax)
+     $                    = array(1+offset,jmin:jmax,kmin:kmax,ivar)
+     $                    - rhs(jmin:jmax,kmin:kmax)
       case (2)
         array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
-     $                         = array(nxbc,jmin:jmax,kmin:kmax,ivar)
-     $                         + rhs(jmin:jmax,kmin:kmax)
+     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
+     $                    + rhs(jmin:jmax,kmin:kmax)
       case (3)
         array(imin:imax,0     ,kmin:kmax,ivar)
-     $                         = array(imin:imax,1,kmin:kmax,ivar)
-     $                         - rhs(imin:imax,kmin:kmax)
+     $                    = array(imin:imax,1+offset,kmin:kmax,ivar)
+     $                    - rhs(imin:imax,kmin:kmax)
       case (4)
         array(imin:imax,nybc+1,kmin:kmax,ivar)
-     $                         = array(imin:imax,nybc,kmin:kmax,ivar)
-     $                         + rhs(imin:imax,kmin:kmax)
+     $                    = array(imin:imax,nybc-offset,kmin:kmax,ivar)
+     $                    + rhs(imin:imax,kmin:kmax)
       case (5)
         array(imin:imax,jmin:jmax,0     ,ivar)
-     $                         = array(imin:imax,jmin:jmax,1,ivar)
-     $                         - rhs(imin:imax,jmin:jmax)
+     $                    = array(imin:imax,jmin:jmax,1+offset,ivar)
+     $                    - rhs(imin:imax,jmin:jmax)
       case (6)
         array(imin:imax,jmin:jmax,nzbc+1,ivar)
-     $                         = array(imin:imax,jmin:jmax,nzbc,ivar)
-     $                         + rhs(imin:imax,jmin:jmax)
+     $                    = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
+     $                    + rhs(imin:imax,jmin:jmax)
       end select
 
 c     End program
