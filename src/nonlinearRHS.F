@@ -76,14 +76,6 @@ c     Grid parameters
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-cc      dxx = dxh(ig)
-cc      dyy = dyh(jg)
-cc      dzz = dzh(kg)
-cc
-cc      dS1 = dyy*dzz
-cc      dS2 = dxx*dzz
-cc      dS3 = dxx*dyy
-
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
       jac    = gmetric%grid(igx)%jac (i,j,k)
@@ -147,6 +139,14 @@ cc     .                   ,E_ni(:,:,:,1)
 cc     .                   ,E_ni(:,:,:,2)
 cc     .                   ,E_ni(:,:,:,3))
 cccc        !Marder divergence cleaning
+cccc
+cccc        dxx = dxh(ig)
+cccc        dyy = dyh(jg)
+cccc        dzz = dzh(kg)
+cccc
+cccc        dS1 = dyy*dzz
+cccc        dS2 = dxx*dzz
+cccc        dS3 = dxx*dyy
 cccc
 cccccc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
 cccccc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
