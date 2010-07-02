@@ -701,36 +701,15 @@ c Calculate matrix-vector product
               dvol = 1d0
             endif
 
-            !NC advection
-
-cc            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
-cc     .                 *( drho(i  ,j,k,1) - drho(i-1,j,k,1) )/dx(ig-1)
-cc     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
-cc     .                 *( drho(i+1,j,k,1) - drho(i  ,j,k,1) )/dx(ig)
-cc     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
-cc     .                 *( drho(i,j  ,k,1) - drho(i,j-1,k,1) )/dy(jg-1)
-cc     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
-cc     .                 *( drho(i,j+1,k,1) - drho(i,j  ,k,1) )/dy(jg)
-cc     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
-cc     .                 *( drho(i,j,k  ,1) - drho(i,j,k-1,1) )/dz(kg-1)
-cc     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
-cc     .                 *( drho(i,j,k+1,1) - drho(i,j,k  ,1) )/dz(kg)
-cc
-cc            upwind = upwind/jac
-cc
-cc            y(ijk) = ( (cnp/dt + alpha*mgdivV0(ijkg))*x(ijk)
-cc     .            + alpha*upwind )*dvol
-cc     .            - alpha*dd
-cc     .                *laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                          ,drho(:,:,:,1),vol=volf)
-
             !Conservative advection
-            upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,v0_cnv(:,:,:,1)
-     .                    ,v0_cnv(:,:,:,2)
-     .                    ,v0_cnv(:,:,:,3)
-     .                    ,drho  (:,:,:,1)
-     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+cc            upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+cc     .                    ,v0_cnv(:,:,:,1)
+cc     .                    ,v0_cnv(:,:,:,2)
+cc     .                    ,v0_cnv(:,:,:,3)
+cc     .                    ,drho  (:,:,:,1)
+cc     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                    ,v0_cnv,drho  (:,:,:,1),1,vol=volf,sp=bcSP())
 
             ! Diffusion
             if (dd > 0d0) then
