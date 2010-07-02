@@ -20,8 +20,6 @@ c####################################################################
 
         use operators
 
-        use generalPurposeFunctions
-
         use nlfunction_setup
 
         use app_iosetup
@@ -335,7 +333,6 @@ c Local variables
       integer    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
      .             ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
      .             ,tn=0d0,ez,lrflux,rflux,rmsj,vmax(3),lvmax(3)
@@ -447,27 +444,30 @@ c Energy diagnostics
       !Magnetic energy
 
       array = (bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Em0
+      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ek0
+      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
 
       !Thermal energy
 
-      array = rho*tmp
+      if (adiabatic) then
+        array = tmp
+      else
+        array = rho*tmp
+      endif
 
       if (gamma /= 1d0) then
         Et = a_p/(gamma-1)*integral(nx,ny,nz,array,igx,igy,igz,.false.)
-     .      -Et0
       else
         Et = 0d0
       endif
 
-      !Total energy
+      !Total energy error
 
-      energy = Ek + Em + Et
+      energy = Ek + Em + Et - Ek0 - Em0 - Et0
 
 c Current diagnostics
 
@@ -500,6 +500,17 @@ c Initial assignments
         return
       endif
 
+c Normalize conservation errors
+
+       if (Npar0 /= 0d0) Npar  = Npar /Npar0 
+cc       if (Ipx0  /= 0d0) Ipx   = Ipx  /Ipx0  
+cc       if (Ipy0  /= 0d0) Ipy   = Ipy  /Ipy0  
+cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0  
+       if (Iz0   /= 0d0) Iz    = Iz   /Iz0   
+       if (Tflux0/= 0d0) Tflux = Tflux/Tflux0
+
+       energy = energy/(Ek0 + Em0 + Et0)
+
 c Velocity divergence diagnostics
 
       !Total flow divergence (conservation of flow)
@@ -515,43 +526,60 @@ c Magnetic divergence diagnostics
 
       diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
-c Parallel electric field diagnostic
+c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
 
       if (isProcessor) then
+
         if (time == tn) then
-          tn = time - 1d5
-          Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
+cc          tn = time - 1d5
+cc          Pfluxn = Pflux
+cc        endif
+          ez = 0d0 ; rflux = 0d0
+          Pfluxn = Pflux
+        else
+
+          select case(trim(equil))
+          case('dtm')
+            ez = (maxval(Pflux (1,:,1))-minval(Pflux (1,:,1))
+     .           -maxval(Pfluxn(1,:,1))+minval(Pfluxn(1,:,1)))/(time-tn)
+
+            rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
+          case default
+            ez = (Pflux (iplt,jplt,1)
+     .           -Pfluxn(iplt,jplt,1))/(time-tn)
+
+            rflux = abs(maxval(Pflux(iplt,:,1))-minval(Pflux(iplt,:,1)))
+          end select
+
+          tn = time
+          Pfluxn = Pflux
+
         endif
 
-        ez = (Pflux (iplt,jplt,1)
-     .       -Pfluxn(iplt,jplt,1))/(time-tn)
-
-        tn = time
-        Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
       endif
 
-c Reconnected flux (GEM challenge)
-
-      if (trim(equil) == 'gem') then
-#if defined(petsc)
-        if (split_key /= MPI_UNDEFINED) then
-          if (ddnp == 1) then
-            rflux = Pflux(iplt,jplt      ,1)
-     .            - Pflux(iplt,jplt-nyd/2,1)
-          else
-            lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
-
-            call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_SUM,MPI_COMM_DIAG,mpierr)
-          endif
-        endif
-#else
-        rflux = minval(Pflux(iplt,1:nyd,1))
-     .        - maxval(Pflux(iplt,1:nyd,1))
-#endif
-      else
-        rflux = 0d0
-      endif
+ccc Reconnected flux (GEM challenge)
+cc
+cc      if (trim(equil) == 'gem') then
+cc
+cc#if defined(petsc)
+cc        if (split_key /= MPI_UNDEFINED) then
+cc          if (ddnp == 1) then
+cc            rflux = Pflux(iplt,jplt      ,1)
+cc     .            - Pflux(iplt,jplt-nyd/2,1)
+cc          else
+cc            lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
+cc
+cc            call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+cc          endif
+cc        endif
+cc#else
+cc        rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
+cc#endif
+cc      else
+cc        rflux = 0d0
+cc      endif
 
 c Growth rate diagnostics
 
@@ -562,7 +590,6 @@ c Growth rate diagnostics
 
         dpert(ieq) = integral(nx,ny,nz,array,igx,igy,igz,.true.)
 
-cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
         if (dpert(ieq).eq.0d0) then
           dpert(ieq) = 0.1*maxval(abs(pert))
         else
