@@ -1434,7 +1434,7 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use operators
+      use nlfunction_setup, ONLY: eom_f,eom_jxb
 
       use imposeBCinterface
 
