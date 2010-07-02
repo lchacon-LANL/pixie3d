@@ -24,12 +24,12 @@ c ######################################################################
 
         use mg_solver
 
-        use nlfunction_setup, ONLY: EOM_advc,EOM_divPi_ijk
+        use nlfunction_setup, ONLY: EOM_divPi_ijk
      .                             ,EOM_divPe_ijk,fake_ve
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,nc_eom_gp,solve_rho
 
-        use local_BCS_variables, ONLY: bc_order
+        use local_BCS_variables, ONLY: bc_order,vector_symm_bc
 
         integer :: ntotd2p,nwt_iter
         real(8) :: x1,y1,z1
@@ -498,7 +498,8 @@ c     Local variables
 
         integer    :: order,nx,ny,nz,igrid,ii,ivar,igr
      .               ,bc_pc(size(bcs,1),size(bcs,2)),ig,jg,kg
-     .               ,bc_sc(6,1),bc_vec(6,3),bc_cov(6,3)
+     .               ,bc_sc(6,1),bc_vec_odd(6,3),bc_vec_even(6,3)
+     .               ,bc_cov(6,3)
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
         real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
@@ -545,20 +546,31 @@ c     Setup BCs
 
         bc_sc(:,1) = bcond
         where (bc_sc == DEF) bc_sc = EXT
+        where (bc_sc ==FSYM) bc_sc = NEU
 
         call setASM_PC_BC(igx,igy,igz,bc_sc,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
-        bc_vec(:,1) = bcond
-        bc_vec(:,2) = bcond
-        bc_vec(:,3) = bcond
-        where (bc_vec == DEF) bc_vec = EXT
+        bc_vec_odd(:,1) = bcond
+        bc_vec_odd(:,2) = bcond
+        bc_vec_odd(:,3) = bcond
+        where (bc_vec_odd == DEF) bc_vec_odd = EXT
+        call vector_symm_bc(bc_vec_odd,-1)   !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+
+        bc_vec_even(:,1) = bcond
+        bc_vec_even(:,2) = bcond
+        bc_vec_even(:,3) = bcond
+        where (bc_vec_even == DEF) bc_vec_even = EXT
+        call vector_symm_bc(bc_vec_even,1)   !Even normal component
+
+        call setASM_PC_BC(igx,igy,igz,bc_vec_even,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
         bc_cov(:,1) = bcond
         bc_cov(:,2) = bcond
         bc_cov(:,3) = bcond
         where (bc_cov == DEF) bc_cov = EXT
+        call vector_symm_bc(bc_cov,-1)        !Odd normal component
 
         call setASM_PC_BC(igx,igy,igz,bc_cov,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
@@ -657,7 +669,7 @@ c     Store Hall MHD auxiliary variables
           gve0%grid(igrid)%array(:,:,:,3) = vcnv(:,:,:,3)
      .                                     -di*jcnv(:,:,:,3)/rho
 
-          call restrictMGArray(IVX,3,gve0,bc_vec,igrid,order)
+          call restrictMGArray(IVX,3,gve0,bc_vec_odd,igrid,order)
 cc          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
 
           !Store Hall electric field
@@ -687,7 +699,7 @@ cc                  enddo
               enddo
             enddo
 
-            call restrictMGArray(IBX,3,gbs0,bc_vec,igrid,order)
+            call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order)
           else
             call equateMGArray(gbs0,gb0)
           endif
@@ -704,7 +716,7 @@ cc                  enddo
               enddo
             enddo
 
-            call restrictMGArray(IJX,3,ga0,bc_vec,igrid,order)
+            call restrictMGArray(IJX,3,ga0,bc_vec_even,igrid,order)
 
           !Auxiliary quantities for std Hall MHD formulation: A = B_star
           else
@@ -1136,10 +1148,10 @@ c     Begin program
 
         !Advection
         psiv = psiv
-     .       + alpha*(EOM_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dv
-     .                        ,upwind=.true.)
-     .       +        EOM_advc(i,j,k,nx,ny,nz,igr,igr,igr,dv,v0_cnv
-     .                        ,upwind=(advect == 1)))
+     .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dv
+     .                        ,1     ,cons=conserv)
+     .       +        tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dv,v0_cnv
+     .                        ,advect,cons=conserv))
 
         !Diffusion
         if (nu > 0d0) then
@@ -1154,8 +1166,11 @@ c     Begin program
 
         !Advection
         psiv = psiv
-     .       + alpha*(EOM_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp)
-     .               +EOM_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv))
+     .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp
+     .                           ,1     ,cons=conserv)
+cc     .                           ,advect,cons=conserv)
+     .               +tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv
+     .                           ,advect,cons=conserv))
 
         !Diffusion
         if (nu > 0d0) then
@@ -1669,10 +1684,7 @@ c     Begin program
 
             crhs(ii) = alpha
      .                *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                      ,dv_cnv(:,:,:,1)
-     .                      ,dv_cnv(:,:,:,2)
-     .                      ,dv_cnv(:,:,:,3)
-     .                      ,grho0%grid(igrid)%array(:,:,:,1)
+     .                      ,dv_cnv,grho0%grid(igrid)%array(:,:,:,1)
      .                      ,advect,vol=.false.)
           enddo
         enddo
@@ -1717,16 +1729,11 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
               jac = gmetric%grid(igrid)%jac(i,j,k)
 
               crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv(:,:,:,1)
-     .                        ,dv_cnv(:,:,:,2)
-     .                        ,dv_cnv(:,:,:,3)
-     .                        ,gtmp0%grid(igrid)%array(:,:,:,1)
+     .                        ,dv_cnv,gtmp0%grid(igrid)%array(:,:,:,1)
      .                        ,advect,vol=.false.)
      .                  +(gamma-1)*gtmp0%grid(igrid)%array(i,j,k,1)
      $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     $                                ,dv_cnv(:,:,:,1)
-     $                                ,dv_cnv(:,:,:,2)
-     $                                ,dv_cnv(:,:,:,3))
+     $                                ,dv_cnv)
             enddo
           enddo
         enddo
@@ -1741,16 +1748,11 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
               jac = gmetric%grid(igrid)%jac(i,j,k)
 
               crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv(:,:,:,1)
-     .                        ,dv_cnv(:,:,:,2)
-     .                        ,dv_cnv(:,:,:,3)
-     .                        ,gtmp0%grid(igrid)%array(:,:,:,1)
+     .                        ,dv_cnv,gtmp0%grid(igrid)%array(:,:,:,1)
      .                        ,advect,vol=.false.)
      .                  +(gamma-2)*gtmp0%grid(igrid)%array(i,j,k,1)
      $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     $                                ,dv_cnv(:,:,:,1)
-     $                                ,dv_cnv(:,:,:,2)
-     $                                ,dv_cnv(:,:,:,3))
+     $                                ,dv_cnv)
             enddo
           enddo
         enddo
