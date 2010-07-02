@@ -70,7 +70,7 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,ion_hall,lag_pinch_bc
+     .                   ,ion_hall,lag_pinch_bc,fake_ve
      .                ,inputfile,recordfile,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -90,6 +90,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,ion_hall,lag_pinch_bc
+     .                   ,fake_ve
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -255,6 +256,7 @@ c Set defaults
                                !    6 -> centered 4th order
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
+      fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
 
       !Preconditioner parameters
       pc_type  = 'id'          ! Type of preconditioner. Currently:
@@ -447,6 +449,8 @@ cc      if (precon == 'id') iguess = 0
 
       if (cnfactor == 1d0) ion_hall = .false.
 
+      if (.not.ion_hall) fake_ve = .false.
+
       if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (eigen) then
@@ -515,7 +519,7 @@ c Translate boundary conditions
       elsewhere (bcs == 'spt')
         bcond = SP
       elsewhere (bcs == 'sym')
-        bcond = SYM
+        bcond = FSYM  !Symmetry at faces (for conservation)
       elsewhere (bcs == 'equ')
         bcond = EQU
       end where
