@@ -4,6 +4,8 @@ c ######################################################################
 
         use iosetup
 
+        integer :: it_divcl=0
+
         logical :: dcon=.false.
 
         logical :: poincare=.false.,fourier=.false.,test=.false.
@@ -54,7 +56,8 @@ c ######################################################################
 #endif
 
         character(5)  :: equil
-        character(20) :: equ_file,prt_file
+        integer :: u_equf=1000,u_prtf=2000,u_mapf=3000
+        character(20) :: equ_file,prt_file,map_file
         real(8)       :: eq_params(6)
 
       contains
@@ -458,10 +461,6 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:,:) :: vec,vec1,vec2
         real(8),pointer,dimension(:,:,:)   :: coef,sc1,sc2
 
-        logical :: solenoidal=.true.,sym_st=.false.
-     .            ,nc_eom_jxb=.false.,nc_eom_gp=.false.
-     .            ,nc_eom_v=.false.,solve_rho=.true.
-
         INTERFACE veclaplacian
           module procedure veclap_diff,veclap_ndiff
         end INTERFACE
@@ -478,247 +477,309 @@ c ######################################################################
           module procedure curl_ijk,curl2_ijk,curl_mesh
         end INTERFACE
 
-cc        INTERFACE curlcurl
-cc          module procedure curlcurl_diff,curlcurl_ndiff
-cc        end INTERFACE
+        INTERFACE grad
+          module procedure grad_ijk,grad_mesh
+        end INTERFACE
 
-        PRIVATE :: grad_vrtx,curl_vrtx,div_vrtx
-cc     .            ,eom_diff_x,eom_diff_y,eom_diff_z
-cc     .            ,eom_advc_x,eom_advc_y,eom_advc_z
+cc        PRIVATE :: grad_vrtx,curl_vrtx,div_vrtx
+
+        logical :: sym_st=.false.
 
       contains
 
-c     div_vrtx
-c     ##################################################################
-      function div_vrtx(i,j,k,igx,igy,igz,vx,vy,vz,vrtx) result(div)
-
-c     ------------------------------------------------------------------
-c     Calculates div of cnv vector defined at nearest neighbors.
-c     If vrtx is true, it finds div at (i+1/2,j+1/2,k+1/2) from (i,j,k)
-c     If vrtx is false, it finds div at (i,j,k) from (i+1/2,j+1/2,k+1/2)
-c     ------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k,igx,igy,igz
-      real(8) :: vx(2,2,2),vy(2,2,2),vz(2,2,2),div
-      logical :: vrtx
-
-c     Local variables
-
-      integer :: ig,jg,kg,ip,i0,jp,j0,kp,k0
-      real(8) :: dhx,dhy,dhz,fp,fm,jac
-
-c     Begin program
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      if (vrtx) then
-        dhx = dx(ig)
-        dhy = dy(jg)
-        dhz = dz(kg)
-      else
-        dhx = dxh(ig)
-        dhy = dyh(jg)
-        dhz = dzh(kg)
-      endif
-
-      ip = 2
-      i0 = 1
-      jp = 2
-      j0 = 1
-      kp = 2
-      k0 = 1
-
-      !X component
-      fp = 0.25*(vx(ip,j0,k0)+vx(ip,jp,k0)
-     .          +vx(ip,j0,kp)+vx(ip,jp,kp))
-      fm = 0.25*(vx(i0,j0,k0)+vx(i0,jp,k0)
-     .          +vx(i0,j0,kp)+vx(i0,jp,kp))
-
-      div = (fp-fm)/dhx
-
-      !Y component
-      fp = 0.25*(vy(i0,jp,k0)+vy(ip,jp,k0)
-     .          +vy(i0,jp,kp)+vy(ip,jp,kp))
-      fm = 0.25*(vy(i0,j0,k0)+vy(ip,j0,k0)
-     .          +vy(i0,j0,kp)+vy(ip,j0,kp))
-
-      div = div + (fp-fm)/dhy
-
-      !Z component
-      fp = 0.25*(vz(ip,j0,kp)+vz(i0,j0,kp)
-     .          +vz(ip,jp,kp)+vz(i0,jp,kp))
-      fm = 0.25*(vz(ip,j0,k0)+vz(i0,j0,k0)
-     .          +vz(ip,jp,k0)+vz(i0,jp,k0))
-
-      div = div + (fp-fm)/dhz
-
-      !Jacobian factor
-      if (vrtx) then
-        jac = 0.125*(gmetric%grid(igx)%jac(i  ,j  ,k  )
-     .              +gmetric%grid(igx)%jac(i+1,j  ,k  )
-     .              +gmetric%grid(igx)%jac(i  ,j+1,k  )
-     .              +gmetric%grid(igx)%jac(i+1,j+1,k  ) 
-     .              +gmetric%grid(igx)%jac(i  ,j  ,k+1)
-     .              +gmetric%grid(igx)%jac(i+1,j  ,k+1)
-     .              +gmetric%grid(igx)%jac(i  ,j+1,k+1)
-     .              +gmetric%grid(igx)%jac(i+1,j+1,k+1))
-      else
-        jac = gmetric%grid(igx)%jac(i,j,k)
-      endif
-
-      if (isSP(i+1,j,k,igx,igy,igz).and.vrtx) then
-        div = 0d0
-      else
-        div = div/jac
-      endif
-
-c     End program
-
-      end function div_vrtx
-
-c     grad_vrtx
-c     ##################################################################
-      function grad_vrtx(i,j,k,igx,igy,igz,phi,vrtx) result(grd)
-
-c     ------------------------------------------------------------------
-c     Calculates gradient of phi from nearest neighbors.
-c     If vrtx is true, it finds grad at (i+1/2,j+1/2,k+1/2) from (i,j,k)
-c     If vrtx is false, it finds grad at (i,j,k) from (i+1/2,j+1/2,k+1/2)
-c     ------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k,igx,igy,igz
-      real(8) :: phi(2,2,2),grd(3)
-      logical :: vrtx
-
-c     Local variables
-
-      integer :: ig,jg,kg,ip,i0,jp,j0,kp,k0,nx,ny,nz
-      real(8) :: idhx,idhy,idhz,fp,fm
-
-c     Begin program
-
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      nx = grid_params%nxgl(igx)
-      ny = grid_params%nygl(igy)
-      nz = grid_params%nzgl(igz)
-
-      idhx = 0d0
-      idhy = 0d0
-      idhz = 0d0
-
-      if (vrtx) then
-        if (nx > 1) idhx = 1./dx(ig)
-        if (ny > 1) idhy = 1./dy(jg)
-        if (nz > 1) idhz = 1./dz(kg)
-      else
-        if (nx > 1) idhx = 1./dxh(ig)
-        if (ny > 1) idhy = 1./dyh(jg)
-        if (nz > 1) idhz = 1./dzh(kg)
-      endif
-
-cc      if (vrtx) then
-cc        idhx = 1./dx(ig)
-cc        idhy = 1./dy(jg)
-cc        idhz = 1./dz(kg)
-cc      else
-cc        idhx = 1./dxh(ig)
-cc        idhy = 1./dyh(jg)
-cc        idhz = 1./dzh(kg)
-cc      endif
+ccc     div_vrtx
+ccc     ##################################################################
+cc      function div_vrtx(i,j,k,igx,igy,igz,vx,vy,vz,vrtx) result(div)
+cc
+ccc     ------------------------------------------------------------------
+ccc     Calculates div of cnv vector defined at nearest neighbors.
+ccc     If vrtx is true, it finds div at (i+1/2,j+1/2,k+1/2) from (i,j,k)
+ccc     If vrtx is false, it finds div at (i,j,k) from (i+1/2,j+1/2,k+1/2)
+ccc     ------------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: i,j,k,igx,igy,igz
+cc      real(8) :: vx(2,2,2),vy(2,2,2),vz(2,2,2),div
+cc      logical :: vrtx
+cc
+ccc     Local variables
+cc
+cc      integer :: ig,jg,kg,ip,i0,jp,j0,kp,k0
+cc      real(8) :: dhx,dhy,dhz,fp,fm,jac
+cc
+ccc     Begin program
+cc
+cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
 cc      if (vrtx) then
-cc        ip = 1 + min(grid_params%nxgl(igx)-(i+grid_params%ilo(igx)-1),1)
-cc        i0 = 2 - min(i+grid_params%ilo(igx)-1,1)
-cc        jp = 1 + min(grid_params%nygl(igy)-(j+grid_params%jlo(igy)-1),1)
-cc        j0 = 2 - min(j+grid_params%jlo(igy)-1,1)
-cc        kp = 1 + min(grid_params%nzgl(igz)-(k+grid_params%klo(igz)-1),1)
-cc        k0 = 2 - min(k+grid_params%klo(igz)-1,1)
-cc
-cc        write (*,*) i,j,k,"  ;  ",i0,ip,j0,jp,k0,kp
-cc
+cc        dhx = dx(ig)
+cc        dhy = dy(jg)
+cc        dhz = dz(kg)
 cc      else
-        ip = 2
-        i0 = 1
-        jp = 2
-        j0 = 1
-        kp = 2
-        k0 = 1
+cc        dhx = dxh(ig)
+cc        dhy = dyh(jg)
+cc        dhz = dzh(kg)
 cc      endif
-
-      !X component
-      fp = 0.25*(phi(ip,j0,k0)+phi(ip,jp,k0)
-     .          +phi(ip,j0,kp)+phi(ip,jp,kp))
-      fm = 0.25*(phi(i0,j0,k0)+phi(i0,jp,k0)
-     .          +phi(i0,j0,kp)+phi(i0,jp,kp))
-
-      grd(1) = (fp-fm)*idhx
-
-      !Y component
-      fp = 0.25*(phi(i0,jp,k0)+phi(ip,jp,k0)
-     .          +phi(i0,jp,kp)+phi(ip,jp,kp))
-      fm = 0.25*(phi(i0,j0,k0)+phi(ip,j0,k0)
-     .          +phi(i0,j0,kp)+phi(ip,j0,kp))
-
-      grd(2) = (fp-fm)*idhy
-
-      !Z component
-      fp = 0.25*(phi(ip,j0,kp)+phi(i0,j0,kp)
-     .          +phi(ip,jp,kp)+phi(i0,jp,kp))
-      fm = 0.25*(phi(ip,j0,k0)+phi(i0,j0,k0)
-     .          +phi(ip,jp,k0)+phi(i0,jp,k0))
-
-      grd(3) = (fp-fm)*idhz
-
-c     End program
-
-      end function grad_vrtx
-
-c     curl_vrtx
-c     ##################################################################
-      function curl_vrtx(i,j,k,igx,igy,igz,vv,vrtx) result(cnv)
-
-c     ------------------------------------------------------------------
-c     Calculates curl of vv (covariant) from nearest neighbors. Returns
-c     contravariant components.
-c
-c     If vrtx is true, it finds curl at (i+1/2,j+1/2,k+1/2) from (i,j,k)
-c     If vrtx is false, it finds curl at (i,j,k) from (i+1/2,j+1/2,k+1/2)
-c     ------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k,igx,igy,igz
-      real(8) :: vv(2,2,2,3),cnv(3)
-      logical :: vrtx
-
-c     Local variables
-
-      real(8) :: gvx(3),gvy(3),gvz(3)
-
-c     Begin program
-
-      gvx = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,1),vrtx)
-      gvy = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,2),vrtx)
-      gvz = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,3),vrtx)
-
-      cnv(1) = gvz(2)-gvy(3)
-      cnv(2) = gvx(3)-gvz(1)
-      cnv(3) = gvy(1)-gvx(2)
-
-c     End program
-
-      end function curl_vrtx
+cc
+cc      ip = 2
+cc      i0 = 1
+cc      jp = 2
+cc      j0 = 1
+cc      kp = 2
+cc      k0 = 1
+cc
+cc      !X component
+cc      fp = 0.25*(vx(ip,j0,k0)+vx(ip,jp,k0)
+cc     .          +vx(ip,j0,kp)+vx(ip,jp,kp))
+cc      fm = 0.25*(vx(i0,j0,k0)+vx(i0,jp,k0)
+cc     .          +vx(i0,j0,kp)+vx(i0,jp,kp))
+cc
+cc      div = (fp-fm)/dhx
+cc
+cc      !Y component
+cc      fp = 0.25*(vy(i0,jp,k0)+vy(ip,jp,k0)
+cc     .          +vy(i0,jp,kp)+vy(ip,jp,kp))
+cc      fm = 0.25*(vy(i0,j0,k0)+vy(ip,j0,k0)
+cc     .          +vy(i0,j0,kp)+vy(ip,j0,kp))
+cc
+cc      div = div + (fp-fm)/dhy
+cc
+cc      !Z component
+cc      fp = 0.25*(vz(ip,j0,kp)+vz(i0,j0,kp)
+cc     .          +vz(ip,jp,kp)+vz(i0,jp,kp))
+cc      fm = 0.25*(vz(ip,j0,k0)+vz(i0,j0,k0)
+cc     .          +vz(ip,jp,k0)+vz(i0,jp,k0))
+cc
+cc      div = div + (fp-fm)/dhz
+cc
+cc      !Jacobian factor
+cc      if (vrtx) then
+cc        jac = 0.125*(gmetric%grid(igx)%jac(i  ,j  ,k  )
+cc     .              +gmetric%grid(igx)%jac(i+1,j  ,k  )
+cc     .              +gmetric%grid(igx)%jac(i  ,j+1,k  )
+cc     .              +gmetric%grid(igx)%jac(i+1,j+1,k  ) 
+cc     .              +gmetric%grid(igx)%jac(i  ,j  ,k+1)
+cc     .              +gmetric%grid(igx)%jac(i+1,j  ,k+1)
+cc     .              +gmetric%grid(igx)%jac(i  ,j+1,k+1)
+cc     .              +gmetric%grid(igx)%jac(i+1,j+1,k+1))
+cc      else
+cc        jac = gmetric%grid(igx)%jac(i,j,k)
+cc      endif
+cc
+cc      if (isSP(i+1,j,k,igx,igy,igz).and.vrtx) then
+cc        div = 0d0
+cc      else
+cc        div = div/jac
+cc      endif
+cc
+ccc     End program
+cc
+cc      end function div_vrtx
+cc
+ccc     grad_vrtx
+ccc     ##################################################################
+cc      function grad_vrtx(i,j,k,igx,igy,igz,phi,vrtx) result(grd)
+cc
+ccc     ------------------------------------------------------------------
+ccc     Calculates gradient of phi from nearest neighbors.
+ccc     If vrtx is true, it finds grad at (i+1/2,j+1/2,k+1/2) from (i,j,k)
+ccc     If vrtx is false, it finds grad at (i,j,k) from (i+1/2,j+1/2,k+1/2)
+ccc     ------------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: i,j,k,igx,igy,igz
+cc      real(8) :: phi(2,2,2),grd(3)
+cc      logical :: vrtx
+cc
+ccc     Local variables
+cc
+cc      integer :: ig,jg,kg,ip,i0,jp,j0,kp,k0,nx,ny,nz
+cc      real(8) :: idhx,idhy,idhz,fp,fm
+cc
+ccc     Begin program
+cc
+cc      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc      nx = grid_params%nxgl(igx)
+cc      ny = grid_params%nygl(igy)
+cc      nz = grid_params%nzgl(igz)
+cc
+cc      idhx = 0d0
+cc      idhy = 0d0
+cc      idhz = 0d0
+cc
+cc      if (vrtx) then
+cc        if (nx > 1) idhx = 1./dx(ig)
+cc        if (ny > 1) idhy = 1./dy(jg)
+cc        if (nz > 1) idhz = 1./dz(kg)
+cc      else
+cc        if (nx > 1) idhx = 1./dxh(ig)
+cc        if (ny > 1) idhy = 1./dyh(jg)
+cc        if (nz > 1) idhz = 1./dzh(kg)
+cc      endif
+cc
+cccc      if (vrtx) then
+cccc        idhx = 1./dx(ig)
+cccc        idhy = 1./dy(jg)
+cccc        idhz = 1./dz(kg)
+cccc      else
+cccc        idhx = 1./dxh(ig)
+cccc        idhy = 1./dyh(jg)
+cccc        idhz = 1./dzh(kg)
+cccc      endif
+cccc
+cccc      if (vrtx) then
+cccc        ip = 1 + min(grid_params%nxgl(igx)-(i+grid_params%ilo(igx)-1),1)
+cccc        i0 = 2 - min(i+grid_params%ilo(igx)-1,1)
+cccc        jp = 1 + min(grid_params%nygl(igy)-(j+grid_params%jlo(igy)-1),1)
+cccc        j0 = 2 - min(j+grid_params%jlo(igy)-1,1)
+cccc        kp = 1 + min(grid_params%nzgl(igz)-(k+grid_params%klo(igz)-1),1)
+cccc        k0 = 2 - min(k+grid_params%klo(igz)-1,1)
+cccc
+cccc        write (*,*) i,j,k,"  ;  ",i0,ip,j0,jp,k0,kp
+cccc
+cccc      else
+cc        ip = 2
+cc        i0 = 1
+cc        jp = 2
+cc        j0 = 1
+cc        kp = 2
+cc        k0 = 1
+cccc      endif
+cc
+cc      !X component
+cc      fp = 0.25*(phi(ip,j0,k0)+phi(ip,jp,k0)
+cc     .          +phi(ip,j0,kp)+phi(ip,jp,kp))
+cc      fm = 0.25*(phi(i0,j0,k0)+phi(i0,jp,k0)
+cc     .          +phi(i0,j0,kp)+phi(i0,jp,kp))
+cc
+cc      grd(1) = (fp-fm)*idhx
+cc
+cc      !Y component
+cc      fp = 0.25*(phi(i0,jp,k0)+phi(ip,jp,k0)
+cc     .          +phi(i0,jp,kp)+phi(ip,jp,kp))
+cc      fm = 0.25*(phi(i0,j0,k0)+phi(ip,j0,k0)
+cc     .          +phi(i0,j0,kp)+phi(ip,j0,kp))
+cc
+cc      grd(2) = (fp-fm)*idhy
+cc
+cc      !Z component
+cc      fp = 0.25*(phi(ip,j0,kp)+phi(i0,j0,kp)
+cc     .          +phi(ip,jp,kp)+phi(i0,jp,kp))
+cc      fm = 0.25*(phi(ip,j0,k0)+phi(i0,j0,k0)
+cc     .          +phi(ip,jp,k0)+phi(i0,jp,k0))
+cc
+cc      grd(3) = (fp-fm)*idhz
+cc
+ccc     End program
+cc
+cc      end function grad_vrtx
+cc
+ccc     curl_vrtx
+ccc     ##################################################################
+cc      function curl_vrtx(i,j,k,igx,igy,igz,vv,vrtx) result(cnv)
+cc
+ccc     ------------------------------------------------------------------
+ccc     Calculates curl of vv (covariant) from nearest neighbors. Returns
+ccc     contravariant components.
+ccc
+ccc     If vrtx is true, it finds curl at (i+1/2,j+1/2,k+1/2) from (i,j,k)
+ccc     If vrtx is false, it finds curl at (i,j,k) from (i+1/2,j+1/2,k+1/2)
+ccc     ------------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: i,j,k,igx,igy,igz
+cc      real(8) :: vv(2,2,2,3),cnv(3)
+cc      logical :: vrtx
+cc
+ccc     Local variables
+cc
+cc      real(8) :: gvx(3),gvy(3),gvz(3)
+cc
+ccc     Begin program
+cc
+cc      gvx = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,1),vrtx)
+cc      gvy = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,2),vrtx)
+cc      gvz = grad_vrtx(i,j,k,igx,igy,igz,vv(:,:,:,3),vrtx)
+cc
+cc      cnv(1) = gvz(2)-gvy(3)
+cc      cnv(2) = gvx(3)-gvz(1)
+cc      cnv(3) = gvy(1)-gvx(2)
+cc
+ccc     End program
+cc
+cc      end function curl_vrtx
+cc
+ccc     graddiv_vrtx
+ccc     ###############################################################
+cc      function graddiv_vrtx(i,j,k,nx,ny,nz,igx,igy,igz,aa,vol)
+cc     .         result(cov)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Calculates grad(div(A)) at cell centers in general non-orthogonal
+ccc     coordinates, preserving the self-adjoint property. The vector A
+ccc     is contravariant, and returns covariant components.
+ccc     ---------------------------------------------------------------
+cc
+cc      implicit none           !For safe fortran
+cc
+ccc     Call variables
+cc
+cc      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+cc
+cc      real(8)    :: aa(0:nx+1,0:ny+1,0:nz+1,3),cov(3)
+cc
+cc      logical,optional,intent(IN) :: vol
+cc
+ccc     Local variables
+cc
+cc      integer    :: il,jl,kl,ii,jj,kk
+cc
+cc      real(8)    :: div(2,2,2)
+cc
+cc      logical    :: vol_wgt
+cc
+ccc     Begin program
+cc
+cc      vol_wgt = .true.
+cc      if (PRESENT(vol)) vol_wgt = vol
+cc
+ccc     Divergence at vertices
+cc
+cc      do kl=1,2
+cc        do jl=1,2
+cc          do il=1,2
+cc            ii = i+il-2
+cc            jj = j+jl-2
+cc            kk = k+kl-2
+cc
+cc            div(il,jl,kl) = div_vrtx(ii,jj,kk,igx,igy,igz
+cc     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,1)
+cc     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,2)
+cc     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,3)
+cc     .                         ,.true.)
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc     Gradient at cell centers
+cc
+cc      cov = grad_vrtx(i,j,k,igx,igy,igz,div,.false.)
+cc
+cc      if (vol_wgt) cov=cov*gmetric%grid(igx)%dvol(i,j,k)
+cc
+ccc     End program
+cc
+cc      end function graddiv_vrtx
 
 c     div
 c     ###############################################################
@@ -813,10 +874,122 @@ c     End
 
       end function div
 
-c     grad
+c     grad_mesh
 c     ###############################################################
-      subroutine grad(i,j,k,nx,ny,nz,igx,igy,igz,arr,gx,gy,gz
-     .               ,hex,hey,hez)
+      function grad_mesh(nx,ny,nz,igx,igy,igz,arr) result(cov)
+
+c     ---------------------------------------------------------------
+c     Calculates curl(A) in general non-orthogonal coordinates. Is
+c     boundary-ready (can extrapolate). The vector A is
+c     covariant, and returns the contravariant component "comp".
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz
+
+      real(8) :: arr(0:nx+1,0:ny+1,0:nz+1)
+     .          ,cov(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer :: i,j,k
+
+c     Begin program
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            cov(i,j,k,:) = grad_ijk(i,j,k,nx,ny,nz,igx,igy,igz,arr)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end function grad_mesh
+
+c     grad2
+c     ###############################################################
+      function grad2(i,j,k,nx,ny,nz,igx,igy,igz,arr,he1,he2,he3)
+     .         result(cov)
+
+c     ---------------------------------------------------------------
+c     Calculates grad(A)) in general non-orthogonal coordinates.
+c     The vector grad(A) is covariant.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz,he1,he2,he3
+
+      real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),cov(3)
+
+c     Local variables
+
+c     Begin program
+
+      call grad2_ijk(i,j,k,nx,ny,nz,igx,igy,igz,arr
+     .              ,cov(1),cov(2),cov(3),he1,he2,he3)
+
+c     End program
+
+      end function grad2
+
+c     grad_ijk
+c     ###############################################################
+      function grad_ijk(i,j,k,nx,ny,nz,igx,igy,igz,arr,he)
+     .         result(cov)
+
+c     ---------------------------------------------------------------
+c     Calculates grad(A)) in general non-orthogonal coordinates.
+c     The vector grad(A) is covariant.
+c     ---------------------------------------------------------------
+
+      implicit none           !For safe fortran
+
+c     Call variables
+
+      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+
+      real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),cov(3)
+
+      integer,optional :: he
+
+c     Local variables
+
+      integer :: he1,he2,he3
+
+c     Begin program
+
+      if (PRESENT(he)) then
+        select case(he)
+        case(1)
+          he1 = 1; he2 = 0; he3 = 0
+        case(2)
+          he1 = 0; he2 = 1; he3 = 0
+        case(3)
+          he1 = 0; he2 = 0; he3 = 1
+        end select
+      else
+        he1 = 0; he2 = 0; he3 = 0
+      endif
+
+      call grad2_ijk(i,j,k,nx,ny,nz,igx,igy,igz,arr
+     .              ,cov(1),cov(2),cov(3),he1,he2,he3)
+
+c     End program
+
+      end function grad_ijk
+
+c     grad2_ijk
+c     ###############################################################
+      subroutine grad2_ijk(i,j,k,nx,ny,nz,igx,igy,igz,arr,gx,gy,gz
+     .                   ,hex,hey,hez)
 
 c     ---------------------------------------------------------------
 c     Calculates grad(A)) in general non-orthogonal coordinates.
@@ -939,36 +1112,7 @@ c1st        gz = (arr(i,j,k)-arr(i,j,km))/dz1
 
 c     End program
 
-      end subroutine grad
-
-c     grad2
-c     ###############################################################
-      function grad2(i,j,k,nx,ny,nz,igx,igy,igz,arr,hex,hey,hez)
-     .         result(cov)
-
-c     ---------------------------------------------------------------
-c     Calculates grad(A)) in general non-orthogonal coordinates.
-c     The vector grad(A) is covariant.
-c     ---------------------------------------------------------------
-
-      implicit none           !For safe fortran
-
-c     Call variables
-
-      integer    :: i,j,k,nx,ny,nz,igx,igy,igz,hex,hey,hez
-
-      real(8)    :: arr(0:nx+1,0:ny+1,0:nz+1),cov(3)
-
-c     Local variables
-
-c     Begin program
-
-      call grad(i,j,k,nx,ny,nz,igx,igy,igz,arr,cov(1),cov(2),cov(3)
-     .         ,hex,hey,hez)
-
-c     End program
-
-      end function grad2
+      end subroutine grad2_ijk
 
 ccc     curl
 ccc     ###############################################################
@@ -1224,6 +1368,8 @@ c     Local variables
 
 c     Begin program
 
+      cnv = 0d0
+
       do k=1,nz
         do j=1,ny
           do i=1,nx
@@ -1260,25 +1406,14 @@ c     Call variables
 
 c     Local variables
 
-      integer :: he1=0,he2=0,he3=0,icomp
+      integer :: icomp
       real(8) :: gv(3,3)
 
 c     Begin program
 
-      if (PRESENT(he)) then
-        select case(he)
-        case(1)
-          he1 = 1
-        case(2)
-          he2 = 1
-        case(3)
-          he3 = 1
-        end select
-      endif
-
       do icomp=1,3
-        gv(:,icomp) = grad2(i,j,k,nx,ny,nz,igx,igy,igz,a(:,:,:,icomp)
-     .                     ,he1,he2,he3)
+        gv(:,icomp) = grad(i,j,k,nx,ny,nz,igx,igy,igz
+     .                     ,a(:,:,:,icomp),he=he)
       enddo
 
       cnv(1) = gv(2,3)-gv(3,2)
@@ -1316,25 +1451,13 @@ c     Call variables
 
 c     Local variables
 
-      integer :: he1=0,he2=0,he3=0
       real(8) :: gv(3,3)
 
 c     Begin program
 
-      if (PRESENT(he)) then
-        select case(he)
-        case(1)
-          he1 = 1
-        case(2)
-          he2 = 1
-        case(3)
-          he3 = 1
-        end select
-      endif
-
-      gv(:,1) = grad2(i,j,k,nx,ny,nz,igx,igy,igz,ax,he1,he2,he3)
-      gv(:,2) = grad2(i,j,k,nx,ny,nz,igx,igy,igz,ay,he1,he2,he3)
-      gv(:,3) = grad2(i,j,k,nx,ny,nz,igx,igy,igz,az,he1,he2,he3)
+      gv(:,1) = grad(i,j,k,nx,ny,nz,igx,igy,igz,ax,he=he)
+      gv(:,2) = grad(i,j,k,nx,ny,nz,igx,igy,igz,ay,he=he)
+      gv(:,3) = grad(i,j,k,nx,ny,nz,igx,igy,igz,az,he=he)
 
       cnv(1) = gv(2,3)-gv(3,2)
       cnv(2) = gv(3,1)-gv(1,3)
@@ -1343,68 +1466,6 @@ c     Begin program
 c     End program
 
       end function curl2_ijk
-
-c     graddiv_vrtx
-c     ###############################################################
-      function graddiv_vrtx(i,j,k,nx,ny,nz,igx,igy,igz,aa,vol)
-     .         result(cov)
-
-c     ---------------------------------------------------------------
-c     Calculates grad(div(A)) at cell centers in general non-orthogonal
-c     coordinates, preserving the self-adjoint property. The vector A
-c     is contravariant, and returns covariant components.
-c     ---------------------------------------------------------------
-
-      implicit none           !For safe fortran
-
-c     Call variables
-
-      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
-
-      real(8)    :: aa(0:nx+1,0:ny+1,0:nz+1,3),cov(3)
-
-      logical,optional,intent(IN) :: vol
-
-c     Local variables
-
-      integer    :: il,jl,kl,ii,jj,kk
-
-      real(8)    :: div(2,2,2)
-
-      logical    :: vol_wgt
-
-c     Begin program
-
-      vol_wgt = .true.
-      if (PRESENT(vol)) vol_wgt = vol
-
-c     Divergence at vertices
-
-      do kl=1,2
-        do jl=1,2
-          do il=1,2
-            ii = i+il-2
-            jj = j+jl-2
-            kk = k+kl-2
-
-            div(il,jl,kl) = div_vrtx(ii,jj,kk,igx,igy,igz
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,1)
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,2)
-     .                         ,aa(ii:ii+1,jj:jj+1,kk:kk+1,3)
-     .                         ,.true.)
-          enddo
-        enddo
-      enddo
-
-c     Gradient at cell centers
-
-      cov = grad_vrtx(i,j,k,igx,igy,igz,div,.false.)
-
-      if (vol_wgt) cov=cov*gmetric%grid(igx)%dvol(i,j,k)
-
-c     End program
-
-      end function graddiv_vrtx
 
 c     gradDiv
 c     #####################################################################
@@ -9326,7 +9387,14 @@ c ######################################################################
 
         real(8) :: max_dv_dt
 
-        logical :: bootstrap=.false.,ion_hall=.false.,fake_ve=.true.
+        logical :: bootstrap =.false.   !Whether to calculate bootstrap current
+     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
+     .            ,fake_ve   =.true.    !Whether to use fake ve in div(Pe)
+     .            ,solenoidal=.true.    !Whether we keep B solenoidal
+     .            ,nc_eom_jxb=.false.   !Whether we use JxB instead of conserv. form
+     .            ,nc_eom_gp =.false.   !Whether we use grad(p) instead of conserv. form
+     .            ,nc_eom_v  =.false.   !Whether we use v.grad(v) instead of conserv. form
+     .            ,solve_rho =.true.    !Whether we solve for rho or use rho=1
 
       contains
 
@@ -9475,6 +9543,8 @@ c     Local variables
 
 c     Begin program
 
+      cnv = 0d0
+
       do k=1,nzz
         do j=1,nyy
           do i=1,nxx
@@ -9606,6 +9676,10 @@ c     Find required auxiliary quantities
 
 c     Initialize with imposed (curl-free) electric field
 
+      E_ni(:,:,:,1) =-E0(1)
+      E_ni(:,:,:,2) =-E0(2)
+      E_ni(:,:,:,3) =-E0(3)
+
 cc      do k=0,nz+1
 cc        do j=0,ny+1
 cc          do i=0,nx+1
@@ -9613,7 +9687,8 @@ cc            E_ni(i,j,k,:) = -E0
 cc          enddo
 cc        enddo
 cc      enddo
-      E_ni = 0d0
+
+cc      E_ni = 0d0
 
 c     Resistive term
 
@@ -9633,8 +9708,7 @@ c     Resistive term
      .                                        ,ig,jg,kg,x1,y1,z1)
 
                 !Find grad(p)
-                call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                   ,cov(1),cov(2),cov(3),0,0,0)
+                cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
                 bnorm = vectorNorm(i,j,k,igx,igy,igz
      .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
@@ -9663,12 +9737,6 @@ c     Resistive term
         E_ni(:,:,:,1) = E_ni(:,:,:,1)+eeta*jcov(:,:,:,1)
         E_ni(:,:,:,2) = E_ni(:,:,:,2)+eeta*jcov(:,:,:,2)
         E_ni(:,:,:,3) = E_ni(:,:,:,3)+eeta*jcov(:,:,:,3)
-
-cc        if (source.or.(sum(E0)/=0d0)) then
-cc          E_ni(:,:,:,1) = E_ni(:,:,:,1)-eeta*jcov_0(:,:,:,1)
-cc          E_ni(:,:,:,2) = E_ni(:,:,:,2)-eeta*jcov_0(:,:,:,2)
-cc          E_ni(:,:,:,3) = E_ni(:,:,:,3)-eeta*jcov_0(:,:,:,3)
-cc        endif
 #else
         do k=1,nz
           do j=1,ny
@@ -9680,12 +9748,6 @@ cc        endif
           enddo
         enddo
 #endif
-
-        if (source.or.(sum(E0)/=0d0)) then
-          E_ni(:,:,:,1) = E_ni(:,:,:,1)-eeta*jcov_0(:,:,:,1)
-          E_ni(:,:,:,2) = E_ni(:,:,:,2)-eeta*jcov_0(:,:,:,2)
-          E_ni(:,:,:,3) = E_ni(:,:,:,3)-eeta*jcov_0(:,:,:,3)
-        endif
 
       endif
 
@@ -9736,8 +9798,7 @@ c     Hall term
                 E_h(i,j,k,:) = cov
 
                 !Electron pressure
-                call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                   ,cov(1),cov(2),cov(3),0,0,0)
+                cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
                 E_h(i,j,k,:) = E_h(i,j,k,:) - cov
 
@@ -9781,8 +9842,7 @@ c     Hall term
 
                 !Ion pressure term: grad(pi)/rho
                 if (a_p - 1d0 > 0d0) then
-                  call grad(i,j,k,nx,ny,nz,igx,igy,igz,pe
-     .                     ,cov(1),cov(2),cov(3),0,0,0)
+                  cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
                   E_ni(i,j,k,:) = E_ni(i,j,k,:)
      .                          + di*(a_p-1d0)*cov/rho(i,j,k)
@@ -9886,63 +9946,86 @@ c     End program
 
       end function vis
 
-ccc     hres
-ccc     ###############################################################
-cc      function hres(nx,ny,nz,igx,igy,igz)
-ccc     ---------------------------------------------------------------
-ccc     Finds hyper-resistivity coefficient (global on the grid)
-ccc     ---------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      real(8)    :: hres
-cc      integer    :: nx,ny,nz,igx,igy,igz
-cc
-ccc     Local variables
-cc
-cc      real(8)    :: kk,norm,idx,idy,idz
-cc      integer    :: ig,jg,kg,i,j,k
-cc
-ccc     Begin program
-cc
-cc      kk = 0d0
-cc
-cccc      do k=1,nz
-cccc        do j=1,ny
-cccc          do i=1,nx
-cccc
-cccc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc            !Maximum kk
-cccc            idx  = 1./grid_params%dx(ig)
-cccc            if (nx == 1) idx = 1d-2
-cccc            idy  = 1./grid_params%dy(jg)
-cccc            if (ny == 1) idy = 1d-2
-cccc            idz  = 1./grid_params%dz(kg)
-cccc            if (nz == 1) idz = 1d-2
-cccc
-cccc            norm = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
-cccc            kk   = max(kk,norm)
-cccc
-cccc          enddo
-cccc        enddo
-cccc      enddo
-cccc
-cccc      idx = grid_params%nxgl(igx)/(xmax-xmin)
-cccc      idy = grid_params%nxgl(igy)/(ymax-ymin)
-cccc      idz = grid_params%nxgl(igz)/(zmax-zmin)
-cccc
-cccc      kk = (idx**2 + idy**2 + idz**2)
-cccc
-cccc      hres = .05*di/kk
-cccc      hres = di/kk
-cc      hres = c_hyper
-cc
-ccc     End
-cc
-cc      end function hres
+c     hres
+c     ###############################################################
+      function hres(nx,ny,nz,igx,igy,igz,bcnv,rho)
+c     ---------------------------------------------------------------
+c     Finds hyper-resistivity coefficient (global on the grid)
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: hres
+      integer :: nx,ny,nz,igx,igy,igz
+      real(8) :: bcnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,rho (0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer :: ig,jg,kg,i,j,k
+
+      real(8) :: idx,idy,idz,k2,kk,bk_par,lheta,vol,lvol
+
+c     Begin program
+
+cc      write (*,*) 'DIAG -- preprocAux'
+cc      hres = 0d0
+cc      return
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+            !kk
+            idx  = pi/grid_params%dx(ig)
+            if (nx == 1) idx = 0d0
+            idy  = pi/grid_params%dy(jg)
+            if (ny == 1) idy = 0d0
+            idz  = pi/grid_params%dz(kg)
+            if (nz == 1) idz = 0d0
+
+            k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+            kk=sqrt(k2)
+
+            !|B|*k_par
+            bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+     .                         ,bcnv(i,j,k,1)
+     .                         ,bcnv(i,j,k,2)
+     .                         ,bcnv(i,j,k,3))
+
+cc            heta = heta + 0.1*di*sqrt(bnorm)/k2
+            hres = hres + di/sqrt(rho(i,j,k))*abs(bk_par)/kk**3
+     .                   *gmetric%grid(igx)%dvol(i,j,k)
+            vol  = vol + gmetric%grid(igx)%dvol(i,j,k)
+
+          enddo
+        enddo
+      enddo
+
+#if defined(petsc) && !defined(samrai)
+      lheta = hres
+      call MPI_Allreduce(lheta,hres,1,MPI_DOUBLE_PRECISION
+     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+      lvol = vol
+      call MPI_Allreduce(lvol,vol,1,MPI_DOUBLE_PRECISION
+     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+#else
+#if defined(samrai)
+      call pstop('applyAuxVarBC'
+     .           ,'Need to fix hyperresistivity calculation in SAMRAI')
+#endif
+#endif
+
+      hres = 10*hres/vol/di**2
+
+      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
+
+c     End
+
+      end function hres
 
       end module nlfunction_setup
 
@@ -10009,7 +10092,6 @@ cc     .              ,v_solve
 cc     .              ,mg_debug
 cc     .              ,cvrg_test
 cc     .              ,asm_PC
-cc     .              ,si_car
 cc        end type pcsetup
 cc
 cc        type(pcsetup) :: pc__setup
@@ -10044,8 +10126,6 @@ c     Begin program
       sm_omega     = 0.7    !Damping for MG smoother (only when 'jb' is chosen)
       sm_ncolors   = 8      !Number of colors for diagonal calc., smoothing
 
-cc      si_car       =.false. !Whether to solve SI operator using Cartesian vectors
-
       !SCIDAC 08 conference data for Hall MHD
 cc      pc_B_solve  = .true.
 cc      mg_gm_coarse = .true.
@@ -10059,8 +10139,6 @@ cc      inv_B  = .false.
       !Consistency checks
       if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
 
-cc      if (si_car) si_car = .not.(coords == 'car'.or.sm_type =='gm')  !si_car only for non-cartesian
-                                                                  !  and without GM smoothing
       if (np > 1) mg_gm_coarse = .false.       !Do not perform GMRES coarse solve in parallel
 
       if (sm_type /= 'jb') sm_omega = 1d0
@@ -10074,15 +10152,15 @@ cc      if (si_car) si_car = .not.(coords == 'car'.or.sm_type =='gm')  !si_car o
       mg_oprol_si    = mg_oprol
 
       !Setup for singular point geometries
-      if (bcSP()) then
-        mg_zebra_relax_si = .true.
-        mg_ores_si   = 1
-        mg_oprol_si  = 1
-
-        sm_type_si   = 'gs'
-        sm_omega_si  = 1d0
-        sm_iter_si   = 2
-      endif
+cc      if (bcSP()) then
+cc        mg_zebra_relax_si = .true.
+cc        mg_ores_si   = 1
+cc        mg_oprol_si  = 1
+cc
+cc        sm_type_si   = 'gs'
+cc        sm_omega_si  = 1d0
+cc        sm_iter_si   = 2
+cc      endif
 
       end subroutine PC_setup
 

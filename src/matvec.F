@@ -1,16 +1,4 @@
 
-c  module matvec
-c ###################################################################
-      module matvec
-
-        use setMGBC_interface
-
-        use precond_variables
-
-        use local_BCS_variables, ONLY: bc_order
-
-      end module matvec
-
 c lap_mtvc
 c####################################################################
       subroutine lap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
@@ -103,125 +91,6 @@ c End program
       call deallocPointers(fpointers)
 
       end subroutine lap_mtvc
-
-c avlap_mtvc
-c####################################################################
-      subroutine avlap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
-c--------------------------------------------------------------------
-c     This subroutine calculates lap(vector) in contravariant form.
-c     In call:
-c      * gpos: vector index of position on the numerical grid
-c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
-c              surrounding stencil is filled (9-pt stencil in 2D
-c              , 27-pt stencil in 3D).
-c            + If gpos = 0, all the grid is considered.
-c            + If gpos < 0, all grid is mapped, but operations are 
-c              restricted to stencil of abs(gpos) (useful for
-c              matrix-light GS)
-c      * neq: number of coupled equations
-c      * ntot: total number of unknowns: neq*nx*ny*nz
-c      * x(ntot): input vector
-c      * y(ntot): output vector
-c      * igrid: grid level
-c      * bcnf: boundary conditions on x vector.
-c--------------------------------------------------------------------
-
-      use matvec
-
-      implicit none
-
-c Call variables
-
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
-      real(8)    :: x(ntot),y(ntot)
-
-c Local variables
-
-      integer    :: i,j,k,ig,jg,kg,isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz,ieq
-      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
-
-      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,veclap(3),cnv(3),cov(3),car(3)
-      real(8)    :: upwind,etal
-
-      real(8),allocatable,dimension(:,:,:,:) :: vv,v0
-
-      logical    :: fpointers,alt_eom_b,is_cnv
-
-c Begin program
-
-      is_cnv = .true.
-
-      alt_eom_b = .false.
-
-      call allocPointers(neq,fpointers)
-
-      isig = MGgrid%istartp(igrid)
-
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
-
-c Find limits for loops
-
-      call limits(abs(gpos),nxx,nyy,nzz
-     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
-
-c Map vector x to array for processing
-
-      allocate(vv(0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,v0(0:nxx+1,0:nyy+1,0:nzz+1,neq))
-
-      !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
-      !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,vv,igrid
-     .                       ,.false.)
-
-      if (coords == 'car') then
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=0)
-      else
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
-      endif
-
-c Calculate matrix-vector product
-
-      do k = kmin,kmax
-        do j = jmin,jmax
-          do i = imin,imax
-            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
-
-            veclap = veclaplacian(i,j,k,nxx,nyy,nzz
-     .                           ,igrid,igrid,igrid,vv
-     .                           ,vol=volf)
-cc            veclap =-curlcurl(i,j,k,nxx,nyy,nzz
-cc     .                           ,igrid,igrid,igrid,vv
-cc     .                           ,vol=volf)
-
-            do ieq=1,3
-              y(neq*(ijk-1)+ieq) = veclap(ieq)
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-c End program
-
-      deallocate(vv,v0)
-
-      call deallocPointers(fpointers)
-
-      end subroutine avlap_mtvc
 
 c cyl_lap
 c####################################################################
@@ -1505,11 +1374,14 @@ c Calculate matrix-vector product
               vol = 1d0
             endif
 
-            veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+            etal   = geta%grid(igrid)%array(i,j,k,1)
+
+            veclap = etal*veclaplacian(i,j,k,nxx,nyy,nzz
      .                           ,igrid,igrid,igrid,db
      .                           ,vol=.false.)
-
-            etal   = geta%grid(igrid)%array(i,j,k,1)
+cc            veclap = -etal*curlcurl(i,j,k,nxx,nyy,nzz
+cc     .                           ,igrid,igrid,igrid,db
+cc     .                           ,vol=.false.)
 
             if (sm_type == 'gm') then
 
@@ -1632,7 +1504,7 @@ c Calculate matrix-vector product
 
             endif
 
-            cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-etal*veclap))*vol
+            cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-veclap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cnv(ieq)
@@ -3509,7 +3381,7 @@ c Calculate matrix-vector product
             !P_si^v  ******************************
 
             psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
-     .                     ,.not.nc_eom_v)
+     .                ,.not.nc_eom_v)
 
             !P_si^T  ******************************
 
@@ -3659,7 +3531,8 @@ c BCs
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
      .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
+cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
+     .            ,result_is_vec=.true.,iorder=1,arr_cov=du_cov
      .            ,arr0=v0)
 
       dv      = du    (:,:,:,1:3)
@@ -3853,7 +3726,9 @@ cc            dj = di*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
 cc     .                      ,dv,vol=.false.)
 
             !Find dj=-dt*curl(curl(dE))
-            dj = -dt/cnp*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc            dj = -dt/cnp*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                           ,dE_cnv,vol=.false.)
+            dj =dt/cnp*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                           ,dE_cnv,vol=.false.)
 
             !Assemble matvec

@@ -19,8 +19,6 @@
     dd       = 0d-1
     chi      = 0d-2
 
-    adiabatic = t
-
     equil    = 'khcar'
     coords   = 'car'
 
@@ -55,7 +53,6 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
-
  /
  &graphdef
     sel_diag  = 2,12,15,16,17,18,19,20,21

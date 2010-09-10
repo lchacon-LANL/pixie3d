@@ -1630,36 +1630,56 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(igrid,nx,ny,nz,xcar,metrics)
+      subroutine vmec_map(metrics)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
 !     level (igrid).
 !     -----------------------------------------------------------------
 
-        use vmec_mod
-        use equilibrium
-        use grid
+      use vmec_mod
+      use grid
+      use equilibrium
 
-        implicit none
+      implicit none
 
 !     Input variables
 
-        integer    :: igrid,nx,ny,nz
-        real(8)    :: xcar(0:nx+1,0:ny+1,0:nz+1,3)
-        logical    :: metrics
+      logical :: metrics
 
 !     Local variables
 
-        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-        real(8)    :: r1,z1,ph1,sgn,rr1(0:nx+1),zz1(0:nx+1)   &
-     &               ,local_rad(0:nx+1),ds
+      integer    :: igrid,nx,ny,nz
+      integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
+      real(8)    :: r1,z1,ph1,sgn,ds
 
-        real(8),allocatable,dimension(:) :: vmec_rad
+      real(8),allocatable,dimension(:) :: vmec_rad,rr1,zz1,local_rad
+
+      real(8),allocatable,dimension(:,:,:,:) :: xcar
 
 !     Begin program
 
-        load_metrics = metrics  !Set flag for metric elements routine
+      load_metrics = metrics  !Set flag for metric elements routine
+
+      nullify(gmetric)
+
+!     Cycle grid levels
+
+      do igrid=1,grid_params%ngrid
+
+        if (my_rank == 0) then
+           write (*,'(a,i3)') ' Reading VMEC map on grid',igrid
+        endif
+
+!     Get LOCAL limits and allocate local map array
+
+        nx = grid_params%nxv(igrid)
+        ny = grid_params%nyv(igrid)
+        nz = grid_params%nzv(igrid)
+
+        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
+
+        allocate(rr1(0:nx+1),zz1(0:nx+1),local_rad(0:nx+1))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
@@ -1673,67 +1693,7 @@
 
         call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
 
-!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
-!!$        do k=1,nzg
-!!$           write (*,*) 'slice=',k
-!!$           do j=1,nyg/2+1
-!!$              write (*,*) 'rr',j,k,rr(:,j,k)
-!!$              write (*,*) 'zz',j,k,zz(:,j,k)
-!!$           enddo
-!!$           write (*,*)
-!!$        enddo
-!!$        stop
-
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
-
-!!$        do k=0,nz+1
-!!$          do j=0,ny+1
-!!$            do i=0,nx+1
-!!$
-!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-!!$
-!!$              !Find global limits
-!!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
-!!$
-!!$!!              !Ensures we don't step over physical periodic boundaries
-!!$!!              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!$!!                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
-!!$!!
-!!$!!              !Singular point boundary
-!!$!!              if (igl == 0) then
-!!$!!                jgl = mod(jgl+nyg/2,nyg)
-!!$!!                igl = 1
-!!$!!              endif
-!!$
-!!$              !Periodic boundary in theta (other boundary enforced by symmetry)
-!!$              if (jgl == 0) jgl = nyg
-!!$
-!!$              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
-!!$              sgn = 1d0
-!!$              if (jgl > nyg/2+1) then
-!!$                 jgl = nyg + 2 - jgl
-!!$                 sgn = -1d0
-!!$              endif
-!!$
-!!$              !Periodic boundary in phi
-!!$              if (kgl == 0) kgl = nzg
-!!$              if (kgl == nzg+1) kgl = 1
-!!$
-!!$              !Average to our radial mesh (half-mesh in VMEC)
-!!$              !(except for radial ghost cells, where we extrapolate the boundary value)
-!!$              call half_to_int(igl,jgl,kgl,rr,r1,order=3)
-!!$              call half_to_int(igl,jgl,kgl,zz,z1,order=3)
-!!$
-!!$              ph1 = -grid_params%zz(kg)  !Minus sign to preserve a right-handed ref. sys.
-!!$
-!!$              !Transform to Cartesian geometry
-!!$              xcar(i,j,k,1)=r1*cos(ph1)
-!!$              xcar(i,j,k,2)=r1*sin(ph1)
-!!$              xcar(i,j,k,3)=sgn*z1
-!!$
-!!$            enddo
-!!$          enddo
-!!$        enddo
 
         !Global VMEC radial positions
         allocate(vmec_rad(ns_i))
@@ -1792,26 +1752,21 @@
           enddo
         enddo
 
-!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
-!!$        do k=1,nz
-!!$           write (*,*) 'slice=',k
-!!$           do j=1,ny
-!!$!              write (*,*) 'X',j,k,xcar(:,j,k,1)
-!!$!              write (*,*) 'Y',j,k,xcar(:,j,k,2)
-!!$!              write (*,*) 'Z',j,k,xcar(:,j,k,3)
-!!$              write (*,*) 'X',j,k,0.5*sum(xcar(0:1,j,k,1))
-!!$              write (*,*) 'Y',j,k,0.5*sum(xcar(0:1,j,k,2))
-!!$              write (*,*) 'Z',j,k,0.5*sum(xcar(0:1,j,k,3))
-!!$              write (*,*)
-!!$           enddo
-!!$           write (*,*)
-!!$        enddo
-!!$        stop
+!     Fill grid metrics hierarchy
 
-!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
 
-        deallocate(vmec_rad)
+!     Free work space (to allow processing of different grid levels)
+
+        deallocate(xcar,vmec_rad,rr1,zz1,local_rad)
+
         call vmec_cleanup
+
+      enddo
+
+!     Set up gmetric pointer
+
+      gmetric => grid_params%gmetric
 
 !     End program
 
@@ -1826,7 +1781,6 @@
 !     -----------------------------------------------------------------
 
         use vmec_mod
-        use equilibrium
         use grid
 
         implicit none
@@ -1948,8 +1902,8 @@
 
         use vmec_mod
         use app_iosetup
-        use equilibrium
         use grid
+        use equilibrium
 
         implicit none
 
@@ -2201,7 +2155,7 @@
           enddo
         enddo
 
-!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+!     Free work space
 
         DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
 

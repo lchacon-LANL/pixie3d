@@ -14,8 +14,6 @@ c------------------------------------------------------------------
 
       use equilibrium
 
-      use constants
-
       use timeStepping
 
       use error
@@ -85,7 +83,8 @@ c Set aliases
 c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
-      save_tn = (jit < 0)
+cc      save_tn = (jit < 0)
+      save_tn = old_time_eval .or. source_eval
       save_Bn = (save_tn .and. lag_pinch_bc)  !Initialize Bn when processing source
 
       call imposeBoundaryConditions(varray,igx,igy,igz)

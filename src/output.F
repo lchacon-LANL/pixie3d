@@ -114,13 +114,18 @@ cc            advective = 'PBRKCT'
 
           if (ilevel.ge.1) then
             write (*,*) 
-            write (*,100)
+            if (cnfactor == 1d0) then
+              write (*,105)
+            else
+              write (*,100)
+            endif
           endif
 
           if (cnfactor == 1d0) then
             write(*,115) itime,time,dt,vmax
           else
             write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+     .                  ,it_divcl
           endif
 
         endif
@@ -140,11 +145,11 @@ c End program
      .        /,'  Advection scheme..........',a
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
-     .        '  GMRES  Newton  CN factor')
+     .        '  GMRES  Newton  CN factor  GMRES-DC')
  105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
 
 cc#if defined(RFX)
- 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3,3x,i6)
  115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
 cc#else
 cc 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)

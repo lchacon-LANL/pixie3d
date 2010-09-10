@@ -13,8 +13,6 @@ c     -----------------------------------------------------------------
 
       use timeStepping
 
-      use constants
-
       use iosetup
 
       use equilibrium
@@ -112,11 +110,6 @@ cc              if (ieq == IRHO) jac = 1d0
         enddo
 
       case ('3wv')
-
-cc#if defined(vec_pot)
-cc        call pstop('perturbEquilibrium'
-cc     .            ,'Test case not working for vector potential')
-cc#endif
 
         kx = 2*pi*nh1/(xmax-xmin)
         ky = 2*pi*nh2/(ymax-ymin)
@@ -364,47 +357,46 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,ipw,mode
+      integer    :: i,j,k,ig,jg,kg,iglobal
+     .             ,ipw1,ipw2,ipw3,mode
       real(8)    :: x1,y1,z1
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
 c     Begin program
 
-      igx = 1
-      igy = 1
-      igz = 1
+      do ipw1=0,npw1-1
+        do ipw2=0,npw2-1
+          do ipw3=0,npw3-1
 
-      do ipw=0,npw1-1
-        mode = nh1+sign(ipw,nh1)
-        do i = ilom,ihip
-          call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz,ig,jg,kg
-     .                                ,x1,y1,z1)
-          fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode)
-        enddo
-      enddo
+            mode = nh1+sign(ipw1,nh1)
+            do i = ilom,ihip
+              call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz
+     .                                      ,ig,jg,kg,x1,y1,z1)
+              fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode)
+            enddo
 
-      do ipw=0,npw2-1
-        mode = nh2+sign(ipw,nh2)
-        do j = jlom,jhip
-          call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz,ig,jg,kg
-     .                                ,x1,y1,z1)
-          fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode)
-        enddo
-      enddo
+            mode = nh2+sign(ipw2,nh2)
+            do j = jlom,jhip
+              call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz
+     .                                      ,ig,jg,kg,x1,y1,z1)
+              fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode)
+            enddo
 
-      do ipw=0,npw3-1
-        mode = nh3+sign(ipw,nh3)
-        do k = klom,khip
-          call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz,ig,jg,kg
-     .                                ,x1,y1,z1)
-          fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode)
-        enddo
-      enddo
+            mode = nh3+sign(ipw3,nh3)
+            do k = klom,khip
+              call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz
+     .                                      ,ig,jg,kg,x1,y1,z1)
+              fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode)
+            enddo
 
-      do k = klom,khip
-        do j = jlom,jhip
-          do i = ilom,ihip
-            array(i,j,k) = array(i,j,k) + perturb*fx(i)*fy(j)*fz(k)
+            do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
+                  array(i,j,k) = array(i,j,k)+perturb*fx(i)*fy(j)*fz(k)
+                enddo
+              enddo
+            enddo
+
           enddo
         enddo
       enddo
@@ -432,7 +424,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal
+      integer    :: i,j,k,ig,jg,kg,iglobal
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
@@ -440,19 +432,15 @@ c     Local variables
 
 c     Begin program
 
-      igx = 1
-      igy = 1
-      igz = 1
-
       mm = grid_params%params(1)
       kk = grid_params%params(2)
 
       if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
 
-      open(unit=111,file=trim(prt_file),status='old')
+      open(unit=u_prtf,file=trim(prt_file),status='old')
 
       do i=1,nxd
-        read(111,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
+        read(u_prtf,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
      .                 ,ii(i,1),ii(i,8),ii(i,2:7)
 cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
       enddo
@@ -480,7 +468,7 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
         enddo
       enddo
 
-      close (111)
+      close (u_prtf)
 
 c     End program
 
@@ -505,19 +493,13 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,iglobal,nxx
+      integer    :: i,j,k,ig,jg,kg,iglobal,nxx
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
 
 c     Begin program
-
-cc      if (ieq == IBX .or. ieq == IBY .or. ieq == IBZ) return
-
-      igx = 1
-      igy = 1
-      igz = 1
 
       mm = grid_params%params(1)
       kk = grid_params%params(2)
@@ -526,19 +508,19 @@ c     Read perturbation file
 
       if (my_rank == 0) write (*,*) 'Reading PPNCH eigenmodes...'
 
-      open(unit=111,file=trim(prt_file),status='old')
+      open(unit=u_prtf,file=trim(prt_file),status='old')
 
-      read(111,*) nxx
+      read(u_prtf,*) nxx
 
       if (nxx /= nxd) then
         call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
       endif
 
       do i=1,nxd
-        read(111,*) dum,rr(i,1:8),ii(i,1:8)
+        read(u_prtf,*) dum,rr(i,1:8),ii(i,1:8)
       enddo
 
-      close (111)
+      close (u_prtf)
 
       ii = -ii
 
@@ -592,17 +574,13 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
 
 c     Begin program
-
-      igx = 1
-      igy = 1
-      igz = 1
 
       if (ieq == IBX .or. ieq == IBY) then
 
@@ -881,17 +859,13 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ip,im,jp,jm
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
       real(8)    :: x1,y1,z1,kk,mm
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
 
 c     Begin program
-
-      igx = 1
-      igy = 1
-      igz = 1
 
       if (ieq == IBX .or. ieq == IBY) then
 
