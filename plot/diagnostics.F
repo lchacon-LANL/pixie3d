@@ -167,7 +167,7 @@ c     ###############################################################
 
 c     Begin program
 
-        ierr = openFiles(my_rank,u_mapf,map_file,mumap)
+        ierr = openFiles(my_rank,np,u_mapf,map_file,mumap)
 
         if (ierr /= 0) then
           call pstop('evaluateDiagnostics'
@@ -412,11 +412,12 @@ c Code for explicit pinch flow BC
 
 c Code for electric field BC
 
-      save_tn = .false.
+cc      save_tn = .false.
+      save_tn = .true.
 
-      vcov_n(:,:,:,1) = u_n%array_var(IVX)%array
-      vcov_n(:,:,:,2) = u_n%array_var(IVY)%array
-      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
+cc      vcov_n(:,:,:,1) = u_n%array_var(IVX)%array
+cc      vcov_n(:,:,:,2) = u_n%array_var(IVY)%array
+cc      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
 
       alpha = 1.-cnfactor
 
@@ -426,30 +427,30 @@ c Postprocess solution
 
 c Particle diagnostics
 
-      Npar = integral(nx,ny,nz,rho,igx,igy,igz,.false.) - Npar0
+      Npar = integral(igx,igy,igz,nx,ny,nz,rho,average=.false.) - Npar0
 
 c Momentum diagnostics (in Cartesian coords.)
 
       array = rho*vx_car
-      Ipx = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipx0
+      Ipx = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipx0
                                                         
       array = rho*vy_car
-      Ipy = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipy0
+      Ipy = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipy0
                                                         
       array = rho*vz_car
-      Ipz = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipz0
+      Ipz = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipz0
 
 c Energy diagnostics
 
       !Magnetic energy
 
       array = (bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       !Thermal energy
 
@@ -460,7 +461,8 @@ c Energy diagnostics
       endif
 
       if (gamma /= 1d0) then
-        Et = a_p/(gamma-1)*integral(nx,ny,nz,array,igx,igy,igz,.false.)
+        Et = a_p/(gamma-1)
+     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
       else
         Et = 0d0
       endif
@@ -471,19 +473,20 @@ c Energy diagnostics
 
 c Current diagnostics
 
-      Iz = integral(nx,ny,1,jz_car,igx,igy,igz,.false.) - Iz0
+      Iz = integral(igx,igy,igz,nx,ny,nz,jz_car,average=.false.) - Iz0
 
       array =(jcnv(:,:,:,1)*jcov(:,:,:,1)
      .       +jcnv(:,:,:,2)*jcov(:,:,:,2)
      .       +jcnv(:,:,:,3)*jcov(:,:,:,3))/gmetric%grid(igx)%jac
 
-      rmsj = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      rmsj = integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       rmsj = sqrt(rmsj)
 
 c Toroidal flux diagnostics
 
-      Tflux = integral(nx,ny,1,bz_car,igx,igy,igz,.false.) - Tflux0
+      Tflux = integral(igx,igy,igz,nx,ny,nx,bz_car,average=.false.)
+     .      - Tflux0
 
 c Initial assignments
 
@@ -514,17 +517,17 @@ cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0
 c Velocity divergence diagnostics
 
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(nx,ny,nz,divrgV,igx,igy,igz,.false.)
+      Vflux  = integral(igx,igy,igz,nx,ny,nz,divrgV,average=.false.)
 
 c Magnetic divergence diagnostics
 
       !Total B divergence (conservation of flux)
-      Bflux  = integral(nx,ny,nz,divrgB,igx,igy,igz,.false.)
+      Bflux  = integral(igx,igy,igz,nx,ny,nz,divrgB,average=.false.)
 
       !Local divergence (statement of numerical accuracy)
       array(1:nx,1:ny,1:nz) = abs(divrgB(1:nx,1:ny,1:nz))
 
-      diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
+      diverB = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
 
 c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
 
@@ -588,7 +591,7 @@ c Growth rate diagnostics
         array = (varray%array_var(ieq)%array
      .          -u_0   %array_var(ieq)%array )**2
 
-        dpert(ieq) = integral(nx,ny,nz,array,igx,igy,igz,.true.)
+        dpert(ieq) = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
 
         if (dpert(ieq).eq.0d0) then
           dpert(ieq) = 0.1*maxval(abs(pert))
