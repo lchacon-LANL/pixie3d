@@ -99,6 +99,8 @@ c       * Second component of the second dimension identifies scalars (=0)
 c         or vectors (=1).
 c     -------------------------------------------------------------------
 
+      implicit none
+
 c     Call variables
 
       integer :: itime
@@ -151,8 +153,8 @@ c     Setup schedule
         gv%bc_grp(2+offset)%nbc_seq = 2
         gv%bc_grp(3+offset)%nbc_seq = 3
         gv%bc_grp(4+offset)%nbc_seq = 3
-        gv%bc_grp(5+offset)%nbc_seq = 2
-        gv%bc_grp(6+offset)%nbc_seq = 4
+        gv%bc_grp(5+offset)%nbc_seq = 3
+        gv%bc_grp(6+offset)%nbc_seq = 5
         if (itime == 0) then
           gv%bc_grp(7+offset)%nbc_seq = 1
           gv%bc_grp(8+offset)%nbc_seq = 2
@@ -167,8 +169,8 @@ c     Setup schedule
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 2
         gv%bc_grp(3+offset)%nbc_seq = 4
-        gv%bc_grp(4+offset)%nbc_seq = 2
-        gv%bc_grp(5+offset)%nbc_seq = 4
+        gv%bc_grp(4+offset)%nbc_seq = 3
+        gv%bc_grp(5+offset)%nbc_seq = 5
         if (itime == 0) then
           gv%bc_grp(6+offset)%nbc_seq = 1
           gv%bc_grp(7+offset)%nbc_seq = 2
@@ -193,10 +195,10 @@ c     Setup schedule
         if (itime == 0) then
           gv%bc_grp(1)%nbc_seq = 2
 
-          gv%bc_grp(1)%bc_seq(1,1) = IJ0COV*AUX       !Aux. variable
+          gv%bc_grp(1)%bc_seq(1,1) = IJCOV_0*AUX       !Aux. variable
           gv%bc_grp(1)%bc_seq(1,2) = VECTOR           !Vector
 
-          gv%bc_grp(1)%bc_seq(2,1) = IJ0CNV*AUX       !Aux. variable
+          gv%bc_grp(1)%bc_seq(2,1) = IJCNV_0*AUX       !Aux. variable
           gv%bc_grp(1)%bc_seq(2,2) = VECTOR           !Vector
         endif
 
@@ -236,25 +238,31 @@ c     Setup schedule
         gv%bc_grp(5+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(3,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 6
         gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(4,1) = IVX         !Dep. variable
+        gv%bc_grp(6+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(5,1) = IVX         !Dep. variable
+        gv%bc_grp(6+offset)%bc_seq(5,2) = VECTOR      !Vector
 
         if (itime == 0) then
           !Group 7
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           !Group 8
@@ -271,7 +279,7 @@ c     Setup schedule
           gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
           gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_grp(9+offset)%bc_seq(3,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(3,1) = IENI_0*AUX   !Aux. variable
           gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
 
           gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
@@ -332,25 +340,31 @@ c     Setup schedule
         gv%bc_grp(4+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(3,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 5
         gv%bc_grp(5+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(3,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(4,1) = IVX         !Dep. variable
+        gv%bc_grp(5+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(5,1) = IVX         !Dep. variable
+        gv%bc_grp(5+offset)%bc_seq(5,2) = VECTOR      !Vector
 
         if (itime == 0) then
           !Group 6
-          gv%bc_grp(6+offset)%bc_seq(1,1) = IVE0CNV*AUX !Aux. variable
+          gv%bc_grp(6+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
           gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           !Group 7
@@ -367,7 +381,7 @@ c     Setup schedule
           gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_grp(8+offset)%bc_seq(3,1) = IENI0*AUX   !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IENI_0*AUX   !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
           gv%bc_grp(8+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
