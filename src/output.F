@@ -34,6 +34,8 @@ c Local variables
 
       real(8)       :: vmax(3),lvmax(3)
 
+      real(8)    :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
+
 c Begin program
 
       ngrd = (/ grid_params%ngrdx,grid_params%ngrdy,grid_params%ngrdz /)
@@ -64,7 +66,7 @@ c Output
 
           if (.not.test) call warnings
 
-          if     (advect.eq.1 .or. advect == 7) then
+          if     (advect.eq.1) then
             advective = 'UPWIND'
           elseif (advect.eq.2) then
             advective = '   ZIP'
@@ -76,10 +78,9 @@ c Output
             advective = 'SSMART'
           elseif (advect.eq.6) then
             advective = 'HORDER'
-cc          elseif (advect.eq.7) then
+          elseif (advect.eq.7) then
+            advective = ' Gamma'
 cc            advective = '   TVD'
-cc          else
-cc            advective = 'PBRKCT'
           endif
 
           if (cnfactor < 1d0) then
@@ -205,12 +206,18 @@ c     Warnings
      .     write (*,*) 'Not solving for density: rho = 1'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
-      if (ion_hall)
+      if (ion_hall .and. (di > 0d0))
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (adiabatic)    write (*,*) 'Using polytropic EOS'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'
+
+
+      if (advect == 5) then
+         write (*,*)
+     .   'WARNING: Smooth smart does not work for non-uniform meshes'
+       endif
 
       end subroutine warnings
 

@@ -738,6 +738,59 @@ cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
         var(:,:,:,IAX:IAZ) = a
 #endif
 
+      case ('dtm')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+c     Check coordinates
+
+        if (coords /= 'car' .and. coords /= 'scl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if ((a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check Ti/Te, solve_rho = 5.0, T'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Tearing mode in cartesian coordinates
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,ITMP) = 1d0/2d0
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IRHO)=0.5/cosh((x1-xmin)/dlambda)**2
+     .                      +0.5/cosh((x1-xmax)/dlambda)**2
+     .                      +1d0
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
+            enddo
+          enddo
+        enddo
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
+
 c     -------------------------------------------------
 c     ---------------  ISLAND COALESCENCE -------------
 c     -------------------------------------------------
@@ -5238,6 +5291,24 @@ c Begin program
      .               *atan(exp((x1-0.5d0*(xmax+xmin))/dlambda))
               a(i,j,k,3) = -dlambda
      .               *log(cosh((x1-0.5d0*(xmax+xmin))/dlambda)) 
+            enddo
+          enddo
+        enddo
+
+      case ('dtm')
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = 0d0
+              a(i,j,k,3) = -dlambda
+     .                 *( log(cosh((x1-xmin)/dlambda))
+     .                   -log(cosh((x1-xmax)/dlambda))
+     .                   -x1/dlambda)
             enddo
           enddo
         enddo

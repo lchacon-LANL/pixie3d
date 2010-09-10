@@ -49,7 +49,7 @@ c Reset BCs
 c Default boundary conditions
 
       bcsq = bbcs(:,IRHO)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
       bbcs(:,IRHO) = bcsq
 
       bcsq = bbcs(:,IVX)
@@ -78,6 +78,8 @@ c Default boundary conditions
       endif
       bbcs(:,IVZ) = bcsq
 
+      call vector_symm_bc(bbcs(:,IVX:IVZ),-1)
+
 #if !defined(vec_pot)
       bcsq = bbcs(:,IBX)
       where (bcsq == DEF) bcsq = DIR
@@ -90,6 +92,8 @@ c Default boundary conditions
       bcsq = bbcs(:,IBZ)
       where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IBZ) = bcsq
+
+      call vector_symm_bc(bbcs(:,IBX:IBZ),1)
 #else
       bcsq = bbcs(:,IAX)
       where (bcsq == DEF) bcsq = DIR   !On contravariant components
@@ -102,10 +106,12 @@ c Default boundary conditions
       bcsq = bbcs(:,IAZ)
       where (bcsq == DEF) bcsq = -EQU  !On covariant components
       bbcs(:,IAZ) = bcsq
+
+      call vector_symm_bc(bbcs(:,IAX:IAZ),-1)
 #endif
 
       bcsq = bbcs(:,ITMP)
-      where (bcsq == DEF) bcsq = NEU
+      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
 cc      if (gamma /= 1d0 .and. (.not.adiabatic)) then
 cc        where (bcsq == DEF) bcsq = DIR
 cc      else
@@ -240,9 +246,18 @@ c     Begin program
 
       !Current
       gv%aux%vec_list(IJCNV)%bconds = gv%aux%vec_list(IBCNV)%bconds
+
+      where (bcond == FSYM)
+        gv%aux%vec_list(IJCNV)%bconds(:,1) = FSYM !Recover symmetry BCs
+        gv%aux%vec_list(IJCNV)%bconds(:,2) = FSYM !Recover symmetry BCs
+        gv%aux%vec_list(IJCNV)%bconds(:,3) = FSYM !Recover symmetry BCs
+      end where
+
       where (gv%aux%vec_list(IJCNV)%bconds == -NEU)
         gv%aux%vec_list(IJCNV)%bconds = EQU !Use contravariant components for tangential BCs
       end where
+
+      call vector_symm_bc(gv%aux%vec_list(IJCNV)%bconds,-1)  !Same as velocity
 
       gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
 
@@ -261,30 +276,32 @@ c     Begin program
         gv%aux%vec_list(IDIVPI)%bconds = EXT
       end where
 
+      call vector_symm_bc(gv%aux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
+
       gv%aux%vec_list(IDIVPE)%bconds = gv%aux%vec_list(IDIVPI)%bconds
 
-      !Electric field (only topological BC's)
+      !Electric field
+      gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCOV)%bconds
+
 cc      gv%aux%vec_list(IENI)%bconds(:,1) = bcond
 cc      gv%aux%vec_list(IENI)%bconds(:,2) = bcond
 cc      gv%aux%vec_list(IENI)%bconds(:,3) = bcond
-
-      gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IDIVPI)%bconds
-cccc      if (ion_hall) then
-cccc        gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCNV)%bconds
-cccc      else
-cc        gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IBCNV)%bconds
-cc        where (gv%aux%vec_list(IENI)%bconds == -NEU)
-cccc          gv%aux%vec_list(IENI)%bconds =-EQU
-cc          gv%aux%vec_list(IENI)%bconds =-EXT
-cccc          gv%aux%vec_list(IENI)%bconds =-DIR
-cc        end where
-cccc      endif
+cc      where (gv%aux%vec_list(IENI)%bconds == DEF)
+cccc        gv%aux%vec_list(IENI)%bconds =-EXT
+cc        gv%aux%vec_list(IENI)%bconds =-DIR
+cc      end where
+cc
+cc      call vector_symm_bc(gv%aux%vec_list(IENI)%bconds,-1)  !Same as current
 
       !Equilibrium electric field
-      gv%aux%vec_list(IENI0)%bconds = gv%aux%vec_list(IBCNV)%bconds
-      where (gv%aux%vec_list(IENI0)%bconds == -NEU)
+      gv%aux%vec_list(IENI0)%bconds(:,1) = bcond
+      gv%aux%vec_list(IENI0)%bconds(:,2) = bcond
+      gv%aux%vec_list(IENI0)%bconds(:,3) = bcond
+      where (gv%aux%vec_list(IENI0)%bconds == DEF)
         gv%aux%vec_list(IENI0)%bconds =-EXT
       end where
+
+      call vector_symm_bc(gv%aux%vec_list(IENI0)%bconds,-1)  !Same as current
 
       !Electron velocity
       gv%aux%vec_list(IVECNV )%bconds = gv%aux%vec_list(IVCNV )%bconds
@@ -1540,43 +1557,44 @@ cc            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
 
 c       Electric field BC (time=0)
 
-#if !defined(vec_pot)
           if (di > 0d0) then
+#if !defined(vec_pot)
             bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
 
-            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni_0,v0,bcnd
+            call setBC(IAX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-          endif
 #endif
+            E_ni_0 = E_ni_0 + di*E_h
+          endif
 
         case(IENI)
 
 c       Electric field BC
 
-#if !defined(vec_pot)
           if (di > 0d0) then
-            v0(nnx+1,:,:,:) = 0.5*(E_ni_0(nnx  ,:,:,:)
-     .                            +E_ni_0(nnx+1,:,:,:))
-            v0(0    ,:,:,:) = 0.5*(E_ni_0(1    ,:,:,:)
-     .                            +E_ni_0(0    ,:,:,:))
-
-            v0(:,nny+1,:,:) = 0.5*(E_ni_0(:,nny  ,:,:)
-     .                            +E_ni_0(:,nny+1,:,:))
-            v0(:,0    ,:,:) = 0.5*(E_ni_0(:,1    ,:,:)
-     .                            +E_ni_0(:,0    ,:,:))
-
-            v0(:,:,nnz+1,:) = 0.5*(E_ni_0(:,:,nnz  ,:)
-     .                            +E_ni_0(:,:,nnz+1,:))
-            v0(:,:,0    ,:) = 0.5*(E_ni_0(:,:,1    ,:)
-     .                            +E_ni_0(:,:,0    ,:))
+#if !defined(vec_pot)
+cc            v0(nnx+1,:,:,:) = 0.5*(E_ni_0(nnx  ,:,:,:)
+cc     .                            +E_ni_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(E_ni_0(1    ,:,:,:)
+cc     .                            +E_ni_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(E_ni_0(:,nny  ,:,:)
+cc     .                            +E_ni_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(E_ni_0(:,1    ,:,:)
+cc     .                            +E_ni_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(E_ni_0(:,:,nnz  ,:)
+cc     .                            +E_ni_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(E_ni_0(:,:,1    ,:)
+cc     .                            +E_ni_0(:,:,0    ,:))
 
             bcnd = vaux%vec_list(IENI)%bconds
 
-            call setBC(IAX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-cc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
-     .              ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-          endif
+            call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
+     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
 #endif
+            E_ni = E_ni + di*E_h
+          endif
 
         case default
           write (*,*) abs(bc_inf(1))
@@ -1961,17 +1979,27 @@ cc     .                                           ,vol=.false.)
 
         case(IENI0)
 
-c       Electric field BC (time=0)
+c       Electric field (time=0)
 
-          E_ni_0 = 0d0
+          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz)
 
-          call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni_0)
+          if (di > 0d0) then
+            E_h  = E_fld_Hall(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp)
+          else
+            E_h  = 0d0
+          endif
 
         case(IENI)
 
-c       Electric field BC
+c       Electric field
 
-          call find_E(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp,E_ni)
+          E_ni = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz)
+
+          if (di > 0d0) then
+            E_h  = E_fld_Hall(nnx,nny,nnz,iigx,iigy,iigz,rho,tmp)
+          else
+            E_h  = 0d0
+          endif
 
         case default
 
