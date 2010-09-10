@@ -203,9 +203,11 @@ c     -------------------------------------------------------------------
 c     Defines BCs for auxiliary quantities
 c     -------------------------------------------------------------------
 
+      implicit none
+
 c     Call variables
 
-      integer    :: bcs(6,neq)
+      integer    :: neq,bcs(6,neq)
 
 c     Local variables
 
@@ -262,11 +264,11 @@ c     Begin program
       gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
 
       !Equilibrium Current (extrapolate covariant components)
-      gv%aux%vec_list(IJ0CNV)%bconds = gv%aux%vec_list(IJCNV)%bconds
-      where (gv%aux%vec_list(IJ0CNV)%bconds == EQU)
-        gv%aux%vec_list(IJ0CNV)%bconds =-EXT
+      gv%aux%vec_list(IJCNV_0)%bconds = gv%aux%vec_list(IJCNV)%bconds
+      where (gv%aux%vec_list(IJCNV_0)%bconds == EQU)
+        gv%aux%vec_list(IJCNV_0)%bconds =-EXT
       end where
-      gv%aux%vec_list(IJ0COV)%bconds = gv%aux%vec_list(IJ0CNV)%bconds
+      gv%aux%vec_list(IJCOV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
 
       !Pressure tensors (extrapolation)
       gv%aux%vec_list(IDIVPI)%bconds(:,1) = bcond
@@ -294,20 +296,20 @@ cc
 cc      call vector_symm_bc(gv%aux%vec_list(IENI)%bconds,-1)  !Same as current
 
       !Equilibrium electric field
-      gv%aux%vec_list(IENI0)%bconds(:,1) = bcond
-      gv%aux%vec_list(IENI0)%bconds(:,2) = bcond
-      gv%aux%vec_list(IENI0)%bconds(:,3) = bcond
-      where (gv%aux%vec_list(IENI0)%bconds == DEF)
-        gv%aux%vec_list(IENI0)%bconds =-EXT
+      gv%aux%vec_list(IENI_0)%bconds(:,1) = bcond
+      gv%aux%vec_list(IENI_0)%bconds(:,2) = bcond
+      gv%aux%vec_list(IENI_0)%bconds(:,3) = bcond
+      where (gv%aux%vec_list(IENI_0)%bconds == DEF)
+        gv%aux%vec_list(IENI_0)%bconds =-EXT
       end where
 
-      call vector_symm_bc(gv%aux%vec_list(IENI0)%bconds,-1)  !Same as current
+      call vector_symm_bc(gv%aux%vec_list(IENI_0)%bconds,-1)  !Same as current
 
       !Electron velocity
       gv%aux%vec_list(IVECNV )%bconds = gv%aux%vec_list(IVCNV )%bconds
       gv%aux%vec_list(IVECOV )%bconds = gv%aux%vec_list(IVECNV)%bconds
-cc      gv%aux%vec_list(IVE0CNV)%bconds = gv%aux%vec_list(IVECNV)%bconds
-      gv%aux%vec_list(IVE0CNV)%bconds = gv%aux%vec_list(IJ0CNV)%bconds
+cc      gv%aux%vec_list(IVECNV_0)%bconds = gv%aux%vec_list(IVECNV)%bconds
+      gv%aux%vec_list(IVECNV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
 
 c     End program
 
@@ -840,7 +842,7 @@ cc
 cc          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
 cc     .              ,iorder=1)
 cc
-cc        case(IJ0COV)
+cc        case(IJCOV_0)
 cc
 cc          do k = 0,nnz+1
 cc            do j = 0,nny+1
@@ -852,7 +854,7 @@ cc              enddo
 cc            enddo
 cc          enddo
 cc
-cc        case(IJ0CNV)
+cc        case(IJCNV_0)
 cc
 cc          v0 = 0d0
 cc
@@ -882,7 +884,7 @@ cc            enddo
 cc
 cc          elseif (sum(E0) == 0d0) then
 cc
-cc            bcnd = vaux%vec_list(IJ0CNV)%bconds
+cc            bcnd = vaux%vec_list(IJCNV_0)%bconds
 cc
 ccc           Find B0
 cc
@@ -1019,7 +1021,7 @@ cc          endif
 cc
 cc          if (save_tn .and. de > 0d0) vecov_n = vecov
 cc
-cc        case(IVE0CNV,IVECNV)
+cc        case(IVECNV_0,IVECNV)
 cc
 ccc       Electron velocity BC
 cc
@@ -1042,8 +1044,8 @@ cc            enddo
 cc
 cc            v0 = vecnv_0
 cc
-cc            if (abs(bc_inf(1)) == IVE0CNV) then
-cc              bcnd = vaux%vec_list(IJ0CNV)%bconds !J BCs (extrapolation)
+cc            if (abs(bc_inf(1)) == IVECNV_0) then
+cc              bcnd = vaux%vec_list(IJCNV_0)%bconds !J BCs (extrapolation)
 cc            else
 cc              bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
 cc            endif
@@ -1070,7 +1072,7 @@ cc          else
 cc            vecnv = vcnv
 cc          endif
 cc
-cc          if (abs(bc_inf(1)) == IVE0CNV) vecnv_0 = vecnv
+cc          if (abs(bc_inf(1)) == IVECNV_0) vecnv_0 = vecnv
 cc
 cc        case(IENI0)
 cc
@@ -1275,28 +1277,32 @@ c         Fill ghost nodes
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0,bcnd,iigx,iigy,iigz
      .              ,iorder=1)
 
-        case(IJ0COV)
+        case(IJCOV_0)
 
-        case(IJ0CNV)
+        case(IJCNV_0)
 
 c       Current BC
 
-          if (.not.(test .and. equil=='tmcar')
-     .        .and.(sum(E0) == 0d0)) then
+          bcnd = vaux%vec_list(IJCNV_0)%bconds
 
-            bcnd = vaux%vec_list(IJ0CNV)%bconds
+          v0 = 0d0
 
-            v0 = 0d0
+          call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+     .              ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
 
-            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
-     .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
-          endif
+        case(IJCNV_N)
+
+          if (save_tn .and. ion_hall) jcnv_n = jcnv
 
         case(IVCOV)
 
         case(IVCOV_N)
 
           if (save_tn .and. ion_hall) vcov_n = vcov
+
+        case(IVCNV_N)
+
+          if (save_tn .and. ion_hall) vcnv_n = vcnv
 
         case(IVCNV)
 
@@ -1415,14 +1421,14 @@ c       Fill ghost nodes
 
         case(IBCNV_N)
 
-          if (save_Bn) bcnv_n = bcnv !Save previous time step
+          if (save_tn) bcnv_n = bcnv !Save previous time step
 
-        case(IVE0CNV)
+        case(IVECNV_0)
 
 c       Electron velocity BC
 
           if (di > 0d0 .and. fake_ve) then
-            bcnd = vaux%vec_list(IVE0CNV)%bconds
+            bcnd = vaux%vec_list(IVECNV_0)%bconds
 
             call setBC(IVX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order)
@@ -1471,15 +1477,15 @@ cc            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
           endif
 #endif
 
-        case(IENI0)
+        case(IENI_0)
 
 c       Electric field BC (time=0)
 
           if (di > 0d0) then
 #if !defined(vec_pot)
-            bcnd = vaux%vec_list(IENI0)%bconds !A BCs with extrapolation
+            bcnd = vaux%vec_list(IENI_0)%bconds !A BCs with extrapolation
 
-            call setBC(IAX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
+            call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
 #endif
             E_ni_0 = E_ni_0 + di*E_h
@@ -1631,7 +1637,7 @@ c       Find hyperresistivity (e viscosity)
 
 c       Allocate auxiliary variables in local domain
 
-        allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3))
+        allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
 
         select case(abs(bc_inf(1)))
         case(IJCOV)
@@ -1649,7 +1655,11 @@ c       Allocate auxiliary variables in local domain
 
           jcnv=curl(nnx,nny,nnz,iigx,iigy,iigz,bcov)
 
-        case(IJ0COV)
+        case(IJCNV_N)
+
+          if (save_tn) jcnv_n = jcnv !Save previous time step
+
+        case(IJCOV_0)
 
           do k=0,nnz+1
             do j=0,nny+1
@@ -1661,7 +1671,7 @@ c       Allocate auxiliary variables in local domain
             enddo
           enddo
 
-        case(IJ0CNV)
+        case(IJCNV_0)
 
           v0 = 0d0
 
@@ -1691,7 +1701,7 @@ c diag ****
 
           elseif (sum(E0) == 0d0) then
 
-            bcnd = vaux%vec_list(IJ0CNV)%bconds
+            bcnd = vaux%vec_list(IJCNV_0)%bconds
 
 c           Find B0
 
@@ -1733,7 +1743,21 @@ c           Find J0
 
           endif
 
-        case(IVCOV_N)
+cc          if (my_rank == 0) then
+cc            b2 = integral(nnx,nny,nnz,jcnv_0(:,:,:,1)**2
+cc     .                     ,iigx,iigy,iigz,.false.)
+cc            write(*,*) save_tn,'jcnv_0 - 1',b2
+cc            b2 = integral(nnx,nny,nnz,jcnv_0(:,:,:,2)**2
+cc     .                     ,iigx,iigy,iigz,.false.)
+cc            write(*,*) save_tn,'jcnv_0 - 2',b2
+cc            b2 = integral(nnx,nny,nnz,jcnv_0(:,:,:,3)**2
+cc     .                     ,iigx,iigy,iigz,.false.)
+cc            write(*,*) save_tn,'jcnv_0 - 3',b2
+cc          endif
+
+        case(IVCOV_N,IVCNV_N)
+
+          if (save_tn) vcnv_n = vcnv !Save previous time step
 
         case(IVCOV)
 
@@ -1763,17 +1787,6 @@ c           Find J0
             vcnv(:,:,:,3) = varray%array_var(IVZ)%array
           endif
 
-        case(IBCOV)
-
-          do k = 0,nnz+1
-            do j = 0,nny+1
-              do i = 0,nnx+1
-                bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
-     .                              ,bcnv(i,j,k,:))
-              enddo
-            enddo
-          enddo
-
 #if defined(vec_pot)
 
         case(IACOV)
@@ -1797,9 +1810,9 @@ c           Find J0
 
 c       Magnetic field BC (with fixed current at boundary)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 bcnv(i,j,k,:) = B0
      .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
               enddo
@@ -1816,8 +1829,19 @@ c       Magnetic field BC (with fixed current at boundary)
 #endif
         case(IBCNV_N)
 
-          if (save_Bn) bcnv_n = bcnv !Save previous time step
+          if (save_tn) bcnv_n = bcnv !Save previous time step
 
+        case(IBCOV)
+
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
+                bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
+     .                              ,bcnv(i,j,k,:))
+              enddo
+            enddo
+          enddo
+          
         case(IVECOV_N)
 
         case(IVECOV)
@@ -1830,28 +1854,35 @@ c       Magnetic field BC (with fixed current at boundary)
             vecov = vcov
           endif
 
-        case(IVE0CNV,IVECNV)
+        case(IVECNV_0,IVECNV)
 
 c       Electron velocity BC
 
           !Electron velocity piece
           if (di > 0d0) then
+
             if (fake_ve) then
-              !ve=v-di*j/rho with j~curl(curl(-di*v)) for div_pe(ve)
+              !ve=v-di*j/rho with j~j_n + curl(curl(-di*(v-v_n))) for div_pe(ve)
+cc              v0 =-di*(vcnv-vcnv_n)
+              v0 =-di*vcnv
+
               do k=1,nnz
                 do j=1,nny
                   do i=1,nnx
-cc                    vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
-cc     .                                           ,iigx,iigy,iigz,vcnv
-cc     .                                           ,vol=.false.)
-                    vecnv(i,j,k,:) =  di*veclaplacian(i,j,k,nnx,nny,nnz
-     .                                           ,iigx,iigy,iigz,vcnv
+cc                    vecnv(i,j,k,:) = curlcurl(i,j,k,nnx,nny,nnz
+cc     .                                       ,iigx,iigy,iigz,v0
+cc     .                                       ,vol=.false.)
+                    vecnv(i,j,k,:) =-veclaplacian(i,j,k,nnx,nny,nnz
+     .                                           ,iigx,iigy,iigz,v0
      .                                           ,vol=.false.)
                   enddo
                 enddo
               enddo
+
+              vecnv = jcnv_0 + vecnv
+cc              vecnv = jcnv_n + vecnv
             else
-            !ve=v-di*j/rho for div_pe(ve)
+             !ve=v-di*j/rho for div_pe(ve)
               vecnv = jcnv
             endif
 
@@ -1862,7 +1893,7 @@ cc     .                                           ,vol=.false.)
             vecnv = vcnv
           endif
 
-          if (abs(bc_inf(1)) == IVE0CNV) vecnv_0 = vecnv
+          if (abs(bc_inf(1)) == IVECNV_0) vecnv_0 = vecnv
 
         case(IDIVPI)
 
@@ -1877,7 +1908,7 @@ cc     .                                           ,vol=.false.)
 
           div_pe = EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv-vecnv_0)
 
-        case(IENI0)
+        case(IENI_0)
 
 c       Electric field (time=0)
 
