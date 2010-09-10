@@ -83,13 +83,15 @@ endif
 
 ifeq ($(VMEC),t)
   VMEC_DIR     = contrib/vmec/LIBSTELL
-  ifeq ($(NETCDF),t)
-    CPPFLAGS   += $(PREPROC)NETCDF 
-  endif
 
-  CONTRIBLIBS += -L$(PWD)/contrib/vmec/lib -lstell $(NETCDF_LIBS)
-  CPPFLAGS    += $(PREPROC)vmec $(NETCDF_INC)
+  CONTRIBLIBS += -L$(PWD)/contrib/vmec/lib -lstell
+  CPPFLAGS    += $(PREPROC)vmec
   MODPATH     += $(ADDMODFLAG)$(PWD)/contrib/vmec/lib
+
+  ifeq ($(NETCDF),t)
+    CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
+    CONTRIBLIBS += $(NETCDF_LIBS)
+  endif
 endif
 
 # ARPACK setup
