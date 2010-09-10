@@ -148,7 +148,7 @@ ifdef SAMR
    CPPFLAGS += -Dsamrai
 
 ifdef VECPOT
-  CPPFLAGS += -Dvec_pot
+   CPPFLAGS += -Dvec_pot
 endif
 
    CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
@@ -225,28 +225,28 @@ parallel-tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-a
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 parallel-tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-b
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 rebuild-parallel-tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-a
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 rebuild-parallel-tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-b
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 # CONTRIBUTED LIBRARIES

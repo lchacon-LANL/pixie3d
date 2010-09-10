@@ -1,7 +1,6 @@
 c setupPreconditioner
 c####################################################################
-cc      subroutine setupPreconditioner(v_arr)
-      subroutine setupPC(ntot,x)
+      subroutine setupPC(ntot,x,nwt_it)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -22,12 +21,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: ntot
+      integer    :: ntot,nwt_it
       real(8)    :: x(ntot)
-
-c Local variables
-
-cc      type(var_array),pointer :: v_arr
 
 c Local variables
 
@@ -68,6 +63,8 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+      nwt_iter = nwt_it
+
 c Setup PC
 
       call PC_setup
@@ -99,7 +96,7 @@ c Extract arrays and BC's
 
 c Find coefficients for linearized systems
 
-      if (jit == 1) call findPCcoeffs(igx,igy,igz)
+      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz)
 
 c Setup BCs for diagonal formation
 
@@ -109,35 +106,23 @@ c Setup BCs for diagonal formation
       enddo
 
 #if defined(vec_pot)
-      !Magnetic field conditions
-cc      bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
-cc      where (bcs(:,IBX:IBZ) == -EQU) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
       bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
-
-cc      where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
 #endif
 
-cc      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
-cc      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = DIR  !Use contravariant components 
       bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
 
-      if (pc_asm.and.(np>1)) then
-        call setASM_PC_BC(igx,igy,igz,bcs)
-      else
-        call setASMflag(.false.)
-      endif
+      call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
 
 #if defined(petsc)
       if (ilevel >= 5) then
         write (*,*) 'Proc ',my_rank,': asm     in setupPC',asm
-        write (*,*) 'Proc ',my_rank,': par_bc  in setupPC',par_bc
         write (*,*) 'Proc ',my_rank,': asm_dir in setupPC',asm_dir
       endif
 #endif
 
 c Find required diagonals in all grids
 
-      if (jit == 1) then
+      if (nwt_it == 1) then
 
         call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
      .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)

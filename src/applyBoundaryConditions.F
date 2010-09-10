@@ -249,7 +249,7 @@ c     Begin program
       !Equilibrium Current (extrapolate covariant components)
       gv%aux%vec_list(IJ0CNV)%bconds = gv%aux%vec_list(IJCNV)%bconds
       where (gv%aux%vec_list(IJ0CNV)%bconds == EQU)
-        gv%aux%vec_list(IJ0CNV)%bconds = EXT
+        gv%aux%vec_list(IJ0CNV)%bconds =-EXT
       end where
       gv%aux%vec_list(IJ0COV)%bconds = gv%aux%vec_list(IJ0CNV)%bconds
 
@@ -258,16 +258,17 @@ c     Begin program
       gv%aux%vec_list(IDIVPI)%bconds(:,2) = bcond
       gv%aux%vec_list(IDIVPI)%bconds(:,3) = bcond
       where (gv%aux%vec_list(IDIVPI)%bconds == DEF)
-        gv%aux%vec_list(IENI)%bconds = EXT
+        gv%aux%vec_list(IDIVPI)%bconds = EXT
       end where
 
       gv%aux%vec_list(IDIVPE)%bconds = gv%aux%vec_list(IDIVPI)%bconds
 
-      !Electric field
-      gv%aux%vec_list(IENI)%bconds(:,1) = bcond
-      gv%aux%vec_list(IENI)%bconds(:,2) = bcond
-      gv%aux%vec_list(IENI)%bconds(:,3) = bcond
+      !Electric field (only topological BC's)
+cc      gv%aux%vec_list(IENI)%bconds(:,1) = bcond
+cc      gv%aux%vec_list(IENI)%bconds(:,2) = bcond
+cc      gv%aux%vec_list(IENI)%bconds(:,3) = bcond
 
+      gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IDIVPI)%bconds
 cccc      if (ion_hall) then
 cccc        gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCNV)%bconds
 cccc      else
@@ -604,7 +605,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: iigx,iigy,iigz,bc_inf(2)
+      integer :: iigx,iigy,iigz,bc_inf(2)
 
       type(var_array),pointer :: varray
       type(aux_array),pointer :: vaux
@@ -613,13 +614,7 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
-
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3)
-
-      real(8),allocatable,dimension(:,:,:,:) :: v0
-
-      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs
+      integer :: nnx,nny,nnz
 
 c Begin program
 
@@ -628,18 +623,6 @@ c Local grid sizes
       nnx = grid_params%nxv(iigx) 
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
-
-      if (lag_pinch_bc) then
-        rho => u_n%array_var(IRHO)%array
-        tmp => u_n%array_var(ITMP)%array
-      else
-        rho => varray%array_var(IRHO)%array
-        tmp => varray%array_var(ITMP)%array
-      endif
-
-c Allocate auxiliary variables in local domain
-
-      allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
 
 c Select variable
 
@@ -654,10 +637,10 @@ c     Density BCs
         endif
 
         call setBC(IRHO,nnx,nny,nnz
-     .               ,varray%array_var(IRHO)%array
-     .               ,u_0   %array_var(IRHO)%array
-     .               ,varray%array_var(IRHO)%bconds
-     .               ,iigx,iigy,iigz,iorder=order)
+     .            ,varray%array_var(IRHO)%array
+     .            ,u_0   %array_var(IRHO)%array
+     .            ,varray%array_var(IRHO)%bconds
+     .            ,iigx,iigy,iigz,iorder=order)
 
 #if defined(vec_pot)
       case(IAX)
@@ -699,16 +682,12 @@ c     Temperature BCs
         endif
 
         call setBC(ITMP,nnx,nny,nnz
-     .               ,varray%array_var(ITMP)%array
-     .               ,u_0   %array_var(ITMP)%array
-     .               ,varray%array_var(ITMP)%bconds
-     .               ,iigx,iigy,iigz,iorder=order)
+     .            ,varray%array_var(ITMP)%array
+     .            ,u_0   %array_var(ITMP)%array
+     .            ,varray%array_var(ITMP)%bconds
+     .            ,iigx,iigy,iigz,iorder=order)
 
       end select
-
-c Deallocate variables 
-
-      deallocate(v0)
 
 c End
 
@@ -1335,9 +1314,10 @@ c       Allocate auxiliary variables in local domain
 
           bcnd = vaux%vec_list(IJCNV)%bconds
           
-          if (pinch_flow) then  !Jt = alpha*Bt in cov representation
+          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+     .                       ,first_order=.true.)
             else
               call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                       ,first_order=.true.)
@@ -1417,8 +1397,6 @@ c         Fill ghost nodes
           call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0,bcnd,iigx,iigy,iigz
      .              ,iorder=order)
 
-        case(IBCOV)
-
 #if defined(vec_pot)
 
         case(IACOV)
@@ -1453,7 +1431,8 @@ c         Fill ghost nodes
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             if (lag_pinch_bc) then
-             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+     .                      ,first_order=.true.)
             else
              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                      ,first_order=.true.)
@@ -1481,7 +1460,8 @@ c       Magnetic field BC
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
             if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+     .                       ,first_order=.true.)
             else
               call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                       ,first_order=.true.)
@@ -1495,9 +1475,12 @@ c       Fill ghost nodes
 
         call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
      .            ,iorder=order)
-
 #endif
+        case(IBCOV)
+
         case(IBCNV_N)
+
+          if (save_Bn) bcnv_n = bcnv !Save previous time step
 
         case(IVE0CNV)
 
@@ -1649,7 +1632,6 @@ c Local variables
      .          ,ig,jg,kg
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
-     .          ,idx,idy,idz,k2,kk,k_par,bnorm,lheta,vol,lvol
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
@@ -1691,73 +1673,9 @@ c       Resistivity and viscosity (needed for BCs; may depend on T)
 c       Find hyperresistivity (e viscosity)
 
           if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
-
             rho => varray%array_var(IRHO)%array
-
-            do k=1,nnz
-              do j=1,nny
-                do i=1,nnx
-                  call getMGmap(i,j,k,iigx,iigy,iigz,ig,jg,kg)
-
-                  !kk
-                  idx  = pi/grid_params%dx(ig)
-                  if (nnx == 1) idx = 0d0
-                  idy  = pi/grid_params%dy(jg)
-                  if (nny == 1) idy = 0d0
-                  idz  = pi/grid_params%dz(kg)
-                  if (nnz == 1) idz = 0d0
-
-                  k2=vectorNorm(i,j,k,iigx,iigy,iigz,idx,idy,idz,.true.)
-                  kk=sqrt(k2)
-
-                  !k_par
-                  bnorm = vectorNorm(i,j,k,iigx,iigy,iigz
-     .                              ,bcnv(i,j,k,1)
-     .                              ,bcnv(i,j,k,2)
-     .                              ,bcnv(i,j,k,3)
-     .                              ,.false.)
-
-                  if (bnorm > 0d0) then
-                    k_par=scalarProduct(i,j,k,iigx,iigy,iigz,idx,idy,idz
-     .                                 ,bcnv(i,j,k,1)
-     .                                 ,bcnv(i,j,k,2)
-     .                                 ,bcnv(i,j,k,3))**2/bnorm
-                    k_par = sqrt(k_par)
-                  else
-                    k_par=0d0
-                  endif
-
-cc                  heta = heta + 0.1*di*sqrt(bnorm)/k2
-                  heta = heta
-     .                 + 0.1*di*bnorm/sqrt(rho(i,j,k))*k_par/kk**3
-     .                         *gmetric%grid(iigx)%dvol(i,j,k)
-                  vol  = vol + gmetric%grid(iigx)%dvol(i,j,k)
-
-                enddo
-              enddo
-            enddo
-
-#if defined(petsc) && !defined(samrai)
-            lheta = heta
-            call MPI_Allreduce(lheta,heta,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-            lvol = vol
-            call MPI_Allreduce(lvol,vol,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#else
-#if defined(samrai)
-            call pstop('applyAuxVarBC'
-     .           ,'Need to fix hyperresistivity calculation in SAMRAI')
-#endif
-#endif
-
-            heta = heta/vol/di**2
-
-            write (*,*) 'DIAG -- preprocAux'
-            heta = 0d0
-
-            if (my_rank == 0) write (*,*) 'Hyperresistivity=',heta
-
+            heta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv,rho)
+            nullify(rho)
           endif
 
         case default
@@ -2005,7 +1923,10 @@ c       Electron velocity BC
               do k=1,nnz
                 do j=1,nny
                   do i=1,nnx
-                    vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
+cc                    vecnv(i,j,k,:) = -di*curlcurl(i,j,k,nnx,nny,nnz
+cc     .                                           ,iigx,iigy,iigz,vcnv
+cc     .                                           ,vol=.false.)
+                    vecnv(i,j,k,:) =  di*veclaplacian(i,j,k,nnx,nny,nnz
      .                                           ,iigx,iigy,iigz,vcnv
      .                                           ,vol=.false.)
                   enddo

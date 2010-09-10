@@ -79,7 +79,7 @@ cc      call createGrid(1,nxd,1,nyd,1,nzd,nxd,nyd,nzd,g_pack)
 
 
       do
-        call readRecordFile(urecord,itime,time,dt,vref,ierr)
+        ierr = readRecordFile(urecord,itime,time,dt,vref)
 
         if (ierr /= 0) exit
       enddo
@@ -147,7 +147,7 @@ cc      call createGrid(1,nxd,1,nyd,1,nzd,nxd,nyd,nzd,g_pack)
       call allocateDerivedType(vsol)
 
       do
-        call readRecordFile(urecord,itime,time,dt,vsol,ierr)
+        ierr = readRecordFile(urecord,itime,time,dt,vsol)
 
         if (ierr /= 0) exit
       enddo

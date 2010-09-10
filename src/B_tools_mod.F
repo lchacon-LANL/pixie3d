@@ -8,7 +8,13 @@ c ####################################################################
 
         use local_BCS_variables, ONLY: bc_order
 
+        use app_iosetup
+
         use xdraw_io
+
+        integer :: bc_order_a
+
+        logical :: is_a_cnv=.true.
 
       contains
 
@@ -75,17 +81,19 @@ c     Quadrant-based code (SP ready, parallel-ready)
 
       if (spoint) then  !Separate quadrants only in theta
 
-cc        call line_int(1,nx,1,ny,b,a)
-
-        !Lower-right quadrant
-        call line_int(1,nx,ny/2-1,1
+        if (ny == 1) then
+          call line_int(1,nx,1,ny,b,a)
+        else
+          !Lower-right quadrant
+          call line_int(1,nx,ny/2-1,1
      .               ,b(0:nx+1,0:ny/2,0:nz+1,1:3)
      .               ,a(0:nx+1,0:ny/2,0:nz+1,1:3))
 
-        !Upper-right quadrant
-        call line_int(1,nx,ny/2+1,ny
+          !Upper-right quadrant
+          call line_int(1,nx,ny/2+1,ny
      .               ,b(0:nx+1,ny/2:ny+1,0:nz+1,1:3)
      .               ,a(0:nx+1,ny/2:ny+1,0:nz+1,1:3))
+        endif
       else
         !Lower-left quadrant
         call line_int(nx/2-1,1,ny/2-1,1
@@ -223,7 +231,7 @@ cc      bcnd(:,1) = bcond
 cc      bcnd(:,2) = bcond
 cc      bcnd(:,3) = bcond
 cc
-cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
 cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
 cc
 cc#endif
@@ -512,16 +520,41 @@ cc     .                                       +aa(0:nx  ,:,:,2:3))
 
       end subroutine curl_inv
 
+c     curl_div_clean
+c     #################################################################
+      subroutine curl_div_clean(nx,ny,nz,igx,igy,igz,db)
+
+c     -----------------------------------------------------------------
+c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz
+      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      real(8) :: da_cov(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Find dA from dB (w/ ghost cells)
+
+      call curl_inv(nx,ny,nz,igx,igy,igz,db,da_cov)
+
+      db = curl(nx,ny,nz,igx,igy,igz,da_cov)
+
+      end subroutine curl_div_clean
+
 c     vlap_div_clean
 c     #################################################################
       subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dbcov,dacov
-     .                         ,w_bcs,diag_plots)
+     .                         ,w_bcs,diag_plots,pc_call)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
 c     -----------------------------------------------------------------
-
-cc      use matvec, rhs_bc => rhs, bcs_pc => bcs
 
       implicit none
 
@@ -533,35 +566,42 @@ c     Call variables
       real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
       real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
 
-      logical,optional :: w_bcs,diag_plots
+      logical,optional :: w_bcs,diag_plots,pc_call
 
 c     Local variables
 
       integer :: i,j,k,ii,icomp,bcsa(6,3),bcsb(6,3)
+     .          ,order_res,order_prol
 
-      real(8) :: da     (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,da_cov (0:nx+1,0:ny+1,0:nz+1,3)
+      real(8) :: da_cov (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rhs(ntotdp,3),x(ntotdp,3),dvol
+     .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
 
-      logical :: vwgt,wbcs,dplots
+      logical :: vwgt,wbcs,dplots,pc,sing_mat
 
-      external lap_mtvc,avlap_mtvc
+      character(20) :: dcf
 
 c     Begin program
 
       vwgt = .true.
 
-      if (PRESENT(w_bcs)) then
-        wbcs = w_bcs
-      else
-        wbcs = .false.
-      endif
-
       if (PRESENT(diag_plots)) then
         dplots = diag_plots
       else
         dplots = .false.
+      endif
+
+      if (PRESENT(w_bcs)) then
+        wbcs = w_bcs
+      else
+        wbcs = dplots
+      endif
+
+      if (PRESENT(pc_call)) then
+        pc = pc_call
+      else
+        pc = .false.
       endif
 
 c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
@@ -593,6 +633,9 @@ c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BC
             endif
 
             rhs(ii,:)=-dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
+            if (.not.is_a_cnv)
+     .        rhs(ii,:)=matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
+     .                        ,rhs(ii,:))
           enddo
         enddo
       enddo
@@ -600,7 +643,25 @@ c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BC
 c     Define BCs for dA
 
       bcsa = bcsb
-      where (bcsa == -NEU) bcsa = EQU  !Use covariant components for tangential BCs
+      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+
+c     Setup solver parameters
+
+      if (coords == 'car') then
+        order_res  = 0  !To ensure conservation (avoid null space)
+        order_prol = 1
+
+        bc_order_a = 0
+
+        sing_mat   = .true.
+      else
+        order_res  = 0
+        order_prol = 2
+
+        bc_order_a = 1
+
+        sing_mat   = .false.
+      endif
 
 c     Allocate diagonal matrix
 
@@ -613,73 +674,60 @@ c     Allocate diagonal matrix
 
 c     Invert vector laplacian to find dA=-vlap^-1(dJ)
 
+      if (pc) then
+        etol = 0.5*pc_tol
+      else
+        etol = 0.5*rtol
+      endif
+
       x = 0d0
 
-      !Solve Poisson equation
-      if (coords == 'car') then
-        call cSolver(3,ntotdp,rhs,x,bcsa,igx
+      call cSolver(3,ntotdp,rhs,x,bcsa,igx
      .            ,iout,1,avlap_mtvc,vwgt
+     .            ,tol           = etol
+     .            ,iters         = it_divcl
      .            ,dg            = vlap_diag
-     .            ,gm_sing_matrix= .false.
-     .            ,ks_it         = 20
-     .            ,mg_order_res  = 0  !To ensure conservation (avoid null space)
-     .            ,mg_order_prol = 1
+     .            ,gm_driver     = .not.pc
+     .            ,gm_sing_matrix= sing_mat
+     .            ,ks_it         = 30
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_order_res  = order_res
+     .            ,mg_order_prol = order_prol
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_smooth     = sm_type
-     .            ,sm_omega      = sm_omega
+cc     .            ,mg_gm_coarse_solve  = .true.
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = mg_line_relax
-     .            !Original parameters
-     .            ,tol           = rtol
-     .            ,gm_driver     = .true.
-     .            ,mg_vcyc       = mg_vcyc
+     .            !Zebra relax
+cc     .            ,mg_smooth     = 'gs'
+cc     .            ,sm_omega      = 0.9d0
+cc     .            ,sm_it         = 2
+cc     .            ,sm_zebra_relax= .true.
+     .            !Standard relax
+     .            ,mg_smooth     = sm_type
+     .            ,sm_omega      = sm_omega
      .            ,sm_it         = sm_iter
      .            ,sm_zebra_relax= mg_zebra_relax
-     .            !MG convergence test
-cc     .            ,cvrg_tst      = .true.
-cc     .            ,gm_driver     = .false.
-cc     .            ,mg_vcyc       = 20
-cc     .            ,tol           = 1d-10
-cc     .            ,sm_it         = 3
-cc     .            ,sm_zebra_relax= .false.
+     .            !SI relax
+cc     .            ,mg_smooth     = sm_type_si
+cc     .            ,sm_omega      = sm_omega_si
+cc     .            ,sm_it         = sm_iter_si
+cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
 
-        call fillArray(igx,IAX,3,x,da,bcsa,0
-     .                ,is_vec=.true.,is_cnv=.true.,arr_cov=da_cov)
+c diag ****
+cc      !Calculate residual
+cc      call avlap_mtvc(0,3,3*ntotdp,x,rhs,igx,bcsa)
+cc      x = rhs
+c diag ****
+
+      if (is_a_cnv) then
+        call fillArray(igx,IAX,3,x,da_cnv,bcsa,bc_order_a
+     .                ,is_vec=.true.,is_cnv=is_a_cnv
+     .                ,arr_cov=da_cov)
       else
-        call cSolver(3,ntotdp,rhs,x,bcsa,igx
-     .            ,iout,1,avlap_mtvc,vwgt
-     .            ,dg            = vlap_diag
-     .            ,gm_sing_matrix= .false.
-     .            ,ks_it         = 20
-     .            ,mg_order_res  = 0  !To ensure conservation (avoid null space)
-     .            ,mg_order_prol = 2
-     .            ,mg_coarse_grid_size = mg_coarse_size
-     .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_smooth     = sm_type
-     .            ,sm_omega      = sm_omega
-     .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            !Original parameters
-     .            ,tol           = rtol
-     .            ,gm_driver     = .true.
-     .            ,mg_vcyc       = mg_vcyc
-     .            ,sm_it         = sm_iter
-     .            ,sm_zebra_relax= mg_zebra_relax
-     .            !MG convergence test
-cc     .            ,cvrg_tst      = .true.
-cc     .            ,gm_driver     = .false.
-cc     .            ,mg_vcyc       = 20
-cc     .            ,tol           = 1d-4
-cc     .            ,sm_it         = 3
-cc     .            ,sm_zebra_relax= .false.
-     .            )
-
-        where (bcsa == EQU) bcsa =-EQU !Use covariant components for tangential BCs
-
-        call fillArray(igx,IAX,3,x,da,bcsa,bc_order
-     .                ,is_vec=.true.,is_cnv=.true.,arr_cov=da_cov)
+        call fillArray(igx,IAX,3,x,da_cov,bcsa,bc_order_a
+     .                ,is_vec=.true.,is_cnv=is_a_cnv)
       endif
 
 c     Find new dB (with BCs)
@@ -688,17 +736,23 @@ c     Find new dB (with BCs)
 
       if (wbcs) then
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
-     .            ,icomp=IBX,is_vec=.true.,is_cnv=.true.
-     .            ,iorder=bc_order)
+     .              ,icomp=IBX,is_vec=.true.
+     .              ,is_cnv=.true.,iorder=bc_order)
       endif
 
 c     Diagnostics
 
       if (dplots) then
-        write (*,*) 'DIAG -- vlap_div_clean'
+        dcf='divcl_p'//trim(int2char(my_rank))//'.bin'
 
-        open(unit=110,file='divclean.bin',form='unformatted'
+        call createDrawInCfile(6,trim(dcf),'Solution'
+     .          ,'t','x','y',(/ 'Ax','Ay','Az','Bx','By','Bz'/)
+     .          ,'-c -X0 -L57'
+     .          ,'drawdc_p'//trim(int2char(my_rank))//'.in')
+
+        open(unit=110,file=trim(dcf),form='unformatted'
      .      ,status='replace')
+
         call contour(da_cov(:,:,1,1),nx+2,ny+2
      .                ,grid_params%gxmin,grid_params%gxmax
      .                ,grid_params%gymin,grid_params%gymax
@@ -724,12 +778,145 @@ c     Diagnostics
      .                ,grid_params%gymin,grid_params%gymax
      .                ,1,110)
         close (110)
+
+        call pstop('vlap_div_clean','Dumped graphics')
       endif
 
-c     Store helical flux (for resistivity)
+c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
 
       end subroutine vlap_div_clean
+
+c     avlap_mtvc
+c     ###############################################################
+      subroutine avlap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
+c     ---------------------------------------------------------------
+c     This subroutine calculates lap(vector) in contravariant form.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c     ---------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c     Call variables
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot)
+
+c     Local variables
+
+      integer    :: i,j,k,ig,jg,kg,isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz,ieq
+      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
+     .             ,veclap(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind,etal
+
+      real(8),allocatable,dimension(:,:,:,:) :: vv,v0
+
+      logical    :: fpointers,is_cnv
+
+c     Begin program
+
+      is_cnv = is_a_cnv
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+c     Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz
+     .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
+
+c     Map vector x to array for processing
+
+      allocate(vv(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      vv = 0d0
+
+      !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
+      !For finding the diagonal, gpos > 0
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,vv,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
+     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=bc_order_a)
+
+c     Calculate matrix-vector product
+
+      if (is_a_cnv) then
+        do k = kmin,kmax
+          do j = jmin,jmax
+            do i = imin,imax
+              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+              veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+     .                             ,igrid,igrid,igrid,vv
+     .                             ,vol=volf)
+cc              veclap =-curlcurl(i,j,k,nxx,nyy,nzz
+cc       .                           ,igrid,igrid,igrid,vv
+cc       .                           ,vol=volf)
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = veclap(ieq)
+              enddo
+
+            enddo
+          enddo
+        enddo
+      else
+        do k = kmin,kmax
+          do j = jmin,jmax
+            do i = imin,imax
+              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+              veclap = veclap_cov(i,j,k,nxx,nyy,nzz
+     .                           ,igrid,igrid,igrid,vv
+     .                           ,vol=volf)
+
+              do ieq=1,3
+                y(neq*(ijk-1)+ieq) = veclap(ieq)
+              enddo
+
+            enddo
+          enddo
+        enddo
+      endif
+
+c     End program
+
+      deallocate(vv)
+
+      call deallocPointers(fpointers)
+
+      end subroutine avlap_mtvc
 
       end module B_tools
