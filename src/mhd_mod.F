@@ -10019,7 +10019,7 @@ cc            heta = heta + 0.1*di*sqrt(bnorm)/k2
 #endif
 #endif
 
-      hres = 10*hres/vol/di**2
+      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication later
 
       if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 

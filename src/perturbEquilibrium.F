@@ -320,6 +320,10 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
 
         call perturbEquilibrium_gem(array,bcs,pert(ieq),ieq)
 
+      case ('dtm')
+
+        call perturbEquilibrium_dtm(array,bcs,pert(ieq),ieq)
+
       case ('ic')
 
         call perturbEquilibrium_ic(array,bcs,pert(ieq),ieq)
@@ -372,21 +376,21 @@ c     Begin program
             do i = ilom,ihip
               call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz
      .                                      ,ig,jg,kg,x1,y1,z1)
-              fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode)
+              fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
             enddo
 
             mode = nh2+sign(ipw2,nh2)
             do j = jlom,jhip
               call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz
      .                                      ,ig,jg,kg,x1,y1,z1)
-              fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode)
+              fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
             enddo
 
             mode = nh3+sign(ipw3,nh3)
             do k = klom,khip
               call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz
      .                                      ,ig,jg,kg,x1,y1,z1)
-              fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode)
+              fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
             enddo
 
             do k = klom,khip
@@ -670,6 +674,82 @@ c     End program
 
       end subroutine perturbEquilibrium_gem
 
+c     perturbEquilibrium_dtm
+c     #################################################################
+      subroutine perturbEquilibrium_dtm(array,bcs,perturb,ieq)
+
+c     -----------------------------------------------------------------
+c     Perturbs equilibrium quantity in array0 with a sinusoidal
+c     perturbation of magnitude perturb, and introduces it in array.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer    :: bcs(6),ieq
+      real(8)    :: perturb
+      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+
+c     Local variables
+
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
+      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+
+      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
+
+c     Begin program
+
+      if (ieq == IBX .or. ieq == IBY) then
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              psi(i,j,k)=-cos(2*pi*(x1-xmin)/(xmax-xmin))
+     .                   *cos(2*pi*(y1-ymin)/(ymax-ymin))
+            enddo
+          enddo
+        enddo
+        
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+              ip = min(i+1,ihip)
+              im = max(i-1,ilom)
+              jp = min(j+1,jhip)
+              jm = max(j-1,jlom)
+
+              if (ieq == IBX) then
+                array(i,j,k) = array(i,j,k)
+     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+     .                              /(grid_params%yy(jg+jp-j)
+     .                               -grid_params%yy(jg+jm-j))
+              else
+                array(i,j,k) = array(i,j,k)
+     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+     .                              /(grid_params%xx(ig+ip-i)
+     .                               -grid_params%xx(ig+im-i))
+              endif
+            enddo
+          enddo
+        enddo
+
+      else
+
+        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+
+      endif
+
+c     End program
+
+      end subroutine perturbEquilibrium_dtm
+
 ccc     perturbEquilibrium_3dpar
 ccc     #################################################################
 cc      subroutine perturbEquilibrium_3dpar(array,bcs,perturb,ieq)
@@ -922,14 +1002,14 @@ c     End program
 
 c     factor
 c     ####################################################################
-      function factor(xmin,xmax,x,bcs,nh) result(ff)
+      function factor(xmin,xmax,x,bcs,nh,odd) result(ff)
 
         implicit none
 
         real(8)    :: xmin,xmax,x,period,ff
         integer    :: bcs(2),nh
 
-        logical    :: neumann(2),dirichlet(2),spoint(2)
+        logical    :: neumann(2),dirichlet(2),spoint(2),odd
 
 c     Begin program
 

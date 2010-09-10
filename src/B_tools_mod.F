@@ -643,7 +643,14 @@ c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BC
 c     Define BCs for dA
 
       bcsa = bcsb
+      where (bcond == FSYM)
+        bcsa(:,1) = FSYM !Recover symmetry BCs
+        bcsa(:,2) = FSYM !Recover symmetry BCs
+        bcsa(:,3) = FSYM !Recover symmetry BCs
+      end where
       where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+
+      call vector_symm_bc(bcsa,-1)
 
 c     Setup solver parameters
 

@@ -1434,7 +1434,7 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use operators
+      use nlfunction_setup, ONLY: eom_f,eom_jxb
 
       use imposeBCinterface
 
@@ -1676,16 +1676,16 @@ c Find rhs_v'
               
               if (nc_eom_v) then
                 cnv = cnv
-     .              +(EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vcnv0,dv_cnv,upwind=(advect == 1))
-     .               +EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,vcnv0,upwind=(advect == 1)))
+     .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,vcnv0,dv_cnv,advect,cons=.not.nc_eom_v)
+     .               +tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dv_cnv,vcnv0,advect,cons=.not.nc_eom_v))
               else
                 cnv = cnv
-     .              +(EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vcnv0,dp_cnv,upwind=(advect == 1))
-     .               +EOM_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dp_cnv,vcnv0,upwind=(advect == 1)))
+     .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,vcnv0,dp_cnv,advect)
+     .               +tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dp_cnv,vcnv0,advect))
               endif
 
               !Stress tensors
@@ -1733,7 +1733,7 @@ c #########################################################################
       subroutine L_rho_v(ntotp,xxx,yyy,crhs,igrid,vwgt)
 c--------------------------------------------------------------------
 c     This subroutine finds L_rho_v (form depends on whether we
-c     are doing conservative EOM or not.
+c     are doing conservative EOM or not).
 c--------------------------------------------------------------------
 
       use precond_variables
@@ -1788,12 +1788,15 @@ c Find rhs_v
                 dvol = 1d0
               endif
 
-              vec1 => gv0%grid(igrid)%array
-              vec2 => dp_cnv
-              cnv = div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
-     .                        ,vol=.false.)
-              nullify(vec1,vec2)
+              cnv = tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,gv0%grid(igrid)%array,dp_cnv,advect)
+
+cc              vec1 => gv0%grid(igrid)%array
+cc              vec2 => dp_cnv
+cc              cnv = div_tensor(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,alt_eom,eom_advc_x,eom_advc_y,eom_advc_z
+cc     .                        ,vol=.false.)
+cc              nullify(vec1,vec2)
 
               crhs(ii,:) = dvol*(cnp*dp_cnv(i,j,k,:)/dt - alpha*cnv)
 
