@@ -455,6 +455,10 @@ c diag ****
 
 c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
 
+#if defined(samrai)
+      call allocAuxVariables
+#endif
+
       order = bc_order
 
       do i = 1,gv%bc_grp(igrp)%nbc_seq
@@ -1366,16 +1370,12 @@ c         Fill ghost nodes
 
 c       Current BC
 
-          if (.not.(test .and. equil=='tmcar')
-     .        .and.(sum(E0) == 0d0)) then
+           bcnd = vaux%vec_list(IJ0CNV)%bconds
 
-            bcnd = vaux%vec_list(IJ0CNV)%bconds
+           v0 = 0d0
 
-            v0 = 0d0
-
-            call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
+           call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
      .                ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
-          endif
 
         case(IVCOV)
 
@@ -1782,9 +1782,12 @@ c       Allocate auxiliary variables in local domain
         select case(abs(bc_inf(1)))
         case(IJCOV)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 jcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,jcnv(i,j,k,:))
               enddo
@@ -1797,9 +1800,12 @@ c       Allocate auxiliary variables in local domain
 
         case(IJ0COV)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 jcov_0(i,j,k,:)=
      .               matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                     ,jcnv_0(i,j,k,:))
@@ -1883,9 +1889,12 @@ c           Find J0
 
         case(IVCOV)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 vcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,vcnv(i,j,k,:))
               enddo
@@ -1911,9 +1920,12 @@ c           Find J0
 
         case(IBCOV)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 bcov(i,j,k,:)=matmul(gmetric%grid(iigx)%gsub(i,j,k,:,:)
      .                              ,bcnv(i,j,k,:))
               enddo
@@ -1930,9 +1942,12 @@ c           Find J0
 
         case(IACNV)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 acnv(i,j,k,:)=matmul(gmetric%grid(iigx)%gsup(i,j,k,:,:)
      .                              ,acov(i,j,k,:))
               enddo
@@ -1943,9 +1958,12 @@ c           Find J0
 
 c       Magnetic field BC (with fixed current at boundary)
 
-          do k = 1,nnz
-            do j = 1,nny
-              do i = 1,nnx
+c          do k = 1,nnz
+c            do j = 1,nny
+c              do i = 1,nnx
+          do k = 0,nnz+1
+            do j = 0,nny+1
+              do i = 0,nnx+1
                 bcnv(i,j,k,:) = B0
      .                 + curl(i,j,k,nnx,nny,nnz,iigx,iigy,iigz,acov)
               enddo
