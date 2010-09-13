@@ -248,7 +248,7 @@ c     Setup schedule
         gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
