@@ -7,26 +7,29 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-n host] [-x executable] [-r tmax] [-np procs] [-nolocal] [-ntar]
+pixie3d [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
         [-equ file] [-eig file] -- inputfile [options]
 
 where:
 	-h:            gives this message
-	-n host:       indicates the host where code should be remotely run 
+	-d:            turn on debugging
+	-n node:       indicates the host where mpiexec should be run 
                          (default is localhost)
+        -machines machinefile : specifies file which lists machines
+                         to run parallel job in (default is "machines.LINUX").
 	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
-	-np procs:     indicates the number of processors to run the job on 
+	-rtgz file:    indicates tarball file to use to restart (default is 
+                         inputfile.tar.gz)
+	-np procs:     indicates the number of processors to run the job  
 		         in parallel
-	-nolocal:      indicates that parallel job is not to run on current machine
-                         (default is local)
 	-ntar:         runs in foreground in current directory (default: runs in 
                          background in separate directory and creates 
                          tarfile inputfile.tar.gz)
 	-equ:          equilibrium file 
 	-eig:          eigenmode file 
-	inputfile:     is the input file without the extension .in
+	inputfile:     is the input file with or without the extension .in
 	options:       options passed directly to the executable
 HELP
 exit 0
@@ -38,6 +41,10 @@ restart=f
 parallel=f
 tar=t
 equf=f
+debug=f
+machinefile="machines.LINUX"
+restartfile=""
+code_ifile=pixie3d
 
 # Parse command line options
 
@@ -49,11 +56,13 @@ fi
 while [ -n "$1" ]; do
 case $1 in
 	-h) help;shift 1;;
+	-d) debug=t;shift 1;;
 	-n) node=$2;shift 2;;
 	-x) executable=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
+	-rtgz) restart=t;restartfile=$2;shift 2;;
 	-np)parallel=t;np=$2;shift 2;;
-	-nolocal)nolocal=$1;shift 1;;
+	-machines)machinefile=$1;shift 1;;
 	-ntar)tar=f;shift 1;;
 	-equ)equf=t;equfile=$2;shift 2;;
 	-eig)eigf=t;eigfile=$2;shift 2;;
@@ -63,7 +72,7 @@ case $1 in
 esac
 done
 
-inputfile=$1
+inputfile=`echo "$1" | sed "s/\.in//"`
 shift
 
 options=$*
@@ -72,6 +81,16 @@ options=$*
 
 if [ "$node" = "" ]; then
   node=`hostname -s`
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> MPI node is $node"
+fi
+
+if [ "$restartfile" = "" ]; then
+  restartfile=$inputfile
+else
+  restartfile=`echo "$restartfile" | sed "s/\.tar\.gz//"`
 fi
 
 # Select working directory
@@ -90,11 +109,20 @@ else
   dir=.
 fi
 
+if [ "$debug" = "t" ]; then
+  echo "==> Working directory is $path/$dir"
+fi
+
 # Select executable
 
 if [ "$executable" = "" ]
 then
-  executable=`ls pixie3d.x 2>/dev/null`
+  if [ "$parallel" = "t" ]
+  then
+    executable=`ls pixie3d.petsc.x 2>/dev/null`
+  else
+    executable=`ls pixie3d.x 2>/dev/null`
+  fi
 else
   executable=`ls $executable 2>/dev/null`
 fi
@@ -105,6 +133,10 @@ then
   exit 1
 fi
 
+if [ "$debug" = "t" ]; then
+  echo "==> Program to run is $executable"
+fi
+
 # Copy necessary files to working directory
 
 if [ -f $inputfile.in ]; then
@@ -112,7 +144,7 @@ if [ -f $inputfile.in ]; then
 elif [ -f infiles/$inputfile.in ]; then
   cp infiles/$inputfile.in $dir 2>/dev/null
 elif [ "$restart" != "t" ]; then
-  echo "No input file found. Aborting"
+  echo "No input file $inputfile.in found. Aborting"
   exit 1
 fi
 
@@ -138,8 +170,8 @@ if [ "$eigf" = "t" ]; then
  fi
 fi
 
-if [ -f "machines.LINUX" ]; then
-    cp machines.LINUX $dir 2>/dev/null
+if [ -f $machinefile ]; then
+    cp $machinefile $dir 2>/dev/null
 fi
 
 cp $executable $dir 2>/dev/null
@@ -159,23 +191,35 @@ then
    else
      rpath=$path
    fi
-   if [ -f "$rpath/$inputfile.tar.gz" ]
+   if [ -f "$rpath/$restartfile.tar.gz" ]
    then
-     tar xzf $rpath/$inputfile.tar.gz --exclude $inputfile.in --exclude machines.LINUX --exclude $executable
-#     cp $inputfile.log $path/$dir
-#     cp *.bin $path/$dir
+     if [ "$debug" = "t" ]; then
+       echo "==> Restarting using $restartfile.tar.gz"
+     fi
+     tar xzf $rpath/$restartfile.tar.gz --exclude $restartfile.in --exclude $machinefile --exclude $executable
+     mv $restartfile.log $inputfile.log
+
+     if [ "$debug" = "t" ]; then
+       echo "==> Figuring out number of processors"
+     fi
+
+     np=`ls record.bin_* 2> /dev/null | wc -l`
+
+     if [ "$np" != "1" -a "$parallel" = "f" ]; then
+       echo "This is a parallel run! Set -np to $np"
+       exit 1
+     fi
+
+     if [ "$debug" = "t" ]; then
+       echo "Number of processors for restart = $np"
+     fi
    else
-     echo "Cannot find specified restart file"
+     echo "Cannot find specified restart file: $restartfile"
      exit 1 
    fi
 fi
 
 # Execution preparations
-
-#cd $path/$dir
-
-#code_ifile=`echo "$executable" | sed "s/\.x//"`
-code_ifile=pixie3d
 
 cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
@@ -183,46 +227,40 @@ cp $eigfile $code_ifile.eig  2>/dev/null
 
 if [ "$restart" = "t" ]
 then
-#   sed  -e '/restart/{' \
    sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = t' \
         -e '}' \
         $code_ifile.in 
-#        $code_ifile.in > $code_ifile.out
-#   mv $code_ifile.out $code_ifile.in
 else
-#   sed  -e '/restart/{' \
    sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = f' \
         -e '}' \
-        $code_ifile.in 
-#        $code_ifile.in > $code_ifile.out
-#   mv $code_ifile.out $code_ifile.in
+        $code_ifile.in
 fi
 
 if [ "$tmax" != "" -a "$tmax" != "0" ]
 then
-#    sed -e '/tmax/{' \
     sed -i -e '/tmax/{' \
         -e 'c\' \
         -e "    tmax     = $tmax" \
         -e '}' \
         $code_ifile.in
-#        $code_ifile.in > $code_ifile.out
-#   mv $code_ifile.out $code_ifile.in
 fi
 
 # Execute
 
 if [ "$parallel" = "t" ]
 then
-   if [ -f "machines.LINUX" ]
+   if [ -f $machinefile ]
    then
-     machine="-machinefile machines.LINUX"
+     machine="-f $machinefile"
    fi
-   executable="$MPI_HOME/bin/mpirun -np $np $nolocal $machine ./$executable -snes_mf $options"
+   executable="mpiexec -n $np $machine ./$executable $options"
+   if [ "$debug" = "t" ]; then
+     echo "==> Setting up OpenMPI in node $node"
+   fi
 else
    executable="./$executable $options"
 fi
@@ -230,9 +268,19 @@ fi
 if [ "$tar" = "t" ]
 then
 
-  ssh -n $node "cd $path/$dir ; /usr/bin/time -v -o $inputfile.cpu $executable >> $inputfile.log" 
+  if [ "$debug" = "t" ]; then
+    echo "==> Executing cd $path/$dir ; \
+         /usr/bin/time -v -o $inputfile.cpu $executable >> $inputfile.log"
+  fi
+
+  ssh -n $node "cd $path/$dir ; \
+         /usr/bin/time -v -o $inputfile.cpu $executable >> $inputfile.log" 
 
 # Package and remove temporary files
+
+  if [ "$debug" = "t" ]; then
+    echo "==> Packaging files..."
+  fi
 
   files=`ls * 2>/dev/null`
 
@@ -247,6 +295,17 @@ then
 
 else
 
+  if [ "$debug" = "t" ]; then
+    echo "==> Executing cd $path/$dir ; /usr/bin/time $executable"
+  fi
+
   ssh -n $node "cd $path/$dir ; /usr/bin/time $executable" 
 
+fi
+
+if [ "$parallel" = "t" ]
+then
+  if [ "$debug" = "t" ]; then
+    echo "==> Calling off MPI..."
+  fi
 fi

@@ -1,6 +1,6 @@
 c setupPreconditioner
 c####################################################################
-      subroutine setupPreconditioner(v_arr)
+      subroutine setupPC(ntot,x,nwt_it)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -21,24 +21,26 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      type(var_array),pointer :: v_arr
+      integer    :: ntot,nwt_it
+      real(8)    :: x(ntot)
 
 c Local variables
 
-      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz
+      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz,ieq
 
 c Diag
 
-      integer :: nxx,nyy,nzz,nt,icomp
+      integer :: nxx,nyy,nzz,nt,icomp,neq
       real(8),allocatable,dimension(:,:) :: v_mat
 
 c Externals
 
       external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
-     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp
+     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
+     .          ,v_mtvc_hyp
 
 c Interfaces
-
+#if !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -47,10 +49,11 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
+#endif
 
 c Begin program
 
-      if (precon == 'id') return
+      if (pc_type == 'id') return
 
       igx = 1
       igy = 1
@@ -60,15 +63,19 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+      nwt_iter = nwt_it
+
 c Setup PC
 
       call PC_setup
 
 c Unpack vector x
 
-      call equateDerivedType(varray,v_arr)
+      call mapVectorToStructure(varray,x)
 
+#if !defined(samrai)
       call imposeBoundaryConditions(varray,igx,igy,igz)
+#endif
 
 c Extract arrays and BC's
 
@@ -89,7 +96,7 @@ c Extract arrays and BC's
 
 c Find coefficients for linearized systems
 
-      if (jit == 1) call findPCcoeffs(igx,igy,igz)
+      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz)
 
 c Setup BCs for diagonal formation
 
@@ -98,68 +105,72 @@ c Setup BCs for diagonal formation
         bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
       enddo
 
-#if !defined(vec_pot)
-      bcs(:,IJX:IJZ) = bcs(:,IBX:IBZ)
-      where (bcs(:,IJX:IJZ) == -NEU) bcs(:,IJX:IJZ) = -DIR  !Use covariant components 
-#else
-      where (bcs(:,IAX:IAZ) == -EQU) bcs(:,IAX:IAZ) = -DIR  !Use covariant components 
-
-      !Magnetic field conditions
-      bcs(:,IBX:IBZ) = bcs(:,IAX:IAZ)
-      where (bcs(:,IBX:IBZ) == -DIR) bcs(:,IBX:IBZ) = -NEU  !Use covariant components 
+#if defined(vec_pot)
+      bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
 #endif
 
-      if (asm_PC.and.(np>1)) then
-        call setASM_PC_BC(igx,igy,igz,bcs)
-      else
-        call setASMflag(.false.)
-      endif
+      bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
+
+      call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
 
 #if defined(petsc)
       if (ilevel >= 5) then
         write (*,*) 'Proc ',my_rank,': asm     in setupPC',asm
-        write (*,*) 'Proc ',my_rank,': par_bc  in setupPC',par_bc
         write (*,*) 'Proc ',my_rank,': asm_dir in setupPC',asm_dir
       endif
 #endif
 
 c Find required diagonals in all grids
 
-      if (jit == 1) then
+      if (nwt_it == 1) then
 
         call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
-     .                   ,rho_diag,ncolors,vol_wgt,mg_glrkin)
+     .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)
 
         call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
-     .                   ,tmp_diag,ncolors,vol_wgt,mg_glrkin)
+     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
 
-        if (.not.gm_smooth) then
-
+        if (sm_type /= 'gm') then
 #if !defined(vec_pot)
-          if (heta > 0d0) then
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
             bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
             bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
             call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
-     .                       ,b_diag_hyp,ncolors,vol_wgt,mg_glrkin)
+     .                       ,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
           else
             call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
-     .                       ,b_diag,ncolors,vol_wgt,mg_glrkin)
+     .                       ,b_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
 #else
-          call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                     ,a_diag,ncolors,vol_wgt,mg_glrkin)
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
+     .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
 #endif
-          if (v_solve) then
+          if (pc_v_solve) then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag2,ncolors,vol_wgt,mg_glrkin)
+     .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
           endif
 
-          if (precon == 's1' .or. precon == 's2') then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
-          elseif (precon == 's3') then
+          if (pc_type == 's1' .or. pc_type == 's2') then
+            if (heta == 0d0 .or. (.not.pc_ion_hall)) then
+              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+            else
+              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+              bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+cc              bcs_hyp(:,4:6) = bcs(:,IBX:IBZ)
+              call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
+     .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+            endif
+          elseif (pc_type == 's3') then
             call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag,ncolors,vol_wgt,mg_glrkin)
+     .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
         endif
 
@@ -167,7 +178,7 @@ c Find required diagonals in all grids
 
 c Initialize PC Jacobi it. counter
 
-      si_it = 0
+      pc_iter = 0
 
 c diag ***** DIAGONAL WRITE UP
 cc      isig = 1
@@ -225,18 +236,20 @@ c diag ***** MATRIX GENERATION FOR MATLAB PROCESSING
 cc      if (debug) then
 cc      write (*,*) 'DIAG -- setupPC: Building matrix...'
 cc
+cc      neq = 6
 cc      igrid = 1
 cc
 cc      nxx = grid_params%nxv(igrid)
 cc      nyy = grid_params%nyv(igrid)
 cc      nzz = grid_params%nzv(igrid)
 cc
-cc      nt = 3*nxx*nyy*nzz
+cc      nt = neq*nxx*nyy*nzz
 cc
 cc      allocate(v_mat(nt,nt))
 cc
 cc      icomp = IVX
-cc      call find_mf_mat(3,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
+cccc      call find_mf_mat(neq,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
+cc      call find_mf_mat(neq,nt,v_mtvc_hyp,igrid,bcs_hyp,v_mat)
 cc
 cccc      open(unit=110,file='debug.bin',form='unformatted'
 cccc     .       ,status='replace')
@@ -253,20 +266,26 @@ cc      deallocate(v_mat)
 cc
 cc      write (*,*) 'Done!'
 cc
-cccc      stop
+cc      stop
 cc      endif
 c diag *****
 
 c End program
 
-      end subroutine setupPreconditioner
+      end subroutine setupPC
 
 c killPreconditioner
 c###################################################################
-      subroutine killPreconditioner
+      subroutine killPC
 
       use precond_variables
 
 c     Deallocate variables
 
-      end subroutine killPreconditioner
+#if defined(samrai)
+      call deallocAuxVariables
+#endif
+
+cc      call deallocateDerivedType(varray)
+
+      end subroutine killPC

@@ -35,6 +35,8 @@ PREPROC = -D
 HDF5 = t
 ADIOS = f
 
+#FPA = t
+
 LIBS = -llapack -lblas
 
 #CPPFLAGS += -DRFX
@@ -110,10 +112,26 @@ ifdef ARPACK
   CPPFLAGS    += $(PREPROC)arpack
 endif
 
+# FPA setup
+
+ifdef FPA
+  CONTRIBLIBS += -L$(PWD)/common/contrib/fpa/lib -lfpa
+  CPPFLAGS    += $(PREPROC)FPA
+  MODPATH     += $(ADDMODFLAG)$(PWD)/common/contrib/fpa/lib
+endif
+
+# LSODE setup
+
+CONTRIBLIBS += -L$(PWD)/common/contrib/lsode -llsode
+
+# SLATEC setup
+
+CONTRIBLIBS += -L$(PWD)/common/contrib/slatec/lib -lslatec
+MODPATH     += $(ADDMODFLAG)$(PWD)/common/contrib/slatec/lib
+
 # PETSC setup
 
 ifdef BOPT
-#  include ${PETSC_DIR}/bmake/common/base
   include ${PETSC_DIR}/conf/base
 
   ifdef VECPOT
@@ -130,10 +148,41 @@ ifdef BOPT
   endif
 endif
 
+#SAMRAI setup
+
+ifdef SAMR
+   include ${SAMRAI}/config/Makefile.config
+
+   PDIM = 3
+   OBJECT=${SAMRAI}
+   CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
+
+   TARGET = samrai
+   CPPFLAGS += -Dsamrai
+
+ifdef VECPOT
+   CPPFLAGS += -Dvec_pot
+endif
+
+   CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+   CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+   CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
+   CXXFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
+   LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/lib   
+   LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
+   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
+   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
+   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
+   LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
+   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
+   #LDLIBS_EXTRA += -lAMRUtils${PDIM}d
+endif
+
 #Export required variables
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
-       BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB
+       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
+       BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB SAMR CPPFLAGS_EXTRA \
+       CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA LIBSAMRAI3D LIBSAMRAI
 
 #Define targets
 
@@ -194,78 +243,49 @@ parallel-tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-a
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 parallel-tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-b
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 rebuild-parallel-tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-a
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
 
 rebuild-parallel-tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-b
 else
-	-@echo "Please, specify BOPT in make command"
+	-@echo "Please, define BOPT in make command"
 endif
-
 
 # CONTRIBUTED LIBRARIES
 
-# contrib: vmec ftracer arpack
-
-# contrib_clean: vmec_clean ftracer_clean arpack_clean
-
-# contrib_setup: ftracer_setup
-
-contrib: vmec arpack
-
-contrib_clean: vmec_clean arpack_clean
-
-vmec:
-ifdef VMEC
-	$(MAKE) -e -C contrib/vmec/LIBSTELL release INC_PATH=$(NETCDF_INC)
+contrib:
+	$(MAKE) -e -C common contrib
+ifeq ($(VMEC),t)
+	$(MAKE) -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
 
-vmec_clean:
-ifdef VMEC
-	$(MAKE) -e -C contrib/vmec/LIBSTELL/Release -f makelibstell clean
-endif
-
-# ftracer:
-# 	$(MAKE) -e -C contrib/field_tracer
-
-# ftracer_clean:
-# 	$(MAKE) -e -C contrib/field_tracer distclean
-
-# ftracer_setup:
-# 	$(MAKE) -e -C contrib/field_tracer setup
-
-arpack:
-ifdef ARPACK
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack lib
-ifdef BOPT
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack plib
-endif
-endif
-
-arpack_clean:
-ifdef ARPACK
-	$(MAKE) -e -C contrib/arpack PLAT=$(FC) home=$(PWD)/contrib/arpack clean
+contrib_clean:
+	$(MAKE) -e -C common contrib_clean
+ifeq ($(VMEC),t)
+	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
 
 
 # CLEAN ALL
 
-distclean: contrib_clean
+allclean: contrib_clean distclean
+
+distclean:
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done

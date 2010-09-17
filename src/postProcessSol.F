@@ -11,7 +11,11 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use precond_variables, only: inv_B,divCln,precon
+      use precond_variables, only: pc_B_solve,pc_type,pc_divclean
+
+      use xdraw_io
+
+      use B_tools
 
       implicit none
 
@@ -22,10 +26,12 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,igx,igy,igz,nx,ny,nz
-      real(8),allocatable,dimension(:,:,:,:) :: b_cnv,a_cov
+      real(8) :: mag
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
 c Interfaces
 
+#if !defined(vec_pot) && !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
         use variable_setup
@@ -34,6 +40,7 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine imposeBoundaryConditions
       END INTERFACE
+#endif
 
 c Begin program
 
@@ -46,65 +53,196 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
+c Postprocess adiabatic equation for density update
+
       if (adiabatic .and. (.not.solve_rho)) then
         if (my_rank == 0) write (*,*) 'Postprocessing density'
-        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
-     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+cc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+cc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
+cc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+cc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+        v_arr%array_var(IRHO)%array =
+     .       u_0  %array_var(IRHO)%array
+     .     *(v_arr%array_var(ITMP)%array
+     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
       endif
 
-#if !defined(vec_pot) 
+c Divergence-clean magnetic field when PC is on
 
-      if ((.not.(inv_B.and.divCln)).or.(precon == 'id')) return
+#if !defined(vec_pot) && !defined(samrai)
 
-cc      if (ilevel > 0 .and. my_rank == 0) then
+      if (     (.not.pc_B_solve)
+     .    .or.  pc_divclean
+     .    .or. (.not.solenoidal)
+     .    .or. (pc_type == 'id')
+     .    .or. (nxd==1.and.nyd==1)
+     .    .or. (nxd==1.and.nzd==1)
+     .    .or. (nyd==1.and.nzd==1)) return
+
+      if (ilevel > 0 .and. my_rank == 0) then
         write (*,*)
-        write (*,*) 'Performing divergence cleaning...'
-cc      endif
+        write (*,*) 'Performing divergence cleaning in postproc...'
+      endif
 
-c Apply boundary conditions
+c Find db=B^(n+1)-B^n
 
-      call imposeBoundaryConditions(v_arr,igx,igy,igz)
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
-c Find perturbations in magnetic field, dB
+      db_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
+     .                 -u_n  %array_var(IBX)%array
+      db_cnv(:,:,:,2) = v_arr%array_var(IBY)%array
+     .                 -u_n  %array_var(IBY)%array
+      db_cnv(:,:,:,3) = v_arr%array_var(IBZ)%array
+     .                 -u_n  %array_var(IBZ)%array
 
-      allocate(a_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,b_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+c Clean db
 
-      b_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
-     .                -u_n  %array_var(IBX)%array
-      b_cnv(:,:,:,2) = v_arr%array_var(IBY)%array
-     .                -u_n  %array_var(IBY)%array
-      b_cnv(:,:,:,3) = v_arr%array_var(IBZ)%array
-     .                -u_n  %array_var(IBZ)%array
+cc      call grad_div_clean(db_cnv)
 
-c Find dA from dB (w/ ghost cells)
+      call vlap_div_clean(ilevel,nx,ny,nz
+     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
+     .                   )!,diag_plots=.true.)
 
-      call curl_inv(nx,ny,nz,igx,igy,igz,b_cnv,a_cov)
+cc      call curl_div_clean(db_cnv)
 
-c Find clean B= B_n + curl(dA)
+c Find new B^(n+1)
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            b_cnv(i,j,k,:)=curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,a_cov(:,:,:,1)
-     .                    ,a_cov(:,:,:,2)
-     .                    ,a_cov(:,:,:,3))
-            v_arr%array_var(IBX)%array(i,j,k) = b_cnv(i,j,k,1)
-     .                +u_n  %array_var(IBX)%array(i,j,k)
-            v_arr%array_var(IBY)%array(i,j,k) = b_cnv(i,j,k,2)
-     .                +u_n  %array_var(IBY)%array(i,j,k)
-            v_arr%array_var(IBZ)%array(i,j,k) = b_cnv(i,j,k,3)
-     .                +u_n  %array_var(IBZ)%array(i,j,k)
+      v_arr%array_var(IBX)%array = db_cnv(:,:,:,1)
+     .                +u_n%array_var(IBX)%array
+      v_arr%array_var(IBY)%array = db_cnv(:,:,:,2)
+     .                +u_n%array_var(IBY)%array
+      v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
+     .                +u_n%array_var(IBZ)%array
+
+c Update BCs of all quantities
+
+      call imposeBoundaryConditions (v_arr,igx,igy,igz)
+
+c Update helical flux
+
+      psi = psi + da_cov(:,:,:,3)
+
+c End program
+
+      deallocate(db_cnv,da_cov)
+
+      contains
+
+c     grad_div_clean
+c     #################################################################
+      subroutine grad_div_clean(db)
+
+c     -----------------------------------------------------------------
+c     Finds dB=dB* + grad(phi).
+c     -----------------------------------------------------------------
+
+      use matvec, rhs_bc => rhs, bcs_pc => bcs
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer :: ii,bcs(6)
+      real(8) :: rhs(ntotdp),x(ntotdp),phi(0:nx+1,0:ny+1,0:nz+1)
+     .          ,mag,dvol
+
+      logical :: vwgt
+
+      external lap_mtvc
+
+c     Begin program
+
+      vwgt = vol_wgt
+
+c     Find rhs=-div(db)
+
+      rhs = 0d0
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+            if (vwgt) then
+              dvol = gmetric%grid(igx)%dvol(i,j,k)
+            else
+              dvol = 1d0
+            endif
+
+            rhs(ii)= -dvol*div(i,j,k,nx,ny,nz,igx,igy,igz
+     $                   ,db(:,:,:,1)
+     $                   ,db(:,:,:,2)
+     $                   ,db(:,:,:,3))
           enddo
         enddo
       enddo
 
-c End program
+c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
+cc      open(unit=110,file='debug.bin',form='unformatted'
+cc     .    ,status='replace')
+cc      call contour(rhs,nx,ny,0d0,1d0,0d0,1d0,0,110)
+c diag *****
 
-      deallocate(a_cov,b_cnv)
+c     Solve for phi=lap^-1(rhs)
+
+      bcs = bcond
+      where (bcond == DEF) bcs = NEU  !B.n must be zero at boundary!!
+
+      x = 0d0
+
+      !Solve Poisson equation
+      call cSolver(1,ntotdp,rhs,x,bcs
+     .            ,1,ilevel,0,lap_mtvc,vwgt
+     .            ,tol           = 1d-5
+!     .            ,dg            = lap_diag
+     .            ,gm_driver     = .not.vwgt
+     .            ,cg_driver     = vwgt
+     .            ,ks_it         = 20
+     .            ,mg_debug      = .false.
+     .            ,mg_galerkin   = .false.
+     .            ,mg_order_res  = 0  !To avoid null spaces
+     .            ,mg_order_prol = 0  !To avoid null spaces
+     .            ,mg_coarse_grid_size = 2
+     .            ,mg_gm_coarse_solve  = .false.
+     .            ,mg_vcyc       = 1
+     .            ,mg_smooth     = 'gs'
+     .            ,sm_omega      = 1d0
+     .            ,sm_it         = 3
+     .            ,sm_ncolors    = sm_ncolors  !9-pt stencil
+     .            ,sm_line_relax = mg_line_relax
+     .            ,sm_zebra_relax= mg_zebra_relax
+     .            )
+
+      !Map solution to array and apply BCs
+      call mapMGVectorToArray(0,1,x,nx,ny,nz,phi,igx,.false.)
+
+      call setMGBC(0,1,nx,ny,nz,igx,phi,bcs,iorder=bc_order)
+
+c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
+cc      call contour(phi(1:nx,1:ny,1),nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      close(110)
+cc      pause
+cc      stop
+c diag *****
+
+c     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            db(i,j,k,:) = db(i,j,k,:)
+     .           + matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
+     .                   ,grad(i,j,k,nx,ny,nz,igx,igy,igz,phi))
+          enddo
+        enddo
+      enddo
+
+      end subroutine grad_div_clean
 
 #endif
 

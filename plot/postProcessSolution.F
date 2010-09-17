@@ -21,8 +21,6 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
-      use constants
-
       use operators
 
       use equilibrium
@@ -204,13 +202,17 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+      vex = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+      vey = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+      vez = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
 
-      vex = vecnv(:,:,:,1)
-      vey = vecnv(:,:,:,2)
-      vez = vecnv(:,:,:,3)
+cc      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
+cc      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
+cc      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
+cc
+cc      vex = vecnv(:,:,:,1)
+cc      vey = vecnv(:,:,:,2)
+cc      vez = vecnv(:,:,:,3)
 
 c Poloidal flux diagnostics
 
@@ -280,8 +282,7 @@ c Velocity and current intrinsic components (wrt B)
             endif
 
             !V.grad(psi)/|grad(psi)|
-            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
-     .               ,cov(1),cov(2),cov(3))
+            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
             norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
      .                             ,cov(1),cov(2),cov(3),.true.))
 
@@ -315,60 +316,65 @@ cc            vpsi(i,j,k) = cov(1)
      .                       /norm
             endif
             
-            !J_parallel
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                            ,bcnv(i,j,k,1)
-     .                            ,bcnv(i,j,k,2)
-     .                            ,bcnv(i,j,k,3),.false.))
-
-            if (norm == 0d0) then
-              jpar(i,j,k) = 0d0
-            else
-              jpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
-     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
-     .                     /norm
-            endif
-
-            !J.grad(psi)/|grad(psi)|
-            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
-     .               ,cov(1),cov(2),cov(3))
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                             ,cov(1),cov(2),cov(3),.true.))
-
-            if (norm == 0d0) then
-              jpsi(i,j,k) = 0d0
-            else
-              jpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                     ,cov(1),cov(2),cov(3)
-     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
-     .                     /norm
-            endif
-cc            vpsi(i,j,k) = cov(1)
-
-            !J.(b x grad(psi))/|(b x grad(psi))|
-            cnv(1) = bcov(i,j,k,2)*cov(3)
-     .              -bcov(i,j,k,3)*cov(2)
-            cnv(2) = bcov(i,j,k,3)*cov(1)
-     .              -bcov(i,j,k,1)*cov(3)
-            cnv(3) = bcov(i,j,k,1)*cov(2)
-     .              -bcov(i,j,k,2)*cov(1)
-
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                            ,cnv(1),cnv(2),cnv(3),.false.))
-
-            if (norm == 0) then
-              jperp(i,j,k) = 0d0
-            else
-              jperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
-     .                       ,cnv(1),cnv(2),cnv(3))
-     .                       /norm
-            endif
-            
+cc            !J_parallel
+cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+cc     .                            ,bcnv(i,j,k,1)
+cc     .                            ,bcnv(i,j,k,2)
+cc     .                            ,bcnv(i,j,k,3),.false.))
+cc
+cc            if (norm == 0d0) then
+cc              jpar(i,j,k) = 0d0
+cc            else
+cc              jpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+cc     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
+cc     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+cc     .                     /norm
+cc            endif
+cc
+cc            !J.grad(psi)/|grad(psi)|
+cc            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
+cc     .               ,cov(1),cov(2),cov(3),0,0,0)
+cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+cc     .                             ,cov(1),cov(2),cov(3),.true.))
+cc
+cc            if (norm == 0d0) then
+cc              jpsi(i,j,k) = 0d0
+cc            else
+cc              jpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+cc     .                     ,cov(1),cov(2),cov(3)
+cc     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+cc     .                     /norm
+cc            endif
+cccc            vpsi(i,j,k) = cov(1)
+cc
+cc            !J.(b x grad(psi))/|(b x grad(psi))|
+cc            cnv(1) = bcov(i,j,k,2)*cov(3)
+cc     .              -bcov(i,j,k,3)*cov(2)
+cc            cnv(2) = bcov(i,j,k,3)*cov(1)
+cc     .              -bcov(i,j,k,1)*cov(3)
+cc            cnv(3) = bcov(i,j,k,1)*cov(2)
+cc     .              -bcov(i,j,k,2)*cov(1)
+cc
+cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
+cc     .                            ,cnv(1),cnv(2),cnv(3),.false.))
+cc
+cc            if (norm == 0) then
+cc              jperp(i,j,k) = 0d0
+cc            else
+cc              jperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
+cc     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
+cc     .                       ,cnv(1),cnv(2),cnv(3))
+cc     .                       /norm
+cc            endif
           enddo
         enddo
       enddo
+
+c Electric field components (covariant)
+
+      jpar  = E_ni(:,:,:,1)
+      jpsi  = E_ni(:,:,:,2)
+      jperp = E_ni(:,:,:,3)
 
 c Ohm's law diagnostic
 
@@ -445,9 +451,13 @@ c Divergence diagnostics
         enddo
       enddo
 
-c Thermal pressure (use graphics limits)
+c Thermal pressure
 
-      p_tot = a_p*rho*tmp
+      if (adiabatic) then
+        p_tot = a_p*tmp
+      else
+        p_tot = a_p*rho*tmp
+      endif
 
 c Transport coefficients
 
@@ -455,7 +465,7 @@ c Transport coefficients
         do j = jming,jmaxg
           do i = iming,imaxg
             nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
-            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz)
+            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
           enddo
         enddo
       enddo
@@ -675,15 +685,20 @@ c     Dump arrays
 
       write (*,*) 'Dumping Poincare file ',ft_file
 
-      tor = (coords == 'vmc' .or. coords == 'tor')
+      tor = (equil == 'vmec' .or. coords == 'tor')
 
-#if defined(petsc)
-      write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
-#endif
       write (uft) nxd,nyd,nzd,bcond,tor
-      write (uft) grid_params%xx(1:nxl+2)
-      write (uft) grid_params%yy(1:nyl+2)
-      write (uft) grid_params%zz(1:nzl+2)
+cc      write (uft) grid_params%xx(1:nxl+2)
+cc      write (uft) grid_params%yy(1:nyl+2)
+cc      write (uft) grid_params%zz(1:nzl+2)
+      write (uft) grid_params%xg  !Dump global position array
+      write (uft) grid_params%yg  !"
+      write (uft) grid_params%zg  !"
+
+      if (np > 1) then
+        write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
+      endif
+
       write (uft) varray%array_var(IBX)%array
       write (uft) varray%array_var(IBY)%array
       write (uft) varray%array_var(IBZ)%array

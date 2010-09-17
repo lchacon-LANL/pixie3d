@@ -57,8 +57,6 @@
     nc_eom_v   = f
     adiabatic  = t
 
-    k_si     = 0.0
-
     debug    = f
     debug_it = 1
 

@@ -69,15 +69,21 @@ c diag: dump text data
 
       subroutine rfx_dump_fields()
 
+      implicit none
+
 c Call variables
 
 c Local variables
 
-      integer(4) :: i,j,k,ig,jg,kg
+      integer(4) :: i,j,k,ig,jg,kg,igx,igy,igz
       real(8)    :: x1,y1,z1
       real(8),allocatable,dimension(:,:,:,:) :: ecar,ecyl
 
 c Begin programs
+
+      igx = 1
+      igy = 1
+      igz = 1
 
 c Transform to cylindrical
 

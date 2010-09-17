@@ -8,9 +8,12 @@ EXEC=$(wildcard pixie3d*petsc.x)
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(SNES_OPT) -test
+PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 ifeq ($(HOST),franklin)
-  PAREXEC=aprun -n $(NP) -N 2 $(EXEC) $(SNES_OPT) -test
+  PAREXEC=aprun -n $(NP) -N 2 $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
+endif
+ifeq ($(HOST),ra22)
+  PAREXEC=/usr/mpi/pgi/openmpi-1.2.6/bin/mpiexec -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 endif
 
 #Define targets
