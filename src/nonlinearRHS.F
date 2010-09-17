@@ -20,9 +20,13 @@ c-----------------------------------------------------------------
 
       use equilibrium
 
-#if defined(petsc) && !defined(petsc_c)
-      use nk_mod
-#endif
+      use transport_params
+      
+      use operators
+      
+cc#if defined(petsc) && !defined(petsc_c) && !defined(samrai)
+cc      use nk_mod
+cc#endif
 
       implicit none
 
@@ -44,14 +48,14 @@ c Local variables
      .             ,jac
 
       !Marder B cleaning
-      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+cc      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
+cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       ! rho equation
       real(8)    :: advc,diffus
 
       ! tmp equation
-      real(8)    :: heat_flx,heat_src,joule,viscous
+      real(8)    :: heat_flx,heat_src,joule,viscous,pi_tnsr(3,3)
 
 c Begin program
 
@@ -67,19 +71,10 @@ c Begin program
       nz = grid_params%nzv(igz)
 
       alt_eom = alt__eom()
-cc      alt_eom = .false.
 
 c     Grid parameters
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      dxx = dxh(ig)
-      dyy = dyh(jg)
-      dzz = dzh(kg)
-
-      dS1 = dyy*dzz
-      dS2 = dxx*dzz
-      dS3 = dxx*dyy
 
       gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
       gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
@@ -94,10 +89,8 @@ c     Grid parameters
 c     Rho
 
       if (solve_rho) then
-        advc =flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,vcnv(:,:,:,1)
-     .                 ,vcnv(:,:,:,2)
-     .                 ,vcnv(:,:,:,3),rho,advect,sp=bcSP(),vol=.false.)
+        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vcnv,rho,advect,sp=bcSP(),vol=.false.)
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho
@@ -122,21 +115,18 @@ cc        endif
 c     Faraday's law
 
 #if !defined(vec_pot)
-      vec1 => vecnv
-      vec2 => bcnv
+cc      vec1 => vecnv
+cc      vec2 => bcnv
+cc
+cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+cc     .                       ,btensor_x,btensor_y,btensor_z
+cc     .                       ,vol=.false.)
+cc     .            -curl(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
+cc
+cc      nullify(vec1,vec2)
 
-      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                       ,btensor_x,btensor_y,btensor_z
-     .                       ,vol=.false.)
-     .            -curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
-
-      if (heta > 0d0 .and. (.not.solenoidal) ) then
-        vlap2=veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vlap
-     .                     ,.false.,vol=.false.)
-
-        ff(IBX:IBZ) = ff(IBX:IBZ) + di*heta*vlap2
-      endif
+      ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
 
 cc      if (.not.solenoidal) then
 cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
@@ -149,6 +139,14 @@ cc     .                   ,E_ni(:,:,:,1)
 cc     .                   ,E_ni(:,:,:,2)
 cc     .                   ,E_ni(:,:,:,3))
 cccc        !Marder divergence cleaning
+cccc
+cccc        dxx = dxh(ig)
+cccc        dyy = dyh(jg)
+cccc        dzz = dzh(kg)
+cccc
+cccc        dS1 = dyy*dzz
+cccc        dS2 = dxx*dzz
+cccc        dS3 = dxx*dyy
 cccc
 cccccc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
 cccccc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
@@ -190,39 +188,11 @@ cccc     .              - kappa*gsuper(:,2)*jac*dS2*(flxjp-flxjm)
 cccc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
 cc      endif
 
-
-      nullify(vec1,vec2)
-
 #else
 
 c     Vector potential
 
-      cov(1) = (vecnv(i,j,k,2)*bcnv(i,j,k,3)
-     .         -vecnv(i,j,k,3)*bcnv(i,j,k,2))/jac + E_ni(i,j,k,1)
-
-      cov(2) = (vecnv(i,j,k,3)*bcnv(i,j,k,1)
-     .         -vecnv(i,j,k,1)*bcnv(i,j,k,3))/jac + E_ni(i,j,k,2)
-
-      cov(3) = (vecnv(i,j,k,1)*bcnv(i,j,k,2)
-     .         -vecnv(i,j,k,2)*bcnv(i,j,k,1))/jac + E_ni(i,j,k,3)
-
-      vlap1  = veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,acov,vol=.false.)
-cc      vlap1  = vlap_a(i,j,k,:)
-cc      cnv   = veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,acnv
-cc     .                     ,.false.,vol=.false.)
-cc
-cc      call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,vlap1(1),vlap1(2),vlap1(3)
-cc     .                        ,cnv (1),cnv (2),cnv (3)
-cc     .                        ,.false.)
-
-      if (heta > 0d0) then
-        vlap2=veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz,vlap_a,vol=.false.)
-      else
-        vlap2=0d0
-      endif
-
-      ff(IAX:IAZ) = -cov - eeta(i,j,k)*vlap1 + di*heta*vlap2
+      ff(IAX:IAZ) = E_ni(i,j,k,:)
 
 #endif
 
@@ -255,46 +225,59 @@ c       Advection + sources
 
         if (adiabatic) then  !Pressure equation
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .                  ,vcnv,tmp,advect,vol=.false.)
      .        +(gamma-1.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                       ,vcnv(:,:,:,1)
-     .                       ,vcnv(:,:,:,2)
-     .                       ,vcnv(:,:,:,3))
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
           ff(ITMP) = advc + (gamma-1.)*heat_flx
         else                 !Temperature equation
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),tmp,advect,vol=.false.)
+     .                  ,vcnv,tmp,advect,vol=.false.)
      .        +(gamma-2.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                       ,vcnv(:,:,:,1)
-     .                       ,vcnv(:,:,:,2)
-     .                       ,vcnv(:,:,:,3))
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
           !Joule heating
-          joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
-     .                                        -jcov_0(i,j,k,1))
-     .                         +jcnv(i,j,k,2)*(jcov  (i,j,k,2)
-     .                                        -jcov_0(i,j,k,2))
-     .                         +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
-     .                                        -jcov_0(i,j,k,3)))/jac
+          if ((sum(E0) /= 0d0).or.(.not.source)) then
+            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*jcov(i,j,k,1)
+     .                           +jcnv(i,j,k,2)*jcov(i,j,k,2)
+     .                           +jcnv(i,j,k,3)*jcov(i,j,k,3))/jac
+          else
+            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
+     .                                          -jcov_0(i,j,k,1))
+     .                           +jcnv(i,j,k,2)*(jcov  (i,j,k,2)
+     .                                          -jcov_0(i,j,k,2))
+     .                           +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
+     .                                          -jcov_0(i,j,k,3)))/jac
+          endif
 
-          !Viscous heating
-          cov_tnsr = matmul(nabla_v,gsub)
+          !Viscous heating: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
+          if (nu > 0d0) then
+            vec1 => vcnv
+            coef => nuu
+            call eom_diff_x(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(1,1),pi_tnsr(1,2),pi_tnsr(1,3),0)
+            call eom_diff_y(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(2,1),pi_tnsr(2,2),pi_tnsr(2,3),0)
+            call eom_diff_z(i,j,k,nx,ny,nz,igx,igy,igz,.false.
+     .                     ,pi_tnsr(3,1),pi_tnsr(3,2),pi_tnsr(3,3),0)
+            nullify(vec1,coef)
 
-          if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
+cc            cov_tnsr = matmul(nabla_v,gsub)
+cc            if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
 
-          cnv_tnsr = matmul(gsuper,nabla_v)
+cc            cov_tnsr = matmul(pi_tnsr,gsub)
+cc            cnv_tnsr = matmul(gsuper,nabla_v)
+cc            viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
 
-          viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
+            !Make nabla_v covariant on both sides, and do dot product
+            viscous =-tensorScalarProduct(i,j,k,igx,igy,igz
+     .                                   ,matmul(nabla_v,gsub),pi_tnsr)
+          else
+            viscous = 0d0
+          endif
 
           heat_src = joule + viscous
-
+          
           if (viscous < 0d0) then
             call pstop('nonlinearRHS','Viscous heat source is negative')
           endif
@@ -309,91 +292,35 @@ c       Advection + sources
 
 c     EOM
 
-      ff(IVX:IVZ) = 0d0
-
-      !SI contribution
-cc      if (k_si > 0d0 .and. max_dv_dt /= 0d0) then
-cc        ff(IVX:IVZ) = ff(IVX:IVZ)
-cc     .              + si_op(i,j,k,nx,ny,nz,igx,igy,igz)
-cc      endif
-
-      !Volume force
+      !Volume force: (jxB-grad(p))
       if (nc_eom_jxb) then
-        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
 cc        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
 cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       else
-        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       endif
 
-      ff(IVX:IVZ) = ff(IVX:IVZ) - cnv
+      ff(IVX:IVZ) = -cnv
 
-      !Advection
+      !Advection + stress tensor
       if (nc_eom_v) then
-        if (advect == 1) then !Upwinding
-          hex = 1
-          hey = 1
-          hez = 1
-          if (vcnv(i,j,k,1) > 0d0) hex = -1
-          if (vcnv(i,j,k,2) > 0d0) hey = -1
-          if (vcnv(i,j,k,3) > 0d0) hez = -1
-
-          nabla_v = fnabla_v_upwd(i,j,k,nx,ny,nz,igx,igy,igz
-     .                           ,vcnv(:,:,:,1)
-     .                           ,vcnv(:,:,:,2)
-     .                           ,vcnv(:,:,:,3),hex,hey,hez)
-        endif
-
-        do ieq=1,3
-          cnv(ieq) =( vcnv(i,j,k,1)*nabla_v(1,ieq)
-     .               +vcnv(i,j,k,2)*nabla_v(2,ieq)
-     .               +vcnv(i,j,k,3)*nabla_v(3,ieq))/jac
-        enddo
+        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                   ,advect,cons=.not.nc_eom_v)
+     .       +(div_pi(i,j,k,:)+div_pe(i,j,k,:))/rho(i,j,k)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
-cc        vec1 => vcnv
-cc        vec2 => vcnv
-cc        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k)
-cc     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
-cc     .                          ,vol=.false.)
-cc     .              - vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                 ,vcnv(:,:,:,1)
-cc     .                                 ,vcnv(:,:,:,2)
-cc     .                                 ,vcnv(:,:,:,3))
-cc        nullify(vec1,vec2)
-
       else
-        vec1 => vcnv
-        vec2 => pcnv
-        ff(IVX:IVZ) = ff(IVX:IVZ)
-     .              + div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                          ,eom_advc_x,eom_advc_y,eom_advc_z
-     .                          ,vol=.false.)
-        nullify(vec1,vec2)
-      endif
+        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
+     .                   ,advect,cons=.not.nc_eom_v)
+     .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
-      !Diffusion
-      if (nu /= 0d0) then
-        vec1 => vcnv
-        coef => nuu
-        cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-     .                  ,eom_diff_x,eom_diff_y,eom_diff_z
-     .                  ,vol=.false.)
-        nullify(vec1,coef)
-
-cc        cnv =-nuu(i,j,k)* veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz,vcnv
-cc     .                               ,.false.,vol=.false.)
-#if !defined(RFX)
-        if (nc_eom_v) cnv = cnv/rho(i,j,k)
-#endif
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
-           
       endif
 
 c End

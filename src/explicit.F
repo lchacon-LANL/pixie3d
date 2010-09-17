@@ -16,8 +16,6 @@ c--------------------------------------------------------------------
 
       use newtongm
 
-      use constants
-
       use equilibrium
 
       implicit none
@@ -213,20 +211,22 @@ c Calculate CFL
 
 c Calculate courant number
 
-      diffmax = max(maxval(eeta),maxval(nuu),dd,chi)
+      diffmax = max(maxval(eeta),maxval(nuu+heta),dd,chi)
 
-      w_cour = max(diffmax*k2max,di*heta*k2max**2,chi_par*kbp2max)
+      w_cour = max(diffmax*k2max,di**2*heta*k2max**2,chi_par*kbp2max)
 
+cc      write (*,*) k2max,diffmax*k2max,di**2*heta*k2max**2,w_cfl
+cc      stop
 c Calculate time step
 
-      if (w_cfl <= w_cour) then
-        dt = 1d0*pi/w_cour
-cc        write (*,*) 'Courant'
-      else
-        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)/
-     .              (w_cour**3 + w_cfl**3)
-cc        write (*,*) 'CFL'
-      endif
+cc      if (w_cfl <= w_cour) then
+cc        dt = 2d0*pi/w_cour
+cc        exp_cfl_type='Courant'
+cc      else
+        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+     .              /(w_cour**3 + w_cfl**3)
+cc        exp_cfl_type='CFL'
+cc      endif
 
 c Synchronize time step among all processors
 
@@ -247,72 +247,3 @@ c Accumulate explicit time step for average computation
 c End program
 
       end subroutine findExplicitDt
-
-c     icfl
-c     ##########################################################
-      function icfl(cs2,ca2,k2,k2par,di) result(root)
-
-      use math
-
-c     ----------------------------------------------------------
-c     Finds CFL frequency
-c     ----------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8)   :: cs2,ca2,k2,k2par,di,root(3)
-
-c     Local variables
-
-      real(8)   :: a,b,c,d,ckpar
-      complex(8):: r(3)
-
-c     Begin program
-
-      ckpar = ca2*k2par
-
-c     Solve cubic dispersion relation for omega^2 (Checked, Luis 6/3/08)
-
-      a =  1.
-      b = -ckpar*(1+k2*di**2)-k2*(ca2 + cs2)
-      c = ckpar*(k2**2*cs2*di**2+2*k2*cs2+k2*ca2)
-      d = -ckpar**2*cs2*k2
-
-      r = solve_cubic(a,b,c,d)
-
-ccc     Check roots
-cc
-cc      write (*,*) 'Coefficients=',a,b,c,d
-cc
-cc      r = a*r**3 + b*r**2 + c*r + d
-cc
-cc      write (*,*) 'Dispersion relation=',r
-cc      stop
-
-c     Find CFL constraint
-
-      root = sqrt(abs(r))
-
-ccc     Eliminate complex roots
-cc
-cc      where (aImag(r) < 1d-10) 
-cc        root = Real(r)
-cc      elsewhere
-cc        root = 0d0
-cc      end where
-cc
-ccc     Find maximum real root
-cc
-cc      where (root > 0d0) 
-cc        root = sqrt(root)
-cc      elsewhere
-cc        root = 0d0
-cc      end where
-
-cc      icfl = maxval(root)
-
-c     End program
-
-      end function icfl

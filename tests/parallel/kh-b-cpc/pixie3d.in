@@ -54,6 +54,7 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
+    adiabatic  = t
 
  /
  &graphdef

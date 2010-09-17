@@ -20,8 +20,6 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use icond
-
       implicit none
 
 c Call variables
@@ -35,6 +33,8 @@ c Local variables
       character(10) :: advective,ts
 
       real(8)       :: vmax(3),lvmax(3)
+
+      real(8)    :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
 
 c Begin program
 
@@ -66,7 +66,7 @@ c Output
 
           if (.not.test) call warnings
 
-          if     (advect.eq.1 .or. advect == 7) then
+          if     (advect.eq.1) then
             advective = 'UPWIND'
           elseif (advect.eq.2) then
             advective = '   ZIP'
@@ -78,15 +78,16 @@ c Output
             advective = 'SSMART'
           elseif (advect.eq.6) then
             advective = 'HORDER'
-cc          elseif (advect.eq.7) then
+          elseif (advect.eq.7) then
+            advective = ' Gamma'
 cc            advective = '   TVD'
-cc          else
-cc            advective = 'PBRKCT'
           endif
 
           if (cnfactor < 1d0) then
-            if     (sm_flag.eq.0) then
+            if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
               ts = ' Theta'
+            elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
+              ts = ' BDF1 (BE)'
             elseif (sm_flag.eq.1) then
               ts = ' Rannacher'
             elseif (sm_flag.eq.2) then
@@ -98,11 +99,15 @@ cc            advective = 'PBRKCT'
             call pstop('output','cnfactor not within allowed limits')
           endif
 
-          write (*,10)nxd,nyd,nzd,ngrd,precon,timecorr,source
+          write (*,10)nxd,nyd,nzd,ngrd,pc_type,timecorr,source
      .               ,numerical_grid,advective,ts
 
           write (*,*) 
-          write (*,100)
+          if (cnfactor == 1d0) then
+            write (*,105)
+          else
+            write (*,100)
+          endif
 
           if (restart) write (*,110) itime,time,dt,vmax
 
@@ -110,10 +115,19 @@ cc            advective = 'PBRKCT'
 
           if (ilevel.ge.1) then
             write (*,*) 
-            write (*,100)
+            if (cnfactor == 1d0) then
+              write (*,105)
+            else
+              write (*,100)
+            endif
           endif
 
-          write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+          if (cnfactor == 1d0) then
+            write(*,115) itime,time,dt,vmax
+          else
+            write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+     .                  ,it_divcl
+          endif
 
         endif
 
@@ -125,20 +139,22 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-     .        /,'  Preconditioning method:...',a11,
+     .        /,'  Preconditioning method:...',a4,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
      .        /,'  Advection scheme..........',a
      .        /,'  TS scheme.................',a)
- 100  format ('   itime    time     dt    vx_max vy_max vz_max GMRES',
-     .        '  Newton  CN factor')
+ 100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
+     .        '  GMRES  Newton  CN factor  GMRES-DC')
+ 105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
 
-#if defined(RFX)
- 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.2,0p,2i6,3x,f7.3)
-#else
- 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
-#endif
+cc#if defined(RFX)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3,3x,i6)
+ 115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
+cc#else
+cc 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
+cc#endif
       contains
 
 c     #################################################################
@@ -190,12 +206,19 @@ c     Warnings
      .     write (*,*) 'Not solving for density: rho = 1'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
-      if (hall_new)
-     .     write (*,*) 'Solving alternative Hall MHD formulation'
+      if (ion_hall .and. (di > 0d0))
+     .     write (*,*) 'Solving ion-based Hall MHD formulation'
+      if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
       if (adiabatic)    write (*,*) 'Using polytropic EOS'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'
+
+
+      if (advect == 5) then
+         write (*,*)
+     .   'WARNING: Smooth smart does not work for non-uniform meshes'
+       endif
 
       end subroutine warnings
 

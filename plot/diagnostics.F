@@ -12,19 +12,13 @@ c####################################################################
 
         use graphics
 
-        use icond
-
         use auxiliaryVariables
 
         use auxPlotVariables
 
-        use constants
-
         use transport_params
 
         use operators
-
-        use generalPurposeFunctions
 
         use nlfunction_setup
 
@@ -71,7 +65,7 @@ c Call variables
 
 c Local variables
 
-      integer :: igx,igy,igz
+      integer :: igx,igy,igz,nx,ny,nz,bcs(6,neqd),ierr,ifile
       logical :: initialize
 
 c Interfaces
@@ -90,6 +84,14 @@ c Begin program
       igx = iigx
       igy = iigy
       igz = iigz
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igy)
+      nz = grid_params%nzv(igz)
+
+c Check for external map
+
+      if (coords == 'ext') call read_ext_map
 
 c Define processor for local diagnostics
 
@@ -127,6 +129,10 @@ cc      write (*,*) 'Proc:',drank,ddnp
       kplt = kplot
 #endif
 
+c Define BCs
+
+      call defineBoundaryConditions(neqd,bcs)
+
 c Define diagnostics
 
       call defineDiagnostics
@@ -148,6 +154,41 @@ c Initialize diagnostic value references
       call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
 
 c End 
+
+      contains
+
+c     read_ext_map
+c     ###############################################################
+      subroutine read_ext_map
+
+        real(8),pointer,dimension(:,:,:,:) :: ext_map
+
+        integer,pointer,dimension(:) :: mumap
+
+c     Begin program
+
+        ierr = openFiles(my_rank,np,u_mapf,map_file,mumap)
+
+        if (ierr /= 0) then
+          call pstop('evaluateDiagnostics'
+     .              ,'Problem reading map files')
+        endif
+
+        allocate(ext_map(0:nx+1,0:ny+1,0:nz+1,3))
+
+        do ifile=1,size(mumap)
+          ierr=readVector(mumap(ifile),ext_map,.false.)
+        enddo
+
+        call closeFiles(mumap)
+
+        call defineGridMetric(grid_params,xcar=ext_map,igr=iigx)
+
+        deallocate(ext_map)
+
+        gmetric => grid_params%gmetric
+
+      end subroutine read_ext_map
 
       end subroutine initializeDiagnostics
 
@@ -276,6 +317,8 @@ c--------------------------------------------------------------------
 
       use diag_setup
 
+      use local_BCS_variables
+
       implicit none
 
 c Call variables
@@ -289,7 +332,7 @@ c Local variables
 
       integer    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-     .             ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
 
       real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
      .             ,tn=0d0,ez,lrflux,rflux,rmsj,vmax(3),lvmax(3)
@@ -341,20 +384,42 @@ c Begin program
 #endif
       tmp => varray%array_var(ITMP)%array
 
-c Find equilibrium current
+c Code for explicit pinch flow BC
 
-      if (init) then
+      if (lag_pinch_bc.and.pinch_flow) then
+
 #if defined(vec_pot)
-        acov(:,:,:,1) = varray%array_var(IAX)%array
-        acov(:,:,:,2) = varray%array_var(IAY)%array
-        acov(:,:,:,3) = varray%array_var(IAZ)%array
-#else   
-        bcnv(:,:,:,1) = varray%array_var(IBX)%array
-        bcnv(:,:,:,2) = varray%array_var(IBY)%array
-        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
+        save_Bn = .true.
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              bcnv_n(i,j,k,:) = curl(i,j,k,nx,ny,nz,igx,igy,igz
+     .                              ,u_n%array_var(IAX)%array
+     .                              ,u_n%array_var(IAY)%array
+     .                              ,u_n%array_var(IAZ)%array)
+            enddo
+          enddo
+        enddo
+#else
+        save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
+
+        bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
+        bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
+        bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
 #endif
-        call findEquilJ
       endif
+
+c Code for electric field BC
+
+cc      save_tn = .false.
+      save_tn = .true.
+
+cc      vcov_n(:,:,:,1) = u_n%array_var(IVX)%array
+cc      vcov_n(:,:,:,2) = u_n%array_var(IVY)%array
+cc      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
+
+      alpha = 1.-cnfactor
 
 c Postprocess solution
 
@@ -362,61 +427,66 @@ c Postprocess solution
 
 c Particle diagnostics
 
-      Npar = integral(nx,ny,nz,rho,igx,igy,igz,.false.) - Npar0
+      Npar = integral(igx,igy,igz,nx,ny,nz,rho,average=.false.) - Npar0
 
 c Momentum diagnostics (in Cartesian coords.)
 
       array = rho*vx_car
-      Ipx = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipx0
+      Ipx = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipx0
                                                         
       array = rho*vy_car
-      Ipy = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipy0
+      Ipy = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipy0
                                                         
       array = rho*vz_car
-      Ipz = integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ipz0
+      Ipz = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipz0
 
 c Energy diagnostics
 
       !Magnetic energy
 
       array = (bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Em0
+      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(nx,ny,nz,array,igx,igy,igz,.false.) - Ek0
+      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       !Thermal energy
 
-      array = rho*tmp
+      if (adiabatic) then
+        array = tmp
+      else
+        array = rho*tmp
+      endif
 
       if (gamma /= 1d0) then
-        Et = a_p/(gamma-1)*integral(nx,ny,nz,array,igx,igy,igz,.false.)
-     .      -Et0
+        Et = a_p/(gamma-1)
+     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
       else
         Et = 0d0
       endif
 
-      !Total energy
+      !Total energy error
 
-      energy = Ek + Em + Et
+      energy = Ek + Em + Et - Ek0 - Em0 - Et0
 
 c Current diagnostics
 
-      Iz = integral(nx,ny,1,jz_car,igx,igy,igz,.false.) - Iz0
+      Iz = integral(igx,igy,igz,nx,ny,nz,jz_car,average=.false.) - Iz0
 
       array =(jcnv(:,:,:,1)*jcov(:,:,:,1)
      .       +jcnv(:,:,:,2)*jcov(:,:,:,2)
      .       +jcnv(:,:,:,3)*jcov(:,:,:,3))/gmetric%grid(igx)%jac
 
-      rmsj = integral(nx,ny,nz,array,igx,igy,igz,.false.)
+      rmsj = integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
 
       rmsj = sqrt(rmsj)
 
 c Toroidal flux diagnostics
 
-      Tflux = integral(nx,ny,1,bz_car,igx,igy,igz,.false.) - Tflux0
+      Tflux = integral(igx,igy,igz,nx,ny,nx,bz_car,average=.false.)
+     .      - Tflux0
 
 c Initial assignments
 
@@ -433,54 +503,86 @@ c Initial assignments
         return
       endif
 
+c Normalize conservation errors
+
+       if (Npar0 /= 0d0) Npar  = Npar /Npar0 
+cc       if (Ipx0  /= 0d0) Ipx   = Ipx  /Ipx0  
+cc       if (Ipy0  /= 0d0) Ipy   = Ipy  /Ipy0  
+cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0  
+       if (Iz0   /= 0d0) Iz    = Iz   /Iz0   
+       if (Tflux0/= 0d0) Tflux = Tflux/Tflux0
+
+       energy = energy/(Ek0 + Em0 + Et0)
+
 c Velocity divergence diagnostics
 
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(nx,ny,nz,divrgV,igx,igy,igz,.false.)
+      Vflux  = integral(igx,igy,igz,nx,ny,nz,divrgV,average=.false.)
 
 c Magnetic divergence diagnostics
 
       !Total B divergence (conservation of flux)
-      Bflux  = integral(nx,ny,nz,divrgB,igx,igy,igz,.false.)
+      Bflux  = integral(igx,igy,igz,nx,ny,nz,divrgB,average=.false.)
 
       !Local divergence (statement of numerical accuracy)
       array(1:nx,1:ny,1:nz) = abs(divrgB(1:nx,1:ny,1:nz))
 
-      diverB = integral(nx,ny,nz,array,igx,igy,igz,.true.)
+      diverB = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
 
-c Parallel electric field diagnostic
+c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
 
       if (isProcessor) then
+
         if (time == tn) then
-          tn = time - 1d5
-          Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
-        endif
-
-        ez = (Pflux (iplt,jplt,1)
-     .       -Pfluxn(iplt,jplt,1))/(time-tn)
-
-        tn = time
-        Pfluxn(iplt,jplt,1) = Pflux(iplt,jplt,1)
-      endif
-
-c Reconnected flux (GEM challenge)
-
-#if defined(petsc)
-      if (split_key /= MPI_UNDEFINED) then
-        if (ddnp == 1) then
-          rflux = Pflux(iplt,jplt      ,1)
-     .          - Pflux(iplt,jplt-nyd/2,1)
+cc          tn = time - 1d5
+cc          Pfluxn = Pflux
+cc        endif
+          ez = 0d0 ; rflux = 0d0
+          Pfluxn = Pflux
         else
-          lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
 
-          call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+          select case(trim(equil))
+          case('dtm')
+            ez = (maxval(Pflux (1,:,1))-minval(Pflux (1,:,1))
+     .           -maxval(Pfluxn(1,:,1))+minval(Pfluxn(1,:,1)))/(time-tn)
+
+            rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
+          case default
+            ez = (Pflux (iplt,jplt,1)
+     .           -Pfluxn(iplt,jplt,1))/(time-tn)
+
+            rflux = abs(maxval(Pflux(iplt,:,1))-minval(Pflux(iplt,:,1)))
+          end select
+
+          tn = time
+          Pfluxn = Pflux
+
         endif
+
       endif
-#else
-      rflux = minval(Pflux(iplt,1:nyd,1))
-     .      - maxval(Pflux(iplt,1:nyd,1))
-#endif
+
+ccc Reconnected flux (GEM challenge)
+cc
+cc      if (trim(equil) == 'gem') then
+cc
+cc#if defined(petsc)
+cc        if (split_key /= MPI_UNDEFINED) then
+cc          if (ddnp == 1) then
+cc            rflux = Pflux(iplt,jplt      ,1)
+cc     .            - Pflux(iplt,jplt-nyd/2,1)
+cc          else
+cc            lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
+cc
+cc            call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_DIAG,mpierr)
+cc          endif
+cc        endif
+cc#else
+cc        rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
+cc#endif
+cc      else
+cc        rflux = 0d0
+cc      endif
 
 c Growth rate diagnostics
 
@@ -489,9 +591,8 @@ c Growth rate diagnostics
         array = (varray%array_var(ieq)%array
      .          -u_0   %array_var(ieq)%array )**2
 
-        dpert(ieq) = integral(nx,ny,nz,array,igx,igy,igz,.true.)
+        dpert(ieq) = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
 
-cc        if (dpert(ieq).gt.0d0) dpert(ieq) = log(sqrt(dpert(ieq)))
         if (dpert(ieq).eq.0d0) then
           dpert(ieq) = 0.1*maxval(abs(pert))
         else

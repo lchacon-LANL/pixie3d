@@ -38,6 +38,7 @@
     pbz      = 0.1
     prho     = 0d-3
     odd      = f
+    nh2      = 1
 
     cnfactor = 0.5
     sm_flag  = 0
@@ -69,8 +70,6 @@
     nc_eom_v   = f
 
     advect     = 2
-
-    k_si     = 0.0
 
     debug    = f
     debug_it = 5

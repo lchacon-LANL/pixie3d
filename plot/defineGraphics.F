@@ -444,7 +444,7 @@ cc      sel_gr(3,:) = sel_graph
 c Define graphics group #4: Diagnostics
 
       graph(4)%cartesian=.true.
-      graph(4)%cartesian=.false.
+cc      graph(4)%cartesian=.false.
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
@@ -490,13 +490,13 @@ cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
       graph(4)%array_graph(12)%descr = 'V.(b x grad(psi))'
 
       graph(4)%array_graph(13)%array => jpar
-      graph(4)%array_graph(13)%descr = 'J||'
+      graph(4)%array_graph(13)%descr = 'E_1'
 
       graph(4)%array_graph(14)%array => jpsi
-      graph(4)%array_graph(14)%descr = 'J.grad(psi)'
+      graph(4)%array_graph(14)%descr = 'E_2'
 
       graph(4)%array_graph(15)%array => jperp
-      graph(4)%array_graph(15)%descr = 'J.(b x grad(psi))'
+      graph(4)%array_graph(15)%descr = 'E_3'
 
       graph(4)%array_graph(16:ngraph)%descr = ''
 

@@ -21,9 +21,9 @@
 
     temp_ratio = 1.
 
-    hall_new = f
-
     di       = 1d1
+
+    hall_new = f
 
     equil    = 'whslr'
     coords   = 'car'
@@ -54,13 +54,13 @@
  /
 
  &graphdef
-    B0 =  1.00000 ,  0.000000 ,  0.000000
+    B0 =   1.0000000     ,   0.0000000     ,   0.0000000
     sel_diag  = 2,3,4,5,6,7,10,15,16
     sel_graph = 1,2,3,4,5,6,7,8,9
     dplot = 1d-4
     prof_conf = 1,'x',1,1,1
     cont_conf = 3,'x','y',1,1,1
-    iplot = 64
+    iplot = 32
     jplot = 1
     kplot = 1
  /

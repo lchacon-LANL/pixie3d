@@ -59,7 +59,7 @@
     dplot = 1d-4
     prof_conf = 1,'x',1,1,1
     cont_conf = 3,'x','y',1,1,1
-    iplot = 64
+    iplot = 16
     jplot = 1
     kplot = 1
  /
