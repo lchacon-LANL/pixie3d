@@ -22,8 +22,8 @@
 # Defaults
 
 FC  = gfortran
-#OPT = O
-OPT = g 
+OPT = O
+#OPT = g 
 
 PETSC_DIR ?=/usr/local/petsc-2.3.3
 HDF5_HOME ?=/usr/local/hdf5/parallel/mpich2_f90_
@@ -91,13 +91,16 @@ endif
 # VMEC setup
 
 ifeq ($(VMEC),t)
-  ifeq ($(NETCDF),t)
-    CPPFLAGS   += $(PREPROC)NETCDF 
-  endif
+  VMEC_DIR     = contrib/vmec/LIBSTELL
 
-  CONTRIBLIBS += -L../contrib/vmec/lib -lstell $(NETCDF_LIBS)
-  CPPFLAGS    += $(PREPROC)vmec $(NETCDF_INC)
-  MODPATH     += $(ADDMODFLAG)../contrib/vmec/lib
+  CONTRIBLIBS += -L$(PWD)/contrib/vmec/lib -lstell
+  CPPFLAGS    += $(PREPROC)vmec
+  MODPATH     += $(ADDMODFLAG)$(PWD)/contrib/vmec/lib
+
+  ifeq ($(NETCDF),t)
+    CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
+    CONTRIBLIBS += $(NETCDF_LIBS)
+  endif
 endif
 
 # ARPACK setup
