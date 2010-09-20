@@ -31,8 +31,8 @@ c       Hardwired BC configuration parameters
 #if defined(vec_pot)
         integer :: bc_order=2
 #else
-        integer :: bc_order=1
-cc        integer :: bc_order=2
+cc        integer :: bc_order=1
+        integer :: bc_order=2
 #endif
 
       contains
@@ -262,11 +262,11 @@ c     Setup schedule
 
         if (itime == 0) then
           !Group 7
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX!Aux. variable
           gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECOV*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
           gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
@@ -286,8 +286,8 @@ c     Setup schedule
           gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
 
           !Group 10
-          gv%bc_grp(10+offset)%bc_seq(1,1) = IHETA*AUX   !Aux. variable
-          gv%bc_grp(10+offset)%bc_seq(1,2) = SCALAR      !Scalar
+          gv%bc_grp(10+offset)%bc_seq(1,1) = IHETA*AUX  !Aux. variable
+          gv%bc_grp(10+offset)%bc_seq(1,2) = SCALAR     !Scalar
         else
           !Group 7
           gv%bc_grp(7+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
