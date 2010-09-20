@@ -202,17 +202,9 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      vex = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-      vey = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-      vez = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
-
-cc      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-cc      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-cc      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
-cc
-cc      vex = vecnv(:,:,:,1)
-cc      vey = vecnv(:,:,:,2)
-cc      vez = vecnv(:,:,:,3)
+      vex = vecnv(:,:,:,1)
+      vey = vecnv(:,:,:,2)
+      vez = vecnv(:,:,:,3)
 
 c Poloidal flux diagnostics
 
@@ -370,11 +362,11 @@ cc            endif
         enddo
       enddo
 
-c Electric field components (covariant)
+c Hall electric field components (covariant)
 
-      jpar  = E_ni(:,:,:,1)
-      jpsi  = E_ni(:,:,:,2)
-      jperp = E_ni(:,:,:,3)
+      jpar  = di*E_h(:,:,:,1)
+      jpsi  = di*E_h(:,:,:,2)
+      jperp = di*E_h(:,:,:,3)
 
 c Ohm's law diagnostic
 
