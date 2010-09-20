@@ -317,7 +317,8 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
                                                     !we evolve dv/dt
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
-     .                   ,advect,cons=.not.nc_eom_v)
+cc     .                   ,advect,cons=.not.nc_eom_v)
+     .                   ,2,cons=.not.nc_eom_v)
      .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
