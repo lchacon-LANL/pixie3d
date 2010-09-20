@@ -169,9 +169,9 @@ cc        endif
 
       case('gem')
 
-        !Dirichlet boundary conditions for tangential velocity components
-        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+cc        !Dirichlet boundary conditions for tangential velocity components
+cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -282,7 +282,7 @@ c     Begin program
 
       gv%aux%vec_list(IDIVPE)%bconds = gv%aux%vec_list(IDIVPI)%bconds
 
-      !Electric field
+      !Electric field (non-ideal piece)
       gv%aux%vec_list(IENI)%bconds = gv%aux%vec_list(IVCOV)%bconds
 
 cc      gv%aux%vec_list(IENI)%bconds(:,1) = bcond
@@ -295,7 +295,7 @@ cc      end where
 cc
 cc      call vector_symm_bc(gv%aux%vec_list(IENI)%bconds,-1)  !Same as current
 
-      !Equilibrium electric field
+      !Equilibrium electric field (non-ideal piece)
       gv%aux%vec_list(IENI_0)%bconds(:,1) = bcond
       gv%aux%vec_list(IENI_0)%bconds(:,2) = bcond
       gv%aux%vec_list(IENI_0)%bconds(:,3) = bcond
@@ -306,8 +306,10 @@ cc      call vector_symm_bc(gv%aux%vec_list(IENI)%bconds,-1)  !Same as current
       call vector_symm_bc(gv%aux%vec_list(IENI_0)%bconds,-1)  !Same as current
 
       !Electron velocity
-      gv%aux%vec_list(IVECNV )%bconds = gv%aux%vec_list(IVCNV )%bconds
-      gv%aux%vec_list(IVECOV )%bconds = gv%aux%vec_list(IVECNV)%bconds
+cc      gv%aux%vec_list(IVECNV)%bconds = gv%aux%vec_list(IDIVPE)%bconds
+cc      gv%aux%vec_list(IVECNV)%bconds = gv%aux%vec_list(IJCNV)%bconds
+      gv%aux%vec_list(IVECNV)%bconds = gv%aux%vec_list(IVCNV )%bconds
+      gv%aux%vec_list(IVECOV)%bconds = gv%aux%vec_list(IVECNV)%bconds
 cc      gv%aux%vec_list(IVECNV_0)%bconds = gv%aux%vec_list(IVECNV)%bconds
       gv%aux%vec_list(IVECNV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
 
@@ -1425,14 +1427,14 @@ c       Fill ghost nodes
 
         case(IVECNV_0)
 
-c       Electron velocity BC
-
-          if (di > 0d0 .and. fake_ve) then
-            bcnd = vaux%vec_list(IVECNV_0)%bconds
-
-            call setBC(IVX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
-     .                ,iigx,iigy,iigz,iorder=order)
-          endif
+ccc       Electron velocity BC
+cc
+cc          if (di > 0d0 .and. fake_ve) then
+cc            bcnd = vaux%vec_list(IVECNV_0)%bconds
+cc
+cc            call setBC(IVX,3,nnx,nny,nnz,vecnv_0,vdum,v0,bcnd
+cc     .                ,iigx,iigy,iigz,iorder=order)
+cc          endif
 
         case(IVECOV_N)
 
@@ -1444,15 +1446,17 @@ c       Electron velocity BC
 
 c       Electron velocity BC
 
-          if (di > 0d0 .and. fake_ve) then
+          if (fake_ve) then
             !ve=v-di*j/rho with j~curl(curl(-di*v)) for div_pe(ve)
             v0 = vecnv_0
 
-cc            bcnd = vaux%vec_list(IJCNV )%bconds !J BCs (equilibrium)
-cc            call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
             bcnd = vaux%vec_list(IVECNV)%bconds
             call setBC(IVX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order)
+
+            vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*vecnv(:,:,:,1)/rho
+            vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*vecnv(:,:,:,2)/rho
+            vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
           endif
 
         case(IDIVPI)
@@ -1854,46 +1858,44 @@ c       Magnetic field BC (with fixed current at boundary)
             vecov = vcov
           endif
 
-        case(IVECNV_0,IVECNV)
+        case(IVECNV_0)
 
-c       Electron velocity BC
+c       Electron velocity
 
-          !Electron velocity piece
-          if (di > 0d0) then
+          vecnv_0(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho
+          vecnv_0(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho
+          vecnv_0(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho
 
-            if (fake_ve) then
-              !ve=v-di*j/rho with j~j_n + curl(curl(-di*(v-v_n))) for div_pe(ve)
-cc              v0 =-di*(vcnv-vcnv_n)
-              v0 =-di*vcnv
+        case(IVECNV)
 
-              do k=1,nnz
-                do j=1,nny
-                  do i=1,nnx
-cc                    vecnv(i,j,k,:) = curlcurl(i,j,k,nnx,nny,nnz
-cc     .                                       ,iigx,iigy,iigz,v0
-cc     .                                       ,vol=.false.)
-                    vecnv(i,j,k,:) =-veclaplacian(i,j,k,nnx,nny,nnz
-     .                                           ,iigx,iigy,iigz,v0
-     .                                           ,vol=.false.)
-                  enddo
+c       Electron velocity
+
+          if (fake_ve) then
+            !ve=v-di*j/rho with j~j_n + curl(curl(-di*(v-v_n))) for div_pe(ve)
+cc            v0 =-di*(vcnv-vcnv_n)
+            v0 =-di*vcnv
+
+            do k=1,nnz
+              do j=1,nny
+                do i=1,nnx
+cc                  vecnv(i,j,k,:) = curlcurl(i,j,k,nnx,nny,nnz
+cc     .                                     ,iigx,iigy,iigz,v0
+cc     .                                     ,vol=.false.)
+                  vecnv(i,j,k,:) =-veclaplacian(i,j,k,nnx,nny,nnz
+     .                                         ,iigx,iigy,iigz,v0
+     .                                         ,vol=.false.)
                 enddo
               enddo
+            enddo
 
-              vecnv = jcnv_0 + vecnv
-cc              vecnv = jcnv_n + vecnv
-            else
-             !ve=v-di*j/rho for div_pe(ve)
-              vecnv = jcnv
-            endif
-
-            vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*vecnv(:,:,:,1)/rho
-            vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*vecnv(:,:,:,2)/rho
-            vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
+cc            vecnv = jcnv_0 + vecnv
+cc            vecnv = jcnv_n + vecnv
           else
-            vecnv = vcnv
+           !ve=v-di*j/rho for div_pe(ve)
+            vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+            vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+            vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
           endif
-
-          if (abs(bc_inf(1)) == IVECNV_0) vecnv_0 = vecnv
 
         case(IDIVPI)
 
@@ -1906,7 +1908,11 @@ cc              vecnv = jcnv_n + vecnv
 
         case(IDIVPE)
 
-          div_pe = EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv-vecnv_0)
+          if (fake_ve) then
+            div_pe = EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv)
+          else
+            div_pe = EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv-vecnv_0)
+          endif
 
         case(IENI_0)
 
