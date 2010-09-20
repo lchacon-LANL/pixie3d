@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<adios-config host-language="Fortran">
+    <adios-group name="record" time-index="tidx" coordination-communicator="adios_world_comm">
+         <var name="time"  path="/" type="real*8"  dimensions="tidx"/>
+         <var name="itime" path="/" type="integer" dimensions="tidx"/>
+         <var name="dt"    path="/" type="real*8"  dimensions="tidx"/>
+         <var name="nvar"    path="/" type="integer" />
+         <attribute name="description" path="/nvar" 
+                    value="Number of variables under path /var"/>
+         <!-- Dimensions -->
+         <var name="nxd+2" path="/dimensions" type="integer"/>
+         <attribute name="description" path="/dimensions/nxd+2" 
+                    value="3D array size in X direction including two ghost cells on the faces"/>
+         <var name="nyd+2" path="/dimensions" type="integer"/>
+         <attribute name="description" path="/dimensions/nyd+2" 
+                    value="3D array size in Y direction including two ghost cells on the faces"/>
+         <var name="nzd+2" path="/dimensions" type="integer"/>
+         <attribute name="description" path="/dimensions/nzd+2" 
+                    value="3D array size in Z direction including two ghost cells on the faces"/>
+         <!-- Auxiliary variables. Needed only by adios to index offsets in global arrays-->
+         <var name="xoffset"  path="/aux" type="integer"/>
+         <var name="yoffset"  path="/aux" type="integer"/>
+         <var name="zoffset"  path="/aux" type="integer"/>
+         <var name="xsize"    path="/aux" type="integer"/>
+         <var name="ysize"    path="/aux" type="integer"/>
+         <var name="zsize"    path="/aux" type="integer"/>
+         <var name="nvar*6"   path="/aux" type="integer"/>
+         <var name="namelen"  path="/aux" type="integer"/>
+         <!-- Global arrays from varray%array_var(i) -->
+         <global-bounds dimensions="nxd+2,nyd+2,nzd+2" offsets="xoffset,yoffset,zoffset">
+                <var name="v1" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v2" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v3" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v4" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v5" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v6" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v7" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v8" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v9" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v10" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+                <var name="v11" path="/var" type="real*8" dimensions="xsize,ysize,zsize,tidx"/>
+         </global-bounds>
+         <!-- Name of each variable in the /var group.
+              They are stored as character(20) arrays in the pixie3d code. 
+         -->
+            <var name="v1" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v1" value="Name of /var/v1"/>
+            <var name="v2" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v2" value="Name of /var/v2"/>
+            <var name="v3" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v3" value="Name of /var/v3"/>
+            <var name="v4" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v4" value="Name of /var/v4"/>
+            <var name="v5" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v5" value="Name of /var/v5"/>
+            <var name="v6" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v6" value="Name of /var/v6"/>
+            <var name="v7" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v7" value="Name of /var/v7"/>
+            <var name="v8" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v8" value="Name of /var/v8"/>
+            <var name="v9" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v9" value="Name of /var/v9"/>
+            <var name="v10" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v10" value="Name of /var/v10"/>
+            <var name="v11" path="/name" type="byte" dimensions="namelen"/>
+            <attribute name="description" path="/name/v11" value="Name of /var/v11"/>
+         <!-- Boundary conditions: each process knows, so one writes it.
+              Time independent, so it writes it once.
+              Each variable in the global array has 6 integer numbers. 
+         -->
+         <var name="bconds" path="/" type="integer" dimensions="nvar*6"/>
+         <attribute name="description" path="/bconds"
+                    value="Boundary conditions, 6 values per variable "/>
+    </adios-group>
+    <method method="MPI" group="record"/>
+    <!--method method="POSIX" group="record"/-->
+    <buffer size-MB="100" allocate-time="now"/>
+    <!-- or free-memory-percentage="90" allocate-time="oncall" -->
+</adios-config>
