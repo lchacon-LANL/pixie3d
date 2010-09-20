@@ -549,6 +549,7 @@ c Call variables
 c Local variables
 
       hdf5_fname   = 'pixie3d.h5'
+      adios_fname  = 'pixie3d.bp'
 
       if (np > 1) return
 
