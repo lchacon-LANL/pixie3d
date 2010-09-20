@@ -23,12 +23,10 @@
 
 FC  = gfortran
 OPT = O
-#OPT = g 
 
 PETSC_DIR ?=/usr/local/petsc-2.3.3
 HDF5_HOME ?=/usr/local/hdf5/parallel/mpich2_f90_
 HDF5_LIBS ?= -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-MACHINE ?=HaveNoIdea
 
 PREPROC = -D
 
@@ -74,20 +72,20 @@ ifdef PER_BC_SYNC
   endif
 endif
 
-# HDF5 setup
-
-ifeq ($(HDF5),t)
-  CONTRIBLIBS = $(HDF5_LIBS) 
-  CPPFLAGS   += $(PREPROC)hdf5 $(PREPROC)H5_USE_16_API $(HDF5_INC)
-  MODPATH    += $(ADDMODFLAG)$(HDF5_MOD)
-endif
-
 # ADIOS setup
 
 ifeq ($(ADIOS),t)
   CONTRIBLIBS += $(ADIOS_LIBS)
   CPPFLAGS   += $(PREPROC)adios -I$(ADIOS_HOME)/include
 #  MODPATH    += $(ADDMODFLAG)$(ADIOS_HOME)/include
+endif
+
+# HDF5 setup
+
+ifeq ($(HDF5),t)
+  CONTRIBLIBS += $(HDF5_LIBS) 
+  CPPFLAGS    += $(PREPROC)hdf5 $(PREPROC)H5_USE_16_API $(HDF5_INC)
+  MODPATH     += $(ADDMODFLAG)$(HDF5_MOD)
 endif
 
 # VMEC setup
@@ -199,11 +197,11 @@ pixie3d: contrib src
 pixplot: contrib plot
 
 $(SUBDIRS):
-	@echo "-- Machine = $(MACHINE)"
-	@echo "-- Do make in $@ with FC=$(FC)"
-	@echo "-- HDF5_HOME=$(HDF5_HOME)"
-	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
-	@echo "-- MODPATH=$(MODPATH)"
+#	@echo "-- Machine = $(MACHINE)"
+#	@echo "-- Do make in $@ with FC=$(FC)"
+#	@echo "-- HDF5_HOME=$(HDF5_HOME)"
+#	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
+#	@echo "-- MODPATH=$(MODPATH)"
 	$(MAKE) -e -C $@ $(TARGET)
 
 
