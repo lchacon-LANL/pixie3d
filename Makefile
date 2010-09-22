@@ -8,6 +8,8 @@
 # and the fortran compiler variable $(FC):
 #     + FC = f90 (default) uses Absoft f90 
 #     + FC = lf95 uses Lahey lf95.
+#     + FC = gfortran uses Gfortran.
+#     + ... (others documented in common/make/make.comp.inc)
 # When PETSc is employed, the optimization level should be specified by
 # the variable $(BOPT).
 #
@@ -17,7 +19,7 @@
 #
 # A call example that employs PETSc is:
 #
-#        make BOPT=g petsc
+#        make BOPT=g pixie3d
 
 # System-dependent variables
 
