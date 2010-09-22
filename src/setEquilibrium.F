@@ -1659,7 +1659,7 @@ c     Read VMEC coordinates and fill grid hierarchy
 
 c     Dump VMEC map on finest mesh (for plotting)
 
-        if (my_rank == 0) call rm_file(trim(map_file))
+        if (my_rank == 0) call rm_files(trim(map_file))
 
 #if defined(petsc)
         call MPI_Barrier(MPI_COMM_WORLD,mpierr)
