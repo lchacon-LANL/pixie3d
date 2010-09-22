@@ -19,26 +19,6 @@
 #
 #        make BOPT=g petsc
 
-# Defaults
-
-FC  = gfortran
-OPT = O
-
-PETSC_DIR ?=/usr/local/petsc-2.3.3
-HDF5_HOME ?=/usr/local/hdf5/parallel/mpich2_f90_
-HDF5_LIBS ?= -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-
-PREPROC = -D
-
-HDF5 = t
-ADIOS = f
-
-#FPA = t
-
-LIBS = -llapack -lblas
-
-#CPPFLAGS += -DRFX
-
 # System-dependent variables
 
 -include common/make/make.mach.inc
@@ -177,7 +157,7 @@ endif
 endif
 
 #Export required variables
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
+export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB SAMR CPPFLAGS_EXTRA \
        CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA LIBSAMRAI3D LIBSAMRAI
