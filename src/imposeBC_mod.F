@@ -31,8 +31,8 @@ c       Hardwired BC configuration parameters
 #if defined(vec_pot)
         integer :: bc_order=2
 #else
-cc        integer :: bc_order=1
-        integer :: bc_order=2
+        integer :: bc_order=1
+cc        integer :: bc_order=2
 #endif
 
       contains
@@ -1630,13 +1630,13 @@ c     Begin program
                 if (ibc == 3) then
                   gsupavg = 0.5*(gsuper+gsupjm)
 
-                  ee = 0.5*(array0(i,j-1,k,icomp)
-     .                     +array0(i,j  ,k,icomp))
+cc                  ee = 0.5*(array0(i,j-1,k,icomp)
+cc     .                     +array0(i,j  ,k,icomp))
                 elseif (ibc == 4) then
                   gsupavg = 0.5*(gsuper+gsupjp)
 
-                  ee = 0.5*(array0(i,j+1,k,icomp)
-     .                     +array0(i,j  ,k,icomp))
+cc                  ee = 0.5*(array0(i,j+1,k,icomp)
+cc     .                     +array0(i,j  ,k,icomp))
                 endif
 
                 jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
@@ -1658,6 +1658,14 @@ c     Begin program
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                 endif
 
+                if (ibc == 3) then
+                  ee = 0.5*(array0(i,j-1,k,icomp)
+     .                     +array0(i,j  ,k,icomp))
+                elseif (ibc == 4) then
+                  ee = 0.5*(array0(i,j+1,k,icomp)
+     .                     +array0(i,j  ,k,icomp))
+                endif
+ 
                 rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
 
               elseif (dim == 3) then
@@ -1665,13 +1673,13 @@ c     Begin program
                 if (ibc == 5) then
                   gsupavg = 0.5*(gsuper+gsupkm)
 
-                  ee = 0.5*(array0(i,j,k-1,icomp)
-     .                     +array0(i,j,k  ,icomp))
+cc                  ee = 0.5*(array0(i,j,k-1,icomp)
+cc     .                     +array0(i,j,k  ,icomp))
                 elseif (ibc == 6) then
                   gsupavg = 0.5*(gsuper+gsupkp)
 
-                  ee = 0.5*(array0(i,j,k+1,icomp)
-     .                     +array0(i,j,k  ,icomp))
+cc                  ee = 0.5*(array0(i,j,k+1,icomp)
+cc     .                     +array0(i,j,k  ,icomp))
                 endif
 
                 jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
@@ -1691,6 +1699,14 @@ c     Begin program
                   rhs(i,j) = 
      .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                endif
+
+                if (ibc == 5) then
+                  ee = 0.5*(array0(i,j,k-1,icomp)
+     .                     +array0(i,j,k  ,icomp))
+                elseif (ibc == 6) then
+                  ee = 0.5*(array0(i,j,k+1,icomp)
+     .                     +array0(i,j,k  ,icomp))
                 endif
 
                 rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
