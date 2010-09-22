@@ -152,7 +152,7 @@ c ######################################################################
 
         use problem_def
 
-        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p
+        real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
      .            ,heta=0d0,c_hyper
 
         real(8) :: aa_eta,bb_eta,cc_eta
@@ -4541,32 +4541,58 @@ cc        endif
       else
 
         !Temporal term: dv/dt
-        E_h = 1d0/alpha*cnp/dt*(vcov-vcov_n)
+cc        E_h = (vcov-vcov_n)/alpha/dt
+cccc        E_h = (cnp*vcov+cn*vcov_n+cnm*vcov_nm)/alpha/dt
+        if (.not.nc_eom_v) then
+          E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
+     .                   +cn *u_n %array_var(IVX)%array/rho
+     .                   +cnm*u_nm%array_var(IVX)%array/rho)/alpha/dt
+          E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                          
+     .                   +cn *u_n %array_var(IVY)%array/rho          
+     .                   +cnm*u_nm%array_var(IVY)%array/rho)/alpha/dt
+          E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                          
+     .                   +cn *u_n %array_var(IVZ)%array/rho          
+     .                   +cnm*u_nm%array_var(IVZ)%array/rho)/alpha/dt
+        else
+          E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
+     .                   +cn *u_n %array_var(IVX)%array
+     .                   +cnm*u_nm%array_var(IVX)%array)/alpha/dt
+          E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                      
+     .                   +cn *u_n %array_var(IVY)%array          
+     .                   +cnm*u_nm%array_var(IVY)%array)/alpha/dt
+          E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                      
+     .                   +cn *u_n %array_var(IVZ)%array          
+     .                   +cnm*u_nm%array_var(IVZ)%array)/alpha/dt
+        endif
 
-        !Advection + stress
+        !Stress
+        E_h(:,:,:,1) = E_h(:,:,:,1) + div_pi(:,:,:,1)/rho
+        E_h(:,:,:,2) = E_h(:,:,:,2) + div_pi(:,:,:,2)/rho
+        E_h(:,:,:,3) = E_h(:,:,:,3) + div_pi(:,:,:,3)/rho
+
+        !Advection
         do k=1,nz
           do j=1,ny
             do i=1,nx
               cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                         ,min(advect,2),cons=.false.)
-     .             +div_pi(i,j,k,:)/rho(i,j,k)
+cc     .                         ,min(advect,2),cons=.false.)
+     .                         ,1,cons=.false.)
+     .             +E_h(i,j,k,:)
 
-              cov = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
-
-              E_h(i,j,k,:) = E_h(i,j,k,:) + cov
+              E_h(i,j,k,:) = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
+     .                             ,cnv)
             enddo
           enddo
         enddo
 
         !Ion pressure term: grad(pi)/rho
-        if (a_p - 1d0 > 0d0) then
+        if (temp_ratio > 0d0) then
           do k=1,nz
             do j=1,ny
               do i=1,nx
                 cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
-                E_h(i,j,k,:) = E_h(i,j,k,:)
-     .                       + (a_p-1d0)*cov/rho(i,j,k)
+                E_h(i,j,k,:) = E_h(i,j,k,:) + temp_ratio*cov/rho(i,j,k)
               enddo
             enddo
           enddo
