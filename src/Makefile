@@ -64,6 +64,14 @@ ifdef SAMR
 #   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
 #   LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
 #   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
+   LDLIBS  += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
+   LDLIBS  += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
+#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleCubicRefine.o
+#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleCubicCoarsen.o
+#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleInjectionCoarsen.o
+#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/fortran/
+   LDFLAGS += -L${PETSC_DIR}/${PETSC_ARCH}/lib 
+   LDLIBS  += -lflapack -lfblas
 
   SRC2      = $(SRC)
   EXCLUDE  += %explicit.F
