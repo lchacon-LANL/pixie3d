@@ -55,9 +55,9 @@ c Begin program
 
 #if !defined(samrai)
       call deallocAuxVariables
-#endif
 
       call deallocPrecVariables
+#endif
 
 c End programs
 
