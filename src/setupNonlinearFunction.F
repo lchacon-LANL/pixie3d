@@ -105,8 +105,7 @@ c Safeguards
 
       if (minrho < 0d0) then
         close (urecord)  !Close record file before exiting
-cc        if (my_rank == 0) write (*,*) 'rho=',minrho
-        write(*,*)'proc=',my_rank,'rho=',lrmin,'loc='
+        write(*,*)'proc=',my_rank,'rho=',minrho,'loc='
      $            ,minloc(rho(1:nx,1:ny,1:nz))
         call pstop('setupNonlinearFunction',
      .             'Warning: negative densities are occurring')
