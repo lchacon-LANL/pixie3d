@@ -29,27 +29,27 @@ c ######################################################################
      .                       ,IJCNV_N  =24
      .                       ,IJCOV    =2
      .                       ,IJCOV_0  =4
-     .
-     .                       ,IBCNV    =5
+
+        integer, parameter :: IBCNV    =5
      .                       ,IBCNV_N  =21
      .                       ,IBCOV    =6
      .                       ,IBHAT    =18
-     .       
-     .                       ,IVCNV    =7
+
+        integer, parameter :: IVCNV    =7
      .                       ,IVCNV_N  =25
      .                       ,IVCOV    =8
      .                       ,IVCOV_N  =9
-     .       
-     .                       ,IVECNV   =10
+
+        integer, parameter :: IVECNV   =10
      .                       ,IVECOV   =11
      .                       ,IVECNV_0 =12
      .                       ,IVECOV_N =13
-     .
-     .                       ,IENI     =14
+
+        integer, parameter :: IENI     =14
      .                       ,IENI_0   =23
      .                       ,IEH      =15
-     .
-     .                       ,IDIVPI   =16
+
+        integer, parameter :: IDIVPI   =16
      .                       ,IDIVPE   =17
      .                       ,IPCNV    =19
      .                       ,ICCV     =20
@@ -66,31 +66,31 @@ c ######################################################################
      .                       ,IJCNV_N =27
      .                       ,IJCOV   =2
      .                       ,IJCOV_0 =4
-     .
-     .                       ,IBCNV   =5
+
+        integer, parameter :: IBCNV   =5
      .                       ,IBCNV_N =23
      .                       ,IBCOV   =6
      .                       ,IBHAT   =20
-     .
-     .                       ,IACNV   =9
+
+        integer, parameter :: IACNV   =9
      .                       ,IACOV   =10
-     .       
-     .                       ,IVCNV   =7
+
+        integer, parameter :: IVCNV   =7
      .                       ,IVCNV_0 =24
      .                       ,IVCNV_N =26
      .                       ,IVCOV   =8
      .                       ,IVCOV_N =11
-     .       
-     .                       ,IVECNV  =12
+
+        integer, parameter :: IVECNV  =12
      .                       ,IVECNV_0=14
      .                       ,IVECOV  =13
      .                       ,IVECOV_N=15
-     .
-     .                       ,IENI    =16
+
+        integer, parameter :: IENI    =16
      .                       ,IEH     =17
      .                       ,IENI0   =25
-     .       
-     .                       ,IDIVPI  =18
+
+        integer, parameter :: IDIVPI  =18
      .                       ,IDIVPE  =19
      .                       ,IPCNV   =21
      .                       ,ICCV    =22
@@ -200,7 +200,8 @@ c ######################################################################
      .                                       ,vcov
      .                                       ,vcov_n
      .                                       ,pcnv
-     .                                       ,bhat
+
+        real(8),pointer,dimension(:,:,:,:) :: bhat
      .                                       ,curlcurlv
      .                                       ,E_ni
      .                                       ,E_ni_0
@@ -210,7 +211,8 @@ c ######################################################################
      .                                       ,jcov_0
      .                                       ,jcnv_0
      .                                       ,jcnv_n
-     .                                       ,vecnv
+
+        real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecnv_0
      .                                       ,vecov
      .                                       ,vecov_n
@@ -3212,7 +3214,7 @@ cc        real(8) :: max_dv_dt
      .            ,nc_eom_v  =.false.   !Whether we use v.grad(v) instead of conserv. form
      .            ,solve_rho =.true.    !Whether we solve for rho or use rho=1
 
-        logical :: sym_st=.false.
+        logical :: sym_st=.false.,save_tn
 
       contains
 
@@ -4296,7 +4298,8 @@ c     Local variables
 
 c     Begin program
 
-      cnv = heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,ones)
+      cnv = heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0
+     .                        ,ones(0:nxx+1,0:nyy+1,0:nzz+1))
 
 c     End program
 
@@ -4326,10 +4329,8 @@ c     Local variables
 
 c     Begin program
 
-      if (heta  == 0d0) then
-        cnv = 0d0
-        return
-      endif
+      cnv = 0d0
+      if (heta  == 0d0) return
 
       do k=1,nzz
         do j=1,nyy
@@ -4346,7 +4347,12 @@ c     End program
 
 c     E_fld_res
 c     #####################################################################
-      function E_fld_res(nx,ny,nz,igx,igy,igz) result(E_res)
+      function E_fld_res(nx,ny,nz,igx,igy,igz,vcnv,bcnv,dumcov)
+     .         result(E_res)
+
+c     ---------------------------------------------------------------------
+c     Computes ideal+resistive electric field, E=-(vxb)+eta*j
+c     ---------------------------------------------------------------------
 
       implicit none
 
@@ -4354,13 +4360,15 @@ c     Call variables
 
       integer :: nx,ny,nz,igx,igy,igz
       real(8) :: E_res(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vcnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bcnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,dumcov (0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
-      real(8) :: vdummy(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,eps,betap,qa,jbs,cov(3),cnv(3),bnorm
-     .          ,x1,y1,z1
+      real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
+cc     .          ,vdummy(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Begin program
 
@@ -4418,16 +4426,16 @@ cc        endif
 
         !Ohmic current
 #if !defined(vec_pot)
-        E_res(:,:,:,1) = E_res(:,:,:,1)+eeta*jcov(:,:,:,1)
-        E_res(:,:,:,2) = E_res(:,:,:,2)+eeta*jcov(:,:,:,2)
-        E_res(:,:,:,3) = E_res(:,:,:,3)+eeta*jcov(:,:,:,3)
+        E_res(:,:,:,1) = E_res(:,:,:,1)+eeta*dumcov(:,:,:,1)
+        E_res(:,:,:,2) = E_res(:,:,:,2)+eeta*dumcov(:,:,:,2)
+        E_res(:,:,:,3) = E_res(:,:,:,3)+eeta*dumcov(:,:,:,3)
 #else
         do k=1,nz
           do j=1,ny
             do i=1,nx
               E_res(i,j,k,:) = E_res(i,j,k,:)
      .           - eeta(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                   ,acov,vol=.false.)
+     .                                   ,dumcov,vol=.false.)
             enddo
           enddo
         enddo
@@ -4464,6 +4472,10 @@ c     End program
 c     E_fld_Hall
 c     #####################################################################
       function E_fld_Hall(nx,ny,nz,igx,igy,igz,rho,tmp) result(E_h)
+
+c     ---------------------------------------------------------------------
+c     Computes Hall electric field, in two forms: ion EOM, and e EOM
+c     ---------------------------------------------------------------------
 
       implicit none
 
@@ -4541,28 +4553,48 @@ cc        endif
       else
 
         !Temporal term: dv/dt
-cc        E_h = (vcov-vcov_n)/alpha/dt
-cccc        E_h = (cnp*vcov+cn*vcov_n+cnm*vcov_nm)/alpha/dt
-        if (.not.nc_eom_v) then
-          E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
-     .                   +cn *u_n %array_var(IVX)%array/rho
-     .                   +cnm*u_nm%array_var(IVX)%array/rho)/alpha/dt
-          E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                          
-     .                   +cn *u_n %array_var(IVY)%array/rho          
-     .                   +cnm*u_nm%array_var(IVY)%array/rho)/alpha/dt
-          E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                          
-     .                   +cn *u_n %array_var(IVZ)%array/rho          
-     .                   +cnm*u_nm%array_var(IVZ)%array/rho)/alpha/dt
+        if (save_tn.or.source_eval) then
+          E_h = 0d0
         else
-          E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
-     .                   +cn *u_n %array_var(IVX)%array
-     .                   +cnm*u_nm%array_var(IVX)%array)/alpha/dt
-          E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                      
-     .                   +cn *u_n %array_var(IVY)%array          
-     .                   +cnm*u_nm%array_var(IVY)%array)/alpha/dt
-          E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                      
-     .                   +cn *u_n %array_var(IVZ)%array          
-     .                   +cnm*u_nm%array_var(IVZ)%array)/alpha/dt
+          if (.not.nc_eom_v) then
+            if (cnm == 0d0) then
+              E_h(:,:,:,1) = (vcnv(:,:,:,1)
+     .                       -u_n %array_var(IVX )%array
+     .                       /u_n %array_var(IRHO)%array)/alpha/dt
+              E_h(:,:,:,2) = (vcnv(:,:,:,2)                          
+     .                       -u_n %array_var(IVY )%array
+     .                       /u_n %array_var(IRHO)%array)/alpha/dt
+              E_h(:,:,:,3) = (vcnv(:,:,:,3)                          
+     .                       -u_n %array_var(IVZ )%array
+     .                       /u_n %array_var(IRHO)%array)/alpha/dt
+            else
+              E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
+     .                       +cn *u_n %array_var(IVX )%array
+     .                           /u_n %array_var(IRHO)%array
+     .                       +cnm*u_nm%array_var(IVX )%array
+     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
+              E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                          
+     .                       +cn *u_n %array_var(IVY )%array
+     .                           /u_n %array_var(IRHO)%array
+     .                       +cnm*u_nm%array_var(IVY )%array
+     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
+              E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                          
+     .                       +cn *u_n %array_var(IVZ )%array
+     .                           /u_n %array_var(IRHO)%array
+     .                       +cnm*u_nm%array_var(IVZ )%array
+     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
+            endif
+          else
+            E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
+     .                     +cn *u_n %array_var(IVX)%array
+     .                     +cnm*u_nm%array_var(IVX)%array)/alpha/dt
+            E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                      
+     .                     +cn *u_n %array_var(IVY)%array          
+     .                     +cnm*u_nm%array_var(IVY)%array)/alpha/dt
+            E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                      
+     .                     +cn *u_n %array_var(IVZ)%array          
+     .                     +cnm*u_nm%array_var(IVZ)%array)/alpha/dt
+          endif
         endif
 
         !Stress
@@ -4575,8 +4607,8 @@ cccc        E_h = (cnp*vcov+cn*vcov_n+cnm*vcov_nm)/alpha/dt
           do j=1,ny
             do i=1,nx
               cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-cc     .                         ,min(advect,2),cons=.false.)
-     .                         ,1,cons=.false.)
+     .                         ,min(advect,2),cons=.false.)
+cc     .                         ,1,cons=.false.)
      .             +E_h(i,j,k,:)
 
               E_h(i,j,k,:) = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -4603,232 +4635,6 @@ cc     .                         ,min(advect,2),cons=.false.)
 c     End program
 
       end function E_fld_Hall
-
-ccc     E_field
-ccc     #####################################################################
-cc      function E_field(nx,ny,nz,igx,igy,igz,rho,tmp) result(E_ni)
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer :: nx,ny,nz,igx,igy,igz
-cc      real(8) :: rho (0:nx+1,0:ny+1,0:nz+1)
-cc     .          ,tmp (0:nx+1,0:ny+1,0:nz+1)
-cc     .          ,E_ni(0:nx+1,0:ny+1,0:nz+1,3)
-cc
-ccc     Local variables
-cc
-cc      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
-cc      real(8) :: pe       (0:nx+1,0:ny+1,0:nz+1)
-cc     .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,vdummy   (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,eps,betap,qa,jbs,cov(3),cnv(3),bnorm
-cc     .          ,x1,y1,z1
-cc
-ccc     Begin program
-cc
-ccc     Find required auxiliary quantities
-cc
-cc      if (adiabatic) then
-cc        pe = tmp
-cc      else
-cc        pe = rho*tmp
-cc      endif
-cc
-cc      if (de > 0d0) then
-cc        bcnv_star = bcnv -de**2/di*curl(nx,ny,nz,igx,igy,igz,vecov)
-cccc        do k=1,nz
-cccc          do j=1,ny
-cccc            do i=1,nx
-cccc              cnv = curl(i,j,k,nx,ny,nz,igx,igy,igz,vecov)
-cccc              bcnv_star(i,j,k,:) = bcnv(i,j,k,:) - de**2/di*cnv
-cccc            enddo
-cccc          enddo
-cccc        enddo
-cc      else
-cc        bcnv_star = bcnv
-cc      endif
-cc
-ccc     Initialize with imposed (curl-free) electric field
-cc
-cc      E_ni(:,:,:,1) =-E0(1)
-cc      E_ni(:,:,:,2) =-E0(2)
-cc      E_ni(:,:,:,3) =-E0(3)
-cc
-ccc     Resistive term
-cc
-cc      if (eta > 0d0) then
-cc
-cc        !Bootstrap current  (need to get out of here to treat BC separately)
-cc        if (bootstrap) then
-cc          !Get equilibrium configuration
-cc          eps   = eq_params(1)
-cc          betap = eq_params(2)
-cc          qa    = eq_params(3)
-cc
-cc          do k=0,nz+1
-cc            do j=0,ny+1
-cc              do i=0,nx+1
-cc                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-cc     .                                        ,ig,jg,kg,x1,y1,z1)
-cc
-cc                !Find grad(p)
-cc                cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
-cc
-cc                bnorm = vectorNorm(i,j,k,igx,igy,igz
-cc     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
-cc     .                       ,.false.)
-cc
-cc                jbs = -0.5*sqrt(eps*abs(x1)/bnorm)*betap/qa*(a_p*cov(1))
-cc
-cc                E_ni(i,j,k,:) =-eeta(i,j,k)*jbs*bcov(i,j,k,:)    !Form J_parallel
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc#if !defined(vec_pot)
-cc          !Impose topological BCs
-cc          bcnd(:,1) = bcond
-cc          bcnd(:,2) = bcond
-cc          bcnd(:,3) = bcond
-cc
-cc          call setBC(IAX,3,nx,ny,nz,vdummy,E_ni,vzeros,bcnd
-cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
-cc#endif
-cc        endif
-cc
-cc        !Ohmic current
-cc#if !defined(vec_pot)
-cc        E_ni(:,:,:,1) = E_ni(:,:,:,1)+eeta*jcov(:,:,:,1)
-cc        E_ni(:,:,:,2) = E_ni(:,:,:,2)+eeta*jcov(:,:,:,2)
-cc        E_ni(:,:,:,3) = E_ni(:,:,:,3)+eeta*jcov(:,:,:,3)
-cc#else
-cc        do k=1,nz
-cc          do j=1,ny
-cc            do i=1,nx
-cc              E_ni(i,j,k,:) = E_ni(i,j,k,:)
-cc     .           - eeta(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                   ,acov,vol=.false.)
-cc            enddo
-cc          enddo
-cc        enddo
-cc#endif
-cc
-cc      endif
-cc
-ccc     VxB term
-cc
-cc      do k=0,nz+1
-cc        do j=0,ny+1
-cc          do i=0,nx+1
-cc
-cc            cov(1) = (vcnv(i,j,k,2)*bcnv_star(i,j,k,3)
-cc     .               -vcnv(i,j,k,3)*bcnv_star(i,j,k,2))
-cc     .               /gmetric%grid(igx)%jac(i,j,k)
-cc            cov(2) = (vcnv(i,j,k,3)*bcnv_star(i,j,k,1)
-cc     .               -vcnv(i,j,k,1)*bcnv_star(i,j,k,3))
-cc     .               /gmetric%grid(igx)%jac(i,j,k)
-cc            cov(3) = (vcnv(i,j,k,1)*bcnv_star(i,j,k,2)
-cc     .               -vcnv(i,j,k,2)*bcnv_star(i,j,k,1))
-cc     .               /gmetric%grid(igx)%jac(i,j,k)
-cc
-cc            E_ni(i,j,k,:) = E_ni(i,j,k,:) - cov
-cc
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-ccc     Hall term
-cc
-cc      if (di > 0d0) then
-cc
-cc        !Standard Hall:  E_hall = di*(j x B* - grad(pe) - div(Pi_e))/rho - de^2/di*d(v_e)/dt
-cc        if (.not.ion_hall) then
-cc
-cc          do k=1,nz
-cc            do j=1,ny
-cc              do i=1,nx
-cc
-cc                !Electron Hall
-cc                cov(1) = (jcnv(i,j,k,2)*bcnv_star(i,j,k,3)
-cc     .                   -jcnv(i,j,k,3)*bcnv_star(i,j,k,2))
-cc     .                   /gmetric%grid(igx)%jac(i,j,k)
-cc                cov(2) = (jcnv(i,j,k,3)*bcnv_star(i,j,k,1)
-cc     .                   -jcnv(i,j,k,1)*bcnv_star(i,j,k,3))
-cc     .                   /gmetric%grid(igx)%jac(i,j,k)
-cc                cov(3) = (jcnv(i,j,k,1)*bcnv_star(i,j,k,2)
-cc     .                   -jcnv(i,j,k,2)*bcnv_star(i,j,k,1))
-cc     .                   /gmetric%grid(igx)%jac(i,j,k)
-cc
-cc                E_h(i,j,k,:) = cov
-cc
-cc                !Electron pressure
-cc                cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
-cc
-cc                E_h(i,j,k,:) = E_h(i,j,k,:) - cov
-cc
-cc                !Hyperresistive term:  E_ni = E_ni - di*nu_e*lap(j-j0)
-cc                cov = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
-cc     .                      ,div_pe(i,j,k,:))
-cc
-cc                E_h(i,j,k,:) = E_h(i,j,k,:) - cov
-cc
-cc                !Multiply by di/rho
-cc                E_h(i,j,k,:) = E_h(i,j,k,:)*di/rho(i,j,k)
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc          E_ni = E_ni + E_h
-cc
-cc          !Electron inertia term
-cc          if (de > 0d0) then
-cc            E_ni = E_ni - de**2/di/alpha*cnp/dt*(vecov-vecov_n)
-cc          endif
-cc
-cc        !Alternate Hall: E_hall = di*(dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
-cc        else
-cc
-cc          !Temporal term: dv/dt
-cc          E_ni = E_ni + di/alpha*cnp/dt*(vcov-vcov_n)
-cc
-cc          !Advection + stress
-cc          do k=1,nz
-cc            do j=1,ny
-cc              do i=1,nx
-cc                cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-cc     .                           ,min(advect,2),cons=.false.)
-cc     .               +div_pi(i,j,k,:)/rho(i,j,k)
-cc
-cc                cov = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
-cc
-cc                E_ni(i,j,k,:) = E_ni(i,j,k,:) + di*cov
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc          !Ion pressure term: grad(pi)/rho
-cc          if (a_p - 1d0 > 0d0) then
-cc            do k=1,nz
-cc              do j=1,ny
-cc                do i=1,nx
-cc                  cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
-cc
-cc                  E_ni(i,j,k,:) = E_ni(i,j,k,:)
-cc     .                          + di*(a_p-1d0)*cov/rho(i,j,k)
-cc                enddo
-cc              enddo
-cc            enddo
-cc          endif
-cc
-cc        endif
-cc
-cc      endif
-cc
-ccc     End program
-cc
-cc      end function E_field
 
 c     res
 c     #############################################################
@@ -4940,9 +4746,8 @@ c     Local variables
 
 c     Begin program
 
-cc      write (*,*) 'DIAG -- preprocAux'
-cc      hres = 0d0
-cc      return
+      hres = 0d0
+      vol = 0d0
 
       do k=1,nz
         do j=1,ny
@@ -4967,8 +4772,8 @@ cc      return
      .                         ,bcnv(i,j,k,3))
 
 cc            heta = heta + 0.1*di*sqrt(bnorm)/k2
-            hres = hres + di/sqrt(rho(i,j,k))*abs(bk_par)/kk**3
-     .                   *gmetric%grid(igx)%dvol(i,j,k)
+            hres = hres +di/sqrt(rho(i,j,k))*abs(bk_par)/kk**3
+     .                  *gmetric%grid(igx)%dvol(i,j,k)
             vol  = vol + gmetric%grid(igx)%dvol(i,j,k)
 
           enddo
@@ -4989,7 +4794,7 @@ cc            heta = heta + 0.1*di*sqrt(bnorm)/k2
 #endif
 #endif
 
-      hres = 20*hres/vol/di**2  !Divide by di**2 to correct for multiplication later
+      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication later
 
       if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
