@@ -67,8 +67,8 @@ c Local variables
 
       logical       :: covariant,to_cartsn,cartsn,a_bc
 
-      real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn
-     .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1,bb
+      real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,bb
+     .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
      .                ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
      .                ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3),bb0(3)
@@ -184,16 +184,9 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         var(:,:,:,ITMP) = 1d0
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-
-              var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = 0d0
-              var(i,j,k,IBZ)  = 1d0
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX)  = 0d0
+        var(:,:,:,IBY)  = 0d0
+        var(:,:,:,IBZ)  = 1d0
 #else
         B0(3) = 1d0
 
@@ -202,8 +195,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
       case ('3wv') !3-wave MHD test
 
-cc        gamma = 5./3.
-cc        nh2   = nh1                     !This is required by setup(???)
+        gamma = 1.6667
 
         phi   = grid_params%params(1)   !Angle of B with x-axis, in degrees
         beta  = grid_params%params(2)   !plasma beta
@@ -216,10 +208,16 @@ cc        nh2   = nh1                     !This is required by setup(???)
         endif
 #endif
 
-c     Check coordinates
+c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -229,7 +227,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,ITMP) = 0.5*beta/a_p
+        var(:,:,:,ITMP) = 0.5*beta/a_p  !Electron temperature
 
         B0(1) = cos(phi)
         B0(2) = sin(phi)
@@ -297,10 +295,16 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
         gamma = 1d0
 
-c     Check coordinates
+c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if ((adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho=F,1.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -313,16 +317,9 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         var(:,:,:,ITMP) = 1d0
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-
-              var(i,j,k,IBX)  = 1d0
-              var(i,j,k,IBY)  = 0d0
-              var(i,j,k,IBZ)  = 0d0
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX)  = 1d0
+        var(:,:,:,IBY)  = 0d0
+        var(:,:,:,IBZ)  = 0d0
 #else
         B0(1) = 1d0
 
@@ -333,14 +330,20 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         gamma = 1d0
 
-        bb = 1d4
+        beta = 1d4
 
-        di = (xmax-xmin)/2/pi/nh1*sqrt(bb/(bb-2))  !di k_par = 1
+        di = (xmax-xmin)/2/pi/nh1*sqrt(beta/(beta-2))  !di k_par = 1
 
-c     Check coordinates
+c     Check input
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -350,24 +353,16 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,ITMP) = 0.5*bb
+        var(:,:,:,ITMP) = 0.5*beta/a_p
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-
-              var(i,j,k,IBX)  = 1d0
-              var(i,j,k,IBY)  = 0d0
-              var(i,j,k,IBZ)  = 0d0
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX)  = 1d0
+        var(:,:,:,IBY)  = 0d0
+        var(:,:,:,IBZ)  = 0d0
 #else
         B0(1) = 1d0
 
         var(:,:,:,IAX:IAZ) = 0d0
-
 #endif
 
 c     --------------------------------------------
@@ -406,7 +401,6 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
             enddo
           enddo
         enddo
-
 
 #if !defined(vec_pot)
         var(:,:,:,IBX:IBZ) = 0d0
@@ -480,9 +474,17 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-c     Tearing mode in cartesian coordinates
+c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
 
-        var(:,:,:,ITMP) = 0.25  !Electron temperature
+        beta = 1d0
+
+        var(:,:,:,ITMP) = 0.5*beta/a_p  !Electron temperature
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
 
         do k = klo,khi
           do j = jlo,jhi
@@ -490,24 +492,12 @@ c     Tearing mode in cartesian coordinates
 
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
-
 #if !defined(vec_pot)
-             var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-cc             var(i,j,k,IBZ)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),3)
-
-             var(i,j,k,IRHO)= (2d0 - var(i,j,k,IBZ)**2)
+             bb0 = var(i,j,k,IBX:IBZ)
 #else
-             var(i,j,k,IAX:IAZ) = a(i,j,k,:)
-
              bb0 = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-
-             var(i,j,k,IRHO) = 2 - bb0(3)**2
 #endif
+             var(i,j,k,IRHO) = 2 - bb0(3)**2
 
              var(i,j,k,IVX) = vperflow*tanh((y1-.5*(ymax+ymin))/ldaflow)
      .                                *sin (2*pi*z1/(zmax-zmin))
@@ -548,18 +538,8 @@ c     Tearing mode in cartesian coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-              var(i,j,k,IBZ)=sqrt(bz0**2 - var(i,j,k,IBY)**2)
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -590,18 +570,13 @@ c     Tearing mode in sinusoidal coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
 
               !X-Y equilibrium
-             var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-             var(i,j,k,IBZ)=0d0
-
              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
              jac1 = gmetric%grid(igx)%jac (i,j,k)
 
@@ -639,11 +614,11 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((a_p /= 6d0).or. (.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check Ti/Te, solve_rho = 5.0, T'
-          call pstop('setEquilibrium',messg)
-        endif
+cc        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
 
 c     GEM challenge
 
@@ -651,12 +626,13 @@ c     GEM challenge
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,ITMP) = 1d0/12. !Electron temperature required for force balance
+        beta = 1d0
+
+        var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
 
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
@@ -667,17 +643,7 @@ c     GEM challenge
         enddo
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -707,7 +673,7 @@ c     Kai TM test
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,ITMP) = 1d0 !Electron temperature required for pressure balance
+        var(:,:,:,ITMP) = 1d0 !Electron pressure
 
         do k = klo,khi
           do j = jlo,jhi
@@ -723,17 +689,7 @@ c     Kai TM test
         enddo
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -751,9 +707,9 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((a_p /= 2d0).or. (.not.solve_rho)) then
+        if ((a_p /= 2d0).or. (.not.solve_rho) .or. (adiabatic)) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check Ti/Te, solve_rho = 5.0, T'
+     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -763,7 +719,7 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,ITMP) = 1d0/2d0
+        var(:,:,:,ITMP) = 1d0/2d0  !Electron temperature
 
         do k = klo,khi
           do j = jlo,jhi
@@ -780,13 +736,7 @@ c     Tearing mode in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -837,18 +787,7 @@ c     Tearing mode in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-              var(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
-cc             var(i,j,k,IBX)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),1)
-cc             var(i,j,k,IBY)=curl2(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                           ,a(:,:,:,1),a(:,:,:,2),a(:,:,:,3),2)
-cc             var(i,j,k,IBZ)=0d0
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -1659,7 +1598,7 @@ c     Read VMEC coordinates and fill grid hierarchy
 
 c     Dump VMEC map on finest mesh (for plotting)
 
-        if (my_rank == 0) call rm_files(trim(map_file))
+        if (my_rank == 0) ierr=rm_files(map_file)
 
 #if defined(petsc)
         call MPI_Barrier(MPI_COMM_WORLD,mpierr)
@@ -1679,86 +1618,6 @@ c     Read VMEC equilibrium
 #if !defined(vec_pot)
         call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
-
-c     Clean up flux surface quantities
-
-        k = klo   !Fix k slice
-
-        !Find R^2
-        do i = ilom,ihip
-          do j = jlom,jhip
-            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                  ,x1,y1,z1)
-            r2(i,j) = x1**2+y1**2
-          enddo
-        enddo
-
-        !Average in j as a function of i (for a single k slice per processor)
-        dum = 0
-        do j = jlo,jhi
-          dum(:,2) = dum(:,2) + var(:,j,k,IBZ)*r2(:,j)
-     .                         /gmetric%grid(igx)%jac(:,j,k)
-          dum(:,1) = dum(:,1) + var(:,j,k,IBY)
-        enddo
-
-#if defined(petsc)
-        ldum = dum
-        call MPI_Allreduce(ldum,dum,2*(nx+2),MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
-#endif
-        dum = dum/nyd           !Average in j
-
-        !Fill flux (j,k) surfaces
-        do k = klom,khip
-           do j = jlom,jhip
-              var(:,j,k,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(:,j,k)
-     $                                 /r2(:,j)
-              var(:,j,k,IBY) = dum(:,1)
-           enddo
-        enddo
-
-c$$$        !Transform to covariant
-c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-c$$$cc     .                    ,'cnv','cov')
-c$$$
-c$$$        !Perform flux average of B_3, B^2 (both flux functions in Tokamaks)
-c$$$        !(instead of B_3, we can also do I(phi)=R^2 B^3/J)
-c$$$        do i = ilom,ihip
-c$$$          dum = 0
-c$$$          do j = jlo,jhi
-c$$$
-c$$$cc            dum = dum + var(i,j,:,IBZ)  !For covariant B_3
-c$$$
-c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-c$$$     .                                    ,x1,y1,z1)
-c$$$            dum(:,2) = dum(:,2) + var(i,j,:,IBZ)*(x1**2+y1**2)
-c$$$     .                           /gmetric%grid(igx)%jac(i,j,:)
-c$$$            dum(:,1) = dum(:,1) + var(i,j,:,IBY)
-c$$$          enddo
-c$$$
-c$$$#if defined(petsc)
-c$$$          ldum = dum
-c$$$          call MPI_Allreduce(ldum,dum,2*(nz+2),MPI_DOUBLE_PRECISION
-c$$$     .                      ,MPI_SUM,MPI_COMM_POL,mpierr)
-c$$$#endif
-c$$$
-c$$$          dum = dum/nyd         !Average
-c$$$
-c$$$          do j = jlo,jhi
-c$$$            call getCartesianCoordinates(i,j,1,igx,igy,igz,ig,jg,kg
-c$$$     .                                    ,x1,y1,z1)
-c$$$cc            var(i,j,:,IBZ) = dum  !For covariant B_3
-c$$$            var(i,j,:,IBZ) = dum(:,2)*gmetric%grid(igx)%jac(i,j,:)
-c$$$     .                              /(x1**2+y1**2)
-c$$$            var(i,j,:,IBY) = dum(:,1)
-c$$$          enddo
-c$$$        enddo
-c$$$
-c$$$cc        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-c$$$cc     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-c$$$cc     .                    ,'cov','cnv')
-
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 
