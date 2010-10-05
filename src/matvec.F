@@ -65,7 +65,7 @@ cc      xarr = 0d0
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
 cc     .            ,iorder=bc_order)
-     .            ,iorder=0,icomp=IRHO)
+     .            ,iorder=0,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
 
@@ -156,7 +156,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order,icomp=IRHO)
+     .            ,iorder=bc_order,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
 
@@ -410,7 +410,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,icomp=IRHO)
+     .            ,icomp=(/IRHO/))
 
 c Map velocity components
 
@@ -535,8 +535,8 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dtmp,bcnd
-     .            ,icomp=IRHO,iorder=bc_order)   !Use rho since velocities are not included yet
-cc     .            ,icomp=ITMP)
+     .            ,icomp=(/IRHO/),iorder=bc_order)   !Use rho since velocities are not included yet
+cc     .            ,icomp=(/ITMP/))
 
 c Map velocity components
 
@@ -677,7 +677,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
-     .            ,icomp=IRHO,iorder=bc_order)
+     .            ,icomp=(/IRHO/),iorder=bc_order)
 
 c Map velocity components
 
@@ -702,19 +702,19 @@ c Calculate matrix-vector product
             endif
 
             !Conservative advection
-cc            upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                    ,v0_cnv(:,:,:,1)
-cc     .                    ,v0_cnv(:,:,:,2)
-cc     .                    ,v0_cnv(:,:,:,3)
-cc     .                    ,drho  (:,:,:,1)
-cc     .                    ,vol=volf,upwind=.true.,sp=bcSP())
-            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,v0_cnv,drho  (:,:,:,1),1,vol=volf,sp=bcSP())
+            upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                    ,v0_cnv(:,:,:,1)
+     .                    ,v0_cnv(:,:,:,2)
+     .                    ,v0_cnv(:,:,:,3)
+     .                    ,drho  (:,:,:,1)
+     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+cc            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+cc     .                    ,v0_cnv,drho(:,:,:,1),1,vol=volf,sp=bcSP())
 
             ! Diffusion
             if (dd > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,drho(:,:,:,1),vol=volf)
+     .                       ,drho(:,:,:,1),vol=volf)
             else
               lap = 0d0
             endif
@@ -1315,7 +1315,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-     .            ,icomp=IBX,is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Velocity field (including BCs)
@@ -1586,7 +1586,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
-     .            ,bcnd,icomp=IBX,is_cnv=is_cnv
+     .            ,bcnd,icomp=(/IBX/),is_cnv=is_cnv
 cc     .            ,is_vec=.not.si_car,result_is_vec=.true.
      .            ,is_vec=.true.,result_is_vec=.true.
      .            ,iorder=bc_order)
@@ -1895,8 +1895,8 @@ cc      da_cnv = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
-cc     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Velocity field (including BCs)
@@ -2131,7 +2131,7 @@ c Local variables
      .             ,a_res(3),curlcurla(3),cnv(3),cov(3),car(3)
       real(8)    :: upwind,etal
 
-      real(8),allocatable,dimension(:,:,:,:),target :: du
+      real(8),pointer,dimension(:,:,:,:) :: du,du_cov
       real(8),allocatable,dimension(:,:,:,:) :: das,db_cov
       real(8),pointer    ,dimension(:,:,:,:) :: ve0_cnv,da_cov,dj_cnv
      .                                         ,rho0,bs0_cnv,da_cnv
@@ -2169,7 +2169,8 @@ c Map vector x to array for processing
      .        ,da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-      allocate(du(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(du    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       du = 0d0
 
@@ -2178,20 +2179,27 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du,igrid
      .                       ,.false.)
 
+      call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du,bcnd
+     .            ,icomp=(/IAX,IJX/),is_cnv=.false.,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov)
+
 cc      da_cov => du(:,:,:,1:3)
 cc      dj_cnv => du(:,:,:,4:6)
       da_cov = du(:,:,:,1:3)
       dj_cnv = du(:,:,:,4:6)
 
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,da_cnv,bcnd(:,1:3)
-cc     .            ,icomp=IAX,is_cnv=.false.,is_vec=.not.si_car
-     .            ,icomp=IAX,is_cnv=.false.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=da_cov)
-
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcnd(:,4:6)
-cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.not.si_car
-     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=das)
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,da_cnv,bcnd(:,1:3)
+cccc     .            ,icomp=(/IAX/),is_cnv=.false.,is_vec=.not.si_car
+cc     .            ,icomp=(/IAX/),is_cnv=.false.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=da_cov)
+cc
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcnd(:,4:6)
+cccc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.not.si_car
+cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=das)
+cc
+cc      da_cov = du(:,:,:,1:3)
+cc      dj_cnv = du(:,:,:,4:6)
 
 c Auxiliary quantities
 
@@ -2203,9 +2211,13 @@ c Auxiliary quantities
       dj_cnv(:,:,:,2) = di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
       dj_cnv(:,:,:,3) = di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
 
-      das(:,:,:,1) = da_cov(:,:,:,1) + de**2*das(:,:,:,1)/rho0(:,:,:,1)  !da_star (covariant)
-      das(:,:,:,2) = da_cov(:,:,:,2) + de**2*das(:,:,:,2)/rho0(:,:,:,1)  !da_star (covariant)
-      das(:,:,:,3) = da_cov(:,:,:,3) + de**2*das(:,:,:,3)/rho0(:,:,:,1)  !da_star (covariant)
+cc      das(:,:,:,1) = da_cov(:,:,:,1) + de**2*das(:,:,:,1)/rho0(:,:,:,1)  !da_star (covariant)
+cc      das(:,:,:,2) = da_cov(:,:,:,2) + de**2*das(:,:,:,2)/rho0(:,:,:,1)  !da_star (covariant)
+cc      das(:,:,:,3) = da_cov(:,:,:,3) + de**2*das(:,:,:,3)/rho0(:,:,:,1)  !da_star (covariant)
+
+      das(:,:,:,1) = du_cov(:,:,:,1)+de**2*du_cov(:,:,:,4)/rho0(:,:,:,1)  !da_star (covariant)
+      das(:,:,:,2) = du_cov(:,:,:,2)+de**2*du_cov(:,:,:,5)/rho0(:,:,:,1)  !da_star (covariant)
+      das(:,:,:,3) = du_cov(:,:,:,3)+de**2*du_cov(:,:,:,6)/rho0(:,:,:,1)  !da_star (covariant)
 
       !Magnetic field db_cov
       do k = kmin,kmax
@@ -2219,8 +2231,8 @@ c Auxiliary quantities
       enddo
 
       call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cov,bcs(:,IBX:IBZ)
-cc     .            ,icomp=IBX,is_cnv=.false.,is_vec=.not.si_car
-     .            ,icomp=IBX,is_cnv=.false.,is_vec=.true.
+cc     .            ,icomp=(/IBX/),is_cnv=.false.,is_vec=.not.si_car
+     .            ,icomp=(/IBX/),is_cnv=.false.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Calculate matrix-vector product
@@ -2406,7 +2418,7 @@ c End program
 
 cc      deallocate(du,das,db_cov)
 cc      nullify(ve0_cnv,da_cov,dj_cnv,rho0,bs0_cnv)
-      deallocate(du,das
+      deallocate(du,du_cov,das
      .          ,db_cov
      .          ,dj_cnv
      .          ,da_cov
@@ -3309,12 +3321,12 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
      .            ,arr0=v0)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov
      .            ,arr0=v0)
       endif
@@ -3453,7 +3465,7 @@ c Local variables
 
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
-     .                                     ,dve_cnv
+     .                                     ,dve_cnv,divpi
 
 c Begin program
 
@@ -3499,6 +3511,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .        ,dv_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,divpi  (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3))
 
 c BCs
@@ -3509,7 +3522,7 @@ c BCs
       v0 = 0d0
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
 cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
      .            ,result_is_vec=.true.,iorder=1,arr_cov=du_cov
      .            ,arr0=v0)
@@ -3521,50 +3534,28 @@ cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
       dve_cnv(:,:,:,2) = dv(:,:,:,2) - di*du(:,:,:,5)/rho0(:,:,:,1)
       dve_cnv(:,:,:,3) = dv(:,:,:,3) - di*du(:,:,:,6)/rho0(:,:,:,1)
 
-ccc BCs on dv
-cc
-cc      !ExB flow BC (if applicable)
-cc      allocate(v0(0:nxx+1,0:nyy+1,0:nzz+1,3))
-cc
-cc      v0 = 0d0
-cc
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dv,bcnd(:,1:3)
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov
-cc     .            ,arr0=v0)
-cc
-ccc BCs on dj
-cc
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dve,bcnd(:,4:6)
-cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=1,arr_cov=dve_cov
-cc     .            ,arr0=v0)
-
 c Find dE=U_Av(dv) (with BCs)
 
-cc      do k = kmin,kmax
-cc        do j = jmin,jmax
-cc          do i = imin,imax
-cc            dE_cnv(i,j,k,:) = matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:)
-cc     .                              ,U_Av(i,j,k,nxx,nyy,nzz
-cc     .                                   ,igrid,igrid,igrid
-cc     .                                   ,dv,dv_cov,a0_cnv))
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dE_cnv
-cc     .            ,gv%aux%vec_list(IENI)%bconds
-cc     .            ,icomp=IJX,is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=bc_order)
-
-      do k = kmin-1,kmax+1
-        do j = jmin-1,jmax+1
-          do i = imin-1,imax+1
-            dE_cnv(i,j,k,:) = cnp/dt*di*dv(i,j,k,:)
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+            divpi(i,j,k,:)=EOM_divPi_ijk(i,j,k,nxx,nyy,nzz
+     .                             ,igrid,igrid,igrid,dv
+     .                             ,gvis%grid(igrid)%array(:,:,:,1))
+     .                    /rho0(i,j,k,1)
           enddo
         enddo
       enddo
+
+      if (fake_ve) then
+cc        dE_cnv = di*dv/dt
+        dE_cnv = di*(dv/dt + divpi)
+
+        call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dE_cnv
+     .            ,gv%aux%vec_list(IENI)%bconds
+     .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=1)
+      endif
 
 c Calculate matrix-vector product
 
@@ -3607,17 +3598,24 @@ c Calculate matrix-vector product
             !P_si^v  ******************************
 
             psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
-     .                ,.not.nc_eom_v)
+     .                ,.not.nc_eom_v,stress=.false.)
+
+            !Ion viscosity piece *************
+
+            if (nc_eom_v) then
+              psiv = psiv + alpha*divpi(i,j,k,:)
+            else
+              psiv = psiv + alpha*divpi(i,j,k,:)*rho0(i,j,k,1)
+            endif
 
             !Electron viscosity piece *************
 
-            divpe = alpha
-     .             *EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv)
+            divpe = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv)
 
             if (nc_eom_v) then
-              psiv = psiv + divpe/rho0(i,j,k,1)
+              psiv = psiv + alpha*divpe/rho0(i,j,k,1)
             else
-              psiv = psiv + divpe
+              psiv = psiv + alpha*divpe
             endif
 
             !P_si^T  ******************************
@@ -3644,71 +3642,67 @@ c Calculate matrix-vector product
               v_res = (psiv + cnv)
             endif
 
-            !Find dj=-dt*curl(U_Bv_ijk.dv)
-cc            cnv = U_Bv_ijk(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=1)
-cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-cc     .                                ,aip(1),aip(2),aip(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
-cc
-cc            cnv = U_Bv_ijk(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=1)
-cc            call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
-cc     .                                ,aim(1),aim(2),aim(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=1)
-cc
-cc            cnv = U_Bv_ijk(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=2)
-cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-cc     .                                ,ajp(1),ajp(2),ajp(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=2)
-cc
-cc            cnv = U_Bv_ijk(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=2)
-cc            call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
-cc     .                                ,ajm(1),ajm(2),ajm(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=2)
-cc
-cc            cnv = U_Bv_ijk(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=3)
-cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-cc     .                                ,akp(1),akp(2),akp(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=3)
-cc
-cc            cnv = U_Bv_ijk(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv,dv_cov
-cc     .                ,a0_cnv,he=3)
-cc            call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
-cc     .                                ,akm(1),akm(2),akm(3)
-cc     .                                ,cnv(1),cnv(2),cnv(3)
-cc     .                                ,.false.,half_elem=3)
-cc
-cc            cnv(1) = (ajp(3)-ajm(3))/grid_params%dyh(jg)
-cc     .              -(akp(2)-akm(2))/grid_params%dzh(kg)
-cc
-cc            cnv(2) = (akp(1)-akm(1))/grid_params%dzh(kg)
-cc     .              -(aip(3)-aim(3))/grid_params%dxh(ig)
-cc
-cc            cnv(3) = (aip(2)-aim(2))/grid_params%dxh(ig)
-cc     .              -(ajp(1)-ajm(1))/grid_params%dyh(jg)
-cc
-cc            dj = -dt/cnp*cnv
-
-            !Find dj=curl(curl(-di*dv))
-cc            dj =-di*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                      ,dv,vol=.false.)
-cc            dj = di*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                      ,dv,vol=.false.)
-
             !Find dj=-dt*curl(curl(dE))
-cc            dj = -dt/cnp*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                           ,dE_cnv,vol=.false.)
-            dj =dt/cnp*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                           ,dE_cnv,vol=.false.)
+            if (fake_ve) then
+cc              cnv = curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                      ,dE_cnv,vol=.false.)
+              cnv =-veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                          ,dE_cnv,vol=.false.)
+            else
+              !Find dj=-dt*curl(U_Bv_ijk.dv)
+              cnv = U_Bv_ijk(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=1)
+              call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                                    ,aip(1),aip(2),aip(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=1)
+
+              cnv = U_Bv_ijk(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=1)
+              call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
+     .                                    ,aim(1),aim(2),aim(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=1)
+                               
+              cnv = U_Bv_ijk(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=2)
+              call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                                    ,ajp(1),ajp(2),ajp(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=2)
+                               
+              cnv = U_Bv_ijk(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=2)
+              call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
+     .                                    ,ajm(1),ajm(2),ajm(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=2)
+                               
+              cnv = U_Bv_ijk(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=3)
+              call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+     .                                    ,akp(1),akp(2),akp(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=3)
+                               
+              cnv = U_Bv_ijk(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                  ,dv_cov,a0_cnv,he=3)
+              call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
+     .                                    ,akm(1),akm(2),akm(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=3)
+
+              cnv(1) = (ajp(3)-ajm(3))/grid_params%dyh(jg)
+     .                -(akp(2)-akm(2))/grid_params%dzh(kg)
+
+              cnv(2) = (akp(1)-akm(1))/grid_params%dzh(kg)
+     .                -(aip(3)-aim(3))/grid_params%dxh(ig)
+
+              cnv(3) = (aip(2)-aim(2))/grid_params%dxh(ig)
+     .                -(ajp(1)-ajm(1))/grid_params%dyh(jg)
+            endif
+
+            dj = -dt*cnv  !No cnp factor: 1st order approximation
 
             !Assemble matvec
             do ieq=1,3
@@ -3722,7 +3716,7 @@ cc     .                           ,dE_cnv,vol=.false.)
 
 c End program
 
-      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv)
+      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv,divpi)
 
       call nullLocalPointers
 
@@ -3821,13 +3815,13 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=1,arr_cov=dv_cov)
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
       endif
 
@@ -4272,8 +4266,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
       !M_star*dv array
@@ -4285,8 +4279,8 @@ cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
       dzp(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
@@ -4473,8 +4467,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order)
 
 c Calculate matrix-vector product
@@ -4621,8 +4615,8 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 cc      where (bcnd == DIR) bcnd = NEU
       !Higher-order than 1 is JB-unstable for cyl.
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=IVX,is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
 
 c Calculate matrix-vector product

@@ -122,7 +122,7 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
 
-        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
      .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
       endif
 
@@ -138,7 +138,7 @@ c     New code (SP ready, parallel-ready, version I)
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
 
-        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IAX
+        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
      .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
       endif
 
@@ -743,7 +743,7 @@ c     Find new dB (with BCs)
 
       if (wbcs) then
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
-     .              ,icomp=IBX,is_vec=.true.
+     .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=bc_order)
       endif
 
@@ -874,7 +874,7 @@ c     Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-     .            ,icomp=IAX,is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=bc_order_a)
 
 c     Calculate matrix-vector product

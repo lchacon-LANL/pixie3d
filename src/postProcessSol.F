@@ -174,19 +174,10 @@ c     Find rhs=-div(db)
               dvol = 1d0
             endif
 
-            rhs(ii)= -dvol*div(i,j,k,nx,ny,nz,igx,igy,igz
-     $                   ,db(:,:,:,1)
-     $                   ,db(:,:,:,2)
-     $                   ,db(:,:,:,3))
+            rhs(ii)= -dvol*div(i,j,k,nx,ny,nz,igx,igy,igz,db)
           enddo
         enddo
       enddo
-
-c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
-cc      open(unit=110,file='debug.bin',form='unformatted'
-cc     .    ,status='replace')
-cc      call contour(rhs,nx,ny,0d0,1d0,0d0,1d0,0,110)
-c diag *****
 
 c     Solve for phi=lap^-1(rhs)
 
@@ -222,13 +213,6 @@ c     Solve for phi=lap^-1(rhs)
       call mapMGVectorToArray(0,1,x,nx,ny,nz,phi,igx,.false.)
 
       call setMGBC(0,1,nx,ny,nz,igx,phi,bcs,iorder=bc_order)
-
-c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
-cc      call contour(phi(1:nx,1:ny,1),nx,ny,0d0,1d0,0d0,1d0,1,110)
-cc      close(110)
-cc      pause
-cc      stop
-c diag *****
 
 c     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
 

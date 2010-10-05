@@ -112,7 +112,7 @@ MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDI
 
 .PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
-code: common $(CODE)
+code: common $(CODE) 
 
 $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -121,7 +121,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
-code_a: common $(A_CODE)
+code_a: common $(A_CODE) 
 
 $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -130,7 +130,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
 
-petsc: common $(PETSCCODE)
+petsc: common $(PETSCCODE) 
 
 $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
@@ -139,7 +139,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB}
 	@mv $@ $(BINDIR)
 
-petsc_a: common $(PETSC_A_CODE)
+petsc_a: common $(PETSC_A_CODE) 
 
 $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''

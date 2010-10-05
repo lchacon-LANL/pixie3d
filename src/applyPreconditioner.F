@@ -1162,8 +1162,6 @@ c     --------------------------------------------------------------
 
         implicit none
 
-        character(3) :: xlabel,ylabel
-
         integer :: iplot,imin,imax,jmin,jmax,kmin,kmax
 
         real(8) :: mag0,mag,gxmin,gxmax,gymin,gymax
@@ -1172,6 +1170,7 @@ c     --------------------------------------------------------------
 
         character(10) :: solf,resf,rhsf,crsf,fldf,divf
         character(4)  :: dbg_desc(neqd)
+        character(3)  :: xlabel,ylabel
 
 #if defined(vec_pot)
         integer    :: ivar
@@ -1284,7 +1283,6 @@ c     Dump graphics
         call fillArray(igrid,IAX,3,xxx(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
      .                ,bc_order,is_vec=.true.,is_cnv=.false.)
 
-        db_cnv = 0d0
         db_cnv = curl(nx,ny,nz,igrid,igrid,igrid,da_cov)
 
         !Find covariant components of dj with BCs
@@ -1351,20 +1349,11 @@ c     Dump graphics
         close(110)
 
         !diag B-field divergence
-        allocate(dbg(nx,ny,nz,1))
-        dbg = 0d0
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-              dbg(i,j,k,1) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     $                          ,db_cnv(:,:,:,1)
-     $                          ,db_cnv(:,:,:,2)
-     $                          ,db_cnv(:,:,:,3))
-            enddo
-          enddo
-        enddo
+        allocate(dbg(0:nx+1,0:ny+1,0:nz+1,1))
+        dbg(:,:,:,1) = div(nx,ny,nz,igrid,igrid,igrid,db_cnv)
 
-        mag = sqrt(dot(ntotdp,dbg,dbg))
+        mag = sqrt(dot(ntotdp,dbg(1:nx,1:ny,1:nz,1)
+     .                       ,dbg(1:nx,1:ny,1:nz,1)))
         if (my_rank == 0) write (*,*) 'L-2 norm of div(dB)',mag
 
         open(unit=110,file=divf,form='unformatted',status='replace')
@@ -1460,6 +1449,8 @@ c Local variables
      .                                                ,dv0cnv
      .                                                ,dp_cnv
      .                                                ,dve_cnv
+     .                                                ,dve_cov
+     .                                                ,dE_cnv
      .                                                ,drho  
      .                                                ,dtmp  
 #if defined(vec_pot)
@@ -1467,7 +1458,7 @@ c Local variables
 #endif
 
       real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
-     .                                       ,jcnv0,jcov0,vcnv0
+     .                                       ,jcnv0,jcov0,vcnv0,vcov0
 
 c Begin program
 
@@ -1486,6 +1477,7 @@ c Begin program
       rho0  => grho0  %grid(igrid)%array
       tmp0  => gtmp0  %grid(igrid)%array
       vcnv0 => gv0    %grid(igrid)%array
+      vcov0 => gv0_cov%grid(igrid)%array
       bcnv0 => gb0    %grid(igrid)%array
       bcov0 => gb0_cov%grid(igrid)%array
       jcnv0 => gj0    %grid(igrid)%array
@@ -1501,6 +1493,8 @@ c Allocate variables
      .        ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,dve_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,dE_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,drho  (0:nx+1,0:ny+1,0:nz+1,1)
      .        ,dtmp  (0:nx+1,0:ny+1,0:nz+1,1)
 #if defined(vec_pot)
@@ -1573,31 +1567,69 @@ c Find dp_cnv
 
 c Find electron velocity
 
-      if (di > 0d0.and.(.not.fake_ve)) then
-        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
-     .                  -di*(dj_cnv(:,:,:,1)
-     .                      - jcnv0(:,:,:,1)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
-        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
-     .                  -di*(dj_cnv(:,:,:,2)
-     .                      - jcnv0(:,:,:,2)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
-        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
-     .                  -di*(dj_cnv(:,:,:,3)
-     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
-cc        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
-cc     .                  -di*(dj_cnv(:,:,:,1)
-cc     .                     /rho0(:,:,:,1))
-cc        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
-cc     .                  -di*(dj_cnv(:,:,:,2)
-cc     .                     /rho0(:,:,:,1))
-cc        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
-cc     .                  -di*(dj_cnv(:,:,:,3)
-cc     .                     /rho0(:,:,:,1))
+      if (di > 0d0) then
+
+        if (.not.fake_ve) then
+cc          if (di > 0d0) then
+cc            dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+cc     .                      -di*(dj_cnv(:,:,:,1)
+cc     .                          - jcnv0(:,:,:,1)*drho(:,:,:,1)
+cc     .                                          /rho0(:,:,:,1))
+cc     .                         /rho0(:,:,:,1)
+cc            dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+cc     .                      -di*(dj_cnv(:,:,:,2)
+cc     .                          - jcnv0(:,:,:,2)*drho(:,:,:,1)
+cc     .                                          /rho0(:,:,:,1))
+cc     .                         /rho0(:,:,:,1)
+cc            dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+cc     .                      -di*(dj_cnv(:,:,:,3)
+cc     .                          - jcnv0(:,:,:,3)*drho(:,:,:,1)
+cc     .                                          /rho0(:,:,:,1))
+cc     .                         /rho0(:,:,:,1)
+          dve_cnv(:,:,:,1)=    dv_cnv(:,:,:,1)
+     .                    -di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1))
+          dve_cnv(:,:,:,2)=    dv_cnv(:,:,:,2)
+     .                    -di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1))
+          dve_cnv(:,:,:,3)=    dv_cnv(:,:,:,3)
+     .                    -di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1))
+        else
+          dve_cnv = dv_cnv
+
+cc          !Add vxb correction
+cc          dE_cnv(:,:,:,1) =-(vcov0(:,:,:,2)*db_cov(:,:,:,3)
+cc     .                      -vcov0(:,:,:,3)*db_cov(:,:,:,2))
+cc          dE_cnv(:,:,:,2) =-(vcov0(:,:,:,3)*db_cov(:,:,:,1)
+cc     .                      -vcov0(:,:,:,1)*db_cov(:,:,:,3))
+cc          dE_cnv(:,:,:,3) =-(vcov0(:,:,:,1)*db_cov(:,:,:,2)
+cc     .                      -vcov0(:,:,:,2)*db_cov(:,:,:,1))
+cc
+cc          dE_cnv = di*dv_cnv/dt
+cc
+cc          !Find current dj = -dt*curlcurl(dE)
+cc          dve_cnv = 0d0
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 1,nx
+cc                dve_cnv(i,j,k,:) = -dt
+cc     .              *curlcurl(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                       ,dE_cnv,vol=.false.)
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc          !Find covariant components of dj with BCs
+cc          call setBC(IJX,3,nx,ny,nz,dve_cnv,dve_cov,vzeros
+cc     .           ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=bc_order)
+cc
+cc          !Find electron velocity
+cc          dve_cnv(:,:,:,1) = dv_cnv(:,:,:,1)
+cc     .                     - di*dve_cnv(:,:,:,1)/rho0(:,:,:,1)
+cc          dve_cnv(:,:,:,2) = dv_cnv(:,:,:,2)
+cc     .                     - di*dve_cnv(:,:,:,2)/rho0(:,:,:,1)
+cc          dve_cnv(:,:,:,3) = dv_cnv(:,:,:,3)
+cc     .                     - di*dve_cnv(:,:,:,3)/rho0(:,:,:,1)
+        endif
+
       else
         dve_cnv = dv_cnv
       endif
@@ -1674,6 +1706,8 @@ c Find rhs_v'
 
             if (part == 'adv' .or. part == 'all') then
               
+cc              dve_cnv = dve_cnv + dv_cnv  !Add ion velocity
+
               if (nc_eom_v) then
                 cnv = cnv
      .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
@@ -1707,7 +1741,7 @@ c Find rhs_v'
 
 c Free memory
 
-      nullify(rho0,tmp0,bcov0,bcnv0,jcnv0,jcov0,vcnv0)
+      nullify(rho0,tmp0,bcov0,bcnv0,jcnv0,jcov0,vcnv0,vcov0)
 
       deallocate(dj_cnv
      .          ,dj_cov
@@ -1717,6 +1751,8 @@ c Free memory
      .          ,dv0cnv
      .          ,dp_cnv
      .          ,dve_cnv
+     .          ,dve_cov
+     .          ,dE_cnv
      .          ,drho  
      .          ,dtmp  
 #if defined(vec_pot)
