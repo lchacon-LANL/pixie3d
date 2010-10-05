@@ -174,14 +174,14 @@ c     Initial message
       write (release,'(i1,a1,i1)') REL1,'.',REL2
 
       write (*,*)
-      write (*,*) '***********************************************'
-      write (*,*) '****** PIXIE3D Extended MHD code, V. '//
-     $            trim(release) //' ******'
-      write (*,*) '******       Developer: L. Chacon        ******'
-      write (*,*) '******  Los Alamos National Laboratory   ******'
-      write (*,*) '******       Los Alamos, NM 87545        ******'
-      write (*,*) '******           LA-CC 07-005            ******'
-      write (*,*) '***********************************************'
+      write (*,*) '****************************************************'
+      write (*,*) '******    PIXIE3D Extended MHD code, V. '// 
+     $                                       trim(release) //'   ******'
+      write (*,*) '******         Developer: L. Chacon           ******'
+      write (*,*) '******  Oak Ridge National Laboratory (08-)   ******'
+      write (*,*) '****** Los Alamos National Laboratory (04-08) ******'
+      write (*,*) '******             LA-CC 07-005               ******'
+      write (*,*) '****************************************************'
 
 c     Warnings
 
@@ -189,9 +189,9 @@ c     Warnings
       write (*,*) '****************** NOTICES ******************'
 
 #if defined(vec_pot) 
-      write (*,*) 'Using VECTOR POTENTIAL version'
+      write (*,*) 'Using VECTOR POTENTIAL formulation'
 #else
-      write (*,*) 'Using MAGNETIC FIELD version'
+      write (*,*) 'Using MAGNETIC FIELD formulation'
 #endif
 
       if (nc_eom_jxb)
