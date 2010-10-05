@@ -8,6 +8,8 @@
 # and the fortran compiler variable $(FC):
 #     + FC = f90 (default) uses Absoft f90 
 #     + FC = lf95 uses Lahey lf95.
+#     + FC = gfortran uses Gfortran.
+#     + ... (others documented in common/make/make.comp.inc)
 # When PETSc is employed, the optimization level should be specified by
 # the variable $(BOPT).
 #
@@ -17,26 +19,7 @@
 #
 # A call example that employs PETSc is:
 #
-#        make BOPT=g petsc
-
-# Defaults
-
-FC  = gfortran
-OPT = O 
-
-PETSC_DIR ?=/usr/local/petsc-2.3.3
-HDF5_HOME ?=/usr/local/hdf5/parallel/mpich2_f90_
-HDF5_LIBS ?= -L$(HDF5_HOME)/lib -lhdf5_fortran -lhdf5
-
-PREPROC = -D
-
-HDF5 = t
-
-#FPA = t
-
-LIBS = -llapack -lblas
-
-#CPPFLAGS += -DRFX
+#        make BOPT=g pixie3d
 
 # System-dependent variables
 
@@ -56,8 +39,8 @@ MODPATH = $(MODFLAG).
 
 # PIXIE setup
 
-REL1=0
-REL2=9
+REL1=1
+REL2=5
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifdef VECPOT
@@ -71,12 +54,20 @@ ifdef PER_BC_SYNC
   endif
 endif
 
+# ADIOS setup
+
+ifeq ($(ADIOS),t)
+  CONTRIBLIBS += $(ADIOS_LIBS)
+  CPPFLAGS   += $(PREPROC)adios -I$(ADIOS_HOME)/include
+#  MODPATH    += $(ADDMODFLAG)$(ADIOS_HOME)/include
+endif
+
 # HDF5 setup
 
 ifeq ($(HDF5),t)
-  CONTRIBLIBS = $(HDF5_LIBS)
-  CPPFLAGS   += $(PREPROC)hdf5 $(HDF5_INC)
-  MODPATH    += $(ADDMODFLAG)$(HDF5_MOD)
+  CONTRIBLIBS += $(HDF5_LIBS) 
+  CPPFLAGS    += $(PREPROC)hdf5 $(PREPROC)H5_USE_16_API $(HDF5_INC)
+  MODPATH     += $(ADDMODFLAG)$(HDF5_MOD)
 endif
 
 # VMEC setup
@@ -168,8 +159,7 @@ endif
 endif
 
 #Export required variables
-
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
+export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB SAMR CPPFLAGS_EXTRA \
        CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA LIBSAMRAI3D LIBSAMRAI
@@ -184,12 +174,18 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS HDF5_HOME \
 
 all: contrib src plot
 
-pixie3d: contrib src
+pixie3d: contrib src 
 
 pixplot: contrib plot
 
 $(SUBDIRS):
+#	@echo "-- Machine = $(MACHINE)"
+#	@echo "-- Do make in $@ with FC=$(FC)"
+#	@echo "-- HDF5_HOME=$(HDF5_HOME)"
+#	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
+#	@echo "-- MODPATH=$(MODPATH)"
 	$(MAKE) -e -C $@ $(TARGET)
+
 
 # SETUP
 
@@ -264,6 +260,7 @@ contrib_clean:
 ifeq ($(VMEC),t)
 	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
+
 
 # CLEAN ALL
 

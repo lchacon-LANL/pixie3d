@@ -154,6 +154,7 @@ c Calculate CFL
 
       w_cfl = 0d0
       k2max = 0d0
+      kbp2max = 0d0
 
       do k=1,nz
         do j=1,ny

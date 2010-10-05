@@ -485,7 +485,7 @@ c Current diagnostics
 
 c Toroidal flux diagnostics
 
-      Tflux = integral(igx,igy,igz,nx,ny,nx,bz_car,average=.false.)
+      Tflux = integral(igx,igy,igz,nx,ny,nz,bz_car,average=.false.)
      .      - Tflux0
 
 c Initial assignments

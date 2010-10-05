@@ -42,6 +42,8 @@ c--------------------------------------------------------------------
 
       use equilibrium
 
+      use transport_params
+
       implicit none
 
 c Call variables
@@ -68,12 +70,15 @@ c Define graphics group #1: Contravariant variables
       enddo
 
       graph(1)%array_graph(neqd+1)%array => jx
+cc      graph(1)%array_graph(neqd+1)%array => jcnv(:,:,:,1)
       graph(1)%array_graph(neqd+1)%descr = 'J^1'
 
       graph(1)%array_graph(neqd+2)%array => jy
+cc      graph(1)%array_graph(neqd+2)%array => jcnv(:,:,:,2)
       graph(1)%array_graph(neqd+2)%descr = 'J^2'
 
       graph(1)%array_graph(neqd+3)%array => jz
+cc      graph(1)%array_graph(neqd+3)%array(0:,0:,0:) => jcnv(:,:,:,3)
       graph(1)%array_graph(neqd+3)%descr = 'J^3'
 
       graph(1)%array_graph(neqd+4)%array => vx
@@ -478,7 +483,7 @@ cc      graph(4)%array_graph(8)%array => lambda2
 cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
 
       graph(4)%array_graph(9)%array => p_tot
-      graph(4)%array_graph(9)%descr = 'Pressure'
+      graph(4)%array_graph(9)%descr = 'Total pressure'
 
       graph(4)%array_graph(10)%array => vpar
       graph(4)%array_graph(10)%descr = 'V||'
@@ -489,14 +494,25 @@ cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
       graph(4)%array_graph(12)%array => vperp
       graph(4)%array_graph(12)%descr = 'V.(b x grad(psi))'
 
-      graph(4)%array_graph(13)%array => jpar
-      graph(4)%array_graph(13)%descr = 'E_1'
+      if (di > 0d0) then
+        graph(4)%array_graph(13)%array => jpar
+        graph(4)%array_graph(13)%descr = 'Eh_1'
 
-      graph(4)%array_graph(14)%array => jpsi
-      graph(4)%array_graph(14)%descr = 'E_2'
+        graph(4)%array_graph(14)%array => jpsi
+        graph(4)%array_graph(14)%descr = 'Eh_2'
 
-      graph(4)%array_graph(15)%array => jperp
-      graph(4)%array_graph(15)%descr = 'E_3'
+        graph(4)%array_graph(15)%array => jperp
+        graph(4)%array_graph(15)%descr = 'Eh_3'
+      else
+        graph(4)%array_graph(13)%array => jpar
+        graph(4)%array_graph(13)%descr = 'E_1'
+
+        graph(4)%array_graph(14)%array => jpsi
+        graph(4)%array_graph(14)%descr = 'E_2'
+
+        graph(4)%array_graph(15)%array => jperp
+        graph(4)%array_graph(15)%descr = 'E_3'
+      endif
 
       graph(4)%array_graph(16:ngraph)%descr = ''
 
@@ -549,6 +565,7 @@ c Call variables
 c Local variables
 
       hdf5_fname   = 'pixie3d.h5'
+      adios_fname  = 'pixie3d.bp'
 
       if (np > 1) return
 

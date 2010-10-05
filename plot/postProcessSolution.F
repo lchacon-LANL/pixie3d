@@ -87,23 +87,7 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
-      if(.not.chk_src) then
-        call imposeBoundaryConditions(varray,igx,igy,igz)
-      else
-        vcnv(:,:,:,1) = varray%array_var(IVX)%array
-        vcnv(:,:,:,2) = varray%array_var(IVY)%array
-        vcnv(:,:,:,3) = varray%array_var(IVZ)%array
-
-#if defined(vec_pot)
-        acov(:,:,:,1) = varray%array_var(IAX)%array
-        acov(:,:,:,2) = varray%array_var(IAY)%array
-        acov(:,:,:,3) = varray%array_var(IAZ)%array
-#else
-        bcnv(:,:,:,1) = varray%array_var(IBX)%array
-        bcnv(:,:,:,2) = varray%array_var(IBY)%array
-        bcnv(:,:,:,3) = varray%array_var(IBZ)%array
-#endif
-      endif
+      call imposeBoundaryConditions(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
       px  => varray%array_var(IVX )%array
@@ -202,17 +186,9 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      vex = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-      vey = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-      vez = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
-
-cc      vecnv(:,:,:,1) = vcnv(:,:,:,1) - di*jcnv(:,:,:,1)/rho
-cc      vecnv(:,:,:,2) = vcnv(:,:,:,2) - di*jcnv(:,:,:,2)/rho
-cc      vecnv(:,:,:,3) = vcnv(:,:,:,3) - di*jcnv(:,:,:,3)/rho
-cc
-cc      vex = vecnv(:,:,:,1)
-cc      vey = vecnv(:,:,:,2)
-cc      vez = vecnv(:,:,:,3)
+      vex = vecnv(:,:,:,1)
+      vey = vecnv(:,:,:,2)
+      vez = vecnv(:,:,:,3)
 
 c Poloidal flux diagnostics
 
@@ -236,11 +212,6 @@ c Poloidal flux diagnostics
           enddo
         enddo
       enddo
-
-cc      bcs = bcond
-cc      where (bcs == DEF) bcs = EXT
-
-cc      call setBC(IRHO,nx,ny,nz,Pflux,zeros,bcs,igx,igy,igz)
 #else
       Pflux = az
 #endif
@@ -370,11 +341,17 @@ cc            endif
         enddo
       enddo
 
-c Electric field components (covariant)
+c Hall electric field components (covariant)
 
-      jpar  = E_ni(:,:,:,1)
-      jpsi  = E_ni(:,:,:,2)
-      jperp = E_ni(:,:,:,3)
+      if (di > 0d0) then
+        jpar  = di*E_h(:,:,:,1)
+        jpsi  = di*E_h(:,:,:,2)
+        jperp = di*E_h(:,:,:,3)
+      else
+        jpar  = E_ni(:,:,:,1)
+        jpsi  = E_ni(:,:,:,2)
+        jperp = E_ni(:,:,:,3)
+      endif
 
 c Ohm's law diagnostic
 
@@ -432,31 +409,16 @@ c Poincare output (field tracer)
 
 c Divergence diagnostics
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            divrgJ(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                         ,jcnv(:,:,:,1)
-     .                         ,jcnv(:,:,:,2)
-     .                         ,jcnv(:,:,:,3))
-            divrgB(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                         ,bcnv(:,:,:,1)
-     .                         ,bcnv(:,:,:,2)
-     .                         ,bcnv(:,:,:,3))
-            divrgV(i,j,k) = div(i,j,k,nx,ny,nz,igx,igy,igz
-     .                         ,vcnv(:,:,:,1)
-     .                         ,vcnv(:,:,:,2)
-     .                         ,vcnv(:,:,:,3))
-          enddo
-        enddo
-      enddo
+      divrgJ = div(nx,ny,nz,igx,igy,igz,jcnv)
+      divrgB = div(nx,ny,nz,igx,igy,igz,bcnv)
+      divrgV = div(nx,ny,nz,igx,igy,igz,vcnv)
 
 c Thermal pressure
 
       if (adiabatic) then
-        p_tot = a_p*tmp
+        p_tot = a_p*tmp     + 0.5*(bx_car**2+by_car**2+bz_car**2)
       else
-        p_tot = a_p*rho*tmp
+        p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
       endif
 
 c Transport coefficients

@@ -34,7 +34,7 @@ c Local variables
 
       integer       :: dim(1),loc(1),ioerr
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-      real(8)       :: prndtl,hrtmn,temp_ratio
+      real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(dim_pack):: gp1,gp2,gp3
 
@@ -71,7 +71,7 @@ c Namelists
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
      .                   ,ion_hall,lag_pinch_bc,fake_ve
-     .                ,inputfile,recordfile,equ_file,map_file,dcon
+     .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
@@ -110,7 +110,7 @@ c Namelists
 
       !I/O
       namelist /i_o/   ilevel,debug,check_grid,equ_file,map_file
-     .                   ,recordfile,dcon,chk_src,test
+     .                   ,dcon,chk_src,test
 
 c ******************************************************************
 
@@ -231,7 +231,7 @@ c Set defaults
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not, if true, ITMP is electron pressure,
                                !   otherwise it is electron temperature
 
-      temp_ratio = 1d0         ! Ion-electron temperature ratio
+      temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
       !Nonlinear function parameters
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
@@ -338,7 +338,6 @@ cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
 
       test       = .false.     ! Whether we are performing tests (do not dump namelist)
 
-      recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
       prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
       map_file   ='pixie3d.map'! Default map          file (when needed)
@@ -604,11 +603,13 @@ c Local variables
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
+     .                   ,adios_plot
 
 
       namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
      .                   ,prof_conf,cont_conf,clean,E0,B0
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
+     .                   ,adios_plot
 
 c Begin program
 
@@ -621,6 +622,7 @@ c Graphics defaults
       ndplot = 0          ! Postprocessing interval (# of time steps; integer)
       dplot  = 0d0        !       "          "      (time interval; real)
       hdf_plot =.false.   ! Whether an HDF5 file is to be created
+      adios_plot =.false. ! Whether an ADIOS-BP file is to be created
       xdraw_plot = .true. ! Whether to dump XDRAW files
 
       !Local (point) diagnostic configuration (XDRAW)

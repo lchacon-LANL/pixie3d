@@ -45,6 +45,7 @@ debug=f
 machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
+adiosfile="adios_config.xml"
 
 # Parse command line options
 
@@ -77,6 +78,12 @@ shift
 
 options=$*
 
+if [ "$restartfile" = "" ]; then
+  restartfile=$inputfile
+else
+  restartfile=`echo "$restartfile" | sed "s/\.tar\.gz//"`
+fi
+
 # Select host
 
 if [ "$node" = "" ]; then
@@ -85,12 +92,6 @@ fi
 
 if [ "$debug" = "t" ]; then
   echo "==> MPI node is $node"
-fi
-
-if [ "$restartfile" = "" ]; then
-  restartfile=$inputfile
-else
-  restartfile=`echo "$restartfile" | sed "s/\.tar\.gz//"`
 fi
 
 # Select working directory
@@ -145,6 +146,15 @@ elif [ -f infiles/$inputfile.in ]; then
   cp infiles/$inputfile.in $dir 2>/dev/null
 elif [ "$restart" != "t" ]; then
   echo "No input file $inputfile.in found. Aborting"
+  exit 1
+fi
+
+if [ -f $adiosfile ]; then
+  cp $adiosfile $dir 2>/dev/null
+elif [ -f infiles/$adiosfile ]; then
+  cp infiles/$adiosfile $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No ADIOS file $adiosfile found. Aborting"
   exit 1
 fi
 
@@ -203,11 +213,13 @@ then
        echo "==> Figuring out number of processors"
      fi
 
-     np=`ls record.bin_* 2> /dev/null | wc -l`
+     if [ !-f "record.bp" ]; then
+       np=`ls record.bin_* 2> /dev/null | wc -l`
 
-     if [ "$np" != "1" -a "$parallel" = "f" ]; then
-       echo "This is a parallel run! Set -np to $np"
-       exit 1
+       if [ "$np" != "1" -a "$parallel" = "f" ]; then
+         echo "This is a parallel run! Set -np to $np"
+         exit 1
+       fi
      fi
 
      if [ "$debug" = "t" ]; then

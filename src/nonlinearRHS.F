@@ -115,17 +115,8 @@ cc        endif
 c     Faraday's law
 
 #if !defined(vec_pot)
-cc      vec1 => vecnv
-cc      vec2 => bcnv
-cc
-cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-cc     .                       ,btensor_x,btensor_y,btensor_z
-cc     .                       ,vol=.false.)
-cc     .            -curl(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                 ,E_ni(:,:,:,1),E_ni(:,:,:,2),E_ni(:,:,:,3))
-cc
-cc      nullify(vec1,vec2)
 
+      !Magnetic field
       ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
 
 cc      if (.not.solenoidal) then
@@ -190,8 +181,7 @@ cc      endif
 
 #else
 
-c     Vector potential
-
+      !Vector potential
       ff(IAX:IAZ) = E_ni(i,j,k,:)
 
 #endif
@@ -262,13 +252,6 @@ c       Advection + sources
      .                     ,pi_tnsr(3,1),pi_tnsr(3,2),pi_tnsr(3,3),0)
             nullify(vec1,coef)
 
-cc            cov_tnsr = matmul(nabla_v,gsub)
-cc            if (sym_st) cov_tnsr = cov_tnsr + transpose(cov_tnsr)
-
-cc            cov_tnsr = matmul(pi_tnsr,gsub)
-cc            cnv_tnsr = matmul(gsuper,nabla_v)
-cc            viscous = nuu(i,j,k)*sum(cov_tnsr*cnv_tnsr)/jac**2
-
             !Make nabla_v covariant on both sides, and do dot product
             viscous =-tensorScalarProduct(i,j,k,igx,igy,igz
      .                                   ,matmul(nabla_v,gsub),pi_tnsr)
@@ -296,7 +279,6 @@ c     EOM
       if (nc_eom_jxb) then
         cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
-cc        cnv = eom_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
 cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
      $           ,vol=.false.)
       else
@@ -317,7 +299,8 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
                                                     !we evolve dv/dt
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
-     .                   ,advect,cons=.not.nc_eom_v)
+cc     .                   ,advect,cons=.not.nc_eom_v)
+     .                   ,min(advect,2),cons=.not.nc_eom_v)
      .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
