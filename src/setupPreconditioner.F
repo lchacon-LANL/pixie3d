@@ -21,8 +21,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: ntot,nwt_it
-      real(8)    :: x(ntot)
+      integer :: ntot,nwt_it
+      real(8) :: x(ntot)
 
 c Local variables
 
@@ -40,6 +40,7 @@ c Externals
      .          ,v_mtvc_hyp
 
 c Interfaces
+
 #if !defined(samrai)
       INTERFACE
         subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
@@ -98,83 +99,13 @@ c Find coefficients for linearized systems
 
       if (nwt_it == 1) call findPCcoeffs(igx,igy,igz)
 
-c Setup BCs for diagonal formation
+c Setup PC BCs
 
-      !Set boundary conditions
-      do ieq=1,neqd
-        bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
-      enddo
-
-#if defined(vec_pot)
-      bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
-#endif
-
-      bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
-
-      call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
-
-#if defined(petsc)
-      if (ilevel >= 5) then
-        write (*,*) 'Proc ',my_rank,': asm     in setupPC',asm
-        write (*,*) 'Proc ',my_rank,': asm_dir in setupPC',asm_dir
-      endif
-#endif
+      call setup_PC_BC
 
 c Find required diagonals in all grids
 
-      if (nwt_it == 1) then
-
-        call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
-     .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)
-
-        call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
-     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
-
-        if (sm_type /= 'gm') then
-#if !defined(vec_pot)
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
-            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
-     .                       ,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
-     .                       ,b_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-#else
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
-            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
-     .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-#endif
-          if (pc_v_solve) then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-
-          if (pc_type == 's1' .or. pc_type == 's2') then
-            if (heta == 0d0 .or. (.not.pc_ion_hall)) then
-              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-            else
-              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
-              bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-cc              bcs_hyp(:,4:6) = bcs(:,IBX:IBZ)
-              call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
-     .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-            endif
-          elseif (pc_type == 's3') then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-        endif
-
-      endif
+      if (nwt_it == 1) call form_diagonals
 
 c Initialize PC Jacobi it. counter
 
@@ -271,6 +202,109 @@ cc      endif
 c diag *****
 
 c End program
+
+      contains
+
+c     setup_PC_BC
+c     ##############################################################
+      subroutine setup_PC_BC
+
+c     --------------------------------------------------------------
+c     Setup preconditioner BCs
+c     --------------------------------------------------------------
+
+c     Set boundary conditions
+
+        do ieq=1,neqd
+          bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
+        enddo
+
+c     Set BCs for auxiliary variables
+
+#if defined(vec_pot)
+        bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
+#endif
+
+        bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
+
+c     Set parallel BCs
+
+        call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
+
+      end subroutine setup_PC_BC
+
+c     form_diagonals
+c     ##############################################################
+      subroutine form_diagonals
+
+c     --------------------------------------------------------------
+c     Form require diagonals for smoothing in MG
+c     --------------------------------------------------------------
+
+c     Density
+
+        call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
+     .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)
+
+c     Temperature
+
+        call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
+     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
+
+        if (sm_type /= 'gm') then
+
+c       Magnetic field
+
+#if !defined(vec_pot)
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
+     .                       ,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
+     .                       ,b_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+#else
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
+     .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+#endif
+
+c        Velocity
+
+          if (pc_v_solve) then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+
+          if (pc_type == 's1' .or. pc_type == 's2') then
+            if (heta == 0d0 .or. (.not.pc_ion_hall)) then
+              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+            else
+              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+cc              if (fake_ve) then
+cc                bcs_hyp(:,4:6) = bcs(:,IVX:IVZ)
+cc              else
+                bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+cc              endif
+              call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
+     .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+            endif
+          elseif (pc_type == 's3') then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+        endif
+
+      end subroutine form_diagonals
 
       end subroutine setupPC
 
