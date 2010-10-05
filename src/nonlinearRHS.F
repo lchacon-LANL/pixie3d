@@ -300,7 +300,7 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
 cc     .                   ,advect,cons=.not.nc_eom_v)
-     .                   ,2,cons=.not.nc_eom_v)
+     .                   ,min(advect,2),cons=.not.nc_eom_v)
      .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
