@@ -54,7 +54,7 @@ c ######################################################################
 
         integer, allocatable, dimension(:,:)    :: bcs,bcs_hyp
 
-        type(var_array),pointer :: varray
+        type(var_array),pointer :: varray => null()
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov,gvis,geta,gve0,gbs0,gj0
@@ -458,19 +458,19 @@ c     Begin program
 
         if (PRESENT(arr0).and.PRESENT(arr_cov)) then
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
         elseif (PRESENT(arr_cov)) then
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr_cov=arr_cov)
         elseif (PRESENT(arr0)) then
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr0=arr0)
         else
           call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=icomp,is_vec=isvec,is_cnv=iscnv
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder)
         endif
 
@@ -734,16 +734,7 @@ c     Find other auxiliary quantities and store them in all grids
         !Velocity divergence (w/o BCs)
         allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
 
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-              debug2(i,j,k) = div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                           ,vcnv(:,:,:,1)
-     .                           ,vcnv(:,:,:,2)
-     .                           ,vcnv(:,:,:,3))
-            enddo
-          enddo
-        enddo
+        debug2 = div(nx,ny,nz,igrid,igrid,igrid,vcnv)
 
         call restrictArrayToMGVector(1,nx,ny,nz,debug2,mgdivV0,igrid
      .                            ,order,.false.)
@@ -991,7 +982,7 @@ c     Impose BCs, and return cov, cnv components
         call setMGBC(0,neq,nxc,nyc,nzc,igr
      .              ,gb0%grid(igr)%array,bcmod       !Input/output cnv array
      .              ,arr_cov=gb0_cov%grid(igr)%array !Input/output cov array
-     .              ,icomp=IBX
+     .              ,icomp=(/ IBX /)
      .              ,is_cnv=.true.          !This informs that input is in cnv array
      .              ,is_vec=.not.cartesian  !This informs whether input is Cartesian
      .              ,result_is_vec=.true.   !This returns curvilinear components
@@ -1119,7 +1110,7 @@ c     End
 
 c     D_v
 c     #####################################################################
-      function D_v(i,j,k,nx,ny,nz,igr,rho0,v0_cnv,dv,dp,conserv)
+      function D_v(i,j,k,nx,ny,nz,igr,rho0,v0_cnv,dv,dp,conserv,stress)
      .         result(psiv)
 
 c     ---------------------------------------------------------------------
@@ -1137,10 +1128,19 @@ c     Call variables
      .                 ,v0_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .                 ,rho0  (0:nx+1,0:ny+1,0:nz+1,1)
       logical :: conserv
+      logical, optional :: stress
 
 c     Local variables
 
+      logical :: strss
+
 c     Begin program
+
+      if (PRESENT(stress)) then
+        strss = stress
+      else
+        strss = .true.
+      endif
 
       if (.not.conserv) then
         !TS
@@ -1154,7 +1154,7 @@ c     Begin program
      .                        ,advect,cons=conserv))
 
         !Diffusion
-        if (nu > 0d0) then
+        if (nu > 0d0 .and. strss) then
           psiv = psiv
      .         +alpha*EOM_divPi_ijk(i,j,k,nx,ny,nz,igr,igr,igr,dv
      .                             ,gvis%grid(igr)%array(:,:,:,1))
@@ -1173,7 +1173,7 @@ cc     .                           ,advect,cons=conserv)
      .                           ,advect,cons=conserv))
 
         !Diffusion
-        if (nu > 0d0) then
+        if (nu > 0d0 .and. strss) then
           psiv = psiv
      .         +alpha*EOM_divPi_ijk(i,j,k,nx,ny,nz,igr,igr,igr,dv
      .                             ,gvis%grid(igr)%array(:,:,:,1))
@@ -1453,18 +1453,16 @@ cc     .               /grho0%grid(igx)%array(i,j,k ,1)
             if (str .and. half_elem == 0) then
               cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
      .                      /grho0%grid(igx)%array(i,j,k,1)
-            else
-              cnv = 0d0
+
+              call transformFromCurvToCurv(i,j,k,igx,igy,igz
+     .                                    ,cov(1),cov(2),cov(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=0)
+
+              uav = uav + di*cov
             endif
 
           endif
-
-          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .                                ,cov(1),cov(2),cov(3)
-     .                                ,cnv(1),cnv(2),cnv(3)
-     .                                ,.false.,half_elem=half_elem)
-
-          uav = uav + di*cov
 
         endif
 
