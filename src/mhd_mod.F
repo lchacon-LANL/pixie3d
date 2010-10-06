@@ -372,10 +372,6 @@ c     Allocate storage
         vzeros => gv%aux%vec_list(IVZRS)%vec
 #endif
 
-        zeros  = 0d0
-        vzeros = 0d0
-        ones   = 1d0
-
 c       Grid aliases
 
         if (.not.associated(xx)) then
