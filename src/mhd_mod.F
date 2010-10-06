@@ -32,11 +32,14 @@ c ######################################################################
 
         integer, parameter :: IBCNV    =5
      .                       ,IBCNV_N  =21
+     .                       ,IBCNV_0  =26
      .                       ,IBCOV    =6
+     .                       ,IBCOV_0  =27
      .                       ,IBHAT    =18
 
         integer, parameter :: IVCNV    =7
      .                       ,IVCNV_N  =25
+     .                       ,IVCNV_0  =22
      .                       ,IVCOV    =8
      .                       ,IVCOV_N  =9
 
@@ -53,9 +56,8 @@ c ######################################################################
      .                       ,IDIVPE   =17
      .                       ,IPCNV    =19
      .                       ,ICCV     =20
-     .                       ,IVCNV_0  =22
 #if defined(samrai)
-     .                       ,IVZRS    =26
+     .                       ,IVZRS    =28
 #endif
 #else
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
@@ -69,11 +71,14 @@ c ######################################################################
 
         integer, parameter :: IBCNV   =5
      .                       ,IBCNV_N =23
+     .                       ,IBCNV_0 =28
      .                       ,IBCOV   =6
+     .                       ,IBCOV_0 =30
      .                       ,IBHAT   =20
 
         integer, parameter :: IACNV   =9
      .                       ,IACOV   =10
+     .                       ,IACOV_0 =29
 
         integer, parameter :: IVCNV   =7
      .                       ,IVCNV_0 =24
@@ -95,14 +100,20 @@ c ######################################################################
      .                       ,IPCNV   =21
      .                       ,ICCV    =22
 #if defined(samrai)
-     .                       ,IVZRS   =28
+     .                       ,IVZRS   =31
 #endif
 #endif
 
-        integer, parameter ::
-     .                IETA=1,INU=2,IPSI=3,IHETA=4
+        integer, parameter :: IETA=1
+     .                       ,IETA_0=6
+     .                       ,INU=2
+     .                       ,IPSI=3
+     .                       ,IHETA=4
+     .                       ,IRHO_0=5
+     .                       ,ITMP_0=7
 #if defined(samrai)
-     .               ,IZRS=5,IONES=6
+     .                       ,IZRS=8
+     .                       ,IONES=9
 #endif
 
         character(5)  :: equil
@@ -124,19 +135,19 @@ c     ----------------------------------------------------------------
 
 #if !defined(vec_pot)
 #if defined(samrai)
-      NAUXV=26  !Number of auxiliary vectors
-      NAUXS=6   !Number of auxiliary scalars
+      NAUXV=28  !Number of auxiliary vectors
+      NAUXS=9   !Number of auxiliary scalars
 #else
-      NAUXV=25  !Number of auxiliary vectors
-      NAUXS=4   !Number of auxiliary scalars
+      NAUXV=27  !Number of auxiliary vectors
+      NAUXS=7   !Number of auxiliary scalars
 #endif
 #else
 #if defined(samrai)
-      NAUXV=28  !Number of auxiliary vectors
-      NAUXS=6   !Number of auxiliary scalars
+      NAUXV=31  !Number of auxiliary vectors
+      NAUXS=9   !Number of auxiliary scalars
 #else
-      NAUXV=27  !Number of auxiliary vectors
-      NAUXS=4   !Number of auxiliary scalars
+      NAUXV=30  !Number of auxiliary vectors
+      NAUXS=7   !Number of auxiliary scalars
 #endif
 #endif
 
@@ -183,15 +194,22 @@ c ######################################################################
         use grid_aliases
 
 #if defined(vec_pot)
-        real(8),pointer,dimension(:,:,:,:) :: acov,acnv
+        real(8),pointer,dimension(:,:,:,:) :: acov
+     .                                       ,acov_0
+     .                                       ,acnv
 #endif
 
         real(8),pointer,dimension(:,:,:)   :: nuu
      .                                       ,eeta
+     .                                       ,eeta_0
      .                                       ,psi
+     .                                       ,rho_0
+     .                                       ,tmp_0
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
+     .                                       ,bcnv_0
      .                                       ,bcov
+     .                                       ,bcov_0
      .                                       ,bcnv_n
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
@@ -208,16 +226,16 @@ c ######################################################################
      .                                       ,E_h
      .                                       ,div_pi
      .                                       ,div_pe
-     .                                       ,jcov_0
-     .                                       ,jcnv_0
+     .                                       ,jcnv
      .                                       ,jcnv_n
+     .                                       ,jcnv_0
+     .                                       ,jcov
+     .                                       ,jcov_0
 
         real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecnv_0
      .                                       ,vecov
      .                                       ,vecov_n
-     .                                       ,jcnv
-     .                                       ,jcov
 
         integer :: advect
 
@@ -246,14 +264,20 @@ c     Allocate storage
         gv%aux%vec_list(IBCNV)%cnv = .true.
         bcnv => gv%aux%vec_list(IBCNV)%vec
 
+        gv%aux%vec_list(IBCNV_0)%cnv = .true.
+        bcnv_0 => gv%aux%vec_list(IBCNV_0)%vec
+
+        gv%aux%vec_list(IBCNV_N)%cnv = .true.
+        bcnv_n => gv%aux%vec_list(IBCNV_N)%vec
+
         gv%aux%vec_list(IBCOV)%cnv = .false.
         bcov => gv%aux%vec_list(IBCOV)%vec
 
+        gv%aux%vec_list(IBCOV_0)%cnv = .false.
+        bcov_0 => gv%aux%vec_list(IBCOV_0)%vec
+
         gv%aux%vec_list(IJCNV)%cnv = .true.
         jcnv => gv%aux%vec_list(IJCNV)%vec
-
-        gv%aux%vec_list(IJCOV)%cnv = .false.
-        jcov => gv%aux%vec_list(IJCOV)%vec
 
         gv%aux%vec_list(IJCNV_0)%cnv = .true.
         jcnv_0 => gv%aux%vec_list(IJCNV_0)%vec
@@ -261,23 +285,26 @@ c     Allocate storage
         gv%aux%vec_list(IJCNV_N)%cnv = .true.
         jcnv_n => gv%aux%vec_list(IJCNV_N)%vec
 
+        gv%aux%vec_list(IJCOV)%cnv = .false.
+        jcov => gv%aux%vec_list(IJCOV)%vec
+
         gv%aux%vec_list(IJCOV_0)%cnv = .false.
         jcov_0 => gv%aux%vec_list(IJCOV_0)%vec
 
         gv%aux%vec_list(IVCNV)%cnv = .true.
         vcnv => gv%aux%vec_list(IVCNV)%vec
 
-        gv%aux%vec_list(IVCOV)%cnv = .false.
-        vcov => gv%aux%vec_list(IVCOV)%vec
-
-        gv%aux%vec_list(IVCNV_0)%cnv = .false.
+        gv%aux%vec_list(IVCNV_0)%cnv = .true.
         vcnv_0 => gv%aux%vec_list(IVCNV_0)%vec
-
-        gv%aux%vec_list(IVCOV_N)%cnv = .false.
-        vcov_n => gv%aux%vec_list(IVCOV_N)%vec
 
         gv%aux%vec_list(IVCNV_N)%cnv = .true.
         vcnv_n => gv%aux%vec_list(IVCNV_N)%vec
+
+        gv%aux%vec_list(IVCOV)%cnv = .false.
+        vcov => gv%aux%vec_list(IVCOV)%vec
+
+        gv%aux%vec_list(IVCOV_N)%cnv = .false.
+        vcov_n => gv%aux%vec_list(IVCOV_N)%vec
 
 #if defined(vec_pot)
         gv%aux%vec_list(IACNV)%cnv = .true.
@@ -285,22 +312,18 @@ c     Allocate storage
 
         gv%aux%vec_list(IACOV)%cnv = .false.
         acov => gv%aux%vec_list(IACOV)%vec
+
+        gv%aux%vec_list(IACOV_0)%cnv = .false.
+        acov_0 => gv%aux%vec_list(IACOV_0)%vec
 #endif
-
-        eeta => gv%aux%var_list(IETA)%array
-
-        nuu  => gv%aux%var_list(INU )%array
-
-        psi  => gv%aux%var_list(IPSI)%array
-
         gv%aux%vec_list(IVECNV)%cnv = .true.
         vecnv => gv%aux%vec_list(IVECNV)%vec
 
-        gv%aux%vec_list(IVECOV)%cnv = .false.
-        vecov => gv%aux%vec_list(IVECOV)%vec
-
         gv%aux%vec_list(IVECNV_0)%cnv = .true.
         vecnv_0 => gv%aux%vec_list(IVECNV_0)%vec
+
+        gv%aux%vec_list(IVECOV)%cnv = .false.
+        vecov => gv%aux%vec_list(IVECOV)%vec
 
         gv%aux%vec_list(IVECOV_N)%cnv = .false.
         vecov_n => gv%aux%vec_list(IVECOV_N)%vec
@@ -329,8 +352,17 @@ c     Allocate storage
         gv%aux%vec_list(ICCV)%cnv = .true.
         curlcurlv => gv%aux%vec_list(ICCV)%vec
 
-        gv%aux%vec_list(IBCNV_N)%cnv = .true.
-        bcnv_n => gv%aux%vec_list(IBCNV_N)%vec
+        eeta => gv%aux%var_list(IETA)%array
+
+        eeta_0=>gv%aux%var_list(IETA_0)%array
+
+        nuu  => gv%aux%var_list(INU )%array
+
+        psi  => gv%aux%var_list(IPSI)%array
+
+        rho_0=> gv%aux%var_list(IRHO_0)%array
+
+        tmp_0=> gv%aux%var_list(ITMP_0)%array
 
 #if defined(samrai)
         zeros=> gv%aux%var_list(IZRS )%array
@@ -338,11 +370,11 @@ c     Allocate storage
 
         gv%aux%vec_list(IVZRS)%cnv = .true.
         vzeros => gv%aux%vec_list(IVZRS)%vec
+#endif
 
         zeros  = 0d0
         vzeros = 0d0
         ones   = 1d0
-#endif
 
 c       Grid aliases
 
@@ -3216,6 +3248,14 @@ cc        real(8) :: max_dv_dt
 
         logical :: sym_st=.false.,save_tn
 
+        INTERFACE res
+          module procedure res_mesh,res_ijk
+        END INTERFACE
+
+        INTERFACE vis
+          module procedure vis_mesh,vis_ijk
+        END INTERFACE
+
       contains
 
 c     EOM_f
@@ -4636,9 +4676,10 @@ c     End program
 
       end function E_fld_Hall
 
-c     res
+c     res_ijk
 c     #############################################################
-      function res(i,j,k,nx,ny,nz,igx,igy,igz,field,rrr)
+      function res_ijk(i,j,k,nx,ny,nz,igx,igy,igz,field,rrr)
+     .         result(res)
 c     -------------------------------------------------------------
 c     This function computes the resistivity on the grid level
 c     igrid.
@@ -4682,11 +4723,48 @@ cc        res = eta*(1. + aa_eta*grid_params%xx(ig)**nn_eta)
 
 c     End program
 
-      end function res
+      end function res_ijk
 
-c     vis
+c     res_mesh
 c     #############################################################
-      function vis(i,j,k,nx,ny,nz,igx,igy,igz)
+      function res_mesh(nx,ny,nz,igx,igy,igz,field,rrr) result(rsvty)
+c     -------------------------------------------------------------
+c     This function computes the resistivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz
+      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
+     .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
+
+      real(8),optional :: rrr
+
+c     Local variables
+
+      integer :: i,j,k
+
+c     Begin program
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            rsvty(i,j,k)=res_ijk(i,j,k,nx,ny,nz,igx,igy,igz,psi
+     .                          ,rrr=rrr)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end function res_mesh
+
+c     vis_ijk
+c     #############################################################
+      function vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz) result(vis)
 c     -------------------------------------------------------------
 c     This function computes the viscosity on the grid level
 c     igrid.
@@ -4720,7 +4798,40 @@ c     Begin program
 
 c     End program
 
-      end function vis
+      end function vis_ijk
+
+c     vis_mesh
+c     #############################################################
+      function vis_mesh(nx,ny,nz,igx,igy,igz) result(vsty)
+c     -------------------------------------------------------------
+c     This function computes the resistivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz
+      real(8) :: vsty(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer :: i,j,k
+
+c     Begin program
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            vsty(i,j,k) = vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz)
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end function vis_mesh
 
 c     hres
 c     ###############################################################
