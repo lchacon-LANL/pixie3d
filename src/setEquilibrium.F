@@ -3991,7 +3991,7 @@ cc#endif
 
         bth_avg = I0/2/pi/xmax
 
-        b_pol = 2*p00*pprof(0,0)/bth_avg**2
+        b_pol = 2*p00*pprof(0d0,0)/bth_avg**2
 
         !Toroidal beta
 #if defined (petsc)
