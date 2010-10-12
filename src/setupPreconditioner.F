@@ -316,9 +316,9 @@ c###################################################################
 
 c     Deallocate variables
 
-#if defined(samrai)
-      call deallocAuxVariables
-#endif
+cc#if defined(samrai)
+cc      call deallocAuxVariables
+cc#endif
 
 cc      call deallocateDerivedType(varray)
 
