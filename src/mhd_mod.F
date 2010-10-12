@@ -93,7 +93,7 @@ c ######################################################################
 
         integer, parameter :: IENI    =16
      .                       ,IEH     =17
-     .                       ,IENI0   =25
+     .                       ,IENI_0  =25
 
         integer, parameter :: IDIVPI  =18
      .                       ,IDIVPE  =19
@@ -245,131 +245,133 @@ c ######################################################################
 
 c     allocAuxVariables
 c     ###################################################################
-      subroutine allocAuxVariables
+      subroutine allocAuxVariables(vaux)
 
 c     -------------------------------------------------------------------
 c     Allocates auxiliary variable storage.
 c     -------------------------------------------------------------------
 
-      implicit none
+        implicit none
+
+        type(aux_array),pointer :: vaux
 
 c     Begin program
 
 c     Allocate storage
 
-        if (.not.associated(gv%aux)) then
-          call allocateAuxStruct(NAUXS,NAUXV,gv%aux)
+        if (.not.associated(vaux)) then
+          call allocateAuxStruct(NAUXS,NAUXV,vaux)
         endif
 
-        gv%aux%vec_list(IBCNV)%cnv = .true.
-        bcnv => gv%aux%vec_list(IBCNV)%vec
+        vaux%vec_list(IBCNV)%cnv = .true.
+        bcnv => vaux%vec_list(IBCNV)%vec
 
-        gv%aux%vec_list(IBCNV_0)%cnv = .true.
-        bcnv_0 => gv%aux%vec_list(IBCNV_0)%vec
+        vaux%vec_list(IBCNV_0)%cnv = .true.
+        bcnv_0 => vaux%vec_list(IBCNV_0)%vec
 
-        gv%aux%vec_list(IBCNV_N)%cnv = .true.
-        bcnv_n => gv%aux%vec_list(IBCNV_N)%vec
+        vaux%vec_list(IBCNV_N)%cnv = .true.
+        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
-        gv%aux%vec_list(IBCOV)%cnv = .false.
-        bcov => gv%aux%vec_list(IBCOV)%vec
+        vaux%vec_list(IBCOV)%cnv = .false.
+        bcov => vaux%vec_list(IBCOV)%vec
 
-        gv%aux%vec_list(IBCOV_0)%cnv = .false.
-        bcov_0 => gv%aux%vec_list(IBCOV_0)%vec
+        vaux%vec_list(IBCOV_0)%cnv = .false.
+        bcov_0 => vaux%vec_list(IBCOV_0)%vec
 
-        gv%aux%vec_list(IJCNV)%cnv = .true.
-        jcnv => gv%aux%vec_list(IJCNV)%vec
+        vaux%vec_list(IJCNV)%cnv = .true.
+        jcnv => vaux%vec_list(IJCNV)%vec
 
-        gv%aux%vec_list(IJCNV_0)%cnv = .true.
-        jcnv_0 => gv%aux%vec_list(IJCNV_0)%vec
+        vaux%vec_list(IJCNV_0)%cnv = .true.
+        jcnv_0 => vaux%vec_list(IJCNV_0)%vec
 
-        gv%aux%vec_list(IJCNV_N)%cnv = .true.
-        jcnv_n => gv%aux%vec_list(IJCNV_N)%vec
+        vaux%vec_list(IJCNV_N)%cnv = .true.
+        jcnv_n => vaux%vec_list(IJCNV_N)%vec
 
-        gv%aux%vec_list(IJCOV)%cnv = .false.
-        jcov => gv%aux%vec_list(IJCOV)%vec
+        vaux%vec_list(IJCOV)%cnv = .false.
+        jcov => vaux%vec_list(IJCOV)%vec
 
-        gv%aux%vec_list(IJCOV_0)%cnv = .false.
-        jcov_0 => gv%aux%vec_list(IJCOV_0)%vec
+        vaux%vec_list(IJCOV_0)%cnv = .false.
+        jcov_0 => vaux%vec_list(IJCOV_0)%vec
 
-        gv%aux%vec_list(IVCNV)%cnv = .true.
-        vcnv => gv%aux%vec_list(IVCNV)%vec
+        vaux%vec_list(IVCNV)%cnv = .true.
+        vcnv => vaux%vec_list(IVCNV)%vec
 
-        gv%aux%vec_list(IVCNV_0)%cnv = .true.
-        vcnv_0 => gv%aux%vec_list(IVCNV_0)%vec
+        vaux%vec_list(IVCNV_0)%cnv = .true.
+        vcnv_0 => vaux%vec_list(IVCNV_0)%vec
 
-        gv%aux%vec_list(IVCNV_N)%cnv = .true.
-        vcnv_n => gv%aux%vec_list(IVCNV_N)%vec
+        vaux%vec_list(IVCNV_N)%cnv = .true.
+        vcnv_n => vaux%vec_list(IVCNV_N)%vec
 
-        gv%aux%vec_list(IVCOV)%cnv = .false.
-        vcov => gv%aux%vec_list(IVCOV)%vec
+        vaux%vec_list(IVCOV)%cnv = .false.
+        vcov => vaux%vec_list(IVCOV)%vec
 
-        gv%aux%vec_list(IVCOV_N)%cnv = .false.
-        vcov_n => gv%aux%vec_list(IVCOV_N)%vec
+        vaux%vec_list(IVCOV_N)%cnv = .false.
+        vcov_n => vaux%vec_list(IVCOV_N)%vec
 
 #if defined(vec_pot)
-        gv%aux%vec_list(IACNV)%cnv = .true.
-        acnv => gv%aux%vec_list(IACNV)%vec
+        vaux%vec_list(IACNV)%cnv = .true.
+        acnv => vaux%vec_list(IACNV)%vec
 
-        gv%aux%vec_list(IACOV)%cnv = .false.
-        acov => gv%aux%vec_list(IACOV)%vec
+        vaux%vec_list(IACOV)%cnv = .false.
+        acov => vaux%vec_list(IACOV)%vec
 
-        gv%aux%vec_list(IACOV_0)%cnv = .false.
-        acov_0 => gv%aux%vec_list(IACOV_0)%vec
+        vaux%vec_list(IACOV_0)%cnv = .false.
+        acov_0 => vaux%vec_list(IACOV_0)%vec
 #endif
-        gv%aux%vec_list(IVECNV)%cnv = .true.
-        vecnv => gv%aux%vec_list(IVECNV)%vec
+        vaux%vec_list(IVECNV)%cnv = .true.
+        vecnv => vaux%vec_list(IVECNV)%vec
 
-        gv%aux%vec_list(IVECNV_0)%cnv = .true.
-        vecnv_0 => gv%aux%vec_list(IVECNV_0)%vec
+        vaux%vec_list(IVECNV_0)%cnv = .true.
+        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
 
-        gv%aux%vec_list(IVECOV)%cnv = .false.
-        vecov => gv%aux%vec_list(IVECOV)%vec
+        vaux%vec_list(IVECOV)%cnv = .false.
+        vecov => vaux%vec_list(IVECOV)%vec
 
-        gv%aux%vec_list(IVECOV_N)%cnv = .false.
-        vecov_n => gv%aux%vec_list(IVECOV_N)%vec
+        vaux%vec_list(IVECOV_N)%cnv = .false.
+        vecov_n => vaux%vec_list(IVECOV_N)%vec
 
-        gv%aux%vec_list(IENI)%cnv = .false.
-        E_ni => gv%aux%vec_list(IENI)%vec
+        vaux%vec_list(IENI)%cnv = .false.
+        E_ni => vaux%vec_list(IENI)%vec
 
-        gv%aux%vec_list(IENI_0)%cnv = .false.
-        E_ni_0 => gv%aux%vec_list(IENI_0)%vec
+        vaux%vec_list(IENI_0)%cnv = .false.
+        E_ni_0 => vaux%vec_list(IENI_0)%vec
 
-        gv%aux%vec_list(IEH)%cnv = .false.
-        E_h => gv%aux%vec_list(IEH)%vec
+        vaux%vec_list(IEH)%cnv = .false.
+        E_h => vaux%vec_list(IEH)%vec
 
-        gv%aux%vec_list(IDIVPI)%cnv = .true.
-        div_pi => gv%aux%vec_list(IDIVPI)%vec
+        vaux%vec_list(IDIVPI)%cnv = .true.
+        div_pi => vaux%vec_list(IDIVPI)%vec
 
-        gv%aux%vec_list(IDIVPE)%cnv = .true.
-        div_pe => gv%aux%vec_list(IDIVPE)%vec
+        vaux%vec_list(IDIVPE)%cnv = .true.
+        div_pe => vaux%vec_list(IDIVPE)%vec
 
-        gv%aux%vec_list(IBHAT)%cnv = .true.
-        bhat => gv%aux%vec_list(IBHAT)%vec
+        vaux%vec_list(IBHAT)%cnv = .true.
+        bhat => vaux%vec_list(IBHAT)%vec
 
-        gv%aux%vec_list(IPCNV)%cnv = .true.
-        pcnv => gv%aux%vec_list(IPCNV)%vec
+        vaux%vec_list(IPCNV)%cnv = .true.
+        pcnv => vaux%vec_list(IPCNV)%vec
 
-        gv%aux%vec_list(ICCV)%cnv = .true.
-        curlcurlv => gv%aux%vec_list(ICCV)%vec
+        vaux%vec_list(ICCV)%cnv = .true.
+        curlcurlv => vaux%vec_list(ICCV)%vec
 
-        eeta => gv%aux%var_list(IETA)%array
+        eeta => vaux%var_list(IETA)%array
 
-        eeta_0=>gv%aux%var_list(IETA_0)%array
+        eeta_0=>vaux%var_list(IETA_0)%array
 
-        nuu  => gv%aux%var_list(INU )%array
+        nuu  => vaux%var_list(INU )%array
 
-        psi  => gv%aux%var_list(IPSI)%array
+        psi  => vaux%var_list(IPSI)%array
 
-        rho_0=> gv%aux%var_list(IRHO_0)%array
+        rho_0=> vaux%var_list(IRHO_0)%array
 
-        tmp_0=> gv%aux%var_list(ITMP_0)%array
+        tmp_0=> vaux%var_list(ITMP_0)%array
 
 #if defined(samrai)
-        zeros=> gv%aux%var_list(IZRS )%array
-        ones => gv%aux%var_list(IONES)%array
+        zeros=> vaux%var_list(IZRS )%array
+        ones => vaux%var_list(IONES)%array
 
-        gv%aux%vec_list(IVZRS)%cnv = .true.
-        vzeros => gv%aux%vec_list(IVZRS)%vec
+        vaux%vec_list(IVZRS)%cnv = .true.
+        vzeros => vaux%vec_list(IVZRS)%vec
 #endif
 
 c       Grid aliases
@@ -394,19 +396,65 @@ c     End program
 
 c     deallocAuxVariables
 c     ###################################################################
-      subroutine deallocAuxVariables
+      subroutine deallocAuxVariables(vaux)
 
 c     -------------------------------------------------------------------
 c     Deallocates auxiliary variable storage.
 c     -------------------------------------------------------------------
 
+      type(aux_array),pointer :: vaux
+
 c     Begin program
 
-c     Allocate storage
+c     Deallocate storage
 
 #if !defined(samrai)
-      call deallocateAuxStruct(gv%aux)
+      call deallocateAuxStruct(vaux)
 #endif
+
+      nullify(bcnv
+     .       ,bcnv_0
+     .       ,bcnv_n
+     .       ,bcov
+     .       ,bcov_0
+     .       ,jcnv
+     .       ,jcnv_0
+     .       ,jcnv_n
+     .       ,jcov
+     .       ,jcov_0
+     .       ,vcnv
+     .       ,vcnv_0
+     .       ,vcnv_n
+     .       ,vcov
+     .       ,vcov_n
+#if defined(vec_pot)
+     .       ,acnv
+     .       ,acov
+     .       ,acov_0
+#endif
+     .       ,vecnv
+     .       ,vecnv_0
+     .       ,vecov
+     .       ,vecov_n
+     .       ,E_ni
+     .       ,E_ni_0
+     .       ,E_h
+     .       ,div_pi
+     .       ,div_pe
+     .       ,bhat
+     .       ,pcnv
+     .       ,curlcurlv
+     .       ,eeta
+     .       ,eeta_0
+     .       ,nuu
+     .       ,psi
+     .       ,rho_0
+     .       ,tmp_0
+#if defined(samrai)
+     .       ,zeros
+     .       ,vzeros
+#endif
+     .       ,xx,yy,zz,dxh,dyh,dzh,dx,dy,dz)
 
 c     End program
 
