@@ -126,7 +126,9 @@ cc            advective = '   TVD'
             write(*,115) itime,time,dt,vmax
           else
             write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+#if !defined(vec_pot)
      .                  ,it_divcl
+#endif
           endif
 
         endif
@@ -146,15 +148,21 @@ c End program
      .        /,'  Advection scheme..........',a
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
+#if defined(vec_pot)
+     .        '  GMRES  Newton  CN factor')
+#else
      .        '  GMRES  Newton  CN factor  GMRES-DC')
+#endif
  105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
 
-cc#if defined(RFX)
+#if defined(vec_pot)
+ 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3)
+#else
  110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3,3x,i6)
+#endif
+
  115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
-cc#else
-cc 110  format (i7,f9.3,1x,1p,e8.1,1x,0p,3f7.3,2i6,3x,f7.3)
-cc#endif
+
       contains
 
 c     #################################################################
