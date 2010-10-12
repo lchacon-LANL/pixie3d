@@ -21,12 +21,11 @@ c Begin program
 c Auxiliary variables
 
 #if !defined(samrai)
-      call allocAuxVariables
+      call allocAuxVariables(gv%aux)
 
 c Preconditioner
 
       call allocPrecVariables
-
 #endif
 
 c     End programs
@@ -54,7 +53,7 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-      call deallocAuxVariables
+      call deallocAuxVariables(gv%aux)
 
       call deallocPrecVariables
 #endif
