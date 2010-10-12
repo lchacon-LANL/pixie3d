@@ -42,8 +42,6 @@ c Local variables
       real(8)    :: dh,vmax,cnv(3),cov(3),minrho,mintmp,lrmin,ltmin
      .             ,x1,y1,z1,bnorm
 
-      real(8),allocatable,dimension(:,:,:,:) :: vdum2
-
 c Interfaces
 
 #if !defined (samrai)
@@ -83,13 +81,12 @@ c Set aliases
 c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
-cc      save_tn = (jit < 0)
       save_tn = old_time_eval .or. source_eval
       save_Bn = (save_tn .and. lag_pinch_bc)  !Initialize Bn when processing source
 
       call imposeBoundaryConditions(varray,igx,igy,igz)
 #else
-      call allocAuxVariables
+      call allocAuxVariables(gv%aux)
 #endif
 
 c Safeguards
@@ -147,111 +144,6 @@ c Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
         enddo
       endif
 
-c Electron velocity
-
-cc#if defined(vec_pot)
-cc      if (di > 0d0) then
-cc        vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
-cc        vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
-cc        vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
-cc
-cc        vecov(:,:,:,1) = vcov(:,:,:,1)-di*jcov(:,:,:,1)/rho
-cc        vecov(:,:,:,2) = vcov(:,:,:,2)-di*jcov(:,:,:,2)/rho
-cc        vecov(:,:,:,3) = vcov(:,:,:,3)-di*jcov(:,:,:,3)/rho
-cc      else
-cc        vecnv = vcnv
-cc        vecov = vcov
-cc      endif
-cc#endif
-
-cc      if (ion_hall .and. jit < 0) vcov_n = vcov !Store time n info
-
-cc      if (de > 0d0 .and. jit < 0) vecov_n = vecov !Store time n info
-
-c Divergence of electron stress tensor
-
-cc      if (di*heta > 0d0) then
-cc        if (ion_hall) then
-cc          if (jit == -2) vcnv_0 = vcnv !Store equilibrium info
-cc
-cc          !curlcurlv = v-di*curl(curl(-di*v))/rho
-cc          allocate(vdum2(0:nx+1,0:ny+1,0:nz+1,3))
-cc          vdum2 = -di*(vcnv-vcnv_0)
-cc
-cc          do k=1,nz
-cc            do j=1,ny
-cc              do i=1,nx
-cc                curlcurlv(i,j,k,:) = curlcurl(i,j,k,nx,ny,nz
-cc     .                                    ,igx,igy,igz,vdum2
-cc     .                                    ,vol=.false.)
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc#if defined(vec_pot)
-cc          bcnd(:,1) = u_n%array_var(IAX)%bconds
-cc          bcnd(:,2) = u_n%array_var(IAY)%bconds
-cc          bcnd(:,3) = u_n%array_var(IAZ)%bconds
-cc
-cccc          where (bcnd == -EQU) bcnd =-EXT
-cc          where (bcnd == -EQU) bcnd = EXT
-cc#else
-cc          bcnd(:,1) = u_n%array_var(IBX)%bconds
-cc          bcnd(:,2) = u_n%array_var(IBY)%bconds
-cc          bcnd(:,3) = u_n%array_var(IBZ)%bconds
-cccc          where (bcnd == -NEU) bcnd = EQU !Use covariant components for tangential BCs
-cc          where (bcnd == -NEU) bcnd = EXT
-cc#endif
-cc
-cc          call setBC(IAX,3,nx,ny,nz,curlcurlv,vdum2,vzeros,bcnd
-cc     .              ,igx,igy,igz,iorder=2,is_cnv=.true.)
-cc
-cccc          curlcurlv(:,:,:,1) = vcnv(:,:,:,1)-di*curlcurlv(:,:,:,1)/rho
-cccc          curlcurlv(:,:,:,2) = vcnv(:,:,:,2)-di*curlcurlv(:,:,:,2)/rho
-cccc          curlcurlv(:,:,:,3) = vcnv(:,:,:,3)-di*curlcurlv(:,:,:,3)/rho
-cc
-cc          curlcurlv(:,:,:,1) = -di*curlcurlv(:,:,:,1)/rho
-cc          curlcurlv(:,:,:,2) = -di*curlcurlv(:,:,:,2)/rho
-cc          curlcurlv(:,:,:,3) = -di*curlcurlv(:,:,:,3)/rho
-cc
-cc          deallocate(vdum2)
-cc        else
-cc          if (jit == -2) vecnv_0 = vecnv !Store equilibrium info
-cc
-cc          curlcurlv = vecnv - vecnv_0
-cc        endif
-cc
-cc        do k=1,nz
-cc          do j=1,ny
-cc            do i=1,nx
-cc              div_pe(i,j,k,:)=EOM_divPe(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                 ,curlcurlv)
-cc            enddo
-cc          enddo
-cc        enddo
-cc      else
-cc        div_pe = 0d0
-cc      endif
-cc
-ccc Electric field (covariant vector)
-cc
-cc#if defined(vec_pot)
-cc      call find_E(nx,ny,nz,igx,igy,igz,E_ni)
-cc#endif
-
-cc      write (*,*) 'DIAG -- setupNLF'
-cc        open(unit=110,file='debug.bin',form='unformatted'
-cc     .     ,status='replace')
-cc        call contour(E_ni(0:nx+1,0:ny+1,1,1),nx+2,ny+2,0d0,1d0
-cc     .              ,0d0,1d0,0,110)
-cc        call contour(E_ni(0:nx+1,0:ny+1,1,2),nx+2,ny+2,0d0,1d0
-cc     .              ,0d0,1d0,1,110)
-cc        call contour(E_ni(0:nx+1,0:ny+1,1,3),nx+2,ny+2,0d0,1d0
-cc     .              ,0d0,1d0,1,110)
-cc
-cccc        stop
-cc        close(110)
-
 c Other auxiliary variables
 
       pcnv(:,:,:,1) = px
@@ -279,9 +171,7 @@ c Local variables
 
 c Begin program
 
-#if defined(samrai)
-      call deallocAuxVariables
-#endif
+cc      call deallocAuxVariables(gv%aux)
 
 c End program
 
