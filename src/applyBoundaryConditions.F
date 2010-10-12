@@ -215,6 +215,10 @@ c     Local variables
 
 c     Begin program
 
+      !Equilibrium density and temperature
+      gv%aux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
+      gv%aux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
+
       !Flow
       gv%aux%vec_list(IVCNV)%bconds(:,1) = bcs(:,IVX)
       gv%aux%vec_list(IVCNV)%bconds(:,2) = bcs(:,IVY)
@@ -330,7 +334,7 @@ c     End program
 
 c applybc
 c######################################################################
-      subroutine applybc(igrp,patch_var, it)
+      subroutine applybc(igrp,patch_var,it)
 
 c----------------------------------------------------------------------
 c     Applies the boundary conditions for SAMRAI
@@ -353,20 +357,16 @@ c Call variables
 
 c Local variables
 
-      integer :: order
       integer :: i
-      type(var_array),pointer :: varray
-      type(aux_array),pointer :: vaux
+      type(var_array),pointer :: varray => null()
 
 c Interfaces
 
       INTERFACE
-        subroutine applyDepVarBC(bc_inf,varray,vaux,iigx,iigy,iigz
-     .                          ,order)
+        subroutine applyDepVarBC(bc_inf,varray,iigx,iigy,iigz,order)
           use variable_setup
           integer    :: iigx,iigy,iigz,bc_inf(2)
           type(var_array),pointer :: varray
-          type(aux_array),pointer :: vaux
           integer,optional :: order
         end subroutine applyDepVarBC
       END INTERFACE
@@ -382,15 +382,17 @@ c Interfaces
         end subroutine applyAuxVarBC
       END INTERFACE
 
-      INTERFACE
-         subroutine setup_app_BC(it)
-         use local_BCS_variables
-         implicit none
-         integer :: it
-         end subroutine setup_app_BC
-      END INTERFACE
+cc      INTERFACE
+cc         subroutine setup_app_BC(it)
+cc         use local_BCS_variables
+cc         implicit none
+cc         integer :: it
+cc         end subroutine setup_app_BC
+cc      END INTERFACE
 
 c Begin program
+
+c Setup pointers
 
       gv => patch_var
       grid_params => gv%gparams
@@ -398,83 +400,77 @@ c Begin program
       call setVectorDimensions
 
       varray => gv%u_n
-      vaux   => gv%aux
       u_0    => gv%u_0
 
-c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
+c Set application BCs
 
-      order = bc_order     
+cc      10/20/2010: I don't think this call is needed, since it seems to be 
+cc      called stand-alone by the SAMRAI driver before this routine
+cc      (and initializeAuxVar below, which also needs it).
+cc
+cc      call setupVariableInitializationSequence(gv,it)
 
-c Set application BCs (see imposeBC_mod.F)
+c Allocate auxiliary variables
 
-      call setup_app_BC(it)
+      call allocAuxVariables(gv%aux)
 
 c Set boundary conditions
 
-c$$$      do igrp = 1,gv%nbc_grp
-c$$$        !Fill auxiliary quantities
-c$$$        do i = 1,gv%bc_grp(igrp)%nbc_seq
-c$$$          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
-c$$$            call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
-c$$$     .                         ,gv%aux,iigx,iigy,iigz,order=order)
-c$$$          endif
-c$$$        enddo
-c$$$
-        !Impose BCs on group
-        do i = 1,gv%bc_grp(igrp)%nbc_seq
-          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variable
-             call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,vaux, 
-     .       1,1,1,order=order)
-          elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
-             call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,vaux,
-     .       1,1,1,order=order)
-          endif
-        enddo
+      !Impose BCs on group
+      do i = 1,gv%bc_grp(igrp)%nbc_seq
+        if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then !Process dep. variable
+          call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .                      ,1,1,1,order=bc_order)
+        elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
+          call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
+     .                      ,1,1,1,order=bc_order)
+        endif
+      enddo
+
+c Nullify aux pointers
+
+      call deallocAuxVariables(gv%aux)
 
 c End program
 
       end subroutine applybc
 
-c####################################################
-c     fills aux var array
-      subroutine initializeAuxVar(patch_var, igrp)
+c initializeAuxVar
+c######################################################################
+      subroutine initializeAuxVar(patch_var,igrp)
+
+c----------------------------------------------------------------------
+c     Fills auxiliary variable arrays
+c----------------------------------------------------------------------
 
       use local_BCS_variables
-cc      use imposeBCinterface
-cc      use auxiliaryVariables
       use parameters
       use grid
       use variable_setup
-c diag ****
-cc      use app_iosetup
 
       implicit none
 
+c Call variables
+
       type(patch), TARGET :: patch_var
       integer:: igrp,i
-      integer :: order
 
-      type(var_array),pointer :: varray
-      type(aux_array),pointer :: vaux
+c Local variables
+
+      type(var_array),pointer :: varray => null()
 
       INTERFACE
       subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
-               use local_BCS_variables
-               use imposeBCinterface
-               use auxiliaryVariables
-               use variable_setup
-c diag ****
-               use app_iosetup
-c diag ****
-               implicit none
-               
-               integer    :: iigx,iigy,iigz,bc_inf(2)             
-               type(var_array),pointer :: varray
-               type(aux_array),pointer :: vaux               
-               integer,optional :: order
-
+        integer    :: iigx,iigy,iigz,bc_inf(2)             
+        type(var_array),pointer :: varray
+        type(aux_array),pointer :: vaux               
+        integer,optional :: order
        end subroutine preproc_AuxVar
       END INTERFACE
+
+c Begin program
+
+c Setup pointers
 
       gv => patch_var
       grid_params => gv%gparams
@@ -482,25 +478,58 @@ c diag ****
       call setVectorDimensions
 
       varray => gv%u_n
-      vaux   => gv%aux
       u_0    => gv%u_0
 
-c Order of extrapolation in BCs (bc_order defined in imposeBC_mod.F)
+      call allocAuxVariables(gv%aux)
 
-#if defined(samrai)
-      call allocAuxVariables
-#endif
-
-      order = bc_order
+c Fill auxiliary variable arrays
 
       do i = 1,gv%bc_grp(igrp)%nbc_seq
-         if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
-            call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
-     .           ,vaux,1,1,1,order=order)
-         endif
+        if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
+          call preproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .                       ,gv%aux,1,1,1,order=bc_order)
+        endif
       enddo
-      
+
+c Nullify pointers
+
+      call deallocAuxVariables(gv%aux)
+
       end subroutine initializeAuxVar
+
+c setupVariableInitializationSequence
+c #####################################################################
+      subroutine setupVariableInitializationSequence(patch_var,it)
+c ---------------------------------------------------------------------
+c     Sets up application BC for SAMRAI
+c ---------------------------------------------------------------------
+
+      use parameters
+      use grid
+      use variable_setup
+      use local_BCS_variables
+
+      implicit none
+
+c Call variables
+
+      integer :: it
+
+      type(patch), TARGET :: patch_var
+
+c Local variables
+
+c Begin program
+
+      gv => patch_var
+
+c Set BC schedule (see imposeBC_mod.F)
+
+      call setBCsched(it)
+
+c End program
+
+      end subroutine setupVariableInitializationSequence
 
 #else
 
@@ -535,12 +564,10 @@ c Local variables
 c Interfaces
 
       INTERFACE
-        subroutine applyDepVarBC(bc_inf,varray,vaux,iigx,iigy,iigz
-     .                          ,order)
+        subroutine applyDepVarBC(bc_inf,varray,iigx,iigy,iigz,order)
           use variable_setup
           integer    :: iigx,iigy,iigz,bc_inf(2)
           type(var_array),pointer :: varray
-          type(aux_array),pointer :: vaux
           integer,optional :: order
         end subroutine applyDepVarBC
       END INTERFACE
@@ -577,7 +604,11 @@ c Begin program
 
 c Set application BCs (see imposeBC_mod.F)
 
-      call setup_app_BC(itime)
+      call setBCsched(itime)
+
+c Allocate auxiliary variables
+
+      call allocAuxVariables(gv%aux)
 
 c Impose BCs
 
@@ -593,8 +624,8 @@ c Impose BCs
         !Impose BCs on group
         do i = 1,gv%bc_grp(igrp)%nbc_seq
           if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then     !Process dep. variables
-            call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
-     .                      ,iigx,iigy,iigz,order=order)
+            call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .                        ,iigx,iigy,iigz,order=order)
           elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variables
             call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
      .                      ,iigx,iigy,iigz,order=order)
@@ -609,7 +640,7 @@ c End program
 
 c applyDepVarBC
 c####################################################################
-      subroutine applyDepVarBC(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+      subroutine applyDepVarBC(bc_inf,varray,iigx,iigy,iigz,order)
 c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
@@ -629,7 +660,6 @@ c Call variables
       integer :: iigx,iigy,iigz,bc_inf(2)
 
       type(var_array),pointer :: varray
-      type(aux_array),pointer :: vaux
 
       integer,optional :: order
 
@@ -664,21 +694,21 @@ c     Density BCs
      .            ,iigx,iigy,iigz,iorder=order)
 
 #if defined(vec_pot)
-      case(IAX)
+      case(IAX,IAY,IAZ)
 
         varray%array_var(IAX)%array = acov(:,:,:,1)
         varray%array_var(IAY)%array = acov(:,:,:,2)
         varray%array_var(IAZ)%array = acov(:,:,:,3)
 
 #else
-      case(IBX)
+      case(IBX,IBY,IBZ)
 
         varray%array_var(IBX)%array = bcnv(:,:,:,1)
         varray%array_var(IBY)%array = bcnv(:,:,:,2)
         varray%array_var(IBZ)%array = bcnv(:,:,:,3)
 #endif
 
-      case(IVX)
+      case(IVX,IVY,IVZ)
 
         if (.not.nc_eom_v) then
           varray%array_var(IVX)%array = vcnv(:,:,:,1)
@@ -779,13 +809,13 @@ c Select variable
 c       Density BCs
 
           if (bc_inf(2) /= SCALAR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .                ,'Inconsistent qty def: should be scalar (0)')
           endif
 
           call setBC(IRHO,nnx,nny,nnz,rho_0
      .              ,u_0%array_var(IRHO)%array
-     .              ,u_0%array_var(IRHO)%bconds
+     .              ,vaux%var_list(IRHO_0)%bconds
      .              ,iigx,iigy,iigz,iorder=order)
 
         case(ITMP_0)
@@ -793,13 +823,13 @@ c       Density BCs
 c       Temperature BCs
 
           if (bc_inf(2) /= SCALAR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .                ,'Inconsistent qty def: should be scalar (0)')
           endif
 
           call setBC(ITMP,nnx,nny,nnz,tmp_0
      .              ,u_0%array_var(ITMP)%array
-     .              ,u_0%array_var(ITMP)%bconds
+     .              ,vaux%var_list(ITMP_0)%bconds
      .              ,iigx,iigy,iigz,iorder=order)
 
         case default
@@ -875,7 +905,10 @@ c         Fill ghost nodes
           v0 = 0d0
 
           call setBC(IAX,3,nnx,nny,nnz,acnv,acov_0,v0,bcnd
-     .              ,iigx,iigy,iigz,is_cnv=.false.,iorder=2)
+     .              ,iigx,iigy,iigz
+cc     .              ,is_cnv=.false.
+     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
+     .              ,iorder=2)
 #endif
 
         case(IBCOV_0)
@@ -887,7 +920,10 @@ c         Fill ghost nodes
           v0 = 0d0
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0,bcnd
-     .              ,iigx,iigy,iigz,is_cnv=.true.,iorder=2)
+     .              ,iigx,iigy,iigz
+cc     .              ,is_cnv=.true.
+     .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
+     .              ,iorder=2)
 
         case(IJCOV_0)
 
@@ -900,7 +936,10 @@ c       Current BC
           v0 = 0d0
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
-     .              ,iigx,iigy,iigz,is_cnv=.true.,iorder=1)
+     .              ,iigx,iigy,iigz
+cc     .              ,is_cnv=.true.
+     .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
+     .              ,iorder=1)
 
         case(IJCNV_N)
 
@@ -911,10 +950,6 @@ c       Current BC
         case(IVCOV_N)
 
           if (save_tn .and. ion_hall) vcov_n = vcov
-cc          if (save_tn .and. ion_hall) then
-cc            vcov_n  = vcov
-cc            vcov_nm = vcov_n
-cc          endif
 
         case(IVCNV_N)
 
@@ -925,7 +960,7 @@ cc          endif
 c       Velocity BC
 
           if (bc_inf(2) /= VECTOR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .                ,'Inconsistent qty def: should be vector (1)')
           endif
 
@@ -957,7 +992,7 @@ c         Fill ghost nodes
 c       Velocity BC
 
           if (bc_inf(2) /= VECTOR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .                ,'Inconsistent qty def: should be vector (1)')
           endif
 
@@ -991,15 +1026,17 @@ c         Fill ghost nodes
 c       Vector Pot. BC
 
           if (bc_inf(2) /= VECTOR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .                ,'Inconsistent qty def: should be vector (1)')
           endif
 
 c         BC setup
 
-          bcnd(:,1) = varray%array_var(IAX)%bconds
-          bcnd(:,2) = varray%array_var(IAY)%bconds
-          bcnd(:,3) = varray%array_var(IAZ)%bconds
+          bcnd = vaux%vec_list(IACOV)%bconds
+
+cc          bcnd(:,1) = varray%array_var(IAX)%bconds
+cc          bcnd(:,2) = varray%array_var(IAY)%bconds
+cc          bcnd(:,3) = varray%array_var(IAZ)%bconds
 
           v0(:,:,:,1) = u_0%array_var(IAX)%array
           v0(:,:,:,2) = u_0%array_var(IAY)%array
@@ -1008,41 +1045,40 @@ c         BC setup
 c         Fill ghost nodes
 
           call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0,bcnd,iigx,iigy,iigz
-     .              ,is_cnv=.false.,iorder=order)
+     .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
         case(IACNV)
 
-        case(IBCNV)
-         
-          bcnd = vaux%vec_list(IBCNV)%bconds
-
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-            if (lag_pinch_bc) then
-             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
-     .                      ,first_order=.true.)
-            else
-             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
-     .                      ,first_order=.true.)
-            endif
-          else
-            v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
-          endif
-
-          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
-     .              ,iigx,iigy,iigz,iorder=order)
-#else
+cc        case(IBCNV)
+cc         
+cc          bcnd = vaux%vec_list(IBCNV)%bconds
+cc
+cc          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+cc            if (lag_pinch_bc) then
+cc             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+cc     .                      ,first_order=.true.)
+cc            else
+cc             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+cc     .                      ,first_order=.true.)
+cc            endif
+cc          else
+cc            v0 = jcnv_0         !To fix current at boundary (average performed in BC routine)
+cc          endif
+cc
+cc          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd
+cc     .              ,iigx,iigy,iigz,iorder=order)
+cc#else
+#endif
         case(IBCNV)
 
 c       Magnetic field BC
 
           if (bc_inf(2) /= VECTOR) then
-            call pstop('applyDepVarBC'
+            call pstop('applyAuxVarBC'
      .              ,'Inconsistent qty def: should be vector (1)')
           endif
 
-          bcnd(:,1) = varray%array_var(IBX)%bconds
-          bcnd(:,2) = varray%array_var(IBY)%bconds
-          bcnd(:,3) = varray%array_var(IBZ)%bconds
+          bcnd = vaux%vec_list(IBCNV)%bconds
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
@@ -1055,14 +1091,14 @@ c       Magnetic field BC
             endif
 
           else
-            v0 = jcnv_0         !To fix current at boundary
+            v0 = vaux%vec_list(IJCNV_0)%vec         !To fix current at boundary
           endif
 
 c       Fill ghost nodes
 
-        call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
-     .            ,iorder=order)
-#endif
+          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0,bcnd,iigx,iigy,iigz
+     .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+cc#endif
         case(IBCOV)
 
         case(IBCNV_N)
@@ -1096,7 +1132,8 @@ c       Electron velocity BC
 
             bcnd = vaux%vec_list(IVECNV)%bconds
             call setBC(IJX,3,nnx,nny,nnz,vecnv,vdum,v0,bcnd
-     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.true.)
+     .                ,iigx,iigy,iigz,iorder=order
+     .                ,is_cnv=vaux%vec_list(IVECNV)%cnv)
 
             vecnv = vecnv + jcnv_n
 
@@ -1105,42 +1142,31 @@ c       Electron velocity BC
             vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*vecnv(:,:,:,3)/rho
           endif
 
+#if !defined(vec_pot)
         case(IDIVPI)
 
-#if !defined(vec_pot)
           if (di > 0d0.and.ion_hall) then
             bcnd = vaux%vec_list(IDIVPI)%bconds !A BCs with extrapolation
 
             call setBC(IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
-     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.true.)
+     .                ,iigx,iigy,iigz,iorder=order
+     .                ,is_cnv=vaux%vec_list(IDIVPI)%cnv)
           endif
 #endif
 
+#if !defined(vec_pot)
         case(IDIVPE)
 
-#if !defined(vec_pot)
           if (di > 0d0.and.(.not.ion_hall)) then
             bcnd = vaux%vec_list(IDIVPE)%bconds !A BCs with extrapolation
 
             call setBC(IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
-     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.true.)
+     .                ,iigx,iigy,iigz,iorder=order
+     .                ,is_cnv=vaux%vec_list(IDIVPE)%cnv)
           endif
 #endif
 
         case(IENI_0)
-
-c       Electric field BC (time=0)
-
-cc          if (di > 0d0) then
-cc#if !defined(vec_pot)
-cc            bcnd = vaux%vec_list(IENI_0)%bconds !A BCs with extrapolation
-cc            v0   = 0d0
-cc            vdum = 0d0
-cc            call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
-cc     .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
-cc#endif
-cc            E_ni_0 = E_ni_0 + di*E_h
-cc          endif
 
         case(IENI)
 
@@ -1250,9 +1276,7 @@ c       Resistivity and viscosity (needed for BCs; may depend on T)
 c       Find hyperresistivity (electron viscosity)
 
           if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
-cc            rho => varray%array_var(IRHO)%array
             heta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
-cc            nullify(rho)
           endif
 
         case(IRHO_0)
@@ -1264,7 +1288,7 @@ cc            nullify(rho)
           tmp_0 = u_0%array_var(ITMP)%array
 
         case default
-          call pstop('applyDepVarBC'
+          call pstop('applyAuxVarBC'
      .              ,'Scalar auxiliary variable does not exist')
         end select
 
@@ -1379,8 +1403,8 @@ c diag ****
 
           elseif (sum(E0) == 0d0) then
 
-            bcnd = vaux%vec_list(IJCNV_0)%bconds
-
+cc            bcnd = vaux%vec_list(IJCNV_0)%bconds
+cc
 ccc           Find B0
 cc
 cc#if defined(vec_pot)
@@ -1481,9 +1505,6 @@ c           Find J0
 
 c       Magnetic field BC (with fixed current at boundary)
 
-c          do k = 1,nnz
-c            do j = 1,nny
-c              do i = 1,nnx
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
