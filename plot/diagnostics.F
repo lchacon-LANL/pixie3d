@@ -391,16 +391,11 @@ c Code for explicit pinch flow BC
 #if defined(vec_pot)
         save_Bn = .true.
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              bcnv_n(i,j,k,:) = curl(i,j,k,nx,ny,nz,igx,igy,igz
-     .                              ,u_n%array_var(IAX)%array
-     .                              ,u_n%array_var(IAY)%array
-     .                              ,u_n%array_var(IAZ)%array)
-            enddo
-          enddo
-        enddo
+        acov(:,:,:,1) = u_n%array_var(IAX)%array
+        acov(:,:,:,2) = u_n%array_var(IAY)%array
+        acov(:,:,:,3) = u_n%array_var(IAZ)%array
+
+        bcnv_n = curl(nx,ny,nz,igx,igy,igz,acov)
 #else
         save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
 
