@@ -26,7 +26,7 @@ c Begin program
 
 c Allocate auxiliary variables
 
-      call allocAuxVariables
+      call allocAuxVariables(gv%aux)
 
 c End programs
 
@@ -55,7 +55,7 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-      call deallocAuxVariables
+      call deallocAuxVariables(gv%aux)
 #endif
 
       call deallocAuxPlotVar
