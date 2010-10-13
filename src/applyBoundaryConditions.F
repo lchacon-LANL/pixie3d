@@ -461,6 +461,7 @@ c Local variables
 
       INTERFACE
       subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+        use variable_setup
         integer    :: iigx,iigy,iigz,bc_inf(2)             
         type(var_array),pointer :: varray
         type(aux_array),pointer :: vaux               
