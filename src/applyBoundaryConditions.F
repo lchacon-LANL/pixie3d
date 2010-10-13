@@ -408,7 +408,7 @@ cc      10/20/2010: I don't think this call is needed, since it seems to be
 cc      called stand-alone by the SAMRAI driver before this routine
 cc      (and initializeAuxVar below, which also needs it).
 cc
-cc      call setupVariableInitializationSequence(gv,it)
+      call setupVariableInitializationSequence(gv,it)
 
 c Allocate auxiliary variables
 
@@ -1257,6 +1257,10 @@ c Select variable
 
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
+
+        zeros = 0d0
+        vzeros = 0d0
+        ones = 1d0
 
         select case(abs(bc_inf(1)))
         case(IETA,INU)
