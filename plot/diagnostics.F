@@ -161,11 +161,19 @@ c     read_ext_map
 c     ###############################################################
       subroutine read_ext_map
 
+        implicit none
+
         real(8),pointer,dimension(:,:,:,:) :: ext_map
 
         integer,pointer,dimension(:) :: mumap
 
+        integer :: nxg,nyg,nzg
+
 c     Begin program
+
+        nxg = grid_params%nxgl(iigx)
+        nyg = grid_params%nygl(iigy)
+        nzg = grid_params%nzgl(iigz)
 
         ierr = openFiles(my_rank,np,u_mapf,map_file,mumap)
 
@@ -174,15 +182,20 @@ c     Begin program
      .              ,'Problem reading map files')
         endif
 
-        allocate(ext_map(0:nx+1,0:ny+1,0:nz+1,3))
+c     Fill GLOBAL map
+
+        allocate(ext_map(0:nxg+1,0:nyg+1,0:nzg+1,3))
 
         do ifile=1,size(mumap)
-          ierr=readVector(mumap(ifile),ext_map,.false.)
+          ierr=readVectorFromFiles(mumap(ifile),ext_map,.false.)
         enddo
 
         call closeFiles(mumap)
 
-        call defineGridMetric(grid_params,xcar=ext_map,igr=iigx)
+c     Fill LOCAL map and related metrics
+
+        call defineGridMetric(grid_params,igr=iigx
+     .           ,xcar=ext_map(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:))
 
         deallocate(ext_map)
 
