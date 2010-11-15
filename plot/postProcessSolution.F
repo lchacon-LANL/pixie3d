@@ -409,9 +409,9 @@ c Poincare output (field tracer)
 
 c Divergence diagnostics
 
-      divrgJ = div(nx,ny,nz,igx,igy,igz,jcnv)
-      divrgB = div(nx,ny,nz,igx,igy,igz,bcnv)
-      divrgV = div(nx,ny,nz,igx,igy,igz,vcnv)
+      divrgJ = div(igx,jcnv)
+      divrgB = div(igx,bcnv)
+      divrgV = div(igx,vcnv)
 
 c Thermal pressure
 
