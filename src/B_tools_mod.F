@@ -543,7 +543,7 @@ c     Find dA from dB (w/ ghost cells)
 
       call curl_inv(nx,ny,nz,igx,igy,igz,db,da_cov)
 
-      db = curl(nx,ny,nz,igx,igy,igz,da_cov)
+      db = curl(igx,da_cov)
 
       end subroutine curl_div_clean
 
@@ -739,7 +739,7 @@ c diag ****
 
 c     Find new dB (with BCs)
 
-      db = curl(nx,ny,nz,igx,igy,igz,da_cov)
+      db = curl(igx,da_cov)
 
       if (wbcs) then
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
