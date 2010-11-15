@@ -49,9 +49,9 @@ ifdef VECPOT
 endif
 
 ifdef PER_BC_SYNC
-  ifndef BOPT
+#  ifndef BOPT
     CPPFLAGS += $(PREPROC)PER_BC_SYNC
-  endif
+#  endif
 endif
 
 # ADIOS setup
@@ -195,56 +195,38 @@ setup:
 	-for subdir in common plot tests/serial tests/parallel ; do \
 		$(MAKE) -C $$subdir setup;  done
 
-# SERIAL TESTS
+# TESTS
 
-all-serial-tests: serial-tests-a serial-tests-b
+tests: tests-a tests-b
 
-rebuild-all-serial-tests: rebuild-serial-tests-a rebuild-serial-tests-b
+rebuild-tests: rebuild-tests-a rebuild-tests-b
 
-serial-tests-a: ;
-	$(MAKE) -e -C tests/serial test-a
-
-serial-tests-b: ;
-	$(MAKE) -e -C tests/serial test-b
-
-rebuild-serial-tests-a: ;
-	$(MAKE) -e -C tests/serial rebuild-a
-
-rebuild-serial-tests-b: ;
-	$(MAKE) -e -C tests/serial rebuild-b
-
-# PARALLEL TESTS
-
-all-parallel-tests: parallel-tests-a parallel-tests-b
-
-rebuild-all-parallel-tests: rebuild-parallel-tests-a rebuild-parallel-tests-b
-
-parallel-tests-a: ;
+tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-a
 else
-	-@echo "Please, define BOPT in make command"
+	$(MAKE) -e -C tests/serial test-a
 endif
 
-parallel-tests-b: ;
+tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-b
 else
-	-@echo "Please, define BOPT in make command"
+	$(MAKE) -e -C tests/serial test-b
 endif
 
-rebuild-parallel-tests-a: ;
+rebuild-tests-a: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-a
 else
-	-@echo "Please, define BOPT in make command"
+	$(MAKE) -e -C tests/serial rebuild-a
 endif
 
-rebuild-parallel-tests-b: ;
+rebuild-tests-b: ;
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-b
 else
-	-@echo "Please, define BOPT in make command"
+	$(MAKE) -e -C tests/serial rebuild-b
 endif
 
 # CONTRIBUTED LIBRARIES
