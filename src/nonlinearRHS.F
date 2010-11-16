@@ -23,10 +23,6 @@ c-----------------------------------------------------------------
       use transport_params
       
       use operators
-      
-cc#if defined(petsc) && !defined(petsc_c) && !defined(samrai)
-cc      use nk_mod
-cc#endif
 
       implicit none
 
@@ -43,19 +39,17 @@ c Local variables
       integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: ieq,nx,ny,nz
 
-      real(8)    :: cnv(3),cov(3),kappa,vlap1(3),vlap2(3),nabla_v(3,3)
-     .             ,cov_tnsr(3,3),cnv_tnsr(3,3),gsub(3,3),gsuper(3,3)
-     .             ,jac
+      real(8)    :: cnv(3),cov(3),jac
 
       !Marder B cleaning
-cc      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz
+cc      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz,kappa
 cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       ! rho equation
       real(8)    :: advc,diffus
 
       ! tmp equation
-      real(8)    :: heat_flx,heat_src,joule,viscous,pi_tnsr(3,3)
+      real(8)    :: joule,viscous,heat_flx,heat_src
 
 c Begin program
 
@@ -72,21 +66,13 @@ c Begin program
 
       alt_eom = alt__eom()
 
-c     Grid parameters
+c Grid parameters
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      gsub   = gmetric%grid(igx)%gsub(i,j,k,:,:)
-      gsuper = gmetric%grid(igx)%gsup(i,j,k,:,:)
-      jac    = gmetric%grid(igx)%jac (i,j,k)
+      jac = gmetric%grid(igx)%jac (i,j,k)
 
-      if (.not.adiabatic .or. nc_eom_v)
-     .   nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv(:,:,:,1)
-     .                  ,vcnv(:,:,:,2)
-     .                  ,vcnv(:,:,:,3),0)
-
-c     Rho
+c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (solve_rho) then
         advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
@@ -112,7 +98,7 @@ cc        else
 cc        endif
       endif
 
-c     Faraday's law
+c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 #if !defined(vec_pot)
 
@@ -186,7 +172,7 @@ cc      endif
 
 #endif
 
-c     Temperature
+c Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (gamma == 1d0) then
 
@@ -199,13 +185,16 @@ c       Heat flux
         heat_flx = 0d0
 
         if (chi /= 0d0) then
-          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-     .                            ,vol=.false.)
+          heat_flx =-a_p  !Factor of a_p needed because variable should be total T=Ti+Te=a_p*Te
+     .              *chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
+     .                            ,vol=.false.)  !chi_perp=chi
         endif
 
         if (chi_par /= chi) then
           heat_flx = heat_flx
-     .              -(chi_par-chi)
+     .              -a_p  !Factor of a_p needed because variable should be total T=Ti+Te=a_p*Te
+     .              *(chi_par-chi)
      .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
      .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
      .                   ,symmetric=.true.,limited=.false.,vol=.false.)
@@ -214,56 +203,83 @@ c       Heat flux
 c       Advection + sources
 
         if (adiabatic) then  !Pressure equation
-          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv,tmp,advect,vol=.false.)
-     .        +(gamma-1.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
-          ff(ITMP) = advc + (gamma-1.)*heat_flx
-        else                 !Temperature equation
           advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv,tmp,advect,vol=.false.)
+     .                  ,vscnv,tmp,advect,vol=.false.)
+     .        +(gamma-1.)*tmp(i,j,k)
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
+
+          ff(ITMP) = advc + (gamma-1d0)*heat_flx/a_p
+
+        else                 !Temperature equation
+
+          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                  ,vscnv,tmp,advect,vol=.false.)
      .        +(gamma-2.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
+     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
 
           !Joule heating
-          if ((sum(E0) /= 0d0).or.(.not.source)) then
-            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*jcov(i,j,k,1)
-     .                           +jcnv(i,j,k,2)*jcov(i,j,k,2)
-     .                           +jcnv(i,j,k,3)*jcov(i,j,k,3))/jac
-          else
-            joule = eeta(i,j,k)*( jcnv(i,j,k,1)*(jcov  (i,j,k,1)
-     .                                          -jcov_0(i,j,k,1))
-     .                           +jcnv(i,j,k,2)*(jcov  (i,j,k,2)
-     .                                          -jcov_0(i,j,k,2))
-     .                           +jcnv(i,j,k,3)*(jcov  (i,j,k,3) 
-     .                                          -jcov_0(i,j,k,3)))/jac
+          joule = eeta(i,j,k)
+     .           *dot_product(jcnv(i,j,k,:),jcov(i,j,k,:))/jac
+
+          !Ion viscosity
+          heat_src = joule
+     .              +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+     .                               ,nuu,vcnv,vcnv)
+
+          !Electron viscosity
+          !Comment out for old TM Hall MHD performance results
+          if (heta > 0d0) then
+            if (fake_ve) then
+              heat_src = heat_src
+     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                     ,rho,vefcnv,vecnv)
+
+cc              if (viscous < 0d0) then
+cc                call pstop('viscous_heat_src'
+cc     .                    ,'Viscous heat source is negative')
+cc              endif
+            else
+              heat_src = heat_src
+     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                     ,rho,vecnv,vecnv)
+            endif
           endif
 
-          !Viscous heating: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
-          if (nu > 0d0) then
-            vec1 => vcnv
-            coef => nuu
-            call eom_diff_x(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                     ,pi_tnsr(1,1),pi_tnsr(1,2),pi_tnsr(1,3),0)
-            call eom_diff_y(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                     ,pi_tnsr(2,1),pi_tnsr(2,2),pi_tnsr(2,3),0)
-            call eom_diff_z(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-     .                     ,pi_tnsr(3,1),pi_tnsr(3,2),pi_tnsr(3,3),0)
-            nullify(vec1,coef)
-
-            !Make nabla_v covariant on both sides, and do dot product
-            viscous =-tensorScalarProduct(i,j,k,igx,igy,igz
-     .                                   ,matmul(nabla_v,gsub),pi_tnsr)
-          else
-            viscous = 0d0
-          endif
-
-          heat_src = joule + viscous
-          
-          if (viscous < 0d0) then
-            call pstop('nonlinearRHS','Viscous heat source is negative')
-          endif
+ccc     Electron viscous src
+cc
+cc        if (heta > 0d0) then       !Electron viscosity
+cc          if (fake_ve) then
+cc            pi_tnsr=heta*EOM_Pi_ijk(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                             ,vefcnv,rho)
+cc          else
+cc            pi_tnsr=heta*EOM_Pi_ijk(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                             ,vecnv,rho)
+cc          endif
+cc
+cccc          !Match Slava's hyperresistivity
+cccc          pi_tnsr(:,1:2) = 0d0
+cc
+cccc          if (fake_ve) then
+cccc            nabla_ve = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
+cccc     .                       ,vefcnv(:,:,:,1)
+cccc     .                       ,vefcnv(:,:,:,2)
+cccc     .                       ,vefcnv(:,:,:,3),0)
+cccc          else
+cc            nabla_ve = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                         ,vecnv(:,:,:,1)
+cc     .                         ,vecnv(:,:,:,2)
+cc     .                         ,vecnv(:,:,:,3),0)
+cccc          endif
+cc
+cc          !Comment out to match Slava's heat source
+cc          !Comment out for old TM Hall MHD performance results
+cc          viscous = viscous
+cc     .             -tensorScalarProduct(i,j,k,igx,igy,igz
+cc     .                                 ,matmul(nabla_ve,gsub),pi_tnsr)
+cc        endif
+cc
+cc        heat_src = joule + viscous
 
           !Add contributions
           ff(ITMP) = advc
@@ -273,9 +289,10 @@ c       Advection + sources
 
       endif
 
-c     EOM
+c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-      !Volume force: (jxB-grad(p))
+c     Volume force: (jxB-grad(p))
+
       if (nc_eom_jxb) then
         cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
      .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
@@ -289,11 +306,21 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
 
       ff(IVX:IVZ) = -cnv
 
-      !Advection + stress tensor
+c     Stress tensor: div(Pi)
+
+      if (slava) then
+        cnv = div_pi(i,j,k,:) !Match Slava's EOM
+      else
+        cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
+      endif
+
+      ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+
+c     Advection
+
       if (nc_eom_v) then
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
      .                   ,advect,cons=.not.nc_eom_v)
-     .       +(div_pi(i,j,k,:)+div_pe(i,j,k,:))/rho(i,j,k)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -301,7 +328,6 @@ cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
 cc     .                   ,advect,cons=.not.nc_eom_v)
      .                   ,min(advect,2),cons=.not.nc_eom_v)
-     .       +div_pi(i,j,k,:)+div_pe(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
