@@ -25,7 +25,9 @@ c ######################################################################
         use mg_solver
 
         use nlfunction_setup, ONLY: EOM_divPi_ijk
-     .                             ,EOM_divPe_ijk,fake_ve
+     .                             ,EOM_divPe_ijk
+     .                             ,viscous_heat_src
+     .                             ,fake_ve
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,nc_eom_gp,solve_rho
 
@@ -58,7 +60,7 @@ c ######################################################################
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov,gvis,geta,gve0,gbs0,gj0
-     .                            ,gj0_cov,gtmp0,gEh0_cov
+     .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0
 
 #if !defined(vec_pot)
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
@@ -118,6 +120,7 @@ c     Begin program
         call allocateMGArray(3,gv0)
         call allocateMGArray(3,gv0_cov)
         call allocateMGArray(3,gve0)  !v_e = v_i - di*j/rho
+        call allocateMGArray(3,gvs0)  !v_s = v_i - di*j/rho/a_p
         call allocateMGArray(3,gv0)
         call allocateMGArray(3,gb0)
         call allocateMGArray(3,gb0_cov)
@@ -174,6 +177,7 @@ c     Begin program
         call deallocateMGArray(gj0)
         call deallocateMGArray(gj0_cov)
         call deallocateMGArray(gve0)
+        call deallocateMGArray(gvs0)
         call deallocateMGArray(gv0)
         call deallocateMGArray(gv0_cov)
         call deallocateMGArray(ga0)
@@ -533,14 +537,16 @@ c     Setup BCs
         enddo
 
 #if defined(vec_pot)
-        bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
-        where (bc_pc(:,IBX:IBZ) == -EQU) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
+cc        bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
+cc        where (bc_pc(:,IBX:IBZ) == -EQU) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
+        bc_pc(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
 
         where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR !Use covariant components 
 #endif
 
-        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
-        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravariant components 
+cc        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
+cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravariant components 
+        bc_pc(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
 
         call setASM_PC_BC(igx,igy,igz,bc_pc,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
@@ -662,21 +668,21 @@ c     Store Hall MHD auxiliary variables
         if (di > 0d0) then
 
           !Store electron velocity components in all grids (w/ BCs)
-          gve0%grid(igrid)%array(:,:,:,1) = vcnv(:,:,:,1)
-     .                                     -di*jcnv(:,:,:,1)/rho
-          gve0%grid(igrid)%array(:,:,:,2) = vcnv(:,:,:,2)
-     .                                     -di*jcnv(:,:,:,2)/rho
-          gve0%grid(igrid)%array(:,:,:,3) = vcnv(:,:,:,3)
-     .                                     -di*jcnv(:,:,:,3)/rho
+          gve0%grid(igrid)%array = vecnv
 
           call restrictMGArray(IVX,3,gve0,bc_vec_odd,igrid,order)
 cc          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
 
+          !Store hybrid velocity components in all grids (w/ BCs)
+          gvs0%grid(igrid)%array = vscnv
+
+          call restrictMGArray(IVX,3,gvs0,bc_vec_odd,igrid,order)
+
           !Store Hall electric field
           gEh0_cov%grid(igrid)%array = E_h
 cc          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IJX:IJZ),igrid
-cc     .                        ,order,iscnv=.false.)
-          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
+          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IVX:IVZ),igrid
+cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
      .                        ,order,iscnv=.false.)
 
           !Store b_star = b - de^2/di curl(ve)
@@ -727,6 +733,7 @@ cc                  enddo
         else
           call equateMGArray(ga0 ,gb0)
           call equateMGArray(gbs0,gb0)
+          call equateMGArray(gvs0,gv0)
         endif
 
 c     Find other auxiliary quantities and store them in all grids
@@ -734,7 +741,7 @@ c     Find other auxiliary quantities and store them in all grids
         !Velocity divergence (w/o BCs)
         allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
 
-        debug2 = div(nx,ny,nz,igrid,igrid,igrid,vcnv)
+        debug2 = div(igrid,vcnv)
 
         call restrictArrayToMGVector(1,nx,ny,nz,debug2,mgdivV0,igrid
      .                            ,order,.false.)
@@ -767,9 +774,6 @@ c     Find other auxiliary quantities and store them in all grids
               tensor(i,j,k,:,:) = nabla_v
 
               if (nc_eom_v) then
-cc                veclap = veclaplacian(i,j,k,nx,ny,nz
-cc     .                               ,igrid,igrid,igrid
-cc     .                               ,vcnv,alt_eom,nuu,vol=.false.)
                 veclap =-div_pi(i,j,k,:)
 
                 call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
@@ -1190,7 +1194,7 @@ c     ###################################################################
 c     -------------------------------------------------------------------
 c     Finds covariant components (a1,a2,a3) of vector
 c     
-c       U_Av(dv) = alpha*(-dv x bstar0 + di (dv/dt + div_pi(dv)/rho))
+c       U_Av(dv) = alpha*(-v x b0 + di (dv/dt + div_pi(v)/rho))
 c
 c     at the grid node (i,j,k). One sided derivatives are employed when
 c     half_elem=1 (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
@@ -1451,8 +1455,11 @@ cc     .               /grho0%grid(igx)%array(i,j,k ,1)
             endif
 
             if (str .and. half_elem == 0) then
-              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
-     .                      /grho0%grid(igx)%array(i,j,k,1)
+cc              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
+cc     .                      /grho0%grid(igx)%array(i,j,k,1)
+              cnv =-heta*EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                                ,grho0%grid(igx)%array(:,:,:,1))
+     .                  /grho0%grid(igx)%array(i,j,k,1)
 
               call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                    ,cov(1),cov(2),cov(3)
@@ -1549,7 +1556,7 @@ cc      end function U_Bv
 
 c     U_Bv_ijk
 c     ###################################################################
-      function U_Bv_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he)
+      function U_Bv_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he,strs)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
@@ -1570,6 +1577,7 @@ c     Call variables
         real(8)    :: vv    (0:nx+1,0:ny+1,0:nz+1,3)
      .               ,vv_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .               ,bb    (0:nx+1,0:ny+1,0:nz+1,3)
+        logical,optional :: strs
 
 c     Local variables
 
@@ -1598,47 +1606,71 @@ c     Begin program
         case(1)
           idhx = one/grid_params%dx(ig)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          aim = U_Av_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
+          aim = U_Av_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
 
         case(2)
           idhy = one/grid_params%dy(jg)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          ajm = U_Av_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
+          ajm = U_Av_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
 
         case(3)
           idhz = one/grid_params%dz(kg)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
-          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
+          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
+     .                  ,stress=strs)
         case default
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
-          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he)
+          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
+          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
+     .                  ,stress=strs)
         end select
 
         cnv(1) = (ajp(3)-ajm(3))*idhy
@@ -1704,17 +1736,20 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: igrid,nx,ny,nz
-      real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
+      integer :: igrid,nx,ny,nz
+      real(8) :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ii
-      real(8)    :: jac
+      integer :: i,j,k,ii
+      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0
+      real(8) :: heat_src
 
 c     Begin program
 
 c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
+
+      tmp0 => gtmp0%grid(igrid)%array
 
       if (adiabatic) then
         do k = 1,nz
@@ -1722,41 +1757,47 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              jac = gmetric%grid(igrid)%jac(i,j,k)
-
               crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,gtmp0%grid(igrid)%array(:,:,:,1)
-     .                        ,advect,vol=.false.)
-     .                  +(gamma-1)*gtmp0%grid(igrid)%array(i,j,k,1)
+     .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     .                  +(gamma-1)*tmp0(i,j,k,1)
      $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
      $                                ,dv_cnv)
             enddo
           enddo
         enddo
       else
+
+        nu0  => gvis %grid(igrid)%array
+        v0   => gv0  %grid(igrid)%array
+        rho0 => grho0%grid(igrid)%array
+
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              jac = gmetric%grid(igrid)%jac(i,j,k)
+              heat_src = viscous_heat_src(i,j,k,nx,ny,nz
+     .                         ,igrid,igrid,igrid,nu0,dv_cnv,v0)
+     .                  +viscous_heat_src(i,j,k,nx,ny,nz
+     .                         ,igrid,igrid,igrid,nu0,v0,dv_cnv)
 
               crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,gtmp0%grid(igrid)%array(:,:,:,1)
-     .                        ,advect,vol=.false.)
-     .                  +(gamma-2)*gtmp0%grid(igrid)%array(i,j,k,1)
+     $                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     $                  +(gamma-2)*tmp0(i,j,k,1)
      $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
      $                                ,dv_cnv)
+     $                  -(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
+
             enddo
           enddo
         enddo
+
+        nullify(nu0,rho0,v0)
       endif
 
       crhs = alpha*crhs
+
+      nullify(tmp0)
 
 c     End program
 
