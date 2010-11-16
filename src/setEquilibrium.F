@@ -72,6 +72,7 @@ c Local variables
      .                ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
      .                ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3),bb0(3)
+     .                ,hlx
 
       real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
@@ -87,15 +88,10 @@ c Local variables
      .                ,psi0(0:nxdp)
 
       real(8)       :: pp(ilom:ihip,jlom:jhip)
-cc     .                ,b1(ilom:ihip,jlom:jhip)
-cc     .                ,b2(ilom:ihip,jlom:jhip)
-cc     .                ,b3(ilom:ihip,jlom:jhip)
-cc     .                ,v1(ilom:ihip,jlom:jhip)
-cc     .                ,v2(ilom:ihip,jlom:jhip)
 
       character(200):: command
 
-      real(8) :: a (ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8)       :: a (ilom:ihip,jlom:jhip,klom:khip,3)
 
 #if defined(vec_pot)
       real(8),allocatable,dimension(:,:,:,:) :: ag,bg
@@ -481,7 +477,7 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
         var(:,:,:,ITMP) = 0.5*beta/a_p  !Electron temperature
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -538,7 +534,7 @@ c     Tearing mode in cartesian coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
         var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
@@ -570,7 +566,7 @@ c     Tearing mode in sinusoidal coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 
         do k = klo,khi
           do j = jlo,jhi
@@ -614,11 +610,11 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-cc        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
-cc          messg = 'Wrong input for this equilibrium. '
-cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
-cc          call pstop('setEquilibrium',messg)
-cc        endif
+        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c     GEM challenge
 
@@ -638,12 +634,70 @@ c     GEM challenge
 
              var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
      .                      +0.2
+
+cc             var(i,j,k,IBX) = 0d0
+cc             var(i,j,k,IBY) = tanh((x1-0.5*(xmax+xmin))/dlambda)
+cc             var(i,j,k,IBZ) = 0d0
             enddo
           enddo
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
+
+      case ('sgem')
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+c     Check coordinates
+
+        if (coords /= 'car' .and. coords /= 'scl') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+cc        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+
+c     GEM challenge
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        beta = 1d0
+
+        var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
+
+        if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
+          hlx = xmax
+        elseif (bcond(1) == FSYM .and. bcond(2) /= FSYM) then
+          hlx = xmin
+        else
+          hlx = 0.5d0*(xmax+xmin)
+        endif
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IRHO)=1d0/cosh((x1-hlx)/dlambda)**2 + 0.2
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -689,7 +743,7 @@ c     Kai TM test
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -736,7 +790,7 @@ c     Tearing mode in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -787,7 +841,7 @@ c     Tearing mode in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(nx,ny,nz,igx,igy,igz,a)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -1605,19 +1659,17 @@ c     Dump VMEC map on finest mesh (for plotting)
 #endif
 
         call openBinFile(u_mapf,map_file,'unknown')
-        call dumpVector(u_mapf,gmetric%grid(1)%car,.false.)
+        call dumpVectorToFile(u_mapf,gmetric%grid(1)%car,.false.)
         close(u_mapf)
 
 c     Read VMEC equilibrium
 
-        !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
 #if !defined(vec_pot)
-        call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX),var(:,:,:,IBY)
-     .                            ,var(:,:,:,IBZ),var(:,:,:,ITMP))
+        call vmec_equ(igx,nx,ny,nz,var(:,:,:,IBX)
+     .                            ,var(:,:,:,IBY)
+     .                            ,var(:,:,:,IBZ)
+     .                            ,var(:,:,:,ITMP)
+     .                            ,var(:,:,:,IRHO),gamma,.true.)
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 
@@ -1629,24 +1681,32 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
+c     Other equilibrium quantities
 
-cc        if (solve_rho) then
-          rho_norm = var(1,1,1,IRHO)
-#if defined(petsc)
-          !Broadcast value of rho at SP
-          if (      grid_params%ilog == 1
-     .        .and. grid_params%jlog == 1
-     .        .and. grid_params%klog == 1) brank = my_rank
-          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
-     .                  ,MPI_COMM_WORLD,mpierr)
-#endif
-          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
-cc        else
-cc          var(:,:,:,IRHO) = 1d0
-cc        endif
+        var(:,:,:,IVX:IVZ)  = 0d0
 
+cc        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
+cc
+cccc        if (solve_rho) then
+cc          rho_norm = var(1,1,1,IRHO)
+cc#if defined(petsc)
+cc          !Broadcast value of rho at SP
+cc          if (      grid_params%ilog == 1
+cc     .        .and. grid_params%jlog == 1
+cc     .        .and. grid_params%klog == 1) brank = my_rank
+cc          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
+cc     .                  ,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
+cccc        else
+cccc          var(:,:,:,IRHO) = 1d0
+cccc        endif
+
+        where (var(:,:,:,IRHO) /= 0d0)
           var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Transform to e temperature
+        elsewhere
+          var(:,:,:,ITMP) = 0d0
+        end where
 #endif
 
 c     --------------------------------------------------
@@ -5093,7 +5153,7 @@ c Call variables
 c Local variables
 
       integer    :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8)    :: x1,y1,z1,eps,car(3)
+      real(8)    :: x1,y1,z1,eps,car(3),hlx
       real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical    :: cartsn
 
@@ -5120,7 +5180,15 @@ c Begin program
           enddo
         enddo
 
-      case ('gem','kai1')
+      case ('gem','kai1','sgem')
+
+        if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
+          hlx = xmax
+        elseif (bcond(1) == FSYM .and. bcond(2) /= FSYM) then
+          hlx = xmin
+        else
+          hlx = 0.5d0*(xmax+xmin)
+        endif
 
         do k = klom,khip
           do j = jlom,jhip
@@ -5130,8 +5198,7 @@ c Begin program
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
-              a(i,j,k,3) = -dlambda
-     .             *dlog(cosh((x1-0.5d0*(xmax+xmin))/dlambda)) 
+              a(i,j,k,3) = -dlambda*dlog(cosh((x1-hlx)/dlambda)) 
 
             enddo
           enddo
