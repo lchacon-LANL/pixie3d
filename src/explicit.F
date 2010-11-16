@@ -142,6 +142,10 @@ c Local variables
 
 c Begin program
 
+c diag ****
+cc      call scan_omega
+c diag ****
+
       igx = 1
       igy = 1
       igz = 1
@@ -246,5 +250,70 @@ c Accumulate explicit time step for average computation
       dtexp = dtexp + dt
 
 c End program
+
+      contains
+
+c     scan_omega
+c     #############################################################
+      subroutine scan_omega
+
+c     -------------------------------------------------------------
+c     Scans frequency for Hall MHD dispersion relation. On input:
+c       * beta: plasma beta
+c       * alpha = k/k||
+c     -------------------------------------------------------------
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer :: ndiv,i
+      real(8) :: beta,theta,k_max,delta,rho_s
+      real(8) :: cs2,ca2,k2,k2par,di,root(3)
+
+      character(100) :: filename
+
+c     Begin program
+
+      di   = 1d0
+
+cc      !Schnack's tests case (PoP 2006)
+cc      beta = 0.2
+cc      theta = 0.46  !in pi units
+
+      !Large guide field case
+      beta = 1d-4
+      theta = 0.46  !in pi units
+
+      ndiv = 500
+
+      write(filename,'(a,1p,e8.2,a,0p,f4.2,a)')
+     .     'omega_beta=',beta,'_theta=',theta,'pi.txt'
+
+      open(unit=6666,file=trim(filename),status='unknown')
+
+      cs2 = 0.5*beta
+
+      rho_s = di*sqrt(cs2)
+
+      k_max = 100.0/rho_s
+
+      delta = k_max/ndiv
+
+      do i=1,ndiv
+        k2 = (i*delta)**2
+        kb_par2 = k2*cos(theta*pi)**2
+      
+        root = icfl(cs2,1d0,k2,kb_par2,di)
+
+        write (6666,*) sqrt(k2)*rho_s,root
+      enddo
+
+      close(6666)
+
+      stop
+
+      end subroutine scan_omega
 
       end subroutine findExplicitDt
