@@ -137,7 +137,7 @@ c     -----------------------------------------------------------------
 c     Finds dB=dB* + grad(phi).
 c     -----------------------------------------------------------------
 
-      use matvec, rhs_bc => rhs, bcs_pc => bcs
+      use matvec, bcs_pc => bcs
 
       implicit none
 
