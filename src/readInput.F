@@ -70,7 +70,7 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,ion_hall,lag_pinch_bc,fake_ve
+     .                   ,ion_hall,lag_pinch_bc,fake_ve,slava
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -90,7 +90,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,ion_hall,lag_pinch_bc
-     .                   ,fake_ve
+     .                   ,fake_ve,slava
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -257,6 +257,8 @@ c Set defaults
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
       fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
+
+      slava      = .false.     ! Whether to use Slava Lukin's Hall MHD implementation
 
       !Preconditioner parameters
       pc_type  = 'id'          ! Type of preconditioner. Currently:
@@ -449,6 +451,8 @@ cc      if (precon == 'id') iguess = 0
       if (cnfactor == 1d0) ion_hall = .false.
 
       if (.not.ion_hall) fake_ve = .false.
+
+      if (ion_hall) slava = .false.
 
       if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
