@@ -216,6 +216,7 @@ c     Warnings
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
       if (ion_hall .and. (di > 0d0))
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
+      if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
       if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
       if (adiabatic)    write (*,*) 'Using polytropic EOS'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
