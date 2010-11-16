@@ -1668,7 +1668,7 @@
       real(8),dimension(:,:,:),allocatable :: rr_coef,zz_coef
 
       real(8)  :: db3val
-      external :: db3val
+      external    db3val
 
 !     Begin program
 
@@ -2016,7 +2016,7 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs)
+      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam,enf_flx_fn)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2033,12 +2033,15 @@
 !      Call variables
 
         integer :: igrid,nx,ny,nz
-        real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs
+        real(8) :: gam
+        real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
+
+        logical :: enf_flx_fn
 
 !     Local variables
 
         integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
-        real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi
+        real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 
         real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
         real(8),allocatable, dimension(:,:,:) :: bsup1,bsup2,bsub3,prsg
@@ -2173,49 +2176,45 @@
           enddo
         enddo
 
-        !Clean flux functions  (Tokamak case)
-        do k=0,nzg+1
-          do i=0,nxg+1
-             igl = i
-             jgl = j
-             kgl = k
+        !Calculate maximum density (to normalize density later)
+        max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
 
-            !Periodic boundary in theta=0 (other boundary enforced by symmetry)
-            if (jgl == 0) jgl = nyg
+        !Clean flux functions (Tokamak case)
+        if (enf_flx_fn) then
+          do k=0,nzg+1
+            do i=0,nxg+1
+               igl = i
+               jgl = j
+               kgl = k
 
-            !Periodic boundary in phi=0
-            if (kgl == 0) kgl = nzg
+              !Periodic boundary in theta=0 (other boundary enforced by symmetry)
+              if (jgl == 0) jgl = nyg
 
-            !Up-down symmetry in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
-            !                                Z(th,phi) =-Z(2pi-th,2pi-phi)
-            sgn = 1d0
-            if (jgl > nyg/2+1) then
-               jgl = nyg + 2 - jgl
+              !Periodic boundary in phi=0
+              if (kgl == 0) kgl = nzg
 
-               kgl = nzg + 2 - kgl
-               sgn = -1d0
-            endif
+              !Up-down symmetry in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
+              !                                Z(th,phi) =-Z(2pi-th,2pi-phi)
+              sgn = 1d0
+              if (jgl > nyg/2+1) then
+                 jgl = nyg + 2 - jgl
 
-            !Periodic boundary in phi=2*pi
-            if (kgl == nzg+1) kgl = 1
+                 kgl = nzg + 2 - kgl
+                 sgn = -1d0
+              endif
 
-            dum1=sum(bsup2(i,:,k))
-            dum2=sum(bsub3(i,:,k))
-!!$            do j=1,nyg
-!!$               dum1 = dum1 + bsup2(i,j,k)
-!!$               dum2 = dum2 + bsub3(i,j,k)!*rr(igl,jgl,kgl)**2/sqrtg(igl+1,jgl,kgl)
-!!$            enddo
+              !Periodic boundary in phi=2*pi
+              if (kgl == nzg+1) kgl = 1
 
-            bsup2(i,:,k) = dum1/nyg
-            bsub3(i,:,k) = dum2/nyg
-           
-!           bsup2(
-!              dum = sum(bsup2(i,:,k))/(nyg+2)
-!              bsup2(i,:,k) = dum
-!              dum = sum(bsub3(i,:,k))/(nyg+2)
-!              bsub3(i,:,k) = dum
+              dum1=sum(bsup2(i,1:nyg,k))/nyg
+              dum2=sum(bsub3(i,1:nyg,k))/nyg
+
+              bsup2(i,:,k) = dum1
+              bsub3(i,:,k) = dum2
+             
+            enddo
           enddo
-        enddo
+        endif
 
 !     Spline PIXIE3D global variables
 
@@ -2298,6 +2297,8 @@
 
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
+
+              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)/max_rho
 
 !!$              b1(i,j,k) = bsup1(igl,jgl,kgl)*0.5/grid_params%xx(ig)   !This correction comes because here
 !!$                                                                      !the variable is x1=sqrt(s), s-> VMEC.
