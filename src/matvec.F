@@ -504,7 +504,7 @@ c Local variables
       integer    :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0
 
       real(8)    :: upwind,nu2,dvol,lap,gm,jac
 
@@ -540,7 +540,8 @@ cc     .            ,icomp=(/ITMP/))
 
 c Map velocity components
 
-      v0_cnv => gv0%grid(igrid)%array
+      v0_cnv => gvs0 %grid(igrid)%array
+      rho0   => grho0%grid(igrid)%array
 
 c Calculate matrix-vector product
 
@@ -584,13 +585,14 @@ c Calculate matrix-vector product
 
             if (chi > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,dtmp(:,:,:,1),vol=volf)
+     .                          ,dtmp(:,:,:,1),vol=.false.)
+              lap = (gamma-1d0)*chi/rho0(i,j,k,1)*lap
             else
               lap = 0d0
             endif
 
-            y(ijk) = ((cnp/dt + alpha*gm*mgdivV0(ijkg))*x(ijk)
-     .            + alpha*upwind )*dvol - alpha*chi*lap
+            y(ijk) =dvol*( (cnp/dt+alpha*gm*mgdivV0(ijkg))*x(ijk)
+     .                     +alpha*(upwind - lap) )
 
           enddo
         enddo
@@ -599,7 +601,7 @@ c Calculate matrix-vector product
 c End program
 
       deallocate(dtmp)
-      nullify(v0_cnv)
+      nullify(v0_cnv,rho0)
 
       call deallocPointers(fpointers)
 
@@ -2388,8 +2390,10 @@ cc            cnv = di*curlcurla/rho0(i,j,k,1)
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece: di/rho*div(pe(dj))
-            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,dj_cnv)
+cc            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                        ,dj_cnv)
+            cnv= heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,dj_cnv,rho0)
 
             a_res = a_res + alpha*di/rho0(i,j,k,1)
      .             *matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
@@ -2439,7 +2443,7 @@ c ##################################################################
 
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,b0_cov
      .                                         ,rho0,pp0,a0_cnv,j0_cov
-     .                                         ,db_cov
+cc     .                                         ,db_cov
 
       integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
       integer    :: imin,imax,jmin,jmax,kmin,kmax
@@ -2477,7 +2481,7 @@ c     Begin program
 
       a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
 
-      db_cov => gdb_cov%grid(igrid)%array
+cc      db_cov => gdb_cov%grid(igrid)%array
 
       end subroutine defineLocalPointers
 
@@ -2618,132 +2622,6 @@ c     Fluxes at faces for calculation of grad(dv.grad(p0))
      .            *(pp0(i,j,k ,1)-pp0(i,j,km,1))/dz(kg-1) )
      .        *0.5
 
-ccc     Fluxes at faces for calculation of grad(gamma*p0*div(dv))
-cc
-cc      !!Divergence at faces i+-1/2, etc.
-cc      divip =  (dv(ip,j ,k,1)-dv(i ,j ,k,1))/(jac+jacip)*2/dx(ig)
-cc     .       +((dv(i ,jp,k,2)-dv(i ,jm,k,2))/jac
-cc     .        +(dv(ip,jp,k,2)-dv(ip,jm,k,2))/jacip)/dyh(jg)/4.
-cc     .       +((dv(i ,j,kp,3)-dv(i ,j,km,3))/jac
-cc     .        +(dv(ip,j,kp,3)-dv(ip,j,km,3))/jacip)/dzh(kg)/4.
-cc      divim = (dv(i ,j ,k,1)-dv(im,j ,k,1))/(jac+jacim)*2/dx(ig-1)
-cc     .       +((dv(i ,jp,k,2)-dv(i ,jm,k,2))/jac
-cc     .        +(dv(im,jp,k,2)-dv(im,jm,k,2))/jacim)/dyh(jg)/4.
-cc     .       +((dv(i ,j,kp,3)-dv(i ,j,km,3))/jac
-cc     .        +(dv(im,j,kp,3)-dv(im,j,km,3))/jacim)/dzh(kg)/4.
-cc
-cc      divjp = ((dv(ip,j ,k,1)-dv(im,j ,k,1))/jac
-cc     .        +(dv(ip,jp,k,1)-dv(im,jp,k,1))/jacjp)/dxh(ig)/4.
-cc     .       +(dv(i ,jp,k,2)-dv(i ,j ,k,2))/(jac+jacjp)*2/dy(jg)
-cc     .       +((dv(i,j ,kp,3)-dv(i,j ,km,3))/jac
-cc     .        +(dv(i,jp,kp,3)-dv(i,jp,km,3))/jacjp)/dzh(kg)/4.
-cc      divjm = ((dv(ip,j ,k,1)-dv(im,j ,k,1))/jac
-cc     .        +(dv(ip,jm,k,1)-dv(im,jm,k,1))/jacjm)/dxh(ig)/4.
-cc     .       +(dv(i ,j ,k,2)-dv(i ,jm,k,2))/(jac+jacjm)*2/dy(jg-1)
-cc     .       +((dv(i,j ,kp,3)-dv(i,j ,km,3))/jac
-cc     .        +(dv(i,jm,kp,3)-dv(i,jm,km,3))/jacjm)/dzh(kg)/4.
-cc
-cc      divkp = ((dv(ip,j,k ,1)-dv(im,j,k ,1))/jac
-cc     .        +(dv(ip,j,kp,1)-dv(im,j,kp,1))/jackp)/dxh(ig)/4.
-cc     .       +((dv(i,jp,k ,2)-dv(i,jm,k ,2))/jac
-cc     .        +(dv(i,jp,kp,2)-dv(i,jm,kp,2))/jackp)/dyh(jg)/4.
-cc     .       +(dv(i,j ,kp,3)-dv(i,j ,k ,3))/(jac+jackp)*2/dz(kg)
-cc      divkm = ((dv(ip,j,k ,1)-dv(im,j,k ,1))/jac
-cc     .        +(dv(ip,j,km,1)-dv(im,j,km,1))/jackm)/dxh(ig)/4.
-cc     .       +((dv(i,jp,k ,2)-dv(i,jm,k ,2))/jac
-cc     .        +(dv(i,jp,km,2)-dv(i,jm,km,2))/jackm)/dyh(jg)/4.
-cc     .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/(jac+jackm)*2/dz(kg-1)
-cc
-cc      flxip = flxip
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(ip,j,k,1))*divip*0.5
-cc      if (.not.isSP(i,j,k,igx,igy,igz)) then
-cccc        flxim = 0d0
-cccc      else
-cc        flxim = flxim
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(im,j,k,1))*divim*0.5
-cc      endif
-cc
-cc      flxjp = flxjp
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(i,jp,k,1))*divjp*0.5
-cc      flxjm = flxjm
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(i,jm,k,1))*divjm*0.5
-cc
-cc      flxkp = flxkp
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(i,j,kp,1))*divkp*0.5
-cc      flxkm = flxkm
-cc     .      + gamma*(pp0(i,j,k,1)+pp0(i,j,km,1))*divkm*0.5
-
-cc      !Fluxes at faces for calculation of grad(dv.grad(p0))
-cc      flxip =( (dv(i,j,k,1)+dv(ip,j,k,1))
-cc     .           *(pp0(ip,j,k,1)-pp0(i,j,k,1))/dx(ig)
-cc     .        +(dv(i,j,k,2)+dv(ip,j,k,2))
-cc     .           *(pp0(ip,jp,k,1)-pp0(ip,jm,k,1)
-cc     .            +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/dyh(jg)/4.
-cc     .        +(dv(i,j,k,3)+dv(ip,j,k,3))
-cc     .           *(pp0(ip,j,kp,1)-pp0(ip,j,km,1)
-cc     .            +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/dzh(kg)/4. )
-cc     .        /(jac+jacip)
-cc
-cc      if (.not.isSP(i,j,k,igx,igy,igz)) then
-cc        flxim =( (dv(i,j,k,1)+dv(im,j,k,1))
-cc     .              *(pp0(i ,j,k,1)-pp0(im,j,k,1))/dx(ig-1)
-cc     .          +(dv(i,j,k,2)+dv(im,j,k,2))
-cc     .              *(pp0(im,jp,k,1)-pp0(im,jm,k,1)
-cc     .               +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/dyh(jg)/4.
-cc     .          +(dv(i,j,k,3)+dv(im,j,k,3))
-cc     .              *(pp0(im,j,kp,1)-pp0(im,j,km,1)
-cc     .               +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/dzh(kg)/4.)
-cc     .          /(jac+jacim)
-cc      else
-cc        flxim =( (dv(i,j,k,1)/jac+dv(im,j,k,1)/jacim)
-cc     .              *(pp0(i ,j,k,1)-pp0(im,j,k,1))/dx(ig-1)
-cc     .          +(dv(i,j,k,2)/jac+dv(im,j,k,2)/jacim)
-cc     .              *(pp0(im,jp,k,1)-pp0(im,jm,k,1)
-cc     .               +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/dyh(jg)/4.
-cc     .          +(dv(i,j,k,3)/jac+dv(im,j,k,3)/jacim)
-cc     .              *(pp0(im,j,kp,1)-pp0(im,j,km,1)
-cc     .               +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/dzh(kg)/4.)
-cc     .          *0.5
-cc      endif
-cc
-cc      flxjp =( (dv(i,j,k,1)+dv(i,jp,k,1))
-cc     .            *(pp0(ip,jp,k,1)-pp0(im,jp,k,1)
-cc     .             +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/dxh(ig)/4.
-cc     .        +(dv(i,j,k,2)+dv(i,jp,k,2))
-cc     .            *(pp0(i,jp,k,1)-pp0(i,j,k,1))/dy(jg)
-cc     .        +(dv(i,j,k,3)+dv(i,jp,k,3))
-cc     .            *(pp0(i,jp,kp,1)-pp0(i,jp,km,1)
-cc     .             +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/dzh(kg)/4.)
-cc     .        /(jac+jacjp)
-cc      flxjm =( (dv(i,j,k,1)+dv(i,jm,k,1))
-cc     .            *(pp0(ip,jm,k,1)-pp0(im,jm,k,1)
-cc     .             +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/dxh(ig)/4.
-cc     .        +(dv(i,j,k,2)+dv(i,jm,k,2))
-cc     .            *(pp0(i,j ,k,1)-pp0(i,jm,k,1))/dy(jg-1)
-cc     .        +(dv(i,j,k,3)+dv(i,jm,k,3))
-cc     .            *(pp0(i,jm,kp,1)-pp0(i,jm,km,1)
-cc     .             +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/dzh(kg)/4.)
-cc     .        /(jac+jacjm)
-cc
-cc      flxkp =( (dv(i,j,k,1)+dv(i,j,kp,1))
-cc     .            *(pp0(ip,j,kp,1)-pp0(im,j,kp,1)
-cc     .             +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/dxh(ig)/4.
-cc     .        +(dv(i,j,k,2)+dv(i,j,kp,2))
-cc     .            *(pp0(i,jp,kp,1)-pp0(i,jm,kp,1)
-cc     .             +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv(i,j,k,3)+dv(i,j,kp,3))
-cc     .            *(pp0(i,j,kp,1)-pp0(i,j,k,1))/dz(kg) )
-cc     .        /(jac+jackp)
-cc      flxkm =( (dv(i,j,k,1)+dv(i,j,km,1))
-cc     .            *(pp0(ip,j,km,1)-pp0(im,j,km,1)
-cc     .             +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/dxh(ig)/4.
-cc     .        +(dv(i,j,k,2)+dv(i,j,km,2))
-cc     .            *(pp0(i,jp,km,1)-pp0(i,jm,km,1)
-cc     .             +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/dyh(jg)/4.
-cc     .        +(dv(i,j,k,3)+dv(i,j,km,3))
-cc     .            *(pp0(i,j,k ,1)-pp0(i,j,km,1))/dz(kg-1) )
-cc     .        /(jac+jackm)
-
 c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
       !!Divergence at faces i+-1/2, etc.
@@ -2803,8 +2681,6 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
       flxkm = flxkm
      .      + gamm*(pp0(i,j,k,1)+pp0(i,j,km,1))*divkm/(jac+jackm)
 
-cc      if (isSP(i,j,k,igx,igy,igz)) flxim = 0d0
-
 c     Transform to contravariant
 
       cov(1) = (flxip - flxim)/dxh(ig)
@@ -2814,8 +2690,6 @@ c     Transform to contravariant
       call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                            ,cov(1),cov(2),cov(3)
      .                            ,cnv(1),cnv(2),cnv(3),is_cnv)
-
-cc      coeff = (alpha**2/cnp + k_si*alpha)
 
       psit = -alpha**2*cnv
 
@@ -3463,9 +3337,8 @@ c Local variables
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),v_res(3),divpe(3)
      .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
 
-
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
-     .                                     ,dve_cnv,divpi
+     .                                     ,dve_cnv,divpi,dB_cnv,dB_cov
 
 c Begin program
 
@@ -3512,7 +3385,9 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,divpi  (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3))
+     .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dB_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dB_cov (0:nxx+1,0:nyy+1,0:nzz+1,3))
 
 c BCs
 
@@ -3534,27 +3409,59 @@ cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
       dve_cnv(:,:,:,2) = dv(:,:,:,2) - di*du(:,:,:,5)/rho0(:,:,:,1)
       dve_cnv(:,:,:,3) = dv(:,:,:,3) - di*du(:,:,:,6)/rho0(:,:,:,1)
 
+c Find div(Pi(dv))
+
+      if (nu > 0d0) then
+        divpi=EOM_divPi(nxx,nyy,nzz,igrid,igrid,igrid,dv
+     .                 ,gvis%grid(igrid)%array(:,:,:,1))
+      else
+        divpi = 0d0
+      endif
+
 c Find dE=U_Av(dv) (with BCs)
 
-      do k = kmin,kmax
-        do j = jmin,jmax
-          do i = imin,imax
-            divpi(i,j,k,:)=EOM_divPi_ijk(i,j,k,nxx,nyy,nzz
-     .                             ,igrid,igrid,igrid,dv
-     .                             ,gvis%grid(igrid)%array(:,:,:,1))
-     .                    /rho0(i,j,k,1)
-          enddo
-        enddo
-      enddo
-
       if (fake_ve) then
-cc        dE_cnv = di*dv/dt
-        dE_cnv = di*(dv/dt + divpi)
+
+cc        do k = kmin,kmax
+cc          do j = jmin,jmax
+cc            do i = imin,imax
+cc              dE_cnv(i,j,k,:)=matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:)
+cc     .                              ,U_Av_ijk(i,j,k,nxx,nyy,nzz
+cc     .                                        ,igrid,igrid,igrid,dv
+cc     .                                        ,dv_cov,a0_cnv,he=0
+cc     .                                        ,stress=.false.))
+cc            enddo
+cc          enddo
+cc        enddo
+
+        dE_cnv = di*dv/dt
+
+        dE_cnv(:,:,:,1)=di*(dv(:,:,:,1)/dt+divpi(:,:,:,1)/rho0(:,:,:,1))
+        dE_cnv(:,:,:,2)=di*(dv(:,:,:,2)/dt+divpi(:,:,:,2)/rho0(:,:,:,1))
+        dE_cnv(:,:,:,3)=di*(dv(:,:,:,3)/dt+divpi(:,:,:,3)/rho0(:,:,:,1))
 
         call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dE_cnv
      .            ,gv%aux%vec_list(IENI)%bconds
      .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=1)
+
+cc      else
+cc
+cc        do k = kmin,kmax
+cc          do j = jmin,jmax
+cc            do i = imin,imax
+cc              dB_cnv(i,j,k,:) = -dt/cnp*U_Bv_ijk(i,j,k,nxx,nyy,nzz
+cc     .                                 ,igrid,igrid,igrid,dv
+cc     .                                 ,dv_cov,a0_cnv,he=0
+cc     .                                 ,strs=.false.)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dB_cnv
+cc     .            ,gv%aux%vec_list(IBCNV)%bconds,arr_cov=dB_cov
+cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=1)
       endif
 
 c Calculate matrix-vector product
@@ -3600,17 +3507,18 @@ c Calculate matrix-vector product
             psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
      .                ,.not.nc_eom_v,stress=.false.)
 
-            !Ion viscosity piece *************
+            !Ion viscosity piece ******************
 
             if (nc_eom_v) then
-              psiv = psiv + alpha*divpi(i,j,k,:)
+              psiv = psiv + alpha*divpi(i,j,k,:)/rho0(i,j,k,1)
             else
-              psiv = psiv + alpha*divpi(i,j,k,:)*rho0(i,j,k,1)
+              psiv = psiv + alpha*divpi(i,j,k,:)
             endif
 
             !Electron viscosity piece *************
 
-            divpe = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv)
+            divpe = heta*EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
+     .                                ,dve_cnv,rho0)
 
             if (nc_eom_v) then
               psiv = psiv + alpha*divpe/rho0(i,j,k,1)
@@ -3642,51 +3550,57 @@ c Calculate matrix-vector product
               v_res = (psiv + cnv)
             endif
 
-            !Find dj=-dt*curl(curl(dE))
+            !Find current update, dj=-dt*curl(curl(dE))
             if (fake_ve) then
-cc              cnv = curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                      ,dE_cnv,vol=.false.)
-              cnv =-veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                          ,dE_cnv,vol=.false.)
+
+              dj = -dt*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                         ,dE_cnv,vol=.false.)
+cc              dj = dt*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                          ,dE_cnv,vol=.false.)
+
             else
+
+cc              !Find dj=curl(db)
+cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
+
               !Find dj=-dt*curl(U_Bv_ijk.dv)
               cnv = U_Bv_ijk(i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=1)
+     .                  ,dv_cov,a0_cnv,1)
               call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                    ,aip(1),aip(2),aip(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=1)
 
               cnv = U_Bv_ijk(im,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=1)
+     .                  ,dv_cov,a0_cnv,1)
               call transformFromCurvToCurv(im,j,k,igrid,igrid,igrid
      .                                    ,aim(1),aim(2),aim(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=1)
                                
               cnv = U_Bv_ijk(i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=2)
+     .                  ,dv_cov,a0_cnv,2)
               call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                    ,ajp(1),ajp(2),ajp(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=2)
                                
               cnv = U_Bv_ijk(i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=2)
+     .                  ,dv_cov,a0_cnv,2)
               call transformFromCurvToCurv(i,jm,k,igrid,igrid,igrid
      .                                    ,ajm(1),ajm(2),ajm(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=2)
                                
               cnv = U_Bv_ijk(i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=3)
+     .                  ,dv_cov,a0_cnv,3)
               call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
      .                                    ,akp(1),akp(2),akp(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=3)
                                
               cnv = U_Bv_ijk(i,j,km,nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                  ,dv_cov,a0_cnv,he=3)
+     .                  ,dv_cov,a0_cnv,3)
               call transformFromCurvToCurv(i,j,km,igrid,igrid,igrid
      .                                    ,akm(1),akm(2),akm(3)
      .                                    ,cnv(1),cnv(2),cnv(3)
@@ -3700,9 +3614,9 @@ cc     .                      ,dE_cnv,vol=.false.)
 
               cnv(3) = (aip(2)-aim(2))/grid_params%dxh(ig)
      .                -(ajp(1)-ajm(1))/grid_params%dyh(jg)
-            endif
 
-            dj = -dt*cnv  !No cnp factor: 1st order approximation
+              dj = -dt*cnv/cnp
+            endif
 
             !Assemble matvec
             do ieq=1,3
@@ -3716,7 +3630,8 @@ cc     .                      ,dE_cnv,vol=.false.)
 
 c End program
 
-      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv,divpi)
+      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv,divpi
+     .          ,dB_cnv,dB_cov)
 
       call nullLocalPointers
 
