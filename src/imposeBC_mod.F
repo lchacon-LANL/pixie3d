@@ -17,7 +17,7 @@ c####################################################################
         use nlfunction_setup, ONLY: res,vis,E_fld_res,E_fld_hall
      .                             ,ion_hall,fake_ve
      .                             ,EOM_divPi,EOM_divPe,hres
-     .                             ,nc_eom_v,save_tn
+     .                             ,nc_eom_v,save_tn,slava
 
         logical :: pinch_flow,save_Bn
 
@@ -181,7 +181,7 @@ c     Setup schedule
         gv%bc_grp(5+offset)%nbc_seq = 3
         gv%bc_grp(6+offset)%nbc_seq = 3
         gv%bc_grp(7+offset)%nbc_seq = 5
-        gv%bc_grp(8+offset)%nbc_seq = 3
+        gv%bc_grp(8+offset)%nbc_seq = 5
         gv%bc_grp(9+offset)%nbc_seq = 1
 #else
         gv%bc_grp(1+offset)%nbc_seq = 1
@@ -192,11 +192,12 @@ c     Setup schedule
         gv%bc_grp(6+offset)%nbc_seq = 5
         if (fake_ve) then
           gv%bc_grp(7+offset)%nbc_seq = 2
-          gv%bc_grp(8+offset)%nbc_seq = 3
+          gv%bc_grp(8+offset)%nbc_seq = 5
           gv%bc_grp(9+offset)%nbc_seq = 1
         else
-          gv%bc_grp(7+offset)%nbc_seq = 3
+          gv%bc_grp(7+offset)%nbc_seq = 4
           gv%bc_grp(8+offset)%nbc_seq = 3
+cc          gv%bc_grp(9+offset)%nbc_seq = 1
         endif
 #endif
 
@@ -329,6 +330,12 @@ c     Setup schedule
         gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
         gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
+        gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+        gv%bc_grp(8+offset)%bc_seq(5,1) = IVEFCNV*AUX !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(5,2) = VECTOR      !Vector
+
         !Group 9
         gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
@@ -402,6 +409,12 @@ c     Setup schedule
           gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(5,1) = IVEFCNV*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(5,2) = VECTOR      !Vector
+
           !Group 9
           gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPE*AUX  !Aux. variable
           gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
@@ -416,6 +429,9 @@ c     Setup schedule
           gv%bc_grp(7+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
 
+          gv%bc_grp(7+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
+
           !Group 8
           gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
@@ -425,6 +441,10 @@ c     Setup schedule
                      
           gv%bc_grp(8+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+cc          !Group 9
+cc          gv%bc_grp(9+offset)%bc_seq(1,1) = IVEFCNV*AUX !Aux. variable
+cc          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
         endif
 #endif
 
@@ -621,8 +641,6 @@ c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Dirichlet BC.
 c ---------------------------------------------------------------------
 
       use local_BCS_variables
@@ -655,8 +673,6 @@ c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
 c        * order -> order of extrapolation (when used)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Dirichlet BC.
 c ---------------------------------------------------------------------
         
       use local_BCS_variables
@@ -672,21 +688,27 @@ c     Call variables
 c     Local variables
 
       integer    :: imax,imin,jmax,jmin,kmax,kmin
-      integer    :: i,j,k,ig,jg,kg,nvar,ibc
+      integer    :: i,j,k,ig,jg,kg,ibc
       real(8)    :: x1,x2,x3,dh(3),diver
 
       real(8)    :: gsuper(3,3),jac0
 
+      real(8),allocatable,dimension(:,:) :: rhs
+
 c     Begin program
+
+      select case(dim)
+      case(1)
+        allocate(rhs(0:nybc+1,0:nzbc+1))
+      case(2)
+        allocate(rhs(0:nxbc+1,0:nzbc+1))
+      case(3)
+        allocate(rhs(0:nxbc+1,0:nybc+1))
+      end select
 
       rhs = 0d0
 
-      nvar = nnvar  !Where is this needed?
-
       ibc = (1+loc)+2*(dim-1)
-
-      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-     .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
       case (IVX,IVY,IVZ)
@@ -695,14 +717,18 @@ c     Begin program
 cc     .                    ,dim,loc,order)
      .                    ,dim,loc,1)  !Required for mass conservation
 
-      case (IBX,IBY,IBZ,IJX,IJY,IJZ) !Imposes divergence-free constraint on B, J
+      case (IBX,IBY,IBZ,IJX,IJY,IJZ)
 
         if (ivar /= dim) then
 
           call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
-        else
+        else  !Imposes divergence-free constraint on B, J
+
+          call findBCLoopLimits(dim,loc
+     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
           do i=imin,imax
             do j=jmin,jmax
@@ -774,15 +800,18 @@ c       Update BC ghost nodes
 
         endif
 
-      case (IAX,IAY,IAZ) !Imposes divergence-free constraint on A
+      case (IAX,IAY,IAZ)
 
         if (ivar /= dim) then
 
           call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
      .                      ,dim,loc,order)
-cc     .                      ,dim,loc,1)
 
-        else
+        else !Imposes divergence-free constraint on A (not exactly the same as above!!!!)
+
+          call findBCLoopLimits(dim,loc
+     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
           do i=imin,imax
             do j=jmin,jmax
@@ -791,7 +820,7 @@ cc     .                      ,dim,loc,1)
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
+                dh(1) = dxh(ig)  !<=== Different from above
                 dh(2) = dyh(jg)
                 dh(3) = dzh(kg)
 
@@ -800,7 +829,7 @@ cc     .                      ,dim,loc,1)
                   array(i-1,j,k,dim) = array(i+1,j,k,dim)
                   diver =jac0
      .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(j,k) = array(i,j,k,dim) + dh(dim)*diver
+                  rhs(j,k) = array(i,j,k,dim) + dh(dim)*diver !<=== Different from above
                 case (2)
                   array(i+1,j,k,dim) = array(i-1,j,k,dim)
                   diver =jac0
@@ -861,6 +890,7 @@ c       Update BC ghost nodes
 
       end select
 
+      deallocate(rhs)
 
 c     End program
 
@@ -875,8 +905,6 @@ c        * array -> variable upon which BCs are imposed
 c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Neumann BC.
 c ---------------------------------------------------------------------
 
       use local_BCS_variables
@@ -891,29 +919,50 @@ c     Call variables
 c     Local variables
 
       integer    :: imax,imin,jmax,jmin,kmax,kmin,offset
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,nvar,ibc,icomp
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0,hessian(3,3,3)
+
+cc      real(8),allocatable,dimension(:,:) :: rhs
 
 c     Begin program
 
       offset = 0
       if (symm) offset = 1
 
-      rhs = 0d0
-
-      nvar = 1    !Where is this needed?
-
       ibc = (1+loc)+2*(dim-1)
 
-      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-     .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
+      select case (ibc)
+      case (1)
+        array(0     ,:,:) = array(1   +offset,:,:)
+      case (2)
+        array(nxbc+1,:,:) = array(nxbc-offset,:,:)
+      case (3)
+        array(:,0     ,:) = array(:,1   +offset,:)
+      case (4)
+        array(:,nybc+1,:) = array(:,nybc-offset,:)
+      case (5)
+        array(:,:,0     ) = array(:,:,1   +offset)
+      case (6)
+        array(:,:,nzbc+1) = array(:,:,nzbc-offset)
+      end select
 
-      select case (ieq)
-      case (IRHO,ITMP)
+cc      select case(dim)
+cc      case(1)
+cc        allocate(rhs(0:nybc+1,0:nzbc+1))
+cc      case(2)
+cc        allocate(rhs(0:nxbc+1,0:nzbc+1))
+cc      case(3)
+cc        allocate(rhs(0:nxbc+1,0:nybc+1))
+cc      end select
+cc
+cc      rhs = 0d0
+cc
+cc      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+cc     .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
+cc
+cc      select case (ieq)
 cc      case (IRHO)
-
-        rhs = 0d0   !This shuts off advective fluxes for v.n=0
-
+cc
 cc        do i=imin,imax
 cc          do j=jmin,jmax
 cc            do k=kmin,kmax
@@ -1044,68 +1093,43 @@ cc
 cc            enddo
 cc          enddo
 cc        enddo
-
-      case default
-
-        call pstop('scalarNeumannBC','Variable not implemented')
-
-      end select
-
-c     Assign value
-
-      select case (ibc)
-      case (1)
-        array(0     ,jmin:jmax,kmin:kmax)
-     $                    = array(1+offset,jmin:jmax,kmin:kmax)
-     $                    - rhs(jmin:jmax,kmin:kmax)
-      case (2)
-        array(nxbc+1,jmin:jmax,kmin:kmax)
-     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax)
-     $                    + rhs(jmin:jmax,kmin:kmax)
-      case (3)
-        array(imin:imax,0     ,kmin:kmax)
-     $                    = array(imin:imax,1+offset,kmin:kmax)
-     $                    - rhs(imin:imax,kmin:kmax)
-      case (4)
-        array(imin:imax,nybc+1,kmin:kmax)
-     $                    = array(imin:imax,nybc-offset,kmin:kmax)
-     $                    + rhs(imin:imax,kmin:kmax)
-      case (5)
-        array(imin:imax,jmin:jmax,0     )
-     $                    = array(imin:imax,jmin:jmax,1+offset)
-     $                    - rhs(imin:imax,jmin:jmax)
-      case (6)
-        array(imin:imax,jmin:jmax,nzbc+1)
-     $                    = array(imin:imax,jmin:jmax,nzbc-offset)
-     $                    + rhs(imin:imax,jmin:jmax)
-      end select
-
+cc
+cc      case default
+cc
+cc        call pstop('scalarNeumannBC','Variable not implemented')
+cc
+cc      end select
+cc
+ccc     Assign value
+cc
 cc      select case (ibc)
 cc      case (1)
 cc        array(0     ,jmin:jmax,kmin:kmax)
-cc     $                           = array(1,jmin:jmax,kmin:kmax)
-cc     $                           - rhs(jmin:jmax,kmin:kmax)
+cc     $                    = array(1+offset,jmin:jmax,kmin:kmax)
+cc     $                    - rhs(jmin:jmax,kmin:kmax)
 cc      case (2)
 cc        array(nxbc+1,jmin:jmax,kmin:kmax)
-cc     $                           = array(nxbc,jmin:jmax,kmin:kmax)
-cc     $                           + rhs(jmin:jmax,kmin:kmax)
+cc     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax)
+cc     $                    + rhs(jmin:jmax,kmin:kmax)
 cc      case (3)
 cc        array(imin:imax,0     ,kmin:kmax)
-cc     $                           = array(imin:imax,1,kmin:kmax)
-cc     $                           - rhs(imin:imax,kmin:kmax)
+cc     $                    = array(imin:imax,1+offset,kmin:kmax)
+cc     $                    - rhs(imin:imax,kmin:kmax)
 cc      case (4)
 cc        array(imin:imax,nybc+1,kmin:kmax)
-cc     $                           = array(imin:imax,nybc,kmin:kmax)
-cc     $                           + rhs(imin:imax,kmin:kmax)
+cc     $                    = array(imin:imax,nybc-offset,kmin:kmax)
+cc     $                    + rhs(imin:imax,kmin:kmax)
 cc      case (5)
 cc        array(imin:imax,jmin:jmax,0     )
-cc     $                           = array(imin:imax,jmin:jmax,1)
-cc     $                           - rhs(imin:imax,jmin:jmax)
+cc     $                    = array(imin:imax,jmin:jmax,1+offset)
+cc     $                    - rhs(imin:imax,jmin:jmax)
 cc      case (6)
 cc        array(imin:imax,jmin:jmax,nzbc+1)
-cc     $                           = array(imin:imax,jmin:jmax,nzbc)
-cc     $                           + rhs(imin:imax,jmin:jmax)
+cc     $                    = array(imin:imax,jmin:jmax,nzbc-offset)
+cc     $                    + rhs(imin:imax,jmin:jmax)
 cc      end select
+cc
+cc      deallocate(rhs)
 
 c     End program
 
@@ -1119,8 +1143,6 @@ c     Imposes neumann BC for a scalar. On input:
 c        * ieq -> equation number (i.e., vector component)
 c        * dim -> dimension we are imposing BC on (X,Y,Z)
 c        * loc -> boundary location (0 -> left, 1->right)
-c     This routine fills up the bi-dimensional array rhs, which 
-c     contains the right hand side of the Neumann BC.
 c     -----------------------------------------------------------------
 
       use local_BCS_variables, vec_mod=>vec
@@ -1150,7 +1172,7 @@ c     Local variables
 
       logical :: nonlinear
 
-cc      real(8),pointer,dimension(:,:,:) :: eta_bc
+      real(8),allocatable,dimension(:,:) :: rhs
 
 c     Begin program
 
@@ -1158,6 +1180,15 @@ c     Begin program
       if (symm) offset = 1
 
       ibc = (1+loc)+2*(dim-1)
+
+      select case(dim)
+      case(1)
+        allocate(rhs(0:nybc+1,0:nzbc+1))
+      case(2)
+        allocate(rhs(0:nxbc+1,0:nzbc+1))
+      case(3)
+        allocate(rhs(0:nxbc+1,0:nybc+1))
+      end select
 
       rhs = 0d0  !Default
 
@@ -1372,6 +1403,9 @@ c     Begin program
                   rhs(j,k) =
      .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                else
+                  icomp = ivar  !Symmetry BC
+                  rhs(j,k) = 0d0
                 endif
 
                 !!!!!!!Finite flow at wall!!!!!!!
@@ -1396,14 +1430,8 @@ c     Begin program
 
                 if (ibc == 3) then
                   gsupavg = 0.5*(gsuper+gsupjm)
-
-cc                  ee = 0.5*(array0(i,j-1,k,icomp)
-cc     .                     +array0(i,j  ,k,icomp))
                 elseif (ibc == 4) then
                   gsupavg = 0.5*(gsuper+gsupjp)
-
-cc                  ee = 0.5*(array0(i,j+1,k,icomp)
-cc     .                     +array0(i,j  ,k,icomp))
                 endif
 
                 jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
@@ -1423,6 +1451,9 @@ cc     .                     +array0(i,j  ,k,icomp))
                   rhs(i,k) = 
      .                (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
      .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                else
+                  icomp = ivar  !Symmetry BC
+                  rhs(i,k) = 0d0
                 endif
 
                 if (ibc == 3) then
@@ -1439,14 +1470,8 @@ cc     .                     +array0(i,j  ,k,icomp))
 
                 if (ibc == 5) then
                   gsupavg = 0.5*(gsuper+gsupkm)
-
-cc                  ee = 0.5*(array0(i,j,k-1,icomp)
-cc     .                     +array0(i,j,k  ,icomp))
                 elseif (ibc == 6) then
                   gsupavg = 0.5*(gsuper+gsupkp)
-
-cc                  ee = 0.5*(array0(i,j,k+1,icomp)
-cc     .                     +array0(i,j,k  ,icomp))
                 endif
 
                 jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
@@ -1466,6 +1491,9 @@ cc     .                     +array0(i,j,k  ,icomp))
                   rhs(i,j) = 
      .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                else
+                  icomp = ivar  !Symmetry BC
+                  rhs(i,j) = 0d0
                 endif
 
                 if (ibc == 5) then
@@ -1519,6 +1547,8 @@ c     Assign value
      $                    = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
      $                    + rhs(imin:imax,jmin:jmax)
       end select
+
+      deallocate(rhs)
 
 c     End program
 
