@@ -379,7 +379,7 @@ cc      10/20/2010: I don't think this call is needed, since it seems to be
 cc      called stand-alone by the SAMRAI driver before this routine
 cc      (and initializeAuxVar below, which also needs it).
 cc
-cc      call setupVariableInitializationSequence(gv,it)
+      call setupVariableInitializationSequence(gv,it)
 
 c Allocate auxiliary variables
 
@@ -432,6 +432,7 @@ c Local variables
 
       INTERFACE
       subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
+        use variable_setup
         integer    :: iigx,iigy,iigz,bc_inf(2)             
         type(var_array),pointer :: varray
         type(aux_array),pointer :: vaux               
