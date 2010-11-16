@@ -316,7 +316,7 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
           enddo
         enddo
 
-      case ('gem','tmcar','tmsin','kai1')
+      case ('gem','tmcar','tmsin','kai1','sgem')
 
         call perturbEquilibrium_gem(array,bcs,pert(ieq),ieq)
 
@@ -579,7 +579,7 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
-      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: x1,y1,z1,kk,mm,lx,ly
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
@@ -588,18 +588,23 @@ c     Begin program
 
       if (ieq == IBX .or. ieq == IBY) then
 
+        lx = xmax-xmin
+        if (bcond(1) == FSYM .or. bcond(2) == FSYM) lx = 2*(xmax-xmin)
+        ly = ymax-ymin
+        if (bcond(3) == FSYM .or. bcond(4) == FSYM) ly = 2*(ymax-ymin)
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+     .                                      ,x1,y1,z1)
 
-              psi(i,j,k)=-sin(  pi*(x1-xmin)/(xmax-xmin))
-     .                   *cos(2*pi*(y1-ymin)/(ymax-ymin))
+              psi(i,j,k)=-sin(  pi*(x1-xmin)/lx)
+     .                   *cos(2*pi*(y1-ymin)/ly)
             enddo
           enddo
         enddo
-        
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -1092,7 +1097,7 @@ c     Begin program
 
 c     Solve cubic dispersion relation for omega^2 (Checked, Luis 6/3/08)
 
-      a =  1.
+      a =  1d0
       b = -ckpar*(1+k2*di**2)-k2*(ca2 + cs2)
       c = ckpar*(k2**2*cs2*di**2+2*k2*cs2+k2*ca2)
       d = -ckpar**2*cs2*k2
@@ -1111,24 +1116,6 @@ cc      stop
 c     Find CFL constraint
 
       root = sqrt(abs(r))
-
-ccc     Eliminate complex roots
-cc
-cc      where (aImag(r) < 1d-10) 
-cc        root = Real(r)
-cc      elsewhere
-cc        root = 0d0
-cc      end where
-cc
-ccc     Find maximum real root
-cc
-cc      where (root > 0d0) 
-cc        root = sqrt(root)
-cc      elsewhere
-cc        root = 0d0
-cc      end where
-
-cc      icfl = maxval(root)
 
 c     End program
 
