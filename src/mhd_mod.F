@@ -400,6 +400,9 @@ c     Allocate storage
         vaux%var_list(IETA_0)%descr = 'eta_0'
         eeta_0=>vaux%var_list(IETA_0)%array
 
+        vaux%var_list(IHETA)%descr = 'heta'
+        h_eta => vaux%var_list(IHETA)%array
+
         vaux%var_list(INU )%descr = 'nu'
         nuu  => vaux%var_list(INU )%array
 
@@ -497,6 +500,7 @@ c     Deallocate storage
      .       ,pcnv
      .       ,eeta
      .       ,eeta_0
+     .       ,h_eta
      .       ,nuu
      .       ,psi
      .       ,rho_0
