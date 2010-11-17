@@ -1773,7 +1773,7 @@ cc        nu0  => gvis %grid(igrid)%array
         v0   => gv0  %grid(igrid)%array
         rho0 => grho0%grid(igrid)%array
 
-        allocate(nu0(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(nu0(0:nx+1,0:ny+1,0:nz+1,1))
 
         nu0 = gvis%grid(igrid)%array + heta*rho0  !Add ion+electron contributions
 
