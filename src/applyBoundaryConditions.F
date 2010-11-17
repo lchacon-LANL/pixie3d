@@ -1223,6 +1223,7 @@ c       Find hyperresistivity (electron viscosity)
 
           if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
             heta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
+            h_eta = heta*varray%array_var(IRHO)%array
           endif
 
         case(IRHO_0)
