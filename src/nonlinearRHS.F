@@ -234,52 +234,12 @@ c       Advection + sources
               heat_src = heat_src
      .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
      .                                     ,rho,vefcnv,vecnv)
-
-cc              if (viscous < 0d0) then
-cc                call pstop('viscous_heat_src'
-cc     .                    ,'Viscous heat source is negative')
-cc              endif
             else
               heat_src = heat_src
      .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
      .                                     ,rho,vecnv,vecnv)
             endif
           endif
-
-ccc     Electron viscous src
-cc
-cc        if (heta > 0d0) then       !Electron viscosity
-cc          if (fake_ve) then
-cc            pi_tnsr=heta*EOM_Pi_ijk(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                             ,vefcnv,rho)
-cc          else
-cc            pi_tnsr=heta*EOM_Pi_ijk(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                             ,vecnv,rho)
-cc          endif
-cc
-cccc          !Match Slava's hyperresistivity
-cccc          pi_tnsr(:,1:2) = 0d0
-cc
-cccc          if (fake_ve) then
-cccc            nabla_ve = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cccc     .                       ,vefcnv(:,:,:,1)
-cccc     .                       ,vefcnv(:,:,:,2)
-cccc     .                       ,vefcnv(:,:,:,3),0)
-cccc          else
-cc            nabla_ve = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                         ,vecnv(:,:,:,1)
-cc     .                         ,vecnv(:,:,:,2)
-cc     .                         ,vecnv(:,:,:,3),0)
-cccc          endif
-cc
-cc          !Comment out to match Slava's heat source
-cc          !Comment out for old TM Hall MHD performance results
-cc          viscous = viscous
-cc     .             -tensorScalarProduct(i,j,k,igx,igy,igz
-cc     .                                 ,matmul(nabla_ve,gsub),pi_tnsr)
-cc        endif
-cc
-cc        heat_src = joule + viscous
 
           !Add contributions
           ff(ITMP) = advc
