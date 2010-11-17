@@ -350,9 +350,6 @@ c     Begin program
 #else
           x(:,IAX:IAZ)= x(:,IAX:IAZ) - dt/cnp*rhspc(:,IAX:IAZ)
 #endif
-
-          call correct_T(ntotp,igrid,rhspc(:,ITMP),x,iout)
-
           x(:,ITMP)   = x(:,ITMP)    - dt/cnp*rhspc(:,ITMP)
 
         case(1)
@@ -497,12 +494,14 @@ c     Correct rx to find Deltax (correction for rho, B, T)
         !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
         if (solve_rho)
      .       call U_rho_v(nx,ny,nz,dv_cnv       ,rhs(:,IRHO)   ,igrid)
-        call U_Tv   (nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
 #if !defined(vec_pot)
-        call U_Bv   (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
+        call U_Bv(nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
 #else
-        call U_Av   (nx,ny,nz,dv_cnv,dv_cov,rhs(:,IAX:IAZ),igrid)
+        call U_Av(nx,ny,nz,dv_cnv,dv_cov,rhs(:,IAX:IAZ),igrid)
 #endif
+        call U_Tv(nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
+
+        call L_T (nx,ny,nz,x            ,rhs(:,ITMP)   ,igrid)
 
 c     End program
 
@@ -737,8 +736,8 @@ c       Temperature
 
         if (gamma > 1d0) then
 
-          !Correct for electron velocity contribution
-          call correct_T(ntotp,igrid,rhs(:,ITMP),x,iout)
+          !Correct for electron velocity/source contribution
+          call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid)
 
           call cSolver(1,ntotp,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
      .              ,igrid,iout,guess,tmp_mtvc,vol_wgt
@@ -822,23 +821,23 @@ c     Begin program
         !Form SI rhs -(Gv+Ldx)
         call formSIrhs(ntotp,x,y(:,IVX:IVZ),rhspc(:,IVX:IVZ),igrid)
 
-cc        do k = 1,nz
-cc          do j = 1,ny
-cc            do i = 1,nx
-cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc              if (vol_wgt) then !Residuals are volume-weighed by default
-cc                dvol = gmetric%grid(igx)%dvol(i,j,k)
-cc              else
-cc                dvol = 1d0
-cc              endif
-cc
-cc              x(ii,IVX:IVZ) = dt*rhspc(ii,IVX:IVZ)/cnp/dvol
-cccc              x(ii,IVX:IVZ) = dt*y(ii,IVX:IVZ)/cnp/dvol
-cc            enddo
-cc          enddo
-cc        enddo
-cc        return
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              if (vol_wgt) then !Residuals are volume-weighed by default
+                dvol = gmetric%grid(igx)%dvol(i,j,k)
+              else
+                dvol = 1d0
+              endif
+
+              x(ii,IVX:IVZ) = dt*rhspc(ii,IVX:IVZ)/cnp/dvol
+cc              x(ii,IVX:IVZ) = dt*y(ii,IVX:IVZ)/cnp/dvol
+            enddo
+          enddo
+        enddo
+        return
 
         !Solve Schur-complement SI system
 
@@ -1567,28 +1566,27 @@ c Find dp_cnv
 c Find electron velocity
 
       if (di > 0d0.and.(.not.fake_ve)) then
-cc          if (di > 0d0) then
-cc            dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
-cc     .                      -di*(dj_cnv(:,:,:,1)
-cc     .                          - jcnv0(:,:,:,1)*drho(:,:,:,1)
-cc     .                                          /rho0(:,:,:,1))
-cc     .                         /rho0(:,:,:,1)
-cc            dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
-cc     .                      -di*(dj_cnv(:,:,:,2)
-cc     .                          - jcnv0(:,:,:,2)*drho(:,:,:,1)
-cc     .                                          /rho0(:,:,:,1))
-cc     .                         /rho0(:,:,:,1)
-cc            dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
-cc     .                      -di*(dj_cnv(:,:,:,3)
-cc     .                          - jcnv0(:,:,:,3)*drho(:,:,:,1)
-cc     .                                          /rho0(:,:,:,1))
-cc     .                         /rho0(:,:,:,1)
-        dve_cnv(:,:,:,1)=    dv_cnv(:,:,:,1)
-     .                  -di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1))
-        dve_cnv(:,:,:,2)=    dv_cnv(:,:,:,2)
-     .                  -di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1))
-        dve_cnv(:,:,:,3)=    dv_cnv(:,:,:,3)
-     .                  -di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1))
+        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+     .                  -di*(dj_cnv(:,:,:,1)
+     .                      - jcnv0(:,:,:,1)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
+        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+     .                  -di*(dj_cnv(:,:,:,2)
+     .                      - jcnv0(:,:,:,2)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
+        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+     .                  -di*(dj_cnv(:,:,:,3)
+     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
+     .                                      /rho0(:,:,:,1))
+     .                     /rho0(:,:,:,1)
+cc        dve_cnv(:,:,:,1)=    dv_cnv(:,:,:,1)
+cc     .                  -di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1))
+cc        dve_cnv(:,:,:,2)=    dv_cnv(:,:,:,2)
+cc     .                  -di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1))
+cc        dve_cnv(:,:,:,3)=    dv_cnv(:,:,:,3)
+cc     .                  -di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1))
       else
         dve_cnv = dv_cnv
       endif
@@ -2150,9 +2148,10 @@ c End program
 
       end subroutine correctBfld
 
-c correct_T
+c L_T
 c #########################################################################
-      subroutine correct_T(ntotp,igrid,crhs,x,iout)
+cc      subroutine L_T(ntotp,igrid,crhs,x,iout)
+      subroutine L_T(nx,ny,nz,x,crhs,igrid)
 c--------------------------------------------------------------------
 c     This subroutine corrects the T-field update with B, rho info.
 c--------------------------------------------------------------------
@@ -2167,12 +2166,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer :: ntotp,igrid,iout
-      real(8) :: x(ntotp,neqd),crhs(ntotp)
+      integer :: nx,ny,nz,igrid
+      real(8) :: x(nx*ny*nz,neqd),crhs(nx*ny*nz)
+cc     .          ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c Local variables
 
-      integer :: i,j,k,ii,isig,ivar,nx,ny,nz
+      integer :: i,j,k,ii,isig,ivar
       real(8) :: dvol,heat_src
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
@@ -2181,29 +2181,29 @@ c Local variables
      .                                          ,dj_cnv
      .                                          ,dj_cov
      .                                          ,drho
-     .                                          ,dvs_cnv
+     .                                          ,dve_cnv
 
       real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0
 
 c Begin program
 
-      !To recover old TM Hall performance results
-      return
+cc      !To recover old TM Hall performance results
+cc      return
 
-      if (my_rank == 0 .and. iout > 0)
-     .     write (*,*) 'Correcting T-field...'
+cc      if (my_rank == 0 .and. iout > 0)
+cc     .     write (*,*) 'Correcting T-field...'
 
       isig = grid_params%istartp(igrid)
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+cc      nx = grid_params%nxv(igrid)
+cc      ny = grid_params%nyv(igrid)
+cc      nz = grid_params%nzv(igrid)
 
       allocate (db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,dj_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,dj_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .         ,dvs_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .         ,drho   (0:nx+1,0:ny+1,0:nz+1,1))
 
 c Find drho
@@ -2280,15 +2280,15 @@ c Hall MHD correction
       if (di > 0d0) then
 
         !Find dv_star
-        dvs_cnv(:,:,:,1)=-di/a_p*(dj_cnv(:,:,:,1)/rho0(:,:,:,1)
-     .                           -j0    (:,:,:,1)*drho(:,:,:,1)
-     .                                           /rho0(:,:,:,1)**2)
-        dvs_cnv(:,:,:,2)=-di/a_p*(dj_cnv(:,:,:,2)/rho0(:,:,:,1)
-     .                           -j0    (:,:,:,2)*drho(:,:,:,1)
-     .                                           /rho0(:,:,:,1)**2)
-        dvs_cnv(:,:,:,3)=-di/a_p*(dj_cnv(:,:,:,3)/rho0(:,:,:,1)
-     .                           -j0    (:,:,:,3)*drho(:,:,:,1)
-     .                                           /rho0(:,:,:,1)**2)
+        dve_cnv(:,:,:,1)=-di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,1)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
+        dve_cnv(:,:,:,2)=-di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,2)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
+        dve_cnv(:,:,:,3)=-di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,3)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
 
         !Find correction to tmp RHS
         tmp0 => gtmp0%grid(igrid)%array
@@ -2306,11 +2306,11 @@ c Hall MHD correction
                   dvol = 1d0
                 endif
 
-                crhs(ii)=crhs(ii)-alpha*dvol
+                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
      .              *(flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,dvs_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
      .               +(gamma-1.)*tmp0(i,j,k,1)
-     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dvs_cnv))
+     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv))
 
                enddo
             enddo
@@ -2318,7 +2318,7 @@ c Hall MHD correction
 
         else                      !Temperature equation
 
-cc          ve0  => gve0%grid(igrid)%array
+          ve0  => gve0%grid(igrid)%array
 
           do k = 1,nz
             do j = 1,ny
@@ -2333,28 +2333,28 @@ cc          ve0  => gve0%grid(igrid)%array
                 endif
 
                 heat_src = 0d0
-cc                if (heta > 0d0) then
-cccc                  if (fake_ve) then
-cccc                    heat_src = heat_src
-cccc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
-cccc     .                                 ,igrid,igrid,igrid,rho0,dvef_cnv,ve0)
-cccc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
-cccc     .                                 ,igrid,igrid,igrid,rho0,vefcnv,dve_cnv)
-cccc                  else
+                if (heta > 0d0) then
+cc                  if (fake_ve) then
 cc                    heat_src = heat_src
 cc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
-cc     .                                ,igrid,igrid,igrid,rho0,ve0,dve_cnv)
+cc     .                                 ,igrid,igrid,igrid,rho0,dvef_cnv,ve0)
 cc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
-cc     .                                ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
-cccc                  endif
-cc                endif
+cc     .                                 ,igrid,igrid,igrid,rho0,vefcnv,dve_cnv)
+cc                  else
+                    heat_src = heat_src
+     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid,rho0,ve0,dve_cnv)
+     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
+cc                  endif
+                endif
 
-                crhs(ii)=crhs(ii)-alpha*dvol
+                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
      .            *( flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,dvs_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
      .             +(gamma-2.)*tmp0(i,j,k,1)
-     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dvs_cnv)
-     .             -(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p)
+     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
+     .             -(gamma-1.)*heat_src/rho0(i,j,k,1) )
               enddo
             enddo
           enddo
@@ -2372,9 +2372,9 @@ c End program
      .          ,dj_cnv
      .          ,dj_cov
      .          ,drho
-     .          ,dvs_cnv)
+     .          ,dve_cnv)
 
-      end subroutine correct_T
+      end subroutine L_T
 
 c preprocessBflRHS
 c ###################################################################
