@@ -832,6 +832,9 @@ c       Allocate auxiliary variables in local domain
         allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
      .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
 
+        v0   = 0d0
+        vdum = 0d0
+
         select case(abs(bc_inf(1)))
         case(IJCOV)
 
@@ -874,8 +877,6 @@ c         Fill ghost nodes
 
           bcnd = vaux%vec_list(IACOV_0)%bconds
 
-          v0 = 0d0
-
           call setBC(IAX,3,nnx,nny,nnz,acnv,acov_0,v0,bcnd
      .              ,iigx,iigy,iigz
      .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
@@ -887,8 +888,6 @@ c         Fill ghost nodes
         case(IBCNV_0)
 
           bcnd = vaux%vec_list(IBCNV_0)%bconds
-
-          v0 = 0d0
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0,bcnd
      .              ,iigx,iigy,iigz
@@ -902,8 +901,6 @@ c         Fill ghost nodes
 c       Current BC
 
           bcnd = vaux%vec_list(IJCNV_0)%bconds
-
-          v0 = 0d0
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0,bcnd
      .              ,iigx,iigy,iigz
@@ -1064,8 +1061,6 @@ cc#endif
 
 c       Fake electron velocity BC: ve=v-di*j*/rho with j*=-dt*curl(curl(E_fake))
 
-          v0 = 0d0
-
           bcnd = vaux%vec_list(IVEFCNV)%bconds
           call setBC(IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
      .              ,iigx,iigy,iigz,iorder=order
@@ -1114,8 +1109,6 @@ c       Electric field BC
           if (di > 0d0) then
 #if !defined(vec_pot)
             bcnd = vaux%vec_list(IENI)%bconds
-            v0   = 0d0
-            vdum = 0d0
             call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
      .                ,iigx,iigy,iigz,iorder=order,is_cnv=.false.)
 #endif
@@ -1308,8 +1301,6 @@ c       Allocate auxiliary variables in local domain
           jcov_0 = XformVector(iigx,jcnv_0,.false.)
 
         case(IJCNV_0)
-
-          v0 = 0d0
 
 c       Current BC
 
