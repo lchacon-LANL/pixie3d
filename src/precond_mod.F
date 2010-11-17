@@ -1752,6 +1752,7 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
       tmp0 => gtmp0%grid(igrid)%array
 
       if (adiabatic) then
+
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -1765,11 +1766,16 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
             enddo
           enddo
         enddo
+
       else
 
-        nu0  => gvis %grid(igrid)%array
+cc        nu0  => gvis %grid(igrid)%array
         v0   => gv0  %grid(igrid)%array
         rho0 => grho0%grid(igrid)%array
+
+        allocate(nu0(0:nx+1,0:ny+1,0:nz+1,3))
+
+        nu0 = gvis%grid(igrid)%array + heta*rho0  !Add ion+electron contributions
 
         do k = 1,nz
           do j = 1,ny
@@ -1792,7 +1798,8 @@ c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
           enddo
         enddo
 
-        nullify(nu0,rho0,v0)
+        nullify(rho0,v0)
+        deallocate(nu0)
       endif
 
       crhs = alpha*crhs
