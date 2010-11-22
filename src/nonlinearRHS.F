@@ -229,15 +229,19 @@ c       Advection + sources
 
           !Electron viscosity
           !Comment out for old TM Hall MHD performance results
-          if (heta > 0d0) then
+          if (di > 0d0) then
             if (fake_ve) then
               heat_src = heat_src
-     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                     ,rho,vefcnv,vecnv)
+cc     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                     ,rho,vefcnv,vecnv)
+     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                     ,h_eta,vefcnv,vecnv)
             else
               heat_src = heat_src
-     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                     ,rho,vecnv,vecnv)
+cc     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                                     ,rho,vecnv,vecnv)
+     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+     .                                     ,h_eta,vecnv ,vecnv)
             endif
           endif
 
