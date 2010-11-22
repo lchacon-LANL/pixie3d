@@ -324,7 +324,7 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
 
         call perturbEquilibrium_dtm(array,bcs,pert(ieq),ieq)
 
-      case ('ic')
+      case ('ic','ic-hk')
 
         call perturbEquilibrium_ic(array,bcs,pert(ieq),ieq)
 
@@ -954,19 +954,32 @@ c     Begin program
 
       if (ieq == IBX .or. ieq == IBY) then
 
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+cc        if (equil == 'ic') then
+cc          do k = klom,khip
+cc            do j = jlom,jhip
+cc              do i = ilom,ihip
+cc                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc                psi(i,j,k)=sin(  pi*(x1-xmin)/(xmax-xmin))
+cc     .                    *cos(2*pi*(y1-ymin)/(ymax-ymin))
+cc     .                    *cos(2*pi*(z1-zmin)/(zmax-zmin))
+cc              enddo
+cc            enddo
+cc          enddo
+cc        elseif (equil == 'ic-hk') then
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                      ,x1,y1,z1)
 
-              psi(i,j,k)=sin(  pi*(x1-xmin)/(xmax-xmin))
-     .                  *cos(2*pi*(y1-ymin)/(ymax-ymin))
-     .                  *cos(2*pi*(z1-zmin)/(zmax-zmin))
+                psi(i,j,k)=-cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
+              enddo
             enddo
           enddo
-        enddo
-        
+cc        endif
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
