@@ -216,12 +216,9 @@ c Calculate CFL
 
 c Calculate courant number
 
-      diffmax = max(maxval(eeta),maxval(nuu+heta),dd,chi)
+      w_cour = max(maxval(eeta)*k2max,maxval(nuu+h_eta)*k2max,dd*k2max
+     .          ,chi*k2max,maxval(di**2*h_eta*k2max**2),chi_par*kbp2max)
 
-      w_cour = max(diffmax*k2max,di**2*heta*k2max**2,chi_par*kbp2max)
-
-cc      write (*,*) k2max,diffmax*k2max,di**2*heta*k2max**2,w_cfl
-cc      stop
 c Calculate time step
 
 cc      if (w_cfl <= w_cour) then
