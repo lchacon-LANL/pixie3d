@@ -285,7 +285,7 @@ c        Velocity
           endif
 
           if (pc_type == 's1' .or. pc_type == 's2') then
-            if (heta == 0d0 .or. (.not.pc_ion_hall)) then
+            if (di == 0d0 .or. (.not.pc_ion_hall)) then
               call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
             else
