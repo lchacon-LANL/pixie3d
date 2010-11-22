@@ -2136,7 +2136,7 @@ c Local variables
       real(8),pointer,dimension(:,:,:,:) :: du,du_cov
       real(8),allocatable,dimension(:,:,:,:) :: das,db_cov
       real(8),pointer    ,dimension(:,:,:,:) :: ve0_cnv,da_cov,dj_cnv
-     .                                         ,rho0,bs0_cnv,da_cnv
+     .                                        ,rho0,bs0_cnv,da_cnv,heta0
 
       logical    :: fpointers,is_cnv
 
@@ -2208,6 +2208,7 @@ c Auxiliary quantities
       ve0_cnv => gve0%grid(igrid)%array
       bs0_cnv => gbs0%grid(igrid)%array
       rho0    => grho0%grid(igrid)%array
+      heta0   => gheta%grid(igrid)%array
 
       dj_cnv(:,:,:,1) = di*dj_cnv(:,:,:,1)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
       dj_cnv(:,:,:,2) = di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dj => di*dj/rho (contravariant)
@@ -2392,8 +2393,10 @@ cc            cnv = di*curlcurla/rho0(i,j,k,1)
             !Electron pressure tensor piece: di/rho*div(pe(dj))
 cc            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
 cc     .                        ,dj_cnv)
-            cnv= heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,dj_cnv,rho0)
+cc            cnv= heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc     .                        ,dj_cnv,rho0)
+            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,dj_cnv,heta0)
 
             a_res = a_res + alpha*di/rho0(i,j,k,1)
      .             *matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
@@ -3339,6 +3342,7 @@ c Local variables
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
      .                                     ,dve_cnv,divpi,dB_cnv,dB_cov
+     .                                     ,heta0
 
 c Begin program
 
@@ -3517,8 +3521,10 @@ c Calculate matrix-vector product
 
             !Electron viscosity piece *************
 
-            divpe = heta*EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
-     .                                ,dve_cnv,rho0)
+cc            divpe = heta*EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
+cc     .                                ,dve_cnv,rho0)
+            divpe = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv
+     .                           ,heta0)
 
             if (nc_eom_v) then
               psiv = psiv + alpha*divpe/rho0(i,j,k,1)
