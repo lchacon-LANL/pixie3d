@@ -816,15 +816,13 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-c     Tearing mode in cartesian coordinates
+c     Island coalescence in cartesian coordinates
 
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
         var(:,:,:,IRHO) = 1d0
-
-        bz0 = 1d0
 
         do k = klo,khi
           do j = jlo,jhi
@@ -836,6 +834,51 @@ c     Tearing mode in cartesian coordinates
      $                       /(    cosh(x1/dlambda)
      $                        +eps*cos (y1/dlambda))**2)
      $                       /a_p/var(i,j,k,IRHO)
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = curl(igx,a)
+#else
+        var(:,:,:,IAX:IAZ) = a
+#endif
+
+      case ('ic-hk')  !Homa Karimabadi's equilibrium (use symmetry BCs)
+
+        beta   = grid_params%params(1)
+        eps    = grid_params%params(2)
+
+        dlambda = 0.5/pi !(Ly/4/pi) with Ly=2 in full domain
+
+c     Define vector potential (in curvilinear coordinates) for initialization
+
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Island coalescence in cartesian coordinates
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,ITMP) = 0.5*beta/a_p
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                   ,x1,y1,z1)
+
+             var(i,j,k,IRHO)=(0.2
+     .                      +(1-eps**2)/(     cosh(x1/dlambda)
+     .                                   +eps*cos (y1/dlambda))**2 )
             enddo
           enddo
         enddo
@@ -5243,6 +5286,25 @@ c Begin program
 
         eps = grid_params%params(2)
         dlambda = (ymax-ymin)/2./pi/2.
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              a(i,j,k,1) = 0d0
+              a(i,j,k,2) = 0d0
+              a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
+     $                                  +eps*cos (y1/dlambda)) 
+            enddo
+          enddo
+        enddo
+
+      case ('ic-hk')
+
+        eps = grid_params%params(2)
+        dlambda = 0.5/pi !(Ly/4/pi)
 
         do k = klom,khip
           do j = jlom,jhip
