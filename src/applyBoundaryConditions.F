@@ -218,7 +218,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: ieq,bcsq(6)
+      integer :: ieq,bcsq(6)
 
 c     Begin program
 
@@ -253,6 +253,14 @@ c     Begin program
       gv%aux%vec_list(IBCOV)%bconds = gv%aux%vec_list(IBCNV)%bconds
 #endif
 
+      !Equilibrium magnetic field
+      gv%aux%vec_list(IBCNV_0)%bconds = gv%aux%vec_list(IBCNV)%bconds
+
+      where (gv%aux%vec_list(IBCNV_0)%bconds == -NEU)
+        gv%aux%vec_list(IBCNV_0)%bconds = EXT
+      end where
+      gv%aux%vec_list(IBCOV_0)%bconds = gv%aux%vec_list(IBCNV_0)%bconds
+
       !Current
       gv%aux%vec_list(IJCNV)%bconds = gv%aux%vec_list(IBCNV)%bconds
 
@@ -276,8 +284,6 @@ c     Begin program
         gv%aux%vec_list(IJCNV_0)%bconds =-EXT
       end where
       gv%aux%vec_list(IJCOV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
-
-      gv%aux%vec_list(IBCNV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
 
 #if defined(vec_pot)
       gv%aux%vec_list(IACOV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
@@ -752,7 +758,7 @@ c Local variables
      .          ,ig,jg,kg
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
-     .          ,idx,idy,idz,k2,kk,k_par,bnorm,lheta,vol,lvol
+cc     .          ,idx,idy,idz,k2,kk,k_par,bnorm,vol,lvol
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
 
@@ -1214,10 +1220,7 @@ c       Resistivity and viscosity (needed for BCs; may depend on T)
 
 c       Find hyperresistivity (electron viscosity)
 
-          if (di /= 0d0 .and. heta == 0d0 .and. (.not.test)) then
-            heta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
-            h_eta = heta*varray%array_var(IRHO)%array
-          endif
+          h_eta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
 
         case(IRHO_0)
 
@@ -1532,13 +1535,15 @@ c       Divergence of ion stress tensor
 
 c       Divergence of electron stress tensor
 
-          if (heta > 0d0) then
+          if (di > 0d0) then
             if (fake_ve) then
-              div_pe = heta*EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz
-     .                               ,vefcnv,rho)
+cc              div_pe = heta*EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz
+cc     .                               ,vefcnv,rho)
+              div_pe =EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vefcnv,h_eta)
             else
-              div_pe = heta*EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz
-     .                               ,vecnv,rho)
+cc              div_pe = heta*EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz
+cc     .                               ,vecnv,rho)
+              div_pe =EOM_divPe(nnx,nny,nnz,iigx,iigy,iigz,vecnv ,h_eta)
             endif
           else
             div_pe = 0d0
