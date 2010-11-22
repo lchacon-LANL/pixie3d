@@ -4128,6 +4128,14 @@ c     Begin program
         ip = i+1
         if (flag == 0) ip = i
 
+        !Harmonic average for calculation of viscosity coeff. at faces
+        if (coef(ip,j,k)*coef(i,j,k) > 0d0) then
+          vish = 2.*coef(ip,j,k)*coef(i,j,k)/(coef(ip,j,k)+coef(i,j,k))
+        else
+          t11 = 0d0 ; t12 = 0d0; t13 = 0d0
+          return
+        endif
+
         jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
      .               +gmetric%grid(igx)%jac (i ,j,k))
 
@@ -4149,13 +4157,6 @@ c     Begin program
         ijacp = 1d0/jacp
 
 c     Diffusive part
-
-        !Harmonic average for calculation of viscosity coeff. at faces
-cc        if (associated(coef)) then
-          vish = 2.*coef(ip,j,k)*coef(i,j,k)/(coef(ip,j,k)+coef(i,j,k))
-cc        else
-cc          vish = 1d0
-cc        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -4234,18 +4235,20 @@ c     Begin program
         jp = j+1
         if (flag == 0) jp = j
 
+        !Harmonic average for calculation of viscosity coeff. at faces
+        if (coef(i,jp,k)*coef(i,j,k) > 0d0) then
+          vish = 2.*coef(i,jp,k)*coef(i,j,k)/(coef(i,jp,k)+coef(i,j,k))
+        else
+          t21 = 0d0 ; t22 = 0d0; t23 = 0d0
+          return
+        endif
+
         jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
      .               +gmetric%grid(igx)%jac (i,j ,k))
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
 c       Diffusive part
-
-cc        if (associated(coef)) then
-          vish = 2.*coef(i,jp,k)*coef(i,j,k)/(coef(i,jp,k)+coef(i,j,k))
-cc        else
-cc          vish = 1d0
-cc        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -4324,18 +4327,20 @@ c     Begin program
         kp = k+1
         if (flag == 0) kp = k
 
+        !Harmonic average for calculation of viscosity coeff. at faces
+        if (coef(i,j,kp)*coef(i,j,k) > 0d0) then
+          vish = 2.*coef(i,j,kp)*coef(i,j,k)/(coef(i,j,kp)+coef(i,j,k))
+        else
+          t31 = 0d0 ; t32 = 0d0; t33 = 0d0
+          return
+        endif
+
         jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
      .               +gmetric%grid(igx)%jac (i,j,k ))
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
 c       Diffusive part
-
-cc        if (associated(coef)) then
-          vish = 2.*coef(i,j,kp)*coef(i,j,k)/(coef(i,j,kp)+coef(i,j,k))
-cc        else
-cc          vish = 1d0
-cc        endif
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
@@ -4469,8 +4474,7 @@ c     Local variables
 
 c     Begin program
 
-      cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0
-     .                   ,diff)
+      cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
 
 cc      !Set div(Pi) x,y components to zero to match Slava's implementation
 cc      cnv(1:2) = 0d0
@@ -4962,19 +4966,21 @@ c     End program
 
 c     hres
 c     ###############################################################
-      function hres(nx,ny,nz,igx,igy,igz,bcnv,rho)
+      function hres(nx,ny,nz,igx,igy,igz,bcnv,rho) result(h_res)
 c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
+
+      use app_iosetup
 
       implicit none
 
 c     Call variables
 
-      real(8) :: hres
       integer :: nx,ny,nz,igx,igy,igz
-      real(8) :: bcnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho (0:nx+1,0:ny+1,0:nz+1)
+      real(8) :: bcnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,rho  (0:nx+1,0:ny+1,0:nz+1)
+     .          ,h_res(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -4984,59 +4990,101 @@ c     Local variables
 
 c     Begin program
 
-      hres = 0d0
-      vol = 0d0
+cc      hres = 0d0
+cc      vol = 0d0
+cc
+cc      do k=1,nz
+cc        do j=1,ny
+cc          do i=1,nx
+cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc            !kk
+cc            idx  = pi/grid_params%dx(ig)
+cc            if (nx == 1) idx = 0d0
+cc            idy  = pi/grid_params%dy(jg)
+cc            if (ny == 1) idy = 0d0
+cc            idz  = pi/grid_params%dz(kg)
+cc            if (nz == 1) idz = 0d0
+cc
+cc            k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+cc            kk=sqrt(k2)
+cc
+cc            !|B|*k_par
+cc            bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+cc     .                         ,bcnv(i,j,k,1)
+cc     .                         ,bcnv(i,j,k,2)
+cc     .                         ,bcnv(i,j,k,3))
+cc
+cccc            heta = heta + 0.1*di*sqrt(bnorm)/k2
+cc            hres = hres +di/sqrt(rho(i,j,k))*abs(bk_par)
+cc     .                     /kk**3
+cccc     .                     /(kk**3 + dt*nu*kk**5)
+cc     .                  *gmetric%grid(igx)%dvol(i,j,k)
+cc            vol  = vol + gmetric%grid(igx)%dvol(i,j,k)
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc#if defined(petsc) && !defined(samrai)
+cc      lheta = hres
+cc      call MPI_Allreduce(lheta,hres,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc      lvol = vol
+cc      call MPI_Allreduce(lvol,vol,1,MPI_DOUBLE_PRECISION
+cc     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#else
+cc#if defined(samrai)
+cc      call pstop('applyAuxVarBC'
+cc     .           ,'Need to fix hyperresistivity calculation in SAMRAI')
+cc#endif
+cc#endif
+cc
+cc      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication later
+cc
+cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      if (di == 0d0 .or. test) then
+        h_res = 0d0
+        return
+      endif
 
-            !kk
-            idx  = pi/grid_params%dx(ig)
-            if (nx == 1) idx = 0d0
-            idy  = pi/grid_params%dy(jg)
-            if (ny == 1) idy = 0d0
-            idz  = pi/grid_params%dz(kg)
-            if (nz == 1) idz = 0d0
+      if (heta /= 0d0) then
 
-            k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
-            kk=sqrt(k2)
+        h_res = heta*rho
 
-            !|B|*k_par
-            bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
-     .                         ,bcnv(i,j,k,1)
-     .                         ,bcnv(i,j,k,2)
-     .                         ,bcnv(i,j,k,3))
+      else
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              call getMGmap(min(max(i,1),nx)
+     .                     ,min(max(j,1),ny)
+     .                     ,min(max(k,1),nz),igx,igy,igz,ig,jg,kg)
 
-cc            heta = heta + 0.1*di*sqrt(bnorm)/k2
-            hres = hres +di/sqrt(rho(i,j,k))*abs(bk_par)
-     .                     /kk**3
-cc     .                     /(kk**3 + dt*nu*kk**5)
-     .                  *gmetric%grid(igx)%dvol(i,j,k)
-            vol  = vol + gmetric%grid(igx)%dvol(i,j,k)
+              !kk
+              idx  = pi/grid_params%dx(ig)
+              if (nx == 1) idx = 0d0
+              idy  = pi/grid_params%dy(jg)
+              if (ny == 1) idy = 0d0
+              idz  = pi/grid_params%dz(kg)
+              if (nz == 1) idz = 0d0
 
+              k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+              kk=sqrt(k2)
+
+              !|B|*k_par
+              bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+     .                           ,bcnv(i,j,k,1)
+     .                           ,bcnv(i,j,k,2)
+     .                           ,bcnv(i,j,k,3))
+
+cc              heta = heta + 0.1*di*sqrt(bnorm)/k2
+              h_res(i,j,k) = 1d1*sqrt(rho(i,j,k))/di*abs(bk_par)/kk**3 !nu_e*rho/di^2
+            enddo
           enddo
         enddo
-      enddo
 
-#if defined(petsc) && !defined(samrai)
-      lheta = hres
-      call MPI_Allreduce(lheta,hres,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-      lvol = vol
-      call MPI_Allreduce(lvol,vol,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#else
-#if defined(samrai)
-      call pstop('applyAuxVarBC'
-     .           ,'Need to fix hyperresistivity calculation in SAMRAI')
-#endif
-#endif
-
-      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication later
-
-      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
+      endif
 
 c     End
 
