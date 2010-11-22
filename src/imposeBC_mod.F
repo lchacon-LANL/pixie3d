@@ -688,7 +688,7 @@ c     Call variables
 c     Local variables
 
       integer    :: imax,imin,jmax,jmin,kmax,kmin
-      integer    :: i,j,k,ig,jg,kg,ibc
+      integer    :: i,j,k,ig,jg,kg,ibc,hex,hey,hez
       real(8)    :: x1,x2,x3,dh(3),diver
 
       real(8)    :: gsuper(3,3),jac0
@@ -696,17 +696,6 @@ c     Local variables
       real(8),allocatable,dimension(:,:) :: rhs
 
 c     Begin program
-
-      select case(dim)
-      case(1)
-        allocate(rhs(0:nybc+1,0:nzbc+1))
-      case(2)
-        allocate(rhs(0:nxbc+1,0:nzbc+1))
-      case(3)
-        allocate(rhs(0:nxbc+1,0:nybc+1))
-      end select
-
-      rhs = 0d0
 
       ibc = (1+loc)+2*(dim-1)
 
@@ -719,7 +708,7 @@ cc     .                    ,dim,loc,order)
 
       case (IBX,IBY,IBZ,IJX,IJY,IJZ)
 
-        if (ivar /= dim) then
+        if (ivar /= dim .or. bcSYM(ibc)) then
 
           call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
      .                      ,dim,loc,order)
@@ -728,9 +717,16 @@ cc     .                    ,dim,loc,order)
 
           call findBCLoopLimits(dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
-          do i=imin,imax
+          select case (ibc)
+          case (1)
+ 
+            i = 1
+
+            array(i-1,:,:,dim) = array(i+1,:,:,dim)  !To cancel normal derivative
+
             do j=jmin,jmax
               do k=kmin,kmax
 
@@ -741,61 +737,194 @@ cc     .                    ,dim,loc,order)
                 dh(2) = 2.*dyh(jg)
                 dh(3) = 2.*dzh(kg)
 
-                select case (ibc)
-                case (1)
-                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(j,k) = array(i+1,j,k,dim) + dh(dim)*diver
-                case (2)
-                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(j,k) = array(i-1,j,k,dim) - dh(dim)*diver
-                case (3)
-                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,k) = array(i,j+1,k,dim) + dh(dim)*diver
-                case (4)
-                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,k) = array(i,j-1,k,dim) - dh(dim)*diver
-                case (5)
-                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,j) = array(i,j,k+1,dim) + dh(dim)*diver
-                case (6)
-                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
-                  diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,j) = array(i,j,k-1,dim) - dh(dim)*diver
-                end select
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver=jac0
+     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                   ,hey=hey,hez=hez)
+
+                array(i-1,j,k,dim) = array(i+1,j,k,dim) + dh(dim)*diver
 
               enddo
             enddo
-          enddo
+ 
+          case (2)
 
-c       Update BC ghost nodes
+            i = nxbc
 
-          select case (ibc)
-          case (1)              !x0
-          array(0     ,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
-          case (2)              !x1
-          array(nxbc+1,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
-          case (3)              !y0
-          array(imin:imax,0     ,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
-          case (4)              !y1
-          array(imin:imax,nybc+1,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
-          case (5)              !z0
-          array(imin:imax,jmin:jmax,0     ,dim)=rhs(imin:imax,jmin:jmax)
-          case (6)              !z1
-          array(imin:imax,jmin:jmax,nzbc+1,dim)=rhs(imin:imax,jmin:jmax)
+            array(i+1,:,:,dim) = array(i-1,:,:,dim)  !To cancel normal derivative
+
+            do j=jmin,jmax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hey=hey,hez=hez)
+
+                array(i+1,j,k,dim) = array(i-1,j,k,dim) - dh(dim)*diver
+
+              enddo
+            enddo
+
+          case (3)
+
+            j = 1
+
+            array(:,j-1,:,dim) = array(:,j+1,:,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hez=hez)
+
+                array(i,j-1,k,dim) = array(i,j+1,k,dim) + dh(dim)*diver
+                  
+              enddo
+            enddo
+
+          case (4)
+
+            j = nybc
+
+            array(:,j+1,:,dim) = array(:,j-1,:,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hez=hez)
+
+                array(i,j+1,k,dim) = array(i,j-1,k,dim) - dh(dim)*diver
+                  
+              enddo
+            enddo
+
+          case (5)
+
+            k = 1
+
+            array(:,:,k-1,dim) = array(:,:,k+1,dim)   !To cancel normal derivative
+
+            do i=imin,imax
+              do j=jmin,jmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey)
+
+                array(i,j,k-1,dim) = array(i,j,k+1,dim) + dh(dim)*diver
+
+              enddo
+            enddo
+
+          case (6)
+
+            k = nzbc
+
+            array(:,:,k+1,dim) = array(:,:,k-1,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do j=jmin,jmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = 2.*dxh(ig)
+                dh(2) = 2.*dyh(jg)
+                dh(3) = 2.*dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey)
+
+                array(i,j,k+1,dim) = array(i,j,k-1,dim) - dh(dim)*diver
+
+              enddo
+            enddo
+
           case default
+
             messg = 'Boundary'//int2char(ibc)//' non existent'
             call pstop('vectorDirichletBC',messg)
+
           end select
 
         endif
@@ -807,13 +936,20 @@ c       Update BC ghost nodes
           call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
-        else !Imposes divergence-free constraint on A (not exactly the same as above!!!!)
+        else  !Imposes divergence-free constraint on B, J
 
           call findBCLoopLimits(dim,loc
-     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
-          do i=imin,imax
+          select case (ibc)
+          case (1)
+ 
+            i = 1
+
+            array(i-1,:,:,dim) = array(i+1,:,:,dim)  !To cancel normal derivative
+
             do j=jmin,jmax
               do k=kmin,kmax
 
@@ -824,64 +960,292 @@ c       Update BC ghost nodes
                 dh(2) = dyh(jg)
                 dh(3) = dzh(kg)
 
-                select case (ibc)
-                case (1)
-                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(j,k) = array(i,j,k,dim) + dh(dim)*diver !<=== Different from above
-                case (2)
-                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(j,k) = array(i,j,k,dim) - dh(dim)*diver
-                case (3)
-                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,k) = array(i,j,k,dim) + dh(dim)*diver
-                case (4)
-                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,k) = array(i,j,k,dim) - dh(dim)*diver
-                case (5)
-                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,j) = array(i,j,k,dim) + dh(dim)*diver
-                case (6)
-                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
-                  diver =jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
-                  rhs(i,j) = array(i,j,k,dim) - dh(dim)*diver
-                end select
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver=jac0
+     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                   ,hey=hey,hez=hez)
+
+                array(i-1,j,k,dim) = array(i,j,k,dim) + dh(dim)*diver  !<=== Different from above
 
               enddo
             enddo
-          enddo
+ 
+          case (2)
 
-c       Update BC ghost nodes
+            i = nxbc
 
-          select case (ibc)
-          case (1)              !x0
-          array(0     ,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
-          case (2)              !x1
-          array(nxbc+1,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
-          case (3)              !y0
-          array(imin:imax,0     ,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
-          case (4)              !y1
-          array(imin:imax,nybc+1,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
-          case (5)              !z0
-          array(imin:imax,jmin:jmax,0     ,dim)=rhs(imin:imax,jmin:jmax)
-          case (6)              !z1
-          array(imin:imax,jmin:jmax,nzbc+1,dim)=rhs(imin:imax,jmin:jmax)
+            array(i+1,:,:,dim) = array(i-1,:,:,dim)  !To cancel normal derivative
+
+            do j=jmin,jmax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = dxh(ig)
+                dh(2) = dyh(jg)
+                dh(3) = dzh(kg)
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hey=hey,hez=hez)
+
+                array(i+1,j,k,dim) = array(i,j,k,dim) - dh(dim)*diver
+
+              enddo
+            enddo
+
+          case (3)
+
+            j = 1
+
+            array(:,j-1,:,dim) = array(:,j+1,:,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = dxh(ig)
+                dh(2) = dyh(jg)
+                dh(3) = dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hez=hez)
+
+                array(i,j-1,k,dim) = array(i,j,k,dim) + dh(dim)*diver
+                  
+              enddo
+            enddo
+
+          case (4)
+
+            j = nybc
+
+            array(:,j+1,:,dim) = array(:,j-1,:,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do k=kmin,kmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = dxh(ig)
+                dh(2) = dyh(jg)
+                dh(3) = dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hez = 0
+                if (k < 1   ) hez =  1
+                if (k > nzbc) hez = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hez=hez)
+
+                array(i,j+1,k,dim) = array(i,j,k,dim) - dh(dim)*diver
+                  
+              enddo
+            enddo
+
+          case (5)
+
+            k = 1
+
+            array(:,:,k-1,dim) = array(:,:,k+1,dim)   !To cancel normal derivative
+
+            do i=imin,imax
+              do j=jmin,jmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = dxh(ig)
+                dh(2) = dyh(jg)
+                dh(3) = dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey)
+
+                array(i,j,k-1,dim) = array(i,j,k,dim) + dh(dim)*diver
+
+              enddo
+            enddo
+
+          case (6)
+
+            k = nzbc
+
+            array(:,:,k+1,dim) = array(:,:,k-1,dim)  !To cancel normal derivative
+
+            do i=imin,imax
+              do j=jmin,jmax
+
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+                dh(1) = dxh(ig)
+                dh(2) = dyh(jg)
+                dh(3) = dzh(kg)
+
+                hex = 0
+                if (i < 1   ) hex =  1
+                if (i > nxbc) hex = -1
+
+                hey = 0
+                if (j < 1   ) hey =  1
+                if (j > nybc) hey = -1
+
+                diver =jac0
+     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey)
+
+                array(i,j,k+1,dim) = array(i,j,k,dim) - dh(dim)*diver
+
+              enddo
+            enddo
+
           case default
+
             messg = 'Boundary'//int2char(ibc)//' non existent'
             call pstop('vectorDirichletBC',messg)
+
           end select
 
         endif
+
+cc        if (ivar /= dim) then
+cc
+cc          call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
+cc     .                      ,dim,loc,order)
+cc
+cc        else !Imposes divergence-free constraint on A (not exactly the same as above!!!!)
+cc
+cc          call findBCLoopLimits(dim,loc
+cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+cc     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
+cc
+cc
+cc          select case(dim)
+cc          case(1)
+cc            allocate(rhs(0:nybc+1,0:nzbc+1))
+cc          case(2)
+cc            allocate(rhs(0:nxbc+1,0:nzbc+1))
+cc          case(3)
+cc            allocate(rhs(0:nxbc+1,0:nybc+1))
+cc          end select
+cc
+cc          rhs = 0d0
+cc
+cc          do i=imin,imax
+cc            do j=jmin,jmax
+cc              do k=kmin,kmax
+cc
+cc                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+cc                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+cc
+cc                dh(1) = dxh(ig)  !<=== Different from above
+cc                dh(2) = dyh(jg)
+cc                dh(3) = dzh(kg)
+cc
+cc                select case (ibc)
+cc                case (1)
+cc                  array(i-1,j,k,dim) = array(i+1,j,k,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(j,k) = array(i,j,k,dim) + dh(dim)*diver !<=== Different from above
+cc                case (2)
+cc                  array(i+1,j,k,dim) = array(i-1,j,k,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(j,k) = array(i,j,k,dim) - dh(dim)*diver
+cc                case (3)
+cc                  array(i,j-1,k,dim) = array(i,j+1,k,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(i,k) = array(i,j,k,dim) + dh(dim)*diver
+cc                case (4)
+cc                  array(i,j+1,k,dim) = array(i,j-1,k,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(i,k) = array(i,j,k,dim) - dh(dim)*diver
+cc                case (5)
+cc                  array(i,j,k-1,dim) = array(i,j,k+1,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(i,j) = array(i,j,k,dim) + dh(dim)*diver
+cc                case (6)
+cc                  array(i,j,k+1,dim) = array(i,j,k-1,dim)
+cc                  diver =jac0
+cc     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+cc                  rhs(i,j) = array(i,j,k,dim) - dh(dim)*diver
+cc                end select
+cc
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+ccc       Update BC ghost nodes
+cc
+cc          select case (ibc)
+cc          case (1)              !x0
+cc          array(0     ,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
+cc          case (2)              !x1
+cc          array(nxbc+1,jmin:jmax,kmin:kmax,dim)=rhs(jmin:jmax,kmin:kmax)
+cc          case (3)              !y0
+cc          array(imin:imax,0     ,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
+cc          case (4)              !y1
+cc          array(imin:imax,nybc+1,kmin:kmax,dim)=rhs(imin:imax,kmin:kmax)
+cc          case (5)              !z0
+cc          array(imin:imax,jmin:jmax,0     ,dim)=rhs(imin:imax,jmin:jmax)
+cc          case (6)              !z1
+cc          array(imin:imax,jmin:jmax,nzbc+1,dim)=rhs(imin:imax,jmin:jmax)
+cc          case default
+cc            messg = 'Boundary'//int2char(ibc)//' non existent'
+cc            call pstop('vectorDirichletBC',messg)
+cc          end select
+cc
+cc          deallocate(rhs)
+cc
+cc        endif
 
       case default
 
@@ -889,8 +1253,6 @@ c       Update BC ghost nodes
         call pstop('vectorDirichletBC',messg)
 
       end select
-
-      deallocate(rhs)
 
 c     End program
 
@@ -921,8 +1283,6 @@ c     Local variables
       integer    :: imax,imin,jmax,jmin,kmax,kmin,offset
       integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp
       real(8)    :: x1,x2,x3,dh(3),gsuper(3,3),jac0,hessian(3,3,3)
-
-cc      real(8),allocatable,dimension(:,:) :: rhs
 
 c     Begin program
 
@@ -1192,92 +1552,87 @@ c     Begin program
 
       rhs = 0d0  !Default
 
-      call findBCLoopLimits(dim,loc,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
       case (IVX,IVY,IVZ,IJX,IJY,IJZ,IAX,IAY,IAZ) !Velocity components, J and A components (for symmetry BCs)
 
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
+        if (coords /= 'car') then
 
-              call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+          call findBCLoopLimits(dim,loc
+     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
-              gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
 
-              hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+
+                gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+
+                hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
   
-              ip = min(i+1,nxbc)
-              im = max(i-1,1   )
-              jp = min(j+1,nybc)
-              jm = max(j-1,1   )
-              kp = min(k+1,nzbc)
-              km = max(k-1,1   )
+                ip = min(i+1,nxbc)
+                im = max(i-1,1   )
+                jp = min(j+1,nybc)
+                jm = max(j-1,1   )
+                kp = min(k+1,nzbc)
+                km = max(k-1,1   )
 
-              dh(1) = 2.*dxh(ig)
-              if (i == nxbc) dh(1) = dx(ig-1)
-              if (i == 1   ) dh(1) = dx(ig)
+                dh(1) = 2.*dxh(ig)
+                if (i == nxbc) dh(1) = dx(ig-1)
+                if (i == 1   ) dh(1) = dx(ig)
 
-              dh(2) = 2.*dyh(jg)
-              if (j == nybc) dh(2) = dy(jg-1)
-              if (j == 1   ) dh(2) = dy(jg)
+                dh(2) = 2.*dyh(jg)
+                if (j == nybc) dh(2) = dy(jg-1)
+                if (j == 1   ) dh(2) = dy(jg)
 
-              dh(3) = 2.*dzh(kg)
-              if (k == nzbc) dh(3) = dz(kg-1)
-              if (k == 1   ) dh(3) = dz(kg)
+                dh(3) = 2.*dzh(kg)
+                if (k == nzbc) dh(3) = dz(kg-1)
+                if (k == 1   ) dh(3) = dz(kg)
 
-              if (dim == 1) then
+                if (dim == 1) then
 
-                if (ivar /= dim) then
+                  if (ivar /= dim) then
 
-                  if (     coords == 'cyl'
-     .                .or. coords == 'hel'
-     .                .or. coords == 'tor') then
+                    if (     coords == 'cyl'
+     .                  .or. coords == 'hel'
+     .                  .or. coords == 'tor') then
 
-                    rhs(j,k) = dh(dim)/gsuper(dim,dim)*array(i,j,k,ivar)
+                      rhs(j,k)=dh(dim)/gsuper(dim,dim)*array(i,j,k,ivar)
 
-                  elseif ( coords == 'car') then
+                    else
 
-                    rhs(j,k) = 0d0
+                      rhs(j,k) =
+     .                       gsuper(dim,1)
+     .                        *(hessian(1,ivar,1)*array(i,j,k,1)
+     .                         +hessian(2,ivar,1)*array(i,j,k,2)
+     .                         +hessian(3,ivar,1)*array(i,j,k,3))
+     .                      +gsuper(dim,2)
+     .                        *(hessian(1,ivar,2)*array(i,j,k,1)
+     .                         +hessian(2,ivar,2)*array(i,j,k,2)
+     .                         +hessian(3,ivar,2)*array(i,j,k,3))
+     .                      +gsuper(dim,3)
+     .                        *(hessian(1,ivar,3)*array(i,j,k,1)
+     .                         +hessian(2,ivar,3)*array(i,j,k,2)
+     .                         +hessian(3,ivar,3)*array(i,j,k,3))
 
-                  else
+                      rhs(j,k) = dh(dim)/gsuper(dim,dim)
+     .                       *(-gsuper(dim,2)*(array(i,jp,k,ivar)
+     .                                        -array(i,jm,k,ivar))/dh(2)
+     .                         -gsuper(dim,3)*(array(i,j,kp,ivar)
+     .                                        -array(i,j,km,ivar))/dh(3)
+     .                         +rhs(j,k) )
 
-                    rhs(j,k) =
-     .                     gsuper(dim,1)
-     .                      *(hessian(1,ivar,1)*array(i,j,k,1)
-     .                       +hessian(2,ivar,1)*array(i,j,k,2)
-     .                       +hessian(3,ivar,1)*array(i,j,k,3))
-     .                    +gsuper(dim,2)
-     .                      *(hessian(1,ivar,2)*array(i,j,k,1)
-     .                       +hessian(2,ivar,2)*array(i,j,k,2)
-     .                       +hessian(3,ivar,2)*array(i,j,k,3))
-     .                    +gsuper(dim,3)
-     .                      *(hessian(1,ivar,3)*array(i,j,k,1)
-     .                       +hessian(2,ivar,3)*array(i,j,k,2)
-     .                       +hessian(3,ivar,3)*array(i,j,k,3))
-
-                    rhs(j,k) = dh(dim)/gsuper(dim,dim)
-     .                     *(-gsuper(dim,2)*(array(i,jp,k,ivar)
-     .                                      -array(i,jm,k,ivar))/dh(2)
-     .                       -gsuper(dim,3)*(array(i,j,kp,ivar)
-     .                                      -array(i,j,km,ivar))/dh(3)
-     .                       +rhs(j,k) )
+                    endif
 
                   endif
 
-                endif
+                elseif (dim == 2) then
 
-              elseif (dim == 2) then
-
-                if (ivar /= dim) then
-
-                  if ( coords == 'car') then
-
-                    rhs(i,k) = 0d0
-
-                  else
-
+                  if (ivar /= dim) then
                     rhs(i,k) =
      .                     gsuper(dim,1)
      .                      *(hessian(1,ivar,1)*array(i,j,k,1)
@@ -1300,18 +1655,9 @@ c     Begin program
      .                        +rhs(i,k))
                   endif
 
-                endif
+                elseif (dim == 3) then
 
-              elseif (dim == 3) then
-
-                if (ivar /= dim) then
-
-                  if ( coords == 'car') then
-
-                    rhs(i,j) = 0d0
-
-                  else
-
+                  if (ivar /= dim) then
                     rhs(i,j) =
      .                     gsuper(dim,1)
      .                      *(hessian(1,ivar,1)*array(i,j,k,1)
@@ -1332,185 +1678,195 @@ c     Begin program
      .                        -gsuper(dim,2)*(array(i,jp,k,ivar)
      .                                       -array(i,jm,k,ivar))/dh(2)
      .                        +rhs(i,j))
-
                   endif
 
                 endif
 
-              endif
-
+              enddo
             enddo
           enddo
-        enddo
+
+        endif
 
       case (IBX,IBY,IBZ) 
 
-        do i=imin,imax
-          do j=jmin,jmax
-            do k=kmin,kmax
+        if (ivar /= dim) then !Not symmetry BC
 
-              call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+          call findBCLoopLimits(dim,loc
+     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
-              gsuper = gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
-              gsupip = gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
-              gsupim = gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
-              gsupjp = gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
-              gsupjm = gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
-              gsupkp = gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
-              gsupkm = gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
+          do i=imin,imax
+            do j=jmin,jmax
+              do k=kmin,kmax
 
-              ip = min(i+1,nxbc)
-              im = max(i-1,1   )
-              jp = min(j+1,nybc)
-              jm = max(j-1,1   )
-              kp = min(k+1,nzbc)
-              km = max(k-1,1   )
+                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 
-              dh(1) = 2.*dxh(ig)
-              if (i == nxbc) dh(1) = dx(ig-1)
-              if (i == 1   ) dh(1) = dx(ig)
+                gsuper = gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
+                gsupip = gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
+                gsupim = gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
+                gsupjp = gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
+                gsupjm = gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
+                gsupkp = gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
+                gsupkm = gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
 
-              dh(2) = 2.*dyh(jg)
-              if (j == nybc) dh(2) = dy(jg-1)
-              if (j == 1   ) dh(2) = dy(jg)
+                ip = min(i+1,nxbc)
+                im = max(i-1,1   )
+                jp = min(j+1,nybc)
+                jm = max(j-1,1   )
+                kp = min(k+1,nzbc)
+                km = max(k-1,1   )
 
-              dh(3) = 2.*dzh(kg)
-              if (k == nzbc) dh(3) = dz(kg-1)
-              if (k == 1   ) dh(3) = dz(kg)
+                dh(1) = 2.*dxh(ig)
+                if (i == nxbc) dh(1) = dx(ig-1)
+                if (i == 1   ) dh(1) = dx(ig)
 
-              if (dim == 1) then
+                dh(2) = 2.*dyh(jg)
+                if (j == nybc) dh(2) = dy(jg-1)
+                if (j == 1   ) dh(2) = dy(jg)
 
-                if (ibc == 1) then
-                  gsupavg = 0.5*(gsuper+gsupim)
-                elseif (ibc == 2) then
-                  gsupavg = 0.5*(gsuper+gsupip)
-                endif
+                dh(3) = 2.*dzh(kg)
+                if (k == nzbc) dh(3) = dz(kg-1)
+                if (k == 1   ) dh(3) = dz(kg)
 
-                jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
-     .              -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
+                if (dim == 1) then
 
-                if (ivar == 2) then
-                  icomp = 3
-                  isgn  = 1
-
-                  rhs(j,k) = 
-     .                (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                elseif (ivar == 3) then
-                  icomp = 2
-                  isgn  =-1
-
-                  rhs(j,k) =
-     .                (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                else
-                  icomp = ivar  !Symmetry BC
-                  rhs(j,k) = 0d0
-                endif
-
-                !!!!!!!Finite flow at wall!!!!!!!
-                if (pinch_flow) then
-
-                  ee = array0(i+1,j,k,icomp)
-
-                !!!!!!!Finite current at wall!!!!!!!
-                else
                   if (ibc == 1) then
-                    ee = 0.5*(array0(i-1,j,k,icomp)
-     .                       +array0(i  ,j,k,icomp))
+                    gsupavg = 0.5*(gsuper+gsupim)
                   elseif (ibc == 2) then
-                    ee = 0.5*(array0(i+1,j,k,icomp)
-     .                       +array0(i  ,j,k,icomp))
+                    gsupavg = 0.5*(gsuper+gsupip)
                   endif
-                endif
 
-                rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
+                  jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
+     .                -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
 
-              elseif (dim == 2) then
+                  if (ivar == 2) then
+                    icomp = 3
+                    isgn  = 1
 
-                if (ibc == 3) then
-                  gsupavg = 0.5*(gsuper+gsupjm)
-                elseif (ibc == 4) then
-                  gsupavg = 0.5*(gsuper+gsupjp)
-                endif
+                    rhs(j,k) = 
+     .                  (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                  elseif (ivar == 3) then
+                    icomp = 2
+                    isgn  =-1
 
-                jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
-     .              -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
+                    rhs(j,k) =
+     .                  (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+cc                  else
+cc                    icomp = ivar  !Symmetry BC
+cc                    rhs(j,k) = 0d0
+cc                    cycle
+                  endif
 
-                if (ivar == 3) then
-                  icomp = 1
-                  isgn  = 1
+                  !!!!!!!Finite flow at wall!!!!!!!
+                  if (pinch_flow) then
 
-                  rhs(i,k) =
-     .                 (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                elseif (ivar == 1) then
-                  icomp = 3
-                  isgn  =-1
+                    ee = array0(i+1,j,k,icomp)
 
-                  rhs(i,k) = 
-     .                (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                  +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                else
-                  icomp = ivar  !Symmetry BC
-                  rhs(i,k) = 0d0
-                endif
+                  !!!!!!!Finite current at wall!!!!!!!
+                  else
+                    if (ibc == 1) then
+                      ee = 0.5*(array0(i-1,j,k,icomp)
+     .                         +array0(i  ,j,k,icomp))
+                    elseif (ibc == 2) then
+                      ee = 0.5*(array0(i+1,j,k,icomp)
+     .                         +array0(i  ,j,k,icomp))
+                    endif
+                  endif
 
-                if (ibc == 3) then
-                  ee = 0.5*(array0(i,j-1,k,icomp)
-     .                     +array0(i,j  ,k,icomp))
-                elseif (ibc == 4) then
-                  ee = 0.5*(array0(i,j+1,k,icomp)
-     .                     +array0(i,j  ,k,icomp))
-                endif
+                  rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
+
+                elseif (dim == 2) then
+
+                  if (ibc == 3) then
+                    gsupavg = 0.5*(gsuper+gsupjm)
+                  elseif (ibc == 4) then
+                    gsupavg = 0.5*(gsuper+gsupjp)
+                  endif
+
+                  jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
+     .                -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
+
+                  if (ivar == 3) then
+                    icomp = 1
+                    isgn  = 1
+
+                    rhs(i,k) =
+     .                   (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                  elseif (ivar == 1) then
+                    icomp = 3
+                    isgn  =-1
+
+                    rhs(i,k) = 
+     .                  (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+cc                  else
+cc                    icomp = ivar  !Symmetry BC
+cc                    rhs(i,k) = 0d0
+cc                    cycle
+                  endif
+
+                  if (ibc == 3) then
+                    ee = 0.5*(array0(i,j-1,k,icomp)
+     .                       +array0(i,j  ,k,icomp))
+                  elseif (ibc == 4) then
+                    ee = 0.5*(array0(i,j+1,k,icomp)
+     .                       +array0(i,j  ,k,icomp))
+                  endif
  
-                rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
+                  rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
 
-              elseif (dim == 3) then
+                elseif (dim == 3) then
 
-                if (ibc == 5) then
-                  gsupavg = 0.5*(gsuper+gsupkm)
-                elseif (ibc == 6) then
-                  gsupavg = 0.5*(gsuper+gsupkp)
+                  if (ibc == 5) then
+                    gsupavg = 0.5*(gsuper+gsupkm)
+                  elseif (ibc == 6) then
+                    gsupavg = 0.5*(gsuper+gsupkp)
+                  endif
+
+                  jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
+     .                -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
+
+                  if (ivar == 1) then
+                    icomp = 2
+                    isgn  = 1
+
+                    rhs(i,j) =
+     .                   (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+                  elseif (ivar == 2) then
+                    icomp = 1
+                    isgn  =-1
+
+                    rhs(i,j) = 
+     .                   (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
+cc                  else
+cc                    icomp = ivar  !Symmetry BC
+cc                    rhs(i,j) = 0d0
+cc                    cycle
+                  endif
+
+                  if (ibc == 5) then
+                    ee = 0.5*(array0(i,j,k-1,icomp)
+     .                       +array0(i,j,k  ,icomp))
+                  elseif (ibc == 6) then
+                    ee = 0.5*(array0(i,j,k+1,icomp)
+     .                       +array0(i,j,k  ,icomp))
+                  endif
+
+                  rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
+
                 endif
 
-                jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
-     .              -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
-
-                if (ivar == 1) then
-                  icomp = 2
-                  isgn  = 1
-
-                  rhs(i,j) =
-     .                 (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                elseif (ivar == 2) then
-                  icomp = 1
-                  isgn  =-1
-
-                  rhs(i,j) = 
-     .                 (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                   +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                else
-                  icomp = ivar  !Symmetry BC
-                  rhs(i,j) = 0d0
-                endif
-
-                if (ibc == 5) then
-                  ee = 0.5*(array0(i,j,k-1,icomp)
-     .                     +array0(i,j,k  ,icomp))
-                elseif (ibc == 6) then
-                  ee = 0.5*(array0(i,j,k+1,icomp)
-     .                     +array0(i,j,k  ,icomp))
-                endif
-
-                rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
-
-              endif
-
+              enddo
             enddo
           enddo
-        enddo
+
+        endif
 
       case default
 
