@@ -59,7 +59,7 @@ c ######################################################################
         type(var_array),pointer :: varray => null()
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
-     .                            ,gdb_cov,gvis,geta,gve0,gbs0,gj0
+     .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0
 
 #if !defined(vec_pot)
@@ -131,6 +131,7 @@ c     Begin program
         call allocateMGArray(3,gEh0_cov)  !Hall electric field
         call allocateMGArray(1,gvis)
         call allocateMGArray(1,geta)
+        call allocateMGArray(1,gheta)
 
         call allocateMGArray(3,gdb_cov)
 
@@ -186,6 +187,7 @@ c     Begin program
         call deallocateMGArray(gdb_cov)
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
+        call deallocateMGArray(gheta)
 
         call deallocateDerivedType(varray)
 
@@ -666,6 +668,11 @@ c     Store resistivity
 c     Store Hall MHD auxiliary variables
 
         if (di > 0d0) then
+
+          !Store hyperresisitivity
+          gheta%grid(igrid)%array(:,:,:,1) = h_eta
+
+          call restrictMGArray(IRHO,1,gheta,bc_sc,igrid,order)
 
           !Store electron velocity components in all grids (w/ BCs)
           gve0%grid(igrid)%array = vecnv
@@ -1457,9 +1464,12 @@ cc     .               /grho0%grid(igx)%array(i,j,k ,1)
             if (str .and. half_elem == 0) then
 cc              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
 cc     .                      /grho0%grid(igx)%array(i,j,k,1)
-              cnv =-heta*EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
-     .                                ,grho0%grid(igx)%array(:,:,:,1))
-     .                  /grho0%grid(igx)%array(i,j,k,1)
+cc              cnv =-heta*EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
+cc     .                                ,grho0%grid(igx)%array(:,:,:,1))
+cc     .                  /grho0%grid(igx)%array(i,j,k,1)
+              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                           ,gheta%grid(igx)%array(:,:,:,1))
+     .             /grho0%grid(igx)%array(i,j,k,1)
 
               call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                    ,cov(1),cov(2),cov(3)
@@ -1775,7 +1785,9 @@ cc        nu0  => gvis %grid(igrid)%array
 
         allocate(nu0(0:nx+1,0:ny+1,0:nz+1,1))
 
-        nu0 = gvis%grid(igrid)%array + heta*rho0  !Add ion+electron contributions
+cc        nu0 = gvis%grid(igrid)%array + heta*rho0  !Add ion+electron contributions
+        nu0 = gvis %grid(igrid)%array
+     .       +gheta%grid(igrid)%array        !Add ion+electron contributions
 
         do k = 1,nz
           do j = 1,ny
@@ -1809,6 +1821,229 @@ cc        nu0  => gvis %grid(igrid)%array
 c     End program
 
       end subroutine U_Tv
+
+c     L_T
+c     #####################################################################
+      subroutine L_T(nx,ny,nz,x,crhs,igrid)
+c     ---------------------------------------------------------------
+c     This subroutine corrects the T-field update with B, rho info.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igrid
+      real(8) :: x(nx*ny*nz,neqd),crhs(nx*ny*nz)
+cc     .          ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+      integer :: i,j,k,ii,isig,ivar
+      real(8) :: dvol,heat_src
+
+      real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
+     .                                          ,db_cov
+     .                                          ,da_cov
+     .                                          ,dj_cnv
+     .                                          ,dj_cov
+     .                                          ,drho
+     .                                          ,dve_cnv
+
+      real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0
+
+c     Begin program
+
+cc      !To recover old TM Hall performance results
+cc      return
+
+      isig = grid_params%istartp(igrid)
+
+      allocate (db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,dj_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,dj_cov (0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,drho   (0:nx+1,0:ny+1,0:nz+1,1))
+
+c     Find drho
+
+      call fillArray(igrid,IRHO,1,x(:,IRHO:IRHO),drho,bcs(:,IRHO:IRHO)
+     .              ,bc_order)
+
+c     Find dB
+
+#if defined (vec_pot)
+      !Find dA
+      allocate (da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+
+      call fillArray(igrid,IAX,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
+     .              ,bc_order,is_vec=.true.,is_cnv=.false.)
+
+      !Find dB
+      db_cnv = curl(igrid,da_cov)
+
+      deallocate(da_cov)
+
+      db_cov = db_cnv
+      call transformVector(igrid,igrid,igrid,0,nx+1,0,ny+1,0,nz+1
+     .                    ,db_cov(:,:,:,1)
+     .                    ,db_cov(:,:,:,2)
+     .                    ,db_cov(:,:,:,3)
+     .                    ,'cnv','cov')
+#else
+      call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+     .              ,bc_order,arr_cov=db_cov,is_vec=.true.
+     .              ,is_cnv=.true.)
+#endif
+
+c     Find dj* from dB*
+
+      dj_cnv = curl(igrid,db_cov)
+
+      !Find covariant components of dj with BCs
+      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
+     .          ,igrid,igrid,igrid,iorder=bc_order)
+
+c     Find Joule heating correction
+
+      eta0 => geta %grid(igrid)%array
+      j0   => gj0  %grid(igrid)%array
+      rho0 => grho0%grid(igrid)%array
+
+      if (.not.adiabatic) then
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              if (vol_wgt) then
+                dvol = gmetric%grid(igrid)%dvol(i,j,k)
+              else
+                dvol = 1d0
+              endif
+
+              heat_src = 2*eta0(i,j,k,1)
+     .                    *dot_product(j0(i,j,k,:),dj_cov(i,j,k,:))
+     .                    /gmetric%grid(igrid)%jac(i,j,k)
+
+              crhs(ii)=crhs(ii)
+     .                +alpha*dvol*(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
+            enddo
+          enddo
+        enddo
+      endif
+
+c     Hall MHD correction
+
+      if (di > 0d0) then
+
+        !Find dv_star
+        dve_cnv(:,:,:,1)=-di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,1)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
+        dve_cnv(:,:,:,2)=-di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,2)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
+        dve_cnv(:,:,:,3)=-di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1)
+     .                       -j0    (:,:,:,3)*drho(:,:,:,1)
+     .                                       /rho0(:,:,:,1)**2)
+
+        !Find correction to tmp RHS
+        tmp0 => gtmp0%grid(igrid)%array
+
+        if (adiabatic) then       !Pressure equation
+
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
+                if (vol_wgt) then
+                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
+                else
+                  dvol = 1d0
+                endif
+
+                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
+     .              *(flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     .               +(gamma-1.)*tmp0(i,j,k,1)
+     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv))
+
+               enddo
+            enddo
+          enddo
+
+        else                      !Temperature equation
+
+          ve0  => gve0%grid(igrid)%array
+
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
+
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+                if (vol_wgt) then
+                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
+                else
+                  dvol = 1d0
+                endif
+
+                heat_src = 0d0
+                if (di > 0d0) then
+cc                  if (fake_ve) then
+cc                    heat_src = heat_src
+cc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
+cc     .                                 ,igrid,igrid,igrid,rho0,dvef_cnv,ve0)
+cc     .                     +heta*viscous_heat_src(i,j,k,nx,ny,nz
+cc     .                                 ,igrid,igrid,igrid,rho0,vefcnv,dve_cnv)
+cc                  else
+cc                    heat_src = heat_src
+cc     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
+cc     .                              ,igrid,igrid,igrid,rho0,ve0,dve_cnv)
+cc     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
+cc     .                              ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
+                    heat_src = heat_src
+     .                       +viscous_heat_src(i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid
+     .                              ,gheta%grid(igrid)%array(:,:,:,1)
+     .                              ,ve0,dve_cnv)
+     .                       +viscous_heat_src(i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid
+     .                              ,gheta%grid(igrid)%array(:,:,:,1)
+     .                              ,dve_cnv,ve0)
+cc                  endif
+                endif
+
+                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
+     .            *( flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+     .             +(gamma-2.)*tmp0(i,j,k,1)
+     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
+     .             -(gamma-1.)*heat_src/rho0(i,j,k,1) )
+              enddo
+            enddo
+          enddo
+
+        endif
+
+      endif
+
+c     End program
+
+      nullify(tmp0,rho0,j0,eta0,ve0)
+
+      deallocate(db_cnv
+     .          ,db_cov
+     .          ,dj_cnv
+     .          ,dj_cov
+     .          ,drho
+     .          ,dve_cnv)
+
+      end subroutine L_T
 
 c     U_Bv
 c     ###################################################################
