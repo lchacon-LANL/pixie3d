@@ -1331,24 +1331,59 @@ cc              call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 cc
 cc              gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 cc
-cc              ip = min(i+1,nxbc)
-cc              im = max(i-1,1)
-cc              jp = min(j+1,nybc)
-cc              jm = max(j-1,1)
-cc              kp = min(k+1,nzbc)
-cc              km = max(k-1,1)
-cc
+cc              ip = i+1
+cc              im = i-1
 cc              dh(1) = 2.*dxh(ig)
-cc              if (i == nxbc) dh(1) = dx(ig-1)
-cc              if (i == 1   ) dh(1) = dx(ig)
+cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
+cc                dh(1) = dx(ig)
+cc                im = i
+cc              endif
+cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
+cc                dh(1) = dx(ig-1)
+cc                ip = i
+cc              endif
 cc
+cc              jp = j+1
+cc              jm = j-1
 cc              dh(2) = 2.*dyh(jg)
-cc              if (j == nybc) dh(2) = dy(jg-1)
-cc              if (j == 1   ) dh(2) = dy(jg)
+cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
+cc                dh(2) = dy(jg)
+cc                jm = j
+cc              endif
+cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
+cc                dh(2) = dy(jg-1)
+cc                jp = j
+cc              endif
 cc
+cc              kp = k+1
+cc              km = k-1
 cc              dh(3) = 2.*dzh(kg)
-cc              if (k == nzbc) dh(3) = dz(kg-1)
-cc              if (k == 1   ) dh(3) = dz(kg)
+cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
+cc                dh(3) = dz(kg)
+cc                km = k
+cc              endif
+cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
+cc                dh(3) = dz(kg-1)
+cc                kp = k
+cc              endif
+cccc              ip = min(i+1,nxbc)
+cccc              im = max(i-1,1)
+cccc              jp = min(j+1,nybc)
+cccc              jm = max(j-1,1)
+cccc              kp = min(k+1,nzbc)
+cccc              km = max(k-1,1)
+cccc
+cccc              dh(1) = 2.*dxh(ig)
+cccc              if (i == nxbc) dh(1) = dx(ig-1)
+cccc              if (i == 1   ) dh(1) = dx(ig)
+cccc
+cccc              dh(2) = 2.*dyh(jg)
+cccc              if (j == nybc) dh(2) = dy(jg-1)
+cccc              if (j == 1   ) dh(2) = dy(jg)
+cccc
+cccc              dh(3) = 2.*dzh(kg)
+cccc              if (k == nzbc) dh(3) = dz(kg-1)
+cccc              if (k == 1   ) dh(3) = dz(kg)
 cc
 cc              if (dim == 1) then
 cc                rhs(j,k) = -dh(dim)
@@ -1384,24 +1419,59 @@ cc              jac0   = gmetric%grid(igxbc)%jac (i,j,k)
 cc
 cc              hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
 cc
-cc              ip = min(i+1,nxbc)
-cc              im = max(i-1,1   )
-cc              jp = min(j+1,nybc)
-cc              jm = max(j-1,1   )
-cc              kp = min(k+1,nzbc)
-cc              km = max(k-1,1   )
-cc
+cc              ip = i+1
+cc              im = i-1
 cc              dh(1) = 2.*dxh(ig)
-cc              if (i == nxbc) dh(1) = dx(ig-1)
-cc              if (i == 1   ) dh(1) = dx(ig)
+cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
+cc                dh(1) = dx(ig)
+cc                im = i
+cc              endif
+cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
+cc                dh(1) = dx(ig-1)
+cc                ip = i
+cc              endif
 cc
+cc              jp = j+1
+cc              jm = j-1
 cc              dh(2) = 2.*dyh(jg)
-cc              if (j == nybc) dh(2) = dy(jg-1)
-cc              if (j == 1   ) dh(2) = dy(jg)
+cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
+cc                dh(2) = dy(jg)
+cc                jm = j
+cc              endif
+cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
+cc                dh(2) = dy(jg-1)
+cc                jp = j
+cc              endif
 cc
+cc              kp = k+1
+cc              km = k-1
 cc              dh(3) = 2.*dzh(kg)
-cc              if (k == nzbc) dh(3) = dz(kg-1)
-cc              if (k == 1   ) dh(3) = dz(kg)
+cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
+cc                dh(3) = dz(kg)
+cc                km = k
+cc              endif
+cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
+cc                dh(3) = dz(kg-1)
+cc                kp = k
+cc              endif
+cccc              ip = min(i+1,nxbc)
+cccc              im = max(i-1,1   )
+cccc              jp = min(j+1,nybc)
+cccc              jm = max(j-1,1   )
+cccc              kp = min(k+1,nzbc)
+cccc              km = max(k-1,1   )
+cccc
+cccc              dh(1) = 2.*dxh(ig)
+cccc              if (i == nxbc) dh(1) = dx(ig-1)
+cccc              if (i == 1   ) dh(1) = dx(ig)
+cccc
+cccc              dh(2) = 2.*dyh(jg)
+cccc              if (j == nybc) dh(2) = dy(jg-1)
+cccc              if (j == 1   ) dh(2) = dy(jg)
+cccc
+cccc              dh(3) = 2.*dzh(kg)
+cccc              if (k == nzbc) dh(3) = dz(kg-1)
+cccc              if (k == 1   ) dh(3) = dz(kg)
 cc
 cc              if (dim == 1) then
 cc                if (gamma > 1d0) then
@@ -1573,25 +1643,61 @@ c     Begin program
                 gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 
                 hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
-  
-                ip = min(i+1,nxbc)
-                im = max(i-1,1   )
-                jp = min(j+1,nybc)
-                jm = max(j-1,1   )
-                kp = min(k+1,nzbc)
-                km = max(k-1,1   )
 
+cc                ip = min(i+1,nxbc)
+cc                im = max(i-1,1   )
+cc                jp = min(j+1,nybc)
+cc                jm = max(j-1,1   )
+cc                kp = min(k+1,nzbc)
+cc                km = max(k-1,1   )
+cc
+cc                dh(1) = 2.*dxh(ig)
+cc                if (i == nxbc) dh(1) = dx(ig-1)
+cc                if (i == 1   ) dh(1) = dx(ig)
+cc
+cc                dh(2) = 2.*dyh(jg)
+cc                if (j == nybc) dh(2) = dy(jg-1)
+cc                if (j == 1   ) dh(2) = dy(jg)
+cc
+cc                dh(3) = 2.*dzh(kg)
+cc                if (k == nzbc) dh(3) = dz(kg-1)
+cc                if (k == 1   ) dh(3) = dz(kg)
+
+                ip = i+1
+                im = i-1
                 dh(1) = 2.*dxh(ig)
-                if (i == nxbc) dh(1) = dx(ig-1)
-                if (i == 1   ) dh(1) = dx(ig)
+                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
+                  dh(1) = dx(ig)
+                  im = i
+                endif
+                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
+                  dh(1) = dx(ig-1)
+                  ip = i
+                endif
 
+                jp = j+1
+                jm = j-1
                 dh(2) = 2.*dyh(jg)
-                if (j == nybc) dh(2) = dy(jg-1)
-                if (j == 1   ) dh(2) = dy(jg)
+                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
+                  dh(2) = dy(jg)
+                  jm = j
+                endif
+                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
+                  dh(2) = dy(jg-1)
+                  jp = j
+                endif
 
+                kp = k+1
+                km = k-1
                 dh(3) = 2.*dzh(kg)
-                if (k == nzbc) dh(3) = dz(kg-1)
-                if (k == 1   ) dh(3) = dz(kg)
+                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
+                  dh(3) = dz(kg)
+                  km = k
+                endif
+                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
+                  dh(3) = dz(kg-1)
+                  kp = k
+                endif
 
                 if (dim == 1) then
 
@@ -1710,24 +1816,60 @@ c     Begin program
                 gsupkp = gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
                 gsupkm = gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
 
-                ip = min(i+1,nxbc)
-                im = max(i-1,1   )
-                jp = min(j+1,nybc)
-                jm = max(j-1,1   )
-                kp = min(k+1,nzbc)
-                km = max(k-1,1   )
+cc                ip = min(i+1,nxbc)
+cc                im = max(i-1,1   )
+cc                jp = min(j+1,nybc)
+cc                jm = max(j-1,1   )
+cc                kp = min(k+1,nzbc)
+cc                km = max(k-1,1   )
+cc
+cc                dh(1) = 2.*dxh(ig)
+cc                if (i == nxbc) dh(1) = dx(ig-1)
+cc                if (i == 1   ) dh(1) = dx(ig)
+cc
+cc                dh(2) = 2.*dyh(jg)
+cc                if (j == nybc) dh(2) = dy(jg-1)
+cc                if (j == 1   ) dh(2) = dy(jg)
+cc
+cc                dh(3) = 2.*dzh(kg)
+cc                if (k == nzbc) dh(3) = dz(kg-1)
+cc                if (k == 1   ) dh(3) = dz(kg)
 
+                ip = i+1
+                im = i-1
                 dh(1) = 2.*dxh(ig)
-                if (i == nxbc) dh(1) = dx(ig-1)
-                if (i == 1   ) dh(1) = dx(ig)
+                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
+                  dh(1) = dx(ig)
+                  im = i
+                endif
+                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
+                  dh(1) = dx(ig-1)
+                  ip = i
+                endif
 
+                jp = j+1
+                jm = j-1
                 dh(2) = 2.*dyh(jg)
-                if (j == nybc) dh(2) = dy(jg-1)
-                if (j == 1   ) dh(2) = dy(jg)
+                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
+                  dh(2) = dy(jg)
+                  jm = j
+                endif
+                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
+                  dh(2) = dy(jg-1)
+                  jp = j
+                endif
 
+                kp = k+1
+                km = k-1
                 dh(3) = 2.*dzh(kg)
-                if (k == nzbc) dh(3) = dz(kg-1)
-                if (k == 1   ) dh(3) = dz(kg)
+                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
+                  dh(3) = dz(kg)
+                  km = k
+                endif
+                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
+                  dh(3) = dz(kg-1)
+                  kp = k
+                endif
 
                 if (dim == 1) then
 
@@ -1754,10 +1896,6 @@ c     Begin program
                     rhs(j,k) =
      .                  (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
      .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  else
-cc                    icomp = ivar  !Symmetry BC
-cc                    rhs(j,k) = 0d0
-cc                    cycle
                   endif
 
                   !!!!!!!Finite flow at wall!!!!!!!
@@ -1803,10 +1941,6 @@ cc                    cycle
                     rhs(i,k) = 
      .                  (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
      .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  else
-cc                    icomp = ivar  !Symmetry BC
-cc                    rhs(i,k) = 0d0
-cc                    cycle
                   endif
 
                   if (ibc == 3) then
@@ -1844,10 +1978,6 @@ cc                    cycle
                     rhs(i,j) = 
      .                   (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
      .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  else
-cc                    icomp = ivar  !Symmetry BC
-cc                    rhs(i,j) = 0d0
-cc                    cycle
                   endif
 
                   if (ibc == 5) then
