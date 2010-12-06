@@ -265,7 +265,7 @@ c Open files
       open(unit=ulineplot,file=lineplotfile,form='unformatted'
      .    ,status='replace')
 
-c Define diagnostics
+c Define GENERIC diagnostics
 
       diag_desc(IRHO)   = '||drho||'       
       diag_desc(IVX)    = '||dpx||'        
@@ -296,14 +296,35 @@ c Define diagnostics
       diag_desc(neqd+13)= 'Vflux at boundaries'
       diag_desc(neqd+14)= 'Toroidal current Iz'
       diag_desc(neqd+15)= 'Toroidal flux'
-      diag_desc(neqd+16)= 'Ez'
-      diag_desc(neqd+17)= 'Reconnected flux'
-      diag_desc(neqd+18)= 'RMS |J|'
-      diag_desc(neqd+19)= 'Max Vx'
-      diag_desc(neqd+20)= 'Max Vy'
-      diag_desc(neqd+21)= 'Max Vz'
+      diag_desc(neqd+16)= 'RMS |J|'
+      diag_desc(neqd+17)= 'Max Vx'
+      diag_desc(neqd+18)= 'Max Vy'
+      diag_desc(neqd+19)= 'Max Vz'
 
-      diag_desc(neqd+22:ngraph) = ''
+c Define problem-specific diagnostics
+
+      select case(trim(equil))
+      case('ic-hk','ic')
+        diag_desc(neqd+20)= 'Ez'
+        diag_desc(neqd+21)= 'Reconnected flux'
+
+        diag_desc(neqd+22)= 'delta/2'
+        diag_desc(neqd+23)= 'w/2'
+        diag_desc(neqd+24)= 'B upstream'
+
+        diag_desc(neqd+25:ngraph) = ''
+
+      case('dtm','gem','sgem')
+        diag_desc(neqd+20)= 'Ez'
+        diag_desc(neqd+21)= 'Reconnected flux'
+
+        diag_desc(neqd+22:ngraph) = ''
+
+      case default
+
+        diag_desc(neqd+20:ngraph) = ''
+
+      end select
 
 c Define corresponding independent variables
 
@@ -336,21 +357,24 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer          :: iigx,iigy,iigz
-      logical          :: init
+      integer :: iigx,iigy,iigz
+      logical :: init
 
       type(var_array),pointer :: varray
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-     .             ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
+      integer :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
+      real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
+     .          ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
 
-      real(8)    :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .             ,tn=0d0,ez,lrflux,rflux,rmsj,vmax(3),lvmax(3)
+      real(8) :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
+     .          ,tn=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),lvmax(3)
+     .          ,dl,ww=0d0,Bup=0d0,ystar,lapjzm,lapjzp,dvm,dvp
 
-      logical    :: cartsn
+      logical :: cartsn
+
+      save    :: rfluxn,tn
 
       INTERFACE
         subroutine postProcessSolution(varray,iigx,iigy,iigz)
@@ -537,61 +561,6 @@ c Magnetic divergence diagnostics
 
       diverB = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
 
-c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
-
-      if (isProcessor) then
-
-        if (time == tn) then
-cc          tn = time - 1d5
-cc          Pfluxn = Pflux
-cc        endif
-          ez = 0d0 ; rflux = 0d0
-          Pfluxn = Pflux
-        else
-
-          select case(trim(equil))
-          case('dtm')
-            ez = (maxval(Pflux (1,:,1))-minval(Pflux (1,:,1))
-     .           -maxval(Pfluxn(1,:,1))+minval(Pfluxn(1,:,1)))/(time-tn)
-
-            rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
-          case default
-            ez = (Pflux (iplt,jplt,1)
-     .           -Pfluxn(iplt,jplt,1))/(time-tn)
-
-            rflux = abs(maxval(Pflux(iplt,:,1))-minval(Pflux(iplt,:,1)))
-          end select
-
-          tn = time
-          Pfluxn = Pflux
-
-        endif
-
-      endif
-
-ccc Reconnected flux (GEM challenge)
-cc
-cc      if (trim(equil) == 'gem') then
-cc
-cc#if defined(petsc)
-cc        if (split_key /= MPI_UNDEFINED) then
-cc          if (ddnp == 1) then
-cc            rflux = Pflux(iplt,jplt      ,1)
-cc     .            - Pflux(iplt,jplt-nyd/2,1)
-cc          else
-cc            lrflux = -(-1)**drank*Pflux(iplt,jplt,1)
-cc
-cc            call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-cc     .                        ,MPI_SUM,MPI_COMM_DIAG,mpierr)
-cc          endif
-cc        endif
-cc#else
-cc        rflux = abs(maxval(Pflux(1,:,1))-minval(Pflux(1,:,1)))
-cc#endif
-cc      else
-cc        rflux = 0d0
-cc      endif
-
 c Growth rate diagnostics
 
       do ieq=1,neqd
@@ -619,6 +588,87 @@ c Maximum velocity diagnostics
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
 
+c Problem specific diagnostics  <<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
+
+#if defined(petsc)
+      lrflux = minval(Pflux(iplt,:,kplt))
+      call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+
+      lrflux = maxval(Pflux(iplt,:,kplt))-rflux
+      call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                  ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+#else
+      rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
+#endif
+
+      if (time == tn) then
+        Ez = 0d0
+      else
+        Ez = (rflux-rfluxn)/(time-tn)
+      endif
+
+      tn = time
+      rfluxn = rflux
+
+c Current sheet thickness (assumes periodic direction in Y)
+
+      i = iplt
+      k = kplt
+
+      !Find mesh point where lapjz changes sign
+      lapjzm = laplacian(i,2,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
+      do j = 2,ny
+        lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
+
+        !Check whether sign changes
+        if (lapjzp*lapjzm < 0d0) exit
+        lapjzm = lapjzp
+      enddo
+
+      !find y*
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      ystar = yy(jg-1) - (yy(jg)-yy(jg-1))/(lapjzp-lapjzm)*lapjzm
+
+      !Compute delta/2 (half-width half-maximum)
+      dl = 1.1768*ystar
+
+c Upstream magnetic field (at delta/2)
+
+      do j = 1,ny
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        !Check whether sign of (y-dl) changes
+        if ((yy(jg-1)-dl)*(yy(jg)-dl) < 0d0) exit
+      enddo
+
+      Bup = bx(iplt,j-1,kplt)
+     .    +(bx(iplt,j  ,kplt)-bx(iplt,j-1,kplt))/(yy(jg)-yy(jg-1))
+     .     *(dl-yy(jg-1))
+
+c Current sheet length  (assumes periodic direction in Y and X-point is at (0,0))
+
+      j = 1
+      k = kplt
+
+      !Find mesh point where lapjz changes sign
+      i = 2
+      dvm = vex(i  ,j,k)-vex(i-1,j,k)
+      do i = 3,nx
+        dvp = vex(i+1,j,k)-vex(i  ,j,k)
+
+        !Check whether sign changes
+        if (dvp*dvm < 0d0) exit
+        dvm = dvp
+      enddo
+
+      !find w (half length)
+      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+      ww = xx(ig)
+
 c Diagnostic assignment
 
       diagnostics(1:neqd) = dpert(:)
@@ -637,12 +687,31 @@ c Diagnostic assignment
       diagnostics(neqd+13)= Vflux
       diagnostics(neqd+14)= Iz
       diagnostics(neqd+15)= Tflux
-      diagnostics(neqd+16)= Ez
-      diagnostics(neqd+17)= rflux
-      diagnostics(neqd+18)= rmsj
-      diagnostics(neqd+19)= vmax(1)
-      diagnostics(neqd+20)= vmax(2)
-      diagnostics(neqd+21)= vmax(3)
+      diagnostics(neqd+16)= rmsj
+      diagnostics(neqd+17:neqd+19)= vmax
+
+      select case(trim(equil))
+      case('ic-hk')
+        diagnostics(neqd+1:neqd+3) = 4*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
+        diagnostics(neqd+20)= Ez
+        diagnostics(neqd+21)= rflux
+
+        diagnostics(neqd+22) = dl
+        diagnostics(neqd+23) = ww
+        diagnostics(neqd+24) = Bup
+      case('ic')
+        diagnostics(neqd+20)= Ez
+        diagnostics(neqd+21)= rflux
+
+        diagnostics(neqd+22:neqd+24) = 0d0
+      case('dtm','gem')
+        diagnostics(neqd+20)= Ez
+        diagnostics(neqd+21)= rflux
+      case('sgem')
+        diagnostics(neqd+1:neqd+3) = 4*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
+        diagnostics(neqd+20)= Ez
+        diagnostics(neqd+21)= rflux
+      end select
 
 cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)
