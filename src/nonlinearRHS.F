@@ -259,13 +259,13 @@ c     Volume force: (jxB-grad(p))
 
       if (nc_eom_jxb) then
         cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .           ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
-cc     .           ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
-     $           ,vol=.false.)
+     .             ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
+cc     .             ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
+     $             ,vol=.false.)
       else
         cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .           ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
-     $           ,vol=.false.)
+     .             ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
+     $             ,vol=.false.)
       endif
 
       ff(IVX:IVZ) = -cnv
@@ -290,8 +290,8 @@ c     Advection
                                                     !we evolve dv/dt
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
-cc     .                   ,advect,cons=.not.nc_eom_v)
-     .                   ,min(advect,2),cons=.not.nc_eom_v)
+     .                   ,advect,cons=.not.nc_eom_v)
+cc     .                   ,min(advect,2),cons=.not.nc_eom_v)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
