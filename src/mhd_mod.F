@@ -535,7 +535,7 @@ c ######################################################################
      .          bx_car,by_car,bz_car
      .         ,jx_car,jy_car,jz_car
      .         ,vx_car,vy_car,vz_car
-     .         ,divrgB,divrgJ,divrgV,Pflux,Pfluxn
+     .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
      .         ,vpar,vpsi,vperp,jpar,jpsi,jperp
 
@@ -606,7 +606,6 @@ c     ##################################################################
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,Pfluxn(ilom:ihip,jlom:jhip,klom:khip)
      .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
@@ -634,7 +633,7 @@ c     ##################################################################
 
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
-     .           ,divrgB,divrgJ,divrgV,Pflux,Pfluxn,p_tot
+     .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
      .           ,jpar,jpsi,jperp)
 
       deallocate (qfactor,lambda)
@@ -5045,15 +5044,16 @@ cc
 cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       if (di == 0d0 .or. test) then
+
         h_res = 0d0
-        return
-      endif
 
-      if (heta /= 0d0) then
+      elseif (heta /= 0d0) then
 
-        h_res = heta*rho
+cc        h_res = heta*rho
+        h_res = heta
 
       else
+
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
@@ -5078,8 +5078,8 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
      .                           ,bcnv(i,j,k,2)
      .                           ,bcnv(i,j,k,3))
 
-cc              heta = heta + 0.1*di*sqrt(bnorm)/k2
-              h_res(i,j,k) = 1d1*sqrt(rho(i,j,k))/di*abs(bk_par)/kk**3 !nu_e*rho/di^2
+              !h_res = C*rho*v_a*k||/k^3 (absent factor of di inherited later from v_e)
+              h_res(i,j,k) = 1d1*sqrt(rho(i,j,k))*abs(bk_par)/kk**3
             enddo
           enddo
         enddo
