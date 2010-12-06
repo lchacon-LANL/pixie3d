@@ -974,7 +974,7 @@ cc        elseif (equil == 'ic-hk') then
                 call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
-                psi(i,j,k)=-cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
+                psi(i,j,k)= cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
               enddo
             enddo
           enddo
