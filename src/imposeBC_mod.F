@@ -17,13 +17,12 @@ c####################################################################
         use nlfunction_setup, ONLY: res,vis,E_fld_res,E_fld_hall
      .                             ,ion_hall,fake_ve
      .                             ,EOM_divPi,EOM_divPe,hres
-     .                             ,nc_eom_v,save_tn,slava
-
-        logical :: pinch_flow,save_Bn
+     .                             ,nc_eom_v,nc_eom_jxb
+     .                             ,save_tn,slava,pinch_flow
 
 c       User-specified (via input) BC configuration parameters
 
-        logical :: lag_pinch_bc=.false.  !Whether to lag the finite-flow pinch BC in time
+cc        logical :: lag_pinch_bc=.false.,save_Bn  !Whether to lag the finite-flow pinch BC in time
 
 c       Hardwired BC configuration parameters
 
@@ -37,47 +36,341 @@ cc        integer :: bc_order=2
 
       contains
 
-c     vector_symm_bc
-c     ###################################################################
-      subroutine vector_symm_bc(vbcs,normal_parity)
+c     defineDepBCs
+c     ####################################################################
+      subroutine defineDepBCs(varray)
+c     --------------------------------------------------------------------
+c     Defines boundary conditions of dependent variables. Convention:
+c           + bbcs(1) ---> at x0
+c           + bbcs(2) ---> at x1
+c           + bbcs(3) ---> at y0
+c           + bbcs(4) ---> at y1
+c           + bbcs(5) ---> at z0
+c           + bbcs(6) ---> at z1
+c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     a negative BC identifier means that BCs are to be imposed on
+c     covariant components instead of on (default) contravariant comps.
+c     --------------------------------------------------------------------
 
       implicit none
 
-c     -------------------------------------------------------------------
-c     Processes symmetry BCs for vectors based on parity of normal
-c     component.
-c     -------------------------------------------------------------------
-
 c     Call variables
 
-      integer :: vbcs(6,3),normal_parity
+      type(var_array),pointer :: varray
 
 c     Local variables
 
-      integer :: diml,locl,ibcl
+      integer :: ieq,bbcs(6,neqd),bcsq(6)
 
 c     Begin program
 
-      do ibcl = 1,6
+c     Assign BCs
 
-        locl = abs(mod(ibcl,2)-2)-1
-        diml = 1 + (ibcl-1-locl)/2
-
-        if (vbcs(ibcl,diml) == FSYM) then
-          if (normal_parity == 1) then
-            vbcs(ibcl,:)    = DIR !Tangential components
-            vbcs(ibcl,diml) = NEU !Normal component
-          else
-            vbcs(ibcl,:)    = NEU !Tangential components
-            vbcs(ibcl,diml) = DIR !Normal component
-          endif
-        endif
-
+      do ieq=1,neqd
+        bbcs(:,ieq) = varray%array_var(ieq)%bconds
       enddo
 
-c     End program
+c     Default boundary conditions
 
-      end subroutine vector_symm_bc
+      bcsq = bbcs(:,IRHO)
+      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
+      bbcs(:,IRHO) = bcsq
+
+      bcsq = bbcs(:,IVX)
+      where (bcsq == DEF) bcsq = DIR
+      bbcs(:,IVX) = bcsq
+
+      bcsq = bbcs(:,IVY)
+      if (     coords == 'cyl'
+     .    .or. coords == 'hel'
+     .    .or. coords == 'tor'
+     .    .or. coords == 'car') then
+        where (bcsq == DEF) bcsq =  NEU !On contravariant components
+      else
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+      endif
+      bbcs(:,IVY) = bcsq
+
+      bcsq = bbcs(:,IVZ)
+      if (     coords == 'cyl'
+     .    .or. coords == 'hel'
+     .    .or. coords == 'tor'
+     .    .or. coords == 'car') then
+        where (bcsq == DEF) bcsq =  NEU !On contravariant components
+      else
+        where (bcsq == DEF) bcsq = -NEU !On covariant components
+      endif
+      bbcs(:,IVZ) = bcsq
+
+      call vector_symm_bc(bbcs(:,IVX:IVZ),-1)
+
+#if !defined(vec_pot)
+      bcsq = bbcs(:,IBX)
+      where (bcsq == DEF) bcsq = DIR
+      bbcs(:,IBX) = bcsq
+
+      bcsq = bbcs(:,IBY)
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      bbcs(:,IBY) = bcsq
+
+      bcsq = bbcs(:,IBZ)
+      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      bbcs(:,IBZ) = bcsq
+
+      call vector_symm_bc(bbcs(:,IBX:IBZ),1)
+#else
+      bcsq = bbcs(:,IAX)
+      where (bcsq == DEF) bcsq = DIR   !On contravariant components
+      bbcs(:,IAX) = bcsq
+
+      bcsq = bbcs(:,IAY)
+      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      bbcs(:,IAY) = bcsq
+
+      bcsq = bbcs(:,IAZ)
+      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      bbcs(:,IAZ) = bcsq
+
+      call vector_symm_bc(bbcs(:,IAX:IAZ),-1)
+#endif
+
+      bcsq = bbcs(:,ITMP)
+      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
+cc      if (gamma /= 1d0 .and. (.not.adiabatic)) then
+cc        where (bcsq == DEF) bcsq = DIR
+cc      else
+cc        where (bcsq == DEF) bcsq = NEU !To allow isothermal case
+cc      endif
+      bbcs(:,ITMP) = bcsq
+
+c     Exceptions for specific equilibria
+
+      select case (equil)
+      case ('tmcyz','3dkh')
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = -NEU
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) =  DIR
+
+        where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
+        where (bbcs(:,IBY) ==-NEU) bbcs(:,IBY) =  DIR
+
+      case ('ppnch','ppn3d','ppnst','2dhel')   !No stress BCs, pinch flow
+
+        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
+
+      case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
+
+        !Dirichlet boundary conditions for tangential components
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
+
+      case ('vmec','tor')
+
+        !Dirichlet boundary conditions for tangential components
+        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
+        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
+cc        if (solve_rho) 
+cc     .       where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
+        if (gamma > 1d0)
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+
+cc      case ('ntm2d')                   !No slip BCs
+cc
+cc        !Dirichlet boundary conditions for tangential velocity components
+cc        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
+cc        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
+
+      case('tmcar','khcar')
+
+cc        if (di > 0d0) then
+cc          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+cc        endif
+
+        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+
+      case('gem')
+
+cc        !Dirichlet boundary conditions for tangential velocity components
+cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+
+        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+ 
+cc      case('sgem')  !Symmetric domain
+cc
+cc        !Dirichlet boundary conditions for tangential velocity components
+cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+cc
+cc        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+
+      end select
+
+c     Reassign BCs back
+
+      do ieq=1,neqd
+        varray%array_var(ieq)%bconds = bbcs(:,ieq)
+      enddo
+
+c     End subroutine
+
+      end subroutine defineDepBCs
+
+c     defineDepBC_Deps
+c     ####################################################################
+      subroutine defineDepBC_Deps(varray)
+c     --------------------------------------------------------------------
+c     Defines BC dependencies for dependent variables.
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(var_array),pointer :: varray
+
+c     Local variables
+
+      integer :: ieq
+
+c     Begin program
+
+      !Rho
+      varray%array_var(IRHO)%bc_dep_list(1,1) = IRHO
+      varray%array_var(IRHO)%bc_dep_list(1,2) = SCALAR
+      varray%array_var(IRHO)%bc_dep_list(1,3) = 0 !trivial
+
+      !Tmp
+      varray%array_var(ITMP)%bc_dep_list(1,1) = ITMP
+      varray%array_var(ITMP)%bc_dep_list(1,2) = SCALAR
+      varray%array_var(ITMP)%bc_dep_list(1,3) = 0 !trivial
+
+      !V
+      if (nc_eom_v) then
+        do ieq=IVX,IVZ
+          varray%array_var(ieq)%bc_dep_list(1,1) = IVCNV*AUX
+          varray%array_var(ieq)%bc_dep_list(1,2) = VECTOR
+          varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
+        enddo
+      else
+        do ieq=IVX,IVZ
+          varray%array_var(ieq)%bc_dep_list(1,1) = IRHO
+          varray%array_var(ieq)%bc_dep_list(1,2) = SCALAR
+          varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
+
+          varray%array_var(ieq)%bc_dep_list(2,1) = IVCNV*AUX
+          varray%array_var(ieq)%bc_dep_list(2,2) = VECTOR
+          varray%array_var(ieq)%bc_dep_list(2,3) = 0 !trivial
+        enddo
+      endif
+
+      !B
+      do ieq=IBX,IBZ
+        varray%array_var(ieq)%bc_dep_list(1,1) = IBCNV*AUX
+        varray%array_var(ieq)%bc_dep_list(1,2) = VECTOR
+        varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
+      enddo
+
+c     End subroutine
+
+      end subroutine defineDepBC_Deps
+
+c     defineDepDom_Deps
+c     ####################################################################
+      subroutine defineDepDom_Deps(varray)
+c     --------------------------------------------------------------------
+c     Defines domain dependencies for dependent variables.
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(var_array),pointer :: varray
+
+c     Local variables
+
+      integer :: offset,ieq
+
+c     Begin program
+
+      !Rho
+      varray%array_var(IRHO)%dom_dep_list(1,1) = IRHO
+      varray%array_var(IRHO)%dom_dep_list(1,2) = SCALAR
+      varray%array_var(IRHO)%dom_dep_list(1,3) = 1 !non-trivial
+
+      varray%array_var(IRHO)%dom_dep_list(2,1) = IVCNV*AUX
+      varray%array_var(IRHO)%dom_dep_list(2,2) = VECTOR
+      varray%array_var(IRHO)%dom_dep_list(2,3) = 1 !non-trivial
+
+      !Tmp
+      varray%array_var(ITMP)%dom_dep_list(1,1) = ITMP
+      varray%array_var(ITMP)%dom_dep_list(1,2) = SCALAR
+      varray%array_var(ITMP)%dom_dep_list(1,3) = 1 !non-trivial
+
+      varray%array_var(ITMP)%dom_dep_list(2,1) = IVCNV*AUX
+      varray%array_var(ITMP)%dom_dep_list(2,2) = VECTOR
+      varray%array_var(ITMP)%dom_dep_list(2,3) = 1 !non-trivial
+
+      !V
+      do ieq=IVX,IVZ
+        varray%array_var(ieq)%dom_dep_list(1,1) = IRHO
+        varray%array_var(ieq)%dom_dep_list(1,2) = SCALAR
+        varray%array_var(ieq)%dom_dep_list(1,3) = 1 !non-trivial
+
+        varray%array_var(ieq)%dom_dep_list(2,1) = ITMP
+        varray%array_var(ieq)%dom_dep_list(2,2) = SCALAR
+        varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
+
+        varray%array_var(ieq)%dom_dep_list(3,1) = IVCNV*AUX
+        varray%array_var(ieq)%dom_dep_list(3,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(3,3) = 1 !non-trivial
+
+        varray%array_var(ieq)%dom_dep_list(4,1) = IDIVPI*AUX
+        varray%array_var(ieq)%dom_dep_list(4,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(4,3) = 0 !trivial
+
+        if (di > 0d0) then
+          varray%array_var(ieq)%dom_dep_list(5,1) = IDIVPE*AUX
+          varray%array_var(ieq)%dom_dep_list(5,2) = VECTOR
+          varray%array_var(ieq)%dom_dep_list(5,3) = 0 !trivial
+          offset = 1
+        else
+          offset = 0
+        endif
+
+        if (nc_eom_jxb) then
+          varray%array_var(ieq)%dom_dep_list(5+offset,1) = IBCNV*AUX
+          varray%array_var(ieq)%dom_dep_list(5+offset,2) = VECTOR
+          varray%array_var(ieq)%dom_dep_list(5+offset,3) = 0 !trivial
+
+          varray%array_var(ieq)%dom_dep_list(6+offset,1) = IJCNV*AUX
+          varray%array_var(ieq)%dom_dep_list(6+offset,2) = VECTOR
+          varray%array_var(ieq)%dom_dep_list(6+offset,3) = 0 !trivial
+        else
+          varray%array_var(ieq)%dom_dep_list(5+offset,1) = IBCNV*AUX
+          varray%array_var(ieq)%dom_dep_list(5+offset,2) = VECTOR
+          varray%array_var(ieq)%dom_dep_list(5+offset,3) = 1 !non-trivial
+        endif
+      enddo
+
+      !B
+      do ieq=IBX,IBZ
+        varray%array_var(ieq)%dom_dep_list(1,1) = IENI*AUX
+        varray%array_var(ieq)%dom_dep_list(1,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(1,3) = 1 !non-trivial
+
+        varray%array_var(ieq)%dom_dep_list(2,1) = IENI_0*AUX
+        varray%array_var(ieq)%dom_dep_list(2,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
+      enddo
+
+c     End subroutine
+
+      end subroutine defineDepDom_Deps
 
 c     setBCsched
 c     ###################################################################
@@ -169,7 +462,7 @@ c     Setup schedule
           gv%bc_grp(4+offset)%nbc_seq = 2
           gv%bc_grp(5+offset)%nbc_seq = 3
           gv%bc_grp(6+offset)%nbc_seq = 1
-          gv%bc_grp(7+offset)%nbc_seq = 2
+          gv%bc_grp(7+offset)%nbc_seq = 1
           offset = offset + 7
         endif
 
@@ -178,26 +471,25 @@ c     Setup schedule
         gv%bc_grp(2+offset)%nbc_seq = 1
         gv%bc_grp(3+offset)%nbc_seq = 1
         gv%bc_grp(4+offset)%nbc_seq = 3
-        gv%bc_grp(5+offset)%nbc_seq = 3
-        gv%bc_grp(6+offset)%nbc_seq = 3
+        gv%bc_grp(5+offset)%nbc_seq = 2
+        gv%bc_grp(6+offset)%nbc_seq = 2
         gv%bc_grp(7+offset)%nbc_seq = 5
-        gv%bc_grp(8+offset)%nbc_seq = 5
+        gv%bc_grp(8+offset)%nbc_seq = 4
         gv%bc_grp(9+offset)%nbc_seq = 1
 #else
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 1
         gv%bc_grp(3+offset)%nbc_seq = 1
-        gv%bc_grp(4+offset)%nbc_seq = 4
-        gv%bc_grp(5+offset)%nbc_seq = 3
+        gv%bc_grp(4+offset)%nbc_seq = 3
+        gv%bc_grp(5+offset)%nbc_seq = 2
         gv%bc_grp(6+offset)%nbc_seq = 5
         if (fake_ve) then
           gv%bc_grp(7+offset)%nbc_seq = 2
-          gv%bc_grp(8+offset)%nbc_seq = 5
+          gv%bc_grp(8+offset)%nbc_seq = 4
           gv%bc_grp(9+offset)%nbc_seq = 1
         else
-          gv%bc_grp(7+offset)%nbc_seq = 4
+          gv%bc_grp(7+offset)%nbc_seq = 3
           gv%bc_grp(8+offset)%nbc_seq = 3
-cc          gv%bc_grp(9+offset)%nbc_seq = 1
         endif
 #endif
 
@@ -252,11 +544,11 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
           gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR       !Vector
 
           !Group 7+
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
+cc          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
+cc          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
 
-          gv%bc_grp(7+offset)%bc_seq(2,1) = IENI_0*AUX   !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR       !Vector
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IENI_0*AUX   !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
 
           offset = offset + 7
         endif
@@ -285,24 +577,24 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
         gv%bc_grp(4+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 5
-        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(5+offset)%bc_seq(3,1) = IBCOV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         !Group 6
         gv%bc_grp(6+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
+cc        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(6+offset)%bc_seq(3,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         !Group 7
         gv%bc_grp(7+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
@@ -330,11 +622,11 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
         gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
         gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
-        gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+cc        gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+cc        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
-        gv%bc_grp(8+offset)%bc_seq(5,1) = IVEFCNV*AUX !Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(5,2) = VECTOR      !Vector
+        gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 9
         gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Aux. variable
@@ -353,27 +645,27 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
         gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
         !Group 4
-        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(4+offset)%bc_seq(3,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(3,1) = IBX         !Dep. variable
         gv%bc_grp(4+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(4,1) = IBX         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 5
         gv%bc_grp(5+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
         gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+cc        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(5+offset)%bc_seq(3,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR      !Vector
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
         !Group 6
         gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
@@ -409,11 +701,11 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
           gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
-          gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+cc          gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+cc          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
-          gv%bc_grp(8+offset)%bc_seq(5,1) = IVEFCNV*AUX !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(5,2) = VECTOR      !Vector
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
           !Group 9
           gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPE*AUX  !Aux. variable
@@ -429,8 +721,8 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
           gv%bc_grp(7+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
 
-          gv%bc_grp(7+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
+cc          gv%bc_grp(7+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
+cc          gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
 
           !Group 8
           gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
@@ -441,10 +733,6 @@ cc          gv%bc_grp(9+offset)%nbc_seq = 1
                      
           gv%bc_grp(8+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-cc          !Group 9
-cc          gv%bc_grp(9+offset)%bc_seq(1,1) = IVEFCNV*AUX !Aux. variable
-cc          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
         endif
 #endif
 

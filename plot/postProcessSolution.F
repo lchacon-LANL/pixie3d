@@ -53,12 +53,12 @@ c Local variables
 c Interfaces
 
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
+        subroutine applyBC (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
         integer,optional :: obc
         type(var_array),pointer :: varray
-        end subroutine imposeBoundaryConditions
+        end subroutine applyBC
       END INTERFACE
 
 c Begin program
@@ -87,7 +87,7 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
-      call imposeBoundaryConditions(varray,igx,igy,igz)
+      call applyBC(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
       px  => varray%array_var(IVX )%array

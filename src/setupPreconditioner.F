@@ -43,12 +43,12 @@ c Interfaces
 
 #if !defined(samrai)
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
+        subroutine applyBC (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
         integer,optional :: obc
         type(var_array),pointer :: varray
-        end subroutine imposeBoundaryConditions
+        end subroutine applyBC
       END INTERFACE
 #endif
 
@@ -75,7 +75,7 @@ c Unpack vector x
       call mapVectorToStructure(varray,x)
 
 #if !defined(samrai)
-      call imposeBoundaryConditions(varray,igx,igy,igz)
+      call applyBC(varray,igx,igy,igz)
 #endif
 
 c Extract arrays and BC's

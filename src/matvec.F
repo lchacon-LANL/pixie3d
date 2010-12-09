@@ -3134,7 +3134,7 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc,lag_pinch_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc!,lag_pinch_bc
 
       implicit none
 
@@ -3324,7 +3324,7 @@ c--------------------------------------------------------------------
 
       use v_mtvc_mod
 
-      use local_BCS_variables, ONLY: ExB_flow_bc,lag_pinch_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc!,lag_pinch_bc
 
       implicit none
 

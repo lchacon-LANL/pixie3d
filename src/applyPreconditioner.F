@@ -1172,7 +1172,7 @@ c     --------------------------------------------------------------
 
         real(8) :: mag0,mag,gxmin,gxmax,gymin,gymax
 
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov,dv0cnv
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov,vzeros
 
         character(10) :: solf,resf,rhsf,crsf,fldf,divf
         character(4)  :: dbg_desc(neqd)
@@ -1242,7 +1242,9 @@ c     Create output files
 c     Dump graphics
 
         allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3))
+     .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
+
+        vzeros = 0d0
 
         !Solution plot
         call MGplot(neqd,x,igrid,0,solf)
@@ -1296,11 +1298,9 @@ c     Dump graphics
      .          ,igrid,igrid,igrid,iorder=bc_order)
 #endif
 
-        dv0cnv = 0d0
-
         !Find dv (w/ BCs)
         call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .                ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=dv0cnv)
+     .                ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=vzeros)
 
         open(unit=110,file=fldf,form='unformatted'
      .     ,status='replace')
@@ -1370,7 +1370,7 @@ c     Dump graphics
      .                ,0,110)
         close(110)
 
-        deallocate(dbg)
+        deallocate(dbg,db_cnv,vzeros)
 
         call pstop('PCdiagnostics','Finished PC diagnostics')
 
@@ -1452,7 +1452,7 @@ c Local variables
      .                                                ,db_cnv
      .                                                ,db_cov
      .                                                ,dv_cnv
-     .                                                ,dv0cnv
+     .                                                ,vzeros
      .                                                ,dp_cnv
      .                                                ,dve_cnv
      .                                                ,dve_cov
@@ -1498,7 +1498,7 @@ c Allocate variables
      .        ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,vzeros(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1533,10 +1533,8 @@ c Find dB* from dA*
 
 c Find dv (w/ Bcs)
 
-      dv0cnv = 0d0
-
       call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .              ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=dv0cnv)
+     .              ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=vzeros)
 
 c Find dj* from dB*
 
@@ -1709,7 +1707,7 @@ c Free memory
      .          ,db_cnv
      .          ,db_cov
      .          ,dv_cnv
-     .          ,dv0cnv
+     .          ,vzeros
      .          ,dp_cnv
      .          ,dve_cnv
      .          ,dve_cov
@@ -2034,6 +2032,7 @@ c Local variables
      .                                          ,dj_cov
      .                                          ,de_cov
      .                                          ,de_cnv
+     .                                          ,vzeros
 
       real(8),pointer,dimension(:,:,:,:) :: v0cnv
 
@@ -2053,7 +2052,8 @@ c Begin program
      .          ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,de_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+     .          ,de_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB
 
@@ -2152,7 +2152,8 @@ c End program
      .          ,dj_cnv
      .          ,dj_cov
      .          ,de_cov
-     .          ,de_cnv)
+     .          ,de_cnv
+     .          ,vzeros)
 
       end subroutine correctBfld
 

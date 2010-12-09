@@ -33,12 +33,12 @@ c Interfaces
 
 #if !defined(vec_pot) && !defined(samrai)
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
+        subroutine applyBC (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
         integer,optional :: obc
         type(var_array),pointer :: varray
-        end subroutine imposeBoundaryConditions
+        end subroutine applyBC
       END INTERFACE
 #endif
 
@@ -117,7 +117,7 @@ c Find new B^(n+1)
 
 c Update BCs of all quantities
 
-      call imposeBoundaryConditions (v_arr,igx,igy,igz)
+      call applyBC (v_arr,igx,igy,igz)
 
 c Update helical flux
 
