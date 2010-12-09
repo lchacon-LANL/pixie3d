@@ -65,7 +65,7 @@ c Call variables
 
 c Local variables
 
-      integer :: igx,igy,igz,nx,ny,nz,bcs(6,neqd),ierr,ifile
+      integer :: igx,igy,igz,nx,ny,nz,ierr,ifile
       logical :: initialize
 
 c Interfaces
@@ -131,7 +131,12 @@ cc      write (*,*) 'Proc:',drank,ddnp
 
 c Define BCs
 
-      call defineBoundaryConditions(neqd,bcs)
+      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
+     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
+     .              .or.equil == 'ohtor')
+
+cc      call defineDepBCs(neqd,bcs)
 
 c Define diagnostics
 
@@ -423,24 +428,24 @@ c Begin program
 
 c Code for explicit pinch flow BC
 
-      if (lag_pinch_bc.and.pinch_flow) then
-
-#if defined(vec_pot)
-        save_Bn = .true.
-
-        acov(:,:,:,1) = u_n%array_var(IAX)%array
-        acov(:,:,:,2) = u_n%array_var(IAY)%array
-        acov(:,:,:,3) = u_n%array_var(IAZ)%array
-
-        bcnv_n = curl(nx,ny,nz,igx,igy,igz,acov)
-#else
-        save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
-
-        bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
-        bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
-        bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
-#endif
-      endif
+cc      if (lag_pinch_bc.and.pinch_flow) then
+cc
+cc#if defined(vec_pot)
+cc        save_Bn = .true.
+cc
+cc        acov(:,:,:,1) = u_n%array_var(IAX)%array
+cc        acov(:,:,:,2) = u_n%array_var(IAY)%array
+cc        acov(:,:,:,3) = u_n%array_var(IAZ)%array
+cc
+cc        bcnv_n = curl(nx,ny,nz,igx,igy,igz,acov)
+cc#else
+cc        save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
+cc
+cc        bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
+cc        bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
+cc        bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
+cc#endif
+cc      endif
 
 c Code for electric field BC
 

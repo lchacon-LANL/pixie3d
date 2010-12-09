@@ -201,8 +201,7 @@ then
    else
      rpath=$path
    fi
-   if [ -f "$rpath/$restartfile.tar.gz" ]
-   then
+   if [ -f "$rpath/$restartfile.tar.gz" ]; then
      if [ "$debug" = "t" ]; then
        echo "==> Restarting using $restartfile.tar.gz"
      fi
@@ -233,6 +232,7 @@ fi
 
 # Execution preparations
 
+rm $code_ifile.in  2>/dev/null
 cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
 cp $eigfile $code_ifile.eig  2>/dev/null

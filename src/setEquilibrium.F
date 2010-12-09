@@ -1,6 +1,6 @@
 c setEquilibrium
 c####################################################################
-      subroutine setEquilibrium(iigx,iigy,iigz,var,bcs,label)
+      subroutine setEquilibrium(iigx,iigy,iigz,varray)
 
 c--------------------------------------------------------------------
 c     Set initial conditions for initial value calculation, define
@@ -49,49 +49,51 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer       :: iigx,iigy,iigz
+      integer :: iigx,iigy,iigz
 
-      real(8)       :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
-
-      character(20) :: label(neqd)
-
-      integer       :: bcs(6,neqd)
+      type(var_array),pointer :: varray
 
 c Local variables
 
-      integer       :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
-     .                ,ierr,sh,it,icomp,bcnd(6,3),brank
-     .                ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz
+      integer :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
+     .          ,ierr,sh,it,icomp,bcnd(6,3),brank
+     .          ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz
 
-      real(8)       :: ldaflow,x1,y1,z1,cx,cy,cz
+      real(8) :: ldaflow,x1,y1,z1,cx,cy,cz
 
-      logical       :: covariant,to_cartsn,cartsn,a_bc
+      logical :: covariant,to_cartsn,cartsn,a_bc
 
-      real(8)       :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,bb
-     .                ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
-     .                ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
-     .                ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
-     .                ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3),bb0(3)
-     .                ,hlx
+      real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,bb
+     .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
+     .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
+     .          ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
+     .          ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3),bb0(3)
+     .          ,hlx
 
-      real(8)       :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
-     .                ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
-     .                ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
-     .                ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
-     .                ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
-     .                ,q00(0:nxdp),dum (ilom:ihip,2)
-     .                ,ldum(ilom:ihip,2)
-     .                ,r2  (ilom:ihip,jlom:jhip)
-     .                ,br02d (0:nxdp,0:nydp),bth02d(0:nxdp,0:nydp)
-     .                ,bzz02d(0:nxdp,0:nydp)
-     .                ,vth02d(0:nxdp,0:nydp),vr02d(0:nxdp,0:nydp)
-     .                ,psi0(0:nxdp)
+      real(8) :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
+     .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
+     .          ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
+     .          ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
+     .          ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
+     .          ,q00(0:nxdp),dum (ilom:ihip,2)
+     .          ,ldum(ilom:ihip,2)
+     .          ,r2  (ilom:ihip,jlom:jhip)
+     .          ,br02d (0:nxdp,0:nydp),bth02d(0:nxdp,0:nydp)
+     .          ,bzz02d(0:nxdp,0:nydp)
+     .          ,vth02d(0:nxdp,0:nydp),vr02d(0:nxdp,0:nydp)
+     .          ,psi0(0:nxdp)
 
-      real(8)       :: pp(ilom:ihip,jlom:jhip)
+      real(8) :: pp(ilom:ihip,jlom:jhip)
+
+      real(8) :: a (ilom:ihip,jlom:jhip,klom:khip,3)
+
+      real(8) :: var(ilom:ihip,jlom:jhip,klom:khip,neqd)
+
+      character(20),pointer,dimension(:) :: label
+
+      integer :: bcs(6,neqd)
 
       character(200):: command
-
-      real(8)       :: a (ilom:ihip,jlom:jhip,klom:khip,3)
 
 #if defined(vec_pot)
       real(8),allocatable,dimension(:,:,:,:) :: ag,bg
@@ -102,12 +104,10 @@ c Functions
 
       real(8) :: qprof,pprof
       external   qprof,pprof
-      
+
 c Begin program
 
       ldaflow = dlambda/rshear
-
-      var = 0d0
 
       E0 = 0d0 ; B0 = 0d0
 
@@ -116,6 +116,13 @@ c Begin program
 #else
       a_bc = .true.
 #endif
+
+      label => varray%array_var%descr
+
+      do ieq=1,neqd
+        var(:,:,:,ieq) = varray%array_var(ieq)%array
+cc        var(:,:,:,ieq:ieq) => varray%array_var(ieq:ieq)%array
+      enddo
 
 c Initialize required local grid information
 
@@ -148,9 +155,13 @@ c Label variables
         label(ITMP) = 'T_e'
       endif
 
-c Define boundary conditions
+c Define boundary conditions and dependencies
 
-      call defineBoundaryConditions(neqd,bcs)
+      call defineDepBCs(varray)
+
+      call defineDepBC_Deps(varray)
+
+      call defineDepDom_Deps(varray)
 
 c Set initial guess
 
@@ -2373,6 +2384,17 @@ c Find momentum components
         var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
       endif
 
+      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
+     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
+     .              .or.equil == 'ohtor')
+
+c Transfer equilibrium to varray
+
+      do ieq=1,neqd
+        varray%array_var(ieq)%array = var(:,:,:,ieq) 
+      enddo
+
 c Transfer electric field info to postprocessor via input file
 
       if (sum(E0) /= 0d0 .and. my_rank == 0) then
@@ -3005,7 +3027,7 @@ c     Local variables
      .               ,bth0_old(0:nxdp,0:nydp),bzz0_old(0:nxdp,0:nydp)
      .               ,xh(0:nxd),dr(0:nxd),psi(0:nxdp,0:nydp,0:nzdp)
      .               ,psi_rhs(nxd*nyd),psiv(nxd*nyd)
-     .               ,ffpsi(0:nxdp,0:nydp)
+     .               ,ffpsi(0:nxdp,0:nydp),zeros(0:nxdp,0:nydp,0:nzdp)
 
         external   cyl_lap
 
@@ -3031,6 +3053,8 @@ c     Begin program
           messg = 'E0/eta = 0!!'
           call pstop('Ohm_equil_2d',messg)
         endif
+
+        zeros = 0d0
 
 c     Initialize iteration (Psi -> integer mesh; bth, bz -> half mesh)
 
@@ -3617,6 +3641,7 @@ c     Local variables
      .            ,RR(0:nxdp,0:nydp)
 
         real(8) :: iR2  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,zeros(0:nx+1,0:ny+1,0:nz+1)
      .            ,qprof(0:nx+1,0:ny+1)
      .            ,dummy(0:nxdp,0:ny+1)
      .            ,psig (0:nxdp,0:ny+1,0:nz+1)
@@ -3645,6 +3670,8 @@ c     Begin program
           messg = 'E0/eta = 0!!'
           call pstop('Ohm_GS_equil_2d',messg)
         endif
+
+        zeros = 0d0
 
 c       Initialize iteration
 
@@ -5372,8 +5399,6 @@ c--------------------------------------------------------------------
 
       use parameters
 
-      use grid_aliases
-
       use equilibrium
 
       use operators
@@ -5385,10 +5410,6 @@ c--------------------------------------------------------------------
       use timeStepping
 
       use B_tools
-
-cc      use precond_variables, ONLY: poisson
-cc
-cc      use  mg_internal, ONLY: mapMGVectorToArray
 
       implicit none
 
@@ -5409,6 +5430,7 @@ c Local variables
      .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
      .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
      .             ,a(0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .             ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
 
       logical    :: spoint
 
@@ -5419,6 +5441,8 @@ c Begin program
       nx = grid_params%nxv(igrid)
       ny = grid_params%nyv(igrid)
       nz = grid_params%nzv(igrid)
+
+      vzeros = 0d0
 
 c Find vector potential with gauge Ax = 0 in GLOBAL domain
 

@@ -46,12 +46,12 @@ c Interfaces
 
 #if !defined (samrai)
       INTERFACE
-        subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
+        subroutine applyBC (varray,iigx,iigy,iigz,obc)
         use variable_setup
         integer    :: iigx,iigy,iigz
         integer,optional :: obc
         type(var_array),pointer :: varray
-        end subroutine imposeBoundaryConditions
+        end subroutine applyBC
       END INTERFACE
 #endif
 
@@ -82,9 +82,9 @@ c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
       save_tn = old_time_eval .or. source_eval
-      save_Bn = (save_tn .and. lag_pinch_bc)  !Initialize Bn when processing source
+cc      save_Bn = (save_tn .and. lag_pinch_bc)  !Initialize Bn when processing source
 
-      call imposeBoundaryConditions(varray,igx,igy,igz)
+      call applyBC(varray,igx,igy,igz)
 #else
       call allocAuxVariables(gv%aux)
 #endif
@@ -146,9 +146,33 @@ c Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
 
 c Other auxiliary variables
 
+      !Momentum
       pcnv(:,:,:,1) = px
       pcnv(:,:,:,2) = py
       pcnv(:,:,:,3) = pz
+
+      !Temperature transport velocity, v_star = v - di*j/rho/a_p
+      if (slava) then
+        vscnv = vcnv            !Also to recover old TM Hall performance results
+      else
+        vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
+        vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
+        vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
+      endif
+
+      !Psi
+      psi = 0d0
+
+cc      !Previous time step B
+cc      if (save_tn) bcnv_n = bcnv !Save previous time step
+cc
+cc      !Previous time step J
+cc      if (save_tn .and. ion_hall) jcnv_n = jcnv
+cc
+cc      !Equilibrium electron velocity
+cc      vecnv_0(:,:,:,1) = vcnv_0(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho_0
+cc      vecnv_0(:,:,:,2) = vcnv_0(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho_0
+cc      vecnv_0(:,:,:,3) = vcnv_0(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho_0
 
 c End program
 

@@ -30,6 +30,7 @@ c ######################################################################
      .                             ,fake_ve
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,nc_eom_gp,solve_rho
+     .                             ,advect,alt_eom
 
         use local_BCS_variables, ONLY: bc_order,vector_symm_bc
 
@@ -1849,6 +1850,7 @@ c     Local variables
      .                                          ,dj_cov
      .                                          ,drho
      .                                          ,dve_cnv
+     .                                          ,vzeros
 
       real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0
 
@@ -1864,7 +1866,10 @@ cc      return
      .         ,dj_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,dj_cov (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .         ,vzeros (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,drho   (0:nx+1,0:ny+1,0:nz+1,1))
+
+      vzeros = 0d0
 
 c     Find drho
 
@@ -2041,7 +2046,8 @@ c     End program
      .          ,dj_cnv
      .          ,dj_cov
      .          ,drho
-     .          ,dve_cnv)
+     .          ,dve_cnv
+     .          ,vzeros)
 
       end subroutine L_T
 

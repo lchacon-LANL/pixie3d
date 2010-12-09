@@ -24,7 +24,7 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
-      use local_BCS_variables, ONLY: lag_pinch_bc
+cc      use local_BCS_variables, ONLY: lag_pinch_bc
 
       implicit none
 
@@ -70,7 +70,7 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,ion_hall,lag_pinch_bc,fake_ve,slava
+     .                   ,ion_hall,fake_ve,slava
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -89,7 +89,7 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,ion_hall,lag_pinch_bc
+     .                   ,solve_rho,advect,sym_st,ion_hall
      .                   ,fake_ve,slava
 
       !Temporal discretization
@@ -242,7 +242,7 @@ c Set defaults
       solve_rho  = .true.      ! Whether we solver continuity equation or not
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
-      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
+cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
 
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 

@@ -8,8 +8,6 @@ c----------------------------------------------------------------------
 
       use parameters
 
-      use grid_aliases
-
       use auxiliaryVariables
 
       use auxPlotVariables

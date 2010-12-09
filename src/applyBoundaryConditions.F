@@ -1,319 +1,3 @@
-c defineBoundaryConditions
-c####################################################################
-      subroutine defineBoundaryConditions (neq,bbcs)
-c--------------------------------------------------------------------
-c     Defines boundary conditions of physical quantities.
-c     On input:
-c       * neq -> number of equations
-c     On output:
-c       * bbcs -> real array of size (6,neq) containing BC setup:
-c           + bbcs(1) ---> at x0
-c           + bbcs(2) ---> at x1
-c           + bbcs(3) ---> at y0
-c           + bbcs(4) ---> at y1
-c           + bbcs(5) ---> at z0
-c           + bbcs(6) ---> at z1
-c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
-c     a negative BC identifier means that BCs are to be imposed on
-c     covariant components instead of on (default) contravariant comps.
-c--------------------------------------------------------------------
-
-      use grid
-
-      use equilibrium
-
-      use variables
-
-      use auxiliaryVariables
-
-      use local_BCS_variables
-
-      implicit none
-
-c Call variables
-
-      integer    :: neq,bbcs(6,neq)
-
-c Local variables
-
-      integer    :: ieq,bcsq(6)
-
-c Begin program
-
-c Reset BCs
-
-      do ieq=1,neq
-        bbcs(:,ieq) = bcond
-      enddo
-
-c Default boundary conditions
-
-      bcsq = bbcs(:,IRHO)
-      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-      bbcs(:,IRHO) = bcsq
-
-      bcsq = bbcs(:,IVX)
-      where (bcsq == DEF) bcsq = DIR
-      bbcs(:,IVX) = bcsq
-
-      bcsq = bbcs(:,IVY)
-      if (     coords == 'cyl'
-     .    .or. coords == 'hel'
-     .    .or. coords == 'tor'
-     .    .or. coords == 'car') then
-        where (bcsq == DEF) bcsq =  NEU !On contravariant components
-      else
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-      endif
-      bbcs(:,IVY) = bcsq
-
-      bcsq = bbcs(:,IVZ)
-      if (     coords == 'cyl'
-     .    .or. coords == 'hel'
-     .    .or. coords == 'tor'
-     .    .or. coords == 'car') then
-        where (bcsq == DEF) bcsq =  NEU !On contravariant components
-      else
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-      endif
-      bbcs(:,IVZ) = bcsq
-
-      call vector_symm_bc(bbcs(:,IVX:IVZ),-1)
-
-#if !defined(vec_pot)
-      bcsq = bbcs(:,IBX)
-      where (bcsq == DEF) bcsq = DIR
-      bbcs(:,IBX) = bcsq
-
-      bcsq = bbcs(:,IBY)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
-      bbcs(:,IBY) = bcsq
-
-      bcsq = bbcs(:,IBZ)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
-      bbcs(:,IBZ) = bcsq
-
-      call vector_symm_bc(bbcs(:,IBX:IBZ),1)
-#else
-      bcsq = bbcs(:,IAX)
-      where (bcsq == DEF) bcsq = DIR   !On contravariant components
-      bbcs(:,IAX) = bcsq
-
-      bcsq = bbcs(:,IAY)
-      where (bcsq == DEF) bcsq = -EQU  !On covariant components
-      bbcs(:,IAY) = bcsq
-
-      bcsq = bbcs(:,IAZ)
-      where (bcsq == DEF) bcsq = -EQU  !On covariant components
-      bbcs(:,IAZ) = bcsq
-
-      call vector_symm_bc(bbcs(:,IAX:IAZ),-1)
-#endif
-
-      bcsq = bbcs(:,ITMP)
-      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-cc      if (gamma /= 1d0 .and. (.not.adiabatic)) then
-cc        where (bcsq == DEF) bcsq = DIR
-cc      else
-cc        where (bcsq == DEF) bcsq = NEU !To allow isothermal case
-cc      endif
-      bbcs(:,ITMP) = bcsq
-
-c Exceptions for specific equilibria
-
-      select case (equil)
-      case ('tmcyz','3dkh')
-
-        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = -NEU
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) =  DIR
-
-        where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
-        where (bbcs(:,IBY) ==-NEU) bbcs(:,IBY) =  DIR
-
-      case ('ppnch','ppn3d','ppnst','2dhel')   !No stress BCs, pinch flow
-
-        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
-
-      case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
-
-        where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
-
-        !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
-
-      case ('vmec','tor')
-
-        !Dirichlet boundary conditions for tangential components
-        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
-        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
-cc        if (solve_rho) 
-cc     .       where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
-        if (gamma > 1d0)
-     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
-
-cc      case ('ntm2d')                   !No slip BCs
-cc
-cc        !Dirichlet boundary conditions for tangential velocity components
-cc        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
-cc        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
-
-      case('tmcar','khcar')
-
-cc        if (di > 0d0) then
-cc          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
-cc        endif
-
-        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
-
-      case('gem')
-
-cc        !Dirichlet boundary conditions for tangential velocity components
-cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
-
-        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
- 
-cc      case('sgem')  !Symmetric domain
-cc
-cc        !Dirichlet boundary conditions for tangential velocity components
-cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
-cc
-cc        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
-
-      end select
-
-      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
-     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
-     .              .or.equil == 'ohtor')
-
-c BCs for auxiliary variables
-
-      call defineAuxBCs(neq,bbcs)
-
-c End subroutine
-
-      end subroutine defineBoundaryConditions
-
-c     defineAuxBCs
-c     ###################################################################
-      subroutine defineAuxBCs(neq,bcs)
-
-      use problem_def
-
-      use local_BCS_variables
-
-c     -------------------------------------------------------------------
-c     Defines BCs for auxiliary quantities
-c     -------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer,intent(IN) :: neq,bcs(6,neq)
-
-c     Local variables
-
-      integer :: ieq,bcsq(6)
-
-c     Begin program
-
-      !Equilibrium density and temperature
-      gv%aux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
-      gv%aux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
-
-      !Flow
-      gv%aux%vec_list(IVCNV)%bconds = bcs(:,IVX:IVZ)
-
-      gv%aux%vec_list(IVCOV)%bconds = gv%aux%vec_list(IVCNV)%bconds
-
-      gv%aux%vec_list(IVCNV_0)%bconds = gv%aux%vec_list(IVCNV)%bconds
-
-#if defined(vec_pot)
-      !Vector potential
-      gv%aux%vec_list(IACNV)%bconds = bcs(:,IAX:IAZ)
-
-      gv%aux%vec_list(IACOV)%bconds = gv%aux%vec_list(IACNV)%bconds
-
-      !Magnetic field
-      gv%aux%vec_list(IBCNV)%bconds = gv%aux%vec_list(IACNV)%bconds
-      where (gv%aux%vec_list(IBCNV)%bconds == -EQU)
-        gv%aux%vec_list(IBCNV)%bconds = -NEU
-      end where
-
-      gv%aux%vec_list(IBCOV)%bconds = gv%aux%vec_list(IBCNV)%bconds
-#else
-      !Magnetic field
-      gv%aux%vec_list(IBCNV)%bconds = bcs(:,IBX:IBZ)
-
-      gv%aux%vec_list(IBCOV)%bconds = gv%aux%vec_list(IBCNV)%bconds
-#endif
-
-      !Equilibrium magnetic field
-      gv%aux%vec_list(IBCNV_0)%bconds = gv%aux%vec_list(IBCNV)%bconds
-
-      where (gv%aux%vec_list(IBCNV_0)%bconds == -NEU)
-        gv%aux%vec_list(IBCNV_0)%bconds = EXT
-      end where
-      gv%aux%vec_list(IBCOV_0)%bconds = gv%aux%vec_list(IBCNV_0)%bconds
-
-      !Current
-      gv%aux%vec_list(IJCNV)%bconds = gv%aux%vec_list(IBCNV)%bconds
-
-      where (bcond == FSYM)
-        gv%aux%vec_list(IJCNV)%bconds(:,1) = FSYM !Recover symmetry BCs
-        gv%aux%vec_list(IJCNV)%bconds(:,2) = FSYM !Recover symmetry BCs
-        gv%aux%vec_list(IJCNV)%bconds(:,3) = FSYM !Recover symmetry BCs
-      end where
-
-      where (gv%aux%vec_list(IJCNV)%bconds == -NEU)
-        gv%aux%vec_list(IJCNV)%bconds = EQU !Use contravariant components for tangential BCs
-      end where
-
-      call vector_symm_bc(gv%aux%vec_list(IJCNV)%bconds,-1)  !Same as velocity
-
-      gv%aux%vec_list(IJCOV)%bconds = gv%aux%vec_list(IJCNV)%bconds
-
-      !Equilibrium Current (extrapolate covariant components)
-      gv%aux%vec_list(IJCNV_0)%bconds = gv%aux%vec_list(IJCNV)%bconds
-      where (gv%aux%vec_list(IJCNV_0)%bconds == EQU)
-        gv%aux%vec_list(IJCNV_0)%bconds =-EXT
-      end where
-      gv%aux%vec_list(IJCOV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
-
-#if defined(vec_pot)
-      gv%aux%vec_list(IACOV_0)%bconds = gv%aux%vec_list(IJCNV_0)%bconds
-#endif
-
-      !Pressure tensors (extrapolation)
-cc      gv%aux%vec_list(IDIVPI)%bconds(:,1) = bcond
-cc      gv%aux%vec_list(IDIVPI)%bconds(:,2) = bcond
-cc      gv%aux%vec_list(IDIVPI)%bconds(:,3) = bcond
-cc      where (gv%aux%vec_list(IDIVPI)%bconds == DEF)
-cc        gv%aux%vec_list(IDIVPI)%bconds = EXT
-cc      end where
-cc
-cc      call vector_symm_bc(gv%aux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
-      gv%aux%vec_list(IDIVPI)%bconds = gv%aux%vec_list(IVCNV )%bconds
-
-      gv%aux%vec_list(IDIVPE)%bconds = gv%aux%vec_list(IDIVPI)%bconds
-
-      !Electric field (non-ideal piece)
-      gv%aux%vec_list(IENI  )%bconds = gv%aux%vec_list(IVCOV )%bconds
-
-      !Equilibrium electric field (non-ideal piece)
-      gv%aux%vec_list(IENI_0)%bconds = gv%aux%vec_list(IENI  )%bconds
-
-      !Fake electron velocity
-      gv%aux%vec_list(IVEFCNV)%bconds= gv%aux%vec_list(IJCNV )%bconds
-
-c     End program
-
-      end subroutine defineAuxBCs
 
 #if defined(samrai)
 
@@ -379,13 +63,13 @@ c Setup pointers
       varray => gv%u_n
       u_0    => gv%u_0
 
-c Set application BCs
+c Set application BC sequence
 
 cc      10/20/2010: I don't think this call is needed, since it seems to be 
 cc      called stand-alone by the SAMRAI driver before this routine
 cc      (and initializeAuxVar below, which also needs it).
-cc
-      call setupVariableInitializationSequence(gv,it)
+
+      call setupVarInitSeq(gv,it)
 
 c Allocate auxiliary variables
 
@@ -475,9 +159,9 @@ c Nullify pointers
 
       end subroutine initializeAuxVar
 
-c setupVariableInitializationSequence
+c setupVarInitSeq
 c #####################################################################
-      subroutine setupVariableInitializationSequence(patch_var,it)
+      subroutine setupVarInitSeq(patch_var,it)
 c ---------------------------------------------------------------------
 c     Sets up application BC for SAMRAI
 c ---------------------------------------------------------------------
@@ -507,13 +191,13 @@ c Set BC schedule (see imposeBC_mod.F)
 
 c End program
 
-      end subroutine setupVariableInitializationSequence
+      end subroutine setupVarInitSeq
 
 #else
 
-c imposeBoundaryConditions
+c applyBC
 c####################################################################
-      subroutine imposeBoundaryConditions (varray,iigx,iigy,iigz,obc)
+      subroutine applyBC(varray,iigx,iigy,iigz,obc)
 c--------------------------------------------------------------------
 c     Sets adequate boundary conditions on array structure varray.
 c--------------------------------------------------------------------
@@ -613,7 +297,7 @@ c Impose BCs
 
 c End program
 
-      end subroutine imposeBoundaryConditions
+      end subroutine applyBC
 #endif
 
 c applyDepVarBC
@@ -817,13 +501,13 @@ c       Temperature BCs
 
       case(VECTOR)
 
-        if (lag_pinch_bc) then
-          rho => u_n%array_var(IRHO)%array
-          tmp => u_n%array_var(ITMP)%array
-        else
+cc        if (lag_pinch_bc) then
+cc          rho => u_n%array_var(IRHO)%array
+cc          tmp => u_n%array_var(ITMP)%array
+cc        else
           rho => varray%array_var(IRHO)%array
           tmp => varray%array_var(ITMP)%array
-        endif
+cc        endif
 
         allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
 
@@ -849,13 +533,13 @@ c       Allocate auxiliary variables in local domain
           bcnd = vaux%vec_list(IJCNV)%bconds
           
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-            if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
-     .                       ,first_order=.true.)
-            else
+cc            if (lag_pinch_bc) then
+cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+cc     .                       ,first_order=.true.)
+cc            else
               call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                       ,first_order=.true.)
-            endif
+cc            endif
           else
             v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
      .                            +jcnv_0(nnx+1,:,:,:))
@@ -913,9 +597,9 @@ c       Current BC
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
      .              ,iorder=1)
 
-        case(IJCNV_N)
-
-          if (save_tn .and. ion_hall) jcnv_n = jcnv
+cc        case(IJCNV_N)
+cc
+cc          if (save_tn .and. ion_hall) jcnv_n = jcnv
 
         case(IVCOV)
 
@@ -942,11 +626,11 @@ c         BC setup
 
           if (pinch_flow) then
 
-            if (lag_pinch_bc) then
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-            else
+cc            if (lag_pinch_bc) then
+cc              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
+cc            else
               call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
-            endif
+cc            endif
 
           else
             v0(:,:,:,1) = u_0%array_var(IVX)%array
@@ -1030,13 +714,13 @@ c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
-            if (lag_pinch_bc) then
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
-     .                       ,first_order=.true.)
-            else
+cc            if (lag_pinch_bc) then
+cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
+cc     .                       ,first_order=.true.)
+cc            else
               call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                       ,first_order=.true.)
-            endif
+cc            endif
 
           else
             v0 = vaux%vec_list(IJCNV_0)%vec         !To fix current at boundary
@@ -1049,11 +733,11 @@ c       Fill ghost nodes
 cc#endif
         case(IBCOV)
 
-        case(IBCNV_N)
+cc        case(IBCNV_N)
+cc
+cc          if (save_tn) bcnv_n = bcnv !Save previous time step
 
-          if (save_tn) bcnv_n = bcnv !Save previous time step
-
-        case(IVECNV_0)
+cc        case(IVECNV_0)
 
         case(IVECOV_N)
 
@@ -1073,14 +757,14 @@ c       Fake electron velocity BC: ve=v-di*j*/rho with j*=-dt*curl(curl(E_fake))
      .              ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
 
           !Comment out for old TM Hall performance results
-cc          vefcnv = vefcnv + jcnv_0
-          vefcnv = vefcnv + jcnv_n
+          vefcnv = vefcnv + jcnv_0
+cc          vefcnv = vefcnv + jcnv_n
 
           vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
           vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
           vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
 
-        case(IVSCNV)
+cc        case(IVSCNV)
 
         case(IDIVPI)
 
@@ -1195,10 +879,6 @@ c Select variable
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
 
-        zeros  = 0d0
-        vzeros = 0d0
-        ones   = 1d0
-
         select case(abs(bc_inf(1)))
         case(IETA,INU)
 
@@ -1237,13 +917,13 @@ c       Find hyperresistivity (electron viscosity)
 
       case(VECTOR)
 
-        if (lag_pinch_bc) then
-          rho => u_n%array_var(IRHO)%array
-          tmp => u_n%array_var(ITMP)%array
-        else
+cc        if (lag_pinch_bc) then
+cc          rho => u_n%array_var(IRHO)%array
+cc          tmp => u_n%array_var(ITMP)%array
+cc        else
           rho => varray%array_var(IRHO)%array
           tmp => varray%array_var(ITMP)%array
-        endif
+cc        endif
 
 c       Allocate auxiliary variables in local domain
 
@@ -1258,9 +938,9 @@ c       Allocate auxiliary variables in local domain
 
           jcnv=curl(iigx,bcov)
 
-        case(IJCNV_N)
-
-          if (save_tn) jcnv_n = jcnv !Save previous time step
+cc        case(IJCNV_N)
+cc
+cc          if (save_tn) jcnv_n = jcnv !Save previous time step
 
 #if defined(vec_pot)
         case(IACOV_0)
@@ -1403,9 +1083,9 @@ c       Magnetic field BC (with fixed current at boundary)
           bcnv(:,:,:,3) = varray%array_var(IBZ)%array
 
 #endif
-        case(IBCNV_N)
-
-          if (save_tn) bcnv_n = bcnv !Save previous time step
+cc        case(IBCNV_N)
+cc
+cc          if (save_tn) bcnv_n = bcnv !Save previous time step
 
         case(IBCOV)
 
@@ -1423,13 +1103,13 @@ c       Magnetic field BC (with fixed current at boundary)
             vecov = vcov
           endif
 
-        case(IVECNV_0)
-
-c       Equilibrium electron velocity
-
-          vecnv_0(:,:,:,1) = vcnv_0(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho_0
-          vecnv_0(:,:,:,2) = vcnv_0(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho_0
-          vecnv_0(:,:,:,3) = vcnv_0(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho_0
+cc        case(IVECNV_0)
+cc
+ccc       Equilibrium electron velocity
+cc
+cc          vecnv_0(:,:,:,1) = vcnv_0(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho_0
+cc          vecnv_0(:,:,:,2) = vcnv_0(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho_0
+cc          vecnv_0(:,:,:,3) = vcnv_0(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho_0
 
         case(IVECNV)
 
@@ -1509,17 +1189,17 @@ cc            enddo
 cc          enddo
 c old TM Hall performance results
 
-        case(IVSCNV)
-
-c       Temperature transport velocity, v_star = v - di*j/rho/a_p
-
-          if (slava) then
-            vscnv = vcnv !Also to recover old TM Hall performance results
-          else
-            vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
-            vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
-            vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
-          endif
+cc        case(IVSCNV)
+cc
+ccc       Temperature transport velocity, v_star = v - di*j/rho/a_p
+cc
+cc          if (slava) then
+cc            vscnv = vcnv !Also to recover old TM Hall performance results
+cc          else
+cc            vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
+cc            vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
+cc            vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
+cc          endif
 
         case(IDIVPI)
 
