@@ -174,11 +174,11 @@ c Calculate CFL
             ca2 = bnorm/rho(i,j,k)
 
             !Maximum kk
-            idx  = pi/dx(ig)
+            idx  = pi/grid_params%dx(ig)
             if (nx == 1) idx = 0d0
-            idy  = pi/dy(jg)
+            idy  = pi/grid_params%dy(jg)
             if (ny == 1) idy = 0d0
-            idz  = pi/dz(kg)
+            idz  = pi/grid_params%dz(kg)
             if (nz == 1) idz = 0d0
 
             k2 = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
