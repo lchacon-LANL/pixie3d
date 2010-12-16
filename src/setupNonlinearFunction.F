@@ -35,12 +35,8 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,nx,ny,nz
-
-      integer    :: dim,loc,ibc,ieq,bctype,bcnd(6,3)
-
-      real(8)    :: dh,vmax,cnv(3),cov(3),minrho,mintmp,lrmin,ltmin
-     .             ,x1,y1,z1,bnorm
+      integer :: nx,ny,nz
+      real(8) :: minrho,mintmp,lrmin,ltmin
 
 c Interfaces
 
@@ -86,8 +82,12 @@ cc      save_Bn = (save_tn .and. lag_pinch_bc)  !Initialize Bn when processing s
 
       call applyBC(varray,igx,igy,igz)
 #else
-      call allocAuxVariables(gv%aux)
+      call allocAuxVariables(gv%aux)  !Set pointers
 #endif
+
+c Fill LOCAL auxiliary variables
+
+      call fillLocalAuxVars(igx,igy,igz,varray,gv%aux)
 
 c Safeguards
 
@@ -125,55 +125,6 @@ c Safeguards
      .             'Warning: negative temperatures are occurring')
       endif
 
-c Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
-
-      if (chi_par /= chi .or. bootstrap) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                      ,ig,jg,kg,x1,y1,z1)
-
-              bnorm = vectorNorm(i,j,k,igx,igy,igz
-     .                     ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
-     .                     ,.false.)
-
-              bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
-            enddo
-          enddo
-        enddo
-      endif
-
-c Other auxiliary variables
-
-      !Momentum
-      pcnv(:,:,:,1) = px
-      pcnv(:,:,:,2) = py
-      pcnv(:,:,:,3) = pz
-
-      !Temperature transport velocity, v_star = v - di*j/rho/a_p
-      if (slava) then
-        vscnv = vcnv            !Also to recover old TM Hall performance results
-      else
-        vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
-        vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
-        vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
-      endif
-
-      !Psi
-      psi = 0d0
-
-cc      !Previous time step B
-cc      if (save_tn) bcnv_n = bcnv !Save previous time step
-cc
-cc      !Previous time step J
-cc      if (save_tn .and. ion_hall) jcnv_n = jcnv
-cc
-cc      !Equilibrium electron velocity
-cc      vecnv_0(:,:,:,1) = vcnv_0(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho_0
-cc      vecnv_0(:,:,:,2) = vcnv_0(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho_0
-cc      vecnv_0(:,:,:,3) = vcnv_0(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho_0
-
 c End program
 
       end subroutine setupNonlinearFunction
@@ -189,13 +140,9 @@ c------------------------------------------------------------------
 
       implicit none
 
-c Call variables
-
-c Local variables
-
 c Begin program
 
-cc      call deallocAuxVariables(gv%aux)
+      call deallocLocalAuxVars
 
 c End program
 
