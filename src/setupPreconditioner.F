@@ -26,18 +26,9 @@ c Call variables
 
 c Local variables
 
-      integer :: igx,igy,igz,igrid,ii,jj,isig,nx,ny,nz,ieq
+      integer :: igx,igy,igz
 
-c Diag
-
-      integer :: nxx,nyy,nzz,nt,icomp,neq
-      real(8),allocatable,dimension(:,:) :: v_mat
-
-c Externals
-
-      external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
-     .          ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
-     .          ,v_mtvc_hyp
+      type(var_array),pointer :: varray => null()
 
 c Interfaces
 
@@ -60,13 +51,9 @@ c Begin program
       igy = 1
       igz = 1
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
-
       nwt_iter = nwt_it
 
-c Setup PC
+c Setup PC parameters
 
       call PC_setup
 
@@ -76,28 +63,14 @@ c Unpack vector x
 
 #if !defined(samrai)
       call applyBC(varray,igx,igy,igz)
-#endif
-
-c Extract arrays and BC's
-
-      rho => varray%array_var(IRHO)%array
-      px  => varray%array_var(IVX )%array
-      py  => varray%array_var(IVY )%array
-      pz  => varray%array_var(IVZ )%array
-#if !defined(vec_pot)
-      bx  => varray%array_var(IBX )%array
-      by  => varray%array_var(IBY )%array
-      bz  => varray%array_var(IBZ )%array
 #else
-      ax  => varray%array_var(IAX )%array
-      ay  => varray%array_var(IAY )%array
-      az  => varray%array_var(IAZ )%array
+      write (*,*) 'SAMRAI version of PC not ready'
+      stop
 #endif
-      tmp => varray%array_var(ITMP)%array
 
 c Find coefficients for linearized systems
 
-      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz)
+      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz,varray)
 
 c Setup PC BCs
 
@@ -110,6 +83,128 @@ c Find required diagonals in all grids
 c Initialize PC Jacobi it. counter
 
       pc_iter = 0
+
+c Deallocate memory
+
+      call deallocateDerivedType(varray)
+
+c End program
+
+      contains
+
+c     setup_PC_BC
+c     ##############################################################
+      subroutine setup_PC_BC
+
+c     --------------------------------------------------------------
+c     Setup preconditioner BCs
+c     --------------------------------------------------------------
+
+        integer :: ieq
+
+c     Set boundary conditions
+
+        do ieq=1,neqd
+          bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
+        enddo
+
+c     Set BCs for auxiliary variables
+
+#if defined(vec_pot)
+        bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
+#endif
+
+        bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
+
+c     Set parallel BCs
+
+        call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
+
+      end subroutine setup_PC_BC
+
+c     form_diagonals
+c     ##############################################################
+      subroutine form_diagonals
+
+c     --------------------------------------------------------------
+c     Form require diagonals for smoothing in MG
+c     --------------------------------------------------------------
+
+c     Diag
+
+        integer :: nxx,nyy,nzz,nt,icomp,neq,igrid,ii,jj,isig,ieq
+        real(8),allocatable,dimension(:,:) :: v_mat
+
+c     Externals
+
+        external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
+     .            ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
+     .            ,v_mtvc_hyp
+
+c     Begin program
+
+c     Density
+
+        call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
+     .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)
+
+c     Temperature
+
+        call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
+     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
+
+        if (sm_type /= 'gm') then
+
+c       Magnetic field
+
+#if !defined(vec_pot)
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
+     .                       ,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
+     .                       ,b_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+#else
+          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
+     .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+#endif
+
+c        Velocity
+
+          if (pc_v_solve) then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+
+          if (pc_type == 's1' .or. pc_type == 's2') then
+            if (di == 0d0 .or. (.not.pc_ion_hall)) then
+              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
+     .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+            else
+              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+cc              if (fake_ve) then
+cc                bcs_hyp(:,4:6) = bcs(:,IVX:IVZ)
+cc              else
+                bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+cc              endif
+              call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
+     .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+            endif
+          elseif (pc_type == 's3') then
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
+     .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+        endif
 
 c diag ***** DIAGONAL WRITE UP
 cc      isig = 1
@@ -201,109 +296,6 @@ cc      stop
 cc      endif
 c diag *****
 
-c End program
-
-      contains
-
-c     setup_PC_BC
-c     ##############################################################
-      subroutine setup_PC_BC
-
-c     --------------------------------------------------------------
-c     Setup preconditioner BCs
-c     --------------------------------------------------------------
-
-c     Set boundary conditions
-
-        do ieq=1,neqd
-          bcs(:,ieq) = varray%array_var(ieq)%bconds(:)
-        enddo
-
-c     Set BCs for auxiliary variables
-
-#if defined(vec_pot)
-        bcs(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
-#endif
-
-        bcs(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
-
-c     Set parallel BCs
-
-        call setASM_PC_BC(igx,igy,igz,bcs,pc_asm)
-
-      end subroutine setup_PC_BC
-
-c     form_diagonals
-c     ##############################################################
-      subroutine form_diagonals
-
-c     --------------------------------------------------------------
-c     Form require diagonals for smoothing in MG
-c     --------------------------------------------------------------
-
-c     Density
-
-        call find_mf_diag(1,1,ntotdp,rho_mtvc,1,bcs(:,IRHO)
-     .                   ,rho_diag,sm_ncolors,vol_wgt,mg_glrkin)
-
-c     Temperature
-
-        call find_mf_diag(1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
-     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
-
-        if (sm_type /= 'gm') then
-
-c       Magnetic field
-
-#if !defined(vec_pot)
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
-            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(6,1,6*ntotdp,b_mtvc_hyp,1,bcs_hyp
-     .                       ,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(3,1,3*ntotdp,b_mtvc,1,bcs(:,IBX:IBZ)
-     .                       ,b_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-#else
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
-            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
-     .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-#endif
-
-c        Velocity
-
-          if (pc_v_solve) then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc2,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-
-          if (pc_type == 's1' .or. pc_type == 's2') then
-            if (di == 0d0 .or. (.not.pc_ion_hall)) then
-              call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
-     .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-            else
-              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
-cc              if (fake_ve) then
-cc                bcs_hyp(:,4:6) = bcs(:,IVX:IVZ)
-cc              else
-                bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-cc              endif
-              call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
-     .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-            endif
-          elseif (pc_type == 's3') then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
-     .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-        endif
-
       end subroutine form_diagonals
 
       end subroutine setupPC
@@ -313,13 +305,5 @@ c###################################################################
       subroutine killPC
 
       use precond_variables
-
-c     Deallocate variables
-
-cc#if defined(samrai)
-cc      call deallocAuxVariables
-cc#endif
-
-cc      call deallocateDerivedType(varray)
 
       end subroutine killPC
