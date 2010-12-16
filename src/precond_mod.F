@@ -57,17 +57,9 @@ c ######################################################################
 
         integer, allocatable, dimension(:,:)    :: bcs,bcs_hyp
 
-        type(var_array),pointer :: varray => null()
-
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0
-
-#if !defined(vec_pot)
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
-#else
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-#endif
 
       contains
 
@@ -189,8 +181,6 @@ c     Begin program
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
-
-        call deallocateDerivedType(varray)
 
 c     End program
 
@@ -487,7 +477,7 @@ c     End program
 
 c     findPCcoeffs
 c     ###################################################################
-      subroutine findPCcoeffs(igx,igy,igz)
+      subroutine findPCcoeffs(igx,igy,igz,varray)
 
 c     -------------------------------------------------------------------
 c     Finds coefficients for linearized systems in preconditioner
@@ -500,6 +490,7 @@ c     -------------------------------------------------------------------
 c     Call variables
 
         integer :: igx,igy,igz
+        type(var_array),pointer :: varray
 
 c     Local variables
 
@@ -514,6 +505,12 @@ c     Local variables
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
+
+#if !defined(vec_pot)
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+#else
+        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
+#endif
 
 c     Debug
 
@@ -531,6 +528,27 @@ c     Begin program
         order = bc_order
 
 cc        call setASMflag(.false.)
+
+c     Extract arrays
+
+        rho => varray%array_var(IRHO)%array
+        px  => varray%array_var(IVX )%array
+        py  => varray%array_var(IVY )%array
+        pz  => varray%array_var(IVZ )%array
+#if !defined(vec_pot)
+        bx  => varray%array_var(IBX )%array
+        by  => varray%array_var(IBY )%array
+        bz  => varray%array_var(IBZ )%array
+#else
+        ax  => varray%array_var(IAX )%array
+        ay  => varray%array_var(IAY )%array
+        az  => varray%array_var(IAZ )%array
+#endif
+        tmp => varray%array_var(ITMP)%array
+
+c     Fill LOCAL auxiliary variables
+
+        call fillLocalAuxVars(igx,igy,igz,varray,gv%aux)
 
 c     Setup BCs
 
@@ -786,9 +804,9 @@ c     Find other auxiliary quantities and store them in all grids
 
                 call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-                dxx = dxh(ig)
-                dyy = dyh(jg)
-                dzz = dzh(kg)
+                dxx = grid_params%dxh(ig)
+                dyy = grid_params%dyh(jg)
+                dzz = grid_params%dzh(kg)
 
                 !Grad(p)
                 cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
@@ -919,6 +937,10 @@ cc
 cc      call PetscEnd(mpierr)
 cc      stop
 c diag ****
+
+c     Deallocate LOCAL auxiliary variables
+
+        call deallocLocalAuxVars
 
 c     End program
 
@@ -1905,6 +1927,7 @@ c     Find dB
 c     Find dj* from dB*
 
       dj_cnv = curl(igrid,db_cov)
+      dj_cov = XformVector(igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
