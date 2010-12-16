@@ -177,14 +177,18 @@ c Calculate matrix-vector product
             kp = k+1
             km = k-1
       
-            y(ijk) = 1d0/ljac(i,j,k)/dxh(ig)
+            y(ijk) = 1d0/ljac(i,j,k)/grid_params%dxh(ig)
      .                *( 0.5*(ljac(ip,j,k)+ljac(i,j,k))
-     .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))/dx(ig)
+     .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))
+     .                      /grid_params%dx(ig)
      .                  +0.5*(ljac(im,j,k)+ljac(i,j,k))
-     .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))/dx(ig-1))
-     .              +1d0/ljac(i,j,k)**2/dyh(jg)
-     .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))/dy(jg)
-     .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))/dy(jg-1) )
+     .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))
+     .                      /grid_params%dx(ig-1))
+     .              +1d0/ljac(i,j,k)**2/grid_params%dyh(jg)
+     .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))
+     .                   /grid_params%dy(jg)
+     .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))
+     .                   /grid_params%dy(jg-1) )
 
             if (volf) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
           enddo
@@ -563,17 +567,23 @@ c Calculate matrix-vector product
             ijkg   = ijk + isig - 1
 
             upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
-     .                 *( dtmp(i  ,j,k,1) - dtmp(i-1,j,k,1) )/dx(ig-1)
+     .                 *( dtmp(i  ,j,k,1) - dtmp(i-1,j,k,1) )
+     .                 /grid_params%dx(ig-1)
      .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
-     .                 *( dtmp(i+1,j,k,1) - dtmp(i  ,j,k,1) )/dx(ig)
+     .                 *( dtmp(i+1,j,k,1) - dtmp(i  ,j,k,1) )
+     .                 /grid_params%dx(ig)
      .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
-     .                 *( dtmp(i,j  ,k,1) - dtmp(i,j-1,k,1) )/dy(jg-1)
+     .                 *( dtmp(i,j  ,k,1) - dtmp(i,j-1,k,1) )
+     .                 /grid_params%dy(jg-1)
      .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
-     .                 *( dtmp(i,j+1,k,1) - dtmp(i,j  ,k,1) )/dy(jg)
+     .                 *( dtmp(i,j+1,k,1) - dtmp(i,j  ,k,1) )
+     .                 /grid_params%dy(jg)
      .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
-     .                 *( dtmp(i,j,k  ,1) - dtmp(i,j,k-1,1) )/dz(kg-1)
+     .                 *( dtmp(i,j,k  ,1) - dtmp(i,j,k-1,1) )
+     .                 /grid_params%dz(kg-1)
      .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
-     .                 *( dtmp(i,j,k+1,1) - dtmp(i,j,k  ,1) )/dz(kg)
+     .                 *( dtmp(i,j,k+1,1) - dtmp(i,j,k  ,1) )
+     .                 /grid_params%dz(kg)
 
             upwind = upwind/jac
 
@@ -1402,8 +1412,8 @@ cc     .                           ,vol=.false.)
      .               -0.5*(v0_cnv(i,j,k ,1)*db(i,j,k ,3)/jac
      .                    +v0_cnv(i,j,km,1)*db(i,j,km,3)/jackm)
 
-              cnv(1) =  (flxjp-flxjm)/dyh(jg)
-     .                 +(flxkp-flxkm)/dzh(kg)
+              cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
+     .                 +(flxkp-flxkm)/grid_params%dzh(kg)
 
               !Second component
               flxip = 0.5/(jac+jacip)*(
@@ -1441,8 +1451,8 @@ cc     .                           ,vol=.false.)
      .               -0.5*(v0_cnv(i,j,k ,2)*db(i,j,k ,3)/jac
      .                    +v0_cnv(i,j,km,2)*db(i,j,km,3)/jackm)
 
-              cnv(2) =  (flxip-flxim)/dxh(ig)
-     .                 +(flxkp-flxkm)/dzh(kg)
+              cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                 +(flxkp-flxkm)/grid_params%dzh(kg)
 
               !Third component
               flxip = 0.5/(jac+jacip)*(
@@ -1480,8 +1490,8 @@ cc     .                           ,vol=.false.)
      .               -0.5*(v0_cnv(i,j ,k,3)*db(i,j ,k,2)/jac
      .                    +v0_cnv(i,jm,k,3)*db(i,jm,k,2)/jacjm)
 
-              cnv(3) =  (flxip-flxim)/dxh(ig)
-     .                 +(flxjp-flxjm)/dyh(jg)
+              cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                 +(flxjp-flxjm)/grid_params%dyh(jg)
 
             endif
 
@@ -1679,8 +1689,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
      .               -0.5*(v0_cnv(i,j,k ,1)*db(i,j,k ,3)/jac
      .                    +v0_cnv(i,j,km,1)*db(i,j,km,3)/jackm)
 
-              cnv(1) =  (flxjp-flxjm)/dyh(jg)
-     .                 +(flxkp-flxkm)/dzh(kg)
+              cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
+     .                 +(flxkp-flxkm)/grid_params%dzh(kg)
 
               !Second component
               flxip = 0.5/(jac+jacip)*(
@@ -1718,8 +1728,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
      .               -0.5*(v0_cnv(i,j,k ,2)*db(i,j,k ,3)/jac
      .                    +v0_cnv(i,j,km,2)*db(i,j,km,3)/jackm)
 
-              cnv(2) =  (flxip-flxim)/dxh(ig)
-     .                 +(flxkp-flxkm)/dzh(kg)
+              cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                 +(flxkp-flxkm)/grid_params%dzh(kg)
 
               !Third component
               flxip = 0.5/(jac+jacip)*(
@@ -1757,8 +1767,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
      .               -0.5*(v0_cnv(i,j ,k,3)*db(i,j ,k,2)/jac
      .                    +v0_cnv(i,jm,k,3)*db(i,jm,k,2)/jacjm)
 
-              cnv(3) =  (flxip-flxim)/dxh(ig)
-     .                 +(flxjp-flxjm)/dyh(jg)
+              cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                 +(flxjp-flxjm)/grid_params%dyh(jg)
 
             endif
 
@@ -1995,9 +2005,9 @@ cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
      .             +0.5*(    v0_cnv(i,j,k,3)            
      .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
 
-            cov(1) =  (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg)
+            cov(1) =  (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
 
             flxip = 0.5*(    v0_cnv(i,j,k,1)
@@ -2024,9 +2034,9 @@ cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
      .             +0.5*(    v0_cnv(i,j,k,3)            
      .                  -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
 
-            cov(2) =  (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg)
+            cov(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
 
             flxip = 0.5*(    v0_cnv(i,j,k,1)
@@ -2053,9 +2063,9 @@ cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
             flxkm = -v0_cnv(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
      .              -v0_cnv(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
 
-            cov(3) =  (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg)
+            cov(3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
             cov=(cnp*da(i,j,k,:)/dt + alpha*(cov/jac - etal*veclap))*vol
 
@@ -2313,9 +2323,9 @@ cc     .                  ,vol=.false.)
      .             +0.5*(    ve0_cnv(i,j,k,3)            
      .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,1)
 
-            cov(1) =  (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg)
+            cov(1) =  (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
             !Convective part (-ve x curl(da_star)): component 2
             flxip = 0.5*(    ve0_cnv(i,j,k,1)
@@ -2342,9 +2352,9 @@ cc     .                  ,vol=.false.)
      .             +0.5*(    ve0_cnv(i,j,k,3)            
      .                  -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,2)
 
-            cov(2) =  (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg)
+            cov(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
             !Convective part (-ve x curl(da_star)): component 3
             flxip = 0.5*(    ve0_cnv(i,j,k,1)
@@ -2371,9 +2381,9 @@ cc     .                  ,vol=.false.)
             flxkm = -ve0_cnv(i,j,k,1)*0.5*(das(i,j,km,1)+das(i,j,k,1))
      .              -ve0_cnv(i,j,k,2)*0.5*(das(i,j,km,2)+das(i,j,k,2))
 
-            cov(3) =( (flxip-flxim)/dxh(ig)
-     .               +(flxjp-flxjm)/dyh(jg)
-     .               +(flxkp-flxkm)/dzh(kg))/jac
+            cov(3) =( (flxip-flxim)/grid_params%dxh(ig)
+     .               +(flxjp-flxjm)/grid_params%dyh(jg)
+     .               +(flxkp-flxkm)/grid_params%dzh(kg))/jac
 
             a_res = a_res + alpha*cov
 
@@ -2519,21 +2529,21 @@ c     Begin program
         kp = k+1
         km = k-1
         
-        dxx = 2*dxh(ig)
-        dyy = 2*dyh(jg)
-        dzz = 2*dzh(kg)
+        dxx = 2*grid_params%dxh(ig)
+        dyy = 2*grid_params%dyh(jg)
+        dzz = 2*grid_params%dzh(kg)
 
         if (half_elem > 0) then
-          dxx = dx(ig-1)
-          dyy = dy(jg-1)
-          dzz = dz(kg-1)
+          dxx = grid_params%dx(ig-1)
+          dyy = grid_params%dy(jg-1)
+          dzz = grid_params%dz(kg-1)
           ip = i
           jp = j
           kp = k
         elseif (half_elem < 0) then
-          dxx = dx(ig)
-          dyy = dy(jg)
-          dzz = dz(kg)
+          dxx = grid_params%dx(ig)
+          dyy = grid_params%dy(jg)
+          dzz = grid_params%dz(kg)
           im = i
           jm = j
           km = k
@@ -2568,98 +2578,98 @@ c     #####################################################################
 c     Fluxes at faces for calculation of grad(dv.grad(p0))
 
       flxip =( (dv(i,j,k,1)/jac+dv(ip,j,k,1)/jacip)
-     .           *(pp0(ip,j,k,1)-pp0(i,j,k,1))/dx(ig)
+     .          *(pp0(ip,j,k,1)-pp0(i,j,k,1))/grid_params%dx(ig)
      .        +(dv(i,j,k,2)/jac+dv(ip,j,k,2)/jacip)
-     .           *(pp0(ip,jp,k,1)-pp0(ip,jm,k,1)
-     .            +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/dyh(jg)/4.
+     .          *(pp0(ip,jp,k,1)-pp0(ip,jm,k,1)
+     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/grid_params%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(ip,j,k,3)/jacip)
-     .           *(pp0(ip,j,kp,1)-pp0(ip,j,km,1)
-     .            +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/dzh(kg)/4. )
+     .          *(pp0(ip,j,kp,1)-pp0(ip,j,km,1)
+     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/grid_params%dzh(kg)/4.)
      .        *0.5
 
       flxim =( (dv(i,j,k,1)/jac+dv(im,j,k,1)/jacim)
-     .            *(pp0(i ,j,k,1)-pp0(im,j,k,1))/dx(ig-1)
+     .          *(pp0(i ,j,k,1)-pp0(im,j,k,1))/grid_params%dx(ig-1)
      .        +(dv(i,j,k,2)/jac+dv(im,j,k,2)/jacim)
-     .            *(pp0(im,jp,k,1)-pp0(im,jm,k,1)
-     .             +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/dyh(jg)/4.
+     .          *(pp0(im,jp,k,1)-pp0(im,jm,k,1)
+     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/grid_params%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(im,j,k,3)/jacim)
-     .            *(pp0(im,j,kp,1)-pp0(im,j,km,1)
-     .             +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/dzh(kg)/4.)
+     .          *(pp0(im,j,kp,1)-pp0(im,j,km,1)
+     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/grid_params%dzh(kg)/4.)
      .        *0.5
 
       flxjp =( (dv(i,j,k,1)/jac+dv(i,jp,k,1)/jacjp)
-     .            *(pp0(ip,jp,k,1)-pp0(im,jp,k,1)
-     .             +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/dxh(ig)/4.
+     .          *(pp0(ip,jp,k,1)-pp0(im,jp,k,1)
+     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/grid_params%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,jp,k,2)/jacjp)
-     .            *(pp0(i,jp,k,1)-pp0(i,j,k,1))/dy(jg)
+     .          *(pp0(i,jp,k,1)-pp0(i,j,k,1))/grid_params%dy(jg)
      .        +(dv(i,j,k,3)/jac+dv(i,jp,k,3)/jacjp)
-     .            *(pp0(i,jp,kp,1)-pp0(i,jp,km,1)
-     .             +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/dzh(kg)/4.)
+     .          *(pp0(i,jp,kp,1)-pp0(i,jp,km,1)
+     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/grid_params%dzh(kg)/4.)
      .        *0.5
       flxjm =( (dv(i,j,k,1)/jac+dv(i,jm,k,1)/jacjm)
-     .            *(pp0(ip,jm,k,1)-pp0(im,jm,k,1)
-     .             +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/dxh(ig)/4.
+     .          *(pp0(ip,jm,k,1)-pp0(im,jm,k,1)
+     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/grid_params%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,jm,k,2)/jacjm)
-     .            *(pp0(i,j ,k,1)-pp0(i,jm,k,1))/dy(jg-1)
+     .          *(pp0(i,j ,k,1)-pp0(i,jm,k,1))/grid_params%dy(jg-1)
      .        +(dv(i,j,k,3)/jac+dv(i,jm,k,3)/jacjm)
-     .            *(pp0(i,jm,kp,1)-pp0(i,jm,km,1)
-     .             +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/dzh(kg)/4.)
+     .          *(pp0(i,jm,kp,1)-pp0(i,jm,km,1)
+     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/grid_params%dzh(kg)/4.)
      .        *0.5
 
       flxkp =( (dv(i,j,k,1)/jac+dv(i,j,kp,1)/jackp)
-     .            *(pp0(ip,j,kp,1)-pp0(im,j,kp,1)
-     .             +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/dxh(ig)/4.
+     .          *(pp0(ip,j,kp,1)-pp0(im,j,kp,1)
+     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/grid_params%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,j,kp,2)/jackp)
-     .            *(pp0(i,jp,kp,1)-pp0(i,jm,kp,1)
-     .             +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/dyh(jg)/4.
+     .          *(pp0(i,jp,kp,1)-pp0(i,jm,kp,1)
+     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/grid_params%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(i,j,kp,3)/jackp)
-     .            *(pp0(i,j,kp,1)-pp0(i,j,k,1))/dz(kg) )
+     .          *(pp0(i,j,kp,1)-pp0(i,j,k,1))/grid_params%dz(kg) )
      .        *0.5
       flxkm =( (dv(i,j,k,1)/jac+dv(i,j,km,1)/jackm)
-     .            *(pp0(ip,j,km,1)-pp0(im,j,km,1)
-     .             +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/dxh(ig)/4.
+     .          *(pp0(ip,j,km,1)-pp0(im,j,km,1)
+     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/grid_params%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,j,km,2)/jackm)
-     .            *(pp0(i,jp,km,1)-pp0(i,jm,km,1)
-     .             +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/dyh(jg)/4.
+     .          *(pp0(i,jp,km,1)-pp0(i,jm,km,1)
+     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/grid_params%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(i,j,km,3)/jackm)
-     .            *(pp0(i,j,k ,1)-pp0(i,j,km,1))/dz(kg-1) )
+     .          *(pp0(i,j,k ,1)-pp0(i,j,km,1))/grid_params%dz(kg-1) )
      .        *0.5
 
 c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
       !!Divergence at faces i+-1/2, etc.
-      divip = (dv(ip,j ,k,1)-dv(i ,j ,k,1))/dx(ig)
+      divip = (dv(ip,j ,k,1)-dv(i ,j ,k,1))/grid_params%dx(ig)
      .       +(dv(i ,jp,k,2)-dv(i ,jm,k,2)
-     .        +dv(ip,jp,k,2)-dv(ip,jm,k,2))/dyh(jg)*0.25
+     .        +dv(ip,jp,k,2)-dv(ip,jm,k,2))/grid_params%dyh(jg)*0.25
      .       +(dv(i ,j,kp,3)-dv(i ,j,km,3)
-     .        +dv(ip,j,kp,3)-dv(ip,j,km,3))/dzh(kg)*0.25
-      divim = (dv(i ,j ,k,1)-dv(im,j ,k,1))/dx(ig-1)
+     .        +dv(ip,j,kp,3)-dv(ip,j,km,3))/grid_params%dzh(kg)*0.25
+      divim = (dv(i ,j ,k,1)-dv(im,j ,k,1))/grid_params%dx(ig-1)
      .       +(dv(i ,jp,k,2)-dv(i ,jm,k,2)
-     .        +dv(im,jp,k,2)-dv(im,jm,k,2))/dyh(jg)*0.25
+     .        +dv(im,jp,k,2)-dv(im,jm,k,2))/grid_params%dyh(jg)*0.25
      .       +(dv(i ,j,kp,3)-dv(i ,j,km,3)
-     .        +dv(im,j,kp,3)-dv(im,j,km,3))/dzh(kg)*0.25
+     .        +dv(im,j,kp,3)-dv(im,j,km,3))/grid_params%dzh(kg)*0.25
 
       divjp = (dv(ip,j ,k,1)-dv(im,j ,k,1)
-     .        +dv(ip,jp,k,1)-dv(im,jp,k,1))/dxh(ig)*0.25
-     .       +(dv(i ,jp,k,2)-dv(i ,j ,k,2))/dy(jg)
+     .        +dv(ip,jp,k,1)-dv(im,jp,k,1))/grid_params%dxh(ig)*0.25
+     .       +(dv(i ,jp,k,2)-dv(i ,j ,k,2))/grid_params%dy(jg)
      .       +(dv(i,j ,kp,3)-dv(i,j ,km,3)
-     .        +dv(i,jp,kp,3)-dv(i,jp,km,3))/dzh(kg)*0.25
+     .        +dv(i,jp,kp,3)-dv(i,jp,km,3))/grid_params%dzh(kg)*0.25
       divjm = (dv(ip,j ,k,1)-dv(im,j ,k,1)
-     .        +dv(ip,jm,k,1)-dv(im,jm,k,1))/dxh(ig)*0.25
-     .       +(dv(i ,j ,k,2)-dv(i ,jm,k,2))/dy(jg-1)
+     .        +dv(ip,jm,k,1)-dv(im,jm,k,1))/grid_params%dxh(ig)*0.25
+     .       +(dv(i ,j ,k,2)-dv(i ,jm,k,2))/grid_params%dy(jg-1)
      .       +(dv(i,j ,kp,3)-dv(i,j ,km,3)
-     .        +dv(i,jm,kp,3)-dv(i,jm,km,3))/dzh(kg)*0.25
+     .        +dv(i,jm,kp,3)-dv(i,jm,km,3))/grid_params%dzh(kg)*0.25
 
       divkp = (dv(ip,j,k ,1)-dv(im,j,k ,1)
-     .        +dv(ip,j,kp,1)-dv(im,j,kp,1))/dxh(ig)*0.25
+     .        +dv(ip,j,kp,1)-dv(im,j,kp,1))/grid_params%dxh(ig)*0.25
      .       +(dv(i,jp,k ,2)-dv(i,jm,k ,2)
-     .        +dv(i,jp,kp,2)-dv(i,jm,kp,2))/dyh(jg)*0.25
-     .       +(dv(i,j ,kp,3)-dv(i,j ,k ,3))/dz(kg)
+     .        +dv(i,jp,kp,2)-dv(i,jm,kp,2))/grid_params%dyh(jg)*0.25
+     .       +(dv(i,j ,kp,3)-dv(i,j ,k ,3))/grid_params%dz(kg)
       divkm = (dv(ip,j,k ,1)-dv(im,j,k ,1)
-     .        +dv(ip,j,km,1)-dv(im,j,km,1))/dxh(ig)*0.25
+     .        +dv(ip,j,km,1)-dv(im,j,km,1))/grid_params%dxh(ig)*0.25
      .       +(dv(i,jp,k ,2)-dv(i,jm,k ,2)
-     .        +dv(i,jp,km,2)-dv(i,jm,km,2))/dyh(jg)*0.25
-     .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/dz(kg-1)
+     .        +dv(i,jp,km,2)-dv(i,jm,km,2))/grid_params%dyh(jg)*0.25
+     .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/grid_params%dz(kg-1)
 
       if (solve_rho.or.adiabatic) then
         gamm = gamma
@@ -2686,9 +2696,9 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
 c     Transform to contravariant
 
-      cov(1) = (flxip - flxim)/dxh(ig)
-      cov(2) = (flxjp - flxjm)/dyh(jg)
-      cov(3) = (flxkp - flxkm)/dzh(kg)
+      cov(1) = (flxip - flxim)/grid_params%dxh(ig)
+      cov(2) = (flxjp - flxjm)/grid_params%dyh(jg)
+      cov(3) = (flxkp - flxkm)/grid_params%dzh(kg)
 
       call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                            ,cov(1),cov(2),cov(3)
@@ -2722,9 +2732,9 @@ cc      if (.true.) then
         jac = gmetric%grid(igr)%jac(i,j,k)
         ijac = 1d0/jac
 
-        dxx = dxh(ig)
-        dyy = dyh(jg)
-        dzz = dzh(kg)
+        dxx = grid_params%dxh(ig)
+        dyy = grid_params%dyh(jg)
+        dzz = grid_params%dzh(kg)
 
         j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr,b0_cov)
 
@@ -4569,16 +4579,20 @@ c Calculate matrix-vector product
             cnv(1) = dv(i,j,k,1)/dt
 cc     .          - di*b0_cnv(i,j,k,3)
      .          - di
-     .           *((dv(ip,j,k,2)-2*dv(i,j,k,2)+dv(im,j,k,2))/dxh(ig)**2
+     .           *((dv(ip,j,k,2)-2*dv(i,j,k,2)+dv(im,j,k,2))
+     .             /grid_params%dxh(ig)**2
      .            -(dv(ip,jp,k,1)-dv(ip,jm,k,1)
-     .             -dv(im,jp,k,1)+dv(im,jm,k,1))/4./dxh(ig)/dyh(jg))
+     .             -dv(im,jp,k,1)+dv(im,jm,k,1))
+     .             /4./grid_params%dxh(ig)/grid_params%dyh(jg))
 
             cnv(2) = dv(i,j,k,2)/dt
 cc     .          + di*b0_cnv(i,j,k,3)
      .          + di
-     .           *((dv(i,jp,k,1)-2*dv(i,j,k,1)+dv(i,jm,k,1))/dyh(jg)**2
+     .           *((dv(i,jp,k,1)-2*dv(i,j,k,1)+dv(i,jm,k,1))
+     .             /grid_params%dyh(jg)**2
      .            -(dv(ip,jp,k,2)-dv(ip,jm,k,2)
-     .             -dv(im,jp,k,2)+dv(im,jm,k,2))/4./dxh(ig)/dyh(jg))
+     .             -dv(im,jp,k,2)+dv(im,jm,k,2))
+     .             /4./grid_params%dxh(ig)/grid_params%dyh(jg))
 
             cnv(3) = dv(i,j,k,3)/dt
 
