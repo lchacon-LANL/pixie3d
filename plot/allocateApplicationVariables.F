@@ -52,9 +52,7 @@ c Local variables
 
 c Begin program
 
-#if !defined(samrai)
-      call deallocAuxVariables(gv%aux)
-#endif
+      call deallocLocalAuxVars
 
       call deallocAuxPlotVar
 
