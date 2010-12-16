@@ -595,84 +595,92 @@ c Maximum velocity diagnostics
 
 c Problem specific diagnostics  <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
+      select case(trim(equil))
+      case('ic-hk','ic','dtm','gem''sgem')
+
+c       Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
 
 #if defined(petsc)
-      lrflux = minval(Pflux(iplt,:,kplt))
-      call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+        lrflux = minval(Pflux(iplt,:,kplt))
+        call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
 
-      lrflux = maxval(Pflux(iplt,:,kplt))-rflux
-      call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                  ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+        lrflux = maxval(Pflux(iplt,:,kplt))-rflux
+        call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
 #else
-      rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
+        rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
 #endif
 
-      if (time == tn) then
-        Ez = 0d0
-      else
-        Ez = (rflux-rfluxn)/(time-tn)
-      endif
+        if (time == tn) then
+          Ez = 0d0
+        else
+          Ez = (rflux-rfluxn)/(time-tn)
+        endif
 
-      tn = time
-      rfluxn = rflux
+        tn = time
+        rfluxn = rflux
 
-c Current sheet thickness (assumes periodic direction in Y)
+c       Current sheet thickness (assumes periodic direction in Y)
 
-      i = iplt
-      k = kplt
+        i = iplt
+        k = kplt
 
-      !Find mesh point where lapjz changes sign
-      lapjzm = laplacian(i,2,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
-      do j = 2,ny
-        lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
+        !Find mesh point where lapjz changes sign
+        lapjzm = laplacian(i,2,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
+        do j = 2,ny
+          lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
 
-        !Check whether sign changes
-        if (lapjzp*lapjzm < 0d0) exit
-        lapjzm = lapjzp
-      enddo
+          !Check whether sign changes
+          if (lapjzp*lapjzm < 0d0) exit
+          lapjzm = lapjzp
+        enddo
 
-      !find y*
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-      ystar = yy(jg-1) - (yy(jg)-yy(jg-1))/(lapjzp-lapjzm)*lapjzm
-
-      !Compute delta/2 (half-width half-maximum)
-      dl = 1.1768*ystar
-
-c Upstream magnetic field (at delta/2)
-
-      do j = 1,ny
+        !find y*
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-        !Check whether sign of (y-dl) changes
-        if ((yy(jg-1)-dl)*(yy(jg)-dl) < 0d0) exit
-      enddo
 
-      Bup = bx(iplt,j-1,kplt)
-     .    +(bx(iplt,j  ,kplt)-bx(iplt,j-1,kplt))/(yy(jg)-yy(jg-1))
-     .     *(dl-yy(jg-1))
+        ystar = grid_params%yy(jg-1)
+     .       - (grid_params%yy(jg)-grid_params%yy(jg-1))
+     .         /(lapjzp-lapjzm)*lapjzm
 
-c Current sheet length  (assumes periodic direction in Y and X-point is at (0,0))
+        !Compute delta/2 (half-width half-maximum)
+        dl = 1.1768*ystar
 
-      j = 1
-      k = kplt
+c       Upstream magnetic field (at delta/2)
 
-      !Find mesh point where lapjz changes sign
-      i = 2
-      dvm = vex(i  ,j,k)-vex(i-1,j,k)
-      do i = 3,nx
-        dvp = vex(i+1,j,k)-vex(i  ,j,k)
+        do j = 1,ny
+          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          !Check whether sign of (y-dl) changes
+          if((grid_params%yy(jg-1)-dl)*(grid_params%yy(jg)-dl)<0d0) exit
+        enddo
 
-        !Check whether sign changes
-        if (dvp*dvm < 0d0) exit
-        dvm = dvp
-      enddo
+        Bup = bx(iplt,j-1,kplt)
+     .      +(bx(iplt,j  ,kplt)-bx(iplt,j-1,kplt))
+     .      /(grid_params%yy(jg)-grid_params%yy(jg-1))
+     .       *(dl-grid_params%yy(jg-1))
 
-      !find w (half length)
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+c       Current sheet length  (assumes periodic direction in Y and X-point is at (0,0))
 
-      ww = xx(ig)
+        j = 1
+        k = kplt
+
+        !Find mesh point where lapjz changes sign
+        i = 2
+        dvm = vex(i  ,j,k)-vex(i-1,j,k)
+        do i = 3,nx
+          dvp = vex(i+1,j,k)-vex(i  ,j,k)
+
+          !Check whether sign changes
+          if (dvp*dvm < 0d0) exit
+          dvm = dvp
+        enddo
+
+        !find w (half length)
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+        ww = grid_params%xx(ig)
+
+      end select
 
 c Diagnostic assignment
 
