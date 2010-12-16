@@ -962,21 +962,23 @@ c     Call variables
 
 c     Local variables
 
+        real(8),pointer,dimension(:,:,:,:) :: rho0,vcnv0
+
 c     Begin program
+
+        rho0  => grho0%grid(igrid)%array
+        vcnv0 => gv0  %grid(igrid)%array
 
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
              ii  = i + nx*(j-1) + nx*ny*(k-1)
-             xxx(ii,IVX)=rho(i,j,k)*xxx(ii,IVX)
-     .                  +xxx(ii,IRHO)*vcnv(i,j,k,1)
-cc     .                  +xxx(ii,IRHO)*xxx(ii,IVX)
-             xxx(ii,IVY)=rho(i,j,k)*xxx(ii,IVY)
-     .                  +xxx(ii,IRHO)*vcnv(i,j,k,2)
-cc     .                  +xxx(ii,IRHO)*xxx(ii,IVY)
-             xxx(ii,IVZ)=rho(i,j,k)*xxx(ii,IVZ)
-     .                  +xxx(ii,IRHO)*vcnv(i,j,k,3)
-cc     .                  +xxx(ii,IRHO)*xxx(ii,IVZ)
+             xxx(ii,IVX)=xxx(ii,IVX )*rho0 (i,j,k,1)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,1)
+             xxx(ii,IVY)=xxx(ii,IVY )*rho0 (i,j,k,1)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,2)
+             xxx(ii,IVZ)=xxx(ii,IVZ)* rho0 (i,j,k,1)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,3)
             enddo
           enddo
         enddo
@@ -1292,6 +1294,7 @@ c     Dump graphics
      .                ,bc_order,is_vec=.true.,is_cnv=.false.)
 
         db_cnv = curl(igrid,da_cov)
+        db_cov = XformVector(igrid,db_cnv,.false.)
 
         !Find covariant components of dj with BCs
         call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
@@ -1510,6 +1513,8 @@ c Allocate variables
 #endif
      .        )
 
+      vzeros = 0d0
+
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
@@ -1525,6 +1530,7 @@ c Find dA* (w/ BCs)
 c Find dB* from dA*
 
       db_cnv = curl(igrid,da_cov)
+      db_cov = XformVector(igrid,db_cnv,.false.)
 
       !Find covariant components of dj with BCs
       call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
@@ -1540,6 +1546,7 @@ c Find dj* from dB*
 
       !Find contravariant current (without BCs)
       dj_cnv = curl(igrid,db_cov)
+      dj_cov = XformVector(igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
@@ -1900,7 +1907,7 @@ cc     .                            ,rho0)
 
             rhs_a(ii,:) = yyy(ii,:) - alpha*dvol
      .                  *(-drho(i,j,k,1)/rho0(i,j,k,1)*Eh0(i,j,k,:)
-     .                    -di/rho(i,j,k)*cov)
+     .                    -di/rho0(i,j,k,1)*cov)
           enddo
         enddo
       enddo
@@ -2064,6 +2071,7 @@ c Find dB
 c Find dj* from dB*
 
       dj_cnv = curl(igrid,db_cov)
+      dj_cov = XformVector(igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
@@ -2184,11 +2192,15 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dgv_cnv,dgv_cov
 
+      real(8),pointer,dimension(:,:,:,:) :: rho0
+
 c Begin program
 
       nx = grid_params%nxv(igrid)
       ny = grid_params%nyv(igrid)
       nz = grid_params%nzv(igrid)
+
+      rho0 => grho0%grid(igrid)%array
 
       allocate(dgv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dgv_cov(0:nx+1,0:ny+1,0:nz+1,3))
@@ -2210,7 +2222,7 @@ c Divide by density and volume
 
       if (.not.nc_eom_v) then
         do ieq=1,3
-          dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)/rho
+          dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)/rho0(:,:,:,1)
         enddo
       endif
 
@@ -2253,16 +2265,19 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: igrid,ntotp,neq
+      integer :: igrid,ntotp,neq
 
-      real(8)    :: yyy(ntotp,neq)
+      real(8) :: yyy(ntotp,neq)
 
 c Local variables
 
-      integer    :: i,j,k,ii,nx,ny,nz
-      real(8)    :: cov(3),cnv(3)
+      integer :: i,j,k,ii,nx,ny,nz
+      real(8) :: cov(3),cnv(3)
+      real(8),pointer,dimension(:,:,:,:) :: rho0
 
 c Begin program
+
+      rho0 => grho0%grid(igrid)%array
 
       nx = grid_params%nxv(igrid)
       ny = grid_params%nyv(igrid)
@@ -2278,7 +2293,7 @@ c Begin program
      .           ,cov(1),cov(2),cov(3)
      .           ,cnv(1),cnv(2),cnv(3),.false.)
 
-            if (nc_eom_v) cov = cov/rho(i,j,k)
+            if (nc_eom_v) cov = cov/rho0(i,j,k,1)
 
             yyy(ii,IAX:IAZ) = yyy(ii,IAX:IAZ) + di*cov
           enddo
