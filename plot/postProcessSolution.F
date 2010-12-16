@@ -202,13 +202,13 @@ c Poloidal flux diagnostics
           else
             Pflux(i,j,k) = Pflux(i-1,j,k)
      .                   - 0.5*(bcnv(i-1,j,k,2)
-     .                         +bcnv(i  ,j,k,2))*dx(ig-1)
+     .                         +bcnv(i  ,j,k,2))*grid_params%dx(ig-1)
           endif
           do j = 1,ny+1
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
             Pflux(i,j,k) = Pflux(i,j-1,k)
      .                   + 0.5*(bcnv(i,j-1,k,1)
-     .                         +bcnv(i,j  ,k,1))*dy(jg-1)
+     .                         +bcnv(i,j  ,k,1))*grid_params%dy(jg-1)
           enddo
         enddo
       enddo
@@ -494,7 +494,7 @@ c     Begin program
            do j = jming,jmaxg-1 !Careful with the periodic limits
              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-             dv = dyh(jg)*dzh(kg)
+             dv = grid_params%dyh(jg)*grid_params%dzh(kg)
 
              b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dv
              b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dv
