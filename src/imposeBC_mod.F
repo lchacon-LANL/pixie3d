@@ -34,6 +34,10 @@ c       Hardwired BC configuration parameters
 cc        integer :: bc_order=2
 #endif
 
+        INTERFACE XferBCs
+          module procedure XferBCs_scl, XferBCs_vec
+        END INTERFACE 
+
       contains
 
 c     defineDepBCs
@@ -372,6 +376,128 @@ c     End subroutine
 
       end subroutine defineDepDom_Deps
 
+ccc     XferBCs
+ccc     ###################################################################
+cc      function XferBCs(arr1) result(arr2)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Routine to transfer ghost cell values form arr1 to arr2
+ccc     -------------------------------------------------------------------
+cc
+ccc     Input variables
+cc
+cc      real(8) :: arr1(0:,0:,0:)
+cc      real(8) :: arr2(0:size(arr1,1)-1
+cc     .               ,0:size(arr1,2)-1
+cc     .               ,0:size(arr1,3)-1)
+cc
+ccc     Local variables
+cc
+cc      integer :: nxp,nyp,nzp
+cc
+ccc     Begin program
+cc
+cc      nxp = size(arr1,1)-1
+cc      nyp = size(arr1,2)-1
+cc      nzp = size(arr1,3)-1
+cc
+cc      !X boundaries
+cc      arr2(0  ,:,:) = arr1(0  ,:,:)
+cc      arr2(nxp,:,:) = arr1(nxp,:,:)
+cc
+cc      !Y boundaries
+cc      arr2(:,0  ,:) = arr1(:,0  ,:)
+cc      arr2(:,nyp,:) = arr1(:,nyp,:)
+cc
+cc      !Z boundaries
+cc      arr2(:,:,0  ) = arr1(:,:,0  )
+cc      arr2(:,:,nzp) = arr1(:,:,nzp)
+cc
+ccc     End program
+cc
+cc      end function XferBCs
+
+c     XferBCs_scl
+c     ###################################################################
+      subroutine XferBCs_scl(arr1,arr2)
+
+      implicit none
+
+c     -------------------------------------------------------------------
+c     Routine to transfer ghost cell values form arr1 to arr2
+c     -------------------------------------------------------------------
+
+c     Input variables
+
+      real(8) :: arr1(0:,0:,0:)
+      real(8) :: arr2(0:,0:,0:)
+
+c     Local variables
+
+      integer :: nxp,nyp,nzp
+
+c     Begin program
+
+      nxp = size(arr1,1)-1
+      nyp = size(arr1,2)-1
+      nzp = size(arr1,3)-1
+
+      !X boundaries
+      arr2(0  ,:,:) = arr1(0  ,:,:)
+      arr2(nxp,:,:) = arr1(nxp,:,:)
+
+      !Y boundaries
+      arr2(:,0  ,:) = arr1(:,0  ,:)
+      arr2(:,nyp,:) = arr1(:,nyp,:)
+
+      !Z boundaries
+      arr2(:,:,0  ) = arr1(:,:,0  )
+      arr2(:,:,nzp) = arr1(:,:,nzp)
+
+c     End program
+
+      end subroutine XferBCs_scl
+
+c     XferBCs_vec
+c     ###################################################################
+      subroutine XferBCs_vec(vec1,vec2)
+
+      implicit none
+c     -------------------------------------------------------------------
+c     Routine to transfer ghost cell values form vec1 to vec2
+c     -------------------------------------------------------------------
+
+c     Input variables
+
+      real(8) :: vec1(0:,0:,0:,:)
+      real(8) :: vec2(0:,0:,0:,:)
+
+c     Local variables
+
+      integer :: nxp,nyp,nzp
+
+c     Begin program
+
+      nxp = size(vec1,1)-1
+      nyp = size(vec1,2)-1
+      nzp = size(vec1,3)-1
+
+      !X boundaries
+      vec2(0  ,:,:,:) = vec1(0  ,:,:,:)
+      vec2(nxp,:,:,:) = vec1(nxp,:,:,:)
+
+      !Y boundaries
+      vec2(:,0  ,:,:) = vec1(:,0  ,:,:)
+      vec2(:,nyp,:,:) = vec1(:,nyp,:,:)
+
+      !Z boundaries
+      vec2(:,:,0  ,:) = vec1(:,:,0  ,:)
+      vec2(:,:,nzp,:) = vec1(:,:,nzp,:)
+
+c     End program
+
+      end subroutine XferBCs_vec
+
 c     setBCsched
 c     ###################################################################
       subroutine setBCsched(itime)
@@ -469,27 +595,27 @@ c     Setup schedule
 #if defined(vec_pot)
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 1
-        gv%bc_grp(3+offset)%nbc_seq = 1
+        gv%bc_grp(3+offset)%nbc_seq = 2
         gv%bc_grp(4+offset)%nbc_seq = 3
         gv%bc_grp(5+offset)%nbc_seq = 2
         gv%bc_grp(6+offset)%nbc_seq = 2
         gv%bc_grp(7+offset)%nbc_seq = 5
         gv%bc_grp(8+offset)%nbc_seq = 4
-        gv%bc_grp(9+offset)%nbc_seq = 1
+        gv%bc_grp(9+offset)%nbc_seq = 2
 #else
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 1
-        gv%bc_grp(3+offset)%nbc_seq = 1
+        gv%bc_grp(3+offset)%nbc_seq = 2
         gv%bc_grp(4+offset)%nbc_seq = 3
         gv%bc_grp(5+offset)%nbc_seq = 2
         gv%bc_grp(6+offset)%nbc_seq = 5
         if (fake_ve) then
-          gv%bc_grp(7+offset)%nbc_seq = 2
+          gv%bc_grp(7+offset)%nbc_seq = 3
           gv%bc_grp(8+offset)%nbc_seq = 4
           gv%bc_grp(9+offset)%nbc_seq = 1
         else
           gv%bc_grp(7+offset)%nbc_seq = 3
-          gv%bc_grp(8+offset)%nbc_seq = 3
+          gv%bc_grp(8+offset)%nbc_seq = 4
         endif
 #endif
 
@@ -566,6 +692,9 @@ cc          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
         gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
+        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
+
         !Group 4
         gv%bc_grp(4+offset)%bc_seq(1,1) = IACOV*AUX   !Aux. variable
         gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
@@ -613,13 +742,13 @@ cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
         gv%bc_grp(7+offset)%bc_seq(5,2) = VECTOR      !Vector
 
         !Group 8
-        gv%bc_grp(8+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
         gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
         gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
         gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
 cc        gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
@@ -629,8 +758,11 @@ cc        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
         gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 9
-        gv%bc_grp(9+offset)%bc_seq(1,1) = IENI*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(1,1) = IEH*AUX    !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(2,1) = IENI*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
 #else
         !Group 1
         gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable
@@ -643,6 +775,9 @@ cc        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
         !Group 3
         gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
+
+        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
         !Group 4
 cc        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
@@ -688,17 +823,20 @@ cc        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
           gv%bc_grp(7+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_grp(7+offset)%bc_seq(2,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IEH*AUX    !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
 
+          gv%bc_grp(7+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
+
           !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-          gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-          gv%bc_grp(8+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
 
 cc          gv%bc_grp(8+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
@@ -712,13 +850,13 @@ cc          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
           gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
         else
           !Group 7
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
-                     
-          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV_N*AUX!Aux. variable
+
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
           gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
                      
-          gv%bc_grp(7+offset)%bc_seq(3,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
           gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
 
 cc          gv%bc_grp(7+offset)%bc_seq(4,1) = IVSCNV*AUX  !Aux. variable
@@ -727,12 +865,15 @@ cc          gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
           !Group 8
           gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
-                     
+
           gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
-                     
-          gv%bc_grp(8+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
+
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IEH*AUX    !Aux. variable
           gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
         endif
 #endif
 
@@ -1021,9 +1162,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hey = 0
                 if (j < 1   ) hey =  1
@@ -1055,9 +1196,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
 
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hey = 0
                 if (j < 1   ) hey =  1
@@ -1088,9 +1229,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1121,9 +1262,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1154,9 +1295,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1187,9 +1328,9 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = 2.*dxh(ig)
-                dh(2) = 2.*dyh(jg)
-                dh(3) = 2.*dzh(kg)
+                dh(1) = 2.*grid_params%dxh(ig)
+                dh(2) = 2.*grid_params%dyh(jg)
+                dh(3) = 2.*grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1244,9 +1385,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)  !<=== Different from above
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)  !<=== Different from above
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hey = 0
                 if (j < 1   ) hey =  1
@@ -1278,9 +1419,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
 
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hey = 0
                 if (j < 1   ) hey =  1
@@ -1311,9 +1452,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1344,9 +1485,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1377,9 +1518,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1410,9 +1551,9 @@ cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
                 call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
                 jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
-                dh(1) = dxh(ig)
-                dh(2) = dyh(jg)
-                dh(3) = dzh(kg)
+                dh(1) = grid_params%dxh(ig)
+                dh(2) = grid_params%dyh(jg)
+                dh(3) = grid_params%dzh(kg)
 
                 hex = 0
                 if (i < 1   ) hex =  1
@@ -1470,9 +1611,9 @@ cc
 cc                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 cc                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 cc
-cc                dh(1) = dxh(ig)  !<=== Different from above
-cc                dh(2) = dyh(jg)
-cc                dh(3) = dzh(kg)
+cc                dh(1) = grid_params%dxh(ig)  !<=== Different from above
+cc                dh(2) = grid_params%dyh(jg)
+cc                dh(3) = grid_params%dzh(kg)
 cc
 cc                select case (ibc)
 cc                case (1)
@@ -1621,37 +1762,37 @@ cc              gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 cc
 cc              ip = i+1
 cc              im = i-1
-cc              dh(1) = 2.*dxh(ig)
+cc              dh(1) = 2.*grid_params%dxh(ig)
 cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-cc                dh(1) = dx(ig)
+cc                dh(1) = grid_params%dx(ig)
 cc                im = i
 cc              endif
 cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-cc                dh(1) = dx(ig-1)
+cc                dh(1) = grid_params%dx(ig-1)
 cc                ip = i
 cc              endif
 cc
 cc              jp = j+1
 cc              jm = j-1
-cc              dh(2) = 2.*dyh(jg)
+cc              dh(2) = 2.*grid_params%dyh(jg)
 cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-cc                dh(2) = dy(jg)
+cc                dh(2) = grid_params%dy(jg)
 cc                jm = j
 cc              endif
 cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-cc                dh(2) = dy(jg-1)
+cc                dh(2) = grid_params%dy(jg-1)
 cc                jp = j
 cc              endif
 cc
 cc              kp = k+1
 cc              km = k-1
-cc              dh(3) = 2.*dzh(kg)
+cc              dh(3) = 2.*grid_params%dzh(kg)
 cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-cc                dh(3) = dz(kg)
+cc                dh(3) = grid_params%dz(kg)
 cc                km = k
 cc              endif
 cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-cc                dh(3) = dz(kg-1)
+cc                dh(3) = grid_params%dz(kg-1)
 cc                kp = k
 cc              endif
 cccc              ip = min(i+1,nxbc)
@@ -1661,17 +1802,17 @@ cccc              jm = max(j-1,1)
 cccc              kp = min(k+1,nzbc)
 cccc              km = max(k-1,1)
 cccc
-cccc              dh(1) = 2.*dxh(ig)
-cccc              if (i == nxbc) dh(1) = dx(ig-1)
-cccc              if (i == 1   ) dh(1) = dx(ig)
+cccc              dh(1) = 2.*grid_params%dxh(ig)
+cccc              if (i == nxbc) dh(1) = grid_params%dx(ig-1)
+cccc              if (i == 1   ) dh(1) = grid_params%dx(ig)
 cccc
-cccc              dh(2) = 2.*dyh(jg)
-cccc              if (j == nybc) dh(2) = dy(jg-1)
-cccc              if (j == 1   ) dh(2) = dy(jg)
+cccc              dh(2) = 2.*grid_params%dyh(jg)
+cccc              if (j == nybc) dh(2) = grid_params%dy(jg-1)
+cccc              if (j == 1   ) dh(2) = grid_params%dy(jg)
 cccc
-cccc              dh(3) = 2.*dzh(kg)
-cccc              if (k == nzbc) dh(3) = dz(kg-1)
-cccc              if (k == 1   ) dh(3) = dz(kg)
+cccc              dh(3) = 2.*grid_params%dzh(kg)
+cccc              if (k == nzbc) dh(3) = grid_params%dz(kg-1)
+cccc              if (k == 1   ) dh(3) = grid_params%dz(kg)
 cc
 cc              if (dim == 1) then
 cc                rhs(j,k) = -dh(dim)
@@ -1709,37 +1850,37 @@ cc              hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
 cc
 cc              ip = i+1
 cc              im = i-1
-cc              dh(1) = 2.*dxh(ig)
+cc              dh(1) = 2.*grid_params%dxh(ig)
 cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-cc                dh(1) = dx(ig)
+cc                dh(1) = grid_params%dx(ig)
 cc                im = i
 cc              endif
 cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-cc                dh(1) = dx(ig-1)
+cc                dh(1) = grid_params%dx(ig-1)
 cc                ip = i
 cc              endif
 cc
 cc              jp = j+1
 cc              jm = j-1
-cc              dh(2) = 2.*dyh(jg)
+cc              dh(2) = 2.*grid_params%dyh(jg)
 cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-cc                dh(2) = dy(jg)
+cc                dh(2) = grid_params%dy(jg)
 cc                jm = j
 cc              endif
 cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-cc                dh(2) = dy(jg-1)
+cc                dh(2) = grid_params%dy(jg-1)
 cc                jp = j
 cc              endif
 cc
 cc              kp = k+1
 cc              km = k-1
-cc              dh(3) = 2.*dzh(kg)
+cc              dh(3) = 2.*grid_params%dzh(kg)
 cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-cc                dh(3) = dz(kg)
+cc                dh(3) = grid_params%dz(kg)
 cc                km = k
 cc              endif
 cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-cc                dh(3) = dz(kg-1)
+cc                dh(3) = grid_params%dz(kg-1)
 cc                kp = k
 cc              endif
 cccc              ip = min(i+1,nxbc)
@@ -1749,17 +1890,17 @@ cccc              jm = max(j-1,1   )
 cccc              kp = min(k+1,nzbc)
 cccc              km = max(k-1,1   )
 cccc
-cccc              dh(1) = 2.*dxh(ig)
-cccc              if (i == nxbc) dh(1) = dx(ig-1)
-cccc              if (i == 1   ) dh(1) = dx(ig)
+cccc              dh(1) = 2.*grid_params%dxh(ig)
+cccc              if (i == nxbc) dh(1) = grid_params%dx(ig-1)
+cccc              if (i == 1   ) dh(1) = grid_params%dx(ig)
 cccc
-cccc              dh(2) = 2.*dyh(jg)
-cccc              if (j == nybc) dh(2) = dy(jg-1)
-cccc              if (j == 1   ) dh(2) = dy(jg)
+cccc              dh(2) = 2.*grid_params%dyh(jg)
+cccc              if (j == nybc) dh(2) = grid_params%dy(jg-1)
+cccc              if (j == 1   ) dh(2) = grid_params%dy(jg)
 cccc
-cccc              dh(3) = 2.*dzh(kg)
-cccc              if (k == nzbc) dh(3) = dz(kg-1)
-cccc              if (k == 1   ) dh(3) = dz(kg)
+cccc              dh(3) = 2.*grid_params%dzh(kg)
+cccc              if (k == nzbc) dh(3) = grid_params%dz(kg-1)
+cccc              if (k == 1   ) dh(3) = grid_params%dz(kg)
 cc
 cc              if (dim == 1) then
 cc                if (gamma > 1d0) then
@@ -1939,51 +2080,51 @@ cc                jm = max(j-1,1   )
 cc                kp = min(k+1,nzbc)
 cc                km = max(k-1,1   )
 cc
-cc                dh(1) = 2.*dxh(ig)
-cc                if (i == nxbc) dh(1) = dx(ig-1)
-cc                if (i == 1   ) dh(1) = dx(ig)
+cc                dh(1) = 2.*grid_params%dxh(ig)
+cc                if (i == nxbc) dh(1) = grid_params%dx(ig-1)
+cc                if (i == 1   ) dh(1) = grid_params%dx(ig)
 cc
-cc                dh(2) = 2.*dyh(jg)
-cc                if (j == nybc) dh(2) = dy(jg-1)
-cc                if (j == 1   ) dh(2) = dy(jg)
+cc                dh(2) = 2.*grid_params%dyh(jg)
+cc                if (j == nybc) dh(2) = grid_params%dy(jg-1)
+cc                if (j == 1   ) dh(2) = grid_params%dy(jg)
 cc
-cc                dh(3) = 2.*dzh(kg)
-cc                if (k == nzbc) dh(3) = dz(kg-1)
-cc                if (k == 1   ) dh(3) = dz(kg)
+cc                dh(3) = 2.*grid_params%dzh(kg)
+cc                if (k == nzbc) dh(3) = grid_params%dz(kg-1)
+cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*dxh(ig)
+                dh(1) = 2.*grid_params%dxh(ig)
                 if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-                  dh(1) = dx(ig)
+                  dh(1) = grid_params%dx(ig)
                   im = i
                 endif
                 if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-                  dh(1) = dx(ig-1)
+                  dh(1) = grid_params%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*dyh(jg)
+                dh(2) = 2.*grid_params%dyh(jg)
                 if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-                  dh(2) = dy(jg)
+                  dh(2) = grid_params%dy(jg)
                   jm = j
                 endif
                 if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-                  dh(2) = dy(jg-1)
+                  dh(2) = grid_params%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*dzh(kg)
+                dh(3) = 2.*grid_params%dzh(kg)
                 if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-                  dh(3) = dz(kg)
+                  dh(3) = grid_params%dz(kg)
                   km = k
                 endif
                 if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-                  dh(3) = dz(kg-1)
+                  dh(3) = grid_params%dz(kg-1)
                   kp = k
                 endif
 
@@ -2111,51 +2252,51 @@ cc                jm = max(j-1,1   )
 cc                kp = min(k+1,nzbc)
 cc                km = max(k-1,1   )
 cc
-cc                dh(1) = 2.*dxh(ig)
-cc                if (i == nxbc) dh(1) = dx(ig-1)
-cc                if (i == 1   ) dh(1) = dx(ig)
+cc                dh(1) = 2.*grid_params%dxh(ig)
+cc                if (i == nxbc) dh(1) = grid_params%dx(ig-1)
+cc                if (i == 1   ) dh(1) = grid_params%dx(ig)
 cc
-cc                dh(2) = 2.*dyh(jg)
-cc                if (j == nybc) dh(2) = dy(jg-1)
-cc                if (j == 1   ) dh(2) = dy(jg)
+cc                dh(2) = 2.*grid_params%dyh(jg)
+cc                if (j == nybc) dh(2) = grid_params%dy(jg-1)
+cc                if (j == 1   ) dh(2) = grid_params%dy(jg)
 cc
-cc                dh(3) = 2.*dzh(kg)
-cc                if (k == nzbc) dh(3) = dz(kg-1)
-cc                if (k == 1   ) dh(3) = dz(kg)
+cc                dh(3) = 2.*grid_params%dzh(kg)
+cc                if (k == nzbc) dh(3) = grid_params%dz(kg-1)
+cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*dxh(ig)
+                dh(1) = 2.*grid_params%dxh(ig)
                 if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-                  dh(1) = dx(ig)
+                  dh(1) = grid_params%dx(ig)
                   im = i
                 endif
                 if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-                  dh(1) = dx(ig-1)
+                  dh(1) = grid_params%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*dyh(jg)
+                dh(2) = 2.*grid_params%dyh(jg)
                 if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-                  dh(2) = dy(jg)
+                  dh(2) = grid_params%dy(jg)
                   jm = j
                 endif
                 if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-                  dh(2) = dy(jg-1)
+                  dh(2) = grid_params%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*dzh(kg)
+                dh(3) = 2.*grid_params%dzh(kg)
                 if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-                  dh(3) = dz(kg)
+                  dh(3) = grid_params%dz(kg)
                   km = k
                 endif
                 if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-                  dh(3) = dz(kg-1)
+                  dh(3) = grid_params%dz(kg-1)
                   kp = k
                 endif
 
