@@ -5373,6 +5373,7 @@ c Set boundary values to face values for EQU BC
         bcnd(:,3) = bcond
         where (bcnd == DEF) bcnd = -IFC
 
+        a_cnv = XformVector(iigx,a,.true.)
         call setBC(IAX,3,nx,ny,nz,a_cnv,a,a,bcnd,iigx,iigy,iigz
      .          ,is_cnv=.false.)
       endif
@@ -5480,6 +5481,7 @@ c Set boundary values to face values for EQU BC
       bcnd(:,3) = bcond
       where (bcnd == DEF) bcnd = -IFC
 
+      a_cnv = XformVector(igrid,a_cov,.true.)
       call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .          ,igrid,igrid,igrid,is_cnv=.false.
      .          ,iorder=bc_order)
@@ -5497,6 +5499,7 @@ cc      bcnd(:,2) = bcond
 cc      bcnd(:,3) = bcond
 cccc      where (bcnd == DEF) bcnd = EXT
 cc
+cc      a_cnv = XformVector(igrid,a_cov,.true.)
 cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
 cc     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
 cc
@@ -5567,6 +5570,7 @@ cc      bcnd(:,3) = bcond
 cc      where (bcnd == DEF) bcnd = -IFC
 cccc      where (bcnd == DEF) bcnd = -EXT
 cc
+cc      a_cnv = XformVector(igrid,a_cov,.true.)
 cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
 cc     .          ,igrid,igrid,igrid,is_cnv=.false.)
 
