@@ -53,7 +53,7 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-      call deallocAuxVariables(gv%aux)
+      call deallocLocalAuxVars
 
       call deallocPrecVariables
 #endif
