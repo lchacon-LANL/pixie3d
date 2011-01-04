@@ -90,7 +90,8 @@ c Set boundary conditions
 
 c Nullify aux pointers
 
-      call deallocAuxVariables(gv%aux)
+cc      call deallocAuxVariables(gv%aux)
+      call deallocLocalAuxVars
 
 c End program
 
@@ -155,7 +156,8 @@ c Fill auxiliary variable arrays
 
 c Nullify pointers
 
-      call deallocAuxVariables(gv%aux)
+cc      call deallocAuxVariables(gv%aux)
+      call deallocLocalAuxVars
 
       end subroutine initializeAuxVar
 
