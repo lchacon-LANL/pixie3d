@@ -140,6 +140,8 @@ ifdef SAMR
    TARGET = samrai
    CPPFLAGS += -Dsamrai
 
+   SUBDIRS += common/driver-samrai
+
 ifdef VECPOT
    CPPFLAGS += -Dvec_pot
 endif
@@ -243,7 +245,6 @@ ifeq ($(VMEC),t)
 	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
 
-
 # CLEAN ALL
 
 allclean: contrib_clean distclean
@@ -251,3 +252,5 @@ allclean: contrib_clean distclean
 distclean:
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
+
+
