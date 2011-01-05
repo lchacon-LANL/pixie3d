@@ -154,7 +154,6 @@ endif
    LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
-   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
    LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
    #LDLIBS_EXTRA += -lAMRUtils${PDIM}d
