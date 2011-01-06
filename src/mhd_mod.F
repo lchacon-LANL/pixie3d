@@ -1129,8 +1129,16 @@ c     Current variables
 #if defined(vec_pot)
       !A cov
       vaux%vec_list(IACOV)%dom_dep_list(1,1) = IAX
-      vaux%vec_list(IACOV)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IACOV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IACOV)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IACOV)%dom_dep_list(2,1) = IAY
+      vaux%vec_list(IACOV)%dom_dep_list(2,2) = SCALAR
+      vaux%vec_list(IACOV)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%vec_list(IACOV)%dom_dep_list(3,1) = IAZ
+      vaux%vec_list(IACOV)%dom_dep_list(3,2) = SCALAR
+      vaux%vec_list(IACOV)%dom_dep_list(3,3) = 0 !trivial
 
       !A cnv
       vaux%vec_list(IACNV)%dom_dep_list(1,1) = IACOV*AUX
@@ -1144,8 +1152,16 @@ c     Current variables
 #else
       !B cnv
       vaux%vec_list(IBCNV)%dom_dep_list(1,1) = IBX
-      vaux%vec_list(IBCNV)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCNV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IBCNV)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IBCNV)%dom_dep_list(2,1) = IBY
+      vaux%vec_list(IBCNV)%dom_dep_list(2,2) = SCALAR
+      vaux%vec_list(IBCNV)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%vec_list(IBCNV)%dom_dep_list(3,1) = IBZ
+      vaux%vec_list(IBCNV)%dom_dep_list(3,2) = SCALAR
+      vaux%vec_list(IBCNV)%dom_dep_list(3,3) = 0 !trivial
 #endif
       !B cov
       vaux%vec_list(IBCOV)%dom_dep_list(1,1) = IBCNV*AUX
@@ -1172,8 +1188,16 @@ c     Current variables
 
       !V cnv
       vaux%vec_list(IVCNV)%dom_dep_list(1,1) = IVX
-      vaux%vec_list(IVCNV)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVCNV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IVCNV)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVCNV)%dom_dep_list(2,1) = IVX
+      vaux%vec_list(IVCNV)%dom_dep_list(2,2) = SCALAR
+      vaux%vec_list(IVCNV)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%vec_list(IVCNV)%dom_dep_list(3,1) = IVX
+      vaux%vec_list(IVCNV)%dom_dep_list(3,2) = SCALAR
+      vaux%vec_list(IVCNV)%dom_dep_list(3,3) = 0 !trivial
 
       !V cov
       vaux%vec_list(IVCOV)%dom_dep_list(1,1) = IVCNV*AUX
