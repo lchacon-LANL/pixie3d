@@ -1005,9 +1005,11 @@ c     Current variables
       vaux%vec_list(IENI)%bc_dep_list(5,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(5,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(6,1) = IEH*AUX
-      vaux%vec_list(IENI)%bc_dep_list(6,2) = VECTOR
-      vaux%vec_list(IENI)%bc_dep_list(6,3) = 0 !trivial
+      if (di > 0d0) then
+        vaux%vec_list(IENI)%bc_dep_list(6,1) = IEH*AUX
+        vaux%vec_list(IENI)%bc_dep_list(6,2) = VECTOR
+        vaux%vec_list(IENI)%bc_dep_list(6,3) = 0 !trivial
+      endif
 
 c     End program
 
