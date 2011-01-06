@@ -1191,11 +1191,11 @@ c     Current variables
       vaux%vec_list(IVCNV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IVCNV)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV)%dom_dep_list(2,1) = IVX
+      vaux%vec_list(IVCNV)%dom_dep_list(2,1) = IVY
       vaux%vec_list(IVCNV)%dom_dep_list(2,2) = SCALAR
       vaux%vec_list(IVCNV)%dom_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV)%dom_dep_list(3,1) = IVX
+      vaux%vec_list(IVCNV)%dom_dep_list(3,1) = IVZ
       vaux%vec_list(IVCNV)%dom_dep_list(3,2) = SCALAR
       vaux%vec_list(IVCNV)%dom_dep_list(3,3) = 0 !trivial
 
