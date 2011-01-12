@@ -140,6 +140,8 @@ ifdef SAMR
    TARGET = samrai
    CPPFLAGS += -Dsamrai
 
+   SUBDIRS += common/driver-samrai
+
 ifdef VECPOT
    CPPFLAGS += -Dvec_pot
 endif
@@ -152,7 +154,6 @@ endif
    LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
-   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
    LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
    LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
    #LDLIBS_EXTRA += -lAMRUtils${PDIM}d
@@ -243,7 +244,6 @@ ifeq ($(VMEC),t)
 	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
 
-
 # CLEAN ALL
 
 allclean: contrib_clean distclean
@@ -251,3 +251,5 @@ allclean: contrib_clean distclean
 distclean:
 	-for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
+
+
