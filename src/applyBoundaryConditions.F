@@ -365,9 +365,9 @@ cc        varray%array_var(IAX)%array = acov(:,:,:,1)
 cc        varray%array_var(IAY)%array = acov(:,:,:,2)
 cc        varray%array_var(IAZ)%array = acov(:,:,:,3)
 
-        call XferBCs(acov(:,:,:,1),varray%array_var(IAX)%array)
-        call XferBCs(acov(:,:,:,2),varray%array_var(IAY)%array)
-        call XferBCs(acov(:,:,:,3),varray%array_var(IAZ)%array)
+        call XferBCs(acov(:,:,:,1),varray%array_var(IAX)%array,.false.)
+        call XferBCs(acov(:,:,:,2),varray%array_var(IAY)%array,.false.)
+        call XferBCs(acov(:,:,:,3),varray%array_var(IAZ)%array,.false.)
 
 #else
       case(IBX,IBY,IBZ)
@@ -376,9 +376,9 @@ cc        varray%array_var(IBX)%array = bcnv(:,:,:,1)
 cc        varray%array_var(IBY)%array = bcnv(:,:,:,2)
 cc        varray%array_var(IBZ)%array = bcnv(:,:,:,3)
 
-        call XferBCs(bcnv(:,:,:,1),varray%array_var(IBX)%array)
-        call XferBCs(bcnv(:,:,:,2),varray%array_var(IBY)%array)
-        call XferBCs(bcnv(:,:,:,3),varray%array_var(IBZ)%array)
+        call XferBCs(bcnv(:,:,:,1),varray%array_var(IBX)%array,.false.)
+        call XferBCs(bcnv(:,:,:,2),varray%array_var(IBY)%array,.false.)
+        call XferBCs(bcnv(:,:,:,3),varray%array_var(IBZ)%array,.false.)
 
 #endif
 
@@ -442,9 +442,12 @@ cc          varray%array_var(IVX)%array = vcnv(:,:,:,1)
 cc          varray%array_var(IVY)%array = vcnv(:,:,:,2)
 cc          varray%array_var(IVZ)%array = vcnv(:,:,:,3)
 
-          call XferBCs(vcnv(:,:,:,1),varray%array_var(IVX)%array)
-          call XferBCs(vcnv(:,:,:,2),varray%array_var(IVY)%array)
-          call XferBCs(vcnv(:,:,:,3),varray%array_var(IVZ)%array)
+          call XferBCs(vcnv(:,:,:,1),varray%array_var(IVX)%array
+     .                ,.false.)
+          call XferBCs(vcnv(:,:,:,2),varray%array_var(IVY)%array
+     .                ,.false.)
+          call XferBCs(vcnv(:,:,:,3),varray%array_var(IVZ)%array
+     .                ,.false.)
         endif
 
       case(ITMP)
@@ -621,9 +624,10 @@ c       Velocity BC
           if (pinch_flow) then
             call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_0,prs,eeta_0,v0)
           else
-            call XferBCs(u_0%array_var(IVX)%array,v0(:,:,:,1))
-            call XferBCs(u_0%array_var(IVY)%array,v0(:,:,:,2))
-            call XferBCs(u_0%array_var(IVZ)%array,v0(:,:,:,3))
+            !Average has already been performed in u_0
+            call XferBCs(u_0%array_var(IVX)%array,v0(:,:,:,1),.false.)
+            call XferBCs(u_0%array_var(IVY)%array,v0(:,:,:,2),.false.)
+            call XferBCs(u_0%array_var(IVZ)%array,v0(:,:,:,3),.false.)
           endif
 
 c         Fill ghost nodes
@@ -658,15 +662,17 @@ cc          call XformVector_BC(iigx,jcnv_0,jcov_0,.false.)
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) call XferBCs(vecov,vecov_n)
+          if (save_tn.and.(.not.ion_hall)) then
+            call XferBCs(vecov,vecov_n,.false.)
+          endif
 
         case(IVCOV_N)
 
-          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n)
+          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
 
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n)
+          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
 
         case(IVCNV)
 
@@ -679,7 +685,21 @@ cc            else
               call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
 cc            endif
           else
-            call XferBCs(vcnv_0,v0)
+            call XferBCs(vcnv_0,v0,.true.)
+cc            v0(nnx+1,:,:,:) = 0.5*(vcnv_0(nnx  ,:,:,:)
+cc     .                            +vcnv_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(vcnv_0(1    ,:,:,:)
+cc     .                            +vcnv_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(vcnv_0(:,nny  ,:,:)
+cc     .                            +vcnv_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(vcnv_0(:,1    ,:,:)
+cc     .                            +vcnv_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(vcnv_0(:,:,nnz  ,:)
+cc     .                            +vcnv_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(vcnv_0(:,:,1    ,:)
+cc     .                            +vcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0
@@ -718,7 +738,22 @@ cc            else
      .                       ,first_order=.true.)
 cc            endif
           else
-            call XferBCs(jcnv_0,v0)
+            call XferBCs(jcnv_0,v0,.true.)
+cc            v0 = jcnv_0
+cc            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
+cc     .                            +jcnv_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
+cc     .                            +jcnv_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
+cc     .                            +jcnv_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
+cc     .                            +jcnv_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
+cc     .                            +jcnv_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
+cc     .                            +jcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0
@@ -742,20 +777,21 @@ cc            else
      .                       ,first_order=.true.)
 cc            endif
           else
-            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
-     .                            +jcnv_0(nnx+1,:,:,:))
-            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
-     .                            +jcnv_0(0    ,:,:,:))
-
-            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
-     .                            +jcnv_0(:,nny+1,:,:))
-            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
-     .                            +jcnv_0(:,0    ,:,:))
-
-            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
-     .                            +jcnv_0(:,:,nnz+1,:))
-            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
-     .                            +jcnv_0(:,:,0    ,:))
+            call XferBCs(jcnv_0,v0,.true.)
+cc            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
+cc     .                            +jcnv_0(nnx+1,:,:,:))
+cc            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
+cc     .                            +jcnv_0(0    ,:,:,:))
+cc
+cc            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
+cc     .                            +jcnv_0(:,nny+1,:,:))
+cc            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
+cc     .                            +jcnv_0(:,0    ,:,:))
+cc
+cc            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
+cc     .                            +jcnv_0(:,:,nnz+1,:))
+cc            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
+cc     .                            +jcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0
