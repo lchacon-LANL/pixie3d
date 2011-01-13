@@ -33,7 +33,7 @@
     dstep    = 5d-2
 
     pvx      = 1d-4
-    odd      = f
+    odd      = f,f,f
     random   = f
 
     iguess   = 0

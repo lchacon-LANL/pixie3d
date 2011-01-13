@@ -33,7 +33,7 @@
 
     nh2      = 1
     ptemp     = 1d-3
-    odd      = t
+    odd      = t,f,f
 
     cnfactor = 0.5
     sm_flag  = 0
