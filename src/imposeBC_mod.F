@@ -376,50 +376,9 @@ c     End subroutine
 
       end subroutine defineDepDom_Deps
 
-ccc     XferBCs
-ccc     ###################################################################
-cc      function XferBCs(arr1) result(arr2)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Routine to transfer ghost cell values form arr1 to arr2
-ccc     -------------------------------------------------------------------
-cc
-ccc     Input variables
-cc
-cc      real(8) :: arr1(0:,0:,0:)
-cc      real(8) :: arr2(0:size(arr1,1)-1
-cc     .               ,0:size(arr1,2)-1
-cc     .               ,0:size(arr1,3)-1)
-cc
-ccc     Local variables
-cc
-cc      integer :: nxp,nyp,nzp
-cc
-ccc     Begin program
-cc
-cc      nxp = size(arr1,1)-1
-cc      nyp = size(arr1,2)-1
-cc      nzp = size(arr1,3)-1
-cc
-cc      !X boundaries
-cc      arr2(0  ,:,:) = arr1(0  ,:,:)
-cc      arr2(nxp,:,:) = arr1(nxp,:,:)
-cc
-cc      !Y boundaries
-cc      arr2(:,0  ,:) = arr1(:,0  ,:)
-cc      arr2(:,nyp,:) = arr1(:,nyp,:)
-cc
-cc      !Z boundaries
-cc      arr2(:,:,0  ) = arr1(:,:,0  )
-cc      arr2(:,:,nzp) = arr1(:,:,nzp)
-cc
-ccc     End program
-cc
-cc      end function XferBCs
-
 c     XferBCs_scl
 c     ###################################################################
-      subroutine XferBCs_scl(arr1,arr2)
+      subroutine XferBCs_scl(arr1,arr2,average)
 
       implicit none
 
@@ -431,6 +390,7 @@ c     Input variables
 
       real(8) :: arr1(0:,0:,0:)
       real(8) :: arr2(0:,0:,0:)
+      logical :: average
 
 c     Local variables
 
@@ -442,17 +402,34 @@ c     Begin program
       nyp = size(arr1,2)-1
       nzp = size(arr1,3)-1
 
-      !X boundaries
-      arr2(0  ,:,:) = arr1(0  ,:,:)
-      arr2(nxp,:,:) = arr1(nxp,:,:)
+      if (average) then
+        arr2(nxp,:,:) = 0.5*(arr1(nxp  ,:,:)
+     .                      +arr1(nxp-1,:,:))
+        arr2(0  ,:,:) = 0.5*(arr1(1    ,:,:)
+     .                      +arr1(0    ,:,:))
 
-      !Y boundaries
-      arr2(:,0  ,:) = arr1(:,0  ,:)
-      arr2(:,nyp,:) = arr1(:,nyp,:)
+        arr2(:,nyp,:) = 0.5*(arr1(:,nyp  ,:)
+     .                      +arr1(:,nyp-1,:))
+        arr2(:,0  ,:) = 0.5*(arr1(:,1    ,:)
+     .                      +arr1(:,0    ,:))
 
-      !Z boundaries
-      arr2(:,:,0  ) = arr1(:,:,0  )
-      arr2(:,:,nzp) = arr1(:,:,nzp)
+        arr2(:,:,nzp) = 0.5*(arr1(:,:,nzp  )
+     .                      +arr1(:,:,nzp-1))
+        arr2(:,:,0  ) = 0.5*(arr1(:,:,1    )
+     .                      +arr1(:,:,0    ))
+      else
+        !X boundaries
+        arr2(0  ,:,:) = arr1(0  ,:,:)
+        arr2(nxp,:,:) = arr1(nxp,:,:)
+
+        !Y boundaries
+        arr2(:,0  ,:) = arr1(:,0  ,:)
+        arr2(:,nyp,:) = arr1(:,nyp,:)
+
+        !Z boundaries
+        arr2(:,:,0  ) = arr1(:,:,0  )
+        arr2(:,:,nzp) = arr1(:,:,nzp)
+      endif
 
 c     End program
 
@@ -460,7 +437,7 @@ c     End program
 
 c     XferBCs_vec
 c     ###################################################################
-      subroutine XferBCs_vec(vec1,vec2)
+      subroutine XferBCs_vec(vec1,vec2,average)
 
       implicit none
 c     -------------------------------------------------------------------
@@ -471,6 +448,7 @@ c     Input variables
 
       real(8) :: vec1(0:,0:,0:,:)
       real(8) :: vec2(0:,0:,0:,:)
+      logical :: average
 
 c     Local variables
 
@@ -482,17 +460,34 @@ c     Begin program
       nyp = size(vec1,2)-1
       nzp = size(vec1,3)-1
 
-      !X boundaries
-      vec2(0  ,:,:,:) = vec1(0  ,:,:,:)
-      vec2(nxp,:,:,:) = vec1(nxp,:,:,:)
+      if (average) then
+        vec2(nxp,:,:,:) = 0.5*(vec1(nxp  ,:,:,:)
+     .                        +vec1(nxp-1,:,:,:))
+        vec2(0  ,:,:,:) = 0.5*(vec1(1    ,:,:,:)
+     .                        +vec1(0    ,:,:,:))
 
-      !Y boundaries
-      vec2(:,0  ,:,:) = vec1(:,0  ,:,:)
-      vec2(:,nyp,:,:) = vec1(:,nyp,:,:)
+        vec2(:,nyp,:,:) = 0.5*(vec1(:,nyp  ,:,:)
+     .                        +vec1(:,nyp-1,:,:))
+        vec2(:,0  ,:,:) = 0.5*(vec1(:,1    ,:,:)
+     .                        +vec1(:,0    ,:,:))
 
-      !Z boundaries
-      vec2(:,:,0  ,:) = vec1(:,:,0  ,:)
-      vec2(:,:,nzp,:) = vec1(:,:,nzp,:)
+        vec2(:,:,nzp,:) = 0.5*(vec1(:,:,nzp  ,:)
+     .                        +vec1(:,:,nzp-1,:))
+        vec2(:,:,0  ,:) = 0.5*(vec1(:,:,1    ,:)
+     .                        +vec1(:,:,0    ,:))
+      else
+        !X boundaries
+        vec2(0  ,:,:,:) = vec1(0  ,:,:,:)
+        vec2(nxp,:,:,:) = vec1(nxp,:,:,:)
+
+        !Y boundaries
+        vec2(:,0  ,:,:) = vec1(:,0  ,:,:)
+        vec2(:,nyp,:,:) = vec1(:,nyp,:,:)
+
+        !Z boundaries
+        vec2(:,:,0  ,:) = vec1(:,:,0  ,:)
+        vec2(:,:,nzp,:) = vec1(:,:,nzp,:)
+      endif
 
 c     End program
 
@@ -2328,20 +2323,22 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
                   endif
 
                   !!!!!!!Finite flow at wall!!!!!!!
-                  if (pinch_flow) then
-
-                    ee = array0(i+1,j,k,icomp)
-
-                  !!!!!!!Finite current at wall!!!!!!!
-                  else
+cc                  if (pinch_flow) then
+cc
+cc                    ee = array0(i+1,j,k,icomp)
+cc
+cc                  !!!!!!!Finite current at wall!!!!!!!
+cc                  else
                     if (ibc == 1) then
-                      ee = 0.5*(array0(i-1,j,k,icomp)
-     .                         +array0(i  ,j,k,icomp))
+                      ee = array0(i-1,j,k,icomp)
+cc                      ee = 0.5*(array0(i-1,j,k,icomp)
+cc     .                         +array0(i  ,j,k,icomp))
                     elseif (ibc == 2) then
-                      ee = 0.5*(array0(i+1,j,k,icomp)
-     .                         +array0(i  ,j,k,icomp))
+                      ee = array0(i+1,j,k,icomp)
+cc                      ee = 0.5*(array0(i+1,j,k,icomp)
+cc     .                         +array0(i  ,j,k,icomp))
                     endif
-                  endif
+cc                  endif
 
                   rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
 
@@ -2373,11 +2370,13 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
                   endif
 
                   if (ibc == 3) then
-                    ee = 0.5*(array0(i,j-1,k,icomp)
-     .                       +array0(i,j  ,k,icomp))
+                    ee = array0(i,j-1,k,icomp)
+cc                    ee = 0.5*(array0(i,j-1,k,icomp)
+cc     .                       +array0(i,j  ,k,icomp))
                   elseif (ibc == 4) then
-                    ee = 0.5*(array0(i,j+1,k,icomp)
-     .                       +array0(i,j  ,k,icomp))
+                    ee = array0(i,j+1,k,icomp)
+cc                    ee = 0.5*(array0(i,j+1,k,icomp)
+cc     .                       +array0(i,j  ,k,icomp))
                   endif
  
                   rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
@@ -2410,11 +2409,13 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
                   endif
 
                   if (ibc == 5) then
-                    ee = 0.5*(array0(i,j,k-1,icomp)
-     .                       +array0(i,j,k  ,icomp))
+                    ee = array0(i,j,k-1,icomp)
+cc                    ee = 0.5*(array0(i,j,k-1,icomp)
+cc     .                       +array0(i,j,k  ,icomp))
                   elseif (ibc == 6) then
-                    ee = 0.5*(array0(i,j,k+1,icomp)
-     .                       +array0(i,j,k  ,icomp))
+                    ee = array0(i,j,k+1,icomp)
+cc                    ee = 0.5*(array0(i,j,k+1,icomp)
+cc     .                       +array0(i,j,k  ,icomp))
                   endif
 
                   rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
