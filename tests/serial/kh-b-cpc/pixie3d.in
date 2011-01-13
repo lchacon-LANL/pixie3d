@@ -32,7 +32,7 @@
 
     nh2      = 1
     pvy      = 1d-4
-    odd      = f
+    odd      = f,f,f
 
     cnfactor = 0.5
     sm_flag  = 0

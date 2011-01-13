@@ -33,7 +33,7 @@
     dstep    = 1d-2
 
     pvx      = 1d-3
-    odd      = f
+    odd      = f,f,f
     random   = f
 
     cnfactor = 0.5

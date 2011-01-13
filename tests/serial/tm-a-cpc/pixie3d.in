@@ -32,7 +32,7 @@
     dstep    = 1d-1
 
     pvy      = 1d-3
-    odd      = t
+    odd      = t,f,f
     nh2      = 1
 
     cnfactor = 0.5
