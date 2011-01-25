@@ -1,0 +1,45 @@
+#Define variables
+
+MPIEXEC=mpiexec
+NP=4
+EXEC=$(wildcard pixie3d*samrai.x)
+
+-include make.inc
+
+LOCALDIR = $(shell basename $(CURDIR))
+
+SEREXEC=$(EXEC) samrai.input.1 test1.log
+PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) samrai.input.4 test4.log 
+
+#Define targets
+
+.PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
+
+setup: ;
+	-@ln -s ../../../bin/$(EXEC)
+#	-@ln -s ../../../bin/$(PLOT)
+
+rebuild rebuild-a rebuild-b: ;
+	@echo "Rebuilding SAMRAI test in $(LOCALDIR)"
+	-@rm -r viz.compare 2> /dev/null
+	-@rm debugFile* test*.log 2> /dev/null
+#	@$(PAREXEC) > pixie3d.out
+
+test test-a test-b: ;
+	@echo
+	@echo "Running SAMRAI test in $(LOCALDIR)"
+#	-@rename "bin" "bak" record.bin* 2> /dev/null
+	@$(SEREXEC) &> /dev/null
+	@$(PAREXEC) &> /dev/null
+	-@([ -z "`diff -bwB debugFile*`" ] || echo "==> Differences found in $(LOCALDIR) <==")
+	-@([ -z "`diff -bwB debugFile*`" ] || diff -bB  debugFile*)
+	-@([ -z "`diff -bwB debugFile*`" ] && echo "No differences found in $(LOCALDIR)")
+	-@([ -z "`diff -bwB debugFile*`" ] && rm debugFile* 2> /dev/null)
+
+run: ;
+	@echo
+	@echo "Running serial SAMRAI test in $(LOCALDIR)"
+	@$(SEREXEC)
+	@echo
+	@echo "Running parallel SAMRAI test in $(LOCALDIR)"
+	@$(PAREXEC)
