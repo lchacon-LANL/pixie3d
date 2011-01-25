@@ -1,0 +1,91 @@
+DIRICHLET = 0
+NEUMANN   = 1
+MIXED     = 2
+ROBIN     = 4
+
+Main{
+   output_path="viz.compare"
+   save_debug=2
+   debug_name="debugFile1"
+}
+
+CartesianGeometry{
+   domain_boxes = [(0,0,0), (31,31, 0)]
+   x_lo         = 0.0e0, 0.0e0, 0.0e0 
+   x_up         = 1.0e0, 4.0e0, 1.0e0
+   periodic_dimension = 0, 1, 1
+}
+
+Plotting{
+	plot_interval = 20
+        use_visit = FALSE
+}
+
+pixie3d{
+          operator_name                   = "CellDiffusionOperator"
+     	  tangent_interp_scheme           = "LINEAR"
+       	  normal_interp_scheme            = "LINEAR"
+      	  adjust_cf_coefficients          = FALSE
+     	  interpolate_ghost_values        = TRUE
+     	  extrapolation_order             = 2
+       	  boundary_conditions             = DIRICHLET, DIRICHLET, NEUMANN, NEUMANN
+      	  coarsen_diffusive_fluxes        = TRUE
+      	  print_info_level                = 0
+          beta                            = -1.0
+          cell_refine_op                  = "CONSTANT_REFINE"
+          cell_coarsen_op                 = "CONSERVATIVE_COARSEN"
+          face_refine_op                  = "CONSTANT_REFINE"
+          face_coarsen_op                 = "CONSERVATIVE_COARSEN"
+          variable_order_interpolation    = TRUE
+          use_cf_interpolant              = TRUE
+}
+
+TimeIntegrator{
+    timeIntegrator_name  = "RK23"
+    timeIntegrator_name2  = "ExplicitEuler"
+    initial_time         = 0.0
+    final_time           = 1.0
+    max_integrator_steps = 1000
+    initial_timestep     = 1.0e-02
+    min_dt               = 1.0e-10
+    max_dt               = 1.0
+    safety_factor        = 0.9
+    absolute_tolerance   = 1.0e-06
+}
+
+
+GriddingAlgorithm{
+   max_levels = 1
+   largest_patch_size {
+      level_0 = 32, 32, 256
+   }
+ smallest_patch_size {
+      level_0 = 10,10,1
+   }
+   ratio_to_coarser {
+      level_1  = 2, 2, 1
+      level_2  = 2, 2, 1
+      level_3  = 2, 2, 1
+      level_4  = 2, 2, 1
+      level_5  = 2, 2, 1
+      level_6  = 2, 2, 1
+   }
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+StandardTagAndInitialize{
+   tagging_method = "REFINE_BOXES"
+   RefineBoxes{
+      level_0 = [(0,0,0),(1,1,0)]
+      level_1 = [(0,0,0),(3,3,0)]
+      level_2 = [(0,0,0),(7,7,0)]
+      level_3 = [(0,0,0),(15,15,0)]
+      level_4 = [(0,0,0),(31,31,0)]
+      level_5 = [(0,0,0),(63,63,0)]
+   }
+}
+
+LoadBalancer{
+   bin_pack = "SPATIAL"
+}

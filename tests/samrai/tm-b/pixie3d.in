@@ -1,0 +1,90 @@
+ &datin
+    ilevel   = 0
+    test     = t
+
+    nxd      = 32
+    nyd      = 32
+    nzd      = 1
+
+    numerical_grid = f
+
+    xmax     = 1.
+    ymax     = 4.
+    zmax     = 1.
+
+    bcs      = 'def','def','per','per','per','per'
+
+    eta      = 1d-2
+    nu       = 0.0
+    dd       = 0d-1
+    chi      = 0d-2
+    
+    equil    = 'tmcar'
+    coords   = 'car'
+    gparams  = -0.05,0d0,0d0,0d0,0d0
+
+    dlambda  = .2
+    rshear   = 1.
+    vperflow = 0.
+
+    dt       = 1d-2
+    tmax     = 1.0
+    dstep    = 1d-1
+
+    pvy      = 1d-3
+    odd      = t,t,t
+    nh2      = 1
+
+    cnfactor = 0.5
+
+    restart  = f
+    timecorr = f
+    predictor= f
+
+    adiabatic= t
+    source   = t
+
+    precon   = 'id'
+    mgtol    = 1d-5
+    maxvcyc  = 1
+    nsweep   = 4
+    precpass = 1
+
+    iguess   = 0
+
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-4
+    method   = 1
+    mf_eps   = 1d-6
+
+    solenoidal = t
+    nc_eom_f   = f
+    nc_eom_v   = f
+
+    debug    = f
+    debug_it = 1
+
+/ 
+ &graphdef
+    hdf_plot = t
+    sel_diag  = 2,12,15,16,17,18,19,20,21
+    sel_graph = 1,2,3,4,5,6,7,8,11
+    dplot = 1d-2
+    prof_conf = 1,'x',1,10,1
+    cont_conf = 3,'x','y',1,1,1
+    clean = f
+ /
+
+
+    sel_graph = 1,2,3,4,5,6,7,8,14
+    sel_graph = 1,8,14,15,16,17,18,19,20
+    sel_graph = 1,8,11,14,-15,17,-18,20,0
+
+    equil    = 'tmcar'
+    coords   = 'car'
+
+    maxitnwt = 1
+    tolgm    = 1d-4
+    rtol     = 1d-3
