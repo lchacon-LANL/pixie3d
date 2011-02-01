@@ -34,7 +34,7 @@ test test-a test-b: ;
 	-@([ -z "`diff -bwB debugFile*`" ] || echo "==> Differences found in $(LOCALDIR) <==")
 	-@([ -z "`diff -bwB debugFile*`" ] || diff -bB  debugFile*)
 	-@([ -z "`diff -bwB debugFile*`" ] && echo "No differences found in $(LOCALDIR)")
-	-@([ -z "`diff -bwB debugFile*`" ] && rm debugFile* 2> /dev/null)
+	-@([ -z "`diff -bwB debugFile*`" ] && rm -r viz.compare debugFile* 2> /dev/null)
 
 run: ;
 	@echo
