@@ -189,7 +189,7 @@ c Begin program
 
 c Set BC schedule (see imposeBC_mod.F)
 
-      call setBCsched(it)
+      call setBCsched(gv%u_n,it)
 
 c End program
 
@@ -266,13 +266,13 @@ c Begin program
         order = bc_order     !Order of extrapolation in BCs (defined in imposeBC_mod.F)
       endif
 
-c Set application BCs (see imposeBC_mod.F)
-
-      call setBCsched(itime)
-
 c Allocate auxiliary variables
 
       call allocAuxVariables(gv%aux)
+
+c Set application BCs (see imposeBC_mod.F)
+
+      call setBCsched(varray,itime)
 
 c Impose BCs
 
@@ -292,7 +292,7 @@ c Impose BCs
      .                        ,iigx,iigy,iigz,order=order)
           elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variables
             call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
-     .                      ,iigx,iigy,iigz,order=order)
+     .                        ,iigx,iigy,iigz,order=order)
           endif
         enddo
       enddo
@@ -359,95 +359,113 @@ c     Density BCs
      .            ,iigx,iigy,iigz,iorder=order)
 
 #if defined(vec_pot)
-      case(IAX,IAY,IAZ)
-
-cc        varray%array_var(IAX)%array = acov(:,:,:,1)
-cc        varray%array_var(IAY)%array = acov(:,:,:,2)
-cc        varray%array_var(IAZ)%array = acov(:,:,:,3)
+      case(IAX)
 
         call XferBCs(acov(:,:,:,1),varray%array_var(IAX)%array,.false.)
+
+      case(IAY)
+
         call XferBCs(acov(:,:,:,2),varray%array_var(IAY)%array,.false.)
+
+      case(IAZ)
+
         call XferBCs(acov(:,:,:,3),varray%array_var(IAZ)%array,.false.)
-
 #else
-      case(IBX,IBY,IBZ)
-
-cc        varray%array_var(IBX)%array = bcnv(:,:,:,1)
-cc        varray%array_var(IBY)%array = bcnv(:,:,:,2)
-cc        varray%array_var(IBZ)%array = bcnv(:,:,:,3)
+      case(IBX)
 
         call XferBCs(bcnv(:,:,:,1),varray%array_var(IBX)%array,.false.)
-        call XferBCs(bcnv(:,:,:,2),varray%array_var(IBY)%array,.false.)
-        call XferBCs(bcnv(:,:,:,3),varray%array_var(IBZ)%array,.false.)
 
+      case(IBY)
+
+        call XferBCs(bcnv(:,:,:,2),varray%array_var(IBY)%array,.false.)
+
+      case(IBZ)
+
+        call XferBCs(bcnv(:,:,:,3),varray%array_var(IBZ)%array,.false.)
 #endif
 
-      case(IVX,IVY,IVZ)
+      case(IVX)
 
         if (.not.nc_eom_v) then
-cc          varray%array_var(IVX)%array = vcnv(:,:,:,1)
-cc     .                                 *varray%array_var(IRHO)%array
-cc          varray%array_var(IVY)%array = vcnv(:,:,:,2)
-cc     .                                 *varray%array_var(IRHO)%array
-cc          varray%array_var(IVZ)%array = vcnv(:,:,:,3)
-cc     .                                 *varray%array_var(IRHO)%array
 
           rho => varray%array_var(IRHO)%array
 
           varray%array_var(IVX)%array(0    ,:,:) = vcnv(0    ,:,:,1)
      .                                            *rho (0    ,:,:)
-          varray%array_var(IVY)%array(0    ,:,:) = vcnv(0    ,:,:,2)
-     .                                            *rho (0    ,:,:)
-          varray%array_var(IVZ)%array(0    ,:,:) = vcnv(0    ,:,:,3)
-     .                                            *rho (0    ,:,:)
-
           varray%array_var(IVX)%array(nnx+1,:,:) = vcnv(nnx+1,:,:,1)
      .                                            *rho (nnx+1,:,:)
-          varray%array_var(IVY)%array(nnx+1,:,:) = vcnv(nnx+1,:,:,2)
-     .                                            *rho (nnx+1,:,:)
-          varray%array_var(IVZ)%array(nnx+1,:,:) = vcnv(nnx+1,:,:,3)
-     .                                            *rho (nnx+1,:,:)
-
           varray%array_var(IVX)%array(:,0    ,:) = vcnv(:,0    ,:,1)
      .                                            *rho (:,0    ,:)
-          varray%array_var(IVY)%array(:,0    ,:) = vcnv(:,0    ,:,2)
-     .                                            *rho (:,0    ,:)
-          varray%array_var(IVZ)%array(:,0    ,:) = vcnv(:,0    ,:,3)
-     .                                            *rho (:,0    ,:)
-
           varray%array_var(IVX)%array(:,nny+1,:) = vcnv(:,nny+1,:,1)
      .                                            *rho (:,nny+1,:)
-          varray%array_var(IVY)%array(:,nny+1,:) = vcnv(:,nny+1,:,2)
-     .                                            *rho (:,nny+1,:)
-          varray%array_var(IVZ)%array(:,nny+1,:) = vcnv(:,nny+1,:,3)
-     .                                            *rho (:,nny+1,:)
-
           varray%array_var(IVX)%array(:,:,0    ) = vcnv(:,:,0    ,1)
      .                                            *rho (:,:,0    )
-          varray%array_var(IVY)%array(:,:,0    ) = vcnv(:,:,0    ,2)
-     .                                            *rho (:,:,0    )
-          varray%array_var(IVZ)%array(:,:,0    ) = vcnv(:,:,0    ,3)
-     .                                            *rho (:,:,0    )
-
           varray%array_var(IVX)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,1)
      .                                            *rho (:,:,nnz+1)
+
+          nullify(rho)
+
+        else
+
+          call XferBCs(vcnv(:,:,:,1),varray%array_var(IVX)%array
+     .                ,.false.)
+
+        endif
+
+      case(IVY)
+
+        if (.not.nc_eom_v) then
+
+          rho => varray%array_var(IRHO)%array
+
+          varray%array_var(IVY)%array(0    ,:,:) = vcnv(0    ,:,:,2)
+     .                                            *rho (0    ,:,:)
+          varray%array_var(IVY)%array(nnx+1,:,:) = vcnv(nnx+1,:,:,2)
+     .                                            *rho (nnx+1,:,:)
+          varray%array_var(IVY)%array(:,0    ,:) = vcnv(:,0    ,:,2)
+     .                                            *rho (:,0    ,:)
+          varray%array_var(IVY)%array(:,nny+1,:) = vcnv(:,nny+1,:,2)
+     .                                            *rho (:,nny+1,:)
+          varray%array_var(IVY)%array(:,:,0    ) = vcnv(:,:,0    ,2)
+     .                                            *rho (:,:,0    )
           varray%array_var(IVY)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,2)
      .                                            *rho (:,:,nnz+1)
+
+          nullify(rho)
+
+        else
+
+          call XferBCs(vcnv(:,:,:,2),varray%array_var(IVY)%array
+     .                ,.false.)
+
+        endif
+
+       case(IVZ)
+
+        if (.not.nc_eom_v) then
+
+          rho => varray%array_var(IRHO)%array
+
+          varray%array_var(IVZ)%array(0    ,:,:) = vcnv(0    ,:,:,3)
+     .                                            *rho (0    ,:,:)
+          varray%array_var(IVZ)%array(nnx+1,:,:) = vcnv(nnx+1,:,:,3)
+     .                                            *rho (nnx+1,:,:)
+          varray%array_var(IVZ)%array(:,0    ,:) = vcnv(:,0    ,:,3)
+     .                                            *rho (:,0    ,:)
+          varray%array_var(IVZ)%array(:,nny+1,:) = vcnv(:,nny+1,:,3)
+     .                                            *rho (:,nny+1,:)
+          varray%array_var(IVZ)%array(:,:,0    ) = vcnv(:,:,0    ,3)
+     .                                            *rho (:,:,0    )
           varray%array_var(IVZ)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,3)
      .                                            *rho (:,:,nnz+1)
 
           nullify(rho)
-        else
-cc          varray%array_var(IVX)%array = vcnv(:,:,:,1)
-cc          varray%array_var(IVY)%array = vcnv(:,:,:,2)
-cc          varray%array_var(IVZ)%array = vcnv(:,:,:,3)
 
-          call XferBCs(vcnv(:,:,:,1),varray%array_var(IVX)%array
-     .                ,.false.)
-          call XferBCs(vcnv(:,:,:,2),varray%array_var(IVY)%array
-     .                ,.false.)
+        else
+
           call XferBCs(vcnv(:,:,:,3),varray%array_var(IVZ)%array
      .                ,.false.)
+
         endif
 
       case(ITMP)
@@ -520,15 +538,43 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
+      rho => varray%array_var(IRHO)%array
+      tmp => varray%array_var(ITMP)%array
+
 c Select variable
 
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
 
         select case(abs(bc_inf(1)))
-        case(IETA,INU,IETA_0)
+        case(IETA)
+
+#if defined(RFX)
+          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+#else
+          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,tmp)
+#endif
+
+        case(INU)
+
+#if defined(RFX)
+          nuu =     vis(nnx,nny,nnz,iigx,iigy,iigz)
+#else
+          nuu = rho*vis(nnx,nny,nnz,iigx,iigy,iigz)
+cc          nuu = vis(nnx,nny,nnz,iigx,iigy,iigz)
+#endif
+
+        case(IETA_0)
+
+#if defined(RFX)
+          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+#else
+          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,tmp_0)
+#endif
 
         case(IHETA)
+
+          h_eta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
 
         case(IRHO_0)
 
@@ -565,21 +611,7 @@ c       Temperature BCs
 
       case(VECTOR)
 
-cc        if (lag_pinch_bc) then
-cc          rho => u_n%array_var(IRHO)%array
-cc          tmp => u_n%array_var(ITMP)%array
-cc        else
-          rho => varray%array_var(IRHO)%array
-          tmp => varray%array_var(ITMP)%array
-cc        endif
-
         allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
-
-        if (adiabatic) then
-          prs = a_p*tmp
-        else
-          prs = a_p*rho*tmp
-        endif
 
 c       Allocate auxiliary variables in local domain
 
@@ -654,10 +686,10 @@ cc          call XformVector_BC(iigx,jcnv_0,jcov_0,.false.)
 
 #if defined(vec_pot)
           E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,acov_0)
+     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
 #else
           E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,jcov_0)
+     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVECOV_N)
@@ -679,6 +711,21 @@ cc          call XformVector_BC(iigx,jcnv_0,jcov_0,.false.)
 c       Velocity BC
 
           if (pinch_flow) then
+
+cc           if (lag_pinch_bc) then
+cc             rho => u_n%array_var(IRHO)%array
+cc             tmp => u_n%array_var(ITMP)%array
+cc           else
+             rho => varray%array_var(IRHO)%array
+             tmp => varray%array_var(ITMP)%array
+cc           endif
+
+            if (adiabatic) then
+              prs = a_p*tmp
+            else
+              prs = a_p*rho*tmp
+            endif
+
 cc            if (lag_pinch_bc) then
 cc              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
 cc            else
@@ -686,20 +733,6 @@ cc            else
 cc            endif
           else
             call XferBCs(vcnv_0,v0,.true.)
-cc            v0(nnx+1,:,:,:) = 0.5*(vcnv_0(nnx  ,:,:,:)
-cc     .                            +vcnv_0(nnx+1,:,:,:))
-cc            v0(0    ,:,:,:) = 0.5*(vcnv_0(1    ,:,:,:)
-cc     .                            +vcnv_0(0    ,:,:,:))
-cc
-cc            v0(:,nny+1,:,:) = 0.5*(vcnv_0(:,nny  ,:,:)
-cc     .                            +vcnv_0(:,nny+1,:,:))
-cc            v0(:,0    ,:,:) = 0.5*(vcnv_0(:,1    ,:,:)
-cc     .                            +vcnv_0(:,0    ,:,:))
-cc
-cc            v0(:,:,nnz+1,:) = 0.5*(vcnv_0(:,:,nnz  ,:)
-cc     .                            +vcnv_0(:,:,nnz+1,:))
-cc            v0(:,:,0    ,:) = 0.5*(vcnv_0(:,:,1    ,:)
-cc     .                            +vcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0
@@ -730,6 +763,21 @@ cc          call XformVector_BC(iigx,acov,acnv,.true.)
 c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+
+cc           if (lag_pinch_bc) then
+cc             rho => u_n%array_var(IRHO)%array
+cc             tmp => u_n%array_var(ITMP)%array
+cc           else
+             rho => varray%array_var(IRHO)%array
+             tmp => varray%array_var(ITMP)%array
+cc           endif
+
+            if (adiabatic) then
+              prs = a_p*tmp
+            else
+              prs = a_p*rho*tmp
+            endif
+
 cc            if (lag_pinch_bc) then
 cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
 cc     .                       ,first_order=.true.)
@@ -739,21 +787,6 @@ cc            else
 cc            endif
           else
             call XferBCs(jcnv_0,v0,.true.)
-cc            v0 = jcnv_0
-cc            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
-cc     .                            +jcnv_0(nnx+1,:,:,:))
-cc            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
-cc     .                            +jcnv_0(0    ,:,:,:))
-cc
-cc            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
-cc     .                            +jcnv_0(:,nny+1,:,:))
-cc            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
-cc     .                            +jcnv_0(:,0    ,:,:))
-cc
-cc            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
-cc     .                            +jcnv_0(:,:,nnz+1,:))
-cc            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
-cc     .                            +jcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0
@@ -769,6 +802,21 @@ cc          call XformVector_BC(iigx,bcnv,bcov,.false.)
 c       Current BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+
+cc           if (lag_pinch_bc) then
+cc             rho => u_n%array_var(IRHO)%array
+cc             tmp => u_n%array_var(ITMP)%array
+cc           else
+             rho => varray%array_var(IRHO)%array
+             tmp => varray%array_var(ITMP)%array
+cc           endif
+
+            if (adiabatic) then
+              prs = a_p*tmp
+            else
+              prs = a_p*rho*tmp
+            endif
+
 cc            if (lag_pinch_bc) then
 cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
 cc     .                       ,first_order=.true.)
@@ -778,20 +826,6 @@ cc            else
 cc            endif
           else
             call XferBCs(jcnv_0,v0,.true.)
-cc            v0(nnx+1,:,:,:) = 0.5*(jcnv_0(nnx  ,:,:,:)
-cc     .                            +jcnv_0(nnx+1,:,:,:))
-cc            v0(0    ,:,:,:) = 0.5*(jcnv_0(1    ,:,:,:)
-cc     .                            +jcnv_0(0    ,:,:,:))
-cc
-cc            v0(:,nny+1,:,:) = 0.5*(jcnv_0(:,nny  ,:,:)
-cc     .                            +jcnv_0(:,nny+1,:,:))
-cc            v0(:,0    ,:,:) = 0.5*(jcnv_0(:,1    ,:,:)
-cc     .                            +jcnv_0(:,0    ,:,:))
-cc
-cc            v0(:,:,nnz+1,:) = 0.5*(jcnv_0(:,:,nnz  ,:)
-cc     .                            +jcnv_0(:,:,nnz+1,:))
-cc            v0(:,:,0    ,:) = 0.5*(jcnv_0(:,:,1    ,:)
-cc     .                            +jcnv_0(:,:,0    ,:))
           endif
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0
@@ -873,13 +907,17 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-cc#if defined(vec_pot)
-cc          E_ni = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov)
-cc#else
-cc          E_ni = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov)
-cc#endif
+#if defined(vec_pot)
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov,eeta)
+#else
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov,eeta)
+#endif
 
-          E_ni = E_ni - E_ni_0 + di*E_h  !Substract imposed electric field
+          if (di > 0d0) then
+            E_ni = E_ni - E_ni_0 + di*E_h !Substract imposed electric field
+          else
+            E_ni = E_ni - E_ni_0 !Substract imposed electric field
+          endif
 
         case default
           write (*,*) abs(bc_inf(1))
@@ -938,7 +976,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs,bx,by,bz
+      real(8),pointer,dimension(:,:,:) :: rho,tmp,bx,by,bz
 
 c Begin program
 
@@ -982,6 +1020,7 @@ c       Viscosity (needed for BCs; may depend on T)
           nuu =     vis(nnx,nny,nnz,iigx,iigy,iigz)
 #else
           nuu = rho*vis(nnx,nny,nnz,iigx,iigy,iigz)
+cc          nuu = vis(nnx,nny,nnz,iigx,iigy,iigz)
 #endif
         case(IETA)
 
@@ -1103,10 +1142,10 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
 #if defined(vec_pot)
           E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,acov_0)
+     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
 #else
           E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,jcov_0)
+     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVCOV_N)
@@ -1318,12 +1357,10 @@ c       Hall electric field
 c       Ideal+resistive E field
 
 #if defined(vec_pot)
-          E_ni = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov)
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov,eeta)
 #else
-          E_ni = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov)
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov,eeta)
 #endif
-
-cc          E_ni = E_ni  - E_ni_0 + di*E_h  !Done in applyBC
 
         case default
 
