@@ -211,10 +211,14 @@ else
 endif
 
 tests-b: ;
+ifdef SAMR
+	$(MAKE) -e -C tests/samrai test-b
+else
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-b
 else
 	$(MAKE) -e -C tests/serial test-b
+endif
 endif
 
 rebuild-tests-a: ;
