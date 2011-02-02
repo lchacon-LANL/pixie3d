@@ -547,8 +547,8 @@ c     Local variables
 c     Begin program
 
       call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
-cc     .                       ,.false.,.false.,.false.,.false.)
-     .                       ,.false.,.false.,(itime==0),.false.)
+     .                       ,.false.,.false.,.false.,.false.)
+cc     .                       ,.false.,.false.,(itime==0),.false.)
 #else
 
 c     Select offset based on whether we are at the beginning of calculation
