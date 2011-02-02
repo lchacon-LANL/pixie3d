@@ -65,15 +65,7 @@ c Setup pointers
 
 c Set application BC sequence
 
-cc      10/20/2010: I don't think this call is needed, since it seems to be 
-cc      called stand-alone by the SAMRAI driver before this routine
-cc      (and initializeAuxVar below, which also needs it).
-
       call setupVarInitSeq(gv,it)
-
-c Allocate auxiliary variables
-
-      call allocAuxVariables(gv%aux)
 
 c Set boundary conditions
 
@@ -186,6 +178,18 @@ c Local variables
 c Begin program
 
       gv => patch_var
+
+c Define boundary conditions and dependencies
+
+      call defineDepBCs(gv%u_n)
+
+      call defineDepBC_Deps(gv%u_n)
+
+      call defineDepDom_Deps(gv%u_n)
+
+c Allocate auxiliary variables
+
+      call allocAuxVariables(gv%aux)
 
 c Set BC schedule (see imposeBC_mod.F)
 
