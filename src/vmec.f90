@@ -1658,7 +1658,7 @@
 
       integer    :: igrid,nx,ny,nz,alloc_stat,icomp
       integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-      real(8)    :: r1,r2,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
+      real(8)    :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
 
       real(8),allocatable,dimension(:,:,:,:) :: xcar,xc0
 
@@ -1834,7 +1834,7 @@
 !!              v1  = ph1/nfp_i
               v1  = mod(ph1,2*pi/nfp_i)
 
-              !Interpolate
+              !Extrapolate to ghost cell at psi=1 boundary
               if (isBdry(i-1,igrid,2)) then
                  r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
                  r2 =      grid_params%xx(ig-1)
@@ -1847,6 +1847,22 @@
      &                            ,kx,ky,kz,zz_coef,work)                &
      &                     -db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,zz_coef,work)
+!!$                 r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
+!!$                 r2 =      grid_params%xx(ig-1)
+!!$                 r3 =      grid_params%xx(ig-2)
+!!$                 rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,rr_coef,work)                &
+!!$     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,rr_coef,work)                &
+!!$     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,rr_coef,work)
+!!$
+!!$                 zz1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,zz_coef,work)                &
+!!$     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,zz_coef,work)                &
+!!$     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+!!$     &                                ,kx,ky,kz,zz_coef,work)
               else
                  rr1(1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs    &
      &                          ,kx,ky,kz,rr_coef,work)
@@ -2016,7 +2032,7 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam,enf_flx_fn)
+      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2036,8 +2052,6 @@
         real(8) :: gam
         real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
 
-        logical :: enf_flx_fn
-
 !     Local variables
 
         integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
@@ -2047,6 +2061,8 @@
         real(8),allocatable, dimension(:,:,:) :: bsup1,bsup2,bsub3,prsg
 
         integer :: udcon=1111
+
+        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
 
         !SLATEC spline variables
         integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,sorder,alloc_stat
@@ -2180,6 +2196,7 @@
         max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
 
         !Clean flux functions (Tokamak case)
+        enf_flx_fn = (nfp_i > 1)
         if (enf_flx_fn) then
           do k=0,nzg+1
             do i=0,nxg+1

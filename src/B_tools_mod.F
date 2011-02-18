@@ -650,7 +650,7 @@ c     Define BCs for dA
       end where
       where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
 
-      call vector_symm_bc(bcsa,-1)
+      call set_vec_symm_bc(bcsa,-1)
 
 c     Setup solver parameters
 

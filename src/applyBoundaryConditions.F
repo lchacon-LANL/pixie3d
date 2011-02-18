@@ -259,6 +259,15 @@ c Interfaces
         end subroutine preproc_AuxVar
       END INTERFACE
 
+      INTERFACE
+        subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
+          use variable_setup
+          integer    :: iigx,iigy,iigz,bc_inf(2)
+          type(var_array),pointer :: varray
+          type(aux_array),pointer :: vaux
+        end subroutine postproc_AuxVar
+      END INTERFACE
+
 c Begin program
 
       if (PRESENT(obc)) then
@@ -296,6 +305,15 @@ c Impose BCs
      .                        ,iigx,iigy,iigz,order=order)
           endif
         enddo
+
+        !Postprocess auxiliary quantities
+        do i = 1,gv%bc_grp(igrp)%nbc_seq
+          if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then
+            call postproc_AuxVar(gv%bc_grp(igrp)%bc_seq(i,:),varray
+     .                          ,gv%aux,iigx,iigy,iigz)
+          endif
+        enddo
+
       enddo
 
 c End program
@@ -347,11 +365,6 @@ c Select variable
       case(IRHO)
 
 c     Density BCs
-
-        if (bc_inf(2) /= SCALAR) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be scalar (0)')
-        endif
 
         call setBC(IRHO,nnx,nny,nnz
      .            ,varray%array_var(IRHO)%array
@@ -473,11 +486,6 @@ c     Density BCs
 
 c     Temperature BCs
 
-        if (bc_inf(2) /= SCALAR) then
-          call pstop('applyDepVarBC'
-     .              ,'Inconsistent qty def: should be scalar (0)')
-        endif
-
         call setBC(ITMP,nnx,nny,nnz
      .            ,varray%array_var(ITMP)%array
      .            ,u_0   %array_var(ITMP)%array
@@ -529,7 +537,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs,bx,by,bz
+      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs
 
 c Begin program
 
@@ -550,41 +558,36 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-#if defined(RFX)
-          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,psi)
-#else
-          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,tmp)
-#endif
+cc#if defined(RFX)
+cc          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+cc#else
+cc          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,tmp)
+cc#endif
 
         case(INU)
 
-#if defined(RFX)
-          nuu =     vis(nnx,nny,nnz,iigx,iigy,iigz)
-#else
-          nuu = rho*vis(nnx,nny,nnz,iigx,iigy,iigz)
-cc          nuu = vis(nnx,nny,nnz,iigx,iigy,iigz)
-#endif
+cc#if defined(RFX)
+cc          nuu =     vis(nnx,nny,nnz,iigx,iigy,iigz)
+cc#else
+cc          nuu = rho*vis(nnx,nny,nnz,iigx,iigy,iigz)
+cccc          nuu = vis(nnx,nny,nnz,iigx,iigy,iigz)
+cc#endif
 
         case(IETA_0)
 
-#if defined(RFX)
-          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,psi)
-#else
-          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,tmp_0)
-#endif
+cc#if defined(RFX)
+cc          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+cc#else
+cc          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,tmp_0)
+cc#endif
 
         case(IHETA)
 
-          h_eta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
+cc          h_eta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
 
         case(IRHO_0)
 
 c       Density BCs
-
-          if (bc_inf(2) /= SCALAR) then
-            call pstop('applyAuxVarBC'
-     .                ,'Inconsistent qty def: should be scalar (0)')
-          endif
 
           call setBC(IRHO,nnx,nny,nnz,rho_0
      .              ,u_0%array_var(IRHO)%array
@@ -594,11 +597,6 @@ c       Density BCs
         case(ITMP_0)
 
 c       Temperature BCs
-
-          if (bc_inf(2) /= SCALAR) then
-            call pstop('applyAuxVarBC'
-     .                ,'Inconsistent qty def: should be scalar (0)')
-          endif
 
           call setBC(ITMP,nnx,nny,nnz,tmp_0
      .              ,u_0%array_var(ITMP)%array
@@ -685,27 +683,27 @@ cc          call XformVector_BC(iigx,jcnv_0,jcov_0,.false.)
 
         case(IENI_0)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
-#else
-          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
-     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+cc#if defined(vec_pot)
+cc          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
+cc     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
+cc#else
+cc          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
+cc     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
+cc#endif
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) then
-            call XferBCs(vecov,vecov_n,.false.)
-          endif
+cc          if (save_tn.and.(.not.ion_hall)) then
+cc            call XferBCs(vecov,vecov_n,.false.)
+cc          endif
 
         case(IVCOV_N)
 
-          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
+cc          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
 
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
+cc          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
 
         case(IVCNV)
 
@@ -840,14 +838,14 @@ cc          call XformVector_BC(iigx,jcnv,jcov,.false.)
         case(IVECNV)
 
 c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
-
-          vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
-          vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
-          vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+cc
+cc          vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+cc          vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+cc          vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
 
         case(IVECOV)
 
-          call XformVector_BC(iigx,vecnv,vecov,.false.)
+cc          call XformVector_BC(iigx,vecnv,vecov,.false.)
 
         case(IVEFCNV)
 
@@ -860,12 +858,12 @@ c       Fake electron velocity BC: ve=v-di*j*/rho with j*=-dt*curl(curl(E_fake))
      .              ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
 
           !Comment out for old TM Hall performance results
-          vefcnv = vefcnv + jcnv_0
-cc          vefcnv = vefcnv + jcnv_n
-
-          vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
-          vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
-          vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
+cc          vefcnv = vefcnv + jcnv_0
+cccc          vefcnv = vefcnv + jcnv_n
+cc
+cc          vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
+cc          vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
+cc          vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
 
         case(IDIVPI)
 
@@ -908,17 +906,17 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov,eeta)
-#else
-          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov,eeta)
-#endif
-
-          if (di > 0d0) then
-            E_ni = E_ni - E_ni_0 + di*E_h !Substract imposed electric field
-          else
-            E_ni = E_ni - E_ni_0 !Substract imposed electric field
-          endif
+cc#if defined(vec_pot)
+cc          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov,eeta)
+cc#else
+cc          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov,eeta)
+cc#endif
+cc
+cc          if (di > 0d0) then
+cc            E_ni = E_ni - E_ni_0 + di*E_h !Substract imposed electric field
+cc          else
+cc            E_ni = E_ni - E_ni_0 !Substract imposed electric field
+cc          endif
 
         case default
           write (*,*) abs(bc_inf(1))
@@ -977,7 +975,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp,bx,by,bz
+      real(8),pointer,dimension(:,:,:) :: rho,tmp
 
 c Begin program
 
@@ -1240,9 +1238,11 @@ c       Magnetic field BC (with fixed current at boundary)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
-          vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
-          vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
-          vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+          where (rho /= 0d0)
+            vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+            vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+            vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+          end where
 
         case(IVECOV)
 
@@ -1383,3 +1383,234 @@ c       Deallocate variables
 c End
 
       end subroutine preproc_AuxVar
+
+c postproc_AuxVar
+c####################################################################
+      subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
+c--------------------------------------------------------------------
+c     Sets adequate boundary conditions on array structure varray.
+c--------------------------------------------------------------------
+
+      use local_BCS_variables
+
+      use imposeBCinterface
+
+      use auxiliaryVariables
+
+      use variable_setup
+
+      implicit none
+
+c Call variables
+
+      integer :: iigx,iigy,iigz,bc_inf(2)
+
+      type(var_array),pointer :: varray
+      type(aux_array),pointer :: vaux
+
+c Local variables
+
+      integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
+     .          ,ig,jg,kg
+
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+
+      real(8),pointer,dimension(:,:,:) :: rho,tmp
+
+c Begin program
+
+c Local grid sizes
+
+      nnx = grid_params%nxv(iigx) 
+      nny = grid_params%nyv(iigy)
+      nnz = grid_params%nzv(iigz)
+
+      rho => varray%array_var(IRHO)%array
+      tmp => varray%array_var(ITMP)%array
+
+c Select variable
+
+      select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
+      case(SCALAR)
+
+        select case(abs(bc_inf(1)))
+        case(IRHO_0)
+
+        case(ITMP_0)
+
+        case(IETA_0)
+
+c       Resistivity at initial time
+ 
+#if defined(RFX)
+          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+#else
+          eeta_0=res(nnx,nny,nnz,iigx,iigy,iigz,tmp_0)
+#endif
+        case(INU)
+
+c       Viscosity (needed for BCs; may depend on T)
+ 
+#if defined(RFX)
+          nuu =     vis(nnx,nny,nnz,iigx,iigy,iigz)
+#else
+          nuu = rho*vis(nnx,nny,nnz,iigx,iigy,iigz)
+cc          nuu = vis(nnx,nny,nnz,iigx,iigy,iigz)
+#endif
+        case(IETA)
+
+c       Resistivity (needed for BCs; may depend on T)
+ 
+#if defined(RFX)
+          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,psi)
+#else
+          eeta= res(nnx,nny,nnz,iigx,iigy,iigz,tmp)
+#endif
+        case(IHETA)
+
+c       Find hyperresistivity (electron viscosity)
+
+          h_eta=hres(nnx,nny,nnz,iigx,iigy,iigz,bcnv_0,rho_0)
+
+        case default
+          call pstop('applyAuxVarBC'
+     .              ,'Scalar auxiliary variable does not exist')
+        end select
+
+      case(VECTOR)
+
+c       Allocate auxiliary variables in local domain
+
+        select case(abs(bc_inf(1)))
+        case(IVCNV_0)
+
+#if defined(vec_pot)
+        case(IACOV_0)
+#endif
+
+        case(IBCNV_0)
+
+        case(IBCOV_0)
+
+cc          call XformVector_BC(iigx,bcnv_0,bcov_0,.false.)
+
+        case(IJCOV_0)
+
+cc          call XformVector_BC(iigx,jcnv_0,jcov_0,.false.)
+
+        case(IJCNV_0)
+
+        case(IENI_0)
+
+c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
+
+#if defined(vec_pot)
+          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
+     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
+#else
+          E_ni_0 = E_fld_res(nnx,nny,nnz,iigx,iigy,iigz
+     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
+#endif
+
+        case(IVCOV_N)
+
+          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
+
+        case(IVCNV_N)
+
+          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
+
+        case(IVECOV_N)
+
+          if (save_tn.and.(.not.ion_hall)) then
+            call XferBCs(vecov,vecov_n,.false.)
+          endif
+
+        case(IVCOV)
+
+cc          call XformVector_BC(iigx,vcnv,vcov,.false.)
+
+        case(IVCNV)
+
+#if defined(vec_pot)
+
+        case(IACOV)
+
+        case(IACNV)
+
+cc          call XformVector_BC(iigx,acov,acnv,.true.)
+
+#endif
+
+        case(IBCNV)
+
+        case(IBCOV)
+
+cc          call XformVector_BC(iigx,bcnv,bcov,.false.)
+
+        case(IJCOV)
+
+        case(IJCNV)
+
+        case(IVECNV)
+
+c       Electron velocity ve=v-di*j/rho with j=curl(B)
+
+          vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
+          vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
+          vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
+
+        case(IVECOV)
+
+c       Electron velocity ve=v-di*j/rho with j=curl(B)
+
+          call XformVector_BC(iigx,vecnv,vecov,.false.)
+
+        case(IVEFCNV)
+
+c       Fake electron velocity: 
+
+          !Comment out for old TM Hall performance results
+          vefcnv = vefcnv + jcnv_0
+cc          vefcnv = vefcnv + jcnv_n
+
+          vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
+          vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
+          vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
+
+        case(IDIVPI)
+
+        case(IDIVPE)
+
+        case(IEH)
+
+        case(IENI)
+
+c       Ideal+resistive E field
+
+#if defined(vec_pot)
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,acov,eeta)
+#else
+          E_ni=E_fld_res(nnx,nny,nnz,iigx,iigy,iigz,vcnv,bcnv,jcov,eeta)
+#endif
+
+          E_ni = E_ni - E_ni_0  !Substract imposed electric field
+
+          if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
+
+        case default
+
+          if (my_rank == 0) then
+            write (*,*) 'Variable identifier=',abs(bc_inf(1))
+          endif
+
+          call pstop('postproc_AuxVar'
+     .              ,'Vector auxiliary variable does not exist')
+
+        end select
+
+      end select
+
+c End
+
+      end subroutine postproc_AuxVar

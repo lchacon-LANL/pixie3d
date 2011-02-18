@@ -55,17 +55,17 @@ c Begin program
 
 c Postprocess adiabatic equation for density update
 
-      if (adiabatic .and. (.not.solve_rho)) then
-        if (my_rank == 0) write (*,*) 'Postprocessing density'
-cc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-cc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
-cc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-cc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
-        v_arr%array_var(IRHO)%array =
-     .       u_0  %array_var(IRHO)%array
-     .     *(v_arr%array_var(ITMP)%array
-     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
-      endif
+cc      if (adiabatic .and. (.not.solve_rho)) then
+cc        if (my_rank == 0) write (*,*) 'Postprocessing density'
+cccc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+cccc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
+cccc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+cccc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
+cc        v_arr%array_var(IRHO)%array =
+cc     .       u_0  %array_var(IRHO)%array
+cc     .     *(v_arr%array_var(ITMP)%array
+cc     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
+cc      endif
 
 c Divergence-clean magnetic field when PC is on
 

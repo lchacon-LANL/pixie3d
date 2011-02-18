@@ -639,9 +639,13 @@ c       Current sheet thickness (assumes periodic direction in Y)
         !find y*
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-        ystar = grid_params%yy(jg-1)
-     .       - (grid_params%yy(jg)-grid_params%yy(jg-1))
-     .         /(lapjzp-lapjzm)*lapjzm
+        if (lapjzp /= lapjzm) then
+          ystar = grid_params%yy(jg-1)
+     .         - (grid_params%yy(jg)-grid_params%yy(jg-1))
+     .           /(lapjzp-lapjzm)*lapjzm
+        else
+          ystar = 0d0
+        endif
 
         !Compute delta/2 (half-width half-maximum)
         dl = 1.1768*ystar
