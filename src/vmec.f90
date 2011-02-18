@@ -2196,7 +2196,7 @@
         max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
 
         !Clean flux functions (Tokamak case)
-        enf_flx_fn = (nfp_i > 1)
+        enf_flx_fn = (nfp_i == 1)
         if (enf_flx_fn) then
           do k=0,nzg+1
             do i=0,nxg+1
