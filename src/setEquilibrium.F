@@ -6,11 +6,6 @@ c--------------------------------------------------------------------
 c     Set initial conditions for initial value calculation, define
 c     boundary conditions, and label physical quantities.
 c
-c     On call:
-c       * var (output): array with initial conditions for all variables
-c       * bcs (output): array with boundary conditions "   "     "
-c       * label (")   : array with labels              "   "     "
-c
 c     Boundary conditions specification in bcs is defined in routine
 c     applyBoundaryConditions.f. 
 c
@@ -475,9 +470,10 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((.not.adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
+cc        if ((.not.adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
+        if ((.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho=T,1.0,T'
+     .          //'Check solve_rho=T,1.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -587,10 +583,7 @@ c     Tearing mode in sinusoidal coordinates
              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
              jac1 = gmetric%grid(igx)%jac (i,j,k)
 
-             bnorm= vectorNorm(i,j,k,igx,igy,igz
-     .                         ,var(i,j,k,IBX)
-     .                         ,var(i,j,k,IBY)
-     .                         ,var(i,j,k,IBZ),.false.)
+             bnorm= vectorNorm(i,j,k,igx,var(i,j,k,IBX:IBZ),.false.)
 
              ccc = jac1*(bz0**2 - bnorm)
              bbb = gsub(3,2)*var(i,j,k,IBY) + gsub(3,1)*var(i,j,k,IBX)
@@ -857,18 +850,14 @@ c     Island coalescence in cartesian coordinates
 
       case ('ic-hk')  !Homa Karimabadi's equilibrium (use symmetry BCs)
 
-        beta   = grid_params%params(1)
-        eps    = grid_params%params(2)
+        beta   = eq_params(1)
+        eps    = eq_params(2)
 
         dlambda = 0.5/pi !(Ly/4/pi) with Ly=2 in full domain
 
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
-
 c     Check coordinates
 
-        if (coords /= 'car') then
+        if (coords /= 'car'.and.coords /= 'pck'.and.coords /= 'scl')then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -895,9 +884,27 @@ c     Island coalescence in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
         var(:,:,:,IBX:IBZ) = curl(igx,a)
+
+cc        do k = klo,khi
+cc          do j = jlo,jhi
+cc            do i = ilo,ihi
+cc             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                   ,x1,y1,z1)
+cc
+cc             var(i,j,k,IBX)=eps
+cc     .                     *sin (y1/dlambda)/(     cosh(x1/dlambda)
+cc     .                                        +eps*cos (y1/dlambda))
+cc             var(i,j,k,IBY)=sinh(x1/dlambda)/(     cosh(x1/dlambda)
+cc     .                                        +eps*cos (y1/dlambda))
+cc             var(:,:,:,IBZ) = 0d0
+cc            enddo
+cc          enddo
+cc        enddo
+cc        call XformVector(igx,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
-        var(:,:,:,IAX:IAZ) = a
+        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
 #endif
 
 c     ------------------------------------------------
@@ -1723,7 +1730,7 @@ c     Read VMEC equilibrium
      .                            ,var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ)
      .                            ,var(:,:,:,ITMP)
-     .                            ,var(:,:,:,IRHO),gamma,.true.)
+     .                            ,var(:,:,:,IRHO),gamma)
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 
@@ -5330,7 +5337,7 @@ c Begin program
 
       case ('ic-hk')
 
-        eps = grid_params%params(2)
+        eps = eq_params(2)
         dlambda = 0.5/pi !(Ly/4/pi)
 
         do k = klom,khip
@@ -5364,6 +5371,10 @@ c Begin program
         enddo
 
       end select
+
+c Transform to Covariant
+
+      call XformVector(iigx,a,'car','cov')
 
 c Set boundary values to face values for EQU BC
 
