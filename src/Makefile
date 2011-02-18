@@ -181,8 +181,7 @@ setup: ;
 
 $(OBJMOD): $(COMMON_MODS)
 $(OBJ):    $(MODS) $(COMMON_MODS)
-#$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
-#imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F] 
+postProcessSolution.o: diagnostics.o
 
 #Define patterns
 
