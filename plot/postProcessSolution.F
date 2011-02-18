@@ -238,53 +238,36 @@ c Velocity and current intrinsic components (wrt B)
      .                                    ,x1,y1,z1)
 
             !V_parallel
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                            ,bcnv(i,j,k,1)
-     .                            ,bcnv(i,j,k,2)
-     .                            ,bcnv(i,j,k,3),.false.))
+            norm = sqrt(vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.))
 
             if (norm == 0d0) then
               vpar(i,j,k) = 0d0
             else
-              vpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
-     .                     ,vcnv(i,j,k,1),vcnv(i,j,k,2),vcnv(i,j,k,3))
-     .                     /norm
+              vpar(i,j,k) = scalarProduct(i,j,k,igx,bcov(i,j,k,:)
+     .                                   ,vcnv(i,j,k,:))/norm
             endif
 
             !V.grad(psi)/|grad(psi)|
             cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                             ,cov(1),cov(2),cov(3),.true.))
+            norm = sqrt(vectorNorm(i,j,k,igx,cov,.true.))
 
             if (norm == 0d0) then
               vpsi(i,j,k) = 0d0
             else
-              vpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                     ,cov(1),cov(2),cov(3)
-     .                     ,vcnv(i,j,k,1),vcnv(i,j,k,2),vcnv(i,j,k,3))
-     .                     /norm
+              vpsi(i,j,k) = scalarProduct(i,j,k,igx,cov
+     .                                   ,vcnv(i,j,k,:))/norm
             endif
-cc            vpsi(i,j,k) = cov(1)
 
             !V.(b x grad(psi))/|(b x grad(psi))|
-            cnv(1) = bcov(i,j,k,2)*cov(3)
-     .              -bcov(i,j,k,3)*cov(2)
-            cnv(2) = bcov(i,j,k,3)*cov(1)
-     .              -bcov(i,j,k,1)*cov(3)
-            cnv(3) = bcov(i,j,k,1)*cov(2)
-     .              -bcov(i,j,k,2)*cov(1)
+            cnv = crossProduct(i,j,k,igx,bcov(i,j,k,:),cov,.false.)
 
-            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-     .                            ,cnv(1),cnv(2),cnv(3),.false.))
+            norm = sqrt(vectorNorm(i,j,k,igx,cnv,.false.))
 
             if (norm == 0d0) then
               vperp(i,j,k) = 0d0
             else
-              vperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-     .                       ,vcov(i,j,k,1),vcov(i,j,k,2),vcov(i,j,k,3)
-     .                       ,cnv(1),cnv(2),cnv(3))
-     .                       /norm
+              vperp(i,j,k) = scalarProduct(i,j,k,igx
+     .                                    ,vcov(i,j,k,:),cnv)/norm
             endif
             
 cc            !J_parallel
@@ -512,13 +495,9 @@ cc                q00(i,1) = q00(i,1)
 cc     .                + bcnv(i,j,k,3)/RR
 cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
              l00(i,1) = l00(i,1)
-     .                + scalarProduct(i,j,k,igx,igy,igz
-     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
-     .                       ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))
-     .                  /vectorNorm(i,j,k,igx,igy,igz
-     .                             ,bcnv(i,j,k,1)
-     .                             ,bcnv(i,j,k,2)
-     .                             ,bcnv(i,j,k,3),.false.)
+     .                + scalarProduct(i,j,k,igx,jcov(i,j,k,:)
+     .                               ,bcnv(i,j,k,:))
+     .                  /vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
      .                 *dv
 
              ll = ll + dv
