@@ -42,9 +42,12 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      vx_max = maxval(abs(varr%array_var(IVX)%array))
-      vy_max = maxval(abs(varr%array_var(IVY)%array))
-      vz_max = maxval(abs(varr%array_var(IVZ)%array))
+      vx_max = maxval(abs(varr%array_var(IVX )%array
+     .                   /varr%array_var(IRHO)%array))
+      vy_max = maxval(abs(varr%array_var(IVY )%array
+     .                   /varr%array_var(IRHO)%array))
+      vz_max = maxval(abs(varr%array_var(IVZ )%array
+     .                   /varr%array_var(IRHO)%array))
 
       vmax = (/ vx_max,vy_max,vz_max /)
 
@@ -211,7 +214,7 @@ c     Warnings
       if (.not.solenoidal)
      .     write (*,*) 'Using non-solenoidal version'
       if (.not.solve_rho)
-     .     write (*,*) 'Not solving for density: rho = 1'
+     .     write (*,*) 'Not solving for density'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
       if (ion_hall .and. (di > 0d0))
