@@ -1082,7 +1082,6 @@ c     Begin program
 
       end subroutine perturbEquilibrium
 
-
 c     icfl
 c     ##########################################################
       function icfl(cs2,ca2,k2,k2par,di) result(root)

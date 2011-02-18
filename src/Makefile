@@ -71,7 +71,7 @@ ifdef SAMR
 #   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleInjectionCoarsen.o
 #   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/fortran/
    LDFLAGS += -L${PETSC_DIR}/${PETSC_ARCH}/lib 
-#   LDLIBS  += -lflapack -lfblas
+   LDLIBS  += -lflapack -lfblas
 
   SRC2      = $(SRC)
   EXCLUDE  += %explicit.F

@@ -24,8 +24,6 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
-cc      use local_BCS_variables, ONLY: lag_pinch_bc
-
       implicit none
 
 c Call variables
@@ -36,7 +34,7 @@ c Local variables
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
-      type(dim_pack):: gp1,gp2,gp3
+      type(grid_pack):: gp1,gp2,gp3
 
       logical       :: nc_eom_f
 
@@ -59,7 +57,7 @@ c Namelists
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
-     .                   ,chk_src
+     .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                ,pc_type,pc_tol,pc_max_iter,pc_asm,pc_debug
@@ -86,6 +84,7 @@ c Namelists
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
+     .                   ,eq_params
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -141,8 +140,7 @@ c Set defaults
       ymin     = 0d0           ! Length in y-direction
       zmin     = 0d0           ! Length in z-direction
 
-      gparams  = 0d0           ! Array with additional grid parameters
-                               ! (grid-dependent; see setEquilibrium.F)
+      gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
 
       numerical_grid = .false. ! Whether grid metrics are calculated numerically (.true.)
                                !   or analytically.
@@ -283,7 +281,7 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
 
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
-cc      eq_params= 0d0           ! Equilibrium parameters (see      "       )
+      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       dlambda  = .2            ! Characteristic equilibrium scale length
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
@@ -427,9 +425,9 @@ c Find alpha_p=p_t/p_e; p_t=p_i+p_e
 
 c Initialize grid packing structure
 
-      g_pack%dim(1) = gp1
-      g_pack%dim(2) = gp2
-      g_pack%dim(3) = gp3
+      g_pack(1) = gp1
+      g_pack(2) = gp2
+      g_pack(3) = gp3
 
 c Consistency check
 
@@ -441,6 +439,9 @@ cc      if (precon == 'id') iguess = 0
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
+
+      !NC EOM for non-cartesian geometry
+      if (coords /= 'car') nc_eom_f = .true.
 
       !Non-conservative EOM
       if (nc_eom_f) then

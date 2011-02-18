@@ -106,7 +106,7 @@ c     Default boundary conditions
       endif
       bbcs(:,IVZ) = bcsq
 
-      call vector_symm_bc(bbcs(:,IVX:IVZ),-1)
+      call set_vec_symm_bc(bbcs(:,IVX:IVZ),-1)
 
 #if !defined(vec_pot)
       bcsq = bbcs(:,IBX)
@@ -121,7 +121,7 @@ c     Default boundary conditions
       where (bcsq == DEF) bcsq = -NEU  !On covariant components
       bbcs(:,IBZ) = bcsq
 
-      call vector_symm_bc(bbcs(:,IBX:IBZ),1)
+      call set_vec_symm_bc(bbcs(:,IBX:IBZ),1)
 #else
       bcsq = bbcs(:,IAX)
       where (bcsq == DEF) bcsq = DIR   !On contravariant components
@@ -135,7 +135,7 @@ c     Default boundary conditions
       where (bcsq == DEF) bcsq = -EQU  !On covariant components
       bbcs(:,IAZ) = bcsq
 
-      call vector_symm_bc(bbcs(:,IAX:IAZ),-1)
+      call set_vec_symm_bc(bbcs(:,IAX:IAZ),-1)
 #endif
 
       bcsq = bbcs(:,ITMP)
@@ -525,7 +525,7 @@ c     Local variables
 
       integer :: ierr,offset=0,igr
 
-#if 1
+#if !defined(petsc)
       INTERFACE
         subroutine create_bc_schedule(u,aux,nbc_grp,bc_grp,
      &            inherit,interior_only,print_used,reverse)
@@ -1373,230 +1373,23 @@ c     Begin program
       select case (ieq)
       case (IVX,IVY,IVZ)
 
-        call extrapolateBC(array(:,:,:,ivar),array0(:,:,:,ivar)
+        call extrapolateBC(array (:,:,:,ivar)
+     .                    ,array0(:,:,:,ivar)
 cc     .                    ,dim,loc,order)
      .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IBX,IBY,IBZ,IJX,IJY,IJZ)
 
-        if (ivar /= dim .or. bcSYM(ibc)) then
+cc        if (ivar /= dim .or. bcSYM(ibc)) then
+        if (ivar /= dim) then
 
-          call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
+          call extrapolateBC(array (:,:,:,ivar)
+     .                      ,array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
         else  !Imposes divergence-free constraint on B, J
 
-          call findBCLoopLimits(dim,loc
-     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
-
-          select case (ibc)
-          case (1)
- 
-            i = 1
-
-            array(i-1,:,:,dim) = array(i+1,:,:,dim)  !To cancel normal derivative
-
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver=jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                   ,hey=hey,hez=hez)
-
-                array(i-1,j,k,dim) = array(i+1,j,k,dim) + dh(dim)*diver
-
-              enddo
-            enddo
- 
-          case (2)
-
-            i = nxbc
-
-            array(i+1,:,:,dim) = array(i-1,:,:,dim)  !To cancel normal derivative
-
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hey=hey,hez=hez)
-
-                array(i+1,j,k,dim) = array(i-1,j,k,dim) - dh(dim)*diver
-
-              enddo
-            enddo
-
-          case (3)
-
-            j = 1
-
-            array(:,j-1,:,dim) = array(:,j+1,:,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hez=hez)
-
-                array(i,j-1,k,dim) = array(i,j+1,k,dim) + dh(dim)*diver
-                  
-              enddo
-            enddo
-
-          case (4)
-
-            j = nybc
-
-            array(:,j+1,:,dim) = array(:,j-1,:,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hez=hez)
-
-                array(i,j+1,k,dim) = array(i,j-1,k,dim) - dh(dim)*diver
-                  
-              enddo
-            enddo
-
-          case (5)
-
-            k = 1
-
-            array(:,:,k-1,dim) = array(:,:,k+1,dim)   !To cancel normal derivative
-
-            do i=imin,imax
-              do j=jmin,jmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey)
-
-                array(i,j,k-1,dim) = array(i,j,k+1,dim) + dh(dim)*diver
-
-              enddo
-            enddo
-
-          case (6)
-
-            k = nzbc
-
-            array(:,:,k+1,dim) = array(:,:,k-1,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do j=jmin,jmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = 2.*grid_params%dxh(ig)
-                dh(2) = 2.*grid_params%dyh(jg)
-                dh(3) = 2.*grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey)
-
-                array(i,j,k+1,dim) = array(i,j,k-1,dim) - dh(dim)*diver
-
-              enddo
-            enddo
-
-          case default
-
-            messg = 'Boundary'//int2char(ibc)//' non existent'
-            call pstop('vectorDirichletBC',messg)
-
-          end select
+          call solen_bc(array,dim,loc,.false.)
 
         endif
 
@@ -1604,222 +1397,13 @@ cc     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
 
         if (ivar /= dim) then
 
-          call extrapolateBC(array (:,:,:,ivar),array0(:,:,:,ivar)
+          call extrapolateBC(array (:,:,:,ivar)
+     .                      ,array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
         else  !Imposes divergence-free constraint on B, J
 
-          call findBCLoopLimits(dim,loc
-cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-     .                         ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
-
-          select case (ibc)
-          case (1)
- 
-            i = 1
-
-            array(i-1,:,:,dim) = array(i+1,:,:,dim)  !To cancel normal derivative
-
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)  !<=== Different from above
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver=jac0
-     .               *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                   ,hey=hey,hez=hez)
-
-                array(i-1,j,k,dim) = array(i,j,k,dim) + dh(dim)*diver  !<=== Different from above
-
-              enddo
-            enddo
- 
-          case (2)
-
-            i = nxbc
-
-            array(i+1,:,:,dim) = array(i-1,:,:,dim)  !To cancel normal derivative
-
-            do j=jmin,jmax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hey=hey,hez=hez)
-
-                array(i+1,j,k,dim) = array(i,j,k,dim) - dh(dim)*diver
-
-              enddo
-            enddo
-
-          case (3)
-
-            j = 1
-
-            array(:,j-1,:,dim) = array(:,j+1,:,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hez=hez)
-
-                array(i,j-1,k,dim) = array(i,j,k,dim) + dh(dim)*diver
-                  
-              enddo
-            enddo
-
-          case (4)
-
-            j = nybc
-
-            array(:,j+1,:,dim) = array(:,j-1,:,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do k=kmin,kmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hez = 0
-                if (k < 1   ) hez =  1
-                if (k > nzbc) hez = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hez=hez)
-
-                array(i,j+1,k,dim) = array(i,j,k,dim) - dh(dim)*diver
-                  
-              enddo
-            enddo
-
-          case (5)
-
-            k = 1
-
-            array(:,:,k-1,dim) = array(:,:,k+1,dim)   !To cancel normal derivative
-
-            do i=imin,imax
-              do j=jmin,jmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey)
-
-                array(i,j,k-1,dim) = array(i,j,k,dim) + dh(dim)*diver
-
-              enddo
-            enddo
-
-          case (6)
-
-            k = nzbc
-
-            array(:,:,k+1,dim) = array(:,:,k-1,dim)  !To cancel normal derivative
-
-            do i=imin,imax
-              do j=jmin,jmax
-
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-                jac0 = gmetric%grid(igxbc)%jac(i,j,k)
-
-                dh(1) = grid_params%dxh(ig)
-                dh(2) = grid_params%dyh(jg)
-                dh(3) = grid_params%dzh(kg)
-
-                hex = 0
-                if (i < 1   ) hex =  1
-                if (i > nxbc) hex = -1
-
-                hey = 0
-                if (j < 1   ) hey =  1
-                if (j > nybc) hey = -1
-
-                diver =jac0
-     .                *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey)
-
-                array(i,j,k+1,dim) = array(i,j,k,dim) - dh(dim)*diver
-
-              enddo
-            enddo
-
-          case default
-
-            messg = 'Boundary'//int2char(ibc)//' non existent'
-            call pstop('vectorDirichletBC',messg)
-
-          end select
+          call solen_bc(array,dim,loc,.true.)
 
         endif
 
@@ -2260,9 +1844,9 @@ c     Local variables
 
       integer :: imax,imin,jmax,jmin,kmax,kmin,offset
       integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,ibc,icomp,isgn
-     .          ,igp,igm,jgp,jgm,kgp,kgm,i1,j1,k1
+     .          ,igp,igm,jgp,jgm,kgp,kgm,i1,j1,k1,hex,hey,hez
       real(8) :: x1,x2,x3,dh(3),jac0,ee,alp,vec(3),cnv(3)
-     .          ,cov(3),J0(3),bnorm,jn,etal,B00(3)
+     .          ,cov(3),J0(3),bnorm,jn,etal,B00(3),diver
       real(8) :: gsuper(3,3),hessian(3,3,3)
      .          ,gsupip(3,3),gsupim(3,3)
      .          ,gsupjp(3,3),gsupjm(3,3)
@@ -2297,9 +1881,10 @@ c     Begin program
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
-      case (IVX,IVY,IVZ,IJX,IJY,IJZ,IAX,IAY,IAZ) !Velocity components, J and A components (for symmetry BCs)
+      case (IVX,IVY,IVZ) !Velocity components, J and A components (for symmetry BCs)
 
-        if (coords /= 'car') then
+cc        if (coords/='car' .and. coords/='scl' .and. coords/='pck') then
+        if (coords/='car') then
 
           call findBCLoopLimits(dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
@@ -2314,25 +1899,6 @@ c     Begin program
                 gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 
                 hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
-
-cc                ip = min(i+1,nxbc)
-cc                im = max(i-1,1   )
-cc                jp = min(j+1,nybc)
-cc                jm = max(j-1,1   )
-cc                kp = min(k+1,nzbc)
-cc                km = max(k-1,1   )
-cc
-cc                dh(1) = 2.*grid_params%dxh(ig)
-cc                if (i == nxbc) dh(1) = grid_params%dx(ig-1)
-cc                if (i == 1   ) dh(1) = grid_params%dx(ig)
-cc
-cc                dh(2) = 2.*grid_params%dyh(jg)
-cc                if (j == nybc) dh(2) = grid_params%dy(jg-1)
-cc                if (j == 1   ) dh(2) = grid_params%dy(jg)
-cc
-cc                dh(3) = 2.*grid_params%dzh(kg)
-cc                if (k == nzbc) dh(3) = grid_params%dz(kg-1)
-cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
 
                 ip = i+1
                 im = i-1
@@ -2465,9 +2031,98 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
 
         endif
 
+        select case (ibc)
+        case (1)
+          array(0     ,jmin:jmax,kmin:kmax,ivar)
+     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
+     $                     - rhs(jmin:jmax,kmin:kmax)
+        case (2)
+          array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
+     $                     = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
+     $                     + rhs(jmin:jmax,kmin:kmax)
+        case (3)
+          array(imin:imax,0     ,kmin:kmax,ivar)
+     $                     = array(imin:imax,1+offset,kmin:kmax,ivar)
+     $                     - rhs(imin:imax,kmin:kmax)
+        case (4)
+          array(imin:imax,nybc+1,kmin:kmax,ivar)
+     $                     = array(imin:imax,nybc-offset,kmin:kmax,ivar)
+     $                     + rhs(imin:imax,kmin:kmax)
+        case (5)
+          array(imin:imax,jmin:jmax,0     ,ivar)
+     $                     = array(imin:imax,jmin:jmax,1+offset,ivar)
+     $                     - rhs(imin:imax,jmin:jmax)
+        case (6)
+          array(imin:imax,jmin:jmax,nzbc+1,ivar)
+     $                     = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
+     $                     + rhs(imin:imax,jmin:jmax)
+        end select
+
+      case (IJX,IJY,IJZ) !J components (for symmetry BCs)
+
+        if (ivar /= dim) then
+
+          select case (ibc)
+          case (1)
+            array(0     ,jmin:jmax,kmin:kmax,ivar)
+     $                    = array(1+offset,jmin:jmax,kmin:kmax,ivar)
+          case (2)
+            array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
+     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
+          case (3)
+            array(imin:imax,0     ,kmin:kmax,ivar)
+     $                    = array(imin:imax,1+offset,kmin:kmax,ivar)
+          case (4)
+            array(imin:imax,nybc+1,kmin:kmax,ivar)
+     $                    = array(imin:imax,nybc-offset,kmin:kmax,ivar)
+          case (5)
+            array(imin:imax,jmin:jmax,0     ,ivar)
+     $                    = array(imin:imax,jmin:jmax,1+offset,ivar)
+          case (6)
+            array(imin:imax,jmin:jmax,nzbc+1,ivar)
+     $                    = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
+          end select
+
+        else  !Imposes divergence-free constraint on J
+
+          call solen_BC(array,dim,loc,.false.)
+
+        endif
+
+      case (IAX,IAY,IAZ) !A components (for symmetry BCs)
+
+cc        if (ivar /= dim) then
+
+          select case (ibc)
+          case (1)
+            array(0     ,jmin:jmax,kmin:kmax,ivar)
+     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
+          case (2)
+            array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
+     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
+          case (3)
+            array(imin:imax,0     ,kmin:kmax,ivar)
+     $                    = array(imin:imax,1+offset,kmin:kmax,ivar)
+          case (4)
+            array(imin:imax,nybc+1,kmin:kmax,ivar)
+     $                    = array(imin:imax,nybc-offset,kmin:kmax,ivar)
+          case (5)
+            array(imin:imax,jmin:jmax,0     ,ivar)
+     $                    = array(imin:imax,jmin:jmax,1+offset,ivar)
+          case (6)
+            array(imin:imax,jmin:jmax,nzbc+1,ivar)
+     $                    = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
+          end select
+
+cc        else  !Imposes divergence-free constraint on A
+cc
+cc          call solen_BC(array,dim,loc,.true.)
+cc
+cc        endif
+
       case (IBX,IBY,IBZ) 
 
-        if (ivar /= dim) then !Not symmetry BC
+        if (ivar /= dim) then
 
           call findBCLoopLimits(dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
@@ -2486,25 +2141,6 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
                 gsupjm = gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
                 gsupkp = gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
                 gsupkm = gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
-
-cc                ip = min(i+1,nxbc)
-cc                im = max(i-1,1   )
-cc                jp = min(j+1,nybc)
-cc                jm = max(j-1,1   )
-cc                kp = min(k+1,nzbc)
-cc                km = max(k-1,1   )
-cc
-cc                dh(1) = 2.*grid_params%dxh(ig)
-cc                if (i == nxbc) dh(1) = grid_params%dx(ig-1)
-cc                if (i == 1   ) dh(1) = grid_params%dx(ig)
-cc
-cc                dh(2) = 2.*grid_params%dyh(jg)
-cc                if (j == nybc) dh(2) = grid_params%dy(jg-1)
-cc                if (j == 1   ) dh(2) = grid_params%dy(jg)
-cc
-cc                dh(3) = 2.*grid_params%dzh(kg)
-cc                if (k == nzbc) dh(3) = grid_params%dz(kg-1)
-cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
 
                 ip = i+1
                 im = i-1
@@ -2569,23 +2205,11 @@ cc                if (k == 1   ) dh(3) = grid_params%dz(kg)
      .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
                   endif
 
-                  !!!!!!!Finite flow at wall!!!!!!!
-cc                  if (pinch_flow) then
-cc
-cc                    ee = array0(i+1,j,k,icomp)
-cc
-cc                  !!!!!!!Finite current at wall!!!!!!!
-cc                  else
-                    if (ibc == 1) then
-                      ee = array0(i-1,j,k,icomp)
-cc                      ee = 0.5*(array0(i-1,j,k,icomp)
-cc     .                         +array0(i  ,j,k,icomp))
-                    elseif (ibc == 2) then
-                      ee = array0(i+1,j,k,icomp)
-cc                      ee = 0.5*(array0(i+1,j,k,icomp)
-cc     .                         +array0(i  ,j,k,icomp))
-                    endif
-cc                  endif
+                  if (ibc == 1) then
+                    ee = array0(i-1,j,k,icomp)
+                  elseif (ibc == 2) then
+                    ee = array0(i+1,j,k,icomp)
+                  endif
 
                   rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
 
@@ -2618,12 +2242,8 @@ cc                  endif
 
                   if (ibc == 3) then
                     ee = array0(i,j-1,k,icomp)
-cc                    ee = 0.5*(array0(i,j-1,k,icomp)
-cc     .                       +array0(i,j  ,k,icomp))
                   elseif (ibc == 4) then
                     ee = array0(i,j+1,k,icomp)
-cc                    ee = 0.5*(array0(i,j+1,k,icomp)
-cc     .                       +array0(i,j  ,k,icomp))
                   endif
  
                   rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
@@ -2657,12 +2277,8 @@ cc     .                       +array0(i,j  ,k,icomp))
 
                   if (ibc == 5) then
                     ee = array0(i,j,k-1,icomp)
-cc                    ee = 0.5*(array0(i,j,k-1,icomp)
-cc     .                       +array0(i,j,k  ,icomp))
                   elseif (ibc == 6) then
                     ee = array0(i,j,k+1,icomp)
-cc                    ee = 0.5*(array0(i,j,k+1,icomp)
-cc     .                       +array0(i,j,k  ,icomp))
                   endif
 
                   rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
@@ -2672,6 +2288,37 @@ cc     .                       +array0(i,j,k  ,icomp))
               enddo
             enddo
           enddo
+
+          select case (ibc)
+          case (1)
+            array(0     ,jmin:jmax,kmin:kmax,ivar)
+     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
+     $                     - rhs(jmin:jmax,kmin:kmax)
+          case (2)
+            array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
+     $                     = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
+     $                     + rhs(jmin:jmax,kmin:kmax)
+          case (3)
+            array(imin:imax,0     ,kmin:kmax,ivar)
+     $                     = array(imin:imax,1+offset,kmin:kmax,ivar)
+     $                     - rhs(imin:imax,kmin:kmax)
+          case (4)
+            array(imin:imax,nybc+1,kmin:kmax,ivar)
+     $                     = array(imin:imax,nybc-offset,kmin:kmax,ivar)
+     $                     + rhs(imin:imax,kmin:kmax)
+          case (5)
+            array(imin:imax,jmin:jmax,0     ,ivar)
+     $                     = array(imin:imax,jmin:jmax,1+offset,ivar)
+     $                     - rhs(imin:imax,jmin:jmax)
+          case (6)
+            array(imin:imax,jmin:jmax,nzbc+1,ivar)
+     $                     = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
+     $                     + rhs(imin:imax,jmin:jmax)
+          end select
+
+        else  !Imposes divergence-free constraint on B
+
+          call solen_BC(array,dim,loc,.false.)
 
         endif
 
@@ -2683,33 +2330,6 @@ cc     .                       +array0(i,j,k  ,icomp))
       end select
 
 c     Assign value
-
-      select case (ibc)
-      case (1)
-        array(0     ,jmin:jmax,kmin:kmax,ivar)
-     $                    = array(1+offset,jmin:jmax,kmin:kmax,ivar)
-     $                    - rhs(jmin:jmax,kmin:kmax)
-      case (2)
-        array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
-     $                    = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
-     $                    + rhs(jmin:jmax,kmin:kmax)
-      case (3)
-        array(imin:imax,0     ,kmin:kmax,ivar)
-     $                    = array(imin:imax,1+offset,kmin:kmax,ivar)
-     $                    - rhs(imin:imax,kmin:kmax)
-      case (4)
-        array(imin:imax,nybc+1,kmin:kmax,ivar)
-     $                    = array(imin:imax,nybc-offset,kmin:kmax,ivar)
-     $                    + rhs(imin:imax,kmin:kmax)
-      case (5)
-        array(imin:imax,jmin:jmax,0     ,ivar)
-     $                    = array(imin:imax,jmin:jmax,1+offset,ivar)
-     $                    - rhs(imin:imax,jmin:jmax)
-      case (6)
-        array(imin:imax,jmin:jmax,nzbc+1,ivar)
-     $                    = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
-     $                    + rhs(imin:imax,jmin:jmax)
-      end select
 
       deallocate(rhs)
 
@@ -2724,24 +2344,24 @@ c######################################################################
 
       use variable_setup, only: var_array,aux_array,bcgrp
 
-      INTERFACE
-         function get_dep_index(dep_var,n_var)
-            INTEGER :: get_dep_index
-            INTEGER, INTENT(IN) :: dep_var(3)
-            INTEGER, INTENT(IN) :: n_var(4)
-         end function get_dep_index
-         function check_dep_list(N,dep_list)
-            INTEGER :: check_dep_list
-            INTEGER :: dep_list(N,3)
-            INTEGER i, j, N
-         end function check_dep_list
-         subroutine print_var_name(u,aux,k)
-            use variable_setup, only: var_array, aux_array
-            type(var_array) :: u
-            type(aux_array) :: aux
-            integer k
-         end subroutine print_var_name
-       END INTERFACE
+cc      INTERFACE
+cc         function get_dep_index(dep_var,n_var)
+cc            INTEGER :: get_dep_index
+cc            INTEGER, INTENT(IN) :: dep_var(3)
+cc            INTEGER, INTENT(IN) :: n_var(4)
+cc         end function get_dep_index
+cc         function check_dep_list(N,dep_list)
+cc            INTEGER :: check_dep_list
+cc            INTEGER :: dep_list(N,3)
+cc            INTEGER i, j, N
+cc         end function check_dep_list
+cc         subroutine print_var_name(u,aux,k)
+cc            use variable_setup, only: var_array, aux_array
+cc            type(var_array) :: u
+cc            type(aux_array) :: aux
+cc            integer k
+cc         end subroutine print_var_name
+cc       END INTERFACE
  
 c     Input variables
       type(var_array) :: u                  ! We need nvar, bc_dep_list, dom_dep_list, descr for each variable
@@ -3324,15 +2944,18 @@ c     Free temporary memory
       deallocate ( tot_dep )
       deallocate ( n_seq )
       deallocate ( bc_groups )
-      
-      end subroutine create_bc_schedule
 
-c check_dep_list
-c######################################################################
+      contains
+
+c     check_dep_list
+c     ################################################################
       integer function check_dep_list(N,dep_list)
+
       implicit none
+
       INTEGER :: dep_list(N,3)
       INTEGER i, j, N
+
       check_dep_list = 0
       i = 1
       do while ( dep_list(i,1).ne.0 ) 
@@ -3356,11 +2979,12 @@ c######################################################################
 
       end function check_dep_list
 
+c     get_dep_index
+c     ################################################################
+      function get_dep_index(dep_var,n_var)
 
-c get_dep_index
-c######################################################################
-      integer function get_dep_index(dep_var,n_var)
       implicit none
+
       INTEGER :: get_dep_index
       INTEGER, INTENT(IN) :: dep_var(3)
       INTEGER, INTENT(IN) :: n_var(4)
@@ -3384,11 +3008,12 @@ c        Bad case
       endif
       end function get_dep_index
 
-
-c print_var_name
-c######################################################################
+c     print_var_name
+c     ################################################################
       subroutine print_var_name(u,aux,k)
+
       use variable_setup, only: var_array, aux_array
+
       implicit none
       type(var_array) :: u
       type(aux_array) :: aux
@@ -3409,9 +3034,7 @@ c######################################################################
       endif
       end subroutine print_var_name
 
-
 c     pstop
-cc#if defined(samrai)
 c     ################################################################
       subroutine pstop(routine,message)
 
@@ -3434,5 +3057,256 @@ c     Begin program
         stop
 
       end subroutine pstop
-cc#endif
 
+      end subroutine create_bc_schedule
+
+c solen_BC
+c #####################################################################
+      subroutine solen_BC(array,dim,loc,face)
+c ---------------------------------------------------------------------
+c     Imposes dirichlet BC. On input:
+c        * array -> contains vector
+c        * dim   -> dimension we are imposing BC on (X,Y,Z)
+c        * loc   -> boundary location (0 -> left, 1->right)
+c ---------------------------------------------------------------------
+        
+      use local_BCS_variables
+
+      implicit none
+
+c     Call variables
+
+      integer :: dim,loc
+      real(8) :: array(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
+      logical :: face
+
+c     Local variables
+
+      integer :: imax,imin,jmax,jmin,kmax,kmin,offset
+      integer :: i,j,k,ig,jg,kg,ibc,hex,hey,hez
+      real(8) :: x1,x2,x3,dh(3),diver,coeff,gsuper(3,3),jac0
+
+c     Begin program
+
+      ibc = (1+loc)+2*(dim-1)
+
+      if (face) then
+        offset= 0
+        coeff = 1d0
+      else
+        offset= 1
+        coeff = 2d0
+      endif
+
+      call findBCLoopLimits(dim,loc
+     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
+
+      select case (ibc)
+      case (1)
+ 
+        i = 1
+
+        array(i-1,:,:,dim) = array(i+1,:,:,dim)  !To cancel normal derivative
+
+        do j=jmin,jmax
+          do k=kmin,kmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hey = 0
+            if (j < 1   ) hey =  1
+            if (j > nybc) hey = -1
+
+            hez = 0
+            if (k < 1   ) hez =  1
+            if (k > nzbc) hez = -1
+
+            diver=jac0
+     .           *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .               ,hey=hey,hez=hez)
+
+            array(i-1,j,k,dim) = array(i+offset,j,k,dim) + dh(dim)*diver
+
+          enddo
+        enddo
+ 
+      case (2)
+
+        i = nxbc
+
+        array(i+1,:,:,dim) = array(i-1,:,:,dim)  !To cancel normal derivative
+
+        do j=jmin,jmax
+          do k=kmin,kmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hey = 0
+            if (j < 1   ) hey =  1
+            if (j > nybc) hey = -1
+
+            hez = 0
+            if (k < 1   ) hez =  1
+            if (k > nzbc) hez = -1
+
+            diver =jac0
+     .            *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                ,hey=hey,hez=hez)
+
+            array(i+1,j,k,dim) = array(i-offset,j,k,dim) - dh(dim)*diver
+
+          enddo
+        enddo
+
+      case (3)
+
+        j = 1
+
+        array(:,j-1,:,dim) = array(:,j+1,:,dim)  !To cancel normal derivative
+
+        do i=imin,imax
+          do k=kmin,kmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hex = 0
+            if (i < 1   ) hex =  1
+            if (i > nxbc) hex = -1
+
+            hez = 0
+            if (k < 1   ) hez =  1
+            if (k > nzbc) hez = -1
+
+            diver =jac0
+     .            *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                ,hex=hex,hez=hez)
+
+            array(i,j-1,k,dim) = array(i,j+offset,k,dim) + dh(dim)*diver
+              
+          enddo
+        enddo
+
+      case (4)
+
+        j = nybc
+
+        array(:,j+1,:,dim) = array(:,j-1,:,dim)  !To cancel normal derivative
+
+        do i=imin,imax
+          do k=kmin,kmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hex = 0
+            if (i < 1   ) hex =  1
+            if (i > nxbc) hex = -1
+
+            hez = 0
+            if (k < 1   ) hez =  1
+            if (k > nzbc) hez = -1
+
+            diver =jac0
+     .            *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                ,hex=hex,hez=hez)
+
+            array(i,j+1,k,dim) = array(i,j-offset,k,dim) - dh(dim)*diver
+              
+          enddo
+        enddo
+
+      case (5)
+
+        k = 1
+
+        array(:,:,k-1,dim) = array(:,:,k+1,dim)   !To cancel normal derivative
+
+        do i=imin,imax
+          do j=jmin,jmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hex = 0
+            if (i < 1   ) hex =  1
+            if (i > nxbc) hex = -1
+
+            hey = 0
+            if (j < 1   ) hey =  1
+            if (j > nybc) hey = -1
+
+            diver =jac0
+     .            *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                ,hex=hex,hey=hey)
+
+            array(i,j,k-1,dim) = array(i,j,k+offset,dim) + dh(dim)*diver
+
+          enddo
+        enddo
+
+      case (6)
+
+        k = nzbc
+
+        array(:,:,k+1,dim) = array(:,:,k-1,dim)  !To cancel normal derivative
+
+        do i=imin,imax
+          do j=jmin,jmax
+
+            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+
+            dh(1) = coeff*grid_params%dxh(ig)
+            dh(2) = coeff*grid_params%dyh(jg)
+            dh(3) = coeff*grid_params%dzh(kg)
+
+            hex = 0
+            if (i < 1   ) hex =  1
+            if (i > nxbc) hex = -1
+
+            hey = 0
+            if (j < 1   ) hey =  1
+            if (j > nybc) hey = -1
+
+            diver =jac0
+     .            *div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                ,hex=hex,hey=hey)
+
+            array(i,j,k+1,dim) = array(i,j,k-offset,dim) - dh(dim)*diver
+
+          enddo
+        enddo
+
+      case default
+
+        messg = 'Boundary'//int2char(ibc)//' non existent'
+        call pstop('solen_BC',messg)
+
+      end select
+
+      end subroutine solen_BC
