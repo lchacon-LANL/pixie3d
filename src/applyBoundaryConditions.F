@@ -3,7 +3,7 @@
 
 c applybc
 c######################################################################
-      subroutine applybc(igrp,patch_var,it)
+      subroutine applybc(patch_var,nbc_seq,bc_seq)
 
 c----------------------------------------------------------------------
 c     Applies the boundary conditions for SAMRAI
@@ -21,7 +21,7 @@ c----------------------------------------------------------------------
 
 c Call variables
 
-      integer :: igrp,obc, it
+      integer :: nbc_seq, bc_seq(nbc_seq,3)
       type(patch), TARGET :: patch_var
 
 c Local variables
@@ -63,26 +63,23 @@ c Setup pointers
       varray => gv%u_n
       u_0    => gv%u_0
 
-c Set application BC sequence
-
-      call setupVarInitSeq(gv,it)
+      call allocAuxVariables(gv%aux)
 
 c Set boundary conditions
 
       !Impose BCs on group
-      do i = 1,gv%bc_grp(igrp)%nbc_seq
-        if (gv%bc_grp(igrp)%bc_seq(i,1)*AUX < 0) then !Process dep. variable
-          call applyDepVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray
+      do i = 1,nbc_seq
+        if (bc_seq(i,1)*AUX < 0) then !Process dep. variable
+          call applyDepVarBC(bc_seq(i,:),varray
      .                      ,1,1,1,order=bc_order)
-        elseif (gv%bc_grp(igrp)%bc_seq(i,1)*AUX > 0) then !Process aux. variable
-          call applyAuxVarBC(gv%bc_grp(igrp)%bc_seq(i,:),varray,gv%aux
+        elseif (bc_seq(i,1)*AUX > 0) then !Process aux. variable
+          call applyAuxVarBC(bc_seq(i,:),varray,gv%aux
      .                      ,1,1,1,order=bc_order)
         endif
       enddo
 
 c Nullify aux pointers
 
-cc      call deallocAuxVariables(gv%aux)
       call deallocLocalAuxVars
 
 c End program
