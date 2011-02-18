@@ -167,9 +167,7 @@ c Calculate CFL
             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
             !Maximum magnetic field norm and maximum beta
-            bnorm = vectorNorm(i,j,k,igx,igy,igz
-     .                        ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3)
-     .                        ,.false.)
+            bnorm = vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
 
             ca2 = bnorm/rho(i,j,k)
 
@@ -181,7 +179,7 @@ c Calculate CFL
             idz  = pi/grid_params%dz(kg)
             if (nz == 1) idz = 0d0
 
-            k2 = vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+            k2 = vectorNorm(i,j,k,igx,(/idx,idy,idz/),.true.)
 
             k2max = max(k2max,k2)
 
@@ -189,14 +187,14 @@ c Calculate CFL
             vxx = abs(px(i,j,k)/rho(i,j,k))
             vyy = abs(py(i,j,k)/rho(i,j,k))
             vzz = abs(pz(i,j,k)/rho(i,j,k))
-            kv_par = scalarProduct(i,j,k,igx,igy,igz
-     .                            ,idx,idy,idz,vxx,vyy,vzz)
+            kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+     .                            ,(/vxx,vyy,vzz/))
 
             !(k.B/B)^2
             if (bnorm > 0d0) then
-              kb_par2 = scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
-     .                 ,bcnv(i,j,k,1),bcnv(i,j,k,2),bcnv(i,j,k,3))**2
-     .               /bnorm
+              kb_par2 = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+     .                               ,bcnv(i,j,k,:))**2
+     .                 /bnorm
             else
               kb_par2 = 0d0
             endif
