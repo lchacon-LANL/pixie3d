@@ -51,6 +51,15 @@ c Interfaces
         end subroutine applyAuxVarBC
       END INTERFACE
 
+      INTERFACE
+        subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
+          use variable_setup
+          integer    :: iigx,iigy,iigz,bc_inf(2)
+          type(var_array),pointer :: varray
+          type(aux_array),pointer :: vaux
+        end subroutine postproc_AuxVar
+      END INTERFACE
+
 c Begin program
 
 c Setup pointers
@@ -77,6 +86,14 @@ c Set boundary conditions
      .                      ,1,1,1,order=bc_order)
         endif
       enddo
+
+        !Postprocess auxiliary quantities
+        do i = 1,nbc_seq
+          if (bc_seq(i,1)*AUX > 0) then
+            call postproc_AuxVar(bc_seq(i,:),varray
+     .                          ,gv%aux,1,1,1)
+          endif
+        enddo
 
 c Nullify aux pointers
 
