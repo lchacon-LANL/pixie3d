@@ -142,9 +142,9 @@ ifdef SAMR
 
    SUBDIRS += common/driver-samrai
 
-ifdef VECPOT
-   CPPFLAGS += -Dvec_pot
-endif
+   ifdef VECPOT
+     CPPFLAGS += -Dvec_pot
+   endif
 
    CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
    CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
@@ -160,6 +160,7 @@ endif
 endif
 
 #Export required variables
+
 export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB CPPFLAGS_EXTRA \
@@ -188,13 +189,12 @@ $(SUBDIRS):
 #	@echo "-- MODPATH=$(MODPATH)"
 	$(MAKE) -e -C $@ $(TARGET)
 
-
 # SETUP
 
 setup:
 	-cd plot ; ln -s ../src/Makefile
 	-tar xzf contrib.tgz
-	-for subdir in common plot tests/serial tests/parallel ; do \
+	-for subdir in common plot tests/serial tests/parallel tests/samrai; do \
 		$(MAKE) -C $$subdir setup;  done
 
 # TESTS
