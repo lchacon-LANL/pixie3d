@@ -668,7 +668,7 @@ c       Current sheet length  (assumes periodic direction in Y and X-point is at
         j = 1
         k = kplt
 
-        !Find mesh point where lapjz changes sign
+        !Find mesh point where X-component of Ve reaches extrema
         i = 2
         dvm = vex(i  ,j,k)-vex(i-1,j,k)
         do i = 3,nx
