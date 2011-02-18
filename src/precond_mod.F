@@ -32,7 +32,7 @@ c ######################################################################
      .                             ,nc_eom_gp,solve_rho
      .                             ,advect,alt_eom
 
-        use local_BCS_variables, ONLY: bc_order,vector_symm_bc
+        use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
 
         integer :: ntotd2p,nwt_iter
         real(8) :: x1,y1,z1
@@ -297,13 +297,13 @@ c     Begin program
               do i = 1,nx
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-                cnv(:) = x(ii,:)
-
-                call transformVectorToCartesian
-     .               (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),covar
-     .               ,xout(ii,1),xout(ii,2),xout(ii,3))
-
+cc                cnv(:) = x(ii,:)
+cc
+cc                call transformVectorToCartesian
+cc     .               (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),covar
+cc     .               ,xout(ii,1),xout(ii,2),xout(ii,3))
+                xout(ii,:)= XformToCar(i,j,k,igrid,x(ii,:),covar)
               enddo
             enddo
           enddo
@@ -315,10 +315,11 @@ c     Begin program
 
                 cnv(:) = x(ii,:)
 
-                call transformVectorToCartesian
-     .               (i,j,k,igrid,igrid,igrid
-     .               ,cnv(1),cnv(2),cnv(3),covar
-     .               ,x(ii,1),x(ii,2),x(ii,3))
+cc                call transformVectorToCartesian
+cc     .               (i,j,k,igrid,igrid,igrid
+cc     .               ,cnv(1),cnv(2),cnv(3),covar
+cc     .               ,x(ii,1),x(ii,2),x(ii,3))
+                x(ii,:)= XformToCar(i,j,k,igrid,cnv,covar)
 
               enddo
             enddo
@@ -377,7 +378,7 @@ c     Begin program
                 call transformVectorToCurvilinear
      .               (i,j,k,igrid,igrid,igrid
      .               ,x(ii,1),x(ii,2),x(ii,3)
-     .               ,covar
+     .               ,.not.covar
      .               ,xout(ii,1),xout(ii,2),xout(ii,3))
               enddo
             enddo
@@ -393,7 +394,7 @@ c     Begin program
                 call transformVectorToCurvilinear
      .               (i,j,k,igrid,igrid,igrid
      .               ,car(1),car(2),car(3)
-     .               ,covar
+     .               ,.not.covar
      .               ,x(ii,1),x(ii,2),x(ii,3))
               enddo
             enddo
@@ -581,7 +582,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         bc_vec_odd(:,2) = bcond
         bc_vec_odd(:,3) = bcond
         where (bc_vec_odd == DEF) bc_vec_odd = EXT
-        call vector_symm_bc(bc_vec_odd,-1)   !Odd normal component
+        call set_vec_symm_bc(bc_vec_odd,-1)   !Odd normal component
 
         call setASM_PC_BC(igx,igy,igz,bc_vec_odd,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
@@ -589,7 +590,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         bc_vec_even(:,2) = bcond
         bc_vec_even(:,3) = bcond
         where (bc_vec_even == DEF) bc_vec_even = EXT
-        call vector_symm_bc(bc_vec_even,1)   !Even normal component
+        call set_vec_symm_bc(bc_vec_even,1)   !Even normal component
 
         call setASM_PC_BC(igx,igy,igz,bc_vec_even,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
@@ -597,7 +598,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         bc_cov(:,2) = bcond
         bc_cov(:,3) = bcond
         where (bc_cov == DEF) bc_cov = EXT
-        call vector_symm_bc(bc_cov,-1)        !Odd normal component
+        call set_vec_symm_bc(bc_cov,-1)        !Odd normal component
 
         call setASM_PC_BC(igx,igy,igz,bc_cov,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
 
