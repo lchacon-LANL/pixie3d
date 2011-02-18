@@ -87,15 +87,7 @@ c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         ff(IRHO) = advc - diffus
       else
-cc        !If this is added, need to add stuff in defineTSparameters below
-cc        if (adiabatic) then
-cc          ff(IRHO) = rho(i,j,k)
-cc     .             - u_0%array_var(IRHO)%array(i,j,k)
-cc     .             *(tmp(i,j,k)
-cc     .              /u_0%array_var(ITMP)%array(i,j,k))**(1./gamma)
-cc        else
-          ff(IRHO) = 0d0
-cc        endif
+        ff(IRHO) = 0d0
       endif
 
 c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
@@ -104,66 +96,6 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
       !Magnetic field
       ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
-
-cc      if (.not.solenoidal) then
-cc      ff(IBX:IBZ)= div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,.false.
-cc     .                         ,btensor_x,btensor_y,btensor_z
-cc     .                         ,vol=.false.)
-cc     .             - eeta(i,j,k)*veclaplacian(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                       ,bcnv,.false.,vol=.false.)
-cc     .             - curl(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                   ,E_ni(:,:,:,1)
-cc     .                   ,E_ni(:,:,:,2)
-cc     .                   ,E_ni(:,:,:,3))
-cccc        !Marder divergence cleaning
-cccc
-cccc        dxx = dxh(ig)
-cccc        dyy = dyh(jg)
-cccc        dzz = dzh(kg)
-cccc
-cccc        dS1 = dyy*dzz
-cccc        dS2 = dxx*dzz
-cccc        dS3 = dxx*dyy
-cccc
-cccccc        flxip = div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
-cccccc        flxim = div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=1)
-cccccc
-cccccc        flxjp = div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
-cccccc        flxjm = div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz,he=2)
-cccccc
-cccccc        flxkp = div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
-cccccc        flxkm = div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz,he=3) 
-cccc
-cccc        flxip = 0.5*(div(ip,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-cccc     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc        flxim = 0.5*(div(im,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-cccc     .              +div(i ,j,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc
-cccc        flxjp = 0.5*(div(i,jp,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-cccc     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc        flxjm = 0.5*(div(i,jm,k,nx,ny,nz,igx,igy,igz,bx,by,bz)
-cccc     .              +div(i,j ,k,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc
-cccc        flxkp = 0.5*(div(i,j,kp,nx,ny,nz,igx,igy,igz,bx,by,bz) 
-cccc     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc        flxkm = 0.5*(div(i,j,km,nx,ny,nz,igx,igy,igz,bx,by,bz) 
-cccc     .              +div(i,j,k ,nx,ny,nz,igx,igy,igz,bx,by,bz))
-cccc
-cccc        !Take homogeneous dirichlet BCs at boundaries
-cccc        if (i == nx) flxip = 0d0
-cccc        if (i == 1 ) flxim = 0d0
-cccc        if (j == ny) flxjp = 0d0
-cccc        if (j == 1 ) flxjm = 0d0
-cccc        if (k == nz) flxkp = 0d0
-cccc        if (k == 1 ) flxkm = 0d0
-cccc
-cccc        kappa = 10*eeta(i,j,k)
-cccc
-cccc        ff(IBX:IBZ) = ff(IBX:IBZ)
-cccc     .              - kappa*gsuper(:,1)*jac*dS1*(flxip-flxim)
-cccc     .              - kappa*gsuper(:,2)*jac*dS2*(flxjp-flxjm)
-cccc     .              - kappa*gsuper(:,3)*jac*dS3*(flxkp-flxkm)
-cc      endif
 
 #else
 
@@ -232,17 +164,18 @@ c       Advection + sources
           if (di > 0d0) then
             if (fake_ve) then
               heat_src = heat_src
-cc     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                     ,rho,vefcnv,vecnv)
      .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                     ,h_eta,vefcnv,vecnv)
+     .                                ,h_eta,vefcnv,vecnv)
             else
               heat_src = heat_src
-cc     .               +heta*viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                     ,rho,vecnv,vecnv)
      .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                     ,h_eta,vecnv ,vecnv)
+     .                                ,h_eta,vecnv ,vecnv)
             endif
+          endif
+
+          if (heat_src < 0d0) then
+            write (*,*) 'Negative heat source'
+            stop
           endif
 
           !Add contributions
@@ -290,6 +223,7 @@ c     Advection
                                                     !we evolve dv/dt
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
+cc     .                   ,2,cons=.not.nc_eom_v)
      .                   ,advect,cons=.not.nc_eom_v)
 cc     .                   ,min(advect,2),cons=.not.nc_eom_v)
 
@@ -315,6 +249,8 @@ c--------------------------------------------------------------------
 
       use transport_params
 
+      use nlfunction_setup
+
       implicit none
 
 c Call variables
@@ -337,10 +273,11 @@ c Begin program
 
       one_over_dt = 1d0/dt
 
-cc      if (adiabatic) then
-cc        one_over_dt(IRHO) = 0d0
-cc        cnf(IRHO) = 0d0
-cc      endif
+      !Setup enslavement of rho
+      if (.not.solve_rho) then
+        one_over_dt(IRHO) = 0d0
+        cnf(IRHO) = 0d0
+      endif
 
 c End program
 
