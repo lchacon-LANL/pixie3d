@@ -546,9 +546,15 @@ c     Local variables
 
 c     Begin program
 
+#if defined(samrai)
+      call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
+     .                       ,.false.,.false.,.false.,.false.)
+#else
       call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
      .                       ,.false.,.false.,.false.,.false.)
 cc     .                       ,.false.,.false.,(itime==0),.false.)
+#endif
+
 #else
 
 c     Select offset based on whether we are at the beginning of calculation
