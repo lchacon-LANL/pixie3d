@@ -564,6 +564,7 @@ c     Set auxiliary variable BC
       !Magnetic field
       vaux%vec_list(IBCNV)%bconds = bcs(:,IBX:IBZ)
 
+      !For debugging
 cc      where (vaux%vec_list(IBCNV)%bconds == -NEU)
 cc        vaux%vec_list(IBCNV)%bconds =-EXT
 cc      end where
@@ -591,8 +592,6 @@ cc      end where
 
       where (vaux%vec_list(IJCNV)%bconds == -NEU)
         vaux%vec_list(IJCNV)%bconds = EQU !Use contravariant components for EQU BCs
-cc        vaux%vec_list(IJCNV)%bconds = EXT !Use contravariant components for EQU BCs
-cc        vaux%vec_list(IJCNV)%bconds = DEF !Use contravariant components for EQU BCs
       end where
 
       call set_vec_symm_bc(vaux%vec_list(IJCNV)%bconds,-1)  !Same as velocity
@@ -610,7 +609,7 @@ cc        vaux%vec_list(IJCNV)%bconds = DEF !Use contravariant components for EQ
       vaux%vec_list(IACOV_0)%bconds = vaux%vec_list(IJCNV_0)%bconds
 #endif
 
-      !Pressure tensors (extrapolation)
+      !Pressure tensors
 cc      vaux%vec_list(IDIVPI)%bconds(:,1) = bcond
 cc      vaux%vec_list(IDIVPI)%bconds(:,2) = bcond
 cc      vaux%vec_list(IDIVPI)%bconds(:,3) = bcond
@@ -619,6 +618,7 @@ cc        vaux%vec_list(IDIVPI)%bconds = EXT
 cc      end where
 cc
 cc      call set_vec_symm_bc(vaux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
+
       vaux%vec_list(IDIVPI)%bconds = vaux%vec_list(IVCNV )%bconds
 
       vaux%vec_list(IDIVPE)%bconds = vaux%vec_list(IDIVPI)%bconds
