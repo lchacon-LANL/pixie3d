@@ -105,40 +105,6 @@ c Safeguards
       call chk_neg(rho,'density')
       call chk_neg(tmp,'temperature')
 
-cc      !Mass density positivity
-cc      minrho = minval(rho(1:nx,1:ny,1:nz))
-cc
-cc#if defined(petsc)
-cc      lrmin = minrho
-cc      call MPI_Allreduce(lrmin,minrho,1
-cc     .                  ,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
-cc#endif
-cc
-cc      if (minrho < 0d0) then
-cc        close (urecord)  !Close record file before exiting
-cc        write(*,*)'proc=',my_rank,'rho=',minrho,'loc='
-cc     $            ,minloc(rho(1:nx,1:ny,1:nz))
-cc        call pstop('setupNonlinearFunction',
-cc     .             'Warning: negative densities are occurring')
-cc      endif
-cc
-cc      !Temperature positivity (enforce)
-cc      mintmp = minval(tmp(1:nx,1:ny,1:nz))
-cc
-cc#if defined(petsc)
-cc      ltmin = mintmp
-cc      call MPI_Allreduce(ltmin,mintmp,1
-cc     .                  ,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
-cc#endif
-cc
-cc      if (mintmp < 0d0) then
-cc        close (urecord) !Close record file before exiting
-cc        write(*,*)'proc=',my_rank,'tmp=',mintmp,'loc='
-cc     $            ,minloc(tmp(1:nx,1:ny,1:nz))
-cc        call pstop('setupNonlinearFunction',
-cc     .             'Warning: negative temperatures are occurring')
-cc      endif
-
 c End program
 
       contains
