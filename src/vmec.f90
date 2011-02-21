@@ -1660,7 +1660,7 @@
       integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
       real(8)    :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
 
-      real(8),allocatable,dimension(:,:,:,:) :: xcar,xc0
+      real(8),allocatable,dimension(:,:,:,:) :: xcar
 
       !SLATEC spline variables
       integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,sorder
@@ -1690,7 +1690,7 @@
         ny = grid_params%nyv(igrid)
         nz = grid_params%nzv(igrid)
 
-        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3),xc0(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
@@ -1748,6 +1748,160 @@
         call db3ink(xs,nxs,ys,nys,zs,nzs,rr,nxs,nys,kx,ky,kz,tx,ty,tz,rr_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,zz,nxs,nys,kx,ky,kz,tx,ty,tz,zz_coef,work,flg)
 
+!     Transfer map (from GLOBAL in VMEC to LOCAL)
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+
+              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+              !Find local coordinates
+              r1  = grid_params%xx(ig)
+              th1 = grid_params%yy(jg)
+              ph1 = grid_params%zz(kg)
+
+              !Impose SP BCs
+              if (r1 < 0d0) then
+                 r1  = -r1
+                 th1 = th1 + pi
+              endif
+
+              !Impose periodic BCs in theta, phi
+              if (th1 < 0d0 ) th1 = th1 + 2*pi
+              if (th1 > 2*pi) th1 = th1 - 2*pi
+
+              if (ph1 < 0d0 ) ph1 = ph1 + 2*pi
+              if (ph1 > 2*pi) ph1 = ph1 - 2*pi
+
+              !Impose VMEC symmetries in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
+              !                                      Z(th,phi) =-Z(2pi-th,2pi-phi)
+              sgn = 1d0
+              if (th1 > pi) then
+                 th1 = 2*pi - th1
+                 ph1 = 2*pi - ph1
+                 sgn = -1d0
+              endif
+
+              !Map phi to VMEC toroidal coordinate, v
+              v1  = mod(ph1,2*pi/nfp_i)
+
+              !Extrapolate to ghost cell at psi=1 boundary (second-order)
+              if (isBdry(i-1,igrid,2)) then
+                 r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
+                 r2 =      grid_params%xx(ig-1)
+                 r3 =      grid_params%xx(ig-2)
+                 rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,rr_coef,work)                &
+     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,rr_coef,work)                &
+     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,rr_coef,work)
+
+                 zz1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,zz_coef,work)                &
+     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,zz_coef,work)                &
+     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                                ,kx,ky,kz,zz_coef,work)
+              else
+                 rr1(1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs    &
+     &                          ,kx,ky,kz,rr_coef,work)
+
+                 zz1(1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs    &
+     &                          ,kx,ky,kz,zz_coef,work)
+              endif
+
+              !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
+              ph1 =-grid_params%zz(kg)
+              xcar(i,j,k,1)=rr1(1)*cos(ph1)
+              xcar(i,j,k,2)=rr1(1)*sin(ph1)
+              xcar(i,j,k,3)=sgn*zz1(1)
+            enddo
+          enddo
+        enddo
+
+!     Fill grid metrics hierarchy
+
+        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+
+!     Free work space (to allow processing of different grid levels)
+
+        deallocate(xcar,ys,zs,work,tx,ty,tz,rr_coef,zz_coef)
+
+        call vmec_cleanup
+
+      enddo
+
+!     Set up gmetric pointer
+
+      gmetric => grid_params%gmetric
+
+!     End program
+
+      end subroutine vmec_map
+
+!!$!     vmec_map
+!!$!     #################################################################
+!!$      subroutine vmec_map(metrics)
+!!$
+!!$!     -----------------------------------------------------------------
+!!$!     Give Cartesian coordinates of each logical mesh point at grid
+!!$!     level (igrid).
+!!$!     -----------------------------------------------------------------
+!!$
+!!$      use vmec_mod, pi_stel => pi
+!!$      use grid
+!!$      use equilibrium
+!!$
+!!$      implicit none
+!!$
+!!$!     Input variables
+!!$
+!!$      logical :: metrics
+!!$
+!!$!     Local variables
+!!$
+!!$      integer    :: igrid,nx,ny,nz,alloc_stat,icomp
+!!$      integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
+!!$      real(8)    :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
+!!$
+!!$      real(8),allocatable,dimension(:,:,:,:) :: xcar
+!!$
+!!$!     Begin program
+!!$
+!!$      load_metrics = metrics  !Set flag for metric elements routine
+!!$
+!!$      nullify(gmetric)
+!!$
+!!$!     Cycle grid levels
+!!$
+!!$      do igrid=1,grid_params%ngrid
+!!$
+!!$        if (my_rank == 0) then
+!!$           write (*,'(a,i3)') ' Reading VMEC map on grid',igrid
+!!$        endif
+!!$
+!!$!     Get LOCAL limits and allocate local map array
+!!$
+!!$        nx = grid_params%nxv(igrid)
+!!$        ny = grid_params%nyv(igrid)
+!!$        nz = grid_params%nzv(igrid)
+!!$
+!!$        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
+!!$
+!!$!     Get GLOBAL limits (VMEC operates on global domain)
+!!$
+!!$        nxg = grid_params%nxgl(igrid)
+!!$        nyg = grid_params%nygl(igrid)
+!!$        nzg = grid_params%nzgl(igrid)
+!!$
+!!$!     Read equilibrium file and setup arrays
+!!$!     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
+!!$!     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
+!!$
+!!$        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
+!!$
 !!$!     Transfer map (from GLOBAL in VMEC to LOCAL)
 !!$
 !!$        do k=0,nz+1
@@ -1794,122 +1948,26 @@
 !!$            enddo
 !!$          enddo
 !!$        enddo
-
-!     Transfer map (from GLOBAL in VMEC to LOCAL)
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              !Find local coordinates
-              r1  = grid_params%xx(ig)
-              th1 = grid_params%yy(jg)
-              ph1 = grid_params%zz(kg)
-
-              !Impose SP BCs
-              if (r1 < 0d0) then
-                 r1  = -r1
-                 th1 = th1 + pi
-              endif
-
-              !Impose periodic BCs in theta, phi
-              if (th1 < 0d0 ) th1 = th1 + 2*pi
-              if (th1 > 2*pi) th1 = th1 - 2*pi
-
-              if (ph1 < 0d0 ) ph1 = ph1 + 2*pi
-              if (ph1 > 2*pi) ph1 = ph1 - 2*pi
-
-              !Impose VMEC symmetries in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
-              !                                      Z(th,phi) =-Z(2pi-th,2pi-phi)
-              sgn = 1d0
-              if (th1 > pi) then
-                 th1 = 2*pi - th1
-                 ph1 = 2*pi - ph1
-                 sgn = -1d0
-              endif
-
-              !Map phi to VMEC toroidal coordinate, v
-!!              v1  = ph1/nfp_i
-              v1  = mod(ph1,2*pi/nfp_i)
-
-              !Extrapolate to ghost cell at psi=1 boundary
-              if (isBdry(i-1,igrid,2)) then
-                 r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
-                 r2 =      grid_params%xx(ig-1)
-                 rr1(1) = 2*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                            ,kx,ky,kz,rr_coef,work)                &
-     &                     -db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                            ,kx,ky,kz,rr_coef,work)
-
-                 zz1(1) = 2*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                            ,kx,ky,kz,zz_coef,work)                &
-     &                     -db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                            ,kx,ky,kz,zz_coef,work)
-!!$                 r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
-!!$                 r2 =      grid_params%xx(ig-1)
-!!$                 r3 =      grid_params%xx(ig-2)
-!!$                 rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,rr_coef,work)                &
-!!$     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,rr_coef,work)                &
-!!$     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,rr_coef,work)
 !!$
-!!$                 zz1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,zz_coef,work)                &
-!!$     &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,zz_coef,work)                &
-!!$     &                   +1./3.*db3val(r3,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-!!$     &                                ,kx,ky,kz,zz_coef,work)
-              else
-                 rr1(1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs    &
-     &                          ,kx,ky,kz,rr_coef,work)
-
-                 zz1(1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs    &
-     &                          ,kx,ky,kz,zz_coef,work)
-              endif
-
-              !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
-              ph1 =-grid_params%zz(kg)
-              xcar(i,j,k,1)=rr1(1)*cos(ph1)
-              xcar(i,j,k,2)=rr1(1)*sin(ph1)
-              xcar(i,j,k,3)=sgn*zz1(1)
-            enddo
-          enddo
-        enddo
-
-!     Fill radial ghost cells
-
-!!$        xc0 = xcar
+!!$!     Fill grid metrics hierarchy
 !!$
-!!$        do icomp=1,3
-!!$           call map_bc(1,igrid,nx,ny,nz,xcar(:,:,:,icomp)  &
-!!$     &                ,xc0(:,:,:,icomp),iorder=1,bconds=(/DEF,EXT/))
-!!$        enddo
-
-!     Fill grid metrics hierarchy
-
-        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
-
-!     Free work space (to allow processing of different grid levels)
-
-        deallocate(xcar,xc0)
-
-        deallocate(xs,ys,zs,work,tx,ty,tz,rr_coef,zz_coef)
-
-        call vmec_cleanup
-
-      enddo
-
-!     Set up gmetric pointer
-
-      gmetric => grid_params%gmetric
-
-!     End program
-
-      end subroutine vmec_map
+!!$        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+!!$
+!!$!     Free work space (to allow processing of different grid levels)
+!!$
+!!$        deallocate(xcar)
+!!$
+!!$        call vmec_cleanup
+!!$
+!!$      enddo
+!!$
+!!$!     Set up gmetric pointer
+!!$
+!!$      gmetric => grid_params%gmetric
+!!$
+!!$!     End program
+!!$
+!!$      end subroutine vmec_map
 
 !     vmec_metrics
 !     #################################################################
@@ -1955,14 +2013,10 @@
               !Find global limits
               call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
 
-              !Ensures we don't step over physical periodic boundaries
-!!$              if (    (jgl < 1 .or. jgl > nyg)                       &
-!!$                  .or.(kgl < 1 .or. kgl > nzg) ) cycle
-
               !Periodic boundary in theta (other boundary enforced by symmetry)
               if (jgl == 0) jgl = nyg
 
-              !Up-down symmetry in theta (temporary, until VMEC++ interface is fixed)
+              !Up-down symmetry in theta (temporary, until VMEC interface is fixed)
               sgn = 1d0
               if (jgl > nyg/2+1) then
                  jgl = nyg + 2 - jgl
@@ -1974,22 +2028,18 @@
               if (kgl == nzg+1) kgl = 1
 
               !Assign metric elements
-!!$              ds = 2*grid_params%xx(ig) !This correction comes because here
-!!$                                          !the variable is x1=sqrt(s), s-> VMEC.
-              ds = 1d0
-
               jac(i,j,k)      = sqrtg(igl+1,jgl,kgl)
 
-              gsub(i,j,k,1,1) = gss(igl+1,jgl,kgl)/ds**2
-              gsub(i,j,k,1,2) = gsu(igl+1,jgl,kgl)/ds
-              gsub(i,j,k,1,3) = gsv(igl+1,jgl,kgl)/ds
+              gsub(i,j,k,1,1) = gss(igl+1,jgl,kgl)
+              gsub(i,j,k,1,2) = gsu(igl+1,jgl,kgl)
+              gsub(i,j,k,1,3) = gsv(igl+1,jgl,kgl)
               gsub(i,j,k,2,2) = guu(igl+1,jgl,kgl)
               gsub(i,j,k,2,3) = guv(igl+1,jgl,kgl)
               gsub(i,j,k,3,3) = gvv(igl+1,jgl,kgl)
 
-              gsup(i,j,k,1,1) = hss(igl+1,jgl,kgl)*ds**2
-              gsup(i,j,k,1,2) = hsu(igl+1,jgl,kgl)*ds
-              gsup(i,j,k,1,3) = hsv(igl+1,jgl,kgl)*ds
+              gsup(i,j,k,1,1) = hss(igl+1,jgl,kgl)
+              gsup(i,j,k,1,2) = hsu(igl+1,jgl,kgl)
+              gsup(i,j,k,1,3) = hsv(igl+1,jgl,kgl)
               gsup(i,j,k,2,2) = huu(igl+1,jgl,kgl)
               gsup(i,j,k,2,3) = huv(igl+1,jgl,kgl)
               gsup(i,j,k,3,3) = hvv(igl+1,jgl,kgl)
@@ -2008,19 +2058,6 @@
             enddo
           enddo
         enddo
-
-!!$        write (*,*) 'DIAG--vmec_map',nxg,nyg,nzg
-!!$        do k=1,nz
-!!$           write (*,*) 'slice=',k
-!!$           do j=1,ny
-!!$              write (*,*) 'X',j,k,xcar(:,j,k,1)
-!!$              write (*,*) 'Y',j,k,xcar(:,j,k,2)
-!!$              write (*,*) 'Z',j,k,xcar(:,j,k,3)
-!!$              write (*,*)
-!!$           enddo
-!!$           write (*,*)
-!!$        enddo
-!!$        stop
 
 !     Free work space (to allow multiple calls to vmec_map for different grid levels)
 
@@ -2086,7 +2123,7 @@
         nzg = grid_params%nzgl(igrid)
 
 !     Read equilibrium file and setup arrays
-!     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
+!     [Assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
 
         load_metrics = .true.  !Whether to use VMEC metrics to define B components
@@ -2316,23 +2353,133 @@
      &                           ,kx,ky,kz,prs_coef,work)
 
               rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)/max_rho
-
-!!$              b1(i,j,k) = bsup1(igl,jgl,kgl)*0.5/grid_params%xx(ig)   !This correction comes because here
-!!$                                                                      !the variable is x1=sqrt(s), s-> VMEC.
-!!$              b2(i,j,k) = bsup2(igl,jgl,kgl)                          !Flux coordinate
-!!$
-!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)          &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)&
-!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)          &
-!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2       &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))         &
-!!$     &                  *bsub3(igl,jgl,kgl)
-!!$
-!!$              prs(i,j,k) = prsg(igl,jgl,kgl)
             enddo
           enddo
         enddo
 
+        DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
+
+        DEALLOCATE(bsupuijcf,bsupvijcf,bsubvijcf,bsupsijsf,presijf,stat=istat)
+        IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
+
+        deallocate(xs,ys,zs,work,tx,ty,tz,bsup1_coef,bsup2_coef,bsub3_coef,prs_coef)
+
+!     Free work space
+
+        call vmec_cleanup
+
+        call vmec_cleanup_metrics
+
+!     End program
+
+      end subroutine vmec_equ
+
+!!$!     vmec_equ
+!!$!     #################################################################
+!!$      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam)
+!!$
+!!$!     -----------------------------------------------------------------
+!!$!     Give equilibrium fields at each logical mesh point in grid
+!!$!     level (igrid).
+!!$!     -----------------------------------------------------------------
+!!$
+!!$        use vmec_mod, pi_stel => pi
+!!$        use app_iosetup
+!!$        use grid
+!!$        use equilibrium
+!!$
+!!$        implicit none
+!!$
+!!$!      Call variables
+!!$
+!!$        integer :: igrid,nx,ny,nz
+!!$        real(8) :: gam
+!!$        real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
+!!$
+!!$!     Local variables
+!!$
+!!$        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
+!!$        real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
+!!$
+!!$        integer :: udcon=1111
+!!$
+!!$        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
+!!$
+!!$!     Begin program
+!!$
+!!$        if (my_rank == 0) then
+!!$           write (*,*)
+!!$           write (*,*) 'Reading VMEC solution...'
+!!$        endif
+!!$
+!!$!     Get GLOBAL limits (VMEC operates on global domain)
+!!$
+!!$        nxg = grid_params%nxgl(igrid)
+!!$        nyg = grid_params%nygl(igrid)
+!!$        nzg = grid_params%nzgl(igrid)
+!!$
+!!$!     Read equilibrium file and setup arrays
+!!$!     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
+!!$!     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
+!!$
+!!$        load_metrics = .true.  !Whether to use VMEC metrics to define B components
+!!$
+!!$        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
+!!$
+!!$!     Setup equilibrium fields
+!!$
+!!$        call vmec_init_fields
+!!$
+!!$!     DCON dump
+!!$
+!!$        if (dcon .and. my_rank == 0) then
+!!$
+!!$          write (*,*)
+!!$          write (*,*) 'Dumping DCON file with VMEC solution...'
+!!$
+!!$          allocate(pflx(ns_i),ff_i(ns_i),q_i(ns_i))
+!!$
+!!$          !VMEC POLOIDAL flux surface positions (integral of 2*pi*jac*B^2)
+!!$          ds = 1d0/(ns_i-1)
+!!$          ppi = acos(-1d0)
+!!$          pflx(1) = 0d0
+!!$          do i = 2,ns_i
+!!$            pflx(i) = pflx(i-1) + ppi*ds*sqrtg(i,1,1)*(bsupuijcf(i,1,1)+bsupuijcf(i-1,1,1))
+!!$          enddo
+!!$
+!!$          !F factor (R*Bt=B_3)
+!!$          ff_i = bsubvijcf(:,1,1)
+!!$
+!!$          !q-profile
+!!$          q_i = 1d0/iotaf_i
+!!$
+!!$          !DCON dump
+!!$          open(unit=udcon,file='pixie-dcon.bin',form='unformatted',status='unknown')
+!!$
+!!$          !Poloidal plane size
+!!$          write (udcon) nxg,nyg
+!!$
+!!$          write (udcon) pflx      !Poloidal flux
+!!$          write (udcon) ff_i      !R*B_t (flux function)
+!!$          write (udcon) presf_i   !Pressure
+!!$          write (udcon) q_i       !Q-profile
+!!$
+!!$          !R(psi,theta), Z(psi,theta)
+!!$
+!!$          k = 1  !Fix poloidal plane
+!!$          do j=1,nyg/2+1   !Cycle in poloidal angle (only half-plane)
+!!$            write (udcon) rr(:,j,k)
+!!$            write (udcon) zz(:,j,k)
+!!$          enddo
+!!$
+!!$          close (udcon)
+!!$
+!!$          deallocate(pflx,ff_i,q_i)
+!!$        endif
+!!$
+!!$!     Transfer variables (from GLOBAL in VMEC to LOCAL in PIXIE3D)
+!!$!     OLD VMEC INTERFACE
+!!$
 !!$        do k=0,nz+1
 !!$          do j=0,ny+1
 !!$            do i=0,nx+1
@@ -2383,27 +2530,64 @@
 !!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
 !!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
 !!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
-!!$                        
+!!$
+!!$              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)/max_rho
+!!$
 !!$            enddo
 !!$          enddo
 !!$        enddo
-
-!     Free work space
-
-        DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
-
-        DEALLOCATE(bsupuijcf,bsupvijcf,bsubvijcf,bsupsijsf,presijf,stat=istat)
-        IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
-
-        deallocate(xs,ys,zs,work,tx,ty,tz,bsup1_coef,bsup2_coef,bsub3_coef,prs_coef)
-
-        call vmec_cleanup
-
-        call vmec_cleanup_metrics
-
-!     End program
-
-      end subroutine vmec_equ
+!!$
+!!$        max_rho = maxval(rho)
+!!$        rho = rho/max_rho
+!!$
+!!$!!!       Clean flux functions (Tokamak case)
+!!$!!
+!!$!!        enf_flx_fn = (nfp_i == 1)
+!!$!!        if (enf_flx_fn) then
+!!$!!          do k=0,nzg+1
+!!$!!            do i=0,nxg+1
+!!$!!               igl = i
+!!$!!               jgl = j
+!!$!!               kgl = k
+!!$!!
+!!$!!              !Periodic boundary in theta=0 (other boundary enforced by symmetry)
+!!$!!              if (jgl == 0) jgl = nyg
+!!$!!
+!!$!!              !Periodic boundary in phi=0
+!!$!!              if (kgl == 0) kgl = nzg
+!!$!!
+!!$!!              !Up-down symmetry in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
+!!$!!              !                                Z(th,phi) =-Z(2pi-th,2pi-phi)
+!!$!!              sgn = 1d0
+!!$!!              if (jgl > nyg/2+1) then
+!!$!!                 jgl = nyg + 2 - jgl
+!!$!!
+!!$!!                 kgl = nzg + 2 - kgl
+!!$!!                 sgn = -1d0
+!!$!!              endif
+!!$!!
+!!$!!              !Periodic boundary in phi=2*pi
+!!$!!              if (kgl == nzg+1) kgl = 1
+!!$!!
+!!$!!              dum1=sum(bsup2(i,1:nyg,k))/nyg
+!!$!!              dum2=sum(bsub3(i,1:nyg,k))/nyg
+!!$!!
+!!$!!              bsup2(i,:,k) = dum1
+!!$!!              bsub3(i,:,k) = dum2
+!!$!!             
+!!$!!            enddo
+!!$!!          enddo
+!!$!!        endif
+!!$
+!!$!     Free work space
+!!$
+!!$        call vmec_cleanup
+!!$
+!!$        call vmec_cleanup_metrics
+!!$
+!!$!     End program
+!!$
+!!$      end subroutine vmec_equ
 
 !     vmec_init_fields
 !     #################################################################
