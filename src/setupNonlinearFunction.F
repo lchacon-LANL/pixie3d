@@ -82,8 +82,6 @@ c Enslave density when appropriate
             rho =     u_0%array_var(IRHO)%array
      .          *(tmp/u_0%array_var(ITMP)%array)**(1./gamma)
           end where
-cc        else
-cc          rho = 1d0
         endif
       endif
 
@@ -136,6 +134,8 @@ c     Begin program
 #if defined(petsc)
       call MPI_Allreduce(minv,minvg,1
      .                  ,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#else
+      minvg = minv
 #endif
 
       if (minvg < 0d0) then
