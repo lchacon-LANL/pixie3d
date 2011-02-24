@@ -60,6 +60,13 @@ c Interfaces
         type(var_array),pointer :: varray
         end subroutine applyBC
       END INTERFACE
+      INTERFACE
+        subroutine applyBCplot(varray,iigx,iigy,iigz)
+        use variable_setup
+        integer    :: iigx,iigy,iigz
+        type(var_array),pointer :: varray
+        end subroutine applyBCplot
+      END INTERFACE
 
 c Begin program
 
@@ -87,6 +94,7 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
+cc      call applyBCplot(varray,igx,igy,igz)
       call applyBC(varray,igx,igy,igz)
 
       rho => varray%array_var(IRHO)%array
@@ -403,17 +411,6 @@ c Thermal pressure
       else
         p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
       endif
-
-c Transport coefficients
-
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
-            nuu  (i,j,k) = vis(i,j,k,nx,ny,nz,igx,igy,igz)
-            eeta (i,j,k) = res(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
-          enddo
-        enddo
-      enddo
 
 #if defined(RFX)
 c RFX dump
