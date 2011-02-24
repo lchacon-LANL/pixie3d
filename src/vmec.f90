@@ -1862,9 +1862,11 @@
 !!$
 !!$!     Local variables
 !!$
-!!$      integer    :: igrid,nx,ny,nz,alloc_stat,icomp
+!!$      integer    :: igrid,nx,ny,nz,alloc_stat,icomp,nxs
 !!$      integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
 !!$      real(8)    :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
+!!$
+!!$      real(8),dimension(:),allocatable :: xs
 !!$
 !!$      real(8),allocatable,dimension(:,:,:,:) :: xcar
 !!$
@@ -1895,6 +1897,15 @@
 !!$        nxg = grid_params%nxgl(igrid)
 !!$        nyg = grid_params%nygl(igrid)
 !!$        nzg = grid_params%nzgl(igrid)
+!!$
+!!$        nxs = nxg+1
+!!$
+!!$        allocate(xs(nxs),stat=alloc_stat)
+!!$
+!!$        ds = 1d0/nxg
+!!$        do ig = 1,nxs
+!!$           xs(ig) = ds*(ig-1)
+!!$        enddo
 !!$
 !!$!     Read equilibrium file and setup arrays
 !!$!     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
@@ -1955,7 +1966,7 @@
 !!$
 !!$!     Free work space (to allow processing of different grid levels)
 !!$
-!!$        deallocate(xcar)
+!!$        deallocate(xcar,xs)
 !!$
 !!$        call vmec_cleanup
 !!$
@@ -2401,6 +2412,8 @@
 !!$        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
 !!$        real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 !!$
+!!$        real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
+!!$
 !!$        integer :: udcon=1111
 !!$
 !!$        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
@@ -2531,7 +2544,7 @@
 !!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
 !!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
 !!$
-!!$              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)/max_rho
+!!$              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)
 !!$
 !!$            enddo
 !!$          enddo
