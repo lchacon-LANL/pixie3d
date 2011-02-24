@@ -601,62 +601,58 @@ c     Tearing mode in sinusoidal coordinates
         var(:,:,:,IAX:IAZ) = a
 #endif
 
+cc      case ('gem')
+cc
+ccc     Define vector potential (in curvilinear coordinates) for initialization
+cc
+cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
+cc
+ccc     Check coordinates
+cc
+cc        if (coords /= 'car' .and. coords /= 'scl') then
+cc          messg = 'Wrong coordinates for equilibrium '//equil
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+cc        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
+cc
+ccc     GEM challenge
+cc
+cc        var(:,:,:,IVX)  = 0d0
+cc        var(:,:,:,IVY)  = 0d0
+cc        var(:,:,:,IVZ)  = 0d0
+cc
+cc        beta = 1d0
+cc
+cc        var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
+cc
+cc        do k = klo,khi
+cc          do j = jlo,jhi
+cc            do i = ilo,ihi
+cc             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                   ,x1,y1,z1)
+cc
+cc             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
+cc     .                      +0.2
+cc
+cccc             var(i,j,k,IBX) = 0d0
+cccc             var(i,j,k,IBY) = tanh((x1-0.5*(xmax+xmin))/dlambda)
+cccc             var(i,j,k,IBZ) = 0d0
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc#if !defined(vec_pot)
+cc        var(:,:,:,IBX:IBZ) = curl(igx,a)
+cc#else
+cc        var(:,:,:,IAX:IAZ) = a
+cc#endif
+
       case ('gem')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
-
-c     Check coordinates
-
-        if (coords /= 'car' .and. coords /= 'scl') then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
-        endif
-
-        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
-          call pstop('setEquilibrium',messg)
-        endif
-
-c     GEM challenge
-
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        beta = 1d0
-
-        var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
-
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
-
-             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
-     .                      +0.2
-
-cc             var(i,j,k,IBX) = 0d0
-cc             var(i,j,k,IBY) = tanh((x1-0.5*(xmax+xmin))/dlambda)
-cc             var(i,j,k,IBZ) = 0d0
-            enddo
-          enddo
-        enddo
-
-#if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
-#else
-        var(:,:,:,IAX:IAZ) = a
-#endif
-
-      case ('sgem')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
 
 c     Check coordinates
 
@@ -701,16 +697,14 @@ c     GEM challenge
         enddo
 
 #if !defined(vec_pot)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
-        var(:,:,:,IAX:IAZ) = a
+        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
 #endif
 
       case ('kai1')
-
-c     Define vector potential (in curvilinear coordinates) for initialization
-
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
 
 c     Check coordinates
 
@@ -747,9 +741,11 @@ c     Kai TM test
         enddo
 
 #if !defined(vec_pot)
+        call fillVectorPotential(a,igx,igy,igz,a_bc)
+
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
-        var(:,:,:,IAX:IAZ) = a
+        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
 #endif
 
       case ('dtm')
@@ -2723,7 +2719,7 @@ c     ---------------------------------------------------------------
 
         use equilibrium
 
-        use nlfunction_setup, ONLY: res,eta
+        use nlfunction_setup, ONLY: res_def,eta
 
         use grid
 
@@ -2799,7 +2795,7 @@ c       Iteration
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
-            etah =res(i,1,1,nxd,1,1,1,1,1,psi(:,0:2,0:2),rrr=rh)/eta
+            etah = res_def(rh)/eta
 
             dummy(i)=dummy(i-1)
      .              +(Eoeta/etah*bzh**2
@@ -2823,7 +2819,7 @@ c       Iteration
             bth = 0.5*(bth0(i)+bth0(i-1))
             rh  = grid_params%xg(i)
 
-            etah =res(i,1,1,nxd,1,1,1,1,1,psi(:,0:2,0:2),rrr=rh)/eta
+            etah =res_def(rh)/eta
 
             dummy(i) = dummy(i-1)
      .                +(Eoeta/etah*bth+(p0(i+1)-p0(i-1))/2./dr(i))
@@ -2893,7 +2889,7 @@ cc     .              +p00*pprof(rh,1)
           bth = 0.5*(bth0(i)+bth0(i-1))
           rh  = grid_params%xg(i)
 
-          etah=res(i,1,1,nxd,1,1,1,1,1,psi(:,0:2,0:2),rrr=rh)/eta
+          etah=res_def(rh)/eta
 
           dummy(i) = Eoeta*bzh/etah
      $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
@@ -2946,7 +2942,7 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
         vr0 = 0d0
         do i=1,nxd
           rh  = grid_params%xg(i)
-          etah =res(i,1,1,nxd,1,1,1,1,1,psi(:,0:2,0:2),rrr=rh)/eta
+          etah =res_def(rh)/eta
 
           vr0(i) = -(Eoeta*bth0(i)+etah*(p0(i+1)-p0(i-1))/2./dr(i))
      .             /(bzz0(i)**2+bth0(i)**2)
@@ -3616,7 +3612,7 @@ c     ---------------------------------------------------------------
 
         use transport_params
 
-        use nlfunction_setup, ONLY: res,eta
+        use nlfunction_setup, ONLY: res_def,eta
 
         implicit none
 
@@ -3765,7 +3761,7 @@ c       Iteration
               bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
 
 cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
-              etah =res(i,j,1,nx,ny,1,1,1,1,psi(:,:,0:2),rrr=rh)/eta
+              etah =res_def(rh)/eta
 
               spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
               spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
@@ -3885,7 +3881,7 @@ cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
               dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
 cc              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
-              etah  = res(iglobal,j,1,nxd,ny,nz,1,1,1,psig,rrr=rh)/eta
+              etah  = res_def(rh)/eta
 
               dummy(iglobal,j) = dummy(iglobal-1,j)
      .                         - RR(iglobal,jglobal)**2/bnorm2
@@ -3937,7 +3933,7 @@ c       Find vectors and scalars
 
             !Find contravariant velocity components
 cc            etah =res(iglobal,jglobal,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
-            etah =res(i,j,1,nx,ny,nz,1,1,1,psi,rrr=rh)/eta
+            etah =res_def(rh)/eta
 
             spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
             spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
@@ -4018,7 +4014,7 @@ cc          do i=2,nx-1
 
             !Find covariant Ohm's law components
 cc            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
-            etah =res(i,j,1,nx,ny,nz,1,1,1,psi,rrr=rh)/eta
+            etah =res_def(rh)/eta
 
             cov = matmul(gmetric%grid(1)%gsub(i,j,1,:,:),(/ j1,j2,j3/))
 
@@ -5257,7 +5253,7 @@ c Begin program
           enddo
         enddo
 
-      case ('gem','kai1','sgem')
+      case ('gem','kai1')
 
         if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
           hlx = xmax
