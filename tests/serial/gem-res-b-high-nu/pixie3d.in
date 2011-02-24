@@ -1,0 +1,90 @@
+ &datin
+    ilevel   = 0
+    test     = t
+
+    nxd      = 64 
+    nyd      = 64 
+    nzd      = 1
+
+    numerical_grid = f
+
+    xmax     = 12.8
+    ymax     = 25.6
+    zmax     = 1.
+
+    bcs      = 'def','def','per','per','per','per'
+
+    eta      = 5d-3
+    nu       = 5d-2
+    dd       = 0d-3
+    chi      = .12
+
+    temp_ratio = 5.
+
+    di       = 0d0
+
+    equil    = 'gem'
+    coords   = 'car'
+    gparams  = 0.5,6.4,0d0,0d0,0d0
+
+    dlambda  = .5
+    rshear   = 1.
+    vperflow = 0.
+
+    dt       = 1d-2
+    tmax     = 1d-1 
+    dstep    = 1d-1
+
+    pbx      = 0.1
+    pby      = 0.1
+    pbz      = 0.
+    odd      = f,f,f
+    nh2      = 1
+
+    cnfactor = 0.5
+    sm_flag  = 0
+
+    restart  = f
+    timecorr = t
+    predictor= f
+
+    source   = f
+
+    precon   = 'id'
+    mgtol    = 1d-3
+    maxvcyc  = 10
+    nsweep   = 4
+    precpass = 0
+
+    iguess   = 0
+
+    maxksp   = 20
+    maxitgm  = 20
+    maxitnwt = 10
+    tolgm    = 8d-1
+    rtol     = 1d-4
+    method   = 1
+    mf_eps   = 1d-6
+
+    solenoidal = t
+    nc_eom_f   = f
+    nc_eom_v   = f
+
+    advect     = 2
+
+    debug    = f
+    debug_it = 5
+
+    check_grid = f
+ /
+
+ &graphdef
+    sel_diag  = 2,10,15,16,17,18,19,20,24,25
+    sel_graph = 1,2,3,4,5,6,7,8,9
+    dplot = 1d-1
+    prof_conf = 1,'x',1,10,1
+    cont_conf = 3,'x','y',1,1,1
+    iplot = 64
+    jplot = 64
+    kplot = 1
+ /
