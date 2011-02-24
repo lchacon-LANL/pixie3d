@@ -1,2 +1,2 @@
 EXEC = ./pixie3d_a.petsc.x
-PLOT = ./pixplot_a.x
+PLOT = ./pixplot_a.petsc.x
