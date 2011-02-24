@@ -564,7 +564,7 @@ c     Set auxiliary variable BC
       !Magnetic field
       vaux%vec_list(IBCNV)%bconds = bcs(:,IBX:IBZ)
 
-      !For debugging
+cc      !For debugging B-field BCs
 cc      where (vaux%vec_list(IBCNV)%bconds == -NEU)
 cc        vaux%vec_list(IBCNV)%bconds =-EXT
 cc      end where
@@ -592,6 +592,7 @@ cc      end where
 
       where (vaux%vec_list(IJCNV)%bconds == -NEU)
         vaux%vec_list(IJCNV)%bconds = EQU !Use contravariant components for EQU BCs
+cc        vaux%vec_list(IJCNV)%bconds =-EXT !Use contravariant components for EQU BCs
       end where
 
       call set_vec_symm_bc(vaux%vec_list(IJCNV)%bconds,-1)  !Same as velocity
@@ -641,7 +642,16 @@ c     ###################################################################
       subroutine defineAuxBCDeps(vaux)
 
 c     -------------------------------------------------------------------
-c     Defines intervariable dependencies for auxiliary quantities
+c     Defines intervariable dependencies for auxiliary quantities.
+c     When setting dependencies on vector components, use secondary
+c     component representation (i.e., the one whose only dependency
+c     is the other --primary-- representation). This ensures that they
+c     both belong to the same BC group. One example:
+c        - bcnv is considered primary (depends on other variables)
+c        - bcov is secondary (only depends on bcnv)
+c     Trivial (0) and nontrivial (1) dependencies can be set. A dependency
+c     is trivial if it involves no derivatives, just algebraic relations.
+c     It is nontrivial otherwise.
 c     -------------------------------------------------------------------
 
       implicit none
@@ -711,7 +721,7 @@ c     Equilibrium quantities
       vaux%vec_list(IVCNV_0)%bc_dep_list(3,2) = SCALAR
       vaux%vec_list(IVCNV_0)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV_0)%bc_dep_list(4,1) = IBCNV_0*AUX
+      vaux%vec_list(IVCNV_0)%bc_dep_list(4,1) = IBCOV_0*AUX
       vaux%vec_list(IVCNV_0)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IVCNV_0)%bc_dep_list(4,3) = 0 !trivial
 
@@ -748,7 +758,7 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IENI_0)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IENI_0)%bc_dep_list(2,1) = IBCNV_0*AUX
+      vaux%vec_list(IENI_0)%bc_dep_list(2,1) = IBCOV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IENI_0)%bc_dep_list(2,3) = 0 !trivial
 
@@ -831,15 +841,15 @@ c     Current variables
       vaux%var_list(INU)%bc_dep_list(2,2) = SCALAR
       vaux%var_list(INU)%bc_dep_list(2,3) = 0 !trivial
 
-      !Heta-rho*nu_e(T)
+      !Heta=rho*nu_e(T)
       vaux%var_list(IHETA)%bc_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IHETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IHETA)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(IHETA)%bc_dep_list(2,1) = IBCNV_0*AUX
+      vaux%var_list(IHETA)%bc_dep_list(2,1) = IBCOV_0*AUX
       vaux%var_list(IHETA)%bc_dep_list(2,2) = VECTOR
 cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
-      vaux%var_list(IHETA)%bc_dep_list(2,3) = 1 !trivial
+      vaux%var_list(IHETA)%bc_dep_list(2,3) = 1 !non-trivial
 
       !V cnv
       vaux%vec_list(IVCNV)%bc_dep_list(1,1) = IVCNV*AUX
@@ -859,7 +869,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
         vaux%vec_list(IVCNV)%bc_dep_list(4,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(4,3) = 0 !trivial
 
-        vaux%vec_list(IVCNV)%bc_dep_list(5,1) = IBCNV*AUX
+        vaux%vec_list(IVCNV)%bc_dep_list(5,1) = IBCOV*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(5,2) = VECTOR
         vaux%vec_list(IVCNV)%bc_dep_list(5,3) = 0 !trivial
       else
@@ -910,11 +920,11 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVECNV)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IVECNV)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVECNV)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IVECNV)%bc_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IVECNV)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IVECNV)%bc_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IVECNV)%bc_dep_list(3,1) = IJCNV*AUX
+      vaux%vec_list(IVECNV)%bc_dep_list(3,1) = IJCOV*AUX
       vaux%vec_list(IVECNV)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IVECNV)%bc_dep_list(3,3) = 0 !trivial
 
@@ -928,13 +938,17 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%bc_dep_list(2,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%bc_dep_list(3,1) = IDIVPI*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(3,1) = IVCNV*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(3,2) = VECTOR
-      vaux%vec_list(IDIVPI)%bc_dep_list(3,3) = 0 !trivial
+      vaux%vec_list(IDIVPI)%bc_dep_list(3,3) = 1 !non-trivial
+
+      vaux%vec_list(IDIVPI)%bc_dep_list(4,1) = IDIVPI*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(4,2) = VECTOR
+      vaux%vec_list(IDIVPI)%bc_dep_list(4,3) = 0 !trivial
 
       !Div(pe)
       vaux%vec_list(IDIVPE)%bc_dep_list(1,1) = IHETA*AUX
@@ -1019,11 +1033,11 @@ cc        endif
       vaux%vec_list(IENI)%bc_dep_list(2,2) = SCALAR
       vaux%vec_list(IENI)%bc_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(3,1) = IBCNV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(3,1) = IBCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
 
@@ -1210,7 +1224,7 @@ c     Current variables
       vaux%var_list(INU)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(INU)%dom_dep_list(2,3) = 0 !trivial
 
-      !Heta-rho*nu_e(T)
+      !Heta=rho*nu_e(T)
       vaux%var_list(IHETA)%dom_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IHETA)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IHETA)%dom_dep_list(1,3) = 0 !trivial
@@ -1252,11 +1266,11 @@ c     Current variables
       vaux%vec_list(IVECNV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IVECNV)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVECNV)%dom_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IVECNV)%dom_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IVECNV)%dom_dep_list(2,2) = VECTOR
       vaux%vec_list(IVECNV)%dom_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IVECNV)%dom_dep_list(3,1) = IJCNV*AUX
+      vaux%vec_list(IVECNV)%dom_dep_list(3,1) = IJCOV*AUX
       vaux%vec_list(IVECNV)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IVECNV)%dom_dep_list(3,3) = 0 !trivial
 
@@ -1270,9 +1284,13 @@ c     Current variables
       vaux%vec_list(IDIVPI)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%dom_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IDIVPI)%dom_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IDIVPI)%dom_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%dom_dep_list(2,3) = 1 !non-trivial
+
+      vaux%vec_list(IDIVPI)%dom_dep_list(3,1) = IVCNV*AUX
+      vaux%vec_list(IDIVPI)%dom_dep_list(3,2) = VECTOR
+      vaux%vec_list(IDIVPI)%dom_dep_list(3,3) = 1 !non-trivial
 
       !Div(pe)
       vaux%vec_list(IDIVPE)%dom_dep_list(1,1) = IHETA*AUX
@@ -1314,11 +1332,11 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(2,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(2,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(3,1) = IBCNV*AUX
+          vaux%vec_list(IEH)%dom_dep_list(3,1) = IBCOV*AUX
           vaux%vec_list(IEH)%dom_dep_list(3,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(3,3) = 0 !trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(4,1) = IJCNV*AUX
+          vaux%vec_list(IEH)%dom_dep_list(4,1) = IJCOV*AUX
           vaux%vec_list(IEH)%dom_dep_list(4,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(4,3) = 0 !trivial
 
@@ -1347,11 +1365,11 @@ c     Current variables
       vaux%vec_list(IENI)%dom_dep_list(2,2) = SCALAR
       vaux%vec_list(IENI)%dom_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(3,1) = IBCNV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(3,1) = IBCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
 
@@ -4265,7 +4283,7 @@ cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
         logical :: save_tn
 
         INTERFACE res
-          module procedure res_mesh,res_ijk
+          module procedure res_mesh
         END INTERFACE
 
         INTERFACE vis
@@ -5476,7 +5494,7 @@ c     Diffusive part
 c       Postprocessing
 
         if (flag /= 0) then
-          ijac  = 1d0/jac
+          ijac = 1d0/jac
 
           t11 = t11*ijac
           if (.not.alt_eom) t12 = t12*ijac
@@ -6103,10 +6121,35 @@ c     End program
 
       end function E_fld_Hall
 
+c     res_def
+c     #############################################################
+      function res_def(rr) result(res)
+c     -------------------------------------------------------------
+c     This function computes the resistivity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: res,rr
+
+c     Local variables
+
+c     Begin program
+
+        !Resistivity profile eta*(1 + aa*x^bb)^cc
+        res = eta*(1. + aa_eta*rr**bb_eta)**cc_eta
+cc        res = eta*(1. + aa_eta*rr**nn_eta)
+
+c     End program
+
+      end function res_def
+
 c     res_ijk
 c     #############################################################
-      function res_ijk(i,j,k,nx,ny,nz,igx,igy,igz,field,rrr)
-     .         result(res)
+      function res_ijk(i,j,k,igrid,field) result(rsvty)
 c     -------------------------------------------------------------
 c     This function computes the resistivity on the grid level
 c     igrid.
@@ -6116,37 +6159,34 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      integer :: i,j,k,nx,ny,nz,igx,igy,igz
-      real(8) :: res,field(0:nx+1,0:ny+1,0:nz+1)
-
-      real(8),optional :: rrr
+      integer :: i,j,k,igrid
+      real(8) :: field,rsvty
 
 c     Local variables
 
-      integer    :: ig,jg,kg
-      real(8)    :: rr
+      integer :: ig,jg,kg
+      real(8) :: rr
 
 c     Begin program
 
-      select case (equil)
-      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
+      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+      rr = grid_params%xx(ig)
 
-        if (PRESENT(rrr)) then
-          rr = rrr
-        else
-          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          rr = grid_params%xx(ig)
-        endif
-
-        !Resistivity profile eta*(1 + aa*x^bb)^cc (Daniele Bonfiglio)
-        res = eta*(1. + aa_eta*rr**bb_eta)**cc_eta
-cc        res = eta*(1. + aa_eta*grid_params%xx(ig)**nn_eta)
-
-      case default
-
-        res = eta
-
-      end select
+      rsvty = res_def(rr)
+cc
+cc      select case (equil)
+cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
+cc
+cc        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc        rr = grid_params%xx(ig)
+cc
+cc        rsvty = res_def(rr)
+cc
+cc      case default
+cc
+cc        rsvty = eta
+cc
+cc      end select
 
 c     End program
 
@@ -6154,7 +6194,7 @@ c     End program
 
 c     res_mesh
 c     #############################################################
-      function res_mesh(nx,ny,nz,igx,igy,igz,field,rrr) result(rsvty)
+      function res_mesh(nx,ny,nz,igrid,field) result(rsvty)
 c     -------------------------------------------------------------
 c     This function computes the resistivity on the grid level
 c     igrid.
@@ -6164,11 +6204,9 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
+      integer :: nx,ny,nz,igrid
       real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
      .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
-
-      real(8),optional :: rrr
 
 c     Local variables
 
@@ -6179,8 +6217,7 @@ c     Begin program
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
-            rsvty(i,j,k)=res_ijk(i,j,k,nx,ny,nz,igx,igy,igz,psi
-     .                          ,rrr=rrr)
+            rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
           enddo
         enddo
       enddo
@@ -6189,9 +6226,35 @@ c     End program
 
       end function res_mesh
 
+c     vis_def
+c     #############################################################
+      function vis_def(rr) result(vis)
+c     -------------------------------------------------------------
+c     This function computes the viscosity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: vis,rr
+
+c     Local variables
+
+c     Begin program
+
+        !Viscosity profile nu*(1 + aa*x^bb)^cc
+        vis = nu*(1. + aa_nu*rr**bb_nu)**cc_nu
+cc        vis = nu*(1. + aa_nu*rr**nn_nu)
+
+c     End program
+
+      end function vis_def
+
 c     vis_ijk
 c     #############################################################
-      function vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz) result(vis)
+      function vis_ijk(i,j,k,igrid,field) result(vscty)
 c     -------------------------------------------------------------
 c     This function computes the viscosity on the grid level
 c     igrid.
@@ -6201,27 +6264,34 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      real(8)    :: vis
-      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+      integer :: i,j,k,igrid
+      real(8) :: field,vscty
 
 c     Local variables
 
-      integer(4) :: ig,jg,kg
+      integer :: ig,jg,kg
+      real(8) :: rr
 
 c     Begin program
 
-      select case (equil)
-      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
+      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+      rr = grid_params%xx(ig)
 
-        !Viscosity profile eta*(1 + aa*x^bb)^cc (Daniele Bonfiglio)
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-        vis = nu*(1. + aa_nu*grid_params%xx(ig)**bb_nu)**cc_nu
-
-      case default
-
-        vis = nu
-
-      end select
+      vscty = vis_def(rr)
+cc
+cc      select case (equil)
+cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
+cc
+cc        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc        rr = grid_params%xx(ig)
+cc
+cc        vscty = vis_def(rr)
+cc
+cc      case default
+cc
+cc        vscty = nu
+cc
+cc      end select
 
 c     End program
 
@@ -6229,9 +6299,9 @@ c     End program
 
 c     vis_mesh
 c     #############################################################
-      function vis_mesh(nx,ny,nz,igx,igy,igz) result(vsty)
+      function vis_mesh(nx,ny,nz,igrid,field) result(vscty)
 c     -------------------------------------------------------------
-c     This function computes the resistivity on the grid level
+c     This function computes the viscosity on the grid level
 c     igrid.
 c     -------------------------------------------------------------
 
@@ -6239,8 +6309,9 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
-      real(8) :: vsty(0:nx+1,0:ny+1,0:nz+1)
+      integer :: nx,ny,nz,igrid
+      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
+     .          ,vscty(0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
@@ -6251,7 +6322,7 @@ c     Begin program
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
-            vsty(i,j,k) = vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz)
+            vscty(i,j,k)=vis_ijk(i,j,k,igrid,field(i,j,k))
           enddo
         enddo
       enddo
@@ -6259,6 +6330,77 @@ c     Begin program
 c     End program
 
       end function vis_mesh
+
+ccc     vis_ijk
+ccc     #############################################################
+cc      function vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz) result(vis)
+ccc     -------------------------------------------------------------
+ccc     This function computes the viscosity on the grid level
+ccc     igrid.
+ccc     -------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      real(8)    :: vis
+cc      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
+cc
+ccc     Local variables
+cc
+cc      integer(4) :: ig,jg,kg
+cc
+ccc     Begin program
+cc
+cc      select case (equil)
+cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
+cc
+cc        !Viscosity profile eta*(1 + aa*x^bb)^cc (Daniele Bonfiglio)
+cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc        vis = nu*(1. + aa_nu*grid_params%xx(ig)**bb_nu)**cc_nu
+cc
+cc      case default
+cc
+cc        vis = nu
+cc
+cc      end select
+cc
+ccc     End program
+cc
+cc      end function vis_ijk
+cc
+ccc     vis_mesh
+ccc     #############################################################
+cc      function vis_mesh(nx,ny,nz,igx,igy,igz) result(vsty)
+ccc     -------------------------------------------------------------
+ccc     This function computes the viscosity on the grid level
+ccc     igrid.
+ccc     -------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: nx,ny,nz,igx,igy,igz
+cc      real(8) :: vsty(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer :: i,j,k
+cc
+ccc     Begin program
+cc
+cc      do k=0,nz+1
+cc        do j=0,ny+1
+cc          do i=0,nx+1
+cc            vsty(i,j,k) = vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz)
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc     End program
+cc
+cc      end function vis_mesh
 
 c     hres
 c     ###############################################################
