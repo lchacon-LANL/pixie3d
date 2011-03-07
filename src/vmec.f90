@@ -2491,7 +2491,6 @@
 !!$        endif
 !!$
 !!$!     Transfer variables (from GLOBAL in VMEC to LOCAL in PIXIE3D)
-!!$!     OLD VMEC INTERFACE
 !!$
 !!$        do k=0,nz+1
 !!$          do j=0,ny+1
@@ -2531,18 +2530,18 @@
 !!$
 !!$              jac = sqrtg(igl+1,jgl,kgl)
 !!$
-!!$              !Transform to PIXIE's contravariant representation
+!!$              !Transform b1, b2 to PIXIE's contravariant representation (b3 left covariant)
 !!$              b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)  !This correction comes because here
 !!$                                                                !the variable is x1=sqrt(s), s-> VMEC.
 !!$              b2(i,j,k) = jac*b2(i,j,k)   !Flux coordinate
-!!$!!            Cnv component
+!!$
 !!$!!              b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
 !!$!!            Cov component               !Flux coordinate
-!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
-!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
-!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
+!!$!!              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
+!!$!!     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
+!!$!!     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
+!!$!!     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
+!!$!!     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
 !!$
 !!$              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)
 !!$
@@ -2553,44 +2552,58 @@
 !!$        max_rho = maxval(rho)
 !!$        rho = rho/max_rho
 !!$
-!!$!!!       Clean flux functions (Tokamak case)
-!!$!!
-!!$!!        enf_flx_fn = (nfp_i == 1)
-!!$!!        if (enf_flx_fn) then
-!!$!!          do k=0,nzg+1
-!!$!!            do i=0,nxg+1
-!!$!!               igl = i
-!!$!!               jgl = j
-!!$!!               kgl = k
-!!$!!
-!!$!!              !Periodic boundary in theta=0 (other boundary enforced by symmetry)
-!!$!!              if (jgl == 0) jgl = nyg
-!!$!!
-!!$!!              !Periodic boundary in phi=0
-!!$!!              if (kgl == 0) kgl = nzg
-!!$!!
-!!$!!              !Up-down symmetry in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
-!!$!!              !                                Z(th,phi) =-Z(2pi-th,2pi-phi)
-!!$!!              sgn = 1d0
-!!$!!              if (jgl > nyg/2+1) then
-!!$!!                 jgl = nyg + 2 - jgl
-!!$!!
-!!$!!                 kgl = nzg + 2 - kgl
-!!$!!                 sgn = -1d0
-!!$!!              endif
-!!$!!
-!!$!!              !Periodic boundary in phi=2*pi
-!!$!!              if (kgl == nzg+1) kgl = 1
-!!$!!
-!!$!!              dum1=sum(bsup2(i,1:nyg,k))/nyg
-!!$!!              dum2=sum(bsub3(i,1:nyg,k))/nyg
-!!$!!
-!!$!!              bsup2(i,:,k) = dum1
-!!$!!              bsub3(i,:,k) = dum2
-!!$!!             
-!!$!!            enddo
-!!$!!          enddo
-!!$!!        endif
+!!$!       Clean flux functions (Tokamak case)
+!!$        
+!!$        enf_flx_fn = (nfp_i == 1)
+!!$        if (enf_flx_fn.and.(np == 1)) then
+!!$          do k=0,nzg+1
+!!$            do i=0,nxg+1
+!!$               igl = i
+!!$               jgl = j
+!!$               kgl = k
+!!$
+!!$              !Periodic boundary in theta=0 (other boundary enforced by symmetry)
+!!$              if (jgl == 0) jgl = nyg
+!!$
+!!$              !Periodic boundary in phi=0
+!!$              if (kgl == 0) kgl = nzg
+!!$
+!!$              !Up-down symmetry in theta, phi: R(th,phi) = R(2pi-th,2pi-phi)
+!!$              !                                Z(th,phi) =-Z(2pi-th,2pi-phi)
+!!$              sgn = 1d0
+!!$              if (jgl > nyg/2+1) then
+!!$                 jgl = nyg + 2 - jgl
+!!$
+!!$                 kgl = nzg + 2 - kgl
+!!$                 sgn = -1d0
+!!$              endif
+!!$
+!!$              !Periodic boundary in phi=2*pi
+!!$              if (kgl == nzg+1) kgl = 1
+!!$
+!!$              dum1=sum(b2(i,1:nyg,k))/nyg
+!!$              dum2=sum(b3(i,1:nyg,k))/nyg
+!!$
+!!$              b2(i,:,k) = dum1
+!!$              b3(i,:,k) = dum2
+!!$             
+!!$            enddo
+!!$          enddo
+!!$        endif
+!!$
+!!$!  Get cnv b3 component
+!!$
+!!$        do k=0,nz+1
+!!$          do j=0,ny+1
+!!$            do i=0,nx+1
+!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
+!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
+!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
+!!$            enddo
+!!$          enddo
+!!$        enddo
 !!$
 !!$!     Free work space
 !!$
