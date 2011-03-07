@@ -591,19 +591,22 @@ cc      end where
       end where
 
       where (vaux%vec_list(IJCNV)%bconds == -NEU)
-        vaux%vec_list(IJCNV)%bconds = EQU !Use contravariant components for EQU BCs
-cc        vaux%vec_list(IJCNV)%bconds =-EXT !Use contravariant components for EQU BCs
+        vaux%vec_list(IJCNV)%bconds = EQU !Use cnv representation in applyBC routine!
+cc        vaux%vec_list(IJCNV)%bconds =-EQU !Use cov representation in applyBC routine!
+cc        vaux%vec_list(IJCNV)%bconds =-EXT !Use contravariant components for extrapolation BCs
       end where
 
       call set_vec_symm_bc(vaux%vec_list(IJCNV)%bconds,-1)  !Same as velocity
 
       vaux%vec_list(IJCOV)%bconds = vaux%vec_list(IJCNV)%bconds
 
-      !Equilibrium Current (extrapolate covariant components)
+      !Equilibrium Current
       vaux%vec_list(IJCNV_0)%bconds = vaux%vec_list(IJCNV)%bconds
+
       where (abs(vaux%vec_list(IJCNV_0)%bconds) == EQU)
-        vaux%vec_list(IJCNV_0)%bconds =-EXT
+        vaux%vec_list(IJCNV_0)%bconds =-EXT  !Extrapolate covariant components
       end where
+
       vaux%vec_list(IJCOV_0)%bconds = vaux%vec_list(IJCNV_0)%bconds
 
 #if defined(vec_pot)
@@ -5149,13 +5152,27 @@ c     Begin program
           dyy = 2*grid_params%dyh(jg)
           dzz = 2*grid_params%dzh(kg)
 
-          if (adiabatic) then !tt is *electron* pressure
+          if (adiabatic) then !tt is electron *pressure*
             cov(1) = (tt(ip,j,k)-tt(im,j,k))/dxx
 
             cov(2) = (tt(i,jp,k)-tt(i,jm,k))/dyy
           
             cov(3) = (tt(i,j,kp)-tt(i,j,km))/dzz
-          else
+cc            cov(1) = ( rr(i,j,k)*(tt(ip,j,k)/rr(ip,j,k)
+cc     .                           -tt(im,j,k)/rr(im,j,k))/dxx
+cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(ip,j,k)
+cc     .                                      -rr(im,j,k))/dxx)
+cc
+cc            cov(2) = ( rr(i,j,k)*(tt(i,jp,k)/rr(i,jp,k)
+cc     .                           -tt(i,jm,k)/rr(i,jm,k))/dyy
+cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(i,jp,k)
+cc     .                                      -rr(i,jm,k))/dyy)
+cc          
+cc            cov(3) = ( rr(i,j,k)*(tt(i,j,kp)/rr(i,j,kp)
+cc     .                           -tt(i,j,km)/rr(i,j,km))/dzz
+cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(i,j,kp)
+cc     .                                      -rr(i,j,km))/dzz)
+          else  !tt is electron *temperature*
             cov(1) = ( rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))/dxx
      .                +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k))/dxx)
 
@@ -5166,7 +5183,7 @@ c     Begin program
      .                +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km))/dzz)
           endif
 
-          cov = cov*a_p         !Multiply by alpha_p=1 + Ti/Te to get total pressure
+          cov = cov*a_p  !Multiply by alpha_p=1 + Ti/Te to get total pressure
 
           call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                ,cov(1),cov(2),cov(3)
