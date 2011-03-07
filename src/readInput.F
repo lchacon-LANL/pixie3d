@@ -41,7 +41,7 @@ c Local variables
       !Legacy parameters
       character(2)  :: precon
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
-      logical       :: zebra_relax,hall_new
+      logical       :: zebra_relax,hall_new,lag_pinch_bc
       real(8)       :: mgtol
 
 c Namelists
@@ -73,6 +73,7 @@ c Namelists
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
+     .                   ,lag_pinch_bc,recordfile
 
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -468,19 +469,21 @@ cc      if (precon == 'id') iguess = 0
 
       if (restart) dcon = .false.
 
+cc      if (gamma == 1d0) adiabatic = .false.
+
       if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
 cc        solve_rho = .false.
         postprocess = .true.
       endif
-
-      if (gamma == 1d0) adiabatic = .false.
 
       if (coords == 'hel') then   !Special case for 2D helical equilibria
          nh2 = gparams(1)
          nh1 = nh2
       endif
 
-      if (nh1 == 0 .and. nh2 == 0 .and. nh3 == 0) then
+      if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
+     .   .and.(    equil /= 'ppn3d'
+     .        .and.equil /= 'p3nsl')) then
         call pstop('readInput','No sinusoidal perturbation specified')
       endif
 
