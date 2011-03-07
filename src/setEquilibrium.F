@@ -1742,25 +1742,11 @@ c     Other equilibrium quantities
 
         var(:,:,:,IVX:IVZ)  = 0d0
 
-cc        var(:,:,:,IRHO) = abs(var(:,:,:,ITMP))**(1d0/gamma)   !Find density from pressure
-cc
-cccc        if (solve_rho) then
-cc          rho_norm = var(1,1,1,IRHO)
-cc#if defined(petsc)
-cc          !Broadcast value of rho at SP
-cc          if (      grid_params%ilog == 1
-cc     .        .and. grid_params%jlog == 1
-cc     .        .and. grid_params%klog == 1) brank = my_rank
-cc          call MPI_Bcast(rho_norm,1,MPI_DOUBLE_PRECISION,brank
-cc     .                  ,MPI_COMM_WORLD,mpierr)
-cc#endif
-cc          var(:,:,:,IRHO) = var(:,:,:,IRHO)/rho_norm !Normalize density to 1 at r=0
-cccc        else
-cccc          var(:,:,:,IRHO) = 1d0
-cccc        endif
+cc        var(:,:,:,IRHO) = 1d0
 
+        !Transform to e temperature
         where (var(:,:,:,IRHO) /= 0d0)
-          var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Transform to e temperature
+          var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p
         elsewhere
           var(:,:,:,ITMP) = 0d0
         end where
@@ -2076,19 +2062,18 @@ c     Equilibria (numerical)
 
       case ('ppn3d','p3nsl')
 
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
         RR = grid_params%params(3)
         theta_ppnch = grid_params%params(4)
         e0_over_eta = grid_params%params(5)
         bz0         = grid_params%params(6)
         beta_tor    = grid_params%params(7)
 
-cc        nh2 = mm       !To set the right perturbation wavelength
-cc        nh3 = kk*RR    !To set the right perturbation wavelength
+        nh2 = mm       !To set the right perturbation wavelength
+        nh3 = kk*RR    !To set the right perturbation wavelength
 
         nh1 = nh2      !For perturbations to be of the right order
-                       !(nh2,nh3 set by input file)
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -2293,8 +2278,6 @@ c     Ohmic GS equilibrium
         call Ohm_GS_equil_2d(RR,e0_over_eta,beta_tor,nx,ny,nz
      .                    ,var(:,:,1,IBX),var(:,:,1,IBY),var(:,:,1,IBZ)
      .                    ,var(:,:,1,IVX),var(:,:,1,IVY),pp,psi)
-cc     .                      ,b1,b2,b3
-cc     .                      ,v1,v2,pp)
 
 	!Find electric field
         E0(1:2) = 0d0
@@ -3735,7 +3718,7 @@ c       Iteration
         psia = 0d0
         oherr = 0d0
 
-        do it=1,100
+        do it=1,30
 
           !Find GS equation RHS (at cell centers)
           do k=1,nz
@@ -3900,7 +3883,7 @@ cc              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
             if (ilevel > 1) write (*,*)
           endif
 
-          if (gserr < 0.01*dh**2) exit
+          if (gserr < dh**2) exit
 
         enddo
 
