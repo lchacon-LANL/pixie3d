@@ -71,7 +71,9 @@ ifdef SAMR
 #   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleInjectionCoarsen.o
 #   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/fortran/
    LDFLAGS += -L${PETSC_DIR}/${PETSC_ARCH}/lib 
-#   LDLIBS  += -lflapack -lfblas
+   ifeq ($(HOST),lap0086227)
+      LDLIBS  += -lflapack -lfblas
+   endif
 
   SRC2      = $(SRC)
   EXCLUDE  += %explicit.F
@@ -181,7 +183,8 @@ setup: ;
 
 $(OBJMOD): $(COMMON_MODS)
 $(OBJ):    $(MODS) $(COMMON_MODS)
-postProcessSolution.o: diagnostics.o
+#$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
+#imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F] 
 
 #Define patterns
 
