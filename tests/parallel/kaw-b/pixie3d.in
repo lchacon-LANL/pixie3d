@@ -1,0 +1,66 @@
+ &datin
+    ilevel   = 0
+    test     = t
+
+    nxd      = 32
+    nyd      = 128
+    nzd      = 1
+
+    numerical_grid = f
+
+    xmax     = 10.
+    ymax     = 1.
+    zmax     = 1.
+
+    bcs      = 'per','per','per','per','per','per'
+
+    eta      = 0.
+    nu       = 0.
+    dd       = 0.
+    chi      = 0.
+
+    temp_ratio = 0.
+
+    di       = 1d-2
+
+    hall_new = f
+
+    equil    = 'kaw'
+    coords   = 'car'
+
+    dt       = 4d-5
+    tmax     = 4d-3
+    dstep    = 5d-5
+
+    cnfactor = 0.5
+    sm_flag  = 0
+
+    restart  = f
+    timecorr = f
+
+    precon   = 'id'
+
+    iguess   = 0
+
+    nh1      = 1
+    nh2      = 5
+
+    rtol     = 1d-4
+
+    solenoidal = t
+    nc_eom_f   = f
+    nc_eom_v   = f
+
+    advect     = 2
+ /
+
+ &graphdef
+    sel_diag  = 2,3,4,5,6,7,10,15,16
+    sel_graph = 1,2,3,4,5,6,7,8,9
+    dplot = 1d-5
+    prof_conf = 1,'x',1,1,1
+    cont_conf = 3,'x','y',1,1,1
+    iplot = 1
+    jplot = 1
+    kplot = 1
+ /
