@@ -1,0 +1,108 @@
+ &setup
+    nxd      = 16
+    nyd      = 16
+    nzd      = 16
+
+    xmax     = 1d0
+    ymax     = 0.
+    zmax     = 0.
+
+    numerical_grid = t
+
+    bcs      = 'spt','def','per','per','per','per'
+
+    coords   = 'ext'
+ /
+
+ &phys
+    eta      = 1d-3
+    nu       = 1d-2
+    dd       = 0d-3
+    chi      = 0d-3
+    
+    equil    = 'vmec'
+
+    dlambda  = 0.5
+
+    gamma    = 1.6667
+
+    adiabatic  = t
+ /
+
+ &fv
+    sym_st   = f
+
+    advect   = 2
+
+    solenoidal = t
+    nc_eom_f   = t
+    nc_eom_v   = f
+
+    solve_rho  = f
+ /
+
+ &ts
+    dt       = 1d-4
+
+    tmax     = 1d-3
+    dstep    = 1d-3
+
+    restart  = f
+    timecorr = f
+
+    pvx      = 1d-4
+    odd      = f
+    random   = f
+
+    nh2      = 1
+    nh3      =-2
+
+    cnfactor = 0.5d0
+    sm_flag  = 0
+
+    source   = t
+
+    iguess   = 0
+ /
+
+ &nks
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-4
+    atol     = 0d0
+    method   = 1
+    mf_eps   = 1d-6
+    vol_wgt  = t
+ /
+
+ &pc
+    pc_type   = 'id'
+    pc_tol    = 1d-1
+    pc_max_iter = 0
+    mg_vcyc   = 2
+    sm_iter   = 4
+ /
+
+ &i_o
+    ilevel   = 0
+    dcon     = f
+    debug    = f
+    check_grid = f
+    chk_src  = f
+    test     = t
+    equ_file = 'soloveev_k=1'
+ /
+
+ &plots
+    sel_diag  = 2,12,15,17,18,19,20,22,23
+    dplot = 1d-4
+    prof_conf = 1,'r',1,0,1
+    cont_conf = 3,'R','Z',1,1,1
+!    cont_conf = 2,'R','PHI',1,1,1
+    hdf_plot  = f
+    xdraw_plot= t
+    poincare  = f
+    clean = f
+ /
+
