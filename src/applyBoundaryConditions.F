@@ -656,10 +656,13 @@ c Select variable
         case(INU)
 
 #if defined(RFX)
-          nuu =     vis(nnx,nny,nnz,iigx,tmp)
+          nuu = vis(nnx,nny,nnz,iigx,tmp)
 #else
-          nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
-cc          nuu = vis(nnx,nny,nnz,iigx,tmp)
+          if (slava) then
+            nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
+          else
+            nuu = vis(nnx,nny,nnz,iigx,tmp)
+          endif
 #endif
 
         case(IETA_0)
@@ -876,6 +879,8 @@ cc            else
 cc            endif
           else
             call XferBCs(jcnv_0,v0,.true.)
+cc            call XferBCs(jcov_0,v0,.true.)
+cc            v0 = 0d0
           endif
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0
@@ -915,6 +920,8 @@ cc            else
 cc            endif
           else
             call XferBCs(jcnv_0,v0,.true.)
+cc            call XferBCs(jcov_0,v0,.true.)
+cc            v0 = 0d0
           endif
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0
@@ -1104,10 +1111,13 @@ c       Resistivity at initial time
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu =     vis(nnx,nny,nnz,iigx,tmp)
+          nuu = vis(nnx,nny,nnz,iigx,tmp)
 #else
-          nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
-cc          nuu = vis(nnx,nny,nnz,iigx,tmp)
+          if (slava) then
+            nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
+          else
+            nuu = vis(nnx,nny,nnz,iigx,tmp)
+          endif
 #endif
         case(IETA)
 
@@ -1541,10 +1551,13 @@ c       Resistivity at initial time
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu =     vis(nnx,nny,nnz,iigx,tmp)
+          nuu = vis(nnx,nny,nnz,iigx,tmp)
 #else
-          nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
-cc          nuu = vis(nnx,nny,nnz,iigx,tmp)
+          if (slava) then
+            nuu = rho*vis(nnx,nny,nnz,iigx,tmp)
+          else
+            nuu = vis(nnx,nny,nnz,iigx,tmp)
+          endif
 #endif
         case(IETA)
 
@@ -2366,50 +2379,23 @@ c     Begin program
           array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar) + rhs
         end select
 
-cc        select case (ibc)
-cc        case (1)
-cc          array(0     ,jmin:jmax,kmin:kmax,ivar)
-cc     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
-cc     $                     - rhs(jmin:jmax,kmin:kmax)
-cc        case (2)
-cc          array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
-cc     $                     = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
-cc     $                     + rhs(jmin:jmax,kmin:kmax)
-cc        case (3)
-cc          array(imin:imax,0     ,kmin:kmax,ivar)
-cc     $                     = array(imin:imax,1+offset,kmin:kmax,ivar)
-cc     $                     - rhs(imin:imax,kmin:kmax)
-cc        case (4)
-cc          array(imin:imax,nybc+1,kmin:kmax,ivar)
-cc     $                     = array(imin:imax,nybc-offset,kmin:kmax,ivar)
-cc     $                     + rhs(imin:imax,kmin:kmax)
-cc        case (5)
-cc          array(imin:imax,jmin:jmax,0     ,ivar)
-cc     $                     = array(imin:imax,jmin:jmax,1+offset,ivar)
-cc     $                     - rhs(imin:imax,jmin:jmax)
-cc        case (6)
-cc          array(imin:imax,jmin:jmax,nzbc+1,ivar)
-cc     $                     = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
-cc     $                     + rhs(imin:imax,jmin:jmax)
-cc        end select
-
       case (IJX,IJY,IJZ) !J components (for symmetry BCs)
 
         if (ivar /= dim) then
 
           select case (ibc)
           case (1)
-            array(0     ,:,:,ivar) = array(1+offset   ,:,:,ivar)
-          case (2)
-            array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar)
-          case (3)
-            array(:,0     ,:,ivar) = array(:,1+offset   ,:,ivar)
-          case (4)
-            array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar)
-          case (5)
-            array(:,:,0     ,ivar) = array(:,:,1+offset   ,ivar)
-          case (6)
-            array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar)
+            array(0     ,:,:,ivar) = array(1+offset   ,:,:,ivar) - rhs
+          case (2)                                                    
+            array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar) + rhs
+          case (3)                                                    
+            array(:,0     ,:,ivar) = array(:,1+offset   ,:,ivar) - rhs
+          case (4)                                                    
+            array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar) + rhs
+          case (5)                                                    
+            array(:,:,0     ,ivar) = array(:,:,1+offset   ,ivar) - rhs
+          case (6)                                                    
+            array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar) + rhs
           end select
 
         else  !Imposes divergence-free constraint on J
@@ -2424,17 +2410,17 @@ cc        end select
 
           select case (ibc)
           case (1)
-            array(0     ,:,:,ivar) = array(1+offset   ,:,:,ivar)
-          case (2)
-            array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar)
-          case (3)
-            array(:,0     ,:,ivar) = array(:,1+offset   ,:,ivar)
-          case (4)
-            array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar)
-          case (5)
-            array(:,:,0     ,ivar) = array(:,:,1+offset   ,ivar)
-          case (6)
-            array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar)
+            array(0     ,:,:,ivar) = array(1+offset   ,:,:,ivar) - rhs
+          case (2)                                                    
+            array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar) + rhs
+          case (3)                                                    
+            array(:,0     ,:,ivar) = array(:,1+offset   ,:,ivar) - rhs
+          case (4)                                                    
+            array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar) + rhs
+          case (5)                                                    
+            array(:,:,0     ,ivar) = array(:,:,1+offset   ,ivar) - rhs
+          case (6)                                                    
+            array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar) + rhs
           end select
 
         else  !Imposes divergence-free constraint on A
