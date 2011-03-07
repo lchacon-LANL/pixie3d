@@ -172,8 +172,7 @@ c     Exceptions for specific equilibria
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
-cc        if (solve_rho) 
-cc     .       where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
+
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
@@ -199,14 +198,6 @@ cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
 cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
- 
-cc      case('sgem')  !Symmetric domain
-cc
-cc        !Dirichlet boundary conditions for tangential velocity components
-cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
-cc
-cc        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 
       end select
 
