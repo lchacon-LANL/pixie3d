@@ -118,6 +118,9 @@ cc     .                       ,IPSI=3
      .            ,ion_hall=.false.    !Whether to use ion EOM for Hall E
      .            ,pinch_flow=.false.  !Whether equilibrium has pinch flow
      .            ,slava     =.false.  !Whether to use Slava Lukin's Hall MHD implementation
+     .            ,noise     =.false.  !Whether to add noise to EOM (to break symmetry)
+
+        real(8) :: noise_lev
 
       contains
 
