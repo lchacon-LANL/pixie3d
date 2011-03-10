@@ -98,36 +98,41 @@ c Define processor for local diagnostics
       !Identify local diagnostic proc
       isProcessor = inProc(iplot,jplot,kplot,igx,igy,igz)
 
-#if defined(petsc)
-      !Create local diagnostics communicator for line integral
-      split_key = MPI_UNDEFINED
-
-      if (inProc(iplot,jplot-nyd/2,kplot,igx,igy,igz)) then
-        call fromGlobalToLocalLimits(iplot,jplot-nyd/2,kplot
-     .                              ,iplt,jplt,kplt,igx,igy,igz)
-        split_key = 1
-      endif
-
       if (isProcessor) then
         call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
      .                              ,igx,igy,igz)
-        split_key = 1
       endif
 
-      call MPI_Comm_split(MPI_COMM_WORLD,split_key,my_rank
-     .                   ,MPI_COMM_DIAG,mpierr)
-
-      if (split_key /= MPI_UNDEFINED) then
-        call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
-        call MPI_Comm_size(MPI_COMM_DIAG,ddnp ,mpierr)
-      endif
-
+cc#if defined(petsc)
+cc      !Create local diagnostics communicator for line integral
+cc      split_key = MPI_UNDEFINED
+cc
+cc      if (inProc(iplot,jplot-nyd/2,kplot,igx,igy,igz)) then
+cc        call fromGlobalToLocalLimits(iplot,jplot-nyd/2,kplot
+cc     .                              ,iplt,jplt,kplt,igx,igy,igz)
+cc        split_key = 1
+cc      endif
+cc
+cc      if (isProcessor) then
+cc        call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
+cc     .                              ,igx,igy,igz)
+cc        split_key = 1
+cc      endif
+cc
+cc      call MPI_Comm_split(MPI_COMM_WORLD,split_key,my_rank
+cc     .                   ,MPI_COMM_DIAG,mpierr)
+cc
+cc      if (split_key /= MPI_UNDEFINED) then
+cc        call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
+cc        call MPI_Comm_size(MPI_COMM_DIAG,ddnp ,mpierr)
+cc      endif
+cc
 cc      write (*,*) 'Proc:',drank,ddnp
-#else
-      iplt = iplot
-      jplt = jplot
-      kplt = kplot
-#endif
+cc#else
+cc      iplt = iplot
+cc      jplt = jplot
+cc      kplt = kplot
+cc#endif
 
 c Define BCs
 
@@ -306,30 +311,20 @@ c Define GENERIC diagnostics
       diag_desc(neqd+18)= 'Max Vy'
       diag_desc(neqd+19)= 'Max Vz'
 
-c Define problem-specific diagnostics
+      diag_desc(neqd+20)= 'Ez'
+      diag_desc(neqd+21)= 'Reconnected flux'
 
-      select case(trim(equil))
-      case('ic-hk','ic')
-        diag_desc(neqd+20)= 'Ez'
-        diag_desc(neqd+21)= 'Reconnected flux'
+      diag_desc(neqd+22)= 'delta/2'
+      diag_desc(neqd+23)= 'w/2'
 
-        diag_desc(neqd+22)= 'delta/2'
-        diag_desc(neqd+23)= 'w/2'
-        diag_desc(neqd+24)= 'B upstream'
+      diag_desc(neqd+24)= 'max(Bx) along y'
+      diag_desc(neqd+25)= 'max(By) along x'
 
-        diag_desc(neqd+25:ngraph) = ''
+      diag_desc(neqd+26)= 'Max Vex'
+      diag_desc(neqd+27)= 'Max Vey'
+      diag_desc(neqd+28)= 'Max Vez'
 
-      case('dtm','gem','sgem')
-        diag_desc(neqd+20)= 'Ez'
-        diag_desc(neqd+21)= 'Reconnected flux'
-
-        diag_desc(neqd+22:ngraph) = ''
-
-      case default
-
-        diag_desc(neqd+20:ngraph) = ''
-
-      end select
+      diag_desc(neqd+29:ngraph) = ''
 
 c Define corresponding independent variables
 
@@ -369,13 +364,15 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz
+      integer :: i,j,k,ig,jg,kg,ieq,igx,igy,igz,nx,ny,nz,pos(3)
       real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
      .          ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
 
       real(8) :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .          ,tn=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),lvmax(3)
-     .          ,dl,ww=0d0,Bup=0d0,ystar,lapjzm,lapjzp,dvm,dvp
+     .          ,tn=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
+     .          ,lvmax(3),ystar,lapjzm,lapjzp,dvm,dvp
+     .          ,dl,ww=0d0,Bup=0d0,Bup0=1d0,Bdown=0d0
+     .          ,x_xpt,y_xpt,z_xpt,x,y,z,xm,ym,zm,vi_out,ve_out
 
       logical :: cartsn
 
@@ -522,7 +519,8 @@ c Current diagnostics
 
 c Toroidal flux diagnostics
 
-      Tflux = integral(igx,igy,igz,nx,ny,nz,bz_car,average=.false.)
+      Tflux = integral(igx,igy,igz,nx,ny,nz,bcnv(:,:,:,3)
+     .                ,average=.false.,logical_dom=.true.)
      .      - Tflux0
 
 c Initial assignments
@@ -583,7 +581,7 @@ c Growth rate diagnostics
 
       enddo
 
-c Maximum velocity diagnostics
+c Maximum ION velocity diagnostics
 
       vmax = (/ maxval(vx_car),maxval(vy_car),maxval(vz_car) /)
 
@@ -593,12 +591,23 @@ c Maximum velocity diagnostics
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
 
+c Maximum ELECTRON velocity diagnostics
+
+      vemax = (/ maxval(vex),maxval(vey),maxval(vez) /)
+
+#if defined(petsc)      
+      lvmax = vemax
+      call MPI_Reduce(lvmax,vemax,3,MPI_DOUBLE_PRECISION
+     .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+#endif
+
+
 c Problem specific diagnostics  <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-      select case(trim(equil))
-      case('ic-hk','ic','dtm','gem''sgem')
+c Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
 
-c       Parallel electric field and reconnected flux diagnostic (assumes periodic direction in Y)
+      select case(trim(equil))
+      case('dtm','gem')
 
 #if defined(petsc)
         lrflux = minval(Pflux(iplt,:,kplt))
@@ -621,15 +630,56 @@ c       Parallel electric field and reconnected flux diagnostic (assumes periodi
         tn = time
         rfluxn = rflux
 
-c       Current sheet thickness (assumes periodic direction in Y)
+      case('ic-hk','ic')
+
+#if defined(petsc)
+        if (isProcessor) then
+          lrflux = maxval(Pflux(iplt,:,kplt))-Pflux(iplt,jplt,kplt)
+        else
+          lrflux = 0d0
+        endif
+
+        call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+#else
+        rflux = maxval(Pflux(iplt,:,kplt))-Pflux(iplt,jplt,kplt)
+#endif
+
+        if (time == tn) then
+          Ez = 0d0
+        else
+          Ez = abs((rflux-rfluxn))/(time-tn)
+        endif
+
+        tn = time
+        rfluxn = rflux
+
+      case default
+
+        Ez = 0d0
+        rflux = 0d0
+
+      end select
+
+c Reconnection region diagnostics (assumes periodic direction in Y and X-point is at (iplt,jplt))
+
+      select case(trim(equil))
+      case('ic-hk','ic')!,'dtm','gem')
 
         i = iplt
-        k = kplt
+        j = jplt
+        k = 1
+
+c       Current sheet thickness
+
+        call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                              ,x_xpt,y_xpt,z_xpt)
 
         !Find mesh point where lapjz changes sign
-        lapjzm = laplacian(i,2,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
-        do j = 2,ny
-          lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jcnv(:,:,:,3))
+        j = jplt+1
+        lapjzm =laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
+        do j = jplt+2,ny
+          lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
 
           !Check whether sign changes
           if (lapjzp*lapjzm < 0d0) exit
@@ -637,12 +687,13 @@ c       Current sheet thickness (assumes periodic direction in Y)
         enddo
 
         !find y*
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        call getCartesianCoordinates(i,j  ,k,igx,igy,igz,ig,jg,kg
+     .                              ,x,y ,z)
+        call getCartesianCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+     .                              ,x,ym,z)
 
         if (lapjzp /= lapjzm) then
-          ystar = grid_params%yy(jg-1)
-     .         - (grid_params%yy(jg)-grid_params%yy(jg-1))
-     .           /(lapjzp-lapjzm)*lapjzm
+          ystar = y - (y-ym)/(lapjzp-lapjzm)*lapjzm
         else
           ystar = 0d0
         endif
@@ -650,39 +701,114 @@ c       Current sheet thickness (assumes periodic direction in Y)
         !Compute delta/2 (half-width half-maximum)
         dl = 1.1768*ystar
 
-c       Upstream magnetic field (at delta/2)
+ccc       Upstream magnetic field (at delta/2)
+cc
+cc        do j = jplt,ny
+cc          call getCartesianCoordinates(i,j  ,k,igx,igy,igz,ig,jg,kg
+cc     .                                ,x,y,z)
+cc          call getCartesianCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+cc     .                                ,x,ym,z)
+cc          !Check whether sign of (y-dl) changes
+cc          if((ym-dl)*(y-dl)<0d0) exit
+cc        enddo
+cc
+cc        Bup = bx_car(iplt,j-1,kplt)
+cc     .      +(bx_car(iplt,j  ,kplt)-bx_car(iplt,j-1,kplt))
+cc     .      /(y-ym)*(dl-ym)
 
-        do j = 1,ny
-          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          !Check whether sign of (y-dl) changes
-          if((grid_params%yy(jg-1)-dl)*(grid_params%yy(jg)-dl)<0d0) exit
-        enddo
+c       Maximum ION in-plane flows
 
-        Bup = bx(iplt,j-1,kplt)
-     .      +(bx(iplt,j  ,kplt)-bx(iplt,j-1,kplt))
-     .      /(grid_params%yy(jg)-grid_params%yy(jg-1))
-     .       *(dl-grid_params%yy(jg-1))
+        vmax(1) = maxval(abs(vx_car(:,jplt,kplt)))
+        vmax(2) = maxval(abs(vy_car(iplt,:,kplt)))
 
-c       Current sheet length  (assumes periodic direction in Y and X-point is at (0,0))
+c       Maximum ION in-plane flows
 
-        j = 1
+        vemax(1) = maxval(abs(vex(:,jplt,kplt)))
+        vemax(2) = maxval(abs(vey(iplt,:,kplt)))
+
+c       Maximum upstream magnetic field
+
+cc        j = jplt+1
+cc        dvm = bx_car(i,j,k)-bx_car(i,j-1,k)
+cc        do j = jplt+2,ny
+cc          dvp = bx_car(i,j,k)-bx_car(i,j-1,k)
+cc          !Check whether sign of dbx/dy changes
+cc          if(dvp*dvm<0d0) exit
+cc          dvm = dvp
+cc        enddo
+cc
+cc        Bup = bx_car(i,j,k)
+
+        Bup = maxval(abs(bx_car(iplt,:,kplt)))
+
+        if (itime == 0 .and. trim(equil) =='ic-hk') Bup0 = Bup
+
+cc        call getCartesianCoordinates(i,j  ,k,igx,igy,igz,ig,jg,kg
+cc     .                              ,x,y,z)
+cc        call getCartesianCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
+cc     .                              ,x,ym,z)
+cc
+cc        Bup = bx(i,j-1,k)+(bx(i,j,k)-bx(i,j-1,k))/(y-ym)*(dl-ym)
+
+c       Current sheet length  (assumes periodic direction in Y and X-point is at (iplt,jplt))
+
+        j = jplt
         k = kplt
 
         !Find mesh point where X-component of Ve reaches extrema
-        i = 2
-        dvm = vex(i  ,j,k)-vex(i-1,j,k)
-        do i = 3,nx
-          dvp = vex(i+1,j,k)-vex(i  ,j,k)
+        pos(1:1) = maxloc(abs(vex(:,jplt,kplt))) ; i = pos(1)
 
-          !Check whether sign changes
-          if (dvp*dvm < 0d0) exit
-          dvm = dvp
-        enddo
+        call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,ww,y,z)
 
-        !find w (half length)
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        ww = abs(ww)
 
-        ww = grid_params%xx(ig)
+        Bdown = by_car(i,jplt,kplt)
+
+cc        i = iplt+1
+cc        ve_out = 0d0
+cc        dvm = vex(i  ,j,k)-vex(i-1,j,k)
+cc        do i = iplt+2,nx
+cc          dvp = vex(i+1,j,k)-vex(i  ,j,k)
+cc
+cc          !Check whether sign changes and assing current length
+cc          if (dvp*dvm < 0d0.and. abs(vex(i,j,k)) > ve_out) then
+cc            ve_out=max(abs(vex(i,j,k)),ve_out)
+cc            call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                  ,ww,y,z)
+cc          endif
+cc
+cc          dvm = dvp
+cc        enddo
+
+cc        !Ion outflow
+cc        i = iplt+1
+cc        vi_out = 0d0
+cc        dvm = vx_car(i  ,j,k)-vx_car(i-1,j,k)
+cc        do i = iplt+2,nx
+cc          dvp = vx_car(i+1,j,k)-vx_car(i  ,j,k)
+cc
+cc          !Check whether sign changes
+cc          if (dvp*dvm < 0d0) vi_out=max(abs(vx_car(i,j,k)),vi_out)
+cc          dvm = dvp
+cc        enddo
+cc
+cc        !find w (half length)
+cc        call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,ww,y,z)
+
+c       Adjust for X-pt position
+
+        dl = dl - y_xpt
+        ww = ww - x_xpt
+
+      case default
+
+        dl = 0d0
+        ww = 0d0
+        Bup = 0d0
+        Bdown = 0d0
+        Bup0 = 1d0
+        vi_out = 0d0
+        ve_out = 0d0
 
       end select
 
@@ -707,28 +833,27 @@ c Diagnostic assignment
       diagnostics(neqd+16)= rmsj
       diagnostics(neqd+17:neqd+19)= vmax
 
-      select case(trim(equil))
-      case('ic-hk')
-        diagnostics(neqd+1:neqd+3) = 4*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
-        diagnostics(neqd+20)= Ez
-        diagnostics(neqd+21)= rflux
+      diagnostics(neqd+20)= Ez/Bup0**2
+      diagnostics(neqd+21)= rflux
+      diagnostics(neqd+22) = dl
+      diagnostics(neqd+23) = ww
 
-        diagnostics(neqd+22) = dl
-        diagnostics(neqd+23) = ww
-        diagnostics(neqd+24) = Bup
-      case('ic')
-        diagnostics(neqd+20)= Ez
-        diagnostics(neqd+21)= rflux
+      diagnostics(neqd+24) = Bup/Bup0
+      diagnostics(neqd+25) = Bdown/Bup0
+      diagnostics(neqd+26:28) = vemax
 
-        diagnostics(neqd+22:neqd+24) = 0d0
-      case('dtm','gem')
-        diagnostics(neqd+20)= Ez
-        diagnostics(neqd+21)= rflux
-      case('sgem')
-        diagnostics(neqd+1:neqd+3) = 4*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
-        diagnostics(neqd+20)= Ez
-        diagnostics(neqd+21)= rflux
-      end select
+      !Compensate for symmetry BCs
+      if (bcond(1) == FSYM .or. bcond(2) == FSYM) then
+        diagnostics(neqd+1:neqd+3) = 2*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
+      endif
+
+      if (bcond(3) == FSYM .or. bcond(4) == FSYM) then
+        diagnostics(neqd+1:neqd+3) = 2*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
+      endif
+
+      if (bcond(5) == FSYM .or. bcond(6) == FSYM) then
+        diagnostics(neqd+1:neqd+3) = 2*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
+      endif
 
 cc      do i=1,count(diag_desc /= "")
 cc        write (*,*) diag_desc(i),diagnostics(i)

@@ -81,25 +81,7 @@ cc      graph(1)%array_graph(neqd+2)%array => jcnv(:,:,:,2)
 cc      graph(1)%array_graph(neqd+3)%array(0:,0:,0:) => jcnv(:,:,:,3)
       graph(1)%array_graph(neqd+3)%descr = 'J^3'
 
-      graph(1)%array_graph(neqd+4)%array => vx
-      graph(1)%array_graph(neqd+4)%descr = 'V^1'
-
-      graph(1)%array_graph(neqd+5)%array => vy
-      graph(1)%array_graph(neqd+5)%descr = 'V^2'
-
-      graph(1)%array_graph(neqd+6)%array => vz
-      graph(1)%array_graph(neqd+6)%descr = 'V^3'
-
-      graph(1)%array_graph(neqd+7)%array => vex
-      graph(1)%array_graph(neqd+7)%descr = 'Ve_1'
-
-      graph(1)%array_graph(neqd+8)%array => vey
-      graph(1)%array_graph(neqd+8)%descr = 'Ve_2'
-
-      graph(1)%array_graph(neqd+9)%array => vez
-      graph(1)%array_graph(neqd+9)%descr = 'Ve_3'
-
-      graph(1)%array_graph(neqd+10:ngraph)%descr = ''
+      graph(1)%array_graph(neqd+4:ngraph)%descr = ''
 #else
       graph(1)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
       graph(1)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
@@ -143,16 +125,7 @@ cc      graph(1)%array_graph(neqd+3)%array(0:,0:,0:) => jcnv(:,:,:,3)
       graph(1)%array_graph(neqd+6)%array => jz
       graph(1)%array_graph(neqd+6)%descr = 'J^3'
 
-      graph(1)%array_graph(neqd+7)%array => vx
-      graph(1)%array_graph(neqd+7)%descr = 'V^1'
-
-      graph(1)%array_graph(neqd+8)%array => vy
-      graph(1)%array_graph(neqd+8)%descr = 'V^2'
-
-      graph(1)%array_graph(neqd+9)%array => vz
-      graph(1)%array_graph(neqd+9)%descr = 'V^3'
-
-      graph(1)%array_graph(neqd+10:ngraph)%descr = ''
+      graph(1)%array_graph(neqd+7:ngraph)%descr = ''
 #endif
 
 cc      sel_gr(1,:) = sel_graph
@@ -386,7 +359,18 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+1:neqd+3)%vector_name = 'J' !Identifies vector comp.
 
-      graph(3)%array_graph(neqd+4:ngraph)%descr = ''
+      graph(3)%array_graph(neqd+4)%array => vex
+      graph(3)%array_graph(neqd+4)%descr = 'Ve_1'
+
+      graph(3)%array_graph(neqd+5)%array => vey
+      graph(3)%array_graph(neqd+5)%descr = 'Ve_2'
+
+      graph(3)%array_graph(neqd+6)%array => vez
+      graph(3)%array_graph(neqd+6)%descr = 'Ve_3'
+
+      graph(3)%array_graph(neqd+4:neqd+6)%vector_name = 'Ve' !Identifies vector comp.
+
+      graph(3)%array_graph(neqd+7:ngraph)%descr = ''
 #else
       graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
       graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
@@ -436,7 +420,18 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+4:neqd+6)%vector_name = 'J' !Identifies vector comp.
 
-      graph(3)%array_graph(neqd+7:ngraph)%descr = ''
+      graph(3)%array_graph(neqd+7)%array => vex
+      graph(3)%array_graph(neqd+7)%descr = 'Vex'
+
+      graph(3)%array_graph(neqd+8)%array => vey
+      graph(3)%array_graph(neqd+8)%descr = 'Vey'
+
+      graph(3)%array_graph(neqd+9)%array => vez
+      graph(3)%array_graph(neqd+9)%descr = 'Vez'
+
+      graph(3)%array_graph(neqd+7:neqd+9)%vector_name = 'Ve' !Identifies vector comp.
+
+      graph(3)%array_graph(neqd+10:ngraph)%descr = ''
 #endif
 
 cc      sel_gr(3,:) = sel_graph
@@ -448,8 +443,8 @@ cc      sel_gr(3,:) = sel_graph
 
 c Define graphics group #4: Diagnostics
 
-cc      graph(4)%cartesian=.true.
-      graph(4)%cartesian=.false.
+      graph(4)%cartesian=.true.
+cc      graph(4)%cartesian=.false.
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
