@@ -212,7 +212,7 @@ then
        echo "==> Figuring out number of processors"
      fi
 
-     if [ !-f "record.bp" ]; then
+     if [ ! -f "record.bp" ]; then
        np=`ls record.bin_* 2> /dev/null | wc -l`
 
        if [ "$np" != "1" -a "$parallel" = "f" ]; then
