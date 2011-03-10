@@ -25,8 +25,8 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,igx,igy,igz,nx,ny,nz
-      real(8) :: mag
+      integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq
+      real(8) :: mag,acc
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
 c Interfaces
@@ -66,6 +66,38 @@ cc     .       u_0  %array_var(IRHO)%array
 cc     .     *(v_arr%array_var(ITMP)%array
 cc     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
 cc      endif
+
+c Add random noise in EOM (to break symmetry)
+
+      if (noise) then
+        if (nc_eom_v) then
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+                do ieq=IVX,IVZ
+                  call random_number(acc) !Between 0 and 1
+                  acc = noise_lev*sqrt(dt)*(1-2.*acc)
+                  v_arr%array_var(ieq)%array=v_arr%array_var(ieq)%array
+     .                                      +acc
+                enddo
+              enddo
+            enddo
+          enddo
+        else
+          do k=1,nz
+            do j=1,ny
+              do i=1,nx
+                do ieq=IVX,IVZ
+                  call random_number(acc) !Between 0 and 1
+                  acc = noise_lev*sqrt(dt)*(1-2.*acc)
+                  v_arr%array_var(ieq)%array=v_arr%array_var(ieq )%array
+     .                                  +acc*v_arr%array_var(IRHO)%array
+                enddo
+              enddo
+            enddo
+          enddo
+        endif
+      endif
 
 c Divergence-clean magnetic field when PC is on
 

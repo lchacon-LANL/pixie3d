@@ -68,7 +68,7 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,adiabatic
-     .                   ,ion_hall,fake_ve,slava
+     .                   ,ion_hall,fake_ve,slava,noise,noise_lev
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -90,7 +90,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,sym_st,ion_hall
-     .                   ,fake_ve,slava
+     .                   ,fake_ve,slava,noise,noise_lev
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -258,6 +258,8 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
 
       slava      = .false.     ! Whether to use Slava Lukin's Hall MHD implementation
+      noise      = .false.     ! Whether to add white noise to EOM
+      noise_lev  = 0d0         ! Noise level
 
       !Preconditioner parameters
       pc_type  = 'id'          ! Type of preconditioner. Currently:
