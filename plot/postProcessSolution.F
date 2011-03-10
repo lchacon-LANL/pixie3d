@@ -197,6 +197,8 @@ c Electron velocity
       vex = vecnv(:,:,:,1)
       vey = vecnv(:,:,:,2)
       vez = vecnv(:,:,:,3)
+      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                    ,vex,vey,vez,'cnv','car')
 
 c Poloidal flux diagnostics
 
