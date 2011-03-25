@@ -14,10 +14,10 @@ c       * ieq=IRHO: density
 c       * ieq=IVX:IVZ: momentum if conservative, velocity otherwise
 c       * ieq=IBX:IBZ: magnetic field
 c       * ieq=IAX:IAZ: vector potential
-c       * ieq=ITMP: electron temperature (adiabatic=.false.) or
-c                   electron pressure (adiabatic=.true.). Total
+c       * ieq=ITMP: electron temperature (solve_prs=.false.) or
+c                   electron pressure (solve_prs=.true.). Total
 c                   pressure is found as p=n*(Ti+Te)=a_p*n*Te (or
-c                   p=a_p*Te if adiabatic).
+c                   p=a_p*Te).
 c--------------------------------------------------------------------
 
       use parameters
@@ -63,7 +63,7 @@ c Local variables
      .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
      .          ,phi,rho_norm,beta_tor,Rtor,sigma,gsub(3,3),bb0(3)
-     .          ,hlx
+     .          ,hlx,y_char
 
       real(8) :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
@@ -144,7 +144,7 @@ c Label variables
       label(IVX)  = 'P^1'
       label(IVY)  = 'P^2'
       label(IVZ)  = 'P^3'
-      if (adiabatic) then
+      if (solve_prs) then
         label(ITMP) = 'P_e'        
       else
         label(ITMP) = 'T_e'
@@ -217,9 +217,13 @@ c     Check input
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
+        if (test
+     .     .and.(   (adiabatic)
+     .          .or.(a_p /= 1d0)
+     .          .or.(.not.solve_rho)
+     .          .or.(.not.solve_prs))) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
+     .          //'Check adiab, Ti/Te, solve_rho, solve_prs=F,0.0,T,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -304,9 +308,10 @@ c     Check input
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho=F,1.0,T'
+        if (test
+     .     .and.(   (a_p /= 2d0)
+     .          .or.(.not.solve_rho))) then
+          messg = 'Wrong input. Check Ti/Te, solve_rho =F,1.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -343,9 +348,14 @@ c     Check input
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
+        if (test
+     .     .and.(   (adiabatic)
+     .          .or.(a_p /= 1d0)
+     .          .or.(.not.solve_rho)
+     .          .or.(solve_prs))) then
+cc        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
+     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=F,0.,T,F'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -371,7 +381,7 @@ c     --------------------------------------------
 c     ------------  ADVECTION TESTS --------------
 c     --------------------------------------------
 
-      case ('adv1') !Advection test
+      case ('adv1') !Advection test (Germaschewski)
 
         gamma = 2d0
 
@@ -403,6 +413,82 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
             enddo
           enddo
         enddo
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = 0d0
+#else
+        var(:,:,:,IAX:IAZ) = 0d0
+#endif
+
+      case ('adv2') !Advection test (Jasak et al, IJNMF 31, 1999; Lenard, CMAME 88, 1991)
+
+        gamma = 2d0
+
+        eps   = grid_params%params(1)
+        sigma = grid_params%params(2)
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Opposite Gaussian perturbations in rho, T, uniform V, no B
+
+        var(:,:,:,IVX)  = 0.866
+        var(:,:,:,IVY)  = 0.5
+        var(:,:,:,IVZ)  = 0d0
+
+        do k = klom,khi
+          do j = jlom,jhi
+            do i = ilom,ihi
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              y_char = 1./6.+0.5/0.866*x1
+              var(i,j,k,IRHO) = 1d0+eps*0.5*(1d0+sign(1d0,y1-y_char))
+              var(i,j,k,ITMP) = 1d0-eps*0.5*(1d0+sign(1d0,y1-y_char))
+
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX:IBZ) = 0d0
+#else
+        var(:,:,:,IAX:IAZ) = 0d0
+#endif
+
+      case ('sod') !Hydrodynamic Sod problem
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Opposite Gaussian perturbations in rho, T, uniform V, no B
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+              var(i,j,k,IRHO) = 1d0-0.5*(1d0+sign(1d0,x1-0.5))*0.875
+              var(i,j,k,ITMP) = 1d0-0.5*(1d0+sign(1d0,x1-0.5))*0.9  !Pressure
+
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,ITMP) = var(:,:,:,ITMP)/var(:,:,:,IRHO)/a_p !Temperature
 
 #if !defined(vec_pot)
         var(:,:,:,IBX:IBZ) = 0d0
@@ -471,11 +557,10 @@ c     Check coordinates
         endif
 
 cc        if ((.not.adiabatic).or.(a_p /= 2d0).or. (.not.solve_rho)) then
-        if ((.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check solve_rho=T,1.0,T'
-          call pstop('setEquilibrium',messg)
-        endif
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check solve_rho=T'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
 
 c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
 
@@ -525,6 +610,16 @@ c     Check coordinates
 
         if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (test
+     .     .and.(   (.not.adiabatic)
+     .          .or.(a_p /= 2d0)
+     .          .or.(.not.solve_rho)
+     .          .or.(.not.solve_prs))) then
+          messg = 'Wrong input. '
+     .     //'Check Ti/Te,solve_rho,adiabatic,solve_prs = 1.0,T,T,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -661,11 +756,15 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-cc        if ((a_p /= 6d0).or. (.not.solve_rho).or.(adiabatic)) then
-cc          messg = 'Wrong input for this equilibrium. '
-cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
-cc          call pstop('setEquilibrium',messg)
-cc        endif
+        if (test
+     .     .and.(   (adiabatic)
+     .          .or.(a_p /= 6d0)
+     .          .or.(.not.solve_rho)
+     .          .or.(.not.sym_st))) then
+          messg = 'Wrong input for this equilibrium. '
+     .     //'Check Ti/Te, solve_rho, adiabatic, sym_st = 5.0, T, F, T'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c     GEM challenge
 
@@ -713,11 +812,11 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((.not.adiabatic).or.(a_p /= 2d0).or.(.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho=T,1.0,T'
-          call pstop('setEquilibrium',messg)
-        endif
+cc        if ((.not.adiabatic).or.(a_p /= 2d0).or.(.not.solve_rho)) then
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check adiab, Ti/Te, solve_rho=T,1.0,T'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
 
 c     Kai TM test
 
@@ -761,11 +860,11 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((a_p /= 2d0).or. (.not.solve_rho) .or. (adiabatic)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
-          call pstop('setEquilibrium',messg)
-        endif
+cc        if ((a_p /= 2d0).or. (.not.solve_rho) .or. (adiabatic)) then
+cc          messg = 'Wrong input for this equilibrium. '
+cc     .          //'Check Ti/Te, solve_rho, adiabatic = 5.0, T, F'
+cc          call pstop('setEquilibrium',messg)
+cc        endif
 
 c     Tearing mode in cartesian coordinates
 
@@ -1359,9 +1458,13 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        if ((a_p /= 2d0).or. (.not.solve_rho)) then
-          messg = 'Wrong input for this equilibrium. '
-     .          //'Check Ti/Te, solve_rho=1.0,T'
+        if (test
+     .     .and.(    (a_p /= 2d0)
+     .          .or. (.not.adiabatic)
+     .          .or. (.not.solve_rho)
+     .          .or. (solve_prs))) then
+          messg = 'Wrong input. '
+     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=T,1.0,T,F'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -2365,7 +2468,7 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 c Find electron pressure
 
-      if (adiabatic) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
+      if (solve_prs) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
 
 c Find momentum components
 
