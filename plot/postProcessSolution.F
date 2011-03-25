@@ -398,7 +398,7 @@ c Fourier output
 
 c Poincare output (field tracer)
 
-      if (poincare) call poincare_plot
+      if (poincare) call poincare_plot_dump
 
 c Divergence diagnostics
 
@@ -408,7 +408,7 @@ c Divergence diagnostics
 
 c Thermal pressure
 
-      if (adiabatic) then
+      if (solve_prs) then
         p_tot = a_p*tmp     + 0.5*(bx_car**2+by_car**2+bz_car**2)
       else
         p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
@@ -579,9 +579,9 @@ cc          close(1000)
 
       end subroutine tor_diag
 
-c     poincare_plot
+c     poincare_plot_dump
 c     ################################################################
-      subroutine poincare_plot
+      subroutine poincare_plot_dump
 
 c     ---------------------------------------------------------------
 c     Integrates array(i,j,k) on periodic dimensions of domain
@@ -604,7 +604,7 @@ c     Begin program
 
 c     Open file
 
-      write (ft_file,'(1pe9.3)') time
+      write (ft_file,'(f9.3)') time
 
       if (trim(ft_file) == trim(ft_file_old)) then
         return
@@ -612,7 +612,7 @@ c     Open file
         ft_file_old = ft_file
       endif
 
-      ft_file = 'poinc_t='//trim(ft_file)//'.bin'
+      ft_file = 'poinc_t='//trim(adjustl(ft_file))//'.bin'
 
 #if defined(petsc)
       ft_file = trim(ft_file)//'_proc'//trim(int2char(my_rank))
@@ -654,7 +654,7 @@ c     Close file
 
 c     End program
 
-      end subroutine poincare_plot
+      end subroutine poincare_plot_dump
 
 c     fourier_dump
 c     ################################################################
