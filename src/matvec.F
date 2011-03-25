@@ -510,7 +510,7 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: dtmp
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0
 
-      real(8)    :: upwind,nu2,dvol,lap,gm,jac
+      real(8)    :: upwind,nu2,dvol,lap,gm,jac,sgn
 
       logical    :: fpointers
 
@@ -539,8 +539,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dtmp,bcnd
-     .            ,icomp=(/IRHO/),iorder=bc_order)   !Use rho since velocities are not included yet
-cc     .            ,icomp=(/ITMP/))
+     .            ,icomp=(/ITMP/),iorder=bc_order)
 
 c Map velocity components
 
@@ -549,10 +548,12 @@ c Map velocity components
 
 c Calculate matrix-vector product
 
-      if (adiabatic) then
+      if (solve_prs) then
         gm = gamma
+        sgn =-1d0
       else
         gm = gamma - 1d0
+        sgn = 1d0
       endif
 
       do k = kmin,kmax
@@ -566,24 +567,38 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
-     .                 *( dtmp(i  ,j,k,1) - dtmp(i-1,j,k,1) )
-     .                 /grid_params%dx(ig-1)
-     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
-     .                 *( dtmp(i+1,j,k,1) - dtmp(i  ,j,k,1) )
-     .                 /grid_params%dx(ig)
-     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
-     .                 *( dtmp(i,j  ,k,1) - dtmp(i,j-1,k,1) )
-     .                 /grid_params%dy(jg-1)
-     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
-     .                 *( dtmp(i,j+1,k,1) - dtmp(i,j  ,k,1) )
-     .                 /grid_params%dy(jg)
-     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
-     .                 *( dtmp(i,j,k  ,1) - dtmp(i,j,k-1,1) )
-     .                 /grid_params%dz(kg-1)
-     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
-     .                 *( dtmp(i,j,k+1,1) - dtmp(i,j,k  ,1) )
-     .                 /grid_params%dz(kg)
+            upwind = gm*c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                    ,v0_cnv(:,:,:,1)
+     .                    ,v0_cnv(:,:,:,2)
+     .                    ,v0_cnv(:,:,:,3)
+     .                    ,dtmp  (:,:,:,1)
+     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+     .              +(1.-gm)*dot_product(v0_cnv(i,j,k,:)
+     .                  ,grad(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                       ,dtmp(:,:,:,1)
+     .                       ,hex=int(sign(1d0,-sgn*v0_cnv(i,j,k,1)))
+     .                       ,hey=int(sign(1d0,-sgn*v0_cnv(i,j,k,2)))
+     .                       ,hez=int(sign(1d0,-sgn*v0_cnv(i,j,k,3)))))
+     .                  /jac
+
+cc            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
+cc     .                 *( dtmp(i  ,j,k,1) - dtmp(i-1,j,k,1) )
+cc     .                 /grid_params%dx(ig-1)
+cc     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
+cc     .                 *( dtmp(i+1,j,k,1) - dtmp(i  ,j,k,1) )
+cc     .                 /grid_params%dx(ig)
+cc     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
+cc     .                 *( dtmp(i,j  ,k,1) - dtmp(i,j-1,k,1) )
+cc     .                 /grid_params%dy(jg-1)
+cc     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
+cc     .                 *( dtmp(i,j+1,k,1) - dtmp(i,j  ,k,1) )
+cc     .                 /grid_params%dy(jg)
+cc     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
+cc     .                 *( dtmp(i,j,k  ,1) - dtmp(i,j,k-1,1) )
+cc     .                 /grid_params%dz(kg-1)
+cc     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
+cc     .                 *( dtmp(i,j,k+1,1) - dtmp(i,j,k  ,1) )
+cc     .                 /grid_params%dz(kg)
 
             upwind = upwind/jac
 
@@ -596,13 +611,16 @@ c Calculate matrix-vector product
             if (chi > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                          ,dtmp(:,:,:,1),vol=.false.)
-              lap = (gamma-1d0)*chi/rho0(i,j,k,1)*lap
+              lap = (gamma-1d0)*chi*lap
             else
               lap = 0d0
             endif
 
-            y(ijk) =dvol*( (cnp/dt+alpha*gm*mgdivV0(ijkg))*x(ijk)
-     .                     +alpha*(upwind - lap) )
+            if (.not.solve_prs) lap=lap/rho0(i,j,k,1)
+
+cc            y(ijk) =dvol*( (cnp/dt+alpha*gm*mgdivV0(ijkg))*x(ijk)
+cc     .                     +alpha*(upwind - lap) )
+            y(ijk) =dvol*( cnp/dt*x(ijk) + alpha*(upwind - lap) )
 
           enddo
         enddo
@@ -2671,7 +2689,7 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
      .        +dv(i,jp,km,2)-dv(i,jm,km,2))/grid_params%dyh(jg)*0.25
      .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/grid_params%dz(kg-1)
 
-      if (solve_rho.or.adiabatic) then
+      if (solve_rho.or.solve_prs) then
         gamm = gamma
       else
         gamm = gamma - 1
