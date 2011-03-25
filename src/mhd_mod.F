@@ -114,8 +114,7 @@ cc     .                       ,IPSI=3
         integer :: u_equf=1000,u_prtf=2000,u_mapf=3000
         character(20) :: equ_file,prt_file,map_file
 
-        logical :: adiabatic=.false.   !Whether to use pressure eq with adiabatic EOS
-     .            ,ion_hall=.false.    !Whether to use ion EOM for Hall E
+        logical :: ion_hall=.false.    !Whether to use ion EOM for Hall E
      .            ,pinch_flow=.false.  !Whether equilibrium has pinch flow
      .            ,slava     =.false.  !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise     =.false.  !Whether to add noise to EOM (to break symmetry)
@@ -185,6 +184,7 @@ c ######################################################################
      .                                       ,psi
      .                                       ,rho_0
      .                                       ,tmp_0
+cc     .                                       ,prs
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -454,7 +454,7 @@ c     Local variables
 
       real(8) :: bnorm
 
-      real(8),pointer,dimension(:,:,:) :: rho
+      real(8),pointer,dimension(:,:,:) :: rho,tmp
 
 c     Begin program
 
@@ -495,6 +495,15 @@ c     Begin program
 
       !Psi
       psi = 0d0
+
+      !Pressure
+cc      tmp => varray%array_var(ITMP)%array
+
+cc      if (solve_prs) then
+cc        prs = tmp
+cc      else
+cc        prs = rho*tmp
+cc      endif
 
 cc      !Previous time step B
 cc      if (save_tn) bcnv_n = bcnv !Save previous time step
@@ -4285,6 +4294,8 @@ cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
      .            ,solve_rho =.true.    !Whether we solve for rho or use rho=1
      .            ,alt_eom   =.false.   !Whether to use alternate EOM formulation in SP geometries
      .            ,sym_st    =.false.   !Whether to use symmetric stress tensor
+     .            ,adiabatic =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,solve_prs =.false.   !Whether we solve for pressure or temperature
 
         logical :: save_tn
 
@@ -4345,48 +4356,6 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
 c     End program
 
       end function viscous_heat_src
-
-c     EOM_f
-c     ###################################################################
-      function EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,bb,jj,vec_cnv
-     $              ,nc_eom_jxb,nc_eom_gp,alt_eom,vol)
-     .         result(cnv)
-
-c     -------------------------------------------------------------------
-c     Finds contravariant components (a1,a2,a3) of the EOM force term
-c     (jxb)-grad(ap*rho*tmp) at cell centers. Vectors are taken as
-c     contravariant if vec_cnv=.true., and covariant otherwise
-c     -------------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        integer    :: i,j,k,nx,ny,nz,igx,igy,igz
-        real(8)    :: cnv(3)
-        real(8),target :: jj(0:nx+1,0:ny+1,0:nz+1,3)
-     $                   ,bb(0:nx+1,0:ny+1,0:nz+1,3)
-     $                   ,rr(0:nx+1,0:ny+1,0:nz+1)
-     $                   ,tt(0:nx+1,0:ny+1,0:nz+1)
-        logical    :: vec_cnv,nc_eom_jxb,nc_eom_gp,alt_eom
-        logical,optional,intent(IN) :: vol
-
-c     Local variables
-
-        integer    :: igrid,ig,jg,kg,ip,im,jp,jm,kp,km
-        real(8)    :: cov(3),jac,cnv1(3),dxx,dyy,dzz
-        logical    :: vol_wgt
-
-c     Begin program
-
-        cnv = eom_jxb(i,j,k,nx,ny,nz,igx,igy,igz,bb,jj,vec_cnv
-     $               ,nc_eom_jxb,alt_eom,vol)
-     .       -eom_gp (i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,nc_eom_gp
-     .               ,alt_eom,vol)
-
-c     End program
-
-      end function EOM_f
 
 c     EOM_jxb
 c     ###################################################################
@@ -5155,27 +5124,11 @@ c     Begin program
           dyy = 2*grid_params%dyh(jg)
           dzz = 2*grid_params%dzh(kg)
 
-          if (adiabatic) then !tt is electron *pressure*
-            cov(1) = (tt(ip,j,k)-tt(im,j,k))/dxx
+          if (solve_prs) then !tt is electron *pressure*
 
-            cov(2) = (tt(i,jp,k)-tt(i,jm,k))/dyy
-          
-            cov(3) = (tt(i,j,kp)-tt(i,j,km))/dzz
-cc            cov(1) = ( rr(i,j,k)*(tt(ip,j,k)/rr(ip,j,k)
-cc     .                           -tt(im,j,k)/rr(im,j,k))/dxx
-cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(ip,j,k)
-cc     .                                      -rr(im,j,k))/dxx)
-cc
-cc            cov(2) = ( rr(i,j,k)*(tt(i,jp,k)/rr(i,jp,k)
-cc     .                           -tt(i,jm,k)/rr(i,jm,k))/dyy
-cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(i,jp,k)
-cc     .                                      -rr(i,jm,k))/dyy)
-cc          
-cc            cov(3) = ( rr(i,j,k)*(tt(i,j,kp)/rr(i,j,kp)
-cc     .                           -tt(i,j,km)/rr(i,j,km))/dzz
-cc     .                +tt(i,j,k)/ rr(i,j,k)*(rr(i,j,kp)
-cc     .                                      -rr(i,j,km))/dzz)
-          else  !tt is electron *temperature*
+            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,tt)
+
+          else                !tt is electron *temperature*
             cov(1) = ( rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))/dxx
      .                +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k))/dxx)
 
@@ -5184,13 +5137,31 @@ cc     .                                      -rr(i,j,km))/dzz)
           
             cov(3) = ( rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))/dzz
      .                +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km))/dzz)
+
+cc            cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
+cc
+cc            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
+cc          
+cc            cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
+
+cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
+cc     .                    *(tt(i,j,k)+tt(ip,j,k))
+cc     .                -0.5*(rr(i,j,k)+rr(im,j,k))
+cc     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
+cc
+cc            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
+cc     .                    *(tt(i,j,k)+tt(i,jp,k))
+cc     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
+cc     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
+cc
+cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
+cc     .                    *(tt(i,j,k)+tt(i,j,kp))
+cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
+cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
           endif
 
-          cov = cov*a_p  !Multiply by alpha_p=1 + Ti/Te to get total pressure
-
-          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .                                ,cov(1),cov(2),cov(3)
-     .                                ,cnv(1),cnv(2),cnv(3),.true.)
+          !Multiply by alpha_p=1 + Ti/Te to get total pressure
+          cnv = a_p*matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
 
           if (vol_wgt) cnv = cnv*gmetric%grid(igrid)%dvol(i,j,k)
 
@@ -5252,11 +5223,13 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
-        if (adiabatic) then    !p=T
+        if (solve_prs) then    !p=T
           ptot = 0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
         else                   !p=nT
           ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
      .                   +sc1(i ,j,k)*sc2(ip,j,k))
+cc          ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
+cc     .                   +sc1(ip,j,k)*sc2(ip,j,k))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
@@ -5322,11 +5295,13 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        if (adiabatic) then    !p=T
+        if (solve_prs) then    !p=T
           ptot = 0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
         else                   !p=nT
           ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
      .                   +sc1(i,j ,k)*sc2(i,jp,k))
+cc          ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
+cc     .                   +sc1(i,jp,k)*sc2(i,jp,k))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
@@ -5392,11 +5367,13 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        if (adiabatic) then    !p=T
+        if (solve_prs) then    !p=T
           ptot = 0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
         else                   !p=nT
           ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
      .                   +sc1(i,j,k )*sc2(i,j,kp))
+cc          ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
+cc     .                   +sc1(i,j,kp)*sc2(i,j,kp))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
@@ -5929,7 +5906,7 @@ c     Resistive term
 
       if (eta > 0d0) then
 
-cc      if (adiabatic) then
+cc      if (solve_prs) then
 cc        pe = tmp
 cc      else
 cc        pe = rho*tmp
@@ -6027,7 +6004,7 @@ c     Begin program
 
 c     Find required auxiliary quantities
 
-      if (adiabatic) then
+      if (solve_prs) then
         pe = tmp
       else
         pe = rho*tmp
