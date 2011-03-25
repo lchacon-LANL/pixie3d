@@ -734,7 +734,7 @@ cc           stop
 
 c       Temperature
 
-        if (gamma > 1d0) then
+        if ((gamma /= 1d0) .or. solve_prs) then
 
           !Correct for electron velocity/source contribution
           call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid)
@@ -1432,7 +1432,7 @@ c--------------------------------------------------------------------
 
       use precond_variables
 
-      use nlfunction_setup, ONLY: eom_f,eom_jxb
+      use nlfunction_setup, ONLY: EOM_jxb,EOM_gp
 
       use imposeBCinterface
 
@@ -1618,47 +1618,41 @@ c Find rhs_v'
             if (part == 'lfz' .or. part == 'all') then
 
               if (nc_eom_jxb) then
-                if (.not.adiabatic) then
-                  cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,drho(:,:,:,1),tmp0(:,:,:,1),db_cov,jcov0
-     .                     ,.false.,nc_eom_jxb,nc_eom_gp,.false.
-     .                     ,vol=.false.)
-                else
-                  cnv = eom_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+                cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,db_cov,jcov0,.false.,nc_eom_jxb,.false.
      .                     ,vol=.false.)
-                endif
-
-                cnv = cnv
-     .               +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),bcov0,dj_cov
-     .                     ,.false.,nc_eom_jxb,nc_eom_gp,.false.
+     .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb,.false.
      .                     ,vol=.false.)
               else
-                if (.not.adiabatic) then
-                  cnv = eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                   ,drho(:,:,:,1),tmp0(:,:,:,1),db_cnv,bcnv0
-     .                   ,.true.,nc_eom_jxb,nc_eom_gp,.false.
-     .                   ,vol=.false.)
-                else
-                  cnv = eom_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                   ,db_cnv,bcnv0,.true.,nc_eom_jxb,.false.
-     .                   ,vol=.false.)
-                endif
+                cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb,.false.
+     .                     ,vol=.false.)
+     .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb,.false.
+     .                     ,vol=.false.)
+              endif
 
+              if (.not.solve_prs) then
                 cnv = cnv
-     .               +eom_f(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                   ,rho0(:,:,:,1),dtmp(:,:,:,1),bcnv0,db_cnv
-     .                   ,.true.,nc_eom_jxb,nc_eom_gp,.false.
-     .                   ,vol=.false.)
+     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,drho(:,:,:,1),tmp0(:,:,:,1),nc_eom_gp
+     .                     ,.false.,vol=.false.)
+     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
+     .                     ,.false.,vol=.false.)
+              else
+                cnv = cnv
+     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
+     .                     ,.false.,vol=.false.)
               endif
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz') then
-cc                cnv =cnv - heta*EOM_divPe_ijk(i,j,k,nx,ny,nz
-cc     .                                ,igrid,igrid,igrid,dve_cnv,rho0)
-                cnv =cnv -EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                                 ,dve_cnv,heta0(:,:,:,1))
+                cnv = cnv
+     .               -EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                             ,dve_cnv,heta0(:,:,:,1))
               endif
 
               if (nc_eom_v) then
@@ -1692,8 +1686,6 @@ cc     .                                ,igrid,igrid,igrid,dve_cnv,rho0)
      .                         ,dv_cnv,gvis %grid(igrid)%array(:,:,:,1))
      .            + EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                         ,dv_cnv,gheta%grid(igrid)%array(:,:,:,1))
-cc     .            + heta*EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                                ,dve_cnv,rho0)
 
               if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
             endif
