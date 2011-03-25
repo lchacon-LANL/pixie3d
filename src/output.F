@@ -28,7 +28,7 @@ c Call variables
 
 c Local variables
 
-      integer       :: ngrd(3)
+      integer       :: ngrd(3),nx,ny,nz
 
       character(10) :: advective,ts
 
@@ -40,14 +40,24 @@ c Begin program
 
       ngrd = (/ grid_params%ngrdx,grid_params%ngrdy,grid_params%ngrdz /)
 
+      nx = grid_params%nxv(1)
+      ny = grid_params%nyv(1)
+      nz = grid_params%nzv(1)
+
 c Find maximum velocity and magnetic field components (cartesian)
 
-      vx_max = maxval(abs(varr%array_var(IVX )%array
-     .                   /varr%array_var(IRHO)%array))
-      vy_max = maxval(abs(varr%array_var(IVY )%array
-     .                   /varr%array_var(IRHO)%array))
-      vz_max = maxval(abs(varr%array_var(IVZ )%array
-     .                   /varr%array_var(IRHO)%array))
+      if (.not.nc_eom_v) then
+        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)
+     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)
+     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)
+     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+      else
+        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)))
+        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)))
+        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)))
+      endif
 
       vmax = (/ vx_max,vy_max,vz_max /)
 
@@ -70,19 +80,19 @@ c Output
           if (.not.test) call warnings
 
           if     (advect.eq.1) then
-            advective = 'UPWIND'
+            advective = ' UPWIND'
           elseif (advect.eq.2) then
-            advective = '   ZIP'
+            advective = '    ZIP'
           elseif (advect.eq.3) then
-            advective = ' QUICK'
+            advective = '  QUICK'
           elseif (advect.eq.4) then
-            advective = ' SMART'
+            advective = '  SMART'
           elseif (advect.eq.5) then
-            advective = 'SSMART'
+            advective = ' SSMART'
           elseif (advect.eq.6) then
-            advective = 'HORDER'
+            advective = ' HORDER'
           elseif (advect.eq.7) then
-            advective = ' Gamma'
+            advective = '  Gamma'
 cc            advective = '   TVD'
           endif
 
@@ -221,7 +231,8 @@ c     Warnings
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
       if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
-      if (adiabatic)    write (*,*) 'Using polytropic EOS'
+      if (adiabatic) write (*,*) 'Using polytropic EOS'
+      if (solve_prs) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'
