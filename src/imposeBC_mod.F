@@ -19,7 +19,7 @@ c####################################################################
      .                             ,EOM_divPi,EOM_divPe,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,save_tn,slava,pinch_flow
-     .                             ,res_ijk,vis_ijk
+     .                             ,res_ijk,vis_ijk,solve_prs
 
 c       Hardwired BC configuration parameters
 
@@ -137,7 +137,7 @@ c     Default boundary conditions
 
       bcsq = bbcs(:,ITMP)
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-cc      if (gamma /= 1d0 .and. (.not.adiabatic)) then
+cc      if (gamma /= 1d0 .and. (.not.solve_prs)) then
 cc        where (bcsq == DEF) bcsq = DIR
 cc      else
 cc        where (bcsq == DEF) bcsq = NEU !To allow isothermal case
@@ -198,6 +198,32 @@ cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
 cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+
+      case('adv2')
+
+        bbcs(1,IRHO) = EQU
+        bbcs(2,IRHO) = EXT
+        bbcs(3,IRHO) = EQU
+        bbcs(4,IRHO) = EXT
+        
+        bbcs(1,ITMP) = EQU
+        bbcs(2,ITMP) = EXT
+        bbcs(3,ITMP) = EQU
+        bbcs(4,ITMP) = EXT
+
+        where (bcond == DEF) bbcs(:,IVX) = NEU
+        where (bcond == DEF) bbcs(:,IVY) = NEU
+ 
+cc      case('sod')
+cc
+cc        bbcs(1,IRHO) = NEU
+cc        bbcs(2,IRHO) = NEU
+cc        
+cc        bbcs(1,ITMP) = NEU
+cc        bbcs(2,ITMP) = NEU
+cc
+cc        bbcs(1,IVX)  = DIR
+cc        bbcs(2,IVX)  = DIR
 
       end select
 
@@ -1168,7 +1194,7 @@ c     Begin program
 cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
             etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
+            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
             gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
      .                   +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
@@ -1250,7 +1276,7 @@ cc            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))/jach
 cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
               ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
               alpha = dot_product(E0,bbcnv)*ietah
 
@@ -1276,7 +1302,7 @@ cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
 cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
               ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,he=1)
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
               alpha = dot_product(E0,bbcnv)*ietah
 
