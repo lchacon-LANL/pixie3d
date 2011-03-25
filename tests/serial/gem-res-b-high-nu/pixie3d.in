@@ -17,7 +17,7 @@
     eta      = 5d-3
     nu       = 5d-2
     dd       = 0d-3
-    chi      = .12
+    chi      = 2d-2
 
     temp_ratio = 5.
 
@@ -69,8 +69,8 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
-
     advect     = 2
+    sym_st     = t
 
     debug    = f
     debug_it = 5
@@ -79,7 +79,7 @@
  /
 
  &graphdef
-    sel_diag  = 2,10,15,16,17,18,19,20,24,25
+    sel_diag  = 2,9,10,11,12,13,15,16,17,18,19,20,28,29 
     sel_graph = 1,2,3,4,5,6,7,8,9
     dplot = 1d-1
     prof_conf = 1,'x',1,10,1

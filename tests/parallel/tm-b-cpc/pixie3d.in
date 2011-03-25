@@ -63,6 +63,8 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
+    adiabatic  = t
+    solve_prs  = t
 
     debug    = f
     debug_it = 1
