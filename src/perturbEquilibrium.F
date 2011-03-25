@@ -19,6 +19,8 @@ c     -----------------------------------------------------------------
 
       use transport_params
 
+      use nlfunction_setup, ONLY:solve_prs
+
       implicit none
 
 c     Call variables
@@ -228,7 +230,7 @@ cc              if (ieq == IRHO) jac = 1d0
               if (ieq == IRHO) then
                 array(i,j,k) = array(i,j,k) - xi/freq
               elseif (ieq == ITMP) then
-                if (adiabatic) then
+                if (solve_prs) then
                   array(i,j,k) = array(i,j,k) - cs2*xi/(a_p*freq) !For e pressure
                 else
                   array(i,j,k) = array(i,j,k)
@@ -316,7 +318,7 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
           enddo
         enddo
 
-      case ('gem','tmcar','tmsin','kai1','sgem')
+      case ('gem','tmcar','tmsin','kai1')
 
         call perturbEquilibrium_gem(array,bcs,pert(ieq),ieq)
 
