@@ -1,0 +1,31 @@
+ Reading VMEC map on grid  1
+ Reading VMEC map on grid  2
+ Reading VMEC map on grid  3
+
+ Reading VMEC solution...
+
+  Grid mesh:................   32x   32x   32
+  Number of grid levels:....    3,    3,    3
+  Preconditioning method:...  id
+  Time correction...........   F
+  External source...........   T
+  Numerical grid............   T
+  Advection scheme..........    ZIP   
+  TS scheme................. Theta    
+
+   itime    time     dt     vx_max   vy_max   vz_max  GMRES  Newton  CN factor  GMRES-DC
+      1    0.000  1.0E-04   1.3E-04  1.5E-07  1.5E-09     3     3     0.500        0
+      2    0.000  1.0E-04   1.3E-04  5.0E-07  5.0E-09     3     3     0.500        0
+      3    0.000  1.0E-04   1.3E-04  1.0E-06  1.0E-08     3     3     0.500        0
+      4    0.000  1.0E-04   1.3E-04  1.8E-06  1.8E-08     3     3     0.500        0
+      5    0.001  1.0E-04   1.3E-04  2.6E-06  2.7E-08     3     3     0.500        0
+      6    0.001  1.0E-04   1.3E-04  3.6E-06  3.8E-08     3     3     0.500        0
+      7    0.001  1.0E-04   1.3E-04  4.8E-06  5.1E-08     3     3     0.500        0
+      8    0.001  1.0E-04   1.2E-04  6.0E-06  6.5E-08     3     3     0.500        0
+      9    0.001  1.0E-04   1.2E-04  7.3E-06  8.2E-08     3     3     0.500        0
+     10    0.001  1.0E-04   1.2E-04  8.6E-06  1.0E-07     3     3     0.500        0
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   10       3.0        3.0        1.0
