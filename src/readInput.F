@@ -67,7 +67,7 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,adiabatic
+     .                   ,solve_rho,advect,sym_st,adiabatic,solve_prs
      .                   ,ion_hall,fake_ve,slava,noise,noise_lev
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
@@ -89,7 +89,7 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,ion_hall
+     .                   ,solve_rho,solve_prs,advect,sym_st,ion_hall
      .                   ,fake_ve,slava,noise,noise_lev
 
       !Temporal discretization
@@ -227,8 +227,7 @@ c Set defaults
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not, if true, ITMP is electron pressure,
-                               !   otherwise it is electron temperature
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
@@ -238,7 +237,8 @@ c Set defaults
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
-      solve_rho  = .true.      ! Whether we solver continuity equation or not
+      solve_rho  = .true.      ! Whether we solve continuity equation or not
+      solve_prs  = .false.     ! Whether we solve for electron pressure or temperature
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
 cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
@@ -471,8 +471,6 @@ cc      if (precon == 'id') iguess = 0
 
       if (restart) dcon = .false.
 
-cc      if (gamma == 1d0) adiabatic = .false.
-
       if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
 cc        solve_rho = .false.
         postprocess = .true.
@@ -485,7 +483,10 @@ cc        solve_rho = .false.
 
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
-     .        .and.equil /= 'p3nsl')) then
+     .        .and.equil /= 'p3nsl'
+     .        .and.equil /= 'adv1'
+     .        .and.equil /= 'adv2')
+     .        .and.equil /= 'sod' ) then
         call pstop('readInput','No sinusoidal perturbation specified')
       endif
 
