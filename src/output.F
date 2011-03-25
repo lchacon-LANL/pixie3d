@@ -67,10 +67,6 @@ c Find maximum velocity and magnetic field components (cartesian)
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
 
-cc      bx_max = maxval(abs(bx_car))
-cc      by_max = maxval(abs(by_car))
-cc      bz_max = maxval(abs(bz_car))
-
 c Output
 
       if (my_rank == 0) then
