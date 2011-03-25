@@ -488,7 +488,7 @@ c Energy diagnostics
 
       !Thermal energy
 
-      if (adiabatic) then
+      if (solve_prs) then
         array = tmp
       else
         array = rho*tmp
@@ -840,7 +840,7 @@ c Diagnostic assignment
 
       diagnostics(neqd+24) = Bup/Bup0
       diagnostics(neqd+25) = Bdown/Bup0
-      diagnostics(neqd+26:28) = vemax
+      diagnostics(neqd+26:neqd+28) = vemax
 
       !Compensate for symmetry BCs
       if (bcond(1) == FSYM .or. bcond(2) == FSYM) then
