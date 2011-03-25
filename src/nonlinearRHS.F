@@ -41,10 +41,6 @@ c Local variables
 
       real(8)    :: cnv(3),cov(3),jac
 
-      !Marder B cleaning
-cc      real(8)    :: dS1,dS2,dS3,dxx,dyy,dzz,kappa
-cc      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-
       ! rho equation
       real(8)    :: advc,diffus
 
@@ -106,7 +102,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 c Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-      if (gamma == 1d0) then
+      if ((gamma == 1d0) .and. (.not.solve_prs)) then
 
         ff(ITMP) = 0d0
 
@@ -117,16 +113,14 @@ c       Heat flux
         heat_flx = 0d0
 
         if (chi /= 0d0) then
-          heat_flx =-a_p  !Factor of a_p needed because variable should be total T=Ti+Te=a_p*Te
-     .              *chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
 cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
      .                            ,vol=.false.)  !chi_perp=chi
         endif
 
         if (chi_par /= chi) then
           heat_flx = heat_flx
-     .              -a_p  !Factor of a_p needed because variable should be total T=Ti+Te=a_p*Te
-     .              *(chi_par-chi)
+     .              -(chi_par-chi)
      .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
      .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
      .                   ,symmetric=.true.,limited=.false.,vol=.false.)
@@ -134,22 +128,48 @@ cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
 
 c       Advection + sources
 
-        if (adiabatic) then  !Pressure equation
+        if (solve_prs) then  !Pressure equation
 
-          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vscnv,tmp,advect,vol=.false.)
-     .        +(gamma-1.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
+cc          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                  ,vscnv,tmp,advect,vol=.false.)
+cc     .        +(gamma-1.)*tmp(i,j,k)
+cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
 
-          ff(ITMP) = advc + (gamma-1d0)*heat_flx/a_p
+          advc=gamma    *flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                        ,vscnv,tmp,advect,vol=.false.)
+cc     .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                       ,-vscnv,tmp,1,vol=.false.)
+     .       +(1.-gamma)*dot_product(vscnv(i,j,k,:)
+     .                  ,grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                       ,hex=int(sign(1d0,vscnv(i,j,k,1)))
+     .                       ,hey=int(sign(1d0,vscnv(i,j,k,2)))
+     .                       ,hez=int(sign(1d0,vscnv(i,j,k,3)))))
+     .                  /gmetric%grid(igx)%jac(i,j,k)
+
+          ff(ITMP) = advc + (gamma-1d0)*heat_flx
 
         else                 !Temperature equation
 
-          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vscnv,tmp,advect,vol=.false.)
-     .        +(gamma-2.)*tmp(i,j,k)
-     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
+cc          advc=flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                  ,vscnv,tmp,advect,vol=.false.)
+cc     .        +(gamma-2.)*tmp(i,j,k)
+cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
 
+          advc=(gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                        ,vscnv,tmp,advect,vol=.false.)
+     .        +(2.-gamma)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                        ,vscnv,tmp,advect,vol=.false.)
+cc     .        +(2.-gamma)*dot_product(vscnv(i,j,k,:)
+cc     .                  ,grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cc     .                       ,hex=int(sign(1d0,-vscnv(i,j,k,1)))
+cc     .                       ,hey=int(sign(1d0,-vscnv(i,j,k,2)))
+cc     .                       ,hez=int(sign(1d0,-vscnv(i,j,k,3)))))
+cc     .                  /gmetric%grid(igx)%jac(i,j,k)
+
+          ff(ITMP) = advc + (gamma-1.)*heat_flx/rho(i,j,k)
+        endif
+
+        if (.not.adiabatic) then
           !Joule heating
           joule = eeta(i,j,k)
      .           *dot_product(jcnv(i,j,k,:),jcov(i,j,k,:))/jac
@@ -179,33 +199,41 @@ c       Advection + sources
           endif
 
           !Add contributions
-          ff(ITMP) = advc
-     .             +(gamma-1d0)*(heat_flx - heat_src)/rho(i,j,k)/a_p
-
+          if (solve_prs) then
+            ff(ITMP) = advc - (gamma-1.)*heat_src/a_p
+          else
+            ff(ITMP) = advc - (gamma-1.)*heat_src/rho(i,j,k)/a_p
+          endif
         endif
 
       endif
 
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-c     Volume force: (jxB-grad(p))
+c     JxB volume force
 
       if (nc_eom_jxb) then
-        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .             ,bcov,jcov,.false.,nc_eom_jxb,nc_eom_gp,alt_eom
-cc     .             ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
-     $             ,vol=.false.)
+        cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .               ,bcnv,jcnv,.true.
+     .               ,bcov,jcov,.false.
+     .               ,nc_eom_jxb,alt_eom,vol=.false.)
       else
-        cnv = EOM_f(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .             ,bcnv,bcnv,.true. ,nc_eom_jxb,nc_eom_gp,alt_eom
-     $             ,vol=.false.)
+        cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz,bcnv,bcnv,.true.
+     .               ,nc_eom_jxb,alt_eom,vol=.false.)
       endif
 
       ff(IVX:IVZ) = -cnv
 
+c     grad(p) volume force
+
+      cnv = EOM_gp(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
+     .            ,nc_eom_gp,alt_eom,vol=.false.)
+
+      ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+
 c     Stress tensor: div(Pi)
 
-      if (slava) then
+      if (slava .or. di == 0d0) then
         cnv = div_pi(i,j,k,:) !Match Slava's EOM
       else
         cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
@@ -217,7 +245,7 @@ c     Advection
 
       if (nc_eom_v) then
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                   ,advect,cons=.not.nc_eom_v)
+     .                   ,min(advect,2),cons=.not.nc_eom_v)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
