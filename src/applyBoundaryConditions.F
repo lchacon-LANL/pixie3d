@@ -753,7 +753,7 @@ cc          call XformVector_BC(iigx,bcnv_0,bcov_0,.false.)
 
 c       Velocity BC
 
-          if (adiabatic) then
+          if (solve_prs) then
             prs = a_p*tmp_0
           else
             prs = a_p*rho_0*tmp_0
@@ -826,7 +826,7 @@ cc           else
              tmp => varray%array_var(ITMP)%array
 cc           endif
 
-            if (adiabatic) then
+            if (solve_prs) then
               prs = a_p*tmp
             else
               prs = a_p*rho*tmp
@@ -878,7 +878,7 @@ cc           else
              tmp => varray%array_var(ITMP)%array
 cc           endif
 
-            if (adiabatic) then
+            if (solve_prs) then
               prs = a_p*tmp
             else
               prs = a_p*rho*tmp
@@ -919,7 +919,7 @@ cc           else
              tmp => varray%array_var(ITMP)%array
 cc           endif
 
-            if (adiabatic) then
+            if (solve_prs) then
               prs = a_p*tmp
             else
               prs = a_p*rho*tmp
