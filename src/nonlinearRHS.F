@@ -205,7 +205,7 @@ cc     .             ,bcnv,jcnv,.true.,nc_eom_jxb,nc_eom_gp,alt_eom
 
 c     Stress tensor: div(Pi)
 
-      if (slava) then
+      if (slava .or. di==0d0 ) then
         cnv = div_pi(i,j,k,:) !Match Slava's EOM
       else
         cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
