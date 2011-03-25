@@ -537,7 +537,7 @@ c     Begin program
 
 #if defined(samrai)
       call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
-     .                       ,.false.,.false.,.false.,.false.)
+     .                       ,.true.,.false.,.false.,.false.)
 #else
       call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
      .                       ,.false.,.false.,.false.,.false.)
