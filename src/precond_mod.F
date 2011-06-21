@@ -18,8 +18,6 @@ c ######################################################################
 
         use grid
 
-        use mgarraySetup
-
         use newtongm
 
         use mg_solver
@@ -1357,7 +1355,7 @@ c     Resistive MHD part
           cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
      .           - vv(i,j,k,2)*b0(i,j,k,1)
 
-          cov   = cov/gmetric%grid(igx)%jac(i,j,k)
+          cov = cov/gmetric%grid(igx)%jac(i,j,k)
         end select
 
         uav = -cov
@@ -1900,7 +1898,6 @@ c     Call variables
 
       integer :: nx,ny,nz,igrid
       real(8) :: x(nx*ny*nz,neqd),crhs(nx*ny*nz)
-cc     .          ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Local variables
 
