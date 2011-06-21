@@ -41,6 +41,7 @@ c Local variables
       !Legacy parameters
       character(2)  :: precon
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
+     .                ,pc_debug_it
       logical       :: zebra_relax,hall_new,lag_pinch_bc
       real(8)       :: mgtol
 
@@ -60,8 +61,8 @@ c Namelists
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                ,pc_type,pc_tol,pc_max_iter,pc_asm,pc_debug
-     .                   ,pc_debug_it,pc_divclean,mg_vcyc,sm_iter
+     .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug
+     .                   ,pc_divclean,mg_vcyc,sm_iter
      .                   ,mg_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
@@ -73,7 +74,7 @@ c Namelists
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
-     .                   ,lag_pinch_bc,recordfile
+     .                   ,lag_pinch_bc,recordfile,pc_debug_it
 
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -104,8 +105,8 @@ c Namelists
      .                   ,maxitgm,global,method,damp,dt0,vol_wgt
 
       !Preconditioner
-      namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_max_iter
-     .                   ,pc_asm,mg_zebra_relax,pc_debug,pc_debug_it
+      namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
+     .                   ,pc_asm,mg_zebra_relax,pc_debug
      .                   ,pc_divclean
 
       !I/O
@@ -262,17 +263,16 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       noise_lev  = 0d0         ! Noise level
 
       !Preconditioner parameters
-      pc_type  = 'id'          ! Type of preconditioner. Currently:
+      pc_type    = 'id'          ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
                                !   - 's1': SI without flow
                                !   - 's2': SI with flow
-      pc_max_iter = 1          ! Number of SI iterations in preconditioner
-      pc_tol      = 1d-3       ! PC solvers convergence tolerance
-      pc_debug_it = 0          ! Newton iteration level for debugging (0 --> ask)
+      pc_iter    = 1           ! Number of SI iterations in preconditioner
+      pc_tol     = 1d-3        ! PC solvers convergence tolerance
 
-      pc_asm      = .false.    ! Whether we are doing additive Schwartz PC (in parallel)
-      pc_debug    = .false.    ! PC debugging flag
-      pc_divclean = .false.    ! Whether to perform divergence cleaning in PC or not
+      pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
+      pc_debug   = .false.     ! PC debugging flag
+      pc_divclean= .false.     ! Whether to perform divergence cleaning in PC or not
 
       mg_ratio = 2             ! MG coarsening ratio
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
@@ -404,9 +404,8 @@ c Check legacy parameters
 
       if (precon /= '' )  pc_type = precon
       if (mgtol  /= 0d0)  pc_tol  = mgtol
-      if (precpass/=0  )  pc_max_iter = precpass
+      if (precpass/=0  )  pc_iter = precpass
       if (debug        )  pc_debug = debug
-      if (debug_it >= 0)  pc_debug_it = debug_it
 
       if (maxvcyc/= 0  )  mg_vcyc = maxvcyc
       if (zebra_relax  )  mg_zebra_relax = .true.
@@ -434,9 +433,9 @@ c Initialize grid packing structure
 
 c Consistency check
 
-cc      if (di == 0d0) heta = 0d0
+      call nk_setup_consistency
 
-cc      if (precon == 'id') iguess = 0
+cc      if (di == 0d0) heta = 0d0
 
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
