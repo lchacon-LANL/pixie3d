@@ -1,6 +1,6 @@
-c setupPreconditioner
+c setup_app_PC
 c####################################################################
-      subroutine setupPC(ntot,x,nwt_it)
+      subroutine setup_app_PC(igrid,varray,nwt_it)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -21,14 +21,12 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer :: ntot,nwt_it
-      real(8) :: x(ntot)
+      integer :: igrid,nwt_it
+      type (var_array),pointer :: varray
 
 c Local variables
 
       integer :: igx,igy,igz
-
-      type(var_array),pointer :: varray => null()
 
 c Interfaces
 
@@ -45,11 +43,9 @@ c Interfaces
 
 c Begin program
 
-      if (pc_type == 'id') return
-
-      igx = 1
-      igy = 1
-      igz = 1
+      igx = igrid
+      igy = igrid
+      igz = igrid
 
       nwt_iter = nwt_it
 
@@ -58,8 +54,6 @@ c Setup PC parameters
       call PC_setup
 
 c Unpack vector x
-
-      call mapVectorToStructure(varray,x)
 
 #if !defined(samrai)
       call applyBC(varray,igx,igy,igz)
@@ -82,11 +76,7 @@ c Find required diagonals in all grids
 
 c Initialize PC Jacobi it. counter
 
-      pc_iter = 0
-
-c Deallocate memory
-
-      call deallocateDerivedType(varray)
+      iter_si = 0
 
 c End program
 
@@ -137,7 +127,7 @@ c     Diag
 
 c     Externals
 
-        external   v_mtvc,v_mtvc2,v_mtvc3,b_mtvc,rho_mtvc,tmp_mtvc
+        external   v_mtvc,v_mtvc2,v_mtvc_af,b_mtvc,rho_mtvc,tmp_mtvc
      .            ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
      .            ,v_mtvc_hyp
 
@@ -201,7 +191,7 @@ cc              endif
      .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
             endif
           elseif (pc_type == 's3') then
-            call find_mf_diag(3,1,3*ntotdp,v_mtvc3,1,bcs(:,IVX:IVZ)
+            call find_mf_diag(3,1,3*ntotdp,v_mtvc_af,1,bcs(:,IVX:IVZ)
      .                       ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
         endif
@@ -298,12 +288,12 @@ c diag *****
 
       end subroutine form_diagonals
 
-      end subroutine setupPC
+      end subroutine setup_app_PC
 
-c killPreconditioner
+c kill_app_PC
 c###################################################################
-      subroutine killPC
+      subroutine kill_app_PC
 
       use precond_variables
 
-      end subroutine killPC
+      end subroutine kill_app_PC
