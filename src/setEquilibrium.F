@@ -3093,7 +3093,7 @@ c     ---------------------------------------------------------------
 
         use mg_solver
 
-        use mg_internal, ONLY: mapMGVectorToArray
+cc        use mg_xfer, ONLY: mapMGVectorToArray
 
         use imposeBCinterface
 
@@ -3693,7 +3693,7 @@ c     ---------------------------------------------------------------
 
         use precond_variables, ONLY: csolver
 
-        use mg_internal, ONLY: mapMGVectorToArray
+        use mg_xfer, ONLY: mapMGVectorToArray
 
         use imposeBCinterface
 
@@ -5475,7 +5475,7 @@ cc        endif
 
 c Transform to Covariant
 
-      call XformVector(iigx,a,'car','cov')
+      call XformVector_mesh2(iigx,a,'car','cov')
 
 c Set boundary values to face values for EQU BC
 
