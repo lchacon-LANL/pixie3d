@@ -6090,7 +6090,8 @@ cc      endif
           do j=1,ny
             do i=1,nx
               cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                         ,min(advect,2),cons=.false.)
+cc     .                         ,min(advect,2),cons=.false.)
+     .                         ,1,cons=.false.)
      .             +E_h(i,j,k,:)
 
               E_h(i,j,k,:) = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -6532,66 +6533,24 @@ c ######################################################################
 
         use grid
 
+        use nk_setup
+
         use nlfunction_setup, ONLY: ion_hall
 
-        integer :: pc_max_iter
-     .            ,pc_debug_it
-     .            ,pc_iter
-     .            ,mg_ores
-     .            ,mg_oprol
-     .            ,mg_ores_si
+        integer :: mg_ores_si
      .            ,mg_oprol_si
-     .            ,mg_coarse_size
-     .            ,mg_vcyc
-     .            ,sm_ncolors
-     .            ,sm_iter
      .            ,sm_iter_si
+     .            ,iter_si
 
-        real(8) :: pc_tol
-     .            ,sm_omega
-     .            ,sm_omega_si
+        real(8) :: sm_omega_si
 
-        character(2) :: pc_type
-     .                 ,sm_type
-     .                 ,sm_type_si
+        character(2) :: sm_type_si
 
-        logical :: mg_glrkin
-     .            ,mg_gm_coarse
-     .            ,mg_line_relax
-     .            ,mg_zebra_relax
-     .            ,mg_zebra_relax_si
-     .            ,mg_debug
-     .            ,mg_cvrg_test
-     .            ,pc_asm
-     .            ,pc_B_solve
+        logical :: pc_B_solve
      .            ,pc_v_solve
-     .            ,pc_debug
      .            ,pc_ion_hall
      .            ,pc_divclean
-
-cc        type :: pcsetup
-cc          integer :: sm_iter,maxvcyc,pc_max_iter,debug_it
-cc
-cc          integer :: pc_iter,ores,oprol,mg_coarse_size,ncolors
-cc
-cc          real(8) :: mgtol,omeg_smth
-cc
-cc          character(2) :: smooth
-cc          character(10):: pc_type
-cc
-cc          logical :: gm_smooth
-cc     .              ,mg_glrkin
-cc     .              ,gm_coarse
-cc     .              ,line_relax
-cc     .              ,zebra_relax
-cc     .              ,inv_B
-cc     .              ,v_solve
-cc     .              ,mg_debug
-cc     .              ,cvrg_test
-cc     .              ,asm_PC
-cc        end type pcsetup
-cc
-cc        type(pcsetup) :: pc__setup
+     .            ,mg_zebra_relax_si
 
       contains
 
@@ -6636,10 +6595,6 @@ cc      inv_B  = .false.
       !Consistency checks
       if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
 
-      if (np > 1) mg_gm_coarse = .false.       !Do not perform GMRES coarse solve in parallel
-
-      if (sm_type /= 'jb') sm_omega = 1d0
-
       !SI solver configuration
 cc      sm_type_si     = 'gs'
 cc      sm_omega_si    = 1d0
@@ -6665,3 +6620,155 @@ cc      endif
       end subroutine PC_setup
 
       end module precond_setup
+
+c app_mon_func
+c #################################################################
+      subroutine app_mon_func(igrid,nx,ny,nz,tjac)
+
+c -----------------------------------------------------------------
+c     Computes monitor function to drive MK grid adaptation, and
+c     stores it in "tjac". Must provide ghost cell values.
+c -----------------------------------------------------------------
+
+      use equilibrium
+
+      use timeStepping
+
+      use nlfunction_setup
+
+      use mk, ONLY: g_ratio
+
+      implicit none
+
+c     Call variables
+
+      integer :: igrid,nx,ny,nz
+      real(8) :: tjac(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      integer :: i,j,k
+      real(8) :: a_mk=2d0,j0_max=1d0,w0_max=1d0,gext(2),lext(2)
+
+c     Begin program
+
+      select case(equil)
+      case ('mktst') 
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              tjac(i,j,k) = evalJac_tst(i,j,k,'cos')
+            enddo
+          enddo
+        enddo
+
+      case default
+
+      end select
+
+c     End program
+
+      contains
+
+c     evalJac_tst
+c     ##############################################################
+      function evalJac_tst(i,j,k,test) result(jac)
+
+c     --------------------------------------------------------------
+c     Old MK tests, from Delzanno et al., JCP (2008) and
+c     Chacon et al., JCP (2010).
+c     --------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k
+      real(8) :: jac
+      character(*) :: test
+      
+c     Local variables
+
+      integer :: ig,jg,kg
+      real(8) :: cc,ss,pi,eps,xt,omegt,rc,thc,xc,yc,x1,x2,x3
+
+c     Begin program
+
+      call getCartesianCoordinates(i,j,k,igrid,igrid,igrid
+     .                            ,ig,jg,kg,x1,x2,x3)
+
+      pi = acos(-1d0)
+
+      select case(trim(test))
+      case ('spirl')
+        omegt = 0.1*(time - dt)
+        rc=dsqrt((x1-0.7d0)**2+(x2-0.5d0)**2)
+        thc=datan((x2-0.5d0)/(x1-0.7d0)) + omegt
+        jac=1d0/(1d0+5d0/(1d0+(3d0*rc*dcos(thc-40d0*rc**2))**2))
+cc        jac=1d0/(1d0+9d0/(1d0+(1d1*rc*dcos(thc-20d0*rc**2))**2))
+      case ('blob')
+        omegt =-0.1*(time - dt)
+
+        rc=sqrt((x1-0.5d0)**2+(x2-0.5d0)**2)
+
+        thc =atan((x2-0.5d0)/(x1-0.5d0))
+
+        thc = thc - omegt
+
+        jac = 1d0/(1d0 + 4*exp(-rc**2*((cos(thc))**2/0.03
+     .                                +(sin(thc))**2/0.003)))
+      case ('blob1')
+        rc=dsqrt((x1-0.7d0)**2+(x2-0.8d0)**2)
+
+        jac = (1d0 + 4*rc**2)
+      case ('blob2')
+        rc=dsqrt((x1-0.2d0)**2+(x2-0.3d0)**2)
+
+        jac = (1d0 + 64*rc**2)
+      case ('swirl')
+        omegt = 0.1*(time - dt)
+        rc=dsqrt((x1-0.5d0)**2+(x2-0.5d0)**2)
+        thc=datan((x2-0.5d0)/(x1-0.5d0))+16*omegt*max((0.5-rc)*rc,0d0)
+
+        jac = 1d0/(1d0 + 4*exp(-rc**2*(cos(thc)**2/0.05
+     .                                +sin(thc)**2/0.001)))
+      case ('squre')
+        omegt = .1*(time - dt)
+        thc = omegt
+        x1 = (x1 - 0.5)/0.2
+        x2 = (x2 - 0.5)/0.2
+        xc =  x1*cos(thc)+x2*sin(thc)
+        yc = -x1*sin(thc)+x2*cos(thc)
+        jac = 1 + 5*max(0d0,(1d0-xc)*(xc+1d0))
+     .             *max(0d0,(1d0-yc)*(yc+1d0))
+        jac = 1d0/jac
+      case ('sglr1')
+        jac = sqrt((x1-0.5)**2+(x2-0.5)**2)
+     .       /exp(-2*sqrt((x1-0.5)**2+(x2-0.5)**2))
+      case ('sglr2')
+        jac = sqrt((x1-0.7)**2+(x2-0.7)**2)
+     .       /exp(-2*sqrt((x1-0.5)**2+(x2-0.5)**2))
+      case ('cos')
+        jac = 2d0 + cos(8*pi*sqrt((x1-0.5)**2
+     .                           +(x2-0.5)**2))
+      case ('3dcos')
+        jac = 2d0 + cos(8*pi*sqrt((x1-0.5)**2
+     .                           +(x2-0.5)**2
+     .                           +(x3-0.5)**2))
+      case ('cost')
+        xt =-0.1*time
+        jac = (2d0 + cos(8*pi*sqrt((x1-0.5-xt)**2
+cc        jac = (2d0 + cos(8*pi*sqrt((x1-0.5)**2
+     .                            +(x2-0.5   )**2)))
+      case ('one')
+        jac = 1d0
+      case default
+        write (*,*) 'Jacobian not available'
+        write (*,*) 'Aborting...'
+        stop
+      end select
+
+      end function evalJac_tst
+
+      end subroutine app_mon_func
