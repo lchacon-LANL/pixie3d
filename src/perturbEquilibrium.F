@@ -1,6 +1,6 @@
 c     perturbEquilibrium
 c     #################################################################
-      subroutine perturbEquilibrium(array,bcs,ieq)
+      subroutine perturbEquilibrium(varr)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -25,12 +25,11 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: bcs(6),ieq
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+      type(var_array),pointer :: varr
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz
+      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ieq
       real(8)    :: x1,y1,z1,jac,kx,ky,kk,eps
      .             ,vplus,vminus,vshear,cs2,kdotB,cth
      .             ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
@@ -64,9 +63,17 @@ c     Begin program
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          call perturbEquilibrium_kaitm(array,bcs,pert(ieq),ieq)
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_kaitm(varr%array_var(ieq)%array
+     .                                   ,varr%array_var(ieq)%bconds
+     .                                   ,pert(ieq),ieq)
+          enddo
         else
-          call perturbEquilibrium_def  (array,bcs,pert(ieq),ieq)
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_def(varr%array_var(ieq)%array
+     .                                 ,varr%array_var(ieq)%bconds
+     .                                 ,pert(ieq),ieq)
+          enddo
         endif
 
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
@@ -75,9 +82,17 @@ c     Begin program
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          call perturbEquilibrium_ppnch(array,bcs,pert(ieq),ieq)
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_ppnch(varr%array_var(ieq)%array
+     .                                   ,varr%array_var(ieq)%bconds
+     .                                   ,pert(ieq),ieq)
+          enddo
         else
-          call perturbEquilibrium_def  (array,bcs,pert(ieq),ieq)
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_def(varr%array_var(ieq)%array
+     .                                 ,varr%array_var(ieq)%bconds
+     .                                 ,pert(ieq),ieq)
+          enddo
         endif
 
       case ('msw')
@@ -90,23 +105,22 @@ c     Begin program
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
-cc              jac = gmetric%grid(igx)%jac(i,j,k)
-cc              if (ieq == IRHO) jac = 1d0
+
               jac = 1d0
-              if (ieq == IRHO) then
-                array(i,j,k) = array(i,j,k)
+
+              varr%array_var(IRHO)%array(i,j,k) =
+     .                         varr%array_var(IRHO)%array(i,j,k)
      .                       + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
-#if defined(vec_pot) 
-              elseif (ieq == IAY) then
-                array(i,j,k) = array(i,j,k)
+#if defined(vec_pot)
+              varr%array_var(IAY)%array(i,j,k) =
+     .                     varr%array_var(IAY)%array(i,j,k)
      .                     + jac*1d-3/kx
      .                          *sin(kx*(x1-xmin)+ky*(y1-ymin))
 #else
-              elseif (ieq == IBZ) then
-                array(i,j,k) = array(i,j,k)
+              varr%array_var(IBZ)%array(i,j,k) =
+     .                     varr%array_var(IBZ)%array(i,j,k)
      .                     + jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 #endif
-              endif
             enddo
           enddo
         enddo
@@ -227,37 +241,47 @@ cc              if (ieq == IRHO) jac = 1d0
               endif
 #endif
 
-              if (ieq == IRHO) then
-                array(i,j,k) = array(i,j,k) - xi/freq
-              elseif (ieq == ITMP) then
-                if (solve_prs) then
-                  array(i,j,k) = array(i,j,k) - cs2*xi/(a_p*freq) !For e pressure
-                else
-                  array(i,j,k) = array(i,j,k)
-     .                         -(cs2/a_p-array(i,j,k))*xi/freq    !For temperature
-                endif
-#if !defined(vec_pot)
-              elseif (ieq == IBX) then
-                array(i,j,k) = array(i,j,k) + bxx
-              elseif (ieq == IBY) then
-                array(i,j,k) = array(i,j,k) + byy
-              elseif (ieq == IBZ) then
-                array(i,j,k) = array(i,j,k) + bzz
-#else
-              elseif (ieq == IAX) then
-                array(i,j,k) = array(i,j,k) + axx
-              elseif (ieq == IAY) then
-                array(i,j,k) = array(i,j,k) + ayy
-              elseif (ieq == IAZ) then
-                array(i,j,k) = array(i,j,k) + azz
-#endif
-              elseif (ieq == IVX) then
-                array(i,j,k) = array(i,j,k) + vxx
-              elseif (ieq == IVY) then
-                array(i,j,k) = array(i,j,k) + vyy
-              elseif (ieq == IVZ) then
-                array(i,j,k) = array(i,j,k) + vzz
+              varr%array_var(IRHO)%array(i,j,k) =
+     .               varr%array_var(IRHO)%array(i,j,k) - xi/freq
+
+              if (solve_prs) then
+                varr%array_var(ITMP)%array(i,j,k) =
+     .               varr%array_var(ITMP)%array(i,j,k)
+     .             - cs2*xi/(a_p*freq) !For e pressure
+              else
+                 varr%array_var(ITMP)%array(i,j,k) =
+     .               varr%array_var(ITMP)%array(i,j,k)
+     .             -(cs2/a_p
+     .              -varr%array_var(ITMP)%array(i,j,k))*xi/freq !For temperature
               endif
+
+#if !defined(vec_pot)
+              varr%array_var(IBX)%array(i,j,k)
+     .               = varr%array_var(IBX)%array(i,j,k) + bxx
+
+              varr%array_var(IBY)%array(i,j,k)
+     .               = varr%array_var(IBY)%array(i,j,k) + byy
+
+              varr%array_var(IBZ)%array(i,j,k)
+     .               = varr%array_var(IBZ)%array(i,j,k) + bzz
+#else
+              varr%array_var(IAX)%array(i,j,k)
+     .               = varr%array_var(IAX)%array(i,j,k) + axx
+
+              varr%array_var(IAY)%array(i,j,k)
+     .               = varr%array_var(IAY)%array(i,j,k) + ayy
+
+              varr%array_var(IAZ)%array(i,j,k)
+     .               = varr%array_var(IAZ)%array(i,j,k) + azz
+#endif
+              varr%array_var(IVX)%array(i,j,k)
+     .               = varr%array_var(IVX)%array(i,j,k) + vxx
+
+              varr%array_var(IVY)%array(i,j,k)
+     .               = varr%array_var(IVY)%array(i,j,k) + vyy
+
+              varr%array_var(IVZ)%array(i,j,k)
+     .               = varr%array_var(IVZ)%array(i,j,k) + vzz
             enddo
           enddo
         enddo
@@ -273,24 +297,17 @@ cc              if (ieq == IRHO) jac = 1d0
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 #if !defined(vec_pot) 
-              if (ieq == IBY) then
-                array(i,j,k) = array(i,j,k)
-     .                       + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
-c$$$              elseif (ieq == IBZ) then   !This sets a traveling wave
-c$$$                array(i,j,k) = array(i,j,k)
-c$$$     .                       + 1d-3*sin(nh1*2*pi*(x1-xmin)/(xmax-xmin))
+                varr%array_var(IBY)%array(i,j,k) =
+     .               varr%array_var(IBY)%array(i,j,k)
+     .             + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 #else
-              if (ieq == IAZ) then
-                array(i,j,k) = array(i,j,k)
-     .                       - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
-cc     .                       - 1d-3*(xmax-xmin)/2./pi/nh1
-cc     $                             *sin(nh1*2*pi*(x1-xmin)/(xmax-xmin)
-cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
+                varr%array_var(IAZ)%aarray(i,j,k) =
+     .               varr%array_var(IAZ)%aarray(i,j,k)
+     .             - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
 #endif
-              elseif (ieq == IVZ) then
-                array(i,j,k) = array(i,j,k)
-     .                   + 1d-3/kx/di*sin(kx*(x1-xmin)+ky*(y1-ymin))
-              endif
+                varr%array_var(IVZ)%array(i,j,k) =
+     .               varr%array_var(IVZ)%array(i,j,k)
+     .             + 1d-3/kx/di*sin(kx*(x1-xmin)+ky*(y1-ymin))
             enddo
           enddo
         enddo
@@ -306,29 +323,42 @@ cc     .                                 +nh2*2*pi*(y1-ymin)/(ymax-ymin))
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
-              if (ieq == IVY) then
-                array(i,j,k) = array(i,j,k)
+
+              varr%array_var(IVY)%array(i,j,k)
+     .               = varr%array_var(IVY)%array(i,j,k)
      .                       - 1d-7*kx/ky*(1.-(di*kk)**2)
      .                             *cos(kx*(x1-xmin)+ky*(y1-ymin))
-              elseif (ieq == IVX) then
-                array(i,j,k) = array(i,j,k)
+
+              varr%array_var(IVX)%array(i,j,k)
+     .               = varr%array_var(IVX)%array(i,j,k)
      .                       + 1d-7*cos(kx*(x1-xmin)+ky*(y1-ymin))
-              endif
             enddo
           enddo
         enddo
 
       case ('gem','tmcar','tmsin','kai1')
 
-        call perturbEquilibrium_gem(array,bcs,pert(ieq),ieq)
+        do ieq=1,varr%nvar
+          call perturbEquilibrium_gem(varr%array_var(ieq)%array
+     .                               ,varr%array_var(ieq)%bconds
+     .                               ,pert(ieq),ieq)
+        enddo
 
       case ('dtm')
 
-        call perturbEquilibrium_dtm(array,bcs,pert(ieq),ieq)
+        do ieq=1,varr%nvar
+          call perturbEquilibrium_dtm(varr%array_var(ieq)%array
+     .                               ,varr%array_var(ieq)%bconds
+     .                               ,pert(ieq),ieq)
+        enddo
 
       case ('ic','ic-hk')
 
-        call perturbEquilibrium_ic(array,bcs,pert(ieq),ieq)
+        do ieq=1,varr%nvar
+          call perturbEquilibrium_ic(varr%array_var(ieq)%array
+     .                              ,varr%array_var(ieq)%bconds
+     .                              ,pert(ieq),ieq)
+        enddo
 
 cc      case ('3dpar')
 cc
@@ -336,7 +366,11 @@ cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
 
       case default
 
-        call perturbEquilibrium_def(array,bcs,pert(ieq),ieq)
+        do ieq=1,varr%nvar
+          call perturbEquilibrium_def(varr%array_var(ieq)%array
+     .                               ,varr%array_var(ieq)%bconds
+     .                               ,pert(ieq),ieq)
+        enddo
 
       end select
 
