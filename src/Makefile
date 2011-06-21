@@ -24,9 +24,9 @@
 # Exclude files
 
 ifeq ($(VMEC),t)
-  EXCLUDE = %test.f
+  EXCLUDE += %test.f
 else
-  EXCLUDE = %test.f %vmec.f90
+  EXCLUDE += %test.f %vmec.f90
 endif
 
 # Source files
