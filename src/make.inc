@@ -13,13 +13,14 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/driver_setup\
-	  $(COMMONDIR)/driver\
 	  $(COMMONDIR)/newtonGMRES\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/orbit
+	  $(COMMONDIR)/orbit\
+	  $(COMMONDIR)/mk\
+	  $(COMMONDIR)/driver
 
 ifdef SAMR
   SUBDIRS = $(COMMONDIR)/math\
@@ -31,7 +32,8 @@ ifdef SAMR
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit
+	    $(COMMONDIR)/orbit\
+	    $(COMMONDIR)/mk
 endif
 
 ifdef BOPT 
