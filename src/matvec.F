@@ -3140,7 +3140,7 @@ c####################################################################
       subroutine v_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
-c     for the velocity SI system.
+c     for the SMALL-FLOW velocity SI system.
 c     In call:
 c      * gpos: vector index of position on the numerical grid:
 c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
@@ -3330,7 +3330,7 @@ c####################################################################
       subroutine v_mtvc_hyp(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
-c     for the velocity SI system.
+c     for the Hall-MHD velocity SI system.
 c     In call:
 c      * gpos: vector index of position on the numerical grid:
 c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
@@ -3678,7 +3678,7 @@ c####################################################################
       subroutine v_mtvc2(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
-c     for the velocity SI system.
+c     for the ?? velocity SI system.
 c     In call:
 c      * gpos: vector index of position on the numerical grid:
 c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
@@ -4121,12 +4121,12 @@ cc      call deallocPointers(fpointers)
 cc
 cc      end subroutine v_mtvc2
 
-c v_mtvc3
+c v_mtvc_af
 c####################################################################
-      subroutine v_mtvc3(gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine v_mtvc_af(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
-c     for the velocity SI system.
+c     for the ARBITRARY-FLOW (AF) velocity SI system.
 c     In call:
 c      * gpos: vector index of position on the numerical grid:
 c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
@@ -4260,8 +4260,6 @@ c Calculate matrix-vector product
             jackm  = gmetric%grid(igrid)%jac(i,j,km)
             jac    = gmetric%grid(igrid)%jac(i,j,k )
 
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
-
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             ijkg   = ijk + isig - 1
@@ -4295,20 +4293,9 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
               cnv = (psiv*rho0(i,j,k,1) + cnv)*vol
             endif
 
-cc            if (si_car) then
-cc              call transformVectorToCartesian
-cc     .              (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3),.false.
-cc     .               ,car(1),car(2),car(3))
-cc
-cc              do ieq=1,3
-cc                y(neq*(ijk-1)+ieq) = car(ieq)
-cc              enddo
-cc            else
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = cnv(ieq)
-              enddo
-cc            endif
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = cnv(ieq)
+            enddo
 
           enddo
         enddo
@@ -4324,7 +4311,7 @@ c End program
 
       call deallocPointers(fpointers)
 
-      end subroutine v_mtvc3
+      end subroutine v_mtvc_af
 
 c mstar_mtvc
 c####################################################################
@@ -4394,13 +4381,13 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      flg_rho = .false.      !To prevent interference with v_mtvc3
+      flg_rho = .false.      !To prevent interference with v_mtvc_af
       if (.not.associated(rho0  )) then
         flg_rho = .true.
         rho0   => grho0%grid(igrid)%array
       endif
 
-      flg_v = .false.        !To prevent interference with v_mtvc3
+      flg_v = .false.        !To prevent interference with v_mtvc_af
       if (.not.associated(v0_cnv)) then
         flg_v = .true.
         v0_cnv => gv0  %grid(igrid)%array
