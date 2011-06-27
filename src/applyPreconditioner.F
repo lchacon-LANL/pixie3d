@@ -31,14 +31,10 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,ieq,ii,iii,guess
-     .          ,igx,igy,igz,nx,ny,nz,ntot
+     .          ,igx,igy,igz,nx,ny,nz
 
       real(8) :: dvol,car(3),cnv(3),omg
      .          ,r(nn*neq),x(nn*neq),rrr(nn,neq),dxxx(nn,neq)
-
-      real(8),allocatable,dimension(:,:,:,:) :: dv_cnv,dv_cov
-
-      logical :: pc_diag
 
 c Externals
 
@@ -65,9 +61,6 @@ c Begin program
       xxx = 0d0
 
 c     Create auxiliary arrays
-
-      allocate(dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
       guess = 0
 
@@ -176,8 +169,6 @@ c     Postprocessing of velocity -> momentum
       end select
 
 c     Deallocate variables
-
-      deallocate(dv_cnv,dv_cov)
 
 c End program
 
