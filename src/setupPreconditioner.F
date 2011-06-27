@@ -53,7 +53,7 @@ c Setup PC parameters
 
       call PC_setup
 
-c Unpack vector x
+c Impose BCs
 
 #if !defined(samrai)
       call applyBC(varray,igx,igy,igz)
