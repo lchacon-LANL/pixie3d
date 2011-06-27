@@ -1949,7 +1949,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
         endif
 
 #if defined(RFX)
-        if (my_rank == 0) then
+        if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0'
           do i=0,nxdp
             x1 = grid_params%xg(i) !Global coordinate
@@ -1957,14 +1957,8 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
      .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i)
           enddo
         endif
-#else
-cc        write (*,*) 'r,bth0,bzz0,vr0'
-cc        do i=0,nxdp
-cc          x1 = grid_params%xg(i) !Global coordinate
-cc          write(*,*) x1,bth0(i),bzz0(i),vr0(i)
-cc        enddo
-cc        stop
 #endif
+
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
