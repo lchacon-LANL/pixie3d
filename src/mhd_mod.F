@@ -6617,6 +6617,8 @@ cc        sm_omega_si  = 1d0
 cc        sm_iter_si   = 2
 cc      endif
 
+      call nk_setup_consistency
+
       end subroutine PC_setup
 
       end module precond_setup
