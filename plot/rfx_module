@@ -14,8 +14,6 @@ c ######################################################################
 
       use timeStepping
 
-      use constants
-
       use operators
 
       use equilibrium
