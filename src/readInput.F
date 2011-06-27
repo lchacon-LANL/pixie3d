@@ -433,8 +433,6 @@ c Initialize grid packing structure
 
 c Consistency check
 
-      call nk_setup_consistency
-
 cc      if (di == 0d0) heta = 0d0
 
       !Adequate BCs for collapsed dimension
