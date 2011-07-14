@@ -54,20 +54,20 @@ ifdef PER_BC_SYNC
 #  endif
 endif
 
-# ADIOS setup
-
-ifeq ($(ADIOS),t)
-  CONTRIBLIBS += $(ADIOS_LIBS)
-  CPPFLAGS   += $(PREPROC)adios -I$(ADIOS_HOME)/include
-#  MODPATH    += $(ADDMODFLAG)$(ADIOS_HOME)/include
-endif
-
 # HDF5 setup
 
 ifeq ($(HDF5),t)
   CONTRIBLIBS += $(HDF5_LIBS) 
   CPPFLAGS    += $(PREPROC)hdf5 $(PREPROC)H5_USE_16_API $(HDF5_INC)
   MODPATH     += $(ADDMODFLAG)$(HDF5_MOD)
+endif
+
+# ADIOS setup
+
+ifeq ($(ADIOS),t)
+  CONTRIBLIBS += $(ADIOS_LIBS)
+  CPPFLAGS   += $(PREPROC)adios -I$(ADIOS_HOME)/include
+#  MODPATH    += $(ADDMODFLAG)$(ADIOS_HOME)/include
 endif
 
 # VMEC setup
