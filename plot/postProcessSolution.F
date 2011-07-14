@@ -203,23 +203,22 @@ c Electron velocity
 c Poloidal flux diagnostics
 
 #if !defined(vec_pot)
-      do k = 0,nz+1
-        do i = 0,nx+1
-          j = 0
+      k = 1
+      do i = 0,nx+1
+        j = 0
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        if (i == 0) then
+          Pflux(i,j,:) = 0d0
+        else
+          Pflux(i,j,:) = Pflux(i-1,j,:)
+     .                 - 0.5*(bcnv(i-1,j,:,2)
+     .                       +bcnv(i  ,j,:,2))*grid_params%dx(ig-1)
+        endif
+        do j = 1,ny+1
           call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-          if (i == 0) then
-            Pflux(i,j,k) = 0d0
-          else
-            Pflux(i,j,k) = Pflux(i-1,j,k)
-     .                   - 0.5*(bcnv(i-1,j,k,2)
-     .                         +bcnv(i  ,j,k,2))*grid_params%dx(ig-1)
-          endif
-          do j = 1,ny+1
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-            Pflux(i,j,k) = Pflux(i,j-1,k)
-     .                   + 0.5*(bcnv(i,j-1,k,1)
-     .                         +bcnv(i,j  ,k,1))*grid_params%dy(jg-1)
-          enddo
+          Pflux(i,j,:) = Pflux(i,j-1,:)
+     .                 + 0.5*(bcnv(i,j-1,:,1)
+     .                       +bcnv(i,j  ,:,1))*grid_params%dy(jg-1)
         enddo
       enddo
 #else
