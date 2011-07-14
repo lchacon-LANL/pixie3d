@@ -106,7 +106,7 @@ c End program
 
 c findExplicitDt
 c####################################################################
-      subroutine findExplicitDt
+      subroutine findExplicitDt(dt_exp)
 c--------------------------------------------------------------------
 c     This subroutine calculates the explicit CFL time step
 c--------------------------------------------------------------------
@@ -125,18 +125,20 @@ c--------------------------------------------------------------------
 
 c Call variables
 
+      real(8) :: dt_exp
+
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
-      real(8)    :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
-      real(8)    :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
-     .             ,cs2,ca2,tmp_max,roots(3)
-      real(8)    :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
-      logical    :: cartsn
+      integer :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
+      real(8) :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
+      real(8) :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
+     .          ,cs2,ca2,tmp_max,roots(3)
+      real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
+      logical :: cartsn
 
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
-      real(8)   :: cs2,ca2,k2,k2par,di,root(3)
+      real(8) :: cs2,ca2,k2,k2par,di,root(3)
       end function icfl
       END INTERFACE
 
@@ -223,7 +225,7 @@ cc      if (w_cfl <= w_cour) then
 cc        dt = 2d0*pi/w_cour
 cc        exp_cfl_type='Courant'
 cc      else
-        dt = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+        dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
      .              /(w_cour**3 + w_cfl**3)
 cc        exp_cfl_type='CFL'
 cc      endif
@@ -231,14 +233,14 @@ cc      endif
 c Synchronize time step among all processors
 
 #if defined(petsc)
-      ldt = dt
-      call MPI_Allreduce(ldt,dt,1,MPI_DOUBLE_PRECISION
+      ldt = dt_exp
+      call MPI_Allreduce(ldt,dt_exp,1,MPI_DOUBLE_PRECISION
      .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
 #endif
 
 c Compare with input time step
 
-      dt = min(dt,dtbase)
+      dt_exp = min(dt_exp,dtbase)
 
 c Accumulate explicit time step for average computation
 
