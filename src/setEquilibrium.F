@@ -2968,7 +2968,7 @@ cc     .              +p00*pprof(rh,1)
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
-        !Check Ohm's law
+        !Check Ohm`s law
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
