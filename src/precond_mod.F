@@ -1831,8 +1831,9 @@ cc     $                                ,dv_cnv)
               crhs(ii) =
      .          (gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-     .         +(2.-gamma)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),1,vol=.false.)
+     .         -(gamma-2.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dv_cnv,tmp0(:,:,:,1),1,vol=.false.
+     .                        ,conserv=.false.,zip_vel=.false.)
             enddo
           enddo
         enddo
