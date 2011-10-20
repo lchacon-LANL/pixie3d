@@ -71,12 +71,12 @@ c Grid parameters
 c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (solve_rho) then
-        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                  ,vcnv,rho,advect,sp=bcSP(),vol=.false.)
+        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,rho,advect)
+cc        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                  ,vcnv,rho,advect,sp=bcSP(),zip_vel=.true.)  !sp is for conservation
 
         if (dd /= 0d0) then
-          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho
-     .                         ,vol=.false.)
+          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
         else
           diffus = 0d0
         endif
@@ -115,7 +115,7 @@ c       Heat flux
         if (chi /= 0d0) then
           heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
 cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
-     .                            ,vol=.false.)  !chi_perp=chi
+     .                            )                  !chi_perp=chi
         endif
 
         if (chi_par /= chi) then
@@ -135,8 +135,8 @@ cc     .                  ,vscnv,tmp,advect,vol=.false.)
 cc     .        +(gamma-1.)*tmp(i,j,k)
 cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
 
-          advc=gamma    *flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                        ,vscnv,tmp,advect,vol=.false.)
+          advc=   gamma *flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vscnv,tmp,advect)
 cc     .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
 cc     .                       ,-vscnv,tmp,1,vol=.false.)
      .       +(1.-gamma)*dot_product(vscnv(i,j,k,:)
@@ -156,9 +156,11 @@ cc     .        +(gamma-2.)*tmp(i,j,k)
 cc     .                   *div(i,j,k,nx,ny,nz,igx,igy,igz,vscnv)
 
           advc=(gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                        ,vscnv,tmp,advect,vol=.false.)
-     .        +(2.-gamma)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                        ,vscnv,tmp,advect,vol=.false.)
+     .                             ,vscnv,tmp,advect)
+     .        -(gamma-2.)*flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                             ,vscnv,tmp,advect
+     .                             ,conserv=.false.
+     .                             ,zip_vel=.false.)
 cc     .        +(2.-gamma)*dot_product(vscnv(i,j,k,:)
 cc     .                  ,grad(i,j,k,nx,ny,nz,igx,igy,igz,tmp
 cc     .                       ,hex=int(sign(1d0,-vscnv(i,j,k,1)))
@@ -216,10 +218,10 @@ c     JxB volume force
         cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz
 cc     .               ,bcnv,jcnv,.true.
      .               ,bcov,jcov,.false.
-     .               ,nc_eom_jxb,alt_eom,vol=.false.)
+     .               ,nc_eom_jxb,alt_eom)
       else
         cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz,bcnv,bcnv,.true.
-     .               ,nc_eom_jxb,alt_eom,vol=.false.)
+     .               ,nc_eom_jxb,alt_eom)
       endif
 
       ff(IVX:IVZ) = -cnv
@@ -227,7 +229,7 @@ cc     .               ,bcnv,jcnv,.true.
 c     grad(p) volume force
 
       cnv = EOM_gp(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp
-     .            ,nc_eom_gp,alt_eom,vol=.false.)
+     .            ,nc_eom_gp,alt_eom)
 
       ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
 
@@ -245,15 +247,13 @@ c     Advection
 
       if (nc_eom_v) then
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                   ,min(advect,2),cons=.not.nc_eom_v)
+     .                   ,v_advect,cons=.not.nc_eom_v)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
       else
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv
-cc     .                   ,2,cons=.not.nc_eom_v)
-     .                   ,advect,cons=.not.nc_eom_v)
-cc     .                   ,min(advect,2),cons=.not.nc_eom_v)
+     .                   ,v_advect,cons=.not.nc_eom_v)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
