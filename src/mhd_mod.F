@@ -3086,7 +3086,7 @@ cc      else
 cc        limit = .true.
 cc      endif
 cc
-cc      vol_wgt = .true.
+cc      vol_wgt = .false.
 cc      if (PRESENT(vol)) vol_wgt = vol
 cc
 cccc      if (PRESENT(symmetric)) then
@@ -3410,7 +3410,7 @@ c     Begin program
         limit = .true.
       endif
 
-      vol_wgt = .true.
+      vol_wgt = .false.
       if (PRESENT(vol)) vol_wgt = vol
 
       if (PRESENT(symmetric)) then
@@ -4282,7 +4282,7 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
 #endif
 
-        integer :: advect               !Identifies advection scheme
+        integer :: advect,v_advect      !Identifies advection scheme for scalar, vectors
 
         logical :: bootstrap =.false.   !Whether to calculate bootstrap current
 cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
@@ -4389,7 +4389,7 @@ c     Begin program
 
         igrid = igx
 
-        vol_wgt = .true.
+        vol_wgt = .false.
         if (PRESENT(vol)) vol_wgt = vol
 
         !Lorentz force
@@ -5107,7 +5107,7 @@ c     Begin program
 
         igrid = igx
 
-        vol_wgt = .true.
+        vol_wgt = .false.
         if (PRESENT(vol)) vol_wgt = vol
 
         if (nc_eom_gp) then
