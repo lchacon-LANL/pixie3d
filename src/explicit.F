@@ -1,6 +1,6 @@
 c explicit
 c####################################################################
-      subroutine explicit(vn,vnp,iter,iout)
+      subroutine explicit(vnp,iter,iout)
 
 c--------------------------------------------------------------------
 c     Performs first-order predictor-corrector explicit integration.
@@ -22,14 +22,14 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer          :: iter,iout
-      type(var_array),pointer :: vnp,vn
+      integer :: iter,iout
+      type(var_array),pointer :: vnp
 
 c Local variables
 
-      integer          :: i,j,k,ii,ieq,igx,igy,igz,nx,ny,nz
+      integer :: i,j,k,ii,ieq,igx,igy,igz,nx,ny,nz
 
-      double precision :: ftemp(ntotd)
+      real(8) :: ftemp(ntotd)
 
 c Interfaces
 
@@ -66,7 +66,7 @@ c Predictor
 
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
-     .             vn%array_var(ieq)%array(i,j,k) 
+     .             u_n%array_var(ieq)%array(i,j,k) 
      .             -0.5*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
             enddo
 
@@ -86,7 +86,7 @@ c Corrector
 
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
-     .              vn%array_var(ieq)%array(i,j,k) 
+     .              u_n%array_var(ieq)%array(i,j,k) 
      .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
             enddo
 
