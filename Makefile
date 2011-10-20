@@ -58,12 +58,6 @@ ifdef BOPT
   endif
 endif
 
-#ifdef SAMR
-#   ifdef VECPOT
-#     CPPFLAGS += -Dvec_pot
-#   endif
-#endif
-
 ifdef PER_BC_SYNC
 #  ifndef BOPT
     CPPFLAGS += $(PREPROC)PER_BC_SYNC
