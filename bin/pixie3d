@@ -269,7 +269,7 @@ then
    then
      machine="-f $machinefile"
    fi
-   executable="mpiexec -n $np $machine ./$executable $options"
+   executable="`which mpiexec` -n $np $machine ./$executable $options"
    if [ "$debug" = "t" ]; then
      echo "==> Setting up OpenMPI in node $node"
    fi
