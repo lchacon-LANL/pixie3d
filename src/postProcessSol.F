@@ -263,3 +263,23 @@ c     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
 #endif
 
       end subroutine postProcessSol
+
+c preProcessSol
+c####################################################################
+      subroutine preProcessSol(v1,v2)
+
+c--------------------------------------------------------------------
+c     Preprocess solution (place holder)
+c--------------------------------------------------------------------
+
+      use variables
+
+      implicit none
+
+c Call variables
+
+      type(var_array),pointer :: v1,v2
+
+c End program
+
+      end subroutine preProcessSol
