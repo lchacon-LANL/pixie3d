@@ -68,8 +68,9 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,advect,sym_st,adiabatic,solve_prs
-     .                   ,ion_hall,fake_ve,slava,noise,noise_lev
+     .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
+     .                   ,solve_prs,ion_hall,fake_ve,slava,noise
+     .                   ,noise_lev
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -91,7 +92,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,solve_prs,advect,sym_st,ion_hall
-     .                   ,fake_ve,slava,noise,noise_lev
+     .                   ,fake_ve,slava,noise,noise_lev,v_advect
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -246,14 +247,17 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
 
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
-      advect     = 2           ! Type of advective scheme (currently available only
-                               ! for scalars):
+      advect     = 2           ! Type of advective scheme for scalars
+                               ! Available options:
                                !    1 -> upwind,
-                               !    2 -> centered (ZIP),
+                               !    2 -> ZIP (centered),
                                !    3 -> QUICK,
                                !    4 -> SMART,
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
+
+      v_advect   = 0           ! Type of advective scheme for vectors
+                               !   (if zero, determine from advect below)
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
       fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
@@ -497,6 +501,15 @@ cc        solve_rho = .false.
 
       !Performs divergence cleaning at postprocessing stage
       if (solenoidal.and.(.not.pc_divclean)) postprocess = .true.
+
+      !Vector advection
+      if (v_advect == 0) then
+        if (nc_eom_v) then
+          v_advect = min(advect,2) !Non-conservative EOM
+        else
+          v_advect = advect
+        endif
+      endif
 
 c Map perturbations
 
