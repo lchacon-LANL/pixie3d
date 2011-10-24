@@ -1,3 +1,5 @@
+#if !defined(samrai)
+
 c apply_app_PC
 c###################################################################
       subroutine apply_app_PC(igrid,nn,neq,yyy,xxx,iout)
@@ -2054,3 +2056,5 @@ c Scatter solution
 c End program
 
       end subroutine postProcessSchur
+
+#endif

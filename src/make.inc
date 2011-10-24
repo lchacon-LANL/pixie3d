@@ -32,8 +32,8 @@ ifdef SAMR
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
-	    $(COMMONDIR)/orbit\
-	    $(COMMONDIR)/mk
+	    $(COMMONDIR)/orbit
+#	    $(COMMONDIR)/mk
 endif
 
 ifdef BOPT 
