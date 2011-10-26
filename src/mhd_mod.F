@@ -6638,8 +6638,6 @@ c -----------------------------------------------------------------
 
       use nlfunction_setup
 
-      use mk, ONLY: g_ratio
-
       implicit none
 
 c     Call variables
