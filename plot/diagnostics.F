@@ -31,13 +31,14 @@ c####################################################################
 
         character*(20) :: diag_desc(ngraph)
 
-        integer        :: diag_ivar(ngraph)
-     .                   ,diag_log(0:ngraph)
+        integer :: diag_ivar(ngraph)
+     .            ,diag_log(0:ngraph)
 
-        integer    :: ndiag
+        integer :: ndiag
 
-        integer    :: drank,ddnp,split_key,MPI_COMM_DIAG,iplt,jplt,kplt
-        logical    :: isProcessor
+        integer :: drank,ddnp,split_key,MPI_COMM_DIAG=MPI_COMM_NULL
+     .            ,iplt,jplt,kplt
+        logical :: isProcessor
 
         real(8) :: diagnostics(ngraph)
 
@@ -93,46 +94,52 @@ c Check for external map
 
       if (coords == 'ext') call read_ext_map
 
-c Define processor for local diagnostics
+c Create diagnostic communicator
 
-      !Identify local diagnostic proc
-      isProcessor = inProc(iplot,jplot,kplot,igx,igy,igz)
+      select case(trim(equil))
+      case('dtm','gem')
 
-      if (isProcessor) then
-        call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
-     .                              ,igx,igy,igz)
-      endif
+#if defined(petsc)
+        split_key = MPI_UNDEFINED
 
-cc#if defined(petsc)
-cc      !Create local diagnostics communicator for line integral
-cc      split_key = MPI_UNDEFINED
-cc
-cc      if (inProc(iplot,jplot-nyd/2,kplot,igx,igy,igz)) then
-cc        call fromGlobalToLocalLimits(iplot,jplot-nyd/2,kplot
-cc     .                              ,iplt,jplt,kplt,igx,igy,igz)
-cc        split_key = 1
-cc      endif
-cc
-cc      if (isProcessor) then
-cc        call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
-cc     .                              ,igx,igy,igz)
-cc        split_key = 1
-cc      endif
-cc
-cc      call MPI_Comm_split(MPI_COMM_WORLD,split_key,my_rank
-cc     .                   ,MPI_COMM_DIAG,mpierr)
-cc
-cc      if (split_key /= MPI_UNDEFINED) then
-cc        call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
-cc        call MPI_Comm_size(MPI_COMM_DIAG,ddnp ,mpierr)
-cc      endif
-cc
-cc      write (*,*) 'Proc:',drank,ddnp
-cc#else
-cc      iplt = iplot
-cc      jplt = jplot
-cc      kplt = kplot
-cc#endif
+        if (inProc(iplot,grid_params%jlo(igy),kplot,igx,igy,igz)) then
+          call fromGlobalToLocalLimits(iplot,grid_params%jlo(igy),kplot
+     .                                ,iplt,jplt,kplt,igx,igy,igz)
+          split_key = 1
+        endif
+
+        call MPI_Comm_split(MPI_COMM_WORLD,split_key,my_rank
+     .                     ,MPI_COMM_DIAG,mpierr)
+
+        if (split_key /= MPI_UNDEFINED) then
+          call MPI_Comm_rank(MPI_COMM_DIAG,drank,mpierr)
+          call MPI_Comm_size(MPI_COMM_DIAG,ddnp ,mpierr)
+          isProcessor = (drank == 0)
+        else
+          isProcessor = .false.
+        endif
+#else
+        isProcessor = (my_rank == 0)
+
+        iplt = iplot
+        jplt = jplot
+        kplt = kplot
+#endif
+
+      case('ic-hk','ic')
+
+      case default
+
+        !Identify local diagnostic proc
+        isProcessor = inProc(iplot,jplot,kplot,igx,igy,igz)
+
+        if (isProcessor) then
+          call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
+     .                                ,igx,igy,igz)
+        endif
+
+      end select
+
 
 c Define BCs
 
@@ -610,13 +617,15 @@ c Parallel electric field and reconnected flux diagnostic (assumes periodic dire
       case('dtm','gem')
 
 #if defined(petsc)
-        lrflux = minval(Pflux(iplt,:,kplt))
-        call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+        if (MPI_COMM_DIAG /= MPI_COMM_NULL) then
+          lrflux = minval(Pflux(iplt,:,kplt))
+          call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                      ,MPI_MIN,MPI_COMM_DIAG,mpierr)
 
-        lrflux = maxval(Pflux(iplt,:,kplt))-rflux
-        call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+          lrflux = maxval(Pflux(iplt,:,kplt))-rflux
+          call MPI_Allreduce(lrflux,rflux,1,MPI_DOUBLE_PRECISION
+     .                      ,MPI_MAX,MPI_COMM_DIAG,mpierr)
+        endif
 #else
         rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
 #endif
