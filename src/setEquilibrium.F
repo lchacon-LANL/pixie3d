@@ -3699,6 +3699,8 @@ c     ---------------------------------------------------------------
 
         use nlfunction_setup, ONLY: res_def,eta
 
+        use local_BCS_variables, ONLY: bc_order
+
         implicit none
 
 c     Call variables
@@ -3820,7 +3822,7 @@ c       Iteration
         psia = 0d0
         oherr = 0d0
 
-        do it=1,30
+        do it=1,100
 
           !Find GS equation RHS (at cell centers)
           do k=1,nz
@@ -3859,15 +3861,13 @@ cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
               psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
      .                     -psir*dpdr-psith*dpdth)/bnorm2
 
+              !Multiply by R to ensure proper limit R->inf
+              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                             ,psi,dff=iR2,vol=.false.)
+     .                   -psi_rhs(ii))*RR(iglobal,jglobal)
+
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
      .                                *gmetric%grid(igrid)%dvol(i,j,k)
-
-              errv(ii) = (laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
-     .                             ,psi,dff=iR2,vol=vol_wgt)
-     .                   -psi_rhs(ii))*RR(iglobal,jglobal)  !Multiply by R to ensure proper limit R->inf
-
-              if (vol_wgt .and. nz == 1)
-     .                 errv(ii) = errv(ii)/grid_params%dzh(kg) !dz should not affect residual if nz=1
 
               oherr = oherr
      .               +(Eoeta/etah*IIh/RR(iglobal,jglobal)**2*psir
@@ -3881,6 +3881,9 @@ cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
           !Calculate L2 norm of error
           gserr = sqrt(dot2(errv,errv)/nx/ny/nz)
           oherr = sqrt(oherr/nx/ny/nz)
+cc          gserr = sqrt(dot(nx*ny*nz,errv,errv))
+cccc          gserr = sqrt(dot(nx*ny*nz,psi_rhs,psi_rhs))
+cc          oherr = sqrt(oherr)
 
           !Solve GS Poisson eq (find psi at cell centers)
           !Define BCs
@@ -3896,16 +3899,19 @@ cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
      .              ,ks_it         = 10
      .              ,mg_order_res  = 0
      .              ,mg_order_prol = 1
-     .              ,mg_gm_coarse_solve=.false.
+cc     .              ,mg_gm_coarse_solve=.false.
+     .              ,mg_gm_coarse_solve=.true.
+     .              ,mg_vcyc       = 1
      .              ,mg_smooth     = 'jb'
      .              ,sm_ncolors    = 2  !Star stencil
+     .              ,sm_it         = 5
      .              )
 
           !Map to array (w BCs)
           call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
 
           call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-     .              ,iorder=2)
+     .              ,iorder=bc_order)
 
           !Gather global psi in radius
 #if defined(petsc)
@@ -3941,8 +3947,6 @@ cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
           call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
      .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
 #endif
-
-          dh = xmax/nxd
 
           do j=1,ny
             jglobal = j + grid_params%jlo(igrid) - 1
@@ -3985,7 +3989,8 @@ cc              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
             if (ilevel > 1) write (*,*)
           endif
 
-          if (gserr < dh**2) exit
+          dh = xmax/nxd
+          if (gserr < 0.001*dh**2) exit
 
         enddo
 
@@ -4032,6 +4037,8 @@ cc            etah =res(iglobal,jglobal,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
      .                *RR(iglobal,jglobal)*rh/bnorm2
             v2(i,j) =-(Eoeta*psith/RR(iglobal,jglobal)**2+etah*dpdth)
      .                *RR(iglobal,jglobal)/bnorm2
+cc            v1(i,j) =psir*rh
+cc            v2(i,j) =psith
 
             !Find pressure
             spsi = sqrt(1d0-psi(i,j,1)/psi0)
@@ -4053,10 +4060,10 @@ c       Calculate GS equilibrium properties
         p_avg   = 0d0
         bz2_avg = 0d0
 
-cc        do j=2,ny-1
-cc          do i=2,nx-1
-        do j=1,ny
-          do i=1,nx
+        do j=2,ny-1
+          do i=2,nx-1
+cc        do j=1,ny
+cc          do i=1,nx
             iglobal = i + grid_params%ilo(igrid) - 1
             jglobal = j + grid_params%jlo(igrid) - 1
 
@@ -4096,6 +4103,9 @@ cc          do i=2,nx-1
             e1 = e1 + f_1**2*rh*dr(iglobal)*dth(jglobal)
             e2 = e2 + f_2**2*rh*dr(iglobal)*dth(jglobal)
             e3 = e3 + f_3**2*rh*dr(iglobal)*dth(jglobal)
+cc            e1 = e1 + f_1**2
+cc            e2 = e2 + f_2**2
+cc            e3 = e3 + f_3**2
 
             !Find covariant Ohm's law components
 cc            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
@@ -4111,6 +4121,9 @@ cc            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
             e4 = e4 + f_1**2*rh*dr(iglobal)*dth(jglobal)
             e5 = e5 + f_2**2*rh*dr(iglobal)*dth(jglobal)
             e6 = e6 + f_3**2*rh*dr(iglobal)*dth(jglobal)
+cc            e4 = e4 + f_1**2
+cc            e5 = e5 + f_2**2
+cc            e6 = e6 + f_3**2
 
             !Q-profile
             qprof(i,j) = b3(i,j)/b2(i,j)
@@ -4152,19 +4165,28 @@ cc            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
         call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
      .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
 #endif
-        gserr = e1 + e2 + e3
 
-        e1 = sqrt(e1/xmax/ymax)
-        e2 = sqrt(e2/xmax/ymax)
-        e3 = sqrt(e3/xmax/ymax)
-        gserr = sqrt(gserr/xmax/ymax)
+        gserr = e1 + e2 + e3
+        gserr = sqrt(gserr/pi/xmax**2)
+
+        e1 = sqrt(e1/pi/xmax**2)
+        e2 = sqrt(e2/pi/xmax**2)
+        e3 = sqrt(e3/pi/xmax**2)
+cc        e1 = sqrt(e1)/(nxd-2)/(nyd-2)
+cc        e2 = sqrt(e2)/(nxd-2)/(nyd-2)
+cc        e3 = sqrt(e3)/(nxd-2)/(nyd-2)
+cc        gserr = sqrt(gserr)/(nxd-2)/(nyd-2)
 
         oherr = e4 + e5 + e6
+        oherr = sqrt(oherr/pi/xmax**2)
 
-        e4 = sqrt(e4/xmax/ymax)
-        e5 = sqrt(e5/xmax/ymax)
-        e6 = sqrt(e6/xmax/ymax)
-        oherr = sqrt(oherr/xmax/ymax)
+        e4 = sqrt(e4/pi/xmax**2)
+        e5 = sqrt(e5/pi/xmax**2)
+        e6 = sqrt(e6/pi/xmax**2)
+cc        e4 = sqrt(e4)/(nxd-2)/(nyd-2)
+cc        e5 = sqrt(e5)/(nxd-2)/(nyd-2)
+cc        e6 = sqrt(e6)/(nxd-2)/(nyd-2)
+cc        oherr = sqrt(oherr)/(nxd-2)/(nyd-2)
 
         if (my_rank == 0) then
           write (*,*) 'EOM force residual comp 1=',e1
@@ -4269,10 +4291,16 @@ cc          close(123)
 cccc          stop
 cc        endif
 
-c diag ***** DIAGONAL GENERATION FOR XDRAW PLOTTING
+c diag ***** 
 cc      open(unit=110,file='debug.bin',form='unformatted'
 cc     .    ,status='replace')
-cc      call contour(psi(1:nx,1:ny,1),nx,ny,0d0,1d0,0d0,1d0,0,110)
+cccc      call contour(psi(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
+cc      call contour(errv            ,nx,ny,0d0,1d0,0d0,1d0,0,110)
+cc      call contour(b1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(b3 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
 cc      close (110)
 cc      stop
 c diag *****

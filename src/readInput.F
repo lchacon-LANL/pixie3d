@@ -42,7 +42,8 @@ c Local variables
       character(2)  :: precon
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
      .                ,pc_debug_it
-      logical       :: zebra_relax,hall_new,lag_pinch_bc
+      logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
+     .                ,mg_zebra_relax
       real(8)       :: mgtol
 
 c Namelists
@@ -63,7 +64,7 @@ c Namelists
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug
      .                   ,pc_divclean,mg_vcyc,sm_iter
-     .                   ,mg_zebra_relax,mg_ores,mg_oprol
+     .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt
@@ -76,6 +77,7 @@ c Namelists
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
      .                   ,lag_pinch_bc,recordfile,pc_debug_it
+     .                   ,mg_zebra_relax
 
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -107,7 +109,7 @@ c Namelists
 
       !Preconditioner
       namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
-     .                   ,pc_asm,mg_zebra_relax,pc_debug
+     .                   ,pc_asm,sm_zebra_relax,pc_debug
      .                   ,pc_divclean
 
       !I/O
@@ -282,9 +284,9 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
       mg_ores  = 0             ! Restriction order for MG
       mg_oprol = 2             ! Prolongation order for MG
-      mg_zebra_relax = .false. ! Whether to use ZEBRA relaxation
 
       sm_iter  = 5             ! Number of MG smoothing passes
+      sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
 
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
@@ -358,6 +360,7 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       precpass = 0
       nsweep   = 0
       zebra_relax = .false.
+      mg_zebra_relax = .false.
       ores     = 0
       oprol    = 0
       debug    = .false.
@@ -412,7 +415,7 @@ c Check legacy parameters
       if (debug        )  pc_debug = debug
 
       if (maxvcyc/= 0  )  mg_vcyc = maxvcyc
-      if (zebra_relax  )  mg_zebra_relax = .true.
+      if (zebra_relax.or.mg_zebra_relax  )  sm_zebra_relax = .true.
       if (ores   /= 0  )  mg_ores = ores
       if (oprol  /= 0  )  mg_oprol= oprol
 

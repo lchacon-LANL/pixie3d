@@ -98,7 +98,7 @@
  &plots
     sel_diag  = 2,12,15,17,18,19,20,22,23
     dplot = 1d-4
-    prof_conf = 1,'r',1,0,1
+    prof_conf = 1,'r',1,1,1
     cont_conf = 3,'R','Z',1,1,1
 !    cont_conf = 2,'R','PHI',1,1,1
     hdf_plot  = f

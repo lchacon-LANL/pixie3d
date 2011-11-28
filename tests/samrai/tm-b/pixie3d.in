@@ -1,4 +1,6 @@
  &datin
+    solve_prs = t
+
     ilevel   = 0
     test     = t
 
@@ -41,6 +43,9 @@
     timecorr = f
     predictor= f
 
+    adiabatic= t
+    source   = t
+
     precon   = 'id'
     mgtol    = 1d-5
     maxvcyc  = 1
@@ -59,9 +64,6 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
-    solve_prs= t
-    adiabatic= t
-    source   = t
 
     debug    = f
     debug_it = 1

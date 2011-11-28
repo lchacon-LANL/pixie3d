@@ -237,8 +237,8 @@ c     Solve for phi=lap^-1(rhs)
      .            ,sm_omega      = 1d0
      .            ,sm_it         = 3
      .            ,sm_ncolors    = sm_ncolors  !9-pt stencil
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
       !Map solution to array and apply BCs

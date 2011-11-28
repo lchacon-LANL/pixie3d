@@ -281,15 +281,15 @@ c Calculate matrix-vector product
       do k = kmin-1,kmax+1
         do j = jmin-1,jmax+1
           do i = imin-1,imax+1
+cc            call getCartesianCoordinates(i,j,k,igrid,igrid,igrid
+cc     .                                  ,ig,jg,kg,x1,y1,z1)
+cc
+cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            call getCartesianCoordinates(i,j,k,igrid,igrid,igrid
-     .                                  ,ig,jg,kg,x1,y1,z1)
-
-            iRR(i,j,k) = 1d0/(x1**2+y1**2)
-cc          call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-cc          RR(i,j,k) =  grid_params%params(1)
-cc     .             + grid_params%xx(ig)*cos(grid_params%yy(jg))
+            iRR(i,j,k) =  1d0/(grid_params%params(1)
+     .                       + grid_params%xx(ig)
+     .                        *cos(grid_params%yy(jg)))**2
           enddo
         enddo
       enddo
@@ -303,34 +303,8 @@ cc     .             + grid_params%xx(ig)*cos(grid_params%yy(jg))
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            ip = i+1
-            im = i-1
-            jp = j+1
-            jm = j-1
-            kp = k+1
-            km = k-1
-
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                        ,xarr(:,:,:,1),dff=iRR,vol=volf)
-
-cc            y(ijk) = y(ijk)/sqrt(iRR(i,j,k))   !Multiply by R
-
-cc            y(ijk) = 1d0/ljac(i,j,k)/dxh(ig)
-cc     .                *( 0.5*(ljac(ip,j,k)/RR(ip,j)**2
-cc     .                       +ljac(i ,j,k)/RR(i ,j)**2)
-cc     .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))/dx(ig)
-cc     .                  +0.5*(ljac(im,j,k)/RR(im,j)**2
-cc     .                       +ljac(i ,j,k)/RR(i ,j)**2)
-cc     .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))/dx(ig-1))
-cc     .              +1d0/ljac(i,j,k)/dyh(jg)
-cc     .                *( 0.5*(1d0/ljac(i,jp,k)
-cc     .                       +1d0/ljac(i,j ,k))
-cc     .                      *(xarr(i,jp,k,1)-xarr(i,j,k,1))/dy(jg)
-cc     .                  +0.5*(1d0/ljac(i,jm,k)
-cc     .                       +1d0/ljac(i,j ,k))
-cc     .                      *(xarr(i,jm,k,1)-xarr(i,j,k,1))/dy(jg-1) )
-cc
-cc            y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
       enddo

@@ -704,7 +704,7 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
 cc     .            ,mg_gm_coarse_solve  = .true.
      .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
+     .            ,sm_line_relax = sm_line_relax
      .            !Zebra relax
 cc     .            ,mg_smooth     = 'gs'
 cc     .            ,sm_omega      = 0.9d0
@@ -714,7 +714,7 @@ cc     .            ,sm_zebra_relax= .true.
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
      .            ,sm_it         = sm_iter
-     .            ,sm_zebra_relax= mg_zebra_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
      .            !SI relax
 cc     .            ,mg_smooth     = sm_type_si
 cc     .            ,sm_omega      = sm_omega_si
