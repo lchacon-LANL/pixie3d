@@ -1,3 +1,5 @@
+#if !defined(samrai)
+
 c apply_app_PC
 c###################################################################
       subroutine apply_app_PC(igrid,nn,neq,yyy,xxx,iout)
@@ -415,8 +417,8 @@ c       Density
      .              ,sm_it         = sm_iter
      .              ,sm_omega      = sm_omega
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
      .              )
         endif
 
@@ -441,8 +443,8 @@ c       Magnetic field
      .              ,sm_it         = sm_iter
      .              ,sm_omega      = sm_omega
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
      .              )
           else
             xc(:,1:3) = x(:,IBX:IBZ)
@@ -466,8 +468,8 @@ c       Magnetic field
      .              ,sm_it         = sm_iter
      .              ,sm_omega      = sm_omega
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
      .              )
 
             x(:,IBX:IBZ) = xc(:,1:3)
@@ -519,8 +521,8 @@ c       Vector potential
      .                ,sm_it         = sm_iter
      .                ,sm_omega      = sm_omega
      .                ,sm_ncolors    = sm_ncolors
-     .                ,sm_line_relax = mg_line_relax
-     .                ,sm_zebra_relax= mg_zebra_relax
+     .                ,sm_line_relax = sm_line_relax
+     .                ,sm_zebra_relax= sm_zebra_relax
      .                )
           else
             xc(:,1:3) = x(:,IAX:IAZ)
@@ -545,8 +547,8 @@ cc            rhsc(:,1:3) = rhs(:,IAX:IAZ)
      .              ,sm_it         = sm_iter
      .              ,sm_omega      = sm_omega
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
 cc     .              ,cvrg_tst=.true.
 cc     .              ,mg_smooth     = 'jb'
 cc     .              ,sm_it         = 100
@@ -601,8 +603,8 @@ c       Temperature
      .              ,sm_it         = sm_iter
      .              ,sm_omega      = sm_omega
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
      .              )
         endif
 
@@ -712,8 +714,8 @@ cc        return
      .            ,sm_it         = sm_iter_si
      .            ,sm_omega      = sm_omega_si
      .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax_si
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax_si
      .            )
 
         else
@@ -742,8 +744,8 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,sm_it         = sm_iter_si
      .            ,sm_omega      = sm_omega_si
      .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
           x(:,IVX:IVZ) = xc(:,1:3)
@@ -792,8 +794,8 @@ c     Begin program
      .              ,sm_it         = sm_iter_si
      .              ,sm_omega      = sm_omega_si
      .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = mg_line_relax
-     .              ,sm_zebra_relax= mg_zebra_relax
+     .              ,sm_line_relax = sm_line_relax
+     .              ,sm_zebra_relax= sm_zebra_relax
      .              )
 
         !Post-process solution with M_star
@@ -1603,8 +1605,8 @@ c Solve for advection-diffusion part
      .            ,sm_it         = sm_iter
      .            ,sm_omega      = sm_omega
      .            ,sm_ncolors    = sm_ncolors
-     .            ,sm_line_relax = mg_line_relax
-     .            ,sm_zebra_relax= mg_zebra_relax
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
       return
@@ -2054,3 +2056,5 @@ c Scatter solution
 c End program
 
       end subroutine postProcessSchur
+
+#endif

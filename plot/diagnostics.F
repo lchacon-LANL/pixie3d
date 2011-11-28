@@ -36,8 +36,10 @@ c####################################################################
 
         integer :: ndiag
 
+#if defined(petsc)
         integer :: drank,ddnp,split_key,MPI_COMM_DIAG=MPI_COMM_NULL
-     .            ,iplt,jplt,kplt
+#endif
+        integer :: iplt,jplt,kplt
         logical :: isProcessor
 
         real(8) :: diagnostics(ngraph)

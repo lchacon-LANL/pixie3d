@@ -8,8 +8,8 @@ EXEC=$(wildcard pixie3d*samrai.x)
 
 LOCALDIR = $(shell basename $(CURDIR))
 
-SEREXEC=$(EXEC) samrai.input.1 test1.log
-PAREXEC=$(EXEC) samrai.input.4 test4.log 
+SEREXEC=$(EXEC) samrai.input.1 test1.log > /dev/null
+PAREXEC=$(EXEC) samrai.input.4 test4.log > /dev/null
 
 #Define targets
 
@@ -32,10 +32,10 @@ test test-a test-b: ;
 	@$(SEREXEC) 
 	@$(PAREXEC)
 	-@([ -z "`diff -bwB debugFile*`" ] || echo "==> Differences found in $(LOCALDIR) <==")
-	-@([ -z "`diff -bwB debugFile*`" ] || diff -bB  debugFile*)
+	-@([ -z "`diff -bwB debugFile*`" ] || diff -bB  debugFile* )
 	-@([ -z "`diff -bwB debugFile*`" ] && echo "No differences found in $(LOCALDIR)")
-	-@([ -z "`diff -bwB debugFile*`" ] && rm -r viz.compare debugFile* 2> /dev/null)
-	-@([ -z "`diff -bwB debugFile*`" ] && rm -r viz.compare 2> /dev/null)
+	-@([ -z "`diff -bwB debugFile*`" ] && rm -r debug_test debugFile* 2> /dev/null)
+#	-@([ -z "`diff -bwB debugFile*`" ] && rm -r viz.compare 2> /dev/null)
 
 run: ;
 	@echo

@@ -1,16 +1,17 @@
+dim=3
 DIRICHLET = 0
 NEUMANN   = 1
 MIXED     = 2
 ROBIN     = 4
 
 Main{
-   output_path="viz.compare"
+   output_path = "debug_test"
    save_debug=2
-   debug_name="debugFile1"
+   debug_name="debugFile.tm.1"
 }
 
 CartesianGeometry{
-   domain_boxes = [(0,0,0), (31,31, 0)]
+   domain_boxes = [(0,0,0), (31,31, 1)]
    x_lo         = 0.0e0, 0.0e0, 0.0e0 
    x_up         = 1.0e0, 4.0e0, 1.0e0
    periodic_dimension = 0, 1, 1
@@ -42,7 +43,7 @@ pixie3d{
 
 TimeIntegrator{
     timeIntegrator_name  = "RK23"
-    timeIntegrator_name2  = "ExplicitEuler"
+    //timeIntegrator_name  = "ExplicitEuler"
     initial_time         = 0.0
     final_time           = 1.0
     max_integrator_steps = 1000
@@ -53,14 +54,18 @@ TimeIntegrator{
     absolute_tolerance   = 1.0e-06
 }
 
-
 GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
+}
+
+PatchHierarchy{
    max_levels = 1
    largest_patch_size {
-      level_0 = 32, 32, 256
+      level_0 = 256,256,256
    }
- smallest_patch_size {
-      level_0 = 10,10,1
+   smallest_patch_size {
+      level_0 = 2,2,1
    }
    ratio_to_coarser {
       level_1  = 2, 2, 1
@@ -70,8 +75,6 @@ GriddingAlgorithm{
       level_5  = 2, 2, 1
       level_6  = 2, 2, 1
    }
-   combine_efficiency = 0.95
-   efficiency_tolerance = 0.95
 }
 
 StandardTagAndInitialize{
@@ -86,6 +89,20 @@ StandardTagAndInitialize{
    }
 }
 
-LoadBalancer{
-   bin_pack = "SPATIAL"
+TreeLoadBalancer{
+  report_load_balance = TRUE
+  barrier_before = FALSE
+  barrier_after = FALSE
+  n_root_cycles = 1
+  interlace_groups = FALSE
+  balance_penalty_wt = 1.0
+  surface_penalty_wt = 1.0
+
+  // Debugging options
+  check_map = FALSE
+  check_connectivity = FALSE
+  print_steps = FALSE
+  print_swap_steps = FALSE
+  print_break_steps = FALSE
+  print_edge_steps = FALSE
 }

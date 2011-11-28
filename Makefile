@@ -48,24 +48,13 @@ ifdef VECPOT
   TARGET = code_a
 endif
 
-ifdef BOPT
-  CPPFLAGS += $(PREPROC)NVAR=8
-
-  ifdef VECPOT
-    TARGET = petsc_a
-  else
-    TARGET = petsc
-  endif
-endif
-
 ifdef PER_BC_SYNC
 #  ifndef BOPT
     CPPFLAGS += $(PREPROC)PER_BC_SYNC
 #  endif
 endif
 
-VMEC = t
-
+VMEC=t
 ifeq ($(VMEC),t)
   VMEC_DIR     = contrib/vmec/LIBSTELL
 
@@ -77,6 +66,20 @@ ifeq ($(VMEC),t)
     CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
     CONTRIBLIBS += $(NETCDF_LIBS)
   endif
+endif
+
+ifdef BOPT
+  CPPFLAGS += $(PREPROC)NVAR=8
+
+  ifdef VECPOT
+    TARGET = petsc_a
+  else
+    TARGET = petsc
+  endif
+endif
+
+ifdef SAMR
+  TARGET = samrai
 endif
 
 #Export required variables

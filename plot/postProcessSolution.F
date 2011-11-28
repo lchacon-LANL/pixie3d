@@ -29,7 +29,7 @@ c--------------------------------------------------------------------
 
       use local_BCS_variables
 
-      use diag_setup
+      use app_iosetup
 
 #if defined(RFX)
       use rfx

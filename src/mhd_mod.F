@@ -6550,7 +6550,7 @@ c ######################################################################
      .            ,pc_v_solve
      .            ,pc_ion_hall
      .            ,pc_divclean
-     .            ,mg_zebra_relax_si
+     .            ,sm_zebra_relax_si
 
       contains
 
@@ -6573,7 +6573,6 @@ c     Begin program
 
       mg_gm_coarse =.false. !Whether to use GMRES as the coarse solve
       mg_glrkin    =.false. !Whether to use Galerking MG
-      mg_line_relax=.false. !Whether to perform line relaxation in MG
       mg_debug     =.false. !Whether to go into debugging mode in MG
       mg_cvrg_test =.false. !Whether to perform convergence test of smoother
       mg_coarse_size = 2    !Minimum coarse grid size (mg_ratio^mg_coarse_size)
@@ -6581,6 +6580,7 @@ c     Begin program
       sm_type      = 'jb'   !Type of smoother ('jg','gs','gm')
       sm_omega     = 0.7    !Damping for MG smoother (only when 'jb' is chosen)
       sm_ncolors   = 8      !Number of colors for diagonal calc., smoothing
+      sm_line_relax=.false. !Whether to perform line relaxation in MG
 
       !SCIDAC 08 conference data for Hall MHD
 cc      pc_B_solve  = .true.
@@ -6602,7 +6602,7 @@ cc      sm_iter_si     = sm_iter/2
       sm_type_si     = sm_type
       sm_omega_si    = sm_omega
       sm_iter_si     = sm_iter
-      mg_zebra_relax_si = mg_zebra_relax
+      sm_zebra_relax_si = sm_zebra_relax
       mg_ores_si     = mg_ores
       mg_oprol_si    = mg_oprol
 
@@ -6622,155 +6622,3 @@ cc      endif
       end subroutine PC_setup
 
       end module precond_setup
-
-c app_mon_func
-c #################################################################
-      subroutine app_mon_func(igrid,nx,ny,nz,tjac)
-
-c -----------------------------------------------------------------
-c     Computes monitor function to drive MK grid adaptation, and
-c     stores it in "tjac". Must provide ghost cell values.
-c -----------------------------------------------------------------
-
-      use equilibrium
-
-      use timeStepping
-
-      use nlfunction_setup
-
-      use mk, ONLY: g_ratio
-
-      implicit none
-
-c     Call variables
-
-      integer :: igrid,nx,ny,nz
-      real(8) :: tjac(0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer :: i,j,k
-      real(8) :: a_mk=2d0,j0_max=1d0,w0_max=1d0,gext(2),lext(2)
-
-c     Begin program
-
-      select case(equil)
-      case ('mktst') 
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              tjac(i,j,k) = evalJac_tst(i,j,k,'cos')
-            enddo
-          enddo
-        enddo
-
-      case default
-
-      end select
-
-c     End program
-
-      contains
-
-c     evalJac_tst
-c     ##############################################################
-      function evalJac_tst(i,j,k,test) result(jac)
-
-c     --------------------------------------------------------------
-c     Old MK tests, from Delzanno et al., JCP (2008) and
-c     Chacon et al., JCP (2010).
-c     --------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k
-      real(8) :: jac
-      character(*) :: test
-      
-c     Local variables
-
-      integer :: ig,jg,kg
-      real(8) :: cc,ss,pi,eps,xt,omegt,rc,thc,xc,yc,x1,x2,x3
-
-c     Begin program
-
-      call getCartesianCoordinates(i,j,k,igrid,igrid,igrid
-     .                            ,ig,jg,kg,x1,x2,x3)
-
-      pi = acos(-1d0)
-
-      select case(trim(test))
-      case ('spirl')
-        omegt = 0.1*(time - dt)
-        rc=dsqrt((x1-0.7d0)**2+(x2-0.5d0)**2)
-        thc=datan((x2-0.5d0)/(x1-0.7d0)) + omegt
-        jac=1d0/(1d0+5d0/(1d0+(3d0*rc*dcos(thc-40d0*rc**2))**2))
-cc        jac=1d0/(1d0+9d0/(1d0+(1d1*rc*dcos(thc-20d0*rc**2))**2))
-      case ('blob')
-        omegt =-0.1*(time - dt)
-
-        rc=sqrt((x1-0.5d0)**2+(x2-0.5d0)**2)
-
-        thc =atan((x2-0.5d0)/(x1-0.5d0))
-
-        thc = thc - omegt
-
-        jac = 1d0/(1d0 + 4*exp(-rc**2*((cos(thc))**2/0.03
-     .                                +(sin(thc))**2/0.003)))
-      case ('blob1')
-        rc=dsqrt((x1-0.7d0)**2+(x2-0.8d0)**2)
-
-        jac = (1d0 + 4*rc**2)
-      case ('blob2')
-        rc=dsqrt((x1-0.2d0)**2+(x2-0.3d0)**2)
-
-        jac = (1d0 + 64*rc**2)
-      case ('swirl')
-        omegt = 0.1*(time - dt)
-        rc=dsqrt((x1-0.5d0)**2+(x2-0.5d0)**2)
-        thc=datan((x2-0.5d0)/(x1-0.5d0))+16*omegt*max((0.5-rc)*rc,0d0)
-
-        jac = 1d0/(1d0 + 4*exp(-rc**2*(cos(thc)**2/0.05
-     .                                +sin(thc)**2/0.001)))
-      case ('squre')
-        omegt = .1*(time - dt)
-        thc = omegt
-        x1 = (x1 - 0.5)/0.2
-        x2 = (x2 - 0.5)/0.2
-        xc =  x1*cos(thc)+x2*sin(thc)
-        yc = -x1*sin(thc)+x2*cos(thc)
-        jac = 1 + 5*max(0d0,(1d0-xc)*(xc+1d0))
-     .             *max(0d0,(1d0-yc)*(yc+1d0))
-        jac = 1d0/jac
-      case ('sglr1')
-        jac = sqrt((x1-0.5)**2+(x2-0.5)**2)
-     .       /exp(-2*sqrt((x1-0.5)**2+(x2-0.5)**2))
-      case ('sglr2')
-        jac = sqrt((x1-0.7)**2+(x2-0.7)**2)
-     .       /exp(-2*sqrt((x1-0.5)**2+(x2-0.5)**2))
-      case ('cos')
-        jac = 2d0 + cos(8*pi*sqrt((x1-0.5)**2
-     .                           +(x2-0.5)**2))
-      case ('3dcos')
-        jac = 2d0 + cos(8*pi*sqrt((x1-0.5)**2
-     .                           +(x2-0.5)**2
-     .                           +(x3-0.5)**2))
-      case ('cost')
-        xt =-0.1*time
-        jac = (2d0 + cos(8*pi*sqrt((x1-0.5-xt)**2
-cc        jac = (2d0 + cos(8*pi*sqrt((x1-0.5)**2
-     .                            +(x2-0.5   )**2)))
-      case ('one')
-        jac = 1d0
-      case default
-        write (*,*) 'Jacobian not available'
-        write (*,*) 'Aborting...'
-        stop
-      end select
-
-      end function evalJac_tst
-
-      end subroutine app_mon_func

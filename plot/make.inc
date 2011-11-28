@@ -5,6 +5,8 @@ PETSC_A_CODE = pixplot_a.petsc.x
 
 MODS := mhd_mod.F imposeBC_mod.F
 
+# Subdirectories
+
 COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/math\
@@ -15,13 +17,22 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/orbit\
-	  $(COMMONDIR)/mk\
-	  $(COMMONDIR)/3dplot
+	  $(COMMONDIR)/orbit
+
+ifeq ($(MK),t)
+  SUBDIRS += $(COMMONDIR)/mk
+  EXCLUDE = %mk_pc_mod.F
+endif
+
+SUBDIRS += $(COMMONDIR)/3dplot
+
+# Set link files
 
 LNK_FILES = ../src/applyBoundaryConditions.F\
 	    ../src/imposeBC_mod.F\
 	    ../src/mhd_mod.F\
 	    ../src/readInput.F
 
-EXCLUDE = %mk_pc_mod.F
+# Dependencies
+
+#postProcessSolution.o: diagnostics.o

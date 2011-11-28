@@ -49,36 +49,12 @@ ifdef BOPT
 endif
 
 ifdef SAMR
-  include ${SAMRAI}/config/Makefile.config
-#  PDIM = 3
-#  CPPFLAGS_EXTRA += -DNDIM=$(PDIM)
-#  CXXFLAGS_EXTRA += -DNDIM=$(PDIM)
-#   CPPFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
-#   CPPFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
-#   CXXFLAGS_EXTRA += -I${AMRUTILITIES_HOME}/include
-#   CXXFLAGS_EXTRA += -I${SAMRSOLVERS_HOME}/include
-#   LDFLAGS_EXTRA += -L${AMRUTILITIES_HOME}/lib   
-#   LDLIBS_EXTRA += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
-#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/liblinearops3d.a
-#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libmlsolvers3d.a
-#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libpreconditionerbase3d.a
-#   LDFLAGS_EXTRA += -L${SAMRSOLVERS_HOME}/lib   
-#   LDLIBS_EXTRA += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
-   LDLIBS  += ${SAMRSOLVERS_HOME}/lib/libtimeintegrators3d.a
-   LDLIBS  += ${AMRUTILITIES_HOME}/lib/libAMRUtils3d.a
-#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleCubicRefine.o
-#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleCubicCoarsen.o
-#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/CartesianCellDoubleInjectionCoarsen.o
-#   LDLIBS  += ${AMRUTILITIES_HOME}/interpolation/source/fortran/
-   LDFLAGS += -L${PETSC_DIR}/${PETSC_ARCH}/lib 
-   ifeq ($(shell hostname),lap0086227)
-      LDLIBS  += -lflapack -lfblas
-   endif
+   # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
+   include ${SAMRSOLVERS_HOME}/Makefile.config
 
-  SRC2      = $(SRC)
-  EXCLUDE  += %explicit.F
-  EXCLUDE  += output.F
-  SRC      := $(filter-out $(EXCLUDE),$(SRC2))
+   SRC2      = $(SRC)
+   EXCLUDE  += output.F
+   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
 # Objects
@@ -153,10 +129,11 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 samrai: common $(SAMRAICODE)
 
 $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
-	@echo 'Before linking the common objs' $(COMMON_OBJS)
-	@echo 'Before linking the obj' $(OBJ)
-	@echo 'Before linking the objmod' $(OBJMOD)
-	@echo $(OBJ)
+#	@echo 'Before linking the common objs' $(COMMON_OBJS)
+#	@echo 'Before linking the obj' $(OBJ)
+#	@echo 'Before linking the objmod' $(OBJMOD)
+#	@echo $(OBJ)
+#	@echo 'Common objs' $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
@@ -183,9 +160,6 @@ setup: ;
 
 $(OBJMOD): $(COMMON_MODS)
 $(OBJ):    $(MODS) $(COMMON_MODS)
-#$(OBJ):  $(MODS) $(COMMON_MODS) $(COMMONDIR)/BC/*_mod.[f,F]
-#imposeBC_mod.o: $(COMMONDIR)/BC/*_mod.[f,F] 
-postProcessSolution.o: diagnostics.o
 
 #Define patterns
 

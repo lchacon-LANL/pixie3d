@@ -594,9 +594,6 @@ c Local variables
       profilefile(5)= 'drawpert-prof.bin'
       uprofile(5)   = 34
 
-      debugfile    = 'debug.bin'
-      udebug       = 40
-
       drawgraph(1) = 'drawcnv.in'
 #if defined(RFX)
       drawgraph(2) = 'drawcyl.in'
