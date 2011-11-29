@@ -41,7 +41,7 @@ c Local variables
       !Legacy parameters
       character(2)  :: precon
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
-     .                ,pc_debug_it
+     .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
      .                ,mg_zebra_relax
       real(8)       :: mgtol
@@ -77,7 +77,7 @@ c Namelists
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
      .                   ,lag_pinch_bc,recordfile,pc_debug_it
-     .                   ,mg_zebra_relax
+     .                   ,mg_zebra_relax,pc_max_iter
 
       !Problem setup
       namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -366,6 +366,7 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       debug    = .false.
       debug_it = -1
       hall_new = .false.
+      pc_max_iter = 0
 
 c Read initialization parameters
 
@@ -420,6 +421,8 @@ c Check legacy parameters
       if (oprol  /= 0  )  mg_oprol= oprol
 
       if (nsweep /= 0  )  sm_iter = nsweep
+
+      if (pc_max_iter>0)  pc_iter = pc_max_iter
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
