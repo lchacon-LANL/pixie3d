@@ -525,6 +525,7 @@ c     Begin program
         igrid = igx
 
         order = bc_order
+cc        order = 0
 
 cc        call setASMflag(.false.)
 
@@ -651,8 +652,7 @@ c     Store current cnv components in all grids (w/ BCs)
 
         gj0%grid(igrid)%array = jcnv
 
-        call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid
-     .                      ,order)
+        call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid,order)
 
 c     Store current cov components in all grids (w/ BCs)
 
@@ -664,6 +664,7 @@ c     Store current cov components in all grids (w/ BCs)
 c     Store viscosity
 
         if (nu > 0d0) then
+          
           gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
 
           call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
@@ -671,6 +672,7 @@ c     Store viscosity
           do igr=igrid,grid_params%ngrid
             gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
           enddo
+
         else
           do igr=igrid,grid_params%ngrid
             gvis%grid(igr)%array = 0d0
@@ -874,8 +876,8 @@ cc      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
 cc      open(unit=110,file=debugfile,form='unformatted'
 cc     .    ,status='replace')
 cc
-cc      igx = 1
-cc      k = 2
+cc      igx = 2
+cc      k = 1
 cc
 cc      nx = grid_params%nxv(igx)
 cc      ny = grid_params%nyv(igx)
@@ -928,6 +930,7 @@ cc
 cc      debug2 = gvis%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
 cc     .            ,grid_params%gxmin,grid_params%gxmax
+cccc     .            ,grid_params%gymin,grid_params%gymax,0,110)
 cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
 cc
 cc      deallocate(debug2)
