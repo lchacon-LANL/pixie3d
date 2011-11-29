@@ -1234,7 +1234,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k
-      real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha,jach
+      real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah
       logical :: fo
 
@@ -1251,7 +1251,6 @@ c     Begin program
         fo = first_order
       else
         fo = .false.
-cc        fo = .true.
       endif
 
       i = nx
@@ -1259,12 +1258,7 @@ cc        fo = .true.
       if (.not.fo) then
         do k=1,nz
           do j=1,ny
-cc            jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-cc     .                  +gmetric%grid(igrid)%jac(i+1,j,k))
-cc            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i,j,k,:))/jach
-            bbcnv = 0.5*
-     .             (bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
-     .             +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
+            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
             bbcov = 0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .                         ,bcnv(i  ,j,k,:))
      .                  +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
@@ -1287,10 +1281,7 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
       else
         do k=1,nz
           do j=1,ny
-cc            jach = gmetric%grid(igrid)%jac(i,j,k)
-            jach  = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-     .                  +gmetric%grid(igrid)%jac(i+1,j,k))
-            bbcnv = bcnv(i,j,k,:)/jach
+            bbcnv = bcnv(i,j,k,:)
 
 cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
             gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
