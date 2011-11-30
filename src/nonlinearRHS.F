@@ -299,6 +299,8 @@ c Begin program
         cnf   = cnfactor
       endif
 
+      if (dt == 0d0) call pstop('defineTSparams','dt=0!!!')
+
       one_over_dt = 1d0/dt
 
       !Setup enslavement of rho
