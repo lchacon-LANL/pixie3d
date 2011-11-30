@@ -3609,6 +3609,7 @@ c     Call variables
 
 c     Local variables
 
+        integer :: ierr
         real(8) :: xh,yh,zh,sh,bb,bx,by,bz
      .            ,xs,ys,zs,ts,y00,dy0
         save dy0
@@ -3644,7 +3645,7 @@ c     Find middle points
 
 c     Find magnetic field Cartesian components
 
-        call getB(xh,yh,zh,bx,by,bz,.false.,.true.)
+        call getB(xh,yh,zh,bx,by,bz,.false.,.true.,ierr)
 
         bb = sqrt(bx**2+by**2+bz**2)
 
@@ -3748,6 +3749,8 @@ c     Begin program
 
         allocate(psi_rhs(nx*ny*nz),psiv(nx*ny*nz),errv(nx*ny*nz))
 
+        psi_rhs = 0d0 ; psiv = 0d0 ; errv = 0d0
+
         if (my_rank == 0) then
           write (*,*)
           write (*,*) '************************************'
@@ -3761,7 +3764,8 @@ c     Begin program
           call pstop('Ohm_GS_equil_2d',messg)
         endif
 
-        zeros = 0d0
+        zeros = 0d0 ; iR2 = 0d0 ; dummy = 0d0
+        qprof = 0d0 ; psig = 0d0 ; III = 0d0
 
 c       Initialize iteration
 
@@ -3781,10 +3785,6 @@ c       Initialize iteration
         !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
         do j=0,nydp
           do i=0,nxdp
-cc            call getCartesianCoordinates(i,j,1,igrid,igrid,igrid
-cc     .                                  ,ig,jg,kg,x1,y1,z1)
-cc            RR(i,j) = sqrt(x1**2+y1**2)
-
             RR(i,j) = R0 +  grid_params%xg(i)*cos(grid_params%yg(j))
           enddo
         enddo
