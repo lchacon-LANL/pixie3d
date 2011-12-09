@@ -131,7 +131,11 @@ endif
 #SAMRAI setup
 
 ifdef SAMR
-  include ${SAMRSOLVERS_HOME}/Makefile.config
+   ifdef SAMRSOLVERS_HOME
+      include ${SAMRSOLVERS_HOME}/Makefile.config
+   else
+      $(error error SAMRSOLVERS_HOME must be set)
+   endif
 
    OBJECT=${SAMRAI}
 
