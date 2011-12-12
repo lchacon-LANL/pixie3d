@@ -17,6 +17,8 @@ c--------------------------------------------------------------------
 
       use B_tools
 
+      use par_int
+
       implicit none
 
 c Call variables
@@ -25,9 +27,10 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq
+      integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq,igrid
       real(8) :: mag,acc
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
+      logical :: E_diag,lag_init
 
 c Interfaces
 
@@ -44,10 +47,12 @@ c Interfaces
 
 c Begin program
 
+      igrid = 1
+
       !Setup grid info
-      igx = 1
-      igy = 1
-      igz = 1
+      igx = igrid
+      igy = igrid
+      igz = igrid
 
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
@@ -100,165 +105,88 @@ c Add random noise in EOM (to break symmetry)
       endif
 
 c Divergence-clean magnetic field when PC is on
+#if !defined(samrai)
+#if !defined(vec_pot)
 
-#if !defined(vec_pot) && !defined(samrai)
+      if (.not.((.not.pc_B_solve)
+     .    .or.   pc_divclean
+     .    .or.  (.not.solenoidal)
+     .    .or.  (pc_type == 'id')
+     .    .or.  (nxd==1.and.nyd==1)
+     .    .or.  (nxd==1.and.nzd==1)
+     .    .or.  (nyd==1.and.nzd==1)) ) then
 
-      if (     (.not.pc_B_solve)
-     .    .or.  pc_divclean
-     .    .or. (.not.solenoidal)
-     .    .or. (pc_type == 'id')
-     .    .or. (nxd==1.and.nyd==1)
-     .    .or. (nxd==1.and.nzd==1)
-     .    .or. (nyd==1.and.nzd==1)) return
+        if (ilevel > 0 .and. my_rank == 0) then
+          write (*,*)
+          write (*,*) 'Performing divergence cleaning in postproc...'
+        endif
 
-      if (ilevel > 0 .and. my_rank == 0) then
-        write (*,*)
-        write (*,*) 'Performing divergence cleaning in postproc...'
+c       Find db=B^(n+1)-B^n
+
+        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+
+        db_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
+     .                   -u_n  %array_var(IBX)%array
+        db_cnv(:,:,:,2) = v_arr%array_var(IBY)%array
+     .                   -u_n  %array_var(IBY)%array
+        db_cnv(:,:,:,3) = v_arr%array_var(IBZ)%array
+     .                   -u_n  %array_var(IBZ)%array
+
+c       Clean db
+
+cc        call grad_div_clean(db_cnv)
+
+        call vlap_div_clean(ilevel,nx,ny,nz
+     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
+     .                   ,w_bcs=.true.)!,diag_plots=.true.)
+
+cc        call curl_div_clean(db_cnv)
+
+c       Find new B^(n+1)
+
+        v_arr%array_var(IBX)%array = db_cnv(:,:,:,1)
+     .                  +u_n%array_var(IBX)%array
+        v_arr%array_var(IBY)%array = db_cnv(:,:,:,2)
+     .                  +u_n%array_var(IBY)%array
+        v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
+     .                  +u_n%array_var(IBZ)%array
+
+c       Update helical flux
+
+        psi = psi + da_cov(:,:,:,3)
+
+        deallocate(db_cnv,da_cov)
+
       endif
 
-c Find db=B^(n+1)-B^n
+#endif
 
-      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+c Perform Lagrangian temperature step
 
-      db_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
-     .                 -u_n  %array_var(IBX)%array
-      db_cnv(:,:,:,2) = v_arr%array_var(IBY)%array
-     .                 -u_n  %array_var(IBY)%array
-      db_cnv(:,:,:,3) = v_arr%array_var(IBZ)%array
-     .                 -u_n  %array_var(IBZ)%array
+      if (lagrangian) then
+        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
+        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
+        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
 
-c Clean db
+        lag_init = .true.
+        E_diag   = .true.
+        call lagr_update(igrid,bcnv
+     .                  ,u_nm %array_var(ITMP)%array
+     .                  ,u_n  %array_var(ITMP)%array
+     .                  ,v_arr%array_var(ITMP)%array
+     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
 
-cc      call grad_div_clean(db_cnv)
+        !Update BCs
+        call setMGBC(0,1,nx,ny,nz,igrid
+     .              ,v_arr%array_var(ITMP)%array
+     .              ,v_arr%array_var(ITMP)%bconds
+     .              ,iorder=bc_order,icomp=(/ITMP/))
+      endif
 
-      call vlap_div_clean(ilevel,nx,ny,nz
-     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
-     .                   )!,diag_plots=.true.)
-
-cc      call curl_div_clean(db_cnv)
-
-c Find new B^(n+1)
-
-      v_arr%array_var(IBX)%array = db_cnv(:,:,:,1)
-     .                +u_n%array_var(IBX)%array
-      v_arr%array_var(IBY)%array = db_cnv(:,:,:,2)
-     .                +u_n%array_var(IBY)%array
-      v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
-     .                +u_n%array_var(IBZ)%array
-
-c Update BCs of all quantities
-
-      call applyBC (v_arr,igx,igy,igz)
-
-c Update helical flux
-
-      psi = psi + da_cov(:,:,:,3)
+cc      call applyBC (v_arr,igx,igy,igz)
 
 c End program
-
-      deallocate(db_cnv,da_cov)
-
-      contains
-
-c     grad_div_clean
-c     #################################################################
-      subroutine grad_div_clean(db)
-
-c     -----------------------------------------------------------------
-c     Finds dB=dB* + grad(phi).
-c     -----------------------------------------------------------------
-
-      use matvec, bcs_pc => bcs
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
-
-c     Local variables
-
-      integer :: ii,bcs(6)
-      real(8) :: rhs(ntotdp),x(ntotdp),phi(0:nx+1,0:ny+1,0:nz+1)
-     .          ,mag,dvol
-
-      logical :: vwgt
-
-      external lap_mtvc
-
-c     Begin program
-
-      vwgt = vol_wgt
-
-c     Find rhs=-div(db)
-
-      rhs = 0d0
-
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-            if (vwgt) then
-              dvol = gmetric%grid(igx)%dvol(i,j,k)
-            else
-              dvol = 1d0
-            endif
-
-            rhs(ii)= -dvol*div(i,j,k,nx,ny,nz,igx,igy,igz,db)
-          enddo
-        enddo
-      enddo
-
-c     Solve for phi=lap^-1(rhs)
-
-      bcs = bcond
-      where (bcond == DEF) bcs = NEU  !B.n must be zero at boundary!!
-
-      x = 0d0
-
-      !Solve Poisson equation
-      call cSolver(1,ntotdp,rhs,x,bcs
-     .            ,1,ilevel,0,lap_mtvc,vwgt
-     .            ,tol           = 1d-5
-!     .            ,dg            = lap_diag
-     .            ,gm_driver     = .not.vwgt
-     .            ,cg_driver     = vwgt
-     .            ,ks_it         = 20
-     .            ,mg_debug      = .false.
-     .            ,mg_galerkin   = .false.
-     .            ,mg_order_res  = 0  !To avoid null spaces
-     .            ,mg_order_prol = 0  !To avoid null spaces
-     .            ,mg_coarse_grid_size = 2
-     .            ,mg_gm_coarse_solve  = .false.
-     .            ,mg_vcyc       = 1
-     .            ,mg_smooth     = 'gs'
-     .            ,sm_omega      = 1d0
-     .            ,sm_it         = 3
-     .            ,sm_ncolors    = sm_ncolors  !9-pt stencil
-     .            ,sm_line_relax = sm_line_relax
-     .            ,sm_zebra_relax= sm_zebra_relax
-     .            )
-
-      !Map solution to array and apply BCs
-      call mapMGVectorToArray(0,1,x,nx,ny,nz,phi,igx,.false.)
-
-      call setMGBC(0,1,nx,ny,nz,igx,phi,bcs,iorder=bc_order)
-
-c     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            db(i,j,k,:) = db(i,j,k,:)
-     .           + matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
-     .                   ,grad(i,j,k,nx,ny,nz,igx,igy,igz,phi))
-          enddo
-        enddo
-      enddo
-
-      end subroutine grad_div_clean
 
 #endif
 
