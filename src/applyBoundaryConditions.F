@@ -661,11 +661,11 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-#if defined(RFX)
-          eeta= res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta= res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta= res(nnx,nny,nnz,iigx,tmp)
-#endif
+cc#endif
 
         case(INU)
 
@@ -681,11 +681,11 @@ c Select variable
 
         case(IETA_0)
 
-#if defined(RFX)
-          eeta_0=res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta_0=res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta_0=res(nnx,nny,nnz,iigx,tmp_0)
-#endif
+cc#endif
 
         case(IHETA)
 
@@ -1115,11 +1115,11 @@ c Select variable
 
 c       Resistivity at initial time
  
-#if defined(RFX)
-          eeta_0=res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta_0=res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta_0=res(nnx,nny,nnz,iigx,tmp_0)
-#endif
+cc#endif
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
@@ -1137,11 +1137,11 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-#if defined(RFX)
-          eeta= res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta= res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta= res(nnx,nny,nnz,iigx,tmp)
-#endif
+cc#endif
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
@@ -1555,11 +1555,11 @@ c Select variable
 
 c       Resistivity at initial time
  
-#if defined(RFX)
-          eeta_0=res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta_0=res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta_0=res(nnx,nny,nnz,iigx,tmp_0)
-#endif
+cc#endif
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
@@ -1577,11 +1577,11 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-#if defined(RFX)
-          eeta= res(nnx,nny,nnz,iigx,psi)
-#else
+cc#if defined(RFX)
+cc          eeta= res(nnx,nny,nnz,iigx,psi)
+cc#else
           eeta= res(nnx,nny,nnz,iigx,tmp)
-#endif
+cc#endif
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
