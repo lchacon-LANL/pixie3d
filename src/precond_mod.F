@@ -28,7 +28,7 @@ c ######################################################################
      .                             ,fake_ve
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,nc_eom_gp,solve_rho,solve_prs
-     .                             ,advect,alt_eom,adiabatic
+     .                             ,advect,v_advect,alt_eom,adiabatic
 
         use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
 
@@ -548,7 +548,7 @@ c     Extract arrays
 
 c     Fill LOCAL auxiliary variables
 
-        call fillLocalAuxVars(igx,igy,igz,varray,gv%aux)
+        call fillLocalAuxVars(igrid,varray,gv%aux)
 
 c     Setup BCs
 
@@ -1039,12 +1039,12 @@ c     ###############################################################
 
 c     Call variables
 
-        integer    :: nn,iter,bcnd(6,1),iout,guess
-        real(8)    :: b(nn),x(nn),tol
+        integer :: nn,iter,bcnd(6,1),iout,guess
+        real(8) :: b(nn),x(nn),tol
 
 c     Local variables
 
-        integer    :: nn2,ncolors
+        integer :: nn2,ncolors
 
 c     Externals
 
@@ -1185,9 +1185,9 @@ c     Begin program
         !Advection
         psiv = psiv
      .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dv
-     .                        ,1     ,cons=conserv)
+     .                        ,1       ,cons=conserv)
      .       +        tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dv,v0_cnv
-     .                        ,advect,cons=conserv))
+     .                        ,v_advect,cons=conserv))
 
         !Diffusion
         if (nu > 0d0 .and. strss) then
@@ -1203,10 +1203,10 @@ c     Begin program
         !Advection
         psiv = psiv
      .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp
-     .                           ,1     ,cons=conserv)
+     .                           ,1       ,cons=conserv)
 cc     .                           ,advect,cons=conserv)
      .               +tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv
-     .                           ,advect,cons=conserv))
+     .                           ,v_advect,cons=conserv))
 
         !Diffusion
         if (nu > 0d0 .and. strss) then
