@@ -159,6 +159,9 @@ c     Exceptions for specific equilibria
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
+cc        if (gamma > 1d0)
+cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+
       case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
@@ -166,6 +169,9 @@ c     Exceptions for specific equilibria
         !Dirichlet boundary conditions for tangential components
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
+
+        if (gamma > 1d0)
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       case ('vmec','tor')
 
@@ -1233,9 +1239,9 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k
+      integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
-     .          ,gsub(3,3),ietah
+     .          ,gsub(3,3),ietah,kk,mm,x1,y1,z1,j2,j3
       logical :: fo
 
 c     Begin program
@@ -1303,97 +1309,141 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
         enddo
       endif
 
+c     Add Br perturbation
+
+      if (br_pert_bc /= 0d0) then
+
+        select case(coords)
+        case('hel','tor','cyl')
+          mm = grid_params%params(1)
+          kk = grid_params%params(2)
+        case default
+          kk = 0d0
+          mm = 0d0
+        end select
+
+        select case(coords)
+        case('hel')
+          i = nx
+          do k=1,nz
+            do j=1,ny
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+              j3 =-mm*cos(mm*y1+kk*z1)
+              j2 = kk*cos(mm*y1+kk*z1)+kk*j3
+
+              j0(i+1,j,k,2) =j0(i+1,j,k,2)+br_pert_bc*j2
+              j0(i+1,j,k,3) =j0(i+1,j,k,3)+br_pert_bc*j3
+            enddo
+          enddo
+        case('tor','cyl')
+          i = nx
+          do k=1,nz
+            do j=1,ny
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+              j3 =-mm*cos(mm*y1+kk*z1)
+              j2 = kk*cos(mm*y1+kk*z1)
+
+              j0(i+1,j,k,2) =j0(i+1,j,k,2)+br_pert_bc*j2
+              j0(i+1,j,k,3) =j0(i+1,j,k,3)+br_pert_bc*j3
+            enddo
+          enddo
+        end select
+
+      endif
+
 c     End program
 
       end subroutine J_pinch_bc
 
-c     res_bc
-c     #############################################################
-      function res_bc(nx,ny,nz,igrid,field) result(rsvty)
-c     -------------------------------------------------------------
-c     This function computes the resistivity on the grid level
-c     igrid.
-c     -------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: nx,ny,nz,igrid
-      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-     .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
-
-c     Begin program
-
-      do dim=1,3
-        do loc=0,1
-
-          call findBCLoopLimits(dim,loc
-     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-                rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
-              enddo
-            enddo
-          enddo
-
-        enddo
-      enddo
-
-c     End program
-
-      end function res_bc
-
-c     vis_bc
-c     #############################################################
-      function vis_bc(nx,ny,nz,igrid,field) result(vscty)
-c     -------------------------------------------------------------
-c     This function computes the viscosity on the grid level
-c     igrid.
-c     -------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: nx,ny,nz,igrid
-      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-     .          ,vscty(0:nx+1,0:ny+1,0:nz+1)
-
-c     Local variables
-
-      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
-
-c     Begin program
-
-      do dim=1,3
-        do loc=0,1
-
-          call findBCLoopLimits(dim,loc
-     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-                vscty(i,j,k)=vis_ijk(i,j,k,igrid,field(i,j,k))
-              enddo
-            enddo
-          enddo
-
-        enddo
-      enddo
-
-c     End program
-
-      end function vis_bc
+ccc     res_bc
+ccc     #############################################################
+cc      function res_bc(nx,ny,nz,igrid,field) result(rsvty)
+ccc     -------------------------------------------------------------
+ccc     This function computes the resistivity at the boundary on
+ccc     the grid level igrid.
+ccc     -------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: nx,ny,nz,igrid
+cc      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
+cc     .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
+cc
+ccc     Begin program
+cc
+cc      do dim=1,3
+cc        do loc=0,1
+cc
+cc          call findBCLoopLimits(dim,loc
+cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
+cc
+cc          do k=kmin,kmax
+cc            do j=jmin,jmax
+cc              do i=imin,imax
+cc                rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        enddo
+cc      enddo
+cc
+ccc     End program
+cc
+cc      end function res_bc
+cc
+ccc     vis_bc
+ccc     #############################################################
+cc      function vis_bc(nx,ny,nz,igrid,field) result(vscty)
+ccc     -------------------------------------------------------------
+ccc     This function computes the viscosity at the boundary
+ccc     on the grid level igrid.
+ccc     -------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer :: nx,ny,nz,igrid
+cc      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
+cc     .          ,vscty(0:nx+1,0:ny+1,0:nz+1)
+cc
+ccc     Local variables
+cc
+cc      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
+cc
+ccc     Begin program
+cc
+cc      do dim=1,3
+cc        do loc=0,1
+cc
+cc          call findBCLoopLimits(dim,loc
+cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
+cc
+cc          do k=kmin,kmax
+cc            do j=jmin,jmax
+cc              do i=imin,imax
+cc                vscty(i,j,k)=vis_ijk(i,j,k,igrid,field(i,j,k))
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        enddo
+cc      enddo
+cc
+ccc     End program
+cc
+cc      end function vis_bc
 
       end module local_BCS_variables
 
