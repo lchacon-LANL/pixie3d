@@ -96,7 +96,7 @@ c Impose boundary conditions and find auxiliary quantities
 
 c Fill LOCAL auxiliary variables
 
-      call fillLocalAuxVars(igx,igy,igz,varray,gv%aux)
+      call fillLocalAuxVars(igx,varray,gv%aux)
 
 c Safeguards
 
