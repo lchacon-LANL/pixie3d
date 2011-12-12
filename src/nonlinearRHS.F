@@ -118,7 +118,7 @@ cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
      .                            )                  !chi_perp=chi
         endif
 
-        if (chi_par /= chi) then
+        if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
      .              -(chi_par-chi)
      .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
@@ -146,7 +146,7 @@ cc     .                       ,-vscnv,tmp,1,vol=.false.)
      .                       ,hez=int(sign(1d0,vscnv(i,j,k,3)))))
      .                  /gmetric%grid(igx)%jac(i,j,k)
 
-          ff(ITMP) = advc + (gamma-1d0)*heat_flx
+          ff(ITMP) = advc + (gamma-1d0)*heat_flx/a_p
 
         else                 !Temperature equation
 
@@ -168,7 +168,7 @@ cc     .                       ,hey=int(sign(1d0,-vscnv(i,j,k,2)))
 cc     .                       ,hez=int(sign(1d0,-vscnv(i,j,k,3)))))
 cc     .                  /gmetric%grid(igx)%jac(i,j,k)
 
-          ff(ITMP) = advc + (gamma-1.)*heat_flx/rho(i,j,k)
+          ff(ITMP) = advc + (gamma-1.)*heat_flx/a_p/rho(i,j,k)
         endif
 
         if (.not.adiabatic) then
@@ -202,9 +202,9 @@ cc     .                  /gmetric%grid(igx)%jac(i,j,k)
 
           !Add contributions
           if (solve_prs) then
-            ff(ITMP) = advc - (gamma-1.)*heat_src/a_p
+            ff(ITMP) = ff(ITMP) - (gamma-1.)*heat_src/a_p
           else
-            ff(ITMP) = advc - (gamma-1.)*heat_src/rho(i,j,k)/a_p
+            ff(ITMP) = ff(ITMP) - (gamma-1.)*heat_src/rho(i,j,k)/a_p
           endif
         endif
 
