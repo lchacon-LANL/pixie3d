@@ -1827,7 +1827,7 @@
 
 !     Free work space (to allow processing of different grid levels)
 
-        deallocate(xcar,ys,zs,work,tx,ty,tz,rr_coef,zz_coef)
+        deallocate(xcar,xs,ys,zs,work,tx,ty,tz,rr_coef,zz_coef)
 
         call vmec_cleanup
 
