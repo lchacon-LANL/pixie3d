@@ -55,7 +55,7 @@ c Namelists
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
-     .                   ,aa_nu,bb_nu,cc_nu,heta
+     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
@@ -71,7 +71,7 @@ c Namelists
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,solve_prs,ion_hall,fake_ve,slava,noise
-     .                   ,noise_lev
+     .                   ,noise_lev,lagrangian
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -89,7 +89,7 @@ c Namelists
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params
+     .                   ,eq_params,lagrangian,spitzer
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -235,6 +235,10 @@ c Set defaults
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
+      lagrangian = .false.     ! Whether we perform Lagrangian step for Te
+
+      spitzer  = .false.       ! Whether we are using Spitzer resistivity
+
       !Nonlinear function parameters
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
@@ -314,6 +318,10 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
       npw3     = 1             ! Number of harmonics for perturbation in axis 3
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
+
+      br_pert_bc = 0d0         ! Br perturbation magnitude at boundary (for pinch)
+                               ! Perturbation modes defined in grid_params 1 and 2
+                               !   for all geometries (hel, cyl, tor)
 
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
@@ -516,6 +524,9 @@ cc        solve_rho = .false.
           v_advect = advect
         endif
       endif
+
+      !Perform Lagrangian step at postprocessing time
+      if (lagrangian) postprocess = .true.
 
 c Map perturbations
 
