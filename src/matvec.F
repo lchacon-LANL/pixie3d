@@ -254,7 +254,6 @@ c Begin program
       nxx = grid_params%nxv(igrid)
       nyy = grid_params%nyv(igrid)
       nzz = grid_params%nzv(igrid)
-cc      nzz = 1
 
 c Find limits for loops
 
