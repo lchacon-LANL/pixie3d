@@ -926,4 +926,103 @@ c     End program
 
       end subroutine avlap_mtvc
 
+ccc     grad_div_clean
+ccc     #################################################################
+cc      subroutine grad_div_clean(db)
+cc
+ccc     -----------------------------------------------------------------
+ccc     Finds dB=dB* + grad(phi).
+ccc     -----------------------------------------------------------------
+cc
+cc      use matvec, bcs_pc => bcs
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+cc
+ccc     Local variables
+cc
+cc      integer :: ii,bcs(6)
+cc      real(8) :: rhs(ntotdp),x(ntotdp),phi(0:nx+1,0:ny+1,0:nz+1)
+cc     .          ,mag,dvol
+cc
+cc      logical :: vwgt
+cc
+cc      external lap_mtvc
+cc
+ccc     Begin program
+cc
+cc      vwgt = vol_wgt
+cc
+ccc     Find rhs=-div(db)
+cc
+cc      rhs = 0d0
+cc
+cc      do k=1,nz
+cc        do j=1,ny
+cc          do i=1,nx
+cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc            if (vwgt) then
+cc              dvol = gmetric%grid(igx)%dvol(i,j,k)
+cc            else
+cc              dvol = 1d0
+cc            endif
+cc
+cc            rhs(ii)= -dvol*div(i,j,k,nx,ny,nz,igx,igy,igz,db)
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc     Solve for phi=lap^-1(rhs)
+cc
+cc      bcs = bcond
+cc      where (bcond == DEF) bcs = NEU  !B.n must be zero at boundary!!
+cc
+cc      x = 0d0
+cc
+cc      !Solve Poisson equation
+cc      call cSolver(1,ntotdp,rhs,x,bcs
+cc     .            ,1,ilevel,0,lap_mtvc,vwgt
+cc     .            ,tol           = 1d-5
+cc!     .            ,dg            = lap_diag
+cc     .            ,gm_driver     = .not.vwgt
+cc     .            ,cg_driver     = vwgt
+cc     .            ,ks_it         = 20
+cc     .            ,mg_debug      = .false.
+cc     .            ,mg_galerkin   = .false.
+cc     .            ,mg_order_res  = 0  !To avoid null spaces
+cc     .            ,mg_order_prol = 0  !To avoid null spaces
+cc     .            ,mg_coarse_grid_size = 2
+cc     .            ,mg_gm_coarse_solve  = .false.
+cc     .            ,mg_vcyc       = 1
+cc     .            ,mg_smooth     = 'gs'
+cc     .            ,sm_omega      = 1d0
+cc     .            ,sm_it         = 3
+cc     .            ,sm_ncolors    = sm_ncolors  !9-pt stencil
+cc     .            ,sm_line_relax = sm_line_relax
+cc     .            ,sm_zebra_relax= sm_zebra_relax
+cc     .            )
+cc
+cc      !Map solution to array and apply BCs
+cc      call mapMGVectorToArray(0,1,x,nx,ny,nz,phi,igx,.false.)
+cc
+cc      call setMGBC(0,1,nx,ny,nz,igx,phi,bcs,iorder=bc_order)
+cc
+ccc     Find dB=-grad(phi) (in cnv representation and w/o ghost cells)
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc            db(i,j,k,:) = db(i,j,k,:)
+cc     .           + matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
+cc     .                   ,grad(i,j,k,nx,ny,nz,igx,igy,igz,phi))
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+cc      end subroutine grad_div_clean
+
       end module B_tools
