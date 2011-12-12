@@ -154,10 +154,66 @@ c ######################################################################
         use problem_def
 
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
-     .            ,heta=0d0,c_hyper
+     .            ,heta=0d0,c_hyper,beta=1d-3
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
+
+        logical :: lagrangian=.false.   !Whether we perform Lagrangian step for Te
+     .            ,spitzer=.false.      !Whether we are using Spitzer resistivity
+
+      contains
+
+c     res_rfx
+c     #############################################################
+      function res_rfx(rr) result(res)
+c     -------------------------------------------------------------
+c     This function computes the resistivity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: res,rr
+
+c     Local variables
+
+c     Begin program
+
+      !Resistivity profile eta*(1 + aa*x^bb)^cc
+      res = eta*(1. + aa_eta*rr**bb_eta)**cc_eta
+
+c     End program
+
+      end function res_rfx
+
+c     res_spitzer
+c     #############################################################
+      function res_spitzer(t) result(res)
+c     -------------------------------------------------------------
+c     This function computes the resistivity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: res,t
+
+c     Local variables
+
+      real(8) :: f0=1d-2
+
+c     Begin program
+
+      res = eta*((1+f0)/(abs(t)+f0*beta))**(1.5)
+
+c     End program
+
+      end function res_spitzer
 
       end module transport_params
 
@@ -433,7 +489,7 @@ c     End program
 
 c     fillLocalAuxVars
 c     ###################################################################
-      subroutine fillLocalAuxVars(igx,igy,igz,varray,vaux)
+      subroutine fillLocalAuxVars(igr,varray,vaux)
 
       implicit none
 c     -------------------------------------------------------------------
@@ -442,7 +498,7 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-      integer :: igx,igy,igz
+      integer :: igr
 
       type(var_array),pointer :: varray
 
@@ -458,18 +514,18 @@ c     Local variables
 
 c     Begin program
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = grid_params%nxv(igr)
+      ny = grid_params%nyv(igr)
+      nz = grid_params%nzv(igr)
 
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
-      if (chi_par /= chi) then
+      if (chi_par /= chi .and. (.not.lagrangian)) then
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+              call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
 
-              bnorm = vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
+              bnorm = vectorNorm(i,j,k,igr,bcnv(i,j,k,:),.false.)
 
               bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
             enddo
@@ -494,7 +550,7 @@ c     Begin program
       endif
 
       !Psi
-      psi = 0d0
+cc      psi = 0d0
 
       !Pressure
 cc      tmp => varray%array_var(ITMP)%array
@@ -4241,7 +4297,8 @@ c ######################################################################
 
         use problem_def
 
-        real(8) :: dlambda,rshear,vparflow,vperflow,beta,E0(3),B0(3)
+        real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3)
+     .            ,br_pert_bc
 
         real(8) :: eq_params(6)
 
@@ -6119,32 +6176,6 @@ c     End program
 
       end function E_fld_Hall
 
-c     res_def
-c     #############################################################
-      function res_def(rr) result(res)
-c     -------------------------------------------------------------
-c     This function computes the resistivity at a radius rr.
-c     (Daniele's RFX profile).
-c     -------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: res,rr
-
-c     Local variables
-
-c     Begin program
-
-        !Resistivity profile eta*(1 + aa*x^bb)^cc
-        res = eta*(1. + aa_eta*rr**bb_eta)**cc_eta
-cc        res = eta*(1. + aa_eta*rr**nn_eta)
-
-c     End program
-
-      end function res_def
-
 c     res_ijk
 c     #############################################################
       function res_ijk(i,j,k,igrid,field) result(rsvty)
@@ -6163,15 +6194,19 @@ c     Call variables
 c     Local variables
 
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr  !Allows for changes in resistivity of f0^(-1.5)
 
 c     Begin program
 
-      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-      rr = grid_params%xx(ig)
+      if (spitzer) then
+        rsvty = res_spitzer(field)
+      else
+        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+        rr = grid_params%xx(ig)
 
-      rsvty = res_def(rr)
-cc
+        rsvty = res_rfx(rr)
+      endif
+
 cc      select case (equil)
 cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
 cc
@@ -6179,7 +6214,7 @@ cc        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 cc        rr = grid_params%xx(ig)
 cc
 cc        rsvty = res_def(rr)
-cc
+cc      
 cc      case default
 cc
 cc        rsvty = eta
@@ -6209,12 +6244,25 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k
+      real(8) :: fmax,fmaxg
 
 c     Begin program
+
+cc      fmax = maxval(field)
+cc
+cc#if defined(petsc)
+cc      call MPI_Allreduce(fmax,fmaxg,1
+cc     .                  ,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+cc#else
+cc      fmaxg = fmax
+cc#endif
+cc
+cc      if (fmaxg == 0d0) fmaxg = 1d0
 
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
+cc            rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k)/fmaxg)
             rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
           enddo
         enddo
