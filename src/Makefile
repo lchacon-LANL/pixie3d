@@ -54,7 +54,12 @@ ifdef SAMR
 
     SRC2      = $(SRC)
     EXCLUDE  += %explicit.F
-    EXCLUDE  += output.F
+    EXCLUDE  += %output.F
+    ifdef SAMR_IMP
+      EXCLUDE += %SAMRAIDriver.C
+    else
+      EXCLUDE += %SAMRAIDriverImplicit.C
+    endif
     SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
