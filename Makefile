@@ -127,10 +127,14 @@ tests: tests-a tests-b
 rebuild-tests: rebuild-tests-a rebuild-tests-b
 
 tests-a: ;
+ifdef SAMR
+	$(MAKE) -e -C tests/samrai test-a
+else
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel test-a
 else
 	$(MAKE) -e -C tests/serial test-a
+endif
 endif
 
 tests-b: ;
@@ -145,17 +149,25 @@ endif
 endif
 
 rebuild-tests-a: ;
+ifdef SAMR
+	$(MAKE) -e -C tests/samrai rebuild-a
+else
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-a
 else
 	$(MAKE) -e -C tests/serial rebuild-a
 endif
+endif
 
 rebuild-tests-b: ;
+ifdef SAMR
+	$(MAKE) -e -C tests/samrai rebuild-b
+else
 ifdef BOPT
 	$(MAKE) -e -C tests/parallel rebuild-b
 else
 	$(MAKE) -e -C tests/serial rebuild-b
+endif
 endif
 
 # CONTRIBUTED LIBRARIES
