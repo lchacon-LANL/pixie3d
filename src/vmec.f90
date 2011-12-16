@@ -1656,9 +1656,9 @@
 
 !     Local variables
 
-      integer    :: igrid,nx,ny,nz,alloc_stat,icomp
-      integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-      real(8)    :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
+      integer :: igrid,nx,ny,nz,alloc_stat,icomp
+      integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
+      real(8) :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
 
       real(8),allocatable,dimension(:,:,:,:) :: xcar
 
@@ -2301,12 +2301,30 @@
         allocate(ty(nys+ky),stat=alloc_stat)
         allocate(tz(nzs+kz),stat=alloc_stat)
 
-        !Global PIXIE3D coordinates 
+        !Global coordinates 
         allocate(xs(nxs),ys(nys),zs(nzs),stat=alloc_stat)
 
-        xs = grid_params%xg(0:nxg+1)
-        ys = grid_params%yg(0:nyg+1)
-        zs = grid_params%zg(0:nzg+1)
+        !Radial half-mesh (PIXIE3D's full mesh)
+        ds = 1d0/nxg
+        do ig = 1,nxs
+!!$           xs(ig) = ds*(ig-1)
+           xs(ig) = ds*(ig-1.5)
+        enddo
+
+        !Full angle meshes, starting at angle 0
+        dth = 2*pi/nyg
+        do jg = 1,nys
+           ys(jg) = dth*(jg-1)
+        enddo
+
+        dphi = 2*pi/nzg
+        do kg = 1,nzs
+           zs(kg) = dphi*(kg-2)
+        enddo
+
+!!$        xs = grid_params%xg(0:nxg+1)
+!!$        ys = grid_params%yg(0:nyg+1)
+!!$        zs = grid_params%zg(0:nzg+1)
 
         !Spline B-field components
         allocate(bsup1_coef(nxs,nys,nzs)  &
@@ -2368,14 +2386,15 @@
           enddo
         enddo
 
+!     Free work space
+
         DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
 
         DEALLOCATE(bsupuijcf,bsupvijcf,bsubvijcf,bsupsijsf,presijf,stat=istat)
+
+        DEALLOCATE(xs,ys,zs,work,tx,ty,tz,bsup1_coef,bsup2_coef,bsub3_coef,prs_coef,stat=istat)
+
         IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
-
-        deallocate(xs,ys,zs,work,tx,ty,tz,bsup1_coef,bsup2_coef,bsub3_coef,prs_coef)
-
-!     Free work space
 
         call vmec_cleanup
 
