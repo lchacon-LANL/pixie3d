@@ -78,7 +78,7 @@ c Calculate matrix-vector product
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=volf)
+     .                        ,xarr(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -92,9 +92,9 @@ c End program
 
       end subroutine lap_mtvc
 
-c cyl_lap
+c lap_mtvc2
 c####################################################################
-      subroutine cyl_lap(gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine lap_mtvc2(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine is a matvec test, y = A.x.
 c     In call:
@@ -125,11 +125,103 @@ c Call variables
 
 c Local variables
 
-      integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+      integer    :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
-      real(8),pointer    ,dimension(:,:,:)   :: ljac
+
+      logical    :: fpointers
+
+c Begin program
+
+      call allocPointers(neq,fpointers)
+
+      isig = MGgrid%istartp(igrid)
+
+      nxx = grid_params%nxv(igrid)
+      nyy = grid_params%nyv(igrid)
+      nzz = grid_params%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(abs(gpos),nxx,nyy,nzz,igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+
+      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
+     .                       ,.false.)
+
+      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+     .            ,iorder=bc_order)
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr)
+
+      call deallocPointers(fpointers)
+
+      end subroutine lap_mtvc2
+
+c del_hel
+c####################################################################
+      subroutine del_hel(gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec for the helical Grad-Shafranov
+c     operator, del^H. In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
+
+c Local variables
+
+      integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+      real(8) :: xhp,xhm,kk,x1,y1,z1
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
 
       logical    :: fpointers
 
@@ -156,17 +248,19 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order,icomp=(/IRHO/))
+     .            ,iorder=bc_order)
 
 c Calculate matrix-vector product
 
-      ljac => gmetric%grid(igrid)%jac
+      kk = grid_params%params(2)
 
       do k = kmin,kmax
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
@@ -176,21 +270,24 @@ c Calculate matrix-vector product
             jm = j-1
             kp = k+1
             km = k-1
+
+            xhp = 0.5*(grid_params%xx(ig)+grid_params%xx(ig+1))
+            xhm = 0.5*(grid_params%xx(ig)+grid_params%xx(ig-1))
       
-            y(ijk) = 1d0/ljac(i,j,k)/grid_params%dxh(ig)
-     .                *( 0.5*(ljac(ip,j,k)+ljac(i,j,k))
+            y(ijk) = 1d0/x1/grid_params%dxh(ig)
+     .                *( xhp/(1+(kk*xhp)**2)
      .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))
      .                      /grid_params%dx(ig)
-     .                  +0.5*(ljac(im,j,k)+ljac(i,j,k))
+     .                  +xhm/(1+(kk*xhm)**2)
      .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))
      .                      /grid_params%dx(ig-1))
-     .              +1d0/ljac(i,j,k)**2/grid_params%dyh(jg)
+     .              +1d0/x1**2/grid_params%dyh(jg)
      .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))
      .                   /grid_params%dy(jg)
      .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))
      .                   /grid_params%dy(jg-1) )
 
-            if (volf) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
+            if (vol_wgt) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
       enddo
@@ -201,14 +298,14 @@ c End program
 
       call deallocPointers(fpointers)
 
-      end subroutine cyl_lap
+      end subroutine del_hel
 
 c del_star
 c####################################################################
       subroutine del_star(gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
-c     This subroutine is a matvec test, y = A.x.
-c     In call:
+c     This subroutine is a matvec for the toroidal Grad-Shafranov
+c     operator, del^*. In call:
 c      * gpos: vector index of position on the numerical grid
 c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
 c              surrounding stencil is filled (9-pt stencil in 2D
@@ -303,7 +400,7 @@ cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),dff=iRR,vol=volf)
+     .                        ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
           enddo
         enddo
       enddo
@@ -429,7 +526,7 @@ cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igri
 cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
             y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=volf)
+     .                        ,xarr(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -545,7 +642,7 @@ c Calculate matrix-vector product
      .                    ,v0_cnv(:,:,:,2)
      .                    ,v0_cnv(:,:,:,3)
      .                    ,dtmp  (:,:,:,1)
-     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
      .              +(1.-gm)*dot_product(v0_cnv(i,j,k,:)
      .                  ,grad(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                       ,dtmp(:,:,:,1)
@@ -575,7 +672,7 @@ cc     .                 /grid_params%dz(kg)
 
             upwind = upwind/jac
 
-            if (volf) then
+            if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
@@ -698,7 +795,7 @@ c Calculate matrix-vector product
 
             ijk = i + nnx*(j-1) + nnx*nny*(k-1)
 
-            if (volf) then
+            if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               dvol = 1d0
@@ -710,14 +807,14 @@ c Calculate matrix-vector product
      .                    ,v0_cnv(:,:,:,2)
      .                    ,v0_cnv(:,:,:,3)
      .                    ,drho  (:,:,:,1)
-     .                    ,vol=volf,upwind=.true.,sp=bcSP())
+     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
 cc            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                    ,v0_cnv,drho(:,:,:,1),1,vol=volf,sp=bcSP())
+cc     .                    ,v0_cnv,drho(:,:,:,1),1,vol=vol_wgt,sp=bcSP())
 
             ! Diffusion
             if (dd > 0d0) then
               lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                       ,drho(:,:,:,1),vol=volf)
+     .                       ,drho(:,:,:,1),vol=vol_wgt)
             else
               lap = 0d0
             endif
@@ -853,7 +950,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
 cc
 cc            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc
-cc            if (volf) then
+cc            if (vol_wgt) then
 cc              vol = volume(i,j,k,igrid,igrid,igrid)
 cc            else
 cc              vol = 1d0
@@ -1350,7 +1447,7 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -1626,7 +1723,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -1927,7 +2024,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (volf) then
+            if (vol_wgt) then
 cc              vol = volume(i,j,k,igrid,igrid,igrid)
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
@@ -2258,7 +2355,7 @@ c Calculate matrix-vector product
 
             ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -2873,7 +2970,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (volf) then
+cc          if (vol_wgt) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -2985,7 +3082,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (volf) then
+cc          if (vol_wgt) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -3070,7 +3167,7 @@ cc          iisig = istart (igrid)
 cc          ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc          iig = 3*(ijk-1) + iisig - 1
 cc
-cc          if (volf) then
+cc          if (vol_wgt) then
 cc            vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc          else
 cc            vol = 1d0
@@ -3241,7 +3338,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -3501,7 +3598,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -3781,7 +3878,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijkg   = ijk + isig - 1
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -3901,7 +3998,7 @@ cc        call v_mtvc(0,neq,ntotf,MGx(1:ntotf),MGy(1:ntotf),igr,bcnd)
 cc
 ccc     Restrict residual
 cc
-cc        call restrictMGVector(neq,MGy,igr,igrid,0,volf)
+cc        call restrictMGVector(neq,MGy,igr,igrid,0,vol_wgt)
 cc
 ccc     Map coarse grid residual
 cc
@@ -4039,7 +4136,7 @@ cc            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc
 cc            ijkg   = ijk + isig - 1
 cc
-cc            if (volf) then
+cc            if (vol_wgt) then
 cc              vol = gmetric%grid(igrid)%dvol(i,j,k)
 cc            else
 cc              vol = 1d0
@@ -4237,7 +4334,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
@@ -4548,7 +4645,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (volf) then
+            if (vol_wgt) then
               vol = gmetric%grid(igrid)%dvol(i,j,k)
             else
               vol = 1d0
