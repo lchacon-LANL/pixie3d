@@ -33,7 +33,6 @@ c ######################################################################
         use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
 
         integer :: ntotd2p,nwt_iter
-        real(8) :: x1,y1,z1
         logical :: cartsn,covariant,to_cartsn,to_cnv
 
         !PC storage
@@ -1045,6 +1044,7 @@ c     Call variables
 c     Local variables
 
         integer :: nn2,ncolors
+        logical :: vw
 
 c     Externals
 
@@ -1052,14 +1052,18 @@ c     Externals
 
 c     Begin program
 
+        vw = .true. !use volume weighting
+
         ncolors = 2
 
         nn2 = 2*nn
 
         if(.not.allocated(d_pois)) then
           allocate(d_pois(1,nn2))
-          call find_mf_diag_colored(1,ntotdp,lap_mtvc,1
-     .                             ,bcnd,d_pois,ncolors)
+cc          call find_mf_diag_colored(1,ntotdp,lap_mtvc,1
+cc     .                             ,bcnd,d_pois,ncolors)
+          call find_mf_diag(1,1,ntotdp,lap_mtvc,1
+     .                     ,bcnd,d_pois,ncolors,vw,.false.)
         endif
 
 c     Initialize solver
@@ -1088,7 +1092,6 @@ cc        solverOptions%vcyc     = iter
         solverOptions%mg_mu    = 1
         solverOptions%ncolors  = ncolors
         solverOptions%diag     => d_pois
-        solverOptions%vol_res  = .true.
         solverOptions%mg_coarse_solver_depth = 0
 
         call assembleSolverHierarchy('mg')
