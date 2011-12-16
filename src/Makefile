@@ -52,8 +52,13 @@ ifdef SAMR
    # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
    include ${SAMRSOLVERS_HOME}/Makefile.config
 
-   SRC2      = $(SRC)
-   EXCLUDE  += output.F
+    SRC2      = $(SRC)
+    EXCLUDE  += %output.F
+    ifdef SAMR_IMP
+      EXCLUDE += %SAMRAIDriver.C
+    else
+      EXCLUDE += %SAMRAIDriverImplicit.C %ImplicitPixie3dApplication.C
+    endif
    SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
