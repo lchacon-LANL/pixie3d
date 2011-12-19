@@ -981,7 +981,7 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
-      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: x1,y1,z1,kk,mm,xl,yl,zl
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
@@ -991,37 +991,42 @@ c     Begin program
       if (ieq == IBX .or. ieq == IBY) then
 
 cc        if (equil == 'ic') then
-cc          do k = klom,khip
-cc            do j = jlom,jhip
-cc              do i = ilom,ihip
-cc                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
-cc
-cc                psi(i,j,k)=sin(  pi*(x1-xmin)/(xmax-xmin))
-cc     .                    *cos(2*pi*(y1-ymin)/(ymax-ymin))
-cc     .                    *cos(2*pi*(z1-zmin)/(zmax-zmin))
-cc              enddo
-cc            enddo
-cc          enddo
-cc        elseif (equil == 'ic-hk') then
+          xl = xmax-xmin
+          if (abs(bcond(1))==SYM.or.abs(bcond(1))==FSYM) xl=2*xl
+          yl = ymax-ymin
+          if (abs(bcond(3))==SYM.or.abs(bcond(3))==FSYM) yl=2*yl
+          zl = zmax-zmin
+          if (abs(bcond(5))==SYM.or.abs(bcond(5))==FSYM) zl=2*zl
+
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
                 call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                      ,x1,y1,z1)
 
-                psi(i,j,k)= cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
+cc                psi(i,j,k)=sin(  pi*(x1-xmin)/xl)
+                psi(i,j,k)=cos(  pi*(x1-xmin)/xl)
+     .                    *cos(2*pi*(y1-ymin)/yl)
+     .                    *cos(2*pi*(z1-zmin)/zl)
               enddo
             enddo
           enddo
+cc        elseif (equil == 'ic-hk') then
+cc          do k = klom,khip
+cc            do j = jlom,jhip
+cc              do i = ilom,ihip
+cc                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc                psi(i,j,k)= cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
+cc              enddo
+cc            enddo
+cc          enddo
 cc        endif
 
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
               ip = min(i+1,ihip)
