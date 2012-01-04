@@ -314,8 +314,8 @@ cc     .              ,gkernel_dt,gkernel_2dt,pkernel_dt,pkernel_2dt
 c diag ****
               vec_out(i,j,k,1) = temp_n /gkernel_dt
               vec_out(i,j,k,2) = temp_nm/gkernel_2dt
-              vec_out(i,j,k,3) = src_dt /pkernel_dt /b0(i,j,k)
-              vec_out(i,j,k,4) = src_2dt/pkernel_2dt/b0(i,j,k)
+              vec_out(i,j,k,3) = src_dt /pkernel_dt 
+              vec_out(i,j,k,4) = src_2dt/pkernel_2dt
             enddo
           enddo
         enddo
@@ -628,8 +628,8 @@ c diag ****
 
               vec_out(i,j,k,1) = temp_n /gkernel_dt
               vec_out(i,j,k,2) = temp_nm/gkernel_2dt
-              vec_out(i,j,k,3) = src_dt /pkernel_dt /b0(i,j,k)  !Divide by beta
-              vec_out(i,j,k,4) = src_2dt/pkernel_2dt/b0(i,j,k)  !Divide by beta
+              vec_out(i,j,k,3) = src_dt /pkernel_dt 
+              vec_out(i,j,k,4) = src_2dt/pkernel_2dt
             enddo
           enddo
         enddo
@@ -2601,14 +2601,14 @@ c Call additional integrators
       ydot(6) = flds(2)*ydot(7)
 
       !Src @ dt
-      ydot(9) = skernel_per(t,ct0)
+      ydot(9) = skernel_per(t,ct0)/B2
 
-      ydot(8) = flds(3)*ydot(9)/B2
+      ydot(8) = flds(3)*ydot(9)
 
       !Src @ dt+dtold
-      ydot(11) = skernel_per(t,ct1)
+      ydot(11) = skernel_per(t,ct1)/B2
 
-      ydot(10) = flds(3)*ydot(11)/B2
+      ydot(10) = flds(3)*ydot(11)
 
 c End program
 
@@ -2663,9 +2663,9 @@ c Call additional integrators
       ydot(4) = flds(1)*ydot(5)
 
       !Src @ dt
-      ydot(7) = skernel_per(t,ct0)
+      ydot(7) = skernel_per(t,ct0)/B2
 
-      ydot(6) = flds(3)*ydot(7)/B2
+      ydot(6) = flds(3)*ydot(7)
 
 c End program
 
