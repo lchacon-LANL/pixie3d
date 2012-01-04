@@ -55,7 +55,7 @@ c Namelists
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
-     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer
+     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,br_pert_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
@@ -89,7 +89,7 @@ c Namelists
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params,lagrangian,spitzer
+     .                   ,eq_params,lagrangian,spitzer,br_pert_bc
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
