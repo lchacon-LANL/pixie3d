@@ -78,10 +78,7 @@ c     Begin program
 
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
 
-        command = 'test -f '//trim(prt_file)
-        ierr = shellcmd(trim(command))
-
-        if (ierr == 0) then
+        if (is_file(prt_file)) then
           do ieq=1,varr%nvar
             call perturbEquilibrium_ppnch(varr%array_var(ieq)%array
      .                                   ,varr%array_var(ieq)%bconds
@@ -93,6 +90,27 @@ c     Begin program
      .                                 ,varr%array_var(ieq)%bconds
      .                                 ,pert(ieq),ieq)
           enddo
+
+          !Perturb normal B-field component ensuring div(B)=0 numerically
+          if (br_pert_bc /= 0d0) then
+            do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
+                  call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                          ,ig,jg,kg,x1,y1,z1)
+                  varr%array_var(IBX)%array(i,j,k) =
+     .                 varr%array_var(IBX)%array(i,j,k)
+     .              +x1*br_pert_bc*(sin(nh2*grid_params%yy(jg+1))
+     .                             -sin(nh2*grid_params%yy(jg-1)))
+     .                            /2./grid_params%dyh(jg)/nh2 !Derivative done numerically to preserve div(B)=0
+                  varr%array_var(IBY)%array(i,j,k) =
+     .                 varr%array_var(IBY)%array(i,j,k)
+     .                 -br_pert_bc*sin(nh2*y1)/nh2
+                enddo
+              enddo
+            enddo
+          endif
+
         endif
 
       case ('msw')

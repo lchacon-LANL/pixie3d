@@ -1168,6 +1168,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsuper(3,3)
+     .          ,EE(3)
 
 c     Begin program
 
@@ -1207,9 +1208,15 @@ cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
 
             grad_p = matmul(gsuper,grad_p)
 
+            EE = E0 + perturb_E(i,j,k,igrid)
+
             !ExB velocity
-            v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
+            v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
      .                    -etah*grad_p(1))/b2
+            v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
+     .                    -etah*grad_p(2))/b2
+            v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
+     .                    -etah*grad_p(3))/b2
           endif
         enddo
       enddo
@@ -1241,7 +1248,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
-     .          ,gsub(3,3),ietah,kk,mm,x1,y1,z1,j2,j3
+     .          ,gsub(3,3),ietah,EE(3)
       logical :: fo
 
 c     Begin program
@@ -1278,7 +1285,9 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
 
               grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-              alpha = dot_product(E0,bbcnv)*ietah
+              EE = E0 + perturb_E(i,j,k,igrid)
+
+              alpha = dot_product(EE,bbcnv)*ietah
 
               j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
@@ -1301,7 +1310,9 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
 
               grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-              alpha = dot_product(E0,bbcnv)*ietah
+              EE = E0 + perturb_E(i,j,k,igrid)
+
+              alpha = dot_product(EE,bbcnv)*ietah
 
               j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
@@ -1309,53 +1320,67 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
         enddo
       endif
 
-c     Add Br perturbation
-
-      if (br_pert_bc /= 0d0) then
-
-        select case(coords)
-        case('hel','tor','cyl')
-          mm = grid_params%params(1)
-          kk = grid_params%params(2)
-        case default
-          kk = 0d0
-          mm = 0d0
-        end select
-
-        select case(coords)
-        case('hel')
-          i = nx
-          do k=1,nz
-            do j=1,ny
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
-              j3 =-mm*cos(mm*y1+kk*z1)
-              j2 = kk*cos(mm*y1+kk*z1)+kk*j3
-
-              j0(i+1,j,k,2) =j0(i+1,j,k,2)+br_pert_bc*j2
-              j0(i+1,j,k,3) =j0(i+1,j,k,3)+br_pert_bc*j3
-            enddo
-          enddo
-        case('tor','cyl')
-          i = nx
-          do k=1,nz
-            do j=1,ny
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
-              j3 =-mm*cos(mm*y1+kk*z1)
-              j2 = kk*cos(mm*y1+kk*z1)
-
-              j0(i+1,j,k,2) =j0(i+1,j,k,2)+br_pert_bc*j2
-              j0(i+1,j,k,3) =j0(i+1,j,k,3)+br_pert_bc*j3
-            enddo
-          enddo
-        end select
-
-      endif
-
 c     End program
 
       end subroutine J_pinch_bc
+
+c     perturb_E
+c     ##############################################################
+      function perturb_E(i,j,k,igrid) result(dE)
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,igrid
+      real(8) :: dE(3)
+
+c     Local variables
+
+      integer :: ig,jg,kg
+      real(8) :: mm,kk,RR,x1,y1,z1,etah
+
+c     Begin program
+
+      dE=0d0
+
+cc      !Tangential E-field to produce radial B
+cc      etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc
+cc      select case(coords)
+cc      case('hel','tor','cyl')
+cc        mm = grid_params%params(1)
+cc        kk = grid_params%params(2)
+cc        RR = grid_params%params(3)
+cc      case default
+cc        kk = 0d0
+cc        mm = 0d0
+cc        RR = 0d0
+cc      end select
+cc
+cc      call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+cc     .                              ,ig,jg,kg,x1,y1,z1)
+cc
+cc      !Cylindrical components
+cc      dE(1) = 0d0
+cc      dE(2) = kk*br_pert_bc*cos(mm*y1+kk*z1)
+cc      dE(3) =-mm*br_pert_bc*cos(mm*y1+kk*z1)/x1
+cc
+cc      !Transform to covariant
+cc      select case(coords)
+cc      case('hel')
+cc        dE(2) = x1*dE(2)
+cc        dE(3) = dE(3)-kk/mm*dE(2)
+cc      case('cyl')
+cc        dE(2) = x1*dE(2)
+cc      case('tor')
+cc        dE(2) = x1*dE(2)
+cc        dE(3) = RR*dE(3)
+cc      end select
+cc
+cc      dE = etah*dE
+
+      end function perturb_E
 
 ccc     res_bc
 ccc     #############################################################
