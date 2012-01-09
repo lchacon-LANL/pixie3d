@@ -1977,12 +1977,6 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
               var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-cc              var(i,j,k,IBX) = x1*br_pert_bc
-cc     .                        *(sin(mm*grid_params%yy(jg+1))
-cc     .                         -sin(mm*grid_params%yy(jg-1)))
-cc     .                        /2./grid_params%dyh(jg)/mm !Derivative done numerically to preserve div(B)=0
-cc              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-cc     .                        -br_pert_bc*sin(mm*y1)/mm
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in

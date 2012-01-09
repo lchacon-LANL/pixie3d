@@ -93,19 +93,19 @@ c     Begin program
 
           !Perturb normal B-field component ensuring div(B)=0 numerically
           if (br_pert_bc /= 0d0) then
-            do k = klom,khip
-              do j = jlom,jhip
-                do i = ilom,ihip
+            do k = klo,khi
+              do j = jlo,jhi
+                do i = ilo,ihi
                   call getCurvilinearCoordinates(i,j,k,igx,igy,igz
      .                                          ,ig,jg,kg,x1,y1,z1)
                   varr%array_var(IBX)%array(i,j,k) =
      .                 varr%array_var(IBX)%array(i,j,k)
-     .              +x1*br_pert_bc*(sin(nh2*grid_params%yy(jg+1))
-     .                             -sin(nh2*grid_params%yy(jg-1)))
-     .                            /2./grid_params%dyh(jg)/nh2 !Derivative done numerically to preserve div(B)=0
+     .             +x1*br_pert_bc*(sin(nh2*grid_params%yy(jg+1)+nh3*z1)
+     .                            -sin(nh2*grid_params%yy(jg-1)+nh3*z1))
+     .                           /2./grid_params%dyh(jg)/nh2 !Derivative done numerically to preserve div(B)=0
                   varr%array_var(IBY)%array(i,j,k) =
      .                 varr%array_var(IBY)%array(i,j,k)
-     .                 -br_pert_bc*sin(nh2*y1)/nh2
+     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
                 enddo
               enddo
             enddo
