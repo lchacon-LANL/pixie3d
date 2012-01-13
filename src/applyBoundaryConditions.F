@@ -10,27 +10,20 @@ c     Applies the boundary conditions for SAMRAI
 c----------------------------------------------------------------------
 
       use local_BCS_variables
-
       use imposeBCinterface
-
       use auxiliaryVariables
-
       use variable_setup
-
       implicit none
 
 c Call variables
-
       integer :: nbc_seq, bc_seq(nbc_seq,3)
       type(patch), TARGET :: patch_var
 
 c Local variables
-
       integer :: i
       type(var_array),pointer :: varray => null()
 
 c Interfaces
-
       INTERFACE
         subroutine applyDepVarBC(bc_inf,varray,iigx,iigy,iigz,order)
           use variable_setup
@@ -39,7 +32,6 @@ c Interfaces
           integer,optional :: order
         end subroutine applyDepVarBC
       END INTERFACE
-
       INTERFACE
         subroutine applyAuxVarBC(bc_inf,varray,vaux,iigx,iigy,iigz
      .                          ,order)
@@ -51,6 +43,58 @@ c Interfaces
         end subroutine applyAuxVarBC
       END INTERFACE
 
+c Begin program
+
+c Setup pointers
+      gv => patch_var
+      grid_params => gv%gparams
+      gmetric => gv%gparams%gmetric
+      call setVectorDimensions
+      varray => gv%u_n
+      u_0    => gv%u_0
+      call allocAuxVariables(gv%aux)
+
+c Set boundary conditions
+      do i = 1,nbc_seq
+        if (bc_seq(i,1)*AUX < 0) then !Process dep. variable
+          call applyDepVarBC(bc_seq(i,:),varray
+     .                      ,1,1,1,order=bc_order)
+        elseif (bc_seq(i,1)*AUX > 0) then !Process aux. variable
+          call applyAuxVarBC(bc_seq(i,:),varray,gv%aux
+     .                      ,1,1,1,order=bc_order)
+        endif
+      enddo
+
+c Nullify aux pointers
+      call deallocLocalAuxVars
+
+c End program
+      end subroutine applybc
+
+
+c postproc
+c######################################################################
+      subroutine postproc(patch_var,nbc_seq,bc_seq)
+
+c----------------------------------------------------------------------
+c     Applies the postprocessor for SAMRAI
+c----------------------------------------------------------------------
+
+      use local_BCS_variables
+      use imposeBCinterface
+      use auxiliaryVariables
+      use variable_setup
+      implicit none
+
+c Call variables
+      integer :: nbc_seq, bc_seq(nbc_seq,3)
+      type(patch), TARGET :: patch_var
+
+c Local variables
+      integer :: i
+      type(var_array),pointer :: varray => null()
+
+c Interfaces
       INTERFACE
         subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
           use variable_setup
@@ -63,45 +107,28 @@ c Interfaces
 c Begin program
 
 c Setup pointers
-
       gv => patch_var
       grid_params => gv%gparams
       gmetric => gv%gparams%gmetric
       call setVectorDimensions
-
       varray => gv%u_n
       u_0    => gv%u_0
-
       call allocAuxVariables(gv%aux)
 
-c Set boundary conditions
-
-      !Impose BCs on group
+c Postprocess auxiliary quantities
       do i = 1,nbc_seq
-        if (bc_seq(i,1)*AUX < 0) then !Process dep. variable
-          call applyDepVarBC(bc_seq(i,:),varray
-     .                      ,1,1,1,order=bc_order)
-        elseif (bc_seq(i,1)*AUX > 0) then !Process aux. variable
-          call applyAuxVarBC(bc_seq(i,:),varray,gv%aux
-     .                      ,1,1,1,order=bc_order)
+        if (bc_seq(i,1)*AUX > 0) then
+          call postproc_AuxVar(bc_seq(i,:),varray
+     .                          ,gv%aux,1,1,1)
         endif
       enddo
 
-        !Postprocess auxiliary quantities
-        do i = 1,nbc_seq
-          if (bc_seq(i,1)*AUX > 0) then
-            call postproc_AuxVar(bc_seq(i,:),varray
-     .                          ,gv%aux,1,1,1)
-          endif
-        enddo
-
 c Nullify aux pointers
-
       call deallocLocalAuxVars
 
 c End program
+      end subroutine postproc
 
-      end subroutine applybc
 
 c initializeAuxVar
 c######################################################################
