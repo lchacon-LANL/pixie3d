@@ -19,9 +19,12 @@ c #############################################################################
         integer,private :: ss_order=1   !Interpolation order in surface of section
      .                    ,kmax=100     !Maximum number of Fourier modes in Fourier Green's f. form
 
-        real(8),private :: orbit_atol=1e-10    !Orbit integrator absolute tolerance
-     .                    ,orbit_rtol=1e-8     !Orbit integrator relative tolerance
+        real(8),private :: orbit_atol=1e-12    !Orbit integrator absolute tolerance
+     .                    ,orbit_rtol=1e-12    !Orbit integrator relative tolerance
      .                    ,orbit_dt  =1e-2     !Orbit integrator time step
+cc        real(8),private :: orbit_atol=1e-10    !Orbit integrator absolute tolerance
+cc     .                    ,orbit_rtol=1e-8     !Orbit integrator relative tolerance
+cc     .                    ,orbit_dt  =1e-2     !Orbit integrator time step
 
         real(8),private :: alpha,dx0,dy0,dz0
      .                    ,t_tol,T_cutoff2,S_cutoff2!,s_max=0d0
@@ -172,9 +175,6 @@ c     Orbit integration
               if ((my_rank == 0).and.(iout == 1))
      .                    write (*,FMT="(a)",ADVANCE="NO") '+'
 
-c diag ****
-cc              write (*,*) 'Proc=',my_rank,'kernel=',kernel_s
-c diag ****
               !Fill local temperature
               tt(i,j,k) = temp_s/kernel_s
             enddo
@@ -308,10 +308,6 @@ c     Orbit integration
               if ((my_rank == 0).and.(iout == 1))
      .                    write (*,FMT="(a)",ADVANCE="NO") '+'
 
-c diag ****
-cc              write (*,*) 'Proc=',my_rank,'kernels='
-cc     .              ,gkernel_dt,gkernel_2dt,pkernel_dt,pkernel_2dt
-c diag ****
               vec_out(i,j,k,1) = temp_n /gkernel_dt
               vec_out(i,j,k,2) = temp_nm/gkernel_2dt
               vec_out(i,j,k,3) = src_dt /pkernel_dt 
@@ -438,10 +434,6 @@ c     Orbit integration
                 kernel_s = 0d0        !Initialize kernel integral (for normalization)
                 length_s = ll(i,j,k)  !Initialize arc length
 
-c diag ****
-cc                write (*,*) 'i,j,k=',i,j,k,' smax=',length_s
-c diag ****
-
                 call orbit_find(iout-2,x0,y0,z0,.true.,s_max=length_s
      .                         ,lsode_f=lsode_f)
                 temp_s   = lsode_out(1)
@@ -449,10 +441,6 @@ c diag ****
 
                 if ((my_rank == 0).and.(iout == 1))
      .                      write (*,FMT="(a)",ADVANCE="NO") '+'
-
-c diag ****
-cc                write (*,*) 'Proc=',my_rank,'kernel=',kernel_s
-c diag ****
 
                 tt(i,j,k) = temp_s/kernel_s
               enddo
@@ -481,10 +469,6 @@ c diag ****
 
                 if ((my_rank == 0).and.(iout == 1))
      .                      write (*,FMT="(a)",ADVANCE="NO") '+'
-
-c diag ****
-cc                write (*,*) 'Proc=',my_rank,'kernel=',kernel_s
-c diag ****
 
                 tt(i,j,k) = temp_s/kernel_s
               enddo
@@ -600,21 +584,12 @@ c     LSODE orbit integration
               ct0 = chi*dt/b0(i,j,k)
               ct1 = chi*(dt+dtold)/b0(i,j,k)
 
-c diag ****
-cc                write (*,*) 'i,j,k=',i,j,k,' smax=',length_s
-c diag ****
-
               call orbit_find(iout-2,x0,y0,z0,.true.
      .                       ,s_max=length_s
      .                       ,lsode_f=lsode_f)
 
               if ((my_rank == 0).and.(iout == 1))
      .                    write (*,FMT="(a)",ADVANCE="NO") '+'
-
-c diag ****
-cc              write (*,*) 'Proc=',my_rank,'kernels='
-cc     .              ,gkernel_dt,gkernel_2dt,pkernel_dt,pkernel_2dt
-c diag ****
 
               temp_n      = lsode_out(1)
               temp_nm     = lsode_out(3)
@@ -926,7 +901,7 @@ c     Output
           endif
         endif
 
-c     Find periodic orbit lengths
+c     Find periodic orbit lengths and <B^2>
 
         allocate(ll(0:nx+1,0:ny+1,0:nz+1)
      .          ,b0(0:nx+1,0:ny+1,0:nz+1))
@@ -957,6 +932,14 @@ c     Find periodic orbit lengths
             enddo
           enddo
         enddo
+
+c diag ****
+cc        open(unit=110,file='per-orbits-qtys.bin',form='unformatted'
+cc     .      ,status='replace')
+cc        call contour(ll(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
+cc        call contour(b0(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,1,110)
+cc        close(110)
+c diag ****
 
 c     Setup periodic LSODE
 
@@ -1177,8 +1160,8 @@ c     Call variables
         integer,INTENT(IN)  :: nx,ny,nz,igx,igy,igz,spline_order
 
         real(8) :: G_tol,alp
-        real(8),INTENT(OUT) :: bb(0:nx+1,0:ny+1,0:nz+1,3)
-cc        real(8),pointer,dimension(:,:,:,:) :: bb
+cc        real(8),INTENT(OUT) :: bb(0:nx+1,0:ny+1,0:nz+1,3)
+        real(8),pointer,dimension(:,:,:,:) :: bb
 
         logical :: B_wgt
 
@@ -1853,8 +1836,6 @@ c     Begin program
 
       eta = ct0*(twopi_L)**alpha
 
-cc      write (*,*) 'skernel_per',eta, 1d0/sqrt(t_tol*abs(log(t_tol)))
-
       if (eta < 1d0/sqrt(t_tol*abs(log(t_tol)))) then
 
         skernel = skernel_3d(ss,ct0,ex_loop)
@@ -2018,13 +1999,6 @@ c Integrate temperature
         temp_s   = temp_s   + tt*tk*(ss-so)
         kernel_s = kernel_s +    tk*(ss-so)
 
-c Temperature at maximum (G*T_0)
-
-cc        if (it_max < tt*tk) then
-cc          it_max = tt*tk
-cc          s_max  = ss
-cc        endif
-
       end function t_int
 
 c t_int_per
@@ -2137,13 +2111,6 @@ c Integrate temperature
 
         temp_s   = temp_s   + tt*tk*(ss-so)
         kernel_s = kernel_s +    tk*(ss-so)
-
-c Temperature at maximum (G*T_0)
-
-cc        if (it_max < tt*tk) then
-cc          it_max = tt*tk
-cc          s_max  = ss
-cc        endif
 
       end function s_int
 
@@ -2317,12 +2284,6 @@ c Call additional integrators
 
       ydot(6) = tt*ydot(7)
 
-cc      !Temperature at maximum (G*T_0)
-cc      if (it_max < tt*kernel) then
-cc        s_max = s1
-cc        it_max = tt*kernel
-cc      endif
-
 c End program
 
       end subroutine lsode_3d_T
@@ -2366,12 +2327,6 @@ c Call additional integrators
       ydot(4) = tt*kernel
 
       ydot(5) = kernel  !To normalize
-
-cc      !Temperature at maximum (G*T_0)
-cc      if (it_max < tt*kernel) then
-cc        s_max = s1
-cc        it_max = tt*kernel
-cc      endif
 
 c End program
 
@@ -2418,12 +2373,6 @@ c Call additional integrators
 
       ydot(6) = tt*ydot(7)
 
-cc      !Temperature at maximum (G*T_0)
-cc      if (it_max < tt*kernel) then
-cc        s_max = s1
-cc        it_max = tt*kernel
-cc      endif
-
 c End program
 
       end subroutine lsode_3d_S
@@ -2465,12 +2414,6 @@ c Call additional integrators
       ydot(5) = skernel_per(t,ct0)
 
       ydot(4) = tt*ydot(5)
-
-cc      !Temperature at maximum (G*T_0)
-cc      if (it_max < tt*kernel) then
-cc        s_max = s1
-cc        it_max = tt*kernel
-cc      endif
 
 c End program
 
