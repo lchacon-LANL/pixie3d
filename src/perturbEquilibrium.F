@@ -314,18 +314,20 @@ c     Begin program
             do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
+
+              jac = gmetric%grid(igx)%jac(i,j,k)
 #if !defined(vec_pot) 
-                varr%array_var(IBY)%array(i,j,k) =
-     .               varr%array_var(IBY)%array(i,j,k)
-     .             + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+              varr%array_var(IBY)%array(i,j,k) =
+     .             varr%array_var(IBY)%array(i,j,k)
+     .           + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))*jac
 #else
-                varr%array_var(IAZ)%aarray(i,j,k) =
-     .               varr%array_var(IAZ)%aarray(i,j,k)
-     .             - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
+              varr%array_var(IAZ)%aarray(i,j,k) =
+     .             varr%array_var(IAZ)%aarray(i,j,k)
+     .           - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
 #endif
-                varr%array_var(IVZ)%array(i,j,k) =
-     .               varr%array_var(IVZ)%array(i,j,k)
-     .             + 1d-3/kx/di*sin(kx*(x1-xmin)+ky*(y1-ymin))
+              varr%array_var(IVZ)%array(i,j,k) =
+     .             varr%array_var(IVZ)%array(i,j,k)
+     .           + 1d-3/kx/di*sin(kx*(x1-xmin)+ky*(y1-ymin))*jac
             enddo
           enddo
         enddo
