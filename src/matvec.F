@@ -33,7 +33,7 @@ c Call variables
 c Local variables
 
       integer    :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer    :: imin,imax,jmin,jmax,kmin,kmax,order
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 
@@ -63,9 +63,16 @@ cc      xarr = 0d0
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
+      order = bc_order
+      if (    abs(bcnd(1,1)) == NEU
+     .    .or.abs(bcnd(2,1)) == NEU
+     .    .or.abs(bcnd(3,1)) == NEU
+     .    .or.abs(bcnd(4,1)) == NEU
+     .    .or.abs(bcnd(5,1)) == NEU
+     .    .or.abs(bcnd(6,1)) == NEU) order = 0
+
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,iorder=bc_order)
-     .            ,iorder=0,icomp=(/IRHO/))
+     .            ,iorder=order,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
 
@@ -116,21 +123,23 @@ c--------------------------------------------------------------------
 
       use matvec
 
+      use equilibrium
+
       implicit none
 
 c Call variables
 
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
-      real(8)    :: x(ntot),y(ntot)
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax
 
-      real(8),allocatable,dimension(:,:,:,:) :: xarr
+      real(8),pointer,dimension(:,:,:,:) :: xarr,bz0
 
-      logical    :: fpointers
+      logical :: fpointers
 
 c Begin program
 
@@ -149,6 +158,8 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
+      bz0 => gbz0%grid(igrid)%array
+
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
 cc      xarr = 0d0
@@ -157,7 +168,7 @@ cc      xarr = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order)
+     .            ,iorder=bc_order,arr0=bz0)
 
 c Calculate matrix-vector product
 
@@ -208,6 +219,8 @@ c--------------------------------------------------------------------
 
       use matvec
 
+      use equilibrium
+
       implicit none
 
 c Call variables
@@ -221,7 +234,7 @@ c Local variables
       integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
       real(8) :: xhp,xhm,kk,x1,y1,z1
 
-      real(8),allocatable,dimension(:,:,:,:) :: xarr
+      real(8),pointer,dimension(:,:,:,:) :: xarr,psi0
 
       logical    :: fpointers
 
@@ -244,11 +257,13 @@ c Map vector x to array for processing
 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
+      psi0 => gpsi0%grid(igrid)%array
+
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order)
+     .            ,iorder=bc_order,arr0=psi0)
 
 c Calculate matrix-vector product
 
