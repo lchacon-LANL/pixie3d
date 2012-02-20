@@ -443,8 +443,8 @@ cc      sel_gr(3,:) = sel_graph
 
 c Define graphics group #4: Diagnostics
 
-cc      graph(4)%cartesian=.true.
-      graph(4)%cartesian=.false.
+      graph(4)%cartesian=.true.
+cc      graph(4)%cartesian=.false.
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
@@ -526,9 +526,9 @@ cc      graph(5)%cartesian=.true.
       graph(5)%descr='Perturbations'
 
       do ieq = 1,neqd
-        graph(5)%array_graph(ieq)%array => u_graph%array_var(ieq)%array
+        graph(5)%array_graph(ieq)%array => u_pert%array_var(ieq)%array
         graph(5)%array_graph(ieq)%descr =
-     $       trim(u_graph%array_var(ieq)%descr) // ' pert'
+     $       trim(u_pert%array_var(ieq)%descr) // ' pert'
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
