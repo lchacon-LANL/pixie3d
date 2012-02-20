@@ -87,13 +87,12 @@ c Set boundary conditions
         endif
       enddo
 
-        !Postprocess auxiliary quantities
-        do i = 1,nbc_seq
-          if (bc_seq(i,1)*AUX > 0) then
-            call postproc_AuxVar(bc_seq(i,:),varray
-     .                          ,gv%aux,1,1,1)
-          endif
-        enddo
+      !Postprocess auxiliary quantities
+      do i = 1,nbc_seq
+        if (bc_seq(i,1)*AUX > 0) then
+          call postproc_AuxVar(bc_seq(i,:),varray,gv%aux,1,1,1)
+        endif
+      enddo
 
 c Nullify aux pointers
 
@@ -207,7 +206,7 @@ c Allocate auxiliary variables
 
 c Set BC schedule (see imposeBC_mod.F)
 
-      call setBCsched(gv%u_n,it)
+      call setBCsched(gv%u_n,gv%aux,it)
 
 c End program
 
@@ -293,13 +292,17 @@ c Begin program
         order = bc_order     !Order of extrapolation in BCs (defined in imposeBC_mod.F)
       endif
 
-c Allocate auxiliary variables
-
-      call allocAuxVariables(gv%aux)
-
 c Set application BCs (see imposeBC_mod.F)
 
-      call setBCsched(varray,itime)
+      call setAppBCs(varray,itime)
+
+ccc Allocate auxiliary variables
+cc
+cc      call allocAuxVariables(gv%aux)
+cc
+ccc Set application BCs (see imposeBC_mod.F)
+cc
+cc      call setBCsched(varray,gv%aux,itime)
 
 c Impose BCs
 
@@ -390,13 +393,17 @@ c Begin program
 
       order = bc_order          !Order of extrapolation in BCs (defined in imposeBC_mod.F)
 
-c Allocate auxiliary variables
-
-      call allocAuxVariables(gv%aux)
-
 c Set application BCs (see imposeBC_mod.F)
 
-      call setBCsched(varray,itime)
+      call setAppBCs(varray,itime)
+
+ccc Allocate auxiliary variables
+cc
+cc      call allocAuxVariables(gv%aux)
+cc
+ccc Set application BCs (see imposeBC_mod.F)
+cc
+cc      call setBCsched(varray,gv%aux,itime)
 
 c Impose BCs
 
