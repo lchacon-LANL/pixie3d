@@ -37,6 +37,51 @@ cc        integer :: bc_order=2
 
       contains
 
+c     setAppBCs
+c     ####################################################################
+      subroutine setAppBCs(varray,it)
+c     --------------------------------------------------------------------
+c     Defines boundary conditions of dependent variables. Convention:
+c           + bbcs(1) ---> at x0
+c           + bbcs(2) ---> at x1
+c           + bbcs(3) ---> at y0
+c           + bbcs(4) ---> at y1
+c           + bbcs(5) ---> at z0
+c           + bbcs(6) ---> at z1
+c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     a negative BC identifier means that BCs are to be imposed on
+c     covariant components instead of on (default) contravariant comps.
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: it
+      type(var_array),pointer :: varray
+
+c     Local variables
+
+c     Begin program
+
+      call defineDepBCs(varray)
+
+      call defineDepBC_Deps(varray)
+
+      call defineDepDom_Deps(varray)
+
+c Allocate auxiliary variables
+
+      call allocAuxVariables(gv%aux)
+
+c Set application BCs (see imposeBC_mod.F)
+
+      call setBCsched(varray,gv%aux,it)
+
+c     End program
+
+      end subroutine setAppBCs
+
 c     defineDepBCs
 c     ####################################################################
       subroutine defineDepBCs(varray)
@@ -64,6 +109,11 @@ c     Local variables
       integer :: ieq,bbcs(6,neqd),bcsq(6)
 
 c     Begin program
+
+      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
+     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
+     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
+     .              .or.equil == 'ohtor')
 
 c     Assign BCs
 
@@ -515,7 +565,7 @@ c     End program
 
 c     setBCsched
 c     ###################################################################
-      subroutine setBCsched(varray,itime)
+      subroutine setBCsched(varray,vaux,itime)
 
 c     -------------------------------------------------------------------
 c     Sets BC schedule for dependent and auxiliary variables, which
@@ -540,6 +590,8 @@ c     Call variables
       integer :: itime
 
       type(var_array),pointer :: varray
+
+      type(aux_array),pointer :: vaux
 
 c     Local variables
 
@@ -568,10 +620,10 @@ c     Local variables
 c     Begin program
 
 #if defined(samrai)
-      call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
+      call create_bc_schedule(varray,vaux,gv%nbc_grp,gv%bc_grp
      .                       ,.true.,.false.,.false.,.false.)
 #else
-      call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
+      call create_bc_schedule(varray,vaux,gv%nbc_grp,gv%bc_grp
      .                       ,.false.,.false.,.false.,.false.)
 cc     .                       ,.false.,.false.,(itime==0),.false.)
 #endif
@@ -1285,11 +1337,14 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
 
               grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-              EE = E0 + perturb_E(i,j,k,igrid)
+cc              if (have_jparB) then
+cc                alpha = jpar_B(i,j,k)
+cc              else
+                EE = E0 + perturb_E(i,j,k,igrid)
+                alpha = dot_product(EE,bbcnv)*ietah/b2
+cc              endif
 
-              alpha = dot_product(EE,bbcnv)*ietah
-
-              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
+              j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
             endif
           enddo
         enddo
@@ -1310,11 +1365,15 @@ cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
 
               grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-              EE = E0 + perturb_E(i,j,k,igrid)
+cc              if (have_jparB) then
+cc                alpha = jpar_B(i,j,k)
+cc              else
+                EE = E0 + perturb_E(i,j,k,igrid)
+                alpha = dot_product(EE,bbcnv)*ietah/b2
+cc              endif
 
-              alpha = dot_product(EE,bbcnv)*ietah
+              j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
 
-              j0(i+1,j,k,:)=(alpha*bbcnv+cross_product(bbcov,grad_p))/b2
             endif
           enddo
         enddo
