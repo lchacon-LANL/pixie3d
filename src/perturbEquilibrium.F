@@ -72,11 +72,11 @@ c     Begin program
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq),ieq)
+     .                                 ,pert(ieq))
           enddo
         endif
 
-      case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl')
+      case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl','2dhel')
 
         if (is_file(prt_file)) then
           do ieq=1,varr%nvar
@@ -88,7 +88,7 @@ c     Begin program
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq),ieq)
+     .                                 ,pert(ieq))
           enddo
 
           !Perturb normal B-field component ensuring div(B)=0 numerically
@@ -387,7 +387,7 @@ cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
         do ieq=1,varr%nvar
           call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),ieq)
+     .                               ,pert(ieq))
         enddo
 
       end select
@@ -398,7 +398,7 @@ c     End program
 
 c     perturbEquilibrium_def
 c     #################################################################
-      subroutine perturbEquilibrium_def(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_def(array,bcs,perturb)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -409,7 +409,7 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: bcs(6),ieq
+      integer    :: bcs(6)
       real(8)    :: perturb
       real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
@@ -725,7 +725,7 @@ cc        enddo
 
       else
 
-        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+        call perturbEquilibrium_def(array,bcs,perturb)
 
       endif
 
@@ -801,7 +801,7 @@ c     Begin program
 
       else
 
-        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+        call perturbEquilibrium_def(array,bcs,perturb)
 
       endif
 
@@ -971,7 +971,7 @@ cc        enddo
 cc
 cc      else
 cc
-cc        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+cc        call perturbEquilibrium_def(array,bcs,perturb)
 cc
 cc      endif
 cc
@@ -998,8 +998,8 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
-      real(8)    :: x1,y1,z1,kk,mm,xl,yl,zl
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6)
+      real(8)    :: x1,y1,z1,kk,mm,xle,yle,zle
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
@@ -1008,40 +1008,38 @@ c     Begin program
 
       if (ieq == IBX .or. ieq == IBY) then
 
-cc        if (equil == 'ic') then
-          xl = xmax-xmin
-          if (abs(bcond(1))==SYM.or.abs(bcond(1))==FSYM) xl=2*xl
-          yl = ymax-ymin
-          if (abs(bcond(3))==SYM.or.abs(bcond(3))==FSYM) yl=2*yl
-          zl = zmax-zmin
-          if (abs(bcond(5))==SYM.or.abs(bcond(5))==FSYM) zl=2*zl
+        !Find vector potential
+        psi = 0d0
 
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+        bcsl = bcond
+        where(bcsl == DEF) bcsl = DIR  !Vector potential has dirichlet BCs
 
-cc                psi(i,j,k)=sin(  pi*(x1-xmin)/xl)
-                psi(i,j,k)=cos(  pi*(x1-xmin)/xl)
-     .                    *cos(2*pi*(y1-ymin)/yl)
-     .                    *cos(2*pi*(z1-zmin)/zl)
-              enddo
-            enddo
-          enddo
-cc        elseif (equil == 'ic-hk') then
-cc          do k = klom,khip
-cc            do j = jlom,jhip
-cc              do i = ilom,ihip
-cc                call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
+        call perturbEquilibrium_def(psi,bcsl,perturb)
+
+cc        xle = xmax-xmin
+cc        if (abs(bcond(1))==SYM.or.abs(bcond(1))==FSYM
+cc     .  .or.abs(bcond(2))==SYM.or.abs(bcond(2))==FSYM) xle=2*xle
+cc        yle = ymax-ymin
+cc        if (abs(bcond(3))==SYM.or.abs(bcond(3))==FSYM
+cc     .  .or.abs(bcond(4))==SYM.or.abs(bcond(4))==FSYM) yle=2*yle
+cc        zle = zmax-zmin
+cc        if (abs(bcond(5))==SYM.or.abs(bcond(5))==FSYM
+cc     .  .or.abs(bcond(6))==SYM.or.abs(bcond(6))==FSYM) zle=2*zle
 cc
-cc                psi(i,j,k)= cos(0.5*pi*x1)*cos(pi*y1)*cos(pi*z1)
-cc              enddo
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc
+cc              psi(i,j,k)=perturb*sin(  pi*(x1-xmin)/xle)
+cc     .                  *cos(2*pi*(y1-ymin)/yle)
+cc     .                  *cos(2*pi*(z1-zmin)/zle)
 cc            enddo
 cc          enddo
-cc        endif
+cc        enddo
 
+        !Find delta_B
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
@@ -1054,14 +1052,14 @@ cc        endif
 
               if (ieq == IBX) then
                 array(i,j,k) = array(i,j,k)
-     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-     .                              /(grid_params%yy(jg+jp-j)
-     .                               -grid_params%yy(jg+jm-j))
+     .                   - (psi(i,jp,k)-psi(i,jm,k))
+     .                     /(grid_params%yy(jg+jp-j)
+     .                      -grid_params%yy(jg+jm-j))
               else
                 array(i,j,k) = array(i,j,k)
-     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-     .                              /(grid_params%xx(ig+ip-i)
-     .                               -grid_params%xx(ig+im-i))
+     .                   + (psi(ip,j,k)-psi(im,j,k))
+     .                     /(grid_params%xx(ig+ip-i)
+     .                      -grid_params%xx(ig+im-i))
               endif
             enddo
           enddo
@@ -1069,7 +1067,7 @@ cc        endif
 
       else
 
-        call perturbEquilibrium_def(array,bcs,perturb,ieq)
+        call perturbEquilibrium_def(array,bcs,perturb)
 
       endif
 
@@ -1091,8 +1089,9 @@ c     ####################################################################
 c     Begin program
 
         spoint    = (abs(bcs)==SP)
-        neumann   = (abs(bcs)==NEU).or.(bcs== SYM)
-        dirichlet = (abs(bcs)==DIR).or.(bcs==-SYM).or.(abs(bcs)==EQU)
+        neumann   = (abs(bcs)==NEU).or.(bcs== SYM).or.(bcs== FSYM)
+        dirichlet = (abs(bcs)==DIR).or.(bcs==-SYM).or.(bcs==-FSYM)
+     .          .or.(abs(bcs)==EQU)
 
         if (nh == 0 .and. spoint(1)) then
           call pstop('factor','m for r^m perturbation is zero')
