@@ -142,7 +142,6 @@ c Create diagnostic communicator
 
       end select
 
-
 c Define BCs
 
       pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
@@ -161,7 +160,7 @@ c Create draw*.in file
       if (isProcessor) then
         ndiag = count (sel_diag /= 0)
 
-        call createDrawInGfile(ndiag,ngraph,lineplotfile
+        call createDrawInGfile(ndiag,ngraph,(/lineplotfile/)
      .           ,'Time histories'
      .           ,'time',sel_diag,diag_desc,diag_ivar,diag_log
      .           ,'drawgamma.in',.true.,.false.)
