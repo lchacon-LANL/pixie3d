@@ -4,7 +4,7 @@ PETSCCODE    = pixie3d.petsc.x
 PETSC_A_CODE = pixie3d_a.petsc.x
 SAMRAICODE   = pixie3d.samrai.x
 
-MODS := mhd_mod.F imposeBC_mod.F precond_mod.F B_tools_mod.F par_int_mod.F
+MODS := mhd_mod.F imposeBC_mod.F precond_mod.F B_tools_mod.F
 
 COMMONDIR = ../common
 
