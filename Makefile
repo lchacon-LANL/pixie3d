@@ -31,6 +31,8 @@
 
 # External packages configuration
 
+FPA=t
+
 -include common/make/make.lib.inc
 
 # PIXIE3D setup
