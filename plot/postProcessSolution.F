@@ -317,7 +317,7 @@ cc              jperp(i,j,k) = 0d0
 cc            else
 cc              jperp(i,j,k) = scalarProduct(i,j,k,igx,jcov(i,j,k,:),cnv)
 cc     .                       /norm
-            endif
+cc            endif
           enddo
         enddo
       enddo
