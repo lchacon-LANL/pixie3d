@@ -152,11 +152,7 @@ c Label variables
 
 c Define boundary conditions and dependencies
 
-      call defineDepBCs(varray)
-
-      call defineDepBC_Deps(varray)
-
-      call defineDepDom_Deps(varray)
+      call setAppBCs(varray,0)
 
 c Set initial guess
 
@@ -2090,62 +2086,60 @@ c     Initial guess: 1D equilibrium
           var(i,:,:,IBZ) = bzz0(iglobal)
         enddo
 
-cc        var(:,:,:,IBZ) = 1d0
-cc        var(:,:,:,IBY) = 0d0
+cc        !Find poloidal flow
+cc        var(:,:,:,IVX) = -(E0(3)*var(:,:,:,IBY)
+cc     .                    -E0(2)*var(:,:,:,IBZ))
+cc     .                    /(var(:,:,:,IBX)**2
+cc     .                     +var(:,:,:,IBY)**2
+cc     .                     +var(:,:,:,IBZ)**2)*eta/eta_in
+cc        var(:,:,:,IVY) =  (E0(3)*var(:,:,:,IBX)
+cc     .                    -E0(1)*var(:,:,:,IBZ))
+cc     .                    /(var(:,:,:,IBX)**2
+cc     .                     +var(:,:,:,IBY)**2
+cc     .                     +var(:,:,:,IBZ)**2)*eta/eta_in
+cc
+cc        !Build equilibrium
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              !X-Y equilibrium
+cc#if !defined(vec_pot)
+cc              var(i,j,k,IBX) = x1*var(i,j,k,IBX)
+cc              var(i,j,k,IBY) = var(i,j,k,IBY) + kk*x1/mm*var(i,j,k,IBZ)
+cc              var(i,j,k,IBZ) = x1*var(i,j,k,IBZ)
+cc#endif
+cc              var(i,j,k,IVX) = x1*var(i,j,k,IVX)*eta/eta_in
+cc              var(i,j,k,IVZ) = 0d0
+cc              var(i,j,k,IVY) = var(i,j,k,IVY) + kk*x1/mm*var(i,j,k,IVZ)
+cc
+cc            enddo
+cc          enddo
+cc        enddo
 
 c     Helical equilibria
 
-        if (my_rank == 0)
-     .     write (*,*) 'Calculating equilibrium ',equil,'...'
+	!Solve for helical eq (returns B and V in cnv representation)
+        call Ohm_hel_equil(nx,ny,nz,-kk/mm,nh2,e0_over_eta,theta_ppnch
+     .                    ,psi0,var(:,:,:,IBX:IBZ),var(:,:,:,IVX:IVY))
 
-	!Initialize toroidal field
-        call Ohm_hel_equil(nx,ny,nz,-kk,nh2,e0_over_eta,theta_ppnch,psi0
-     .                    ,var(:,:,:,IBX:IBZ))
+        var(:,:,:,IVX:IVY) = var(:,:,:,IVX:IVY)*eta
+        var(:,:,:,IVZ) = 0d0
 
 	!Find electric field
         E0(1:2) = 0d0
         E0(3) = e0_over_eta*eta
-        eta_in = eta
-
-        !Find poloidal flow
-        var(:,:,:,IVX) = -(E0(3)*var(:,:,:,IBY)
-     .                    -E0(2)*var(:,:,:,IBZ))
-     .                    /(var(:,:,:,IBY)**2
-     .                     +var(:,:,:,IBZ)**2)*eta/eta_in
-        var(:,:,:,IVY) =  (E0(3)*var(:,:,:,IBX)
-     .                    -E0(1)*var(:,:,:,IBZ))
-     .                    /(var(:,:,:,IBY)**2
-     .                     +var(:,:,:,IBZ)**2)*eta/eta_in
-
-	!Find density
-        var(:,:,:,IRHO) = 1d0
 
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
-        !Build equilibrium
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
+c     Density and temperature
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              !X-Y equilibrium
-#if !defined(vec_pot)
-              var(i,j,k,IBX) = x1*var(i,j,k,IBX)
-              var(i,j,k,IBY) = var(i,j,k,IBY) + kk*x1/mm*var(i,j,k,IBZ)
-              var(i,j,k,IBZ) = x1*var(i,j,k,IBZ)
-#endif
-              var(i,j,k,IVX) = x1*var(i,j,k,IVX)*eta/eta_in
-              var(i,j,k,IVZ) = 0d0
-              var(i,j,k,IVY) = var(i,j,k,IVY) + kk*x1/mm*var(i,j,k,IVZ)
-
-              var(i,j,k,ITMP) = 1d-5
-
-            enddo
-          enddo
-        enddo
+        var(:,:,:,IRHO) = 1d0
+        var(:,:,:,ITMP) = 1d-5
 
 #if defined(vec_pot)
         allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
@@ -2487,11 +2481,6 @@ c Find momentum components
         var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
         var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
       endif
-
-      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
-     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
-     .              .or.equil == 'ohtor')
 
 c Transfer equilibrium to varray
 
@@ -3437,538 +3426,9 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
 
       end subroutine Ohm_equil_1d_xport
 
-ccc     Ohm_hel_equil
-ccc     ###############################################################
-cc      subroutine Ohm_hel_equil(kk,mm,Eoeta,theta,bth0,bzz0)
-cc
-ccc     ---------------------------------------------------------------
-ccc     Solves 2D helical Ohmic equil. equations to find cylindrical
-ccc     components of magnetic field B_theta, B_z. On input:
-ccc       * kk: helical parameter (n/m/R) (defined as theta-kk*z)
-ccc       * mm: poloidal perturbation number
-ccc       * Eoeta: electric field over eta
-ccc       * theta: RFP theta parameter
-ccc       * bth0,bzz0: output magnetic field components (on input, bzz0
-ccc                    contains initial guess, and bzz0(0) contains
-ccc                    value at axis)
-ccc
-ccc     In the calculation below, Psi is at cell centers, and magnetic
-ccc     fields for iteration are at faces. They are transferred to
-ccc     cell centers at end of computation.
-ccc     ---------------------------------------------------------------
-cc
-cc        use parameters
-cc
-cc        use equilibrium
-cc
-cc        use grid
-cc
-cc        use app_iosetup
-cc
-cc        use mg_solver
-cc
-cccc        use mg_xfer, ONLY: mapMGVectorToArray
-cc
-cc        use imposeBCinterface
-cc
-cc        use ts_setup, ONLY: vol_wgt
-cc
-cc        use orbit
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: mm
-cc        real(8)    :: bth0(0:nxdp,0:nydp)
-cc     .               ,bzz0(0:nxdp,0:nydp)
-cc     .               ,Eoeta,theta,kk
-cc
-ccc     Local variables
-cc
-cc        integer    :: i,j,k,ig,jg,kg,ii,jj,it,bcnd(6),guess
-cc     .               ,ip,im,jp,jm,kp,km
-cc        real(8)    :: bz_avg,bth_avg,x1,err,rh,dh,I0,th
-cc     .               ,bth(0:nydp),bzh(0:nydp),dbz(0:nydp),xih(0:nydp)
-cc
-cc        real(8)    :: bz0,rint(0:nxdp,0:nydp),dummy(0:nxdp,0:nydp)
-cc     .               ,bth0_old(0:nxdp,0:nydp),bzz0_old(0:nxdp,0:nydp)
-cc     .               ,xh(0:nxd),dr(0:nxd),psi(0:nxdp,0:nydp,0:nzdp)
-cc     .               ,psi_rhs(nxd*nyd),psiv(nxd*nyd)
-cc     .               ,ffpsi(0:nxdp,0:nydp),zeros(0:nxdp,0:nydp,0:nzdp)
-cc
-cc        external   cyl_lap
-cc
-cc        !Interfaces
-cc        INTERFACE
-cc          function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
-cc          logical :: hel_flux_avg,fwd
-cc          real(8) :: xo,x,yo,y,zo,z,so,ss
-cc          end function hel_flux_avg
-cc        END INTERFACE
-cc
-ccc     Begin program
-cc
-cc        if (my_rank == 0) then
-cc          write (*,*)
-cc          write (*,*) '************************************'
-cc          write (*,*) '2D Ohmic equilibrium solver'
-cc          write (*,*) '************************************'
-cc          write (*,*)
-cc        endif
-cc
-cc        if (Eoeta == 0d0) then
-cc          messg = 'E0/eta = 0!!'
-cc          call pstop('Ohm_hel_equil',messg)
-cc        endif
-cc
-cc        zeros = 0d0
-cc
-ccc     Initialize iteration (Psi -> integer mesh; bth, bz -> half mesh)
-cc
-cc        bz0 = bzz0(0,1)
-cc
-cc        !Find half-mesh positions
-cc        do i=0,nxd
-cc          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-cc          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
-cc        enddo
-cc
-cc        !Initial guess for B_theta and psi=integral_r(Bth-k*r*Bz)
-cc        do k=0,nzd+1
-cc          do j=0,nyd+1
-cc            psi (:,j,k) = 0.25  *grid_params%xg(0:nxdp)**2*Eoeta
-cc     .                  - 0.5*kk*grid_params%xg(0:nxdp)**2*bz0
-cccc            psi (:,j,k) = psi(:,j,k)
-cccc     .         +0.05*(sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1))
-cccccc     .         +0.05*(0.1+sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1))
-cccc     .                 *sin(grid_params%yg(j)*mm)
-cccccc            psi (:,j,k) = sin(pi*grid_params%xg(0:nxdp)/xmax)**(mm+1)
-cccccc     .                   *sin(grid_params%yg(j)*mm)
-cc            bth0(1:nxd,j) = (psi(2:nxdp,j,k)-psi(0:nxd-1,j,k))
-cc     .                    /(dr(1:nxd)+dr(0:nxd-1))
-cc     .                    + kk*grid_params%xg(1:nxd)*bzz0(1:nxd,j)
-cc          enddo
-cc        enddo
-cc
-cc        call mapArrayToMGVector(1,nxd,nyd,nzd,psi,psiv,1)
-cc
-ccc     Iteration
-cc
-cc        do it=1,100
-cc
-cc          bth0_old = bth0
-cc          bzz0_old = bzz0
-cc
-cc#if 1
-cc          call flux_average(psi,hel_flux_avg)
-cc#endif
-cc
-cc          !Find GS equation RHS (at cell centers)
-cc          do j=1,nyd
-cc            do i=1,nxd
-cc              ii  = i + nxd*(j-1)
-cc
-cc              x1 = xh(i)
-cc              rh = grid_params%xg(i)
-cc              dh = 0.5*(dr(i)+dr(i-1))
-cc
-cc              bzh(j) = 0.5*(bzz0(i,j)+bzz0(i-1,j))
-cc
-cc              dbz(j) = kk*(xh(i  )**2*bzz0(i  ,j)
-cc     .                    -xh(i-1)**2*bzz0(i-1,j))/dh/rh
-cc#if 0
-cc              xih(j) = (psi(i+1,j,1)-psi(i-1,j,1))/(dr(i)+dr(i-1))
-cc              bth(j) = xih(j) + kk*rh*bzh(j)
-cc              
-cc              psi_rhs(ii)= Eoeta*bzh(j)**2/(bzh(j)**2+bth(j)**2)-dbz(j)
-cc#else
-cc              psi_rhs(ii)= ffpsi(i,j)*bzh(j) - dbz(j)
-cc#endif
-cc              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)*rh*dh*2*pi/nyd
-cc            enddo
-cc          enddo
-cc
-cc          !Solve GS Poisson eq (find psi at cell centers)
-cc          !Define BCs
-cc          bcnd = bcond
-cc          where (bcnd == DEF) bcnd = DIR
-cc
-cc          guess = 1
-cc          call cSolver(1,nxd*nyd,psi_rhs,psiv,bcnd
-cc     .                ,1,ilevel,guess,cyl_lap,vol_wgt
-cc     .                ,tol=1d-2
-cc     .                ,gm_driver=.true.
-cc     .                ,ks_it=10
-cc     .                ,mg_order_res  = 0
-cc     .                ,mg_order_prol = 0
-cc     .                ,mg_smooth     = 'jb'
-cc     .                ,mg_gm_coarse_solve  =.true.
-cc     .                ,mg_vcyc       = 1
-cc     .                ,sm_omega      = 0.7d0
-cc     .                ,sm_ncolors    = 2  !Star stencil
-cc     .                ,sm_zebra_relax=.true.
-cc     .                )
-cc
-cc          !Map to array (w BCs)
-cc          call mapMGVectorToArray(0,1,psiv,nxd,nyd,nzd,psi,1,.false.)
-cc
-cc          call setBC(IRHO,nxd,nyd,nzd,psi,zeros,bcnd,1,1,1,iorder=1)
-cc
-cc          !Perform integral of Bz (at faces)
-cc          dummy(0,:) = 0d0
-cc          do i=1,nxd
-cc            xih = (psi (i+1,:,1)-psi (i-1,:,1))/(dr(i)+dr(i-1))
-cc#if 0
-cc            rh  = grid_params%xg(i)
-cc            bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
-cc            bth = xih + kk*rh*bzh
-cc
-cc            dummy(i,:)=dummy(i-1,:)+Eoeta*bzh*xih/(bzh**2+bth**2)*dr(i)
-cc#else
-cc            dummy(i,:)=dummy(i-1,:) + ffpsi(i,:)*xih*dr(i)
-cc#endif
-cc          enddo
-cc
-cc          do i=0,nxd
-cc            bzz0(i,:)=( bz0
-cc     .                 -kk*xh(i)*(psi(i+1,:,1)-psi(i,:,1))/dr(i)
-cc     .                 -dummy(i,:) )/(1+(kk*xh(i))**2)
-cc          enddo
-cc
-cc          !Find B_theta (at faces)
-cc          do i=0,nxd
-cc            bth0(i,:) = (psi(i+1,:,1)-psi(i,:,1))/dr(i)
-cc     .                 + kk*xh(i)*bzz0(i,:)
-cc          enddo
-cc
-cc          !Check convergence
-cc          err = sqrt(0.5*(sum((bth0-bth0_old)**2)
-cc     .                   +sum((bzz0-bzz0_old)**2))/nxdp/nydp)
-cc
-cc          if (ilevel > 0 .and. my_rank == 0) then
-cc            write (*,*) '2D Ohmic equilibrium iter =',it
-cc     .                 ,' ; Error=',err
-cc          endif
-cc
-cc          dh = (xmax-xmin)/nxd
-cc          if (err < 0.1*dh**2) exit
-cc
-cc        enddo
-cc
-cc        if (ilevel == 0 .and. my_rank == 0) then
-cc           write (*,'(a,i3,a,1pe10.2)')
-cc     .          ' 2D equilibrium converged in '
-cc     .          ,it,' iterations with error =',err
-cc        endif
-cc
-ccc     Check force balance
-cc
-cc        do i=1,nxd
-cc          rh  = grid_params%xg(i)
-cc
-cc          bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
-cc          bth = 0.5*(bth0(i,:)+bth0(i-1,:))
-cc          dummy(i,:) =  bzh*(bzz0(i,:)-bzz0(i-1,:))/dr(i)
-cc     $                 +bth/rh*(bth0(i,:)*i-bth0(i-1,:)*(i-1))
-cc        enddo
-cc
-cc        if (my_rank == 0) then
-cc          write(*,*)
-cc          write(*,'(a,1pe14.7)') ' Force-balance error ='
-cc     .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
-cc        endif
-cc
-ccc     Check Ohm's law
-cc
-cc        do i=1,nxd
-cc          bzh = 0.5*(bzz0(i,:)+bzz0(i-1,:))
-cc          bth = 0.5*(bth0(i,:)+bth0(i-1,:))
-cc          rh  = grid_params%xg(i)
-cc          dummy(i,:) = Eoeta*bzh
-cc     $              -bzh/rh*(bth0(i,:)*i-bth0(i-1,:)*(i-1))
-cc     $              +bth*(bzz0(i,:)-bzz0(i-1,:))/dr(i)
-cc        enddo
-cc
-cc        if (my_rank == 0) then
-cc          write(*,'(a,1pe14.7)') ' Ohms law      error ='
-cc     .                        ,sqrt(sum(dummy(1:nxd,1:nyd)**2)/nxd/nyd)
-cc        endif
-cc
-ccc     Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
-cc
-cc        bz_avg = 0d0
-cc        do j=1,nyd
-cc          do i=1,nxd
-cc            bz_avg = bz_avg
-cc     .             + (bzz0(i,j)*i + bzz0(i-1,j)*(i-1))*dr(i)**2*2*pi/nyd
-cc          enddo
-cc        enddo
-cc        bz_avg = 0.5*bz_avg/pi/xmax**2
-cc
-cc        I0 = 0d0
-cc        do j=1,nyd
-cc          I0 = I0 + bth0(nxd,j)*2*pi*xmax/nyd
-cc        enddo
-cc        bth_avg = I0/2/pi/xmax
-cc
-cc        if (my_rank == 0) then
-cc          write (*,*) 
-cc          write (*,999) ' Pinch equilibrium features:'
-cc          write (*,999) '   Theta  =',bth_avg/bz_avg
-cc          write (*,999) '   Bz(r=0)=',bzz0(0,1)
-cc          write (*,999) '   I0     =',I0
-cc          write (*,999) '   E0/eta =',Eoeta
-cc          write (*,999) '   T_flux =',pi*xmax**2*bz_avg
-cc 999      format (a,f10.7)
-cc        endif
-cc
-cc        !Save some equilibrium properties (to calculate bootstrap current)
-cccc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
-cccc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-cccc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
-cc
-ccc       Transfer magnetic field components to integer mesh
-cc
-cc        do j=0,nydp
-cc          call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd,j)
-cc     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
-cc     .                  ,2,0)
-cc        enddo
-cc        bth0 = dummy
-cc
-cc        do j=0,nydp
-cc          call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd,j)
-cc     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
-cc     .                  ,2,0)
-cc        enddo
-cc        bzz0 = dummy
-cc
-cc        !Extrapolate linearly in radius @ r=0
-cc        bth0(0,:) = -bth0(1,:)
-cc        bzz0(0,:) =  bzz0(1,:)
-cc
-cc        !Dump equilibrium for eigen code
-cccc        if (my_rank == 0) then
-cccc          open(unit=123,file='ntm2d.txt',status='unknown')
-cccc          write (123,*) nxdp+1
-cccc          write (123,*) grid_params%xg(0:nxdp)
-cccc          write (123,*) bth0
-cccc          write (123,*) bzz0
-cccc          write (123,*) 0.5*p0
-cccc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
-cccc          close(123)
-cccccc          stop
-cccc        endif
-cc
-cc      contains
-cc
-ccc     flux_average
-ccc     ##############################################################
-cc      subroutine flux_average(psi,flux_avg)
-cc
-ccc     --------------------------------------------------------------
-ccc     Performs flux averages according to psi and flux_avg routine.
-ccc     --------------------------------------------------------------
-cc
-ccc     Call variables
-cc
-cc        real(8) :: psi(0:nxdp,0:nydp,0:nzdp)
-cc
-cc        INTERFACE
-cc          function flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
-cc          logical :: flux_avg,fwd
-cc          real(8) :: xo,x,yo,y,zo,z,so,ss
-cc          end function flux_avg
-cc        END INTERFACE
-cc
-ccc     Local variables
-cc
-cc        real(8),allocatable,dimension(:,:,:) :: bx,by,bz
-cc     .                                         ,bxcar,bycar,bzcar,jac
-cc        real(8),allocatable,dimension(:,:,:,:) :: xmap
-cc
-ccc     Begin program
-cc
-ccc     Initialize orbit integrator work space
-cc
-cc        allocate(bx   (0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,by   (0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,bz   (0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,bxcar(0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,bycar(0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,bzcar(0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,jac  (0:nxd+1,0:nyd+1,0:nzd+1)
-cc     .          ,xmap (0:nxd+1,0:nyd+1,0:nzd+1,3))
-cc
-ccc diag ****
-cccc        open(unit=110,file='debug.bin',form='unformatted'
-cccc     .      ,status='replace')
-cccc        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cccc     .              ,0d0,xmax,0d0,ymax,0,110)
-cccc        close(110)
-cccccc        stop
-ccc diag ****
-cc
-ccc     Orbit integrator setup: cnv components (with BCs)
-cc
-cc        do k=0,nzd+1
-cc          do j=0,nyd+1
-cc            do i=0,nxd+1
-cc              rh = grid_params%xg(i)
-cc
-cc              ip = min(i+1,nxd+1)
-cc              im = max(i-1,0)
-cc              jp = min(j+1,nyd+1)
-cc              jm = max(j-1,0)
-cc              kp = min(k+1,nzd+1)
-cc              km = max(k-1,0)
-cc
-cc              !Cell center cnv components
-cc              bx(i,j,k) =-(psi(i,jp,k)-psi(i,jm,k))
-cc     .                   /(grid_params%yg(jp)-grid_params%yg(jm))
-cc              by(i,j,k) = (psi(ip,j,k)-psi(im,j,k))
-cc     .                   /(grid_params%xg(ip)-grid_params%xg(im))
-cc              bz(i,j,k) = rh*0.5*(bzz0(i,j)+bzz0(im,j))
-cc
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        !Periodic BCs
-cc        bx(:,0    ,:)=bx(:,nyd,:)
-cc        bx(:,nyd+1,:)=bx(:,1  ,:)
-cc        by(:,0    ,:)=by(:,nyd,:)
-cc        by(:,nyd+1,:)=by(:,1  ,:)
-cc        bz(:,0    ,:)=bz(:,nyd,:)
-cc        bz(:,nyd+1,:)=bz(:,1  ,:)
-cc
-cc        bx(:,:,0    )=bx(:,:,nzd)
-cc        bx(:,:,nzd+1)=bx(:,:,1  )
-cc        by(:,:,0    )=by(:,:,nzd)
-cc        by(:,:,nzd+1)=by(:,:,1  )
-cc        bz(:,:,0    )=bz(:,:,nzd)
-cc        bz(:,:,nzd+1)=bz(:,:,1  )
-cc
-cc        !SP BCs
-cc        do k=0,nzd+1
-cc          do j=0,nyd+1
-cc            jj = mod(j+nyd/2,nyd)
-cc            if (jj == 0) jj = nyd
-cc
-cc            bx(0,j,k) = bx(1,jj,k)
-cc            by(0,j,k) =-by(1,jj,k)
-cc            bz(0,j,k) =-bz(1,jj,k)
-cc          enddo
-cc        enddo
-cc
-cc        !Cartesian components, maps
-cc        do k=0,nzd+1
-cc          do j=0,nyd+1
-cc            do i=0,nxd+1
-cc              rh = grid_params%xg(i)
-cc
-cc              !Cartesian components
-cc              th = grid_params%yg(j)
-cc
-cc              bxcar(i,j,k) = bx(i,j,k)/rh*cos(th)
-cc     .                     -(by(i,j,k)+kk*bz(i,j,k))*sin(th)
-cc              bycar(i,j,k) = bx(i,j,k)/rh*sin(th)
-cc     .                     +(by(i,j,k)+kk*bz(i,j,k))*cos(th)
-cc              bzcar(i,j,k) = bz(i,j,k)/rh
-cc
-cc              !Map (cylindrical)
-cc              jac(i,j,k)   = rh
-cc              xmap(i,j,k,1)= rh*cos(th)
-cc              xmap(i,j,k,2)= rh*sin(th)
-cc              xmap(i,j,k,3)= grid_params%zg(k)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-ccc     Orbit setup (input Az directly)
-cc
-cc        bx = 0d0
-cc        by = 0d0
-cc        bz = -psi
-cc        call orbit_setup(nxd+2,nyd+2,nzd+2
-cc     .                  ,grid_params%xg
-cc     .                  ,grid_params%yg
-cc     .                  ,grid_params%zg
-cc     .                  ,bx,by,bz,bxcar,bycar,bzcar,jac,xmap,bcond
-cc     .                  ,dtime=1d-1,solen=.false.,B_input_is_A=.true.
-cc     .                  ,r_min=1d-3)
-cc
-cc        !Orbit average (at cell centers)
-cc        if (my_rank == 0) then
-cc          if (ilevel == 1) then
-cc            write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
-cc          elseif (ilevel == 0) then
-cc            write (*,*) 'Orbit averaging...'
-cc          endif
-cc        endif
-cc
-ccc     Orbit integration
-cc
-cc        k = 1
-cc        do j=1,nyd
-cc          do i=1,nxd
-cc
-cc            x0 = grid_params%xg(i)
-cc            y0 = grid_params%yg(j)
-cc            z0 = grid_params%zg(k)
-cc
-cc            bzz_avg = 0d0
-cc            b2_avg  = 0d0
-cc            ssmax    = 0d0
-cc
-cc            call orbit_find(ilevel-2,x0,y0,z0,.true.
-cc     .                     ,line_int=flux_avg)
-cc
-cc            if ((my_rank == 0).and.(ilevel == 1))
-cc     .                  write (*,FMT="(a)",ADVANCE="NO") '+'
-cc
-cc            ffpsi(i,j) = Eoeta*bzz_avg/b2_avg
-cccc            ffpsi(i,j) = ssmax  !diag
-cc
-cc          enddo
-cc        enddo
-cc
-cc        ffpsi(:,0    )=ffpsi(:,nyd)
-cc        ffpsi(:,nyd+1)=ffpsi(:,1  )
-cc
-ccc diag ****
-cccc          open(unit=110,file='debug.bin',form='unformatted'
-cccc     .        ,status='replace')
-cccc          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cccc     .                ,0d0,xmax,0d0,ymax,0,110)
-cccc          close(110)
-cccccc          stop
-cccc
-cccccc          write (*,*) 'here'
-cccc          open(unit=110,file='debug2.bin',form='unformatted'
-cccc     .        ,status='replace')
-cccc          call contour(ffpsi(1:nxd,1:nyd),nxd,nyd
-cccc     .                ,0d0,xmax,0d0,ymax,0,110)
-cccc          close(110)
-cccc          stop
-ccc diag ****
-cc
-ccc     Free up orbit integral work space
-cc
-cc        if ((my_rank == 0).and.(ilevel == 1)) write (*,*)
-cc
-cc        call orbit_destroy
-cc
-cc        deallocate(bx,by,bz,bxcar,bycar,bzcar,jac,xmap)
-cc
-cc      end subroutine flux_average
-cc
-cc      end subroutine Ohm_hel_equil
-
 c     Ohm_hel_equil
 c     ###############################################################
-      subroutine Ohm_hel_equil(nx,ny,nz,kk,mm,Eoeta,theta,psig,bb)
+      subroutine Ohm_hel_equil(nx,ny,nz,kk,mm,Eoeta,theta,psig,bb,vv)
 
 c     ---------------------------------------------------------------
 c     Solves 2D helical Ohmic equil. equations to find cylindrical
@@ -3979,7 +3439,10 @@ c       * mm: poloidal perturbation number
 c       * Eoeta: electric field over eta
 c       * theta: RFP theta parameter
 c       * psig: global 1D helical flux function (input)
-c       * bb: output magnetic field components at cell centers.
+c       * bb: on input, 1D equilibrium;
+c             on output, helical eq. magnetic field components at
+c             cell centers.
+c       * vv: output poloidal flow at cell centers
 c     In the calculation below, Psi and II are both at cell centers.
 c     ---------------------------------------------------------------
 
@@ -4003,54 +3466,55 @@ c     ---------------------------------------------------------------
 
         use orbit
 
+#if defined(FPA)
+        use fixed_point_accelerator
+#endif
         implicit none
 
 c     Call variables
 
         integer :: mm,nx,ny,nz
-        real(8) :: bb (0:nx+1,0:ny+1,0:nz+1,3)
+        real(8) :: bb(0:nx+1,0:ny+1,0:nz+1,3)
+     .            ,vv(0:nx+1,0:ny+1,0:nz+1,2)
      .            ,Eoeta,theta,kk
 
         real(8) :: psig(0:nxdp)
 
 c     Local variables
 
-        integer :: i,j,k,ig,jg,kg,ii,jj,it,bcnd(6),guess
-     .            ,ip,im,jp,jm,kp,km,igrid,iglobal
-        real(8) :: bz_avg,bth_avg,x1,y1,z1,err,rh,dh,I0,lI0,th,lpsi0
-     .            ,maxv,minv,maxbz,minbz,alpha,gr(3),eps,dpsi
+        integer :: i,j,k,ii,jj,it,guess,bcnd(6)
+     .            ,ip,im,jp,jm,kp,km,igrid,nn
+        real(8) :: alpha,eps
 
-        real(8) :: psi    (0:nx+1,0:ny+1,0:nz+1)
-     .            ,jpar_B (0:nx+1,0:ny+1,0:nz+1)
-     .            ,III    (0:nx+1,0:ny+1,0:nz+1)
-     .            ,dummy  (0:nx+1,0:ny+1,0:nz+1)
-     .            ,psi_old(0:nx+1,0:ny+1,0:nz+1)
-     .            ,III_old(0:nx+1,0:ny+1,0:nz+1)
-     .            ,zeros  (0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: psi   (0:nx+1,0:ny+1,0:nz+1)
+     .            ,III   (0:nx+1,0:ny+1,0:nz+1)
+     .            ,dpsi  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,dIII  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,zeros (0:nx+1,0:ny+1,0:nz+1)
+     .            ,jpar_B(0:nx+1,0:ny+1,0:nz+1)
 
-        real(8) :: rhs (nx*ny*nz)
-     .            ,psiv(nx*ny*nz)
-     .            ,IIv (nx*ny*nz)
+        real(8) :: x(nx*ny*nz)
+     .            ,r(nx*ny*nz)
 
-        external   del_hel,lap_mtvc2
+        type (fpa_state) :: fpav
 
-        !Interfaces
-        INTERFACE
-          function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
-          logical :: hel_flux_avg,fwd
-          real(8) :: xo,x,yo,y,zo,z,so,ss
-          end function hel_flux_avg
-        END INTERFACE
+        logical :: phaseout_psibc=.false.
 
 c     Begin program
 
         igrid = 1
 
+        nn = nx*ny*nz
+
+cc        have_jparB = .true.
+cc
+cc        allocate(jpar_B(0:nx+1,0:ny+1,0:nz+1))
+
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '************************************'
+          write (*,*) '***********************************'
           write (*,*) '2D Ohmic HELICAL equilibrium solver'
-          write (*,*) '************************************'
+          write (*,*) '***********************************'
           write (*,*)
         endif
 
@@ -4061,22 +3525,164 @@ c     Begin program
 
         zeros = 0d0
 
-        alpha = 0.5 !underrelaxation constant
+cc        alpha = 0d0 !No underrelaxation
+        alpha = 0.1d0 !underrelaxation constant
+
+c     Initialize psi and B_3=III
+
+        call init_hel_eq(psig,bb,psi,III)
+
+c     Perturb Psi and magnetic field components with helical perturbation
+
+        call perturb_1d_eq(bb,dpsi,dIII)
+
+        psi = psi + dpsi
+        III = III + dIII
+
+c     Store BC information
+
+        call allocateMGArray(1,gpsi0)
+        call allocateMGArray(1,gbz0)
+
+        gpsi0%grid(igrid)%array(:,:,:,1) = dpsi
+        gbz0 %grid(igrid)%array(:,:,:,1) = dIII
+
+        bcnd = bcond
+        where (bcnd == DEF) bcnd = EXT
+
+        call restrictMGArray(IRHO,1,gpsi0,bcnd,igrid,bc_order)
+        call restrictMGArray(IRHO,1,gbz0 ,bcnd,igrid,bc_order)
+
+c     Gather solution
+
+        x = reshape(psi(1:nx,1:ny,1:nz),shape(x))
+
+c     Iteration
+
+#if defined(FPA)
+        !Create fixed-point accelerator
+        call fpa_create(fpav,x,maxv=5)
+#endif
+
+        do it=1,200
+
+          call scatter_vec(x,psi)
+
+          !Find new I=B_3
+          III = solve_par_Ohm(psi)
+
+          !Compute cnv magnetic field components
+          bb = compute_B(psi,III)
+
+          !Perform flux average
+          jpar_B = flux_average(bb)
+
+c diag ****
+cc          open(unit=110,file='debug.bin',form='unformatted'
+cc     .        ,status='replace')
+cc          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .                ,0d0,xmax,0d0,ymax,0,110)
+cc          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .                ,0d0,xmax,0d0,ymax,1,110)
+cccc          dIII=0d0
+cccc          dIII=jpar_B*sqrt(vectorNorm(igrid,bb,.false.))
+cccc          call contour(dIII (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc          call contour(jpar_B (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .                ,0d0,xmax,0d0,ymax,1,110)
+cc          dpsi=0d0
+cc          dpsi(1:nx,1:ny,1:nz) = reshape(r,shape(psi(1:nx,1:ny,1:nz)))
+cc          call contour(dpsi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+cc     .                ,0d0,xmax,0d0,ymax,1,110)
+cc          close(110)
+c diag ****
+
+          !Find new psi
+          psi = solve_hel_GS(psi,III)
+cc          psi = solve_hel_GS(zeros,III)
+
+          !Compute residual vector
+          r = x - reshape(psi(1:nx,1:ny,1:nz),shape(x))
+
+#if defined(FPA)
+          !Apply fixed-point accelerator
+          call fpa_correction(fpav,r,dp=dot2)
+          alpha = 0d0
+#endif
+          !Update solution
+          x = x - (1-alpha)*r
+
+          !Check convergence
+          if (chk_conv(r)) exit
+
+        enddo
+
+#if defined(FPA)
+        !Destroy fixed-point accelerator
+        call fpa_destroy(fpav)
+#endif
+
+c     Compute converged magnetic field components
+
+        call scatter_vec(x,psi)
+
+        III = solve_par_Ohm(psi)
+
+        bb = compute_B(psi,III)
+
+c     Check force balance: j3 = -B^3 dI/d(psi) = B^3 j||/B
+
+        call chk_hel_GS
+
+c     Check PARALLEL Ohm's law:  j.B = dI/d(psi) * (B)^2
+
+        call chk_par_Ohm
+
+c     Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
+
+        call pinch_eq_features
+
+c     Find poloidal flow (in cnv representation)
+
+        vv = compute_pinch_flow(bb)
+
+c     Deallocate memory
+
+        call deallocateMGArray(gpsi0)
+        call deallocateMGArray(gbz0)
+
+      contains
+
+c     init_hel_eq
+c     ##################################################################
+      subroutine init_hel_eq(psig,bb,psi,III)
+
+        implicit none
+
+c     ------------------------------------------------------------------
+c     Initialize psi and III from 1D equilibrium quantities
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: bb (0:nx+1,0:ny+1,0:nz+1,3)
+     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
+     .            ,III(0:nx+1,0:ny+1,0:nz+1),psig(0:nxdp)
+
+c     Local variables
+
+        integer :: iglobal,ig,jg,kg
+        real(8) :: x1,y1,z1
+
+c     Begin program
 
 c     Initialize I(psi)
 
         k=1 ; j=1
         do i=0,nx+1
           call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                   ,ig,jg,kg,x1,y1,z1)
+     .                                  ,ig,jg,kg,x1,y1,z1)
           III(i,:,:) = bb(i,:,:,3)  + kk*x1*bb(i,:,:,2)
         enddo
-
-c     Initialize jpar_B (with helical "kick")
-
-        jpar_B = Eoeta*bb(:,:,:,3)/(bb(:,:,:,1)**2
-     .                             +bb(:,:,:,2)**2
-     .                             +bb(:,:,:,3)**2)
 
 c     Initialize Psi from 1D global psi
 
@@ -4084,11 +3690,39 @@ c     Initialize Psi from 1D global psi
           iglobal = i + grid_params%ilo(igrid) - 1
           psi(i,:,:) = psig(iglobal)
         enddo
-cc        psi = 0d0
 
-c     Perturb Psi and magnetic field components with helical perturbation
+c     End program
 
-        eps =5d-2
+      end subroutine init_hel_eq
+
+c     perturb_1d_eq
+c     ##################################################################
+      subroutine perturb_1d_eq(bb,dpsi,dIII)
+
+        implicit none
+
+c     ------------------------------------------------------------------
+c     Initialize psi and III from 1D equilibrium quantities
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: bb  (0:nx+1,0:ny+1,0:nz+1,3)
+     .            ,dpsi(0:nx+1,0:ny+1,0:nz+1)
+     .            ,dIII(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+        integer :: ig,jg,kg!,bcnd(6)
+        real(8) :: x1,y1,z1,eps
+
+c     Begin program
+
+        jpar_B = Eoeta*bb(:,:,:,3)/(bb(:,:,:,1)**2
+     .                             +bb(:,:,:,2)**2
+     .                             +bb(:,:,:,3)**2)
+
+        eps = 1e-2
 
         k=1
         do j=0,ny+1
@@ -4096,349 +3730,84 @@ c     Perturb Psi and magnetic field components with helical perturbation
             call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
      .                                    ,ig,jg,kg,x1,y1,z1)
 
-            dpsi = eps*(sin(pi*x1/xmax)**(mm+1))*sin(y1*mm)
-            psi(i,j,:) = psi(i,j,:) + dpsi
-            III(i,j,:) = III(i,j,:) - jpar_B(i,j,:)*dpsi
+cc            dpsi =-eps/mm*sin(pi*x1/grid_params%xg(nxd+1))*sin(y1*mm)  !Produces finite Br perturbation at
+cc                                                                       !face, but cancels at ghost cells to
+cc                                                                       !avoid field lines from getting out
+cc                                                                       !of domain
+            dpsi(i,j,:) = - eps/mm*x1*sin(y1*mm)   !Produces finite Br perturbation at wall
+            dIII(i,j,:) = - jpar_B(i,j,:)*dpsi(i,j,:)
           enddo
         enddo
 
-        !Compute POLOIDAL and AXIAL magnetic field components
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
+c     End program
 
-              gr = grad_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,psi)
+      end subroutine perturb_1d_eq
 
-              bb(i,j,k,1) = -gr(2)/x1
-              bb(i,j,k,2) = (gr(1)+kk*x1*III(i,j,k))/(1+(kk*x1)**2)
-              bb(i,j,k,3) = III(i,j,k) - kk*x1*bb(i,j,k,2)
-            enddo
-          enddo
-        enddo
+c     scatter_vec
+c     ##################################################################
+      subroutine scatter_vec(x,psi)
 
-c diag ****
-cc        open(unit=110,file='debug.bin',form='unformatted'
-cc     .      ,status='replace')
-cc        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,0,110)
-cc        call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,1,110)
-cc        call contour(bb(0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,1,110)
-cc        call contour(bb(0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,1,110)
-cc        call contour(bb(0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,1,110)
-cc        close(110)
-cccc        pause
-cc        stop
-c diag ****
+        implicit none
 
-c     Iteration
+c     ------------------------------------------------------------------
+c     Map psi from interation vector
+c     ------------------------------------------------------------------
 
-        call mapArrayToMGVector(1,nx,ny,nz,psi,psiv,igrid)
+c     Call variables
 
-        call mapArrayToMGVector(1,nx,ny,nz,III,IIv,igrid)
+        real(8) :: x  (nx*ny*nz)
+     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
 
-        do it=1,100
+c     Local variables
 
-          psi_old = psi
-          III_old = III
+        integer :: bcnd(6),igr,ig,jg,kg
+        real(8) :: lI0,I0,aa=0.3,eps=1e-1,x1,y1,z1
 
-cc          if (it > 1) call flux_average(hel_flux_avg,jpar_B)
-          call flux_average(hel_flux_avg,jpar_B)
+c     Begin program
 
-          !Find Helical Grad-Shafranov equation RHS (at cell centers)
-          do k=1,nz
-            do j=1,ny
-              do i=1,nx
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
+        psi(1:nx,1:ny,1:nz) = reshape(x(1:nn)
+     .                               ,shape(psi(1:nx,1:ny,1:nz)))
 
-                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                        ,ig,jg,kg,x1,y1,z1)
+        bcnd = bcond
+        where (bcnd == DEF) bcnd = EQU
+        call setBC(IRHO,nx,ny,nz,psi
+     .            ,gpsi0%grid(igrid)%array(:,:,:,1)
+     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
 
-                rhs(ii)=-III(i,j,k)/(1+(kk*x1)**2)
-     .                  *(2*kk/(1+(kk*x1)**2)-jpar_B(i,j,k))
+c     Phase out psi BC
 
-                if (vol_wgt) rhs(ii)=rhs(ii)
-     .                              *gmetric%grid(igrid)%dvol(i,j,k)
-              enddo
-            enddo
-          enddo
-
-          !Solve Helical Grad-Shafranov equation (find psi at cell centers)
-          !Define BCs
-          bcnd = bcond
-          where (bcnd == DEF) bcnd = DIR
-
-          guess = 1
-          call cSolver(1,nx*ny*nz,rhs,psiv,bcnd
-     .                ,igrid,ilevel,guess,del_hel,vol_wgt
-     .                ,tol=1d-2
-     .                ,gm_driver=.true.
-     .                ,ks_it=10
-     .                ,mg_vcyc       = 1
-     .                ,mg_order_res  = 0
-     .                ,mg_order_prol = 0
-     .                ,mg_smooth     = 'jb'
-     .                ,mg_gm_coarse_solve  =.false.
-     .                ,sm_omega      = 0.7d0
-     .                ,sm_ncolors    = 2  !Star stencil
-     .                ,sm_zebra_relax=.false.
-     .                )
-
-          !Map to array (w BCs)
-          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid
-     .                           ,.false.)
-
-          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-     .              ,iorder=bc_order)
-c diag ****
-cc        open(unit=110,file='debug.bin',form='unformatted'
-cc     .      ,status='replace')
-cc        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,0,110)
-cc        close(110)
-cccc        pause
-cc        stop
-c diag ***
-          !Find Laplacian RHS (at cell centers, for computation of I=B_3)
-          rhs = 0d0
-          do k=1,nz
-            do j=1,ny
-              do i=1,nx
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
-                rhs(ii)=-laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                            ,psi,dff=jpar_B,vol=vol_wgt)
-              enddo
-            enddo
-          enddo
-
-          !Solve for Bz (at cell centers)
-          bcnd = bcond
-          where (bcnd == DEF) bcnd = DIR
-
-          guess = 1
-          call cSolver(1,nx*ny*nz,rhs,IIv,bcnd
-     .                ,igrid,ilevel,guess,lap_mtvc2,vol_wgt
-     .                ,tol=1d-2
-     .                ,gm_driver=.true.
-     .                ,ks_it=10
-     .                ,mg_order_res  = 0
-     .                ,mg_order_prol = 0
-     .                ,mg_smooth     = 'jb'
-     .                ,mg_gm_coarse_solve  =.true.
-     .                ,mg_vcyc       = 1
-     .                ,sm_omega      = 0.7d0
-     .                ,sm_ncolors    = 4  !Star stencil
-     .                ,sm_zebra_relax=.false.
-     .                )
-
-          !Map to array (with BCs)
-          call mapMGVectorToArray(0,1,IIv,nx,ny,nz,III,igrid,.false.)
-
-          call setBC(IRHO,nx,ny,nz,III,zeros,bcnd,igrid,igrid,igrid
-     .              ,iorder=bc_order)
-
-          !Renormalize III so that Bz(r=0)=1d0
-          if (isBdry(1,igrid,1)) then
-            I0 = sum(III(1,1:ny,1))
-          else
-            I0 = 0d0
-          endif
-
-#if defined(petsc)
-          lI0=I0
-          call MPI_Allreduce(lI0,I0,1,MPI_DOUBLE_PRECISION
-     .         ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#endif
-
-          III = III - I0/nyd + 1d0
-
-          !Underrelax
-cc          alpha = alpha/sqrt(1d0*it)
-          III = (1-alpha)*III+alpha*III_old
-          
-          !Compute POLOIDAL and AXIAL magnetic field components
-          do k=0,nz+1
-            do j=0,ny+1
-              do i=0,nx+1
-                call getCurvilinearCoordinates(i,j,1,igrid,igrid,igrid
-     .                                        ,ig,jg,kg,x1,y1,z1)
-
-                gr = grad_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,psi)
-
-                bb(i,j,k,1) = -gr(2)/x1
-                bb(i,j,k,2) = (gr(1)+kk*x1*III(i,j,k))/(1+(kk*x1)**2)
-                bb(i,j,k,3) = III(i,j,k) - kk*x1*bb(i,j,k,2)
-              enddo
-            enddo
-          enddo
-
-c diag ****
-        open(unit=110,file='debug.bin',form='unformatted'
-     .      ,status='replace')
-        call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bb(0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bb(0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bb(0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(jpar_B(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        close(110)
-cc        pause
-cc        stop
-c diag ****
-
-          !Check convergence
-          dummy = (psi-psi_old)**2
-          err = integral(igrid,igrid,igrid,nx,ny,nz,dummy)
-
-          dummy = (III-III_old)**2
-          err = err
-     .         +integral(igrid,igrid,igrid,nx,ny,nz,dummy)
-          err = sqrt(0.5*err)
-
-          if (ilevel > 0 .and. my_rank == 0) then
-            write (*,*) '2D Ohmic equilibrium iter =',it
-     .                 ,' ; Error=',err
-          endif
-
-          dh = (xmax-xmin)/nxd
-          if (err < 0.1*dh**2) exit
-
-        enddo
-
-        if (ilevel == 0 .and. my_rank == 0) then
-           write (*,'(a,i3,a,1pe10.2)')
-     .          ' 2D equilibrium converged in '
-     .          ,it,' iterations with error =',err
-        endif
-
-c     Check force balance
-
-        do i=1,nx
-          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
-
-          dummy(i,:,:)= bb(i,:,:,3)*(bb(i+1,:,:,3)-bb(i-1,:,:,3))
-     .                              /2./grid_params%dxh(ig)
-     .                 +bb(i,:,:,2)*(bb(i+1,:,:,2)*grid_params%xx(ig+1)
-     .                              -bb(i-1,:,:,2)*grid_params%xx(ig-1))
-     .                              /grid_params%xx(ig)
-     .                              /2./grid_params%dxh(ig)
-        enddo
-
-        dummy = dummy**2
-        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy)
-        err = sqrt(err/nx/ny/nz)
-
-        if (my_rank == 0) then
-          write(*,*)
-          write(*,'(a,1pe14.7)') ' Force-balance error =',err
-        endif
-
-c     Check Ohm's law
-
-        do i=1,nx
-          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
-
-          dummy(i,:,:) = Eoeta*bb(i,:,:,3)
-     $              -bb(i,:,:,3)*(bb(i+1,:,:,2)*grid_params%xx(ig+1)
-     .                           -bb(i-1,:,:,2)*grid_params%xx(ig-1))
-     .                          /grid_params%xx(ig)
-     .                          /2./grid_params%dxh(ig)
-     $              +bb(i,:,:,2)*(bb(i+1,:,:,3)-bb(i-1,:,:,3))
-     .                          /2./grid_params%dxh(ig)
-        enddo
-
-        dummy = dummy**2
-        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy)
-        err = sqrt(err/nx/ny/nz)
-
-        if (my_rank == 0) then
-          write(*,'(a,1pe14.7)') ' Ohms law      error =',err
-        endif
-
-c     Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
-
-        bz_avg = integral(igrid,igrid,igrid,nx,ny,nz,bb(:,:,:,3)
-     .                   ,average=.true.)
-
-        if (isBdry(nx,igrid,2)) then
-          I0 = sum(bb(nx,1:ny,1,2))
-        else
-          I0 = 0d0
-        endif
-
-#if defined (petsc)
-        lpsi0 = I0
-        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#endif
-
-        bth_avg = I0/nyd
-
-        if (my_rank == 0) then
-          write (*,*) 
-          write (*,999) ' Pinch equilibrium features:'
-          write (*,999) '   Theta  =',bth_avg/bz_avg
-          write (*,999) '   Bz(r=0)=',bb(0,1,1,3)
-          write (*,999) '   I0     =',2*pi*xmax*bth_avg
-          write (*,999) '   E0/eta =',Eoeta
-          write (*,999) '   T_flux =',pi*xmax**2*bz_avg
- 999      format (a,f10.7)
-        endif
-
-        !Save some equilibrium properties (to calculate bootstrap current)
-cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
-cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
-
-ccc       Transfer magnetic field components to integer mesh
+cc        if (phaseout_psibc) then
+cc          aa = aa*0.5
+cc          if (aa > (xmin-xmax)/nxd) then
 cc
-cc        do j=0,nydp
-cc          call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd,j)
-cc     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
-cc     .                  ,2,0)
-cc        enddo
-cc        bth0 = dummy
+cc            if (my_rank ==0) write (*,*) 'Phasing out psi BC...'
 cc
-cc        do j=0,nydp
-cc          call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd,j)
-cc     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp,j)
-cc     .                  ,2,0)
-cc        enddo
-cc        bzz0 = dummy
+cc            do i=1,nx
+cc              call getCurvilinearCoordinates(i,1,1,igrid,igrid,igrid
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+cc           
+cc              psi(i,:,:) = psi(i,:,:)*tanh((1-x1)/eps+aa)
+cc            enddo
 cc
-cc        !Extrapolate linearly in radius @ r=0
-cc        bth0(0,:) = -bth0(1,:)
-cc        bzz0(0,:) =  bzz0(1,:)
-
-        !Dump equilibrium for eigen code
-cc        if (my_rank == 0) then
-cc          open(unit=123,file='ntm2d.txt',status='unknown')
-cc          write (123,*) nxdp+1
-cc          write (123,*) grid_params%xg(0:nxdp)
-cc          write (123,*) bth0
-cc          write (123,*) bzz0
-cc          write (123,*) 0.5*p0
-cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
-cc          close(123)
-cccc          stop
+cc            do igr=1,ngrid
+cc              gpsi0%grid(igr)%array = aa*gpsi0%grid(igr)%array
+cc            enddo
+cc          else
+cc            do igr=1,ngrid
+cc              gpsi0%grid(igr)%array = 0d0
+cc            enddo
+cc          endif
 cc        endif
 
-      contains
+c     End program
+
+      end subroutine scatter_vec
 
 c     flux_average
 c     ##############################################################
-      subroutine flux_average(flux_avg,ff)
+      function flux_average(bb) result(ff)
+
+        implicit none
 
 c     --------------------------------------------------------------
 c     Performs flux averages according to psi and flux_avg routine.
@@ -4446,17 +3815,20 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: ff (0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: bb(0:nx+1,0:ny+1,0:nz+1,3)
+     .            ,ff(0:nx+1,0:ny+1,0:nz+1)
 
         INTERFACE
-          function flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
-          logical :: flux_avg,fwd
+          function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
+          logical :: hel_flux_avg,fwd
           real(8) :: xo,x,yo,y,zo,z,so,ss
-          end function flux_avg
+          end function hel_flux_avg
         END INTERFACE
 
 c     Local variables
 
+        integer :: ig,jg,kg,ierr,bcnd(6)
+        real(8) :: rh,th
         real(8),allocatable,dimension(:,:,:)   :: etag,jac
         real(8),allocatable,dimension(:,:,:,:) :: xmap,bbg,bcar
 
@@ -4470,31 +3842,11 @@ c     Initialize orbit integrator work space
      .          ,xmap (0:nxdp,0:nydp,0:nzdp,3)
      .          ,etag (0:nxdp,0:nydp,0:nzdp))
 
+c     Get GLOBAL contravariant magnetic field components
+
         call find_global(bb,bbg)
 
-c diag ****
-cc        open(unit=110,file='debug.bin',form='unformatted'
-cc     .      ,status='replace')
-cc        call contour(psig(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .              ,0d0,xmax,0d0,ymax,0,110)
-cc        close(110)
-cccc        stop
-c diag ****
-
 c     Orbit integrator setup: cnv components (with BCs)
-
-        do k=0,nzd+1
-          do j=0,nyd+1
-            do i=0,nxd+1
-              rh = grid_params%xg(i)
-
-              !Cell center cnv components
-              bbg(i,j,k,1) = rh*bbg(i,j,k,1)
-              bbg(i,j,k,2) = bbg(i,j,k,2)-kk*rh*bbg(i,j,k,3)
-              bbg(i,j,k,3) = rh*bbg(i,j,k,3)
-            enddo
-          enddo
-        enddo
 
         !Periodic BCs
         bbg(:,0    ,:,:)=bbg(:,nyd,:,:)
@@ -4557,15 +3909,11 @@ cc     .                  ,B_input_is_A=.true.
      .                  ,r_min=1d-3)
 
         !Orbit average (at cell centers)
-        if (my_rank == 0) then
-          if (ilevel == 1) then
-            write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
-          elseif (ilevel == 0) then
-            write (*,*) 'Orbit averaging...'
-          endif
+        if (my_rank == 0.and.(ilevel > 1)) then
+          write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
         endif
 
-c     Spline GLOBAL resistivity
+c     Spline GLOBAL resistivity (normalized to nominal resistivity)
 
         do i=0,nxd+1
           etag(i,:,:) = res_rfx(grid_params%xg(i))/eta
@@ -4575,6 +3923,8 @@ c     Spline GLOBAL resistivity
 
 c     Orbit integration (local processor)
 
+        ff = 0d0
+
         do k=1,nz
           do j=1,ny
             do i=1,nx
@@ -4583,54 +3933,556 @@ c     Orbit integration (local processor)
               y0 = grid_params%yy(jg)
               z0 = grid_params%zz(kg)
 
-              bzz_avg = 0d0
-              b2_avg  = 0d0
-              ssmax   = 0d0
+              bzz_avg   = 0d0
+              etab2_avg = 0d0
+              ssmax     = 0d0
 
-              call orbit_find(ilevel-2,x0,y0,z0,.true.
-     .                       ,line_int=flux_avg)
+              call orbit_find(ilevel-3,x0,y0,z0,.true.
+     .                       ,line_int=hel_flux_avg,ierror=ierr)
 
-              if ((my_rank == 0).and.(ilevel == 1))
-     .                    write (*,FMT="(a)",ADVANCE="NO") '+'
+              if (ierr /= ORB_OUT_DOM) then
+                if ((my_rank == 0).and.(ilevel > 1))
+     .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
-cc              write (*,*) i,j,k,bzz_avg,b2_avg
-              ff(i,j,k) = Eoeta*bzz_avg/b2_avg
-cc              ff(i,j,k) = ssmax  !diag
+                ff(i,j,k) = Eoeta*bzz_avg/etab2_avg
+              else  !Extrapolate in psi
+                if ((my_rank == 0).and.(ilevel > 1))
+     .            write (*,FMT="(a)",ADVANCE="NO") 'X'
+
+cc                write (*,*) 'DIAG -- orbit error code=',ierr
+cc                write (*,*) 'DIAG -- orbit problem at=',i,j
+
+                ff(i,j,k) = quad_int(grid_params%xx(ig-4)
+     .                              ,grid_params%xx(ig-3)
+     .                              ,grid_params%xx(ig-2)
+     .                              ,grid_params%xx(ig-1)
+     .                              ,ff(i-4,j,k)
+     .                              ,ff(i-3,j,k)
+     .                              ,ff(i-2,j,k)
+     .                              ,ff(i-1,j,k)
+     .                              ,x0,2)
+cc                ff(i,j,k) = quad_int(psi(i-4,j,k)
+cc     .                              ,psi(i-3,j,k)
+cc     .                              ,psi(i-2,j,k)
+cc     .                              ,psi(i-1,j,k)
+cc     .                              ,ff(i-4,j,k)
+cc     .                              ,ff(i-3,j,k)
+cc     .                              ,ff(i-2,j,k)
+cc     .                              ,ff(i-1,j,k)
+cc     .                              ,psi(i,j,k),2)
+              endif
+
             enddo
           enddo
         enddo
 
+c     Impose BCs
+
         bcnd = bcond
         where (bcnd == DEF) bcnd = EXT
         call setBC(IRHO,nx,ny,nz,ff,zeros,bcnd,igrid,igrid,igrid
-     .            ,iorder=1)
-
-c diag ****
-cc          open(unit=110,file='debug.bin',form='unformatted'
-cc     .        ,status='replace')
-cc          call contour(psig(1:nxd,1:nyd,1),nxd,nyd
-cc     .                ,0d0,xmax,0d0,ymax,0,110)
-cccc          close(110)
-cccc          stop
-cc
-cccc          write (*,*) 'here'
-cccc          open(unit=110,file='debug2.bin',form='unformatted'
-cccc     .        ,status='replace')
-cc          call contour(ff(1:nxd,1:nyd,1),nxd,nyd
-cc     .                ,0d0,xmax,0d0,ymax,1,110)
-cc          close(110)
-cc          stop
-c diag ****
+     .            ,iorder=bc_order)
 
 c     Free up orbit integral work space
 
-        if ((my_rank == 0).and.(ilevel == 1)) write (*,*)
+        if ((my_rank == 0).and.(ilevel > 1)) write (*,*)
 
         call orbit_destroy
 
         deallocate(bbg,bcar,jac,xmap)
 
-      end subroutine flux_average
+      end function flux_average
+
+c     solve_hel_GS
+c     #################################################################
+      function solve_hel_GS(psi,III) result(psi_new)
+
+        implicit none
+
+c     -----------------------------------------------------------------
+c     Solves helical Grad-Shafranov equation
+c     -----------------------------------------------------------------
+
+c       Call variables
+
+        real(8) :: psi    (0:nx+1,0:ny+1,0:nz+1)
+     .            ,psi_new(0:nx+1,0:ny+1,0:nz+1)
+     .            ,III    (0:nx+1,0:ny+1,0:nz+1)
+     .            ,psiv(nx*ny*nz)
+
+c       Local variables
+
+        integer :: ig,jg,kg
+        real(8) :: x1,y1,z1
+
+        real(8) :: rhs (nn)
+        integer :: bcnd(6)
+
+        external :: del_hel
+
+c       Begin program
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+
+              rhs(ii)=-III(i,j,k)/(1+(kk*x1)**2)
+     .                *(2*kk/(1+(kk*x1)**2)-jpar_B(i,j,k))
+
+              if (vol_wgt) rhs(ii)=rhs(ii)
+     .                            *gmetric%grid(igrid)%dvol(i,j,k)
+            enddo
+          enddo
+        enddo
+
+c       Recalibrate psi BC
+
+c       Solve Helical Grad-Shafranov equation (find psi at cell centers)
+
+        bcnd = bcond
+        where (bcnd == DEF) bcnd = EQU
+
+        psiv = reshape(psi(1:nx,1:ny,1:nz),shape(psiv))
+
+        guess = 1
+        call cSolver(1,nn,rhs,psiv,bcnd
+     .              ,igrid,ilevel-1,guess,del_hel,vol_wgt
+     .              ,tol=1d-3
+     .              ,gm_driver=.true.
+     .              ,ks_it=20
+     .              ,mg_vcyc       = 1
+     .              ,mg_order_res  = 0
+     .              ,mg_order_prol = 2
+     .              ,mg_smooth     = 'jb'
+     .              ,mg_gm_coarse_solve  =.false.
+     .              ,sm_omega      = 0.7d0
+     .              ,sm_ncolors    = 2  !Star stencil
+     .              ,sm_zebra_relax=.false.
+     .              )
+
+        !Impose BCs
+        psi_new(1:nx,1:ny,1:nz)= reshape(psiv
+     .                                  ,shape(psi_new(1:nx,1:ny,1:nz)))
+
+        bcnd = bcond
+        where (bcnd == DEF) bcnd = EQU
+        call setBC(IRHO,nx,ny,nz,psi_new
+     .            ,gpsi0%grid(igrid)%array(:,:,:,1)
+     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
+
+      end function solve_hel_GS
+
+c     solve_par_Ohm
+c     #####################################################################
+      function solve_par_Ohm(psi) result(III)
+
+        implicit none
+
+c     -----------------------------------------------------------------
+c       Solves parallel Ohm's law jpar/B=f(psi)
+c     -----------------------------------------------------------------
+
+c       Call variables
+
+        real(8) :: psi(0:nx+1,0:ny+1,0:nz+1)
+     .            ,III(0:nx+1,0:ny+1,0:nz+1)
+
+c       Local variables
+
+        integer :: bcnd(6)
+        real(8) :: rhs(nn),IIv(nx*ny*nz)
+        real(8) :: lI0,I0
+
+        external lap_mtvc2
+
+c       Begin program
+
+        !Find Laplacian RHS (at cell centers, for computation of I=B_3)
+        rhs = 0d0
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              rhs(ii)=-laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                          ,psi,dff=jpar_B,vol=vol_wgt)
+            enddo
+          enddo
+        enddo
+
+        !Solve for B_3=I (at cell centers)
+        bcnd = bcond
+        where (bcnd == DEF) bcnd = EQU
+cc        where (bcnd == DEF) bcnd = DIR
+
+        IIv = 0d0
+
+        guess = 0
+        call cSolver(1,nn,rhs,IIv,bcnd
+     .              ,igrid,ilevel-1,guess,lap_mtvc2,vol_wgt
+     .              ,tol=1d-7
+     .              ,gm_driver=.true.
+     .              ,ks_it=20
+     .              ,mg_order_res  = 0
+     .              ,mg_order_prol = 2
+     .              ,mg_smooth     = 'jb'
+     .              ,mg_gm_coarse_solve  =.true.
+     .              ,mg_vcyc       = 1
+     .              ,sm_omega      = 0.7d0
+     .              ,sm_ncolors    = 4  !9-pt stencil
+     .              ,sm_zebra_relax=.false.
+     .              )
+
+        !Set BCs
+        III(1:nx,1:ny,1:nz) = reshape(IIv,shape(III(1:nx,1:ny,1:nz)))
+
+        call setBC(IRHO,nx,ny,nz,III,gbz0%grid(igrid)%array(:,:,:,1)
+     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
+
+        !Renormalize III so that Bz(r=0)=1d0
+        if (isBdry(1,igrid,1)) then
+          I0 = sum(III(1,1:ny,1))/nyd
+        else
+          I0 = 0d0
+        endif
+
+#if defined(petsc)
+        lI0=I0
+        call MPI_Allreduce(lI0,I0,1,MPI_DOUBLE_PRECISION
+     .       ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+#endif
+
+        III = III - I0 + 1d0
+
+      end function solve_par_Ohm
+
+c     compute_B
+c     ##################################################################
+      function compute_B(psi,III) result(bb)
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Finds B in cnv representation
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi(0:nx+1,0:ny+1,0:nz+1)
+     .            ,III(0:nx+1,0:ny+1,0:nz+1)
+     .            ,bb (0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+        integer :: ig,jg,kg,bcnd(6,3)
+        real(8) :: x1,y1,z1,gr(3)
+
+c     Begin program
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+
+              gr = grad_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,psi)
+
+cc              !Cylindrical
+cc              bb(i,j,k,1) = -gr(2)/x1
+cc              bb(i,j,k,2) = (gr(1)+kk*x1*III(i,j,k))/(1+(kk*x1)**2)
+cc              bb(i,j,k,3) = III(i,j,k) - kk*x1*bb(i,j,k,2)
+              !Contravariant
+              bb(i,j,k,1) = -gr(2)
+              bb(i,j,k,2) =  gr(1)
+              bb(i,j,k,3) = x1*(III(i,j,k)-kk*x1*gr(1))/(1+(kk*x1)**2)
+            enddo
+          enddo
+        enddo
+
+        !Impose topological BCs
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
+        call setMGBC(0,3,nx,ny,nz,igrid,bb,bcnd
+     .              ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.)
+
+      end function compute_B
+
+c     chk_conv
+c     ##################################################################
+      function chk_conv(dx)
+
+        implicit none
+
+c     ------------------------------------------------------------------
+c     Finds B in cnv representation
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+        logical :: chk_conv
+        real(8) :: dx(:)
+
+c     Local variables
+
+        real(8) :: dh,err,tol
+
+c     Begin program
+
+        dh = (xmax-xmin)/nxd
+cc        tol = 0.000001*dh**2
+        tol = 0.01*dh**2
+
+        err = sqrt(dot2(dx,dx))
+
+        if (ilevel > 0 .and. my_rank == 0) then
+          write (*,111) '2D_Ohmic_equilibrium_iter=',it
+     .                 ,'   Error=',err
+ 111      format (a,i5,a,1pe10.3)
+        endif
+
+        chk_conv = (err < tol)
+
+        phaseout_psibc = (err < 100*tol).and.(err > tol)
+
+        if (chk_conv) then
+          if (ilevel == 0 .and. my_rank == 0.and.chk_conv) then
+            write (*,'(a,i3,a,1pe10.2)')
+     .          ' 2D equilibrium converged in '
+     .          ,it,' iterations with error =',err
+          endif
+        endif
+
+      end function chk_conv
+
+c     chk_hel_GS
+c     ##################################################################
+      subroutine chk_hel_GS
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Checks residual of helical GS equation from magnetic field
+c     components
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+c     Local variables
+
+        integer :: ig,jg,kg
+        real(8) :: x1,y1,z1,j3,err,dummy(0:nx+1,0:ny+1,0:nz+1)
+
+c     Begin program
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                    ,ig,jg,kg,x1,y1,z1)
+
+              j3=(grid_params%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
+     .           -grid_params%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
+     .           /2./grid_params%dxh(ig)  ! d(B_2)/dx1
+     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./grid_params%dyh(jg)
+                                          !-d(B_1)/dx2
+
+              dummy(i,j,k) = j3-bb(i,j,k,3)*jpar_B(i,j,k)
+            enddo
+          enddo
+        enddo
+
+c diag ****
+        open(unit=110,file='hel_GS_err.bin',form='unformatted'
+     .      ,status='replace')
+        call contour(dummy(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
+        close(110)
+c diag ****
+
+        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy**2)
+        err = sqrt(err)
+
+        if (my_rank == 0) then
+          write(*,*)
+          write(*,'(a,1pe14.7)') ' Force-balance error =',err
+        endif
+
+      end subroutine chk_hel_GS
+
+c     chk_par_Ohm
+c     ##################################################################
+      subroutine chk_par_Ohm
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Checks residual of parallel Ohm's law
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+c     Local variables
+
+        integer :: ig,jg,kg
+        real(8) :: x1,y1,z1,j1,j2,j3,b1,b2,b3,br,bth,bz,err,bnorm2
+     .            ,dummy(0:nx+1,0:ny+1,0:nz+1)
+
+c     Begin program
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+
+              !Cyl B
+              br = bb(i,j,k,1)/x1
+              bth= bb(i,j,k,2)+kk*bb(i,j,k,3)
+              bz = bb(i,j,k,3)/x1
+
+              bnorm2 = br**2+bth**2+bz**2
+
+              !Cnv J
+              j1= (III(i,j+1,k)-III(i,j-1,k))/2./grid_params%dyh(jg) ! d(B3)/dx2
+              j2=-(III(i+1,j,k)-III(i-1,j,k))/2./grid_params%dxh(ig) !-d(B3)/dx1
+              j3=(grid_params%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
+     .           -grid_params%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
+     .           /2./grid_params%dxh(ig)  ! d(B_2)/dx1
+     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./grid_params%dyh(jg)
+     .                                    !-d(B_1)/dx2
+
+              !Cov B
+              b1 = br
+              b2 = x1*bth
+              b3 = III(i,j,k)
+
+              dummy(i,j,k) = (j1*b1+j2*b2+j3*b3)/x1-jpar_B(i,j,k)*bnorm2
+            enddo
+          enddo
+        enddo
+
+c diag ****
+        open(unit=110,file='hel_Ohm_err.bin',form='unformatted'
+     .      ,status='replace')
+        call contour(dummy(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
+        close(110)
+c diag ****
+
+        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy**2)
+        err = sqrt(err)
+
+        if (my_rank == 0) then
+          write(*,'(a,1pe14.7)') ' Parallel Ohms law error =',err
+        endif
+
+      end subroutine chk_par_Ohm
+
+c     pinch_eq_features
+c     ##################################################################
+      subroutine pinch_eq_features
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Compute's helical PINCH equilibrium features
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+c     Local variables
+
+        integer :: ig,jg,kg
+        real(8) :: x1,y1,z1,bz_avg,bth_avg,lpsi0
+     .            ,dummy(0:nx+1,0:ny+1,0:nz+1)
+
+c     Begin program
+
+        !Average Bz in domain
+        do i=1,nx
+          call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+          dummy(i,:,:) = bb(i,:,:,3)/x1
+        enddo
+
+        bz_avg = integral(igrid,igrid,igrid,nx,ny,nz,dummy
+     .                   ,average=.true.)
+
+        !Average Bth @ boundary
+        if (isBdry(nx,igrid,2)) then
+          bth_avg = sum(bb(nx,1:ny,1,2)+kk*bb(nx,1:ny,1,3))/nyd
+        else
+          bth_avg = 0d0
+        endif
+
+#if defined (petsc)
+        lpsi0 = bth_avg
+        call MPI_Allreduce(lpsi0,bth_avg,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+#endif
+
+        if (my_rank == 0) then
+          write (*,*) 
+          write (*,999) ' Pinch equilibrium features:'
+          write (*,999) '   Theta  =',bth_avg/bz_avg
+          write (*,999) '   Bz(r=0)=',dummy(1,1,1)
+          write (*,999) '   I0     =',2*pi*xmax*bth_avg
+          write (*,999) '   E0/eta =',Eoeta
+          write (*,999) '   T_flux =',pi*xmax**2*bz_avg
+ 999      format (a,f10.7)
+        endif
+
+      end subroutine pinch_eq_features
+
+c     compute_pinch_flow
+c     ##################################################################
+      function compute_pinch_flow(bb) result(vv)
+
+        implicit none
+
+c     ------------------------------------------------------------------
+c     Compute's helical PINCH equilibrium features
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: vv(0:nx+1,0:ny+1,0:nz+1,2)
+     .            ,bb(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Local variables
+
+        integer :: ig,jg,kg
+        real(8) :: x1,y1,z1,br,bth,bz,bnorm2,b1,b2
+
+c     Begin program
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                      ,ig,jg,kg,x1,y1,z1)
+
+              !Cyl B
+              br = bb(i,j,k,1)/x1
+              bth= bb(i,j,k,2)+kk*bb(i,j,k,3)
+              bz = bb(i,j,k,3)/x1
+
+              bnorm2 = br**2+bth**2+bz**2
+
+              !Cov B
+              b1 = br
+              b2 = grid_params%xx(ig)*bth
+
+              vv(i,j,k,1) = -(Eoeta*b2)/bnorm2
+              vv(i,j,k,2) =  (Eoeta*b1)/bnorm2
+
+            enddo
+          enddo
+        enddo
+
+      end function compute_pinch_flow
 
       end subroutine Ohm_hel_equil
 
@@ -4659,8 +4511,7 @@ c     Local variables
 
         integer :: ierr
         real(8) :: xh,yh,zh,bb,b2,bx,by,bz
-     .            ,xs,ys,zs,ts,ds,eta,jac!,y00,dy0
-cc        save dy0
+     .            ,xs,ys,zs,ts,ds,eta,jac
 
 c     Begin program
 
@@ -4672,14 +4523,6 @@ c     Check whether orbit should terminate
 
         exloop = (ts /= 0d0)
 
-cc        if (yo == y0) dy0 = y-y0
-cc
-cc        call ss_init(1,.false.,0d0,.true.,y0,.false.,0d0)
-cc
-cc        ts = 0d0
-cc        call sschk(1,0d0,so,ss,0d0,xo,x,0d0,yo,y,0d0,zo,z
-cc     .            ,xs,ys,zs,ts)
-
 c     Update current position
 
         if (exloop) then
@@ -4687,14 +4530,6 @@ c     Update current position
         else
           ts = ss
         endif
-
-cc        if ( ts /= 0d0 .and. (y-yo)*dy0 > 0d0 ) then
-cc          x = xs ; y = ys ; z = zs
-cc          exloop = .true.
-cc        else
-cc          ts = ss
-cc          exloop = .false.
-cc        endif
 
 c     Find middle points
 
@@ -4706,9 +4541,7 @@ c     Find magnetic field Cartesian components
 
         call getB(xh,yh,zh,bx,by,bz,.false.,.true.,ierr)
 
-        bb = sqrt(bx**2+by**2+bz**2)  !Exclude bz since flux average is in poloidal plane
-
-cc        b2 =-bx*sin(yh)+by*cos(yh)+grid_params%params(2)*xh*bz
+        bb = sqrt(bx**2+by**2+bz**2)
 
         eta = evalFld(xh,yh,zh,ierr)
 
@@ -4716,11 +4549,10 @@ c     Perform flux averages
 
         ds = (ts-so)  !Arc length
 
-cc        if (bz < 0d0) write (*,*) ds,xh,yh,zh,bz,bb
-        bzz_avg = bzz_avg + bz*ds/bb
-cc        b2_avg  = b2_avg  + eta*bb*ds
-        b2_avg  = b2_avg  + bb*ds
-        ssmax   = ssmax   + ds/bb
+        bzz_avg   = bzz_avg    + bz*ds/bb
+        etab2_avg = etab2_avg  + eta*bb*ds
+        ssmax     = ssmax      + ds/bb
+cc        b2_avg  = b2_avg  + bb*ds
 cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
 
       end function hel_flux_avg
