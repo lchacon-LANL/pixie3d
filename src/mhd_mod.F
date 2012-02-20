@@ -1136,7 +1136,8 @@ c     ###################################################################
       subroutine defineAuxDomainDeps(vaux)
 
 c     -------------------------------------------------------------------
-c     Defines intervariable dependencies for auxiliary quantities
+c     Defines intervariable dependencies for constitutive equations of
+c     auxiliary quantities
 c     -------------------------------------------------------------------
 
       implicit none
@@ -1547,6 +1548,9 @@ c ######################################################################
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
      .         ,vex,vey,vez
 
+
+        type(var_array),pointer :: u_pert => null()
+
       contains
 
 c     allocAuxPlotVar
@@ -1638,6 +1642,8 @@ c     ##################################################################
      .           ,jpar,jpsi,jperp)
 
       deallocate (qfactor,lambda)
+
+      if (associated(u_pert)) call deallocateDerivedType(u_pert)
 
       end subroutine deallocAuxPlotVar
 
@@ -4297,22 +4303,28 @@ c ######################################################################
 
         use problem_def
 
+        use mg_solver
+
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3)
      .            ,br_pert_bc
 
         real(8) :: eq_params(6)
 
         !Flux-surface averages
-        real(8) :: bzz_avg,b2_avg,ssmax,x0,y0,z0,thmax
+        real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
 
         logical :: closed_orb
 
         integer :: nh1,nh2,nh3,npw1=1,npw2=1,npw3=1
 
-        logical :: odd(3),random
+        logical :: odd(3),random,have_jparB=.false.
 
         real(8),dimension(10) :: pert
 
+        type(mg_array),target  :: gpsi0,gbz0
+
+cc        real(8),pointer,dimension(:,:,:) :: jpar_B => null()
+ 
       end module equilibrium
 
 c module nlfunction_setup
