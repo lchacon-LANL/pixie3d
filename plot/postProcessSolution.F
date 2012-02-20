@@ -118,9 +118,9 @@ cc      call applyBCplot(varray,igx,igy,igz)
       az_cnv = acnv(:,:,:,3)
 #endif
 
-c Find perturbed quantities (u_graph = varray - u_ic)
+c Find perturbed quantities (u_pert = varray - u_ic)
 
-      call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_graph)
+      call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
 
 c Assignments
 
@@ -280,32 +280,24 @@ c Velocity and current intrinsic components (wrt B)
             endif
             
 cc            !J_parallel
-cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-cc     .                            ,bcnv(i,j,k,1)
-cc     .                            ,bcnv(i,j,k,2)
-cc     .                            ,bcnv(i,j,k,3),.false.))
+cc            norm = sqrt(vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.))
 cc
 cc            if (norm == 0d0) then
 cc              jpar(i,j,k) = 0d0
 cc            else
-cc              jpar(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-cc     .                     ,bcov(i,j,k,1),bcov(i,j,k,2),bcov(i,j,k,3)
-cc     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+cc              jpar(i,j,k) = scalarProduct(i,j,k,igx
+cc     .                                   ,bcov(i,j,k,:),jcnv(i,j,k,:))
 cc     .                     /norm
 cc            endif
 cc
 cc            !J.grad(psi)/|grad(psi)|
-cc            call grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux
-cc     .               ,cov(1),cov(2),cov(3),0,0,0)
-cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-cc     .                             ,cov(1),cov(2),cov(3),.true.))
+cc            cov =  grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
+cc            norm = sqrt(vectorNorm(i,j,k,igx,cov,.true.))
 cc
 cc            if (norm == 0d0) then
 cc              jpsi(i,j,k) = 0d0
 cc            else
-cc              jpsi(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-cc     .                     ,cov(1),cov(2),cov(3)
-cc     .                     ,jcnv(i,j,k,1),jcnv(i,j,k,2),jcnv(i,j,k,3))
+cc              jpsi(i,j,k) = scalarProduct(i,j,k,igx,cov,jcnv(i,j,k,:))
 cc     .                     /norm
 cc            endif
 cccc            vpsi(i,j,k) = cov(1)
@@ -318,17 +310,14 @@ cc     .              -bcov(i,j,k,1)*cov(3)
 cc            cnv(3) = bcov(i,j,k,1)*cov(2)
 cc     .              -bcov(i,j,k,2)*cov(1)
 cc
-cc            norm = sqrt(vectorNorm(i,j,k,igx,igy,igz
-cc     .                            ,cnv(1),cnv(2),cnv(3),.false.))
+cc            norm = sqrt(vectorNorm(i,j,k,igx,cnv,.false.))
 cc
 cc            if (norm == 0) then
 cc              jperp(i,j,k) = 0d0
 cc            else
-cc              jperp(i,j,k) = scalarProduct(i,j,k,igx,igy,igz
-cc     .                       ,jcov(i,j,k,1),jcov(i,j,k,2),jcov(i,j,k,3)
-cc     .                       ,cnv(1),cnv(2),cnv(3))
+cc              jperp(i,j,k) = scalarProduct(i,j,k,igx,jcov(i,j,k,:),cnv)
 cc     .                       /norm
-cc            endif
+            endif
           enddo
         enddo
       enddo
