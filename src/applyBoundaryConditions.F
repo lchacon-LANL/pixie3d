@@ -51,15 +51,6 @@ c Interfaces
         end subroutine applyAuxVarBC
       END INTERFACE
 
-      INTERFACE
-        subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
-          use variable_setup
-          integer    :: iigx,iigy,iigz,bc_inf(2)
-          type(var_array),pointer :: varray
-          type(aux_array),pointer :: vaux
-        end subroutine postproc_AuxVar
-      END INTERFACE
-
 c Begin program
 
 c Setup pointers
@@ -87,7 +78,57 @@ c Set boundary conditions
         endif
       enddo
 
-      !Postprocess auxiliary quantities
+c Nullify aux pointers
+      call deallocLocalAuxVars
+
+c End program
+      end subroutine applybc
+
+
+c postproc
+c######################################################################
+      subroutine postproc(patch_var,nbc_seq,bc_seq)
+
+c----------------------------------------------------------------------
+c     Applies the postprocessor for SAMRAI
+c----------------------------------------------------------------------
+
+      use local_BCS_variables
+      use imposeBCinterface
+      use auxiliaryVariables
+      use variable_setup
+      implicit none
+
+c Call variables
+      integer :: nbc_seq, bc_seq(nbc_seq,3)
+      type(patch), TARGET :: patch_var
+
+c Local variables
+      integer :: i
+      type(var_array),pointer :: varray => null()
+
+c Interfaces
+      INTERFACE
+        subroutine postproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz)
+          use variable_setup
+          integer    :: iigx,iigy,iigz,bc_inf(2)
+          type(var_array),pointer :: varray
+          type(aux_array),pointer :: vaux
+        end subroutine postproc_AuxVar
+      END INTERFACE
+
+c Begin program
+
+c Setup pointers
+      gv => patch_var
+      grid_params => gv%gparams
+      gmetric => gv%gparams%gmetric
+      call setVectorDimensions
+      varray => gv%u_n
+      u_0    => gv%u_0
+      call allocAuxVariables(gv%aux)
+
+c Postprocess auxiliary quantities
       do i = 1,nbc_seq
         if (bc_seq(i,1)*AUX > 0) then
           call postproc_AuxVar(bc_seq(i,:),varray,gv%aux,1,1,1)
@@ -100,7 +141,8 @@ c Nullify aux pointers
 
 c End program
 
-      end subroutine applybc
+      end subroutine postproc
+
 
 c initializeAuxVar
 c######################################################################
