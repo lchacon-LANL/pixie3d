@@ -1,3 +1,4 @@
+// This is a sample input file for running pixie3d with samrai (single patch)
 dim=3
 DIRICHLET = 0
 NEUMANN   = 1
@@ -5,7 +6,13 @@ MIXED     = 2
 ROBIN     = 4
 
 Main{
-   output_path = "debug_test"
+   use_visit = FALSE        // Do we want to save the results using the visit writer
+   output_path = "tm.1"     // Path to save the results
+   plot_interval = 1000     // Save every x iterations (save if this many iterations have passed since the last save)
+   dt_save = 0.5            // Save if the time since the last save is >= dt_save
+   save_times = 10.0, 20.0  // Save the first iteration after each value
+   max_saves = 1e4          // Stop saving after this many saves have been exceeded
+
    save_debug=2
    debug_name="debugFile.tm.1"
 }
@@ -17,47 +24,6 @@ CartesianGeometry{
    periodic_dimension = 0, 1, 1
 }
 
-Plotting{
-	plot_interval = 20
-        use_visit = FALSE
-}
-
-pixie3d{
-          operator_name                   = "CellDiffusionOperator"
-     	  tangent_interp_scheme           = "LINEAR"
-       	  normal_interp_scheme            = "LINEAR"
-      	  adjust_cf_coefficients          = FALSE
-     	  interpolate_ghost_values        = TRUE
-     	  extrapolation_order             = 2
-       	  boundary_conditions             = DIRICHLET, DIRICHLET, NEUMANN, NEUMANN
-      	  coarsen_diffusive_fluxes        = TRUE
-      	  print_info_level                = 0
-          beta                            = -1.0
-          cell_refine_op                  = "CONSTANT_REFINE"
-          cell_coarsen_op                 = "CONSERVATIVE_COARSEN"
-          face_refine_op                  = "CONSTANT_REFINE"
-          face_coarsen_op                 = "CONSERVATIVE_COARSEN"
-          variable_order_interpolation    = TRUE
-          use_cf_interpolant              = TRUE
-}
-
-TimeIntegrator{
-    timeIntegrator_name  = "RK23"
-    //timeIntegrator_name  = "ExplicitEuler"
-    initial_time         = 0.0
-    final_time           = 1.0
-    max_integrator_steps = 1000
-    initial_timestep     = 1.0e-02
-    min_dt               = 1.0e-10
-    max_dt               = 1.0
-    safety_factor        = 0.9
-    absolute_tolerance   = 1.0e-06
-}
-
-GriddingAlgorithm{
-   combine_efficiency = 0.95
-   efficiency_tolerance = 0.95
-}
 
 PatchHierarchy{
    max_levels = 1
@@ -65,7 +31,7 @@ PatchHierarchy{
       level_0 = 256,256,256
    }
    smallest_patch_size {
-      level_0 = 2,2,1
+      level_0 = 4,4,2
    }
    ratio_to_coarser {
       level_1  = 2, 2, 1
@@ -87,6 +53,44 @@ StandardTagAndInitialize{
       level_4 = [(0,0,0),(31,31,0)]
       level_5 = [(0,0,0),(63,63,0)]
    }
+}
+
+TimeIntegrator{
+    timeIntegrator_name  = "RK23"
+    //timeIntegrator_name  = "ExplicitEuler"
+    initial_time         = 0.0
+    final_time           = 1.0
+    max_integrator_steps = 1000
+    initial_timestep     = 1.0e-02
+    min_dt               = 1.0e-10
+    max_dt               = 1.0
+    safety_factor        = 0.9
+    absolute_tolerance   = 1.0e-06
+}
+
+
+pixie3d{
+          operator_name                   = "CellDiffusionOperator"
+     	  tangent_interp_scheme           = "LINEAR"
+       	  normal_interp_scheme            = "LINEAR"
+      	  adjust_cf_coefficients          = FALSE
+     	  interpolate_ghost_values        = TRUE
+     	  extrapolation_order             = 2
+       	  boundary_conditions             = DIRICHLET, DIRICHLET, NEUMANN, NEUMANN
+      	  coarsen_diffusive_fluxes        = TRUE
+      	  print_info_level                = 0
+          beta                            = -1.0
+          cell_refine_op                  = "CONSTANT_REFINE"
+          cell_coarsen_op                 = "CONSERVATIVE_COARSEN"
+          face_refine_op                  = "CONSTANT_REFINE"
+          face_coarsen_op                 = "CONSERVATIVE_COARSEN"
+          variable_order_interpolation    = TRUE
+          use_cf_interpolant              = TRUE
+}
+
+GriddingAlgorithm{
+   combine_efficiency = 0.95
+   efficiency_tolerance = 0.95
 }
 
 TreeLoadBalancer{
