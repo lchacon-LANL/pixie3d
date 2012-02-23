@@ -299,7 +299,7 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 c     Check input
 
-        if (coords /= 'car'.or.coords /= 'scl') then
+        if (coords /= 'car'.and.coords /= 'scl') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
