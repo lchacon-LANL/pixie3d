@@ -1,7 +1,5 @@
 c module rfx
 c ######################################################################
-! daniele, 09/12/2008
-! sposto tutto ciò che mi serve per il post-processing in questo modulo
       module rfx
 
       use variables
@@ -83,11 +81,35 @@ c Begin programs
       igy = 1
       igz = 1
 
+c Find electric field
+
+      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3),
+     .       ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            ecar(i,j,k,1) = eeta(i,j,k)*jx_car(i,j,k)
+     .              - vy_car(i,j,k)*bz_car(i,j,k)
+     .              + vz_car(i,j,k)*by_car(i,j,k)
+            ecar(i,j,k,2) = eeta(i,j,k)*jy_car(i,j,k)
+     .              + vx_car(i,j,k)*bz_car(i,j,k)
+     .              - vz_car(i,j,k)*bx_car(i,j,k)
+            ecar(i,j,k,3) = eeta(i,j,k)*jz_car(i,j,k)
+     .              - vx_car(i,j,k)*by_car(i,j,k)
+     .              + vy_car(i,j,k)*bx_car(i,j,k)
+          enddo
+        enddo
+      enddo
+
+      if (coords == 'cyl' .or. coords == 'hel') then
+
 c Transform to cylindrical
 
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
+
             call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
@@ -117,39 +139,6 @@ c Transform to cylindrical
      $                     +jy_car(i,j,k)*cos(y1)
             jz_cov(i,j,k) = jz_car(i,j,k)
 
-          enddo
-        enddo
-      enddo
-
-c Find electric field
-
-      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3),
-     .       ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
-
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
-            ecar(i,j,k,1) = eeta(i,j,k)*jx_car(i,j,k)
-     .              - vy_car(i,j,k)*bz_car(i,j,k)
-     .              + vz_car(i,j,k)*by_car(i,j,k)
-            ecar(i,j,k,2) = eeta(i,j,k)*jy_car(i,j,k)
-     .              + vx_car(i,j,k)*bz_car(i,j,k)
-     .              - vz_car(i,j,k)*bx_car(i,j,k)
-            ecar(i,j,k,3) = eeta(i,j,k)*jz_car(i,j,k)
-     .              - vx_car(i,j,k)*by_car(i,j,k)
-     .              + vy_car(i,j,k)*bx_car(i,j,k)
-          enddo
-        enddo
-      enddo
-
-c Transform to cylindrical
-
-      do k = kming,kmaxg
-        do j = jming,jmaxg
-          do i = iming,imaxg
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-
             ecyl(i,j,k,1) = ecar(i,j,k,1)*cos(y1)
      $                     +ecar(i,j,k,2)*sin(y1)
             ecyl(i,j,k,2) = -ecar(i,j,k,1)*sin(y1)
@@ -159,6 +148,73 @@ c Transform to cylindrical
           enddo
         enddo
       enddo
+
+      endif
+
+      if (coords == 'tor') then
+
+c Transform to toroidal
+
+      do k = kming,kmaxg
+        do j = jming,jmaxg
+          do i = iming,imaxg
+            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+
+!                    write (*,999) i,j,k,x1,y1,z1
+
+            vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)*cos(-z1)
+     $                     +vy_car(i,j,k)*cos(y1)*sin(-z1)
+     $                     +vz_car(i,j,k)*sin(y1)
+            vy_cov(i,j,k) =-vx_car(i,j,k)*sin(y1)*cos(-z1)
+     $                     -vy_car(i,j,k)*sin(y1)*sin(-z1)
+     $                     +vz_car(i,j,k)*cos(y1)
+            vz_cov(i,j,k) = vx_car(i,j,k)*sin(-z1)
+     $                     -vy_car(i,j,k)*cos(-z1)
+
+#if defined(vec_pot)
+            ax_cov(i,j,k) = ax_car(i,j,k)*cos(y1)*cos(-z1)
+     $                     +ay_car(i,j,k)*cos(y1)*sin(-z1)
+     $                     +az_car(i,j,k)*sin(y1)
+            ay_cov(i,j,k) =-ax_car(i,j,k)*sin(y1)*cos(-z1)
+     $                     -ay_car(i,j,k)*sin(y1)*sin(-z1)
+     $                     +az_car(i,j,k)*cos(y1)
+            az_cov(i,j,k) = ax_car(i,j,k)*sin(-z1)
+     $                     -ay_car(i,j,k)*cos(-z1)
+#endif
+
+            bx_cov(i,j,k) = bx_car(i,j,k)*cos(y1)*cos(-z1)
+     $                     +by_car(i,j,k)*cos(y1)*sin(-z1)
+     $                     +bz_car(i,j,k)*sin(y1)
+            by_cov(i,j,k) =-bx_car(i,j,k)*sin(y1)*cos(-z1)
+     $                     -by_car(i,j,k)*sin(y1)*sin(-z1)
+     $                     +bz_car(i,j,k)*cos(y1)
+            bz_cov(i,j,k) = bx_car(i,j,k)*sin(-z1)
+     $                     -by_car(i,j,k)*cos(-z1)
+
+            jx_cov(i,j,k) = jx_car(i,j,k)*cos(y1)*cos(-z1)
+     $                     +jy_car(i,j,k)*cos(y1)*sin(-z1)
+     $                     +jz_car(i,j,k)*sin(y1)
+            jy_cov(i,j,k) =-jx_car(i,j,k)*sin(y1)*cos(-z1)
+     $                     -jy_car(i,j,k)*sin(y1)*sin(-z1)
+     $                     +jz_car(i,j,k)*cos(y1)
+            jz_cov(i,j,k) = jx_car(i,j,k)*sin(-z1)
+     $                     -jy_car(i,j,k)*cos(-z1)
+
+            ecyl(i,j,k,1) = ecar(i,j,k,1)*cos(y1)*cos(-z1)
+     $                     +ecar(i,j,k,2)*cos(y1)*sin(-z1)
+     $                     +ecar(i,j,k,3)*sin(y1)
+            ecyl(i,j,k,2) =-ecar(i,j,k,1)*sin(y1)*cos(-z1)
+     $                     -ecar(i,j,k,2)*sin(y1)*sin(-z1)
+     $                     +ecar(i,j,k,3)*cos(y1)
+            ecyl(i,j,k,3) =-ecar(i,j,k,1)*sin(-z1)
+     $                     +ecar(i,j,k,2)*cos(-z1)
+
+          enddo
+        enddo
+      enddo
+
+      endif
 
 c diag: dump text data
         if (time == 0d0) then
