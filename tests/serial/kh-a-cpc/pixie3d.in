@@ -29,6 +29,8 @@
     dt       = 1d-2
     tmax     = 1d-1
     dstep    = 1d-1
+!    numtime  = 0
+!    ndstep   = 1
 
     sm_flag  = 0
 

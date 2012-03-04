@@ -783,6 +783,10 @@ c       Allocate auxiliary variables in local domain
         select case(abs(bc_inf(1)))
 #if defined(vec_pot)
         case(IACOV_0)
+          !Average to faces
+          call XferBCs(u_0%array_var(IAX)%array,v0(:,:,:,1),.true.)
+          call XferBCs(u_0%array_var(IAY)%array,v0(:,:,:,2),.true.)
+          call XferBCs(u_0%array_var(IAZ)%array,v0(:,:,:,3),.true.)
 
           vdum = XformVector(iigx,acov_0,.true.)
           call setBC(IAX,3,nnx,nny,nnz,vdum,acov_0,v0
@@ -909,7 +913,9 @@ cc          call XformVector_BC(iigx,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          call setBC(IAX,3,nnx,nny,nnz,acnv,acov,acov_0
+          call XferBCs(acov_0,v0,.true.)
+
+          call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,iigx,iigy,iigz
      .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
@@ -1103,7 +1109,7 @@ c preproc_AuxVar
 c####################################################################
       subroutine preproc_AuxVar(bc_inf,varray,vaux,iigx,iigy,iigz,order)
 c--------------------------------------------------------------------
-c     Sets adequate boundary conditions on array structure varray.
+c     Preprocesses auxiliary variables
 c--------------------------------------------------------------------
 
       use local_BCS_variables
@@ -1668,14 +1674,18 @@ c       Allocate auxiliary variables in local domain
 
 #if defined(vec_pot)
         case(IACOV_0)
-#endif
 
+cc          u_0%array_var(IAX)%array = acov_0(:,:,:,1)
+cc          u_0%array_var(IAY)%array = acov_0(:,:,:,2)
+cc          u_0%array_var(IAZ)%array = acov_0(:,:,:,3)
+#endif
         case(IBCNV_0)
 
+#if !defined(vec_pot)
           u_0%array_var(IBX)%array = bcnv_0(:,:,:,1)
           u_0%array_var(IBY)%array = bcnv_0(:,:,:,2)
           u_0%array_var(IBZ)%array = bcnv_0(:,:,:,3)
-
+#endif
         case(IBCOV_0)
 
 cc          call XformVector_BC(iigx,bcnv_0,bcov_0,.false.)

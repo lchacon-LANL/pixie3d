@@ -297,7 +297,9 @@ c     defineDepBC_Deps
 c     ####################################################################
       subroutine defineDepBC_Deps(varray)
 c     --------------------------------------------------------------------
-c     Defines BC dependencies for dependent variables.
+c     Defines BC dependencies for dependent variables. Dependencies could
+c     be with other dependent variables, or with auxiliary variables. If
+c     the latter, multiply variable identifier by "AUX"
 c     --------------------------------------------------------------------
 
       implicit none
@@ -341,12 +343,21 @@ c     Begin program
         enddo
       endif
 
+#if !defined(vec_pot)
       !B
       do ieq=IBX,IBZ
         varray%array_var(ieq)%bc_dep_list(1,1) = IBCOV*AUX
         varray%array_var(ieq)%bc_dep_list(1,2) = VECTOR
         varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
       enddo
+#else
+      !A
+      do ieq=IAX,IAZ
+        varray%array_var(ieq)%bc_dep_list(1,1) = IACNV*AUX
+        varray%array_var(ieq)%bc_dep_list(1,2) = VECTOR
+        varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
+      enddo
+#endif
 
 c     End subroutine
 
@@ -356,7 +367,9 @@ c     defineDepDom_Deps
 c     ####################################################################
       subroutine defineDepDom_Deps(varray)
 c     --------------------------------------------------------------------
-c     Defines domain dependencies for dependent variables.
+c     Defines domain dependencies for dependent variables. Dependencies
+c     could be with other dependent variables, or with auxiliary variables.
+c     If the latter, multiply variable identifier by "AUX"
 c     --------------------------------------------------------------------
 
       implicit none
@@ -431,6 +444,7 @@ c     Begin program
         endif
       enddo
 
+#if !defined(vec_pot)
       !B
       do ieq=IBX,IBZ
         varray%array_var(ieq)%dom_dep_list(1,1) = IENI*AUX
@@ -441,6 +455,18 @@ c     Begin program
         varray%array_var(ieq)%dom_dep_list(2,2) = VECTOR
         varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
       enddo
+#else
+      !B
+      do ieq=IAX,IAZ
+        varray%array_var(ieq)%dom_dep_list(1,1) = IENI*AUX
+        varray%array_var(ieq)%dom_dep_list(1,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(1,3) = 1 !non-trivial
+
+        varray%array_var(ieq)%dom_dep_list(2,1) = IENI_0*AUX
+        varray%array_var(ieq)%dom_dep_list(2,2) = VECTOR
+        varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
+      enddo
+#endif
 
 c     End subroutine
 

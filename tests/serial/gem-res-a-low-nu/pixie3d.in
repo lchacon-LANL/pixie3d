@@ -68,6 +68,7 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
+    sym_st     = t
 
     advect     = 2
 
