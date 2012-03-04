@@ -398,8 +398,8 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
      .             varr%array_var(IBY)%array(i,j,k)
      .           + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))*jac
 #else
-              varr%array_var(IAZ)%aarray(i,j,k) =
-     .             varr%array_var(IAZ)%aarray(i,j,k)
+              varr%array_var(IAZ)%array(i,j,k) =
+     .             varr%array_var(IAZ)%array(i,j,k)
      .           - 1d-3/kx*sin(kx*(x1-xmin)+ky*(y1-ymin))
 #endif
               varr%array_var(IVZ)%array(i,j,k) =
