@@ -433,26 +433,26 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
           enddo
         enddo
 
-      case ('gem','tmcar','tmsin','kai1')
+cc      case ('gem','tmcar','tmsin','kai1')
+cc
+cc        do ieq=1,varr%nvar
+cc          call perturbEquilibrium_gem(varr%array_var(ieq)%array
+cc     .                               ,varr%array_var(ieq)%bconds
+cc     .                               ,pert(ieq),ieq)
+cc        enddo
+cc
+cc      case ('dtm')
+cc
+cc        do ieq=1,varr%nvar
+cc          call perturbEquilibrium_dtm(varr%array_var(ieq)%array
+cc     .                               ,varr%array_var(ieq)%bconds
+cc     .                               ,pert(ieq),ieq)
+cc        enddo
+
+      case ('ic','ic-hk','dtm','gem','tmcar','tmsin','kai1')
 
         do ieq=1,varr%nvar
-          call perturbEquilibrium_gem(varr%array_var(ieq)%array
-     .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),ieq)
-        enddo
-
-      case ('dtm')
-
-        do ieq=1,varr%nvar
-          call perturbEquilibrium_dtm(varr%array_var(ieq)%array
-     .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),ieq)
-        enddo
-
-      case ('ic','ic-hk')
-
-        do ieq=1,varr%nvar
-          call perturbEquilibrium_ic(varr%array_var(ieq)%array
+          call perturbEquilibrium_psi(varr%array_var(ieq)%array
      .                              ,varr%array_var(ieq)%bconds
      .                              ,pert(ieq),ieq)
         enddo
@@ -692,78 +692,154 @@ c     End program
 
       end subroutine perturbEquilibrium_ppnch
 
-c     perturbEquilibrium_gem
-c     #################################################################
-      subroutine perturbEquilibrium_gem(array,bcs,perturb,ieq)
-
-c     -----------------------------------------------------------------
-c     Perturbs equilibrium quantity in array0 with a sinusoidal
-c     perturbation of magnitude perturb, and introduces it in array.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-
-c     Local variables
-
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
-      real(8)    :: x1,y1,z1,kk,mm,lx,ly
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
-
-      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
-
-c     Begin program
-
-      if (ieq == IBX .or. ieq == IBY) then
-
-        lx = xmax-xmin
-        if (bcond(1) == FSYM .or. bcond(2) == FSYM) lx = 2*(xmax-xmin)
-        ly = ymax-ymin
-        if (bcond(3) == FSYM .or. bcond(4) == FSYM) ly = 2*(ymax-ymin)
-
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
-
-              psi(i,j,k)=-sin(  pi*(x1-xmin)/lx)
-     .                   *cos(2*pi*(y1-ymin)/ly)
-            enddo
-          enddo
-        enddo
-
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-              ip = min(i+1,ihip)
-              im = max(i-1,ilom)
-              jp = min(j+1,jhip)
-              jm = max(j-1,jlom)
-
-              if (ieq == IBX) then
-                array(i,j,k) = array(i,j,k)
-     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-     .                              /(grid_params%yy(jg+jp-j)
-     .                               -grid_params%yy(jg+jm-j))
-              else
-                array(i,j,k) = array(i,j,k)
-     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-     .                              /(grid_params%xx(ig+ip-i)
-     .                               -grid_params%xx(ig+im-i))
-              endif
-            enddo
-          enddo
-        enddo
-
-cc      elseif (ieq == IVX .or. ieq == IVY) then
+ccc     perturbEquilibrium_gem
+ccc     #################################################################
+cc      subroutine perturbEquilibrium_gem(array,bcs,perturb,ieq)
+cc
+ccc     -----------------------------------------------------------------
+ccc     Perturbs equilibrium quantity in array0 with a sinusoidal
+ccc     perturbation of magnitude perturb, and introduces it in array.
+ccc     -----------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer    :: bcs(6),ieq
+cc      real(8)    :: perturb
+cc      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+cc
+ccc     Local variables
+cc
+cc      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
+cc      real(8)    :: x1,y1,z1,kk,mm,lx,ly
+cc      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+cc
+cc      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
+cc
+ccc     Begin program
+cc
+cc      if (ieq == IBX .or. ieq == IBY) then
+cc
+cc        lx = xmax-xmin
+cc        if (bcond(1) == FSYM .or. bcond(2) == FSYM) lx = 2*(xmax-xmin)
+cc        ly = ymax-ymin
+cc        if (bcond(3) == FSYM .or. bcond(4) == FSYM) ly = 2*(ymax-ymin)
+cc
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc     .                                      ,x1,y1,z1)
+cc
+cc              psi(i,j,k)=-sin(  pi*(x1-xmin)/lx)
+cc     .                   *cos(2*pi*(y1-ymin)/ly)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc
+cc              ip = min(i+1,ihip)
+cc              im = max(i-1,ilom)
+cc              jp = min(j+1,jhip)
+cc              jm = max(j-1,jlom)
+cc
+cc              if (ieq == IBX) then
+cc                array(i,j,k) = array(i,j,k)
+cc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+cc     .                              /(grid_params%yy(jg+jp-j)
+cc     .                               -grid_params%yy(jg+jm-j))
+cc              else
+cc                array(i,j,k) = array(i,j,k)
+cc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+cc     .                              /(grid_params%xx(ig+ip-i)
+cc     .                               -grid_params%xx(ig+im-i))
+cc              endif
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cccc      elseif (ieq == IVX .or. ieq == IVY) then
+cccc
+cccc        do k = klom,khip
+cccc          do j = jlom,jhip
+cccc            do i = ilom,ihip
+cccc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc     .                                    ,x1,y1,z1)
+cccc
+cccc              psi(i,j,k)=sin(2*pi*(x1-xmin)/(xmax-xmin))
+cccc     .                  *sin(2*pi*(y1-ymin)/(ymax-ymin))
+cccc            enddo
+cccc          enddo
+cccc        enddo
+cccc        
+cccc        do k = klom,khip
+cccc          do j = jlom,jhip
+cccc            do i = ilom,ihip
+cccc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cccc
+cccc              ip = min(i+1,ihip)
+cccc              im = max(i-1,ilom)
+cccc              jp = min(j+1,jhip)
+cccc              jm = max(j-1,jlom)
+cccc
+cccc              if (ieq == IVX) then
+cccc                array(i,j,k) = array(i,j,k)
+cccc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
+cccc     .                              /(grid_params%yy(jg+jp-j)
+cccc     .                               -grid_params%yy(jg+jm-j))
+cccc              else
+cccc                array(i,j,k) = array(i,j,k)
+cccc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
+cccc     .                              /(grid_params%xx(ig+ip-i)
+cccc     .                               -grid_params%xx(ig+im-i))
+cccc              endif
+cccc            enddo
+cccc          enddo
+cccc        enddo
+cc
+cc      else
+cc
+cc        call perturbEquilibrium_def(array,bcs,perturb)
+cc
+cc      endif
+cc
+ccc     End program
+cc
+cc      end subroutine perturbEquilibrium_gem
+cc
+ccc     perturbEquilibrium_dtm
+ccc     #################################################################
+cc      subroutine perturbEquilibrium_dtm(array,bcs,perturb,ieq)
+cc
+ccc     -----------------------------------------------------------------
+ccc     Perturbs equilibrium quantity in array0 with a sinusoidal
+ccc     perturbation of magnitude perturb, and introduces it in array.
+ccc     -----------------------------------------------------------------
+cc
+cc      implicit none
+cc
+ccc     Call variables
+cc
+cc      integer    :: bcs(6),ieq
+cc      real(8)    :: perturb
+cc      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+cc
+ccc     Local variables
+cc
+cc      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
+cc      real(8)    :: x1,y1,z1,kk,mm
+cc      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+cc
+cc      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
+cc
+ccc     Begin program
+cc
+cc      if (ieq == IBX .or. ieq == IBY) then
 cc
 cc        do k = klom,khip
 cc          do j = jlom,jhip
@@ -771,8 +847,8 @@ cc            do i = ilom,ihip
 cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                    ,x1,y1,z1)
 cc
-cc              psi(i,j,k)=sin(2*pi*(x1-xmin)/(xmax-xmin))
-cc     .                  *sin(2*pi*(y1-ymin)/(ymax-ymin))
+cc              psi(i,j,k)=-cos(2*pi*(x1-xmin)/(xmax-xmin))
+cc     .                   *cos(2*pi*(y1-ymin)/(ymax-ymin))
 cc            enddo
 cc          enddo
 cc        enddo
@@ -787,7 +863,7 @@ cc              im = max(i-1,ilom)
 cc              jp = min(j+1,jhip)
 cc              jm = max(j-1,jlom)
 cc
-cc              if (ieq == IVX) then
+cc              if (ieq == IBX) then
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
 cc     .                              /(grid_params%yy(jg+jp-j)
@@ -801,93 +877,17 @@ cc              endif
 cc            enddo
 cc          enddo
 cc        enddo
-
-      else
-
-        call perturbEquilibrium_def(array,bcs,perturb)
-
-      endif
-
-c     End program
-
-      end subroutine perturbEquilibrium_gem
-
-c     perturbEquilibrium_dtm
-c     #################################################################
-      subroutine perturbEquilibrium_dtm(array,bcs,perturb,ieq)
-
-c     -----------------------------------------------------------------
-c     Perturbs equilibrium quantity in array0 with a sinusoidal
-c     perturbation of magnitude perturb, and introduces it in array.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-
-c     Local variables
-
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm
-      real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
-
-      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
-
-c     Begin program
-
-      if (ieq == IBX .or. ieq == IBY) then
-
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
-
-              psi(i,j,k)=-cos(2*pi*(x1-xmin)/(xmax-xmin))
-     .                   *cos(2*pi*(y1-ymin)/(ymax-ymin))
-            enddo
-          enddo
-        enddo
-        
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-              ip = min(i+1,ihip)
-              im = max(i-1,ilom)
-              jp = min(j+1,jhip)
-              jm = max(j-1,jlom)
-
-              if (ieq == IBX) then
-                array(i,j,k) = array(i,j,k)
-     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-     .                              /(grid_params%yy(jg+jp-j)
-     .                               -grid_params%yy(jg+jm-j))
-              else
-                array(i,j,k) = array(i,j,k)
-     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-     .                              /(grid_params%xx(ig+ip-i)
-     .                               -grid_params%xx(ig+im-i))
-              endif
-            enddo
-          enddo
-        enddo
-
-      else
-
-        call perturbEquilibrium_def(array,bcs,perturb)
-
-      endif
-
-c     End program
-
-      end subroutine perturbEquilibrium_dtm
-
+cc
+cc      else
+cc
+cc        call perturbEquilibrium_def(array,bcs,perturb)
+cc
+cc      endif
+cc
+ccc     End program
+cc
+cc      end subroutine perturbEquilibrium_dtm
+cc
 ccc     perturbEquilibrium_3dpar
 ccc     #################################################################
 cc      subroutine perturbEquilibrium_3dpar(array,bcs,perturb,ieq)
@@ -913,7 +913,7 @@ cc      real(8)    :: x1,y1,z1,kk,mm,nn,rs,iq0,RR,sigma,r0
 cc      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 cc
 cc      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
-cc
+ccc
 ccc     Begin program
 cc
 cc      igx = 1
@@ -1058,9 +1058,9 @@ ccc     End program
 cc
 cc      end subroutine perturbEquilibrium_3dpar
 
-c     perturbEquilibrium_ic
+c     perturbEquilibrium_psi
 c     #################################################################
-      subroutine perturbEquilibrium_ic(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_psi(array,bcs,perturb,ieq)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -1077,11 +1077,11 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6)
+      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6),nx,ny,nz
       real(8)    :: x1,y1,z1,kk,mm,xle,yle,zle
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip)
+      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip),grd(3)
 
 c     Begin program
 
@@ -1090,56 +1090,46 @@ c     Begin program
         !Find vector potential
         psi = 0d0
 
+        !Set psi BCs (Neumann if symmetry, Dirichlet otherwise)
         bcsl = bcond
-        where(bcsl == DEF) bcsl = DIR  !Vector potential has dirichlet BCs
+        where(bcsl == DEF) bcsl = DIR
 
         call perturbEquilibrium_def(psi,bcsl,perturb)
 
-cc        xle = xmax-xmin
-cc        if (abs(bcond(1))==SYM.or.abs(bcond(1))==FSYM
-cc     .  .or.abs(bcond(2))==SYM.or.abs(bcond(2))==FSYM) xle=2*xle
-cc        yle = ymax-ymin
-cc        if (abs(bcond(3))==SYM.or.abs(bcond(3))==FSYM
-cc     .  .or.abs(bcond(4))==SYM.or.abs(bcond(4))==FSYM) yle=2*yle
-cc        zle = zmax-zmin
-cc        if (abs(bcond(5))==SYM.or.abs(bcond(5))==FSYM
-cc     .  .or.abs(bcond(6))==SYM.or.abs(bcond(6))==FSYM) zle=2*zle
-cc
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc              psi(i,j,k)=perturb*sin(  pi*(x1-xmin)/xle)
-cc     .                  *cos(2*pi*(y1-ymin)/yle)
-cc     .                  *cos(2*pi*(z1-zmin)/zle)
-cc            enddo
-cc          enddo
-cc        enddo
-
         !Find delta_B
+        nx = ihip-ilom-2
+        ny = jhip-jlom-2
+        nz = khip-klom-2
+
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
               call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-              ip = min(i+1,ihip)
-              im = max(i-1,ilom)
-              jp = min(j+1,jhip)
-              jm = max(j-1,jlom)
+              grd = grad(i,j,k,nx,ny,nz,igx,igy,igz,psi)
 
               if (ieq == IBX) then
-                array(i,j,k) = array(i,j,k)
-     .                   - (psi(i,jp,k)-psi(i,jm,k))
-     .                     /(grid_params%yy(jg+jp-j)
-     .                      -grid_params%yy(jg+jm-j))
+                array(i,j,k) = array(i,j,k) - grd(2)
               else
-                array(i,j,k) = array(i,j,k)
-     .                   + (psi(ip,j,k)-psi(im,j,k))
-     .                     /(grid_params%xx(ig+ip-i)
-     .                      -grid_params%xx(ig+im-i))
+                array(i,j,k) = array(i,j,k) + grd(1)
               endif
+
+cc              ip = min(i+1,ihip)
+cc              im = max(i-1,ilom)
+cc              jp = min(j+1,jhip)
+cc              jm = max(j-1,jlom)
+cc
+cc              if (ieq == IBX) then
+cc                array(i,j,k) = array(i,j,k)
+cc     .                   - (psi(i,jp,k)-psi(i,jm,k))
+cc     .                     /(grid_params%yy(jg+jp-j)
+cc     .                      -grid_params%yy(jg+jm-j))
+cc              else
+cc                array(i,j,k) = array(i,j,k)
+cc     .                   + (psi(ip,j,k)-psi(im,j,k))
+cc     .                     /(grid_params%xx(ig+ip-i)
+cc     .                      -grid_params%xx(ig+im-i))
+cc              endif
             enddo
           enddo
         enddo
@@ -1152,7 +1142,7 @@ cc        enddo
 
 c     End program
 
-      end subroutine perturbEquilibrium_ic
+      end subroutine perturbEquilibrium_psi
 
 c     factor
 c     ####################################################################
