@@ -70,22 +70,9 @@ TimeIntegrator{
 
 
 pixie3d{
-          operator_name                   = "CellDiffusionOperator"
-     	  tangent_interp_scheme           = "LINEAR"
-       	  normal_interp_scheme            = "LINEAR"
-      	  adjust_cf_coefficients          = FALSE
-     	  interpolate_ghost_values        = TRUE
-     	  extrapolation_order             = 2
-       	  boundary_conditions             = DIRICHLET, DIRICHLET, NEUMANN, NEUMANN
-      	  coarsen_diffusive_fluxes        = TRUE
-      	  print_info_level                = 0
-          beta                            = -1.0
-          cell_refine_op                  = "CONSTANT_REFINE"
-          cell_coarsen_op                 = "CONSERVATIVE_COARSEN"
-          face_refine_op                  = "CONSTANT_REFINE"
-          face_coarsen_op                 = "CONSERVATIVE_COARSEN"
-          variable_order_interpolation    = TRUE
-          use_cf_interpolant              = TRUE
+    refine_method    = "COARSE_LINEAR"  // Interpolation method: CONSTANT, COARSE_LINEAR, FINE_LINEAR
+    coarsen_method   = "CONSERVATIVE"   // Coarsening method: CONSERVATIVE
+    print_info_level = 0
 }
 
 GriddingAlgorithm{
