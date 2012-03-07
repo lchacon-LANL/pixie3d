@@ -1097,9 +1097,9 @@ c     Begin program
         call perturbEquilibrium_def(psi,bcsl,perturb)
 
         !Find delta_B
-        nx = ihip-ilom-2
-        ny = jhip-jlom-2
-        nz = khip-klom-2
+        nx = ihip-ilom-1
+        ny = jhip-jlom-1
+        nz = khip-klom-1
 
         do k = klo,khi
           do j = jlo,jhi
@@ -1113,23 +1113,6 @@ c     Begin program
               else
                 array(i,j,k) = array(i,j,k) + grd(1)
               endif
-
-cc              ip = min(i+1,ihip)
-cc              im = max(i-1,ilom)
-cc              jp = min(j+1,jhip)
-cc              jm = max(j-1,jlom)
-cc
-cc              if (ieq == IBX) then
-cc                array(i,j,k) = array(i,j,k)
-cc     .                   - (psi(i,jp,k)-psi(i,jm,k))
-cc     .                     /(grid_params%yy(jg+jp-j)
-cc     .                      -grid_params%yy(jg+jm-j))
-cc              else
-cc                array(i,j,k) = array(i,j,k)
-cc     .                   + (psi(ip,j,k)-psi(im,j,k))
-cc     .                     /(grid_params%xx(ig+ip-i)
-cc     .                      -grid_params%xx(ig+im-i))
-cc              endif
             enddo
           enddo
         enddo
