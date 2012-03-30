@@ -2736,7 +2736,7 @@ c #####################################################################
 c ---------------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * array -> contains vector
-c        * dim   -> dimension we are imposing BC on (X,Y,Z)
+c        * dim   -> dimension we are imposing BC on (X,Y,Z) (1,2,3)
 c        * loc   -> boundary location (0 -> left, 1->right)
 c        * face  -> whether we are approximating normal derivative at
 c                   boundary face or at inner boundary cell center.
