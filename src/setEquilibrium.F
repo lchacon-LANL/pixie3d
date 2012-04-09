@@ -3484,8 +3484,9 @@ c     Local variables
         real(8) :: x(nx*ny*nz)
      .            ,r(nx*ny*nz)
 
+#if defined(FPA)
         type (fpa_state) :: fpav
-
+#endif
         logical :: phaseout_psibc=.false.
 
 c     Begin program
@@ -4607,7 +4608,8 @@ c     Call variables
 c     Local variables
 
         integer :: i,j,k,ig,jg,kg,ii,it,bcnd(6),igrid,guess
-     .            ,iglobal,jglobal,pos(2)
+     .            ,iglobal,jglobal,pos(2),nn
+     .            ,np_RAD,my_rank_RAD,np_Z,my_rank_Z
 
         real(8) :: bz_avg,bth_avg,gserr,oherr,rh,dh,dt,I0,bnorm2
      .            ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
@@ -4617,16 +4619,16 @@ c     Local variables
      .            ,cov(3),e4,e5,e6
 
         real(8) :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
-     .            ,RR(0:nxdp,0:nydp)
 
         real(8) :: iR2  (0:nx+1,0:ny+1,0:nz+1)
      .            ,zeros(0:nx+1,0:ny+1,0:nz+1)
      .            ,qprof(0:nx+1,0:ny+1)
-     .            ,dummy(0:nxdp,0:ny+1)
-     .            ,psig (0:nxdp,0:ny+1,0:nz+1)
-     .            ,III  (0:nxdp,0:ny+1)
+     .            ,dummy(0:nx+1,0:ny+1)
+     .            ,III  (0:nx+1,0:ny+1)
+     .            ,RR   (0:nx+1,0:ny+1)
 
-        real(8),allocatable,dimension(:) :: psi_rhs,psiv,mpivec,errv
+        real(8),allocatable,dimension(:) :: psi_rhs,psiv,errv
+     .                                     ,mpivec,mpivec_in
 
         real(8) :: pprof
         external del_star,pprof
@@ -4653,7 +4655,7 @@ c     Begin program
         endif
 
         zeros = 0d0 ; iR2 = 0d0 ; dummy = 0d0
-        qprof = 0d0 ; psig = 0d0 ; III = 0d0
+        qprof = 0d0 ; III = 0d0 !; psig = 0d0
 
 c       Initialize iteration
 
@@ -4671,9 +4673,12 @@ c       Initialize iteration
         psi = 0d0
 
         !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
-        do j=0,nydp
-          do i=0,nxdp
-            RR(i,j) = R0 +  grid_params%xg(i)*cos(grid_params%yg(j))
+        do j=0,ny+1
+          do i=0,nx+1
+            iglobal = i + grid_params%ilo(igrid) - 1
+            jglobal = j + grid_params%jlo(igrid) - 1
+            RR(i,j) = R0 + grid_params%xg(iglobal)
+     .                    *cos(grid_params%yg(jglobal))
           enddo
         enddo
 
@@ -4681,34 +4686,21 @@ c       Initialize iteration
           call pstop('Ohm_GS_equil_2d','r > R in torus')
         endif
 
-        do j=0,ny+1
-          do i=0,nx+1
-            iglobal = i + grid_params%ilo(igrid) - 1
-            jglobal = j + grid_params%jlo(igrid) - 1
-
-            iR2(i,j,:) = 1d0/RR(iglobal,jglobal)**2
-          enddo
+        do k=0,nz+1
+          iR2(:,:,k) = RR**(-2)
         enddo
 
         !Initial guess for III=B_phi*R
-        do j=0,ny+1
-          do iglobal=0,nxdp
-            jglobal = j + grid_params%jlo(igrid) - 1
-
-            III(iglobal,j) = RR(iglobal,jglobal)   !B_phi=1 uniform
-          enddo
-        enddo
+        III = RR   !B_phi=1 uniform
 
         !Maximum pressure
         p00 = 0.5*b_tor
 
 c       Iteration
 
-        psig = 0d0
-
         psi0 =-1d0
         psia = 0d0
-        oherr = 0d0
+        oherr= 0d0
 
         do it=1,100
 
@@ -4720,48 +4712,43 @@ c       Iteration
 
               call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-              iglobal = i + grid_params%ilo(igrid) - 1
-              jglobal = j + grid_params%jlo(igrid) - 1
+              rh = grid_params%xx (ig)
+              dh = grid_params%dxh(ig)
+              dt = grid_params%dyh(jg)
 
-              x1 = xh(iglobal)
-              rh = grid_params%xg(iglobal)
-              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
-              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+              IIh = 0.5*(III(i,j)+III(i-1,j))
 
-              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
-
-              psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
-              psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+              psir   = 0.5*(psi(i+1,j,k)-psi(i-1,j,k))/dh
+              psith  = 0.5*(psi(i,j+1,k)-psi(i,j-1,k))/dt/rh
               gpsi2  = psir**2 + psith**2
               bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
 
-cc              etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
               etah =res_rfx(rh)/eta
 
-              spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
-              spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
-              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+              spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
+              spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
+              dpdr  = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
-              spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
-              spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
-              dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+              spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
+              spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
+              dpdth = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
 
-              psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
+              psi_rhs(ii)= (Eoeta/etah*IIh**2*iR2(i,j,k)
      .                     -psir*dpdr-psith*dpdth)/bnorm2
 
               !Multiply by R to ensure proper limit R->inf
               errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                             ,psi,dff=iR2,vol=.false.)
-     .                   -psi_rhs(ii))*RR(iglobal,jglobal)
+     .                   -psi_rhs(ii))*RR(i,j)
 
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
      .                                *gmetric%grid(igrid)%dvol(i,j,k)
 
               oherr = oherr
-     .               +(Eoeta/etah*IIh/RR(iglobal,jglobal)**2*psir
+     .               +(Eoeta/etah*IIh*iR2(i,j,k)*psir
      .                +IIh*dpdr
-     .                +bnorm2/RR(iglobal,jglobal)**2  !R^2 factor needed to normalize bnorm2
-     .                *(III(iglobal,j)-III(iglobal-1,j))/dh)**2
+     .                +bnorm2*iR2(i,j,k)  !R^2 factor needed to normalize bnorm2
+     .                *(III(i,j)-III(i-1,j))/dh)**2
               enddo
             enddo
           enddo
@@ -4804,72 +4791,87 @@ cc     .              ,mg_gm_coarse_solve=.false.
           call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
      .              ,iorder=bc_order)
 
-          !Gather global psi in radius
-#if defined(petsc)
-          if (npx > 1) then
-            allocate(mpivec(npx*(nx+2)*(ny+2)))
-            call MPI_Allgather(psi(0:nx+1,0:ny+1,1)
-     .                             ,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
-     .                      ,mpivec,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
-     .                      ,MPI_COMM_RAD,mpierr)
-
-            do j=1,npx
-              psig(nx*(j-1):nx*j+1,:,0)
-     .         = reshape(mpivec(1+(nx+2)*(ny+2)*(j-1):(nx+2)*(ny+2)*j)
-     .                   ,(/nx+2,ny+2/))
-            enddo
-
-            do k=1,nz+1
-              psig(:,:,k) = psig(:,:,0)
-            enddo
-
-            deallocate(mpivec)
-          else
-            psig = psi
-          endif
-#else
-          psig = psi
-#endif
           !Perform integral of III (at half-mesh on global grid in radius)
 
           psi0 = minval(psi)
 #if defined (petsc)
           lpsi0 = psi0
           call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_MIN,MPI_COMM_RAD,mpierr)
+     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
 #endif
 
+          k = 1
           do j=1,ny
-            jglobal = j + grid_params%jlo(igrid) - 1
-
             dummy(0,j) = 0d0
-            do iglobal=1,nxd
-              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+            do i=1,nx
+              IIh = 0.5*(III(i,j)+III(i-1,j))
 
-              rh = grid_params%xg(iglobal)
-              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
-              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-              psir   =(psig(iglobal+1,j,1)-psig(iglobal-1,j,1))/2./dh
-              psith  =(psig(iglobal,j+1,1)-psig(iglobal,j-1,1))/2./dt/rh
-              bnorm2 = IIh**2 + psir**2 + psith**2
+              rh = grid_params%xx(ig)
+              dh = grid_params%dxh(ig)
+              dt = grid_params%dyh(jg)
 
-              psip  = 0.5*(psig(iglobal+1,j,1)+psig(iglobal,j,1))
-              psim  = 0.5*(psig(iglobal-1,j,1)+psig(iglobal,j,1))
+              psir  =0.5*(psi(i+1,j  ,k)
+     .                   -psi(i-1,j  ,k))/dh
+              psith =0.5*(psi(i  ,j+1,k)
+     .                   -psi(i  ,j-1,k))/dt/rh
+              bnorm2= IIh**2 + psir**2 + psith**2
+
+              psip  = 0.5*(psi(i+1,j,k)
+     .                    +psi(i  ,j,k))
+              psim  = 0.5*(psi(i-1,j,k)
+     .                    +psi(i  ,j,k))
               spsip = sqrt(1d0-psip/psi0)
               spsim = sqrt(1d0-psim/psi0)
               dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
-cc              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
               etah  = res_rfx(rh)/eta
 
-              dummy(iglobal,j) = dummy(iglobal-1,j)
-     .                         - RR(iglobal,jglobal)**2/bnorm2
-     .                          *(Eoeta*psir/etah/RR(iglobal,jglobal)**2
-     .                           +dpdr)*dr(iglobal)
+              dummy(i,j) = dummy(i-1,j)
+     .                         - RR(i,j)**2/bnorm2
+     .                          *(Eoeta*psir/etah*iR2(i,j,k)
+     .                           +dpdr)*grid_params%dx(ig)!!*dr(iglobal)
             enddo
           enddo
 
+#if defined(petsc)
+          !Broadcast poloidal integral along Z
+          call initMPI(MPI_COMM_Z,np_Z,my_rank_Z)
+
+          nn = size(dummy)
+          call MPI_Bcast(dummy,nn,MPI_DOUBLE_PRECISION
+     .                  ,0,MPI_COMM_Z,mpierr)
+
+          !Communicate radial integration constants
+          if (npx > 1) then
+            allocate(mpivec(npx*ny))
+            call MPI_Allgather(dummy(nx,1:ny)
+     .                             ,ny,MPI_DOUBLE_PRECISION
+     .                      ,mpivec,ny,MPI_DOUBLE_PRECISION
+     .                      ,MPI_COMM_RAD,mpierr)
+
+            !Sum integration constants
+            do j=2,npx
+              mpivec(1+ny*(j-1):ny*j) = mpivec(1+ny*(j-1):ny* j   )
+     .                                 +mpivec(1+ny*(j-2):ny*(j-1))
+            enddo
+
+            !Add integration constants
+            call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+
+            j = my_rank_rad
+            if (j > 0) then
+              do i=0,nx+1
+                dummy(i,1:ny) = dummy(i,1:ny) + mpivec(1+ny*(j-1):ny*j)
+              enddo
+            endif
+
+            deallocate(mpivec)
+          endif
+#endif
+
+          !Find III (local array)
           III = R0*exp(dummy)
 
           !Check convergence
@@ -4893,57 +4895,49 @@ cc              etah  = res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
 
 c       Find vectors and scalars
 
+        k = 1
         do j=1,ny
           do i=1,nx
-            iglobal = i + grid_params%ilo(igrid) - 1
-            jglobal = j + grid_params%jlo(igrid) - 1
-
-cc            rh = grid_params%xg(iglobal)
-cc            dh = 0.5*(dr (iglobal)+dr (iglobal-1))
-cc            dt = 0.5*(dth(jglobal)+dth(jglobal-1))
-
             call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
             rh = grid_params%xx(ig)
             dh = grid_params%dxh(ig)
             dt = grid_params%dyh(jg)
 
-            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
-            psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
-            psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
-            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+            IIh    = 0.5*(III(i,j)+III(i-1,j))
+            psir   = 0.5*(psi(i+1,j,k)-psi(i-1,j,k))/dh
+            psith  = 0.5*(psi(i,j+1,k)-psi(i,j-1,k))/dt/rh
+            bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
 
            !Find contravariant magnetic field components in integer mesh
             b1(i,j,:) =-psith*rh
             b2(i,j,:) = psir
-            b3(i,j,:) = IIh*rh/RR(iglobal,jglobal)
+            b3(i,j,:) = IIh*rh/RR(i,j)
 
             !Find contravariant velocity components
-cc            etah =res(iglobal,jglobal,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
             etah =res_rfx(rh)/eta
 
-            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
-            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+            spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
             dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
 
-            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
-            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+            spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
             dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
 
-            v1(i,j,:) =-(Eoeta*psir /RR(iglobal,jglobal)**2+etah*dpdr )
-     .                  *RR(iglobal,jglobal)*rh/bnorm2
-            v2(i,j,:) =-(Eoeta*psith/RR(iglobal,jglobal)**2+etah*dpdth)
-     .                  *RR(iglobal,jglobal)/bnorm2
+            v1(i,j,:) =-(Eoeta*psir *iR2(i,j,k)+etah*dpdr )
+     .                  *RR(i,j)*rh/bnorm2
+            v2(i,j,:) =-(Eoeta*psith*iR2(i,j,k)+etah*dpdth)
+     .                  *RR(i,j)/bnorm2
 
             !Find pressure
-            spsi = sqrt(1d0-psi(i,j,1)/psi0)
+            spsi = sqrt(1d0-psi(i,j,k)/psi0)
             pp(i,j,:) = p00*pprof(spsi,0)
           enddo
         enddo
 
-c       Calculate GS equilibrium properties
+c       Calculate GS convergence properties
 
-        !Convergence properties
         e1 = 0d0
         e2 = 0d0
         e3 = 0d0
@@ -4951,10 +4945,7 @@ c       Calculate GS equilibrium properties
         e5 = 0d0
         e6 = 0d0
 
-        tor_flx = 0d0
-        p_avg   = 0d0
-        bz2_avg = 0d0
-
+        k = 1
         do j=2,ny-1
           do i=2,nx-1
 cc        do j=1,ny
@@ -4962,113 +4953,89 @@ cc          do i=1,nx
             iglobal = i + grid_params%ilo(igrid) - 1
             jglobal = j + grid_params%jlo(igrid) - 1
 
-cc            rh = grid_params%xg(iglobal)
-cc            dh = 0.5*(dr (iglobal)+dr (iglobal-1))
-cc            dt = 0.5*(dth(jglobal)+dth(jglobal-1))
-
             call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
             rh = grid_params%xx(ig)
             dh = grid_params%dxh(ig)
             dt = grid_params%dyh(jg)
 
-            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
-            psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
-            psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
-            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+            IIh    = 0.5*(III(i,j)+III(i-1,j))
+            psir   = (psi(i+1,j,k)-psi(i-1,j,k))/2./dh
+            psith  = (psi(i,j+1,k)-psi(i,j-1,k))/2./dt/rh
+            bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
 
-            jac = rh*RR(iglobal,jglobal)
+            jac = rh*RR(i,j)
 
             !Find pressure derivatives
-            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
-            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+            spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
             dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
 
-            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
-            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+            spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
             dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
 
             !Find contravariant current components
-            j1 = (III(iglobal,j+1)+III(iglobal-1,j+1)
-     .           -III(iglobal,j-1)-III(iglobal-1,j-1))/4./dt
-            j2 =-(III(iglobal,j)  -III(iglobal-1,j))/dh
-            j3 = jac*laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
+            j1 = (III(i,j+1)+III(i-1,j+1)
+     .           -III(i,j-1)-III(i-1,j-1))/4./dt
+            j2 =-(III(i,j)  -III(i-1,j))/dh
+            j3 = jac*laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                        ,psi,dff=iR2,vol=.false.)
 
             !Find covariant EOM force components
-            f_1 = (j2*b3(i,j,1)-j3*b2(i,j,1))/jac - dpdr
-            f_2 = (j3*b1(i,j,1)-j1*b3(i,j,1))/jac - dpdth
-            f_3 = (j1*b2(i,j,1)-j2*b1(i,j,1))/jac
+            f_1 = (j2*b3(i,j,k)-j3*b2(i,j,k))/jac - dpdr
+            f_2 = (j3*b1(i,j,k)-j1*b3(i,j,k))/jac - dpdth
+            f_3 = (j1*b2(i,j,k)-j2*b1(i,j,k))/jac
 
             !Accumulate errors
-            e1 = e1 + f_1**2*gmetric%grid(igrid)%dvol(i,j,1)
-            e2 = e2 + f_2**2*gmetric%grid(igrid)%dvol(i,j,1)
-            e3 = e3 + f_3**2*gmetric%grid(igrid)%dvol(i,j,1)
-cc            e1 = e1 + f_1**2
-cc            e2 = e2 + f_2**2
-cc            e3 = e3 + f_3**2
+            e1 = e1 + f_1**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e2 = e2 + f_2**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e3 = e3 + f_3**2*gmetric%grid(igrid)%dvol(i,j,k)
 
             !Find covariant Ohm's law components
-cc            etah =res(iglobal,1,1,nxd,nyd,nzd,1,1,1,rrr=rh)/eta
             etah =res_rfx(rh)/eta
 
-            cov = matmul(gmetric%grid(1)%gsub(i,j,1,:,:),(/ j1,j2,j3/))
+            cov = matmul(gmetric%grid(1)%gsub(i,j,k,:,:),(/ j1,j2,j3/))
 
-            f_1 =      (v2(i,j,1)*b3(i,j,1)                    )/jac
-            f_2 =      (                   -v1(i,j,1)*b3(i,j,1))/jac
-            f_3 =Eoeta+(v1(i,j,1)*b2(i,j,1)-v2(i,j,1)*b1(i,j,1))/jac
+            f_1 =      (v2(i,j,k)*b3(i,j,k)                    )/jac
+            f_2 =      (                   -v1(i,j,k)*b3(i,j,k))/jac
+            f_3 =Eoeta+(v1(i,j,k)*b2(i,j,k)-v2(i,j,k)*b1(i,j,k))/jac
 
             f_1 =f_1-etah*cov(1)
             f_2 =f_2-etah*cov(2)
             f_3 =f_3-etah*cov(3)
 
             !Accumulate errors
-            e4 = e4 + f_1**2*gmetric%grid(igrid)%dvol(i,j,1)
-            e5 = e5 + f_2**2*gmetric%grid(igrid)%dvol(i,j,1)
-            e6 = e6 + f_3**2*gmetric%grid(igrid)%dvol(i,j,1)
-cc            e4 = e4 + f_1**2
-cc            e5 = e5 + f_2**2
-cc            e6 = e6 + f_3**2
-
-            !Q-profile
-            qprof(i,j) = b3(i,j,1)/b2(i,j,1)
-
-            !Toroidal flux
-            tor_flx = tor_flx + b3(i,j,1)*dr(iglobal)*dth(jglobal)
-
-            !Bz^2 average
-            bz2_avg = bz2_avg+(b3(i,j,1))**2/rh*dr(iglobal)*dth(jglobal)
-
-            !Pressure average
-            p_avg = p_avg + pp(i,j,1)*rh*dr(iglobal)*dth(jglobal)
-
+            e4 = e4 + f_1**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e5 = e5 + f_2**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e6 = e6 + f_3**2*gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
 
 #if defined (petsc)
         lpsi0 = e1
         call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 
         lpsi0 = e2
         call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 
         lpsi0 = e3
         call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 
         lpsi0 = e4
         call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 
         lpsi0 = e5
         call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 
         lpsi0 = e6
         call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
 #endif
 
         gserr = e1 + e2 + e3
@@ -5077,10 +5044,6 @@ cc            e6 = e6 + f_3**2
         e1 = sqrt(e1/pi/xmax**2)
         e2 = sqrt(e2/pi/xmax**2)
         e3 = sqrt(e3/pi/xmax**2)
-cc        e1 = sqrt(e1)/(nxd-2)/(nyd-2)
-cc        e2 = sqrt(e2)/(nxd-2)/(nyd-2)
-cc        e3 = sqrt(e3)/(nxd-2)/(nyd-2)
-cc        gserr = sqrt(gserr)/(nxd-2)/(nyd-2)
 
         oherr = e4 + e5 + e6
         oherr = sqrt(oherr/pi/xmax**2)
@@ -5088,10 +5051,6 @@ cc        gserr = sqrt(gserr)/(nxd-2)/(nyd-2)
         e4 = sqrt(e4/pi/xmax**2)
         e5 = sqrt(e5/pi/xmax**2)
         e6 = sqrt(e6/pi/xmax**2)
-cc        e4 = sqrt(e4)/(nxd-2)/(nyd-2)
-cc        e5 = sqrt(e5)/(nxd-2)/(nyd-2)
-cc        e6 = sqrt(e6)/(nxd-2)/(nyd-2)
-cc        oherr = sqrt(oherr)/(nxd-2)/(nyd-2)
 
         if (my_rank == 0) then
           write (*,*) 'EOM force residual comp 1=',e1
@@ -5104,6 +5063,65 @@ cc        oherr = sqrt(oherr)/(nxd-2)/(nyd-2)
           write (*,*) 'Ohms law residual comp 3=',e6
           write (*,*) 'Ohms law residual total =',oherr
         endif
+
+c       Calculate GS equilibrium properties
+
+        tor_flx = 0d0
+        p_avg   = 0d0
+        bz2_avg = 0d0
+        bth_avg = 0d0
+        I0      = 0d0
+
+        k = 1
+        do j=1,ny
+          do i=1,nx
+            iglobal = i + grid_params%ilo(igrid) - 1
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+
+            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            rh = grid_params%xx(ig)
+            dh = grid_params%dxh(ig)
+            dt = grid_params%dyh(jg)
+
+            !Q-profile
+            qprof(i,j) = b3(i,j,k)/b2(i,j,k)
+
+            !Toroidal flux
+            tor_flx = tor_flx + b3(i,j,k)*dh*dt
+
+            !Bz^2 average
+            bz2_avg = bz2_avg+(b3(i,j,k))**2/rh*dh*dt
+
+            !Pressure average
+            p_avg = p_avg + pp(i,j,k)*rh*dh*dt
+
+            !Toroidal current
+            if (iglobal == nxd) then
+              I0 = I0 + (psi(i+1,j,k)-psi(i,j,k))/dh
+     .                  *2./(RR(i,j)+RR(i+1,j))*dt
+            endif
+
+          enddo
+        enddo
+
+#if defined (petsc)
+        lpsi0 = tor_flx
+        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+
+        lpsi0 = bz2_avg
+        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+
+        lpsi0 = p_avg
+        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+
+        lpsi0 = I0
+        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+#endif
 
         !Q-profile diagnostics (not working)
 cc        q0 = mval(qprof)
@@ -5119,45 +5137,13 @@ cc        call MPI_Allreduce(lpsi0,qa,1,MPI_DOUBLE_PRECISION
 cc     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
 cc#endif
 
-        !Poloidal beta (2*p(0)/Bth(r=a)^2)
-        I0 = 0d0
-        do j=1,ny
-          jglobal = j + grid_params%jlo(igrid) - 1
-          bth_avg = (psig(nxd+1,j,1)-psig(nxd,j,1))/dr(iglobal)
-     .              /RR(iglobal,jglobal)
-          I0 = I0 + bth_avg*xmax*dth(jglobal)
-        enddo
+        bth_avg = I0/2/pi   !Average Btheta
 
-#if defined (petsc)
-        lpsi0 = I0
-        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
-#endif
+        b_pol = 2*p00*pprof(0d0,0)/bth_avg**2  !Poloidal beta
 
-        bth_avg = I0/2/pi/xmax
+        b_tor = 2*p_avg/bz2_avg !Toroidal beta
 
-        b_pol = 2*p00*pprof(0d0,0)/bth_avg**2
-
-        !Toroidal beta
-#if defined (petsc)
-        lpsi0 = bz2_avg
-        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-        lpsi0 = p_avg
-        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#endif
-
-        b_tor = 2*p_avg/bz2_avg
-
-        !Toroidal flux
-#if defined (petsc)
-        lpsi0 = tor_flx
-        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
-#endif
-
-        bz_avg = 0.5*tor_flx/pi/xmax**2
+        bz_avg = 0.5*tor_flx/pi/xmax**2  !Average Bz
 
         if (my_rank == 0) then
           write (*,*) 
@@ -5213,6 +5199,692 @@ c diag *****
         deallocate(psi_rhs,psiv,errv)
 
       end subroutine Ohm_GS_equil_2d
+
+ccc     Ohm_GS_equil_2d
+ccc     ###############################################################
+cc      subroutine Ohm_GS_equil_2d(R0,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
+cc     .                          ,v1,v2,pp,psi)
+cc
+ccc     ---------------------------------------------------------------
+ccc     Solves 2D Ohmic Grad-Shafranov equilibrium equations to find 
+ccc     contravariant components of magnetic field. On input:
+ccc       * R0: Major radius
+ccc       * Eoeta: electric field over eta
+ccc       * b_tor: toroidal beta
+ccc       * nx,ny,nz: local (processor) dimensions
+ccc       * b1,b2,b3: output magnetic field contravariant components 
+ccc       * v1,v2: output velocity contravariant components
+ccc
+ccc     In the calculation below, psi is at cell centers, and B_3=I(psi)
+ccc     is defined at faces.
+ccc     ---------------------------------------------------------------
+cc
+cc        use parameters
+cc
+cc        use equilibrium
+cc
+cc        use grid
+cc
+cc        use grid_debug
+cc
+cc        use app_iosetup
+cc
+cc        use precond_variables, ONLY: csolver
+cc
+cc        use mg_xfer, ONLY: mapMGVectorToArray
+cc
+cc        use imposeBCinterface
+cc
+cc        use ts_setup, ONLY: vol_wgt
+cc
+cc        use operators, ONLY: laplacian
+cc
+cc        use transport_params
+cc
+cc        use nlfunction_setup, ONLY: res_rfx,eta
+cc
+cc        use local_BCS_variables, ONLY: bc_order
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        integer :: nx,ny,nz
+cc        real(8) :: b1(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,b2(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,b3(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,v1(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,v2(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,pp(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,Eoeta,R0,b_tor
+cc
+ccc     Local variables
+cc
+cc        integer :: i,j,k,ig,jg,kg,ii,it,bcnd(6),igrid,guess
+cc     .            ,iglobal,jglobal,pos(2)
+cc
+cc        real(8) :: bz_avg,bth_avg,gserr,oherr,rh,dh,dt,I0,bnorm2
+cc     .            ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
+cc     .            ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim
+cc     .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3
+cc     .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol
+cc     .            ,cov(3),e4,e5,e6
+cc
+cc        real(8) :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
+cc     .            ,RR(0:nxdp,0:nydp)
+cc
+cc        real(8) :: iR2  (0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,zeros(0:nx+1,0:ny+1,0:nz+1)
+cc     .            ,qprof(0:nx+1,0:ny+1)
+cc     .            ,dummy(0:nxdp,0:ny+1)
+cc     .            ,III  (0:nxdp,0:ny+1)
+cccc     .            ,psig (0:nxdp,0:ny+1,0:nz+1)
+cc     .            ,psig (0:nxdp,0:nydp)
+cc
+cc        real(8),allocatable,dimension(:) :: psi_rhs,psiv,mpivec,errv
+cc
+cc        real(8) :: pprof
+cc        external del_star,pprof
+cc
+ccc     Begin program
+cc
+cc        igrid = 1
+cc
+cc        allocate(psi_rhs(nx*ny*nz),psiv(nx*ny*nz),errv(nx*ny*nz))
+cc
+cc        psi_rhs = 0d0 ; psiv = 0d0 ; errv = 0d0
+cc
+cc        if (my_rank == 0) then
+cc          write (*,*)
+cc          write (*,*) '************************************'
+cc          write (*,*) '2D Ohmic GS equilibrium solver'
+cc          write (*,*) '************************************'
+cc          write (*,*)
+cc        endif
+cc
+cc        if (Eoeta == 0d0) then
+cc          messg = 'E0/eta = 0!!'
+cc          call pstop('Ohm_GS_equil_2d',messg)
+cc        endif
+cc
+cc        zeros = 0d0 ; iR2 = 0d0 ; dummy = 0d0
+cc        qprof = 0d0 ; psig = 0d0 ; III = 0d0
+cc
+ccc       Initialize iteration
+cc
+cc        !Find half-mesh positions
+cc        do i=0,nxd
+cc          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+cc          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+cc        enddo
+cc
+cc        do j=0,nyd
+cc          dth(j)=      grid_params%yg(j+1)-grid_params%yg(j)
+cc        enddo
+cc
+cc        !Initial guess for psi
+cc        psi = 0d0
+cc
+cc        !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
+cc        do j=0,nydp
+cc          do i=0,nxdp
+cc            RR(i,j) = R0 +  grid_params%xg(i)*cos(grid_params%yg(j))
+cc          enddo
+cc        enddo
+cc
+cc        if (minval(RR) < 0d0) then
+cc          call pstop('Ohm_GS_equil_2d','r > R in torus')
+cc        endif
+cc
+cc        do j=0,ny+1
+cc          do i=0,nx+1
+cc            iglobal = i + grid_params%ilo(igrid) - 1
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc            iR2(i,j,:) = 1d0/RR(iglobal,jglobal)**2
+cc          enddo
+cc        enddo
+cc
+cc        !Initial guess for III=B_phi*R
+cc        do j=0,ny+1
+cc          do iglobal=0,nxdp
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc            III(iglobal,j) = RR(iglobal,jglobal)   !B_phi=1 uniform
+cc          enddo
+cc        enddo
+cc
+cc        !Maximum pressure
+cc        p00 = 0.5*b_tor
+cc
+ccc       Iteration
+cc
+cc        psig = 0d0
+cc
+cc        psi0 =-1d0
+cc        psia = 0d0
+cc        oherr= 0d0
+cc
+cc        do it=1,100
+cc
+cc          !Find GS equation RHS (at cell centers)
+cc          do k=1,nz
+cc            do j=1,ny
+cc              do i=1,nx
+cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc
+cc              iglobal = i + grid_params%ilo(igrid) - 1
+cc              jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc              x1 = xh(iglobal)
+cc              rh = grid_params%xg(iglobal)
+cc              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+cc              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+cc
+cc              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+cc
+cc              psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
+cc              psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+cc              gpsi2  = psir**2 + psith**2
+cc              bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
+cc
+cc              etah =res_rfx(rh)/eta
+cc
+cc              spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+cc              spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+cc              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+cc
+cc              spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+cc              spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+cc              dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+cc
+cc              psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
+cc     .                     -psir*dpdr-psith*dpdth)/bnorm2
+cc
+cc              !Multiply by R to ensure proper limit R->inf
+cc              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                             ,psi,dff=iR2,vol=.false.)
+cc     .                   -psi_rhs(ii))*RR(iglobal,jglobal)
+cc
+cc              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
+cc     .                                *gmetric%grid(igrid)%dvol(i,j,k)
+cc
+cc              oherr = oherr
+cc     .               +(Eoeta/etah*IIh/RR(iglobal,jglobal)**2*psir
+cc     .                +IIh*dpdr
+cc     .                +bnorm2/RR(iglobal,jglobal)**2  !R^2 factor needed to normalize bnorm2
+cc     .                *(III(iglobal,j)-III(iglobal-1,j))/dh)**2
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc          !Calculate L2 norm of error
+cc          gserr = sqrt(dot2(errv,errv)/nxd/nyd/nzd)
+cc
+cc#if defined(petsc)
+cc          e1 = oherr
+cc          call MPI_Allreduce(e1,oherr,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc          oherr = sqrt(oherr/nxd/nyd/nzd)
+cc
+cc          !Solve GS Poisson eq (find psi at cell centers)
+cc          !Define BCs
+cc          bcnd = bcond
+cc          where (bcnd == DEF) bcnd = DIR
+cc
+cc          guess = 1  !To reuse previous iteration
+cc
+cc          call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
+cc     .              ,1,ilevel,guess,del_star,vol_wgt
+cc     .              ,tol           = 5d-1
+cc     .              ,gm_driver     =.true.
+cc     .              ,ks_it         = 10
+cc     .              ,mg_order_res  = 0
+cc     .              ,mg_order_prol = 1
+cccc     .              ,mg_gm_coarse_solve=.false.
+cc     .              ,mg_gm_coarse_solve=.true.
+cc     .              ,mg_vcyc       = 1
+cc     .              ,mg_smooth     = 'jb'
+cc     .              ,sm_ncolors    = 2  !Star stencil
+cc     .              ,sm_it         = 5
+cc     .              )
+cc
+cc          !Map to array (w BCs)
+cc          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
+cc
+cc          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
+cc     .              ,iorder=bc_order)
+cc
+cc          !Gather global psi in radius
+cc#if defined(petsc)
+cccc          if (npx > 1) then
+cccc            allocate(mpivec(npx*(nx+2)*(ny+2)))
+cccc            call MPI_Allgather(psi(0:nx+1,0:ny+1,1)
+cccc     .                             ,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+cccc     .                      ,mpivec,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+cccc     .                      ,MPI_COMM_RAD,mpierr)
+cccc
+cccc            do j=1,npx
+cccc              psig(nx*(j-1):nx*j+1,:)
+cccc     .         = reshape(mpivec(1+(nx+2)*(ny+2)*(j-1):(nx+2)*(ny+2)*j)
+cccc     .                   ,(/nx+2,ny+2/))
+cccc            enddo
+cccc
+cccc            do k=1,nz+1
+cccc              psig(:,:,k) = psig(:,:,0)
+cccc            enddo
+cccc          else
+cccc            psig = psi(:,:,1)
+cccc          endif
+cc
+cc            allocate(mpivec(npx*npy*(nx+2)*(ny+2)))
+cc            call MPI_Gather(psi(0:nx+1,0:ny+1,1)
+cc     .                            ,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+cc     .                     ,mpivec,(nx+2)*(ny+2),MPI_DOUBLE_PRECISION
+cc     .                     ,0,MPI_COMM_WORLD,mpierr)
+cc
+cc            do i=1,npx
+cc              do j=1,npy
+cc                psig(nx*(i-1):nx*i+1,ny*(j-1):ny*j+1)
+cc     .               = reshape(mpivec(1+(nx+2)*(ny+2)*(j-1):(nx+2)*(ny+2)*j)
+cc     .                   ,(/nx+2,ny+2/))
+cc              enddo
+cc            enddo
+cc
+cc            call MPI_Scatter(mpivec,(nxd+2)*(nyd+2),MPI_DOUBLE_PRECISION
+cc     .                      ,psig  ,(nxd+2)*(nyd+2),MPI_DOUBLE_PRECISION
+cc     .                      ,0,MPI_COMM_WORLD,mpierr)
+cc
+cc            deallocate(mpivec)
+cc
+cc
+cccc          allocate(mpivec(npx*npy*npz*(nx+2)*(ny+2)*(nz+2)))
+cccc          call MPI_Allgather(psi(0:nx+1,0:ny+1,0:nz+1)
+cccc     .                     ,(nx+2)*(ny+2)*(nz+2),MPI_DOUBLE_PRECISION
+cccc     .              ,mpivec,(nx+2)*(ny+2)*(nz+2),MPI_DOUBLE_PRECISION
+cccc     .              ,MPI_COMM_WORLD,mpierr)
+cccc
+cccc          psig = reshape(mpivec,shape(psig))
+cccc
+cccc          deallocate(mpivec)
+cc#else
+cc          psig = psi(:,:,1)
+cc#endif
+cc
+cc          !Perform integral of III (at half-mesh on global grid in radius)
+cc
+cc          psi0 = minval(psi)
+cc#if defined (petsc)
+cc          lpsi0 = psi0
+cc          call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
+cc     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc
+cc          do j=1,ny
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc            dummy(0,j) = 0d0
+cc            do iglobal=1,nxd
+cc              IIh = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+cc
+cc              rh = grid_params%xg(iglobal)
+cc              dh = 0.5*(dr (iglobal)+dr (iglobal-1))
+cc              dt = 0.5*(dth(jglobal)+dth(jglobal-1))
+cc
+cccc              psir  =0.5*(psig(iglobal+1,j)-psig(iglobal-1,j))/dh
+cccc              psith =0.5*(psig(iglobal,j+1)-psig(iglobal,j-1))/dt/rh
+cc              psir  =0.5*(psig(iglobal+1,jglobal  )
+cc     .                   -psig(iglobal-1,jglobal  ))/dh
+cc              psith =0.5*(psig(iglobal  ,jglobal+1)
+cc     .                   -psig(iglobal  ,jglobal-1))/dt/rh
+cc              bnorm2= IIh**2 + psir**2 + psith**2
+cc
+cccc              psip  = 0.5*(psig(iglobal+1,j)+psig(iglobal,j))
+cccc              psim  = 0.5*(psig(iglobal-1,j)+psig(iglobal,j))
+cc              psip  = 0.5*(psig(iglobal+1,jglobal)
+cc     .                    +psig(iglobal  ,jglobal))
+cc              psim  = 0.5*(psig(iglobal-1,jglobal)
+cc     .                    +psig(iglobal  ,jglobal))
+cc              spsip = sqrt(1d0-psip/psi0)
+cc              spsim = sqrt(1d0-psim/psi0)
+cc              dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+cc
+cc              etah  = res_rfx(rh)/eta
+cc
+cc              dummy(iglobal,j) = dummy(iglobal-1,j)
+cc     .                         - RR(iglobal,jglobal)**2/bnorm2
+cc     .                          *(Eoeta*psir/etah/RR(iglobal,jglobal)**2
+cc     .                           +dpdr)*dr(iglobal)
+cc            enddo
+cc          enddo
+cc
+cc          III = R0*exp(dummy)
+cc
+cc          !Check convergence
+cc          if (ilevel > 0 .and. my_rank == 0) then
+cc            write (*,'(a,i3,a,1pe10.2,a,e10.2)')
+cc     .                '2D Ohmic equilibrium iter =',it
+cc     .                 ,' ; GS error=',gserr,' Ohm error=',oherr
+cc            if (ilevel > 1) write (*,*)
+cc          endif
+cc
+cc          dh = xmax/nxd
+cc          if (gserr < 0.001*dh**2) exit
+cc
+cc        enddo
+cc
+cc        if (ilevel == 0 .and. my_rank == 0) then
+cc           write (*,'(a,i3,a,1pe10.2)')
+cc     .          ' 2D equilibrium converged in '
+cc     .          ,it,' iterations with error =',gserr
+cc        endif
+cc
+ccc       Find vectors and scalars
+cc
+cc        do j=1,ny
+cc          do i=1,nx
+cc            iglobal = i + grid_params%ilo(igrid) - 1
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc
+cc            rh = grid_params%xx(ig)
+cc            dh = grid_params%dxh(ig)
+cc            dt = grid_params%dyh(jg)
+cc
+cc            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+cc            psir   = 0.5*(psi(i+1,j,1)-psi(i-1,j,1))/dh
+cc            psith  = 0.5*(psi(i,j+1,1)-psi(i,j-1,1))/dt/rh
+cc            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+cc
+cc           !Find contravariant magnetic field components in integer mesh
+cc            b1(i,j,:) =-psith*rh
+cc            b2(i,j,:) = psir
+cc            b3(i,j,:) = IIh*rh/RR(iglobal,jglobal)
+cc
+cc            !Find contravariant velocity components
+cc            etah =res_rfx(rh)/eta
+cc
+cc            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+cc            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+cc            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+cc
+cc            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+cc            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+cc            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+cc
+cc            v1(i,j,:) =-(Eoeta*psir /RR(iglobal,jglobal)**2+etah*dpdr )
+cc     .                  *RR(iglobal,jglobal)*rh/bnorm2
+cc            v2(i,j,:) =-(Eoeta*psith/RR(iglobal,jglobal)**2+etah*dpdth)
+cc     .                  *RR(iglobal,jglobal)/bnorm2
+cc
+cc            !Find pressure
+cc            spsi = sqrt(1d0-psi(i,j,1)/psi0)
+cc            pp(i,j,:) = p00*pprof(spsi,0)
+cc          enddo
+cc        enddo
+cc
+ccc       Calculate GS equilibrium properties
+cc
+cc        !Convergence properties
+cc        e1 = 0d0
+cc        e2 = 0d0
+cc        e3 = 0d0
+cc        e4 = 0d0
+cc        e5 = 0d0
+cc        e6 = 0d0
+cc
+cc        tor_flx = 0d0
+cc        p_avg   = 0d0
+cc        bz2_avg = 0d0
+cc
+cc        do j=2,ny-1
+cc          do i=2,nx-1
+cccc        do j=1,ny
+cccc          do i=1,nx
+cc            iglobal = i + grid_params%ilo(igrid) - 1
+cc            jglobal = j + grid_params%jlo(igrid) - 1
+cc
+cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc
+cc            rh = grid_params%xx(ig)
+cc            dh = grid_params%dxh(ig)
+cc            dt = grid_params%dyh(jg)
+cc
+cc            IIh    = 0.5*(III(iglobal,j)+III(iglobal-1,j))
+cc            psir   = (psi(i+1,j,1)-psi(i-1,j,1))/2./dh
+cc            psith  = (psi(i,j+1,1)-psi(i,j-1,1))/2./dt/rh
+cc            bnorm2 = (IIh**2+psir**2+psith**2)/RR(iglobal,jglobal)**2
+cc
+cc            jac = rh*RR(iglobal,jglobal)
+cc
+cc            !Find pressure derivatives
+cc            spsip = sqrt(1d0-psi(i+1,j,1)/psi0)
+cc            spsim = sqrt(1d0-psi(i-1,j,1)/psi0)
+cc            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+cc
+cc            spsip = sqrt(1d0-psi(i,j+1,1)/psi0)
+cc            spsim = sqrt(1d0-psi(i,j-1,1)/psi0)
+cc            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
+cc
+cc            !Find contravariant current components
+cc            j1 = (III(iglobal,j+1)+III(iglobal-1,j+1)
+cc     .           -III(iglobal,j-1)-III(iglobal-1,j-1))/4./dt
+cc            j2 =-(III(iglobal,j)  -III(iglobal-1,j))/dh
+cc            j3 = jac*laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,psi,dff=iR2,vol=.false.)
+cc
+cc            !Find covariant EOM force components
+cc            f_1 = (j2*b3(i,j,1)-j3*b2(i,j,1))/jac - dpdr
+cc            f_2 = (j3*b1(i,j,1)-j1*b3(i,j,1))/jac - dpdth
+cc            f_3 = (j1*b2(i,j,1)-j2*b1(i,j,1))/jac
+cc
+cc            !Accumulate errors
+cc            e1 = e1 + f_1**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc            e2 = e2 + f_2**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc            e3 = e3 + f_3**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc
+cc            !Find covariant Ohm's law components
+cc            etah =res_rfx(rh)/eta
+cc
+cc            cov = matmul(gmetric%grid(1)%gsub(i,j,1,:,:),(/ j1,j2,j3/))
+cc
+cc            f_1 =      (v2(i,j,1)*b3(i,j,1)                    )/jac
+cc            f_2 =      (                   -v1(i,j,1)*b3(i,j,1))/jac
+cc            f_3 =Eoeta+(v1(i,j,1)*b2(i,j,1)-v2(i,j,1)*b1(i,j,1))/jac
+cc
+cc            f_1 =f_1-etah*cov(1)
+cc            f_2 =f_2-etah*cov(2)
+cc            f_3 =f_3-etah*cov(3)
+cc
+cc            !Accumulate errors
+cc            e4 = e4 + f_1**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc            e5 = e5 + f_2**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc            e6 = e6 + f_3**2*gmetric%grid(igrid)%dvol(i,j,1)
+cc
+cc            !Q-profile
+cc            qprof(i,j) = b3(i,j,1)/b2(i,j,1)
+cc
+cc            !Toroidal flux
+cc            tor_flx = tor_flx + b3(i,j,1)*dr(iglobal)*dth(jglobal)
+cc
+cc            !Bz^2 average
+cc            bz2_avg = bz2_avg+(b3(i,j,1))**2/rh*dr(iglobal)*dth(jglobal)
+cc
+cc            !Pressure average
+cc            p_avg = p_avg + pp(i,j,1)*rh*dr(iglobal)*dth(jglobal)
+cc
+cc          enddo
+cc        enddo
+cc
+cc#if defined (petsc)
+cc        lpsi0 = e1
+cc        call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc
+cc        lpsi0 = e2
+cc        call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc
+cc        lpsi0 = e3
+cc        call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc
+cc        lpsi0 = e4
+cc        call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc
+cc        lpsi0 = e5
+cc        call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc
+cc        lpsi0 = e6
+cc        call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc
+cc        gserr = e1 + e2 + e3
+cc        gserr = sqrt(gserr/pi/xmax**2)
+cc
+cc        e1 = sqrt(e1/pi/xmax**2)
+cc        e2 = sqrt(e2/pi/xmax**2)
+cc        e3 = sqrt(e3/pi/xmax**2)
+cc
+cc        oherr = e4 + e5 + e6
+cc        oherr = sqrt(oherr/pi/xmax**2)
+cc
+cc        e4 = sqrt(e4/pi/xmax**2)
+cc        e5 = sqrt(e5/pi/xmax**2)
+cc        e6 = sqrt(e6/pi/xmax**2)
+cc
+cc        if (my_rank == 0) then
+cc          write (*,*) 'EOM force residual comp 1=',e1
+cc          write (*,*) 'EOM force residual comp 2=',e2
+cc          write (*,*) 'EOM force residual comp 3=',e3
+cc          write (*,*) 'EOM force residual total =',gserr
+cc          write (*,*)
+cc          write (*,*) 'Ohms law residual comp 1=',e4
+cc          write (*,*) 'Ohms law residual comp 2=',e5
+cc          write (*,*) 'Ohms law residual comp 3=',e6
+cc          write (*,*) 'Ohms law residual total =',oherr
+cc        endif
+cc
+cc        !Q-profile diagnostics (not working)
+cccc        q0 = mval(qprof)
+cccc#if defined (petsc)
+cccc        lpsi0 = q0
+cccc        call MPI_Allreduce(lpsi0,q0,1,MPI_DOUBLE_PRECISION
+cccc     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+cccc#endif
+cccc        qa = maxval(qprof)
+cccc#if defined (petsc)
+cccc        lpsi0 = qa
+cccc        call MPI_Allreduce(lpsi0,qa,1,MPI_DOUBLE_PRECISION
+cccc     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+cccc#endif
+cc
+cc        !Poloidal beta (2*p(0)/Bth(r=a)^2)
+cc        I0 = 0d0
+cc        do j=1,ny
+cc          jglobal = j + grid_params%jlo(igrid) - 1
+cc          bth_avg = 2.*(psig(nxdp,jglobal)
+cc     .                 -psig(nxd ,jglobal))/dr(nxd)
+cc     .              /(RR(nxd,jglobal)+RR(nxdp,jglobal))
+cccc          bth_avg = 2.*(psig(nxdp,j)
+cccc     .                 -psig(nxd ,j))/dr(nxd)
+cccc     .              /(RR(nxd,jglobal)+RR(nxdp,jglobal))
+cc          I0 = I0 + bth_avg*dth(jglobal)
+cc        enddo
+cc
+cc#if defined (petsc)
+cc        lpsi0 = I0
+cc        call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_POL,mpierr)
+cc#endif
+cc
+cc        bth_avg = I0/2/pi
+cc
+cc        b_pol = 2*p00*pprof(0d0,0)/bth_avg**2
+cc
+cc        !Toroidal beta
+cc#if defined (petsc)
+cc        lpsi0 = bz2_avg
+cc        call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc        lpsi0 = p_avg
+cc        call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc
+cc        b_tor = 2*p_avg/bz2_avg
+cc
+cc        !Toroidal flux
+cc#if defined (petsc)
+cc        lpsi0 = tor_flx
+cc        call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
+cc     .                    ,MPI_SUM,MPI_COMM_WORLD,mpierr)
+cc#endif
+cc
+cc        bz_avg = 0.5*tor_flx/pi/xmax**2
+cc
+cc        if (my_rank == 0) then
+cc          write (*,*) 
+cc          write (*,999) ' Toroidal Ohmic equilibrium features:'
+cc          write (*,999) '   Theta   =',bth_avg/bz_avg
+cc          write (*,999) '   Bz(r=0) =',1d0
+cc          write (*,999) '   I0      =',I0
+cc          write (*,999) '   E0/eta  =',Eoeta/R0
+cc          write (*,999) '   Tor_flx =',tor_flx
+cccc          write (*,999) '   q(psi=0)=',q0
+cccc          write (*,999) '   q(psi=1)=',qa
+cc          write (*,999) '   beta_pol [2 p0/Bth(a)^2]=',b_pol
+cc          write (*,999) '   beta_tor [2 <p>/<Bz^2>] =',b_tor
+cc 999      format (a,f10.7)
+cc        endif
+cc
+ccc     Change sign of psi (to agree with A_3 sign convention)
+cc
+cc        psi = -psi
+cc
+cc        !Save some equilibrium properties (to calculate bootstrap current)
+cccc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cccc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+cccc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+cc
+cc        !Dump equilibrium for eigen code
+cccc        if (my_rank == 0) then
+cccc          open(unit=123,file='ntm2d.txt',status='unknown')
+cccc          write (123,*) nxdp+1
+cccc          write (123,*) grid_params%xg(0:nxdp)
+cccc          write (123,*) bth0
+cccc          write (123,*) bzz0
+cccc          write (123,*) 0.5*p0
+cccc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cccc          close(123)
+cccccc          stop
+cccc        endif
+cc
+ccc diag ***** 
+cccc      open(unit=110,file='debug.bin',form='unformatted'
+cccc     .    ,status='replace')
+cccccc      call contour(psi(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
+cccc      call contour(errv            ,nx,ny,0d0,1d0,0d0,1d0,0,110)
+cccc      call contour(b1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cccc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cccc      call contour(b3 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cccc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cccc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cccc      close (110)
+cccc      stop
+ccc diag *****
+cc
+cc        deallocate(psi_rhs,psiv,errv)
+cc
+cc      end subroutine Ohm_GS_equil_2d
 
 ccc     Ohm_GS_equil_2d
 ccc     ###############################################################
