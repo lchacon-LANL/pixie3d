@@ -1701,7 +1701,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
-     .            ,bcnd,icomp=(/IBX/),is_cnv=is_cnv
+     .            ,bcnd,icomp=(/IBX,IJX/),is_cnv=is_cnv  !Check icomp!!!
 cc     .            ,is_vec=.not.si_car,result_is_vec=.true.
      .            ,is_vec=.true.,result_is_vec=.true.
      .            ,iorder=bc_order)
