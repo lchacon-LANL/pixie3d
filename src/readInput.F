@@ -54,7 +54,7 @@ c Namelists
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
-     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0
      .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,br_pert_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -86,7 +86,7 @@ c Namelists
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
-     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,spitzer,br_pert_bc
@@ -238,6 +238,9 @@ c Set defaults
       lagrangian = .false.     ! Whether we perform Lagrangian step for Te
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
+
+      E0       = 0d0           ! Boundary electric field (cov)
+      B0       = 0d0           ! Boundary magnetic field (cnv)
 
       !Nonlinear function parameters
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
@@ -635,17 +638,17 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,ioerr
+      integer :: i,ioerr
 
       !For compatibility
       namelist /graphdef/ sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean,E0,B0
+     .                   ,prof_conf,cont_conf,clean
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
      .                   ,adios_plot
 
 
       namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean,E0,B0
+     .                   ,prof_conf,cont_conf,clean
      .                   ,iplot,jplot,kplot,poincare,xdraw_plot
      .                   ,adios_plot
 

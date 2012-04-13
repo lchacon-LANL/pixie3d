@@ -88,8 +88,6 @@ c Local variables
 
       integer :: bcs(6,neqd)
 
-      character(200):: command
-
 #if defined(vec_pot)
       real(8),allocatable,dimension(:,:,:,:) :: ag,bg
 #endif
@@ -2476,98 +2474,66 @@ c Transfer equilibrium to varray
         varray%array_var(ieq)%array = var(:,:,:,ieq) 
       enddo
 
-c Transfer electric field info to postprocessor via input file
+c Transfer BC fields info to postprocessor via input file
 
-      if (sum(E0) /= 0d0 .and. my_rank == 0) then
-
-        command = 'grep E0 ' // trim(inputfile) // ' > /dev/null'
-        ierr = shellcmd(trim(command))
-
-        write (command,*) '   E0 =',real(E0(1),4)
-     .                         ,',',real(E0(2),4)
-     .                         ,',',real(E0(3),4)
-
-
-        if (ierr /= 0) then  !Replace E0
-#if defined(RFX)
-          command=
-     .       'sed -i -e"/graphdef/{" -e' // achar(39)
-#else
-          command=
-     .       'sed -i --follow-symlinks -e"/graphdef/{" -e' // achar(39)
-#endif
-#if defined(pgf90) || defined(xlf)
-     .       // 'a\\' // achar(39) //' -e"'
-#else
-     .       // 'a\' // achar(39) //' -e"'
-#endif
-     .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile)
-        else                 !Add E0
-#if defined(RFX)
-          command='sed -i -e"/E0/{" -e' // achar(39)
-#else
-          command='sed -i --follow-symlinks -e"/E0/{" -e' // achar(39)
-#endif
-#if defined(pgf90) || defined(xlf)
-     .       // 'c\\' // achar(39) //' -e"'
-#else
-     .       // 'c\' // achar(39) //' -e"'
-#endif
-     .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile)
-        endif
-
-        ierr = shellcmd(trim(command))
-      endif
-
-c Transfer magnetic field info to postprocessor via input file
-
-      if (sum(B0) /= 0d0 .and. my_rank == 0) then
-
-        command = 'grep B0 ' // trim(inputfile) // ' > /dev/null'
-        ierr = shellcmd(trim(command))
-
-        write (command,*) '   B0 =',real(B0(1),4)
-     .                         ,',',real(B0(2),4)
-     .                         ,',',real(B0(3),4)
-
-
-        if (ierr /= 0) then  !Replace B0
-          command=
-#if defined(RFX)
-     .       'sed -i -e"/graphdef/{" -e' // achar(39)
-#else
-     .       'sed -i --follow-symlinks -e"/graphdef/{" -e' // achar(39)
-#endif
-#if defined(pgf90) || defined(xlf)
-     .       // 'a\\' // achar(39) //' -e"'
-#else
-     .       // 'a\' // achar(39) //' -e"'
-#endif
-     .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile)
-        else                 !Add B0
-#if defined(RFX)
-          command='sed -i -e"/B0/{" -e' // achar(39)
-#else
-          command='sed -i --follow-symlinks -e"/B0/{" -e' // achar(39)
-#endif
-#if defined(pgf90) || defined(xlf)
-     .       // 'c\\' // achar(39) //' -e"'
-#else
-     .       // 'c\' // achar(39) //' -e"'
-#endif
-     .       // trim(command)   // '" -e"}" '
-     .       // trim(inputfile)
-        endif
-
-        ierr = shellcmd(trim(command))
-      endif
+      call write_bc_field(E0,'E0')
+      call write_bc_field(B0,'B0')
 
 c End program
 
 10    format (4f7.3,e12.3)
+
+      contains
+
+c     write_bc_field
+c     ###############################################################
+      subroutine write_bc_field(var,desc)
+
+c     ---------------------------------------------------------------
+c     Writes boundary electric and magnetic fields to pixie3d.in
+c     for later reading.
+c     ---------------------------------------------------------------
+
+c     Call variables
+
+      character(*) :: desc
+      real(8) :: var(3)
+
+c     Local variables
+
+      character(200):: command,line
+
+c     Begin program
+
+c     Transfer electric field info to postprocessor via input file
+
+      if (sum(var) /= 0d0 .and. my_rank == 0) then
+        command = 'grep '//trim(desc)//' '//trim(inputfile)
+     .           // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) ierr = delete_line(inputfile,desc)
+
+        write (line,*) '   '//trim(desc)//'=',real(var(1),4)
+     .                                   ,',',real(var(2),4)
+     .                                   ,',',real(var(3),4)
+
+        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) then
+          ierr = add_line_after_txt(inputfile,'datin',line)
+        else
+          ierr = add_line_after_txt(inputfile,'phys',line)
+        endif
+
+        if (ierr /= 0) then
+          command = 'Could not write'//trim(desc)//' to input file'
+          call pstop('setEq',command)
+        endif
+      endif
+
+      end subroutine write_bc_field
 
       end subroutine setEquilibrium
 
@@ -4777,8 +4743,8 @@ c       Iteration
      .              ,ks_it         = 10
      .              ,mg_order_res  = 0
      .              ,mg_order_prol = 1
-cc     .              ,mg_gm_coarse_solve=.false.
-     .              ,mg_gm_coarse_solve=.true.
+     .              ,mg_gm_coarse_solve=.false.
+cc     .              ,mg_gm_coarse_solve=.true.
      .              ,mg_vcyc       = 1
      .              ,mg_smooth     = 'jb'
      .              ,sm_ncolors    = 2  !Star stencil
