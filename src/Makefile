@@ -148,18 +148,18 @@ $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 common: $(SUBDIRS)
 
 $(SUBDIRS):
-	$(MAKE) -e -C $@ target
+	$(MAKE) --no-print-directory -e -C $@ target
 
 clean:
-	-rm -f *.o *.mod
+	-@rm -f *.o *.mod
 
 distclean: clean
-	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -C $$subdir clean;  done
+	-@for subdir in $(SUBDIRS) ; do \
+		$(MAKE) --no-print-directory -C $$subdir clean;  done
 
 setup: ;
-	-for file in $(LNK_FILES) ; do \
-		ln -s $$file 2>/dev/null ; done
+	-@for file in $(LNK_FILES) ; do \
+		ln -s -f $$file 2>/dev/null ; done
 
 #Define dependencies
 

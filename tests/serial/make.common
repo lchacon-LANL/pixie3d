@@ -9,8 +9,8 @@ LOCALDIR := $(shell basename $(CURDIR))
 .PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
 
 setup: ;
-	-@ln -s ../../../bin/$(EXEC)
-	-@ln -s ../../../bin/$(PLOT)
+	-@ln -s -f ../../../bin/$(EXEC)
+	-@ln -s -f ../../../bin/$(PLOT)
 
 rebuild-a rebuild-b rebuild: ;
 	@echo "Rebuilding test in $(LOCALDIR)"
