@@ -21,8 +21,8 @@ endif
 .PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
 
 setup: ;
-	-@ln -s ../../../bin/$(EXEC)
-	-@ln -s ../../../bin/$(PLOT)
+	-@ln -s -f ../../../bin/$(EXEC)
+	-@ln -s -f ../../../bin/$(PLOT)
 
 rebuild rebuild-a rebuild-b: ;
 	@echo "Rebuilding parallel test in $(LOCALDIR)"

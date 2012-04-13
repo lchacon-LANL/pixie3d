@@ -112,15 +112,15 @@ $(SUBDIRS):
 #	@echo "-- HDF5_HOME=$(HDF5_HOME)"
 #	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
 #	@echo "-- MODPATH=$(MODPATH)"
-	$(MAKE) -e -C $@ $(TARGET)
+	$(MAKE) --no-print-directory -e -C $@ $(TARGET)
 
 # SETUP
 
 setup:
-	-cd plot ; ln -s ../src/Makefile
-	-tar xzf contrib.tgz
-	-for subdir in common plot tests/serial tests/parallel tests/samrai; do \
-		$(MAKE) -C $$subdir setup;  done
+	-@cd plot ; ln -s -f ../src/Makefile
+	-@tar xzf contrib.tgz
+	-@for subdir in common plot tests/serial tests/parallel tests/samrai; do \
+		$(MAKE) --no-print-directory -C $$subdir setup;  done
 
 # TESTS
 
@@ -130,60 +130,60 @@ rebuild-tests: rebuild-tests-a rebuild-tests-b
 
 tests-a: ;
 ifdef SAMR
-	$(MAKE) -e -C tests/samrai test-a
+	$(MAKE) --no-print-directory -e -C tests/samrai test-a
 else
 ifdef BOPT
-	$(MAKE) -e -C tests/parallel test-a
+	$(MAKE) --no-print-directory -e -C tests/parallel test-a
 else
-	$(MAKE) -e -C tests/serial test-a
+	$(MAKE) --no-print-directory -e -C tests/serial test-a
 endif
 endif
 
 tests-b: ;
 ifdef SAMR
-	$(MAKE) -e -C tests/samrai test-b
+	$(MAKE) --no-print-directory -e -C tests/samrai test-b
 else
 ifdef BOPT
-	$(MAKE) -e -C tests/parallel test-b
+	$(MAKE) --no-print-directory -e -C tests/parallel test-b
 else
-	$(MAKE) -e -C tests/serial test-b
+	$(MAKE) --no-print-directory -e -C tests/serial test-b
 endif
 endif
 
 rebuild-tests-a: ;
 ifdef SAMR
-	$(MAKE) -e -C tests/samrai rebuild-a
+	$(MAKE) --no-print-directory -e -C tests/samrai rebuild-a
 else
 ifdef BOPT
-	$(MAKE) -e -C tests/parallel rebuild-a
+	$(MAKE) --no-print-directory -e -C tests/parallel rebuild-a
 else
-	$(MAKE) -e -C tests/serial rebuild-a
+	$(MAKE) --no-print-directory -e -C tests/serial rebuild-a
 endif
 endif
 
 rebuild-tests-b: ;
 ifdef SAMR
-	$(MAKE) -e -C tests/samrai rebuild-b
+	$(MAKE) --no-print-directory -e -C tests/samrai rebuild-b
 else
 ifdef BOPT
-	$(MAKE) -e -C tests/parallel rebuild-b
+	$(MAKE) --no-print-directory -e -C tests/parallel rebuild-b
 else
-	$(MAKE) -e -C tests/serial rebuild-b
+	$(MAKE) --no-print-directory -e -C tests/serial rebuild-b
 endif
 endif
 
 # CONTRIBUTED LIBRARIES
 
 contrib:
-	$(MAKE) -e -C common contrib
+	$(MAKE) --no-print-directory -e -C common contrib
 ifeq ($(VMEC),t)
-	$(MAKE) -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
+	$(MAKE) --no-print-directory -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
 
 contrib_clean:
-	$(MAKE) -e -C common contrib_clean
+	$(MAKE) --no-print-directory -e -C common contrib_clean
 ifeq ($(VMEC),t)
-	$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
+	$(MAKE) --no-print-directory -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
 
 # CLEAN ALL
@@ -192,6 +192,6 @@ allclean: contrib_clean distclean
 
 distclean:
 	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) -C $$subdir distclean;  done
+		$(MAKE) --no-print-directory -C $$subdir distclean;  done
 
 

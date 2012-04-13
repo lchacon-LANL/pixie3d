@@ -16,8 +16,8 @@ PAREXEC=$(EXEC) samrai.input.4 test4.log > /dev/null
 .PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
 
 setup: ;
-	-@ln -s ../../../bin/$(EXEC)
-#	-@ln -s ../../../bin/$(PLOT)
+	-@ln -s -f ../../../bin/$(EXEC)
+#	-@ln -s -f ../../../bin/$(PLOT)
 
 rebuild rebuild-a rebuild-b: ;
 	@echo "Rebuilding SAMRAI test in $(LOCALDIR)"
