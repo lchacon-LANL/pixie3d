@@ -110,7 +110,7 @@ is required, and can be obtained from
 
 PIXIE3D is easy to install. Just execute:
 
-tar xzvf pixie3d.tar.gz
+# tar xzvf pixie3d.tar.gz
 
 to generate the directory structure, and change directories into
 "pixie3d".  From there, type:
@@ -127,9 +127,43 @@ variables, such as the installation directory for PETSC (PETSC_DIR; if
 a parallel compilation is required) and that for the HDF5 distribution
 (HDF5_HOME; if an HDF5 file is to be generated after postprocessing).
 
-Currently, PIXIE3D has been successfully compiled in Linux OS with
-three different compilers: Absoft f90, Lahey lf95, and Intel
-ifort. More compilers will be tested in the future.
+PIXIE3D has been successfully compiled in various environments (Linux,
+AIX) with several compilers (Absoft, Lahey, Intel, gfortran, PGI). Before
+attempting compilation, one must manually setup the workstation configuration
+in "common/make/make.mach.inc". There are various examples there one can
+follow. A typical workstation configuration is as follows:
+
+############################################################################
+ifeq ($(findstring sith,$(HOST)),sith)
+  FC = pgf95
+
+  BOPT = O
+  PETSC_DIR ?= /sw/sith/petsc/3.0.0/centos5.5_pgi10.9_opt/petsc-3.0.0-p10
+  PETSC_ARCH ?= sith-opt
+
+  HDF5 = t
+  #HDF5_DIR = /sw/sith/hdf5/1.8.5/centos5.5_pgi10.9_ompi1.4.2
+  HDF5_HOME = $(HDF5_DIR)
+  HDF5_LIBS = $(HDF5_FLIB)
+  HDF5_MOD  = $(HDF5_HOME)/lib -I$(HDF5_DIR)/include
+
+  ADIOS = t
+  ADIOS_HOME = $(ADIOS_DIR)
+  ADIOS_LIBS = $(ADIOS_INC) $(ADIOS_FLIB)
+  ADIOS_VER  = 1.3
+
+  MACHINE = sith
+endif
+############################################################################
+
+Typical variables to be defined in the configuration file include:
+   * MACHINE: name of machine
+   * FC: fortran compiler
+   * HDF5=t,f: whether to use HDF5.
+   * BOPT: if defined, use PETSc.
+   * ADIOS=t,f: whether to use ADIOS I/O library.
+   * NETCDF=t,f: whether to use NETCDF
+   * LIBS: LAPACK and BLAS libraries (in serial verion only).
 
 4.1> Serial compilation
 
@@ -140,7 +174,7 @@ For a serial compilation, type
 
 For testing serially, type:
 
-# make serial-tests
+# make tests-b
 
 4.2> Parallel compilation
 
@@ -149,19 +183,16 @@ BOPT to either "g" (debugging) or "O" (optimized). For production
 runs, "O" should normally be used, and one should type
 
 # make BOPT=O distclean
-# make BOPT=O pixie3d
-# make BOPT=O pixplot
+# make BOPT=O all
 
 to generate pixie3d.petsc.x and pixplot.petsc.x (the parallel
-postprocessor).  At this point, testing is not available for the
-parallel version.
+postprocessor).  For testing in parallel, type:
 
-4.3> Special Makefile flags
+# make BOPT=O tests-b
 
-There are several specific purpose flags in the makefile that one can
-invoke when compiling PIXIE3D. These are:
+4.3> Options when invoking "make"
 
-FC: to set the fortran compiler (default is f90) 
+There are several specific options for the make command:
 
 OPT: to set the optimization level. Can be set to "g" (debugging), "O"
 (optimized), "p" (profiling), "s" (static; for Absoft only), and "v"
@@ -171,9 +202,8 @@ optimization with profiling and verbose options).
 VECPOT: if set, the vector potential version of PIXIE3D will be
 compiled, generating the executables "pixie3d_a.x" and "pixplot_a.x"
 
-VMEC: if set, the contributed VMEC interface for 3D Tokamak and
-Stellarator equibria will be compiled and linked. This interface is 
-physically located under the "contrib" directory.
+SAMR: if set, compiles AMR version of PIXIE3D using SAMRAI. Requires
+SAMRAI and SAMRAI_UTILS. This is in an experimental stage.
 
 5.> Using PIXIE3D
 
@@ -204,7 +234,7 @@ that has been used to compile PETSc, and on the availability of a
 queue management system. With mpich-1.2.5.2, one would
 type, for instance:
 
-# mpirun [mpi options] pixie3d.petsc.x -snes_mf [petsc options]
+# mpiexec [mpi options] pixie3d.petsc.x -snes_mf [petsc options]
 
 Several mpirun options are available according to the MPI
 distribution. Similarly with PETSC. The option "-snes_mf" (which
@@ -212,13 +242,9 @@ indicates that a Jacobian-free approach is to be used) is
 mandatory. Specific PETSC options for PIXIE3D include:
 
      OUTPUT CONTROL:                                     
-        -ilevel <ilevel>: level of output info          
-                                                         
-     SOLVER:                                             
-	-asm_PC: use an additive Schwartz (ASM) preconditioner
-        -aspc_its <its>: number of ASM iterations        
-        -id_PC: identity preconditioner                  
-                                                         
+        -ilevel <ilevel>: level of output info
+	-test: whether we are in test mode (suppresses output)
+
      TIME STEPPING:                                      
         -nmax <nmax>: number of time steps     
         -tmax <tmax>: final time                         
@@ -271,10 +297,7 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
 19-23, 2006.
 
 > Appendix 1: Default values for input parameters for "pixie3d.x":
-
       !General setup
-      neqd     = 8             ! Number of degrees of freedom (equations)
-
       nxd      = 64            ! Mesh points in x-direction
       nyd      = 64            ! Mesh points in y-direction
       nzd      = 64            ! Mesh points in z-direction
@@ -289,8 +312,7 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
       ymin     = 0d0           ! Length in y-direction
       zmin     = 0d0           ! Length in z-direction
 
-      gparams  = 0d0           ! Array with additional grid parameters
-                               ! (grid-dependent; see setEquilibrium.F)
+      gparams  = 0d0           ! Array with additional grid parameters (grid-dependent)
 
       numerical_grid = .false. ! Whether grid metrics are calculated numerically (.true.)
                                !   or analytically.
@@ -307,7 +329,7 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
-      tmax     = 0d0           ! Target time, in Alfven times.
+      tmax     = -1d0          ! Target time, in Alfven times.
       numtime  = -1            ! Number of time steps
       ndstep   = 0             ! # time steps between plots (if zero,
                                !        ndstep is calculated in code)
@@ -316,6 +338,10 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
 
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
+      postprocess = .false.    ! Whether to run solution postprocessing after time step
+
+      eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
+      eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
 
       cnfactor = 0.5           ! Crank-Nicolson factor (implicit if <= 0.5)
       sm_flag  = 0             ! Time smoothing flag:
@@ -325,17 +351,17 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
       !NK parameters
+      fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
-      rtol     = 1.0d-4        ! Newton relative convergence tolerance
+      rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 0d0           ! Newtom matrix-free differencing parameter (if zero,
-                               !        use default in NK routine)
-      maxitnwt = 0             ! Maximum number of Newton its. (if zero, maxitnwt
+      mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
+      maxitnwt = 20            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
-      method   = 0             ! Inexact Newton method:
+      method   = 1             ! Inexact Newton method:
                                !   + 0: constant forcing
                                !   + other: adaptive (Eisenstat-Walker)
 
@@ -346,67 +372,105 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
 
       damp     = 1d0           ! Damping parameter in Newton (see nk_mod.f doc))
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
-      iguess   = 1             ! Whether preconditioner is used to give initial
+      iguess   = 0             ! Whether preconditioner is used to give initial
                                !   guess to GMRES (when =1) 
-
-      !Preconditioner parameters
-      mg_ratio = 2             ! MG coarsening ratio
-      nsweep   = 5             ! Number of MG smoothing passes
-      maxvcyc  = 1             ! Maximum number of MG V-cycles
-      mgtol    = 1d-3          ! MG convergence tolerance
-
-      precon   = 'id'          ! Type of preconditioner. Currently:
-                               !   - 'id': identity (default)
-                               !   - 's1': SI without flow
-                               !   - 's2': SI with flow
-      precpass = 1             ! Number of SI iterations in preconditioner
-      asm_PC   = .false.       ! Whether we are doing additive Schwartz PC (in parallel)
-
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
       eta      = 1d-3          ! Lundquist number
       dd       = 1d-3          ! Particle diffusion
-      chi      = 1d-3          ! Thermal diffusivity
+      chi      = 1d-3          ! Perpendicular thermal diffusivity
+      chi_par  = 0d0           ! Parallel thermal diffusivity
 
       hrtmn    = 0d0           ! Hartmann number (1/sqrt(nu*eta))
       prndtl   = 0d0           ! Prandtl number (nu/eta)
 
+      di       = 0d0           ! Ion inertia parameter
+      de       = 0d0           ! Electron inertia parameter
+
+      aa_eta   = 0d0           ! Coefficient for eta profile
+      bb_eta   = 0d0           ! Coefficient for eta profile
+      cc_eta   = 1d0           ! Coefficient for eta profile
+      aa_nu    = 0d0           ! Coefficient for nu profile
+      bb_nu    = 0d0           ! Coefficient for nu profile
+      cc_nu    = 1d0           ! Coefficient for nu profile
+
+      heta     = 0d0           ! Coefficient for hyper-resistivity
+
       gamma    = 5./3.         ! Polytropic constant of plasma
 
-      di       = 0d0           ! Hall parameter
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
 
-      temp_ratio = 1d0         ! Ion-electron temperature ratio
+      temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
+
+      lagrangian = .false.     ! Whether we perform Lagrangian step for Te
+
+      spitzer  = .false.       ! Whether we are using Spitzer resistivity
+
+      E0       = 0d0           ! Boundary electric field (cov)
+      B0       = 0d0           ! Boundary magnetic field (cnv)
 
       !Nonlinear function parameters
-      k_si       = 0d0         ! SI constant
-
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
-      solve_rho  = .true.      ! Whether we solver continuity equation or not
+      solve_rho  = .true.      ! Whether we solve continuity equation or not
+      solve_prs  = .false.     ! Whether we solve for electron pressure or temperature
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
+
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
-      advect     = 2           ! Type of advective scheme (currently available only
-                               ! for scalars):
+      advect     = 2           ! Type of advective scheme for scalars
+                               ! Available options:
                                !    1 -> upwind,
-                               !    2 -> centered (ZIP),
+                               !    2 -> ZIP (centered),
                                !    3 -> QUICK,
                                !    4 -> SMART,
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
 
+      v_advect   = 0           ! Type of advective scheme for vectors
+                               !   (if zero, determine from advect below)
+
+      ion_hall   = .false.     ! Whether to use new Hall formulation or not
+      fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
+
+      slava      = .false.     ! Whether to use Slava Lukin's Hall MHD implementation
+      noise      = .false.     ! Whether to add white noise to EOM
+      noise_lev  = 0d0         ! Noise level
+
+      !Preconditioner parameters
+      pc_type    = 'id'          ! Type of preconditioner. Currently:
+                               !   - 'id': identity (default)
+                               !   - 's1': SI without flow
+                               !   - 's2': SI with flow
+      pc_iter    = 1           ! Number of SI iterations in preconditioner
+      pc_tol     = 1d-3        ! PC solvers convergence tolerance
+
+      pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
+      pc_debug   = .false.     ! PC debugging flag
+      pc_divclean= .false.     ! Whether to perform divergence cleaning in PC or not
+
+      mg_ratio = 2             ! MG coarsening ratio
+      mg_vcyc  = 1             ! Maximum number of MG V-cycles
+      mg_ores  = 0             ! Restriction order for MG
+      mg_oprol = 2             ! Prolongation order for MG
+
+      sm_iter  = 5             ! Number of MG smoothing passes
+      sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
+      eq_params= 0d0           ! Equilibrium parameters (see      "       )
       dlambda  = .2            ! Characteristic equilibrium scale length
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
       vperflow = 0.            ! Maximum perpendicular fluid flow
       source   = .true.        ! Impose source to provide equilibrium
+      chk_src  = .false.       ! Whether to check source (e.g., to check equilibria)
 
       prho     = 0d0           ! Density perturbation
       pvx      = 0d0           ! Vx perturbation
@@ -416,16 +480,29 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
       pby      = 0d0           ! By perturbation
       pbz      = 0d0           ! Bz perturbation
       ptemp    = 0d0           ! Temperature perturbation
-      nh1      = 1             ! Harmonic number for perturbation in axis 1
-      nh2      = 1             ! Harmonic number for perturbation in axis 2
-      nh3      = 1             ! Harmonic number for perturbation in axis 3
+      nh1      = 0             ! Starting harmonic number for perturbation in axis 1
+      nh2      = 0             ! Starting harmonic number for perturbation in axis 2
+      nh3      = 0             ! Starting harmonic number for perturbation in axis 3
+      npw1     = 1             ! Number of harmonics for perturbation in axis 1
+      npw2     = 1             ! Number of harmonics for perturbation in axis 2
+      npw3     = 1             ! Number of harmonics for perturbation in axis 3
       odd      = .false.       ! Symmetry of perturbation
       random   = .false.       ! Random initialization if true
 
+      br_pert_bc = 0d0         ! Br perturbation magnitude at boundary (for pinch)
+                               ! Perturbation modes defined in grid_params 1 and 2
+                               !   for all geometries (hel, cyl, tor)
+
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
+      gp1%xp   = 0d0
+      gp1%dx0  = 0d0
       gp2%pack = .false.       ! Do not pack in Y-direction
+      gp2%xp   = 0d0
+      gp2%dx0  = 0d0
       gp3%pack = .false.       ! Do not pack in Z-direction
+      gp3%xp   = 0d0
+      gp3%dx0  = 0d0
                                ! To select packing, one needs to set the fields
                                ! of gp1, gp2, gp3 as follows:
                                !    gp* = pack,xp,dx0
@@ -433,6 +510,7 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
                                !   + pack (logical): whether to pack
                                !   + xp (real): where to pack
                                !   + dx0 (real): initial grid spacing (at xp)
+
       check_grid = .false.     ! Whether to dump grid info or not
 
       !I/O parameters
@@ -445,37 +523,37 @@ algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
                                !   - >4: Preconditioner level (advanced)
                                ! Each level encompasses previous ones.
 
-      debug      = .false.     ! PC debugging flag
-      debug_it   = 1           ! Newton iteration level for debugging
+      test       = .false.     ! Whether we are performing tests (do not dump namelist)
 
-      recordfile ='record.bin' ! Default output file
       equ_file   ='pixie3d.equ'! Default equilibrium file (when needed)
       prt_file   ='pixie3d.eig'! Default perturbation file (when needed)
+      map_file   ='pixie3d.map'! Default map          file (when needed)
 
+      dcon       = .false.     ! If using VMEC input, whether to dump DCON output
 
 > Appendix 2: Default values for input parameters for "pixplot.x" 
   (graphics postprocessor):
 
-      ndplot = 1     ! Postprocessing interval (# of time steps; integer)
-      dplot  = 1d0   !       "          "      (time interval; real)
-      hdf_plot = f   ! Whether an HDF5 file is created
+      ndplot = 0          ! Postprocessing interval (# of time steps; integer)
+      dplot  = 0d0        !       "          "      (time interval; real)
+      hdf_plot =.false.   ! Whether an HDF5 file is to be created
+      adios_plot =.false. ! Whether an ADIOS-BP file is to be created
+      xdraw_plot = .true. ! Whether to dump XDRAW files
 
-      prof_cont = 1,'x',1,1,1  !Line profile configuration (XDRAW)
-                     !Fields:
-                     !  1) Direction (1 -> x, 2 -> y, 3 -> z)
-                     !  2) Label
-                     !  3) x-coordinate (ignored if direction is x)
-                     !  4) y-coordinate (ignored if direction is y)
-                     !  5  z-coordinate (ignored if direction is z)
+      !Local (point) diagnostic configuration (XDRAW)
+      iplot = 1
+      jplot = 1
+      kplot = 1
 
-      cont_conf = 3,'x','y',1,1,1  !Contour slice configuration (XDRAW)
-                     !Fields:
-                     !  1) Normal to cut plane (1 -> x, 2 -> y, 3 -> z)
-                     !  2) Label abcissae
-                     !  3) Label ordinates
-                     !  3) x-coordinate (used if direction is x)
-                     !  4) y-coordinate (used if direction is y)
-                     !  5  z-coordinate (used if direction is z)
+      !Line profile configuration (XDRAW)
+      prof_conf%line   = 1          ! Direction (1 -> x, 2 -> y, 3 -> z)
+      prof_conf%label  ='x'         ! Label
+      prof_conf%coords = (/1,1,1/)  ! Line coordinates 
+
+      !Contour slice configuration (XDRAW)
+      cont_conf%plane  = 3          ! Normal to cut plane (1 -> x, 2 -> y, 3 -> z)
+      cont_conf%label  = (/'x','y'/)! Contour plot axes labels
+      cont_conf%coords =(/1,1,1/)   ! Plane coordinates along normal
 
       sel_diag = 0   !Array of size "xdraw_cont_lim" (currently set to 16)
                      !  indicating time histories to be dumped (see
