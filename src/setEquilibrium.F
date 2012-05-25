@@ -2528,7 +2528,7 @@ c     Transfer electric field info to postprocessor via input file
         endif
 
         if (ierr /= 0) then
-          command = 'Could not write'//trim(desc)//' to input file'
+          command = 'Could not write '//trim(desc)//' to input file'
           call pstop('setEq',command)
         endif
       endif
