@@ -21,7 +21,7 @@ c Begin program
 c Auxiliary variables
 
 #if !defined(samrai)
-      call allocAuxVariables(gv%aux)
+      call defineAuxVariables(gv%aux)
 
 c Preconditioner
 
