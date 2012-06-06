@@ -2,7 +2,7 @@ c module local_BCS_variables
 c####################################################################
       module local_BCS_variables
 
-        use BCS_variables
+        use variables
 
         use imposeBCinterface, ONLY: extrapolateBC
 
@@ -24,24 +24,16 @@ c####################################################################
 c       Hardwired BC configuration parameters
 
         !Order of BC interpolation
-#if defined(vec_pot)
-        integer :: bc_order=2
-#else
         integer :: bc_order=1
-cc        integer :: bc_order=2
-#endif
-
-        INTERFACE XferBCs
-          module procedure XferBCs_scl, XferBCs_vec
-        END INTERFACE 
 
       contains
 
 c     setAppBCs
 c     ####################################################################
-      subroutine setAppBCs(varray,it)
+      subroutine setAppBCs(varray,vaux,it)
 c     --------------------------------------------------------------------
-c     Defines boundary conditions of dependent variables. Convention:
+c     Defines boundary conditions of all application variables, both
+c     dependent and auxiliary. Convention:
 c           + bbcs(1) ---> at x0
 c           + bbcs(2) ---> at x1
 c           + bbcs(3) ---> at y0
@@ -59,6 +51,49 @@ c     Call variables
 
       integer :: it
       type(var_array),pointer :: varray
+      type(aux_array),pointer :: vaux
+
+c     Local variables
+
+c     Begin program
+
+c     Setup dependent variables
+
+      call defineDepVariables(varray)
+
+c     Setup auxiliary variables
+
+      call defineAuxVariables(vaux)
+
+c     Set application BCs
+
+      call setBCsched(varray,vaux,it)
+
+c     End program
+
+      end subroutine setAppBCs
+
+c     defineDepVariables
+c     ####################################################################
+      subroutine defineDepVariables(varray)
+c     --------------------------------------------------------------------
+c     Defines boundary conditions of dependent variables. Convention:
+c           + bbcs(1) ---> at x0
+c           + bbcs(2) ---> at x1
+c           + bbcs(3) ---> at y0
+c           + bbcs(4) ---> at y1
+c           + bbcs(5) ---> at z0
+c           + bbcs(6) ---> at z1
+c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
+c     a negative BC identifier means that BCs are to be imposed on
+c     covariant components instead of on (default) contravariant comps.
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(var_array),pointer :: varray
 
 c     Local variables
 
@@ -70,17 +105,9 @@ c     Begin program
 
       call defineDepDom_Deps(varray)
 
-c Allocate auxiliary variables
-
-      call allocAuxVariables(gv%aux)
-
-c Set application BCs (see imposeBC_mod.F)
-
-      call setBCsched(varray,gv%aux,it)
-
 c     End program
 
-      end subroutine setAppBCs
+      end subroutine defineDepVariables
 
 c     defineDepBCs
 c     ####################################################################
@@ -297,9 +324,11 @@ c     defineDepBC_Deps
 c     ####################################################################
       subroutine defineDepBC_Deps(varray)
 c     --------------------------------------------------------------------
-c     Defines BC dependencies for dependent variables. Dependencies could
-c     be with other dependent variables, or with auxiliary variables. If
-c     the latter, multiply variable identifier by "AUX"
+c     Defines BC dependencies for dependent variables. Dependencies
+c     could be with other dependent variables, or with auxiliary
+c     variables. If the latter, multiply variable identifier by
+c     "AUX". Dependencies can be "trivial" (i.e., algebraic, set to '0')
+c     or "non-trivial" (i.e., differential, set to '1').
 c     --------------------------------------------------------------------
 
       implicit none
@@ -472,123 +501,7 @@ c     End subroutine
 
       end subroutine defineDepDom_Deps
 
-c     XferBCs_scl
-c     ###################################################################
-      subroutine XferBCs_scl(arr1,arr2,average)
-
-      implicit none
-
-c     -------------------------------------------------------------------
-c     Routine to transfer ghost cell values form arr1 to arr2
-c     -------------------------------------------------------------------
-
-c     Input variables
-
-      real(8) :: arr1(0:,0:,0:)
-      real(8) :: arr2(0:,0:,0:)
-      logical :: average
-
-c     Local variables
-
-      integer :: nxp,nyp,nzp
-
-c     Begin program
-
-      nxp = size(arr1,1)-1
-      nyp = size(arr1,2)-1
-      nzp = size(arr1,3)-1
-
-      if (average) then
-        arr2(nxp,:,:) = 0.5*(arr1(nxp  ,:,:)
-     .                      +arr1(nxp-1,:,:))
-        arr2(0  ,:,:) = 0.5*(arr1(1    ,:,:)
-     .                      +arr1(0    ,:,:))
-
-        arr2(:,nyp,:) = 0.5*(arr1(:,nyp  ,:)
-     .                      +arr1(:,nyp-1,:))
-        arr2(:,0  ,:) = 0.5*(arr1(:,1    ,:)
-     .                      +arr1(:,0    ,:))
-
-        arr2(:,:,nzp) = 0.5*(arr1(:,:,nzp  )
-     .                      +arr1(:,:,nzp-1))
-        arr2(:,:,0  ) = 0.5*(arr1(:,:,1    )
-     .                      +arr1(:,:,0    ))
-      else
-        !X boundaries
-        arr2(0  ,:,:) = arr1(0  ,:,:)
-        arr2(nxp,:,:) = arr1(nxp,:,:)
-
-        !Y boundaries
-        arr2(:,0  ,:) = arr1(:,0  ,:)
-        arr2(:,nyp,:) = arr1(:,nyp,:)
-
-        !Z boundaries
-        arr2(:,:,0  ) = arr1(:,:,0  )
-        arr2(:,:,nzp) = arr1(:,:,nzp)
-      endif
-
-c     End program
-
-      end subroutine XferBCs_scl
-
-c     XferBCs_vec
-c     ###################################################################
-      subroutine XferBCs_vec(vec1,vec2,average)
-
-      implicit none
-c     -------------------------------------------------------------------
-c     Routine to transfer ghost cell values form vec1 to vec2
-c     -------------------------------------------------------------------
-
-c     Input variables
-
-      real(8) :: vec1(0:,0:,0:,:)
-      real(8) :: vec2(0:,0:,0:,:)
-      logical :: average
-
-c     Local variables
-
-      integer :: nxp,nyp,nzp
-
-c     Begin program
-
-      nxp = size(vec1,1)-1
-      nyp = size(vec1,2)-1
-      nzp = size(vec1,3)-1
-
-      if (average) then
-        vec2(nxp,:,:,:) = 0.5*(vec1(nxp  ,:,:,:)
-     .                        +vec1(nxp-1,:,:,:))
-        vec2(0  ,:,:,:) = 0.5*(vec1(1    ,:,:,:)
-     .                        +vec1(0    ,:,:,:))
-
-        vec2(:,nyp,:,:) = 0.5*(vec1(:,nyp  ,:,:)
-     .                        +vec1(:,nyp-1,:,:))
-        vec2(:,0  ,:,:) = 0.5*(vec1(:,1    ,:,:)
-     .                        +vec1(:,0    ,:,:))
-
-        vec2(:,:,nzp,:) = 0.5*(vec1(:,:,nzp  ,:)
-     .                        +vec1(:,:,nzp-1,:))
-        vec2(:,:,0  ,:) = 0.5*(vec1(:,:,1    ,:)
-     .                        +vec1(:,:,0    ,:))
-      else
-        !X boundaries
-        vec2(0  ,:,:,:) = vec1(0  ,:,:,:)
-        vec2(nxp,:,:,:) = vec1(nxp,:,:,:)
-
-        !Y boundaries
-        vec2(:,0  ,:,:) = vec1(:,0  ,:,:)
-        vec2(:,nyp,:,:) = vec1(:,nyp,:,:)
-
-        !Z boundaries
-        vec2(:,:,0  ,:) = vec1(:,:,0  ,:)
-        vec2(:,:,nzp,:) = vec1(:,:,nzp,:)
-      endif
-
-c     End program
-
-      end subroutine XferBCs_vec
-
+#if defined(petsc)
 c     setBCsched
 c     ###################################################################
       subroutine setBCsched(varray,vaux,itime)
@@ -623,38 +536,7 @@ c     Local variables
 
       integer :: ierr,offset=0,igr
 
-#if !defined(petsc)
-!#if 0
-      INTERFACE
-        subroutine create_bc_schedule(u,aux,nbc_grp,bc_grp,
-     &            inherit,interior_only,print_used,reverse)
-
-        use variable_setup, only: var_array
-        use variable_setup, only: aux_array
-        use variable_setup, only: bcgrp
-        type(var_array) :: u
-        type(aux_array) :: aux
-        logical :: inherit
-        logical :: interior_only
-        logical :: print_used
-        logical :: reverse
-        integer :: nbc_grp
-        type(bcgrp), pointer :: bc_grp(:)
-        end subroutine create_bc_schedule
-      END INTERFACE
-
 c     Begin program
-
-#if defined(samrai)
-      call create_bc_schedule(varray,vaux,gv%nbc_grp,gv%bc_grp
-     .                       ,.true.,.false.,.false.,.false.)
-#else
-      call create_bc_schedule(varray,vaux,gv%nbc_grp,gv%bc_grp
-     .                       ,.false.,.false.,.false.,.false.)
-cc     .                       ,.false.,.false.,(itime==0),.false.)
-#endif
-
-#else
 
 c     Select offset based on whether we are at the beginning of calculation
 
@@ -1020,209 +902,11 @@ cc        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
 
       endif
 
-#endif
-
 c     End program
 
       end subroutine setBCsched
 
-ccc     setBCsched
-ccc     ###################################################################
-cc      subroutine setBCsched(varray,itime)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Sets BC schedule for dependent and auxiliary variables, which
-ccc     are identified by a 2-dim integer array, bc_seq. The first
-ccc     dimension is of size nbc_seq, and indicates order of treatment
-ccc     lexicographically (i.e., first component of first dimension is
-ccc     to be treated first, second component of first dimension is
-ccc     to be treated second, and so on).
-ccc
-ccc     The second dimension is of size two, and has the following convention:
-ccc       * First component of the second dimension identifies variable,
-ccc         and its sign indicates whether the variable is dependent (>0) or
-ccc         auxiliary (<0).
-ccc       * Second component of the second dimension identifies whether
-ccc         variable is a scalar (=0) or a vector (=1).
-ccc     -------------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer :: itime
-cc
-cc      type(var_array),pointer :: varray
-cc
-ccc     Local variables
-cc
-cc      integer :: ierr,offset=0,igr
-cc
-cc#if 1
-cc      INTERFACE
-cc        subroutine create_bc_schedule(u,aux,nbc_grp,bc_grp,
-cc     &            inherit,interior_only,print_used,reverse)
-cc
-cc        use variable_setup, only: var_array
-cc        use variable_setup, only: aux_array
-cc        use variable_setup, only: bcgrp
-cc        type(var_array) :: u
-cc        type(aux_array) :: aux
-cc        logical :: inherit
-cc        logical :: interior_only
-cc        logical :: print_used
-cc        logical :: reverse
-cc        integer :: nbc_grp
-cc        type(bcgrp), pointer :: bc_grp(:)
-cc        end subroutine create_bc_schedule
-cc      END INTERFACE
-cc
-ccc     Begin program
-cc
-cc      call create_bc_schedule(varray,gv%aux,gv%nbc_grp,gv%bc_grp
-cc     .                       ,.false.,.false.,(itime==0),.false.)
-cc#else
-cc
-ccc     Set number of BC groups
-cc
-cc      gv%nbc_grp = 3
-cc
-ccc     Check BC groups
-cc
-cc      if (     associated(gv%bc_grp)
-cc     .    .and.size(gv%bc_grp) /= gv%nbc_grp) then
-cc
-cc        do igr=1,size(gv%bc_grp)
-cc          deallocate(gv%bc_grp(igr)%bc_seq)
-cc        enddo
-cc        deallocate(gv%bc_grp)
-cc
-cc      endif
-cc
-ccc     Setup schedule
-cc
-cc      if (.not.associated(gv%bc_grp)) then
-cc
-cc        allocate(gv%bc_grp(gv%nbc_grp),STAT=ierr)
-cc
-cc        !Define group sizes
-cc        gv%bc_grp(1)%nbc_seq = 4
-cc        gv%bc_grp(2)%nbc_seq = 17
-cc        gv%bc_grp(3)%nbc_seq = 6
-cc
-cc        !Allocate groups
-cc        do igr=1,gv%nbc_grp
-cc          allocate(gv%bc_grp(igr)
-cc     .               %bc_seq(gv%bc_grp(igr)%nbc_seq,2),STAT=ierr)
-cc
-cc          gv%bc_grp(igr)%bc_seq = 0
-cc        enddo
-cc
-cc        !Set groups
-cc
-cc        !Group 1
-cc        gv%bc_grp(1)%bc_seq(1,1) = IRHO_0*AUX        !Dep. Variable
-cc        gv%bc_grp(1)%bc_seq(1,2) = SCALAR      !Scalar
-cc
-cc        gv%bc_grp(1)%bc_seq(2,1) = ITMP_0*AUX        !Dep. variable
-cc        gv%bc_grp(1)%bc_seq(2,2) = SCALAR      !Scalar
-cc
-cc        gv%bc_grp(1)%bc_seq(3,1) = IBCNV_0*AUX  !Aux. variable
-cc        gv%bc_grp(1)%bc_seq(3,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(1)%bc_seq(4,1) = IBCOV_0*AUX  !Aux. variable
-cc        gv%bc_grp(1)%bc_seq(4,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(1)%bc_seq(5,1) = IRHO  !Aux. Variable
-cc        gv%bc_grp(1)%bc_seq(5,2) = SCALAR       !Scalar
-cc
-cc        !Group 2
-cc        gv%bc_grp(2)%bc_seq(1,1) = IRHO  !Aux. Variable
-cc        gv%bc_grp(2)%bc_seq(1,2) = SCALAR       !Scalar
-cc
-cc        gv%bc_grp(2)%bc_seq(2,1) = ITMP   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(2,2) = SCALAR       !Scalar
-cc
-cc        gv%bc_grp(2)%bc_seq(3,1) = IETA_0*AUX   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(3,2) = SCALAR       !Scalar
-cc
-cc        gv%bc_grp(2)%bc_seq(4,1) = INU*AUX    !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(4,2) = SCALAR      !Scalar
-cc
-cc        gv%bc_grp(2)%bc_seq(5,1) = IJCNV_0*AUX  !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(5,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(6,1) = IJCOV_0*AUX  !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(6,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(7,1) = IVCNV_0*AUX  !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(7,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(8,1) = IBCNV*AUX   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(8,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(9,1) = IBCOV*AUX   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(9,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(10,1) = IBX         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(10,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(11,1) = IBY         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(11,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(12,1) = IBZ         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(12,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(13,1) = IVCNV*AUX   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(13,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(14,1) = IVCOV*AUX   !Aux. variable
-cc        gv%bc_grp(2)%bc_seq(14,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(15,1) = IVX         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(15,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(16,1) = IVY         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(16,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(2)%bc_seq(17,1) = IVZ         !Dep. variable
-cc        gv%bc_grp(2)%bc_seq(17,2) = VECTOR      !Vector
-cc
-cc        !Group 3
-cc        gv%bc_grp(3)%bc_seq(1,1) = IETA*AUX    !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(1,2) = SCALAR      !Scalar
-cc
-cc        gv%bc_grp(3)%bc_seq(2,1) = IJCNV*AUX   !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(2,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(3)%bc_seq(3,1) = IJCOV*AUX   !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(3,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(3)%bc_seq(4,1) = IENI_0*AUX   !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(4,2) = VECTOR       !Vector
-cc
-cc        gv%bc_grp(3)%bc_seq(5,1) = IENI*AUX    !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(5,2) = VECTOR      !Vector
-cc
-cc        gv%bc_grp(3)%bc_seq(6,1) = IDIVPI*AUX  !Aux. variable
-cc        gv%bc_grp(3)%bc_seq(6,2) = VECTOR      !Vector
-cc
-cc      endif
-cc
-cc#endif
-cc
-cccc      do igr=1,gv%nbc_grp
-cccc        write (*,*) 'Group=',igr
-cccc        do ierr=1,gv%bc_grp(igr)%nbc_seq
-cccc          write (*,*) '  Var =',gv%bc_grp(igr)%bc_seq(ierr,1)
-cccc          write (*,*) '  Type=',gv%bc_grp(igr)%bc_seq(ierr,2)
-cccc        enddo
-cccc      enddo
-cccc      stop
-cc
-ccc     End program
-cc
-cc      end subroutine setBCsched
+#endif
 
 c     ExB_flow_bc
 c     #################################################################
