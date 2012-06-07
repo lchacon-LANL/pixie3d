@@ -24,7 +24,7 @@ c Begin program
 
 c Allocate auxiliary variables
 
-      call allocAuxVariables(gv%aux)
+      call defineAuxVariables(gv%aux)
 
 c End programs
 

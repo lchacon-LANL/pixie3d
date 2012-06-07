@@ -1,13 +1,12 @@
  &datin
-    E0=   0.0000000     ,   0.0000000     ,  4.00000019E-03
     ilevel   = 0
     test     = t
 
-    nxd      = 128
+    nxd      = 32 
     nyd      = 32 
     nzd      = 1
 
-    xmax     = 1.
+    xmax     = 1d0
     ymax     = 0.
     zmax     = 1.
 
@@ -17,28 +16,25 @@
 
     eta      = 1d-3
     nu       = 1d-3
-    dd       = 2d-3
+    dd       = 1d-3
     chi      = 0d-2
     
-    equil    = 'ppnch'
+    equil    = 'spnch'
 
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2.0d0,4d0,0d0,4d0,1d0
+    gparams  = 1d0,-2d0,10d0,2d0,0d0
 
     gamma    = 1d0
 
-    dt       = 5d-3
-    tmax     = 5d-2
-!    tmax     = 1d1
-    dstep    = 5d-2
+    dt       = 1d-2
+    tmax     = 1d-1
+    dstep    = 1d-1
 
     pvx      = 1d-4
     odd      = f,f,f
     random   = f
-
-    iguess   = 0
 
     cnfactor = 0.5
 
@@ -49,28 +45,24 @@
 
     precon   = 'id'
 
-    maxksp   = 20
-    maxitgm  = 20
-    tolgm    = 8d-1
-    rtol     = 1d-4
-    atol     = 0d0
-    method   = 1
+    iguess   = 0
+
     mf_eps   = 1d-6
+
     vol_wgt  = t
 
-    nc_eom_f = t
-    nc_eom_v = f
-    solve_rho= f
-
+    solenoidal = t
+    nc_eom_jxb = t
+    nc_eom_gp  = t
+    nc_eom_v   = f
+    solve_rho  = t
  /
 
  &graphdef
     sel_diag  = 2,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,5,6,7,9,10,11
-    dplot = 1d-3
+    dplot = 1d-2
     prof_conf = 1,'r',1,10,1
     cont_conf = 3,'x','y',1,1,1
     hdf_plot = f
-    clean    = f
  /
-
