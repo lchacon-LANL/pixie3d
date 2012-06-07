@@ -34,7 +34,7 @@ c Local variables
 
       real(8)       :: vmax(3),lvmax(3)
 
-      real(8)    :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
+      real(8)       :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
 
 c Begin program
 

@@ -1255,17 +1255,17 @@ c Find rhs_v'
 
               if (nc_eom_jxb) then
                 cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,db_cov,jcov0,.false.,nc_eom_jxb,.false.
+     .                     ,db_cov,jcov0,.false.,nc_eom_jxb
      .                     ,vol=.false.)
      .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb,.false.
+     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb
      .                     ,vol=.false.)
               else
                 cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb,.false.
+     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb
      .                     ,vol=.false.)
      .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb,.false.
+     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb
      .                     ,vol=.false.)
               endif
 
@@ -1273,15 +1273,15 @@ c Find rhs_v'
                 cnv = cnv
      .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,drho(:,:,:,1),tmp0(:,:,:,1),nc_eom_gp
-     .                     ,.false.,vol=.false.)
+     .                     ,vol=.false.)
      .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
-     .                     ,.false.,vol=.false.)
+     .                     ,vol=.false.)
               else
                 cnv = cnv
      .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
-     .                     ,.false.,vol=.false.)
+     .                     ,vol=.false.)
               endif
 
               !Substract div_pe piece corresponding to (-di*j/rho)
@@ -1304,10 +1304,10 @@ c Find rhs_v'
 
               if (nc_eom_v) then
                 cnv = cnv
-     .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vcnv0,dv_cnv,advect,cons=.not.nc_eom_v)
-     .               +tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,vcnv0,advect,cons=.not.nc_eom_v))
+     .              +(tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                              ,vcnv0,dv_cnv,advect)
+     .               +tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                              ,dv_cnv,vcnv0,advect))
               else
                 cnv = cnv
      .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid

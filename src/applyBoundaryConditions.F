@@ -784,8 +784,8 @@ c       Allocate auxiliary variables in local domain
           call setBC(IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,iigx,iigy,iigz
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-cc     .              ,iorder=2)
-     .              ,iorder=order)
+     .              ,iorder=1)
+cc     .              ,iorder=order)
 
         case(IBCOV_0)   !Done with bcnv_0
 
@@ -795,27 +795,32 @@ cc          call XformVector_BC(iigx,bcnv_0,bcov_0,.false.)
 
 c       Velocity BC
 
-          if (solve_prs) then
-            prs = a_p*tmp_0
-          else
-            prs = a_p*rho_0*tmp_0
-          endif
-
           if (pinch_flow) then
+            if (solve_prs) then
+              prs = a_p*tmp_0
+            else
+              prs = a_p*rho_0*tmp_0
+            endif
+
             call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_0,prs,eeta_0,v0)
+
+            !Fill ghost nodes
+            vdum = XformVector(iigx,vcnv_0,.false.)
+            call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
+     .                ,vaux%vec_list(IVCNV_0)%bconds
+     .                ,iigx,iigy,iigz,iorder=order)
           else
-            !Average has already been performed in u_0
-            call XferBCs(u_0%array_var(IVX)%array,v0(:,:,:,1),.false.)
-            call XferBCs(u_0%array_var(IVY)%array,v0(:,:,:,2),.false.)
-            call XferBCs(u_0%array_var(IVZ)%array,v0(:,:,:,3),.false.)
+cc            !Average has already been performed in u_0
+cc            call XferBCs(u_0%array_var(IVX)%array,v0(:,:,:,1),.false.)
+cc            call XferBCs(u_0%array_var(IVY)%array,v0(:,:,:,2),.false.)
+cc            call XferBCs(u_0%array_var(IVZ)%array,v0(:,:,:,3),.false.)
+            !Extrapolation
+            vdum = XformVector(iigx,vcnv_0,.false.)
+            call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
+     .                ,vaux%vec_list(IVCNV_0)%bconds
+     .                ,iigx,iigy,iigz,iorder=order)
+
           endif
-
-c         Fill ghost nodes
-
-          vdum = XformVector(iigx,vcnv_0,.false.)
-          call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
-     .              ,vaux%vec_list(IVCNV_0)%bconds
-     .              ,iigx,iigy,iigz,iorder=order)
 
         case(IJCNV_0)
 
@@ -824,7 +829,8 @@ c       Current BC
           call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,iigx,iigy,iigz
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
-     .              ,iorder=order)
+     .              ,iorder=1)
+cc     .              ,iorder=order)
 
         case(IJCOV_0)  !Done when computing jcov_0
 
@@ -860,25 +866,13 @@ c       Velocity BC
 
           if (pinch_flow) then
 
-cc           if (lag_pinch_bc) then
-cc             rho => u_n%array_var(IRHO)%array
-cc             tmp => u_n%array_var(ITMP)%array
-cc           else
-cc             rho => varray%array_var(IRHO)%array
-cc             tmp => varray%array_var(ITMP)%array
-cc           endif
-
             if (solve_prs) then
               prs = a_p*tmp
             else
               prs = a_p*rho*tmp
             endif
 
-cc            if (lag_pinch_bc) then
-cc              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0)
-cc            else
-              call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
-cc            endif
+            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
           else
             call XferBCs(vcnv_0,v0,.true.)
           endif
@@ -914,27 +908,14 @@ c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
-cc           if (lag_pinch_bc) then
-cc             rho => u_n%array_var(IRHO)%array
-cc             tmp => u_n%array_var(ITMP)%array
-cc           else
-cc             rho => varray%array_var(IRHO)%array
-cc             tmp => varray%array_var(ITMP)%array
-cc           endif
-
             if (solve_prs) then
               prs = a_p*tmp
             else
               prs = a_p*rho*tmp
             endif
 
-cc            if (lag_pinch_bc) then
-cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
-cc     .                       ,first_order=.true.)
-cc            else
-              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
-     .                       ,first_order=.true.)
-cc            endif
+            call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
+     .                     ,first_order=.true.)
           else
             call XferBCs(jcnv_0,v0,.true.)
 cc            call XferBCs(jcov_0,v0,.true.)
@@ -1200,14 +1181,6 @@ c       Find hyperresistivity (electron viscosity)
 
       case(VECTOR)
 
-cc        if (lag_pinch_bc) then
-cc          rho => u_n%array_var(IRHO)%array
-cc          tmp => u_n%array_var(ITMP)%array
-cc        else
-cc          rho => varray%array_var(IRHO)%array
-cc          tmp => varray%array_var(ITMP)%array
-cc        endif
-
 c       Allocate auxiliary variables in local domain
 
         allocate(v0(0:nnx+1,0:nny+1,0:nnz+1,3))
@@ -1271,9 +1244,9 @@ c diag ****
 
             jcnv_0 = 0d0
 
-c diag ****
-
           elseif (sum(E0) /= 0d0) then
+c diag ****
+cc          if (sum(E0) /= 0d0) then
 
             !Enforce imposed E field
             do k=0,nnz+1
