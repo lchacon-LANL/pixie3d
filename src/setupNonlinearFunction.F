@@ -48,6 +48,31 @@ c Interfaces
         integer,optional :: obc
         type(var_array),pointer :: varray
         end subroutine applyBC
+
+        function set_nlf_flux_x(igr,nx,ny,nz) result(flx_x)
+        use variable_setup
+        integer :: igr,nx,ny,nz
+        real(8) :: flx_x(nx+1,ny,nz,neqd)
+        end function set_nlf_flux_x
+
+        function set_nlf_flux_y(igr,nx,ny,nz) result(flx_y)
+        use variable_setup
+        integer :: igr,nx,ny,nz
+        real(8) :: flx_y(nx,ny+1,nz,neqd)
+        end function set_nlf_flux_y
+
+        function set_nlf_flux_z(igr,nx,ny,nz) result(flx_z)
+        use variable_setup
+        integer :: igr,nx,ny,nz
+        real(8) :: flx_z(nx,ny,nz+1,neqd)
+        end function set_nlf_flux_z
+
+        function set_nlf_src(igr,nx,ny,nz) result(src)
+        use variable_setup
+        integer :: igr,nx,ny,nz
+        real(8) :: src(nx,ny,nz,neqd)
+        end function set_nlf_src
+
       END INTERFACE
 #endif
 
@@ -91,7 +116,7 @@ c Impose boundary conditions and find auxiliary quantities
       save_tn = old_time_eval .or. source_eval
       call applyBC(varray,igx,igy,igz)
 #else
-      call allocAuxVariables(gv%aux)  !Set pointers
+      call defineAuxVariables(gv%aux)  !Set pointers
 #endif
 
 c Fill LOCAL auxiliary variables
@@ -102,6 +127,15 @@ c Safeguards
 
       call chk_neg(rho,'density')
       call chk_neg(tmp,'temperature')
+
+c Setup fluxes
+
+#if defined(flux_rhs)
+      gv%flux_x = set_nlf_flux_x(igx,nx,ny,nz)
+      gv%flux_y = set_nlf_flux_y(igx,nx,ny,nz)
+      gv%flux_z = set_nlf_flux_z(igx,nx,ny,nz)
+      gv%src    = set_nlf_src   (igx,nx,ny,nz)
+#endif
 
 c End program
 

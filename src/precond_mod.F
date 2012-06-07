@@ -26,9 +26,14 @@ c ######################################################################
      .                             ,EOM_divPe_ijk
      .                             ,viscous_heat_src
      .                             ,fake_ve
-     .                             ,nc_eom_v,nc_eom_jxb
-     .                             ,nc_eom_gp,solve_rho,solve_prs
-     .                             ,advect,v_advect,alt_eom,adiabatic
+     .                             ,nc_eom_v
+     .                             ,nc_eom_jxb
+     .                             ,nc_eom_gp
+     .                             ,solve_rho
+     .                             ,solve_prs
+     .                             ,advect
+     .                             ,v_advect
+     .                             ,adiabatic
 
         use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
 
@@ -1187,10 +1192,10 @@ c     Begin program
 
         !Advection
         psiv = psiv
-     .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dv
-     .                        ,1       ,cons=conserv)
-     .       +        tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dv,v0_cnv
-     .                        ,v_advect,cons=conserv))
+     .       + alpha*(tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
+     .                              ,v0_cnv,dv,1)
+     .       +        tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
+     .                              ,dv,v0_cnv,v_advect))
 
         !Diffusion
         if (nu > 0d0 .and. strss) then
@@ -1206,10 +1211,10 @@ c     Begin program
         !Advection
         psiv = psiv
      .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp
-     .                           ,1       ,cons=conserv)
-cc     .                           ,advect,cons=conserv)
+     .                           ,1)
+cc     .                           ,advect)
      .               +tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv
-     .                           ,v_advect,cons=conserv))
+     .                           ,v_advect))
 
         !Diffusion
         if (nu > 0d0 .and. strss) then
@@ -1836,10 +1841,9 @@ cc     $                                ,dv_cnv)
 
               crhs(ii) =
      .          (gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-     .         -(gamma-2.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),1,vol=.false.
-     .                        ,conserv=.false.,zip_vel=.false.)
+     .                        ,dv_cnv,tmp0(:,:,:,1),advect)
+     .         -(gamma-2.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                        ,dv_cnv,tmp0(:,:,:,1),1)
             enddo
           enddo
         enddo
