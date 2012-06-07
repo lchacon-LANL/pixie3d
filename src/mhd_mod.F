@@ -10,6 +10,9 @@ c ######################################################################
 
         logical :: poincare=.false.,fourier=.false.,test=.false.
 
+        integer :: u_equf=1000,u_prtf=2000,u_mapf=3000
+        character(20) :: equ_file,prt_file,map_file
+
       end module app_iosetup
 
 c module problem_def
@@ -23,96 +26,12 @@ c ######################################################################
 #if !defined(vec_pot)
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7
      .                 ,ITMP=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
-
-        integer, parameter :: IJCNV    =1
-     .                       ,IJCNV_0  =2
-cc     .                       ,IJCNV_N  =23
-     .                       ,IJCOV    =3
-     .                       ,IJCOV_0  =4
-
-        integer, parameter :: IBCNV    =5
-cc     .                       ,IBCNV_N  =20
-     .                       ,IBCNV_0  =6
-     .                       ,IBCOV    =7
-     .                       ,IBCOV_0  =8
-cc     .                       ,IBHAT    =9
-
-        integer, parameter :: IVCNV    =9
-     .                       ,IVCNV_N  =10
-     .                       ,IVCNV_0  =11
-     .                       ,IVCOV    =12
-     .                       ,IVCOV_N  =13
-
-        integer, parameter :: IVECNV   =14
-     .                       ,IVECOV   =15
-cc     .                       ,IVECNV_0 =12
-     .                       ,IVECOV_N =16
-
-        integer, parameter :: IVEFCNV  =17
-cc     .                       ,IVSCNV   =27
-
-        integer, parameter :: IENI     =18
-     .                       ,IENI_0   =19
-     .                       ,IEH      =20
-
-        integer, parameter :: IDIVPI   =21
-     .                       ,IDIVPE   =22
-cc     .                       ,IPCNV    =17
 #else
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
-     .                  ,ITMP=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
-
-        integer, parameter :: IJCNV   =1
-     .                       ,IJCNV_0 =2
-cc     .                       ,IJCNV_N =26
-     .                       ,IJCOV   =3
-     .                       ,IJCOV_0 =4
-
-        integer, parameter :: IBCNV   =5
-cc     .                       ,IBCNV_N =22
-     .                       ,IBCNV_0 =6
-     .                       ,IBCOV   =7
-     .                       ,IBCOV_0 =8
-cc     .                       ,IBHAT   =9
-
-        integer, parameter :: IACNV   =9
-     .                       ,IACOV   =10
-     .                       ,IACOV_0 =11
-
-        integer, parameter :: IVCNV   =12
-     .                       ,IVCNV_0 =13
-     .                       ,IVCNV_N =14
-     .                       ,IVCOV   =15
-     .                       ,IVCOV_N =16
-
-        integer, parameter :: IVECNV  =17
-cc     .                       ,IVECNV_0=19
-     .                       ,IVECOV  =18
-     .                       ,IVECOV_N=19
-
-        integer, parameter :: IVEFCNV =20
-cc     .                       ,IVSCNV  =30
-
-        integer, parameter :: IENI    =21
-     .                       ,IEH     =22
-     .                       ,IENI_0  =23
-
-        integer, parameter :: IDIVPI  =24
-     .                       ,IDIVPE  =25
-cc     .                       ,IPCNV   =21
+     .                 ,ITMP=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
 #endif
 
-        integer, parameter :: IETA=1
-     .                       ,IETA_0=2
-     .                       ,INU=3
-cc     .                       ,IPSI=3
-     .                       ,IHETA=4
-     .                       ,IRHO_0=5
-     .                       ,ITMP_0=6
-
         character(5)  :: equil
-        integer :: u_equf=1000,u_prtf=2000,u_mapf=3000
-        character(20) :: equ_file,prt_file,map_file
 
         logical :: ion_hall=.false.    !Whether to use ion EOM for Hall E
      .            ,pinch_flow=.false.  !Whether equilibrium has pinch flow
@@ -123,25 +42,22 @@ cc     .                       ,IPSI=3
 
       contains
 
-c     setupProblemDims
+c     setDepVarDims
 c     ################################################################
-      subroutine setupProblemDims
+      subroutine setDepVarDims
+
+      integer :: NDEPV, NDEPS !Should be eventually defined in variable module
 
 c     ----------------------------------------------------------------
 c     Define problem dimensions
 c     ----------------------------------------------------------------
 
-      neqd = 8  !Number of equations
+      NDEPV = 2   !Number of dependent var. vectors
+      NDEPS = 2   !Number of dependent var. scalars
 
-#if !defined(vec_pot)
-      NAUXV=22  !Number of auxiliary vectors
-#else
-      NAUXV=25  !Number of auxiliary vectors
-#endif
+      neqd = 3*NDEPV + NDEPS
 
-      NAUXS=6   !Number of auxiliary scalars
-
-      end subroutine setupProblemDims
+      end subroutine setDepVarDims
 
       end module problem_def
 
@@ -227,6 +143,79 @@ c ######################################################################
 
         use transport_params
 
+#if !defined(vec_pot)
+        integer, parameter :: IJCNV    =1
+     .                       ,IJCNV_0  =2
+     .                       ,IJCOV    =3
+     .                       ,IJCOV_0  =4
+
+        integer, parameter :: IBCNV    =5
+     .                       ,IBCNV_0  =6
+     .                       ,IBCOV    =7
+     .                       ,IBCOV_0  =8
+
+        integer, parameter :: IVCNV    =9
+     .                       ,IVCNV_N  =10
+     .                       ,IVCNV_0  =11
+     .                       ,IVCOV    =12
+     .                       ,IVCOV_N  =13
+
+        integer, parameter :: IVECNV   =14
+     .                       ,IVECOV   =15
+     .                       ,IVECOV_N =16
+
+        integer, parameter :: IVEFCNV  =17
+
+        integer, parameter :: IENI     =18
+     .                       ,IENI_0   =19
+     .                       ,IEH      =20
+
+        integer, parameter :: IDIVPI   =21
+     .                       ,IDIVPE   =22
+#else
+        integer, parameter :: IJCNV   =1
+     .                       ,IJCNV_0 =2
+     .                       ,IJCOV   =3
+     .                       ,IJCOV_0 =4
+
+        integer, parameter :: IBCNV   =5
+     .                       ,IBCNV_0 =6
+     .                       ,IBCOV   =7
+     .                       ,IBCOV_0 =8
+
+        integer, parameter :: IACNV   =9
+     .                       ,IACOV   =10
+     .                       ,IACOV_0 =11
+
+        integer, parameter :: IVCNV   =12
+     .                       ,IVCNV_0 =13
+     .                       ,IVCNV_N =14
+     .                       ,IVCOV   =15
+     .                       ,IVCOV_N =16
+
+        integer, parameter :: IVECNV  =17
+     .                       ,IVECOV  =18
+     .                       ,IVECOV_N=19
+
+        integer, parameter :: IVEFCNV =20
+
+        integer, parameter :: IENI    =21
+     .                       ,IEH     =22
+     .                       ,IENI_0  =23
+
+        integer, parameter :: IDIVPI  =24
+     .                       ,IDIVPE  =25
+#endif
+
+        integer, parameter :: IETA=1
+     .                       ,IETA_0=2
+     .                       ,INU=3
+     .                       ,IHETA=4
+     .                       ,IRHO_0=5
+     .                       ,ITMP_0=6
+     .                       ,IRHO_AUX=7
+     .                       ,ITMP_AUX=8
+
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov
      .                                       ,acov_0
@@ -237,9 +226,11 @@ c ######################################################################
      .                                       ,eeta
      .                                       ,eeta_0
      .                                       ,h_eta
-     .                                       ,psi
+cc     .                                       ,psi
      .                                       ,rho_0
      .                                       ,tmp_0
+     .                                       ,rho
+     .                                       ,tmp
 cc     .                                       ,prs
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
@@ -274,14 +265,29 @@ cc     .                                       ,vecnv_0
      .                                       ,vscnv
      .                                       ,vefcnv
 
-        !Grid aliases
-cc        real(8),pointer,dimension(:) :: xx,yy,zz,dxh,dyh,dzh,dx,dy,dz
-
       contains
 
-c     allocAuxVariables
+c     setAuxVarDims
+c     ################################################################
+      subroutine setAuxVarDims
+
+c     ----------------------------------------------------------------
+c     Define problem dimensions
+c     ----------------------------------------------------------------
+
+#if !defined(vec_pot)
+      NAUXV=22  !Number of auxiliary vectors
+#else
+      NAUXV=25  !Number of auxiliary vectors
+#endif
+
+      NAUXS=8   !Number of auxiliary scalars
+
+      end subroutine setAuxVarDims
+
+c     defineAuxVariables
 c     ###################################################################
-      subroutine allocAuxVariables(vaux)
+      subroutine defineAuxVariables(vaux)
 
 c     -------------------------------------------------------------------
 c     Allocates auxiliary variable storage, sets up pointers, defines
@@ -300,9 +306,10 @@ c     Local variables
 
 c     Begin program
 
-c     Allocate storage
-
-        if (.not.associated(vaux)) call allocateAuxStruct(vaux)
+        if (.not.associated(vaux)) then
+          call pstop('defineAuxVariables'
+     .              ,'Auxiliary variable structured not allocated')
+        endif
 
 c     Setup pointers
 
@@ -372,6 +379,12 @@ cc        vaux%vec_list(IJCNV_N)%descr = 'J_n cnv'
 cc        jcnv_n => vaux%vec_list(IJCNV_N)%vec
 
         !New-time variables
+        vaux%var_list(IRHO_AUX)%descr = 'rho'
+        rho => vaux%var_list(IRHO_AUX)%array
+
+        vaux%var_list(ITMP_AUX)%descr = 'tmp'
+        tmp => vaux%var_list(ITMP_AUX)%array
+
         vaux%vec_list(IBCNV)%cnv   = .true.
         vaux%vec_list(IBCNV)%descr = 'B cnv'
         bcnv => vaux%vec_list(IBCNV)%vec
@@ -485,7 +498,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
 c     End program
 
-      end subroutine allocAuxVariables
+      end subroutine defineAuxVariables
 
 c     fillLocalAuxVars
 c     ###################################################################
@@ -534,7 +547,8 @@ c     Begin program
       endif
 
       !Momentum
-      rho => varray%array_var(IRHO)%array
+cc      rho => varray%array_var(IRHO)%array
+      rho => vaux%var_list(IRHO_AUX)%array
 
       pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
@@ -604,9 +618,12 @@ c     Read dependent variable BC setup
 
 c     Set auxiliary variable BC
 
-      !Equilibrium density and temperature
+      !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
+
+      vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
+      vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
 
       !Flow
       vaux%vec_list(IVCNV)%bconds = bcs(:,IVX:IVZ)
@@ -623,9 +640,19 @@ c     Set auxiliary variable BC
 
       !Magnetic field
       vaux%vec_list(IBCNV)%bconds = vaux%vec_list(IACNV)%bconds
+
+      where (bcond == FSYM)  !Needed because B has different symmetries than A
+        vaux%vec_list(IBCNV)%bconds(:,1) = FSYM !Recover symmetry BCs
+        vaux%vec_list(IBCNV)%bconds(:,2) = FSYM !Recover symmetry BCs
+        vaux%vec_list(IBCNV)%bconds(:,3) = FSYM !Recover symmetry BCs
+      end where
+
       where (vaux%vec_list(IBCNV)%bconds == -EQU)
         vaux%vec_list(IBCNV)%bconds = -NEU
+cc        vaux%vec_list(IBCNV)%bconds =-EXT !For debugging B-field BCs
       end where
+
+      call set_vec_symm_bc(vaux%vec_list(IBCNV)%bconds,1)
 
       vaux%vec_list(IBCOV)%bconds = vaux%vec_list(IBCNV)%bconds
 #else
@@ -652,7 +679,7 @@ cc      end where
       !Current
       vaux%vec_list(IJCNV)%bconds = vaux%vec_list(IBCNV)%bconds
 
-      where (bcond == FSYM)
+      where (bcond == FSYM)  !Needed because J has different symmetries than B
         vaux%vec_list(IJCNV)%bconds(:,1) = FSYM !Recover symmetry BCs
         vaux%vec_list(IJCNV)%bconds(:,2) = FSYM !Recover symmetry BCs
         vaux%vec_list(IJCNV)%bconds(:,3) = FSYM !Recover symmetry BCs
@@ -850,8 +877,18 @@ c     Equilibrium quantities
 
 c     Current variables
 
+      !Rho
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO_AUX*AUX
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+
+      !Temp
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
+
       !Eta
-      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMP
+      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMP_AUX*AUX
       vaux%var_list(IETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%bc_dep_list(1,3) = 0 !trivial
 
@@ -885,11 +922,11 @@ c     Current variables
         vaux%vec_list(IBCNV)%bc_dep_list(2,2) = VECTOR
         vaux%vec_list(IBCNV)%bc_dep_list(2,3) = 0 !trivial
       else
-        vaux%vec_list(IBCNV)%bc_dep_list(2,1) = IRHO
+        vaux%vec_list(IBCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IBCNV)%bc_dep_list(2,3) = 1 !non-trivial
 
-        vaux%vec_list(IBCNV)%bc_dep_list(3,1) = ITMP
+        vaux%vec_list(IBCNV)%bc_dep_list(3,1) = ITMP_AUX*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(3,2) = SCALAR
         vaux%vec_list(IBCNV)%bc_dep_list(3,3) = 1 !non-trivial
 
@@ -904,11 +941,11 @@ c     Current variables
       vaux%vec_list(IBCOV)%bc_dep_list(1,3) = 0 !trivial
 
       !Nu=rho*nu_i(T)
-      vaux%var_list(INU)%bc_dep_list(1,1) = IRHO
+      vaux%var_list(INU)%bc_dep_list(1,1) = IRHO_AUX*AUX
       vaux%var_list(INU)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(INU)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(INU)%bc_dep_list(2,1) = ITMP
+      vaux%var_list(INU)%bc_dep_list(2,1) = ITMP_AUX*AUX
       vaux%var_list(INU)%bc_dep_list(2,2) = SCALAR
       vaux%var_list(INU)%bc_dep_list(2,3) = 0 !trivial
 
@@ -928,11 +965,11 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
       if (pinch_flow) then
-        vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO
+        vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IRHO_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(2,3) = 1 !non-trivial
                                           
-        vaux%vec_list(IVCNV)%bc_dep_list(3,1) = ITMP
+        vaux%vec_list(IVCNV)%bc_dep_list(3,1) = ITMP_AUX*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(3,2) = SCALAR
         vaux%vec_list(IVCNV)%bc_dep_list(3,3) = 1 !non-trivial
 
@@ -964,11 +1001,11 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IJCNV)%bc_dep_list(2,3) = 0 !trivial
 
       if (pinch_flow) then
-        vaux%vec_list(IJCNV)%bc_dep_list(3,1) = IRHO
+        vaux%vec_list(IJCNV)%bc_dep_list(3,1) = IRHO_AUX*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(3,2) = SCALAR
         vaux%vec_list(IJCNV)%bc_dep_list(3,3) = 1 !non-trivial
                                           
-        vaux%vec_list(IJCNV)%bc_dep_list(4,1) = ITMP
+        vaux%vec_list(IJCNV)%bc_dep_list(4,1) = ITMP_AUX*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(4,2) = SCALAR
         vaux%vec_list(IJCNV)%bc_dep_list(4,3) = 1 !non-trivial
                                           
@@ -987,7 +1024,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IJCOV)%bc_dep_list(1,3) = 0 !trivial
 
       !Ve cnv = v - di*j/rho
-      vaux%vec_list(IVECNV)%bc_dep_list(1,1) = IRHO
+      vaux%vec_list(IVECNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
       vaux%vec_list(IVECNV)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IVECNV)%bc_dep_list(1,3) = 0 !trivial
 
@@ -1240,8 +1277,18 @@ c     Equilibrium quantities
 
 c     Current variables
 
+      !Rho
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+
+      !Temp
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMP
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
+
       !Eta
-      vaux%var_list(IETA)%dom_dep_list(1,1) = ITMP
+      vaux%var_list(IETA)%dom_dep_list(1,1) = ITMP_AUX*AUX
       vaux%var_list(IETA)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%dom_dep_list(1,3) = 0 !trivial
 
@@ -1288,11 +1335,11 @@ c     Current variables
       vaux%vec_list(IBCOV)%dom_dep_list(1,3) = 0 !trivial
 
       !Nu=rho*nu_i(T)
-      vaux%var_list(INU)%dom_dep_list(1,1) = IRHO
+      vaux%var_list(INU)%dom_dep_list(1,1) = IRHO_AUX*AUX
       vaux%var_list(INU)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(INU)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(INU)%dom_dep_list(2,1) = ITMP
+      vaux%var_list(INU)%dom_dep_list(2,1) = ITMP_AUX*AUX
       vaux%var_list(INU)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(INU)%dom_dep_list(2,3) = 0 !trivial
 
@@ -1334,7 +1381,7 @@ c     Current variables
       vaux%vec_list(IJCOV)%dom_dep_list(1,3) = 0 !trivial
 
       !Ve cnv = v - di*j/rho
-      vaux%vec_list(IVECNV)%dom_dep_list(1,1) = IRHO
+      vaux%vec_list(IVECNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
       vaux%vec_list(IVECNV)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IVECNV)%dom_dep_list(1,3) = 0 !trivial
 
@@ -1384,11 +1431,11 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(2,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(2,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(3,1) = IRHO
+          vaux%vec_list(IEH)%dom_dep_list(3,1) = IRHO_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(3,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(3,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(4,1) = ITMP
+          vaux%vec_list(IEH)%dom_dep_list(4,1) = ITMP_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(4,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(4,3) = 1 !non-trivial
 
@@ -1396,11 +1443,11 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(5,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(5,3) = 0 !trivial
         else
-          vaux%vec_list(IEH)%dom_dep_list(1,1) = IRHO
+          vaux%vec_list(IEH)%dom_dep_list(1,1) = IRHO_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(1,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(1,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(2,1) = ITMP
+          vaux%vec_list(IEH)%dom_dep_list(2,1) = ITMP_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(2,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(2,3) = 1 !non-trivial
 
@@ -1506,6 +1553,8 @@ c     Begin program
      .       ,nuu
      .       ,rho_0
      .       ,tmp_0
+     .       ,rho
+     .       ,tmp
 cc     .       ,bcnv_n
 cc     .       ,jcnv_n
 cc     .       ,vecnv_0
@@ -4346,9 +4395,11 @@ c ######################################################################
         use timeStepping
 
 #if !defined(vec_pot)
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
+        real(8),pointer,dimension(:,:,:):: px,py,pz,bx,by,bz
 #else
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
+cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
+        real(8),pointer,dimension(:,:,:):: px,py,pz,ax,ay,az
 #endif
 
         integer :: advect,v_advect      !Identifies advection scheme for scalar, vectors
@@ -4429,7 +4480,7 @@ c     End program
 c     EOM_jxb
 c     ###################################################################
       function EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz,bb,jj,vec_cnv
-     $                ,nc_eom_jxb,alt_eom,vol)
+     $                ,nc_eom_jxb,vol)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
@@ -4446,7 +4497,7 @@ c     Call variables
         real(8)    :: cnv(3)
         real(8),target :: jj(0:nx+1,0:ny+1,0:nz+1,3)
      $                   ,bb(0:nx+1,0:ny+1,0:nz+1,3)
-        logical    :: vec_cnv,nc_eom_jxb,nc_eom_gp,alt_eom
+        logical    :: vec_cnv,nc_eom_jxb
         logical,optional,intent(IN) :: vol
 
 c     Local variables
@@ -4478,7 +4529,7 @@ c     Begin program
 
           vec1 => bb
           vec2 => jj
-          cnv =-div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+          cnv =-div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
      .                    ,eom_jxb_x,eom_jxb_y,eom_jxb_z,vol=vol_wgt)
           nullify(vec1,vec2)
         endif
@@ -5146,8 +5197,7 @@ c     End program
 
 c     EOM_gp
 c     ###################################################################
-      function EOM_gp(i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,nc_eom_gp
-     .               ,alt_eom,vol)
+      function EOM_gp(i,j,k,nx,ny,nz,igx,igy,igz,rr,tt,nc_eom_gp,vol)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
@@ -5163,7 +5213,7 @@ c     Call variables
         real(8)    :: cnv(3)
         real(8),target :: rr(0:nx+1,0:ny+1,0:nz+1)
      $                   ,tt(0:nx+1,0:ny+1,0:nz+1)
-        logical    :: nc_eom_gp,alt_eom
+        logical    :: nc_eom_gp
         logical,optional,intent(IN) :: vol
 
 c     Local variables
@@ -5237,7 +5287,7 @@ cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
         else
           sc1 => rr
           sc2 => tt
-          cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+          cnv = div_tensor(i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
      .                    ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z
      .                    ,vol=vol_wgt)
           nullify(sc1,sc2)
@@ -6158,9 +6208,9 @@ cc      endif
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-cc     .                         ,min(advect,2),cons=.false.)
-     .                         ,1,cons=.false.)
+              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+cc     .                            ,min(advect,2))
+     .                            ,1)
      .             +E_h(i,j,k,:)
 
               E_h(i,j,k,:) = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)

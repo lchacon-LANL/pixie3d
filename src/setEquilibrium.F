@@ -150,7 +150,7 @@ c Label variables
 
 c Define boundary conditions and dependencies
 
-      call setAppBCs(varray,0)
+      call setAppBCs(varray,gv%aux,0)
 
 c Set initial guess
 
@@ -1347,36 +1347,30 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 #else
-        call pstop('setEquilibrium','Equilibrium not working')
+        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
 
-cc        do k = 0,nzdp
-cc          do j = 0,nydp
-cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
-cc
-cc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
-cc
-cc              bb     = (dlambda**2+aa)
-cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              if (coords == 'hel') then
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta + kk*x1/mm*bz0
-cc                b(i,j,k,3)  = x1*bz0
-cc              else
-cc                b(i,j,k,1)  = 0d0
-cc                b(i,j,k,2)  = btheta/x1 + kk/mm*bz0
-cc                b(i,j,k,3)  = bz0
-cc              endif
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
+        do k = 0,nz+1
+          do j = 0,ny+1
+            do i = 0,nxdp
+
+              x1 = grid_params%xg(i)  !Global coordinate
+
+              bb     = (dlambda**2+aa)
+     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              bg(i,j,k,1) = 0d0
+              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
+              bg(i,j,k,3) = x1*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+     .                          ,bg,var(:,:,:,IAX:IAZ))
+
+        deallocate(bg)
 #endif
 
       case ('2dtok')
@@ -2013,31 +2007,6 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
      .                          ,bg,var(:,:,:,IAX:IAZ))
-
-cc        write (*,*) nx,ny,nz
-cc        allocate(bg(0:nx+1,0:ny+1,0:nz+1,3))
-cc
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc
-cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
-cc
-cc              iglobal = i + grid_params%ilo(igx) - 1
-cc
-cc              x1 = grid_params%xg(iglobal)  !Global coordinate
-cc
-cc              bg(i,j,k,1) = 0d0
-cc              bg(i,j,k,2) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-cc              bg(i,j,k,3) = x1*bzz0(iglobal)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call vlap_div_clean(ilevel,nx,ny,nz
-cc     .                     ,igx,igy,igz,bg,dacov=var(:,:,:,IAX:IAZ)
-cc     .                  )!,diag_plots=.true.)
 
         deallocate(bg)
 #endif
@@ -7151,12 +7120,12 @@ cc     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
       a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
      .     = a(igm:igp,jgm:jgp,kgm:kgp,:)
 
-c Set boundary values to face values for EQU BC
+c Set topological BCs
 
       bcnd(:,1) = bcond
       bcnd(:,2) = bcond
       bcnd(:,3) = bcond
-      where (bcnd == DEF) bcnd = -IFC
+cc      where (bcnd == DEF) bcnd = -IFC
 
       a_cnv = XformVector(igrid,a_cov,.true.)
       call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd

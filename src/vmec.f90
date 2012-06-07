@@ -1646,6 +1646,7 @@
 
       use vmec_mod, pi_stel => pi
       use grid
+      use app_iosetup
       use equilibrium
 
       implicit none

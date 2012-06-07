@@ -126,7 +126,9 @@ c Begin program
 
 c Set fundamental problem parameters (number of equations, number of aux variables)
 
-      call setupProblemDims
+      call setDepVarDims
+
+      call setAuxVarDims
 
 c Set defaults
 

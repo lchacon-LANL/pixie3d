@@ -652,40 +652,23 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            upwind = gm*c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,v0_cnv(:,:,:,1)
-     .                    ,v0_cnv(:,:,:,2)
-     .                    ,v0_cnv(:,:,:,3)
-     .                    ,dtmp  (:,:,:,1)
-     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
-     .              +(1.-gm)*dot_product(v0_cnv(i,j,k,:)
-     .                  ,grad(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                       ,dtmp(:,:,:,1)
-     .                       ,hex=int(sign(1d0,-sgn*v0_cnv(i,j,k,1)))
-     .                       ,hey=int(sign(1d0,-sgn*v0_cnv(i,j,k,2)))
-     .                       ,hez=int(sign(1d0,-sgn*v0_cnv(i,j,k,3)))))
-     .                  /jac
-
-cc            upwind = .5*(v0_cnv(i,j,k,1)+abs(v0_cnv(i,j,k,1)))
-cc     .                 *( dtmp(i  ,j,k,1) - dtmp(i-1,j,k,1) )
-cc     .                 /grid_params%dx(ig-1)
-cc     .              +.5*(v0_cnv(i,j,k,1)-abs(v0_cnv(i,j,k,1)))
-cc     .                 *( dtmp(i+1,j,k,1) - dtmp(i  ,j,k,1) )
-cc     .                 /grid_params%dx(ig)
-cc     .              +.5*(v0_cnv(i,j,k,2)+abs(v0_cnv(i,j,k,2)))
-cc     .                 *( dtmp(i,j  ,k,1) - dtmp(i,j-1,k,1) )
-cc     .                 /grid_params%dy(jg-1)
-cc     .              +.5*(v0_cnv(i,j,k,2)-abs(v0_cnv(i,j,k,2)))
-cc     .                 *( dtmp(i,j+1,k,1) - dtmp(i,j  ,k,1) )
-cc     .                 /grid_params%dy(jg)
-cc     .              +.5*(v0_cnv(i,j,k,3)+abs(v0_cnv(i,j,k,3)))
-cc     .                 *( dtmp(i,j,k  ,1) - dtmp(i,j,k-1,1) )
-cc     .                 /grid_params%dz(kg-1)
-cc     .              +.5*(v0_cnv(i,j,k,3)-abs(v0_cnv(i,j,k,3)))
-cc     .                 *( dtmp(i,j,k+1,1) - dtmp(i,j,k  ,1) )
-cc     .                 /grid_params%dz(kg)
-
-            upwind = upwind/jac
+cc            upwind = gm*c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+cc     .                    ,v0_cnv,dtmp  (:,:,:,1)
+cc     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
+cc     .              +(1.-gm)*dot_product(v0_cnv(i,j,k,:)
+cc     .                  ,grad(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+cc     .                       ,dtmp(:,:,:,1)
+cc     .                       ,hex=int(sign(1d0,-sgn*v0_cnv(i,j,k,1)))
+cc     .                       ,hey=int(sign(1d0,-sgn*v0_cnv(i,j,k,2)))
+cc     .                       ,hez=int(sign(1d0,-sgn*v0_cnv(i,j,k,3)))))
+cc     .                  /jac
+            upwind = gm*flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                           ,v0_cnv,dtmp(:,:,:,1),1
+     .                           ,vol=vol_wgt,zip_vel=.false.)!Do not use ZIP, since dT is not pos.def.
+     .             -sgn*(gm-1.)
+     .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                              ,sgn*v0_cnv,dtmp(:,:,:,1),1
+     .                              ,vol=vol_wgt)
 
             if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
@@ -703,8 +686,6 @@ cc     .                 /grid_params%dz(kg)
 
             if (.not.solve_prs) lap=lap/rho0(i,j,k,1)
 
-cc            y(ijk) =dvol*( (cnp/dt+alpha*gm*mgdivV0(ijkg))*x(ijk)
-cc     .                     +alpha*(upwind - lap) )
             y(ijk) =dvol*( cnp/dt*x(ijk) + alpha*(upwind - lap) )
 
           enddo
@@ -817,14 +798,9 @@ c Calculate matrix-vector product
             endif
 
             !Conservative advection
-            upwind = c_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,v0_cnv(:,:,:,1)
-     .                    ,v0_cnv(:,:,:,2)
-     .                    ,v0_cnv(:,:,:,3)
-     .                    ,drho  (:,:,:,1)
-     .                    ,vol=vol_wgt,upwind=.true.,sp=bcSP())
-cc            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                    ,v0_cnv,drho(:,:,:,1),1,vol=vol_wgt,sp=bcSP())
+            upwind = flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     .                        ,v0_cnv,drho(:,:,:,1),1,vol=vol_wgt
+     .                        ,zip_vel=.false.) !Do not use ZIP form because drho is not pos. def.
 
             ! Diffusion
             if (dd > 0d0) then

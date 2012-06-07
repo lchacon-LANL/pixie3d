@@ -13,7 +13,7 @@ c     -----------------------------------------------------------------
 
       use timeStepping
 
-      use iosetup
+      use app_iosetup
 
       use equilibrium
 
@@ -75,7 +75,7 @@ c     Begin program
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq))
+     .                                 ,pert(ieq),.false.)
           enddo
         endif
 
@@ -91,7 +91,7 @@ c     Begin program
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq))
+     .                                 ,pert(ieq),.false.)
           enddo
 
           !Perturb normal B-field component ensuring div(B)=0 numerically
@@ -144,7 +144,7 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
         do ieq=1,varr%nvar
           call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq))
+     .                               ,pert(ieq),.false.)
         enddo
 
         !Perturb normal B-field component ensuring div(B)=0 numerically
@@ -453,8 +453,8 @@ cc        enddo
 
         do ieq=1,varr%nvar
           call perturbEquilibrium_psi(varr%array_var(ieq)%array
-     .                              ,varr%array_var(ieq)%bconds
-     .                              ,pert(ieq),ieq)
+     .                               ,varr%array_var(ieq)%bconds
+     .                               ,pert(ieq),ieq)
         enddo
 
 cc      case ('3dpar')
@@ -466,7 +466,7 @@ cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
         do ieq=1,varr%nvar
           call perturbEquilibrium_def(varr%array_var(ieq)%array
      .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq))
+     .                               ,pert(ieq),.false.)
         enddo
 
       end select
@@ -477,7 +477,7 @@ c     End program
 
 c     perturbEquilibrium_def
 c     #################################################################
-      subroutine perturbEquilibrium_def(array,bcs,perturb)
+      subroutine perturbEquilibrium_def(array,bcs,perturb,cartesian)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -488,55 +488,98 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: bcs(6)
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+      integer :: bcs(6)
+      real(8) :: perturb
+      real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
+      logical :: cartesian
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,iglobal
-     .             ,ipw1,ipw2,ipw3,mode
-      real(8)    :: x1,y1,z1
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+      integer :: i,j,k,ig,jg,kg,iglobal,ipw1,ipw2,ipw3,mode
+      real(8) :: x1,y1,z1
+      real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
 c     Begin program
 
-      do ipw1=0,npw1-1
-        do ipw2=0,npw2-1
-          do ipw3=0,npw3-1
+      if (cartesian) then
 
-            mode = nh1+sign(ipw1,nh1)
-            do i = ilom,ihip
-              call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz
-     .                                      ,ig,jg,kg,x1,y1,z1)
-              fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
-            enddo
+        do ipw1=0,npw1-1
+          do ipw2=0,npw2-1
+            do ipw3=0,npw3-1
 
-            mode = nh2+sign(ipw2,nh2)
-            do j = jlom,jhip
-              call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz
-     .                                      ,ig,jg,kg,x1,y1,z1)
-              fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
-            enddo
+              mode = nh1+sign(ipw1,nh1)
+              do i = ilom,ihip
+                call getCartesianCoordinates(i,jlo,klo,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+              enddo
 
-            mode = nh3+sign(ipw3,nh3)
-            do k = klom,khip
-              call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz
-     .                                      ,ig,jg,kg,x1,y1,z1)
-              fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
-            enddo
-
-            do k = klom,khip
+              mode = nh2+sign(ipw2,nh2)
               do j = jlom,jhip
-                do i = ilom,ihip
-                  array(i,j,k) = array(i,j,k)+perturb*fx(i)*fy(j)*fz(k)
+                call getCartesianCoordinates(ilo,j,klo,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+              enddo
+
+              mode = nh3+sign(ipw3,nh3)
+              do k = klom,khip
+                call getCartesianCoordinates(ilo,jlo,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+              enddo
+
+              do k = klom,khip
+                do j = jlom,jhip
+                  do i = ilom,ihip
+                    array(i,j,k) =array(i,j,k)+perturb*fx(i)*fy(j)*fz(k)
+                  enddo
                 enddo
               enddo
-            enddo
 
+            enddo
           enddo
         enddo
-      enddo
+
+      else
+
+        do ipw1=0,npw1-1
+          do ipw2=0,npw2-1
+            do ipw3=0,npw3-1
+
+              mode = nh1+sign(ipw1,nh1)
+              do i = ilom,ihip
+                call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+              enddo
+
+              mode = nh2+sign(ipw2,nh2)
+              do j = jlom,jhip
+                call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+              enddo
+
+              mode = nh3+sign(ipw3,nh3)
+              do k = klom,khip
+                call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+                fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+              enddo
+
+              do k = klom,khip
+                do j = jlom,jhip
+                  do i = ilom,ihip
+                    array(i,j,k) =array(i,j,k)+perturb*fx(i)*fy(j)*fz(k)
+                  enddo
+                enddo
+              enddo
+
+            enddo
+          enddo
+        enddo
+
+      endif
 
 c     End program
 
@@ -1094,7 +1137,7 @@ c     Begin program
         bcsl = bcond
         where(bcsl == DEF) bcsl = DIR
 
-        call perturbEquilibrium_def(psi,bcsl,perturb)
+        call perturbEquilibrium_def(psi,bcsl,perturb,.true.)
 
         !Find delta_B
         nx = ihip-ilom-1
@@ -1119,7 +1162,7 @@ c     Begin program
 
       else
 
-        call perturbEquilibrium_def(array,bcs,perturb)
+        call perturbEquilibrium_def(array,bcs,perturb,.true.)
 
       endif
 
