@@ -24,8 +24,11 @@ c####################################################################
 c       Hardwired BC configuration parameters
 
         !Order of BC interpolation
+#if defined(vec_pot)
         integer :: bc_order=1
-
+#else
+        integer :: bc_order=1
+#endif
       contains
 
 c     setAppBCs
@@ -501,7 +504,8 @@ c     End subroutine
 
       end subroutine defineDepDom_Deps
 
-#if defined(petsc)
+cc#if defined(petsc)
+#if 0
 c     setBCsched
 c     ###################################################################
       subroutine setBCsched(varray,vaux,itime)
@@ -609,7 +613,7 @@ c     Setup schedule
         gv%bc_grp(6+offset)%nbc_seq = 2
         gv%bc_grp(7+offset)%nbc_seq = 7
         gv%bc_grp(8+offset)%nbc_seq = 4
-        gv%bc_grp(9+offset)%nbc_seq = 2
+        gv%bc_grp(9+offset)%nbc_seq = 4
 #else
         gv%bc_grp(1+offset)%nbc_seq = 1
         gv%bc_grp(2+offset)%nbc_seq = 1
@@ -775,11 +779,18 @@ cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
         gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
 
         !Group 9
-        gv%bc_grp(9+offset)%bc_seq(1,1) = IEH*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
 
-        gv%bc_grp(9+offset)%bc_seq(2,1) = IENI*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(3,1) = IEH*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
+ 
 #else
         !Group 1
         gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable

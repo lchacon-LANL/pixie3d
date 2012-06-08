@@ -2891,7 +2891,7 @@ cc      if (.true.) then
 
 
       else
-        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt_eom
+        cnv = div_tensor(i,j,k,nxx,nyy,nzz,igr,igr,igr,alt__eom()
      .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
       endif
 

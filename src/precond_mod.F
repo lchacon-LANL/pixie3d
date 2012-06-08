@@ -26,9 +26,14 @@ c ######################################################################
      .                             ,EOM_divPe_ijk
      .                             ,viscous_heat_src
      .                             ,fake_ve
-     .                             ,nc_eom_v,nc_eom_jxb
-     .                             ,nc_eom_gp,solve_rho,solve_prs
-     .                             ,advect,v_advect,alt_eom,adiabatic
+     .                             ,nc_eom_v
+     .                             ,nc_eom_jxb
+     .                             ,nc_eom_gp
+     .                             ,solve_rho
+     .                             ,solve_prs
+     .                             ,advect
+     .                             ,v_advect
+     .                             ,adiabatic
 
         use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
 
@@ -568,13 +573,13 @@ cc        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
 cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravariant components 
         bc_pc(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
 
-        call setASM_PC_BC(igx,igy,igz,bc_pc,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_pc,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_sc(:,1) = bcond
         where (bc_sc == DEF) bc_sc = EXT
         where (bc_sc ==FSYM) bc_sc = NEU
 
-        call setASM_PC_BC(igx,igy,igz,bc_sc,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_sc,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_odd(:,1) = bcond
         bc_vec_odd(:,2) = bcond
@@ -582,7 +587,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         where (bc_vec_odd == DEF) bc_vec_odd = EXT
         call set_vec_symm_bc(bc_vec_odd,-1)   !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_even(:,1) = bcond
         bc_vec_even(:,2) = bcond
@@ -590,7 +595,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         where (bc_vec_even == DEF) bc_vec_even = EXT
         call set_vec_symm_bc(bc_vec_even,1)   !Even normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_even,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_vec_even,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_cov(:,1) = bcond
         bc_cov(:,2) = bcond
@@ -598,7 +603,7 @@ cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravar
         where (bc_cov == DEF) bc_cov = EXT
         call set_vec_symm_bc(bc_cov,-1)        !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_cov,.true.,IIBC=EXT) !THIS STATES NOT TO COMMUNICATE COEFF.
+        call setASM_PC_BC(igx,igy,igz,bc_cov,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
 c     Store density in all grids (w/o BCs)
 
