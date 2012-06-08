@@ -104,12 +104,6 @@ c Begin program
 
       E0 = 0d0 ; B0 = 0d0
 
-#if !defined(vec_pot) 
-      a_bc = .false.
-#else
-      a_bc = .false.
-#endif
-
       label => varray%array_var%descr
 
       do ieq=1,neqd
@@ -534,14 +528,14 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         var(:,:,:,IBY)  = 0d0
         var(:,:,:,IBZ)  = 1d0
 #else
-        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('3dkh')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
 c     Check coordinates
 
@@ -598,7 +592,7 @@ c     ----------------------------------------------
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
 c     Check coordinates
 
@@ -642,7 +636,7 @@ c     Tearing mode in cartesian coordinates
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
 c     Check coordinates
 
@@ -696,7 +690,7 @@ cc      case ('gem')
 cc
 ccc     Define vector potential (in curvilinear coordinates) for initialization
 cc
-cc        call fillVectorPotential(a,igx,igy,igz,a_bc)
+cc        call fillVectorPotential(igx,a)
 cc
 ccc     Check coordinates
 cc
@@ -796,11 +790,11 @@ c     GEM challenge
         enddo
 
 #if !defined(vec_pot)
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
-        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('kai1')
@@ -840,18 +834,18 @@ c     Kai TM test
         enddo
 
 #if !defined(vec_pot)
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 #else
-        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('dtm')
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
 c     Check coordinates
 
@@ -906,7 +900,7 @@ c     -------------------------------------------------
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
 
 c     Check coordinates
 
@@ -984,7 +978,7 @@ c     Island coalescence in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        call fillVectorPotential(a,igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,a)
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 
 cc        do k = klo,khi
@@ -1004,7 +998,7 @@ cc          enddo
 cc        enddo
 cc        call XformVector(igx,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
-        call fillVectorPotential(var(:,:,:,IAX:IAZ),igx,igy,igz,a_bc)
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
 c     ------------------------------------------------
@@ -2011,15 +2005,15 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
         deallocate(bg)
 #endif
 
-        !Shift vr for EQU BC
-        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-     .                              +var(ihi+1,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-        endif
+cc        !Shift vr for EQU BC
+cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+cc     .                              +var(ihi+1,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+cc        endif
 
       case ('2dhel')
 
@@ -2133,15 +2127,15 @@ c     Density and temperature
         deallocate(bg)
 #endif
 
-        !Shift vr for EQU BC
-        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-     .                              +var(ihi+1,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-        endif
+cc        !Shift vr for EQU BC
+cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+cc     .                              +var(ihi+1,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+cc        endif
 
       case ('ppn3d','p3nsl')
 
@@ -2314,15 +2308,15 @@ cc        stop
         deallocate(bg)
 #endif
 
-        !Shift vr for EQU BC
-        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-     .                              +var(ihi+1,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-        endif
+cc        !Shift vr for EQU BC
+cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+cc     .                              +var(ihi+1,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+cc        endif
 
       case ('ohtor')
 
@@ -2406,17 +2400,17 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-        !Shift vr for EQU BC
-        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-     .                              +var(ihi+1,:,:,IVX)
-     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-          var(ihi+1,:,:,IVY) = 0.5*(var(ihi  ,:,:,IVY)
-     .                             +var(ihi+1,:,:,IVY))
-        endif
+cc        !Shift vr for EQU BC
+cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
+cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
+cc     .                              +var(ihi+1,:,:,IVX)
+cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
+cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
+cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
+cc          var(ihi+1,:,:,IVY) = 0.5*(var(ihi  ,:,:,IVY)
+cc     .                             +var(ihi+1,:,:,IVY))
+cc        endif
 
       case default
 
@@ -6825,7 +6819,7 @@ c     End program
 
 c fillVectorPotential
 c####################################################################
-      subroutine fillVectorPotential(a,iigx,iigy,iigz,bc)
+      subroutine fillVectorPotential(igr,a)
 
 c--------------------------------------------------------------------
 c     Defines COVARIANT vector potential for initialization of 
@@ -6844,9 +6838,8 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: iigx,iigy,iigz
+      integer    :: igr
       real(8)    :: a(ilom:ihip,jlom:jhip,klom:khip,3)
-      logical    :: bc
 
 c Local variables
 
@@ -6857,9 +6850,9 @@ c Local variables
 
 c Begin program
 
-      nx = grid_params%nxv(iigx)
-      ny = grid_params%nyv(iigy)
-      nz = grid_params%nzv(iigz)
+      nx = grid_params%nxv(igr)
+      ny = grid_params%nyv(igr)
+      nz = grid_params%nzv(igr)
 
       select case (trim(equil))
 
@@ -6869,7 +6862,7 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = x1
@@ -6892,7 +6885,7 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
@@ -6908,7 +6901,7 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 2*dlambda
@@ -6925,7 +6918,7 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
@@ -6946,7 +6939,7 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
@@ -6979,7 +6972,7 @@ cc        endif
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
@@ -6995,7 +6988,7 @@ cc        endif
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,iigx,iigy,iigz,ig,jg,kg
+              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
      .                                    ,x1,y1,z1)
               a(i,j,k,1) = dlambda
      .             *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
@@ -7009,20 +7002,20 @@ cc        endif
 
 c Transform to Covariant
 
-      call XformVector_mesh2(iigx,a,'car','cov')
+      call XformVector_mesh2(igr,a,'car','cov')
 
 c Set boundary values to face values for EQU BC
-
-      if (bc) then
-        bcnd(:,1) = bcond
-        bcnd(:,2) = bcond
-        bcnd(:,3) = bcond
-        where (bcnd == DEF) bcnd = -IFC
-
-        a_cnv = XformVector(iigx,a,.true.)
-        call setBC(IAX,3,nx,ny,nz,a_cnv,a,a,bcnd,iigx,iigy,iigz
-     .          ,is_cnv=.false.)
-      endif
+cc
+cc      if (bc) then
+cc        bcnd(:,1) = bcond
+cc        bcnd(:,2) = bcond
+cc        bcnd(:,3) = bcond
+cc        where (bcnd == DEF) bcnd = -IFC
+cc
+cc        a_cnv = XformVector(igr,a,.true.)
+cc        call setBC(IAX,3,nx,ny,nz,a_cnv,a,a,bcnd,igr,igr,igr
+cc     .          ,is_cnv=.false.)
+cc      endif
 
 c End program
 

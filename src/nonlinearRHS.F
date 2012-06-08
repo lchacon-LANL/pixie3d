@@ -106,7 +106,7 @@ c Local variables
 
       integer    :: ieq,nx,ny,nz
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8)    :: cnv(3),cov(3)
 
       ! rho equation
       real(8)    :: advc,diffus
@@ -121,7 +121,6 @@ c Begin program
       nz = grid_params%nzv(igz)
 
       jac = gmetric%grid(igx)%jac(i,j,k)
-
 c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (solve_rho) then
