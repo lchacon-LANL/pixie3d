@@ -34,7 +34,7 @@ c Local variables
 
       real(8)       :: vmax(3),lvmax(3)
 
-      real(8)       :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
+cc      real(8)       :: vx_max,vy_max,vz_max,bx_max,by_max,bz_max
 
 c Begin program
 
@@ -46,20 +46,24 @@ c Begin program
 
 c Find maximum velocity and magnetic field components (cartesian)
 
-      if (.not.nc_eom_v) then
-        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)
-     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
-        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)
-     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
-        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)
-     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
-      else
-        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)))
-        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)))
-        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)))
-      endif
+cc      if (.not.nc_eom_v) then
+cc        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)
+cc     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+cc        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)
+cc     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+cc        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)
+cc     .                     /varr%array_var(IRHO)%array(1:nx,1:ny,1:nz)))
+cc      else
+cc        vx_max = maxval(abs(varr%array_var(IVX )%array(1:nx,1:ny,1:nz)))
+cc        vy_max = maxval(abs(varr%array_var(IVY )%array(1:nx,1:ny,1:nz)))
+cc        vz_max = maxval(abs(varr%array_var(IVZ )%array(1:nx,1:ny,1:nz)))
+cc      endif
+cc
+cc      vmax = (/ vx_max,vy_max,vz_max /)
 
-      vmax = (/ vx_max,vy_max,vz_max /)
+      vmax(1) = maxval(abs(vcnv(1:nx,1:ny,1:nz,1)))
+      vmax(2) = maxval(abs(vcnv(1:nx,1:ny,1:nz,2)))
+      vmax(3) = maxval(abs(vcnv(1:nx,1:ny,1:nz,3)))
 
 #if defined(petsc)
       lvmax = vmax
@@ -228,7 +232,7 @@ c     Warnings
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
       if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
       if (adiabatic) write (*,*) 'Using polytropic EOS'
-      if (solve_prs) write (*,*) 'Solving for pressure instead of temp'
+cc      if (solve_prs) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'

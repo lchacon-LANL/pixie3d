@@ -82,35 +82,6 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-c Set aliases
-
-cc      rho => varray%array_var(IRHO)%array
-      px  => varray%array_var(IVX )%array
-      py  => varray%array_var(IVY )%array
-      pz  => varray%array_var(IVZ )%array
-#if !defined(vec_pot)
-      bx  => varray%array_var(IBX )%array
-      by  => varray%array_var(IBY )%array
-      bz  => varray%array_var(IBZ )%array
-#else
-      ax  => varray%array_var(IAX )%array
-      ay  => varray%array_var(IAY )%array
-      az  => varray%array_var(IAZ )%array
-#endif
-cc      tmp => varray%array_var(ITMP)%array
-
-c Enslave density when appropriate
-
-      if (.not.solve_rho) then
-        if (adiabatic) then
-          where (u_0%array_var(ITMP)%array /= 0d0)
-cc            rho =     u_0%array_var(IRHO)%array
-cc     .          *(tmp/u_0%array_var(ITMP)%array)**(1./gamma)
-            rho =     rho_0*(tmp/tmp_0)**(1./gamma)
-          end where
-        endif
-      endif
-
 c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
@@ -123,6 +94,16 @@ c Impose boundary conditions and find auxiliary quantities
 c Fill LOCAL auxiliary variables
 
       call fillLocalAuxVars(igx,varray,gv%aux)
+
+c Enslave density when appropriate (PUT IN BC SCHEDULE!!!!)
+
+      if ((.not.solve_rho).and.adiabatic) then
+          where (tmp_0 /= 0d0)
+cc            rho =     u_0%array_var(IRHO)%array
+cc     .          *(tmp/u_0%array_var(ITMP)%array)**(1./gamma)
+            rho = rho_0*(tmp/tmp_0)**(1./gamma)
+          end where
+      endif
 
 c Safeguards
 

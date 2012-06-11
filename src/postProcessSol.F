@@ -154,7 +154,7 @@ c       Find new B^(n+1)
 
 c       Update helical flux
 
-        psi = psi + da_cov(:,:,:,3)
+cc        psi = psi + da_cov(:,:,:,3)
 
         deallocate(db_cnv,da_cov)
 

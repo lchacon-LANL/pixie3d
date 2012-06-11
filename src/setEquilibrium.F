@@ -14,10 +14,7 @@ c       * ieq=IRHO: density
 c       * ieq=IVX:IVZ: momentum if conservative, velocity otherwise
 c       * ieq=IBX:IBZ: magnetic field
 c       * ieq=IAX:IAZ: vector potential
-c       * ieq=ITMP: electron temperature (solve_prs=.false.) or
-c                   electron pressure (solve_prs=.true.). Total
-c                   pressure is found as p=n*(Ti+Te)=a_p*n*Te (or
-c                   p=a_p*Te).
+c       * ieq=ITMP: total pressure is found as p=n*(Ti+Te)=a_p*n*Te.
 c--------------------------------------------------------------------
 
       use parameters
@@ -136,11 +133,11 @@ c Label variables
       label(IVX)  = 'P^1'
       label(IVY)  = 'P^2'
       label(IVZ)  = 'P^3'
-      if (solve_prs) then
+cc      if (solve_prs) then
         label(ITMP) = 'P_e'        
-      else
-        label(ITMP) = 'T_e'
-      endif
+cc      else
+cc        label(ITMP) = 'T_e'
+cc      endif
 
 c Define boundary conditions and dependencies
 
@@ -209,9 +206,12 @@ c     Check input
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 1d0)
      .          .or.(.not.solve_rho)
-     .          .or.(.not.solve_prs))) then
+cc     .          .or.(.not.solve_prs)
+     .          )
+     .     ) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab, Ti/Te, solve_rho, solve_prs=F,0.0,T,T'
+cc     .          //'Check adiab, Ti/Te, solve_rho, solve_prs=F,0.0,T,T'
+     .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -340,10 +340,13 @@ c     Check input
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 1d0)
      .          .or.(.not.solve_rho)
-     .          .or.(solve_prs))) then
+cc     .          .or.(solve_prs)
+     .          )
+     .     ) then
 cc        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
-     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=F,0.,T,F'
+cc     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=F,0.,T,F'
+     .          //'Check adiab,Ti/Te,solve_rho=F,0.,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -1450,9 +1453,12 @@ c     Check coordinates
      .     .and.(    (a_p /= 2d0)
      .          .or. (.not.adiabatic)
      .          .or. (.not.solve_rho)
-     .          .or. (solve_prs))) then
+cc     .          .or. (solve_prs)
+     .          )
+     .     ) then
           messg = 'Wrong input. '
-     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=T,1.0,T,F'
+cc     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=T,1.0,T,F'
+     .          //'Check adiab,Ti/Te,solve_rho=T,1.0,T'
           call pstop('setEquilibrium',messg)
         endif
 
@@ -1977,7 +1983,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
               var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
-              psi(i,j,k) = psi0(iglobal)  !Store flux function
+cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
             enddo
           enddo
@@ -2281,7 +2287,7 @@ cc        stop
                 var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
               endif
 
-              psi(i,j,k) = psi0(iglobal)  !Store flux function
+cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
             enddo
           enddo
@@ -2353,9 +2359,8 @@ c     Ohmic GS equilibrium
 
         !Build equilibrium
         call Ohm_GS_equil_2d(RR,e0_over_eta,beta,nx,ny,nz
-     .                    ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
-     .                    ,var(:,:,:,IVX),var(:,:,:,IVY),var(:,:,:,ITMP)
-     .                    ,psi)
+     .                   ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+     .                   ,var(:,:,:,IVX),var(:,:,:,IVY),var(:,:,:,ITMP))
 
 	!Find electric field
         E0(1:2) = 0d0
@@ -2419,9 +2424,10 @@ cc        endif
 
       end select
 
-c Find electron pressure
+c Find total pressure
 
-      if (solve_prs) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
+cc      if (solve_prs) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
+      var(:,:,:,ITMP) = a_p*var(:,:,:,ITMP)*var(:,:,:,IRHO)
 
 c Find momentum components
 
@@ -2430,6 +2436,11 @@ c Find momentum components
         var(:,:,:,IVY) = var(:,:,:,IRHO)*var(:,:,:,IVY)
         var(:,:,:,IVZ) = var(:,:,:,IRHO)*var(:,:,:,IVZ)
       endif
+
+c Apply Jacobian factors
+
+      var(:,:,:,IRHO) = var(:,:,:,IRHO)*gmetric%grid(iigx)%jac
+      var(:,:,:,ITMP) = var(:,:,:,ITMP)*gmetric%grid(iigx)%jac
 
 c Transfer equilibrium to varray
 
@@ -4478,7 +4489,7 @@ cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
 c     Ohm_GS_equil_2d
 c     ###############################################################
       subroutine Ohm_GS_equil_2d(R0,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
-     .                          ,v1,v2,pp,psi)
+     .                          ,v1,v2,pp)
 
 c     ---------------------------------------------------------------
 c     Solves 2D Ohmic Grad-Shafranov equilibrium equations to find 
@@ -4531,7 +4542,6 @@ c     Call variables
      .            ,v1(0:nx+1,0:ny+1,0:nz+1)
      .            ,v2(0:nx+1,0:ny+1,0:nz+1)
      .            ,pp(0:nx+1,0:ny+1,0:nz+1)
-     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
      .            ,Eoeta,R0,b_tor
 
 c     Local variables
@@ -4555,6 +4565,7 @@ c     Local variables
      .            ,dummy(0:nx+1,0:ny+1)
      .            ,III  (0:nx+1,0:ny+1)
      .            ,RR   (0:nx+1,0:ny+1)
+     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
 
         real(8),allocatable,dimension(:) :: psi_rhs,psiv,errv
      .                                     ,mpivec,mpivec_in

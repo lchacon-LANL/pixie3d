@@ -19,7 +19,7 @@ c####################################################################
      .                             ,EOM_divPi,EOM_divPe,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,save_tn,slava,pinch_flow
-     .                             ,res_ijk,vis_ijk,solve_prs
+     .                             ,res_ijk,vis_ijk
 
 c       Hardwired BC configuration parameters
 
@@ -347,12 +347,12 @@ c     Local variables
 c     Begin program
 
       !Rho
-      varray%array_var(IRHO)%bc_dep_list(1,1) = IRHO
+      varray%array_var(IRHO)%bc_dep_list(1,1) = IRHO_AUX*AUX
       varray%array_var(IRHO)%bc_dep_list(1,2) = SCALAR
       varray%array_var(IRHO)%bc_dep_list(1,3) = 0 !trivial
 
       !Tmp
-      varray%array_var(ITMP)%bc_dep_list(1,1) = ITMP
+      varray%array_var(ITMP)%bc_dep_list(1,1) = ITMP_AUX*AUX
       varray%array_var(ITMP)%bc_dep_list(1,2) = SCALAR
       varray%array_var(ITMP)%bc_dep_list(1,3) = 0 !trivial
 
@@ -365,7 +365,7 @@ c     Begin program
         enddo
       else
         do ieq=IVX,IVZ
-          varray%array_var(ieq)%bc_dep_list(1,1) = IRHO
+          varray%array_var(ieq)%bc_dep_list(1,1) = IRHO_AUX*AUX
           varray%array_var(ieq)%bc_dep_list(1,2) = SCALAR
           varray%array_var(ieq)%bc_dep_list(1,3) = 0 !trivial
 
@@ -417,7 +417,7 @@ c     Local variables
 c     Begin program
 
       !Rho
-      varray%array_var(IRHO)%dom_dep_list(1,1) = IRHO
+      varray%array_var(IRHO)%dom_dep_list(1,1) = IRHO_AUX*AUX
       varray%array_var(IRHO)%dom_dep_list(1,2) = SCALAR
       varray%array_var(IRHO)%dom_dep_list(1,3) = 1 !non-trivial
 
@@ -426,7 +426,7 @@ c     Begin program
       varray%array_var(IRHO)%dom_dep_list(2,3) = 1 !non-trivial
 
       !Tmp
-      varray%array_var(ITMP)%dom_dep_list(1,1) = ITMP
+      varray%array_var(ITMP)%dom_dep_list(1,1) = ITMP_AUX*AUX
       varray%array_var(ITMP)%dom_dep_list(1,2) = SCALAR
       varray%array_var(ITMP)%dom_dep_list(1,3) = 1 !non-trivial
 
@@ -436,11 +436,11 @@ c     Begin program
 
       !V
       do ieq=IVX,IVZ
-        varray%array_var(ieq)%dom_dep_list(1,1) = IRHO
+        varray%array_var(ieq)%dom_dep_list(1,1) = IRHO_AUX*AUX
         varray%array_var(ieq)%dom_dep_list(1,2) = SCALAR
         varray%array_var(ieq)%dom_dep_list(1,3) = 1 !non-trivial
 
-        varray%array_var(ieq)%dom_dep_list(2,1) = ITMP
+        varray%array_var(ieq)%dom_dep_list(2,1) = ITMP_AUX*AUX
         varray%array_var(ieq)%dom_dep_list(2,2) = SCALAR
         varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
 
@@ -505,7 +505,7 @@ c     End subroutine
       end subroutine defineDepDom_Deps
 
 cc#if defined(petsc)
-#if 0
+#if 1
 c     setBCsched
 c     ###################################################################
       subroutine setBCsched(varray,vaux,itime)
@@ -693,11 +693,11 @@ cc          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
 
 #if defined(vec_pot)
         !Group 1
-        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. Variable
         gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
         !Group 2    
-        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP        !Dep. variable
+        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP_AUX*AUX!Aux. variable
         gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
         !Group 3
@@ -785,26 +785,26 @@ cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
         gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
 
-        gv%bc_grp(9+offset)%bc_seq(3,1) = IEH*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(3,1) = IEH*AUX     !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
 
         gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
         gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
  
 #else
-        !Group 1
-        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO        !Dep. Variable
+        !Group 1    
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. variable
         gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        !Group 2    
-        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP        !Dep. variable
+        !Group 2
+        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP_AUX*AUX!Aux. Variable
         gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
         !Group 3
         gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
 
-        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX     !Aux. variable
         gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
 
         !Group 4

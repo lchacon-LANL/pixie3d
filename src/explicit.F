@@ -188,9 +188,12 @@ c Calculate CFL
             k2max = max(k2max,k2)
 
             !k.v
-            vxx = abs(px(i,j,k)/rho(i,j,k))
-            vyy = abs(py(i,j,k)/rho(i,j,k))
-            vzz = abs(pz(i,j,k)/rho(i,j,k))
+cc            vxx = abs(px(i,j,k)/rho(i,j,k))
+cc            vyy = abs(py(i,j,k)/rho(i,j,k))
+cc            vzz = abs(pz(i,j,k)/rho(i,j,k))
+            vxx = abs(vcnv(i,j,k,1))
+            vyy = abs(vcnv(i,j,k,2))
+            vzz = abs(vcnv(i,j,k,3))
             kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
      .                            ,(/vxx,vyy,vzz/))
 
@@ -206,7 +209,7 @@ c Calculate CFL
             kbp2max = max(kbp2max,kb_par2)
 
             !Sound speed
-            cs2 = a_p*gamma*tmp(i,j,k)
+            cs2 = a_p*gamma*rho(i,j,k)*tmp(i,j,k)
 
             !Find CFL frequency
             roots = icfl(cs2,ca2,k2,kb_par2,di)

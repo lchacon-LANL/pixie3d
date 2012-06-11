@@ -64,7 +64,7 @@ c Impose BCs
 
 c Find coefficients for linearized systems
 
-      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz,varray)
+      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz,varray,gv%aux)
 
 c Setup PC BCs
 

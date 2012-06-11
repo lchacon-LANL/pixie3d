@@ -494,7 +494,7 @@ c Call variables
 c Local variables
 
       integer :: nnx,nny,nnz
-      real(8),pointer,dimension(:,:,:) :: rho
+      real(8),pointer,dimension(:,:,:) :: jac
 
 c Begin program
 
@@ -504,6 +504,8 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
+      jac => gmetric%grid(iigx)%jac
+
 c Select variable
 
       select case(abs(bc_inf(1)))
@@ -511,11 +513,13 @@ c Select variable
 
 c     Density BCs
 
-        call setBC(IRHO,nnx,nny,nnz
-     .            ,varray%array_var(IRHO)%array
-     .            ,u_0   %array_var(IRHO)%array
-     .            ,varray%array_var(IRHO)%bconds
-     .            ,iigx,iigy,iigz,iorder=order)
+cc        call setBC(IRHO,nnx,nny,nnz
+cc     .            ,varray%array_var(IRHO)%array
+cc     .            ,u_0   %array_var(IRHO)%array
+cc     .            ,varray%array_var(IRHO)%bconds
+cc     .            ,iigx,iigy,iigz,iorder=order)
+
+        call XferBCs(rho*jac,varray%array_var(IRHO)%array,.false.)
 
 #if defined(vec_pot)
       case(IAX)
@@ -547,7 +551,7 @@ c     Density BCs
 
         if (.not.nc_eom_v) then
 
-          rho => varray%array_var(IRHO)%array
+cc          rho => varray%array_var(IRHO)%array
 
           varray%array_var(IVX)%array(0    ,:,:) = vcnv(0    ,:,:,1)
      .                                            *rho (0    ,:,:)
@@ -562,7 +566,7 @@ c     Density BCs
           varray%array_var(IVX)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,1)
      .                                            *rho (:,:,nnz+1)
 
-          nullify(rho)
+cc          nullify(rho)
 
         else
 
@@ -575,7 +579,7 @@ c     Density BCs
 
         if (.not.nc_eom_v) then
 
-          rho => varray%array_var(IRHO)%array
+cc          rho => varray%array_var(IRHO)%array
 
           varray%array_var(IVY)%array(0    ,:,:) = vcnv(0    ,:,:,2)
      .                                            *rho (0    ,:,:)
@@ -590,7 +594,7 @@ c     Density BCs
           varray%array_var(IVY)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,2)
      .                                            *rho (:,:,nnz+1)
 
-          nullify(rho)
+cc          nullify(rho)
 
         else
 
@@ -603,7 +607,7 @@ c     Density BCs
 
         if (.not.nc_eom_v) then
 
-          rho => varray%array_var(IRHO)%array
+cc          rho => varray%array_var(IRHO)%array
 
           varray%array_var(IVZ)%array(0    ,:,:) = vcnv(0    ,:,:,3)
      .                                            *rho (0    ,:,:)
@@ -618,7 +622,7 @@ c     Density BCs
           varray%array_var(IVZ)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,3)
      .                                            *rho (:,:,nnz+1)
 
-          nullify(rho)
+cc          nullify(rho)
 
         else
 
@@ -631,11 +635,13 @@ c     Density BCs
 
 c     Temperature BCs
 
-        call setBC(ITMP,nnx,nny,nnz
-     .            ,varray%array_var(ITMP)%array
-     .            ,u_0   %array_var(ITMP)%array
-     .            ,varray%array_var(ITMP)%bconds
-     .            ,iigx,iigy,iigz,iorder=order)
+cc        call setBC(ITMP,nnx,nny,nnz
+cc     .            ,varray%array_var(ITMP)%array
+cc     .            ,u_0   %array_var(ITMP)%array
+cc     .            ,varray%array_var(ITMP)%bconds
+cc     .            ,iigx,iigy,iigz,iorder=order)
+
+        call XferBCs(prs*jac,varray%array_var(ITMP)%array,.false.)
 
       end select
 
@@ -682,7 +688,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp,prs
+      real(8),pointer,dimension(:,:,:) :: s0,prs0!,rho,tmp
 
 c Begin program
 
@@ -692,13 +698,15 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
-      rho => varray%array_var(IRHO)%array
-      tmp => varray%array_var(ITMP)%array
+cc      rho => varray%array_var(IRHO)%array
+cc      tmp => varray%array_var(ITMP)%array
 
 c Select variable
 
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
+
+        allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
 
         select case(abs(bc_inf(1)))
         case(IETA)
@@ -751,14 +759,36 @@ c       Temperature BCs
      .              ,vaux%var_list(ITMP_0)%bconds
      .              ,iigx,iigy,iigz,iorder=order)
 
+        case(IRHO_AUX)
+
+c       Density BCs
+
+          call XferBCs(rho_0,s0,.true.)
+
+          call setBC(IRHO,nnx,nny,nnz,rho,s0
+     .              ,vaux%var_list(IRHO_AUX)%bconds
+     .              ,iigx,iigy,iigz,iorder=order)
+
+        case(ITMP_AUX)
+
+c       Temperature BCs
+
+          call XferBCs(tmp_0,s0,.true.)
+
+          call setBC(ITMP,nnx,nny,nnz,tmp,s0
+     .              ,vaux%var_list(ITMP_AUX)%bconds
+     .              ,iigx,iigy,iigz,iorder=order)
+
         case default
           call pstop('applyAuxVarBC'
      .              ,'Scalar auxiliary variable does not exist')
         end select
 
+        deallocate(s0)
+
       case(VECTOR)
 
-        allocate(prs(0:nnx+1,0:nny+1,0:nnz+1))
+        allocate(prs0(0:nnx+1,0:nny+1,0:nnz+1))
 
 c       Allocate auxiliary variables in local domain
 
@@ -795,13 +825,13 @@ cc          call XformVector_BC(iigx,bcnv_0,bcov_0,.false.)
 c       Velocity BC
 
           if (pinch_flow) then
-            if (solve_prs) then
-              prs = a_p*tmp_0
-            else
-              prs = a_p*rho_0*tmp_0
-            endif
+cc            if (solve_prs) then
+cc              prs0 = a_p*tmp_0
+cc            else
+              prs0 = a_p*rho_0*tmp_0
+cc            endif
 
-            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_0,prs,eeta_0,v0)
+            call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv_0,prs0,eeta_0,v0)
 
             !Fill ghost nodes
             vdum = XformVector(iigx,vcnv_0,.false.)
@@ -865,11 +895,11 @@ c       Velocity BC
 
           if (pinch_flow) then
 
-            if (solve_prs) then
-              prs = a_p*tmp
-            else
-              prs = a_p*rho*tmp
-            endif
+cc            if (solve_prs) then
+cc              prs = a_p*tmp
+cc            else
+cc              prs = a_p*rho*tmp
+cc            endif
 
             call ExB_flow_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0)
           else
@@ -907,11 +937,11 @@ c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
-            if (solve_prs) then
-              prs = a_p*tmp
-            else
-              prs = a_p*rho*tmp
-            endif
+cc            if (solve_prs) then
+cc              prs = a_p*tmp
+cc            else
+cc              prs = a_p*rho*tmp
+cc            endif
 
             call J_pinch_bc(iigx,nnx,nny,nnz,bcnv  ,prs,eeta,v0
      .                     ,first_order=.true.)
@@ -935,19 +965,11 @@ c       Current BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
 
-cc           if (lag_pinch_bc) then
-cc             rho => u_n%array_var(IRHO)%array
-cc             tmp => u_n%array_var(ITMP)%array
-cc           else
-cc             rho => varray%array_var(IRHO)%array
-cc             tmp => varray%array_var(ITMP)%array
-cc           endif
-
-            if (solve_prs) then
-              prs = a_p*tmp
-            else
-              prs = a_p*rho*tmp
-            endif
+cc            if (solve_prs) then
+cc              prs = a_p*tmp
+cc            else
+cc              prs = a_p*rho*tmp
+cc            endif
 
 cc            if (lag_pinch_bc) then
 cc              call J_pinch_bc(iigx,nnx,nny,nnz,bcnv_n,prs,eeta,v0
@@ -1061,10 +1083,11 @@ cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
 c       Deallocate variables 
 
-        nullify(rho,tmp)
-        deallocate(v0,vdum,prs)
+        deallocate(v0,vdum,prs0)
 
       end select
+
+cc      nullify(rho,tmp)
 
 c End
 
@@ -1109,7 +1132,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp
+      real(8),pointer,dimension(:,:,:) :: jac
 
 c Begin program
 
@@ -1119,9 +1142,7 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
-====> Fix equilibrium rho, tmp; current time rho, tmp
-      rho => varray%array_var(IRHO)%array
-      tmp => varray%array_var(ITMP)%array
+      jac => gmetric%grid(iigx)%jac
 
 c Select variable
 
@@ -1131,11 +1152,11 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IRHO_0)
 
-          rho_0 = u_0%array_var(IRHO)%array
+          rho_0 = u_0%array_var(IRHO)%array/jac
 
         case(ITMP_0)
 
-          tmp_0 = u_0%array_var(ITMP)%array
+          tmp_0 = u_0%array_var(ITMP)%array/rho_0/a_p/jac
 
         case(IETA_0)
 
@@ -1146,6 +1167,23 @@ cc          eeta_0=res(nnx,nny,nnz,iigx,psi)
 cc#else
           eeta_0=res(nnx,nny,nnz,iigx,tmp_0)
 cc#endif
+
+        case(IRHO_AUX)
+
+          if ((.not.solve_rho).and.adiabatic) then
+            where (tmp_0 /= 0d0)
+              rho = rho_0*(tmp/tmp_0)**(1./gamma)
+            end where
+          else
+            rho = varray%array_var(IRHO)%array/jac
+          endif
+
+        case(ITMP_AUX)
+
+          tmp = varray%array_var(ITMP)%array
+     .         /varray%array_var(IRHO)%array/a_p
+
+cc          write (*,*) tmp
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
@@ -1279,15 +1317,18 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IVCOV_N)
 
-          if (save_tn .and. ion_hall) vcov_n = vcov
+cc          if (save_tn .and. ion_hall) vcov_n = vcov
+          if (save_tn .and. ion_hall) vcov_n = -(cn*vcov+cnm*vcov_n)/cnp
 
         case(IVCNV_N)
 
-          if (save_tn .and. ion_hall) vcnv_n = vcnv
+cc          if (save_tn .and. ion_hall) vcnv_n = vcnv
+          if (save_tn .and. ion_hall) vcnv_n = -(cn*vcnv+cnm*vcnv_n)/cnp
 
         case(IVECOV_N)
 
-          if (save_tn .and. (.not.ion_hall)) vecov_n = vecov
+cc          if (save_tn .and. (.not.ion_hall)) vecov_n = vecov
+          if (save_tn.and.ion_hall) vecov_n= -(cn*vecov+cnm*vecov_n)/cnp
 
 cc        case(IBCNV_N)
 cc
@@ -1304,13 +1345,10 @@ cc          if (save_tn .and. ion_hall) jcnv_n = jcnv !Save previous time step
         case(IVCNV)
 
           if (.not.nc_eom_v) then
-            where (varray%array_var(IRHO)%array /= 0d0)
-              vcnv(:,:,:,1) = varray%array_var(IVX )%array
-     .                       /varray%array_var(IRHO)%array
-              vcnv(:,:,:,2) = varray%array_var(IVY )%array
-     .                       /varray%array_var(IRHO)%array
-              vcnv(:,:,:,3) = varray%array_var(IVZ )%array
-     .                       /varray%array_var(IRHO)%array
+            where (rho /= 0d0)
+              vcnv(:,:,:,1) = varray%array_var(IVX )%array/rho
+              vcnv(:,:,:,2) = varray%array_var(IVY )%array/rho
+              vcnv(:,:,:,3) = varray%array_var(IVZ )%array/rho
             end where
           else
             vcnv(:,:,:,1) = varray%array_var(IVX)%array
@@ -1542,7 +1580,7 @@ c Local variables
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp
+      real(8),pointer,dimension(:,:,:) :: jac!,rho,tmp
 
 c Begin program
 
@@ -1552,8 +1590,9 @@ c Local grid sizes
       nny = grid_params%nyv(iigy)
       nnz = grid_params%nzv(iigz)
 
-      rho => varray%array_var(IRHO)%array
-      tmp => varray%array_var(ITMP)%array
+      jac => gmetric%grid(iigx)%jac
+cc      rho => varray%array_var(IRHO)%array
+cc      tmp => varray%array_var(ITMP)%array
 
 c Select variable
 
@@ -1563,11 +1602,11 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IRHO_0)
 
-          u_0%array_var(IRHO)%array = rho_0
+          u_0%array_var(IRHO)%array = rho_0*jac
 
         case(ITMP_0)
 
-          u_0%array_var(ITMP)%array = tmp_0
+          u_0%array_var(ITMP)%array = a_p*rho_0*tmp_0*jac
 
         case(IETA_0)
 
@@ -1578,6 +1617,14 @@ cc          eeta_0=res(nnx,nny,nnz,iigx,psi)
 cc#else
           eeta_0=res(nnx,nny,nnz,iigx,tmp_0)
 cc#endif
+        case(IRHO_AUX)
+
+          varray%array_var(IRHO)%array = rho*jac
+
+        case(ITMP_AUX)
+
+          varray%array_var(ITMP)%array = a_p*rho*tmp*jac
+
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
