@@ -83,11 +83,16 @@ cc      graph(1)%array_graph(neqd+3)%array(0:,0:,0:) => jcnv(:,:,:,3)
 
       graph(1)%array_graph(neqd+4:ngraph)%descr = ''
 #else
-      graph(1)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-      graph(1)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc      graph(1)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+cc      graph(1)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc
+cc      graph(1)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+cc      graph(1)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(1)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
+      graph(1)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(1)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-      graph(1)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(1)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
+      graph(1)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%descr
 
       graph(1)%array_graph(IVX)%array => u_np%array_var(IVX)%array
       graph(1)%array_graph(IVX)%descr =  u_np%array_var(IVX)%descr
@@ -142,11 +147,16 @@ c Define graphics group #2: Cov variables
       graph(2)%descr='Cov_variables'
 
 #if !defined(vec_pot)
-      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+cc      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc
+cc      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+cc      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(2)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
+      graph(2)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(2)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
+      graph(2)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%descr
 
       graph(2)%array_graph(IVX)%array => vx_cov
       graph(2)%array_graph(IVX)%descr = 'V_1'
@@ -177,11 +187,16 @@ c Define graphics group #2: Cov variables
 
       graph(2)%array_graph(neqd+4:ngraph)%descr = ''
 #else
-      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+cc      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc
+cc      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+cc      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(2)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
+      graph(2)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(2)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
+      graph(2)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%descr
 
       graph(2)%array_graph(IVX)%array => vx_cov
       graph(2)%array_graph(IVX)%descr = 'V_1'
@@ -320,11 +335,16 @@ c Define graphics group #3: Cartesian variables
       graph(3)%descr='Car_variables'
 
 #if !defined(vec_pot)
-      graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-      graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc      graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+cc      graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc
+cc      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+cc      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(3)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
+      graph(3)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(3)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
+      graph(3)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%descr
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -372,11 +392,16 @@ c Define graphics group #3: Cartesian variables
 
       graph(3)%array_graph(neqd+7:ngraph)%descr = ''
 #else
-      graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-      graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc      graph(3)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+cc      graph(3)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
+cc
+cc      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+cc      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(3)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
+      graph(3)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%array
 
-      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
+      graph(3)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
+      graph(3)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%array
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'

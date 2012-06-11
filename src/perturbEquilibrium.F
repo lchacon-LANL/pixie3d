@@ -19,7 +19,7 @@ c     -----------------------------------------------------------------
 
       use transport_params
 
-      use nlfunction_setup, ONLY:solve_prs
+cc      use nlfunction_setup, ONLY:solve_prs
 
       implicit none
 
@@ -339,16 +339,19 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
               varr%array_var(IRHO)%array(i,j,k) =
      .               varr%array_var(IRHO)%array(i,j,k) - xi/freq
 
-              if (solve_prs) then
-                varr%array_var(ITMP)%array(i,j,k) =
+              varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)
      .             - cs2*xi/(a_p*freq) !For e pressure
-              else
-                 varr%array_var(ITMP)%array(i,j,k) =
-     .               varr%array_var(ITMP)%array(i,j,k)
-     .             -(cs2/a_p
-     .              -varr%array_var(ITMP)%array(i,j,k))*xi/freq !For temperature
-              endif
+cc              if (solve_prs) then
+cc                varr%array_var(ITMP)%array(i,j,k) =
+cc     .               varr%array_var(ITMP)%array(i,j,k)
+cc     .             - cs2*xi/(a_p*freq) !For e pressure
+cc              else
+cc                 varr%array_var(ITMP)%array(i,j,k) =
+cc     .               varr%array_var(ITMP)%array(i,j,k)
+cc     .             -(cs2/a_p
+cc     .              -varr%array_var(ITMP)%array(i,j,k))*xi/freq !For temperature
+cc              endif
 
 #if !defined(vec_pot)
               varr%array_var(IBX)%array(i,j,k)
@@ -635,6 +638,8 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
 
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
+            pert(1) = x1*pert(1)
+
             pert(2) = x1*pert(2)
             if (equil == '2dkai') pert(3) = pert(3)+kk*x1/mm*pert(4)
             pert(4) = x1*pert(4)
@@ -642,6 +647,8 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
             pert(5) = x1*pert(5)
             if (equil == '2dkai') pert(6) = pert(6)+kk*x1/mm*pert(7)
             pert(7) = x1*pert(7)
+
+            pert(8) = x1*pert(8)
 
             array(i,j,k) = array(i,j,k) + pert(ieq)
           enddo

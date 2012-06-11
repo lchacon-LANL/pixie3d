@@ -97,20 +97,20 @@ cc      endif
 cc      call applyBCplot(varray,igx,igy,igz)
       call applyBC(varray,igx,igy,igz)
 
-      rho => varray%array_var(IRHO)%array
-      px  => varray%array_var(IVX )%array
-      py  => varray%array_var(IVY )%array
-      pz  => varray%array_var(IVZ )%array
-#if !defined(vec_pot)
-      bx  => varray%array_var(IBX )%array
-      by  => varray%array_var(IBY )%array
-      bz  => varray%array_var(IBZ )%array
-#else
-      ax  => varray%array_var(IAX )%array
-      ay  => varray%array_var(IAY )%array
-      az  => varray%array_var(IAZ )%array
-#endif
-      tmp => varray%array_var(ITMP)%array
+cc      rho => varray%array_var(IRHO)%array
+cc      px  => varray%array_var(IVX )%array
+cc      py  => varray%array_var(IVY )%array
+cc      pz  => varray%array_var(IVZ )%array
+cc#if !defined(vec_pot)
+cc      bx  => varray%array_var(IBX )%array
+cc      by  => varray%array_var(IBY )%array
+cc      bz  => varray%array_var(IBZ )%array
+cc#else
+cc      ax  => varray%array_var(IAX )%array
+cc      ay  => varray%array_var(IAY )%array
+cc      az  => varray%array_var(IAZ )%array
+cc#endif
+cc      tmp => varray%array_var(ITMP)%array
 
 #if defined(vec_pot)
       ax_cnv = acnv(:,:,:,1)
@@ -396,11 +396,11 @@ c Divergence diagnostics
 
 c Thermal pressure
 
-      if (solve_prs) then
-        p_tot = a_p*tmp     + 0.5*(bx_car**2+by_car**2+bz_car**2)
-      else
+cc      if (solve_prs) then
+cc        p_tot = a_p*tmp     + 0.5*(bx_car**2+by_car**2+bz_car**2)
+cc      else
         p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
-      endif
+cc      endif
 
 #if defined(RFX)
 c RFX dump

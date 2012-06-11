@@ -278,6 +278,7 @@ c     Begin program
 
               if (vol_wgt) then !Residuals are volume-weighed by default
                 dvol = gmetric%grid(igx)%dvol(i,j,k)
+cc     .                /gmetric%grid(igx)%jac (i,j,k)
               else
                 dvol = 1d0
               endif
@@ -383,6 +384,7 @@ cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
 cc
 cc              if (vol_wgt) then !Residuals are volume-weighed by default
 cc                dvol = gmetric%grid(igx)%dvol(i,j,k)
+cccc     .                /gmetric%grid(igx)%jac (i,j,k)
 cc              else
 cc                dvol = 1d0
 cc              endif
@@ -489,6 +491,7 @@ cc          endif
 
                 if (vol_wgt) then
                   dvol = gmetric%grid(igx)%dvol(i,j,k)
+cc     .                  /gmetric%grid(igx)%jac (i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -569,6 +572,7 @@ cc           stop
 
                 if (vol_wgt) then
                   dvol = gmetric%grid(igx)%dvol(i,j,k)
+cc     .                  /gmetric%grid(igx)%jac (i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -583,7 +587,8 @@ cc           stop
 
 c       Temperature
 
-        if ((gamma /= 1d0) .or. solve_prs) then
+cc        if ((gamma /= 1d0) .or. solve_prs) then
+        if (gamma /= 1d0) then
 
           !Correct for electron velocity/source contribution
           call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid)
@@ -683,6 +688,7 @@ cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
 cc
 cc              if (vol_wgt) then !Residuals are volume-weighed by default
 cc                dvol = gmetric%grid(igx)%dvol(i,j,k)
+cccc     .                /gmetric%grid(igx)%jac (i,j,k)
 cc              else
 cc                dvol = 1d0
 cc              endif
@@ -819,6 +825,7 @@ c     Call variables
 
 c     Local variables
 
+        real(8) :: drho
         real(8),pointer,dimension(:,:,:,:) :: rho0,vcnv0
 
 c     Begin program
@@ -830,12 +837,15 @@ c     Begin program
           do j = 1,ny
             do i = 1,nx
              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+             drho = xxx(ii,IRHO)/gmetric%grid(igrid)%jac(i,j,k)
+
              xxx(ii,IVX)=xxx(ii,IVX )*rho0 (i,j,k,1)
-     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,1)
+     .                  +drho        *vcnv0(i,j,k,1)
              xxx(ii,IVY)=xxx(ii,IVY )*rho0 (i,j,k,1)
-     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,2)
-             xxx(ii,IVZ)=xxx(ii,IVZ)* rho0 (i,j,k,1)
-     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,3)
+     .                  +drho        *vcnv0(i,j,k,2)
+             xxx(ii,IVZ)=xxx(ii,IVZ )*rho0 (i,j,k,1)
+     .                  +drho        *vcnv0(i,j,k,3)
             enddo
           enddo
         enddo
@@ -859,7 +869,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ii,iii,i,j,k
-        real(8)    :: dvol,dum(nn,neq)
+        real(8)    :: dum(nn,neq)
 
 c     Begin program
 
@@ -940,7 +950,7 @@ c     Call variables
 c     Local variables
 
         integer :: ii,iii,i,j,k
-        real(8) :: dum(nn,neq),dvol
+        real(8) :: dum(nn,neq)
 
 c     Begin program
 
@@ -1191,9 +1201,10 @@ c Find dj* from dB*
 c Find drho, dtmp arrays with BCs
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),bc_order)
+     .              ,bcs(:,IRHO:IRHO),bc_order,div_by_Jac=.true.)
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dtmp
-     .              ,bcs(:,ITMP:ITMP),bc_order)
+     .              ,bcs(:,ITMP:ITMP),bc_order,div_by_Jac=.true.)
+      dtmp = dtmp/a_p !Transform from pressure to temperature
 
 c Find dp_cnv
 
@@ -1247,6 +1258,7 @@ c Find rhs_v'
 
             if (vwgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .              /gmetric%grid(igrid)%jac (i,j,k)
             else
               dvol = 1d0
             endif
@@ -1269,20 +1281,20 @@ c Find rhs_v'
      .                     ,vol=.false.)
               endif
 
-              if (.not.solve_prs) then
+cc              if (.not.solve_prs) then
+cc                cnv = cnv
+cc     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                     ,drho(:,:,:,1),tmp0(:,:,:,1),nc_eom_gp
+cc     .                     ,vol=.false.)
+cc     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
+cc     .                     ,vol=.false.)
+cc              else
                 cnv = cnv
-     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,drho(:,:,:,1),tmp0(:,:,:,1),nc_eom_gp
-     .                     ,vol=.false.)
      .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
      .                     ,vol=.false.)
-              else
-                cnv = cnv
-     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
-     .                     ,vol=.false.)
-              endif
+cc              endif
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz') then
@@ -1398,10 +1410,10 @@ c Begin program
 
 c Find rhs_v
 
-      if (.not.nc_eom_v) then
+      call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),bc_order,div_by_Jac=.true.)
 
-        call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .                ,bcs(:,IRHO:IRHO),bc_order)
+      if (.not.nc_eom_v) then
 
         dp_cnv(:,:,:,1)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,1)
         dp_cnv(:,:,:,2)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,2)
@@ -1414,6 +1426,7 @@ c Find rhs_v
               iig = ii + isig - 1
               if (vwgt) then
                 dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .                /gmetric%grid(igrid)%jac (i,j,k)
               else
                 dvol = 1d0
               endif
@@ -1436,10 +1449,11 @@ c Find rhs_v
               iig = ii + isig - 1
               if (vwgt) then
                 dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .                /gmetric%grid(igrid)%jac (i,j,k)
               else
                 dvol = 1d0
               endif
-              crhs(ii,:)=dvol*xxx(ii,IRHO)*mgadvdiffV0(iig,:)
+              crhs(ii,:)=dvol*drho(i,j,k,1)*mgadvdiffV0(iig,:)
             enddo
           enddo
         enddo
@@ -1500,10 +1514,10 @@ c Auxiliary variables
       Eh0  => gEh0_cov%grid(igrid)%array
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),bc_order)
+     .              ,bcs(:,IRHO:IRHO),bc_order,div_by_jac=.true.)
 
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),bc_order)
+     .              ,bcs(:,ITMP:ITMP),bc_order,div_by_jac=.true.)
 
       dpe  = rho0*dpe + tmp0*drho
 
@@ -1520,6 +1534,7 @@ c Find rhs_a
             iig = ii + isig - 1
             if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .              /gmetric%grid(igrid)%jac (i,j,k)
             else
               dvol = 1d0
             endif
@@ -1623,6 +1638,7 @@ c Correction w/o solve
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .              /gmetric%grid(igrid)%jac (i,j,k)
             else
               dvol = 1d0
             endif
@@ -1771,6 +1787,7 @@ c Find correction
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .              /gmetric%grid(igrid)%jac (i,j,k)
             else
               dvol = 1d0
             endif
@@ -1845,6 +1862,7 @@ c Divide by density and volume
         do ieq=1,3
           dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)
      .                        /gmetric%grid(igrid)%dvol
+cc     .                        *gmetric%grid(igrid)%jac
         enddo
       endif
 
@@ -1862,6 +1880,7 @@ c Find curl
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then   !Residuals are volume-weighed by default
               dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc     .              /gmetric%grid(igrid)%jac (i,j,k)
             else
               dvol = 1d0
             endif

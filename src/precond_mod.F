@@ -206,7 +206,6 @@ c     Call variables
 c     Local variables
 
         integer    :: i,j,k,ii,iii,ieq
-        real(8)    :: dvol
 
 c     Begin program
 
@@ -364,7 +363,7 @@ c     Begin program
         endif
 
         if (size(x,2) /= 3) then
-          call pstop('XtoCar','Vector has wrong dimensions')
+          call pstop('XtoCurv','Vector has wrong dimensions')
         endif
 
         nx = grid_params%nxv(igrid)
@@ -410,7 +409,7 @@ c     End program
 c     fillArray
 c     ###################################################################
       subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov,arr0
-     .                    ,is_vec,is_cnv)
+     .                    ,is_vec,is_cnv,div_by_jac)
 
 c     -------------------------------------------------------------------
 c     Fills array arr (with BCs) using vector x.
@@ -426,12 +425,12 @@ c     Call variables
         real(8),dimension(:,:) :: x
         real(8),dimension(:,:,:,:) :: arr
         real(8),optional,dimension(:,:,:,:) :: arr_cov,arr0
-        logical,optional :: is_vec,is_cnv
+        logical,optional :: is_vec,is_cnv,div_by_jac
 
 c     Local variables
 
         integer    :: ieq,nx,ny,nz
-        logical    :: isvec,iscnv
+        logical    :: isvec,iscnv,divJac
 
 c     Begin program
 
@@ -451,9 +450,17 @@ c     Begin program
           iscnv = .true.
         endif
 
+        if (PRESENT(div_by_jac)) then
+          divJac = div_by_jac
+        else
+          divJac = .false.
+        endif
+
         do ieq=1,neq
           call mapMGVectorToArray(0,1,x(:,ieq),nx,ny,nz
      .                       ,arr(:,:,:,ieq),igrid,.false.)
+          if (divJac) arr(:,:,:,ieq) = arr(:,:,:,ieq)
+     .                                /gmetric%grid(igrid)%jac
         enddo
 
         if (PRESENT(arr0).and.PRESENT(arr_cov)) then
@@ -480,7 +487,7 @@ c     End program
 
 c     findPCcoeffs
 c     ###################################################################
-      subroutine findPCcoeffs(igx,igy,igz,varray)
+      subroutine findPCcoeffs(igx,igy,igz,varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Finds coefficients for linearized systems in preconditioner
@@ -494,6 +501,7 @@ c     Call variables
 
         integer :: igx,igy,igz
         type(var_array),pointer :: varray
+        type(aux_array),pointer :: vaux
 
 c     Local variables
 
@@ -503,17 +511,11 @@ c     Local variables
      .               ,bc_cov(6,3)
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
-        real(8)    :: dvol,veclap(3),cnv(3),cov(3),dxx,dyy,dzz
+        real(8)    :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
      .               ,nabla_v(3,3),jac
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
-
-#if !defined(vec_pot)
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
-#else
-        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-#endif
 
 c     Debug
 
@@ -533,26 +535,9 @@ cc        order = 0
 
 cc        call setASMflag(.false.)
 
-c     Extract arrays
-
-        rho => varray%array_var(IRHO)%array
-        px  => varray%array_var(IVX )%array
-        py  => varray%array_var(IVY )%array
-        pz  => varray%array_var(IVZ )%array
-#if !defined(vec_pot)
-        bx  => varray%array_var(IBX )%array
-        by  => varray%array_var(IBY )%array
-        bz  => varray%array_var(IBZ )%array
-#else
-        ax  => varray%array_var(IAX )%array
-        ay  => varray%array_var(IAY )%array
-        az  => varray%array_var(IAZ )%array
-#endif
-        tmp => varray%array_var(ITMP)%array
-
 c     Fill LOCAL auxiliary variables
 
-        call fillLocalAuxVars(igrid,varray,gv%aux)
+        call fillLocalAuxVars(igrid,varray,vaux)
 
 c     Setup BCs
 
@@ -562,16 +547,12 @@ c     Setup BCs
         enddo
 
 #if defined(vec_pot)
-cc        bc_pc(:,IBX:IBZ) = bc_pc(:,IAX:IAZ)
-cc        where (bc_pc(:,IBX:IBZ) == -EQU) bc_pc(:,IBX:IBZ) = -NEU !Use covariant components 
-        bc_pc(:,IBX:IBZ) = gv%aux%vec_list(IBCNV)%bconds
+        bc_pc(:,IBX:IBZ) = vaux%vec_list(IBCNV)%bconds
 
         where (bc_pc(:,IAX:IAZ) == -EQU) bc_pc(:,IAX:IAZ) = -DIR !Use covariant components 
 #endif
 
-cc        bc_pc(:,IJX:IJZ) = bc_pc(:,IBX:IBZ)
-cc        where (bc_pc(:,IJX:IJZ) == -NEU) bc_pc(:,IJX:IJZ) = DIR !Use contravariant components 
-        bc_pc(:,IJX:IJZ) = gv%aux%vec_list(IJCNV)%bconds
+        bc_pc(:,IJX:IJZ) = vaux%vec_list(IJCNV)%bconds
 
         call setASM_PC_BC(igx,igy,igz,bc_pc,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
@@ -620,11 +601,11 @@ c     Store temperature (w/ BCs)
 c     Store pressure (w/ BCs)
 
         !pressure (w/ BCs)
-        if (solve_prs) then
-          gp0%grid(igrid)%array(:,:,:,1) = a_p*tmp
-        else
+cc        if (solve_prs) then
+cc          gp0%grid(igrid)%array(:,:,:,1) = a_p*tmp
+cc        else
           gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
-        endif
+cc        endif
 
         call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
 
@@ -1766,7 +1747,7 @@ c     Begin program
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            crhs(ii) = alpha
+            crhs(ii) = alpha*gmetric%grid(igrid)%jac(i,j,k)
      .                *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                      ,dv_cnv,grho0%grid(igrid)%array(:,:,:,1)
      .                      ,advect,vol=.false.)
@@ -1796,59 +1777,87 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ii
-      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0
+      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0,p0
       real(8) :: heat_src
 
 c     Begin program
 
 c     Evaluate rhs correction: dv*grad(T0) + (gamma-1)*T0*div(dv)
 
-      tmp0 => gtmp0%grid(igrid)%array
+      p0 => gp0%grid(igrid)%array
 
-      if (solve_prs) then
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
+            crhs(ii) = gmetric%grid(igrid)%jac(i,j,k)*(
+     .         gamma    *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                    ,dv_cnv,p0(:,:,:,1),advect,vol=.false.)
+     .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                   ,-dv_cnv,p0(:,:,:,1),1,vol=.false.)
+     .                )
 
-              crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-     .                  +(gamma-1)*tmp0(i,j,k,1)
-     $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     $                                ,dv_cnv)
-cc              crhs(ii) =
-cc     .           gamma    *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                      ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-cc     .         +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                     ,-dv_cnv,tmp0(:,:,:,1),1,vol=.false.)
-            enddo
-          enddo
-        enddo
-
-      else
-
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-cc              crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     $                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-cc     $                  +(gamma-2)*tmp0(i,j,k,1)
+cc              crhs(ii) = gmetric%grid(igrid)%jac(i,j,k)*(
+cc     .                   flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cc     .                  +(gamma-1)*tmp0(i,j,k,1)
 cc     $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
 cc     $                                ,dv_cnv)
-
-              crhs(ii) =
-     .          (gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),advect)
-     .         -(gamma-2.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dv_cnv,tmp0(:,:,:,1),1)
-            enddo
+cc     .                  )
           enddo
         enddo
+      enddo
 
-      endif
+cc      tmp0 => gtmp0%grid(igrid)%array
+cc
+cc      if (solve_prs) then
+cc
+cc        do k = 1,nz
+cc          do j = 1,ny
+cc            do i = 1,nx
+cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc              crhs(ii) = gmetric%grid(igrid)%jac(i,j,k)*(
+cc     .                   flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cc     .                  +(gamma-1)*tmp0(i,j,k,1)
+cc     $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     $                                ,dv_cnv)
+cc     .                  )
+cccc              crhs(ii) =
+cccc     .           gamma    *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     .                      ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cccc     .         +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     .                     ,-dv_cnv,tmp0(:,:,:,1),1,vol=.false.)
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      else
+cc
+cc        do k = 1,nz
+cc          do j = 1,ny
+cc            do i = 1,nx
+cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cccc              crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     $                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cccc     $                  +(gamma-2)*tmp0(i,j,k,1)
+cccc     $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     $                                ,dv_cnv)
+cc
+cc              crhs(ii) = gmetric%grid(igrid)%jac(i,j,k)*(
+cc     .          (gamma-1.)*flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,dv_cnv,tmp0(:,:,:,1),advect)
+cc     .         -(gamma-2.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                        ,dv_cnv,tmp0(:,:,:,1),1)
+cc     .                   )
+cc            enddo
+cc          enddo
+cc        enddo
+cc
+cc      endif
 
       if (.not.adiabatic) then
         v0   => gv0  %grid(igrid)%array
@@ -1869,17 +1878,14 @@ cc     $                                ,dv_cnv)
      .                  +viscous_heat_src(i,j,k,nx,ny,nz
      .                         ,igrid,igrid,igrid,nu0,v0,dv_cnv)
 
-cc              crhs(ii) = flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     $                        ,dv_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-cc     $                  +(gamma-2)*tmp0(i,j,k,1)
-cc     $                            *div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     $                                ,dv_cnv)
-              if (solve_prs) then
-                crhs(ii) =crhs(ii)-(gamma-1.)*heat_src/a_p
-              else
-                crhs(ii) =crhs(ii)-(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
-              endif
+              heat_src = heat_src*gmetric%grid(igrid)%jac(i,j,k)
 
+cc              if (solve_prs) then
+cc                crhs(ii) =crhs(ii)-(gamma-1.)*heat_src/a_p
+cc              else
+cc                crhs(ii) =crhs(ii)-(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
+cc              endif
+              crhs(ii) =crhs(ii)-(gamma-1.)*heat_src
             enddo
           enddo
         enddo
@@ -1890,7 +1896,7 @@ cc     $                                ,dv_cnv)
 
       crhs = alpha*crhs
 
-      nullify(tmp0)
+      nullify(tmp0,p0)
 
 c     End program
 
@@ -1924,7 +1930,7 @@ c     Local variables
      .                                          ,dve_cnv
      .                                          ,vzeros
 
-      real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0
+      real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0,p0
 
 c     Begin program
 
@@ -1946,7 +1952,7 @@ cc      return
 c     Find drho
 
       call fillArray(igrid,IRHO,1,x(:,IRHO:IRHO),drho,bcs(:,IRHO:IRHO)
-     .              ,bc_order)
+     .              ,bc_order,div_by_jac=.true.)
 
 c     Find dB
 
@@ -2004,15 +2010,16 @@ c     Find Joule heating correction
 
               heat_src = 2*eta0(i,j,k,1)
      .                    *dot_product(j0(i,j,k,:),dj_cov(i,j,k,:))
-     .                    /gmetric%grid(igrid)%jac(i,j,k)
+cc     .                    /gmetric%grid(igrid)%jac(i,j,k)
 
-              if (solve_prs) then
-                crhs(ii)=crhs(ii)
-     .                +alpha*dvol*(gamma-1.)*heat_src/a_p
-              else
-                crhs(ii)=crhs(ii)
-     .                +alpha*dvol*(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
-              endif
+              crhs(ii)=crhs(ii) + alpha*dvol*(gamma-1.)*heat_src
+cc              if (solve_prs) then
+cc                crhs(ii)=crhs(ii)
+cc     .                +alpha*dvol*(gamma-1.)*heat_src/a_p
+cc              else
+cc                crhs(ii)=crhs(ii)
+cc     .                +alpha*dvol*(gamma-1.)*heat_src/rho0(i,j,k,1)/a_p
+cc              endif
             enddo
           enddo
         enddo
@@ -2025,83 +2032,117 @@ c     Hall MHD correction
         !Find dv_star
         dve_cnv(:,:,:,1)=-di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1)
      .                       -j0    (:,:,:,1)*drho(:,:,:,1)
-     .                                       /rho0(:,:,:,1)**2)
+     .                                       /rho0(:,:,:,1)**2)/a_p  !From v_star def
         dve_cnv(:,:,:,2)=-di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1)
      .                       -j0    (:,:,:,2)*drho(:,:,:,1)
-     .                                       /rho0(:,:,:,1)**2)
+     .                                       /rho0(:,:,:,1)**2)/a_p  !From v_star def
         dve_cnv(:,:,:,3)=-di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1)
      .                       -j0    (:,:,:,3)*drho(:,:,:,1)
-     .                                       /rho0(:,:,:,1)**2)
+     .                                       /rho0(:,:,:,1)**2)/a_p  !From v_star def
 
         !Find correction to tmp RHS
-        tmp0 => gtmp0%grid(igrid)%array
+        p0 => gp0%grid(igrid)%array
 
-        if (solve_prs) then       !Pressure equation
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
 
-          do k = 1,nz
-            do j = 1,ny
-              do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              if (vol_wgt) then
+                dvol = gmetric%grid(igrid)%dvol(i,j,k)
+              else
+                dvol = 1d0
+              endif
 
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
-                if (vol_wgt) then
-                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
-                else
-                  dvol = 1d0
-                endif
-
-                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
-cc     .              *(flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-cc     .               +(gamma-1.)*tmp0(i,j,k,1)
-cc     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv))
-     .              *(gamma    *flx_advec(i,j,k,nx,ny,nz
-     .                                   ,igrid,igrid,igrid
-     .                                   ,dve_cnv,tmp0(:,:,:,1),advect
-     .                                   ,vol=.false.)
-     .              +(1.-gamma)*dot_product(dve_cnv(i,j,k,:)
-     .                  ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,tmp0(:,:,:,1)
-     .                       ,hex=int(sign(1d0,dve_cnv(i,j,k,1)))
-     .                       ,hey=int(sign(1d0,dve_cnv(i,j,k,2)))
-     .                       ,hez=int(sign(1d0,dve_cnv(i,j,k,3)))))
-     .                  /gmetric%grid(igrid)%jac(i,j,k))
-               enddo
-            enddo
+              crhs(ii)=crhs(ii)-alpha*dvol
+cc     .            *(flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                     ,dve_cnv,p0(:,:,:,1),advect,vol=.false.)
+cc     .             +(gamma-1.)*p0(i,j,k,1)
+cc     .                 *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv))
+     .            *(gamma    *flx_advec(i,j,k,nx,ny,nz
+     .                                 ,igrid,igrid,igrid
+     .                                 ,dve_cnv,p0(:,:,:,1),advect
+     .                                 ,vol=.false.)
+     .            +(1.-gamma)*dot_product(dve_cnv(i,j,k,:)
+     .                ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,p0(:,:,:,1)
+     .                     ,hex=int(sign(1d0,dve_cnv(i,j,k,1)))
+     .                     ,hey=int(sign(1d0,dve_cnv(i,j,k,2)))
+     .                     ,hez=int(sign(1d0,dve_cnv(i,j,k,3)))))
+     .                /gmetric%grid(igrid)%jac(i,j,k))
+     .            *gmetric%grid(igrid)%jac(i,j,k)
+             enddo
           enddo
+        enddo
 
-        else
-
-          do k = 1,nz
-            do j = 1,ny
-              do i = 1,nx
-
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
-                if (vol_wgt) then
-                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
-                else
-                  dvol = 1d0
-                endif
-
-                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
-cc     .            *( flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
-cc     .             +(gamma-2.)*tmp0(i,j,k,1)
-cc     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
-     .              *((gamma-1.)*flx_advec(i,j,k,nx,ny,nz
-     .                                   ,igrid,igrid,igrid
-     .                                   ,dve_cnv,tmp0(:,:,:,1),advect
-     .                                   ,vol=.false.)
-     .              +(2.-gamma)*dot_product(dve_cnv(i,j,k,:)
-     .                  ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,tmp0(:,:,:,1)
-     .                       ,hex=int(sign(1d0,-dve_cnv(i,j,k,1)))
-     .                       ,hey=int(sign(1d0,-dve_cnv(i,j,k,2)))
-     .                       ,hez=int(sign(1d0,-dve_cnv(i,j,k,3)))))
-     .                  /gmetric%grid(igrid)%jac(i,j,k))
-               enddo
-            enddo
-          enddo
-        endif
+cc        tmp0 => gtmp0%grid(igrid)%array
+cc
+cc        if (solve_prs) then       !Pressure equation
+cc
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 1,nx
+cc
+cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc                if (vol_wgt) then
+cc                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc                else
+cc                  dvol = 1d0
+cc                endif
+cc
+cc                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
+cccc     .              *(flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cccc     .               +(gamma-1.)*tmp0(i,j,k,1)
+cccc     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv))
+cc     .              *(gamma    *flx_advec(i,j,k,nx,ny,nz
+cc     .                                   ,igrid,igrid,igrid
+cc     .                                   ,dve_cnv,tmp0(:,:,:,1),advect
+cc     .                                   ,vol=.false.)
+cc     .              +(1.-gamma)*dot_product(dve_cnv(i,j,k,:)
+cc     .                  ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                       ,tmp0(:,:,:,1)
+cc     .                       ,hex=int(sign(1d0,dve_cnv(i,j,k,1)))
+cc     .                       ,hey=int(sign(1d0,dve_cnv(i,j,k,2)))
+cc     .                       ,hez=int(sign(1d0,dve_cnv(i,j,k,3)))))
+cc     .                  /gmetric%grid(igrid)%jac(i,j,k))
+cc               enddo
+cc            enddo
+cc          enddo
+cc
+cc        else
+cc
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 1,nx
+cc
+cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc                if (vol_wgt) then
+cc                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
+cc                else
+cc                  dvol = 1d0
+cc                endif
+cc
+cc                crhs(ii)=crhs(ii)-alpha*dvol/a_p !Factor of a_p to correct for v^star
+cccc     .            *( flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cccc     .                       ,dve_cnv,tmp0(:,:,:,1),advect,vol=.false.)
+cccc     .             +(gamma-2.)*tmp0(i,j,k,1)
+cccc     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
+cc     .              *((gamma-1.)*flx_advec(i,j,k,nx,ny,nz
+cc     .                                   ,igrid,igrid,igrid
+cc     .                                   ,dve_cnv,tmp0(:,:,:,1),advect
+cc     .                                   ,vol=.false.)
+cc     .              +(2.-gamma)*dot_product(dve_cnv(i,j,k,:)
+cc     .                  ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                       ,tmp0(:,:,:,1)
+cc     .                       ,hex=int(sign(1d0,-dve_cnv(i,j,k,1)))
+cc     .                       ,hey=int(sign(1d0,-dve_cnv(i,j,k,2)))
+cc     .                       ,hez=int(sign(1d0,-dve_cnv(i,j,k,3)))))
+cc     .                  /gmetric%grid(igrid)%jac(i,j,k))
+cc               enddo
+cc            enddo
+cc          enddo
+cc        endif
 
         if (.not.adiabatic) then
 
@@ -2119,7 +2160,6 @@ cc     .                   *div(i,j,k,nx,ny,nz,igrid,igrid,igrid,dve_cnv)
                   dvol = 1d0
                 endif
 
-                heat_src = 0d0
                 if (di > 0d0) then
 cc                  if (fake_ve) then
 cc                    heat_src = heat_src
@@ -2133,8 +2173,7 @@ cc     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
 cc     .                              ,igrid,igrid,igrid,rho0,ve0,dve_cnv)
 cc     .                       +heta*viscous_heat_src(i,j,k,nx,ny,nz
 cc     .                              ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
-                    heat_src = heat_src
-     .                       +viscous_heat_src(i,j,k,nx,ny,nz
+                    heat_src= viscous_heat_src(i,j,k,nx,ny,nz
      .                              ,igrid,igrid,igrid
      .                              ,gheta%grid(igrid)%array(:,:,:,1)
      .                              ,ve0,dve_cnv)
@@ -2142,16 +2181,18 @@ cc     .                              ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
      .                              ,igrid,igrid,igrid
      .                              ,gheta%grid(igrid)%array(:,:,:,1)
      .                              ,dve_cnv,ve0)
+                    heat_src = heat_src*gmetric%grid(igrid)%jac(i,j,k)
 cc                  endif
                 endif
 
-                if (solve_prs) then
-                  crhs(ii)=crhs(ii)+alpha*dvol/a_p !Factor of a_p to correct for v^star
-     .                             *(gamma-1.)*heat_src
-                else
-                  crhs(ii)=crhs(ii)+alpha*dvol/a_p !Factor of a_p to correct for v^star
-     .                             *(gamma-1.)*heat_src/rho0(i,j,k,1)
-                endif
+                crhs(ii) = crhs(ii) + alpha*dvol*(gamma-1.)*heat_src
+cc                if (solve_prs) then
+cc                  crhs(ii)=crhs(ii)+alpha*dvol/a_p !Factor of a_p to correct for v^star
+cc     .                             *(gamma-1.)*heat_src
+cc                else
+cc                  crhs(ii)=crhs(ii)+alpha*dvol/a_p !Factor of a_p to correct for v^star
+cc     .                             *(gamma-1.)*heat_src/rho0(i,j,k,1)
+cc                endif
               enddo
             enddo
           enddo
@@ -2162,7 +2203,7 @@ cc                  endif
 
 c     End program
 
-      nullify(tmp0,rho0,j0,eta0,ve0)
+      nullify(tmp0,rho0,j0,eta0,ve0,p0)
 
       deallocate(db_cnv
      .          ,db_cov

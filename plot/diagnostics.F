@@ -416,20 +416,20 @@ c Begin program
         Tflux0= 0d0
       endif
 
-      rho => varray%array_var(IRHO)%array
-      px  => varray%array_var(IVX )%array
-      py  => varray%array_var(IVY )%array
-      pz  => varray%array_var(IVZ )%array
-#if !defined(vec_pot)
-      bx  => varray%array_var(IBX )%array
-      by  => varray%array_var(IBY )%array
-      bz  => varray%array_var(IBZ )%array
-#else
-      ax  => varray%array_var(IAX )%array
-      ay  => varray%array_var(IAY )%array
-      az  => varray%array_var(IAZ )%array
-#endif
-      tmp => varray%array_var(ITMP)%array
+cc      rho => varray%array_var(IRHO)%array
+cc      px  => varray%array_var(IVX )%array
+cc      py  => varray%array_var(IVY )%array
+cc      pz  => varray%array_var(IVZ )%array
+cc#if !defined(vec_pot)
+cc      bx  => varray%array_var(IBX )%array
+cc      by  => varray%array_var(IBY )%array
+cc      bz  => varray%array_var(IBZ )%array
+cc#else
+cc      ax  => varray%array_var(IAX )%array
+cc      ay  => varray%array_var(IAY )%array
+cc      az  => varray%array_var(IAZ )%array
+cc#endif
+cc      tmp => varray%array_var(ITMP)%array
 
 c Code for explicit pinch flow BC
 
@@ -496,14 +496,15 @@ c Energy diagnostics
 
       !Thermal energy
 
-      if (solve_prs) then
-        array = tmp
-      else
-        array = rho*tmp
-      endif
+cc      if (solve_prs) then
+cc        array = tmp
+cc      else
+cc        array = rho*tmp
+cc      endif
+      array = a_p*rho*tmp
 
       if (gamma /= 1d0) then
-        Et = a_p/(gamma-1)
+        Et = 1d0/(gamma-1)
      .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
       else
         Et = 0d0

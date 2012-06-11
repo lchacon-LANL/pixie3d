@@ -548,7 +548,7 @@ c Map perturbations
       pert(IAY) = pby
       pert(IAZ) = pbz
 #endif
-      pert(ITMP)= ptemp
+      pert(ITMP)= a_p*ptemp  !Transform to total pressure
 
 c Translate boundary conditions
 

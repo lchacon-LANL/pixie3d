@@ -33,10 +33,12 @@ c ######################################################################
 
         character(5)  :: equil
 
-        logical :: ion_hall=.false.    !Whether to use ion EOM for Hall E
-     .            ,pinch_flow=.false.  !Whether equilibrium has pinch flow
-     .            ,slava     =.false.  !Whether to use Slava Lukin's Hall MHD implementation
-     .            ,noise     =.false.  !Whether to add noise to EOM (to break symmetry)
+        logical :: ion_hall   =.false.  !Whether to use ion EOM for Hall E
+     .            ,pinch_flow =.false.  !Whether equilibrium has pinch flow
+     .            ,slava      =.false.  !Whether to use Slava Lukin's Hall MHD implementation
+     .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
+     .            ,adiabatic  =.false.  !Whether to use adiabatic EOS (no heat sources)
+     .            ,solve_rho  =.true.   !Whether we solve for rho or use rho=1
 
         real(8) :: noise_lev
 
@@ -226,7 +228,7 @@ c ######################################################################
      .                                       ,eeta
      .                                       ,eeta_0
      .                                       ,h_eta
-cc     .                                       ,psi
+     .                                       ,prs
      .                                       ,rho_0
      .                                       ,tmp_0
      .                                       ,rho
@@ -464,9 +466,6 @@ cc        vaux%vec_list(IPCNV)%cnv   = .true.
 cc        vaux%vec_list(IPCNV)%descr = 'P=rho*v cnv'
 cc        pcnv => vaux%vec_list(IPCNV)%vec
 
-cc        vaux%var_list(IPSI)%descr = 'Psi'
-cc        psi  => vaux%var_list(IPSI)%array
-
 cc        vaux%vec_list(IBHAT)%cnv   = .true.
 cc        vaux%vec_list(IBHAT)%descr = 'B normalized'
 cc        bhat => vaux%vec_list(IBHAT)%vec
@@ -493,7 +492,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
           allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
      .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,psi  (0:nx+1,0:ny+1,0:nz+1))
+     .            ,prs  (0:nx+1,0:ny+1,0:nz+1))
         endif
 
 c     End program
@@ -563,8 +562,8 @@ cc      rho => varray%array_var(IRHO)%array
         vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
       endif
 
-      !Psi
-cc      psi = 0d0
+      !Specific heat
+      prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
 
       !Pressure
 cc      tmp => varray%array_var(ITMP)%array
@@ -1096,11 +1095,11 @@ cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = IVCOV*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(2,2) = VECTOR
 cc          vaux%vec_list(IEH)%bc_dep_list(2,3) = 1 !non-trivial
 cc
-cc          vaux%vec_list(IEH)%bc_dep_list(3,1) = IRHO
+cc          vaux%vec_list(IEH)%bc_dep_list(3,1) = IRHO_AUX*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(3,2) = SCALAR
 cc          vaux%vec_list(IEH)%bc_dep_list(3,3) = 1 !non-trivial
 cc
-cc          vaux%vec_list(IEH)%bc_dep_list(4,1) = ITMP
+cc          vaux%vec_list(IEH)%bc_dep_list(4,1) = ITMP_AUX*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(4,2) = SCALAR
 cc          vaux%vec_list(IEH)%bc_dep_list(4,3) = 1 !non-trivial
 cc
@@ -1108,11 +1107,11 @@ cc          vaux%vec_list(IEH)%bc_dep_list(5,1) = IDIVPI*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(5,2) = VECTOR
 cc          vaux%vec_list(IEH)%bc_dep_list(5,3) = 0 !trivial
 cc        else
-cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IRHO
+cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IRHO_AUX*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(1,2) = SCALAR
 cc          vaux%vec_list(IEH)%bc_dep_list(1,3) = 1 !non-trivial
 cc
-cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = ITMP
+cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = ITMP_AUX*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(2,2) = SCALAR
 cc          vaux%vec_list(IEH)%bc_dep_list(2,3) = 1 !non-trivial
 cc
@@ -1208,6 +1207,11 @@ c     Equilibrium quantities
       vaux%var_list(ITMP_0)%dom_dep_list(1,3) = 0 !trivial
       vaux%var_list(ITMP_0)%time_0 = .true.
 
+      vaux%var_list(ITMP_0)%dom_dep_list(2,1) = IRHO_0*AUX
+      vaux%var_list(ITMP_0)%dom_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMP_0)%dom_dep_list(2,3) = 0 !trivial
+      vaux%var_list(ITMP_0)%time_0 = .true.
+
       !Eta
       vaux%var_list(IETA_0)%dom_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(IETA_0)%dom_dep_list(1,2) = SCALAR
@@ -1287,14 +1291,32 @@ c     Equilibrium quantities
 c     Current variables
 
       !Rho
-      vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO
-      vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
-      vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+      if ((.not.solve_rho).and.adiabatic) then
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO_0*AUX
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+
+        vaux%var_list(IRHO_AUX)%bc_dep_list(2,1) = ITMP_0*AUX
+        vaux%var_list(IRHO_AUX)%bc_dep_list(2,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%bc_dep_list(2,3) = 0 !trivial
+
+        vaux%var_list(IRHO_AUX)%bc_dep_list(3,1) = ITMP_AUX*AUX
+        vaux%var_list(IRHO_AUX)%bc_dep_list(3,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%bc_dep_list(3,3) = 0 !trivial
+      else
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+      endif
 
       !Temp
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMP
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
+
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,1) = IRHO_AUX*AUX
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,3) = 0 !trivial
 
       !Eta
       vaux%var_list(IETA)%dom_dep_list(1,1) = ITMP_AUX*AUX
@@ -1527,7 +1549,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,psi,bhat,stat=istat)
+      deallocate(pcnv,vscnv,prs,bhat,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -1569,7 +1591,6 @@ cc     .       ,jcnv_n
 cc     .       ,vecnv_0
 cc     .       ,vscnv
 cc     .       ,pcnv
-cc     .       ,psi
 cc     .       ,bhat
      .       )
 
@@ -4403,13 +4424,11 @@ c ######################################################################
 
         use timeStepping
 
-#if !defined(vec_pot)
+cc#if !defined(vec_pot)
 cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
-        real(8),pointer,dimension(:,:,:):: px,py,pz,bx,by,bz
-#else
+cc#else
 cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-        real(8),pointer,dimension(:,:,:):: px,py,pz,ax,ay,az
-#endif
+cc#endif
 
         integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
 
@@ -4420,9 +4439,7 @@ cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
      .            ,nc_eom_jxb=.false.   !Whether we use JxB instead of conserv. form
      .            ,nc_eom_gp =.false.   !Whether we use grad(p) instead of conserv. form
      .            ,nc_eom_v  =.false.   !Whether we use v.grad(v) instead of conserv. form
-     .            ,solve_rho =.true.    !Whether we solve for rho or use rho=1
      .            ,sym_st    =.false.   !Whether to use symmetric stress tensor
-     .            ,adiabatic =.false.   !Whether to use adiabatic EOS (no heat sources)
      .            ,solve_prs =.false.   !Whether we solve for pressure or temperature
 
         logical :: save_tn
@@ -5251,11 +5268,11 @@ c     Begin program
           dyy = 2*grid_params%dyh(jg)
           dzz = 2*grid_params%dzh(kg)
 
-          if (solve_prs) then !tt is electron *pressure*
-
-            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,tt)
-
-          else                !tt is electron *temperature*
+cc          if (solve_prs) then !tt is electron *pressure*
+cc
+cc            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,tt)
+cc
+cc          else                !tt is electron *temperature*
             cov(1) = ( rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))/dxx
      .                +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k))/dxx)
 
@@ -5285,7 +5302,7 @@ cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
 cc     .                    *(tt(i,j,k)+tt(i,j,kp))
 cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
 cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
-          endif
+cc          endif
 
           !Multiply by alpha_p=1 + Ti/Te to get total pressure
           cnv = a_p*matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
@@ -5351,12 +5368,12 @@ c     Begin program
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
         if (solve_prs) then    !p=T
-          ptot = 0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
+cc          ptot = 0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
+          ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
+     .                   +sc1(ip,j,k)*sc2(ip,j,k))
         else                   !p=nT
           ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
      .                   +sc1(i ,j,k)*sc2(ip,j,k))
-cc          ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
-cc     .                   +sc1(ip,j,k)*sc2(ip,j,k))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
@@ -5422,21 +5439,19 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        if (solve_prs) then    !p=T
-          ptot = 0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
-        else                   !p=nT
+        if (solve_prs) then    !grad(p)
+cc          ptot = 0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
+          ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
+     .                   +sc1(i,jp,k)*sc2(i,jp,k))
+        else                   !grad(nT) with ZIP
           ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
      .                   +sc1(i,j ,k)*sc2(i,jp,k))
-cc          ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
-cc     .                   +sc1(i,jp,k)*sc2(i,jp,k))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
 
         t21 = gsuper(2,1)*ptot
-
         t22 = gsuper(2,2)*ptot
-
         t23 = gsuper(2,3)*ptot
 
         if (flag /= 0) then
@@ -5495,12 +5510,12 @@ c     Begin program
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
         if (solve_prs) then    !p=T
-          ptot = 0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
+cc          ptot = 0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
+          ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
+     .                   +sc1(i,j,kp)*sc2(i,j,kp))
         else                   !p=nT
           ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
      .                   +sc1(i,j,k )*sc2(i,j,kp))
-cc          ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
-cc     .                   +sc1(i,j,kp)*sc2(i,j,kp))
         endif
 
         ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
@@ -6131,11 +6146,12 @@ c     Begin program
 
 c     Find required auxiliary quantities
 
-      if (solve_prs) then
-        pe = tmp
-      else
-        pe = rho*tmp
-      endif
+cc      if (solve_prs) then
+cc        pe = tmp
+cc      else
+cc        pe = rho*tmp
+cc      endif
+      pe = prs/a_p
 
 cc      if (de > 0d0) then
 cc        bcnv_star = bcnv -de**2/di*curl(nx,ny,nz,igx,igy,igz,vecov)
@@ -6156,7 +6172,7 @@ cc      endif
 
         !Electron inertia term
         if (de > 0d0) then
-          E_h = E_h - de**2/di**2/alpha*cnp/dt*(vecov-vecov_n)
+          E_h = E_h - de**2/di**2/alpha*(vecov-vecov_n)*cnp/dt
         endif
 
       !Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -6166,45 +6182,7 @@ cc      endif
         if (save_tn.or.source_eval) then
           E_h = 0d0
         else
-          if (.not.nc_eom_v) then
-            if (cnm == 0d0) then
-              E_h(:,:,:,1) = (vcnv(:,:,:,1)
-     .                       -u_n %array_var(IVX )%array
-     .                       /u_n %array_var(IRHO)%array)/alpha/dt
-              E_h(:,:,:,2) = (vcnv(:,:,:,2)                          
-     .                       -u_n %array_var(IVY )%array
-     .                       /u_n %array_var(IRHO)%array)/alpha/dt
-              E_h(:,:,:,3) = (vcnv(:,:,:,3)                          
-     .                       -u_n %array_var(IVZ )%array
-     .                       /u_n %array_var(IRHO)%array)/alpha/dt
-            else
-              E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
-     .                       +cn *u_n %array_var(IVX )%array
-     .                           /u_n %array_var(IRHO)%array
-     .                       +cnm*u_nm%array_var(IVX )%array
-     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
-              E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                          
-     .                       +cn *u_n %array_var(IVY )%array
-     .                           /u_n %array_var(IRHO)%array
-     .                       +cnm*u_nm%array_var(IVY )%array
-     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
-              E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                          
-     .                       +cn *u_n %array_var(IVZ )%array
-     .                           /u_n %array_var(IRHO)%array
-     .                       +cnm*u_nm%array_var(IVZ )%array
-     .                           /u_nm%array_var(IRHO)%array)/alpha/dt
-            endif
-          else
-            E_h(:,:,:,1) = (cnp*vcnv(:,:,:,1)
-     .                     +cn *u_n %array_var(IVX)%array
-     .                     +cnm*u_nm%array_var(IVX)%array)/alpha/dt
-            E_h(:,:,:,2) = (cnp*vcnv(:,:,:,2)                      
-     .                     +cn *u_n %array_var(IVY)%array          
-     .                     +cnm*u_nm%array_var(IVY)%array)/alpha/dt
-            E_h(:,:,:,3) = (cnp*vcnv(:,:,:,3)                      
-     .                     +cn *u_n %array_var(IVZ)%array          
-     .                     +cnm*u_nm%array_var(IVZ)%array)/alpha/dt
-          endif
+          E_h = cnp*(vcnv-vcnv_n)/alpha/dt
         endif
 
         !Stress

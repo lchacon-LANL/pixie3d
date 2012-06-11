@@ -120,7 +120,7 @@ setup:
 	-@cd plot ; ln -s -f ../src/Makefile
 	-@tar xzf contrib.tgz
 	-@for subdir in common plot tests/serial tests/parallel tests/samrai; do \
-		$(MAKE) --no-print-directory -C $$subdir setup;  done
+		$(MAKE) -C $$subdir setup;  done
 
 # TESTS
 
