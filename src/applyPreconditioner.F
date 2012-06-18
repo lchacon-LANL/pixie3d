@@ -588,7 +588,6 @@ cc     .                  /gmetric%grid(igx)%jac (i,j,k)
 c       Temperature
 
 cc        if ((gamma /= 1d0) .or. solve_prs) then
-        if (gamma /= 1d0) then
 
           !Correct for electron velocity/source contribution
           call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid)
@@ -611,7 +610,7 @@ cc        if ((gamma /= 1d0) .or. solve_prs) then
      .              ,sm_line_relax = sm_line_relax
      .              ,sm_zebra_relax= sm_zebra_relax
      .              )
-        endif
+cc        endif
 
 c     End program
 

@@ -240,11 +240,11 @@ cc        ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src)/a_p)*jac
 cc
 cc      endif
 
-      if (gamma == 1d0) then
-
-        ff(ITMP) = 0d0
-
-      else
+cc      if (gamma == 1d0) then
+cc
+cc        ff(ITMP) = 0d0
+cc
+cc      else
 
 c       Heat flux
 
@@ -318,7 +318,7 @@ c       Sources
         !Add contributions
         ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src))*jac
 
-      endif
+cc      endif
 
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 

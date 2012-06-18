@@ -298,12 +298,6 @@ c     Begin program
               do i = 1,nx
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-cc                cnv(:) = x(ii,:)
-cc
-cc                call transformVectorToCartesian
-cc     .               (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3),covar
-cc     .               ,xout(ii,1),xout(ii,2),xout(ii,3))
                 xout(ii,:)= XformToCar(i,j,k,igrid,x(ii,:),covar)
               enddo
             enddo
@@ -316,12 +310,7 @@ cc     .               ,xout(ii,1),xout(ii,2),xout(ii,3))
 
                 cnv(:) = x(ii,:)
 
-cc                call transformVectorToCartesian
-cc     .               (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3),covar
-cc     .               ,x(ii,1),x(ii,2),x(ii,3))
                 x(ii,:)= XformToCar(i,j,k,igrid,cnv,covar)
-
               enddo
             enddo
           enddo
@@ -970,9 +959,6 @@ c     Begin program
 c     Find cartesian coordinates
 
       gb0%grid(1)%array = bcnv
-cc      gb0%grid(1)%array(:,:,:,1) = bx
-cc      gb0%grid(1)%array(:,:,:,2) = by
-cc      gb0%grid(1)%array(:,:,:,3) = bz
 
       if (cartesian)
      .   call transformVector(igr,igr,igr,0,nxc+1,0,nyc+1,0,nzc+1

@@ -493,6 +493,10 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
      .            ,prs  (0:nx+1,0:ny+1,0:nz+1))
+          pcnv = 0d0
+          vscnv = 0d0
+          bhat = 0d0
+          prs = 0d0
         endif
 
 c     End program
@@ -562,10 +566,8 @@ cc      rho => varray%array_var(IRHO)%array
         vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
       endif
 
-      !Specific heat
-      prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
-
       !Pressure
+      prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
 cc      tmp => varray%array_var(ITMP)%array
 
 cc      if (solve_prs) then
@@ -1292,31 +1294,31 @@ c     Current variables
 
       !Rho
       if ((.not.solve_rho).and.adiabatic) then
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO_0*AUX
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-        vaux%var_list(IRHO_AUX)%bc_dep_list(2,1) = ITMP_0*AUX
-        vaux%var_list(IRHO_AUX)%bc_dep_list(2,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%bc_dep_list(2,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP_0*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
 
-        vaux%var_list(IRHO_AUX)%bc_dep_list(3,1) = ITMP_AUX*AUX
-        vaux%var_list(IRHO_AUX)%bc_dep_list(3,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%bc_dep_list(3,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP_AUX*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
       else
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,1) = IRHO
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
       endif
 
       !Temp
-      vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMP
-      vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
-      vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
+      vaux%var_list(ITMP_AUX)%dom_dep_list(1,1) = ITMP
+      vaux%var_list(ITMP_AUX)%dom_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(ITMP_AUX)%bc_dep_list(2,1) = IRHO_AUX*AUX
-      vaux%var_list(ITMP_AUX)%bc_dep_list(2,2) = SCALAR
-      vaux%var_list(ITMP_AUX)%bc_dep_list(2,3) = 0 !trivial
+      vaux%var_list(ITMP_AUX)%dom_dep_list(2,1) = IRHO
+      vaux%var_list(ITMP_AUX)%dom_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%dom_dep_list(2,3) = 0 !trivial
 
       !Eta
       vaux%var_list(IETA)%dom_dep_list(1,1) = ITMP_AUX*AUX
@@ -5268,25 +5270,21 @@ c     Begin program
           dyy = 2*grid_params%dyh(jg)
           dzz = 2*grid_params%dzh(kg)
 
-cc          if (solve_prs) then !tt is electron *pressure*
-cc
-cc            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,tt)
-cc
-cc          else                !tt is electron *temperature*
-            cov(1) = ( rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))/dxx
-     .                +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k))/dxx)
+          if (solve_prs) then  !grad(p)
+            cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
 
-            cov(2) = ( rr(i,j,k)*(tt(i,jp,k)-tt(i,jm,k))/dyy
-     .                +tt(i,j,k)*(rr(i,jp,k)-rr(i,jm,k))/dyy)
+            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
           
-            cov(3) = ( rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))/dzz
-     .                +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km))/dzz)
+            cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
+          else                 !grad(nT) with ZIP
+            cov(1) = (rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))
+     .               +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k)))/dxx
 
-cc            cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
-cc
-cc            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
-cc          
-cc            cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
+            cov(2) = (rr(i,j,k)*(tt(i,jp,k)-tt(i,jm,k))
+     .               +tt(i,j,k)*(rr(i,jp,k)-rr(i,jm,k)))/dyy
+          
+            cov(3) = (rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))
+     .               +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km)))/dzz
 
 cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
 cc     .                    *(tt(i,j,k)+tt(ip,j,k))
@@ -5302,7 +5300,7 @@ cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
 cc     .                    *(tt(i,j,k)+tt(i,j,kp))
 cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
 cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
-cc          endif
+          endif
 
           !Multiply by alpha_p=1 + Ti/Te to get total pressure
           cnv = a_p*matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
@@ -5367,11 +5365,10 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
-        if (solve_prs) then    !p=T
-cc          ptot = 0.5*jac*(sc2(ip,j,k)+sc2(i,j,k))
+        if (solve_prs) then    !grad(p)
           ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
      .                   +sc1(ip,j,k)*sc2(ip,j,k))
-        else                   !p=nT
+        else                   !grad(nT) with ZIP
           ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
      .                   +sc1(i ,j,k)*sc2(ip,j,k))
         endif
@@ -5440,7 +5437,6 @@ c     Begin program
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
         if (solve_prs) then    !grad(p)
-cc          ptot = 0.5*jac*(sc2(i,jp,k)+sc2(i,j,k))
           ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
      .                   +sc1(i,jp,k)*sc2(i,jp,k))
         else                   !grad(nT) with ZIP
@@ -5509,11 +5505,10 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        if (solve_prs) then    !p=T
-cc          ptot = 0.5*jac*(sc2(i,j,kp)+sc2(i,j,k))
+        if (solve_prs) then    !grad(p)
           ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
      .                   +sc1(i,j,kp)*sc2(i,j,kp))
-        else                   !p=nT
+        else                   !grad(nT) with ZIP
           ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
      .                   +sc1(i,j,k )*sc2(i,j,kp))
         endif
