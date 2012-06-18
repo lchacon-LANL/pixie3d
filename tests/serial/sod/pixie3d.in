@@ -1,6 +1,6 @@
  &datin
     ilevel   = 0
-    test     = f
+    test     = t
 
     nxd      = 100
     nyd      = 1

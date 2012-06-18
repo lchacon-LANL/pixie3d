@@ -491,10 +491,10 @@ cc      if (di == 0d0) heta = 0d0
 
       if (restart) dcon = .false.
 
-      if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
-cc        solve_rho = .false.
-        postprocess = .true.
-      endif
+cc      if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
+cccc        solve_rho = .false.
+cc        postprocess = .true.
+cc      endif
 
       if (coords == 'hel') then   !Special case for 2D helical equilibria
          nh2 = gparams(1)

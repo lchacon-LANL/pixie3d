@@ -90,6 +90,14 @@ c Local variables
 #endif
       real(8),allocatable,dimension(:,:,:,:) :: vmec_car
 
+      INTERFACE
+        subroutine setAppBCs(varray,vaux)
+          use variable_setup
+          type(var_array),pointer :: varray
+          type(aux_array),pointer :: vaux
+        end subroutine setAppBCs
+      END INTERFACE
+
 c Functions
 
       real(8) :: qprof,pprof
@@ -141,7 +149,7 @@ cc      endif
 
 c Define boundary conditions and dependencies
 
-      call setAppBCs(varray,gv%aux,0)
+      call setAppBCs(varray,gv%aux)
 
 c Set initial guess
 

@@ -1,3 +1,418 @@
+c     setBCsched_app
+c     ###################################################################
+      subroutine setBCsched_app
+
+c     -------------------------------------------------------------------
+c     Sets BC schedule for dependent and auxiliary variables, which
+c     are identified by a 2-dim integer array, bc_seq. The first
+c     dimension is of size nbc_seq, and indicates order of treatment
+c     lexicographically (i.e., first component of first dimension is
+c     to be treated first, second component of first dimension is
+c     to be treated second, and so on).
+c
+c     The second dimension is of size two, and has the following convention:
+c       * First component of the second dimension identifies variable,
+c         and its sign indicates whether the variable is dependent (>0) or
+c         auxiliary (<0).
+c       * Second component of the second dimension identifies whether
+c         variable is a scalar (=0) or a vector (=1).
+c     -------------------------------------------------------------------
+
+      use variables
+
+      use auxiliaryVariables
+
+      use nlfunction_setup
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer :: ierr,offset=0,igr
+
+c     Begin program
+
+cc      write (*,*) 'DIAG -- setBCsched_app',itime
+
+c     Select offset based on whether we are at the beginning of calculation
+
+      if (itime == 0) then
+#if defined(vec_pot)
+        offset = 8
+#else
+        offset = 7
+#endif
+      elseif (itime > 0) then
+
+        offset = 0
+
+      endif
+
+c     Set number of BC groups
+
+#if defined(vec_pot)
+      gv%nbc_grp = 9+offset
+#else
+      if (fake_ve) then
+        gv%nbc_grp = 9+offset
+      else
+        gv%nbc_grp = 8+offset
+      endif
+#endif
+
+c     Check BC groups
+
+      if (     associated(gv%bc_grp)
+     .    .and.size(gv%bc_grp) /= gv%nbc_grp) then
+
+        do igr=1,size(gv%bc_grp)
+          deallocate(gv%bc_grp(igr)%bc_seq)
+        enddo
+        deallocate(gv%bc_grp)
+
+      endif
+
+c     Setup schedule
+
+      if (.not.associated(gv%bc_grp)) then
+
+        allocate(gv%bc_grp(gv%nbc_grp),STAT=ierr)
+
+        !Define group sizes
+        if (itime == 0) then
+          gv%bc_grp(1)%nbc_seq = 1
+          gv%bc_grp(2)%nbc_seq = 1
+          gv%bc_grp(3)%nbc_seq = 1
+
+          offset = 0
+#if defined(vec_pot)
+          gv%bc_grp(4)%nbc_seq = 1
+          offset = 1
+#endif
+          gv%bc_grp(4+offset)%nbc_seq = 2
+          gv%bc_grp(5+offset)%nbc_seq = 3
+          gv%bc_grp(6+offset)%nbc_seq = 1
+          gv%bc_grp(7+offset)%nbc_seq = 1
+          offset = offset + 7
+        endif
+
+#if defined(vec_pot)
+        gv%bc_grp(1+offset)%nbc_seq = 1
+        gv%bc_grp(2+offset)%nbc_seq = 0
+        gv%bc_grp(3+offset)%nbc_seq = 2
+cc        gv%bc_grp(4+offset)%nbc_seq = 5
+        gv%bc_grp(4+offset)%nbc_seq = 2
+        gv%bc_grp(5+offset)%nbc_seq = 2
+        gv%bc_grp(6+offset)%nbc_seq = 2
+cc        gv%bc_grp(7+offset)%nbc_seq = 7
+        gv%bc_grp(7+offset)%nbc_seq = 4
+        gv%bc_grp(8+offset)%nbc_seq = 4
+        gv%bc_grp(9+offset)%nbc_seq = 4
+#else
+        gv%bc_grp(1+offset)%nbc_seq = 2
+        gv%bc_grp(2+offset)%nbc_seq = 0
+        gv%bc_grp(3+offset)%nbc_seq = 2
+cc        gv%bc_grp(4+offset)%nbc_seq = 5
+        gv%bc_grp(4+offset)%nbc_seq = 2
+        gv%bc_grp(5+offset)%nbc_seq = 2
+cc        gv%bc_grp(6+offset)%nbc_seq = 7
+        gv%bc_grp(6+offset)%nbc_seq = 4
+        if (fake_ve) then
+          gv%bc_grp(7+offset)%nbc_seq = 3
+          gv%bc_grp(8+offset)%nbc_seq = 4
+          gv%bc_grp(9+offset)%nbc_seq = 1
+        else
+          gv%bc_grp(7+offset)%nbc_seq = 3
+          gv%bc_grp(8+offset)%nbc_seq = 4
+        endif
+#endif
+
+        !Allocate groups
+        do igr=1,gv%nbc_grp
+          allocate(gv%bc_grp(igr)
+     .               %bc_seq(gv%bc_grp(igr)%nbc_seq,2),STAT=ierr)
+
+          gv%bc_grp(igr)%bc_seq = 0
+        enddo
+
+        !Set groups
+        if (itime == 0) then
+          !Group 1
+          gv%bc_grp(1)%bc_seq(1,1) = IRHO_0*AUX          !Aux. Variable
+          gv%bc_grp(1)%bc_seq(1,2) = SCALAR              !Scalar
+
+          !Group 2   
+          gv%bc_grp(2)%bc_seq(1,1) = ITMP_0*AUX          !Aux. variable
+          gv%bc_grp(2)%bc_seq(1,2) = SCALAR              !Scalar
+
+          !Group 3
+          gv%bc_grp(3)%bc_seq(1,1) = IETA_0*AUX          !Aux. variable
+          gv%bc_grp(3)%bc_seq(1,2) = SCALAR              !Scalar
+
+          !Group 4
+          offset = 0
+#if defined(vec_pot)
+          gv%bc_grp(4)%bc_seq(1,1) = IACOV_0*AUX         !Aux. variable
+          gv%bc_grp(4)%bc_seq(1,2) = VECTOR              !Vector
+          offset = 1
+#endif
+          !Group 4+
+          gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_0*AUX  !Aux. variable
+          gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR       !Vector
+
+          gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV_0*AUX  !Aux. variable
+          gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR       !Vector
+
+          !Group 5+
+          gv%bc_grp(5+offset)%bc_seq(1,1) = IHETA*AUX    !Aux. variable
+          gv%bc_grp(5+offset)%bc_seq(1,2) = SCALAR       !Scalar
+
+          gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_0*AUX  !Aux. variable
+          gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR       !Vector
+
+          gv%bc_grp(5+offset)%bc_seq(3,1) = IJCOV_0*AUX  !Aux. variable
+          gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR       !Vector
+
+          !Group 6+
+          gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV_0*AUX  !Aux. variable
+          gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR       !Vector
+
+          !Group 7+
+cc          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
+cc          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
+
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IENI_0*AUX   !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
+
+          offset = offset + 7
+        endif
+
+#if defined(vec_pot)
+        !Group 1
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. Variable
+        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
+
+        gv%bc_grp(1+offset)%bc_seq(2,1) = ITMP_AUX*AUX!Aux. variable
+        gv%bc_grp(1+offset)%bc_seq(2,2) = SCALAR      !Scalar
+
+        !Group 3
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
+
+        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
+
+        !Group 4
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IACOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IACNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(4+offset)%bc_seq(3,1) = IAX         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(3,2) = SCALAR      !Vector
+cc
+cc        gv%bc_grp(4+offset)%bc_seq(4,1) = IAY         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(4,2) = SCALAR      !Vector
+cc
+cc        gv%bc_grp(4+offset)%bc_seq(5,1) = IAZ         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(5,2) = SCALAR      !Vector
+
+        !Group 5
+cc        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        !Group 6
+        gv%bc_grp(6+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        !Group 7
+        gv%bc_grp(7+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
+        gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(7+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
+        gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(7+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(7+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(7+offset)%bc_seq(5,1) = IVX         !Dep. variable
+cc        gv%bc_grp(7+offset)%bc_seq(5,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(7+offset)%bc_seq(6,1) = IVY         !Dep. variable
+cc        gv%bc_grp(7+offset)%bc_seq(6,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(7+offset)%bc_seq(7,1) = IVZ         !Dep. variable
+cc        gv%bc_grp(7+offset)%bc_seq(7,2) = SCALAR      !Scalar
+
+        !Group 8
+        gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
+        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+        !Group 9
+        gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(3,1) = IEH*AUX     !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+        gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
+ 
+#else
+        !Group 1
+        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. Variable
+        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
+
+        gv%bc_grp(1+offset)%bc_seq(2,1) = ITMP_AUX*AUX!Aux. variable
+        gv%bc_grp(1+offset)%bc_seq(2,2) = SCALAR      !Scalar
+
+        !Group 3
+        gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
+
+        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX     !Aux. variable
+        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
+
+        !Group 4
+cc        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
+        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(4+offset)%bc_seq(3,1) = IBX         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(3,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(4+offset)%bc_seq(4,1) = IBY         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(4,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(4+offset)%bc_seq(5,1) = IBZ         !Dep. variable
+cc        gv%bc_grp(4+offset)%bc_seq(5,2) = SCALAR      !Scalar
+
+        !Group 5
+        gv%bc_grp(5+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
+cc        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
+        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        !Group 6
+        gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+        gv%bc_grp(6+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
+        gv%bc_grp(6+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+cc        gv%bc_grp(6+offset)%bc_seq(5,1) = IVX         !Dep. variable
+cc        gv%bc_grp(6+offset)%bc_seq(5,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(6+offset)%bc_seq(6,1) = IVY         !Dep. variable
+cc        gv%bc_grp(6+offset)%bc_seq(6,2) = SCALAR      !Scalar
+cc
+cc        gv%bc_grp(6+offset)%bc_seq(7,1) = IVZ         !Dep. variable
+cc        gv%bc_grp(6+offset)%bc_seq(7,2) = SCALAR      !Scalar
+
+        if (fake_ve) then
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IEH*AUX    !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+          gv%bc_grp(7+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+
+          !Group 9
+          gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPE*AUX  !Aux. variable
+          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
+        else
+          !Group 7
+          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
+                     
+          gv%bc_grp(7+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
+          gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          !Group 8
+          gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(3,1) = IEH*AUX    !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
+
+          gv%bc_grp(8+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
+          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
+        endif
+#endif
+
+      endif
+
+c     End program
+
+      end subroutine setBCsched_app
+
 c module local_BCS_variables
 c####################################################################
       module local_BCS_variables
@@ -21,60 +436,7 @@ c####################################################################
      .                             ,save_tn,slava,pinch_flow
      .                             ,res_ijk,vis_ijk
 
-c       Hardwired BC configuration parameters
-
-        !Order of BC interpolation
-#if defined(vec_pot)
-        integer :: bc_order=1
-#else
-        integer :: bc_order=1
-#endif
       contains
-
-c     setAppBCs
-c     ####################################################################
-      subroutine setAppBCs(varray,vaux,it)
-c     --------------------------------------------------------------------
-c     Defines boundary conditions of all application variables, both
-c     dependent and auxiliary. Convention:
-c           + bbcs(1) ---> at x0
-c           + bbcs(2) ---> at x1
-c           + bbcs(3) ---> at y0
-c           + bbcs(4) ---> at y1
-c           + bbcs(5) ---> at z0
-c           + bbcs(6) ---> at z1
-c     Definition of BC identifiers is given in "grid_mod.f". In vectors,
-c     a negative BC identifier means that BCs are to be imposed on
-c     covariant components instead of on (default) contravariant comps.
-c     --------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: it
-      type(var_array),pointer :: varray
-      type(aux_array),pointer :: vaux
-
-c     Local variables
-
-c     Begin program
-
-c     Setup dependent variables
-
-      call defineDepVariables(varray)
-
-c     Setup auxiliary variables
-
-      call defineAuxVariables(vaux)
-
-c     Set application BCs
-
-      call setBCsched(varray,vaux,it)
-
-c     End program
-
-      end subroutine setAppBCs
 
 c     defineDepVariables
 c     ####################################################################
@@ -488,7 +850,7 @@ c     Begin program
         varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
       enddo
 #else
-      !B
+      !A
       do ieq=IAX,IAZ
         varray%array_var(ieq)%dom_dep_list(1,1) = IENI*AUX
         varray%array_var(ieq)%dom_dep_list(1,2) = VECTOR
@@ -503,421 +865,6 @@ c     Begin program
 c     End subroutine
 
       end subroutine defineDepDom_Deps
-
-cc#if defined(petsc)
-#if 1
-c     setBCsched
-c     ###################################################################
-      subroutine setBCsched(varray,vaux,itime)
-
-c     -------------------------------------------------------------------
-c     Sets BC schedule for dependent and auxiliary variables, which
-c     are identified by a 2-dim integer array, bc_seq. The first
-c     dimension is of size nbc_seq, and indicates order of treatment
-c     lexicographically (i.e., first component of first dimension is
-c     to be treated first, second component of first dimension is
-c     to be treated second, and so on).
-c
-c     The second dimension is of size two, and has the following convention:
-c       * First component of the second dimension identifies variable,
-c         and its sign indicates whether the variable is dependent (>0) or
-c         auxiliary (<0).
-c       * Second component of the second dimension identifies whether
-c         variable is a scalar (=0) or a vector (=1).
-c     -------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: itime
-
-      type(var_array),pointer :: varray
-
-      type(aux_array),pointer :: vaux
-
-c     Local variables
-
-      integer :: ierr,offset=0,igr
-
-c     Begin program
-
-c     Select offset based on whether we are at the beginning of calculation
-
-      if (itime == 0) then
-#if defined(vec_pot)
-        offset = 8
-#else
-        offset = 7
-#endif
-      elseif (itime > 0) then
-
-        offset = 0
-
-      endif
-
-c     Set number of BC groups
-
-#if defined(vec_pot)
-      gv%nbc_grp = 9+offset
-#else
-      if (fake_ve) then
-        gv%nbc_grp = 9+offset
-      else
-        gv%nbc_grp = 8+offset
-      endif
-#endif
-
-c     Check BC groups
-
-      if (     associated(gv%bc_grp)
-     .    .and.size(gv%bc_grp) /= gv%nbc_grp) then
-
-        do igr=1,size(gv%bc_grp)
-          deallocate(gv%bc_grp(igr)%bc_seq)
-        enddo
-        deallocate(gv%bc_grp)
-
-      endif
-
-c     Setup schedule
-
-      if (.not.associated(gv%bc_grp)) then
-
-        allocate(gv%bc_grp(gv%nbc_grp),STAT=ierr)
-
-        !Define group sizes
-        if (itime == 0) then
-          gv%bc_grp(1)%nbc_seq = 1
-          gv%bc_grp(2)%nbc_seq = 1
-          gv%bc_grp(3)%nbc_seq = 1
-
-          offset = 0
-#if defined(vec_pot)
-          gv%bc_grp(4)%nbc_seq = 1
-          offset = 1
-#endif
-          gv%bc_grp(4+offset)%nbc_seq = 2
-          gv%bc_grp(5+offset)%nbc_seq = 3
-          gv%bc_grp(6+offset)%nbc_seq = 1
-          gv%bc_grp(7+offset)%nbc_seq = 1
-          offset = offset + 7
-        endif
-
-#if defined(vec_pot)
-        gv%bc_grp(1+offset)%nbc_seq = 1
-        gv%bc_grp(2+offset)%nbc_seq = 1
-        gv%bc_grp(3+offset)%nbc_seq = 2
-        gv%bc_grp(4+offset)%nbc_seq = 5
-        gv%bc_grp(5+offset)%nbc_seq = 2
-        gv%bc_grp(6+offset)%nbc_seq = 2
-        gv%bc_grp(7+offset)%nbc_seq = 7
-        gv%bc_grp(8+offset)%nbc_seq = 4
-        gv%bc_grp(9+offset)%nbc_seq = 4
-#else
-        gv%bc_grp(1+offset)%nbc_seq = 1
-        gv%bc_grp(2+offset)%nbc_seq = 1
-        gv%bc_grp(3+offset)%nbc_seq = 2
-        gv%bc_grp(4+offset)%nbc_seq = 5
-        gv%bc_grp(5+offset)%nbc_seq = 2
-        gv%bc_grp(6+offset)%nbc_seq = 7
-        if (fake_ve) then
-          gv%bc_grp(7+offset)%nbc_seq = 3
-          gv%bc_grp(8+offset)%nbc_seq = 4
-          gv%bc_grp(9+offset)%nbc_seq = 1
-        else
-          gv%bc_grp(7+offset)%nbc_seq = 3
-          gv%bc_grp(8+offset)%nbc_seq = 4
-        endif
-#endif
-
-        !Allocate groups
-        do igr=1,gv%nbc_grp
-          allocate(gv%bc_grp(igr)
-     .               %bc_seq(gv%bc_grp(igr)%nbc_seq,2),STAT=ierr)
-
-          gv%bc_grp(igr)%bc_seq = 0
-        enddo
-
-        !Set groups
-        if (itime == 0) then
-          !Group 1
-          gv%bc_grp(1)%bc_seq(1,1) = IRHO_0*AUX          !Aux. Variable
-          gv%bc_grp(1)%bc_seq(1,2) = SCALAR              !Scalar
-
-          !Group 2   
-          gv%bc_grp(2)%bc_seq(1,1) = ITMP_0*AUX          !Aux. variable
-          gv%bc_grp(2)%bc_seq(1,2) = SCALAR              !Scalar
-
-          !Group 3
-          gv%bc_grp(3)%bc_seq(1,1) = IETA_0*AUX          !Aux. variable
-          gv%bc_grp(3)%bc_seq(1,2) = SCALAR              !Scalar
-
-          !Group 4
-          offset = 0
-#if defined(vec_pot)
-          gv%bc_grp(4)%bc_seq(1,1) = IACOV_0*AUX         !Aux. variable
-          gv%bc_grp(4)%bc_seq(1,2) = VECTOR              !Vector
-          offset = 1
-#endif
-          !Group 4+
-          gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_0*AUX  !Aux. variable
-          gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR       !Vector
-
-          gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV_0*AUX  !Aux. variable
-          gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR       !Vector
-
-          !Group 5+
-          gv%bc_grp(5+offset)%bc_seq(1,1) = IHETA*AUX    !Aux. variable
-          gv%bc_grp(5+offset)%bc_seq(1,2) = SCALAR       !Scalar
-
-          gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_0*AUX  !Aux. variable
-          gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR       !Vector
-
-          gv%bc_grp(5+offset)%bc_seq(3,1) = IJCOV_0*AUX  !Aux. variable
-          gv%bc_grp(5+offset)%bc_seq(3,2) = VECTOR       !Vector
-
-          !Group 6+
-          gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV_0*AUX  !Aux. variable
-          gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR       !Vector
-
-          !Group 7+
-cc          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV_0*AUX !Aux. variable
-cc          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
-
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IENI_0*AUX   !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR       !Vector
-
-          offset = offset + 7
-        endif
-
-#if defined(vec_pot)
-        !Group 1
-        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. Variable
-        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        !Group 2    
-        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP_AUX*AUX!Aux. variable
-        gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        !Group 3
-        gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
-        gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX    !Aux. variable
-        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
-
-        !Group 4
-        gv%bc_grp(4+offset)%bc_seq(1,1) = IACOV*AUX   !Aux. variable
-        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IACNV*AUX   !Aux. variable
-        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(3,1) = IAX         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(3,2) = SCALAR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(4,1) = IAY         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(4,2) = SCALAR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(5,1) = IAZ         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(5,2) = SCALAR      !Vector
-
-        !Group 5
-cc        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
-cc        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(5+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        !Group 6
-        gv%bc_grp(6+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-cc        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
-cc        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        !Group 7
-        gv%bc_grp(7+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
-        gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(7+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
-        gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(7+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
-        gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-        gv%bc_grp(7+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
-        gv%bc_grp(7+offset)%bc_seq(4,2) = VECTOR      !Vector
-
-        gv%bc_grp(7+offset)%bc_seq(5,1) = IVX         !Dep. variable
-        gv%bc_grp(7+offset)%bc_seq(5,2) = SCALAR      !Scalar
-
-        gv%bc_grp(7+offset)%bc_seq(6,1) = IVY         !Dep. variable
-        gv%bc_grp(7+offset)%bc_seq(6,2) = SCALAR      !Scalar
-
-        gv%bc_grp(7+offset)%bc_seq(7,1) = IVZ         !Dep. variable
-        gv%bc_grp(7+offset)%bc_seq(7,2) = SCALAR      !Scalar
-
-        !Group 8
-        gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-        gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
-        gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
-
-        !Group 9
-        gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
-        gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(9+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
-        gv%bc_grp(9+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(9+offset)%bc_seq(3,1) = IEH*AUX     !Aux. variable
-        gv%bc_grp(9+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-        gv%bc_grp(9+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
-        gv%bc_grp(9+offset)%bc_seq(4,2) = VECTOR      !Vector
- 
-#else
-        !Group 1    
-        gv%bc_grp(1+offset)%bc_seq(1,1) = IRHO_AUX*AUX!Aux. variable
-        gv%bc_grp(1+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        !Group 2
-        gv%bc_grp(2+offset)%bc_seq(1,1) = ITMP_AUX*AUX!Aux. Variable
-        gv%bc_grp(2+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        !Group 3
-        gv%bc_grp(3+offset)%bc_seq(1,1) = IETA*AUX    !Aux. variable
-        gv%bc_grp(3+offset)%bc_seq(1,2) = SCALAR      !Scalar
-
-        gv%bc_grp(3+offset)%bc_seq(2,1) = INU*AUX     !Aux. variable
-        gv%bc_grp(3+offset)%bc_seq(2,2) = SCALAR      !Scalar
-
-        !Group 4
-cc        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV_N*AUX !Aux. variable
-cc        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(1,1) = IBCNV*AUX   !Aux. variable
-        gv%bc_grp(4+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(2,1) = IBCOV*AUX   !Aux. variable
-        gv%bc_grp(4+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(4+offset)%bc_seq(3,1) = IBX         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(3,2) = SCALAR      !Scalar
-
-        gv%bc_grp(4+offset)%bc_seq(4,1) = IBY         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(4,2) = SCALAR      !Scalar
-
-        gv%bc_grp(4+offset)%bc_seq(5,1) = IBZ         !Dep. variable
-        gv%bc_grp(4+offset)%bc_seq(5,2) = SCALAR      !Scalar
-
-        !Group 5
-        gv%bc_grp(5+offset)%bc_seq(1,1) = IJCNV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-cc        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCNV_N*AUX !Aux. variable
-cc        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(5+offset)%bc_seq(2,1) = IJCOV*AUX   !Aux. variable
-        gv%bc_grp(5+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        !Group 6
-        gv%bc_grp(6+offset)%bc_seq(1,1) = IVCNV*AUX   !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-        gv%bc_grp(6+offset)%bc_seq(2,1) = IVCNV_N*AUX !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-        gv%bc_grp(6+offset)%bc_seq(3,1) = IVCOV*AUX   !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-        gv%bc_grp(6+offset)%bc_seq(4,1) = IVCOV_N*AUX !Aux. variable
-        gv%bc_grp(6+offset)%bc_seq(4,2) = VECTOR      !Vector
-
-        gv%bc_grp(6+offset)%bc_seq(5,1) = IVX         !Dep. variable
-        gv%bc_grp(6+offset)%bc_seq(5,2) = SCALAR      !Scalar
-
-        gv%bc_grp(6+offset)%bc_seq(6,1) = IVY         !Dep. variable
-        gv%bc_grp(6+offset)%bc_seq(6,2) = SCALAR      !Scalar
-
-        gv%bc_grp(6+offset)%bc_seq(7,1) = IVZ         !Dep. variable
-        gv%bc_grp(6+offset)%bc_seq(7,2) = SCALAR      !Scalar
-
-        if (fake_ve) then
-          !Group 7
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-          gv%bc_grp(7+offset)%bc_seq(2,1) = IEH*AUX    !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-          gv%bc_grp(7+offset)%bc_seq(3,1) = IENI*AUX    !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-          !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(4,1) = IVEFCNV*AUX !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
-
-          !Group 9
-          gv%bc_grp(9+offset)%bc_seq(1,1) = IDIVPE*AUX  !Aux. variable
-          gv%bc_grp(9+offset)%bc_seq(1,2) = VECTOR      !Vector
-        else
-          !Group 7
-          gv%bc_grp(7+offset)%bc_seq(1,1) = IVECNV*AUX  !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-          gv%bc_grp(7+offset)%bc_seq(2,1) = IVECOV*AUX  !Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(2,2) = VECTOR      !Vector
-                     
-          gv%bc_grp(7+offset)%bc_seq(3,1) = IVECOV_N*AUX!Aux. variable
-          gv%bc_grp(7+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-          !Group 8
-          gv%bc_grp(8+offset)%bc_seq(1,1) = IDIVPI*AUX  !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(1,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(2,1) = IDIVPE*AUX  !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(2,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(3,1) = IEH*AUX    !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(3,2) = VECTOR      !Vector
-
-          gv%bc_grp(8+offset)%bc_seq(4,1) = IENI*AUX    !Aux. variable
-          gv%bc_grp(8+offset)%bc_seq(4,2) = VECTOR      !Vector
-        endif
-#endif
-
-      endif
-
-c     End program
-
-      end subroutine setBCsched
-
-#endif
 
 c     ExB_flow_bc
 c     #################################################################

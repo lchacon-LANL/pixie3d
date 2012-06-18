@@ -42,12 +42,12 @@ c Interfaces
 
 #if !defined (samrai)
       INTERFACE
-        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-        use variable_setup
-        integer    :: iigx,iigy,iigz
-        integer,optional :: obc
-        type(var_array),pointer :: varray
-        end subroutine applyBC
+cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
+cc        use variable_setup
+cc        integer    :: iigx,iigy,iigz
+cc        integer,optional :: obc
+cc        type(var_array),pointer :: varray
+cc        end subroutine applyBC
 
         function set_nlf_flux_x(igr,nx,ny,nz) result(flx_x)
         use variable_setup
@@ -94,16 +94,6 @@ c Impose boundary conditions and find auxiliary quantities
 c Fill LOCAL auxiliary variables
 
       call fillLocalAuxVars(igx,varray,gv%aux)
-
-c Enslave density when appropriate (PUT IN BC SCHEDULE!!!!)
-
-      if ((.not.solve_rho).and.adiabatic) then
-          where (tmp_0 /= 0d0)
-cc            rho =     u_0%array_var(IRHO)%array
-cc     .          *(tmp/u_0%array_var(ITMP)%array)**(1./gamma)
-            rho = rho_0*(tmp/tmp_0)**(1./gamma)
-          end where
-      endif
 
 c Safeguards
 

@@ -52,21 +52,21 @@ c Local variables
 
 c Interfaces
 
-      INTERFACE
-        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-        use variable_setup
-        integer    :: iigx,iigy,iigz
-        integer,optional :: obc
-        type(var_array),pointer :: varray
-        end subroutine applyBC
-      END INTERFACE
-      INTERFACE
-        subroutine applyBCplot(varray,iigx,iigy,iigz)
-        use variable_setup
-        integer    :: iigx,iigy,iigz
-        type(var_array),pointer :: varray
-        end subroutine applyBCplot
-      END INTERFACE
+cc      INTERFACE
+cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
+cc        use variable_setup
+cc        integer    :: iigx,iigy,iigz
+cc        integer,optional :: obc
+cc        type(var_array),pointer :: varray
+cc        end subroutine applyBC
+cc      END INTERFACE
+cc      INTERFACE
+cc        subroutine applyBCplot(varray,iigx,iigy,iigz)
+cc        use variable_setup
+cc        integer    :: iigx,iigy,iigz
+cc        type(var_array),pointer :: varray
+cc        end subroutine applyBCplot
+cc      END INTERFACE
 
 c Begin program
 

@@ -66,11 +66,7 @@ c     Begin program
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          do ieq=1,varr%nvar
-            call perturbEquilibrium_kaitm(varr%array_var(ieq)%array
-     .                                   ,varr%array_var(ieq)%bconds
-     .                                   ,pert(ieq),ieq)
-          enddo
+          call perturbEquilibrium_kaitm
         else
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
@@ -204,8 +200,13 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
               jac = 1d0
 
               varr%array_var(IRHO)%array(i,j,k) =
-     .                         varr%array_var(IRHO)%array(i,j,k)
-     .                       + 1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+     .                     varr%array_var(IRHO)%array(i,j,k)
+     .                     +jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+
+              varr%array_var(ITMP)%array(i,j,k) =
+     .                     varr%array_var(ITMP)%array(i,j,k)
+     .                     +a_p*jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
+
 #if defined(vec_pot)
               varr%array_var(IAY)%array(i,j,k) =
      .                     varr%array_var(IAY)%array(i,j,k)
@@ -341,7 +342,7 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
 
               varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)
-     .             - cs2*xi/(a_p*freq) !For e pressure
+     .             - cs2*xi/freq !For total pressure pressure
 cc              if (solve_prs) then
 cc                varr%array_var(ITMP)%array(i,j,k) =
 cc     .               varr%array_var(ITMP)%array(i,j,k)
@@ -435,22 +436,6 @@ cc              endif
             enddo
           enddo
         enddo
-
-cc      case ('gem','tmcar','tmsin','kai1')
-cc
-cc        do ieq=1,varr%nvar
-cc          call perturbEquilibrium_gem(varr%array_var(ieq)%array
-cc     .                               ,varr%array_var(ieq)%bconds
-cc     .                               ,pert(ieq),ieq)
-cc        enddo
-cc
-cc      case ('dtm')
-cc
-cc        do ieq=1,varr%nvar
-cc          call perturbEquilibrium_dtm(varr%array_var(ieq)%array
-cc     .                               ,varr%array_var(ieq)%bconds
-cc     .                               ,pert(ieq),ieq)
-cc        enddo
 
       case ('ic','ic-hk','dtm','gem','tmcar','tmsin','kai1')
 
@@ -590,20 +575,17 @@ c     End program
 
 c     perturbEquilibrium_kaitm
 c     #################################################################
-      subroutine perturbEquilibrium_kaitm(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_kaitm
 
 c     -----------------------------------------------------------------
-c     Perturbs equilibrium quantity in array0 with a sinusoidal
-c     perturbation of magnitude perturb, and introduces it in array.
+c     Perturbs equilibrium quantities according to eigenmodes computed
+c     by Kai Germaschewski (note: eigenvectors are not correct, and
+c     result in evolution by PIXIE3D to correct them).
 c     -----------------------------------------------------------------
 
       implicit none
 
 c     Call variables
-
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
@@ -648,9 +630,18 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
             if (equil == '2dkai') pert(6) = pert(6)+kk*x1/mm*pert(7)
             pert(7) = x1*pert(7)
 
-            pert(8) = x1*pert(8)
+            do ieq=1,varr%nvar-1
+              varr%array_var(ieq)%array(i,j,k) =
+     .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
+            enddo
 
-            array(i,j,k) = array(i,j,k) + pert(ieq)
+            pert(8) = pert(8)*a_p  !No factor of x1, because that is included in rho below
+
+            varr%array_var(ITMP)%array(i,j,k) =
+     .               varr%array_var(ITMP)%array(i,j,k)*(1d0 
+     .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+     .               + pert(ITMP)*varr%array_var(IRHO)%array(i,j,k)
+
           enddo
         enddo
       enddo
