@@ -56,7 +56,7 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0
      .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,br_pert_bc
-     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
+     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
@@ -105,7 +105,7 @@ c Namelists
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
-     .                   ,maxitgm,global,method,damp,dt0,vol_wgt
+     .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
 
       !Preconditioner
       namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
