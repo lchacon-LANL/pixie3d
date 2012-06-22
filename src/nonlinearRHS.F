@@ -240,12 +240,6 @@ cc        ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src)/a_p)*jac
 cc
 cc      endif
 
-cc      if (gamma == 1d0) then
-cc
-cc        ff(ITMP) = 0d0
-cc
-cc      else
-
 c       Heat flux
 
         heat_flx = 0d0
@@ -318,8 +312,6 @@ c       Sources
         !Add contributions
         ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src))*jac
 
-cc      endif
-
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     JxB volume force
@@ -366,6 +358,8 @@ c     Advection
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
+
+      if (alt__eom()) ff(IVY) = ff(IVY)*jac
 
 c End
 
@@ -458,16 +452,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg!,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer    :: ieq
+      integer :: i,j,k,ig,jg,kg
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8) :: cnv(3),cov(3),jac
 
       ! rho equation
-      real(8)    :: advc,diffus
+      real(8) :: advc,diffus
 
       ! tmp equation
-      real(8)    :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
 
 c Begin program
 
@@ -477,7 +470,8 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vcnv,rho,advect)
+              advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,1)
+     .                             ,rho,advect)
 
               if (dd /= 0d0) then
                 diffus = dd*lap_flx_x_ijk(i,j,k,igr,rho)
@@ -499,54 +493,48 @@ c Begin program
             flx_x(i+1,j,k,IAX:IAZ) = 0d0
 #endif
 
-cc            !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-cc            if ((gamma == 1d0) .and. (.not.solve_prs)) then
-cc              flx_x(i+1,j,k,ITMP) = 0d0
-cc            else
-cc              if (dd /= 0d0.and.solve_prs) then
-cc                heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,tmp)
-cc              else
-cc                heat_flx = 0d0
-cc              endif
-cc
-cc              if (solve_prs) then
-cc                gm = gamma
-cc                sgn =-1d0
-cc              else
-cc                gm = gamma - 1d0
-cc                sgn = 1d0
-cc              endif
-cc
-cc              advc = gm*scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vscnv,tmp
-cc     .                                ,advect)
-cc
-cc              flx_x(i+1,j,k,ITMP) = advc + (gamma-1d0)*heat_flx/a_p
-cc            endif
+            !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+            if (chi /= 0d0) then
+              if (solve_prs) then
+                heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,prs)
+              else
+                heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,tmp)
+              endif
+            else
+              heat_flx = 0d0
+            endif
+
+            advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,1)
+     .                           ,prs,advect)
+
+            flx_x(i+1,j,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if (.not.nc_eom_v) then
+            if (nc_eom_v) then
+              flx_x(i+1,j,k,IVX:IVZ) = 0d0
+            else
               !JxB
-              if (.not.nc_eom_jxb) then
+              if (nc_eom_jxb) then
+                cnv = 0d0
+              else
                 vec1 => bcnv
                 vec2 => bcnv
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_jxb_x)
                 nullify(vec1,vec2)
-              else
-                cnv = 0d0
               endif
 
-              flx_x(i+1,j,k,IVX:IVZ) = -cnv
+              flx_x(i+1,j,k,IVX:IVZ) = cnv
 
               !grad(P)
-              if (.not.nc_eom_gp) then
+              if (nc_eom_gp) then
+                cnv = 0d0
+              else
                 sc1 => rho
                 sc2 => tmp
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_grad_p_x)
                 nullify(sc1,sc2)
-              else
-                cnv = 0d0
               endif
 
               flx_x(i+1,j,k,IVX:IVZ) = flx_x(i+1,j,k,IVX:IVZ) + cnv
@@ -560,8 +548,6 @@ cc            endif
               nullify(vec1,vec2)
 
               flx_x(i+1,j,k,IVX:IVZ) = flx_x(i+1,j,k,IVX:IVZ) + cnv
-            else
-              flx_x(i+1,j,k,IVX:IVZ) = 0d0
             endif
 
           enddo
@@ -606,16 +592,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg!,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer    :: ieq
+      integer :: i,j,k,ig,jg,kg
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8) :: cnv(3),cov(3),jac
 
       ! rho equation
-      real(8)    :: advc,diffus
+      real(8) :: advc,diffus
 
       ! tmp equation
-      real(8)    :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
 
 c Begin program
 
@@ -625,7 +610,8 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vcnv,rho,advect)
+              advc = scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,2)
+     .                             ,rho,advect)
 
               if (dd /= 0d0) then
                 diffus = dd*lap_flx_y_ijk(i,j,k,igr,rho)
@@ -648,53 +634,47 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-cc            if ((gamma == 1d0) .and. (.not.solve_prs)) then
-cc              flx_y(i,j+1,k,ITMP) = 0d0
-cc            else
-cc              if (dd /= 0d0.and.solve_prs) then
-cc                heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,tmp)
-cc              else
-cc                heat_flx = 0d0
-cc              endif
-cc
-cc              if (solve_prs) then
-cc                gm = gamma
-cc                sgn =-1d0
-cc              else
-cc                gm = gamma - 1d0
-cc                sgn = 1d0
-cc              endif
-cc
-cc              advc = gm*scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vscnv,tmp
-cc     .                                ,advect)
-cc
-cc              flx_y(i,j+1,k,ITMP) = advc + (gamma-1d0)*heat_flx/a_p
-cc            endif
+            if (chi /= 0d0) then
+              if (solve_prs) then
+                heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,prs)
+              else
+                heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,tmp)
+              endif
+            else
+              heat_flx = 0d0
+            endif
+
+            advc = scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,2)
+     .                           ,prs,advect)
+
+            flx_y(i,j+1,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if (.not.nc_eom_v) then
+            if (nc_eom_v) then
+              flx_y(i,j+1,k,IVX:IVZ) = 0d0
+            else
               !JxB
-              if (.not.nc_eom_jxb) then
+              if (nc_eom_jxb) then
+                cnv = 0d0
+              else
                 vec1 => bcnv
                 vec2 => bcnv
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_jxb_y)
                 nullify(vec1,vec2)
-              else
-                cnv = 0d0
               endif
 
-              flx_y(i,j+1,k,IVX:IVZ) = -cnv
+              flx_y(i,j+1,k,IVX:IVZ) = cnv
 
               !grad(P)
-              if (.not.nc_eom_gp) then
+              if (nc_eom_gp) then
+                cnv = 0d0
+              else
                 sc1 => rho
                 sc2 => tmp
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_grad_p_y)
                 nullify(sc1,sc2)
-              else
-                cnv = 0d0
               endif
 
               flx_y(i,j+1,k,IVX:IVZ) = flx_y(i,j+1,k,IVX:IVZ) + cnv
@@ -708,8 +688,6 @@ cc            endif
               nullify(vec1,vec2)
 
               flx_y(i,j+1,k,IVX:IVZ) = flx_y(i,j+1,k,IVX:IVZ) + cnv
-            else
-              flx_y(i,j+1,k,IVX:IVZ) = 0d0
             endif
           enddo
         enddo
@@ -753,16 +731,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg!,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer    :: ieq
+      integer :: i,j,k,ig,jg,kg
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8) :: cnv(3),cov(3),jac
 
       ! rho equation
-      real(8)    :: advc,diffus
+      real(8) :: advc,diffus
 
       ! tmp equation
-      real(8)    :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
 
 c Begin program
 
@@ -772,7 +749,8 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vcnv,rho,advect)
+              advc = scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,3)
+     .                             ,rho,advect)
 
               if (dd /= 0d0) then
                 diffus = dd*lap_flx_z_ijk(i,j,k,igr,rho)
@@ -795,53 +773,47 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-cc            if ((gamma == 1d0) .and. (.not.solve_prs)) then
-cc              flx_z(i,j,k+1,ITMP) = 0d0
-cc            else
-cc              if (dd /= 0d0.and.solve_prs) then
-cc                heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,tmp)
-cc              else
-cc                heat_flx = 0d0
-cc              endif
-cc
-cc              if (solve_prs) then
-cc                gm = gamma
-cc                sgn =-1d0
-cc              else
-cc                gm = gamma - 1d0
-cc                sgn = 1d0
-cc              endif
-cc
-cc              advc = gm*scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vscnv,tmp
-cc     .                                ,advect)
-cc
-cc              flx_z(i,j,k+1,ITMP) = advc + (gamma-1d0)*heat_flx/a_p
-cc            endif
+            if (chi /= 0d0) then
+              if (solve_prs) then
+                heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,prs)
+              else
+                heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,tmp)
+              endif
+            else
+              heat_flx = 0d0
+            endif
+
+            advc = scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,3)
+     .                           ,prs,advect)
+
+            flx_z(i,j,k+1,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if (.not.nc_eom_v) then
+            if (nc_eom_v) then
+              flx_z(i,j,k+1,IVX:IVZ) = 0d0
+            else
               !JxB
-              if (.not.nc_eom_jxb) then
+              if (nc_eom_jxb) then
+                cnv = 0d0
+              else
                 vec1 => bcnv
                 vec2 => bcnv
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_jxb_z)
                 nullify(vec1,vec2)
-              else
-                cnv = 0d0
               endif
 
-              flx_z(i,j,k+1,IVX:IVZ) = -cnv
+              flx_z(i,j,k+1,IVX:IVZ) = cnv
 
               !grad(P)
-              if (.not.nc_eom_gp) then
+              if (nc_eom_gp) then
+                cnv = 0d0
+              else
                 sc1 => rho
                 sc2 => tmp
                 cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                             ,eom_grad_p_z)
                 nullify(sc1,sc2)
-              else
-                cnv = 0d0
               endif
 
               flx_z(i,j,k+1,IVX:IVZ) = flx_z(i,j,k+1,IVX:IVZ) + cnv
@@ -855,8 +827,6 @@ cc            endif
               nullify(vec1,vec2)
 
               flx_z(i,j,k+1,IVX:IVZ) = flx_z(i,j,k+1,IVX:IVZ) + cnv
-            else
-              flx_z(i,j,k+1,IVX:IVZ) = 0d0
             endif
 
           enddo
@@ -901,22 +871,23 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg
-      integer    :: ieq
+      integer :: i,j,k,ig,jg,kg
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8) :: cnv(3),cov(3),jac
 
       ! rho equation
-      real(8)    :: advc,diffus
+      real(8) :: advc,diffus
 
       ! tmp equation
-      real(8)    :: joule,viscous,heat_src,heat_flx,gm,sgn
+      real(8) :: joule,viscous,heat_src,heat_flx,gm,sgn
 
 c Begin program
 
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
+
+            jac = gmetric%grid(igr)%jac(i,j,k)
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             src(i,j,k,IRHO) = 0d0
@@ -931,80 +902,55 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-cc            if ((gamma == 1d0) .and. (.not.solve_prs)) then
-cc              src(i,j,k,ITMP) = 0d0
-cc            else
-cc              !Heat Flux
-cc              !(parallel piece; should be made conservative)
-cc              if (chi_par /= chi .and.(.not.lagrangian)) then
-cc                heat_flx = -(chi_par-chi)
-cc     .              *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmp
-cc     .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-cc     .                   ,symmetric=.true.,limited=.false.,vol=.false.)
-cc              endif
-cc
-cc              if (.not.solve_prs) then
-cc                if (chi /= 0d0) then
-cc                  heat_flx=heat_flx
-cc     .                    -chi*laplacian(i,j,k,nx,ny,nz,igr,igr,igr,tmp
-cccc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
-cc     .                            )                  !chi_perp=chi
-cc                endif
-cc
-cc                heat_flx = heat_flx/rho(i,j,k)
-cc              endif
-cc
-cc              !Advection (non-conservative piece)
-cc              if (solve_prs) then
-cc                gm = gamma
-cc                sgn =-1d0
-cc              else
-cc                gm = gamma - 1d0
-cc                sgn = 1d0
-cc              endif
-cc
-cc              advc =-sgn*(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igr,igr,igr
-cc     .                                       ,sgn*vscnv,tmp,1)
-cc
-cc              !Sources
-cc              if (.not.adiabatic) then
-cc                !Joule heating
-cc                joule = eeta(i,j,k)
-cc     .                 *scalarProduct_ijk(i,j,k,igr,jcnv(i,j,k,:)
-cc     .                                             ,jcov(i,j,k,:))
-cc
-cc                !Ion viscosity
-cc                heat_src = joule
-cc     .                    +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-cc     .                                     ,nuu,vcnv,vcnv)
-cc
-cc                !Electron viscosity
-cc                !Comment out for old TM Hall MHD performance results
-cc                if (di > 0d0) then
-cc                  if (fake_ve) then
-cc                    heat_src = heat_src
-cc     .                     +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-cc     .                                      ,h_eta,vefcnv,vecnv)
-cc                  else
-cc                    heat_src = heat_src
-cc     .                     +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-cc     .                                      ,h_eta,vecnv ,vecnv)
-cc                  endif
-cc                endif
-cc
-cc                if (.not.solve_prs) heat_src = heat_src/rho(i,j,k)
-cc
-cc                if (heat_src < 0d0) then
-cc                  write (*,*) 'Negative heat source'
-cc                  stop
-cc                endif
-cc              else
-cc                heat_src = 0d0
-cc              endif
-cc
-cc              src(i,j,k,ITMP) = advc
-cc     .                        + (gamma-1d0)*(heat_flx-heat_src)/a_p
-cc            endif
+
+            !Heat Flux
+            !(parallel piece; should be made conservative)
+            if (chi_par /= chi .and.(.not.lagrangian)) then
+              heat_flx = -(chi_par-chi)
+     .            *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmp
+     .                 ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
+     .                 ,symmetric=.true.,limited=.false.,vol=.false.)
+            endif
+
+            !Advection (non-conservative piece, with reversed sign for velocity)
+            advc = flx_nc_advec(i,j,k,nx,ny,nz,igr,igr,igr,vscnv,prs,1
+     .                         ,reverse=.true.)
+
+            !Sources
+            if (.not.adiabatic) then
+              !Joule heating
+              joule = eeta(i,j,k)
+     .               *scalarProduct_ijk(i,j,k,igr,jcnv(i,j,k,:)
+     .                                           ,jcov(i,j,k,:))
+
+              !Ion viscosity
+              heat_src = joule
+     .                  +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
+     .                                   ,nuu,vcnv,vcnv)
+
+              !Electron viscosity
+              !Comment out for old TM Hall MHD performance results
+              if (di > 0d0) then
+                if (fake_ve) then
+                  heat_src = heat_src
+     .                   +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
+     .                                    ,h_eta,vefcnv,vecnv)
+                else
+                  heat_src = heat_src
+     .                   +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
+     .                                    ,h_eta,vecnv ,vecnv)
+                endif
+              endif
+
+              if (heat_src < 0d0) then
+                write (*,*) 'Negative heat source'
+                stop
+              endif
+            else
+              heat_src = 0d0
+            endif
+
+            src(i,j,k,ITMP) = (gamma-1d0)*(advc+(heat_flx-heat_src))*jac
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
@@ -1042,6 +988,9 @@ cc             .               ,bcnv,jcnv,.true.
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
                                                                        !we evolve dv/dt
+
+              if (alt__eom()) src(i,j,k,IVY) = src(i,j,k,IVY)*jac
+
             else
               !JxB
               if (nc_eom_jxb) then
@@ -1049,10 +998,12 @@ cc             .               ,bcnv,jcnv,.true.
 cc     .                       ,bcnv,jcnv,.true.
      .                       ,bcov,jcov,.false.
      .                       ,nc_eom_jxb)
+
+                if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 vec1 => bcnv
                 vec2 => bcnv
-                cnv =  dtnsr_src_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+                cnv = -dtnsr_src_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
      .                              ,eom_jxb_x,eom_jxb_y,eom_jxb_z)
                 nullify(vec1,vec2)
               endif
@@ -1062,6 +1013,8 @@ cc     .                       ,bcnv,jcnv,.true.
               !Grad(p)
               if (nc_eom_gp) then
                 cnv=EOM_gp(i,j,k,nx,ny,nz,igr,igr,igr,rho,tmp,nc_eom_gp)
+
+                if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 sc1 => rho
                 sc2 => tmp
@@ -1078,6 +1031,8 @@ cc     .                       ,bcnv,jcnv,.true.
               else
                 cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
               endif
+
+              if (alt__eom()) cnv(2) = cnv(2)*jac
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 

@@ -398,7 +398,7 @@ c     End program
 c     fillArray
 c     ###################################################################
       subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov,arr0
-     .                    ,is_vec,is_cnv,div_by_jac)
+     .                    ,is_vec,is_cnv)
 
 c     -------------------------------------------------------------------
 c     Fills array arr (with BCs) using vector x.
@@ -414,12 +414,12 @@ c     Call variables
         real(8),dimension(:,:) :: x
         real(8),dimension(:,:,:,:) :: arr
         real(8),optional,dimension(:,:,:,:) :: arr_cov,arr0
-        logical,optional :: is_vec,is_cnv,div_by_jac
+        logical,optional :: is_vec,is_cnv
 
 c     Local variables
 
         integer    :: ieq,nx,ny,nz
-        logical    :: isvec,iscnv,divJac
+        logical    :: isvec,iscnv
 
 c     Begin program
 
@@ -439,36 +439,40 @@ c     Begin program
           iscnv = .true.
         endif
 
-        if (PRESENT(div_by_jac)) then
-          divJac = div_by_jac
-        else
-          divJac = .false.
-        endif
-
         do ieq=1,neq
           call mapMGVectorToArray(0,1,x(:,ieq),nx,ny,nz
      .                       ,arr(:,:,:,ieq),igrid,.false.)
-          if (divJac) arr(:,:,:,ieq) = arr(:,:,:,ieq)
-     .                                /gmetric%grid(igrid)%jac
         enddo
 
-        if (PRESENT(arr0).and.PRESENT(arr_cov)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+        if (icomp == IVX .and. alt__eom()) then
+          arr(:,:,:,2) = arr(:,:,:,2)/gmetric%grid(igrid)%jac
+        endif
+
+        if (icomp == IRHO .or. icomp == ITMP) then
+          arr(:,:,:,1) = arr(:,:,:,1)/gmetric%grid(igrid)%jac
+        endif
+
+        call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
      .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
-        elseif (PRESENT(arr_cov)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder,arr_cov=arr_cov)
-        elseif (PRESENT(arr0)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder,arr0=arr0)
-        else
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder)
-        endif
+
+cc        if (PRESENT(arr0).and.PRESENT(arr_cov)) then
+cc          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+cc     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+cc     .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
+cc        elseif (PRESENT(arr_cov)) then
+cc          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+cc     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+cc     .              ,iorder=iorder,arr_cov=arr_cov)
+cc        elseif (PRESENT(arr0)) then
+cc          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+cc     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+cc     .              ,iorder=iorder,arr0=arr0)
+cc        else
+cc          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+cc     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+cc     .              ,iorder=iorder)
+cc        endif
 
 c     End program
 
@@ -1938,7 +1942,7 @@ cc      return
 c     Find drho
 
       call fillArray(igrid,IRHO,1,x(:,IRHO:IRHO),drho,bcs(:,IRHO:IRHO)
-     .              ,bc_order,div_by_jac=.true.)
+     .              ,bc_order)
 
 c     Find dB
 
@@ -1990,6 +1994,7 @@ c     Find Joule heating correction
 
               if (vol_wgt) then
                 dvol = gmetric%grid(igrid)%dvol(i,j,k)
+     .                /gmetric%grid(igrid)%jac (i,j,k)
               else
                 dvol = 1d0
               endif
@@ -2036,6 +2041,7 @@ c     Hall MHD correction
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               if (vol_wgt) then
                 dvol = gmetric%grid(igrid)%dvol(i,j,k)
+     .                /gmetric%grid(igrid)%jac (i,j,k)
               else
                 dvol = 1d0
               endif
@@ -2142,6 +2148,7 @@ cc        endif
 
                 if (vol_wgt) then
                   dvol = gmetric%grid(igrid)%dvol(i,j,k)
+     .                  /gmetric%grid(igrid)%jac (i,j,k)
                 else
                   dvol = 1d0
                 endif
