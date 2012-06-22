@@ -782,18 +782,22 @@ c       Allocate auxiliary variables in local domain
         case(IVCNV_0)
 
           if (.not.nc_eom_v) then
-            where (rho_0 /= 0d0)
+cc            where (rho_0 /= 0d0)
               vcnv_0(:,:,:,1) = u_0%array_var(IVX)%array/rho_0
-cc              if (alt__eom()) then
-cc                vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array/rho_0/jac
-cc              else
+              if (alt__eom()) then
+                vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array/rho_0/jac
+              else
                 vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array/rho_0
-cc              endif
+              endif
               vcnv_0(:,:,:,3) = u_0%array_var(IVZ)%array/rho_0
-            end where
+cc            end where
           else
             vcnv_0(:,:,:,1) = u_0%array_var(IVX)%array
-            vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array
+            if (alt__eom()) then
+              vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array/jac
+            else
+              vcnv_0(:,:,:,2) = u_0%array_var(IVY)%array
+            endif
             vcnv_0(:,:,:,3) = u_0%array_var(IVZ)%array
           endif
 
@@ -902,14 +906,22 @@ cc          if (save_tn .and. ion_hall) jcnv_n = jcnv !Save previous time step
         case(IVCNV)
 
           if (.not.nc_eom_v) then
-            where (rho /= 0d0)
+cc            where (rho /= 0d0)
               vcnv(:,:,:,1) = varray%array_var(IVX)%array/rho
-              vcnv(:,:,:,2) = varray%array_var(IVY)%array/rho
+              if (alt__eom()) then
+                vcnv(:,:,:,2) = varray%array_var(IVY)%array/rho/jac
+              else
+                vcnv(:,:,:,2) = varray%array_var(IVY)%array/rho
+              endif
               vcnv(:,:,:,3) = varray%array_var(IVZ)%array/rho
-            end where
+cc            end where
           else
             vcnv(:,:,:,1) = varray%array_var(IVX)%array
-            vcnv(:,:,:,2) = varray%array_var(IVY)%array
+            if (alt__eom()) then
+              vcnv(:,:,:,2) = varray%array_var(IVY)%array/jac
+            else
+              vcnv(:,:,:,2) = varray%array_var(IVY)%array
+            endif
             vcnv(:,:,:,3) = varray%array_var(IVZ)%array
           endif
 
@@ -1222,11 +1234,19 @@ c       Allocate auxiliary variables in local domain
 
           if (nc_eom_v) then
             u_0%array_var(IVX)%array = vcnv_0(:,:,:,1)
-            u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)
+            if (alt__eom()) then
+              u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)*jac
+            else
+              u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)
+            endif
             u_0%array_var(IVZ)%array = vcnv_0(:,:,:,3)
           else
             u_0%array_var(IVX)%array = vcnv_0(:,:,:,1)*rho_0
-            u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)*rho_0
+            if (alt__eom()) then
+              u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)*rho_0*jac
+            else
+              u_0%array_var(IVY)%array = vcnv_0(:,:,:,2)*rho_0
+            endif
             u_0%array_var(IVZ)%array = vcnv_0(:,:,:,3)*rho_0
           endif
 
@@ -1288,11 +1308,19 @@ cc          call XformVector_BC(iigx,vcnv,vcov,.false.)
 
           if (nc_eom_v) then
             varray%array_var(IVX)%array = vcnv(:,:,:,1)
-            varray%array_var(IVY)%array = vcnv(:,:,:,2)
+            if (alt__eom()) then
+              varray%array_var(IVY)%array = vcnv(:,:,:,2)*jac
+            else
+              varray%array_var(IVY)%array = vcnv(:,:,:,2)
+            endif
             varray%array_var(IVZ)%array = vcnv(:,:,:,3)
           else
             varray%array_var(IVX)%array = vcnv(:,:,:,1)*rho
-            varray%array_var(IVY)%array = vcnv(:,:,:,2)*rho
+            if (alt__eom()) then
+              varray%array_var(IVY)%array = vcnv(:,:,:,2)*rho*jac
+            else
+              varray%array_var(IVY)%array = vcnv(:,:,:,2)*rho
+            endif
             varray%array_var(IVZ)%array = vcnv(:,:,:,3)*rho
           endif
 

@@ -97,27 +97,6 @@ cc      endif
 cc      call applyBCplot(varray,igx,igy,igz)
       call applyBC(varray,igx,igy,igz)
 
-cc      rho => varray%array_var(IRHO)%array
-cc      px  => varray%array_var(IVX )%array
-cc      py  => varray%array_var(IVY )%array
-cc      pz  => varray%array_var(IVZ )%array
-cc#if !defined(vec_pot)
-cc      bx  => varray%array_var(IBX )%array
-cc      by  => varray%array_var(IBY )%array
-cc      bz  => varray%array_var(IBZ )%array
-cc#else
-cc      ax  => varray%array_var(IAX )%array
-cc      ay  => varray%array_var(IAY )%array
-cc      az  => varray%array_var(IAZ )%array
-cc#endif
-cc      tmp => varray%array_var(ITMP)%array
-
-#if defined(vec_pot)
-      ax_cnv = acnv(:,:,:,1)
-      ay_cnv = acnv(:,:,:,2)
-      az_cnv = acnv(:,:,:,3)
-#endif
-
 c Find perturbed quantities (u_pert = varray - u_ic)
 
       call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
@@ -394,13 +373,9 @@ c Divergence diagnostics
       divrgB = div(igx,bcnv)
       divrgV = div(igx,vcnv)
 
-c Thermal pressure
+c Total pressure
 
-cc      if (solve_prs) then
-cc        p_tot = a_p*tmp     + 0.5*(bx_car**2+by_car**2+bz_car**2)
-cc      else
-        p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
-cc      endif
+      p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
 
 #if defined(RFX)
 c RFX dump

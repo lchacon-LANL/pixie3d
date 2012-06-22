@@ -43,7 +43,11 @@ SUBDIRS = src plot
 
 REL1=1
 REL2=5
-CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2) #-Dflux_rhs
+CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
+
+ifdef FLUX
+  CPPFLAGS += -Dflux_rhs
+endif
 
 ifdef VECPOT
   CPPFLAGS += $(PREPROC)vec_pot

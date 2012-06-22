@@ -2450,6 +2450,10 @@ c Apply Jacobian factors
       var(:,:,:,IRHO) = var(:,:,:,IRHO)*gmetric%grid(iigx)%jac
       var(:,:,:,ITMP) = var(:,:,:,ITMP)*gmetric%grid(iigx)%jac
 
+      if (alt__eom()) then
+        var(:,:,:,IVY) = var(:,:,:,IVY)*gmetric%grid(iigx)%jac
+      endif
+
 c Transfer equilibrium to varray
 
       do ieq=1,neqd
