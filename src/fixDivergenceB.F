@@ -1,10 +1,8 @@
 c fixDivB
 c ######################################################################
       subroutine fixDivB(patch_var)
-      use variable_setup
-      use problem_def
       use variables
-      use variable_setup
+      use auxiliaryVariables 
       implicit none
 
       type(patch), TARGET :: patch_var
