@@ -4,7 +4,7 @@
 
 c postProcessSolution
 c####################################################################
-      subroutine postProcessSolution(varray,iigx,iigy,iigz)
+      subroutine postProcessSolution(igrid,varray)
 
 c--------------------------------------------------------------------
 c     Postprocess solution in varray to find derived quantities 
@@ -39,7 +39,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: iigx,iigy,iigz
+      integer    :: igrid
 
       type(var_array),pointer :: varray
 
@@ -50,29 +50,11 @@ c Local variables
      .             ,cov(3),cnv(3)
       logical    :: cartsn,covariant,to_cartsn,to_cnv
 
-c Interfaces
-
-cc      INTERFACE
-cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-cc        use variable_setup
-cc        integer    :: iigx,iigy,iigz
-cc        integer,optional :: obc
-cc        type(var_array),pointer :: varray
-cc        end subroutine applyBC
-cc      END INTERFACE
-cc      INTERFACE
-cc        subroutine applyBCplot(varray,iigx,iigy,iigz)
-cc        use variable_setup
-cc        integer    :: iigx,iigy,iigz
-cc        type(var_array),pointer :: varray
-cc        end subroutine applyBCplot
-cc      END INTERFACE
-
 c Begin program
 
-      igx = iigx
-      igy = iigy
-      igz = iigz
+      igx = igrid
+      igy = igrid
+      igz = igrid
 
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
@@ -94,8 +76,8 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
-cc      call applyBCplot(varray,igx,igy,igz)
-      call applyBC(varray,igx,igy,igz)
+      call applyBCplot(igx,varray,it=itime)
+cc      call applyBC(igx,varray,it=itime)
 
 c Find perturbed quantities (u_pert = varray - u_ic)
 
@@ -201,7 +183,7 @@ c Poloidal flux diagnostics
         enddo
       enddo
 #else
-      Pflux = az
+      Pflux = acov(:,:,:,3)
 #endif
 
 c Poloidal velocity diagnostic

@@ -629,7 +629,7 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,dprs,igrid
      .                       ,.false.)
 
-      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
+cc      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dprs,bcnd
      .            ,icomp=(/ITMP/),iorder=bc_order)
@@ -668,8 +668,7 @@ cc      endif
      .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
 
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -686,8 +685,6 @@ cc      endif
             else
               lap = 0d0
             endif
-
-cc            if (.not.solve_prs) lap=lap/rho0(i,j,k,1)
 
             y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - lap) )
      .                 *jac(i,j,k)
@@ -779,7 +776,7 @@ c Map vector x to array for processing
       call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,drho,igrid
      .                       ,.false.)
 
-      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
+cc      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
      .            ,icomp=(/IRHO/),iorder=bc_order)
@@ -799,8 +796,7 @@ c Calculate matrix-vector product
             ijk = i + nnx*(j-1) + nnx*nny*(k-1)
 
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1447,7 +1443,7 @@ c Calculate matrix-vector product
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -1723,7 +1719,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -1859,45 +1855,16 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             endif
 
-cc            if (si_car) then
-cc              cnv=(cnp*db(i,j,k,1:3)/dt + alpha*cnv
-cc     .            - alpha*etal*veclap_b + alpha*di*heta*veclap_b2)*vol
-cc
-cc              call transformVectorToCartesian
-cc     .              (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3)
-cc     .               ,.false.
-cc     .               ,car(1),car(2),car(3))
-cc
-cc              do ieq=1,3
-cc                y(neq*(ijk-1)+ieq) = car(ieq)
-cc              enddo
-cc
-cc              cnv = (db(i,j,k,4:6) + veclap_b)*vol
-cc
-cc              call transformVectorToCartesian
-cc     .              (i,j,k,igrid,igrid,igrid
-cc     .               ,cnv(1),cnv(2),cnv(3)
-cc     .               ,.false.
-cc     .               ,car(1),car(2),car(3))
-cc
-cc              do ieq=4,6
-cc                y(neq*(ijk-1)+ieq) = car(ieq)
-cc              enddo
-cc
-cc            else
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = (cnp*db(i,j,k,ieq)/dt
-     .                               + alpha*cnv(ieq)
-     .                               - alpha*etal*veclap_b(ieq)
-     .                               + alpha*di*heta*veclap_b2(ieq))*vol
-              enddo
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = (cnp*db(i,j,k,ieq)/dt
+     .                             + alpha*cnv(ieq)
+     .                             - alpha*etal*veclap_b(ieq)
+     .                             + alpha*di*heta*veclap_b2(ieq))*vol
+            enddo
 
-              do ieq=4,6
-                y(neq*(ijk-1)+ieq) = (db(i,j,k,ieq)-veclap_b(ieq-3))*vol
-              enddo
-
-cc            endif
+            do ieq=4,6
+              y(neq*(ijk-1)+ieq) = (db(i,j,k,ieq)-veclap_b(ieq-3))*vol
+            enddo
 
           enddo
         enddo
@@ -2021,7 +1988,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -2325,7 +2292,7 @@ c Calculate matrix-vector product
             ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -2527,7 +2494,7 @@ cc     .                                         ,db_cov
       real(8)    :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
      .             ,mag(3),veclap(3)
 
-      logical    :: fpointers,is_cnv,is_car,postproc
+      logical    :: fpointers,is_cnv,is_car
 
       contains
 
@@ -3221,7 +3188,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
 
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
@@ -3268,7 +3235,7 @@ c Calculate matrix-vector product
             ijkg   = ijk + isig - 1
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -3413,7 +3380,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du,igrid
      .                       ,.false.)
 
-      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
+cc      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
 
       allocate(dv     (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -3532,7 +3499,7 @@ c Calculate matrix-vector product
             ijkg   = ijk + isig - 1
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -3767,7 +3734,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
 
       if (di > 0) then
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
@@ -3816,7 +3783,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
             ijkg   = ijk + isig - 1
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -4066,7 +4033,7 @@ cc
 cc            ijkg   = ijk + isig - 1
 cc
 cc            if (vol_wgt) then
-cc              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+cc              vol = gmetric%grid(igrid)%dlvol(i,j,k)
 cc            else
 cc              vol = 1d0
 cc            endif
@@ -4213,7 +4180,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
@@ -4266,7 +4233,7 @@ c Calculate matrix-vector product
             ijkg   = ijk + isig - 1
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif
@@ -4551,7 +4518,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
      .                       ,.false.)
 
-      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
 
 cc      where (bcnd == DIR) bcnd = NEU
       !Higher-order than 1 is JB-unstable for cyl.
@@ -4581,8 +4548,7 @@ c Calculate matrix-vector product
             ijkg   = ijk + isig - 1
 
             if (vol_wgt) then
-              vol = gmetric%grid(igrid)%dvol(i,j,k)
-     .             /gmetric%grid(igrid)%jac (i,j,k)
+              vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
             endif

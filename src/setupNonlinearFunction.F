@@ -20,8 +20,9 @@ c------------------------------------------------------------------
 
       use imposeBCinterface
 
+#if !defined(samrai)
       use newtongm
-
+#endif
       use local_BCS_variables
 
       use xdraw_io
@@ -40,15 +41,8 @@ c Local variables
 
 c Interfaces
 
-#if !defined (samrai)
+#if defined(flux_rhs)
       INTERFACE
-cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-cc        use variable_setup
-cc        integer    :: iigx,iigy,iigz
-cc        integer,optional :: obc
-cc        type(var_array),pointer :: varray
-cc        end subroutine applyBC
-
         function set_nlf_flux_x(igr,nx,ny,nz) result(flx_x)
         use variable_setup
         integer :: igr,nx,ny,nz
@@ -86,7 +80,7 @@ c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
       save_tn = old_time_eval .or. source_eval
-      call applyBC(varray,igx,igy,igz)
+      call applyBC(igx,varray,it=itime)
 #else
       call defineAuxVariables(gv%aux)  !Set pointers
 #endif

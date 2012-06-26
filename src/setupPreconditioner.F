@@ -30,17 +30,6 @@ c Local variables
 
 c Interfaces
 
-#if !defined(samrai)
-cc      INTERFACE
-cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-cc        use variable_setup
-cc        integer    :: iigx,iigy,iigz
-cc        integer,optional :: obc
-cc        type(var_array),pointer :: varray
-cc        end subroutine applyBC
-cc      END INTERFACE
-#endif
-
 c Begin program
 
       igx = igrid
@@ -56,7 +45,7 @@ c Setup PC parameters
 c Impose BCs
 
 #if !defined(samrai)
-      call applyBC(varray,igx,igy,igz)
+      call applyBC(igx,varray)
 #else
       write (*,*) 'SAMRAI version of PC not ready'
       stop

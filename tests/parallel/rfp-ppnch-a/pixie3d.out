@@ -17,7 +17,7 @@
    T_flux = 0.6232323
 
   Grid mesh:................  128x   32x    1
-  Number of grid levels:....    6,    4,    1
+  Number of grid levels:....    5,    4,    1
   Preconditioning method:...  id
   Time correction...........   F
   External source...........   T

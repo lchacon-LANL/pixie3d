@@ -21,6 +21,8 @@
 #
 #        make BOPT=g pixie3d
 
+FPA=t
+
 # System-dependent variables
 
 -include common/make/make.mach.inc
@@ -30,8 +32,6 @@
 -include common/make/make.comp.inc
 
 # External packages configuration
-
-FPA=t
 
 -include common/make/make.lib.inc
 
@@ -45,7 +45,7 @@ REL1=1
 REL2=5
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
-ifdef FLUX
+ifeq ($(FLUX),t)
   CPPFLAGS += -Dflux_rhs
 endif
 
@@ -84,8 +84,9 @@ ifdef BOPT
   endif
 endif
 
-ifdef SAMR
+ifeq ($(SAMR),t)
   TARGET = samrai
+  CPPFLAGS += -Dflux_rhs
 endif
 
 #Export required variables

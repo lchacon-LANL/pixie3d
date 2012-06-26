@@ -398,10 +398,10 @@ cc
 cc      graph(3)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
 cc      graph(3)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
       graph(3)%array_graph(IRHO)%array =>gv%aux%var_list(IRHO_AUX)%array
-      graph(3)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%array
+      graph(3)%array_graph(IRHO)%descr = gv%aux%var_list(IRHO_AUX)%descr
 
       graph(3)%array_graph(ITMP)%array =>gv%aux%var_list(ITMP_AUX)%array
-      graph(3)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%array
+      graph(3)%array_graph(ITMP)%descr = gv%aux%var_list(ITMP_AUX)%descr
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
