@@ -342,6 +342,8 @@ c--------------------------------------------------------------------
 
       use timeStepping
 
+      use auxiliaryVariables
+
 c       use nlfunction_setup
 
       implicit none
@@ -358,12 +360,12 @@ c Local variables
       real(8) :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8) :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .          ,cs2,ca2,tmp_max,roots(3)
-      real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
+      real(8) :: x1,x2,x3,idx,idy,idz,ldt
       logical :: cartsn
 
-      real(8),pointer,dimension(:,:,:):: rho, tmp, px, py, pz
-      real(8),pointer,dimension(:,:,:,:) :: bcnv
-      real(8),pointer,dimension(:,:,:) :: eeta, h_eta, nuu
+cc      real(8),pointer,dimension(:,:,:):: rho, tmp, px, py, pz
+cc      real(8),pointer,dimension(:,:,:,:) :: bcnv
+cc      real(8),pointer,dimension(:,:,:) :: eeta, h_eta, nuu
 
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
@@ -376,11 +378,14 @@ c Begin program
       gv => patch_var
       grid_params => gv%gparams
       gmetric => gv%gparams%gmetric
-      rho => gv%u_n%array_var(IRHO)%array
-      tmp => gv%u_n%array_var(ITMP)%array
-      px  => gv%u_n%array_var(IVX)%array
-      py  => gv%u_n%array_var(IVY)%array
-      pz  => gv%u_n%array_var(IVZ)%array
+cc      rho => gv%u_n%array_var(IRHO)%array
+cc      tmp => gv%u_n%array_var(ITMP)%array
+cc      px  => gv%u_n%array_var(IVX)%array
+cc      py  => gv%u_n%array_var(IVY)%array
+cc      pz  => gv%u_n%array_var(IVZ)%array
+      tmp   => gv%aux%var_list(ITMP)%array
+      rho   => gv%aux%var_list(IRHO)%array
+      vcnv  => gv%aux%vec_list(IVCNV)%vec
       bcnv  => gv%aux%vec_list(IBCNV)%vec
       eeta  => gv%aux%var_list(IETA)%array
       h_eta => gv%aux%var_list(IHETA)%array
@@ -428,11 +433,8 @@ c Calculate CFL
              k2max = max(k2max,k2)
 
              !k.v
-             vxx = abs(px(i,j,k)/rho(i,j,k))
-             vyy = abs(py(i,j,k)/rho(i,j,k))
-             vzz = abs(pz(i,j,k)/rho(i,j,k))
              kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                            ,(/vxx,vyy,vzz/))
+     .                            ,vcnv(i,j,k,:))
 
              !(k.B/B)^2
              if (bnorm > 0d0) then

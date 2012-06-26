@@ -50,9 +50,9 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = grid_params%nxv(igrid)
+      ny = grid_params%nyv(igrid)
+      nz = grid_params%nzv(igrid)
 
       if (nn /= nx*ny*nz) then
         write (*,*)'Grid sizes do not agree in apply_app_PC'
@@ -170,6 +170,21 @@ c     Postprocessing of velocity -> momentum
 
       end select
 
+c     Apply geometric factors to PC solution to match nonlinear function
+
+      do k = 1,nz
+        do j = 1,ny
+          do i = 1,nx
+            ii  = i + nx*(j-1) + nx*ny*(k-1)
+            xxx(ii,IRHO) = xxx(ii,IRHO)*gmetric%grid(igrid)%jac(i,j,k)
+            xxx(ii,ITMP) = xxx(ii,ITMP)*gmetric%grid(igrid)%jac(i,j,k)
+            if (alt__eom()) then
+              xxx(ii,IVY) = xxx(ii,IVY)*gmetric%grid(igrid)%jac(i,j,k)
+            endif
+          enddo
+        enddo
+      enddo
+
 c     Deallocate variables
 
 c End program
@@ -203,7 +218,7 @@ c     Local variables
 
 c     Begin program
 
-        !Find U.dv --> udv
+        !Find U.dv --> udv (dimensions of *physical* dependent variables)
         call find_Udv(x,udv)
 
         !Solve for dx
@@ -256,8 +271,10 @@ c     ##############################################################
       subroutine correct_dx_rhs(r,y)
 
 c     --------------------------------------------------------------
-c     Corrects the rhs of dx=(drho,dB,dT)
-c     equation based on residual r=Gx, and stores it in y=r-U.dv
+c     Corrects the rhs of dx=(drho,dB,dT) equation based on residual
+c     r=Gx and y=U.dv (input with dimensions of physical dependent
+c     variables, i.e., without volume or jacobian weighing), and stores
+c     it in y=r-U.dv
 c     --------------------------------------------------------------
 
         implicit none
@@ -268,6 +285,9 @@ c     Call variables
 
 c     Local variables
 
+        integer :: ii,i,j,k
+        real(8) :: dvol,jac
+
 c     Begin program
 
         !Find corrected residuals (r-U.dv)
@@ -277,19 +297,19 @@ c     Begin program
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               if (vol_wgt) then !Residuals are volume-weighed by default
-                dvol = gmetric%grid(igx)%dvol(i,j,k)
-     .                /gmetric%grid(igx)%jac (i,j,k)
+                dvol = gmetric%grid(igx)%dlvol(i,j,k)
+                jac  = gmetric%grid(igx)%jac  (i,j,k)
               else
                 dvol = 1d0
               endif
 
-              if (solve_rho) y(ii,IRHO)=r(ii,IRHO)-dvol*y(ii,IRHO)
+              if (solve_rho) y(ii,IRHO)=r(ii,IRHO)-dvol*jac*y(ii,IRHO)
 #if !defined(vec_pot)
               y(ii,IBX:IBZ)=r(ii,IBX:IBZ)-dvol*y(ii,IBX:IBZ)
 #else
               y(ii,IAX:IAZ)=r(ii,IAX:IAZ)-dvol*y(ii,IAX:IAZ)
 #endif
-              y(ii,ITMP)   =r(ii,ITMP)   -dvol*y(ii,ITMP)
+              y(ii,ITMP)   =r(ii,ITMP)   -dvol*jac*y(ii,ITMP)
 
             enddo
           enddo
@@ -346,7 +366,7 @@ c     Correct rx to find Deltax (correction for rho, B, T)
 
         call U_Tv(nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
 
-        call L_T (nx,ny,nz,x            ,rhs(:,ITMP)   ,igrid)
+        call L_T (nx,ny,nz,x            ,rhs(:,ITMP)   ,igrid,.false.)
 
 c     End program
 
@@ -383,8 +403,7 @@ cc            do i = 1,nx
 cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
 cc
 cc              if (vol_wgt) then !Residuals are volume-weighed by default
-cc                dvol = gmetric%grid(igx)%dvol(i,j,k)
-cc     .                /gmetric%grid(igx)%jac (i,j,k)
+cc                dvol = gmetric%grid(igx)%dlvol(i,j,k)
 cc              else
 cc                dvol = 1d0
 cc              endif
@@ -404,6 +423,10 @@ cc        return
 c       Density
 
         if (solve_rho) then
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for rho...'
+          endif
+
           call cSolver(1,nn,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
      .              ,igrid,iout,guess,rho_mtvc,vol_wgt
      .              ,tol           = pc_tol
@@ -428,6 +451,9 @@ c       Density
 c       Magnetic field
 
         if (pc_B_solve) then
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for B...'
+          endif
 
           if (di == 0d0 .or. pc_ion_hall) then
             call cSolver(3,nn,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
@@ -490,8 +516,7 @@ cc          endif
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
                 if (vol_wgt) then
-                  dvol = gmetric%grid(igx)%dvol(i,j,k)
-     .                  /gmetric%grid(igx)%jac (i,j,k)
+                  dvol = gmetric%grid(igx)%dlvol(i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -506,6 +531,9 @@ cc          endif
 c       Vector potential
 
         if (pc_B_solve) then
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for A...'
+          endif
 
           if (di == 0d0 .or. pc_ion_hall) then
 
@@ -571,8 +599,7 @@ cc           stop
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
                 if (vol_wgt) then
-                  dvol = gmetric%grid(igx)%dvol(i,j,k)
-     .                  /gmetric%grid(igx)%jac (i,j,k)
+                  dvol = gmetric%grid(igx)%dlvol(i,j,k)
                 else
                   dvol = 1d0
                 endif
@@ -589,8 +616,12 @@ c       Temperature
 
 cc        if ((gamma /= 1d0) .or. solve_prs) then
 
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for T...'
+          endif
+
           !Correct for electron velocity/source contribution
-          call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid)
+          call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid,.true.)
 
           call cSolver(1,nn,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
      .              ,igrid,iout,guess,tmp_mtvc,vol_wgt
@@ -686,8 +717,7 @@ cc            do i = 1,nx
 cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
 cc
 cc              if (vol_wgt) then !Residuals are volume-weighed by default
-cc                dvol = gmetric%grid(igx)%dvol(i,j,k)
-cc     .                /gmetric%grid(igx)%jac (i,j,k)
+cc                dvol = gmetric%grid(igx)%dlvol(i,j,k)
 cc              else
 cc                dvol = 1d0
 cc              endif
@@ -755,6 +785,20 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
 
           x(:,IVX:IVZ) = xc(:,1:3)
         endif
+
+        !Transform velocity field for consistency with NLF
+cc        if (alt__eom()) then
+cc
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 1,nx
+cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc                x(ii,IVY) = x(ii,IVY)*gmetric%grid(igx)%jac(i,j,k)
+cc              enddo
+cc            enddo
+cc          enddo
+cc
+cc        endif
 
 c     End program
 
@@ -824,7 +868,6 @@ c     Call variables
 
 c     Local variables
 
-        real(8) :: drho
         real(8),pointer,dimension(:,:,:,:) :: rho0,vcnv0
 
 c     Begin program
@@ -837,18 +880,13 @@ c     Begin program
             do i = 1,nx
              ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-             drho = xxx(ii,IRHO)/gmetric%grid(igrid)%jac(i,j,k)
-
              xxx(ii,IVX)=xxx(ii,IVX )*rho0 (i,j,k,1)
-     .                  +drho        *vcnv0(i,j,k,1)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,1)
              xxx(ii,IVY)=xxx(ii,IVY )*rho0 (i,j,k,1)
-     .                  +drho        *vcnv0(i,j,k,2)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,2)
              xxx(ii,IVZ)=xxx(ii,IVZ )*rho0 (i,j,k,1)
-     .                  +drho        *vcnv0(i,j,k,3)
+     .                  +xxx(ii,IRHO)*vcnv0(i,j,k,3)
 
-             if (alt__eom()) then
-               xxx(ii,IVY) = xxx(ii,IVY)*gmetric%grid(igrid)%jac(i,j,k)
-             endif
             enddo
           enddo
         enddo
@@ -1260,7 +1298,7 @@ c Find rhs_v'
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
             if (vwgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)/jac
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1429,8 +1467,7 @@ c Find rhs_v
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               iig = ii + isig - 1
               if (vwgt) then
-                dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .                /gmetric%grid(igrid)%jac (i,j,k)
+                dvol = gmetric%grid(igrid)%dlvol(i,j,k)
               else
                 dvol = 1d0
               endif
@@ -1455,8 +1492,7 @@ c Find rhs_v
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               iig = ii + isig - 1
               if (vwgt) then
-                dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .                /gmetric%grid(igrid)%jac (i,j,k)
+                dvol = gmetric%grid(igrid)%dlvol(i,j,k)
               else
                 dvol = 1d0
               endif
@@ -1544,8 +1580,7 @@ c Find rhs_a
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             iig = ii + isig - 1
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1648,8 +1683,7 @@ c Correction w/o solve
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1797,8 +1831,7 @@ c Find correction
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1872,8 +1905,7 @@ c Divide by density and volume
       if (vol_wgt) then
         do ieq=1,3
           dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)
-     .                        /gmetric%grid(igrid)%dvol
-     .                        *gmetric%grid(igrid)%jac
+     .                        /gmetric%grid(igrid)%dlvol
         enddo
       endif
 
@@ -1890,8 +1922,7 @@ c Find curl
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then   !Residuals are volume-weighed by default
-              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-     .              /gmetric%grid(igrid)%jac (i,j,k)
+              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif

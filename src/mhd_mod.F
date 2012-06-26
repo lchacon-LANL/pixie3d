@@ -568,24 +568,6 @@ cc      rho => varray%array_var(IRHO)%array
 
       !Pressure
       prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
-cc      tmp => varray%array_var(ITMP)%array
-
-cc      if (solve_prs) then
-cc        prs = tmp
-cc      else
-cc        prs = rho*tmp
-cc      endif
-
-cc      !Previous time step B
-cc      if (save_tn) bcnv_n = bcnv !Save previous time step
-cc
-cc      !Previous time step J
-cc      if (save_tn .and. ion_hall) jcnv_n = jcnv
-cc
-cc      !Equilibrium electron velocity
-cc      vecnv_0(:,:,:,1) = vcnv_0(:,:,:,1)-di*jcnv_0(:,:,:,1)/rho_0
-cc      vecnv_0(:,:,:,2) = vcnv_0(:,:,:,2)-di*jcnv_0(:,:,:,2)/rho_0
-cc      vecnv_0(:,:,:,3) = vcnv_0(:,:,:,3)-di*jcnv_0(:,:,:,3)/rho_0
 
 c     End program
 
@@ -2783,731 +2765,6 @@ ccc     End program
 cc
 cc      end subroutine btensor_z
 
-ccc     lf_x
-ccc     #############################################################
-cc      subroutine lf_x(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .               ,t11,t12,t13,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t11-t13 for linearized Lorentz
-ccc     force term in conservative form.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t11,t12,t13
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ip,igrid
-cc        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3)
-cc     .               ,scalar_prod,acnv(3),acnvp(3),bcov(3)
-cc     .               ,bcovp(3),bcnv(3),bcnvp(3)
-cc
-ccc     Begin program
-cc
-cc        igrid = igx
-cc
-cc        ip = i+1
-cc        if (flag == 0) ip = i
-cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (ip,j,k)
-cc     .               +gmetric%grid(igrid)%jac (i ,j,k))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(ip,j,k,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i ,j,k,:,:))
-cc
-cc        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
-cc     .      .and. bcSP()
-cc     .      .and. flag /= 0           ) then
-cc          jacp = gmetric%grid(igrid)%jac(ip,j,k)
-cc          jac0 = gmetric%grid(igrid)%jac(i ,j,k)
-cc        else
-cc          jacp = jac
-cc          jac0 = jac
-cc        endif
-cc
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc        ijac  = 1d0/jac
-cc        ijacp = 1d0/jacp
-cc        ijac0 = 1d0/jac0
-cc
-cccc        acnv(1) = 0.5*(vec1(ip,j,k,1)*ijacp+vec1(i,j,k,1)*ijac0)*jac
-cccc        acnv(2) = 0.5*(vec1(ip,j,k,2)     +vec1(i,j,k,2))
-cccc        acnv(3) = 0.5*(vec1(ip,j,k,3)*ijacp+vec1(i,j,k,3)*ijac0)*jac
-cccc
-cccc        bcnv(1) = 0.5*(vec2(ip,j,k,1)*ijacp+vec2(i,j,k,1)*ijac0)*jac
-cccc        bcnv(2) = 0.5*(vec2(ip,j,k,2)     +vec2(i,j,k,2))
-cccc        bcnv(3) = 0.5*(vec2(ip,j,k,3)*ijacp+vec2(i,j,k,3)*ijac0)*jac
-cccc
-cccc        if (flag /= 0) then
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=1)
-cccc        else
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=0)
-cccc        endif
-cccc
-cccc        scalar_prod = dot_product(acnv,bcov)
-cccc
-cccc        t11 =( acnv(1)*bcnv(1)
-cccc     .        +acnv(1)*bcnv(1)
-cccc     .        -gsuper(1,1)*scalar_prod )
-cccc
-cccc        t12 =( acnv(1)*bcnv(2)
-cccc     .        +acnv(2)*bcnv(1)
-cccc     .        -gsuper(1,2)*scalar_prod )
-cccc
-cccc        t13 =( acnv(1)*bcnv(3)
-cccc     .        +acnv(3)*bcnv(1)
-cccc     .        -gsuper(1,3)*scalar_prod )
-cc
-cc        acnv(1) = vec1(i,j,k,1)*ijac0*jac
-cc        acnv(2) = vec1(i,j,k,2)
-cc        acnv(3) = vec1(i,j,k,3)*ijac0*jac
-cc
-cc        acnvp(1) = vec1(ip,j,k,1)*ijacp*jac
-cc        acnvp(2) = vec1(ip,j,k,2)
-cc        acnvp(3) = vec1(ip,j,k,3)*ijacp*jac
-cc
-cccc        bcnv(1) = vec2(i,j,k,1)*ijac0*jac
-cccc        bcnv(2) = vec2(i,j,k,2)
-cccc        bcnv(3) = vec2(i,j,k,3)*ijac0*jac
-cccc
-cccc        bcnvp(1) = vec2(ip,j,k,1)*ijacp*jac
-cccc        bcnvp(2) = vec2(ip,j,k,2)
-cccc        bcnvp(3) = vec2(ip,j,k,3)*ijacp*jac
-cc
-cc        bcnv(1) = vec2(i,j,k,1)
-cc        bcnv(2) = vec2(i,j,k,2)
-cc        bcnv(3) = vec2(i,j,k,3)
-cc
-cc        bcnvp(1) = vec2(ip,j,k,1)
-cc        bcnvp(2) = vec2(ip,j,k,2)
-cc        bcnvp(3) = vec2(ip,j,k,3)
-cc
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,bcov(1),bcov(2),bcov(3)
-cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        call transformFromCurvToCurv(ip,j,k,igx,igy,igz
-cc     .                        ,bcovp(1),bcovp(2),bcovp(3)
-cc     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        bcnv(1) = bcnv(1)*ijac0*jac
-cc        bcnv(3) = bcnv(3)*ijac0*jac
-cc
-cc        bcnvp(1) = bcnvp(1)*ijacp*jac
-cc        bcnvp(3) = bcnvp(3)*ijacp*jac
-cc
-cc        bcov (2) = bcov (2)*ijac0*jac
-cc        bcovp(2) = bcovp(2)*ijacp*jac
-cc
-cc        scalar_prod = dot_product(acnvp,bcov)
-cc     .               +dot_product(acnv,bcovp)
-cc
-cc        t11 =0.5*( 2*acnvp(1)*bcnv(1)
-cc     .            +2*acnv(1)*bcnvp(1)
-cc     .            -gsuper(1,1)*scalar_prod )
-cc
-cc        t12 =0.5*( acnvp(1)*bcnv(2) + acnv(1)*bcnvp(2)
-cc     .            +acnvp(2)*bcnv(1) + acnv(2)*bcnvp(1)
-cc     .            -gsuper(1,2)*scalar_prod )
-cc
-cc        t13 =0.5*( acnvp(1)*bcnv(3) + acnv(1)*bcnvp(3)
-cc     .            +acnvp(3)*bcnv(1) + acnv(3)*bcnvp(1)
-cc     .            -gsuper(1,3)*scalar_prod )
-cc
-cccc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cccc        ijac  = 1d0/jac
-cc
-cc        if (flag /= 0) then
-cc          t11 = t11*ijac
-cc          if (.not.alt_eom) t12 = t12*ijac
-cc          t13 = t13*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine lf_x
-cc
-ccc     lf_y
-ccc     #############################################################
-cc      subroutine lf_y(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .               ,t21,t22,t23,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t21-t23 for linearized Lorentz
-ccc     force term in conservative form.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t21,t22,t23
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: jp,igrid
-cc        real(8)    :: jac,ijac,gsuper(3,3),scalar_prod
-cc     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
-cc
-ccc     Begin program
-cc
-cc        igrid = igx
-cc
-cc        jp = j+1
-cc        if (flag == 0) jp = j
-cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (i,jp,k)
-cc     .               +gmetric%grid(igrid)%jac (i,j ,k))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,jp,k,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i,j ,k,:,:))
-cc
-cc        ijac = 1d0/jac
-cc
-cccc        acnv(1) = 0.5*(vec1(i,jp,k,1)+vec1(i,j,k,1))
-cccc        acnv(2) = 0.5*(vec1(i,jp,k,2)+vec1(i,j,k,2))
-cccc        acnv(3) = 0.5*(vec1(i,jp,k,3)+vec1(i,j,k,3))
-cccc                                
-cccc        bcnv(1) = 0.5*(vec2(i,jp,k,1)+vec2(i,j,k,1))
-cccc        bcnv(2) = 0.5*(vec2(i,jp,k,2)+vec2(i,j,k,2))
-cccc        bcnv(3) = 0.5*(vec2(i,jp,k,3)+vec2(i,j,k,3))
-cccc
-cccc        if (flag /= 0) then
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=2)
-cccc        else
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=0)
-cccc        endif
-cccc
-cccc
-cccc        scalar_prod = dot_product(acnv,bcov)
-cccc
-cccc        t21 =( acnv(2)*bcnv(1)
-cccc     .        +acnv(1)*bcnv(2)
-cccc     .        -gsuper(2,1)*scalar_prod )
-cccc
-cccc        t22 =( acnv(2)*bcnv(2)
-cccc     .        +acnv(2)*bcnv(2)
-cccc     .        -gsuper(2,2)*scalar_prod )
-cccc
-cccc        t23 =( acnv(2)*bcnv(3)
-cccc     .        +acnv(3)*bcnv(2)
-cccc     .        -gsuper(2,3)*scalar_prod )
-cc
-cc        acnv(1) = vec1(i,j,k,1)
-cc        acnv(2) = vec1(i,j,k,2)
-cc        acnv(3) = vec1(i,j,k,3)
-cc
-cc        acnvp(1) = vec1(i,jp,k,1)
-cc        acnvp(2) = vec1(i,jp,k,2)
-cc        acnvp(3) = vec1(i,jp,k,3)
-cc
-cc        bcnv(1) = vec2(i,j,k,1)
-cc        bcnv(2) = vec2(i,j,k,2)
-cc        bcnv(3) = vec2(i,j,k,3)
-cc
-cc        bcnvp(1) = vec2(i,jp,k,1)
-cc        bcnvp(2) = vec2(i,jp,k,2)
-cc        bcnvp(3) = vec2(i,jp,k,3)
-cc
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,bcov(1),bcov(2),bcov(3)
-cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        call transformFromCurvToCurv(i,jp,k,igx,igy,igz
-cc     .                        ,bcovp(1),bcovp(2),bcovp(3)
-cc     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        scalar_prod = dot_product(acnvp,bcov)
-cc     .               +dot_product(acnv,bcovp)
-cc
-cc        t21 =0.5*( acnvp(2)*bcnv(1) + acnv(2)*bcnvp(1)
-cc     .            +acnvp(1)*bcnv(2) + acnv(1)*bcnvp(2)
-cc     .            -gsuper(2,1)*scalar_prod )
-cc
-cc        t22 =0.5*( 2*acnvp(2)*bcnv(2) + 2*acnv(2)*bcnvp(2)
-cc     .            -gsuper(2,2)*scalar_prod )
-cc
-cc        t23 =0.5*( acnvp(2)*bcnv(3) + acnv(2)*bcnvp(3)
-cc     .            +acnvp(3)*bcnv(2) + acnv(3)*bcnvp(2)
-cc     .            -gsuper(2,3)*scalar_prod )
-cc
-cc        if (flag /= 0) then
-cc          t21 = t21*ijac
-cc          if (.not.alt_eom) t22 = t22*ijac
-cc          t23 = t23*ijac
-cc        endif
-cc
-cc
-ccc     End program
-cc
-cc      end subroutine lf_y
-cc
-ccc     lf_z
-ccc     #############################################################
-cc      subroutine lf_z(i,j,k,nxx,nyy,nzz,igx,igy,igz,alt_eom
-cc     .                   ,t31,t32,t33,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t31-t33 for linearized Lorentz
-ccc     force term in conservative form.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nxx,nyy,nzz,igx,igy,igz,flag
-cc        real(8)    :: t31,t32,t33
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: kp,igrid
-cc        real(8)    :: jac,ijac,gsuper(3,3),scalar_prod
-cc     .               ,acnv(3),acnvp(3),bcov(3),bcovp(3),bcnv(3),bcnvp(3)
-cc
-ccc     Begin program
-cc
-cc        igrid = igx
-cc
-cc        kp=k+1
-cc        if (flag == 0) kp = k
-cc
-cc        jac    = 0.5*(gmetric%grid(igrid)%jac (i,j,kp)
-cc     .               +gmetric%grid(igrid)%jac (i,j,k ))
-cc        gsuper = 0.5*(gmetric%grid(igrid)%gsup(i,j,kp,:,:)
-cc     .               +gmetric%grid(igrid)%gsup(i,j,k ,:,:))
-cc
-cc        ijac = 1d0/jac
-cc
-cccc        acnv(1) = 0.5*(vec1(i,j,kp,1)+vec1(i,j,k,1))
-cccc        acnv(2) = 0.5*(vec1(i,j,kp,2)+vec1(i,j,k,2))
-cccc        acnv(3) = 0.5*(vec1(i,j,kp,3)+vec1(i,j,k,3))
-cccc                                  
-cccc        bcnv(1) = 0.5*(vec2(i,j,kp,1)+vec2(i,j,k,1))
-cccc        bcnv(2) = 0.5*(vec2(i,j,kp,2)+vec2(i,j,k,2))
-cccc        bcnv(3) = 0.5*(vec2(i,j,kp,3)+vec2(i,j,k,3))
-cccc
-cccc        if (flag /= 0) then
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=3)
-cccc        else
-cccc          call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cccc     .                        ,bcov(1),bcov(2),bcov(3)
-cccc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cccc     .                        ,.false.,half_elem=0)
-cccc        endif
-cccc
-cccc        scalar_prod = dot_product(acnv,bcov)
-cccc
-cccc        t31 =( acnv(3)*bcnv(1)
-cccc     .        +acnv(1)*bcnv(3)
-cccc     .        -gsuper(3,1)*scalar_prod )
-cccc
-cccc        t32 =( acnv(3)*bcnv(2)
-cccc     .        +acnv(2)*bcnv(3)
-cccc     .        -gsuper(3,2)*scalar_prod )
-cccc
-cccc        t33 =( acnv(3)*bcnv(3)
-cccc     .        +acnv(3)*bcnv(3)
-cccc     .        -gsuper(3,3)*scalar_prod )
-cc
-cc        acnv(1) = vec1(i,j,k,1)
-cc        acnv(2) = vec1(i,j,k,2)
-cc        acnv(3) = vec1(i,j,k,3)
-cc
-cc        acnvp(1) = vec1(i,j,kp,1)
-cc        acnvp(2) = vec1(i,j,kp,2)
-cc        acnvp(3) = vec1(i,j,kp,3)
-cc
-cc        bcnv(1) = vec2(i,j,k,1)
-cc        bcnv(2) = vec2(i,j,k,2)
-cc        bcnv(3) = vec2(i,j,k,3)
-cc
-cc        bcnvp(1) = vec2(i,j,kp,1)
-cc        bcnvp(2) = vec2(i,j,kp,2)
-cc        bcnvp(3) = vec2(i,j,kp,3)
-cc
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                        ,bcov(1),bcov(2),bcov(3)
-cc     .                        ,bcnv(1),bcnv(2),bcnv(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        call transformFromCurvToCurv(i,j,kp,igx,igy,igz
-cc     .                        ,bcovp(1),bcovp(2),bcovp(3)
-cc     .                        ,bcnvp(1),bcnvp(2),bcnvp(3)
-cc     .                        ,.false.,half_elem=0)
-cc
-cc        scalar_prod = dot_product(acnvp,bcov)
-cc     .               +dot_product(acnv,bcovp)
-cc
-cc        t31 =0.5*( acnvp(3)*bcnv(1) + acnv(3)*bcnvp(1)
-cc     .            +acnvp(1)*bcnv(3) + acnv(1)*bcnvp(3)
-cc     .            -gsuper(3,1)*scalar_prod )
-cc
-cc        t32 =0.5*( acnvp(3)*bcnv(2) + acnv(3)*bcnvp(2)
-cc     .            +acnvp(2)*bcnv(3) + acnv(2)*bcnvp(3)
-cc     .            -gsuper(3,2)*scalar_prod )
-cc
-cc        t33 =0.5*( 2*acnvp(3)*bcnv(3)
-cc     .           + 2*acnv(3)*bcnvp(3)
-cc     .            -gsuper(3,3)*scalar_prod )
-cc
-cc        if (flag /= 0) then
-cc          t31 = t31*ijac
-cc          if (.not.alt_eom) t32 = t32*ijac
-cc          t33 = t33*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine lf_z
-
-ccc     par_diff_2nd
-ccc     ################################################################
-cc      function par_diff_2nd(i,j,k,nx,ny,nz,igx,igy,igz,tmp,Bx,By,Bz
-cc     .                     ,limited,vol) result(par2)
-ccc     ----------------------------------------------------------------
-ccc     Calculates div.(BB.grad) in 2D with 2nd order accuracy. Vector
-ccc     B *must* be unitary.
-ccc     ----------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer  :: i,j,k,nx,ny,nz,igx,igy,igz
-cc      real(8)  :: tmp(0:nx+1,0:ny+1,0:nz+1),par2
-cc      real(8)  :: Bx(0:nx+1,0:ny+1,0:nz+1)
-cc     .           ,By(0:nx+1,0:ny+1,0:nz+1)
-cc     .           ,Bz(0:nx+1,0:ny+1,0:nz+1)
-cc
-cc      logical,optional :: limited,vol
-cc
-ccc     Local variables
-cc
-cc      real(8)  :: Fluxx(i-1:i,j-1:j,k-1:k)
-cc     .           ,Fluxy(i-1:i,j-1:j,k-1:k)
-cc     .           ,Fluxz(i-1:i,j-1:j,k-1:k)
-cc
-cc      real(8)  :: bx2,by2,bxby,dtx,dty,a1,a2,sgn,bb,flx0,flxp
-cc      integer  :: ii,jj,kk,ig,jg,kg
-cc      logical  :: limit,symm,vol_wgt
-cc
-cc      real(8),dimension(:,:,:),pointer :: jac
-cc
-ccc     Begin program
-cc
-cc      Fluxx=0
-cc      Fluxy=0
-cc      Fluxz=0
-cc
-cc      if (PRESENT(limited)) then
-cc        limit = limited
-cc      else
-cc        limit = .true.
-cc      endif
-cc
-cc      vol_wgt = .false.
-cc      if (PRESENT(vol)) vol_wgt = vol
-cc
-cccc      if (PRESENT(symmetric)) then
-cccc        symm = symmetric
-cccc      else
-cccc        symm = .false.
-cccc      endif
-cc
-cc      jac => gmetric%grid(igx)%jac
-cc
-ccc     Symmetric discretization
-cc
-cccc      if (symm) then
-cc
-cc        do kk = k-1,k
-cc          do jj = j-1,j
-cc            do ii = i-1,i
-cc              call getMGmap(ii,jj,kk,igx,igy,igz,ig,jg,kg)
-cc
-cc              bx2 = (.25*(bx(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
-cc     .                   +bx(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
-cc     .                   +bx(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
-cc     .                   +bx(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
-cc     .             *(.25*(bx(ii  ,jj  ,kk)
-cc     .                   +bx(ii+1,jj  ,kk)
-cc     .                   +bx(ii  ,jj+1,kk)
-cc     .                   +bx(ii+1,jj+1,kk)))
-cc              bxby= (.25*(bx(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
-cc     .                   +bx(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
-cc     .                   +bx(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
-cc     .                   +bx(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
-cc     .             *(.25*(by(ii  ,jj  ,kk)
-cc     .                   +by(ii+1,jj  ,kk)
-cc     .                   +by(ii  ,jj+1,kk)
-cc     .                   +by(ii+1,jj+1,kk)))
-cc              by2 = (.25*(by(ii  ,jj  ,kk)/jac(ii  ,jj  ,kk)
-cc     .                   +by(ii+1,jj  ,kk)/jac(ii+1,jj  ,kk)
-cc     .                   +by(ii  ,jj+1,kk)/jac(ii  ,jj+1,kk)
-cc     .                   +by(ii+1,jj+1,kk)/jac(ii+1,jj+1,kk)))
-cc     .             *(.25*(by(ii  ,jj  ,kk)
-cc     .                   +by(ii+1,jj  ,kk)
-cc     .                   +by(ii  ,jj+1,kk)
-cc     .                   +by(ii+1,jj+1,kk)))
-cc
-cc              dtx = .5*(tmp(ii+1,jj  ,kk)-tmp(ii,jj  ,kk)
-cc     .                 +tmp(ii+1,jj+1,kk)-tmp(ii,jj+1,kk))/dx(ig)
-cc              dty = .5*(tmp(ii  ,jj+1,kk)-tmp(ii  ,jj,kk)
-cc     .                 +tmp(ii+1,jj+1,kk)-tmp(ii+1,jj,kk))/dy(jg)
-cc
-cc              Fluxx(ii,jj,kk)= bx2*dtx + bxby*dty
-cc              Fluxy(ii,jj,kk)= by2*dty + bxby*dtx
-cc              Fluxz(ii,jj,kk) = 0d0
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        !Average fluxes from vertices to faces
-cc        Fluxx(:,j,k) = 0.25*(Fluxx(:,j,k  )+Fluxx(:,j-1,k  )
-cc     .                      +Fluxx(:,j,k-1)+Fluxx(:,j-1,k-1))
-cc
-cc        Fluxy(i,:,k) = 0.25*(Fluxy(i,:,k  )+Fluxy(i-1,:,k  )
-cc     .                      +Fluxy(i,:,k-1)+Fluxy(i-1,:,k-1))
-cc
-cc        Fluxz(i,j,:) = 0.25*(Fluxz(i,j  ,:)+Fluxz(i-1,j  ,:)
-cc     .                      +Fluxz(i,j-1,:)+Fluxz(i-1,j-1,:))
-cc
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc        par2 = (Fluxx(i,j,k)-Fluxx(i-1,j,k))/dxh(ig)
-cc     .        +(Fluxy(i,j,k)-Fluxy(i,j-1,k))/dyh(jg)
-cc     .        +(Fluxz(i,j,k)-Fluxz(i,j,k-1))/dzh(kg)
-cc
-cc        if (vol_wgt) par2=par2*gmetric%grid(igx)%dvol(i,j,k)
-cc
-ccccc     Uncomment this for dding straight co-directed derivatives
-cccc
-cccc        !Add diagonally dominant part
-cccc        do i = 0,nx
-cccc          call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz)
-cccc     .                +(0.5*(bx (i+1,1:ny,1:nz)+bx (i,1:ny,1:nz)))**2
-cccc     .                     *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
-cccc        enddo
-cccc
-cccc        do j = 0,ny
-cccc          call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz)
-cccc     .                +(0.5*(by (1:nx,j+1,1:nz)+by (1:nx,j,1:nz)))**2
-cccc     .                     *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
-cccc        enddo
-cccc
-cccc        do k = 0,nz
-cccc          call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
-cccc     .                +(0.5*(bz (1:nx,1:ny,k+1)+bz (1:nx,1:ny,k)))**2
-cccc     .                     *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
-cccc        enddo
-cc
-ccccc     Asymmetric discretization
-cccc
-cccc      else
-cccc
-cccc        if (limit) then !Limited differences (Sharma, Hammett, JCP 227 (2007))
-cccc
-cccc          !X-component cross flux
-cccc          do k = 1,nz
-cccc            do j = 1,ny
-cccc              do i = 0,nx
-cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc                bxby = 0.5*(bx(i  ,j,k)*by(i  ,j,k)
-cccc     .                     +bx(i+1,j,k)*by(i+1,j,k))
-cccc
-cccc                flx0 = mc(tmp(i,j  ,k)-tmp(i,j-1,k)
-cccc     .                   ,tmp(i,j+1,k)-tmp(i,j  ,k))
-cccc                flxp = mc(tmp(i+1,j  ,k)-tmp(i+1,j-1,k)
-cccc     .                   ,tmp(i+1,j+1,k)-tmp(i+1,j  ,k))
-cccc
-cccc                Fluxx(i,j,k)= bxby/dyh(jg)*mc(flx0,flxp)
-cccc              enddo
-cccc            enddo
-cccc          enddo
-cccc
-cccc          !Y-component cross flux 
-cccc          do k = 1,nz
-cccc            do j = 0,ny
-cccc              do i = 1,nx
-cccc
-cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc                bxby = 0.5*(bx(i,j  ,k)*by(i,j  ,k)
-cccc     .                     +bx(i,j+1,k)*by(i,j+1,k))
-cccc
-cccc                flx0 = mc(tmp(i  ,j,k)-tmp(i-1,j,k)
-cccc     .                   ,tmp(i+1,j,k)-tmp(i  ,j,k))
-cccc                flxp = mc(tmp(i  ,j+1,k)-tmp(i-1,j+1,k)
-cccc     .                   ,tmp(i+1,j+1,k)-tmp(i  ,j+1,k))
-cccc
-cccc                Fluxy(i,j,k)= bxby/dxh(ig)*mc(flx0,flxp)
-cccc
-cccc              enddo
-cccc            enddo
-cccc          enddo
-cccc
-cccc        else !Standard central average
-cccc
-cccc          !X-component cross flux
-cccc          do k = 1,nz
-cccc            do j = 1,ny
-cccc              do i = 0,nx
-cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc                Fluxx(i,j,k)= 0.125/dyh(jg)
-cccc     .             *(bx(i  ,j,k)*by(i  ,j,k)
-cccc     .              +bx(i+1,j,k)*by(i+1,j,k))
-cccc     .             *(tmp(i  ,j+1,k)-tmp(i  ,j-1,k)
-cccc     .              +tmp(i+1,j+1,k)-tmp(i+1,j-1,k))
-cccccc                Fluxx(i,j,k)= 0.25/dyh(jg)
-cccccc     .             *(bx(i  ,j,k)*by(i  ,j,k)
-cccccc     .                 *(tmp(i  ,j+1,k)-tmp(i  ,j-1,k))
-cccccc     .              +bx(i+1,j,k)*by(i+1,j,k)
-cccccc     .                 *(tmp(i+1,j+1,k)-tmp(i+1,j-1,k)))
-cccc              enddo
-cccc            enddo
-cccc          enddo
-cccc
-cccc          !Y-component cross flux 
-cccc          do k = 1,nz
-cccc            do j = 0,ny
-cccc              do i = 1,nx
-cccc                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc                Fluxy(i,j,k)= 0.125/dxh(ig)
-cccc     .             *(bx(i,j  ,k)*by(i,j  ,k)
-cccc     .              +bx(i,j+1,k)*by(i,j+1,k))
-cccc     .             *(tmp(i+1,j  ,k)-tmp(i-1,j  ,k)
-cccc     .              +tmp(i+1,j+1,k)-tmp(i-1,j+1,k))
-cccccc                Fluxy(i,j,k)= 0.25/dxh(ig)
-cccccc     .             *(bx(i,j  ,k)*by(i,j  ,k)
-cccccc     .                 *(tmp(i+1,j  ,k)-tmp(i-1,j  ,k))
-cccccc     .              +bx(i,j+1,k)*by(i,j+1,k)
-cccccc     .                 *(tmp(i+1,j+1,k)-tmp(i-1,j+1,k)))
-cccc              enddo
-cccc            enddo
-cccc          enddo
-cccc
-cccc        endif
-cccc
-cccc        !Add co-derivative terms: standard centered
-cccc        do i = 0,nx
-cccc          call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz)
-cccc     .                +(0.5*(bx (i+1,1:ny,1:nz)+bx (i,1:ny,1:nz)))**2
-cccc     .                     *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
-cccc        enddo
-cccc
-cccc        do j = 0,ny
-cccc          call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz)
-cccc     .                +(0.5*(by (1:nx,j+1,1:nz)+by (1:nx,j,1:nz)))**2
-cccc     .                     *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
-cccc        enddo
-cccc
-cccc        do k = 0,nz
-cccc          call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc          Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
-cccc     .                +(0.5*(bz (1:nx,1:ny,k+1)+bz (1:nx,1:ny,k)))**2
-cccc     .                     *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
-cccc        enddo
-cccc
-cccccc      !Add co-derivative terms: ZIP
-cccccc      do i = 0,nx
-cccccc        call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-cccccc
-cccccc        Fluxx(i,1:ny,1:nz) = Fluxx(i,1:ny,1:nz) 
-cccccc     .              +bx(i+1,1:ny,1:nz)*bx(i,1:ny,1:nz)
-cccccc     .                   *(tmp(i+1,1:ny,1:nz)-tmp(i,1:ny,1:nz))/dx(ig)
-cccccc      enddo
-cccccc
-cccccc      do j = 0,ny
-cccccc        call getMGmap(1,j,1,igx,igy,igz,ig,jg,kg)
-cccccc
-cccccc        Fluxy(1:nx,j,1:nz) = Fluxy(1:nx,j,1:nz) 
-cccccc     .              +by(1:nx,j+1,1:nz)*by(1:nx,j,1:nz)
-cccccc     .                   *(tmp(1:nx,j+1,1:nz)-tmp(1:nx,j,1:nz))/dy(jg)
-cccccc      enddo
-cccccc
-cccccc      do k = 0,nz
-cccccc        call getMGmap(1,1,k,igx,igy,igz,ig,jg,kg)
-cccccc
-cccccc        Fluxz(1:nx,1:ny,k) = Fluxz(1:nx,1:ny,k)
-cccccc     .              +bz(1:nx,1:ny,k+1)*bz(1:nx,1:ny,k)
-cccccc     .                   *(tmp(1:nx,1:ny,k+1)-tmp(1:nx,1:ny,k))/dz(kg)
-cccccc      enddo
-cccc
-cccc      endif
-cc
-ccc     End program
-cc
-cc      contains
-cc
-ccc     minmod
-ccc     #################################################################
-cc      function minmod(a,b)
-cc
-cc      real(8) :: a,b,minmod
-cc
-cc      if (a*b <= 0d0) then
-cc        minmod = 0d0
-cc        return
-cc      endif
-cc
-cc      if (a > 0d0) then
-cc        minmod = min(a,b)
-cc      else
-cc        minmod = max(a,b)
-cc      endif
-cc
-cc      end function minmod
-cc
-ccc     mc
-ccc     #################################################################
-cc      function mc(a,b)
-cc
-cc      real(8) :: a,b,mc
-cc
-cc      mc = minmod(2*minmod(a,b),0.5*(a+b))
-cc
-cc      end function mc
-cc
-cc      end function par_diff_2nd
-
 c     par_diff
 c     ################################################################
       function par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp,Bx,By,Bz
@@ -3585,6 +2842,8 @@ c     Assemble fluxes
       par2 = (Fluxx(i,j,k)-Fluxx(i-1,j,k))/grid_params%dxh(ig)
      .      +(Fluxy(i,j,k)-Fluxy(i,j-1,k))/grid_params%dyh(jg)
      .      +(Fluxz(i,j,k)-Fluxz(i,j,k-1))/grid_params%dzh(kg)
+
+      par2 = par2/jac(i,j,k)
 
       if (vol_wgt) par2=par2*gmetric%grid(igx)%dvol(i,j,k)
 
@@ -6116,7 +5375,7 @@ c     End program
 
 c     E_fld_Hall
 c     #####################################################################
-      function E_fld_Hall(nx,ny,nz,igx,igy,igz,rho,tmp) result(E_h)
+      function E_fld_Hall(nx,ny,nz,igx,igy,igz) result(E_h)
 
 c     ---------------------------------------------------------------------
 c     Computes Hall electric field, in two forms: ion EOM, and e EOM
@@ -6127,9 +5386,7 @@ c     ---------------------------------------------------------------------
 c     Call variables
 
       integer :: nx,ny,nz,igx,igy,igz
-      real(8) :: rho (0:nx+1,0:ny+1,0:nz+1)
-     .          ,tmp (0:nx+1,0:ny+1,0:nz+1)
-     .          ,E_h(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8) :: E_h(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Local variables
 
@@ -6141,12 +5398,7 @@ c     Begin program
 
 c     Find required auxiliary quantities
 
-cc      if (solve_prs) then
-cc        pe = tmp
-cc      else
-cc        pe = rho*tmp
-cc      endif
-      pe = prs/a_p
+      pe = prs/a_p  !Electron pressure
 
 cc      if (de > 0d0) then
 cc        bcnv_star = bcnv -de**2/di*curl(nx,ny,nz,igx,igy,igz,vecov)
@@ -6167,7 +5419,7 @@ cc      endif
 
         !Electron inertia term
         if (de > 0d0) then
-          E_h = E_h - de**2/di**2/alpha*(vecov-vecov_n)*cnp/dt
+          E_h = E_h - de**2/di**2*(vecov-vecov_n)*cnp/alpha/dt
         endif
 
       !Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -6291,21 +5543,9 @@ c     Local variables
 
 c     Begin program
 
-cc      fmax = maxval(field)
-cc
-cc#if defined(petsc)
-cc      call MPI_Allreduce(fmax,fmaxg,1
-cc     .                  ,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
-cc#else
-cc      fmaxg = fmax
-cc#endif
-cc
-cc      if (fmaxg == 0d0) fmaxg = 1d0
-
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
-cc            rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k)/fmaxg)
             rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
           enddo
         enddo
@@ -6659,6 +5899,7 @@ c     Begin program
 
       pc_asm       =.false. !Whether to do additive Schwartz PC
       pc_B_solve   =.true.  !Whether to invert M_B or not
+cc      pc_B_solve   =.false. !Whether to invert M_B or not
       pc_v_solve   =.false. !Whether to perform final v corrector step
       pc_ion_hall  = ion_hall  !Whether to use ion Ohm's law in PC
 
@@ -6677,14 +5918,16 @@ c     Begin program
 cc      pc_B_solve  = .true.
 cc      mg_gm_coarse = .true.
 cccc      ores   = 2
-cccc      inv_B  = .false.
+cccc      pc_B_solve  = .false.
 cccc      divCln = .false.
-
-      !Specific setup
-cc      inv_B  = .false.
 
       !Consistency checks
       if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
+
+      if (bcSP()) then
+        mg_oprol = 1
+cc        mg_ores  = 1
+      endif
 
       !SI solver configuration
 cc      sm_type_si     = 'gs'

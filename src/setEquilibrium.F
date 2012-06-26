@@ -1,6 +1,6 @@
 c setEquilibrium
 c####################################################################
-      subroutine setEquilibrium(iigx,iigy,iigz,varray)
+      subroutine setEquilibrium(iigx,varray)
 
 c--------------------------------------------------------------------
 c     Set initial conditions for initial value calculation, define
@@ -41,7 +41,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer :: iigx,iigy,iigz
+      integer :: iigx
 
       type(var_array),pointer :: varray
 
@@ -119,8 +119,8 @@ cc        var(:,:,:,ieq:ieq) => varray%array_var(ieq:ieq)%array
 c Initialize required local grid information
 
       igx = iigx
-      igy = iigy
-      igz = iigz
+      igy = iigx
+      igz = iigx
 
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)

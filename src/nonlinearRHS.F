@@ -127,7 +127,7 @@ c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
       if (solve_rho) then
         advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,rho,advect)
 cc        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                  ,vcnv,rho,advect,sp=bcSP(),zip_vel=.true.)  !sp is for conservation
+cc     .                  ,vcnv,rho,advect,sp=bcSP())  !sp is for conservation
 
         if (dd /= 0d0) then
           diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
@@ -270,9 +270,12 @@ c       Advection
         sgn =-1d0
 
         advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
-     .                               ,    vscnv,prs,advect)
-     .      -sgn*(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                               ,sgn*vscnv,prs,1)
+     .                               ,vscnv,prs,advect)
+cc     .                               ,vscnv,prs,advect,sp=bcSP())
+     .          +(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                               ,vscnv,prs,1,reverse=.true.)
+cc     .      -sgn*(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
+cc     .                               ,sgn*vscnv,prs,1)
 
 c       Sources
 
@@ -471,7 +474,7 @@ c Begin program
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
               advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,1)
-     .                             ,rho,advect)
+     .                             ,rho,advect)!,sp=bcSP())
 
               if (dd /= 0d0) then
                 diffus = dd*lap_flx_x_ijk(i,j,k,igr,rho)
@@ -505,7 +508,7 @@ c Begin program
             endif
 
             advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,1)
-     .                           ,prs,advect)
+     .                           ,prs,advect)!,sp=bcSP())
 
             flx_x(i+1,j,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 

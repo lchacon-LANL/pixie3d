@@ -620,22 +620,23 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
 
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
-            pert(1) = x1*pert(1)
+            pert(IRHO) = x1*pert(IRHO)
 
-            pert(2) = x1*pert(2)
-            if (equil == '2dkai') pert(3) = pert(3)+kk*x1/mm*pert(4)
-            pert(4) = x1*pert(4)
+            pert(IVX) = x1*pert(IVX)
+            if (equil == '2dkai') pert(IVY)=pert(IVY)+kk*x1/mm*pert(IVZ)
+            if (alt__eom()) pert(IVY) = x1*pert(IVY)
+            pert(IVZ) = x1*pert(IVZ)
 
-            pert(5) = x1*pert(5)
-            if (equil == '2dkai') pert(6) = pert(6)+kk*x1/mm*pert(7)
-            pert(7) = x1*pert(7)
+            pert(IBX) = x1*pert(IBX)
+            if (equil == '2dkai') pert(IBY)=pert(IBY)+kk*x1/mm*pert(IBZ)
+            pert(IBZ) = x1*pert(IBZ)
 
             do ieq=1,varr%nvar-1
               varr%array_var(ieq)%array(i,j,k) =
      .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
             enddo
 
-            pert(8) = pert(8)*a_p  !No factor of x1, because that is included in rho below
+            pert(ITMP) = pert(ITMP)*a_p  !No factor of x1, because that is included in rho below
 
             varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)*(1d0 

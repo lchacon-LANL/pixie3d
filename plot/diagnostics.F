@@ -387,9 +387,9 @@ c Local variables
       save    :: rfluxn,tn
 
       INTERFACE
-        subroutine postProcessSolution(varray,iigx,iigy,iigz)
+        subroutine postProcessSolution(igrid,varray)
         use variable_setup
-        integer    :: iigx,iigy,iigz
+        integer    :: igrid
         type(var_array),pointer :: varray
         end subroutine postProcessSolution
       END INTERFACE
@@ -465,7 +465,7 @@ cc      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
 
 c Postprocess solution
 
-      call postProcessSolution(varray,igx,igy,igz)
+      call postProcessSolution(igx,varray)
 
 c Particle diagnostics
 
