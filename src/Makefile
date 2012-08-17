@@ -49,9 +49,8 @@ ifdef BOPT
 endif
 
 ifdef SAMR
-   # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
-   include ${SAMRSOLVERS_HOME}/Makefile.config
-
+    # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
+    include ${SAMRSOLVERS_HOME}/Makefile.config
     SRC2      = $(SRC)
     EXCLUDE  += %output.F
     ifdef SAMR_IMP
@@ -110,7 +109,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS) ${LDLIBS}
 	@mv $@ $(BINDIR)
 
 petsc: common $(PETSCCODE) 
@@ -128,17 +127,12 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} 
+	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB}
 	@mv $@ $(BINDIR)
 
 samrai: common $(SAMRAICODE)
 
 $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
-#	@echo 'Before linking the common objs' $(COMMON_OBJS)
-#	@echo 'Before linking the obj' $(OBJ)
-#	@echo 'Before linking the objmod' $(OBJMOD)
-#	@echo $(OBJ)
-#	@echo 'Common objs' $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
