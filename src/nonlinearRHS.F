@@ -908,6 +908,7 @@ c Begin program
 
             !Heat Flux
             !(parallel piece; should be made conservative)
+            heat_flx = 0d0
             if (chi_par /= chi .and.(.not.lagrangian)) then
               heat_flx = -(chi_par-chi)
      .            *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmp
