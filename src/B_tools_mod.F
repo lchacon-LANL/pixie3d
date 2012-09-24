@@ -654,7 +654,7 @@ c     Define BCs for dA
 
 c     Setup solver parameters
 
-      if (coords == 'car') then
+      if (no_map) then
         order_res  = 0  !To ensure conservation (avoid null space)
         order_prol = 1
 

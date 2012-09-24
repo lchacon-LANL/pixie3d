@@ -299,7 +299,7 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 c     Check input
 
-        if (coords /= 'car'.and.coords /= 'scl') then
+        if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -752,7 +752,7 @@ cc#endif
 
 c     Check coordinates
 
-        if (coords /= 'car' .and. coords /= 'scl') then
+        if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -812,7 +812,7 @@ c     GEM challenge
 
 c     Check coordinates
 
-        if (coords /= 'car' .and. coords /= 'scl') then
+        if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -860,7 +860,7 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 
 c     Check coordinates
 
-        if (coords /= 'car' .and. coords /= 'scl') then
+        if (coords /= 'car') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -962,7 +962,7 @@ cc        dlambda = 0.5/pi !(Ly/4/pi) with Ly=2 in full domain
 
 c     Check coordinates
 
-        if (coords /= 'car'.and.coords /= 'pck'.and.coords /= 'scl')then
+        if (coords /= 'car')then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
