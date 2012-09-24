@@ -1,8 +1,8 @@
 #Define variables
 
 DIRS   = $(shell ls | grep -v ake | grep -v CVS)
-DIRS_A = $(shell ls | grep -v ake | grep -v CVS | grep    "\-a\-")
-DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a\-")
+DIRS_A = $(shell ls | grep -v ake | grep -v CVS | grep    "\-a")
+DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a")
 
 #Define targets
 
