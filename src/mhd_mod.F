@@ -1784,7 +1784,7 @@ c     Defaults
 
 cc        jac  = gmetric%grid(igx)%jac(i,j,k)
 
-cc        if (coords == 'car') then
+cc        if (no_map) then
 cc          ijacip  = one
 cc          ijacim  = one
 cc          ijacjp  = one
@@ -1800,7 +1800,7 @@ c     Exceptions
           idhx = one/grid_params%dx(ig)
           im = i
 
-          if (coords /= 'car') then
+          if (.not.no_map) then
             jacip  = gmetric%grid(igx)%jac(ip,j,k)
             jacim  = gmetric%grid(igx)%jac(i ,j,k)
             jacjp  = half*(gmetric%grid(igx)%jac(ip,jp,k)
@@ -1872,7 +1872,7 @@ cc              jackm = one!SP_flsv
           idhy = one/grid_params%dy(jg)
           jm = j
 
-          if (coords /= 'car') then
+          if (.not.no_map) then
             jacip  = half*(gmetric%grid(igx)%jac(ip,jp,k)
      .                    +gmetric%grid(igx)%jac(ip,j ,k))
             jacim  = half*(gmetric%grid(igx)%jac(im,jp,k)
@@ -1931,7 +1931,7 @@ cc              jackm = one!SP_flsv
           idhz = one/grid_params%dz(kg)
           km = k
 
-          if (coords /= 'car') then
+          if (.not.no_map) then
             jacip  = half*(gmetric%grid(igx)%jac(ip,j,kp)
      .                    +gmetric%grid(igx)%jac(ip,j,k ))
             jacim  = half*(gmetric%grid(igx)%jac(im,j,kp)
@@ -1988,7 +1988,7 @@ cc              jackm = one!SP_flsv
 
         case default
 
-          if (coords /= 'car') then
+          if (.not.no_map) then
             jacip  = gmetric%grid(igx)%jac(ip,j,k)
             jacim  = gmetric%grid(igx)%jac(im,j,k)
             jacjp  = gmetric%grid(igx)%jac(i,jp,k)
@@ -2043,7 +2043,7 @@ cc              jackm = one!SP_flsv
 
 c     Components
 
-        if (coords /= 'car') then
+        if (.not.no_map) then
           ijacip  = one/jacip
           ijacim  = one/jacim
           ijacjp  = one/jacjp

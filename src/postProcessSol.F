@@ -30,20 +30,9 @@ c Local variables
       integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq,igrid
       real(8) :: mag,acc
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
-      logical :: E_diag,lag_init
+cc      logical :: E_diag,lag_init
 
 c Interfaces
-
-#if !defined(vec_pot) && !defined(samrai)
-cc      INTERFACE
-cc        subroutine applyBC (varray,iigx,iigy,iigz,obc)
-cc        use variable_setup
-cc        integer    :: iigx,iigy,iigz
-cc        integer,optional :: obc
-cc        type(var_array),pointer :: varray
-cc        end subroutine applyBC
-cc      END INTERFACE
-#endif
 
 c Begin program
 
@@ -162,27 +151,27 @@ cc        psi = psi + da_cov(:,:,:,3)
 
 #endif
 
-c Perform Lagrangian temperature step
-
-      if (lagrangian) then
-        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
-        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
-        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
-
-        lag_init = .true.
-        E_diag   = .true.
-        call lagr_update(igrid,bcnv
-     .                  ,u_nm %array_var(ITMP)%array
-     .                  ,u_n  %array_var(ITMP)%array
-     .                  ,v_arr%array_var(ITMP)%array
-     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
-
-        !Update BCs
-        call setMGBC(0,1,nx,ny,nz,igrid
-     .              ,v_arr%array_var(ITMP)%array
-     .              ,v_arr%array_var(ITMP)%bconds
-     .              ,iorder=bc_order,icomp=(/ITMP/))
-      endif
+ccc Perform Lagrangian temperature step
+cc
+cc      if (lagrangian) then
+cc        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
+cc        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
+cc        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
+cc
+cc        lag_init = .true.
+cc        E_diag   = .true.
+cc        call lagr_update(igrid,bcnv
+cc     .                  ,u_nm %array_var(ITMP)%array
+cc     .                  ,u_n  %array_var(ITMP)%array
+cc     .                  ,v_arr%array_var(ITMP)%array
+cc     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
+cc
+cc        !Update BCs
+cc        call setMGBC(0,1,nx,ny,nz,igrid
+cc     .              ,v_arr%array_var(ITMP)%array
+cc     .              ,v_arr%array_var(ITMP)%bconds
+cc     .              ,iorder=bc_order,icomp=(/ITMP/))
+cc      endif
 
 cc      call applyBC (v_arr,igx,igy,igz)
 
