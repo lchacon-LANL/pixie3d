@@ -752,7 +752,7 @@ c       Find hyperresistivity (electron viscosity)
           h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
 
         case default
-          call pstop('applyAuxVarBC'
+          call pstop('preproc_AuxVar'
      .              ,'Scalar auxiliary variable does not exist')
         end select
 
@@ -1192,7 +1192,7 @@ c       Find hyperresistivity (electron viscosity)
           h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
 
         case default
-          call pstop('applyAuxVarBC'
+          call pstop('postproc_AuxVar'
      .              ,'Scalar auxiliary variable does not exist')
         end select
 

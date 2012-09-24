@@ -913,6 +913,8 @@ c Begin program
      .            *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmp
      .                 ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
      .                 ,symmetric=.true.,limited=.false.,vol=.false.)
+            else
+              heat_flx = 0d0
             endif
 
             !Advection (non-conservative piece, with reversed sign for velocity)
