@@ -112,7 +112,7 @@ pixie3d: contrib src
 pixplot: contrib plot
 
 $(SUBDIRS):
-#	@echo "-- Machine = $(MACHINE)"
+#	@echo "-- Machine = $(HOST)"
 #	@echo "-- Do make in $@ with FC=$(FC)"
 #	@echo "-- HDF5_HOME=$(HDF5_HOME)"
 #	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
