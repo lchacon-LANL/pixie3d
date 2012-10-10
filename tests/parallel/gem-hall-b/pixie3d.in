@@ -25,8 +25,7 @@
     temp_ratio = 5.
 
     equil    = 'gem'
-!    coords   = 'car'
-    coords   = 'scl'
+    coords   = 'car'
     gp1      = .true.,6.4d0,1d-2
 
     dlambda  = .5
