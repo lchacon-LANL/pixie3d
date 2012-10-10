@@ -42,25 +42,25 @@ c ######################################################################
 
         real(8) :: noise_lev
 
-      contains
-
-c     setDepVarDims
-c     ################################################################
-      subroutine setDepVarDims
-
-      integer :: NDEPV, NDEPS !Should be eventually defined in variable module
-
-c     ----------------------------------------------------------------
-c     Define problem dimensions
-c     ----------------------------------------------------------------
-
-      NDEPV = 2   !Number of dependent var. vectors
-      NDEPS = 2   !Number of dependent var. scalars
-
-      neqd = 3*NDEPV + NDEPS
-
-      end subroutine setDepVarDims
-
+cc      contains
+cc
+ccc     setDepVarDims
+ccc     ################################################################
+cc      subroutine setDepVarDims
+cc
+cc      integer :: NDEPV, NDEPS !Should be eventually defined in variable module
+cc
+ccc     ----------------------------------------------------------------
+ccc     Define problem dimensions
+ccc     ----------------------------------------------------------------
+cc
+cc      NDEPV = 2   !Number of dependent var. vectors
+cc      NDEPS = 2   !Number of dependent var. scalars
+cc
+cc      neqd = 3*NDEPV + NDEPS
+cc
+cc      end subroutine setDepVarDims
+cc
       end module problem_def
 
 c module transport_params
@@ -268,24 +268,6 @@ cc     .                                       ,vecnv_0
      .                                       ,vefcnv
 
       contains
-
-c     setAuxVarDims
-c     ################################################################
-      subroutine setAuxVarDims
-
-c     ----------------------------------------------------------------
-c     Define problem dimensions
-c     ----------------------------------------------------------------
-
-#if !defined(vec_pot)
-      NAUXV=22  !Number of auxiliary vectors
-#else
-      NAUXV=25  !Number of auxiliary vectors
-#endif
-
-      NAUXS=8   !Number of auxiliary scalars
-
-      end subroutine setAuxVarDims
 
 c     defineAuxVariables
 c     ###################################################################
