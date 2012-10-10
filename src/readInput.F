@@ -124,11 +124,15 @@ c Begin program
       call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
 #endif
 
-c Set fundamental problem parameters (number of equations, number of aux variables)
+c Set fundamental problem parameters (number of dep. variables, aux. variables)
 
-      call setDepVarDims
+      call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
-      call setAuxVarDims
+#if !defined(vec_pot)
+      call setAuxVarDims(8,22)  !8 scalars, 22 vectors
+#else
+      call setAuxVarDims(8,25)  !8 scalars, 25 vectors
+#endif
 
 c Set defaults
 
