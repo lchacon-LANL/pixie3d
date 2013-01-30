@@ -1,0 +1,210 @@
+#!/bin/bash
+
+# Help message
+
+help()
+{
+cat <<HELP
+Usage: 
+
+pixie3d [-h] [-q queue] [-x executable] [-r tmax] [-np procs] [-w walltime as hr:min:sec]
+        [-equ file] [-eig file] -- inputfile [options]
+
+where:
+	-h:            gives this message
+	-q queue:      indicates queue to use
+	-x executable: indicates the executable file (default is 'pixie3d.petsc.x')
+	-r tmax:       indicates that the job should be restarted up to time tmax 
+                         (if tmax=0, final time is not changed)
+	-np procs:     indicates the number of processors to run the job on 
+		         in parallel
+        -w hr:min:sec  wall time in hours:minutes:seconds (e.g., 00:5:00)
+	-equ:          equilibrium file 
+	-eig:          eigenmode file 
+	inputfile:     is the input file without the extension .in
+	options:       options passed directly to the executable
+HELP
+exit 0
+}
+
+# Defaults
+
+restart=f
+parallel=t
+tar=t
+equf=f
+
+# Parse command line options
+
+if [ "$#" = 0 ]; then
+  help
+  exit 1
+fi
+
+while [ -n "$1" ]; do
+case $1 in
+	-h) help;shift 1;;
+	-q) queue=$2;shift 2;;
+	-x) executable=$2;shift 2;;
+	-r) restart=t;tmax=$2;shift 2;;
+	-np)np=$2;shift 2;;
+        -w) wc=$2;shift 2;;
+	-equ)equf=t;equfile=$2;shift 2;;
+	-eig)eigf=t;eigfile=$2;shift 2;;
+	--) shift;break;;
+	-*) echo "error: no such option $1. -h for help";exit 1;;
+	*)  break;;
+esac
+done
+
+inputfile=$1
+shift
+
+options=$*
+
+# Select working directory
+
+path=$PWD
+
+#cd $SCRATCH2
+count=.	
+dir=$inputfile.scratch
+while [ -d "$dir" ]; do
+  dir="${dir}${count}"
+done
+mkdir $dir
+
+# Select executable
+
+if [ "$executable" = "" ]; then
+  executable=pixie3d.petsc.x
+fi
+
+if [ ! -e "$executable" ]; then
+  echo "No executable found. Aborting"
+  exit 1
+fi
+
+# Copy necessary files to working directory
+
+if [ -f $inputfile.in ]; then
+  cp $inputfile.in $dir 2>/dev/null
+elif [ -f infiles/$inputfile.in ]; then
+  cp infiles/$inputfile.in $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No input file found. Aborting"
+  exit 1
+fi
+
+if [ "$equf" = "t" ]; then
+ if [ -f "$equfile" ]; then
+  cp $equfile $dir 2>/dev/null
+ elif [ -f infiles/$equfile ]; then
+  cp infiles/$equfile $dir 2>/dev/null
+ else
+  echo "No equilibrium file found. Aborting"
+  exit 1
+ fi
+fi
+
+if [ "$eigf" = "t" ]; then
+ if [ -f "$eigfile" ]; then
+  cp $eigfile $dir 2>/dev/null
+ elif [ -f infiles/$eigfile ]; then
+  cp infiles/$eigfile $dir 2>/dev/null
+ else
+  echo "No eigenvalue file found. Aborting"
+  exit 1
+ fi
+fi
+
+if [ -f "machines.LINUX" ]; then
+    cp machines.LINUX $dir 2>/dev/null
+fi
+
+cp $executable $dir 2>/dev/null
+
+if [ "$executable" = "pixie3d.x" ]; then
+  cp pixplot.x $dir 2>/dev/null
+fi
+
+cd $dir
+
+# Check for restart
+
+if [ "$restart" = "t" -a "$tar" = "t" ]
+then
+   if [ -d $path/tarfiles ]; then
+     rpath=$path/tarfiles
+   else
+     rpath=$path
+   fi
+   if [ -f "$rpath/$inputfile.tar.gz" ]
+   then
+     tar xzf $rpath/$inputfile.tar.gz --exclude $inputfile.in --exclude machines.LINUX --exclude $executable
+#     cp $inputfile.log $path/$dir
+#     cp *.bin $path/$dir
+   else
+     echo "Cannot find specified restart file"
+     exit 1 
+   fi
+fi
+
+# Execution preparations
+
+#cd $path/$dir
+
+#code_ifile=`echo "$executable" | sed "s/\.x//"`
+code_ifile=pixie3d
+
+cp $inputfile.in $code_ifile.in  2>/dev/null
+cp $equfile $code_ifile.equ  2>/dev/null
+cp $eigfile $code_ifile.eig  2>/dev/null
+
+if [ "$restart" = "t" ]
+then
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = t' \
+        -e '}' \
+        $code_ifile.in 
+else
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = f' \
+        -e '}' \
+        $code_ifile.in 
+fi
+
+if [ "$tmax" != "" -a "$tmax" != "0" ]
+then
+    sed -i -e '/tmax/{' \
+        -e 'c\' \
+        -e '    tmax     = $tmax' \
+        -e '}' \
+        $code_ifile.in
+fi
+
+# Dump qsub configuration file
+
+cat > go.franklin <<QSUB
+#PBS -A mp202
+#PBS -N RFX_benchmark
+#PBS -q $queue
+#PBS -l mppwidth=$np
+#PBS -l walltime=$wc
+#PBS -j oe
+#PBS -e $inputfile.qsub
+#PBS -m abe
+#PBS -S /bin/bash
+
+cd \$PBS_O_WORKDIR
+aprun -n $np ./pixie3d.petsc.x > $inputfile.log 2>&1
+
+tar zcf $inputfile.tar.gz *
+rm record.bin*
+QSUB
+
+# Execute
+
+qsub go.franklin
