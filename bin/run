@@ -7,7 +7,7 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
+run [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
         [-equ file] [-eig file] -- inputfile [options]
 
 where:
@@ -120,9 +120,9 @@ if [ "$executable" = "" ]
 then
   if [ "$parallel" = "t" ]
   then
-    executable=`ls pixie3d.petsc.x 2>/dev/null`
+    executable=`ls $code_ifile.petsc.x 2>/dev/null`
   else
-    executable=`ls pixie3d.x 2>/dev/null`
+    executable=`ls $code_ifile.x 2>/dev/null`
   fi
 else
   executable=`ls $executable 2>/dev/null`

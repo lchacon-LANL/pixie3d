@@ -16,7 +16,7 @@ where:
 	-n nodes:      indicates the number of nodes
 	-np procs:     indicates the number of processors per node
 	-wc time:      indicates wall-clock time (in format hr:min:sec)
-	-x executable: indicates the executable file (default is 't3d.x')
+	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
 	-rtgz file:    indicates tarball file to use to restart (default is 
@@ -289,7 +289,7 @@ then
      echo "==> Storing tarball..."
   fi
 
-  tar zcf $inputfile.tar.gz $inputfile* record* t3d.in $executable go.pbs *.log
+  tar zcf $inputfile.tar.gz $inputfile* record* $code_ifile.in $executable go.pbs *.log
   rm record*
 
   if [ -d "$path/tarfiles" ]; then
