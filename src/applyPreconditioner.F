@@ -348,7 +348,7 @@ c     Store velocity solution in array format --> dv_cnv
         dv0cnv = 0d0
 
         call fillArray(igrid,IVX,3,x(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .                ,bc_order,arr_cov=dv_cov,is_vec=.true.
+     .                ,order_bc,arr_cov=dv_cov,is_vec=.true.
      .                ,is_cnv=.true.,arr0=dv0cnv)
 
 c     Correct rx to find Deltax (correction for rho, B, T)
@@ -614,34 +614,31 @@ cc           stop
 
 c       Temperature
 
-cc        if ((gamma /= 1d0) .or. solve_prs) then
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for T...'
+        endif
 
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving for T...'
-          endif
+        !Correct for electron velocity/source contribution
+        call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid,.true.)
 
-          !Correct for electron velocity/source contribution
-          call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid,.true.)
-
-          call cSolver(1,nn,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
-     .              ,igrid,iout,guess,tmp_mtvc,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = tmp_diag
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-     .              )
-cc        endif
+        call cSolver(1,nn,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+     .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = tmp_diag
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_coarse_grid_size = mg_coarse_size
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            )
 
 c     End program
 
@@ -1206,13 +1203,13 @@ c Allocate variables
 c Find dB* (w/ BCs)
 
       call fillArray(igrid,IBX,3,xxx(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
-     .           ,bc_order,arr_cov=db_cov,is_vec=.true.,is_cnv=.true.)
+     .           ,order_bc,arr_cov=db_cov,is_vec=.true.,is_cnv=.true.)
 
 #else
 c Find dA* (w/ BCs)
 
       call fillArray(igrid,IAX,3,xxx(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
-     .              ,bc_order,is_vec=.true.,is_cnv=.false.)
+     .              ,order_bc,is_vec=.true.,is_cnv=.false.)
 
 c Find dB* from dA*
 
@@ -1221,13 +1218,13 @@ c Find dB* from dA*
 
       !Find covariant components of dj with BCs
       call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
-     .          ,igrid,igrid,igrid,iorder=bc_order)
+     .          ,igrid,igrid,igrid,iorder=order_bc)
 #endif
 
 c Find dv (w/ Bcs)
 
       call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .              ,bc_order,is_vec=.true.,is_cnv=.true.,arr0=vzeros)
+     .              ,order_bc,is_vec=.true.,is_cnv=.true.,arr0=vzeros)
 
 c Find dj* from dB*
 
@@ -1237,14 +1234,14 @@ c Find dj* from dB*
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=bc_order)
+     .          ,igrid,igrid,igrid,iorder=order_bc)
 
 c Find drho, dtmp arrays with BCs
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),bc_order)
+     .              ,bcs(:,IRHO:IRHO),order_bc)
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dtmp
-     .              ,bcs(:,ITMP:ITMP),bc_order)
+     .              ,bcs(:,ITMP:ITMP),order_bc)
       dtmp = dtmp/a_p !Transform from pressure to temperature
 
 c Find dp_cnv
@@ -1321,20 +1318,10 @@ c Find rhs_v'
      .                     ,vol=.false.)
               endif
 
-cc              if (.not.solve_prs) then
-cc                cnv = cnv
-cc     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                     ,drho(:,:,:,1),tmp0(:,:,:,1),nc_eom_gp
-cc     .                     ,vol=.false.)
-cc     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
-cc     .                     ,vol=.false.)
-cc              else
-                cnv = cnv
+              cnv = cnv
      .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                     ,rho0(:,:,:,1),dtmp(:,:,:,1),nc_eom_gp
      .                     ,vol=.false.)
-cc              endif
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz') then
@@ -1453,7 +1440,7 @@ c Begin program
 c Find rhs_v
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),bc_order)
+     .              ,bcs(:,IRHO:IRHO),order_bc)
 
       if (.not.nc_eom_v) then
 
@@ -1561,10 +1548,10 @@ c Auxiliary variables
       Eh0  => gEh0_cov%grid(igrid)%array
 
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),bc_order)
+     .              ,bcs(:,IRHO:IRHO),order_bc)
 
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),bc_order)
+     .              ,bcs(:,ITMP:ITMP),order_bc)
 
       dpe  = rho0*dpe + tmp0*drho
 
@@ -1754,7 +1741,7 @@ c Begin program
 c Find dB
 
       call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
-     .              ,bc_order,arr_cov=db_cov,is_vec=.true.
+     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
      .              ,is_cnv=.true.)
 
 c Find dj* from dB*
@@ -1764,7 +1751,7 @@ c Find dj* from dB*
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=bc_order)
+     .          ,igrid,igrid,igrid,iorder=order_bc)
 
 c Find dE* (electric field update)
 
@@ -1821,7 +1808,7 @@ cc      bcnd(:,2) = bcond
 cc      bcnd(:,3) = bcond
 cc
 cc      call setBC(IJX,3,nx,ny,nz,de_cnv,de_cov,vzeros,bcnd
-cc     .          ,igrid,igrid,igrid,iorder=bc_order
+cc     .          ,igrid,igrid,igrid,iorder=order_bc
 cc     .          ,is_cnv=.false.)
 
 c Find correction
@@ -1897,7 +1884,7 @@ c Begin program
 c Store velocity RHS in array format w/ BCs
 
       call fillArray(igrid,IVX,3,yyy(:,IVX:IVZ),dgv_cnv,bcs(:,IVX:IVZ)
-     .              ,bc_order,arr_cov=dgv_cov,is_vec=.true.
+     .              ,order_bc,arr_cov=dgv_cov,is_vec=.true.
      .              ,is_cnv=.true.)
 
 c Divide by density and volume
@@ -2036,7 +2023,7 @@ c Begin program
 c Find dB (w/ BCs)
 
       call fillArray(igrid,IBX,3,xb,db_cnv,bcs(:,IBX:IBZ)
-     .              ,bc_order,is_vec=.true.,is_cnv=.true.
+     .              ,order_bc,is_vec=.true.,is_cnv=.true.
      .              ,arr_cov=db_cov)
 
 c Solve dB*=-curl(lap^(-1)(curl(dB)))

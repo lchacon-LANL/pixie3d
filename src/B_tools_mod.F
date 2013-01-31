@@ -6,7 +6,7 @@ c ####################################################################
 
         use precond_variables
 
-        use local_BCS_variables, ONLY: bc_order
+        use local_BCS_variables, ONLY: order_bc
 
         use app_iosetup
 
@@ -744,7 +744,7 @@ c     Find new dB (with BCs)
       if (wbcs) then
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
      .              ,icomp=(/IBX/),is_vec=.true.
-     .              ,is_cnv=.true.,iorder=bc_order)
+     .              ,is_cnv=.true.,iorder=order_bc)
       endif
 
 c     Diagnostics

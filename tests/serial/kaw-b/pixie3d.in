@@ -50,7 +50,7 @@
     solenoidal = t
     nc_eom_f   = f
     nc_eom_v   = f
-    solve_prs  = f
+    use_p_eom  = f
 
     advect     = 2
  /

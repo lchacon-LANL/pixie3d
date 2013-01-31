@@ -61,7 +61,7 @@
     nc_eom_v = f
     adiabatic= t
     solve_rho= t
-    solve_prs= t
+    use_p_eom= t
     source   = t
 
     debug    = f

@@ -32,12 +32,12 @@ c ######################################################################
      .                             ,nc_eom_jxb
      .                             ,nc_eom_gp
      .                             ,solve_rho
-     .                             ,solve_prs
+     .                             ,use_p_eom
      .                             ,advect
      .                             ,v_advect
      .                             ,adiabatic
 
-        use local_BCS_variables, ONLY: bc_order,set_vec_symm_bc
+        use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 
         integer :: ntotd2p,nwt_iter
         logical :: cartsn,covariant,to_cartsn,to_cnv
@@ -507,7 +507,7 @@ c     Begin program
 
         igrid = igx
 
-        order = bc_order
+        order = order_bc
 cc        order = 0
 
 cc        call setASMflag(.false.)
@@ -578,11 +578,7 @@ c     Store temperature (w/ BCs)
 c     Store pressure (w/ BCs)
 
         !pressure (w/ BCs)
-cc        if (solve_prs) then
-cc          gp0%grid(igrid)%array(:,:,:,1) = a_p*tmp
-cc        else
-          gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
-cc        endif
+        gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
 
         call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
 
@@ -1865,7 +1861,7 @@ cc      return
 c     Find drho
 
       call fillArray(igrid,IRHO,1,x(:,IRHO:IRHO),drho,bcs(:,IRHO:IRHO)
-     .              ,bc_order)
+     .              ,order_bc)
 
 c     Find dB
 
@@ -1874,7 +1870,7 @@ c     Find dB
       allocate (da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
       call fillArray(igrid,IAX,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
-     .              ,bc_order,is_vec=.true.,is_cnv=.false.)
+     .              ,order_bc,is_vec=.true.,is_cnv=.false.)
 
       !Find dB
       db_cnv = curl(igrid,da_cov)
@@ -1890,7 +1886,7 @@ cc     .                    ,db_cov(:,:,:,3)
 cc     .                    ,'cnv','cov')
 #else
       call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
-     .              ,bc_order,arr_cov=db_cov,is_vec=.true.
+     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
      .              ,is_cnv=.true.)
 #endif
 
@@ -1901,7 +1897,7 @@ c     Find dj* from dB*
 
       !Find covariant components of dj with BCs
       call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=bc_order)
+     .          ,igrid,igrid,igrid,iorder=order_bc)
 
 c     Find Joule heating correction
 
@@ -2167,6 +2163,6 @@ c ###################################################################
 
         use precond_variables
 
-        use local_BCS_variables, ONLY: bc_order,nc_eom_v
+        use local_BCS_variables, ONLY: order_bc,nc_eom_v
 
       end module matvec

@@ -70,7 +70,7 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
-     .                   ,solve_prs,ion_hall,fake_ve,slava,noise
+     .                   ,use_p_eom,ion_hall,fake_ve,slava,noise
      .                   ,noise_lev,lagrangian
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
@@ -93,7 +93,7 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,solve_prs,advect,sym_st,ion_hall
+     .                   ,solve_rho,use_p_eom,advect,sym_st,ion_hall
      .                   ,fake_ve,slava,noise,noise_lev,v_advect
 
       !Temporal discretization
@@ -255,10 +255,9 @@ c Set defaults
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solve continuity equation or not
-      solve_prs  = .false.     ! Whether we solve for electron pressure or temperature
+      use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
-cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
 
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
@@ -275,7 +274,7 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
                                !   (if zero, determine from advect below)
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
-      fake_ve    = .true.      ! Whether to use fake electron velocity in PIe in EOM
+      fake_ve    = .false.     ! Whether to use fake electron velocity in PIe in EOM
 
       slava      = .false.     ! Whether to use Slava Lukin's Hall MHD implementation
       noise      = .false.     ! Whether to add white noise to EOM

@@ -39,6 +39,7 @@ c ######################################################################
      .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
      .            ,adiabatic  =.false.  !Whether to use adiabatic EOS (no heat sources)
      .            ,solve_rho  =.true.   !Whether we solve for rho or use rho=1
+     .            ,use_p_eom  =.false.  !Whether we use pressure or temperature to drive EOM
 
         real(8) :: noise_lev
 
@@ -3683,7 +3684,6 @@ cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
      .            ,nc_eom_gp =.false.   !Whether we use grad(p) instead of conserv. form
      .            ,nc_eom_v  =.false.   !Whether we use v.grad(v) instead of conserv. form
      .            ,sym_st    =.false.   !Whether to use symmetric stress tensor
-     .            ,solve_prs =.false.   !Whether we solve for pressure or temperature
 
         logical :: save_tn
 
@@ -4511,7 +4511,7 @@ c     Begin program
           dyy = 2*grid_params%dyh(jg)
           dzz = 2*grid_params%dzh(kg)
 
-          if (solve_prs) then  !grad(p)
+          if (use_p_eom) then  !grad(p)
             cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
 
             cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
@@ -4606,7 +4606,7 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
 
-        if (solve_prs) then    !grad(p)
+        if (use_p_eom) then    !grad(p)
           ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
      .                   +sc1(ip,j,k)*sc2(ip,j,k))
         else                   !grad(nT) with ZIP
@@ -4677,7 +4677,7 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        if (solve_prs) then    !grad(p)
+        if (use_p_eom) then    !grad(p)
           ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
      .                   +sc1(i,jp,k)*sc2(i,jp,k))
         else                   !grad(nT) with ZIP
@@ -4746,7 +4746,7 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        if (solve_prs) then    !grad(p)
+        if (use_p_eom) then    !grad(p)
           ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
      .                   +sc1(i,j,kp)*sc2(i,j,kp))
         else                   !grad(nT) with ZIP
@@ -5284,7 +5284,7 @@ c     Resistive term
 
       if (eta > 0d0) then
 
-cc      if (solve_prs) then
+cc      if (use_p_eom) then
 cc        pe = tmp
 cc      else
 cc        pe = rho*tmp

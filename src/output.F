@@ -182,7 +182,8 @@ c     Initial message
       write (*,*) '******    PIXIE3D Extended MHD code, V. '// 
      $                                       trim(release) //'   ******'
       write (*,*) '******         Developer: L. Chacon           ******'
-      write (*,*) '******  Oak Ridge National Laboratory (08-)   ******'
+      write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
+      write (*,*) '******  Oak Ridge National Laboratory (08-12) ******'
       write (*,*) '****** Los Alamos National Laboratory (04-08) ******'
       write (*,*) '******             LA-CC 07-005               ******'
       write (*,*) '****************************************************'
@@ -215,7 +216,7 @@ c     Warnings
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
       if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
       if (adiabatic) write (*,*) 'Using polytropic EOS'
-cc      if (solve_prs) write (*,*) 'Solving for pressure instead of temp'
+cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
 
       write (*,*) '****************** NOTICES ******************'

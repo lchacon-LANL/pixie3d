@@ -1,5 +1,5 @@
  &datin
-    solve_prs = t
+    use_p_eom = t
 
     ilevel   = 0
     test     = t

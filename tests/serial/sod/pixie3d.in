@@ -54,7 +54,7 @@
 
     advect    = 4
     solve_rho = t
-    solve_prs = t 
+    use_p_eom = t 
     adiabatic = t
     nc_eom_gp = t
     nc_eom_v  = f

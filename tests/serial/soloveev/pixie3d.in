@@ -39,7 +39,7 @@
     nc_eom_v   = f
 
     solve_rho  = f
-    solve_prs  = t
+    use_p_eom  = t
  /
 
  &ts

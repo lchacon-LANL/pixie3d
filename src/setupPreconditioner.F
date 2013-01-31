@@ -45,7 +45,7 @@ c Setup PC parameters
 c Impose BCs
 
 #if !defined(samrai)
-      call applyBC(igx,varray)
+      call applyBC(igx,varray,bc_order=order_bc)
 #else
       write (*,*) 'SAMRAI version of PC not ready'
       stop

@@ -19,7 +19,7 @@ c     -----------------------------------------------------------------
 
       use transport_params
 
-cc      use nlfunction_setup, ONLY:solve_prs
+cc      use nlfunction_setup, ONLY:use_p_eom
 
       implicit none
 
@@ -343,7 +343,7 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
               varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)
      .             - cs2*xi/freq !For total pressure pressure
-cc              if (solve_prs) then
+cc              if (use_p_eom) then
 cc                varr%array_var(ITMP)%array(i,j,k) =
 cc     .               varr%array_var(ITMP)%array(i,j,k)
 cc     .             - cs2*xi/(a_p*freq) !For e pressure
