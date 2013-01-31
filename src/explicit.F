@@ -37,13 +37,13 @@ c Local variables
 c Interfaces
 
       INTERFACE
-        subroutine evaluateNonlinearFunction(igr,varray,fi)
+        subroutine evaluate_NLF(igr,varray,fi)
         use parameters
         use variable_setup
         integer :: igr
         real(8) :: fi(ntotd)
         type(var_array),pointer :: varray
-        end subroutine evaluateNonlinearFunction
+        end subroutine evaluate_NLF
       END INTERFACE
 
 c Begin program
@@ -78,7 +78,7 @@ c Predictor
 
 c Corrector
 
-      call evaluateNonlinearFunction(igr,vnp,ftemp)
+      call evaluate_NLF(igr,vnp,ftemp)
 
       do k = 1,nz
         do j = 1,ny

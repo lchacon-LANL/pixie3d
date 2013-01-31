@@ -76,8 +76,8 @@ cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
 
-      call applyBCplot(igx,varray,it=itime)
-cc      call applyBC(igx,varray,it=itime)
+cc      call applyBCplot(igx,varray,it=itime)
+      call applyBC(igx,varray,it=itime)
 
 c Find perturbed quantities (u_pert = varray - u_ic)
 

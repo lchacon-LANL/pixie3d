@@ -141,11 +141,7 @@ c Label variables
       label(IVX)  = 'P^1'
       label(IVY)  = 'P^2'
       label(IVZ)  = 'P^3'
-cc      if (solve_prs) then
-        label(ITMP) = 'P_e'        
-cc      else
-cc        label(ITMP) = 'T_e'
-cc      endif
+      label(ITMP) = 'P_e'        
 
 c Define boundary conditions and dependencies
 
@@ -214,11 +210,11 @@ c     Check input
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 1d0)
      .          .or.(.not.solve_rho)
-cc     .          .or.(.not.solve_prs)
+cc     .          .or.(.not.use_p_eom)
      .          )
      .     ) then
           messg = 'Wrong input for this equilibrium. '
-cc     .          //'Check adiab, Ti/Te, solve_rho, solve_prs=F,0.0,T,T'
+cc     .          //'Check adiab, Ti/Te, solve_rho, use_p_eom=F,0.0,T,T'
      .          //'Check adiab, Ti/Te, solve_rho=F,0.0,T'
           call pstop('setEquilibrium',messg)
         endif
@@ -348,12 +344,12 @@ c     Check input
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 1d0)
      .          .or.(.not.solve_rho)
-cc     .          .or.(solve_prs)
+cc     .          .or.(use_p_eom)
      .          )
      .     ) then
 cc        if ((adiabatic).or.(a_p /= 1d0).or. (.not.solve_rho)) then
           messg = 'Wrong input for this equilibrium. '
-cc     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=F,0.,T,F'
+cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=F,0.,T,F'
      .          //'Check adiab,Ti/Te,solve_rho=F,0.,T'
           call pstop('setEquilibrium',messg)
         endif
@@ -616,11 +612,11 @@ cc        if (test
 cc     .     .and.(   (.not.adiabatic)
 cc     .          .or.(a_p /= 2d0)
 cc     .          .or.(.not.solve_rho)
-cc     .          .or.(.not.solve_prs))) then
-cc          write (*,*) 'Ti/Te,solve_rho,adiabatic,solve_prs='
-cc     .               ,temp_ratio,solve_rho,adiabatic,solve_prs
+cc     .          .or.(.not.use_p_eom))) then
+cc          write (*,*) 'Ti/Te,solve_rho,adiabatic,use_p_eom='
+cc     .               ,temp_ratio,solve_rho,adiabatic,use_p_eom
 cc          messg = 'Wrong input. '
-cc     .     //'Check Ti/Te,solve_rho,adiabatic,solve_prs = 1.0,T,T,T'
+cc     .     //'Check Ti/Te,solve_rho,adiabatic,use_p_eom = 1.0,T,T,T'
 cc          call pstop('setEquilibrium',messg)
 cc        endif
 
@@ -860,7 +856,7 @@ c     Define vector potential (in curvilinear coordinates) for initialization
 
 c     Check coordinates
 
-        if (coords /= 'car') then
+        if (coords /= 'car' .and. coords /= 'lpk') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -877,7 +873,7 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,ITMP) = 1d0/2d0  !Electron temperature
+        var(:,:,:,ITMP) = 0.5d0  !Electron temperature
 
         do k = klo,khi
           do j = jlo,jhi
@@ -1461,11 +1457,11 @@ c     Check coordinates
      .     .and.(    (a_p /= 2d0)
      .          .or. (.not.adiabatic)
      .          .or. (.not.solve_rho)
-cc     .          .or. (solve_prs)
+cc     .          .or. (use_p_eom)
      .          )
      .     ) then
           messg = 'Wrong input. '
-cc     .          //'Check adiab,Ti/Te,solve_rho,solve_prs=T,1.0,T,F'
+cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
      .          //'Check adiab,Ti/Te,solve_rho=T,1.0,T'
           call pstop('setEquilibrium',messg)
         endif
@@ -2434,7 +2430,7 @@ cc        endif
 
 c Find total pressure
 
-cc      if (solve_prs) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
+cc      if (use_p_eom) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
       var(:,:,:,ITMP) = a_p*var(:,:,:,ITMP)*var(:,:,:,IRHO)
 
 c Find momentum components
@@ -3398,7 +3394,7 @@ c     ---------------------------------------------------------------
 
         use imposeBCinterface
 
-        use local_BCS_variables, ONLY:bc_order
+        use local_BCS_variables, ONLY:order_bc
 
         use ts_setup, ONLY: vol_wgt
 
@@ -3491,8 +3487,8 @@ c     Store BC information
         bcnd = bcond
         where (bcnd == DEF) bcnd = EXT
 
-        call restrictMGArray(IRHO,1,gpsi0,bcnd,igrid,bc_order)
-        call restrictMGArray(IRHO,1,gbz0 ,bcnd,igrid,bc_order)
+        call restrictMGArray(IRHO,1,gpsi0,bcnd,igrid,order_bc)
+        call restrictMGArray(IRHO,1,gbz0 ,bcnd,igrid,order_bc)
 
 c     Gather solution
 
@@ -3713,7 +3709,7 @@ c     Begin program
         where (bcnd == DEF) bcnd = EQU
         call setBC(IRHO,nx,ny,nz,psi
      .            ,gpsi0%grid(igrid)%array(:,:,:,1)
-     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
+     .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
 c     Phase out psi BC
 
@@ -3922,7 +3918,7 @@ c     Impose BCs
         bcnd = bcond
         where (bcnd == DEF) bcnd = EXT
         call setBC(IRHO,nx,ny,nz,ff,zeros,bcnd,igrid,igrid,igrid
-     .            ,iorder=bc_order)
+     .            ,iorder=order_bc)
 
 c     Free up orbit integral work space
 
@@ -4013,7 +4009,7 @@ c       Solve Helical Grad-Shafranov equation (find psi at cell centers)
         where (bcnd == DEF) bcnd = EQU
         call setBC(IRHO,nx,ny,nz,psi_new
      .            ,gpsi0%grid(igrid)%array(:,:,:,1)
-     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
+     .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
       end function solve_hel_GS
 
@@ -4081,7 +4077,7 @@ cc        where (bcnd == DEF) bcnd = DIR
         III(1:nx,1:ny,1:nz) = reshape(IIv,shape(III(1:nx,1:ny,1:nz)))
 
         call setBC(IRHO,nx,ny,nz,III,gbz0%grid(igrid)%array(:,:,:,1)
-     .            ,bcnd,igrid,igrid,igrid,iorder=bc_order)
+     .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
         !Renormalize III so that Bz(r=0)=1d0
         if (isBdry(1,igrid,1)) then
@@ -4541,7 +4537,7 @@ c     ---------------------------------------------------------------
 
         use nlfunction_setup, ONLY: res_rfx,eta
 
-        use local_BCS_variables, ONLY: bc_order
+        use local_BCS_variables, ONLY: order_bc
 
         implicit none
 
@@ -4741,7 +4737,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
           call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
 
           call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-     .              ,iorder=bc_order)
+     .              ,iorder=order_bc)
 
           !Perform integral of III (at half-mesh on global grid in radius)
 
@@ -5195,7 +5191,7 @@ cc        use transport_params
 cc
 cc        use nlfunction_setup, ONLY: res_rfx,eta
 cc
-cc        use local_BCS_variables, ONLY: bc_order
+cc        use local_BCS_variables, ONLY: order_bc
 cc
 cc        implicit none
 cc
@@ -5409,7 +5405,7 @@ cc          !Map to array (w BCs)
 cc          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
 cc
 cc          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-cc     .              ,iorder=bc_order)
+cc     .              ,iorder=order_bc)
 cc
 cc          !Gather global psi in radius
 cc#if defined(petsc)
@@ -7066,7 +7062,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use local_BCS_variables, ONLY: bc_order
+      use local_BCS_variables, ONLY: order_bc
 
       use imposeBCinterface
 
@@ -7146,7 +7142,7 @@ cc      where (bcnd == DEF) bcnd = -IFC
       a_cnv = XformVector(igrid,a_cov,.true.)
       call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .          ,igrid,igrid,igrid,is_cnv=.false.
-     .          ,iorder=bc_order)
+     .          ,iorder=order_bc)
 
 c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
 

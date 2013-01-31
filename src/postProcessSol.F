@@ -49,7 +49,7 @@ c Begin program
 
 c Postprocess adiabatic equation for density update
 
-cc      if (solve_prs .and. (.not.solve_rho)) then
+cc      if (use_p_eom .and. (.not.solve_rho)) then
 cc        if (my_rank == 0) write (*,*) 'Postprocessing density'
 cccc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
 cccc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)

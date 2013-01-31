@@ -436,6 +436,8 @@ c####################################################################
      .                             ,save_tn,slava,pinch_flow
      .                             ,res_ijk,vis_ijk
 
+        integer :: order_bc=1
+
       contains
 
 c     defineDepVariables
@@ -579,7 +581,7 @@ c     Default boundary conditions
 
       bcsq = bbcs(:,ITMP)
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-cc      if (gamma /= 1d0 .and. (.not.solve_prs)) then
+cc      if (gamma /= 1d0 .and. (.not.use_p_eom)) then
 cc        where (bcsq == DEF) bcsq = DIR
 cc      else
 cc        where (bcsq == DEF) bcsq = NEU !To allow isothermal case

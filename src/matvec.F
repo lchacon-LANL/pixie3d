@@ -63,7 +63,7 @@ cc      xarr = 0d0
       call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
      .                       ,.false.)
 
-      order = bc_order
+      order = order_bc
       if (    abs(bcnd(1,1)) == NEU
      .    .or.abs(bcnd(2,1)) == NEU
      .    .or.abs(bcnd(3,1)) == NEU
@@ -168,7 +168,7 @@ cc      xarr = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order,arr0=bz0)
+     .            ,iorder=order_bc,arr0=bz0)
 
 c Calculate matrix-vector product
 
@@ -263,7 +263,7 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order,arr0=psi0)
+     .            ,iorder=order_bc,arr0=psi0)
 
 c Calculate matrix-vector product
 
@@ -382,7 +382,7 @@ cc      xarr = 0d0
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=bc_order)
+     .            ,iorder=order_bc)
 
 c Calculate matrix-vector product
 
@@ -632,7 +632,7 @@ c Map vector x to array for processing
 cc      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dprs,bcnd
-     .            ,icomp=(/ITMP/),iorder=bc_order)
+     .            ,icomp=(/ITMP/),iorder=order_bc)
 
 c Map velocity components
 
@@ -643,13 +643,8 @@ c Map velocity components
 
 c Calculate matrix-vector product
 
-cc      if (solve_prs) then
-        gm = gamma
-        sgn =-1d0
-cc      else
-cc        gm = gamma - 1d0
-cc        sgn = 1d0
-cc      endif
+      gm = gamma
+      sgn =-1d0
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -663,9 +658,12 @@ cc      endif
             upwind = gm*flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                           ,v0_cnv,dprs(:,:,:,1),1
      .                           ,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .             - sgn*(gm-1.)
+cc     .             - sgn*(gm-1.)
+cc     .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+cc     .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
+     .             +(gm-1.)
      .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
+     .                           ,v0_cnv,dprs(:,:,:,1),1,reverse=.true.)
 
             if (vol_wgt) then
               dvol = gmetric%grid(igrid)%dlvol(i,j,k)
@@ -674,7 +672,7 @@ cc      endif
             endif
 
             if (chi > 0d0) then
-              if (solve_prs) then
+              if (use_p_eom) then
                 lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                         ,dprs(:,:,:,1))
               else
@@ -779,7 +777,7 @@ c Map vector x to array for processing
 cc      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
 
       call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
-     .            ,icomp=(/IRHO/),iorder=bc_order)
+     .            ,icomp=(/IRHO/),iorder=order_bc)
 
 c Map velocity components
 
@@ -1411,7 +1409,7 @@ c Map vector x to array for processing
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
      .            ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
+     .            ,result_is_vec=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1684,7 +1682,7 @@ c Map vector x to array for processing
      .            ,bcnd,icomp=(/IBX,IJX/),is_cnv=is_cnv  !Check icomp!!!
 cc     .            ,is_vec=.not.si_car,result_is_vec=.true.
      .            ,is_vec=.true.,result_is_vec=.true.
-     .            ,iorder=bc_order)
+     .            ,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1960,7 +1958,7 @@ c Map vector x to array for processing
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
      .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
+     .            ,result_is_vec=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -2217,7 +2215,7 @@ c Map vector x to array for processing
 
       call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du,bcnd
      .            ,icomp=(/IAX,IJX/),is_cnv=.false.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov)
+     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov)
 
 cc      da_cov => du(:,:,:,1:3)
 cc      dj_cnv => du(:,:,:,4:6)
@@ -2227,12 +2225,12 @@ cc      dj_cnv => du(:,:,:,4:6)
 cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,da_cnv,bcnd(:,1:3)
 cccc     .            ,icomp=(/IAX/),is_cnv=.false.,is_vec=.not.si_car
 cc     .            ,icomp=(/IAX/),is_cnv=.false.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=da_cov)
+cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=da_cov)
 cc
 cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcnd(:,4:6)
 cccc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.not.si_car
 cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=das)
+cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=das)
 cc
 cc      da_cov = du(:,:,:,1:3)
 cc      dj_cnv = du(:,:,:,4:6)
@@ -2270,7 +2268,7 @@ cc      das(:,:,:,3) = da_cov(:,:,:,3) + de**2*das(:,:,:,3)/rho0(:,:,:,1)  !da_s
       call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cov,bcs(:,IBX:IBZ)
 cc     .            ,icomp=(/IBX/),is_cnv=.false.,is_vec=.not.si_car
      .            ,icomp=(/IBX/),is_cnv=.false.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
+     .            ,result_is_vec=.true.,iorder=order_bc)
 
 c Calculate matrix-vector product
 
@@ -2695,11 +2693,7 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
      .        +dv(i,jp,km,2)-dv(i,jm,km,2))/grid_params%dyh(jg)*0.25
      .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/grid_params%dz(kg-1)
 
-cc      if (solve_rho.or.solve_prs) then
-        gamm = gamma
-cc      else
-cc        gamm = gamma - 1
-cc      endif
+      gamm = gamma
 
       flxip = flxip
      .      + gamm*(pp0(i,j,k,1)+pp0(ip,j,k,1))*divip/(jac+jacip)
@@ -3198,7 +3192,7 @@ cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
       else
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov
+     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dv_cov
      .            ,arr0=v0)
       endif
 
@@ -3400,7 +3394,7 @@ c BCs
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
      .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=du_cov
+cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
      .            ,result_is_vec=.true.,iorder=1,arr_cov=du_cov
      .            ,arr0=v0)
 
@@ -3745,7 +3739,7 @@ cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
         call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dv_cov)
       endif
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
@@ -4185,7 +4179,7 @@ cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dv_cov)
 
       !M_star*dv array
       dzz = 0d0
@@ -4198,7 +4192,7 @@ cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
+     .            ,result_is_vec=.true.,iorder=order_bc)
 
       dzp(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
       dzp(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
@@ -4375,7 +4369,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order)
+     .            ,result_is_vec=.true.,iorder=order_bc)
 
 c Calculate matrix-vector product
 
@@ -4525,7 +4519,7 @@ cc      where (bcnd == DIR) bcnd = NEU
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
 cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
      .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order,arr_cov=dv_cov)
+     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 

@@ -156,7 +156,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 c Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 cc
-cc      if ((gamma == 1d0) .and. (.not.solve_prs)) then
+cc      if ((gamma == 1d0) .and. (.not.use_p_eom)) then
 cc
 cc        ff(ITMP) = 0d0
 cc
@@ -180,11 +180,11 @@ cc     .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
 cc     .                   ,symmetric=.true.,limited=.false.,vol=.false.)
 cc        endif
 cc
-cc        if (.not.solve_prs) heat_flx = heat_flx/rho(i,j,k)
+cc        if (.not.use_p_eom) heat_flx = heat_flx/rho(i,j,k)
 cc
 ccc       Advection
 cc
-cc        if (solve_prs) then
+cc        if (use_p_eom) then
 cc          gm = gamma
 cc          sgn =-1d0
 cc        else
@@ -225,7 +225,7 @@ cc     .                                ,h_eta,vecnv ,vecnv)
 cc            endif
 cc          endif
 cc
-cc          if (.not.solve_prs) heat_src = heat_src/rho(i,j,k)
+cc          if (.not.use_p_eom) heat_src = heat_src/rho(i,j,k)
 cc
 cc          if (heat_src < 0d0) then
 cc            write (*,*) 'Negative heat source'
@@ -245,7 +245,7 @@ c       Heat flux
         heat_flx = 0d0
 
         if (chi /= 0d0) then
-          if (solve_prs) then
+          if (use_p_eom) then
             heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,prs
 cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
      .                            )                  !chi_perp=chi
@@ -498,7 +498,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (solve_prs) then
+              if (use_p_eom) then
                 heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,tmp)
@@ -638,7 +638,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (solve_prs) then
+              if (use_p_eom) then
                 heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,tmp)
@@ -777,7 +777,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (solve_prs) then
+              if (use_p_eom) then
                 heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,tmp)
