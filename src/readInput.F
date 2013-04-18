@@ -70,8 +70,8 @@ c Namelists
      .                   ,eigen,eig_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
-     .                   ,use_p_eom,ion_hall,fake_ve,slava,noise
-     .                   ,noise_lev,lagrangian
+     .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
+     .                   ,noise,noise_lev,lagrangian
      .                ,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -93,8 +93,9 @@ c Namelists
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
-     .                   ,solve_rho,use_p_eom,advect,sym_st,ion_hall
-     .                   ,fake_ve,slava,noise,noise_lev,v_advect
+     .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
+     .                   ,ion_hall,fake_ve,slava,noise,noise_lev
+     .                   ,v_advect
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -233,7 +234,7 @@ c Set defaults
       bb_nu    = 0d0           ! Coefficient for nu profile
       cc_nu    = 1d0           ! Coefficient for nu profile
 
-      heta     = 0d0           ! Coefficient for hyper-resistivity
+      heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
@@ -256,6 +257,7 @@ c Set defaults
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solve continuity equation or not
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
+      use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
 
@@ -477,7 +479,7 @@ cc      if (di == 0d0) heta = 0d0
 
       if (cnfactor == 1d0) ion_hall = .false.
 
-      if (.not.ion_hall) fake_ve = .false.
+cc      if (.not.ion_hall) fake_ve = .false.
 
       if (ion_hall) slava = .false.
 

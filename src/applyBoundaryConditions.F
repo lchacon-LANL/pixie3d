@@ -226,7 +226,7 @@ cc     .            ,u_0   %array_var(ITMP)%array
 cc     .            ,varray%array_var(ITMP)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
 
-cc        call XferBCs(prs*jac,varray%array_var(ITMP)%array,.false.)
+cc        call XferBCs(rho*tmp*jac,varray%array_var(ITMP)%array,.false.)
 
       end select
 
@@ -382,6 +382,7 @@ c       Allocate auxiliary variables in local domain
      .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
      .              ,iorder=2)
+cc     .              ,iorder=order)
 #endif
 
         case(IBCNV_0)
@@ -400,7 +401,7 @@ cc          call XformVector_BC(igr,bcnv_0,bcov_0,.false.)
 c       Velocity BC
 
           if (pinch_flow) then
-            prs0 = a_p*rho_0*tmp_0
+            prs0 = rho_0*tmp_0
 
             call ExB_flow_bc(igr,nnx,nny,nnz,bcnv_0,prs0,eeta_0,v0)
 
@@ -461,9 +462,7 @@ cc          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
 c       Velocity BC
 
           if (pinch_flow) then
-
-            prs1 = a_p*rho*tmp
-
+            prs1 = rho*tmp
             call ExB_flow_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
           else
             call XferBCs(vcnv_0,v0,.true.)
@@ -487,7 +486,10 @@ c       Vector Pot. BC
 
           call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+cc     .              ,iorder=2,is_cnv=vaux%vec_list(IACOV)%cnv)
      .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+
+cc          write (*,*) 'DIAG -- applyBC'
 
         case(IACNV)  !Done when computing acov
 
@@ -499,15 +501,11 @@ cc          call XformVector_BC(igr,acov,acnv,.true.)
 c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-
-            prs1 = a_p*rho*tmp
-
+            prs1 = rho*tmp
             call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
      .                     ,first_order=.true.)
           else
             call XferBCs(jcnv_0,v0,.true.)
-cc            call XferBCs(jcov_0,v0,.true.)
-cc            v0 = 0d0
           endif
 
           call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0
@@ -523,15 +521,11 @@ cc          call XformVector_BC(igr,bcnv,bcov,.false.)
 c       Current BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-
-            prs1 = a_p*rho*tmp
-
+            prs1 = rho*tmp
             call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
      .                     ,first_order=.true.)
           else
             call XferBCs(jcnv_0,v0,.true.)
-cc            call XferBCs(jcov_0,v0,.true.)
-cc            v0 = 0d0
           endif
 
           call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0
@@ -546,11 +540,11 @@ cc          call XformVector_BC(igr,jcnv,jcov,.false.)
 
 c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
 
-cc          where (rho /= 0d0) 
+          where (rho /= 0d0) 
             vecnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho
             vecnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho
             vecnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho
-cc          end where
+          end where
 
         case(IVECOV)
 
@@ -558,8 +552,25 @@ cc          call XformVector_BC(igr,vecnv,vecov,.false.)
 
         case(IVEFCNV)
 
-c       Fake electron velocity BC: ve=v-di*j*/rho with j*=-dt*curl(curl(E_fake))
+c       Fake electron velocity BC
 
+#if defined(vec_pot)
+          !BCs on j=curl(curl(A))
+          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+            prs1 = rho*tmp
+            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
+     .                     ,first_order=.true.)
+          else
+            call XferBCs(jcnv_0,v0,.true.)
+          endif
+
+          bcnd = vaux%vec_list(IVEFCNV)%bconds
+          vdum = XformVector(igr,vefcnv,.false.)
+          call setBC(IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
+     .              ,igr,igr,igr,iorder=order
+     .              ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
+#else
+          !BCs on j*=-dt*curl(curl(E_fake))
           bcnd = vaux%vec_list(IVEFCNV)%bconds
           vdum = XformVector(igr,vefcnv,.false.)
           call setBC(IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
@@ -573,6 +584,7 @@ cc          vefcnv = vefcnv + jcnv_n
           vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
           vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
           vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
+#endif
 
         case(IDIVPI)
 
@@ -706,7 +718,7 @@ c Select variable
 
           where (u_0%array_var(IRHO)%array /= 0d0)
             tmp_0 = u_0%array_var(ITMP)%array
-     .             /u_0%array_var(IRHO)%array/a_p
+     .             /u_0%array_var(IRHO)%array
           end where
 
         case(IETA_0)
@@ -723,7 +735,7 @@ c       Resistivity at initial time
 
           where (varray%array_var(IRHO)%array /= 0d0)
             tmp = varray%array_var(ITMP)%array
-     .           /varray%array_var(IRHO)%array/a_p
+     .           /varray%array_var(IRHO)%array
           end where
 
         case(INU)
@@ -937,8 +949,11 @@ c       Magnetic field BC (with fixed current at boundary)
 
         case(IJCNV)
 
+c$$$#if defined(vec_pot)
+c$$$          jcnv = curlcurl(igr,acnv)
+c$$$#else
           jcnv = curl(igr,bcov)
-
+c$$$#endif
         case(IVECNV)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
@@ -957,6 +972,12 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
         case(IVEFCNV)
 
+#if defined(vec_pot)
+c       Fake electron velocity: compute j=curl(curl(A))
+cc          vefcnv = curlcurl(igr,acnv)
+          v0 =-veclap_cov(igr,acov)
+          vefcnv = XformVector(igr,v0,.true.)
+#else
 c       Fake electron velocity: find -dt*curl(curl(E_fake))
 
           if (save_tn) then !Set dt=0 at time t=t_n
@@ -1023,6 +1044,7 @@ cc              enddo
 cc            enddo
 cc          enddo
 c old TM Hall performance results
+#endif
 
         case(IDIVPI)
 
@@ -1144,7 +1166,7 @@ c Select variable
 
         case(ITMP_0)
 
-          u_0%array_var(ITMP)%array = a_p*rho_0*tmp_0*jac
+          u_0%array_var(ITMP)%array = rho_0*tmp_0*jac
 
         case(IETA_0)
 
@@ -1164,7 +1186,7 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)
 
-          varray%array_var(ITMP)%array = a_p*rho*tmp*jac
+          varray%array_var(ITMP)%array = rho*tmp*jac
 
         case(INU)
 
@@ -1332,8 +1354,19 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
         case(IVEFCNV)
 
-c       Fake electron velocity: 
+c       Fake electron velocity
 
+#if defined(vec_pot)
+cc          write (*,*) 'DIAG -- applyBC'
+          !Compute ve = v-di*curl(curl(A))/rho
+cc          vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
+cc          vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
+cc          vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
+          vefcnv(:,:,:,1) = -di*vefcnv(:,:,:,1)/rho
+          vefcnv(:,:,:,2) = -di*vefcnv(:,:,:,2)/rho
+          vefcnv(:,:,:,3) = -di*vefcnv(:,:,:,3)/rho
+cc          vefcnv = vecnv
+#else
           !Comment out for old TM Hall performance results
           vefcnv = vefcnv + jcnv_0
 cc          vefcnv = vefcnv + jcnv_n
@@ -1341,6 +1374,7 @@ cc          vefcnv = vefcnv + jcnv_n
           vefcnv(:,:,:,1) = vcnv(:,:,:,1)-di*vefcnv(:,:,:,1)/rho
           vefcnv(:,:,:,2) = vcnv(:,:,:,2)-di*vefcnv(:,:,:,2)/rho
           vefcnv(:,:,:,3) = vcnv(:,:,:,3)-di*vefcnv(:,:,:,3)/rho
+#endif
 
         case(IDIVPI)
 
@@ -1521,10 +1555,10 @@ c     Local variables
 
 c     Begin program
 
-      offset = 0
-      if (symm) offset = 1
-
       ibc = (1+loc)+2*(dim-1)
+
+      offset = 0
+      if (bcSYM(ibc)) offset = 1
 
       select case (ibc)
       case (1)
@@ -1841,10 +1875,10 @@ c     Local variables
 
 c     Begin program
 
-      offset = 0
-      if (symm) offset = 1
-
       ibc = (1+loc)+2*(dim-1)
+
+      offset = 0
+      if (bcSYM(ibc)) offset = 1
 
       select case(dim)
       case(1)

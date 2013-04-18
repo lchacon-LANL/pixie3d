@@ -74,16 +74,6 @@ c *******************************************************************
 
       case('s1')
 
-c     Preprocess B/A rhs
-
-cc        if (di > 0d0 .and. (.not.pc_ion_hall)) then
-cc#if !defined(vec_pot)
-cc          call preprocessBflRHS(nn,neq,yyy,igrid)
-cc#else
-cc          call preprocessAflRHS(nn,neq,yyy,igrid)
-cc#endif
-cc        endif
-
 c     Split PC
 
         call split_PC
@@ -100,12 +90,6 @@ c     Semi-implicit preconditioner version II (iterative, with flow)
 c *******************************************************************
 
       case('s2')
-
-c     Preprocess B rhs
-
-cc        if (di > 0d0) then
-cc          call preprocessBflRHS(nn,neq,y,igrid)
-cc        endif
 
 c     Perform iteration
 
@@ -144,23 +128,72 @@ c *******************************************************************
 
       case('s3')
 
-c     Set up vectors
-
-c     Preprocess B/A rhs
-
-cc        if (di > 0d0 .and. (.not.ion_hall)) then
-cc#if !defined(vec_pot)
-cc          call preprocessBflRHS(nn,neq,yyy,igrid)
-cc#else
-cc          call preprocessAflRHS(nn,neq,yyy,igrid)
-cc#endif
-cc        endif
-
 c     Commuted Schur complement PC
 
         call star_PC
 
 c     Postprocessing of velocity -> momentum
+
+        if (.not.nc_eom_v) call get_dP
+
+c *******************************************************************
+c     EMHD preconditioner
+c *******************************************************************
+
+      case('s4')
+
+#if !defined(vec_pot)
+          call pstop('applyPC','s4 PC not implemented for B')
+#endif
+
+cc        xxx = dt*yyy/cnp
+cc        if (vol_wgt) call scaleVec(igrid,neq,xxx,'div')
+
+        !A
+cccc        call formArhs_hall(nn,xxx,yyy(:,IAX:IAZ),rrr(:,IAX:IAZ),igrid)
+cccc        xxx(:,IAX:IAZ) = dt*yyy(:,IAX:IAZ)/cnp
+cccc        if (vol_wgt) call scaleVec(igrid,3,xxx(:,IAX:IAZ),'div')
+cc        rrr(:,IAX:IAZ) = yyy(:,IAX:IAZ)
+cc        call EMHD_step(rrr(:,IAX:IAZ),xxx(:,IAX:IAZ),.true.)
+cc
+cccc        !Rho
+cccc        xxx(:,IRHO) = dt*yyy(:,IRHO)/cnp
+cccc        if (vol_wgt) call scaleVec(igrid,1,xxx(:,IRHO),'div')
+cccc
+cccc        !T
+cccc        call L_T(nx,ny,nz,xxx,rrr(:,ITMP),igrid)
+cccc        if (vol_wgt) call scaleVec(igrid,1,rrr(:,ITMP),'mul')
+cccc        rrr(:,ITMP) = yyy(:,ITMP)-rrr(:,ITMP)
+cccc
+cccc        xxx(:,ITMP) = dt*rrr(:,ITMP)/cnp
+cccc        if (vol_wgt) call scaleVec(igrid,1,xxx(:,ITMP),'div')
+cccc
+cc        pc_B_solve = .false.
+cc        rrr(:,IRHO) = yyy(:,IRHO)
+cc        rrr(:,ITMP) = yyy(:,ITMP)
+cc        call invert_M(rrr,xxx,0)
+
+        rrr = yyy
+
+        call invert_M(rrr,xxx,0)
+
+        !V
+        call invert_P_si(rrr,xxx)
+
+        call find_dx(xxx,dxxx,0)
+
+cc        call find_Udv(xxx,dxxx)
+cc
+cc        xxx(:,ITMP) = xxx(:,ITMP) - dt/cnp*dxxx(:,ITMP)
+cc        xxx(:,IRHO) = xxx(:,IRHO) - dt/cnp*dxxx(:,IRHO)
+cc
+cc        call EMHD_step(dxxx(:,IAX:IAZ),dxxx(:,IAX:IAZ),.false.)
+cc        xxx(:,IAX:IAZ) = xxx(:,IAX:IAZ) - dt/cnp*dxxx(:,IAX:IAZ)
+
+c     Postprocessing of velocity -> momentum
+
+        if (pc_v_solve)
+     .       call correctVfld(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
 
         if (.not.nc_eom_v) call get_dP
 
@@ -338,6 +371,7 @@ c     Local variables
         real(8) :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
+cc     $            ,dum(nn)
 
 c     Begin program
 
@@ -366,8 +400,6 @@ c     Correct rx to find Deltax (correction for rho, B, T)
 
         call U_Tv(nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
 
-        call L_T (nx,ny,nz,x            ,rhs(:,ITMP)   ,igrid,.false.)
-
 c     End program
 
       end subroutine find_Udv
@@ -389,36 +421,13 @@ c     Call variables
 
 c     Local variables
 
-        real(8) :: xc(nn,6),rhsc(nn,6)
+        real(8) :: xc(nn,6),rhsc(nn,6),dum(nn)
 
 c     Begin program
 
         if (iout > 0.and.my_rank ==0) then
           write (*,*) 'Solving for M block...'
         endif
-
-cc        do k = 1,nz
-cc          do j = 1,ny
-cc            do i = 1,nx
-cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc              if (vol_wgt) then !Residuals are volume-weighed by default
-cc                dvol = gmetric%grid(igx)%dlvol(i,j,k)
-cc              else
-cc                dvol = 1d0
-cc              endif
-cc
-cc              x(ii,IRHO)    = dt*rhs(ii,IRHO)/cnp/dvol
-cc              x(ii,ITMP)    = dt*rhs(ii,ITMP)/cnp/dvol
-cc#if !defined(vec_pot)
-cc              x(ii,IBX:IBZ) = dt*rhs(ii,IBX:IBZ)/cnp/dvol
-cc#else
-cc              x(ii,IAX:IAZ) = dt*rhs(ii,IAX:IAZ)/cnp/dvol
-cc#endif               
-cc            enddo
-cc          enddo
-cc        enddo
-cc        return
 
 c       Density
 
@@ -428,23 +437,23 @@ c       Density
           endif
 
           call cSolver(1,nn,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
-     .              ,igrid,iout,guess,rho_mtvc,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = rho_diag
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-     .              )
+     .                ,igrid,iout,guess,rho_mtvc,vol_wgt
+     .                ,tol           = pc_tol
+     .                ,dg            = rho_diag
+     .                ,mg_debug      = mg_debug
+     .                ,mg_galerkin   = mg_glrkin
+     .                ,mg_order_res  = mg_ores
+     .                ,mg_order_prol = mg_oprol
+     .                ,mg_coarse_grid_size = mg_coarse_size
+     .                ,mg_gm_coarse_solve  = mg_gm_coarse
+     .                ,mg_vcyc       = mg_vcyc
+     .                ,mg_smooth     = sm_type
+     .                ,sm_it         = sm_iter
+     .                ,sm_omega      = sm_omega
+     .                ,sm_ncolors    = sm_ncolors
+     .                ,sm_line_relax = sm_line_relax
+     .                ,sm_zebra_relax= sm_zebra_relax
+     .                )  
         endif
 
 #if !defined(vec_pot)
@@ -510,104 +519,62 @@ cc          endif
 
         else
 
-          do k = 1,nz
-            do j = 1,ny
-              do i = 1,nx
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-                if (vol_wgt) then
-                  dvol = gmetric%grid(igx)%dlvol(i,j,k)
-                else
-                  dvol = 1d0
-                endif
-
-                x(ii,IBX:IBZ) = dt*rhs(ii,IBX:IBZ)/cnp/dvol
-              enddo
-            enddo
-          enddo
+cc          do k = 1,nz
+cc            do j = 1,ny
+cc              do i = 1,nx
+cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
+cc
+cc                if (vol_wgt) then
+cc                  dvol = gmetric%grid(igx)%dlvol(i,j,k)
+cc                else
+cc                  dvol = 1d0
+cc                endif
+cc
+cc                x(ii,IBX:IBZ) = dt*rhs(ii,IBX:IBZ)/cnp/dvol
+cc              enddo
+cc            enddo
+cc          enddo
+          x(:,IBX:IBZ) = dt*rhs(:,IBX:IBZ)/cnp
+          call scaleVec(igrid,3,x(:,IBX:IBZ),'div')
 
         endif
 #else
 c       Vector potential
 
         if (pc_B_solve) then
+
           if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving for A...'
+             write (*,*) '  --> Solving for A...'
           endif
 
-          if (di == 0d0 .or. pc_ion_hall) then
-
-            call cSolver(3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
-     .                ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
-     .                ,tol           = pc_tol
-     .                ,dg            = a_diag
-     .                ,mg_debug      = mg_debug
-     .                ,mg_galerkin   = mg_glrkin
-     .                ,mg_order_res  = mg_ores
-     .                ,mg_order_prol = mg_oprol
-     .                ,mg_coarse_grid_size = mg_coarse_size
-     .                ,mg_gm_coarse_solve  = mg_gm_coarse
-     .                ,mg_vcyc       = mg_vcyc
-     .                ,mg_smooth     = sm_type
-     .                ,sm_it         = sm_iter
-     .                ,sm_omega      = sm_omega
-     .                ,sm_ncolors    = sm_ncolors
-     .                ,sm_line_relax = sm_line_relax
-     .                ,sm_zebra_relax= sm_zebra_relax
-     .                )
+          if (.not.(di == 0d0 .or. pc_ion_hall)) then
+cc            call formArhs_hall(nn,x,rhs(:,IAX:IAZ),rhsc(:,1:3),igrid)
+            call EMHD_step(rhs(:,IAX:IAZ),x(:,IAX:IAZ),.true.)
           else
-            xc(:,1:3) = x(:,IAX:IAZ)
-            xc(:,4:6) = 0d0
-
-            call formArhs_hall(nn,x,rhs(:,IAX:IAZ),rhsc(:,1:3),igrid)
-cc            rhsc(:,1:3) = rhs(:,IAX:IAZ)
-            rhsc(:,4:6) = 0d0
-
-            call cSolver(6,nn,rhsc,xc,bcs_hyp
-     .              ,igrid,iout,guess,a_mtvc_hyp,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = a_diag_hyp
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-cc     .              ,cvrg_tst=.true.
-cc     .              ,mg_smooth     = 'jb'
-cc     .              ,sm_it         = 100
-cc     .              ,sm_omega      = 1d0
-cc     .              ,mg_smooth     = 'gm'
-     .              )
-
-cc           stop
-            x(:,IAX:IAZ) = xc(:,1:3)
+            call cSolver(3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
+     .             ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
+     .             ,tol           = pc_tol
+     .             ,dg            = a_diag
+     .             ,mg_debug      = mg_debug
+     .             ,mg_galerkin   = mg_glrkin
+     .             ,mg_order_res  = mg_ores
+     .             ,mg_order_prol = mg_oprol
+     .             ,mg_coarse_grid_size = mg_coarse_size
+     .             ,mg_gm_coarse_solve  = mg_gm_coarse
+     .             ,mg_vcyc       = mg_vcyc
+     .             ,mg_smooth     = sm_type
+     .             ,sm_it         = sm_iter
+     .             ,sm_omega      = sm_omega
+     .             ,sm_ncolors    = sm_ncolors
+     .             ,sm_line_relax = sm_line_relax
+     .             ,sm_zebra_relax= sm_zebra_relax
+     .             )
           endif
 
         else
 
-          do k = 1,nz
-            do j = 1,ny
-              do i = 1,nx
-                ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-                if (vol_wgt) then
-                  dvol = gmetric%grid(igx)%dlvol(i,j,k)
-                else
-                  dvol = 1d0
-                endif
-
-                x(ii,IAX:IAZ) = dt*rhs(ii,IAX:IAZ)/cnp/dvol
-              enddo
-            enddo
-          enddo
+          x(:,IAX:IAZ) = dt*rhs(:,IAX:IAZ)/cnp
+          call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
 
         endif
 #endif
@@ -619,9 +586,11 @@ c       Temperature
         endif
 
         !Correct for electron velocity/source contribution
-        call L_T(nx,ny,nz,x,rhs(:,ITMP),igrid,.true.)
+        call L_T(nx,ny,nz,x,dum,igrid)
+        if (vol_wgt) call scaleVec(igrid,1,dum,'mul')
+        dum = rhs(:,ITMP) - dum
 
-        call cSolver(1,nn,rhs(:,ITMP),x(:,ITMP),bcs(:,ITMP)
+        call cSolver(1,nn,dum,x(:,ITMP),bcs(:,ITMP)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -707,24 +676,6 @@ c     Begin program
 
         !Form SI rhs -(Gv+Ldx)
         call formSIrhs(nn,x,y(:,IVX:IVZ),rhssi,igrid)
-
-cc        do k = 1,nz
-cc          do j = 1,ny
-cc            do i = 1,nx
-cc              ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc              if (vol_wgt) then !Residuals are volume-weighed by default
-cc                dvol = gmetric%grid(igx)%dlvol(i,j,k)
-cc              else
-cc                dvol = 1d0
-cc              endif
-cc
-cc              x(ii,IVX:IVZ) = dt*rhssi(ii,:)/cnp/dvol
-cccc              x(ii,IVX:IVZ) = dt*y(ii,IVX:IVZ)/cnp/dvol
-cc            enddo
-cc          enddo
-cc        enddo
-cc        return
 
         !Solve Schur-complement SI system
 
@@ -921,7 +872,11 @@ c     SI step: Deltav --> xxx(:,IVX:IVZ)
 
 c     Corrector step
 
-        call find_dx(xxx,dum,0)
+cc        if (di == 0.or.pc_ion_hall) then
+          call find_dx(xxx,dum,0)
+cc        else
+cc          call find_dx(xxx,yyy,4)
+cc        endif
 
 c     End program
 
@@ -1064,6 +1019,97 @@ c     Begin program
 
       end subroutine norm_test
 
+#if defined(vec_pot)
+c     EMHD_step
+c     ###################################################################
+      subroutine EMHD_step(b,x,residual)
+c     --------------------------------------------------------------------
+c     This subroutine performs EMHD step for vector potential, and
+c     returns updated RHS to feed into MHD step.
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: x(nn,3),b(nn,3)
+      logical :: residual
+
+c     Local variables
+
+      real(8) :: xc(nn,6),rhsc(nn,6)
+
+c     Begin program
+
+      if (iout > 0.and.my_rank ==0) then
+        write (*,*) '  --> Solving EMHD step for A...'
+      endif
+
+c     Transfer initial guess and residual
+
+      xc = 0d0
+
+      if (.not.residual) then
+        rhsc(:,1:3) = cnp*x/dt
+
+        if (vol_wgt) call scaleVec(igrid,3,rhsc(:,1:3),'mul')
+      else
+        rhsc(:,1:3) = b
+      endif
+      rhsc(:,4:6) = 0d0
+
+c     Solve EMHD system
+
+      guess = 1
+
+      call cSolver(6,nn,rhsc,xc,bcs_hyp
+     .            ,igrid,iout,guess,a_mtvc_hyp,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = a_diag_hyp
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_coarse_grid_size = mg_coarse_size
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_omega      = sm_omega
+     .            ,sm_it         = sm_iter
+cc     .            ,mg_smooth     = 'gs'
+cc     .            ,sm_omega      = 1d0
+cc     .            ,sm_it         = 5
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+c$$$     .            !Diag
+c$$$     .            ,cvrg_tst=.true.
+c$$$     .            ,mg_smooth     = 'jb'
+c$$$     .            ,sm_omega      = 0.7d0
+c$$$c$$$     .            ,mg_smooth     = 'gs'
+c$$$c$$$     .            ,sm_omega      = 1d0
+c$$$     .            ,sm_it         = 1000
+c$$$     .            ,mg_coarse_grid_size = 5 !2^n x 2^n mesh
+c$$$     .            ,tol           = 1d-10
+c$$$cc     .            ,mg_smooth     = 'gm'
+     .            )
+c$$$      stop
+
+c     Return solution and updated residual for second stage of splitting
+
+      x = xc(:,1:3)
+
+      if (residual) then
+        b = cnp*x/dt
+
+        if (vol_wgt) call scaleVec(igrid,3,b,'mul')
+      endif
+
+c     End program
+
+      end subroutine EMHD_step
+#endif
+
       end subroutine apply_app_PC
 
 c formSIrhs
@@ -1143,6 +1189,7 @@ c Local variables
      .                                                ,dp_cnv
      .                                                ,dve_cnv
      .                                                ,dve_cov
+     .                                                ,dvef_cnv
      .                                                ,dE_cnv
      .                                                ,drho  
      .                                                ,dtmp  
@@ -1242,7 +1289,7 @@ c Find drho, dtmp arrays with BCs
      .              ,bcs(:,IRHO:IRHO),order_bc)
       call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dtmp
      .              ,bcs(:,ITMP:ITMP),order_bc)
-      dtmp = dtmp/a_p !Transform from pressure to temperature
+cc      dtmp = dtmp/a_p !Transform from pressure to temperature
 
 c Find dp_cnv
 
@@ -1257,33 +1304,45 @@ c Find dp_cnv
 
 c Find electron velocity
 
-      if (di > 0d0.and.(.not.fake_ve)) then
-        dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
-     .                  -di*(dj_cnv(:,:,:,1)
-     .                      - jcnv0(:,:,:,1)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
-        dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
-     .                  -di*(dj_cnv(:,:,:,2)
-     .                      - jcnv0(:,:,:,2)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
-        dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
-     .                  -di*(dj_cnv(:,:,:,3)
-     .                      - jcnv0(:,:,:,3)*drho(:,:,:,1)
-     .                                      /rho0(:,:,:,1))
-     .                     /rho0(:,:,:,1)
+      dve_cnv(:,:,:,1)=-di*(dj_cnv(:,:,:,1)
+     .                     - jcnv0(:,:,:,1)*drho(:,:,:,1)
+     .                                     /rho0(:,:,:,1))
+     .                    /rho0(:,:,:,1)
+      dve_cnv(:,:,:,2)=-di*(dj_cnv(:,:,:,2)
+     .                     - jcnv0(:,:,:,2)*drho(:,:,:,1)
+     .                                     /rho0(:,:,:,1))
+     .                    /rho0(:,:,:,1)
+      dve_cnv(:,:,:,3)=-di*(dj_cnv(:,:,:,3)
+     .                     - jcnv0(:,:,:,3)*drho(:,:,:,1)
+     .                                     /rho0(:,:,:,1))
+     .                    /rho0(:,:,:,1)
+
+c$$$      dve_cnv(:,:,:,1)=dv_cnv(:,:,:,1)
+c$$$     .                -di*(dj_cnv(:,:,:,1)
+c$$$     .                    - jcnv0(:,:,:,1)*drho(:,:,:,1)
+c$$$     .                                    /rho0(:,:,:,1))
+c$$$     .                   /rho0(:,:,:,1)
+c$$$      dve_cnv(:,:,:,2)=dv_cnv(:,:,:,2)
+c$$$     .                -di*(dj_cnv(:,:,:,2)
+c$$$     .                    - jcnv0(:,:,:,2)*drho(:,:,:,1)
+c$$$     .                                    /rho0(:,:,:,1))
+c$$$     .                   /rho0(:,:,:,1)
+c$$$      dve_cnv(:,:,:,3)=dv_cnv(:,:,:,3)
+c$$$     .                -di*(dj_cnv(:,:,:,3)
+c$$$     .                    - jcnv0(:,:,:,3)*drho(:,:,:,1)
+c$$$     .                                    /rho0(:,:,:,1))
+c$$$     .                   /rho0(:,:,:,1)
+
 cc        dve_cnv(:,:,:,1)=    dv_cnv(:,:,:,1)
 cc     .                  -di*(dj_cnv(:,:,:,1)/rho0(:,:,:,1))
 cc        dve_cnv(:,:,:,2)=    dv_cnv(:,:,:,2)
 cc     .                  -di*(dj_cnv(:,:,:,2)/rho0(:,:,:,1))
 cc        dve_cnv(:,:,:,3)=    dv_cnv(:,:,:,3)
 cc     .                  -di*(dj_cnv(:,:,:,3)/rho0(:,:,:,1))
-      else
-        dve_cnv = dv_cnv
-      endif
 
 c Find rhs_v'
+
+      if (di > 0) write (*,*) 'DIAG -- L_y_star'
 
       do k = 1,nz
         do j = 1,ny
@@ -1324,11 +1383,11 @@ c Find rhs_v'
      .                     ,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
-              if (part == 'lfz') then
-                cnv = cnv
-     .               -EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                             ,dve_cnv,heta0(:,:,:,1))
-              endif
+c$$$              if (part == 'lfz') then
+c$$$                cnv = cnv
+c$$$     .               -EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .                             ,dve_cnv,heta0(:,:,:,1))
+c$$$              endif
 
               if (nc_eom_v) then
                 cnv = -cnv/rho0(i,j,k,1)
@@ -1359,8 +1418,8 @@ c Find rhs_v'
               cnv = cnv
      .            + EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                         ,dv_cnv,gvis %grid(igrid)%array(:,:,:,1))
-     .            + EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                         ,dv_cnv,gheta%grid(igrid)%array(:,:,:,1))
+c$$$     .            + EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .                         ,dv_cnv,gheta%grid(igrid)%array(:,:,:,1))
 
               if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
             endif
@@ -1506,7 +1565,8 @@ c formArhs_hall
 c #########################################################################
       subroutine formArhs_hall(nn,xxx,yyy,rhs_a,igrid)
 c--------------------------------------------------------------------------
-c     This subroutine finds the rhs for the std Hall vector potential Eq.
+c     This subroutine corrects the rhs for the std Hall vector potential Eq.
+c     including density and temperature/pressure corrections.
 c--------------------------------------------------------------------------
 
       use precond_variables
@@ -1550,14 +1610,15 @@ c Auxiliary variables
       call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc)
 
-      call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),order_bc)
-
-      dpe  = rho0*dpe + tmp0*drho
-
       vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
       vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
       vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
+
+      call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
+     .              ,bcs(:,ITMP:ITMP),order_bc)
+
+cc      dpe  = rho0*dpe + tmp0*drho
+      dpe  = dpe/a_p
 
 c Find rhs_a
 
@@ -1574,8 +1635,6 @@ c Find rhs_a
 
             cov = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe(:,:,:,1))
 
-cc            cnv=heta*EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum
-cc     .                            ,rho0)
             cnv= EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum
      .                        ,gheta%grid(igrid)%array(:,:,:,1))
 

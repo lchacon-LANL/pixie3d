@@ -39,7 +39,9 @@ c ######################################################################
      .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
      .            ,adiabatic  =.false.  !Whether to use adiabatic EOS (no heat sources)
      .            ,solve_rho  =.true.   !Whether we solve for rho or use rho=1
-     .            ,use_p_eom  =.false.  !Whether we use pressure or temperature to drive EOM
+     .            ,use_p_eom  =.false.  !Whether we use pressure or n*T to drive EOM
+     .            ,use_p_diff =.false.  !Whether we use pressure in diffusion term in pressure eq.
+     .            ,fake_ve    =.true.   !Whether to use fake ve in div(Pe)
 
         real(8) :: noise_lev
 
@@ -234,7 +236,7 @@ c ######################################################################
      .                                       ,tmp_0
      .                                       ,rho
      .                                       ,tmp
-cc     .                                       ,prs
+     .                                       ,tmpe
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -367,7 +369,7 @@ cc        jcnv_n => vaux%vec_list(IJCNV_N)%vec
         vaux%var_list(IRHO_AUX)%descr = 'rho'
         rho => vaux%var_list(IRHO_AUX)%array
 
-        vaux%var_list(ITMP_AUX)%descr = 'tmp'
+        vaux%var_list(ITMP_AUX)%descr = 'T=Te+Ti'
         tmp => vaux%var_list(ITMP_AUX)%array
 
         vaux%vec_list(IBCNV)%cnv   = .true.
@@ -475,11 +477,13 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
           allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
      .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,prs  (0:nx+1,0:ny+1,0:nz+1))
+     .            ,prs  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,tmpe (0:nx+1,0:ny+1,0:nz+1))
           pcnv = 0d0
-          vscnv = 0d0
+          vscnv= 0d0
           bhat = 0d0
-          prs = 0d0
+          prs  = 0d0
+          tmpe = 0d0
         endif
 
 c     End program
@@ -533,7 +537,6 @@ c     Begin program
       endif
 
       !Momentum
-cc      rho => varray%array_var(IRHO)%array
       rho => vaux%var_list(IRHO_AUX)%array
 
       pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
@@ -551,6 +554,9 @@ cc      rho => varray%array_var(IRHO)%array
 
       !Pressure
       prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
+
+      !Electron temperature
+      tmpe = prs/rho/a_p
 
 c     End program
 
@@ -1016,6 +1022,30 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVECOV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV)%bc_dep_list(1,3) = 0 !trivial
 
+      !Fake Ve cnv
+#if defined(vec_pot)
+      !Ve_fake = - di*curl(curl(a))/rho
+      vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
+      vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
+      vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IACNV*AUX
+      vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
+
+      vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCOV*AUX
+      vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 0 !trivial
+
+      vaux%vec_list(IVEFCNV)%bc_dep_list(4,1) = IVECNV*AUX
+      vaux%vec_list(IVEFCNV)%bc_dep_list(4,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%bc_dep_list(4,3) = 0 !trivial
+#else
+      if (fake_ve) then
+         call pstop('defineAuxBCDeps','BCs for Ve_fake undefined')
+      endif
+#endif
+
       !Div(pi)
       vaux%vec_list(IDIVPI)%bc_dep_list(1,1) = INU*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
@@ -1038,10 +1068,15 @@ cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,3) = 0 !trivial
       vaux%vec_list(IDIVPE)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVECNV*AUX
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
-
+      if (fake_ve) then
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVEFCNV*AUX
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
+      else
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVECNV*AUX
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
+        vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
+      endif
 cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,1) = IDIVPE*AUX
 cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,2) = VECTOR
 cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,3) = 0 !trivial
@@ -1396,6 +1431,31 @@ c     Current variables
       vaux%vec_list(IVECOV)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV)%dom_dep_list(1,3) = 0 !trivial
 
+      !Fake Ve cnv 
+#if defined(vec_pot)
+      !Ve_fake = v - di*curl(curl(a))/rho
+      vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
+      vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
+      vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IACNV*AUX
+      vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
+
+      vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCOV*AUX
+      vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 0 !trivial
+
+      vaux%vec_list(IVEFCNV)%dom_dep_list(4,1) = IVECNV*AUX
+      vaux%vec_list(IVEFCNV)%dom_dep_list(4,2) = VECTOR
+      vaux%vec_list(IVEFCNV)%dom_dep_list(4,3) = 0 !trivial
+#else
+      if (fake_ve) then
+         call pstop('defineAuxDomainDeps'
+     $             ,'Domain deps for Ve_fake undefined')
+      endif
+#endif
+
       !Div(pi)
       vaux%vec_list(IDIVPI)%dom_dep_list(1,1) = INU*AUX
       vaux%vec_list(IDIVPI)%dom_dep_list(1,2) = SCALAR
@@ -1414,9 +1474,15 @@ c     Current variables
       vaux%vec_list(IDIVPE)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVECNV*AUX
-      vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
-      vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
+      if (fake_ve) then
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVEFCNV*AUX
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
+      else
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVECNV*AUX
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
+        vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
+      endif
 
       !E Hall
       if (di > 0d0) then
@@ -1516,7 +1582,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,stat=istat)
+      deallocate(pcnv,vscnv,prs,bhat,tmpe,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -3668,17 +3734,9 @@ c ######################################################################
 
         use timeStepping
 
-cc#if !defined(vec_pot)
-cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,bx,by,bz,tmp
-cc#else
-cc        real(8),pointer,dimension(:,:,:):: rho,px,py,pz,ax,ay,az,tmp
-cc#endif
-
         integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
 
         logical :: bootstrap =.false.   !Whether to calculate bootstrap current
-cc     .            ,ion_hall  =.false.   !Whether to use ion EOM for Hall E
-     .            ,fake_ve   =.true.    !Whether to use fake ve in div(Pe)
      .            ,solenoidal=.true.    !Whether we keep B solenoidal
      .            ,nc_eom_jxb=.false.   !Whether we use JxB instead of conserv. form
      .            ,nc_eom_gp =.false.   !Whether we use grad(p) instead of conserv. form
@@ -4105,8 +4163,6 @@ c                  systems or not.
 c       * t11,t12,t13: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4242,8 +4298,6 @@ c                  systems or not.
 c       * t21,t22,t23: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4360,8 +4414,6 @@ c                  systems or not.
 c       * t31,t32,t33: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4470,7 +4522,7 @@ c     ###################################################################
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of the EOM force term
-c     grad(ap*rho*tmp) at cell centers.
+c     grad(prs) at cell centers.
 c     -------------------------------------------------------------------
 
         implicit none
@@ -4513,10 +4565,22 @@ c     Begin program
 
           if (use_p_eom) then  !grad(p)
             cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
-
-            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
-          
+            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy          
             cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
+
+cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
+cc     .                    *(tt(i,j,k)+tt(ip,j,k))
+cc     .                -0.5*(rr(i,j,k)+rr(im,j,k))
+cc     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
+cc            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
+cc     .                    *(tt(i,j,k)+tt(i,jp,k))
+cc     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
+cc     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
+cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
+cc     .                    *(tt(i,j,k)+tt(i,j,kp))
+cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
+cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
+
           else                 !grad(nT) with ZIP
             cov(1) = (rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))
      .               +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k)))/dxx
@@ -4526,25 +4590,9 @@ c     Begin program
           
             cov(3) = (rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))
      .               +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km)))/dzz
-
-cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
-cc     .                    *(tt(i,j,k)+tt(ip,j,k))
-cc     .                -0.5*(rr(i,j,k)+rr(im,j,k))
-cc     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
-cc
-cc            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
-cc     .                    *(tt(i,j,k)+tt(i,jp,k))
-cc     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
-cc     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
-cc
-cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
-cc     .                    *(tt(i,j,k)+tt(i,j,kp))
-cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
-cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
           endif
 
-          !Multiply by alpha_p=1 + Ti/Te to get total pressure
-          cnv = a_p*matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
+          cnv = matmul(gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
 
           if (vol_wgt) cnv = cnv*gmetric%grid(igrid)%dvol(i,j,k)
 
@@ -4576,8 +4624,6 @@ c                  systems or not.
 c       * t11,t12,t13: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4614,8 +4660,6 @@ c     Begin program
      .                   +sc1(i ,j,k)*sc2(ip,j,k))
         endif
 
-        ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
-
         t11 = gsuper(1,1)*ptot
 
         t12 = gsuper(1,2)*ptot
@@ -4649,8 +4693,6 @@ c                  systems or not.
 c       * t21,t22,t23: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4685,8 +4727,6 @@ c     Begin program
      .                   +sc1(i,j ,k)*sc2(i,jp,k))
         endif
 
-        ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
-
         t21 = gsuper(2,1)*ptot
         t22 = gsuper(2,2)*ptot
         t23 = gsuper(2,3)*ptot
@@ -4718,8 +4758,6 @@ c                  systems or not.
 c       * t31,t32,t33: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4753,8 +4791,6 @@ c     Begin program
           ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
      .                   +sc1(i,j,k )*sc2(i,j,kp))
         endif
-
-        ptot = a_p*ptot         !Multiply by alpha_p=1 + Ti/Te to get total pressure
 
         t31 = gsuper(3,1)*ptot
 
@@ -4895,8 +4931,6 @@ c                  systems or not.
 c       * t21,t22,t23: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -4987,8 +5021,6 @@ c                  systems or not.
 c       * t31,t32,t33: tensor components.
 c       * flag: whether evaluation is a cell center i,j,k (flag=0)
 c               or at cell face i+1/2,j,k (flag /= 0)
-c     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-c     head.
 c     -------------------------------------------------------------
 
         implicit none
@@ -5164,9 +5196,6 @@ c     Begin program
 
       cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
 
-cc      !Set div(Pi) x,y components to zero to match Slava's implementation
-cc      cnv(1:2) = 0d0
-
 c     End program
 
       end function EOM_divPe_ijk
@@ -5284,11 +5313,7 @@ c     Resistive term
 
       if (eta > 0d0) then
 
-cc      if (use_p_eom) then
-cc        pe = tmp
-cc      else
-cc        pe = rho*tmp
-cc      endif
+cc        pe = rho*tmp/a_p
 cc
 cc        !Bootstrap current  (need to get out of here to treat BC separately)
 cc        if (bootstrap) then
@@ -5374,24 +5399,26 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
       real(8) :: pe(0:nx+1,0:ny+1,0:nz+1),cov(3),cnv(3)
-cc     .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Begin program
 
 c     Find required auxiliary quantities
 
-      pe = prs/a_p  !Electron pressure
+cc      pe = prs/a_p  !Electron pressure
+      pe = rho*tmp/a_p  !Electron pressure
 
-cc      if (de > 0d0) then
-cc        bcnv_star = bcnv -de**2/di*curl(nx,ny,nz,igx,igy,igz,vecov)
-cc      else
-cc        bcnv_star = bcnv
-cc      endif
+c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
 
-      !Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
       if (.not.ion_hall) then
 
-        E_h = crossProduct(igx,jcnv,bcnv,.true.)
+        if (de > 0d0) then
+          bcnv_star = bcnv -de**2/di*curl(igx,vecov)
+        else
+          bcnv_star = bcnv
+        endif
+
+        E_h = crossProduct(igx,jcnv,bcnv_star,.true.)
      .       -grad(igx,pe)
      .       -XformVector(igx,div_pe,.false.)
 
@@ -5404,7 +5431,7 @@ cc      endif
           E_h = E_h - de**2/di**2*(vecov-vecov_n)*cnp/alpha/dt
         endif
 
-      !Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
+c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
       else
 
         !Temporal term: dv/dt
@@ -5439,9 +5466,9 @@ cc     .                            ,min(advect,2))
           do k=1,nz
             do j=1,ny
               do i=1,nx
-                cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
+                cov = temp_ratio*grad(i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
-                E_h(i,j,k,:) = E_h(i,j,k,:) + temp_ratio*cov/rho(i,j,k)
+                E_h(i,j,k,:) = E_h(i,j,k,:) + cov/rho(i,j,k)
               enddo
             enddo
           enddo
@@ -5793,13 +5820,12 @@ cc      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication
 cc
 cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
-      if (di == 0d0 .or. test) then
+      if (di == 0d0 .or. heta == 0d0) then
 
         h_res = 0d0
 
-      elseif (heta /= 0d0) then
+      elseif (heta > 0d0) then
 
-cc        h_res = heta*rho
         h_res = heta
 
       else
@@ -5848,7 +5874,7 @@ c ######################################################################
 
         use nk_setup
 
-        use nlfunction_setup, ONLY: ion_hall
+        use nlfunction_setup, ONLY: ion_hall,di
 
         integer :: mg_ores_si
      .            ,mg_oprol_si
@@ -5905,6 +5931,8 @@ cccc      divCln = .false.
 
       !Consistency checks
       if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
+cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
+cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
       if (bcSP()) then
         mg_oprol = 1

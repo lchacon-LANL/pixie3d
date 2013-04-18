@@ -154,7 +154,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 #endif
 
-c Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 cc
 cc      if ((gamma == 1d0) .and. (.not.use_p_eom)) then
 cc
@@ -245,21 +245,21 @@ c       Heat flux
         heat_flx = 0d0
 
         if (chi /= 0d0) then
-          if (use_p_eom) then
-            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,prs
-cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
-     .                            )                  !chi_perp=chi
+          if (use_p_diff) then
+            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,prs      !Total pressure
+cc     .                            ,rho)  !chi_perp=chi*rho
+     .                            )      !chi_perp=chi
           else
-            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
-     .                            )                  !chi_perp=chi
+            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp  !Total temperature
+cc     .                            ,rho)  !chi_perp=chi*rho
+     .                            )      !chi_perp=chi
           endif
         endif
 
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
      .              -(chi_par-chi)
-     .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmpe
      .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
      .                   ,symmetric=.true.,limited=.false.,vol=.false.)
         endif
@@ -292,16 +292,16 @@ c       Sources
 
           !Electron viscosity
           !Comment out for old TM Hall MHD performance results
-          if (di > 0d0) then
-            if (fake_ve) then
-              heat_src = heat_src
-     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                ,h_eta,vefcnv,vecnv)
-            else
+          if (di > 0d0.and.(.not.slava)) then
+c$$$            if (fake_ve) then
+c$$$              heat_src = heat_src
+c$$$     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
+c$$$     .                                ,h_eta,vefcnv,vefcnv)
+c$$$            else
               heat_src = heat_src
      .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
      .                                ,h_eta,vecnv ,vecnv)
-            endif
+c$$$            endif
           endif
 
           if (heat_src < 0d0) then
@@ -338,15 +338,13 @@ c     grad(p) volume force
 
       ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
 
-c     Stress tensor: div(Pi)
+c     Stress tensor: div(Pi+Pe)
 
-      if (slava .or. di == 0d0) then
-        cnv = div_pi(i,j,k,:) !Match Slava's EOM
-      else
-        cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
-      endif
-
-      ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+c$$$      if (slava) then
+        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
+c$$$      else
+c$$$        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+c$$$      endif
 
 c     Advection
 
@@ -498,7 +496,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (use_p_eom) then
+              if (use_p_diff) then
                 heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,tmp)
@@ -638,7 +636,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (use_p_eom) then
+              if (use_p_diff) then
                 heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,tmp)
@@ -777,7 +775,7 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (chi /= 0d0) then
-              if (use_p_eom) then
+              if (use_p_diff) then
                 heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,prs)
               else
                 heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,tmp)
@@ -910,7 +908,7 @@ c Begin program
             !(parallel piece; should be made conservative)
             if (chi_par /= chi .and.(.not.lagrangian)) then
               heat_flx = -(chi_par-chi)
-     .            *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmp
+     .            *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmpe
      .                 ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
      .                 ,symmetric=.true.,limited=.false.,vol=.false.)
             else
@@ -935,16 +933,16 @@ c Begin program
 
               !Electron viscosity
               !Comment out for old TM Hall MHD performance results
-              if (di > 0d0) then
-                if (fake_ve) then
-                  heat_src = heat_src
-     .                   +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-     .                                    ,h_eta,vefcnv,vecnv)
-                else
+              if (di > 0d0.and.(.not.slava)) then
+c$$$                if (fake_ve) then
+c$$$                  heat_src = heat_src
+c$$$     .                   +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
+c$$$     .                                    ,h_eta,vefcnv,vefcnv)
+c$$$                else
                   heat_src = heat_src
      .                   +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
      .                                    ,h_eta,vecnv ,vecnv)
-                endif
+c$$$                endif
               endif
 
               if (heat_src < 0d0) then
@@ -978,14 +976,14 @@ cc             .               ,bcnv,jcnv,.true.
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
-              !Stress tensor: div(Pi)
-              if (slava .or. di == 0d0) then
-                cnv = div_pi(i,j,k,:) !Match Slava's EOM
+              !Stress tensor: div(Pi+Pe)
+              if (slava) then
+                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+     .                             + div_pi(i,j,k,:)
               else
-                cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
+                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
               endif
-
-              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Advection
               cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
@@ -1030,13 +1028,12 @@ cc     .                       ,bcnv,jcnv,.true.
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
-              !Stress tensor: div(Pi) (should be made conservative)
-              if (slava .or. di == 0d0) then
-                cnv = div_pi(i,j,k,:) !Match Slava's EOM
+              !Stress tensor: div(Pi+Pe) (should be made conservative)
+              if (slava) then
+                cnv = div_pi(i,j,k,:)
               else
                 cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
               endif
-
               if (alt__eom()) cnv(2) = cnv(2)*jac
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
