@@ -155,9 +155,15 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      vex = vecnv(:,:,:,1)
-      vey = vecnv(:,:,:,2)
-      vez = vecnv(:,:,:,3)
+      if (fake_ve) then
+        vex = vefcnv(:,:,:,1)
+        vey = vefcnv(:,:,:,2)
+        vez = vefcnv(:,:,:,3)
+      else
+        vex = vecnv(:,:,:,1)
+        vey = vecnv(:,:,:,2)
+        vez = vecnv(:,:,:,3)
+      endif
       call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vex,vey,vez,'cnv','car')
 
@@ -357,7 +363,7 @@ c Divergence diagnostics
 
 c Total pressure
 
-      p_tot = a_p*rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
+      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
 
 #if defined(RFX)
 c RFX dump
