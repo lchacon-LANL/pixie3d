@@ -433,11 +433,14 @@ c####################################################################
      .                             ,ion_hall,fake_ve
      .                             ,EOM_divPi,EOM_divPe,hres
      .                             ,nc_eom_v,nc_eom_jxb
-     .                             ,save_tn,slava,pinch_flow
+     .                             ,save_tn,pinch_flow
      .                             ,res_ijk,vis_ijk
 
+#if defined(vec_pot)
         integer :: order_bc=1
-
+#else
+        integer :: order_bc=1
+#endif
       contains
 
 c     defineDepVariables

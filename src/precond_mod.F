@@ -27,7 +27,6 @@ c ######################################################################
         use nlfunction_setup, ONLY: EOM_divPi_ijk
      .                             ,EOM_divPe_ijk
      .                             ,viscous_heat_src
-     .                             ,fake_ve
      .                             ,nc_eom_v
      .                             ,nc_eom_jxb
      .                             ,nc_eom_gp
@@ -510,8 +509,6 @@ c     Begin program
         order = order_bc
 cc        order = 0
 
-cc        call setASMflag(.false.)
-
 c     Fill LOCAL auxiliary variables
 
         call fillLocalAuxVars(igrid,varray,vaux)
@@ -569,7 +566,7 @@ c     Store density in all grids (w/o BCs)
 
         call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order)
 
-c     Store temperature (w/ BCs)
+c     Store total temperature (w/ BCs)
 
         gtmp0%grid(igrid)%array(:,:,:,1) = tmp
 
@@ -577,14 +574,14 @@ c     Store temperature (w/ BCs)
 
 c     Store pressure (w/ BCs)
 
-        !pressure (w/ BCs)
-        gp0%grid(igrid)%array(:,:,:,1) = a_p*rho*tmp
+        !total pressure (w/ BCs)
+        gp0%grid(igrid)%array(:,:,:,1) = rho*tmp
 
         call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
 
 cc        do igr=igrid,grid_params%ngrid
-cc          gp0%grid(igrid)%array = a_p*grho0%grid(igrid)%array
-cc     .                               *gtmp0%grid(igrid)%array
+cc          gp0%grid(igrid)%array = grho0%grid(igrid)%array
+cc     .                           *gtmp0%grid(igrid)%array
 cc        enddo
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
@@ -653,7 +650,7 @@ c     Store Hall MHD auxiliary variables
           call restrictMGArray(IRHO,1,gheta,bc_sc,igrid,order)
 
           !Store electron velocity components in all grids (w/ BCs)
-          gve0%grid(igrid)%array = vecnv
+          gve0%grid(igrid)%array = vecnv  !Only keep current piece
 
           call restrictMGArray(IVX,3,gve0,bc_vec_odd,igrid,order)
 cc          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
@@ -672,23 +669,18 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 
           !Store b_star = b - de^2/di curl(ve)
           if (de > 0d0) then
-            do k=1,nz
-              do j=1,ny
-                do i=1,nx
-                  cnv = curl(i,j,k,nx,ny,nz,igrid,igrid,igrid,vecov)
-cc                  do ieq=1,3
-cc                    cnv(ieq) = curl2(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                              ,vecov(:,:,:,1)
-cc     .                              ,vecov(:,:,:,2)
-cc     .                              ,vecov(:,:,:,3)
-cc     .                              ,ieq)
-cc                  enddo
-
-                  gbs0%grid(igrid)%array(i,j,k,:)
-     .                   = gb0%grid(igrid)%array(i,j,k,:) -de**2/di*cnv
-                enddo
-              enddo
-            enddo
+            gbs0%grid(igrid)%array = gb0%grid(igrid)%array
+     $                              -de**2/di*curl(igrid,vecov)
+c$$$            do k=1,nz
+c$$$              do j=1,ny
+c$$$                do i=1,nx
+c$$$                  cnv = curl(i,j,k,nx,ny,nz,igrid,igrid,igrid,vecov)
+c$$$
+c$$$                  gbs0%grid(igrid)%array(i,j,k,:)
+c$$$     .                   = gb0%grid(igrid)%array(i,j,k,:) -de**2/di*cnv
+c$$$                enddo
+c$$$              enddo
+c$$$            enddo
 
             call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order)
           else
@@ -777,7 +769,7 @@ c     Find other auxiliary quantities and store them in all grids
                 cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
      .                        +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
 
-                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
+cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
 
                 call transformFromCurvToCurv(i,j,k,igx,igy,igz
      .                                      ,cov(1),cov(2),cov(3)
@@ -1185,7 +1177,12 @@ c     ###################################################################
 c     -------------------------------------------------------------------
 c     Finds covariant components (a1,a2,a3) of vector
 c     
-c       U_Av(dv) = alpha*(-v x b0 + di (dv/dt + div_pi(v)/rho))
+c       U_Av(dv) = alpha*(-dv x b0 + di (ddv/dt + div_pi(dv)/rho0)) (ION HALL)
+c
+c     or
+c
+c       U_Av(dv) = alpha*(-dv x b0 + de^2/di ve0 x curl(dv)
+c                        - de^2/di dv/dt - di (div_pe(dv)/rho0)) (e HALL)
 c
 c     at the grid node (i,j,k). One sided derivatives are employed when
 c     half_elem=1 (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
@@ -1240,7 +1237,7 @@ c     Begin program
         jp = j+1
         kp = k+1
 
-c     Resistive MHD part
+c     Ideal MHD part
 
         select case(half_elem)
         case(1)
@@ -1320,7 +1317,7 @@ c     Resistive MHD part
           cov = cov/gmetric%grid(igx)%jac(i,j,k)
         end select
 
-        uav = -cov
+        uav = -cov !-dv x B0
 
 c     Hall MHD part
 
@@ -1328,7 +1325,7 @@ c     Hall MHD part
 
           minv = cnp/dt/alpha
 
-          if (pc_ion_hall) then
+          if (pc_ion_hall) then  !Ion hall
 
             select case(half_elem)
             case(1)
@@ -1385,7 +1382,9 @@ cc              end select
 
             endif
 
-          else
+          else  !Electron hall
+
+            !Electron inertia term: -(de/di)^2*(dv/dt - ve0 x curl(dv))
             if (de > 0d0) then
 
               curlv = curl(i,j,k,nx,ny,nz,igx,igy,igz,vv_cov
@@ -1403,10 +1402,6 @@ cc              end select
                 cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
 
                 cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
-cc     .              + (EOM_divPe(i ,j,k,nx,ny,nz,igx,igy,igz,vv)
-cc     .                +EOM_divPe(ip,j,k,nx,ny,nz,igx,igy,igz,vv))
-cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
-cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
               case(2)
                 veh =(gve0%grid(igx)%array(i,j ,k,:)
      .               +gve0%grid(igx)%array(i,jp,k,:))
@@ -1418,10 +1413,6 @@ cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
                 cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
 
                 cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
-cc     .              + (EOM_divPe(i,j ,k,nx,ny,nz,igx,igy,igz,vv)
-cc     .                +EOM_divPe(i,jp,k,nx,ny,nz,igx,igy,igz,vv))
-cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
-cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
               case(3)
                 veh =(gve0%grid(igx)%array(i,j,k ,:)
      .               +gve0%grid(igx)%array(i,j,kp,:))
@@ -1433,10 +1424,6 @@ cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
                 cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
 
                 cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
-cc     .              + (EOM_divPe(i,j,k ,nx,ny,nz,igx,igy,igz,vv)
-cc     .                +EOM_divPe(i,j,kp,nx,ny,nz,igx,igy,igz,vv))
-cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
-cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
               case default
                 veh = gve0%grid(igx)%array(i,j,k ,:)
      .               /gmetric%grid(igx)%jac(i,j,k )
@@ -1446,32 +1433,49 @@ cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
                 cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
 
                 cov = -cov + minv*vv_cov(i,j,k,:)
-cc     .              + EOM_divPe(i,j,k ,nx,ny,nz,igx,igy,igz,vv)
-cc     .               /grho0%grid(igx)%array(i,j,k ,1)
               end select
 
-              cov = -de**2/di**2*cov
-
-              uav = uav + di*cov
+              uav = uav - de**2/di*cov
 
             endif
 
-            if (str .and. half_elem == 0) then
-cc              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv)
-cc     .                      /grho0%grid(igx)%array(i,j,k,1)
-cc              cnv =-heta*EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                                ,grho0%grid(igx)%array(:,:,:,1))
-cc     .                  /grho0%grid(igx)%array(i,j,k,1)
-              cnv =-EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
-     .                           ,gheta%grid(igx)%array(:,:,:,1))
-     .             /grho0%grid(igx)%array(i,j,k,1)
+            !Stress tensor term: -di/rho0*div_pe(dv)
+            if (str) then
+              select case(half_elem)
+              case(1)
+                cnv = (EOM_divPe_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                               ,gheta%grid(igx)%array)
+     .                +EOM_divPe_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                               ,gheta%grid(igx)%array))
+     .                /(grho0%grid(igx)%array(i ,j,k,1)
+     .                 +grho0%grid(igx)%array(ip,j,k,1))
+              case(2)
+                cnv = (EOM_divPe_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv
+     .                              ,gheta%grid(igx)%array)
+     .                +EOM_divPe_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv
+     .                              ,gheta%grid(igx)%array))
+     .                /(grho0%grid(igx)%array(i,j ,k,1)
+     .                 +grho0%grid(igx)%array(i,jp,k,1))
+              case(3)
+                cnv = (EOM_divPe_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+     .                              ,gheta%grid(igx)%array)
+     .                +EOM_divPe_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv
+     .                              ,gheta%grid(igx)%array))
+     .                /(grho0%grid(igx)%array(i,j,k ,1)
+     .                 +grho0%grid(igx)%array(i,j,kp,1))
+              case default
+                cnv = EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                            ,gheta%grid(igx)%array(:,:,:,1))
+     .               /grho0%grid(igx)%array(i,j,k,1)
+
+              end select
 
               call transformFromCurvToCurv(i,j,k,igx,igy,igz
-     .                                    ,cov(1),cov(2),cov(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=0)
-
-              uav = uav + di*cov
+     .                                ,cov(1),cov(2),cov(3)
+     .                                ,cnv(1),cnv(2),cnv(3)
+     .                                ,.false.,half_elem=half_elem)
+              
+              uav = uav - di*cov
             endif
 
           endif
@@ -1733,8 +1737,8 @@ c     U_Tv
 c     ####################################################################
       subroutine U_Tv(nx,ny,nz,dv_cnv,crhs,igrid)
 c     --------------------------------------------------------------------
-c     This subroutine finds the corrected rhs for the temperature
-c     solve. Not weighed by volume or jacobian factor.
+c     This subroutine finds the U_Tv block using dv. Not weighed by
+c     volume or jacobian factor.
 c     --------------------------------------------------------------------
 
       implicit none
@@ -1764,8 +1768,6 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
             crhs(ii) = 
      .         gamma    *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                    ,dv_cnv,p0(:,:,:,1),advect)
-cc     .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                   ,-dv_cnv,p0(:,:,:,1),1,vol=.false.)
      .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                   ,dv_cnv,p0(:,:,:,1),1,reverse=.true.)
           enddo
@@ -1778,8 +1780,12 @@ cc     .                   ,-dv_cnv,p0(:,:,:,1),1,vol=.false.)
 
         allocate(nu0(0:nx+1,0:ny+1,0:nz+1,1))
 
-        nu0 = gvis %grid(igrid)%array
-     .       +gheta%grid(igrid)%array        !Add ion+electron contributions
+        if (di > 0d0.and.(.not.slava)) then
+           nu0 = gvis %grid(igrid)%array
+cc     .          +gheta%grid(igrid)%array        !Add ion+electron contributions
+        else
+           nu0 = gvis %grid(igrid)%array
+        endif
 
         do k = 1,nz
           do j = 1,ny
@@ -1810,12 +1816,10 @@ c     End program
 
 c     L_T
 c     #####################################################################
-      subroutine L_T(nx,ny,nz,x,crhs,igrid,vol)
-c     ---------------------------------------------------------------
-c     This subroutine corrects the T-field update with B, rho info.  It
-c     returns dimensions of T if vol=.false., residual dimensions
-c     (volume weighed) otherwise.
-c     ---------------------------------------------------------------
+      subroutine L_T(nx,ny,nz,x,crhs,igrid)
+c     ---------------------------------------------------------------------
+c     This subroutine computes L_T temperature block with dB, drho. 
+c     ---------------------------------------------------------------------
 
       implicit none
 
@@ -1823,12 +1827,11 @@ c     Call variables
 
       integer :: nx,ny,nz,igrid
       real(8) :: x(nx*ny*nz,neqd),crhs(nx*ny*nz)
-      logical :: vol
 
 c     Local variables
 
       integer :: i,j,k,ii,isig,ivar
-      real(8) :: dvol,heat_src
+      real(8) :: heat_src
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
      .                                          ,db_cov
@@ -1842,6 +1845,9 @@ c     Local variables
       real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0,p0
 
 c     Begin program
+
+      crhs = 0d0
+      if (adiabatic .or. (di == 0) ) return
 
 cc      !To recover old TM Hall performance results
 cc      return
@@ -1878,12 +1884,6 @@ c     Find dB
       deallocate(da_cov)
 
       db_cov = XformVector(igrid,db_cnv,.false.)
-cc      db_cov = db_cnv
-cc      call transformVector(igrid,igrid,igrid,0,nx+1,0,ny+1,0,nz+1
-cc     .                    ,db_cov(:,:,:,1)
-cc     .                    ,db_cov(:,:,:,2)
-cc     .                    ,db_cov(:,:,:,3)
-cc     .                    ,'cnv','cov')
 #else
       call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
@@ -1912,17 +1912,11 @@ c     Find Joule heating correction
 
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              if (vol) then
-                dvol = gmetric%grid(igrid)%dvol(i,j,k)
-              else
-                dvol = 1d0
-              endif
-
               heat_src = 2*eta0(i,j,k,1)
-     .                    *dot_product(j0(i,j,k,:),dj_cov(i,j,k,:))
-     .                    /gmetric%grid(igrid)%jac(i,j,k)
+     .                   *scalarProduct_ijk(i,j,k,igrid,j0    (i,j,k,:)
+     .                                                 ,dj_cov(i,j,k,:))
 
-              crhs(ii)=crhs(ii) + alpha*dvol*(gamma-1.)*heat_src
+              crhs(ii) =-(gamma-1.)*heat_src
             enddo
           enddo
         enddo
@@ -1951,24 +1945,15 @@ c     Hall MHD correction
             do i = 1,nx
 
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              if (vol) then
-                dvol = gmetric%grid(igrid)%dvol(i,j,k)
-              else
-                dvol = 1d0
-              endif
 
-              crhs(ii)=crhs(ii)-alpha*dvol
-     .            *(   gamma *flx_advec(i,j,k,nx,ny,nz
+              crhs(ii)=crhs(ii)
+     .            +(gamma    *flx_advec(i,j,k,nx,ny,nz
      .                                 ,igrid,igrid,igrid
-     .                                 ,dve_cnv,p0(:,:,:,1),advect
-     .                                 ,vol=.false.)
-     .            +(1.-gamma)*dot_product(dve_cnv(i,j,k,:)
-     .                ,grad(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                     ,p0(:,:,:,1)
-     .                     ,hex=int(sign(1d0,dve_cnv(i,j,k,1)))
-     .                     ,hey=int(sign(1d0,dve_cnv(i,j,k,2)))
-     .                     ,hez=int(sign(1d0,dve_cnv(i,j,k,3)))))
-     .                /gmetric%grid(igrid)%jac(i,j,k))
+     .                                 ,dve_cnv,p0(:,:,:,1),advect)
+     .            +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz
+     .                                 ,igrid,igrid,igrid
+     .                                 ,dve_cnv,p0(:,:,:,1),1
+     .                                 ,reverse=.true.)  )
              enddo
           enddo
         enddo
@@ -1982,12 +1967,6 @@ c     Hall MHD correction
               do i = 1,nx
 
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-                if (vol) then
-                  dvol = gmetric%grid(igrid)%dvol(i,j,k)
-                else
-                  dvol = 1d0
-                endif
 
 cc                  if (fake_ve) then
 cc                    heat_src = heat_src
@@ -2011,7 +1990,7 @@ cc     .                              ,igrid,igrid,igrid,rho0,dve_cnv,ve0)
      .                            ,dve_cnv,ve0)
 cc                  endif
 
-                crhs(ii) = crhs(ii) + alpha*dvol*(gamma-1.)*heat_src
+                crhs(ii) = crhs(ii) - (gamma-1.)*heat_src
               enddo
             enddo
           enddo
@@ -2019,6 +1998,8 @@ cc                  endif
         endif
 
       endif
+
+      crhs = alpha*crhs
 
 c     End program
 
@@ -2091,22 +2072,34 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ii
-      real(8)    :: minv,cnv(3),cov(3)
-     .             ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Begin program
 
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-            ii  = i + nx*(j-1) + nx*ny*(k-1)
+      if (pc_ion_hall) then
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,dv_cnv,dv_cov,ga0%grid(igrid)%array
-     .                       ,stress=.true.)
+              crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                         ,dv_cnv,dv_cov,ga0%grid(igrid)%array
+     .                         ,stress=.true.)
+            enddo
           enddo
         enddo
-      enddo
+      else
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                         ,dv_cnv,dv_cov,gbs0%grid(igrid)%array
+     .                         ,stress=.false.)
+            enddo
+          enddo
+        enddo
+      endif
 
 c     End program
 
@@ -2164,5 +2157,7 @@ c ###################################################################
         use precond_variables
 
         use local_BCS_variables, ONLY: order_bc,nc_eom_v
+
+        logical :: form_diag
 
       end module matvec

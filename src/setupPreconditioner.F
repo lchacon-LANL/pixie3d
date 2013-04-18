@@ -61,7 +61,11 @@ c Setup PC BCs
 
 c Find required diagonals in all grids
 
-      if (nwt_it == 1) call form_diagonals
+      if (nwt_it == 1) then
+        form_diag = .true.
+        call form_diagonals
+        form_diag = .false.
+      endif
 
 c Initialize PC Jacobi it. counter
 
@@ -152,10 +156,10 @@ c       Magnetic field
             bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
             call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
      .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
-     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
+
+          call find_mf_diag(3,1,3*ntotdp,a_mtvc,1,bcs(:,IAX:IAZ)
+     .                       ,a_diag,sm_ncolors,vol_wgt,mg_glrkin)
 #endif
 
 c        Velocity
@@ -165,7 +169,9 @@ c        Velocity
      .                       ,v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
           endif
 
-          if (pc_type == 's1' .or. pc_type == 's2') then
+          if (     pc_type == 's1'
+     .        .or. pc_type == 's2'
+     .        .or. pc_type == 's4') then
             if (di == 0d0 .or. (.not.pc_ion_hall)) then
               call find_mf_diag(3,1,3*ntotdp,v_mtvc,1,bcs(:,IVX:IVZ)
      .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
@@ -252,9 +258,12 @@ cc      nt = neq*nxx*nyy*nzz
 cc
 cc      allocate(v_mat(nt,nt))
 cc
-cc      icomp = IVX
+cccc      icomp = IVX
 cccc      call find_mf_mat(neq,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
-cc      call find_mf_mat(neq,nt,v_mtvc_hyp,igrid,bcs_hyp,v_mat)
+cc      icomp = IAX
+cc      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+cc      bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+cc      call find_mf_mat(neq,nt,a_mtvc_hyp,igrid,bcs_hyp,v_mat)
 cc
 cccc      open(unit=110,file='debug.bin',form='unformatted'
 cccc     .       ,status='replace')
@@ -262,8 +271,8 @@ cccc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
 cccc      close(110)
 cc
 cc      open(unit=110,file='debug.mat',status='replace')
-cc      do i=1,nt
-cc        write (110,*) (v_mat(i,j),j=1,nt)
+cc      do ii=1,nt
+cc        write (110,*) (v_mat(ii,jj),jj=1,nt)
 cc      enddo
 cc      close(110)
 cc

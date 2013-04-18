@@ -748,7 +748,7 @@ cc#endif
 
 c     Check coordinates
 
-        if (coords /= 'car') then
+        if (coords /= 'car' .and. coords /= 'lpk') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -757,7 +757,9 @@ c     Check coordinates
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 6d0)
      .          .or.(.not.solve_rho)
-     .          .or.(.not.sym_st))) then
+cc     .          .or.(.not.sym_st)
+     .          )
+     .     ) then
           if (my_rank == 0) then
             write (*,*)
      .           'Check Ti/Te,solve_rho,adiabatic,sym_st=5.0, T, F, T'
@@ -2430,7 +2432,6 @@ cc        endif
 
 c Find total pressure
 
-cc      if (use_p_eom) var(:,:,:,ITMP) = var(:,:,:,ITMP)*var(:,:,:,IRHO)
       var(:,:,:,ITMP) = a_p*var(:,:,:,ITMP)*var(:,:,:,IRHO)
 
 c Find momentum components
@@ -6857,15 +6858,15 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: igr
-      real(8)    :: a(ilom:ihip,jlom:jhip,klom:khip,3)
+      integer :: igr
+      real(8) :: a(ilom:ihip,jlom:jhip,klom:khip,3)
 
 c Local variables
 
-      integer    :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8)    :: x1,y1,z1,eps,car(3),hlx
-      real(8)    :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-      logical    :: cartsn
+      integer :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
+      real(8) :: x1,y1,z1,eps,car(3),hlx
+      real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      logical :: cartsn
 
 c Begin program
 
@@ -6900,6 +6901,8 @@ c Begin program
           hlx = 0.5d0*(xmax+xmin)
         endif
 
+cc        write (*,*) 'DIAG -- fillVectorPot'
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -6909,6 +6912,7 @@ c Begin program
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(cosh((x1-hlx)/dlambda)) 
+cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
             enddo
           enddo

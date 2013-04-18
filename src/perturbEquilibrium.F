@@ -19,8 +19,6 @@ c     -----------------------------------------------------------------
 
       use transport_params
 
-cc      use nlfunction_setup, ONLY:use_p_eom
-
       implicit none
 
 c     Call variables
@@ -342,17 +340,7 @@ cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
 
               varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)
-     .             - cs2*xi/freq !For total pressure pressure
-cc              if (use_p_eom) then
-cc                varr%array_var(ITMP)%array(i,j,k) =
-cc     .               varr%array_var(ITMP)%array(i,j,k)
-cc     .             - cs2*xi/(a_p*freq) !For e pressure
-cc              else
-cc                 varr%array_var(ITMP)%array(i,j,k) =
-cc     .               varr%array_var(ITMP)%array(i,j,k)
-cc     .             -(cs2/a_p
-cc     .              -varr%array_var(ITMP)%array(i,j,k))*xi/freq !For temperature
-cc              endif
+     .             - cs2*xi/freq !For total pressure
 
 #if !defined(vec_pot)
               varr%array_var(IBX)%array(i,j,k)
@@ -636,7 +624,7 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
      .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
             enddo
 
-            pert(ITMP) = pert(ITMP)*a_p  !No factor of x1, because that is included in rho below
+            pert(ITMP) = pert(ITMP)*a_p  !Transform to total temperature
 
             varr%array_var(ITMP)%array(i,j,k) =
      .               varr%array_var(ITMP)%array(i,j,k)*(1d0 
@@ -1113,17 +1101,17 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
+      integer :: bcs(6),ieq
+      real(8) :: perturb
+      real(8) :: array (ilom:ihip,jlom:jhip,klom:khip)
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6),nx,ny,nz
-      real(8)    :: x1,y1,z1,kk,mm,xle,yle,zle
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+      integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,bcsl(6),nx,ny,nz
+      real(8) :: x1,y1,z1,kk,mm,xle,yle,zle
+      real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      real(8)    :: psi(ilom:ihip,jlom:jhip,klom:khip),grd(3)
+      real(8) :: psi(ilom:ihip,jlom:jhip,klom:khip),grd(3)
 
 c     Begin program
 
