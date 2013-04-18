@@ -53,6 +53,7 @@
     precon   = 'id'
 
     advect    = 4
+    v_advect  = 4
     solve_rho = t
     use_p_eom = t 
     adiabatic = t

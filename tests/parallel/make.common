@@ -32,12 +32,13 @@ rebuild rebuild-a rebuild-b: ;
 test test-a test-b: ;
 	@echo
 	@echo "Running parallel test in $(LOCALDIR)"
-	-@rename "bin" "bak" record.bin* 2> /dev/null
+#	-@rename "bin" "bak" record.bin* 2> /dev/null
 	@$(PAREXEC) > pixie3d.tst
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.out pixie3d.tst)
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
+#	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm pixie3d.tst 2> /dev/null)
 
 run: ;
 	@$(PAREXEC)
