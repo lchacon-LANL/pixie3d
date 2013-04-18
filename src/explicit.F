@@ -188,19 +188,13 @@ c Calculate CFL
             k2max = max(k2max,k2)
 
             !k.v
-cc            vxx = abs(px(i,j,k)/rho(i,j,k))
-cc            vyy = abs(py(i,j,k)/rho(i,j,k))
-cc            vzz = abs(pz(i,j,k)/rho(i,j,k))
-            vxx = abs(vcnv(i,j,k,1))
-            vyy = abs(vcnv(i,j,k,2))
-            vzz = abs(vcnv(i,j,k,3))
             kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                            ,(/vxx,vyy,vzz/))
+     .                            ,abs(vcnv(i,j,k,:)))
 
             !(k.B/B)^2
             if (bnorm > 0d0) then
               kb_par2 = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                               ,bcnv(i,j,k,:))**2
+     .                               ,abs(bcnv(i,j,k,:)))**2
      .                 /bnorm
             else
               kb_par2 = 0d0
@@ -208,8 +202,8 @@ cc            vzz = abs(pz(i,j,k)/rho(i,j,k))
 
             kbp2max = max(kbp2max,kb_par2)
 
-            !Sound speed
-            cs2 = a_p*gamma*rho(i,j,k)*tmp(i,j,k)
+            !Sound speed gamma*T
+            cs2 = gamma*tmp(i,j,k)
 
             !Find CFL frequency
             roots = icfl(cs2,ca2,k2,kb_par2,di)
@@ -236,7 +230,7 @@ cc        dt = 2d0*pi/w_cour
 cc        exp_cfl_type='Courant'
 cc      else
         dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
-     .              /(w_cour**3 + w_cfl**3)
+     .                 /(w_cour**3 + w_cfl**3)
 cc        exp_cfl_type='CFL'
 cc      endif
 
@@ -344,8 +338,6 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
-c       use nlfunction_setup
-
       implicit none
 
 c Call variables
@@ -363,13 +355,9 @@ c Local variables
       real(8) :: x1,x2,x3,idx,idy,idz,ldt
       logical :: cartsn
 
-cc      real(8),pointer,dimension(:,:,:):: rho, tmp, px, py, pz
-cc      real(8),pointer,dimension(:,:,:,:) :: bcnv
-cc      real(8),pointer,dimension(:,:,:) :: eeta, h_eta, nuu
-
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
-      real(8) :: cs2,ca2,k2,k2par,di,root(3)
+        real(8) :: cs2,ca2,k2,k2par,di,root(3)
       end function icfl
       END INTERFACE
 
@@ -378,11 +366,6 @@ c Begin program
       gv => patch_var
       grid_params => gv%gparams
       gmetric => gv%gparams%gmetric
-cc      rho => gv%u_n%array_var(IRHO)%array
-cc      tmp => gv%u_n%array_var(ITMP)%array
-cc      px  => gv%u_n%array_var(IVX)%array
-cc      py  => gv%u_n%array_var(IVY)%array
-cc      pz  => gv%u_n%array_var(IVZ)%array
       tmp   => gv%aux%var_list(ITMP_AUX)%array
       rho   => gv%aux%var_list(IRHO_AUX)%array
       vcnv  => gv%aux%vec_list(IVCNV)%vec
@@ -390,10 +373,6 @@ cc      pz  => gv%u_n%array_var(IVZ)%array
       eeta  => gv%aux%var_list(IETA)%array
       h_eta => gv%aux%var_list(IHETA)%array
       nuu   => gv%aux%var_list(INU)%array
-
-c diag ****
-cc      call scan_omega
-c diag ****
 
        igx = 1
        igy = 1
@@ -434,12 +413,12 @@ c Calculate CFL
 
              !k.v
              kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                            ,vcnv(i,j,k,:))
+     .                            ,abs(vcnv(i,j,k,:)))
 
              !(k.B/B)^2
              if (bnorm > 0d0) then
                kb_par2 = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                               ,bcnv(i,j,k,:))**2
+     .                               ,abs(bcnv(i,j,k,:)))**2
      .                 /bnorm
              else
                kb_par2 = 0d0
@@ -447,8 +426,8 @@ c Calculate CFL
 
              kbp2max = max(kbp2max,kb_par2)
 
-             !Sound speed
-             cs2 = a_p*gamma*tmp(i,j,k)
+             !Sound speed gamma*p/rho
+             cs2 = gamma*tmp(i,j,k)
 
              !Find CFL frequency
              roots = icfl(cs2,ca2,k2,kb_par2,di)
