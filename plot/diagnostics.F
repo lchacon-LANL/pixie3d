@@ -496,12 +496,7 @@ c Energy diagnostics
 
       !Thermal energy
 
-cc      if (solve_prs) then
-cc        array = tmp
-cc      else
-cc        array = rho*tmp
-cc      endif
-      array = a_p*rho*tmp
+      array = rho*tmp
 
       if (gamma /= 1d0) then
         Et = 1d0/(gamma-1)
