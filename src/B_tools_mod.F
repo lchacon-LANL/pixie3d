@@ -834,7 +834,7 @@ c     Local variables
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,veclap(3),cnv(3),cov(3),car(3)
+     .             ,vlap(3),cnv(3),cov(3),car(3)
       real(8)    :: upwind,etal
 
       real(8),allocatable,dimension(:,:,:,:) :: vv,v0
@@ -885,15 +885,15 @@ c     Calculate matrix-vector product
             do i = imin,imax
               ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              veclap = veclaplacian(i,j,k,nxx,nyy,nzz
-     .                             ,igrid,igrid,igrid,vv
-     .                             ,vol=volf)
-cc              veclap =-curlcurl(i,j,k,nxx,nyy,nzz
+              vlap = veclap(i,j,k,nxx,nyy,nzz
+     .                     ,igrid,igrid,igrid,vv
+     .                     ,vol=volf)
+cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
 cc       .                           ,igrid,igrid,igrid,vv
 cc       .                           ,vol=volf)
 
               do ieq=1,3
-                y(neq*(ijk-1)+ieq) = veclap(ieq)
+                y(neq*(ijk-1)+ieq) = vlap(ieq)
               enddo
 
             enddo
@@ -905,12 +905,12 @@ cc       .                           ,vol=volf)
             do i = imin,imax
               ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              veclap = veclap_cov(i,j,k,nxx,nyy,nzz
-     .                           ,igrid,igrid,igrid,vv
-     .                           ,vol=volf)
+              vlap = veclap_cov(i,j,k,nxx,nyy,nzz
+     .                         ,igrid,igrid,igrid,vv
+     .                         ,vol=volf)
 
               do ieq=1,3
-                y(neq*(ijk-1)+ieq) = veclap(ieq)
+                y(neq*(ijk-1)+ieq) = vlap(ieq)
               enddo
 
             enddo

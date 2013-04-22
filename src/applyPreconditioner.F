@@ -1179,7 +1179,7 @@ c Local variables
 
       integer    :: i,j,k,ii,isig,iig,ivar,ip,im,nx,ny,nz
       real(8)    :: cov(3),cnv(3),idx,idy,idz,dvol,nabla_v(3,3)
-     .             ,nabla_vv0(3,3),mul,veclap(3),advc(3),jac
+     .             ,nabla_vv0(3,3),mul,vlap(3),advc(3),jac
       real(8),allocatable,dimension(:,:,:,:),target :: dj_cnv
      .                                                ,dj_cov
      .                                                ,db_cnv
@@ -1677,7 +1677,7 @@ c Local variables
 
       integer    :: i,j,k,ii,iig,isig,ivar,ip,im,guess,nx,ny,nz
       real(8)    :: nrhs(nn,3),dvol,cov(3),cnv(3),idx,idy,idz
-     .             ,nabla_vv0(3,3),mul,veclap(3),advc(3)
+     .             ,nabla_vv0(3,3),mul,vlap(3),advc(3)
 
       external   :: v_mtvc2
 

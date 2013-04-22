@@ -130,7 +130,7 @@ cc        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
 cc     .                  ,vcnv,rho,advect,sp=bcSP())  !sp is for conservation
 
         if (dd /= 0d0) then
-          diffus = dd*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,rho)
+          diffus = dd*lap(i,j,k,nx,ny,nz,igx,igy,igz,rho)
         else
           diffus = 0d0
         endif
@@ -167,9 +167,9 @@ cc
 cc        heat_flx = 0d0
 cc
 cc        if (chi /= 0d0) then
-cc          heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cccc     .                            ,rho,vol=.false.)  !chi_perp=chi*rho
-cc     .                            )                  !chi_perp=chi
+cc          heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp
+cccc     .                    ,dff=rho,vol=.false.)  !chi_perp=chi*rho
+cc     .                      )                  !chi_perp=chi
 cc        endif
 cc
 cc        if (chi_par /= chi .and.(.not.lagrangian)) then
@@ -246,13 +246,13 @@ c       Heat flux
 
         if (chi /= 0d0) then
           if (use_p_diff) then
-            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,prs      !Total pressure
-cc     .                            ,rho)  !chi_perp=chi*rho
-     .                            )      !chi_perp=chi
+            heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,prs      !Total pressure
+cc     .                      ,dff=rho)  !chi_perp=chi*rho
+     .                        )      !chi_perp=chi
           else
-            heat_flx =-chi*laplacian(i,j,k,nx,ny,nz,igx,igy,igz,tmp  !Total temperature
-cc     .                            ,rho)  !chi_perp=chi*rho
-     .                            )      !chi_perp=chi
+            heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp  !Total temperature
+cc     .                      ,dff=rho)  !chi_perp=chi*rho
+     .                        )      !chi_perp=chi
           endif
         endif
 

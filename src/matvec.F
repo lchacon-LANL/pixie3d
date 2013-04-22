@@ -1,4 +1,3 @@
-
 c lap_mtvc
 c####################################################################
       subroutine lap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
@@ -84,8 +83,8 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+            y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,xarr(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -180,8 +179,8 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+            y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,xarr(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -414,8 +413,8 @@ cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
+            y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
           enddo
         enddo
       enddo
@@ -536,12 +535,12 @@ cc            nu2 = 0.1
 
 cc            y(ijk) = (1./dt + alpha*(gamma-1.)*mgdivV0(ijkg))*x(ijk)
 cc     .              + alpha*upwind 
-cccc     .              - alpha*nu2*laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,xarr)
+cccc     .              - alpha*nu2*lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,xarr)
 
 cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
-            y(ijk) = laplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,xarr(:,:,:,1),vol=vol_wgt)
+            y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                   ,xarr(:,:,:,1),vol=vol_wgt)
 
           enddo
         enddo
@@ -597,7 +596,7 @@ c Local variables
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
-      real(8)    :: upwind,nu2,dvol,lap,gm,sgn
+      real(8)    :: upwind,nu2,dvol,slap,gm,sgn
 
       logical    :: fpointers
 
@@ -673,19 +672,19 @@ cc     .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
 
             if (chi > 0d0) then
               if (use_p_diff) then
-                lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+                slap = lap(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                         ,dprs(:,:,:,1))
               else
-                lap = laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+                slap = lap(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                         ,dtmp(:,:,:,1))
               endif
-              lap = (gamma-1d0)*chi*lap
+              slap = (gamma-1d0)*chi*slap
             else
-              lap = 0d0
+              slap = 0d0
             endif
 
-cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - lap) )
-            y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1) + alpha*(upwind - lap) )
+cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
+            y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1) + alpha*(upwind - slap) )
      .                 *jac(i,j,k)
 
           enddo
@@ -743,7 +742,7 @@ c Local variables
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
-      real(8)    :: upwind,lap,dvol,flxip,flxim,flxjp,flxjm,flxkp,flxkm
+      real(8)    :: upwind,slap,dvol,flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
       logical    :: fpointers
 
@@ -806,13 +805,13 @@ c Calculate matrix-vector product
 
             ! Diffusion
             if (dd > 0d0) then
-              lap = dd*laplacian(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+              slap = dd*lap(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                          ,drho(:,:,:,1))
             else
-              lap = 0d0
+              slap = 0d0
             endif
 
-            y(ijk)=dvol*(cnp*drho(i,j,k,1)/dt + alpha*(upwind - lap))
+            y(ijk)=dvol*(cnp*drho(i,j,k,1)/dt + alpha*(upwind - slap))
      .                 *jac(i,j,k)
           enddo
         enddo
@@ -866,7 +865,7 @@ cc      integer    :: imin,imax,jmin,jmax,kmin,kmax
 cc      integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 cc
 cc      real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-cc     .             ,veclap(3),cnv(3),cov(3),car(3)
+cc     .             ,vlap(3),cnv(3),cov(3),car(3)
 cc
 cc      real(8),allocatable,dimension(:,:,:,:) :: db
 cc      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -950,7 +949,7 @@ cc            else
 cc              vol = 1d0
 cc            endif
 cc
-cc            veclap = veclaplacian(i,j,k,nxx,nyy,nzz
+cc            vlap = vec(i,j,k,nxx,nyy,nzz
 cc     .                           ,igrid,igrid,igrid,db
 cc     .                           ,alt_eom_b,vol=.false.)
 cc
@@ -959,7 +958,7 @@ cc
 cccc            call curl_bxv(i,j,k,nxx,nyy,nzz,v0_cnv,db
 cccc     .                      ,cnv(1),cnv(2),cnv(3),0,igrid)
 cccc
-cccc            cnv = (db(i,j,k,:)/dt + alpha*cnv - alpha*etal*veclap)*vol
+cccc            cnv = (db(i,j,k,:)/dt + alpha*cnv - alpha*etal*vlap)*vol
 cccc
 cccc            do ieq=1,3
 cccc              y(neq*(ijk-1)+ieq) = cnv(ieq)
@@ -1032,7 +1031,7 @@ cc            upwind =  (flxjp-flxjm)/dyh(jg)
 cc     .               +(flxkp-flxkm)/dzh(kg)
 cc
 cc            cnv(1) = ( db(i,j,k,1)/dt + alpha*upwind 
-cc     .                - alpha*etal*veclap(1))*vol
+cc     .                - alpha*etal*vlap(1))*vol
 cc
 cccc            if (isSP(i,j,k,igrid,igrid,igrid)) then
 cccc              flxip = 0.25*(
@@ -1170,7 +1169,7 @@ cc            upwind =  (flxip-flxim)/dxh(ig)
 cc     .               +(flxkp-flxkm)/dzh(kg)
 cc
 cc            cnv(2) = ( db(i,j,k,2)/dt + alpha*upwind 
-cc     .                - alpha*etal*veclap(2) )*vol
+cc     .                - alpha*etal*vlap(2) )*vol
 cc
 cccc            if (isSP(i,j,k,igrid,igrid,igrid)) then
 cccc              flxip = 0.125*(jac+jacip)*(
@@ -1308,7 +1307,7 @@ cc            upwind =  (flxip-flxim)/dxh(ig)
 cc     .               +(flxjp-flxjm)/dyh(jg)
 cc
 cc            cnv(3) = ( db(i,j,k,3)/dt + alpha*upwind
-cc     .                - alpha*etal*veclap(3) )*vol
+cc     .                - alpha*etal*vlap(3) )*vol
 cc
 cc            do ieq=1,3
 cc              y(neq*(ijk-1)+ieq) = cnv(ieq)
@@ -1368,11 +1367,11 @@ c Local variables
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,veclap(3),cnv(3),cov(3),car(3)
-      real(8)    :: upwind,etal
+     .             ,vlap(3),cnv(3),cov(3),car(3)
+      real(8)    :: upwind
 
       real(8),allocatable,dimension(:,:,:,:) :: db
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,leta
 
       logical    :: fpointers,is_cnv
 
@@ -1415,6 +1414,7 @@ c Map vector x to array for processing
 c Velocity field (including BCs)
 
       v0_cnv => gv0%grid(igrid)%array
+      leta   => geta%grid(igrid)%array
 
 c Calculate matrix-vector product
 
@@ -1447,16 +1447,19 @@ c Calculate matrix-vector product
               vol = 1d0
             endif
 
-            etal   = geta%grid(igrid)%array(i,j,k,1)
+cc            etal   = geta%grid(igrid)%array(i,j,k,1)
 
-            veclap = etal*veclaplacian(i,j,k,nxx,nyy,nzz
-     .                           ,igrid,igrid,igrid,db
-     .                           ,vol=.false.)
-cc            veclap = -etal*curlcurl(i,j,k,nxx,nyy,nzz
-cc     .                           ,igrid,igrid,igrid,db
-cc     .                           ,vol=.false.)
+            if (form_diag) then
+               vlap = veclap(i,j,k,nxx,nyy,nzz
+     .                      ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+     .                      ,vol=.false.)
+            else
+               vlap =-curlcurl(i,j,k,nxx,nyy,nzz
+     .                        ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+     .                        ,vol=.false.)
+            endif
 
-            if (sm_type == 'gm') then
+            if (.not.form_diag) then
 
               cnv = curl_bxv(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                      ,v0_cnv,db,0)
@@ -1577,7 +1580,7 @@ cc     .                           ,vol=.false.)
 
             endif
 
-            cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-veclap))*vol
+            cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cnv(ieq)
@@ -1723,13 +1726,13 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
               vol = 1d0
             endif
 
-            veclap_b = veclaplacian(i,j,k,nxx,nyy,nzz
-     .                             ,igrid,igrid,igrid,db(:,:,:,1:3)
-     .                             ,vol=.false.)
+            veclap_b = veclap(i,j,k,nxx,nyy,nzz
+     .                       ,igrid,igrid,igrid,db(:,:,:,1:3)
+     .                       ,vol=.false.)
 
-            veclap_b2= veclaplacian(i,j,k,nxx,nyy,nzz
-     .                             ,igrid,igrid,igrid,db(:,:,:,4:6)
-     .                             ,vol=.false.)
+            veclap_b2= veclap(i,j,k,nxx,nyy,nzz
+     .                       ,igrid,igrid,igrid,db(:,:,:,4:6)
+     .                       ,vol=.false.)
 
             etal   = geta%grid(igrid)%array(i,j,k,1)
 
@@ -1918,7 +1921,7 @@ c Local variables
      .             ,i,j,k,ig,jg,kg,ieq
 
       real(8)    :: upwind,etal,flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,veclap(3),cnv(3),cov(3),car(3),jac
+     .             ,vlap(3),cnv(3),cov(3),car(3),jac
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
@@ -1993,7 +1996,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
             endif
 
             !Resistive part
-            veclap = veclap_cov(i,j,k,nxx,nyy,nzz
+            vlap = veclap_cov(i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,da
      .                         ,vol=.false.)
 
@@ -2103,7 +2106,7 @@ cc     .                  -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
      .               +(flxjp-flxjm)/grid_params%dyh(jg)
      .               +(flxkp-flxkm)/grid_params%dzh(kg)
 
-            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov/jac - etal*veclap))*vol
+            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov/jac - etal*vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cov(ieq)
@@ -2491,7 +2494,7 @@ cc     .                                         ,db_cov
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
 
       real(8)    :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
-     .             ,mag(3),veclap(3)
+     .             ,mag(3),vlap(3)
 
       logical    :: fpointers,is_cnv,is_car
 
@@ -3554,7 +3557,7 @@ cc     .                                ,dve_cnv,rho0)
 
               dj = -dt*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                         ,dE_cnv,vol=.false.)
-cc              dj = dt*veclaplacian(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+cc              dj = dt*veclap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
 cc     .                          ,dE_cnv,vol=.false.)
 
             else

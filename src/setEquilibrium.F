@@ -4039,13 +4039,13 @@ c       Local variables
 
 c       Begin program
 
-        !Find Laplacian RHS (at cell centers, for computation of I=B_3)
+!Find Laplacian RHS (at cell centers, for computation of I=B_3)
         rhs = 0d0
         do k=1,nz
           do j=1,ny
             do i=1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              rhs(ii)=-laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              rhs(ii)=-lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                          ,psi,dff=jpar_B,vol=vol_wgt)
             enddo
           enddo
@@ -4532,7 +4532,7 @@ c     ---------------------------------------------------------------
 
         use ts_setup, ONLY: vol_wgt
 
-        use operators, ONLY: laplacian
+        use operators, ONLY: lap
 
         use transport_params
 
@@ -4686,7 +4686,7 @@ c       Iteration
      .                     -psir*dpdr-psith*dpdth)/bnorm2
 
               !Multiply by R to ensure proper limit R->inf
-              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              errv(ii) = (lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                             ,psi,dff=iR2,vol=.false.)
      .                   -psi_rhs(ii))*RR(i,j)
 
@@ -4928,7 +4928,7 @@ cc          do i=1,nx
             j1 = (III(i,j+1)+III(i-1,j+1)
      .           -III(i,j-1)-III(i-1,j-1))/4./dt
             j2 =-(III(i,j)  -III(i-1,j))/dh
-            j3 = jac*laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            j3 = jac*lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                        ,psi,dff=iR2,vol=.false.)
 
             !Find covariant EOM force components
@@ -5186,7 +5186,7 @@ cc        use imposeBCinterface
 cc
 cc        use ts_setup, ONLY: vol_wgt
 cc
-cc        use operators, ONLY: laplacian
+cc        use operators, ONLY: lap
 cc
 cc        use transport_params
 cc
@@ -5354,7 +5354,7 @@ cc              psi_rhs(ii)= (Eoeta/etah*(IIh/RR(iglobal,jglobal))**2
 cc     .                     -psir*dpdr-psith*dpdth)/bnorm2
 cc
 cc              !Multiply by R to ensure proper limit R->inf
-cc              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc              errv(ii) = (lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
 cc     .                             ,psi,dff=iR2,vol=.false.)
 cc     .                   -psi_rhs(ii))*RR(iglobal,jglobal)
 cc
@@ -5624,7 +5624,7 @@ cc            !Find contravariant current components
 cc            j1 = (III(iglobal,j+1)+III(iglobal-1,j+1)
 cc     .           -III(iglobal,j-1)-III(iglobal-1,j-1))/4./dt
 cc            j2 =-(III(iglobal,j)  -III(iglobal-1,j))/dh
-cc            j3 = jac*laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
+cc            j3 = jac*lap(i,j,1,nx,ny,nz,igrid,igrid,igrid
 cc     .                        ,psi,dff=iR2,vol=.false.)
 cc
 cc            !Find covariant EOM force components
@@ -5873,7 +5873,7 @@ cc        use imposeBCinterface
 cc
 cc        use ts_setup, ONLY: vol_wgt
 cc
-cc        use operators, ONLY: laplacian
+cc        use operators, ONLY: lap
 cc
 cc        use nlfunction_setup, ONLY: res,eta
 cc
@@ -6069,7 +6069,7 @@ cc
 cc              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
 cc     .                                *gmetric%grid(igrid)%dvol(i,j,k)
 cc
-cc              errv(ii) = (laplacian(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc              errv(ii) = (lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
 cc     .                             ,psi,dff=iR2,vol=vol_wgt)
 cc     .                   -psi_rhs(ii))*RR(iglobal,jglobal)  !Multiply by R to ensure proper limit R->inf
 cc
@@ -6337,7 +6337,7 @@ cc            !Find contravariant current components
 cc            j1 = (III(iglobal,j+1)+III(iglobal-1,j+1)
 cc     .           -III(iglobal,j-1)-III(iglobal-1,j-1))/4./dt
 cc            j2 =-(III(iglobal,j)  -III(iglobal-1,j))/dh
-cc            j3 = jac*laplacian(i,j,1,nx,ny,nz,igrid,igrid,igrid
+cc            j3 = jac*lap(i,j,1,nx,ny,nz,igrid,igrid,igrid
 cc     .                        ,psi,dff=iR2,vol=.false.)
 cc
 cc            !Find covariant EOM force components

@@ -1021,9 +1021,9 @@ cc            v0 =  di*(vcnv-vcnv_0)/dt
 cc                  vefcnv(i,j,k,:) = -dt*curlcurl(i,j,k,nnx,nny,nnz
 cc     .                                          ,igr,igr,igr,v0
 cc     .                                          ,vol=.false.)
-                  vefcnv(i,j,k,:) = dt*veclaplacian(i,j,k,nnx,nny,nnz
-     .                                             ,igr,igr,igr,v0
-     .                                             ,vol=.false.)
+                  vefcnv(i,j,k,:) = dt*veclap(i,j,k,nnx,nny,nnz
+     .                                       ,igr,igr,igr,v0
+     .                                       ,vol=.false.)
                 enddo
               enddo
             enddo
