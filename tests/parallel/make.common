@@ -9,11 +9,21 @@ EXEC=$(wildcard pixie3d*petsc.x)
 LOCALDIR = $(shell basename $(CURDIR))
 
 PAREXEC=$(MPIEXEC) -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
+
 ifeq ($(HOST),franklin)
   PAREXEC=aprun -n $(NP) -N $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
 endif
+
 ifeq ($(HOST),ra22)
   PAREXEC=/usr/mpi/pgi/openmpi-1.2.6/bin/mpiexec -n $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test
+endif
+
+ifeq ($(findstring jf,$(HOST)),jf)
+  PAREXEC=echo "mpiexec -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test" > pixie3d.bat; chmod 770 ./pixie3d.bat; msub -l nodes=1:ppn=$(NP),walltime=00:30:00 -I -x ./pixie3d.bat
+endif
+
+ifeq ($(findstring helios,$(HOST)),helios)
+  PAREXEC=echo "mpiexec -np $(NP) $(EXEC) $(EXEC_OPT) $(SNES_OPT) -test" > pixie3d.bat; chmod 770 ./pixie3d.bat; msub -l nodes=1:ppn=$(NP),walltime=00:30:00 -I -x ./pixie3d.bat
 endif
 
 #Define targets
@@ -26,14 +36,14 @@ setup: ;
 
 rebuild rebuild-a rebuild-b: ;
 	@echo "Rebuilding parallel test in $(LOCALDIR)"
-	-@rm pixie3d.out* pixie3d.tst* record.* 2> /dev/null
+	-@rm pixie3d.out* pixie3d.tst* pixie3d.err* record.* 2> /dev/null
 	@$(PAREXEC) > pixie3d.out
 
 test test-a test-b: ;
 	@echo
 	@echo "Running parallel test in $(LOCALDIR)"
 #	-@rename "bin" "bak" record.bin* 2> /dev/null
-	@$(PAREXEC) > pixie3d.tst
+	@$(PAREXEC) > pixie3d.tst 2> pixie3d.err
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.out pixie3d.tst)
 	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")

@@ -683,9 +683,9 @@ c       Current sheet thickness
 
         !Find mesh point where lapjz changes sign
         j = jplt+1
-        lapjzm =laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
+        lapjzm =lap(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
         do j = jplt+2,ny
-          lapjzp = laplacian(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
+          lapjzp = lap(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
 
           !Check whether sign changes
           if (lapjzp*lapjzm < 0d0) exit
