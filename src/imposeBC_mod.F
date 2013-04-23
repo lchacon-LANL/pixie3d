@@ -431,7 +431,7 @@ c####################################################################
 
         use nlfunction_setup, ONLY: res,vis,E_fld_res,E_fld_hall
      .                             ,ion_hall,fake_ve
-     .                             ,EOM_divPi,EOM_divPe,hres
+     .                             ,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,save_tn,pinch_flow
      .                             ,res_ijk,vis_ijk

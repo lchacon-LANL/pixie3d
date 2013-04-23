@@ -30,7 +30,7 @@ c Local variables
 
       integer       :: ngrd(3),nx,ny,nz
 
-      character(10) :: advective,ts
+      character(10) :: advective,vadvective,ts
 
       real(8)       :: vmax(3),lvmax(3)
 
@@ -62,22 +62,41 @@ c Output
 
           if (.not.test) call warnings
 
-          if     (advect.eq.1) then
+          select case(advect)
+          case (1)
             advective = ' UPWIND'
-          elseif (advect.eq.2) then
+          case (2)
             advective = '    ZIP'
-          elseif (advect.eq.3) then
+          case (3)
             advective = '  QUICK'
-          elseif (advect.eq.4) then
+          case (4)
             advective = '  SMART'
-          elseif (advect.eq.5) then
+          case (5)
             advective = ' SSMART'
-          elseif (advect.eq.6) then
+          case (6)
             advective = ' HORDER'
-          elseif (advect.eq.7) then
+          case (7)
             advective = '  Gamma'
 cc            advective = '   TVD'
-          endif
+          end select
+
+          select case(v_advect)
+          case (1)
+            vadvective = ' UPWIND'
+          case (2)
+            vadvective = '    ZIP'
+          case (3)
+            vadvective = '  QUICK'
+          case (4)
+            vadvective = '  SMART'
+          case (5)
+            vadvective = ' SSMART'
+          case (6)
+            vadvective = ' HORDER'
+          case (7)
+            vadvective = '  Gamma'
+cc            vadvective = '   TVD'
+          end select
 
           if (cnfactor < 1d0) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
@@ -96,7 +115,7 @@ cc            advective = '   TVD'
           endif
 
           write (*,10)nxd,nyd,nzd,ngrd,pc_type,timecorr,source
-     .               ,numerical_grid,advective,ts
+     .               ,numerical_grid,advective,vadvective,ts
 
           write (*,*) 
           if (cnfactor == 1d0) then
@@ -141,7 +160,8 @@ c End program
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
-     .        /,'  Advection scheme..........',a
+     .        /,'  Scalar advection scheme...',a
+     .        /,'  Velocity advection scheme.',a
      .        /,'  TS scheme.................',a)
  100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
 #if defined(vec_pot)

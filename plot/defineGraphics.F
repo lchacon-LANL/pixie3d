@@ -237,72 +237,86 @@ c Define graphics group #2: Cyl variables
       graph(2)%descr='Cyl_variables'
 
 #if !defined(vec_pot)
-      graph(2)%array_graph(1)%array => vx_cov
-      graph(2)%array_graph(1)%descr = 'Vr'
+      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
 
-      graph(2)%array_graph(2)%array => vy_cov
-      graph(2)%array_graph(2)%descr = 'Vth'
+      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
-      graph(2)%array_graph(3)%array => vz_cov
-      graph(2)%array_graph(3)%descr = 'Vz'
+      graph(2)%array_graph(IVX)%array => vx_cov
+      graph(2)%array_graph(IVX)%descr = 'Vr'
 
-      graph(2)%array_graph(4)%array => bx_cov
-      graph(2)%array_graph(4)%descr = 'Br'
+      graph(2)%array_graph(IVY)%array => vy_cov
+      graph(2)%array_graph(IVY)%descr = 'Vth'
 
-      graph(2)%array_graph(5)%array => by_cov
-      graph(2)%array_graph(5)%descr = 'Bth'
+      graph(2)%array_graph(IVZ)%array => vz_cov
+      graph(2)%array_graph(IVZ)%descr = 'Vz'
 
-      graph(2)%array_graph(6)%array => bz_cov
-      graph(2)%array_graph(6)%descr = 'Bz'
+      graph(2)%array_graph(IBX)%array => bx_cov
+      graph(2)%array_graph(IBX)%descr = 'Br'
 
-      graph(2)%array_graph(7)%array => jx_cov
-      graph(2)%array_graph(7)%descr = 'Jr'
+      graph(2)%array_graph(IBY)%array => by_cov
+      graph(2)%array_graph(IBY)%descr = 'Bth'
 
-      graph(2)%array_graph(8)%array => jy_cov
-      graph(2)%array_graph(8)%descr = 'Jth'
+      graph(2)%array_graph(IBZ)%array => bz_cov
+      graph(2)%array_graph(IBZ)%descr = 'Bz'
 
-      graph(2)%array_graph(9)%array => jz_cov
-      graph(2)%array_graph(9)%descr = 'Jz'
+      graph(2)%array_graph(neqd+1)%array => jx_cov
+      graph(2)%array_graph(neqd+1)%descr = 'Jr'
 
-      graph(2)%array_graph(10:ngraph)%descr = ''
+      graph(2)%array_graph(neqd+2)%array => jy_cov
+      graph(2)%array_graph(neqd+2)%descr = 'Jth'
+
+      graph(2)%array_graph(neqd+3)%array => jz_cov
+      graph(2)%array_graph(neqd+3)%descr = 'Jz'
+
+      graph(2)%array_graph(neqd+4:ngraph)%descr = ''
+
 #else
-      graph(2)%array_graph(1)%array => vx_cov
-      graph(2)%array_graph(1)%descr = 'Vr'
+      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
 
-      graph(2)%array_graph(2)%array => vy_cov
-      graph(2)%array_graph(2)%descr = 'Vth'
+      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
-      graph(2)%array_graph(3)%array => vz_cov
-      graph(2)%array_graph(3)%descr = 'Vz'
+      graph(2)%array_graph(IVX)%array => vx_cov
+      graph(2)%array_graph(IVX)%descr = 'Vr'
 
-      graph(2)%array_graph(4)%array => ax_cnv
-      graph(2)%array_graph(4)%descr =  'Ar'
+      graph(2)%array_graph(IVY)%array => vy_cov
+      graph(2)%array_graph(IVY)%descr = 'Vth'
+
+      graph(2)%array_graph(IVZ)%array => vz_cov
+      graph(2)%array_graph(IVZ)%descr = 'Vz'
+
+      graph(2)%array_graph(IAX)%array => ax_cnv
+      graph(2)%array_graph(IAX)%descr =  'Ar'
                                                         
-      graph(2)%array_graph(5)%array => ay_cnv
-      graph(2)%array_graph(5)%descr =  'Ath'
+      graph(2)%array_graph(IAY)%array => ay_cnv
+      graph(2)%array_graph(IAY)%descr =  'Ath'
                                                         
-      graph(2)%array_graph(6)%array => az_cnv
-      graph(2)%array_graph(6)%descr =  'Az'
+      graph(2)%array_graph(IAZ)%array => az_cnv
+      graph(2)%array_graph(IAZ)%descr =  'Az'
 
-      graph(2)%array_graph(7)%array => bx_cov
-      graph(2)%array_graph(7)%descr = 'Br'
+      graph(2)%array_graph(neqd+1)%array => bx_cov
+      graph(2)%array_graph(neqd+1)%descr = 'Br'
                            
-      graph(2)%array_graph(8)%array => by_cov
-      graph(2)%array_graph(8)%descr = 'Bth'
+      graph(2)%array_graph(neqd+2)%array => by_cov
+      graph(2)%array_graph(neqd+2)%descr = 'Bth'
                            
-      graph(2)%array_graph(9)%array => bz_cov
-      graph(2)%array_graph(9)%descr = 'Bz'
+      graph(2)%array_graph(neqd+3)%array => bz_cov
+      graph(2)%array_graph(neqd+3)%descr = 'Bz'
 
-      graph(2)%array_graph(10)%array => jx_cov
-      graph(2)%array_graph(10)%descr = 'Jr'
+      graph(2)%array_graph(neqd+4)%array => jx_cov
+      graph(2)%array_graph(neqd+4)%descr = 'Jr'
 
-      graph(2)%array_graph(11)%array => jy_cov
-      graph(2)%array_graph(11)%descr = 'Jth'
+      graph(2)%array_graph(neqd+5)%array => jy_cov
+      graph(2)%array_graph(neqd+5)%descr = 'Jth'
 
-      graph(2)%array_graph(12)%array => jz_cov
-      graph(2)%array_graph(12)%descr = 'Jz'
+      graph(2)%array_graph(neqd+6)%array => jz_cov
+      graph(2)%array_graph(neqd+6)%descr = 'Jz'
 
-      graph(2)%array_graph(13:ngraph)%descr = ''
+      graph(2)%array_graph(neqd+7:ngraph)%descr = ''
+
 #endif
 
 cc      sel_gr(2,:) = sel_graph

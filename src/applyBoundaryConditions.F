@@ -1051,7 +1051,7 @@ c old TM Hall performance results
 c       Divergence of ion stress tensor
 
           if (nu > 0d0) then
-            div_pi = EOM_divPi(nnx,nny,nnz,igr,igr,igr,vcnv,nuu)
+            div_pi = EOM_divPi(igr,vcnv,nuu)
           else
             div_pi = 0d0
           endif
@@ -1062,9 +1062,9 @@ c       Divergence of electron stress tensor
 
           if (di > 0d0) then
             if (fake_ve) then
-              div_pe=EOM_divPe(nnx,nny,nnz,igr,igr,igr,vefcnv,h_eta)
+              div_pe=EOM_divPi(igr,vefcnv,h_eta)
             else
-              div_pe=EOM_divPe(nnx,nny,nnz,igr,igr,igr,vecnv ,h_eta)
+              div_pe=EOM_divPi(igr,vecnv ,h_eta)
             endif
           else
             div_pe = 0d0

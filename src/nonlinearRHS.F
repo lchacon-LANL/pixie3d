@@ -104,15 +104,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: ieq,nx,ny,nz
+      integer :: ieq,nx,ny,nz
 
-      real(8)    :: cnv(3),cov(3),jac
+      real(8) :: cnv(3),cov(3),jac
 
       ! rho equation
-      real(8)    :: advc,diffus
+      real(8) :: advc,diffus
 
       ! tmp equation
-      real(8)    :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
 
 c Begin program
 
@@ -155,90 +155,6 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 #endif
 
 c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-cc
-cc      if ((gamma == 1d0) .and. (.not.use_p_eom)) then
-cc
-cc        ff(ITMP) = 0d0
-cc
-cc      else
-cc
-ccc       Heat flux
-cc
-cc        heat_flx = 0d0
-cc
-cc        if (chi /= 0d0) then
-cc          heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cccc     .                    ,dff=rho,vol=.false.)  !chi_perp=chi*rho
-cc     .                      )                  !chi_perp=chi
-cc        endif
-cc
-cc        if (chi_par /= chi .and.(.not.lagrangian)) then
-cc          heat_flx = heat_flx
-cc     .              -(chi_par-chi)
-cc     .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmp
-cc     .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-cc     .                   ,symmetric=.true.,limited=.false.,vol=.false.)
-cc        endif
-cc
-cc        if (.not.use_p_eom) heat_flx = heat_flx/rho(i,j,k)
-cc
-ccc       Advection
-cc
-cc        if (use_p_eom) then
-cc          gm = gamma
-cc          sgn =-1d0
-cc        else
-cc          gm = gamma - 1d0
-cc          sgn = 1d0
-cc        endif
-cc
-cc        advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                               ,    vscnv,tmp,advect)
-cc     .      -sgn*(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                               ,sgn*vscnv,tmp,1)
-cc
-ccc       Sources
-cc
-cc        if (.not.adiabatic) then
-cc          !Joule heating
-cc          joule = eeta(i,j,k)
-cccc     .           *dot_product(jcnv(i,j,k,:),jcov(i,j,k,:))/jac
-cc     .           *scalarProduct_ijk(i,j,k,igx,jcnv(i,j,k,:)
-cc     .                                       ,jcov(i,j,k,:))
-cc
-cc          !Ion viscosity
-cc          heat_src = joule
-cc     .              +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                               ,nuu,vcnv,vcnv)
-cc
-cc          !Electron viscosity
-cc          !Comment out for old TM Hall MHD performance results
-cc          if (di > 0d0) then
-cc            if (fake_ve) then
-cc              heat_src = heat_src
-cc     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                ,h_eta,vefcnv,vecnv)
-cc            else
-cc              heat_src = heat_src
-cc     .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                                ,h_eta,vecnv ,vecnv)
-cc            endif
-cc          endif
-cc
-cc          if (.not.use_p_eom) heat_src = heat_src/rho(i,j,k)
-cc
-cc          if (heat_src < 0d0) then
-cc            write (*,*) 'Negative heat source'
-cc            stop
-cc          endif
-cc        else
-cc          heat_src = 0d0
-cc        endif
-cc
-cc        !Add contributions
-cc        ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src)/a_p)*jac
-cc
-cc      endif
 
 c       Heat flux
 
@@ -271,11 +187,8 @@ c       Advection
 
         advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
      .                               ,vscnv,prs,advect)
-cc     .                               ,vscnv,prs,advect,sp=bcSP())
      .          +(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
      .                               ,vscnv,prs,1,reverse=.true.)
-cc     .      -sgn*(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                               ,sgn*vscnv,prs,1)
 
 c       Sources
 
@@ -349,8 +262,10 @@ c$$$      endif
 c     Advection
 
       if (nc_eom_v) then
-        cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                      ,v_advect)
+c$$$        cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+c$$$     .                      ,v_advect)
+        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
+     $       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -512,7 +427,15 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              flx_x(i+1,j,k,IVX:IVZ) = 0d0
+              !Advection
+              adv_meth = v_advect
+              vec1 => vcnv
+              vec2 => vcnv
+              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                           ,tnsr_advc_x)
+              nullify(vec1,vec2)
+
+              flx_x(i+1,j,k,IVX:IVZ) = cnv
             else
               !JxB
               if (nc_eom_jxb) then
@@ -652,7 +575,14 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              flx_y(i,j+1,k,IVX:IVZ) = 0d0
+              adv_meth = v_advect
+              vec1 => vcnv
+              vec2 => vcnv
+              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                           ,tnsr_advc_y)
+              nullify(vec1,vec2)
+
+              flx_y(i,j+1,k,IVX:IVZ) = cnv
             else
               !JxB
               if (nc_eom_jxb) then
@@ -791,7 +721,14 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              flx_z(i,j,k+1,IVX:IVZ) = 0d0
+              adv_meth = v_advect
+              vec1 => vcnv
+              vec2 => vcnv
+              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                           ,tnsr_advc_z)
+              nullify(vec1,vec2)
+
+              flx_z(i,j,k+1,IVX:IVZ) = cnv
             else
               !JxB
               if (nc_eom_jxb) then
@@ -977,17 +914,18 @@ cc             .               ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe)
-              if (slava) then
+c$$$              if (slava) then
                 src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
      .                             + div_pi(i,j,k,:)
-              else
-                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
-     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
-              endif
+c$$$              else
+c$$$                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+c$$$     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+c$$$              endif
 
               !Advection
-              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
-     .                            ,v_advect)
+c$$$              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
+c$$$     .                            ,v_advect)
+              cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
                                                                        !we evolve dv/dt
@@ -1029,11 +967,11 @@ cc     .                       ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe) (should be made conservative)
-              if (slava) then
+c$$$              if (slava) then
                 cnv = div_pi(i,j,k,:)
-              else
-                cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
-              endif
+c$$$              else
+c$$$                cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
+c$$$              endif
               if (alt__eom()) cnv(2) = cnv(2)*jac
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv

@@ -2332,7 +2332,7 @@ cc              cnv= matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),curlcurla)
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece:-di/rho*div(pe(dve))
-            cnv= EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+            cnv= EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                        ,dve_cnv,heta0)
             cov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
@@ -3412,8 +3412,7 @@ cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
 c Find div(Pi(dv))
 
       if (nu > 0d0) then
-        divpi=EOM_divPi(nxx,nyy,nzz,igrid,igrid,igrid,dv
-     .                 ,gvis%grid(igrid)%array(:,:,:,1))
+        divpi=EOM_divPi(igrid,dv,gvis%grid(igrid)%array(:,:,:,1))
       else
         divpi = 0d0
       endif
@@ -3517,9 +3516,9 @@ c Calculate matrix-vector product
 
             !Electron viscosity piece *************
 
-cc            divpe = heta*EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
+cc            divpe = heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
 cc     .                                ,dve_cnv,rho0)
-            divpe = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv
+            divpe = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv
      .                           ,heta0)
 
             if (nc_eom_v) then

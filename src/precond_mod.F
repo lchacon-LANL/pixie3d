@@ -25,7 +25,6 @@ c ######################################################################
         use mg_solver
 
         use nlfunction_setup, ONLY: EOM_divPi_ijk
-     .                             ,EOM_divPe_ijk
      .                             ,viscous_heat_src
      .                             ,nc_eom_v
      .                             ,nc_eom_jxb
@@ -453,9 +452,27 @@ cc        if (icomp == IRHO .or. icomp == ITMP) then
 cc          arr(:,:,:,1) = arr(:,:,:,1)/gmetric%grid(igrid)%jac
 cc        endif
 
-        call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+c$$$        call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+c$$$     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+c$$$     .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
+
+        if (PRESENT(arr0).and.PRESENT(arr_cov)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
      .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
      .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
+        elseif (PRESENT(arr_cov)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder,arr_cov=arr_cov)
+        elseif (PRESENT(arr0)) then
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder,arr0=arr0)
+        else
+          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
+     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
+     .              ,iorder=iorder)
+        endif
 
 c     End program
 
@@ -1443,28 +1460,28 @@ cc              end select
             if (str) then
               select case(half_elem)
               case(1)
-                cnv = (EOM_divPe_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv
+                cnv = (EOM_divPi_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv
      .                               ,gheta%grid(igx)%array)
-     .                +EOM_divPe_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv
+     .                +EOM_divPi_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv
      .                               ,gheta%grid(igx)%array))
      .                /(grho0%grid(igx)%array(i ,j,k,1)
      .                 +grho0%grid(igx)%array(ip,j,k,1))
               case(2)
-                cnv = (EOM_divPe_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv
+                cnv = (EOM_divPi_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv
      .                              ,gheta%grid(igx)%array)
-     .                +EOM_divPe_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv
+     .                +EOM_divPi_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv
      .                              ,gheta%grid(igx)%array))
      .                /(grho0%grid(igx)%array(i,j ,k,1)
      .                 +grho0%grid(igx)%array(i,jp,k,1))
               case(3)
-                cnv = (EOM_divPe_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+                cnv = (EOM_divPi_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
      .                              ,gheta%grid(igx)%array)
-     .                +EOM_divPe_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv
+     .                +EOM_divPi_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv
      .                              ,gheta%grid(igx)%array))
      .                /(grho0%grid(igx)%array(i,j,k ,1)
      .                 +grho0%grid(igx)%array(i,j,kp,1))
               case default
-                cnv = EOM_divPe_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
+                cnv = EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
      .                            ,gheta%grid(igx)%array(:,:,:,1))
      .               /grho0%grid(igx)%array(i,j,k,1)
 

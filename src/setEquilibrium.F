@@ -2017,16 +2017,6 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         deallocate(bg)
 #endif
 
-cc        !Shift vr for EQU BC
-cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-cc     .                              +var(ihi+1,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-cc        endif
-
       case ('2dhel')
 
         mm = grid_params%params(1)
@@ -2138,16 +2128,6 @@ c     Density and temperature
 
         deallocate(bg)
 #endif
-
-cc        !Shift vr for EQU BC
-cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-cc     .                              +var(ihi+1,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-cc        endif
 
       case ('ppn3d','p3nsl')
 
@@ -2308,7 +2288,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
               x1 = grid_params%xg(i)  !Global coordinate
 
               bg(i,j,k,1) = 0d0
-              bg(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
+              bg(i,j,k,2) = bth0(i)
               bg(i,j,k,3) = x1*bzz0(i)
             enddo
           enddo
@@ -2319,16 +2299,6 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
         deallocate(bg)
 #endif
-
-cc        !Shift vr for EQU BC
-cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-cc     .                              +var(ihi+1,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-cc        endif
 
       case ('ohtor')
 
@@ -2410,18 +2380,6 @@ cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
 cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
-
-cc        !Shift vr for EQU BC
-cc        if (ihip + grid_params%ilo(igx)-1 == nxdp) then
-cc          var(ihi+1,:,:,IVX) = 0.25*(var(ihi  ,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi,:,:)
-cc     .                              +var(ihi+1,:,:,IVX)
-cc     .                              /gmetric%grid(igx)%jac(ihi+1,:,:))
-cc     .                         *(gmetric%grid(igx)%jac(ihi  ,:,:)
-cc     .                          +gmetric%grid(igx)%jac(ihi+1,:,:))
-cc          var(ihi+1,:,:,IVY) = 0.5*(var(ihi  ,:,:,IVY)
-cc     .                             +var(ihi+1,:,:,IVY))
-cc        endif
 
       case default
 
@@ -4039,7 +3997,7 @@ c       Local variables
 
 c       Begin program
 
-!Find Laplacian RHS (at cell centers, for computation of I=B_3)
+        !Find Laplacian RHS (at cell centers, for computation of I=B_3)
         rhs = 0d0
         do k=1,nz
           do j=1,ny
@@ -7027,19 +6985,6 @@ c Transform to Covariant
 
       call XformVector_mesh2(igr,a,'car','cov')
 
-c Set boundary values to face values for EQU BC
-cc
-cc      if (bc) then
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        where (bcnd == DEF) bcnd = -IFC
-cc
-cc        a_cnv = XformVector(igr,a,.true.)
-cc        call setBC(IAX,3,nx,ny,nz,a_cnv,a,a,bcnd,igr,igr,igr
-cc     .          ,is_cnv=.false.)
-cc      endif
-
 c End program
 
       end subroutine fillVectorPotential
@@ -7223,18 +7168,6 @@ cc          enddo
 cc        enddo
 cc
 cc      endif
-cc
-ccc Set boundary values to face values for EQU BC
-cc
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cc      where (bcnd == DEF) bcnd = -IFC
-cccc      where (bcnd == DEF) bcnd = -EXT
-cc
-cc      a_cnv = XformVector(igrid,a_cov,.true.)
-cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-cc     .          ,igrid,igrid,igrid,is_cnv=.false.)
 
 c End program
 

@@ -3694,7 +3694,7 @@ c ######################################################################
 
         use mg_solver
 
-        real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3)
+        real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
      .            ,br_pert_bc
 
         real(8) :: eq_params(6)
@@ -5134,7 +5134,7 @@ c     End program
 
 c     EOM_divPi
 c     #####################################################################
-      function EOM_divPi(nxx,nyy,nzz,igx,igy,igz,v0,diff) result(cnv)
+      function EOM_divPi(igr,v0,diff) result(cnv)
 
 c     ---------------------------------------------------------------------
 c     Find divergence of electron pressure stress tensor. Returns
@@ -5145,23 +5145,31 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nxx,nyy,nzz,igx,igy,igz
-      real(8) :: cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
-      real(8) :: v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
-      real(8) :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+      integer :: igr
+      real(8) :: v0  (0:,0:,0:,:)
+      real(8) :: diff(0:,0:,0:)
+
+      real(8) :: cnv (0:size(v0,1)-1
+     $               ,0:size(v0,2)-1
+     $               ,0:size(v0,3)-1
+     $               ,  size(v0,4)  )
 
 c     Local variables
 
-      integer :: i,j,k
+      integer :: i,j,k,nxx,nyy,nzz
 
 c     Begin program
 
       cnv = 0d0
 
+      nxx = grid_params%nxv(igr)
+      nyy = grid_params%nyv(igr)
+      nzz = grid_params%nzv(igr)
+
       do k=1,nzz
         do j=1,nyy
           do i=1,nxx
-            cnv(i,j,k,:) = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+            cnv(i,j,k,:) = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
      .                                  ,v0,diff)
           enddo
         enddo
@@ -5171,73 +5179,73 @@ c     End program
 
       end function EOM_divPi
 
-c     EOM_divPe_ijk
-c     #####################################################################
-      function EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
-     .         result(cnv)
-
-c     ---------------------------------------------------------------------
-c     Find divergence of electron pressure stress tensor. Returns
-c     contravariant components.
-c     ---------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k,nxx,nyy,nzz,igx,igy,igz
-      real(8) :: cnv(3)
-      real(8) :: v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
-      real(8) :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
-
-c     Local variables
-
-c     Begin program
-
-      cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
-
-c     End program
-
-      end function EOM_divPe_ijk
-
-c     EOM_divPe
-c     #####################################################################
-      function EOM_divPe(nxx,nyy,nzz,igx,igy,igz,v0,field) result(cnv)
-
-c     ---------------------------------------------------------------------
-c     Find divergence of electron pressure stress tensor. Returns
-c     contravariant components.
-c     ---------------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      integer :: nxx,nyy,nzz,igx,igy,igz
-      real(8) :: cnv  (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .          ,v0   (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .          ,field(0:nxx+1,0:nyy+1,0:nzz+1)
-
-c     Local variables
-
-      integer :: i,j,k
-
-c     Begin program
-
-      cnv = 0d0
-
-      do k=1,nzz
-        do j=1,nyy
-          do i=1,nxx
-            cnv(i,j,k,:) = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
-     .                                  ,v0,field)
-          enddo
-        enddo
-      enddo
-
-c     End program
-
-      end function EOM_divPe
+c$$$c     EOM_divPe_ijk
+c$$$c     #####################################################################
+c$$$      function EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
+c$$$     .         result(cnv)
+c$$$
+c$$$c     ---------------------------------------------------------------------
+c$$$c     Find divergence of electron pressure stress tensor. Returns
+c$$$c     contravariant components.
+c$$$c     ---------------------------------------------------------------------
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$      integer :: i,j,k,nxx,nyy,nzz,igx,igy,igz
+c$$$      real(8) :: cnv(3)
+c$$$      real(8) :: v0  (0:nxx+1,0:nyy+1,0:nzz+1,3)
+c$$$      real(8) :: diff(0:nxx+1,0:nyy+1,0:nzz+1)
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$      cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz,v0,diff)
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end function EOM_divPe_ijk
+c$$$
+c$$$c     EOM_divPe
+c$$$c     #####################################################################
+c$$$      function EOM_divPe(nxx,nyy,nzz,igx,igy,igz,v0,field) result(cnv)
+c$$$
+c$$$c     ---------------------------------------------------------------------
+c$$$c     Find divergence of electron pressure stress tensor. Returns
+c$$$c     contravariant components.
+c$$$c     ---------------------------------------------------------------------
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$      integer :: nxx,nyy,nzz,igx,igy,igz
+c$$$      real(8) :: cnv  (0:nxx+1,0:nyy+1,0:nzz+1,3)
+c$$$     .          ,v0   (0:nxx+1,0:nyy+1,0:nzz+1,3)
+c$$$     .          ,field(0:nxx+1,0:nyy+1,0:nzz+1)
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$      integer :: i,j,k
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$      cnv = 0d0
+c$$$
+c$$$      do k=1,nzz
+c$$$        do j=1,nyy
+c$$$          do i=1,nxx
+c$$$            cnv(i,j,k,:) = EOM_divPe_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+c$$$     .                                  ,v0,field)
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end function EOM_divPe
 
 c     EOM_Pi_ijk
 c     #####################################################################
