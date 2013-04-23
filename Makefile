@@ -42,8 +42,8 @@ BINDIR = $(PWD)/bin
 
 SUBDIRS = src plot
 
-REL1=1
-REL2=5
+REL1=2
+REL2=0
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifeq ($(FLUX),t)

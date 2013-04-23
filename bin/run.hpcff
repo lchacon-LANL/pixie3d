@@ -1,0 +1,264 @@
+#!/bin/bash
+
+# Help message
+
+help()
+{
+cat <<HELP
+Usage: 
+
+pixie3d [-h] [-d] [-x executable] [-r tmax] [-np procs] [-ntar] [-equ file] [-eig file]
+        [-queue queue] [-walltime walltime] [-depend] -- inputfile [options]
+
+where:
+	-h:            gives this message
+	-d:            turn on debugging
+	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-r tmax:       indicates that the job should be restarted up to time tmax 
+                         (if tmax=0, final time is not changed)
+	-np procs:     indicates the number of processors to run the job  
+		         in parallel
+	-ntar:         runs in foreground in current directory (default: runs in 
+                         background in separate directory and creates 
+                         tarfile inputfile.tar.gz)
+	-equ:          equilibrium file
+	-eig:          eigenmode file
+        -queue:        queue (default: hpcff, other option: nc_hpcff)
+        -walltime walltime:     walltime (with format hh:mm:ss, default is 24:00:00)
+	-depend:       dependent job (default: false)
+	inputfile:     is the input file with or without the extension .in
+	options:       options passed directly to the executable
+HELP
+exit 0
+}
+
+# Defaults
+
+restart=f
+parallel=f
+tar=t
+equf=f
+debug=f
+code_ifile=pixie3d
+adiosfile=adios_config.xml
+queue=hpcff
+walltime=23:59:59
+depend=f
+ppn=8
+nodes=1
+
+# Parse command line options
+
+if [ "$#" = 0 ]; then
+  help
+  exit 1
+fi
+
+while [ -n "$1" ]; do
+case $1 in
+	-h) help;shift 1;;
+	-d) debug=t;shift 1;;
+	-x) executable=$2;shift 2;;
+	-r) restart=t;tmax=$2;shift 2;;
+	-np)parallel=t;np=$2;shift 2;;
+	-ntar)tar=f;shift 1;;
+	-equ)equf=t;equfile=$2;shift 2;;
+	-eig)eigf=t;eigfile=$2;shift 2;;
+        -queue)queue=$2;shift 2;;
+        -walltime)walltime=$2;shift 2;;
+        -depend)depend=t;shift 1;;
+	--) shift;break;;
+	-*) echo "error: no such option $1. -h for help";exit 1;;
+	*)  break;;
+esac
+done
+
+inputfile=`echo "$1" | sed "s/\.in//"`
+shift
+
+options=$*
+
+# Select working directory
+
+path=$PWD
+
+if [ "$tar" = "t" ]
+then
+  i=0
+  dir=$inputfile.`printf %02d $i`
+  lastdir=.
+  while [ -d "$dir" ]; do
+    lastdir=$inputfile.`printf %02d $i`
+    dependjob=`cat $path/$dir/jobid`
+    let i=i+1
+    dir=$inputfile.`printf %02d $i`
+  done
+  mkdir $dir
+else
+  dir=.
+fi
+
+if [ "$depend" = "t" ]; then
+    walltime=$walltime,depend=$dependjob
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Working directory is $path/$dir"
+fi
+
+# Select executable
+
+if [ "$executable" = "" ]
+then
+  if [ "$parallel" = "t" ]
+  then
+    executable=`which pixie3d.petsc.x 2>/dev/null`
+  else
+    executable=`which pixie3d.x 2>/dev/null`
+  fi
+else
+  executable=`which $executable 2>/dev/null`
+fi
+
+if [ "$executable" = "" ]
+then
+  echo "No executable found. Aborting"
+  exit 1
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Program to run is $executable"
+fi
+
+# Copy necessary files to working directory
+
+if [ -f $inputfile.in ]; then
+  cp $inputfile.in $dir 2>/dev/null
+elif [ -f infiles/$inputfile.in ]; then
+  cp infiles/$inputfile.in $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No input file $inputfile.in found. Aborting"
+  exit 1
+fi
+
+if [ -f $adiosfile ]; then
+  cp $adiosfile $dir 2>/dev/null
+elif [ -f infiles/$adiosfile ]; then
+  cp infiles/$adiosfile $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No ADIOS file $adiosfile found. Aborting"
+  exit 1
+fi
+
+if [ "$equf" = "t" ]; then
+ if [ -f "$equfile" ]; then
+  cp $equfile $dir 2>/dev/null
+ elif [ -f infiles/$equfile ]; then
+  cp infiles/$equfile $dir 2>/dev/null
+ else
+  echo "No equilibrium file found. Aborting"
+  exit 1
+ fi
+fi
+
+if [ "$eigf" = "t" ]; then
+ if [ -f "$eigfile" ]; then
+  cp $eigfile $dir 2>/dev/null
+ elif [ -f infiles/$eigfile ]; then
+  cp infiles/$eigfile $dir 2>/dev/null
+ else
+  echo "No eigenvalue file found. Aborting"
+  exit 1
+ fi
+fi
+
+cp $executable $dir 2>/dev/null
+
+if [ "$executable" = "pixie3d.x" ]; then
+  cp pixplot.x $dir 2>/dev/null
+fi
+
+cd $dir
+
+# Execution preparations
+
+# rm $code_ifile.in 2>/dev/null
+cp $inputfile.in $code_ifile.in 2>/dev/null
+cp $equfile $code_ifile.equ 2>/dev/null
+cp $eigfile $code_ifile.eig 2>/dev/null
+
+if [ "$restart" = "t" ]
+then
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = t' \
+        -e '}' \
+        $code_ifile.in 
+else
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = f' \
+        -e '}' \
+        $code_ifile.in
+fi
+
+if [ "$tmax" != "" -a "$tmax" != "0" ]
+then
+    sed -i -e '/tmax/{' \
+        -e 'c\' \
+        -e "    tmax     = $tmax" \
+        -e '}' \
+        $code_ifile.in
+fi
+
+# Execute
+
+if [ "$parallel" = "t" ]; then
+    nodes=`echo "$np/$ppn" | bc`
+    mpiexec="mpiexec -np $np"
+fi
+
+if [ "$tar" = "t" ]
+then
+
+    cat >> $path/$dir/$inputfile.bat <<EOF
+#!/bin/bash
+#MSUB -N $dir
+#MSUB -l nodes=$nodes:ppn=$ppn
+#MSUB -l walltime=$walltime
+#MSUB -o $path/$dir/$inputfile.err
+#MSUB -j oe
+#MSUB -M daniele.bonfiglio@igi.cnr.it
+#MSUB -m abe
+#MSUB -q $queue
+cd $path/$dir
+cp $path/$lastdir/record.bp . 2>/dev/null
+$mpiexec uname -n
+$mpiexec $executable $options > $path/$dir/$inputfile.log < /dev/null
+EOF
+
+else
+
+    cat >> $path/$dir/$inputfile.bat <<EOF
+#!/bin/bash
+#MSUB -N $dir
+#MSUB -l nodes=$nodes:ppn=$ppn
+#MSUB -l walltime=$walltime
+#MSUB -o $path/$dir/$inputfile.err
+#MSUB -j oe
+#MSUB -M daniele.bonfiglio@igi.cnr.it
+#MSUB -m abe
+#MSUB -q $queue
+cd $path/$dir
+$mpiexec uname -n
+$mpiexec $executable $options > $path/$dir/$inputfile.log < /dev/null
+EOF
+
+fi
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting batch script"
+fi
+
+chmod 770 $path/$dir/$inputfile.bat
+msub $path/$dir/$inputfile.bat | tail -n 1 > $path/$dir/jobid

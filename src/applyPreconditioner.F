@@ -1385,7 +1385,7 @@ c Find rhs_v'
               !Substract div_pe piece corresponding to (-di*j/rho)
 c$$$              if (part == 'lfz') then
 c$$$                cnv = cnv
-c$$$     .               -EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .               -EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
 c$$$     .                             ,dve_cnv,heta0(:,:,:,1))
 c$$$              endif
 
@@ -1635,7 +1635,7 @@ c Find rhs_a
 
             cov = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe(:,:,:,1))
 
-            cnv= EOM_divPe_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum
+            cnv= EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum
      .                        ,gheta%grid(igrid)%array(:,:,:,1))
 
             cov = cov + matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
