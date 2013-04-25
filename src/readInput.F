@@ -248,6 +248,7 @@ c Set defaults
 
       E0       = 0d0           ! Boundary electric field (cov)
       B0       = 0d0           ! Boundary magnetic field (cnv)
+      M0       = 0d0           ! Momentum source
 
       !Nonlinear function parameters
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM

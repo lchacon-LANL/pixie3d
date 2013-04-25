@@ -58,12 +58,12 @@ c Local variables
       real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,bb
      .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
      .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
-     .          ,bzh,bth,rh,e0_over_eta,theta_ppnch,p0,eps
+     .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char
 
       real(8) :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
-     .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp)
+     .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
      .          ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
      .          ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
      .          ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
@@ -1871,7 +1871,8 @@ c     --------------------------------------------------
         RR = grid_params%params(3)
         theta_ppnch = grid_params%params(4)
         e0_over_eta = grid_params%params(5)
-        beta = grid_params%params(6)
+        beta        = grid_params%params(6)
+        m0_over_nu  = grid_params%params(7)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1943,6 +1944,13 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           !Adjust radial flow to actual resistivity
           vr0 = eta*vr0
 
+          !Find axial flow from constant momentum source (Dirichlet at wall)
+          vz0 = m0_over_nu*0.25*(1-grid_params%xg)**2
+
+          !Find momentum source
+          M0(1:2) = 0d0
+          M0(3) = m0_over_nu*nu
+
 	  !Find density
           rho0 = 1d0
 
@@ -1954,13 +1962,15 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           do i=0,nxdp
             x1 = grid_params%xg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
-     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i)
+     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
           enddo
         endif
 #endif
 
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
+
+        !Convert momentum source to contravariant
 
         !Build equilibrium
         do k = klom,khip
@@ -1979,7 +1989,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 #endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
-              var(i,j,k,IVZ) = 0d0
+              var(i,j,k,IVZ) = x1*vz0(iglobal)
 
               if (solve_rho) then
                 var(i,j,k,IRHO) = rho0(iglobal)
@@ -2136,7 +2146,8 @@ c     Density and temperature
         RR = grid_params%params(3)
         theta_ppnch = grid_params%params(4)
         e0_over_eta = grid_params%params(5)
-        beta = grid_params%params(6)
+        beta        = grid_params%params(6)
+        m0_over_nu  = grid_params%params(7)
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
@@ -2218,6 +2229,13 @@ cc          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
           !Adjust radial flow to actual resistivity
           vr0 = eta*vr0
 
+          !Find axial flow from constant momentum source (Dirichlet at wall)
+          vz0 = m0_over_nu*0.25*(1-grid_params%xg)**2
+
+          !Find momentum source
+          M0(1:2) = 0d0
+          M0(3) = m0_over_nu*nu
+
           !Find density
           rho0 = 1d0
 
@@ -2229,7 +2247,7 @@ cc          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
           do i=0,nxdp
             x1 = grid_params%xg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
-     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i)
+     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
           enddo
         endif
 #else
@@ -2259,7 +2277,7 @@ cc        stop
 #endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
-              var(i,j,k,IVZ) = 0d0
+              var(i,j,k,IVZ) = x1*vz0(iglobal)
 
               if (solve_rho) then
                 var(i,j,k,IRHO) = rho0(iglobal)
@@ -2422,7 +2440,7 @@ c Transfer BC fields info to postprocessor via input file
 
 c End program
 
-10    format (4f7.3,e12.3)
+10    format (4f7.3,2e12.3)
 
       contains
 
@@ -3470,27 +3488,45 @@ c     Iteration
           !Compute cnv magnetic field components
           bb = compute_B(psi,III)
 
+c diag ****
+c$$$          open(unit=110,file='debug.bin',form='unformatted'
+c$$$     .        ,status='replace')
+c$$$          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,0,110)
+c$$$          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          call contour(bb(0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          call contour(bb(0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          call contour(bb(0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          close(110)
+c$$$          pause
+c diag ****
+
           !Perform flux average
           jpar_B = flux_average(bb)
 
 c diag ****
-cc          open(unit=110,file='debug.bin',form='unformatted'
-cc     .        ,status='replace')
-cc          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .                ,0d0,xmax,0d0,ymax,0,110)
-cc          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .                ,0d0,xmax,0d0,ymax,1,110)
-cccc          dIII=0d0
-cccc          dIII=jpar_B*sqrt(vectorNorm(igrid,bb,.false.))
-cccc          call contour(dIII (0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc          call contour(jpar_B (0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .                ,0d0,xmax,0d0,ymax,1,110)
-cc          dpsi=0d0
-cc          dpsi(1:nx,1:ny,1:nz) = reshape(r,shape(psi(1:nx,1:ny,1:nz)))
-cc          call contour(dpsi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-cc     .                ,0d0,xmax,0d0,ymax,1,110)
-cc          close(110)
-c diag ****
+c$$$          open(unit=110,file='debug.bin',form='unformatted'
+c$$$     .        ,status='replace')
+c$$$          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,0,110)
+c$$$          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$cc          dIII=0d0
+c$$$cc          dIII=jpar_B*sqrt(vectorNorm(igrid,bb,.false.))
+c$$$cc          call contour(dIII (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$          call contour(jpar_B (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          dpsi=0d0
+c$$$          dpsi(1:nx,1:ny,1:nz) = reshape(r,shape(psi(1:nx,1:ny,1:nz)))
+c$$$          call contour(dpsi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
+c$$$          close(110)
+c$$$          pause
+C Diag ****
 
           !Find new psi
           psi = solve_hel_GS(psi,III)
@@ -3725,7 +3761,7 @@ c     Local variables
 
         integer :: ig,jg,kg,ierr,bcnd(6)
         real(8) :: rh,th
-        real(8),allocatable,dimension(:,:,:)   :: etag,jac
+        real(8),allocatable,dimension(:,:,:)   :: etag,jac,b2
         real(8),allocatable,dimension(:,:,:,:) :: xmap,bbg,bcar
 
 c     Begin program
@@ -3787,6 +3823,39 @@ c     Orbit integrator setup: cnv components (with BCs)
           enddo
         enddo
 
+c diag ****
+          allocate(b2   (0:nxdp,0:nydp,0:nzdp))
+
+          b2 = sqrt(bcar(:,:,:,1)**2
+     $             +bcar(:,:,:,2)**2
+     $             +bcar(:,:,:,3)**2)
+
+          open(unit=110,file='debug.bin',form='unformatted'
+     .        ,status='replace')
+          call contour(bbg(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,0,110)
+          call contour(bbg(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(bbg(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(bcar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(bcar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(bcar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(b2  (0:nxd+1,0:nyd+1,0),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(b2  (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          call contour(b2  (0:nxd+1,0:nyd+1,2),nxd+2,nyd+2
+     .                ,0d0,xmax,0d0,ymax,1,110)
+          close(110)
+
+          deallocate(b2)
+cc          pause
+c diag ****
+
 c     Orbit setup (input Az directly)
 
 cc        bxg = 0d0
@@ -3796,7 +3865,7 @@ cc        bzg = -psig
      .                  ,grid_params%xg
      .                  ,grid_params%yg
      .                  ,grid_params%zg
-     .                  ,bbg(:,:,:,1),bbg(:,:,:,2),bbg(:,:,:,3)
+     .                  ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
      .                  ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
      .                  ,jac,xmap,bcond
      .                  ,dtime=1d-1
@@ -4384,8 +4453,7 @@ c     Begin program
 
 c     hel_flux_avg
 c     ###################################################################
-      function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
-     .         result(exloop)
+      function hel_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss) result(exloop)
 
 c     -------------------------------------------------------------------
 c     Performs flux average of various quantities for 2D helical
@@ -4410,6 +4478,8 @@ c     Local variables
      .            ,xs,ys,zs,ts,ds,eta,jac
 
 c     Begin program
+
+        ierr = ORB_OK
 
         if (orb_init) call per_orbit_init(xo,x,yo,y,zo,z)
 
@@ -4436,6 +4506,8 @@ c     Find middle points
 c     Find magnetic field Cartesian components
 
         call getB(xh,yh,zh,bx,by,bz,.false.,.true.,ierr)
+
+        if (ierr /= ORB_OK) return
 
         bb = sqrt(bx**2+by**2+bz**2)
 
