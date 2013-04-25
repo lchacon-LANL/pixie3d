@@ -262,10 +262,10 @@ c$$$      endif
 c     Advection
 
       if (nc_eom_v) then
-c$$$        cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-c$$$     .                      ,v_advect)
-        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
-     $       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
+        cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                      ,v_advect)
+c$$$        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
+c$$$     $       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -273,6 +273,14 @@ c$$$     .                      ,v_advect)
         cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv,v_advect)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+      endif
+
+c     Sources
+
+      if (nc_eom_v) then
+        ff(IVX:IVZ) = ff(IVX:IVZ) - jac*M0/rho(i,j,k)
+      else
+        ff(IVX:IVZ) = ff(IVX:IVZ) - jac*M0
       endif
 
       if (alt__eom()) ff(IVY) = ff(IVY)*jac
@@ -428,13 +436,14 @@ c Begin program
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
               !Advection
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_x)
-              nullify(vec1,vec2)
+c$$$              adv_meth = v_advect
+c$$$              vec1 => vcnv
+c$$$              vec2 => vcnv
+c$$$              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+c$$$     .                           ,tnsr_advc_x)
+c$$$              nullify(vec1,vec2)
 
+              cnv = 0d0
               flx_x(i+1,j,k,IVX:IVZ) = cnv
             else
               !JxB
@@ -575,13 +584,14 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_y)
-              nullify(vec1,vec2)
+c$$$              adv_meth = v_advect
+c$$$              vec1 => vcnv
+c$$$              vec2 => vcnv
+c$$$              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+c$$$     .                           ,tnsr_advc_y)
+c$$$              nullify(vec1,vec2)
 
+              cnv = 0d0
               flx_y(i,j+1,k,IVX:IVZ) = cnv
             else
               !JxB
@@ -721,13 +731,14 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_z)
-              nullify(vec1,vec2)
+c$$$              adv_meth = v_advect
+c$$$              vec1 => vcnv
+c$$$              vec2 => vcnv
+c$$$              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+c$$$     .                           ,tnsr_advc_z)
+c$$$              nullify(vec1,vec2)
 
+              cnv = 0d0
               flx_z(i,j,k+1,IVX:IVZ) = cnv
             else
               !JxB
@@ -923,12 +934,15 @@ c$$$     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
 c$$$              endif
 
               !Advection
-c$$$              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
-c$$$     .                            ,v_advect)
-              cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
+              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
+     .                            ,v_advect)
+cc              cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
                                                                        !we evolve dv/dt
+
+              !Momentum source
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) -jac*M0/rho(i,j,k)
 
               if (alt__eom()) src(i,j,k,IVY) = src(i,j,k,IVY)*jac
 
@@ -984,7 +998,11 @@ c$$$              endif
      .                           ,tnsr_advc_x,tnsr_advc_y,tnsr_advc_z)
               nullify(vec1,vec2)
 
-              src(i,j,k,IVX:IVZ)=src(i,j,k,IVX:IVZ) + cnv
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
+
+              !Momentum source
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - jac*M0
+
             endif
           enddo
         enddo
