@@ -101,10 +101,20 @@ c     Call variables
 
 c     Local variables
 
+      real(8) :: rf
+
 c     Begin program
 
+      rf = 1. + aa_eta*rr**bb_eta
+
       !Resistivity profile eta*(1 + aa*x^bb)^cc
-      res = eta*(1. + aa_eta*rr**bb_eta)**cc_eta
+      if (rf >= 0d0) then
+         res = eta*rf**cc_eta
+      else
+         res = eta*3e2
+      endif
+
+      res = min(res,eta*3e2)
 
 c     End program
 
@@ -5624,20 +5634,6 @@ c     Begin program
       rr = grid_params%xx(ig)
 
       vscty = vis_def(rr)
-cc
-cc      select case (equil)
-cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
-cc
-cc        call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-cc        rr = grid_params%xx(ig)
-cc
-cc        vscty = vis_def(rr)
-cc
-cc      case default
-cc
-cc        vscty = nu
-cc
-cc      end select
 
 c     End program
 
