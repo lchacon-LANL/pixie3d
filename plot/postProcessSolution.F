@@ -83,6 +83,15 @@ c Find perturbed quantities (u_pert = varray - u_ic)
 
       call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
 
+c Remove Jacobian factor from IVY due to alt_eom=.true.
+
+      if (alt__eom()) then
+        u_pert%array_var(IVY)%array = varray%array_var(IVY)%array
+     $                               /gmetric%grid(igrid)%jac
+        varray%array_var(IVY)%array = varray%array_var(IVY)%array
+     $                               /gmetric%grid(igrid)%jac
+      endif
+
 c Assignments
 
       jx = jcnv(:,:,:,1)
