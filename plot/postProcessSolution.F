@@ -83,7 +83,17 @@ c Find perturbed quantities (u_pert = varray - u_ic)
 
       call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
 
-c Remove Jacobian factor from IVY due to alt_eom=.true.
+c Remove Jacobian factors
+
+      varray%array_var(IRHO)%array = varray%array_var(IRHO)%array
+     $                              /gmetric%grid(igrid)%jac
+      u_pert%array_var(IRHO)%array = u_pert%array_var(IRHO)%array
+     $                              /gmetric%grid(igrid)%jac
+
+      varray%array_var(ITMP)%array = varray%array_var(ITMP)%array
+     $                              /gmetric%grid(igrid)%jac
+      u_pert%array_var(ITMP)%array = u_pert%array_var(ITMP)%array
+     $                              /gmetric%grid(igrid)%jac
 
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = varray%array_var(IVY)%array
