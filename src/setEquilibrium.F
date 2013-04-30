@@ -1945,7 +1945,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-grid_params%xg)**2
+          vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
 
           !Find momentum source
           M0(1:2) = 0d0
@@ -1988,7 +1988,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
               var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
-              var(i,j,k,IVY) = 0d0
+              var(i,j,k,IVY) = kk*x1/mm*vz0(iglobal)
               var(i,j,k,IVZ) = x1*vz0(iglobal)
 
               if (solve_rho) then
@@ -2230,7 +2230,7 @@ cc          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-grid_params%xg)**2
+          vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
 
           !Find momentum source
           M0(1:2) = 0d0
@@ -3399,15 +3399,16 @@ c     Local variables
      .            ,ip,im,jp,jm,kp,km,igrid,nn
         real(8) :: alpha,eps
 
-        real(8) :: psi   (0:nx+1,0:ny+1,0:nz+1)
-     .            ,III   (0:nx+1,0:ny+1,0:nz+1)
-     .            ,dpsi  (0:nx+1,0:ny+1,0:nz+1)
-     .            ,dIII  (0:nx+1,0:ny+1,0:nz+1)
-     .            ,zeros (0:nx+1,0:ny+1,0:nz+1)
-     .            ,jpar_B(0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: psi    (0:nx+1,0:ny+1,0:nz+1)
+     .            ,III    (0:nx+1,0:ny+1,0:nz+1)
+     .            ,dpsi   (0:nx+1,0:ny+1,0:nz+1)
+     .            ,dIII   (0:nx+1,0:ny+1,0:nz+1)
+     .            ,zeros  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,jpar_B (0:nx+1,0:ny+1,0:nz+1)
+     .            ,ohm_err(0:nx+1,0:ny+1,0:nz+1)
+     .            ,gs_err (0:nx+1,0:ny+1,0:nz+1)
 
-        real(8) :: x(nx*ny*nz)
-     .            ,r(nx*ny*nz)
+        real(8) :: x(nx*ny*nz),r(nx*ny*nz)
 
 #if defined(FPA)
         type (fpa_state) :: fpav
@@ -3439,8 +3440,8 @@ cc        allocate(jpar_B(0:nx+1,0:ny+1,0:nz+1))
 
         zeros = 0d0
 
-cc        alpha = 0d0 !No underrelaxation
-        alpha = 0.1d0 !underrelaxation constant
+        alpha = 0d0 !No underrelaxation
+cc        alpha = 0.1d0 !underrelaxation constant
 
 c     Initialize psi and B_3=III
 
@@ -3488,45 +3489,11 @@ c     Iteration
           !Compute cnv magnetic field components
           bb = compute_B(psi,III)
 
-c diag ****
-c$$$          open(unit=110,file='debug.bin',form='unformatted'
-c$$$     .        ,status='replace')
-c$$$          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,0,110)
-c$$$          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          call contour(bb(0:nxd+1,0:nyd,1,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          call contour(bb(0:nxd+1,0:nyd,1,2),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          call contour(bb(0:nxd+1,0:nyd,1,3),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          close(110)
-c$$$          pause
-c diag ****
-
           !Perform flux average
           jpar_B = flux_average(bb)
 
-c diag ****
-c$$$          open(unit=110,file='debug.bin',form='unformatted'
-c$$$     .        ,status='replace')
-c$$$          call contour(psi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,0,110)
-c$$$          call contour(III(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$cc          dIII=0d0
-c$$$cc          dIII=jpar_B*sqrt(vectorNorm(igrid,bb,.false.))
-c$$$cc          call contour(dIII (0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$          call contour(jpar_B (0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          dpsi=0d0
-c$$$          dpsi(1:nx,1:ny,1:nz) = reshape(r,shape(psi(1:nx,1:ny,1:nz)))
-c$$$          call contour(dpsi(0:nxd+1,0:nyd,1),nxd+2,nyd+1
-c$$$     .                ,0d0,xmax,0d0,ymax,1,110)
-c$$$          close(110)
-c$$$          pause
-C Diag ****
+          !Dump plots (diag)
+cc          call dumpPlots
 
           !Find new psi
           psi = solve_hel_GS(psi,III)
@@ -3538,10 +3505,10 @@ cc          psi = solve_hel_GS(zeros,III)
 #if defined(FPA)
           !Apply fixed-point accelerator
           call fpa_correction(fpav,r,dp=dot2)
-          alpha = 0d0
+cc          alpha = 0d0
 #endif
           !Update solution
-          x = x - (1-alpha)*r
+          x = x - (1d0-alpha)*r
 
           !Check convergence
           if (chk_conv(r)) exit
@@ -3568,6 +3535,10 @@ c     Check force balance: j3 = -B^3 dI/d(psi) = B^3 j||/B
 c     Check PARALLEL Ohm's law:  j.B = dI/d(psi) * (B)^2
 
         call chk_par_Ohm
+
+c     Dump final plots
+
+        call dumpPlots
 
 c     Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
 
@@ -3693,7 +3664,9 @@ c     Call variables
 c     Local variables
 
         integer :: bcnd(6),igr,ig,jg,kg
-        real(8) :: lI0,I0,aa=0.3,eps=1e-1,x1,y1,z1
+        real(8) :: lI0,I0,x1,y1,z1
+
+        real(8) :: aa=0.3,eps=1e-1
 
 c     Begin program
 
@@ -3708,28 +3681,28 @@ c     Begin program
 
 c     Phase out psi BC
 
-cc        if (phaseout_psibc) then
-cc          aa = aa*0.5
-cc          if (aa > (xmin-xmax)/nxd) then
-cc
-cc            if (my_rank ==0) write (*,*) 'Phasing out psi BC...'
-cc
-cc            do i=1,nx
-cc              call getCurvilinearCoordinates(i,1,1,igrid,igrid,igrid
-cc     .                                    ,ig,jg,kg,x1,y1,z1)
-cc           
-cc              psi(i,:,:) = psi(i,:,:)*tanh((1-x1)/eps+aa)
-cc            enddo
-cc
-cc            do igr=1,ngrid
-cc              gpsi0%grid(igr)%array = aa*gpsi0%grid(igr)%array
-cc            enddo
-cc          else
-cc            do igr=1,ngrid
-cc              gpsi0%grid(igr)%array = 0d0
-cc            enddo
-cc          endif
-cc        endif
+        if (phaseout_psibc) then
+          aa = aa*0.5
+          if (aa > (xmin-xmax)/nxd) then
+
+            if (my_rank ==0) write (*,*) 'Phasing out psi BC...'
+
+            do i=1,nx
+              call getCurvilinearCoordinates(i,1,1,igrid,igrid,igrid
+     .                                    ,ig,jg,kg,x1,y1,z1)
+           
+              psi(i,:,:) = psi(i,:,:)*tanh((1-x1)/eps+aa)
+            enddo
+
+            do igr=1,ngrid
+              gpsi0%grid(igr)%array = aa*gpsi0%grid(igr)%array
+            enddo
+          else
+            do igr=1,ngrid
+              gpsi0%grid(igr)%array = 0d0
+            enddo
+          endif
+        endif
 
 c     End program
 
@@ -3823,39 +3796,6 @@ c     Orbit integrator setup: cnv components (with BCs)
           enddo
         enddo
 
-c diag ****
-          allocate(b2   (0:nxdp,0:nydp,0:nzdp))
-
-          b2 = sqrt(bcar(:,:,:,1)**2
-     $             +bcar(:,:,:,2)**2
-     $             +bcar(:,:,:,3)**2)
-
-          open(unit=110,file='debug.bin',form='unformatted'
-     .        ,status='replace')
-          call contour(bbg(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,0,110)
-          call contour(bbg(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(bbg(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(bcar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(bcar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(bcar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(b2  (0:nxd+1,0:nyd+1,0),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(b2  (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          call contour(b2  (0:nxd+1,0:nyd+1,2),nxd+2,nyd+2
-     .                ,0d0,xmax,0d0,ymax,1,110)
-          close(110)
-
-          deallocate(b2)
-cc          pause
-c diag ****
-
 c     Orbit setup (input Az directly)
 
 cc        bxg = 0d0
@@ -3868,8 +3808,9 @@ cc        bzg = -psig
      .                  ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
      .                  ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
      .                  ,jac,xmap,bcond
-     .                  ,dtime=1d-1
+     .                  ,dtime=1d-2
      .                  ,solen=.true.
+cc     $                  ,lsode_dt_lim=.true.
 cc     .                  ,B_input_is_A=.true.
      .                  ,r_min=1d-3)
 
@@ -3905,17 +3846,15 @@ c     Orbit integration (local processor)
               call orbit_find(ilevel-3,x0,y0,z0,.true.
      .                       ,line_int=hel_flux_avg,ierror=ierr)
 
-              if (ierr /= ORB_OUT_DOM) then
+              select case(ierr)
+              case(ORB_OK)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
                 ff(i,j,k) = Eoeta*bzz_avg/etab2_avg
-              else  !Extrapolate in psi
+              case(ORB_OUT_DOM)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
-
-cc                write (*,*) 'DIAG -- orbit error code=',ierr
-cc                write (*,*) 'DIAG -- orbit problem at=',i,j
 
                 ff(i,j,k) = quad_int(grid_params%xx(ig-4)
      .                              ,grid_params%xx(ig-3)
@@ -3935,7 +3874,11 @@ cc     .                              ,ff(i-3,j,k)
 cc     .                              ,ff(i-2,j,k)
 cc     .                              ,ff(i-1,j,k)
 cc     .                              ,psi(i,j,k),2)
-              endif
+              case default
+                call pstop('flux_average'
+     $                    ,'Orbit error '//int2char(ierr)//' at '
+     $                     //int2char(i)//','//int2char(j))
+              end select
 
             enddo
           enddo
@@ -3947,6 +3890,7 @@ c     Impose BCs
         where (bcnd == DEF) bcnd = EXT
         call setBC(IRHO,nx,ny,nz,ff,zeros,bcnd,igrid,igrid,igrid
      .            ,iorder=order_bc)
+cc     .            ,iorder=2)
 
 c     Free up orbit integral work space
 
@@ -3983,7 +3927,7 @@ c       Local variables
         real(8) :: rhs (nn)
         integer :: bcnd(6)
 
-        external :: del_hel
+        external del_hel
 
 c       Begin program
 
@@ -4016,9 +3960,9 @@ c       Solve Helical Grad-Shafranov equation (find psi at cell centers)
         guess = 1
         call cSolver(1,nn,rhs,psiv,bcnd
      .              ,igrid,ilevel-1,guess,del_hel,vol_wgt
-     .              ,tol=1d-3
-     .              ,gm_driver=.true.
-     .              ,ks_it=20
+     .              ,tol           =1d-7
+     .              ,gm_driver     =.true.
+     .              ,ks_it         =20
      .              ,mg_vcyc       = 1
      .              ,mg_order_res  = 0
      .              ,mg_order_prol = 2
@@ -4066,7 +4010,8 @@ c       Local variables
 
 c       Begin program
 
-        !Find Laplacian RHS (at cell centers, for computation of I=B_3)
+c       Find Laplacian RHS (at cell centers, for computation of I=B_3)
+
         rhs = 0d0
         do k=1,nz
           do j=1,ny
@@ -4078,7 +4023,8 @@ c       Begin program
           enddo
         enddo
 
-        !Solve for B_3=I (at cell centers)
+c       Solve for B_3=I (at cell centers)
+
         bcnd = bcond
         where (bcnd == DEF) bcnd = EQU
 cc        where (bcnd == DEF) bcnd = DIR
@@ -4088,13 +4034,13 @@ cc        where (bcnd == DEF) bcnd = DIR
         guess = 0
         call cSolver(1,nn,rhs,IIv,bcnd
      .              ,igrid,ilevel-1,guess,lap_mtvc2,vol_wgt
-     .              ,tol=1d-7
-     .              ,gm_driver=.true.
-     .              ,ks_it=20
+     .              ,tol           = 1d-7
+     .              ,gm_driver     = .true.
+     .              ,ks_it         = 20
      .              ,mg_order_res  = 0
      .              ,mg_order_prol = 2
      .              ,mg_smooth     = 'jb'
-     .              ,mg_gm_coarse_solve  =.true.
+     .              ,mg_gm_coarse_solve =.true.
      .              ,mg_vcyc       = 1
      .              ,sm_omega      = 0.7d0
      .              ,sm_ncolors    = 4  !9-pt stencil
@@ -4107,7 +4053,8 @@ cc        where (bcnd == DEF) bcnd = DIR
         call setBC(IRHO,nx,ny,nz,III,gbz0%grid(igrid)%array(:,:,:,1)
      .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
-        !Renormalize III so that Bz(r=0)=1d0
+c       Renormalize III so that Bz(r=0)=1d0
+
         if (isBdry(1,igrid,1)) then
           I0 = sum(III(1,1:ny,1))/nyd
         else
@@ -4171,8 +4118,10 @@ cc              bb(i,j,k,3) = III(i,j,k) - kk*x1*bb(i,j,k,2)
         bcnd(:,1) = bcond
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
+        where (bcnd == DEF) bcnd = EXT
         call setMGBC(0,3,nx,ny,nz,igrid,bb,bcnd
-     .              ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.)
+     .              ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+     $              ,iorder=order_bc)
 
       end function compute_B
 
@@ -4193,13 +4142,13 @@ c     Call variables
 
 c     Local variables
 
-        real(8) :: dh,err,tol
+        real(8) :: dh2,err,tol
 
 c     Begin program
 
-        dh = (xmax-xmin)/nxd
-cc        tol = 0.000001*dh**2
-        tol = 0.01*dh**2
+        dh2 = ((xmax-xmin)/nxd)**2
+cc        tol = 0.0001*dh2
+        tol = 0.01*dh2
 
         err = sqrt(dot2(dx,dx))
 
@@ -4211,7 +4160,7 @@ cc        tol = 0.000001*dh**2
 
         chk_conv = (err < tol)
 
-        phaseout_psibc = (err < 100*tol).and.(err > tol)
+cc        phaseout_psibc = (err < 100*tol).and.(err > tol)
 
         if (chk_conv) then
           if (ilevel == 0 .and. my_rank == 0.and.chk_conv) then
@@ -4239,12 +4188,14 @@ c     Call variables
 c     Local variables
 
         integer :: ig,jg,kg
-        real(8) :: x1,y1,z1,j3,err,dummy(0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: x1,y1,z1,j3,err
 
 c     Begin program
 
+        gs_err = 0d0
+
         do k=1,nz
-          do j=1,ny
+          do j=1,ny-1
             do i=1,nx
               call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
      .                                    ,ig,jg,kg,x1,y1,z1)
@@ -4255,19 +4206,12 @@ c     Begin program
      .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./grid_params%dyh(jg)
                                           !-d(B_1)/dx2
 
-              dummy(i,j,k) = j3-bb(i,j,k,3)*jpar_B(i,j,k)
+              gs_err(i,j,k) = j3-bb(i,j,k,3)*jpar_B(i,j,k)
             enddo
           enddo
         enddo
 
-c diag ****
-        open(unit=110,file='hel_GS_err.bin',form='unformatted'
-     .      ,status='replace')
-        call contour(dummy(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-        close(110)
-c diag ****
-
-        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy**2)
+        err = integral(igrid,igrid,igrid,nx,ny,nz,gs_err**2)
         err = sqrt(err)
 
         if (my_rank == 0) then
@@ -4293,12 +4237,13 @@ c     Local variables
 
         integer :: ig,jg,kg
         real(8) :: x1,y1,z1,j1,j2,j3,b1,b2,b3,br,bth,bz,err,bnorm2
-     .            ,dummy(0:nx+1,0:ny+1,0:nz+1)
 
 c     Begin program
 
+        ohm_err = 0d0
+
         do k=1,nz
-          do j=1,ny
+          do j=1,ny-1
             do i=1,nx
               call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
      .                                      ,ig,jg,kg,x1,y1,z1)
@@ -4324,19 +4269,12 @@ c     Begin program
               b2 = x1*bth
               b3 = III(i,j,k)
 
-              dummy(i,j,k) = (j1*b1+j2*b2+j3*b3)/x1-jpar_B(i,j,k)*bnorm2
+              ohm_err(i,j,k)=(j1*b1+j2*b2+j3*b3)/x1-jpar_B(i,j,k)*bnorm2
             enddo
           enddo
         enddo
 
-c diag ****
-        open(unit=110,file='hel_Ohm_err.bin',form='unformatted'
-     .      ,status='replace')
-        call contour(dummy(1:nx,1:ny,1),nx,ny,0d0,xmax,0d0,ymax,0,110)
-        close(110)
-c diag ****
-
-        err = integral(igrid,igrid,igrid,nx,ny,nz,dummy**2)
+        err = integral(igrid,igrid,igrid,nx,ny,nz,ohm_err**2)
         err = sqrt(err)
 
         if (my_rank == 0) then
@@ -4400,6 +4338,80 @@ c     Begin program
         endif
 
       end subroutine pinch_eq_features
+
+c     dumpPlots
+c     ##################################################################
+      subroutine dumpPlots
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Dump plots
+c     ------------------------------------------------------------------
+
+c     Call variables
+
+c     Local variables
+
+      real(8) :: dum(0:nx+1,0:ny+1,0:nz+1)
+     $          ,dummy(0:nxd+1,0:nyd+1,0:nzd+1)
+
+c     Begin program
+
+      call createDrawInCfile(6,'hel_eq.bin','Helical Eq.','t','x','y'
+     $        ,(/'A_3    ','B_3    ','j||/B  '
+     $          ,'Resid  ','GS err ','Ohm err'/)
+     $        ,'-c -X0 -L57','drawhel_eq.in')
+
+      if (my_rank == 0) then
+        open(unit=110,file='hel_eq.bin',form='unformatted'
+     .      ,status='replace')
+      endif
+
+      !Psi
+      call find_global(psi,dummy)
+      if (my_rank == 0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,0,110)
+
+      !III
+      call find_global(III,dummy)
+      if (my_rank ==0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,1,110)
+
+cc      dIII=0d0
+cc      dIII=jpar_B*sqrt(vectorNorm(igrid,bb,.false.))
+cc      call contour(dIII (0:nxd+1,0:nyd,1),nxd+2,nyd+1
+      !j||/B
+      call find_global(jpar_B,dummy)
+      if (my_rank == 0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,1,110)
+
+      !Iteration residual
+      dum=0d0
+      dum(1:nx,1:ny,1:nz) = reshape(r,shape(psi(1:nx,1:ny,1:nz)))
+      call find_global(dum,dummy)
+      if (my_rank == 0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,1,110)
+
+      !GS error
+      call find_global(gs_err,dummy)
+      if (my_rank == 0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,1,110)
+
+      !Ohm's law error
+      call find_global(ohm_err,dummy)
+      if (my_rank == 0)
+     $  call contour(dummy(0:nxd+1,0:nyd,1),nxd+2,nyd+1
+     .              ,0d0,xmax,0d0,ymax,1,110)
+
+      if (my_rank == 0) close(110)
+
+      end subroutine dumpPlots
 
 c     compute_pinch_flow
 c     ##################################################################
@@ -4481,7 +4493,7 @@ c     Begin program
 
         ierr = ORB_OK
 
-        if (orb_init) call per_orbit_init(xo,x,yo,y,zo,z)
+        if (orb_init) call per_orbit_init(xo,x,yo,y,zo,z,order=1)
 
 c     Check whether orbit should terminate
 
