@@ -1367,7 +1367,7 @@ c Local variables
 
       real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
       real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,vol
-     .             ,vlap(3),cnv(3),cov(3),car(3)
+     .             ,vlap(3),cnv(3),cov(3),car(3),etal
       real(8)    :: upwind
 
       real(8),allocatable,dimension(:,:,:,:) :: db
@@ -1447,17 +1447,20 @@ c Calculate matrix-vector product
               vol = 1d0
             endif
 
-cc            etal   = geta%grid(igrid)%array(i,j,k,1)
-
-            if (form_diag) then
-               vlap = veclap(i,j,k,nxx,nyy,nzz
-     .                      ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
-     .                      ,vol=.false.)
-            else
-               vlap =-curlcurl(i,j,k,nxx,nyy,nzz
-     .                        ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+            etal = geta%grid(igrid)%array(i,j,k,1)
+            vlap = etal*veclap(i,j,k,nxx,nyy,nzz
+     .                        ,igrid,igrid,igrid,db
      .                        ,vol=.false.)
-            endif
+
+c$$$            if (form_diag) then
+c$$$               vlap = veclap(i,j,k,nxx,nyy,nzz
+c$$$     .                      ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+c$$$     .                      ,vol=.false.)
+c$$$            else
+c$$$               vlap =-curlcurl(i,j,k,nxx,nyy,nzz
+c$$$     .                        ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+c$$$     .                        ,vol=.false.)
+c$$$            endif
 
             if (.not.form_diag) then
 
