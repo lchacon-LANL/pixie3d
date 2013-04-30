@@ -130,7 +130,7 @@ cc        call grad_div_clean(db_cnv)
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
      .                   ,w_bcs=.true.)!,diag_plots=.true.)
 
-cc        call curl_div_clean(db_cnv)
+cc        call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
 
 c       Find new B^(n+1)
 
