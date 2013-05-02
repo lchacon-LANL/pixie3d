@@ -1155,7 +1155,7 @@ c     Begin program
      .       + alpha*(tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
      .                              ,v0_cnv,dv,1)
      .       +        tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
-     .                              ,dv,v0_cnv,v_advect))
+     .                              ,dv,v0_cnv,min(v_advect,2)))
 
         !Diffusion
         if (nu > 0d0 .and. strss) then
@@ -1172,7 +1172,6 @@ c     Begin program
         psiv = psiv
      .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp
      .                           ,1)
-cc     .                           ,advect)
      .               +tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv
      .                           ,v_advect))
 
