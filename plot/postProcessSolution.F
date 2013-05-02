@@ -83,23 +83,19 @@ c Find perturbed quantities (u_pert = varray - u_ic)
 
       call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
 
-c Remove Jacobian factors
-
-      varray%array_var(IRHO)%array = varray%array_var(IRHO)%array
-     $                              /gmetric%grid(igrid)%jac
+      !Remove Jacobian factors from perturbations
       u_pert%array_var(IRHO)%array = u_pert%array_var(IRHO)%array
      $                              /gmetric%grid(igrid)%jac
+      u_pert%array_var(IRHO)%descr = 'Rho'
 
-      varray%array_var(ITMP)%array = varray%array_var(ITMP)%array
-     $                              /gmetric%grid(igrid)%jac
       u_pert%array_var(ITMP)%array = u_pert%array_var(ITMP)%array
      $                              /gmetric%grid(igrid)%jac
+      u_pert%array_var(ITMP)%descr = 'p=pi+pe'
 
       if (alt__eom()) then
-        u_pert%array_var(IVY)%array = varray%array_var(IVY)%array
+        u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
      $                               /gmetric%grid(igrid)%jac
-        varray%array_var(IVY)%array = varray%array_var(IVY)%array
-     $                               /gmetric%grid(igrid)%jac
+        u_pert%array_var(IVY)%descr = 'P^2'
       endif
 
 c Assignments
