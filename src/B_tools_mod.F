@@ -12,9 +12,9 @@ c ####################################################################
 
         use xdraw_io
 
-        integer :: bc_order_a
+        integer,private :: bc_order_a
 
-        logical :: is_a_cnv=.true.
+        logical,private :: is_a_cnv=.true.
 
       contains
 
@@ -522,7 +522,7 @@ cc     .                                       +aa(0:nx  ,:,:,2:3))
 
 c     curl_div_clean
 c     #################################################################
-      subroutine curl_div_clean(nx,ny,nz,igx,igy,igz,db)
+      subroutine curl_div_clean(igx,db,diag_plots)
 
 c     -----------------------------------------------------------------
 c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
@@ -532,16 +532,32 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
-      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+      integer :: igx
+      real(8) :: db(0:,0:,0:,:)
+
+      logical :: diag_plots
 
 c     Local variables
 
-      real(8) :: da_cov(0:nx+1,0:ny+1,0:nz+1,3)
+      integer :: nx,ny,nz
+      real(8) :: da_cov(0:size(db,1)-1
+     $                 ,0:size(db,2)-1
+     $                 ,0:size(db,3)-1
+     $                 ,size(db,4))
 
 c     Find dA from dB (w/ ghost cells)
 
-      call curl_inv(nx,ny,nz,igx,igy,igz,db,da_cov)
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igx)
+      nz = grid_params%nzv(igx)
+
+      call curl_inv(nx,ny,nz,igx,igx,igx,db,da_cov)
+
+c     Diagnostics (call before db = curl(A))
+
+      if (diag_plots) call dump(igx,da_cov,db)
+
+c     Find dB
 
       db = curl(igx,da_cov)
 
@@ -549,8 +565,8 @@ c     Find dA from dB (w/ ghost cells)
 
 c     vlap_div_clean
 c     #################################################################
-      subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dbcov,dacov
-     .                         ,w_bcs,diag_plots,pc_call)
+      subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dacov,dbcov
+     .                         ,w_bcs,diag_plots,pc_call,gm_it)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -563,6 +579,7 @@ c     Call variables
       integer :: nx,ny,nz,igx,igy,igz,iout
       real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
 
+      integer,optional :: gm_it
       real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
       real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
 
@@ -571,12 +588,14 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ii,icomp,bcsa(6,3),bcsb(6,3)
-     .          ,order_res,order_prol
+     .          ,order_res,order_prol,gmits
 
       real(8) :: da_cov (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
+     $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
       logical :: vwgt,wbcs,dplots,pc,sing_mat
 
@@ -604,22 +623,19 @@ c     Begin program
         pc = .false.
       endif
 
+c     Find covariant magnetic field
+
+      if (PRESENT(dbcov)) then
+        db_cov = dbcov
+      else
+        db_cov = XformVector(igx,db,.false.)
+      endif
+
 c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
 
       bcsb(:,1) = u_0%array_var(IBX)%bconds
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
-
-      if (PRESENT(dbcov)) then
-        db_cov = dbcov
-      else
-        db_cov = db
-        call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
-     .                    ,db_cov(:,:,:,1)
-     .                    ,db_cov(:,:,:,2)
-     .                    ,db_cov(:,:,:,3)
-     .                    ,'cnv','cov')
-      endif
 
       do k = 1,nz
         do j = 1,ny
@@ -627,7 +643,7 @@ c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BC
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             if (vwgt) then
-              dvol = gmetric%grid(igx)%dvol(i,j,k)
+              dvol = gmetric%grid(igx)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -655,20 +671,16 @@ c     Define BCs for dA
 c     Setup solver parameters
 
       if (no_map) then
-        order_res  = 0  !To ensure conservation (avoid null space)
+        order_res  = 0         !To ensure conservation (avoid null space)
         order_prol = 1
-
-        bc_order_a = 0
-
-        sing_mat   = .true.
       else
-        order_res  = 0
-        order_prol = 2
-
-        bc_order_a = 1
-
-        sing_mat   = .false.
+        order_res  = 1         !To ensure conservation (avoid null space)
+        order_prol = 1
       endif
+
+      bc_order_a = 1
+
+      sing_mat = no_map
 
 c     Allocate diagonal matrix
 
@@ -682,9 +694,11 @@ c     Allocate diagonal matrix
 c     Invert vector laplacian to find dA=-vlap^-1(dJ)
 
       if (pc) then
-        etol = 0.5*pc_tol
+        etol = 1d-1
+cc        etol = 0.5*pctol
       else
-        etol = 0.5*rtol
+cc        etol = 0.5*rtol
+        etol = 1d-4
       endif
 
       x = 0d0
@@ -692,9 +706,9 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
       call cSolver(3,ntotdp,rhs,x,bcsa,igx
      .            ,iout,1,avlap_mtvc,vwgt
      .            ,tol           = etol
-     .            ,iters         = it_divcl
+     .            ,iters         = gmits
      .            ,dg            = vlap_diag
-     .            ,gm_driver     = .not.pc
+     .            ,gm_driver     = .true.
      .            ,gm_sing_matrix= sing_mat
      .            ,ks_it         = 30
      .            ,mg_vcyc       = mg_vcyc
@@ -722,12 +736,6 @@ cc     .            ,sm_it         = sm_iter_si
 cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
 
-c diag ****
-cc      !Calculate residual
-cc      call avlap_mtvc(0,3,3*ntotdp,x,rhs,igx,bcsa)
-cc      x = rhs
-c diag ****
-
       if (is_a_cnv) then
         call fillArray(igx,IAX,3,x,da_cnv,bcsa,bc_order_a
      .                ,is_vec=.true.,is_cnv=is_a_cnv
@@ -737,6 +745,12 @@ c diag ****
      .                ,is_vec=.true.,is_cnv=is_a_cnv)
       endif
 
+c     Diagnostics
+
+      if (dplots) call dump(igx,da_cov,db)
+
+      if (PRESENT(gm_it)) gm_it = gmits
+
 c     Find new dB (with BCs)
 
       db = curl(igx,da_cov)
@@ -745,48 +759,6 @@ c     Find new dB (with BCs)
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
      .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
-      endif
-
-c     Diagnostics
-
-      if (dplots) then
-        dcf='divcl_p'//trim(int2char(my_rank))//'.bin'
-
-        call createDrawInCfile(6,trim(dcf),'Solution'
-     .          ,'t','x','y',(/ 'Ax','Ay','Az','Bx','By','Bz'/)
-     .          ,'-c -X0 -L57'
-     .          ,'drawdc_p'//trim(int2char(my_rank))//'.in')
-
-        open(unit=110,file=trim(dcf),form='unformatted'
-     .      ,status='replace')
-
-        call contour(da_cov(:,:,1,1),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,0,110)
-        call contour(da_cov(:,:,1,2),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,1,110)
-        call contour(da_cov(:,:,1,3),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,1,110)
-        call contour(db    (:,:,1,1),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,1,110)
-        call contour(db    (:,:,1,2),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,1,110)
-        call contour(db    (:,:,1,3),nx+2,ny+2
-     .                ,grid_params%gxmin,grid_params%gxmax
-     .                ,grid_params%gymin,grid_params%gymax
-     .                ,1,110)
-        close (110)
-
-        call pstop('vlap_div_clean','Dumped graphics')
       endif
 
 c     Store vector potential
@@ -1024,5 +996,96 @@ cc        enddo
 cc      enddo
 cc
 cc      end subroutine grad_div_clean
+
+c     dump
+c     ###############################################################
+      subroutine dump(igx,da_cov,db)
+
+c     ---------------------------------------------------------------
+c     Dumps cleaned magnetic field diagnostics
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: igx
+      real(8) :: da_cov(0:,0:,0:,:)
+     .          ,db    (0:,0:,0:,:)
+
+c     Local variables
+
+      integer :: nx,ny,nz
+      real(8) :: ddb(0:size(db,1)-1
+     $              ,0:size(db,2)-1
+     $              ,0:size(db,3)-1
+     $              ,size(db,4))
+
+      character(20) :: dcf
+
+c     Begin program
+
+      nx = grid_params%nxv(igx)
+      ny = grid_params%nyv(igx)
+      nz = grid_params%nzv(igx)
+
+      dcf='divcl_p'//trim(int2char(my_rank))//'.bin'
+
+      call createDrawInCfile(9,trim(dcf),'Solution','t','x','y'
+     .        ,(/'Bx_in ','By_in ','Bz_in '
+     $          ,'Ax_out','Ay_out','Az_out'
+     $          ,'Bx_out','By_out','Bz_out'/)
+     .        ,'-c -X0 -L57','drawdc_p'//trim(int2char(my_rank))//'.in')
+
+      open(unit=110,file=trim(dcf),form='unformatted'
+     .    ,status='replace')
+
+      call contour(db   (:,:,1,1),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,0,110)
+      call contour(db   (:,:,1,2),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      call contour(db   (:,:,1,3),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+
+      call contour(da_cov(:,:,1,1),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      call contour(da_cov(:,:,1,2),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      call contour(da_cov(:,:,1,3),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+
+      ddb = curl(igx,da_cov)
+
+      call contour(ddb    (:,:,1,1),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      call contour(ddb    (:,:,1,2),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      call contour(ddb    (:,:,1,3),nx+2,ny+2
+     .            ,grid_params%gxmin,grid_params%gxmax
+     .            ,grid_params%gymin,grid_params%gymax
+     .            ,1,110)
+      close (110)
+
+cc        call pstop('vlap_div_clean','Dumped graphics')
+
+c     End program
+
+      end subroutine dump
 
       end module B_tools
