@@ -6,7 +6,8 @@
   Time correction...........   F
   External source...........   T
   Numerical grid............   F
-  Advection scheme..........    ZIP   
+  Scalar advection scheme...    ZIP   
+  Velocity advection scheme.    ZIP   
   TS scheme................. Theta    
 
    itime    time     dt     vx_max   vy_max   vz_max  GMRES  Newton  CN factor  GMRES-DC
