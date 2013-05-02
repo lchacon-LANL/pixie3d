@@ -125,9 +125,8 @@ c Begin program
 c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (solve_rho) then
-        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,rho,advect)
-cc        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                  ,vcnv,rho,advect,sp=bcSP())  !sp is for conservation
+        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,rho,advect
+     $                  ,sp=bcSP()) !sp is for conservation
 
         if (dd /= 0d0) then
           diffus = dd*lap(i,j,k,nx,ny,nz,igx,igy,igz,rho)
