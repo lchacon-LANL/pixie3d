@@ -30,7 +30,13 @@ c Local variables
       integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq,igrid
       real(8) :: mag,acc
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
-cc      logical :: E_diag,lag_init
+
+      !Lagrangian
+      real(8),allocatable,dimension(:,:,:)   :: tmp_nm,tmp_n,tmp_np
+     $                                         ,chipar
+      logical :: B_weight
+      real(8) :: G_tol
+      integer :: sp_order
 
 c Interfaces
 
@@ -46,20 +52,6 @@ c Begin program
       nx = grid_params%nxv(igx)
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
-
-c Postprocess adiabatic equation for density update
-
-cc      if (use_p_eom .and. (.not.solve_rho)) then
-cc        if (my_rank == 0) write (*,*) 'Postprocessing density'
-cccc        v_arr%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-cccc     .       u_0  %array_var(IRHO)%array(1:nx,1:ny,1:nz)
-cccc     .     *(v_arr%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-cccc     .      /u_0  %array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1./gamma)
-cc        v_arr%array_var(IRHO)%array =
-cc     .       u_0  %array_var(IRHO)%array
-cc     .     *(v_arr%array_var(ITMP)%array
-cc     .      /u_0  %array_var(ITMP)%array)**(1./gamma)
-cc      endif
 
 c Add random noise in EOM (to break symmetry)
 
@@ -128,7 +120,7 @@ cc        call grad_div_clean(db_cnv)
 
         call vlap_div_clean(ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
-     .                   ,w_bcs=.true.)!,diag_plots=.true.)
+     .                   ,w_bcs=.true.,gm_it=it_divcl)!,diag_plots=.true.)
 
 cc        call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
 
@@ -141,9 +133,12 @@ c       Find new B^(n+1)
         v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
      .                  +u_n%array_var(IBZ)%array
 
-c       Update helical flux
+c       Update helical flux and magnetic field
 
 cc        psi = psi + da_cov(:,:,:,3)
+        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
+        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
+        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
 
         deallocate(db_cnv,da_cov)
 
@@ -151,27 +146,58 @@ cc        psi = psi + da_cov(:,:,:,3)
 
 #endif
 
-ccc Perform Lagrangian temperature step
-cc
-cc      if (lagrangian) then
-cc        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
-cc        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
-cc        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
-cc
-cc        lag_init = .true.
-cc        E_diag   = .true.
-cc        call lagr_update(igrid,bcnv
-cc     .                  ,u_nm %array_var(ITMP)%array
-cc     .                  ,u_n  %array_var(ITMP)%array
-cc     .                  ,v_arr%array_var(ITMP)%array
-cc     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
-cc
-cc        !Update BCs
-cc        call setMGBC(0,1,nx,ny,nz,igrid
-cc     .              ,v_arr%array_var(ITMP)%array
-cc     .              ,v_arr%array_var(ITMP)%bconds
-cc     .              ,iorder=bc_order,icomp=(/ITMP/))
-cc      endif
+c Perform Lagrangian temperature step
+
+      if (lagrangian) then
+
+        allocate(tmp_nm(0:nx+1,0:ny+1,0:nz+1)
+     $          ,tmp_n (0:nx+1,0:ny+1,0:nz+1)
+     $          ,tmp_np(0:nx+1,0:ny+1,0:nz+1)
+     $          ,chipar(0:nx+1,0:ny+1,0:nz+1))
+
+        chipar = chi_par - chi
+        G_tol = 1d-8
+        sp_order = 2
+        B_weight = .false.
+
+        if (maxval(chipar) == 0d0) return
+
+        if (ilevel > 0 .and. my_rank == 0)
+     .     write (*,*) '  --> Performing parallel transport step...'
+
+        call lag_init(igrid,nx,ny,nz,bcnv,2d0,ilevel-3
+     .               ,G_tol,sp_order,B_weight,.false.)
+
+        !Find temp from pressure (automatically takes care of jacobian factor)
+        tmp_nm = u_nm %array_var(ITMP)%array
+     $          /u_nm %array_var(IRHO)%array
+        tmp_n  = u_n  %array_var(ITMP)%array
+     $          /u_n  %array_var(IRHO)%array
+        tmp_np = v_arr%array_var(ITMP)%array
+     $          /v_arr%array_var(IRHO)%array
+
+        call lag_update_bdf2(igrid,ITMP,v_arr%array_var(ITMP)%bconds
+     $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel-3)
+c$$$        lag_init = .true.
+c$$$        E_diag   = .true.
+c$$$        call lagr_update(igrid,bcnv
+c$$$     .                  ,u_nm %array_var(ITMP)%array
+c$$$     .                  ,u_n  %array_var(ITMP)%array
+c$$$     .                  ,v_arr%array_var(ITMP)%array
+c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
+
+        call lag_destroy
+
+        !Update BCs
+        call setMGBC(0,1,nx,ny,nz,igrid,tmp_np
+     .              ,v_arr%array_var(ITMP)%bconds
+     .              ,iorder=order_bc,icomp=(/ITMP/))
+
+        !Return pressure (with jacobian pressure)
+        v_arr%array_var(ITMP)%array = tmp_np*v_arr%array_var(IRHO)%array
+
+        deallocate(tmp_nm,tmp_n,tmp_np,chipar)
+      endif
 
 cc      call applyBC (v_arr,igx,igy,igz)
 
