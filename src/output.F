@@ -143,6 +143,7 @@ cc            vadvective = '   TVD'
             write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
 #if !defined(vec_pot)
      .                  ,it_divcl
+            it_divcl = 0
 #endif
           endif
 
