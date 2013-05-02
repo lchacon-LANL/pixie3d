@@ -236,6 +236,8 @@ c Set defaults
 
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
+      spitzer  = .false.       ! Whether we are using Spitzer resistivity
+
       gamma    = 5./3.         ! Polytropic constant of plasma
 
       adiabatic  = .false.     ! Whether we use adiabatic EoS or not
@@ -243,8 +245,6 @@ c Set defaults
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
       lagrangian = .false.     ! Whether we perform Lagrangian step for Te
-
-      spitzer  = .false.       ! Whether we are using Spitzer resistivity
 
       E0       = 0d0           ! Boundary electric field (cov)
       B0       = 0d0           ! Boundary magnetic field (cnv)
@@ -293,7 +293,7 @@ c Set defaults
 
       pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
       pc_debug   = .false.     ! PC debugging flag
-      pc_divclean= .false.     ! Whether to perform divergence cleaning in PC or not
+      pc_divclean= .true.      ! Whether to perform divergence cleaning in PC or not
 
       mg_ratio = 2             ! MG coarsening ratio
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
