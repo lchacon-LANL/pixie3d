@@ -371,7 +371,6 @@ c     Local variables
         real(8) :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,dv0cnv(0:nx+1,0:ny+1,0:nz+1,3)
-cc     $            ,dum(nn)
 
 c     Begin program
 
@@ -2059,8 +2058,7 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,ii,igx,igy,igz,nx,ny,nz
-      real(8) :: dc_tol
+      integer :: i,j,k,ii,igx,igy,igz,nx,ny,nz,its
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
 
 c Begin program
@@ -2087,11 +2085,15 @@ c Find dB (w/ BCs)
 
 c Solve dB*=-curl(lap^(-1)(curl(dB)))
 
-cc      call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
+      its = 0
+
+c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
 
       call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,dbcov=db_cov,pc_call=.true.)
-cc     .                   ,diag_plots=.true.)
+     .                   ,db_cnv,dbcov=db_cov,pc_call=.true.
+     .                   ,diag_plots=pc_debug,gm_it=its)
+
+      it_divcl = it_divcl + its
 
 c Map array to vector
 
