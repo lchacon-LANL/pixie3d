@@ -377,14 +377,14 @@ c Local variables
      .          ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
 
       real(8) :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .          ,tn=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
+     .          ,told=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
      .          ,lvmax(3),ystar,lapjzm,lapjzp,dvm,dvp
      .          ,dl,ww=0d0,Bup=0d0,Bup0=1d0,Bdown=0d0
      .          ,x_xpt,y_xpt,z_xpt,x,y,z,xm,ym,zm,vi_out,ve_out
 
       logical :: cartsn
 
-      save    :: rfluxn,tn
+      save    :: rfluxn,told
 
       INTERFACE
         subroutine postProcessSolution(igrid,varray)
@@ -627,13 +627,13 @@ c Parallel electric field and reconnected flux diagnostic (assumes periodic dire
         rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
 #endif
 
-        if (time == tn) then
+        if (time == told) then
           Ez = 0d0
         else
-          Ez = (rflux-rfluxn)/(time-tn)
+          Ez = (rflux-rfluxn)/(time-told)
         endif
 
-        tn = time
+        told = time
         rfluxn = rflux
 
       case('ic-hk','ic')
@@ -651,13 +651,13 @@ c Parallel electric field and reconnected flux diagnostic (assumes periodic dire
         rflux = maxval(Pflux(iplt,:,kplt))-Pflux(iplt,jplt,kplt)
 #endif
 
-        if (time == tn) then
+        if (time == told) then
           Ez = 0d0
         else
-          Ez = abs((rflux-rfluxn))/(time-tn)
+          Ez = abs((rflux-rfluxn))/(time-told)
         endif
 
-        tn = time
+        told = time
         rfluxn = rflux
 
       case default
