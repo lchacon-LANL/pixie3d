@@ -28,8 +28,8 @@
     vperflow = 0.
 
     dt       = 1d0
-    tmax     = 1d1
-    dstep    = 1d1
+    tmax     = 10d0
+    dstep    = 1d0
 
     nh2      = 1
     ptemp    = 1d-3
@@ -67,8 +67,8 @@
     adiabatic  = t
     use_p_eom  = t
 
-    debug    = f
-    debug_it = 0
+    pc_debug   = f
+    pc_debug_it= 0
 
  /
  &graphdef
