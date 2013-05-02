@@ -5,7 +5,8 @@
   Time correction...........   T
   External source...........   F
   Numerical grid............   T
-  Advection scheme..........  SMART   
+  Scalar advection scheme...  SMART   
+  Velocity advection scheme.  SMART   
   TS scheme................. Theta    
 
    itime    time     dt     vx_max   vy_max   vz_max  GMRES  Newton  CN factor  GMRES-DC
