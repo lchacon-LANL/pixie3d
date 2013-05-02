@@ -1402,15 +1402,15 @@ c$$$              endif
               if (nc_eom_v) then
                 cnv = cnv
      .              +(tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                              ,vcnv0,dv_cnv,advect)
+     .                              ,vcnv0,dv_cnv,min(v_advect,2))
      .               +tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                              ,dv_cnv,vcnv0,advect))
+     .                              ,dv_cnv,vcnv0,min(v_advect,2)))
               else
                 cnv = cnv
      .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vcnv0,dp_cnv,advect)
+     .                        ,vcnv0,dp_cnv,v_advect)
      .               +tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dp_cnv,vcnv0,advect))
+     .                        ,dp_cnv,vcnv0,v_advect))
               endif
 
               !Stress tensors
@@ -1518,7 +1518,7 @@ c Find rhs_v
               endif
 
               cnv = tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,gv0%grid(igrid)%array,dp_cnv,advect)
+     .                        ,gv0%grid(igrid)%array,dp_cnv,v_advect)
 
               crhs(ii,:) = dvol*(cnp*dp_cnv(i,j,k,:)/dt - alpha*cnv)
 
@@ -2064,7 +2064,7 @@ c Local variables
 c Begin program
 
       if (iout > 0 .and. my_rank == 0)
-     .     write (*,*) '==> Performing divergence cleaning in PC...'
+     .   write (*,*) '  --> Performing divergence cleaning in PC...'
 
       igx = igrid
       igy = igrid
