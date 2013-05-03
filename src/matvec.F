@@ -583,22 +583,22 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
-      real(8)    :: x(ntot),y(ntot)
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer    :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
+      integer :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
-      real(8)    :: upwind,nu2,dvol,slap,gm,sgn
+      real(8) :: upwind,nu2,dvol,slap,plap,gm,sgn
 
-      logical    :: fpointers
+      logical :: fpointers
 
 c Begin program
 
@@ -637,6 +637,7 @@ c Map velocity components
 
       v0_cnv => gvs0 %grid(igrid)%array
       rho0   => grho0%grid(igrid)%array
+      bh0    => gbhat%grid(igrid)%array
 
       dtmp = dprs/rho0
 
@@ -657,9 +658,6 @@ c Calculate matrix-vector product
             upwind = gm*flx_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                           ,v0_cnv,dprs(:,:,:,1),1
      .                           ,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-cc     .             - sgn*(gm-1.)
-cc     .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-cc     .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
      .             +(gm-1.)
      .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                           ,v0_cnv,dprs(:,:,:,1),1,reverse=.true.)
@@ -683,9 +681,20 @@ cc     .                              ,sgn*v0_cnv,dprs(:,:,:,1),1)
               slap = 0d0
             endif
 
+            if (chi_par /= chi .and.(.not.lagrangian)) then
+              plap = par_diff(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+     $                       ,dtmp(:,:,:,1)
+     .                       ,bh0(:,:,:,1),bh0(:,:,:,2),bh0(:,:,:,3)
+     .                       ,2,symmetric=.false.
+     .                       ,limited=.false.,vol=.false.)
+              plap = (gamma-1d0)*(chi_par-chi)/a_p*plap !Factor of a_p because operator acts on Te
+            else
+              plap = 0d0
+            endif
+
 cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
-            y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1) + alpha*(upwind - slap) )
-     .                 *jac(i,j,k)
+            y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
+     $                  + alpha*(upwind - slap - plap) )*jac(i,j,k)
 
           enddo
         enddo
@@ -694,7 +703,7 @@ cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
 c End program
 
       deallocate(dtmp,dprs)
-      nullify(v0_cnv,rho0)
+      nullify(v0_cnv,rho0,bh0)
 
       call deallocPointers(fpointers)
 
