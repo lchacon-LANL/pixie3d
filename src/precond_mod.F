@@ -61,7 +61,7 @@ c ######################################################################
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
-     .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0
+     .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
 
       contains
 
@@ -127,7 +127,7 @@ c     Begin program
         call allocateMGArray(1,gvis)
         call allocateMGArray(1,geta)
         call allocateMGArray(1,gheta)
-
+        call allocateMGArray(3,gbhat)
         call allocateMGArray(3,gdb_cov)
 
 c     End program
@@ -183,6 +183,7 @@ c     Begin program
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
+        call deallocateMGArray(gbhat)
 
 c     End program
 
@@ -505,7 +506,7 @@ c     Local variables
      .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
         real(8)    :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
-     .               ,nabla_v(3,3),jac
+     .               ,nabla_v(3,3),jac,bnorm
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
         real(8), allocatable, dimension(:,:,:,:,:) :: tensor
@@ -614,6 +615,31 @@ c     Store magnetic field cov components in all grids (w/ BCs)
         call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
      .                      ,iscnv=.false.)
 
+c     Store magnetic field cnv components in all grids (w/ BCs)
+
+        if (chi_par /= chi .and. (.not.lagrangian)) then
+          gbhat%grid(igrid)%array = bhat
+
+          do igr=igrid,grid_params%ngrid
+
+            do k=0,grid_params%nzv(igr)+1
+              do j=0,grid_params%nyv(igr)+1
+                do i=0,grid_params%nxv(igr)+1
+                  call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
+
+                  bnorm = vectorNorm(i,j,k,igr
+     $                     ,gbhat%grid(igr)%array(i,j,k,:),.false.)
+
+                  gbhat%grid(igr)%array(i,j,k,:)
+     $                 = gbhat%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+                enddo
+              enddo
+            enddo
+
+          enddo
+
+        endif
+
 c     Store ion velocity components in all grids (w/ BCs)
 
         gv0%grid(igrid)%array = vcnv
@@ -688,16 +714,6 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
           if (de > 0d0) then
             gbs0%grid(igrid)%array = gb0%grid(igrid)%array
      $                              -de**2/di*curl(igrid,vecov)
-c$$$            do k=1,nz
-c$$$              do j=1,ny
-c$$$                do i=1,nx
-c$$$                  cnv = curl(i,j,k,nx,ny,nz,igrid,igrid,igrid,vecov)
-c$$$
-c$$$                  gbs0%grid(igrid)%array(i,j,k,:)
-c$$$     .                   = gb0%grid(igrid)%array(i,j,k,:) -de**2/di*cnv
-c$$$                enddo
-c$$$              enddo
-c$$$            enddo
 
             call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order)
           else
