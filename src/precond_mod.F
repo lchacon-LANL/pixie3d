@@ -620,18 +620,16 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
         if (chi_par /= chi .and. (.not.lagrangian)) then
           gbhat%grid(igrid)%array = bhat
 
-          do igr=igrid,grid_params%ngrid
+          do igr=igrid+1,grid_params%ngrid
 
             do k=0,grid_params%nzv(igr)+1
               do j=0,grid_params%nyv(igr)+1
                 do i=0,grid_params%nxv(igr)+1
-                  call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
-
                   bnorm = vectorNorm(i,j,k,igr
-     $                     ,gbhat%grid(igr)%array(i,j,k,:),.false.)
+     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
 
                   gbhat%grid(igr)%array(i,j,k,:)
-     $                 = gbhat%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
                 enddo
               enddo
             enddo

@@ -536,10 +536,7 @@ c     Begin program
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
-              call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
-
               bnorm = vectorNorm(i,j,k,igr,bcnv(i,j,k,:),.false.)
-
               bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
             enddo
           enddo
