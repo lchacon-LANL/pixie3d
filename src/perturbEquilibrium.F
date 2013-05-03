@@ -95,7 +95,7 @@ c     Begin program
             select case(coords)
               case('hel')
                 mm = nh2
-                kk = 0.
+                kk = 0d0
               case('cyl')
                 mm = grid_params%params(1)
                 kk = grid_params%params(2)

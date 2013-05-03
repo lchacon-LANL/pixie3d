@@ -2859,9 +2859,9 @@ c     Local variables
 
 c     Begin program
 
-      Fluxx=0
-      Fluxy=0
-      Fluxz=0
+      Fluxx=0d0
+      Fluxy=0d0
+      Fluxz=0d0
 
       if (PRESENT(limited)) then
         limit = limited
@@ -2941,9 +2941,9 @@ c     Local variables
 
 c     Begin program
 
-      Fluxx=0
-      Fluxy=0
-      Fluxz=0
+      Fluxx=0d0
+      Fluxy=0d0
+      Fluxz=0d0
 
       if (PRESENT(limited)) then
         limit = limited
@@ -3347,9 +3347,9 @@ c     Begin program
         stncl = 5
       endif
 
-      Fluxx=0
-      Fluxy=0
-      Fluxz=0
+      Fluxx=0d0
+      Fluxy=0d0
+      Fluxz=0d0
 
 c     Get (constant) mesh spacings
 
@@ -3504,7 +3504,7 @@ c     Local variables
       real(8)  :: twelve=12d0,bxby,flx0,flx1,flx
       logical  :: chk0,chk1,chk2
 
-      val=0
+      val=0d0
 
       a(-1,:)=(/-3,-10,18,-6,1/)
       a(0,:)=(/1,-8,0,8,-1/)
@@ -5922,7 +5922,7 @@ cc      pc_B_solve   =.false. !Whether to invert M_B or not
       mg_coarse_size = 2    !Minimum coarse grid size (mg_ratio^mg_coarse_size)
 
       sm_type      = 'jb'   !Type of smoother ('jg','gs','gm')
-      sm_omega     = 0.7    !Damping for MG smoother (only when 'jb' is chosen)
+      sm_omega     = 7d-1   !Damping for MG smoother (only when 'jb' is chosen)
       sm_ncolors   = 8      !Number of colors for diagonal calc., smoothing
       sm_line_relax=.false. !Whether to perform line relaxation in MG
 
