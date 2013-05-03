@@ -1065,7 +1065,7 @@ c     Next level solver
 
         call solverOptionsInit
 
-        solverOptions%omega = 0.8
+        solverOptions%omega = 0.8d0
         solverOptions%iter  = 3
         solverOptions%tol   = 1d-10
 
@@ -1221,7 +1221,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,half_elem,ip,jp,kp,hx,hy,hz
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
-     .               ,veh(3),curlv(3),half=0.5,ijacip
+     .               ,veh(3),curlv(3),half=0.5d0,ijacip
         logical    :: str
 
 c     Begin program
