@@ -146,49 +146,13 @@ c *******************************************************************
           call pstop('applyPC','s4 PC not implemented for B')
 #endif
 
-cc        xxx = dt*yyy/cnp
-cc        if (vol_wgt) call scaleVec(igrid,neq,xxx,'div')
-
-        !A
-cccc        call formArhs_hall(nn,xxx,yyy(:,IAX:IAZ),rrr(:,IAX:IAZ),igrid)
-cccc        xxx(:,IAX:IAZ) = dt*yyy(:,IAX:IAZ)/cnp
-cccc        if (vol_wgt) call scaleVec(igrid,3,xxx(:,IAX:IAZ),'div')
-cc        rrr(:,IAX:IAZ) = yyy(:,IAX:IAZ)
-cc        call EMHD_step(rrr(:,IAX:IAZ),xxx(:,IAX:IAZ),.true.)
-cc
-cccc        !Rho
-cccc        xxx(:,IRHO) = dt*yyy(:,IRHO)/cnp
-cccc        if (vol_wgt) call scaleVec(igrid,1,xxx(:,IRHO),'div')
-cccc
-cccc        !T
-cccc        call L_T(nx,ny,nz,xxx,rrr(:,ITMP),igrid)
-cccc        if (vol_wgt) call scaleVec(igrid,1,rrr(:,ITMP),'mul')
-cccc        rrr(:,ITMP) = yyy(:,ITMP)-rrr(:,ITMP)
-cccc
-cccc        xxx(:,ITMP) = dt*rrr(:,ITMP)/cnp
-cccc        if (vol_wgt) call scaleVec(igrid,1,xxx(:,ITMP),'div')
-cccc
-cc        pc_B_solve = .false.
-cc        rrr(:,IRHO) = yyy(:,IRHO)
-cc        rrr(:,ITMP) = yyy(:,ITMP)
-cc        call invert_M(rrr,xxx,0)
-
         rrr = yyy
 
         call invert_M(rrr,xxx,0)
 
-        !V
         call invert_P_si(rrr,xxx)
 
         call find_dx(xxx,dxxx,0)
-
-cc        call find_Udv(xxx,dxxx)
-cc
-cc        xxx(:,ITMP) = xxx(:,ITMP) - dt/cnp*dxxx(:,ITMP)
-cc        xxx(:,IRHO) = xxx(:,IRHO) - dt/cnp*dxxx(:,IRHO)
-cc
-cc        call EMHD_step(dxxx(:,IAX:IAZ),dxxx(:,IAX:IAZ),.false.)
-cc        xxx(:,IAX:IAZ) = xxx(:,IAX:IAZ) - dt/cnp*dxxx(:,IAX:IAZ)
 
 c     Postprocessing of velocity -> momentum
 
@@ -542,14 +506,19 @@ c       Vector potential
 
         if (pc_B_solve) then
 
-          if (iout > 0.and.my_rank ==0) then
-             write (*,*) '  --> Solving for A...'
-          endif
-
           if (.not.(di == 0d0 .or. pc_ion_hall)) then
+
+            if (iout > 0.and.my_rank ==0) then
+              write (*,*) '  --> Solving EMHD step for A...'
+            endif
 cc            call formArhs_hall(nn,x,rhs(:,IAX:IAZ),rhsc(:,1:3),igrid)
             call EMHD_step(rhs(:,IAX:IAZ),x(:,IAX:IAZ),.true.)
           else
+
+            if (iout > 0.and.my_rank ==0) then
+              write (*,*) '  --> Solving for A...'
+            endif
+
             call cSolver(3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
      .             ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
      .             ,tol           = pc_tol
@@ -1039,10 +1008,6 @@ c     Local variables
       real(8) :: xc(nn,6),rhsc(nn,6)
 
 c     Begin program
-
-      if (iout > 0.and.my_rank ==0) then
-        write (*,*) '  --> Solving EMHD step for A...'
-      endif
 
 c     Transfer initial guess and residual
 
