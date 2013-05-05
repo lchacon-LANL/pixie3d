@@ -2234,21 +2234,21 @@ c Auxiliary quantities
      .        ,db_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,da_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dj_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,djf_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,djf_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
       !Variables
-cc      da_cov => du(:,:,:,1:3)
-cc      dj_cnv => du(:,:,:,4:6)
-      da_cov = du_cov(:,:,:,1:3)
-      da_cnv = du_cnv(:,:,:,1:3)
-cc      dj_cov = du_cov(:,:,:,4:6)
-cc      dj_cnv = du_cnv(:,:,:,4:6)
+      da_cov  = du_cov(:,:,:,1:3)
+      da_cnv  = du_cnv(:,:,:,1:3)
       djf_cov = du_cov(:,:,:,4:6)
       djf_cnv = du_cnv(:,:,:,4:6)
+cc      da_cov (0:,0:,0:,1:) => du_cov(:,:,:,1:3)
+cc      da_cnv (0:,0:,0:,1:) => du_cnv(:,:,:,1:3)
+cc      djf_cov(0:,0:,0:,4:) => du_cov(:,:,:,4:6)
+cc      djf_cnv(0:,0:,0:,4:) => du_cnv(:,:,:,4:6)
 
       !Coefficients
       ve0_cnv => gve0%grid(igrid)%array
@@ -2280,9 +2280,21 @@ cc      dj_cnv = du_cnv(:,:,:,4:6)
         dve_cnv(:,:,:,3) =-di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
       endif
 
-      das(:,:,:,1) = da_cov(:,:,:,1)+de**2*dj_cov(:,:,:,1)/rho0(:,:,:,1)  !da_star (covariant)
-      das(:,:,:,2) = da_cov(:,:,:,2)+de**2*dj_cov(:,:,:,2)/rho0(:,:,:,1)  !da_star (covariant)
-      das(:,:,:,3) = da_cov(:,:,:,3)+de**2*dj_cov(:,:,:,3)/rho0(:,:,:,1)  !da_star (covariant)
+      if (form_diag.or.fake_ve) then  !For diagonal formation
+        das(:,:,:,1) = da_cov(:,:,:,1)
+     .                +de**2*djf_cov(:,:,:,1)/rho0(:,:,:,1) !da_star (covariant)
+        das(:,:,:,2) = da_cov(:,:,:,2)
+     .                +de**2*djf_cov(:,:,:,2)/rho0(:,:,:,1) !da_star (covariant)
+        das(:,:,:,3) = da_cov(:,:,:,3)
+     .                +de**2*djf_cov(:,:,:,3)/rho0(:,:,:,1) !da_star (covariant)
+      else
+        das(:,:,:,1) = da_cov(:,:,:,1)
+     .                +de**2*dj_cov(:,:,:,1)/rho0(:,:,:,1) !da_star (covariant)
+        das(:,:,:,2) = da_cov(:,:,:,2)
+     .                +de**2*dj_cov(:,:,:,2)/rho0(:,:,:,1) !da_star (covariant)
+        das(:,:,:,3) = da_cov(:,:,:,3)
+     .                +de**2*dj_cov(:,:,:,3)/rho0(:,:,:,1) !da_star (covariant)
+      endif
 
 c Calculate matrix-vector product
 
@@ -2350,13 +2362,8 @@ cc              cnv= matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),curlcurla)
 
             a_res = a_res - alpha*di/rho0(i,j,k,1)*cov
 
-cc            if (fake_ve) then
-              j_res = djf_cov(i,j,k,:) + lap_a_cov
-cc            else
-cc              j_res = djf_cov(i,j,k,:) - curlcurla
-cc            endif
-
             !Assemble residual
+            j_res = djf_cov(i,j,k,:) + lap_a_cov
             do ieq=1,3
               y(neq*(ijk-1)+ieq  ) = vol*a_res(ieq)
               y(neq*(ijk-1)+ieq+3) = vol*j_res(ieq)
