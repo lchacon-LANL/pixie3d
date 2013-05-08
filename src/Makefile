@@ -58,7 +58,7 @@ ifdef SAMR
     else
       EXCLUDE += %SAMRAIDriverImplicit.C %ImplicitPixie3dApplication.C
     endif
-   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
+    SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
 # Objects
@@ -94,13 +94,17 @@ MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDI
 
 .PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
-code: common $(CODE) 
+ifdef SAMR
+    code: common $(SAMRAICODE) 
+else
+    code: common $(CODE) 
+endif 
 
 $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS) 
 	@mv $@ $(BINDIR)
 
 code_a: common $(A_CODE) 
