@@ -87,6 +87,7 @@ endif
 ifeq ($(SAMR),t)
   TARGET = samrai
   CPPFLAGS += -Dflux_rhs
+  FPA=f
 endif
 
 #Export required variables
