@@ -1937,8 +1937,13 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 	  !Initialize toroidal field
           bzz0 = bz0
 
-          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+          if (gamma > 1d0) then
+             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
      .                     ,p00,bth0,bzz0,vr0,psi0)
+          else
+             call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+     .            ,p00,bth0,bzz0,vr0,psi0)
+          endif
 
 	  !Find electric field
           E0(1:2) = 0d0
@@ -2058,8 +2063,13 @@ c     Initial guess: 1D equilibrium
         bzz0 = 1d0
         p00  = 0d0
 
-        call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
-     .                   ,p00,bth0,bzz0,vr0,psi0)
+        if (gamma > 1d0) then
+           call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
+     .          ,p00,bth0,bzz0,vr0,psi0)
+        else
+           call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+     .          ,p00,bth0,bzz0,vr0,psi0)
+        endif
 
         do i=0,nx+1
           iglobal = i + grid_params%ilo(igx) - 1
@@ -2221,9 +2231,13 @@ c     Equilibria (numerical)
 	  !Initialize toroidal field
           bzz0 = bz0
 
-          call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
-cc          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+          if (gamma > 1d0) then
+             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
      .                     ,p00,bth0,bzz0,vr0,psi0)
+          else
+             call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+     .                     ,p00,bth0,bzz0,vr0,psi0)
+          endif
 
           !Find electric field
           E0(1:2) = 0d0
