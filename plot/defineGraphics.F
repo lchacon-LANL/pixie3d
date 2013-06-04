@@ -75,14 +75,22 @@ c$$$      enddo
       graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
       graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
 
-      graph(1)%array_graph(IVX)%array => vx
-      graph(1)%array_graph(IVX)%descr = 'V^1'
+cc      graph(1)%array_graph(IVX)%array => vx
+cc      graph(1)%array_graph(IVX)%descr = 'V^1'
+cc                                                           
+cc      graph(1)%array_graph(IVY)%array => vy
+cc      graph(1)%array_graph(IVY)%descr = 'V^2'
+cc                                                           
+cc      graph(1)%array_graph(IVZ)%array => vz
+cc      graph(1)%array_graph(IVZ)%descr = 'V^3'
+      graph(1)%array_graph(IVX)%array => u_np%array_var(IVX)%array
+      graph(1)%array_graph(IVX)%descr =  u_np%array_var(IVX)%descr
                                                            
-      graph(1)%array_graph(IVY)%array => vy
-      graph(1)%array_graph(IVY)%descr = 'V^2'
+      graph(1)%array_graph(IVY)%array => u_np%array_var(IVY)%array
+      graph(1)%array_graph(IVY)%descr =  u_np%array_var(IVY)%descr
                                                            
-      graph(1)%array_graph(IVZ)%array => vz
-      graph(1)%array_graph(IVZ)%descr = 'V^3'
+      graph(1)%array_graph(IVZ)%array => u_np%array_var(IVZ)%array
+      graph(1)%array_graph(IVZ)%descr =  u_np%array_var(IVZ)%descr
 
       graph(1)%array_graph(IBX)%array => u_np%array_var(IBX)%array
       graph(1)%array_graph(IBX)%descr =  u_np%array_var(IBX)%descr
