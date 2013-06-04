@@ -2,7 +2,7 @@
     ilevel   = 0
     test     = t
 
-    nxd      = 100
+    nxd      = 200
     nyd      = 1
     nzd      = 1
 
@@ -30,7 +30,7 @@
 
     gamma    = 1.4
 
-    dt       = 1d-2
+    dt       = 1d-3
     tmax     = 2d-1
     dstep    = 1d-2
 !    numtime  = 25
@@ -52,12 +52,12 @@
 
     precon   = 'id'
 
-    advect    = 4
+    advect    = 5
     v_advect  = 4
     solve_rho = t
     use_p_eom = t 
     adiabatic = t
-    nc_eom_gp = t
+    nc_eom_gp = f
     nc_eom_v  = f
 
     maxksp   = 20
