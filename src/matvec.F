@@ -2171,20 +2171,20 @@ c Call variables
 
 c Local variables
 
-      integer :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer :: isig,nxx,nyy,nzz
       integer :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .          ,i,j,k,ig,jg,kg,ieq
 
       real(8) :: jac,vol,upwind,etal
-     .          ,a_res(3),j_res(3),curlcurla(3),cnv(3),cov(3),car(3)
+     .          ,a_res(3),j_res(3),cc_a_cov(3),cnv(3),cov(3),car(3)
      .          ,lap_a_cov(3)
 
       real(8),pointer,dimension(:,:,:,:) :: du_cnv,du_cov,das
      .                                     ,db_cnv,db_cov,dve_cnv
      .                                     ,ve0_cnv,da_cov,dj_cnv,dj_cov
      .                                     ,rho0,bs0_cnv,da_cnv,heta0
-     .                                     ,eta0,djf_cov,djf_cnv
+     .                                     ,eta0,djf_cov,djf_cnv,vz
 
       logical    :: fpointers,is_cnv
 
@@ -2214,8 +2214,10 @@ c Find limits for loops
 c Map vector x to array for processing
 
       allocate(du_cnv(0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+     .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,vz    (0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
+      vz = 0d0
       du_cnv = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
@@ -2224,7 +2226,9 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
-     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov)
 
 c Auxiliary quantities
@@ -2232,23 +2236,15 @@ c Auxiliary quantities
       allocate(das   (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,db_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,db_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,da_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,djf_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,djf_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
       !Variables
-      da_cov  = du_cov(:,:,:,1:3)
-      da_cnv  = du_cnv(:,:,:,1:3)
-      djf_cov = du_cov(:,:,:,4:6)
-      djf_cnv = du_cnv(:,:,:,4:6)
-cc      da_cov (0:,0:,0:,1:) => du_cov(:,:,:,1:3)
-cc      da_cnv (0:,0:,0:,1:) => du_cnv(:,:,:,1:3)
-cc      djf_cov(0:,0:,0:,4:) => du_cov(:,:,:,4:6)
-cc      djf_cnv(0:,0:,0:,4:) => du_cnv(:,:,:,4:6)
+      da_cov (0:,0:,0:,1:) => du_cov(:,:,:,1:3)
+      da_cnv (0:,0:,0:,1:) => du_cnv(:,:,:,1:3)
+      djf_cov(0:,0:,0:,1:) => du_cov(:,:,:,4:6)
+      djf_cnv(0:,0:,0:,1:) => du_cnv(:,:,:,4:6)
 
       !Coefficients
       ve0_cnv => gve0%grid(igrid)%array
@@ -2269,16 +2265,17 @@ cc      djf_cnv(0:,0:,0:,4:) => du_cnv(:,:,:,4:6)
      .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dj_cov)
 
-      !Other quantities
-      if (form_diag.or.fake_ve) then  !For diagonal formation
-        dve_cnv(:,:,:,1) =-di*djf_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-        dve_cnv(:,:,:,2) =-di*djf_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-        dve_cnv(:,:,:,3) =-di*djf_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-      else                 !For defect correction
-        dve_cnv(:,:,:,1) =-di*dj_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-        dve_cnv(:,:,:,2) =-di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-        dve_cnv(:,:,:,3) =-di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-      endif
+      !Electron velocity (only keep current piece)
+cc      if (form_diag) then  !For diagonal formation
+        dve_cnv = form_ve(vz,djf_cnv,rho0(:,:,:,1))
+cc        dve_cnv(:,:,:,1) =-di*djf_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc        dve_cnv(:,:,:,2) =-di*djf_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc        dve_cnv(:,:,:,3) =-di*djf_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc      else                 !For defect correction
+cc        dve_cnv(:,:,:,1) =-di*dj_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc        dve_cnv(:,:,:,2) =-di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc        dve_cnv(:,:,:,3) =-di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
+cc      endif
 
       if (form_diag.or.fake_ve) then  !For diagonal formation
         das(:,:,:,1) = da_cov(:,:,:,1)
@@ -2302,14 +2299,7 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            ip = i+1
-            im = i-1
-            jp = j+1
-            jm = j-1
-            kp = k+1
-            km = k-1
-
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
@@ -2323,12 +2313,11 @@ c Calculate matrix-vector product
 
             !Temporal piece
             a_res = cnp*das(i,j,k,:)/dt
-
+ 
             !Resistive part
             etal = geta%grid(igrid)%array(i,j,k,1)
 
-            lap_a_cov = veclap_cov(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                            ,da_cov)
+            lap_a_cov = veclap_cov(i,j,k,nxx,nyy,nzz,igx,igy,igz,da_cov)
 
             a_res = a_res - alpha*etal*lap_a_cov
 
@@ -2336,34 +2325,36 @@ c Calculate matrix-vector product
             a_res = a_res + alpha*dbs_x_ve0()
 
             !Electron Hall piece: -dve x B_star = di/rho*(dj x B_star)
-            if (form_diag) then
-              cnv=-matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),lap_a_cov)
-            else
-              cnv= dj_cnv(i,j,k,:)
-cc              curlcurla = curlcurl_cov(i,j,k,nxx,nyy,nzz
-cc     .                                ,igrid,igrid,igrid,da_cov)
-cc              cnv= matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:),curlcurla)
-            endif
-            cnv = di*cnv/rho0(i,j,k,1)
-
-            cov(1) = (cnv(2)*bs0_cnv(i,j,k,3)
-     .               -cnv(3)*bs0_cnv(i,j,k,2))/jac
-            cov(2) = (cnv(3)*bs0_cnv(i,j,k,1)
-     .               -cnv(1)*bs0_cnv(i,j,k,3))/jac
-            cov(3) = (cnv(1)*bs0_cnv(i,j,k,2)
-     .               -cnv(2)*bs0_cnv(i,j,k,1))/jac
+            cov = -crossProduct_ijk(i,j,k,igx
+     .                             ,dve_cnv(i,j,k,:)
+     .                             ,bs0_cnv(i,j,k,:),.true.)
 
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece:-di/rho*div(pe(dve))
-            cnv= EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                        ,dve_cnv,heta0)
+cc            cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                         ,dve_cnv,heta0)
+cc            if (form_diag.or.fake_ve) then
+              cnv =-di*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                         ,djf_cnv,heta0)
+cc            else
+cc              cnv =-di*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+cc     .                         ,dj_cnv,heta0)
+cc            endif
             cov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
-            a_res = a_res - alpha*di/rho0(i,j,k,1)*cov
+            a_res = a_res - alpha*di*cov/rho0(i,j,k,1)
 
             !Assemble residual
-            j_res = djf_cov(i,j,k,:) + lap_a_cov
+            if (form_diag) then
+              cc_a_cov =-lap_a_cov
+            else
+              cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                                   ,da_cov)
+            endif
+
+            j_res = djf_cov(i,j,k,:) - cc_a_cov
+
             do ieq=1,3
               y(neq*(ijk-1)+ieq  ) = vol*a_res(ieq)
               y(neq*(ijk-1)+ieq+3) = vol*j_res(ieq)
@@ -2382,11 +2373,8 @@ c End program
      .          ,db_cov
      .          ,dj_cov
      .          ,dj_cnv
-     .          ,da_cov
-     .          ,da_cnv
-     .          ,djf_cov
-     .          ,djf_cnv
-     .          ,dve_cnv)
+     .          ,dve_cnv
+     .          ,vz)
       nullify(ve0_cnv,rho0,bs0_cnv)
 
       call deallocPointers(fpointers)
@@ -2397,8 +2385,16 @@ c     dbs_x_ve0
 c     ##############################################################
       function dbs_x_ve0() result(cov)
 
+        integer :: ip,im,jp,jm,kp,km
         real(8) :: cov(3)
         real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
 
         !Convective part (-ve x curl(da_star)): component 1
         flxip = -ve0_cnv(i,j,k,2)*0.5*(das(ip,j,k,2)+das(i,j,k,2))
@@ -2497,25 +2493,23 @@ c ##################################################################
 
       use matvec
 
-      real(8),allocatable,dimension(:,:,:,:) :: dv,dv_cov
+      real(8),pointer,dimension(:,:,:,:) :: dv,dv_cov,v0_cnv,b0_cnv
+     .                                     ,b0_cov,rho0,pp0,a0_cnv
+     .                                     ,j0_cov
 
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,b0_cov
-     .                                         ,rho0,pp0,a0_cnv,j0_cov
-cc     .                                         ,db_cov
-
-      integer    :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer    :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
+      integer :: imin,imax,jmin,jmax,kmin,kmax
      .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr,igx,igy,igz
      .             ,i,j,k,ig,jg,kg,ieq
 
-      real(8),allocatable,dimension(:,:)     :: a_sp,a_vol
+      real(8),allocatable,dimension(:,:) :: a_sp,a_vol
 
-      real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
+      real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
 
-      real(8)    :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
+      real(8) :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
      .             ,mag(3),vlap(3)
 
-      logical    :: fpointers,is_cnv,is_car
+      logical :: fpointers,is_cnv,is_car
 
       contains
 
@@ -3355,7 +3349,7 @@ c Local variables
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
      .                                     ,dve_cnv,divpi,dB_cnv,dB_cov
-     .                                     ,heta0
+     .                                     ,heta0,dj_cnv
 
 c Begin program
 
@@ -3399,9 +3393,7 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
 cc      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
 
-      allocate(dv     (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dv_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      allocate(dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,divpi  (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -3416,22 +3408,26 @@ c BCs
       v0 = 0d0
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
-     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
 cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
      .            ,result_is_vec=.true.,iorder=1,arr_cov=du_cov
      .            ,arr0=v0)
 
-      dv      = du    (:,:,:,1:3)
-      dv_cov  = du_cov(:,:,:,1:3)
+      dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
+      dv_cov(0:,0:,0:,1:)  => du_cov(:,:,:,1:3)
+      dj_cnv(0:,0:,0:,1:)  => du    (:,:,:,4:6)
 
-      dve_cnv(:,:,:,1) = dv(:,:,:,1) - di*du(:,:,:,4)/rho0(:,:,:,1)
-      dve_cnv(:,:,:,2) = dv(:,:,:,2) - di*du(:,:,:,5)/rho0(:,:,:,1)
-      dve_cnv(:,:,:,3) = dv(:,:,:,3) - di*du(:,:,:,6)/rho0(:,:,:,1)
+      dve_cnv = form_ve(dv,dj_cnv,rho0(:,:,:,1))
 
 c Find div(Pi(dv))
 
       if (nu > 0d0) then
-        divpi=EOM_divPi(igrid,dv,gvis%grid(igrid)%array(:,:,:,1))
+        divpi = EOM_divPi(igrid,dv,gvis%grid(igrid)%array(:,:,:,1))
+        call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,divpi
+     .            ,gv%aux%vec_list(IDIVPI)%bconds
+     .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
+     .            ,result_is_vec=.true.,iorder=order_bc)
       else
         divpi = 0d0
       endif
@@ -3439,30 +3435,7 @@ c Find div(Pi(dv))
 c Find dE=U_Av(dv) (with BCs)
 
       if (fake_ve) then
-
-cc        do k = kmin,kmax
-cc          do j = jmin,jmax
-cc            do i = imin,imax
-cc              dE_cnv(i,j,k,:)=matmul(gmetric%grid(igrid)%gsup(i,j,k,:,:)
-cc     .                              ,U_Av_ijk(i,j,k,nxx,nyy,nzz
-cc     .                                        ,igrid,igrid,igrid,dv
-cc     .                                        ,dv_cov,a0_cnv,he=0
-cc     .                                        ,stress=.false.))
-cc            enddo
-cc          enddo
-cc        enddo
-
-        dE_cnv = di*dv/dt
-
-        dE_cnv(:,:,:,1)=di*(dv(:,:,:,1)/dt+divpi(:,:,:,1)/rho0(:,:,:,1))
-        dE_cnv(:,:,:,2)=di*(dv(:,:,:,2)/dt+divpi(:,:,:,2)/rho0(:,:,:,1))
-        dE_cnv(:,:,:,3)=di*(dv(:,:,:,3)/dt+divpi(:,:,:,3)/rho0(:,:,:,1))
-
-        call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dE_cnv
-     .            ,gv%aux%vec_list(IENI)%bconds
-     .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=1)
-
+        dE_cnv = form_jfake(igrid,cnp*dv,divpi,rho0(:,:,:,1))
 cc      else
 cc
 cc        do k = kmin,kmax
@@ -3483,6 +3456,8 @@ cc     .            ,result_is_vec=.true.,iorder=1)
       endif
 
 c Calculate matrix-vector product
+
+      heta0 => gheta%grid(igrid)%array
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
@@ -3534,9 +3509,6 @@ c Calculate matrix-vector product
             endif
 
             !Electron viscosity piece *************
-
-cc            divpe = heta*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr
-cc     .                                ,dve_cnv,rho0)
             divpe = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igr,igr,igr,dve_cnv
      .                           ,heta0)
 
@@ -3572,14 +3544,8 @@ cc     .                                ,dve_cnv,rho0)
 
             !Find current update, dj=-dt*curl(curl(dE))
             if (fake_ve) then
-
-              dj = -dt*curlcurl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                         ,dE_cnv,vol=.false.)
-cc              dj = dt*veclap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-cc     .                          ,dE_cnv,vol=.false.)
-
+              dj = dE_cnv(i,j,k,:)
             else
-
 cc              !Find dj=curl(db)
 cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
 
@@ -3643,7 +3609,8 @@ cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
             !Assemble matvec
             do ieq=1,3
               y(neq*(ijk-1)+ieq)   = vol*v_res(ieq)
-              y(neq*(ijk-1)+ieq+3) = vol*(du(i,j,k,ieq+3)-dj(ieq))
+cc              y(neq*(ijk-1)+ieq+3) = vol*(du(i,j,k,ieq+3)-dj(ieq))
+              y(neq*(ijk-1)+ieq+3) = vol*(dj_cnv(i,j,k,ieq)-dj(ieq))
             enddo
 
           enddo
@@ -3652,7 +3619,7 @@ cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
 
 c End program
 
-      deallocate(du,du_cov,dpp,dv,dv_cov,v0,dE_cnv,dve_cnv,divpi
+      deallocate(du,du_cov,dpp,v0,dE_cnv,dve_cnv,divpi
      .          ,dB_cnv,dB_cov)
 
       call nullLocalPointers

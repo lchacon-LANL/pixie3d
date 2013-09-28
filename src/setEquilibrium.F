@@ -641,6 +641,18 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igx,igx,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc              var(i,j,k,IAX) = 0d0
+cc              var(i,j,k,IAY) = 0d0
+cc              var(i,j,k,IAZ) = x1
+cc            enddo
+cc          enddo
+cc        enddo
 #endif
 
       case ('tmsin')

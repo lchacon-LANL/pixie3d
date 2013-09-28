@@ -62,7 +62,7 @@ c Namelists
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug
+     .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -111,7 +111,7 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
      .                   ,pc_asm,sm_zebra_relax,pc_debug
-     .                   ,pc_divclean
+     .                   ,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,debug,check_grid,equ_file,map_file
@@ -130,9 +130,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(8,22)  !8 scalars, 22 vectors
+      call setAuxVarDims(8,23)  !8 scalars, 22 vectors
 #else
-      call setAuxVarDims(8,25)  !8 scalars, 25 vectors
+      call setAuxVarDims(8,26)  !8 scalars, 25 vectors
 #endif
 
 c Set defaults
@@ -294,6 +294,7 @@ c Set defaults
       pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
       pc_debug   = .false.     ! PC debugging flag
       pc_divclean= .true.      ! Whether to perform divergence cleaning in PC or not
+      pc_B_solve = .true.      ! Whether to perform B-solve in PC
 
       mg_ratio = 2             ! MG coarsening ratio
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
@@ -482,7 +483,7 @@ cc      if (di == 0d0) heta = 0d0
 
 cc      if (.not.ion_hall) fake_ve = .false.
 
-      if (ion_hall) slava = .false.
+cc      if (ion_hall) slava = .false.
 
       if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
