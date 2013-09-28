@@ -52,7 +52,7 @@
 
     precon   = 'id'
 
-    advect    = 5
+    advect    = 4
     v_advect  = 4
     solve_rho = t
     use_p_eom = t 
@@ -74,8 +74,8 @@
  &graphdef
     sel_diag  = 2,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,5,6,7,9,10,11
-!    dplot = 1d-4
-    ndplot = 1
+    dplot = 2d-1
+!    ndplot = 1
     prof_conf = 1,'x',1,1,1
     cont_conf = 3,'x','y',1,1,1
     hdf_plot = f
