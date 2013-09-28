@@ -69,7 +69,8 @@ c Predictor
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
      .             u_n%array_var(ieq)%array(i,j,k) 
-     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+     .             -0.7*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
             enddo
 
           enddo
