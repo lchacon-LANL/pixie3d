@@ -34,10 +34,8 @@
     dt       = 1d-2
     tmax     = 1d-1 
     dstep    = 1d-1
-    numtime  = 0
-    ndstep   = 1
 
-    pbz      = 0.1
+    paz      = 0.1
     prho     = 0d-3
     odd      = f,f,f
     nh2      = 1
