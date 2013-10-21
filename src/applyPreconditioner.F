@@ -141,7 +141,7 @@ c     Postprocessing of velocity -> momentum
         if (.not.nc_eom_v) call get_dP
 
 c *******************************************************************
-c     EMHD preconditioner
+c     EMHD split preconditioner
 c *******************************************************************
 
       case('s4')
@@ -1834,8 +1834,8 @@ c Solve dB*=-curl(lap^(-1)(curl(dB)))
 c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
 
       call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,dbcov=db_cov,pc_call=.true.
-     .                   ,diag_plots=pc_debug,gm_it=its)
+     .                   ,db_cnv,dbcov=db_cov
+     .                   ,diag_plots=pc_debug,rtol=1d-3,gm_it=its)
 
       it_divcl = it_divcl + its
 
