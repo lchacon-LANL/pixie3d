@@ -1878,8 +1878,7 @@ c ######################################################################
 
 c     curl_bxv
 c     ###################################################################
-      function curl_bxv(i,j,k,nx,ny,nz,igx,igy,igz,vv,bb,half_elem)
-     .         result(cnv)
+      function curl_bxv(i,j,k,igr,vv,bb,half_elem) result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of curl(bb x vv) at the
@@ -1891,37 +1890,41 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer    :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
-        real(8)    :: cnv(3)
-        real(8)    :: vv(0:nx+1,0:ny+1,0:nz+1,3)
-     $               ,bb(0:nx+1,0:ny+1,0:nz+1,3)
+        integer :: i,j,k,half_elem,igr
+        real(8) :: cnv(3)
+        real(8) :: vv(0:,0:,0:,:)
+     $            ,bb(0:,0:,0:,:)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
-        integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+        integer :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,igx,igy,igz,nx,ny,nz
+        integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
-        real(8)    :: idhx,idhy,idhz,a(3)
-        real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+        real(8) :: idhx,idhy,idhz,a(3)
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
-        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
-     .               ,jacp,jacm,jacph,jacmh,jach,jac0
-     .               ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
-     .               ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
+        real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .            ,jacp,jacm,jacph,jacmh,jach,jac0
+     .            ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
+     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
 
-        real(8)    :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
-     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
-     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+        real(8) :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .            ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .            ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
 
-        real(8)    :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
-     .               ,byip,byim,byjp,byjm,bykp,bykm
-     .               ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
+        real(8) :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
+     .            ,byip,byim,byjp,byjm,bykp,bykm
+     .            ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
 
-        real(8)    :: one=1d0,half=0.5d0
+        real(8) :: one=1d0,half=0.5d0
 
 c     Begin program
 
 c     Defaults
+
+        nx = grid_params%nxv(igr)
+        ny = grid_params%nyv(igr)
+        nz = grid_params%nzv(igr)
 
         ip = i+1
         im = i-1
@@ -1929,6 +1932,10 @@ c     Defaults
         jm = j-1
         kp = k+1
         km = k-1
+
+        igx = igr
+        igy = igr
+        igz = igr
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -2276,6 +2283,202 @@ c     Components
         endif
 
       end function curl_bxv
+
+c     curl_bxv_upwd
+c     ###################################################################
+      function curl_bxv_upwd(i,j,k,igr,vv,bb) result(cnv)
+
+c     -------------------------------------------------------------------
+c     Finds contravariant components (a1,a2,a3) of curl(bb x vv) at the
+c     grid node (i,j,k). One sided derivatives are employed when half_elem=1
+c     (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer :: i,j,k,igr
+        real(8) :: cnv(3)
+        real(8) :: vv(0:,0:,0:,:)
+     $            ,bb(0:,0:,0:,:)
+
+c     Local variables
+
+        integer :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,nx,ny,nz,igx,igy,igz
+        integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+        real(8) :: idhx,idhy,idhz,a(3)
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+        real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .            ,jacp,jacm,jacph,jacmh,jach,jac0,jac
+     .            ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
+     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
+
+        real(8) :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .            ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .            ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+
+        real(8) :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
+     .            ,byip,byim,byjp,byjm,bykp,bykm
+     .            ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
+
+        real(8) :: one=1d0,half=0.5d0
+
+c     Begin program
+
+c     Defaults
+
+        nx = grid_params%nxv(igr)
+        ny = grid_params%nyv(igr)
+        nz = grid_params%nzv(igr)
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        igx = igr
+        igy = igr
+        igz = igr
+
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+        idhx = half/grid_params%dxh(ig)
+        idhy = half/grid_params%dyh(jg)
+        idhz = half/grid_params%dzh(kg)
+
+        jacip  = gmetric%grid(igr)%jac(ip,j,k)
+        jacim  = gmetric%grid(igr)%jac(im,j,k)
+        jacjp  = gmetric%grid(igr)%jac(i,jp,k)
+        jacjm  = gmetric%grid(igr)%jac(i,jm,k)
+        jackp  = gmetric%grid(igr)%jac(i,j,kp)
+        jackm  = gmetric%grid(igr)%jac(i,j,km)
+        jac    = gmetric%grid(igr)%jac(i,j,k)
+
+        ijacip  = one/jacip
+        ijacim  = one/jacim
+        ijacjp  = one/jacjp
+        ijacjm  = one/jacjm
+        ijackp  = one/jackp
+        ijackm  = one/jackm
+
+        !First component
+        flxjp = 0.5/(jac+jacjp)*(
+     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,1)
+     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))         
+     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,1))
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+     .              +vv(i,jp,k,1)*bb(i,jp,k,2)/jacjp)
+        flxjm = 0.5/(jac+jacjm)*(
+     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,1)
+     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,1))
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+     .              +vv(i,jm,k,1)*bb(i,jm,k,2)/jacjm)
+
+        flxkp = 0.5/(jac+jackp)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,1)
+     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,1))
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,kp,1)*bb(i,j,kp,3)/jackp)
+        flxkm = 0.5/(jac+jackm)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,1)
+     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,1))
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,km,1)*bb(i,j,km,3)/jackm)
+
+        cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
+     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+
+        !Second component
+        flxip = 0.5/(jac+jacip)*(
+     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,2)
+     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,2))
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+     .              +vv(ip,j,k,2)*bb(ip,j,k,1)/jacip)
+
+        if (isSP(i,j,k,igr,igr,igr)) then
+          flxim = 0d0
+        else
+          flxim = 0.5/(jac+jacim)*(
+     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,2)
+     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,2))
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+     .              +vv(im,j,k,2)*bb(im,j,k,1)/jacim)
+        endif
+
+        flxkp = 0.5/(jac+jackp)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,2)
+     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,2))
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,kp,2)*bb(i,j,kp,3)/jackp)
+        flxkm = 0.5/(jac+jackm)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,2)
+     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,2))
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,km,2)*bb(i,j,km,3)/jackm)
+
+        cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+
+        !Third component
+        flxip = 0.5/(jac+jacip)*(
+     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,3)
+     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,3))
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+     .              +vv(ip,j,k,3)*bb(ip,j,k,1)/jacip)
+
+        if (isSP(i,j,k,igr,igr,igr)) then
+          flxim = 0d0
+        else
+          flxim = 0.5/(jac+jacim)*(
+     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,3)
+     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,3))
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+     .              +vv(im,j,k,3)*bb(im,j,k,1)/jacim)
+        endif
+
+        flxjp = 0.5/(jac+jacjp)*(
+     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,3)
+     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,3))
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+     .              +vv(i,jp,k,3)*bb(i,jp,k,2)/jacjp)
+        flxjm = 0.5/(jac+jacjm)*(
+     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,3)
+     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,3))
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+     .              +vv(i,jm,k,3)*bb(i,jm,k,2)/jacjm)
+
+        cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .           +(flxjp-flxjm)/grid_params%dyh(jg)
+
+      end function curl_bxv_upwd
 
 ccc     curl_bxv_vrtx
 ccc     ###################################################################
@@ -5659,7 +5862,9 @@ c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d
 
         !Electron inertia term
         if (de > 0d0) then
-          E_h = E_h - de**2/di**2*(vecov-vecov_n)*cnp/alpha/dt
+          E_h = E_h - de**2/di**2*(vecov-vecov_n)/alpha/dt
+cc          E_h = E_h - de**2/di**2*(cnp*vecov+cn*vecov_n+cnm*vecov_nm)
+cc     .                            /alpha/dt  !Not ready (vecov_nm not available)
         endif
 
 c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -5669,7 +5874,7 @@ c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         if (save_tn.or.source_eval) then
           E_h = 0d0
         else
-          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt
+          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in U_Av_ijk
         endif
 
         !Stress
@@ -5707,6 +5912,7 @@ cc        Eh = Eh + temp_ratio*grad(igx,pe)
               enddo
             enddo
           enddo
+
         endif
 
       endif
@@ -5866,7 +6072,7 @@ c     End program
 
 c     hres
 c     ###############################################################
-      function hres(nx,ny,nz,igx,igy,igz,bcnv,rho) result(h_res)
+      function hres(nx,ny,nz,igr,bcnv,rho) result(h_res)
 c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
@@ -5877,7 +6083,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
+      integer :: nx,ny,nz,igr
       real(8) :: bcnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho  (0:nx+1,0:ny+1,0:nz+1)
      .          ,h_res(0:nx+1,0:ny+1,0:nz+1)
@@ -5896,7 +6102,7 @@ cc
 cc      do k=1,nz
 cc        do j=1,ny
 cc          do i=1,nx
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc            call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
 cc
 cc            !kk
 cc            idx  = pi/grid_params%dx(ig)
@@ -5906,11 +6112,11 @@ cc            if (ny == 1) idy = 0d0
 cc            idz  = pi/grid_params%dz(kg)
 cc            if (nz == 1) idz = 0d0
 cc
-cc            k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+cc            k2=vectorNorm(i,j,k,igr,igr,igr,idx,idy,idz,.true.)
 cc            kk=sqrt(k2)
 cc
 cc            !|B|*k_par
-cc            bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+cc            bk_par=scalarProduct(i,j,k,igr,igr,igr,idx,idy,idz
 cc     .                         ,bcnv(i,j,k,1)
 cc     .                         ,bcnv(i,j,k,2)
 cc     .                         ,bcnv(i,j,k,3))
@@ -5950,8 +6156,11 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       elseif (heta > 0d0) then
 
-        h_res = rho*heta
-cc        h_res = heta
+        if (slava) then
+          h_res = heta
+        else
+          h_res = rho*heta
+        endif
 
       else
 
@@ -5960,7 +6169,7 @@ cc        h_res = heta
             do i=0,nx+1
               call getMGmap(min(max(i,1),nx)
      .                     ,min(max(j,1),ny)
-     .                     ,min(max(k,1),nz),igx,igy,igz,ig,jg,kg)
+     .                     ,min(max(k,1),nz),igr,igr,igr,ig,jg,kg)
 
               !kk
               idx  = 2d0/grid_params%dx(ig)
@@ -5970,22 +6179,23 @@ cc        h_res = heta
               idz  = 2d0/grid_params%dz(kg)
               if (nz == 1) idz = 0d0
 
-              k2=vectorNorm(i,j,k,igx,(/idx,idy,idz/),.true.)
+              k2=vectorNorm(i,j,k,igr,(/idx,idy,idz/),.true.)
               kk=sqrt(k2)
 
               !|B|*k_par
-              bk_par=scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+              bk_par=scalarProduct(i,j,k,igr,(/idx,idy,idz/)
      .                           ,bcnv(i,j,k,:))
 
-              !h_res = C*rho*v_a*k||/k^3 (absent factor of di inherited later from v_e)
-              h_res(i,j,k) = 5d0*sqrt(rho(i,j,k))*abs(bk_par)/kk**3
+              !h_res = C*rho*v_a*k||/k^3/di (This will be multiplied by di^2 through ve and di*Ehall)
+              h_res(i,j,k) = 5d0*sqrt(rho(i,j,k))*abs(bk_par)/kk**3/di
             enddo
           enddo
         enddo
 
       endif
 
-cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',maxval(h_res)
+      if (my_rank == 0.and.itime == 0)
+     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
 
 c     End
 
