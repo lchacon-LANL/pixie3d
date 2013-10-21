@@ -38,9 +38,9 @@
 !    numtime  = 1
 !    ndstep   = 1
 
-    pbx      = 0.
-    pby      = 0.
-    pbz      =-0.1
+    pax      = 0.
+    pay      = 0.
+    paz      =-0.1
     nh2      = 1
 
     cnfactor = 0.5

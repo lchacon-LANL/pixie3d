@@ -31,7 +31,7 @@ c Call variables
 c Local variables
 
       integer       :: dim(1),loc(1),ioerr
-      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
@@ -62,6 +62,7 @@ c Namelists
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
@@ -101,7 +102,7 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,odd,random,source,eigen,eig_dt,iguess
 
       !Newton-Krylov
@@ -481,11 +482,11 @@ cc      if (di == 0d0) heta = 0d0
 
       if (cnfactor == 1d0) ion_hall = .false.
 
-cc      if (.not.ion_hall) fake_ve = .false.
+cc      if (.not.ion_hall) pc_type = 's4'
 
 cc      if (ion_hall) slava = .false.
 
-      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
+cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (eigen) then
         vol_wgt = .false.
@@ -551,9 +552,9 @@ c Map perturbations
       pert(IBY) = pby
       pert(IBZ) = pbz
 #else
-      pert(IAX) = pbx
-      pert(IAY) = pby
-      pert(IAZ) = pbz
+      pert(IAX) = pax
+      pert(IAY) = pay
+      pert(IAZ) = paz
 #endif
       pert(ITMP)= a_p*ptemp  !Transform to total pressure
 
