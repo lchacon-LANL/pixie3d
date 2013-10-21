@@ -314,7 +314,7 @@ c Select variable
         case(IHETA)
 
 cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho)
+          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
 
         case(IRHO_0)
 
@@ -758,7 +758,7 @@ c       Resistivity (needed for BCs; may depend on T)
 c       Find hyperresistivity (electron viscosity)
 
 cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho)
+          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
 
         case default
           call pstop('preproc_AuxVar'
@@ -867,15 +867,15 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IVCNV_NM)
 
-cc          if (save_tn.and.ion_hall) vcov_n = vcov
+          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
 
         case(IVCNV_N)
 
-cc          if (save_tn.and.ion_hall) vcnv_n = vcnv
+          if (save_tn.and.ion_hall) vcnv_n = vcnv
 
         case(IVECOV_N)
 
-cc          if (save_tn.and.ion_hall) vecov_n= vecov
+          if (save_tn.and.ion_hall) vecov_n= vecov
 
         case(IJCNV_N)
 
@@ -1165,8 +1165,8 @@ c       Resistivity (needed for BCs; may depend on T)
 
 c       Find hyperresistivity (electron viscosity)
 
-cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho)
+cc          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho_0)
+          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
 
         case default
           call pstop('postproc_AuxVar'
