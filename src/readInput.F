@@ -31,7 +31,7 @@ c Call variables
 c Local variables
 
       integer       :: dim(1),loc(1),ioerr
-      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
@@ -62,12 +62,13 @@ c Namelists
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
-     .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug
+     .                   ,pax,pay,paz
+     .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eig_dt
+     .                   ,eigen,eig_dt,pc_as_solver
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -100,8 +101,8 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,nh1,nh2,nh3,npw1,npw2,npw3
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,nh1,nh2,nh3,npw1,npw2,npw3,pc_as_solver
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,odd,random,source,eigen,eig_dt,iguess
 
       !Newton-Krylov
@@ -111,7 +112,7 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
      .                   ,pc_asm,sm_zebra_relax,pc_debug
-     .                   ,pc_divclean
+     .                   ,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,debug,check_grid,equ_file,map_file
@@ -130,9 +131,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(8,22)  !8 scalars, 22 vectors
+      call setAuxVarDims(8,23)  !8 scalars, 22 vectors
 #else
-      call setAuxVarDims(8,25)  !8 scalars, 25 vectors
+      call setAuxVarDims(8,26)  !8 scalars, 25 vectors
 #endif
 
 c Set defaults
@@ -179,6 +180,8 @@ c Set defaults
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
       postprocess = .false.    ! Whether to run solution postprocessing after time step
+
+      pc_as_solver= .false.    ! Whether we use PC as solver, instead of preconditioned GMRES
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
       eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
@@ -294,6 +297,7 @@ c Set defaults
       pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
       pc_debug   = .false.     ! PC debugging flag
       pc_divclean= .true.      ! Whether to perform divergence cleaning in PC or not
+      pc_B_solve = .true.      ! Whether to perform B-solve in PC
 
       mg_ratio = 2             ! MG coarsening ratio
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
@@ -480,11 +484,11 @@ cc      if (di == 0d0) heta = 0d0
 
       if (cnfactor == 1d0) ion_hall = .false.
 
-cc      if (.not.ion_hall) fake_ve = .false.
+cc      if (.not.ion_hall) pc_type = 's4'
 
-      if (ion_hall) slava = .false.
+cc      if (ion_hall) slava = .false.
 
-      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
+cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (eigen) then
         vol_wgt = .false.
@@ -539,6 +543,18 @@ cc      endif
       !Perform Lagrangian step at postprocessing time
       if (lagrangian) postprocess = .true.
 
+      !Use PC as linear solver
+      if (pc_as_solver) then
+         iguess = 1
+         maxitgm = 0
+cc         maxitnwt = 10
+         rtol = 1d-1
+      endif
+
+#if defined(pit)
+      postprocess = .true.
+#endif
+
 c Map perturbations
 
       pert(IRHO)= prho
@@ -550,9 +566,9 @@ c Map perturbations
       pert(IBY) = pby
       pert(IBZ) = pbz
 #else
-      pert(IAX) = pbx
-      pert(IAY) = pby
-      pert(IAZ) = pbz
+      pert(IAX) = pax
+      pert(IAY) = pay
+      pert(IAZ) = paz
 #endif
       pert(ITMP)= a_p*ptemp  !Transform to total pressure
 

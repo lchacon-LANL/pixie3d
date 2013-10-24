@@ -146,6 +146,32 @@ c     End program
 
       end function res_spitzer
 
+c     vis_def
+c     #############################################################
+      function vis_def(rr) result(vis)
+c     -------------------------------------------------------------
+c     This function computes the viscosity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: vis,rr
+
+c     Local variables
+
+c     Begin program
+
+        !Viscosity profile nu*(1 + aa*x^bb)^cc
+        vis = nu*(1. + aa_nu*rr**bb_nu)**cc_nu
+cc        vis = nu*(1. + aa_nu*rr**nn_nu)
+
+c     End program
+
+      end function vis_def
+
       end module transport_params
 
 c module auxiliaryVariables
@@ -163,6 +189,7 @@ c ######################################################################
      .                       ,IJCNV_0  =2
      .                       ,IJCOV    =3
      .                       ,IJCOV_0  =4
+     .                       ,IJCNV_N  =23
 
         integer, parameter :: IBCNV    =5
      .                       ,IBCNV_0  =6
@@ -173,7 +200,7 @@ c ######################################################################
      .                       ,IVCNV_N  =10
      .                       ,IVCNV_0  =11
      .                       ,IVCOV    =12
-     .                       ,IVCOV_N  =13
+     .                       ,IVCNV_NM =13
 
         integer, parameter :: IVECNV   =14
      .                       ,IVECOV   =15
@@ -192,6 +219,7 @@ c ######################################################################
      .                       ,IJCNV_0 =2
      .                       ,IJCOV   =3
      .                       ,IJCOV_0 =4
+     .                       ,IJCNV_N =26
 
         integer, parameter :: IBCNV   =5
      .                       ,IBCNV_0 =6
@@ -206,7 +234,7 @@ c ######################################################################
      .                       ,IVCNV_0 =13
      .                       ,IVCNV_N =14
      .                       ,IVCOV   =15
-     .                       ,IVCOV_N =16
+     .                       ,IVCNV_NM=16
 
         integer, parameter :: IVECNV  =17
      .                       ,IVECOV  =18
@@ -258,7 +286,7 @@ cc     .                                       ,bcnv_n
      .                                       ,vcnv_0
      .                                       ,vcnv_n
      .                                       ,vcov
-     .                                       ,vcov_n
+     .                                       ,vcnv_nm
      .                                       ,pcnv
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
@@ -268,7 +296,7 @@ cc     .                                       ,bcnv_n
      .                                       ,div_pi
      .                                       ,div_pe
      .                                       ,jcnv
-cc     .                                       ,jcnv_n
+     .                                       ,jcnv_n
      .                                       ,jcnv_0
      .                                       ,jcov
      .                                       ,jcov_0
@@ -355,9 +383,9 @@ cc        vaux%vec_list(IVECNV_0)%descr = 'Ve_0 cnv'
 cc        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
 
         !Old-time variables
-        vaux%vec_list(IVCOV_N)%cnv = .false.
-        vaux%vec_list(IVCOV_N)%descr = 'V_n cov'
-        vcov_n => vaux%vec_list(IVCOV_N)%vec
+        vaux%vec_list(IVCNV_NM)%cnv = .true.
+        vaux%vec_list(IVCNV_NM)%descr = 'V_nm cnv'
+        vcnv_nm => vaux%vec_list(IVCNV_NM)%vec
 
         vaux%vec_list(IVCNV_N)%cnv = .true.
         vaux%vec_list(IVCNV_N)%descr = 'V_n cnv'
@@ -371,9 +399,9 @@ cc        vaux%vec_list(IBCNV_N)%cnv   = .true.
 cc        vaux%vec_list(IBCNV_N)%descr = 'B_n cnv'
 cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
-cc        vaux%vec_list(IJCNV_N)%cnv = .true.
-cc        vaux%vec_list(IJCNV_N)%descr = 'J_n cnv'
-cc        jcnv_n => vaux%vec_list(IJCNV_N)%vec
+        vaux%vec_list(IJCNV_N)%cnv = .true.
+        vaux%vec_list(IJCNV_N)%descr = 'J_n cnv'
+        jcnv_n => vaux%vec_list(IJCNV_N)%vec
 
         !New-time variables
         vaux%var_list(IRHO_AUX)%descr = 'rho'
@@ -715,7 +743,15 @@ cc      !Equilibrium electric field (non-ideal piece)
 cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH   )%bconds
 
       !Fake electron velocity
-      vaux%vec_list(IVEFCNV)%bconds= vaux%vec_list(IJCNV )%bconds
+cc      vaux%vec_list(IVEFCNV)%bconds(:,1) = bcond
+cc      vaux%vec_list(IVEFCNV)%bconds(:,2) = bcond
+cc      vaux%vec_list(IVEFCNV)%bconds(:,3) = bcond
+cc      where (vaux%vec_list(IVEFCNV)%bconds == DEF)
+cc        vaux%vec_list(IVEFCNV)%bconds = EXT
+cc      end where
+cc      call set_vec_symm_bc(vaux%vec_list(IVEFCNV)%bconds,-1)  !Same as velocity
+
+      vaux%vec_list(IVEFCNV)%bconds= vaux%vec_list(IJCNV)%bconds
 
 c     End program
 
@@ -748,51 +784,51 @@ c     Begin program
 
 c     Equilibrium quantities
 
-      !Rho
+      !Rho0
       vaux%var_list(IRHO_0)%bc_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IRHO_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IRHO_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%var_list(IRHO_0)%time_0 = .true.
 
-      !Temp
+      !Temp0
       vaux%var_list(ITMP_0)%bc_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(ITMP_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%var_list(ITMP_0)%time_0 = .true.
 
-      !Eta
+      !Eta0
       vaux%var_list(IETA_0)%bc_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(IETA_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%var_list(IETA_0)%time_0 = .true.
 
 #if defined(vec_pot) 
-      !A cov
+      !A0 cov
       vaux%vec_list(IACOV_0)%bc_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IACOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%vec_list(IACOV_0)%time_0 = .true.
 
-      !B cnv
+      !B0 cnv
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
       vaux%vec_list(IBCNV_0)%time_0 = .true.
 #else
-      !B cnv
+      !B0 cnv
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%vec_list(IBCNV_0)%time_0 = .true.
 #endif
 
-      !B cov
+      !B0 cov
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,3) = 0 !trivial
       vaux%vec_list(IBCOV_0)%time_0 = .true.
 
-      !V cnv
+      !V0 cnv
       vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
       vaux%vec_list(IVCNV_0)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IVCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
@@ -815,7 +851,7 @@ c     Equilibrium quantities
 
       vaux%vec_list(IVCNV_0)%time_0 = .true.
 
-      !J cnv
+      !J0 cnv
       vaux%vec_list(IJCNV_0)%bc_dep_list(1,1) = IETA_0*AUX
       vaux%vec_list(IJCNV_0)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IJCNV_0)%bc_dep_list(1,3) = 0 !trivial
@@ -830,12 +866,27 @@ c     Equilibrium quantities
 
       vaux%vec_list(IJCNV_0)%time_0 = .true.
 
-      !J cov
+      !J0 cov
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IJCOV_0)%time_0 = .true.
+
+      !J_n cnv
+      vaux%vec_list(IJCNV_N)%bc_dep_list(1,1) = IJCNV*AUX
+      vaux%vec_list(IJCNV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IJCNV_N)%bc_dep_list(1,3) = 0 !trivial
+
+      !V_n cnv
+      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
+      vaux%vec_list(IVCNV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVCNV_N)%bc_dep_list(1,3) = 0 !trivial
+
+      !V_n cov
+      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,1) = IVCNV*AUX
+      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%bc_dep_list(1,1) = IETA_0*AUX
@@ -937,7 +988,7 @@ c     Current variables
       vaux%var_list(INU)%bc_dep_list(2,3) = 0 !trivial
 
       !Heta=rho*nu_e(T)
-      vaux%var_list(IHETA)%bc_dep_list(1,1) = IRHO_0*AUX
+      vaux%var_list(IHETA)%bc_dep_list(1,1) = IRHO*AUX
       vaux%var_list(IHETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IHETA)%bc_dep_list(1,3) = 0 !trivial
 
@@ -1030,28 +1081,52 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVECOV)%bc_dep_list(1,3) = 0 !trivial
 
       !Fake Ve cnv
+      if (.not.fake_ve) then
+        vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IVECOV*AUX
+        vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = VECTOR
+        vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
+      else
+        if (ion_hall) then
+          !Ve_fake = v - di*curl(curl(E_fake))/rho
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IVCOV*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCNV_N*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%bc_dep_list(4,1) = IJCNV_N*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(4,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(4,3) = 0 !trivial
+
+          vaux%vec_list(IVEFCNV)%bc_dep_list(5,1) = IDIVPI*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(5,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(5,3) = 1 !trivial
+        else
 #if defined(vec_pot)
-      !Ve_fake = - di*curl(curl(a))/rho
-      vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
-      vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
-      vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
+          !Ve_fake = v - di*curl(curl(a))/rho
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IACNV*AUX
-      vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IACNV*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
 
-      vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCOV*AUX
-      vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 0 !trivial
-
-      vaux%vec_list(IVEFCNV)%bc_dep_list(4,1) = IVECNV*AUX
-      vaux%vec_list(IVEFCNV)%bc_dep_list(4,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%bc_dep_list(4,3) = 0 !trivial
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCOV*AUX
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 0 !trivial
 #else
-      if (fake_ve) then
-         call pstop('defineAuxBCDeps','BCs for Ve_fake undefined')
-      endif
+          call pstop('defineAuxBCDeps','BCs for Ve_fake undefined')
 #endif
+        endif
+
+      endif
 
       !Div(pi)
       vaux%vec_list(IDIVPI)%bc_dep_list(1,1) = INU*AUX
@@ -1075,18 +1150,9 @@ cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,3) = 0 !trivial
       vaux%vec_list(IDIVPE)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%bc_dep_list(1,3) = 1 !non-trivial
 
-      if (fake_ve) then
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVEFCNV*AUX
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
-      else
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVECNV*AUX
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
-        vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
-      endif
-cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,1) = IDIVPE*AUX
-cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,2) = VECTOR
-cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,3) = 0 !trivial
+      vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVEFCNV*AUX
+      vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
+      vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
 
       !E Hall
       if (di > 0d0) then
@@ -1094,9 +1160,8 @@ cc      vaux%vec_list(IDIVPE)%bc_dep_list(3,3) = 0 !trivial
         vaux%vec_list(IEH)%bc_dep_list(1,1) = IEH*AUX
         vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
         vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
-#endif
 cc        if (ion_hall) then
-cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IVCOV_N*AUX
+cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IVCNV_N*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
 cc          vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
 cc
@@ -1146,6 +1211,7 @@ cc            vaux%vec_list(IEH)%bc_dep_list(7,2) = VECTOR
 cc            vaux%vec_list(IEH)%bc_dep_list(7,3) = 0 !trivial
 cc          endif
 cc        endif
+#endif
       endif
 
       !Total Electric field
@@ -1204,13 +1270,13 @@ c     Begin program
 
 c     Equilibrium quantities
 
-      !Rho
+      !Rho0
       vaux%var_list(IRHO_0)%dom_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IRHO_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IRHO_0)%dom_dep_list(1,3) = 0 !trivial
       vaux%var_list(IRHO_0)%time_0 = .true.
 
-      !Temp
+      !Temp0
       vaux%var_list(ITMP_0)%dom_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(ITMP_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_0)%dom_dep_list(1,3) = 0 !trivial
@@ -1221,21 +1287,21 @@ c     Equilibrium quantities
       vaux%var_list(ITMP_0)%dom_dep_list(2,3) = 0 !trivial
       vaux%var_list(ITMP_0)%time_0 = .true.
 
-      !Eta
+      !Eta0
       vaux%var_list(IETA_0)%dom_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(IETA_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%dom_dep_list(1,3) = 0 !trivial
       vaux%var_list(IETA_0)%time_0 = .true.
 
 #if defined(vec_pot)
-      !A cov
+      !A0 cov
       vaux%vec_list(IACOV_0)%dom_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IACOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV_0)%dom_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IACOV_0)%time_0 = .true.
 
-      !B cnv
+      !B0 cnv
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,3) = 1 !non-trivial
@@ -1243,40 +1309,55 @@ c     Equilibrium quantities
       vaux%vec_list(IBCNV_0)%time_0 = .true.
 
 #else
-      !B cnv
+      !B0 cnv
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IBCNV_0)%time_0 = .true.
 #endif
-      !B cov
+      !B0 cov
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IBCOV_0)%time_0 = .true.
 
-      !V cnv
+      !V0 cnv
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,1) = IVCNV_0*AUX
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IVCNV_0)%time_0 = .true.
 
-      !J cnv
+      !J0 cnv
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,1) = IBCOV_0*AUX
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,3) = 1 !non-trivial
 
       vaux%vec_list(IJCNV_0)%time_0 = .true.
 
-      !J cov
+      !J0 cov
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,3) = 0 !trivial
 
       vaux%vec_list(IJCOV_0)%time_0 = .true.
+
+      !J_n cnv
+      vaux%vec_list(IJCNV_N)%dom_dep_list(1,1) = IJCNV*AUX
+      vaux%vec_list(IJCNV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IJCNV_N)%dom_dep_list(1,3) = 0 !trivial
+
+      !V_n cnv
+      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
+      vaux%vec_list(IVCNV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVCNV_N)%dom_dep_list(1,3) = 0 !trivial
+
+      !V_n cov
+      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,1) = IVCNV*AUX
+      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%dom_dep_list(1,1) = IETA_0*AUX
@@ -1438,30 +1519,53 @@ c     Current variables
       vaux%vec_list(IVECOV)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV)%dom_dep_list(1,3) = 0 !trivial
 
-      !Fake Ve cnv 
+      !Fake Ve cnv
+      if (.not.fake_ve) then
+        vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IVECOV*AUX
+        vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = VECTOR
+        vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
+      else
+        if (ion_hall) then
+          !Ve_fake = v - di*curl(curl(E_fake))/rho
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IVCOV*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCNV_N*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 1 !non-trivial
+
+          vaux%vec_list(IVEFCNV)%dom_dep_list(4,1) = IJCNV_N*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(4,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(4,3) = 0 !trivial
+ 
+          vaux%vec_list(IVEFCNV)%dom_dep_list(5,1) = IDIVPI*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(5,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(5,3) = 1 !trivial
+        else
 #if defined(vec_pot)
-      !Ve_fake = v - di*curl(curl(a))/rho
-      vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
-      vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
-      vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
+          !Ve_fake = v - di*curl(curl(a))/rho
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IACNV*AUX
-      vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IACNV*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
 
-      vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCOV*AUX
-      vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 0 !trivial
-
-      vaux%vec_list(IVEFCNV)%dom_dep_list(4,1) = IVECNV*AUX
-      vaux%vec_list(IVEFCNV)%dom_dep_list(4,2) = VECTOR
-      vaux%vec_list(IVEFCNV)%dom_dep_list(4,3) = 0 !trivial
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCOV*AUX
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
+          vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 0 !trivial
 #else
-      if (fake_ve) then
-         call pstop('defineAuxDomainDeps'
-     $             ,'Domain deps for Ve_fake undefined')
-      endif
+          call pstop('defineAuxDomainDeps'
+     $              ,'Domain deps for Ve_fake undefined')
 #endif
+        endif
+      endif
 
       !Div(pi)
       vaux%vec_list(IDIVPI)%dom_dep_list(1,1) = INU*AUX
@@ -1481,20 +1585,14 @@ c     Current variables
       vaux%vec_list(IDIVPE)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%dom_dep_list(1,3) = 1 !non-trivial
 
-      if (fake_ve) then
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVEFCNV*AUX
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
-      else
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVECNV*AUX
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
-        vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
-      endif
+      vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVEFCNV*AUX
+      vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
+      vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
 
       !E Hall
       if (di > 0d0) then
         if (ion_hall) then
-          vaux%vec_list(IEH)%dom_dep_list(1,1) = IVCOV_N*AUX
+          vaux%vec_list(IEH)%dom_dep_list(1,1) = IVCNV_N*AUX
           vaux%vec_list(IEH)%dom_dep_list(1,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(1,3) = 0 !trivial
 
@@ -1603,7 +1701,7 @@ c     Begin program
      .       ,vcnv_0
      .       ,vcnv_n
      .       ,vcov
-     .       ,vcov_n
+     .       ,vcnv_nm
 #if defined(vec_pot)
      .       ,acnv
      .       ,acov
@@ -1780,8 +1878,7 @@ c ######################################################################
 
 c     curl_bxv
 c     ###################################################################
-      function curl_bxv(i,j,k,nx,ny,nz,igx,igy,igz,vv,bb,half_elem)
-     .         result(cnv)
+      function curl_bxv(i,j,k,igr,vv,bb,half_elem) result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of curl(bb x vv) at the
@@ -1793,37 +1890,41 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer    :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
-        real(8)    :: cnv(3)
-        real(8)    :: vv(0:nx+1,0:ny+1,0:nz+1,3)
-     $               ,bb(0:nx+1,0:ny+1,0:nz+1,3)
+        integer :: i,j,k,half_elem,igr
+        real(8) :: cnv(3)
+        real(8) :: vv(0:,0:,0:,:)
+     $            ,bb(0:,0:,0:,:)
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq
-        integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+        integer :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,igx,igy,igz,nx,ny,nz
+        integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
 
-        real(8)    :: idhx,idhy,idhz,a(3)
-        real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+        real(8) :: idhx,idhy,idhz,a(3)
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
-        real(8)    :: jacip,jacim,jacjp,jacjm,jackp,jackm
-     .               ,jacp,jacm,jacph,jacmh,jach,jac0
-     .               ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
-     .               ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
+        real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .            ,jacp,jacm,jacph,jacmh,jach,jac0
+     .            ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
+     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
 
-        real(8)    :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
-     .               ,vyip,vyim,vyjp,vyjm,vykp,vykm
-     .               ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+        real(8) :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .            ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .            ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
 
-        real(8)    :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
-     .               ,byip,byim,byjp,byjm,bykp,bykm
-     .               ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
+        real(8) :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
+     .            ,byip,byim,byjp,byjm,bykp,bykm
+     .            ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
 
-        real(8)    :: one=1d0,half=0.5d0
+        real(8) :: one=1d0,half=0.5d0
 
 c     Begin program
 
 c     Defaults
+
+        nx = grid_params%nxv(igr)
+        ny = grid_params%nyv(igr)
+        nz = grid_params%nzv(igr)
 
         ip = i+1
         im = i-1
@@ -1831,6 +1932,10 @@ c     Defaults
         jm = j-1
         kp = k+1
         km = k-1
+
+        igx = igr
+        igy = igr
+        igz = igr
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -2178,6 +2283,202 @@ c     Components
         endif
 
       end function curl_bxv
+
+c     curl_bxv_upwd
+c     ###################################################################
+      function curl_bxv_upwd(i,j,k,igr,vv,bb) result(cnv)
+
+c     -------------------------------------------------------------------
+c     Finds contravariant components (a1,a2,a3) of curl(bb x vv) at the
+c     grid node (i,j,k). One sided derivatives are employed when half_elem=1
+c     (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer :: i,j,k,igr
+        real(8) :: cnv(3)
+        real(8) :: vv(0:,0:,0:,:)
+     $            ,bb(0:,0:,0:,:)
+
+c     Local variables
+
+        integer :: ig,jg,kg,ip,im,jp,jm,kp,km,ieq,nx,ny,nz,igx,igy,igz
+        integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
+
+        real(8) :: idhx,idhy,idhz,a(3)
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+        real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm
+     .            ,jacp,jacm,jacph,jacmh,jach,jac0,jac
+     .            ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
+     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
+
+        real(8) :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
+     .            ,vyip,vyim,vyjp,vyjm,vykp,vykm
+     .            ,vzip,vzim,vzjp,vzjm,vzkp,vzkm
+
+        real(8) :: bxip,bxim,bxjp,bxjm,bxkp,bxkm
+     .            ,byip,byim,byjp,byjm,bykp,bykm
+     .            ,bzip,bzim,bzjp,bzjm,bzkp,bzkm
+
+        real(8) :: one=1d0,half=0.5d0
+
+c     Begin program
+
+c     Defaults
+
+        nx = grid_params%nxv(igr)
+        ny = grid_params%nyv(igr)
+        nz = grid_params%nzv(igr)
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        igx = igr
+        igy = igr
+        igz = igr
+
+        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+
+        idhx = half/grid_params%dxh(ig)
+        idhy = half/grid_params%dyh(jg)
+        idhz = half/grid_params%dzh(kg)
+
+        jacip  = gmetric%grid(igr)%jac(ip,j,k)
+        jacim  = gmetric%grid(igr)%jac(im,j,k)
+        jacjp  = gmetric%grid(igr)%jac(i,jp,k)
+        jacjm  = gmetric%grid(igr)%jac(i,jm,k)
+        jackp  = gmetric%grid(igr)%jac(i,j,kp)
+        jackm  = gmetric%grid(igr)%jac(i,j,km)
+        jac    = gmetric%grid(igr)%jac(i,j,k)
+
+        ijacip  = one/jacip
+        ijacim  = one/jacim
+        ijacjp  = one/jacjp
+        ijacjm  = one/jacjm
+        ijackp  = one/jackp
+        ijackm  = one/jackm
+
+        !First component
+        flxjp = 0.5/(jac+jacjp)*(
+     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,1)
+     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))         
+     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,1))
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+     .              +vv(i,jp,k,1)*bb(i,jp,k,2)/jacjp)
+        flxjm = 0.5/(jac+jacjm)*(
+     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,1)
+     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,1))
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+     .              +vv(i,jm,k,1)*bb(i,jm,k,2)/jacjm)
+
+        flxkp = 0.5/(jac+jackp)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,1)
+     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,1))
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,kp,1)*bb(i,j,kp,3)/jackp)
+        flxkm = 0.5/(jac+jackm)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,1)
+     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,1))
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,km,1)*bb(i,j,km,3)/jackm)
+
+        cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
+     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+
+        !Second component
+        flxip = 0.5/(jac+jacip)*(
+     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,2)
+     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,2))
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+     .              +vv(ip,j,k,2)*bb(ip,j,k,1)/jacip)
+
+        if (isSP(i,j,k,igr,igr,igr)) then
+          flxim = 0d0
+        else
+          flxim = 0.5/(jac+jacim)*(
+     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,2)
+     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,2))
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+     .              +vv(im,j,k,2)*bb(im,j,k,1)/jacim)
+        endif
+
+        flxkp = 0.5/(jac+jackp)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,2)
+     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,2))
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,kp,2)*bb(i,j,kp,3)/jackp)
+        flxkm = 0.5/(jac+jackm)*(
+     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,2)
+     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,2))
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+     .              +vv(i,j,km,2)*bb(i,j,km,3)/jackm)
+
+        cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+
+        !Third component
+        flxip = 0.5/(jac+jacip)*(
+     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,3)
+     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,3))
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+     .              +vv(ip,j,k,3)*bb(ip,j,k,1)/jacip)
+
+        if (isSP(i,j,k,igr,igr,igr)) then
+          flxim = 0d0
+        else
+          flxim = 0.5/(jac+jacim)*(
+     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,3)
+     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,3))
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+     .              +vv(im,j,k,3)*bb(im,j,k,1)/jacim)
+        endif
+
+        flxjp = 0.5/(jac+jacjp)*(
+     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,3)
+     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,3))
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+     .              +vv(i,jp,k,3)*bb(i,jp,k,2)/jacjp)
+        flxjm = 0.5/(jac+jacjm)*(
+     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,3)
+     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,3))
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+     .              +vv(i,jm,k,3)*bb(i,jm,k,2)/jacjm)
+
+        cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .           +(flxjp-flxjm)/grid_params%dyh(jg)
+
+      end function curl_bxv_upwd
 
 ccc     curl_bxv_vrtx
 ccc     ###################################################################
@@ -3762,10 +4063,81 @@ c ######################################################################
 
       contains
 
+c     form_ve
+c     ###################################################################
+      function form_ve(v,j,rho) result(ve)
+
+c     -------------------------------------------------------------------
+c     Electron velocity ve=v-di*j/rho with j=curl(B)
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        real(8) :: v(0:,0:,0:,:)
+     .            ,j(0:,0:,0:,:)
+     .            ,rho(0:,0:,0:)
+     .            ,ve(0:size(v,1)-1
+     .               ,0:size(v,2)-1
+     .               ,0:size(v,3)-1
+     .               ,  size(v,4)  )
+
+c     Local variables
+
+c     Begin program
+
+        where (rho /= 0d0) 
+          ve(:,:,:,1) = v(:,:,:,1)-di*j(:,:,:,1)/rho
+          ve(:,:,:,2) = v(:,:,:,2)-di*j(:,:,:,2)/rho
+          ve(:,:,:,3) = v(:,:,:,3)-di*j(:,:,:,3)/rho
+        end where
+
+c     End program
+
+      end function form_ve
+
+c     form_jfake
+c     ###################################################################
+      function form_jfake(igr,dv,div_pi,rho) result(jf)
+
+c     -------------------------------------------------------------------
+c     Fake current: jf=-dt*curl(curl(E_fake))=dt*vlap(E_fake)
+c     with
+c          E_fake = di*(dv/dt + div_pi(v))
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer :: igr
+        real(8) :: dv    (0:,0:,0:,:)
+     .            ,div_pi(0:,0:,0:,:)
+     .            ,rho   (0:,0:,0:)
+     .            ,jf(0:size(dv,1)-1
+     .               ,0:size(dv,2)-1
+     .               ,0:size(dv,3)-1
+     .               ,  size(dv,4)  )
+
+c     Local variables
+
+c     Begin program
+
+        dv = di*dv
+cc        dv(:,:,:,1) = di*(dv(:,:,:,1) + dt*div_pi(:,:,:,1)/rho)
+cc        dv(:,:,:,2) = di*(dv(:,:,:,2) + dt*div_pi(:,:,:,2)/rho)
+cc        dv(:,:,:,3) = di*(dv(:,:,:,3) + dt*div_pi(:,:,:,3)/rho)
+
+        jf = veclap(igr,dv)
+
+c     End program
+
+      end function form_jfake
+
 c     viscous_heat_src
 c     ###################################################################
-      function viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz,visc
-     .                         ,vcnv1,vcnv2) result(viscous)
+      function viscous_heat_src(i,j,k,igr,visc,vcnv1,vcnv2) result(vhs)
 
 c     -------------------------------------------------------------------
 c     Finds viscous heat source  -Pi(v1):nabla(v2)
@@ -3775,40 +4147,88 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer :: i,j,k,nx,ny,nz,igx,igy,igz
-        real(8) :: vcnv1(0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,vcnv2(0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,visc (0:nx+1,0:ny+1,0:nz+1)
-     .            ,viscous
+        integer :: i,j,k,igr
+        real(8) :: vcnv1(0:,0:,0:,:)
+     .            ,vcnv2(0:,0:,0:,:)
+     .            ,visc (0:,0:,0:)
+     .            ,vhs
 
 c     Local variables
 
-        real(8) :: gsub(3,3),nabla_v(3,3),pi_tnsr(3,3)
+        integer :: nx,ny,nz
+        real(8) :: nabla_v(3,3),pi_tnsr(3,3)
 
 c     Begin program
+
+        nx = grid_params%nxv(igr)
+        ny = grid_params%nyv(igr)
+        nz = grid_params%nzv(igr)
 
 c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
 
         if (visc(i,j,k) > 0d0) then
-          pi_tnsr=EOM_Pi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vcnv1,visc)
+          pi_tnsr=EOM_Pi_ijk(i,j,k,nx,ny,nz,igr,igr,igr,vcnv1,visc)
 
-          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igx,igy,igz
+          nabla_v = fnabla_v(i,j,k,nx,ny,nz,igr,igr,igr
      .                      ,vcnv2(:,:,:,1)
      .                      ,vcnv2(:,:,:,2)
      .                      ,vcnv2(:,:,:,3),0)
 
-          !Make nabla_v covariant on both sides, and do dot product
-          gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
+          !Make nabla_v covariant on both sides
+          nabla_v = matmul(nabla_v,gmetric%grid(igr)%gsub(i,j,k,:,:))
 
-          viscous =-tensorScalarProduct(i,j,k,igx,matmul(nabla_v,gsub)
-     .                                 ,pi_tnsr)
+          vhs =-tensorScalarProduct(i,j,k,igr,nabla_v,pi_tnsr)
         else
-          viscous = 0d0
+          vhs = 0d0
         endif
 
 c     End program
 
       end function viscous_heat_src
+
+ccc     viscous_heat_src2
+ccc     ###################################################################
+cc      function viscous_heat_src2(i,j,k,igr,vcnv,tnsr) result(viscous)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Finds viscous heat source  -Pi(v1):nabla(v2)
+ccc     -------------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        integer :: i,j,k,igr
+cc        real(8) :: vcnv(0:,0:,0:,:)
+cc     .            ,tnsr(0:,0:,0:,:,:)
+cc     .            ,viscous
+cc
+ccc     Local variables
+cc
+cc        integer :: nx,ny,nz
+cc        real(8) :: nabla_v(3,3)
+cc
+ccc     Begin program
+cc
+cc        nx = grid_params%nxv(igr)
+cc        ny = grid_params%nyv(igr)
+cc        nz = grid_params%nzv(igr)
+cc
+ccc     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
+cc
+cc        nabla_v = fnabla_v(i,j,k,nx,ny,nz,igr,igr,igr
+cc     .                    ,vcnv(:,:,:,1)
+cc     .                    ,vcnv(:,:,:,2)
+cc     .                    ,vcnv(:,:,:,3),0)
+cc
+cc        !Make nabla_v covariant on both sides
+cc        nabla_v = matmul(nabla_v,gmetric%grid(igr)%gsub(i,j,k,:,:))
+cc
+cc        viscous =-tensorScalarProduct(i,j,k,igr,nabla_v,tnsr)
+cc
+ccc     End program
+cc
+cc      end function viscous_heat_src2
 
 c     EOM_jxb
 c     ###################################################################
@@ -4572,7 +4992,7 @@ c     Begin program
 
           if (use_p_eom) then  !grad(p)
             cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
-            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy          
+            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
             cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
 
 cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
@@ -5416,11 +5836,10 @@ c     Local variables
       real(8) :: pe(0:nx+1,0:ny+1,0:nz+1),cov(3),cnv(3)
      .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
 
+      real(8),pointer,dimension(:,:,:) :: jac
+
 c     Begin program
 
-c     Find required auxiliary quantities
-
-cc      pe = prs/a_p  !Electron pressure
       pe = rho*tmp/a_p  !Electron pressure
 
 c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
@@ -5443,7 +5862,9 @@ c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d
 
         !Electron inertia term
         if (de > 0d0) then
-          E_h = E_h - de**2/di**2*(vecov-vecov_n)*cnp/alpha/dt
+          E_h = E_h - de**2/di**2*(vecov-vecov_n)/alpha/dt
+cc          E_h = E_h - de**2/di**2*(cnp*vecov+cn*vecov_n+cnm*vecov_nm)
+cc     .                            /alpha/dt  !Not ready (vecov_nm not available)
         endif
 
 c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -5453,7 +5874,7 @@ c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         if (save_tn.or.source_eval) then
           E_h = 0d0
         else
-          E_h = cnp*(vcnv-vcnv_n)/alpha/dt
+          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in U_Av_ijk
         endif
 
         !Stress
@@ -5465,9 +5886,12 @@ c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-cc     .                            ,min(advect,2))
-     .                            ,1)
+cc              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+cccc     .                            ,min(advect,2))
+cc     .                            ,1)
+              cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                         ,v_advect)
+     .             -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
      .             +E_h(i,j,k,:)
 
               E_h(i,j,k,:) = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -5477,6 +5901,7 @@ cc     .                            ,min(advect,2))
         enddo
 
         !Ion pressure term: grad(pi)/rho
+cc        Eh = Eh + temp_ratio*grad(igx,pe)
         if (temp_ratio > 0d0) then
           do k=1,nz
             do j=1,ny
@@ -5487,6 +5912,7 @@ cc     .                            ,min(advect,2))
               enddo
             enddo
           enddo
+
         endif
 
       endif
@@ -5579,32 +6005,6 @@ c     End program
 
       end function res_mesh
 
-c     vis_def
-c     #############################################################
-      function vis_def(rr) result(vis)
-c     -------------------------------------------------------------
-c     This function computes the viscosity at a radius rr.
-c     (Daniele's RFX profile).
-c     -------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: vis,rr
-
-c     Local variables
-
-c     Begin program
-
-        !Viscosity profile nu*(1 + aa*x^bb)^cc
-        vis = nu*(1. + aa_nu*rr**bb_nu)**cc_nu
-cc        vis = nu*(1. + aa_nu*rr**nn_nu)
-
-c     End program
-
-      end function vis_def
-
 c     vis_ijk
 c     #############################################################
       function vis_ijk(i,j,k,igrid,field) result(vscty)
@@ -5670,80 +6070,9 @@ c     End program
 
       end function vis_mesh
 
-ccc     vis_ijk
-ccc     #############################################################
-cc      function vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz) result(vis)
-ccc     -------------------------------------------------------------
-ccc     This function computes the viscosity on the grid level
-ccc     igrid.
-ccc     -------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      real(8)    :: vis
-cc      integer    :: i,j,k,nx,ny,nz,igx,igy,igz
-cc
-ccc     Local variables
-cc
-cc      integer(4) :: ig,jg,kg
-cc
-ccc     Begin program
-cc
-cc      select case (equil)
-cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
-cc
-cc        !Viscosity profile eta*(1 + aa*x^bb)^cc (Daniele Bonfiglio)
-cc        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc        vis = nu*(1. + aa_nu*grid_params%xx(ig)**bb_nu)**cc_nu
-cc
-cc      case default
-cc
-cc        vis = nu
-cc
-cc      end select
-cc
-ccc     End program
-cc
-cc      end function vis_ijk
-cc
-ccc     vis_mesh
-ccc     #############################################################
-cc      function vis_mesh(nx,ny,nz,igx,igy,igz) result(vsty)
-ccc     -------------------------------------------------------------
-ccc     This function computes the viscosity on the grid level
-ccc     igrid.
-ccc     -------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer :: nx,ny,nz,igx,igy,igz
-cc      real(8) :: vsty(0:nx+1,0:ny+1,0:nz+1)
-cc
-ccc     Local variables
-cc
-cc      integer :: i,j,k
-cc
-ccc     Begin program
-cc
-cc      do k=0,nz+1
-cc        do j=0,ny+1
-cc          do i=0,nx+1
-cc            vsty(i,j,k) = vis_ijk(i,j,k,nx,ny,nz,igx,igy,igz)
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-ccc     End program
-cc
-cc      end function vis_mesh
-
 c     hres
 c     ###############################################################
-      function hres(nx,ny,nz,igx,igy,igz,bcnv,rho) result(h_res)
+      function hres(nx,ny,nz,igr,bcnv,rho) result(h_res)
 c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
@@ -5754,7 +6083,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
+      integer :: nx,ny,nz,igr
       real(8) :: bcnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho  (0:nx+1,0:ny+1,0:nz+1)
      .          ,h_res(0:nx+1,0:ny+1,0:nz+1)
@@ -5773,7 +6102,7 @@ cc
 cc      do k=1,nz
 cc        do j=1,ny
 cc          do i=1,nx
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+cc            call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
 cc
 cc            !kk
 cc            idx  = pi/grid_params%dx(ig)
@@ -5783,11 +6112,11 @@ cc            if (ny == 1) idy = 0d0
 cc            idz  = pi/grid_params%dz(kg)
 cc            if (nz == 1) idz = 0d0
 cc
-cc            k2=vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.)
+cc            k2=vectorNorm(i,j,k,igr,igr,igr,idx,idy,idz,.true.)
 cc            kk=sqrt(k2)
 cc
 cc            !|B|*k_par
-cc            bk_par=scalarProduct(i,j,k,igx,igy,igz,idx,idy,idz
+cc            bk_par=scalarProduct(i,j,k,igr,igr,igr,idx,idy,idz
 cc     .                         ,bcnv(i,j,k,1)
 cc     .                         ,bcnv(i,j,k,2)
 cc     .                         ,bcnv(i,j,k,3))
@@ -5821,13 +6150,17 @@ cc      hres = 10*hres/vol/di**2  !Divide by di**2 to correct for multiplication
 cc
 cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
-      if (di == 0d0 .or. heta == 0d0) then
+      if (di == 0d0.or.heta==0d0) then
 
         h_res = 0d0
 
       elseif (heta > 0d0) then
 
-        h_res = heta
+        if (slava) then
+          h_res = heta
+        else
+          h_res = rho*heta
+        endif
 
       else
 
@@ -5836,30 +6169,33 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
             do i=0,nx+1
               call getMGmap(min(max(i,1),nx)
      .                     ,min(max(j,1),ny)
-     .                     ,min(max(k,1),nz),igx,igy,igz,ig,jg,kg)
+     .                     ,min(max(k,1),nz),igr,igr,igr,ig,jg,kg)
 
               !kk
-              idx  = pi/grid_params%dx(ig)
+              idx  = 2d0/grid_params%dx(ig)
               if (nx == 1) idx = 0d0
-              idy  = pi/grid_params%dy(jg)
+              idy  = 2d0/grid_params%dy(jg)
               if (ny == 1) idy = 0d0
-              idz  = pi/grid_params%dz(kg)
+              idz  = 2d0/grid_params%dz(kg)
               if (nz == 1) idz = 0d0
 
-              k2=vectorNorm(i,j,k,igx,(/idx,idy,idz/),.true.)
+              k2=vectorNorm(i,j,k,igr,(/idx,idy,idz/),.true.)
               kk=sqrt(k2)
 
               !|B|*k_par
-              bk_par=scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+              bk_par=scalarProduct(i,j,k,igr,(/idx,idy,idz/)
      .                           ,bcnv(i,j,k,:))
 
-              !h_res = C*rho*v_a*k||/k^3 (absent factor of di inherited later from v_e)
-              h_res(i,j,k) = 1d1*sqrt(rho(i,j,k))*abs(bk_par)/kk**3
+              !h_res = C*rho*v_a*k||/k^3/di (This will be multiplied by di^2 through ve and di*Ehall)
+              h_res(i,j,k) = 5d0*sqrt(rho(i,j,k))*abs(bk_par)/kk**3/di
             enddo
           enddo
         enddo
 
       endif
+
+      if (my_rank == 0.and.itime == 0)
+     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
 
 c     End
 
@@ -5886,11 +6222,12 @@ c ######################################################################
 
         character(2) :: sm_type_si
 
-        logical :: pc_B_solve
+        logical :: pc_B_solve = .true.
      .            ,pc_v_solve
      .            ,pc_ion_hall
      .            ,pc_divclean
      .            ,sm_zebra_relax_si
+     .            ,pc_as_solver
 
       contains
 
@@ -5906,9 +6243,10 @@ c     ------------------------------------------------------------------
 
 c     Begin program
 
+      pc_as_solver =.false. !Whether to use PC as solver instead of GMRES
+
       pc_asm       =.false. !Whether to do additive Schwartz PC
-      pc_B_solve   =.true.  !Whether to invert M_B or not
-cc      pc_B_solve   =.false. !Whether to invert M_B or not
+cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
       pc_v_solve   =.false. !Whether to perform final v corrector step
       pc_ion_hall  = ion_hall  !Whether to use ion Ohm's law in PC
 
