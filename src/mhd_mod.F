@@ -6227,6 +6227,7 @@ c ######################################################################
      .            ,pc_ion_hall
      .            ,pc_divclean
      .            ,sm_zebra_relax_si
+     .            ,pc_as_solver
 
       contains
 
@@ -6241,6 +6242,8 @@ c     Hardwire setup variables for PC and perform consistency checks.
 c     ------------------------------------------------------------------
 
 c     Begin program
+
+      pc_as_solver =.false. !Whether to use PC as solver instead of GMRES
 
       pc_asm       =.false. !Whether to do additive Schwartz PC
 cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
