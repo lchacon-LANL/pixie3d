@@ -1839,7 +1839,7 @@ c     Dump VMEC map on finest mesh (for plotting)
         call MPI_Barrier(MPI_COMM_WORLD,mpierr)
 #endif
 
-        call openBinFile(u_mapf,map_file,'unknown')
+        call openPOSIXBinFile(u_mapf,map_file,'unknown')
         call dumpVectorToFile(u_mapf,gmetric%grid(1)%car,.false.)
         close(u_mapf)
 

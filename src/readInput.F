@@ -68,7 +68,7 @@ c Namelists
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eig_dt
+     .                   ,eigen,eig_dt,pc_as_solver
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -101,7 +101,7 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,nh1,nh2,nh3,npw1,npw2,npw3
+     .                   ,nh1,nh2,nh3,npw1,npw2,npw3,pc_as_solver
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,odd,random,source,eigen,eig_dt,iguess
 
@@ -180,6 +180,8 @@ c Set defaults
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
       postprocess = .false.    ! Whether to run solution postprocessing after time step
+
+      pc_as_solver= .false.    ! Whether we use PC as solver, instead of preconditioned GMRES
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
       eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
@@ -540,6 +542,18 @@ cc      endif
 
       !Perform Lagrangian step at postprocessing time
       if (lagrangian) postprocess = .true.
+
+      !Use PC as linear solver
+      if (pc_as_solver) then
+         iguess = 1
+         maxitgm = 0
+cc         maxitnwt = 10
+         rtol = 1d-1
+      endif
+
+#if defined(pit)
+      postprocess = .true.
+#endif
 
 c Map perturbations
 
