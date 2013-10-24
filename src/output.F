@@ -52,6 +52,7 @@ c Find maximum velocity and magnetic field components (cartesian)
       lvmax = vmax
       call MPI_Reduce(lvmax,vmax,3,MPI_DOUBLE_PRECISION
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+      where(vmax < 1d-20) vmax = 0d0
 #endif
 
 c Output
@@ -244,9 +245,9 @@ cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
 
 
       if (advect == 5) then
-         write (*,*)
+        write (*,*)
      .   'WARNING: Smooth smart does not work for non-uniform meshes'
-       endif
+      endif
 
       end subroutine warnings
 

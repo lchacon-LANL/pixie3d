@@ -75,14 +75,22 @@ c$$$      enddo
       graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
       graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
 
-      graph(1)%array_graph(IVX)%array => vx
-      graph(1)%array_graph(IVX)%descr = 'V^1'
+cc      graph(1)%array_graph(IVX)%array => vx
+cc      graph(1)%array_graph(IVX)%descr = 'V^1'
+cc                                                           
+cc      graph(1)%array_graph(IVY)%array => vy
+cc      graph(1)%array_graph(IVY)%descr = 'V^2'
+cc                                                           
+cc      graph(1)%array_graph(IVZ)%array => vz
+cc      graph(1)%array_graph(IVZ)%descr = 'V^3'
+      graph(1)%array_graph(IVX)%array => u_np%array_var(IVX)%array
+      graph(1)%array_graph(IVX)%descr =  u_np%array_var(IVX)%descr
                                                            
-      graph(1)%array_graph(IVY)%array => vy
-      graph(1)%array_graph(IVY)%descr = 'V^2'
+      graph(1)%array_graph(IVY)%array => u_np%array_var(IVY)%array
+      graph(1)%array_graph(IVY)%descr =  u_np%array_var(IVY)%descr
                                                            
-      graph(1)%array_graph(IVZ)%array => vz
-      graph(1)%array_graph(IVZ)%descr = 'V^3'
+      graph(1)%array_graph(IVZ)%array => u_np%array_var(IVZ)%array
+      graph(1)%array_graph(IVZ)%descr =  u_np%array_var(IVZ)%descr
 
       graph(1)%array_graph(IBX)%array => u_np%array_var(IBX)%array
       graph(1)%array_graph(IBX)%descr =  u_np%array_var(IBX)%descr
@@ -523,63 +531,66 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(2)%array => eeta
       graph(4)%array_graph(2)%descr = 'eta'
 
-      graph(4)%array_graph(3)%array => divrgB
-      graph(4)%array_graph(3)%descr = 'local div(B)'
+      graph(4)%array_graph(3)%array => h_eta
+      graph(4)%array_graph(3)%descr = 'h_eta'
 
-      graph(4)%array_graph(4)%array => divrgV
-      graph(4)%array_graph(4)%descr = 'local div(V)'
+      graph(4)%array_graph(4)%array => divrgB
+      graph(4)%array_graph(4)%descr = 'local div(B)'
 
-      graph(4)%array_graph(5)%array => divrgJ
-      graph(4)%array_graph(5)%descr = 'local div(J)'
+      graph(4)%array_graph(5)%array => divrgV
+      graph(4)%array_graph(5)%descr = 'local div(V)'
 
-      graph(4)%array_graph(6)%array => Pflux
-      graph(4)%array_graph(6)%descr = 'Poloidal flux'
+      graph(4)%array_graph(6)%array => divrgJ
+      graph(4)%array_graph(6)%descr = 'local div(J)'
 
-      graph(4)%array_graph(7)%array => qfactor
-      graph(4)%array_graph(7)%descr = 'q factor'
+      graph(4)%array_graph(7)%array => Pflux
+      graph(4)%array_graph(7)%descr = 'Poloidal flux'
+
+      graph(4)%array_graph(8)%array => qfactor
+      graph(4)%array_graph(8)%descr = 'q factor'
 
 cc      graph(4)%array_graph(7)%array => qfactr2
 cc      graph(4)%array_graph(7)%descr = 'avrgd q factor'
 
-      graph(4)%array_graph(8)%array => lambda
-      graph(4)%array_graph(8)%descr = 'lambda'
+      graph(4)%array_graph(9)%array => lambda
+      graph(4)%array_graph(9)%descr = 'lambda'
 
 cc      graph(4)%array_graph(8)%array => lambda2
 cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
 
-      graph(4)%array_graph(9)%array => p_tot
-      graph(4)%array_graph(9)%descr = 'Total pressure'
+      graph(4)%array_graph(10)%array => p_tot
+      graph(4)%array_graph(10)%descr = 'Total pressure'
 
-      graph(4)%array_graph(10)%array => vpar
-      graph(4)%array_graph(10)%descr = 'V||'
+      graph(4)%array_graph(11)%array => vpar
+      graph(4)%array_graph(11)%descr = 'V||'
 
-      graph(4)%array_graph(11)%array => vpsi
-      graph(4)%array_graph(11)%descr = 'V.grad(psi)'
+      graph(4)%array_graph(12)%array => vpsi
+      graph(4)%array_graph(12)%descr = 'V.grad(psi)'
 
-      graph(4)%array_graph(12)%array => vperp
-      graph(4)%array_graph(12)%descr = 'V.(b x grad(psi))'
+      graph(4)%array_graph(13)%array => vperp
+      graph(4)%array_graph(13)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
-        graph(4)%array_graph(13)%array => jpar
-        graph(4)%array_graph(13)%descr = 'Eh_1'
+        graph(4)%array_graph(14)%array => jpar
+        graph(4)%array_graph(14)%descr = 'Eh_1'
 
-        graph(4)%array_graph(14)%array => jpsi
-        graph(4)%array_graph(14)%descr = 'Eh_2'
+        graph(4)%array_graph(15)%array => jpsi
+        graph(4)%array_graph(15)%descr = 'Eh_2'
 
-        graph(4)%array_graph(15)%array => jperp
-        graph(4)%array_graph(15)%descr = 'Eh_3'
+        graph(4)%array_graph(16)%array => jperp
+        graph(4)%array_graph(16)%descr = 'Eh_3'
       else
-        graph(4)%array_graph(13)%array => jpar
-        graph(4)%array_graph(13)%descr = 'E_1'
+        graph(4)%array_graph(14)%array => jpar
+        graph(4)%array_graph(14)%descr = 'E_1'
 
-        graph(4)%array_graph(14)%array => jpsi
-        graph(4)%array_graph(14)%descr = 'E_2'
+        graph(4)%array_graph(15)%array => jpsi
+        graph(4)%array_graph(15)%descr = 'E_2'
 
-        graph(4)%array_graph(15)%array => jperp
-        graph(4)%array_graph(15)%descr = 'E_3'
+        graph(4)%array_graph(16)%array => jperp
+        graph(4)%array_graph(16)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(16:ngraph)%descr = ''
+      graph(4)%array_graph(17:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)

@@ -69,7 +69,8 @@ c Predictor
             do ieq=1,neqd
               vnp%array_var(ieq)%array(i,j,k) = 
      .             u_n%array_var(ieq)%array(i,j,k) 
-     .             -0.5*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+     .             -0.7*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
             enddo
 
           enddo
@@ -137,6 +138,8 @@ c Local variables
      .          ,cs2,ca2,tmp_max,roots(3)
       real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical :: cartsn
+
+      character(7) :: exp_cfl_type
 
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
@@ -216,23 +219,31 @@ c Calculate CFL
 c Calculate courant number
 
       if (.not.lagrangian) then
-        w_cour = max(maxval(eeta)*k2max,maxval(nuu+h_eta)*k2max,dd*k2max
-     .          ,chi*k2max,maxval(di**2*h_eta*k2max**2),chi_par*kbp2max)
+        w_cour = max(maxval(eeta)*k2max,maxval(nuu)*k2max,dd*k2max
+     .          ,chi*k2max,di**2*k2max**2*maxval(h_eta),chi_par*kbp2max)
       else
-        w_cour = max(maxval(eeta)*k2max,maxval(nuu+h_eta)*k2max,dd*k2max
-     .          ,chi*k2max,maxval(di**2*h_eta*k2max**2))
+        w_cour = max(maxval(eeta)*k2max,maxval(nuu)*k2max,dd*k2max
+     .          ,chi*k2max,di**2*k2max**2*maxval(h_eta))
       endif
 
 c Calculate time step
 
 cc      if (w_cfl <= w_cour) then
-cc        dt = 2d0*pi/w_cour
+cc        dt_exp = 2d0*pi/w_cour
 cc        exp_cfl_type='Courant'
 cc      else
-        dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
-     .                 /(w_cour**3 + w_cfl**3)
+cc        dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+cc     .                 /(w_cour**3 + w_cfl**3)
 cc        exp_cfl_type='CFL'
 cc      endif
+cc
+cc      if (my_rank == 0.and.itime == 0)
+cc     .     write (*,*) 'Fast time scale,'
+cc     .                 ,trim(exp_cfl_type),'='
+cc     .                 ,max(w_cour,w_cfl)
+
+      dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+     .           /(w_cour**3 + w_cfl**3)
 
 c Synchronize time step among all processors
 
@@ -248,7 +259,7 @@ c Compare with input time step
 
 c Accumulate explicit time step for average computation
 
-      dtexp = dtexp + dt
+      dtexp = dtexp + dt_exp
 
 c End program
 

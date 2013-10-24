@@ -153,7 +153,11 @@ c       Magnetic field
 #else
           if (di > 0d0 .and. (.not.pc_ion_hall)) then
             bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            if (fake_ve) then
+              bcs_hyp(:,4:6) = gv%aux%vec_list(IVEFCNV)%bconds
+            else
+              bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            endif
             call find_mf_diag(6,1,6*ntotdp,a_mtvc_hyp,1,bcs_hyp
      .                       ,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
           endif
@@ -177,11 +181,11 @@ c        Velocity
      .                         ,v_diag,sm_ncolors,vol_wgt,mg_glrkin)
             else
               bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
-cc              if (fake_ve) then
-cc                bcs_hyp(:,4:6) = bcs(:,IVX:IVZ)
-cc              else
+              if (pc_ion_hall.and.fake_ve) then
+                bcs_hyp(:,4:6) = gv%aux%vec_list(IVEFCNV)%bconds
+              else
                 bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-cc              endif
+              endif
               call find_mf_diag(6,1,6*ntotdp,v_mtvc_hyp,1,bcs_hyp
      .                         ,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
             endif
@@ -244,7 +248,7 @@ cc      stop
 c diag *****
 
 c diag ***** MATRIX GENERATION FOR MATLAB PROCESSING
-cc      if (debug) then
+cccc      if (debug) then
 cc      write (*,*) 'DIAG -- setupPC: Building matrix...'
 cc
 cc      neq = 6
@@ -281,7 +285,7 @@ cc
 cc      write (*,*) 'Done!'
 cc
 cc      stop
-cc      endif
+cccc      endif
 c diag *****
 
       end subroutine form_diagonals
