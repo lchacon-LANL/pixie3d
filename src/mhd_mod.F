@@ -6194,8 +6194,8 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       endif
 
-      if (my_rank == 0.and.itime == 0)
-     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
+cc      if (my_rank == 0.and.itime == 0)
+cc     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
 
 c     End
 

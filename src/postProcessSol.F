@@ -252,6 +252,14 @@ c     Dump parareal convergence info
       endif
 
       deallocate(array)
+
+      !Output PARAREAL checkpointing file
+      if (    (tmax .gt.0d0.and.time .ge.(tmax-1d-9*dt))
+     .    .or.(numtime.ge.0.and.itime.ge.(numtime+inewtime))) then
+        call writeRecordFile("pit_chkpnt.bin",0,0d0,dt,u_0,init=.true.)
+        call writeRecordFile("pit_chkpnt.bin",itime,time,dt,v_arr)
+      endif
+
 #endif
 
 c End program
