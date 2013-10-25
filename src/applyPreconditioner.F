@@ -1835,7 +1835,7 @@ c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
 
       call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,dbcov=db_cov
-     .                   ,diag_plots=pc_debug,rtol=1d-3,gm_it=its)
+     .                   ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
 
       it_divcl = it_divcl + its
 
