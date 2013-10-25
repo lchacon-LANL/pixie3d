@@ -49,7 +49,6 @@ REL2=0
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifeq ($(PIT),t)
-  PIT_DIR   = $(CONTRIBDIR)/parareal
   CPPFLAGS += -Dpit
 endif
 
@@ -103,18 +102,18 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB CPPFLAGS_EXTRA \
        CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA SAMR SAMRAI LIBSAMRAI3D LIBSAMRAI \
-       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST
+       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST PIT
 
 #Define targets
 
 .PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup parareal \
+        vmec vmec_clean setup \
         serial-tests-b serial-tests-a \
         rebuild-serial-tests-a rebuild-serial-tests-b \
         parallel-tests-b parallel-tests-a \
         rebuild-parallel-tests-a rebuild-parallel-tests-b $(SUBDIRS)
 
-all: contrib parareal src plot
+all: contrib src plot
 
 pixie3d: contrib src 
 
@@ -193,17 +192,11 @@ contrib:
 ifeq ($(VMEC),t)
 	$(MAKE) --no-print-directory -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
-ifeq ($(PIT),t)
-	$(MAKE) --no-print-directory -e -C $(PIT_DIR) all	
-endif
 
 contrib_clean:
 	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib_clean
 ifeq ($(VMEC),t)
 	$(MAKE) --no-print-directory -e -C $(VMEC_DIR)/Release -f makelibstell clean
-endif
-ifeq ($(PIT),t)
-	$(MAKE) --no-print-directory -e -C $(PIT_DIR) clean	
 endif
 
 # CLEAN ALL
