@@ -238,7 +238,7 @@ c     Dump parareal convergence info
             pit_file = 'pixie3d_pit_conv_fine.txt'
          endif
 
-         if (itime==1) then
+         if (itime==inewtime) then
             open(unit=upit,file=trim(pit_file)
      $          ,status='unknown')
          else
@@ -246,7 +246,7 @@ c     Dump parareal convergence info
      $          ,status='unknown',position='append')
          endif
 
-         if (itime == 1) write (upit,*) "3" !Number of diagnostics
+         if (itime == inewtime) write (upit,*) "3" !Number of diagnostics
          write(upit,*) time,Em,Ek,Et
          close(upit)
       endif
@@ -255,7 +255,7 @@ c     Dump parareal convergence info
 
       !Output PARAREAL checkpointing file
       if (    (tmax .gt.0d0.and.time .ge.(tmax-1d-9*dt))
-     .    .or.(numtime.ge.0.and.itime.ge.(numtime+inewtime))) then
+     .    .or.(numtime.ge.0.and.itime.ge.(numtime+inewtime-1))) then
         call writeRecordFile("pit_chkpnt.bin",0,0d0,dt,u_0,init=.true.)
         call writeRecordFile("pit_chkpnt.bin",itime,time,dt,v_arr)
       endif
