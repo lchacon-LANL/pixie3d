@@ -188,16 +188,16 @@ endif
 # COMMON CONTRIBUTED LIBRARIES
 
 contrib:
-	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib
 ifeq ($(VMEC),t)
 	$(MAKE) --no-print-directory -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
+	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib
 
 contrib_clean:
-	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib_clean
 ifeq ($(VMEC),t)
 	$(MAKE) --no-print-directory -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
+	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib_clean
 
 # CLEAN ALL
 
