@@ -8,8 +8,6 @@ c----------------------------------------------------------------------
 
       use parameters
 
-      use equilibrium
-
       use grid
 
       use timeStepping
@@ -81,7 +79,7 @@ c Namelists
      .                   ,mg_zebra_relax,pc_max_iter
 
       !Problem setup
-      namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3
 
@@ -103,19 +101,20 @@ c Namelists
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,pc_as_solver
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,odd,random,source,eigen,eig_dt,iguess
+     .                   ,odd,random,source,eigen,eig_dt
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
+     .                   ,iguess
 
       !Preconditioner
       namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
      .                   ,pc_asm,sm_zebra_relax,pc_debug
-     .                   ,pc_divclean,pc_B_solve
+     .                   ,pc_divclean,pc_B_solve,mg_ores,mg_oprol
 
       !I/O
-      namelist /i_o/   ilevel,debug,check_grid,equ_file,map_file
+      namelist /i_o/   ilevel,check_grid,equ_file,map_file
      .                   ,dcon,chk_src,test
 
 c ******************************************************************
@@ -167,6 +166,8 @@ c Set defaults
                                !   + 'sym' = symmetry 
                                !     (homogeneous Neumann/Dirichlet
                                !      for even/odd quantities)
+
+      mg_ratio = 2             ! MG coarsening ratio
 
       !Time stepping
       dt       = 5.            ! Time step (if zero, dt is calculated in code)
@@ -299,7 +300,6 @@ c Set defaults
       pc_divclean= .true.      ! Whether to perform divergence cleaning in PC or not
       pc_B_solve = .true.      ! Whether to perform B-solve in PC
 
-      mg_ratio = 2             ! MG coarsening ratio
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
       mg_ores  = 0             ! Restriction order for MG
       mg_oprol = 2             ! Prolongation order for MG
