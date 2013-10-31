@@ -416,50 +416,10 @@ c Begin program
         Tflux0= 0d0
       endif
 
-cc      rho => varray%array_var(IRHO)%array
-cc      px  => varray%array_var(IVX )%array
-cc      py  => varray%array_var(IVY )%array
-cc      pz  => varray%array_var(IVZ )%array
-cc#if !defined(vec_pot)
-cc      bx  => varray%array_var(IBX )%array
-cc      by  => varray%array_var(IBY )%array
-cc      bz  => varray%array_var(IBZ )%array
-cc#else
-cc      ax  => varray%array_var(IAX )%array
-cc      ay  => varray%array_var(IAY )%array
-cc      az  => varray%array_var(IAZ )%array
-cc#endif
-cc      tmp => varray%array_var(ITMP)%array
-
-c Code for explicit pinch flow BC
-
-cc      if (lag_pinch_bc.and.pinch_flow) then
-cc
-cc#if defined(vec_pot)
-cc        save_Bn = .true.
-cc
-cc        acov(:,:,:,1) = u_n%array_var(IAX)%array
-cc        acov(:,:,:,2) = u_n%array_var(IAY)%array
-cc        acov(:,:,:,3) = u_n%array_var(IAZ)%array
-cc
-cc        bcnv_n = curl(nx,ny,nz,igx,igy,igz,acov)
-cc#else
-cc        save_Bn = .false.  !No need to save Bn, since u_n contains ghost cells
-cc
-cc        bcnv_n(:,:,:,1) = u_n%array_var(IBX)%array
-cc        bcnv_n(:,:,:,2) = u_n%array_var(IBY)%array
-cc        bcnv_n(:,:,:,3) = u_n%array_var(IBZ)%array
-cc#endif
-cc      endif
-
 c Code for electric field BC
 
 cc      save_tn = .false.
       save_tn = .true.
-
-cc      vcov_n(:,:,:,1) = u_n%array_var(IVX)%array
-cc      vcov_n(:,:,:,2) = u_n%array_var(IVY)%array
-cc      vcov_n(:,:,:,3) = u_n%array_var(IVZ)%array
 
       alpha = 1.-cnfactor
 
