@@ -2,7 +2,7 @@ c module app_iosetup
 c ######################################################################
       module app_iosetup
 
-        use iosetup
+        use var_io
 
         integer :: it_divcl=0
 
@@ -788,45 +788,45 @@ c     Equilibrium quantities
       vaux%var_list(IRHO_0)%bc_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IRHO_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IRHO_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%var_list(IRHO_0)%time_0 = .true.
+cc      vaux%var_list(IRHO_0)%time_0 = .true.
 
       !Temp0
       vaux%var_list(ITMP_0)%bc_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(ITMP_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%var_list(ITMP_0)%time_0 = .true.
+cc      vaux%var_list(ITMP_0)%time_0 = .true.
 
       !Eta0
       vaux%var_list(IETA_0)%bc_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(IETA_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%var_list(IETA_0)%time_0 = .true.
+cc      vaux%var_list(IETA_0)%time_0 = .true.
 
 #if defined(vec_pot) 
       !A0 cov
       vaux%vec_list(IACOV_0)%bc_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IACOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%vec_list(IACOV_0)%time_0 = .true.
+cc      vaux%vec_list(IACOV_0)%time_0 = .true.
 
       !B0 cnv
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,3) = 1 !non-trivial
-      vaux%vec_list(IBCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCNV_0)%time_0 = .true.
 #else
       !B0 cnv
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%vec_list(IBCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCNV_0)%time_0 = .true.
 #endif
 
       !B0 cov
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCOV_0)%bc_dep_list(1,3) = 0 !trivial
-      vaux%vec_list(IBCOV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCOV_0)%time_0 = .true.
 
       !V0 cnv
       vaux%vec_list(IVCNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
@@ -849,7 +849,7 @@ c     Equilibrium quantities
       vaux%vec_list(IVCNV_0)%bc_dep_list(5,2) = VECTOR
       vaux%vec_list(IVCNV_0)%bc_dep_list(5,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IVCNV_0)%time_0 = .true.
 
       !J0 cnv
       vaux%vec_list(IJCNV_0)%bc_dep_list(1,1) = IETA_0*AUX
@@ -864,14 +864,14 @@ c     Equilibrium quantities
       vaux%vec_list(IJCNV_0)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IJCNV_0)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IJCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IJCNV_0)%time_0 = .true.
 
       !J0 cov
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IJCOV_0)%time_0 = .true.
+cc      vaux%vec_list(IJCOV_0)%time_0 = .true.
 
       !J_n cnv
       vaux%vec_list(IJCNV_N)%bc_dep_list(1,1) = IJCNV*AUX
@@ -910,7 +910,7 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 0 !trivial
 #endif
-      vaux%vec_list(IENI_0)%time_0 = .true.
+cc      vaux%vec_list(IENI_0)%time_0 = .true.
 
 c     Current variables
 
@@ -1274,24 +1274,24 @@ c     Equilibrium quantities
       vaux%var_list(IRHO_0)%dom_dep_list(1,1) = IRHO_0*AUX
       vaux%var_list(IRHO_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IRHO_0)%dom_dep_list(1,3) = 0 !trivial
-      vaux%var_list(IRHO_0)%time_0 = .true.
+cc      vaux%var_list(IRHO_0)%time_0 = .true.
 
       !Temp0
       vaux%var_list(ITMP_0)%dom_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(ITMP_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_0)%dom_dep_list(1,3) = 0 !trivial
-      vaux%var_list(ITMP_0)%time_0 = .true.
+cc      vaux%var_list(ITMP_0)%time_0 = .true.
 
       vaux%var_list(ITMP_0)%dom_dep_list(2,1) = IRHO_0*AUX
       vaux%var_list(ITMP_0)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(ITMP_0)%dom_dep_list(2,3) = 0 !trivial
-      vaux%var_list(ITMP_0)%time_0 = .true.
+cc      vaux%var_list(ITMP_0)%time_0 = .true.
 
       !Eta0
       vaux%var_list(IETA_0)%dom_dep_list(1,1) = ITMP_0*AUX
       vaux%var_list(IETA_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%dom_dep_list(1,3) = 0 !trivial
-      vaux%var_list(IETA_0)%time_0 = .true.
+cc      vaux%var_list(IETA_0)%time_0 = .true.
 
 #if defined(vec_pot)
       !A0 cov
@@ -1299,14 +1299,14 @@ c     Equilibrium quantities
       vaux%vec_list(IACOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IACOV_0)%time_0 = .true.
+cc      vaux%vec_list(IACOV_0)%time_0 = .true.
 
       !B0 cnv
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,1) = IACOV_0*AUX
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IBCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCNV_0)%time_0 = .true.
 
 #else
       !B0 cnv
@@ -1314,35 +1314,35 @@ c     Equilibrium quantities
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCNV_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IBCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCNV_0)%time_0 = .true.
 #endif
       !B0 cov
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,1) = IBCNV_0*AUX
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCOV_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IBCOV_0)%time_0 = .true.
+cc      vaux%vec_list(IBCOV_0)%time_0 = .true.
 
       !V0 cnv
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,1) = IVCNV_0*AUX
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IVCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IVCNV_0)%time_0 = .true.
 
       !J0 cnv
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,1) = IBCOV_0*AUX
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCNV_0)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IJCNV_0)%time_0 = .true.
+cc      vaux%vec_list(IJCNV_0)%time_0 = .true.
 
       !J0 cov
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IJCOV_0)%time_0 = .true.
+cc      vaux%vec_list(IJCOV_0)%time_0 = .true.
 
       !J_n cnv
       vaux%vec_list(IJCNV_N)%dom_dep_list(1,1) = IJCNV*AUX
@@ -1376,7 +1376,7 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%dom_dep_list(4,3) = 0 !trivial
 
-      vaux%vec_list(IENI_0)%time_0 = .true.
+cc      vaux%vec_list(IENI_0)%time_0 = .true.
 
 c     Current variables
 
@@ -6227,7 +6227,6 @@ c ######################################################################
      .            ,pc_ion_hall
      .            ,pc_divclean
      .            ,sm_zebra_relax_si
-     .            ,pc_as_solver
 
       contains
 

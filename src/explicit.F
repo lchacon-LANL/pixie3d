@@ -1,111 +1,105 @@
 
 #if !defined(samrai)
 
-c explicit
-c####################################################################
-      subroutine explicit(vnp,iter,iout)
-
-c--------------------------------------------------------------------
-c     Performs first-order predictor-corrector explicit integration.
-c--------------------------------------------------------------------
-
-      use parameters
-
-      use grid
-
-      use variable_setup
-
-      use timeStepping
-
-      use newtongm
-
-      use equilibrium
-
-      implicit none
-
-c Call variables
-
-      integer :: iter,iout
-      type(var_array),pointer :: vnp
-
-c Local variables
-
-      integer :: i,j,k,ii,ieq,igr,nx,ny,nz
-
-      real(8) :: ftemp(ntotd)
-
-c Interfaces
-
-      INTERFACE
-        subroutine evaluate_NLF(igr,varray,fi)
-        use parameters
-        use variable_setup
-        integer :: igr
-        real(8) :: fi(ntotd)
-        type(var_array),pointer :: varray
-        end subroutine evaluate_NLF
-      END INTERFACE
-
-c Begin program
-
-      iter = 0
-
-      igr = 1
-
-      nx = grid_params%nxv(igr)
-      ny = grid_params%nyv(igr)
-      nz = grid_params%nzv(igr)
-
-c Predictor
-
-      ftemp = fold
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-
-            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
-
-            do ieq=1,neqd
-              vnp%array_var(ieq)%array(i,j,k) = 
-     .             u_n%array_var(ieq)%array(i,j,k) 
-     .             -0.7*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+ccc explicit
+ccc####################################################################
+cc      subroutine explicit(vnp,iter,iout)
+cc
+ccc--------------------------------------------------------------------
+ccc     Performs first-order predictor-corrector explicit integration.
+ccc--------------------------------------------------------------------
+cc
+cc      use parameters
+cc
+cc      use grid
+cc
+cc      use var_setup
+cc
+cc      use timeStepping
+cc
+cc      use nk
+cc
+cc      use equilibrium
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      integer :: iter,iout
+cc      type(var_array),pointer :: vnp
+cc
+ccc Local variables
+cc
+cc      integer :: i,j,k,ii,ieq,igr,nx,ny,nz
+cc
+cc      real(8) :: ftemp(ntotd)
+cc
+ccc Interfaces
+cc
+cc      INTERFACE
+cc        subroutine evaluate_NLF(igr,varray,fi)
+cc        use parameters
+cc        use var_setup
+cc        integer :: igr
+cc        real(8) :: fi(ntotd)
+cc        type(var_array),pointer :: varray
+cc        end subroutine evaluate_NLF
+cc      END INTERFACE
+cc
+ccc Begin program
+cc
+cc      iter = 0
+cc
+cc      igr = 1
+cc
+cc      nx = grid_params%nxv(igr)
+cc      ny = grid_params%nyv(igr)
+cc      nz = grid_params%nzv(igr)
+cc
+ccc Predictor
+cc
+cc      ftemp = fold
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc
+cc            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
+cc
+cc            do ieq=1,neqd
+cc              vnp%array_var(ieq)%array(i,j,k) = 
+cc     .             u_n%array_var(ieq)%array(i,j,k) 
+cc     .             -0.7*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cccc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc Corrector
+cc
+cc      call evaluate_NLF(igr,vnp,ftemp)
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc
+cc            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
+cc
+cc            do ieq=1,neqd
+cc              vnp%array_var(ieq)%array(i,j,k) = 
+cc     .              u_n%array_var(ieq)%array(i,j,k) 
 cc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-c Corrector
-
-      call evaluate_NLF(igr,vnp,ftemp)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-
-            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
-
-            do ieq=1,neqd
-              vnp%array_var(ieq)%array(i,j,k) = 
-     .              u_n%array_var(ieq)%array(i,j,k) 
-     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-c End program
-
- 200  format (/,' New_it   Av_updt    Rel_res    Damping  GMRES')
- 210  format (i4,3x,1p,3e11.3,i4)
- 220  format ('Max newton its. exceeded; relative residual: ',1p,1e10.2)
- 230  format ('    Relative residual =',f7.2,' > 1.0')
- 320  format ('residual vor, sf, t, vpar, n =',1p,5e10.2)
-
-      end subroutine explicit
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc End program
+cc
+cc      end subroutine explicit
 
 c findExplicitDt
 c####################################################################

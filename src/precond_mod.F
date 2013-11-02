@@ -20,7 +20,7 @@ c ######################################################################
         use grid
 
 #if !defined(samrai)
-        use newtongm
+        use nk
 #endif
         use mg_solver
 

@@ -256,8 +256,10 @@ c     Dump parareal convergence info
       !Output PARAREAL checkpointing file
       if (    (tmax .gt.0d0.and.time .ge.(tmax-1d-9*dt))
      .    .or.(numtime.ge.0.and.itime.ge.(numtime+inewtime-1))) then
-        call writeRecordFile("pit_chkpnt.bin",0,0d0,dt,u_0,init=.true.)
-        call writeRecordFile("pit_chkpnt.bin",itime,time,dt,v_arr)
+        call writeRecordFile("pixie3d_pit_chkpnt.bin",0,0d0,dt,u_0
+     .                      ,init=.true.)
+        call writeRecordFile("pixie3d_pit_chkpnt.bin",itime,time
+     .                      ,dt,v_arr)
       endif
 
 #endif

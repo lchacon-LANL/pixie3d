@@ -9,7 +9,7 @@ c     -----------------------------------------------------------------
 
       use grid
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 

@@ -92,7 +92,7 @@ c Local variables
 
       INTERFACE
         subroutine setAppBCs(varray,vaux)
-          use variable_setup
+          use var_setup
           type(var_array),pointer :: varray
           type(aux_array),pointer :: vaux
         end subroutine setAppBCs

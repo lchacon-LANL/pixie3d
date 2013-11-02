@@ -12,8 +12,6 @@ c----------------------------------------------------------------------
 
       use precond_setup
 
-      use counters
-
       use app_iosetup
 
       use grid

@@ -89,6 +89,9 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,spitzer,br_pert_bc
+     .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
+     .                   ,pc_divclean,pc_B_solve
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -99,19 +102,16 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,nh1,nh2,nh3,npw1,npw2,npw3,pc_as_solver
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,odd,random,source,eigen,eig_dt
+     .                   ,source,eigen,eig_dt
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
-     .                   ,iguess
+     .                   ,iguess,pc_as_solver
 
       !Preconditioner
-      namelist /pc/    pc_type,mg_vcyc,sm_iter,pc_tol,pc_iter
-     .                   ,pc_asm,sm_zebra_relax,pc_debug
-     .                   ,pc_divclean,pc_B_solve,mg_ores,mg_oprol
+      namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
+     .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -181,8 +181,7 @@ c Set defaults
       restart  = .false.       ! Restarting flag
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
       postprocess = .false.    ! Whether to run solution postprocessing after time step
-
-      pc_as_solver= .false.    ! Whether we use PC as solver, instead of preconditioned GMRES
+      source   = .true.        ! Impose source to provide equilibrium
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
       eig_dt   = 1d0           ! Time step for eigenvalue dynamical system
@@ -193,6 +192,8 @@ c Set defaults
                                !   1 -> Rannacher time stepping
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
+
+      vol_wgt  = .true.        ! Whether residual is volume weighed or not
 
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
@@ -218,6 +219,9 @@ c Set defaults
       dt0      = 1d30          ! Initial pseudo-transient time step (" " ")
       iguess   = 0             ! Whether preconditioner is used to give initial
                                !   guess to GMRES (when =1) 
+
+      pc_as_solver= .false.    ! Whether we use PC as solver, instead of preconditioned GMRES
+
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
       eta      = 1d-3          ! Lundquist number
@@ -266,8 +270,6 @@ c Set defaults
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
 
-      vol_wgt    = .true.      ! Whether residual is volume weighed or not
-
       advect     = 2           ! Type of advective scheme for scalars
                                ! Available options:
                                !    1 -> upwind,
@@ -314,7 +316,6 @@ c Set defaults
       rshear   = 1.            ! Ratio of magnetic to fluid sheet thicknesses
       vparflow = 0.            ! Maximum parallel fluid flow
       vperflow = 0.            ! Maximum perpendicular fluid flow
-      source   = .true.        ! Impose source to provide equilibrium
       chk_src  = .false.       ! Whether to check source (e.g., to check equilibria)
 
       prho     = 0d0           ! Density perturbation

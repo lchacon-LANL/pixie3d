@@ -26,6 +26,8 @@ endif
 
 SUBDIRS += $(COMMONDIR)/3dplot
 
+EXCLUDE += %ts_mod.F
+
 # Set link files
 
 LNK_FILES = ../src/applyBoundaryConditions.F\
