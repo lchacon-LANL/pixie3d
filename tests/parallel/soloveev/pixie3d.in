@@ -40,6 +40,13 @@
 
     solve_rho  = f
     use_p_eom  = t
+
+    pvx      = 1d-4
+    odd      = f
+    random   = f
+
+    nh2      = 1
+    nh3      =-2
  /
 
  &ts
@@ -50,13 +57,6 @@
 
     restart  = f
     timecorr = f
-
-    pvx      = 1d-4
-    odd      = f
-    random   = f
-
-    nh2      = 1
-    nh3      =-2
 
     cnfactor = 0.5d0
     sm_flag  = 0
