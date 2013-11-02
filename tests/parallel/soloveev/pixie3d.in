@@ -27,6 +27,13 @@
     gamma    = 1.6667
 
     adiabatic  = t
+
+    pvx      = 1d-4
+    odd      = f
+    random   = f
+
+    nh2      = 1
+    nh3      =-2
  /
 
  &fv
@@ -40,13 +47,6 @@
 
     solve_rho  = f
     use_p_eom  = t
-
-    pvx      = 1d-4
-    odd      = f
-    random   = f
-
-    nh2      = 1
-    nh3      =-2
  /
 
  &ts
@@ -63,7 +63,6 @@
 
     source   = t
 
-    iguess   = 0
  /
 
  &nks
@@ -75,6 +74,7 @@
     method   = 1
     mf_eps   = 1d-6
     vol_wgt  = t
+    iguess   = 0
  /
 
  &pc
@@ -88,7 +88,6 @@
  &i_o
     ilevel   = 0
     dcon     = f
-    debug    = f
     check_grid = f
     chk_src  = f
     test     = t
