@@ -14,7 +14,7 @@ c     The result of Fi(Uj) at node (i,j) for all equations neqd
 c     is returned in the vector ff of dimension neqd.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -80,7 +80,7 @@ c     The result of Fi(Uj) at node (i,j) for all equations neqd
 c     is returned in the vector ff of dimension neqd.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -284,18 +284,13 @@ c defineTSParameters
 c####################################################################
       subroutine defineTSParameters
 c--------------------------------------------------------------------
-c     Calculates nonlinear residuals. 
+c     Calculates application-dependent time step quantities for
+c     nonlinear residuals.
 c--------------------------------------------------------------------
-
-      use parameters
 
       use equilibrium
 
       use timeStepping
-
-      use transport_params
-
-      use nlfunction_setup
 
       implicit none
 
@@ -305,19 +300,19 @@ c Local variables
 
 c Begin program
 
-      if (bdf2) then
-        bdfp  = cnp
-        bdfn  = cn
-        bdfnm = cnm
-        cnf   = 0d0
-      else
-        bdfp  = 1d0
-        bdfn  =-1d0
-        bdfnm = 0d0
-        cnf   = cnfactor
-      endif
-
-      if (dt == 0d0) call pstop('defineTSparams','dt=0!!!')
+cc      if (bdf2) then
+cc        bdfp  = cnp
+cc        bdfn  = cn
+cc        bdfnm = cnm
+cc        cnf   = 0d0
+cc      else
+cc        bdfp  = 1d0
+cc        bdfn  =-1d0
+cc        bdfnm = 0d0
+cc        cnf   = cnfactor
+cc      endif
+cc
+cc      if (dt == 0d0) call pstop('defineTSParameters','dt=0!!!')
 
       one_over_dt = 1d0/dt
 
@@ -343,7 +338,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -492,7 +487,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -639,7 +634,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -787,7 +782,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 

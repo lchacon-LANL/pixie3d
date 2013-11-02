@@ -12,8 +12,8 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/io\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
-	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/newtonGMRES\
+	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/eigen\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\

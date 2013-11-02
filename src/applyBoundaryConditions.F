@@ -76,7 +76,7 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
-      use variable_setup
+      use var_setup
 
       implicit none
 
@@ -247,7 +247,7 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
-      use variable_setup
+      use var_setup
 
 c diag ****
       use app_iosetup
@@ -662,7 +662,7 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
-      use variable_setup
+      use var_setup
 
 c diag ****
       use app_iosetup
@@ -1078,7 +1078,7 @@ c--------------------------------------------------------------------
 
       use auxiliaryVariables
 
-      use variable_setup
+      use var_setup
 
       implicit none
 

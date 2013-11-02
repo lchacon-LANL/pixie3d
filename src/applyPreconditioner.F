@@ -17,7 +17,7 @@ c-------------------------------------------------------------------
 
       use precond_variables
 
-      use iosetup
+      use var_io
 
       use imposeBCinterface
 

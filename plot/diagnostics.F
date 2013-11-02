@@ -75,7 +75,7 @@ c Interfaces
 
       INTERFACE
         subroutine evaluateDiagnostics(varray,iigx,iigy,iigz,init)
-        use variable_setup
+        use var_setup
         integer    :: iigx,iigy,iigz
         logical    :: init
         type(var_array),pointer :: varray
@@ -388,7 +388,7 @@ c Local variables
 
       INTERFACE
         subroutine postProcessSolution(igrid,varray)
-        use variable_setup
+        use var_setup
         integer    :: igrid
         type(var_array),pointer :: varray
         end subroutine postProcessSolution

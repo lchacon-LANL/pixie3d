@@ -10,7 +10,7 @@ c##########################################################################
 
       use grid
 
-      use iosetup
+      use var_io
 
       use timeStepping
 
