@@ -4040,7 +4040,7 @@ c ######################################################################
 
         use operators
 
-        use timeStepping
+        use ts_setup
 
         integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
 
