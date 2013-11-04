@@ -12,7 +12,7 @@ c##########################################################################
 
       use var_io
 
-      use timeStepping
+      use ts_setup
 
       use equilibrium
 
