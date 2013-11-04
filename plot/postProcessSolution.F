@@ -19,7 +19,7 @@ c--------------------------------------------------------------------
 
       use auxPlotVariables
 
-      use timeStepping
+      use ts_setup
 
       use operators
 
