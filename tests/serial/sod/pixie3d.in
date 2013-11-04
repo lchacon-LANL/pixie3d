@@ -42,7 +42,7 @@
 
     iguess   = 0
 
-    cnfactor = 1d0
+    cnfactor = 0.7 
     sm_flag  = 0
 
     restart  = f
