@@ -10,7 +10,11 @@ c----------------------------------------------------------------------
 
       use grid
 
+#if defined(plot)
+      use ts_setup
+#else
       use timeStepping
+#endif
 
       use nk_setup
 
@@ -429,6 +433,11 @@ c Read initialization parameters
       endif
 
       close(unit=uinput)
+
+#if !defined(plot)
+      !Read projective integration configuration
+      call read_PrjInt_Input(inputfile)
+#endif
 
 c Check legacy parameters
 

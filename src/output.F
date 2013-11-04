@@ -97,7 +97,7 @@ cc            advective = '   TVD'
 cc            vadvective = '   TVD'
           end select
 
-          if (cnfactor < 1d0) then
+          if (cnfactor <= 5d-1) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
               ts = ' Theta'
             elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
@@ -107,7 +107,7 @@ cc            vadvective = '   TVD'
             elseif (sm_flag.eq.2) then
               ts = ' BDF2'
             endif
-          elseif (cnfactor == 1d0) then
+          elseif (cnfactor <= 1d0) then
             ts = ' Explicit'
           else
             call pstop('output','cnfactor not within allowed limits')
@@ -117,7 +117,7 @@ cc            vadvective = '   TVD'
      .               ,numerical_grid,advective,vadvective,ts
 
           write (*,*) 
-          if (cnfactor == 1d0) then
+          if (cnfactor > 5d-1) then
             write (*,105)
           else
             write (*,100)
@@ -136,7 +136,7 @@ cc            vadvective = '   TVD'
             endif
           endif
 
-          if (cnfactor == 1d0) then
+          if (cnfactor > 5d-1) then
             write(*,115) itime,time,dt,vmax
           else
             write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
