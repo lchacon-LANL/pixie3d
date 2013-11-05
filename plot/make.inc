@@ -28,7 +28,7 @@ SUBDIRS += $(COMMONDIR)/3dplot
 
 EXCLUDE += %ts_base_mod.F %proj_int_mod.F %ts_mod.F
 
-override CPPFLAGS += -Dplot
+override CPPFLAGS += -Dplotting
 
 # Set link files
 
