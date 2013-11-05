@@ -10,7 +10,7 @@ c----------------------------------------------------------------------
 
       use grid
 
-#if defined(plot)
+#if defined(plotting)
       use ts_setup
 #else
       use timeStepping
@@ -434,7 +434,7 @@ c Read initialization parameters
 
       close(unit=uinput)
 
-#if !defined(plot)
+#if !defined(plotting)
       !Read projective integration configuration
       call read_PrjInt_Input(inputfile)
 #endif
