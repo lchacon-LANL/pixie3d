@@ -129,9 +129,8 @@ $(SUBDIRS):
 
 # SETUP
 
-setup:
+setup: contrib_setup
 	-@cd plot ; ln -s -f ../src/Makefile
-	-@tar xzf contrib.tgz
 	-@for subdir in $(COMMONDIR) plot tests/serial tests/parallel tests/samrai; do \
 		$(MAKE) -C $$subdir setup;  done
 
@@ -195,16 +194,23 @@ endif
 
 contrib_clean:
 ifeq ($(VMEC),t)
-	$(MAKE) --no-print-directory -e -C $(VMEC_DIR)/Release -f makelibstell clean
+	@$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
-	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib_clean
+	@$(MAKE) -e -C $(COMMONDIR) contrib_clean
+
+contrib_setup: ;
+	-@tar xzf contrib.tgz
+
+contrib_pack: ;
+	-@rm -f contrib.tgz > /dev/null
+	-@tar czf contrib.tgz contrib
 
 # CLEAN ALL
 
 allclean: contrib_clean distclean
 
 distclean:
-	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir distclean;  done
+	-@for subdir in $(SUBDIRS) ; do \
+		$(MAKE) -C $$subdir distclean;  done
 
 
