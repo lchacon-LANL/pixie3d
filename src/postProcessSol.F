@@ -240,8 +240,7 @@ c     Dump parareal convergence info
         else
            open(unit=upit,file=trim(pit_file)
      $         ,status='unknown',position='append')
-        endifgnuplot
-
+        endif
 
         if (itime == inewtime) write (upit,*) "3" !Number of diagnostics
         write(upit,*) time,Em,Ek,Et
