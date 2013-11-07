@@ -232,23 +232,20 @@ c     Dump parareal convergence info
       endif
 
       if (my_rank == 0) then
-         if (pc_as_solver) then
-            pit_file = 'pixie3d_pit_conv_coarse.txt'
-         else
-            pit_file = 'pixie3d_pit_conv_fine.txt'
-         endif
+        pit_file = 'pixie3d_pit_conv.txt'
 
-         if (itime==inewtime) then
-            open(unit=upit,file=trim(pit_file)
-     $          ,status='unknown')
-         else
-            open(unit=upit,file=trim(pit_file)
-     $          ,status='unknown',position='append')
-         endif
+        if (itime==inewtime) then
+           open(unit=upit,file=trim(pit_file)
+     $         ,status='unknown')
+        else
+           open(unit=upit,file=trim(pit_file)
+     $         ,status='unknown',position='append')
+        endifgnuplot
 
-         if (itime == inewtime) write (upit,*) "3" !Number of diagnostics
-         write(upit,*) time,Em,Ek,Et
-         close(upit)
+
+        if (itime == inewtime) write (upit,*) "3" !Number of diagnostics
+        write(upit,*) time,Em,Ek,Et
+        close(upit)
       endif
 
       deallocate(array)
