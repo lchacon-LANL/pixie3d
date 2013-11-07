@@ -153,7 +153,7 @@ clean:
 
 distclean: clean
 	-@for subdir in $(SUBDIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir clean;  done
+		$(MAKE) -C $$subdir clean;  done
 
 setup: ;
 	-@for file in $(LNK_FILES) ; do \

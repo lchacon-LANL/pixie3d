@@ -3,7 +3,7 @@ A_CODE       = pixplot_a.x
 PETSCCODE    = pixplot.petsc.x
 PETSC_A_CODE = pixplot_a.petsc.x
 
-MODS := mhd_mod.F imposeBC_mod.F
+MODS := mhd_mod.F BC_mod.F
 
 # Subdirectories
 
@@ -32,8 +32,8 @@ override CPPFLAGS += -Dplotting
 
 # Set link files
 
-LNK_FILES = ../src/applyBoundaryConditions.F\
-	    ../src/imposeBC_mod.F\
+LNK_FILES = ../src/applyBC.F\
+	    ../src/BC_mod.F\
 	    ../src/mhd_mod.F\
 	    ../src/readInput.F
 
