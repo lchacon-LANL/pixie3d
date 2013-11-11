@@ -378,15 +378,17 @@ c Divergence diagnostics
 
 c Total pressure
 
-      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
-
 #if defined(RFX)
 c RFX dump
+! Daniele, 24/10/2013
+      p_tot = rho*tmp
       if (np == 1) then
         call rfx_dump_fields
       elseif (np > 1 .and. my_rank == 0) then
         write (*,*) 'RFX fields dump not available in parallel'
       endif
+#else
+      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
 #endif
 
 c End program
