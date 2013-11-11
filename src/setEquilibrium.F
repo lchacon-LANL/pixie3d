@@ -1951,8 +1951,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 ! Daniele, 11/10/2013
           if (spitzer) then
-!             eta_in = res_spitzer(p00(1)/a_p)
-             eta_in = res_spitzer(0d0,p00(1))
+             eta_in = res_spitzer(p00(1)/a_p)
              E0(3) = e0_over_eta*eta_in
           else
              E0(3) = e0_over_eta*eta
@@ -2813,8 +2812,7 @@ c       Iteration
 
             if (spitzer) then
 !              etah = res_spitzer(0d0,p0(i)/a_p/p00)/eta
-! Daniele, 11/10/2013
-              etah = res_spitzer(rh,p0(i))/eta
+              etah = res_spitzer(p0(i)/a_p)/eta
             else
               etah = res_rfx(rh)/eta
             endif
@@ -2837,8 +2835,7 @@ c       Iteration
 
             if (spitzer) then
 !              etah = res_spitzer(p0(i)/a_p/p00)/eta
-! Daniele, 11/10/2013
-              etah = res_spitzer(rh,p0(i))/eta
+              etah = res_spitzer(p0(i)/a_p)/eta
             else
               etah = res_rfx(rh)/eta
             endif
@@ -2912,8 +2909,7 @@ c       Iteration
 
           if (spitzer) then
 !            etah = res_spitzer(p0(i)/a_p/p00)/eta
-! Daniele, 11/10/2013
-              etah = res_spitzer(rh,p0(i))/eta
+            etah = res_spitzer(p0(i)/a_p)/eta
           else
             etah = res_rfx(rh)/eta
           endif
@@ -2978,8 +2974,7 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
           rh  = grid_params%xg(i)
           if (spitzer) then
 !            etah = res_spitzer(p0(i)/a_p/p00)/eta
-! Daniele, 11/10/2013
-              etah = res_spitzer(rh,p0(i))/eta
+            etah = res_spitzer(p0(i)/a_p)/eta
           else
             etah = res_rfx(rh)/eta
           endif
@@ -3125,8 +3120,7 @@ c       Iteration
 
 ! Daniele, 11/10/2013
             if (spitzer) then
-!               etah = res_spitzer(p0(i)/a_p)/eta
-               etah = res_spitzer(rh,p0(i))/eta
+               etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3154,8 +3148,7 @@ c       Iteration
 
 ! Daniele, 11/10/2013
             if (spitzer) then
-!               etah = res_spitzer(p0(i)/a_p)/eta
-               etah = res_spitzer(rh,p0(i))/eta
+               etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3211,8 +3204,7 @@ c       Iteration
           rh  = grid_params%xg(i)
 ! Daniele, 11/10/2013
           if (spitzer) then
-!             etah = res_spitzer(p0(i)/a_p)/eta
-             etah = res_spitzer(rh,p0(i))/eta
+             etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3231,8 +3223,7 @@ c       Iteration
         rh  = grid_params%xg(nxdp)
 ! Daniele, 11/10/2013
         if (spitzer) then
-!           etah = res_spitzer(p0(i)/a_p)/eta
-           etah = res_spitzer(rh,p0(i))/eta
+           etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3274,8 +3265,7 @@ cc        jzf(nxdp)=2.*jzf(nxdp)-jzf(nxd)
            rh  = grid_params%xg(i)
 ! Daniele, 11/10/2013
            if (spitzer) then
-!              etah = res_spitzer(p0(i)/a_p)/eta
-              etah = res_spitzer(rh,p0(i))/eta
+              etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3377,8 +3367,7 @@ cc     .              +p00*pprof(rh,1)
 
 ! Daniele, 11/10/2013
           if (spitzer) then
-!             etah = res_spitzer(p0(i)/a_p)/eta
-             etah = res_spitzer(rh,p0(i))/eta
+             etah = res_spitzer(p0(i)/a_p)/eta
                if (i == 1) then
                   etah0 = etah
                endif
@@ -3407,8 +3396,7 @@ cc     .              +p00*pprof(rh,1)
 
 ! Daniele, 11/10/2013
           if (spitzer) then
-!             etah = res_spitzer(p0(i)/a_p)/eta
-             etah = res_spitzer(rh,p0(i))/eta
+             etah = res_spitzer(p0(i)/a_p)/eta
           else
              etah=res_rfx(rh)/eta
           endif
