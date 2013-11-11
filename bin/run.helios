@@ -8,7 +8,7 @@ cat <<HELP
 Usage: 
 
 pixie3d [-h] [-d] [-x executable] [-r tmax] [-np procs] [-ntar] [-equ file] [-eig file]
-        [-queue queue] [-walltime walltime] [-depend] -- inputfile [options]
+        [-project project] [-walltime walltime] [-depend] -- inputfile [options]
 
 where:
 	-h:            gives this message
@@ -18,14 +18,13 @@ where:
                          (if tmax=0, final time is not changed)
 	-np procs:     indicates the number of processors to run the job  
 		         in parallel
-	-ntar:         runs in foreground in current directory (default: runs in 
-                         background in separate directory and creates 
-                         tarfile inputfile.tar.gz)
+	-ntar:         runs in current directory
+                         (default: runs in separate directory)
 	-equ:          equilibrium file
 	-eig:          eigenmode file
-        -project:        project (default: ENEATEST)
-        -walltime walltime:     walltime (with format hh:mm:ss, default is 24:00:00)
-	-depend:       dependent job (default: false)
+        -project:      project (default is ENEATEST)
+        -walltime:     walltime (with format days-hh:mm:ss, default is 1-00:00:00)
+	-depend:       dependent job (default is false)
 	inputfile:     is the input file with or without the extension .in
 	options:       options passed directly to the executable
 HELP
@@ -35,14 +34,16 @@ exit 0
 # Defaults
 
 restart=f
+copyrestart=
 parallel=f
 tar=t
 equf=f
 debug=f
 code_ifile=pixie3d
 adiosfile=adios_config.xml
-walltime=23:59:59
+walltime=1-00:00:00
 depend=f
+dependency=
 ppn=16
 nodes=1
 project=ENEATEST
@@ -89,17 +90,14 @@ then
   lastdir=.
   while [ -d "$dir" ]; do
     lastdir=$inputfile.`printf %02d $i`
-    dependjob=`cat $path/$dir/jobid`
+    dependjob=`cat $path/$dir/jobid_pixie3d`
     let i=i+1
     dir=$inputfile.`printf %02d $i`
   done
   mkdir $dir
 else
   dir=.
-fi
-
-if [ "$depend" = "t" ]; then
-    walltime=$walltime,depend=$dependjob
+  lastdir=.
 fi
 
 if [ "$debug" = "t" ]; then
@@ -112,18 +110,17 @@ if [ "$executable" = "" ]
 then
   if [ "$parallel" = "t" ]
   then
-#    executable=`which pixie3d.petsc.x 2>/dev/null`
-    executable=pixie3d.petsc.x
+    cp `which $code_ifile.petsc.x 2>/dev/null` $path 2>/dev/null
+    executable=`ls $code_ifile.petsc.x 2>/dev/null`
   else
-#    executable=`which pixie3d.x 2>/dev/null`
-    executable=pixie3d.x
+    cp `which $code_ifile.x 2>/dev/null` $path 2>/dev/null
+    executable=`ls $code_ifile.x 2>/dev/null`
   fi
-  pathtoexecutable=`which $executable 2>/dev/null`
 else
-  pathtoexecutable=`ls $executable 2>/dev/null`
+  executable=`ls $executable 2>/dev/null`
 fi
 
-if [ "$pathtoexecutable" = "" ]
+if [ "$executable" = "" ]
 then
   echo "No executable found. Aborting"
   exit 1
@@ -131,6 +128,19 @@ fi
 
 if [ "$debug" = "t" ]; then
   echo "==> Program to run is $executable"
+fi
+
+if [ "$parallel" = "t" ]
+then
+  cp `which pixplot.petsc.x 2>/dev/null` $path 2>/dev/null
+  plotexec=`ls pixplot.petsc.x 2>/dev/null`
+else
+  cp `which pixplot.x 2>/dev/null` $path 2>/dev/null
+  plotexec=`ls pixplot.x 2>/dev/null`
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Postprocess program is $plotexec"
 fi
 
 # Copy necessary files to working directory
@@ -175,7 +185,8 @@ if [ "$eigf" = "t" ]; then
  fi
 fi
 
-cp $pathtoexecutable $dir 2>/dev/null
+cp $executable $dir 2>/dev/null
+cp $plotexec $dir 2>/dev/null
 
 cd $dir
 
@@ -193,6 +204,14 @@ then
         -e '    restart  = t' \
         -e '}' \
         $code_ifile.in 
+
+   if [ "$depend" = "t" ]; then
+       dependency="#SBATCH -d afterany:$dependjob"
+       copyrestart="cp $path/$lastdir/record.bp . 2>/dev/null"
+   else
+       cp $path/$lastdir/record.bp . 2>/dev/null
+   fi
+
 else
    sed  -i -e '/restart/{' \
         -e 'c\' \
@@ -222,10 +241,7 @@ fi
 
 rm -f $executable.local 2>/dev/null
 
-if [ "$tar" = "t" ]
-then
-
-    cat >> $path/$dir/$inputfile.bat <<EOF
+cat >> $path/$dir/$inputfile.bat <<EOF
 #!/bin/bash
 #SBATCH -J $dir
 #SBATCH -A $project
@@ -234,14 +250,15 @@ then
 #SBATCH -o $path/$dir/$inputfile.out
 #SBATCH -e $path/$dir/$inputfile.err
 #SBATCH -t $walltime
+#SBATCH --mail-user=daniele.bonfiglio@igi.cnr.it
+#SBATCH --mail-type=ALL
+$dependency
 module purge
-module load intel/12.1.7.367
-module load intelmpi/4.0.3
+module load intel/13.1.3.192 # prima del 07/10/2013: 12.1.7.367
+module load intelmpi/4.1.1.036 # prima del 07/10/2013: 4.0.3
 module load mxml/2.7/default
 module load adios/1.3.1/default
-cd $path/$dir
-echo \$SLURM_JOB_ID > $path/$dir/jobid
-cp $path/$lastdir/record.bp . 2>/dev/null
+$copyrestart
 srun -N $nodes -n $nodes cp $executable /tmp/$executable
 ln -s /tmp/$executable $executable.local
 $mpirun uname -n
@@ -250,28 +267,67 @@ rm -f $executable.local 2>/dev/null
 srun -N $nodes -n $nodes rm -f /tmp/$executable 2>/dev/null
 EOF
 
-else
-
-    cat >> $path/$dir/$inputfile.bat <<EOF
-#!/bin/bash
-#SBATCH -N $dir
-#SBATCH -l nodes=$nodes:ppn=$ppn
-#SBATCH -l walltime=$walltime
-#SBATCH -o $path/$dir/$inputfile.err
-#SBATCH -j oe
-#SBATCH -M daniele.bonfiglio@igi.cnr.it
-#SBATCH -m abe
-#SBATCH -q $queue
-cd $path/$dir
-$mpirun uname -n
-$mpirun $executable $options > $path/$dir/$inputfile.log < /dev/null
-EOF
-
-fi
-
 if [ "$debug" = "t" ]; then
-    echo "==> Submitting batch script"
+    echo "==> Submitting pixie3d batch script"
 fi
 
 chmod 770 $path/$dir/$inputfile.bat
-sbatch $path/$dir/$inputfile.bat
+sbatch $path/$dir/$inputfile.bat | sed -e 's/^.* //' > $path/$dir/jobid_pixie3d
+
+cat >> $path/$dir/pixplot.bat <<EOF
+#!/bin/bash
+#SBATCH -J $dir.pixplot
+#SBATCH -A $project
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -o $path/$dir/pixplot.out
+#SBATCH -e $path/$dir/pixplot.err
+#SBATCH -t $walltime
+#SBATCH --mail-user=daniele.bonfiglio@igi.cnr.it
+#SBATCH --mail-type=ALL
+#SBATCH -d afterany:`cat $path/$dir/jobid_pixie3d`
+module purge
+module load intel/13.1.3.192 # prima del 07/10/2013: 12.1.7.367
+module load intelmpi/4.1.1.036 # prima del 07/10/2013: 4.0.3
+module load mxml/2.7/default
+module load adios/1.3.1/default
+sed -i -e 's/    npx/!    npx/' -e 's/    npy/!    npy/' -e 's/    npz/!    npz/' $code_ifile.in
+srun -N 1 -n 1 cp $plotexec /tmp/$plotexec
+ln -s /tmp/$plotexec $plotexec.local
+mpirun -np 1 uname -n
+mpirun -np 1 ./$plotexec.local > $path/$dir/pixplot.log < /dev/null
+rm -f $plotexec.local 2>/dev/null
+srun -N 1 -n 1 rm -f /tmp/$plotexec 2>/dev/null
+EOF
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting pixplot batch script"
+fi
+
+chmod 770 $path/$dir/pixplot.bat
+sbatch $path/$dir/pixplot.bat | sed -e 's/^.* //' > $path/$dir/jobid_pixplot
+
+cat >> $path/$dir/gdl.bat <<EOF
+#!/bin/bash
+#SBATCH -J $dir.gdl
+#SBATCH -A ENEATEST
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -o $path/$dir/gdl.out
+#SBATCH -e $path/$dir/gdl.err
+#SBATCH -t $walltime
+#SBATCH --mail-user=daniele.bonfiglio@igi.cnr.it
+#SBATCH --mail-type=ALL
+#SBATCH -d afterany:`cat $path/$dir/jobid_pixplot`
+GDL_STARTUP=gdl_startup.pro
+export GDL_STARTUP
+cd /project/ENEATEST/PIXIE3D/pro
+gdl -arg $path/$dir > $path/$dir/gdl.log
+EOF
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting gdl batch script"
+fi
+
+chmod 770 $path/$dir/gdl.bat
+sbatch $path/$dir/gdl.bat | sed -e 's/^.* //' > $path/$dir/jobid_gdl
