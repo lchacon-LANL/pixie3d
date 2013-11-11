@@ -239,6 +239,8 @@ c diag: dump text data
      .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
      .                ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
      .                ,ecyl(i,j,k,1),ecyl(i,j,k,2),ecyl(i,j,k,3)
+! Daniele, 24/10/2013
+     .                ,tmp(i,j,k),Pflux(i,j,k)
             enddo
           enddo
         enddo
