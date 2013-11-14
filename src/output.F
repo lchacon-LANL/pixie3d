@@ -12,8 +12,6 @@ c----------------------------------------------------------------------
 
       use precond_setup
 
-      use counters
-
       use app_iosetup
 
       use grid
@@ -52,6 +50,7 @@ c Find maximum velocity and magnetic field components (cartesian)
       lvmax = vmax
       call MPI_Reduce(lvmax,vmax,3,MPI_DOUBLE_PRECISION
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+      where(vmax < 1d-20) vmax = 0d0
 #endif
 
 c Output
@@ -98,7 +97,7 @@ cc            advective = '   TVD'
 cc            vadvective = '   TVD'
           end select
 
-          if (cnfactor < 1d0) then
+          if (cnfactor <= 5d-1) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
               ts = ' Theta'
             elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
@@ -108,7 +107,7 @@ cc            vadvective = '   TVD'
             elseif (sm_flag.eq.2) then
               ts = ' BDF2'
             endif
-          elseif (cnfactor == 1d0) then
+          elseif (cnfactor <= 1d0) then
             ts = ' Explicit'
           else
             call pstop('output','cnfactor not within allowed limits')
@@ -118,7 +117,7 @@ cc            vadvective = '   TVD'
      .               ,numerical_grid,advective,vadvective,ts
 
           write (*,*) 
-          if (cnfactor == 1d0) then
+          if (cnfactor > 5d-1) then
             write (*,105)
           else
             write (*,100)
@@ -137,7 +136,7 @@ cc            vadvective = '   TVD'
             endif
           endif
 
-          if (cnfactor == 1d0) then
+          if (cnfactor > 5d-1) then
             write(*,115) itime,time,dt,vmax
           else
             write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
@@ -244,9 +243,9 @@ cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
 
 
       if (advect == 5) then
-         write (*,*)
+        write (*,*)
      .   'WARNING: Smooth smart does not work for non-uniform meshes'
-       endif
+      endif
 
       end subroutine warnings
 

@@ -11,7 +11,7 @@ c     Postprocess solution in varray to find derived quantities
 c     for plotting.
 c--------------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use graphics
 
@@ -19,7 +19,7 @@ c--------------------------------------------------------------------
 
       use auxPlotVariables
 
-      use timeStepping
+      use ts_setup
 
       use operators
 

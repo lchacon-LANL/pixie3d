@@ -24,38 +24,44 @@
 FPA=t
 FLUX=f
 
+COMMONDIR =$(PWD)/common
+CONTRIBDIR=$(PWD)/contrib
+BINDIR    =$(PWD)/bin
+
 # System-dependent variables
 
--include common/make/make.mach.inc
+-include $(COMMONDIR)/make/make.mach.inc
 
 # Define compiler flags
 
--include common/make/make.comp.inc
+-include $(COMMONDIR)/make/make.comp.inc
 
 # External packages configuration
 
--include common/make/make.lib.inc
+-include $(COMMONDIR)/make/make.lib.inc
 
 # PIXIE3D setup
 
-BINDIR = $(PWD)/bin
-
 SUBDIRS = src plot
 
-REL1=2
+REL1=3
 REL2=0
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
+
+ifeq ($(PIT),t)
+  CPPFLAGS += -Dpit
+endif
 
 ifeq ($(FLUX),t)
   CPPFLAGS += -Dflux_rhs
 endif
 
-ifdef VECPOT
+ifeq ($(VECPOT),t)
   CPPFLAGS += $(PREPROC)vec_pot
   TARGET = code_a
 endif
 
-ifdef PER_BC_SYNC
+ifeq ($(PER_BC_SYNC),t)
 #  ifndef BOPT
     CPPFLAGS += $(PREPROC)PER_BC_SYNC
 #  endif
@@ -63,11 +69,11 @@ endif
 
 VMEC=t
 ifeq ($(VMEC),t)
-  VMEC_DIR     = contrib/vmec/LIBSTELL
+  VMEC_DIR     = $(CONTRIBDIR)/vmec/LIBSTELL
 
-  CONTRIBLIBS += -L$(PWD)/contrib/vmec/lib -lstell
+  CONTRIBLIBS += -L$(CONTRIBDIR)/vmec/lib -lstell
   CPPFLAGS    += $(PREPROC)vmec
-  MODPATH     += $(ADDMODFLAG)$(PWD)/contrib/vmec/lib
+  MODPATH     += $(ADDMODFLAG)$(CONTRIBDIR)/vmec/lib
 
   ifeq ($(NETCDF),t)
     CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
@@ -96,12 +102,13 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
        H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK FPA SNES_OPT \
        BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB CPPFLAGS_EXTRA \
        CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA SAMR SAMRAI LIBSAMRAI3D LIBSAMRAI \
-       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST
+       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST PIT PREPROC
 
 #Define targets
 
 .PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup serial-tests-b serial-tests-a \
+        vmec vmec_clean setup \
+        serial-tests-b serial-tests-a \
         rebuild-serial-tests-a rebuild-serial-tests-b \
         parallel-tests-b parallel-tests-a \
         rebuild-parallel-tests-a rebuild-parallel-tests-b $(SUBDIRS)
@@ -122,10 +129,9 @@ $(SUBDIRS):
 
 # SETUP
 
-setup:
+setup: contrib_setup
 	-@cd plot ; ln -s -f ../src/Makefile
-	-@tar xzf contrib.tgz
-	-@for subdir in common plot tests/serial tests/parallel tests/samrai; do \
+	-@for subdir in $(COMMONDIR) plot tests/serial tests/parallel tests/samrai; do \
 		$(MAKE) -C $$subdir setup;  done
 
 # TESTS
@@ -178,26 +184,33 @@ else
 endif
 endif
 
-# CONTRIBUTED LIBRARIES
+# COMMON CONTRIBUTED LIBRARIES
 
 contrib:
-	$(MAKE) --no-print-directory -e -C common contrib
 ifeq ($(VMEC),t)
 	$(MAKE) --no-print-directory -e -C $(VMEC_DIR) release INC_PATH=$(NETCDF_INC)
 endif
+	$(MAKE) --no-print-directory -e -C $(COMMONDIR) contrib
 
 contrib_clean:
-	$(MAKE) --no-print-directory -e -C common contrib_clean
 ifeq ($(VMEC),t)
-	$(MAKE) --no-print-directory -e -C $(VMEC_DIR)/Release -f makelibstell clean
+	@$(MAKE) -e -C $(VMEC_DIR)/Release -f makelibstell clean
 endif
+	@$(MAKE) -e -C $(COMMONDIR) contrib_clean
+
+contrib_setup: ;
+	-@tar xzf contrib.tgz
+
+contrib_pack: ;
+	-@rm -f contrib.tgz > /dev/null
+	-@tar czf contrib.tgz contrib
 
 # CLEAN ALL
 
 allclean: contrib_clean distclean
 
 distclean:
-	-for subdir in $(SUBDIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir distclean;  done
+	-@for subdir in $(SUBDIRS) ; do \
+		$(MAKE) -C $$subdir distclean;  done
 
 

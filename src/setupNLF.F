@@ -8,7 +8,7 @@ c------------------------------------------------------------------
 
       use parameters
 
-      use variable_setup
+      use var_setup
 
       use nlfunction_setup
 
@@ -21,7 +21,7 @@ c------------------------------------------------------------------
       use imposeBCinterface
 
 #if !defined(samrai)
-      use newtongm
+      use nk
 #endif
       use local_BCS_variables
 
@@ -44,25 +44,25 @@ c Interfaces
 #if defined(flux_rhs)
       INTERFACE
         function set_nlf_flux_x(igr,nx,ny,nz) result(flx_x)
-        use variable_setup
+        use var_setup
         integer :: igr,nx,ny,nz
         real(8) :: flx_x(nx+1,ny,nz,neqd)
         end function set_nlf_flux_x
 
         function set_nlf_flux_y(igr,nx,ny,nz) result(flx_y)
-        use variable_setup
+        use var_setup
         integer :: igr,nx,ny,nz
         real(8) :: flx_y(nx,ny+1,nz,neqd)
         end function set_nlf_flux_y
 
         function set_nlf_flux_z(igr,nx,ny,nz) result(flx_z)
-        use variable_setup
+        use var_setup
         integer :: igr,nx,ny,nz
         real(8) :: flx_z(nx,ny,nz+1,neqd)
         end function set_nlf_flux_z
 
         function set_nlf_src(igr,nx,ny,nz) result(src)
-        use variable_setup
+        use var_setup
         integer :: igr,nx,ny,nz
         real(8) :: src(nx,ny,nz,neqd)
         end function set_nlf_src
@@ -139,8 +139,6 @@ c     Begin program
 #endif
 
       if (minvg < 0d0) then
-
-        close (urecord) !Close record file before exiting
 
         if (minv < 0d0) then
           index = globalIndex(igx,minloc(array(1:nx,1:ny,1:nz)))

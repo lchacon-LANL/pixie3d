@@ -31,7 +31,6 @@
 
     dt       = 5d-3
     tmax     = 5d-2
-!    tmax     = 1d1
     dstep    = 5d-2
 
     pvx      = 1d-4
