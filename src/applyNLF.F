@@ -14,7 +14,7 @@ c     The result of Fi(Uj) at node (i,j) for all equations neqd
 c     is returned in the vector ff of dimension neqd.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -80,7 +80,7 @@ c     The result of Fi(Uj) at node (i,j) for all equations neqd
 c     is returned in the vector ff of dimension neqd.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -112,7 +112,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm
 
 c Begin program
 
@@ -144,7 +144,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 #if !defined(vec_pot)
 
       !Magnetic field
-      ff(IBX:IBZ)= curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
+      ff(IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
 
 #else
 
@@ -158,7 +158,6 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 c     Advection
 
       gm = gamma
-      sgn =-1d0
 
       advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
      .                             ,vscnv,prs,advect)
@@ -201,21 +200,13 @@ c     Sources
 
         !Ion viscosity
         heat_src = joule
-     .            +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                             ,nuu,vcnv,vcnv)
+     .            +viscous_heat_src(i,j,k,igx,nuu,vcnv,vcnv)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results
-        if (di > 0d0.and.(.not.slava)) then
-c$$$          if (fake_ve) then
-c$$$            heat_src = heat_src
-c$$$   .               +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-c$$$   .                                ,h_eta,vefcnv,vefcnv)
-c$$$          else
-            heat_src = heat_src
-     .             +viscous_heat_src(i,j,k,nx,ny,nz,igx,igy,igz
-     .                              ,h_eta,vecnv ,vecnv)
-c$$$          endif
+        if (di > 0d0) then
+          heat_src = heat_src
+     .             +viscous_heat_src(i,j,k,igx,h_eta,vefcnv,vefcnv)
         endif
 
         if (heat_src < 0d0) then
@@ -254,11 +245,8 @@ c     grad(p) volume force
 
 c     Stress tensor: div(Pi+Pe)
 
-c$$$      if (slava) then
-        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
-c$$$      else
-c$$$        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:) + div_pe(i,j,k,:)
-c$$$      endif
+      ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+cc      ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
 
 c     Advection
 
@@ -296,18 +284,13 @@ c defineTSParameters
 c####################################################################
       subroutine defineTSParameters
 c--------------------------------------------------------------------
-c     Calculates nonlinear residuals. 
+c     Calculates application-dependent time step quantities for
+c     nonlinear residuals.
 c--------------------------------------------------------------------
-
-      use parameters
 
       use equilibrium
 
       use timeStepping
-
-      use transport_params
-
-      use nlfunction_setup
 
       implicit none
 
@@ -317,19 +300,19 @@ c Local variables
 
 c Begin program
 
-      if (bdf2) then
-        bdfp  = cnp
-        bdfn  = cn
-        bdfnm = cnm
-        cnf   = 0d0
-      else
-        bdfp  = 1d0
-        bdfn  =-1d0
-        bdfnm = 0d0
-        cnf   = cnfactor
-      endif
-
-      if (dt == 0d0) call pstop('defineTSparams','dt=0!!!')
+cc      if (bdf2) then
+cc        bdfp  = cnp
+cc        bdfn  = cn
+cc        bdfnm = cnm
+cc        cnf   = 0d0
+cc      else
+cc        bdfp  = 1d0
+cc        bdfn  =-1d0
+cc        bdfnm = 0d0
+cc        cnf   = cnfactor
+cc      endif
+cc
+cc      if (dt == 0d0) call pstop('defineTSParameters','dt=0!!!')
 
       one_over_dt = 1d0/dt
 
@@ -355,7 +338,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -385,7 +368,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm
 
 c Begin program
 
@@ -504,7 +487,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -534,7 +517,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm
 
 c Begin program
 
@@ -651,7 +634,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -681,7 +664,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm,sgn
+      real(8) :: joule,viscous,heat_flx,heat_src,gm
 
 c Begin program
 
@@ -799,7 +782,7 @@ c     It returns the flux value at X-faces for all variables
 c     over the whole mesh.
 c-----------------------------------------------------------------
 
-      use variable_setup
+      use var_setup
 
       use timeStepping
 
@@ -829,7 +812,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_src,heat_flx,gm,sgn
+      real(8) :: joule,viscous,heat_src,heat_flx,gm
 
 c Begin program
 
@@ -878,21 +861,13 @@ c Begin program
 
                 !Ion viscosity
                 heat_src = joule
-     .                    +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-     .                                     ,nuu,vcnv,vcnv)
+     .                   +viscous_heat_src(i,j,k,igr,nuu,vcnv,vcnv)
 
                 !Electron viscosity
                 !Comment out for old TM Hall MHD performance results
-                if (di > 0d0.and.(.not.slava)) then
-c$$$                  if (fake_ve) then
-c$$$                    heat_src = heat_src
-c$$$     .                     +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-c$$$     .                                      ,h_eta,vefcnv,vefcnv)
-c$$$                  else
-                    heat_src = heat_src
-     .                     +viscous_heat_src(i,j,k,nx,ny,nz,igr,igr,igr
-     .                                      ,h_eta,vecnv ,vecnv)
-c$$$                  endif
+                if (di > 0d0) then
+                  heat_src = heat_src
+     .                   +viscous_heat_src(i,j,k,igr,h_eta,vefcnv,vecnv)
                 endif
 
                 if (heat_src < 0d0) then
@@ -933,13 +908,8 @@ cc             .               ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe)
-c$$$              if (slava) then
-                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
-     .                             + div_pi(i,j,k,:)
-c$$$              else
-c$$$                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
-c$$$     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
-c$$$              endif
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+     .                           + div_pi(i,j,k,:) + div_pe(i,j,k,:)
 
               !Advection
 c$$$              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
@@ -989,11 +959,7 @@ cc     .                       ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe) (should be made conservative)
-c$$$              if (slava) then
-                cnv = div_pi(i,j,k,:)
-c$$$              else
-c$$$                cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
-c$$$              endif
+              cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
               if (alt__eom()) cnv(2) = cnv(2)*jac
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv

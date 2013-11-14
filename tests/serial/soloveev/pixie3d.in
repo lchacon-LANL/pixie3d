@@ -27,6 +27,13 @@
     gamma    = 1.6667
 
     adiabatic  = t
+
+    pvx      = 1d-4
+    odd      = f
+    random   = f
+
+    nh2      = 1
+    nh3      =-2
  /
 
  &fv
@@ -51,19 +58,10 @@
     restart  = f
     timecorr = f
 
-    pvx      = 1d-4
-    odd      = f
-    random   = f
-
-    nh2      = 1
-    nh3      =-2
-
     cnfactor = 0.5d0
     sm_flag  = 0
 
     source   = t
-
-    iguess   = 0
  /
 
  &nks
@@ -75,6 +73,7 @@
     method   = 1
     mf_eps   = 1d-6
     vol_wgt  = t
+    iguess   = 0
  /
 
  &pc
@@ -88,7 +87,6 @@
  &i_o
     ilevel   = 0
     dcon     = f
-    debug    = f
     check_grid = f
     chk_src  = f
     test     = t

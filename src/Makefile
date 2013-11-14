@@ -49,9 +49,8 @@ ifdef BOPT
 endif
 
 ifdef SAMR
-   # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
-   include ${SAMRSOLVERS_HOME}/Makefile.config
-
+    # Include all dependencies from SAMRSOLVERS (this will include SAMRUTILS and SAMRAI)
+    include ${SAMRSOLVERS_HOME}/Makefile.config
     SRC2      = $(SRC)
     EXCLUDE  += %output.F
     ifdef SAMR_IMP
@@ -59,7 +58,7 @@ ifdef SAMR
     else
       EXCLUDE += %SAMRAIDriverImplicit.C %ImplicitPixie3dApplication.C
     endif
-   SRC      := $(filter-out $(EXCLUDE),$(SRC2))
+    SRC      := $(filter-out $(EXCLUDE),$(SRC2))
 endif
 
 # Objects
@@ -95,13 +94,17 @@ MODDIRS = $(MODPATH) $(patsubst $(COMMONDIR)%,$(ADDMODFLAG)$(COMMONDIR)%,$(SUBDI
 
 .PHONY: clean distclean common code code_a petsc petsc_a $(SUBDIRS)
 
-code: common $(CODE) 
+ifdef SAMR
+    code: common $(SAMRAICODE) 
+else
+    code: common $(CODE) 
+endif 
 
 $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS) 
 	@mv $@ $(BINDIR)
 
 code_a: common $(A_CODE) 
@@ -128,21 +131,16 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} 
+	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB}
 	@mv $@ $(BINDIR)
 
 samrai: common $(SAMRAICODE)
 
 $(SAMRAICODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
-#	@echo 'Before linking the common objs' $(COMMON_OBJS)
-#	@echo 'Before linking the obj' $(OBJ)
-#	@echo 'Before linking the objmod' $(OBJMOD)
-#	@echo $(OBJ)
-#	@echo 'Common objs' $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${CXX} $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(VMECLIBS) ${PETSC_SNES_LIB} ${H5LIBS} ${LDFLAGS} ${LIBSAMRAI3D} ${LIBSAMRAI} ${LDLIBS} -o $@
+	${CXX} ${CXXFLAGS} $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(VMECLIBS) ${PETSC_SNES_LIB} ${H5LIBS} ${LDFLAGS} ${LIBSAMRAI3D} ${LIBSAMRAI} ${LDLIBS} -o $@
 	@mv $@ $(BINDIR)
 
 common: $(SUBDIRS)
@@ -155,7 +153,7 @@ clean:
 
 distclean: clean
 	-@for subdir in $(SUBDIRS) ; do \
-		$(MAKE) --no-print-directory -C $$subdir clean;  done
+		$(MAKE) -C $$subdir clean;  done
 
 setup: ;
 	-@for file in $(LNK_FILES) ; do \

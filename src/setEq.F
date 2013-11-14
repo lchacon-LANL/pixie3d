@@ -92,7 +92,7 @@ c Local variables
 
       INTERFACE
         subroutine setAppBCs(varray,vaux)
-          use variable_setup
+          use var_setup
           type(var_array),pointer :: varray
           type(aux_array),pointer :: vaux
         end subroutine setAppBCs
@@ -641,6 +641,18 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
+cc        do k = klom,khip
+cc          do j = jlom,jhip
+cc            do i = ilom,ihip
+cc
+cc              call getCartesianCoordinates(i,j,k,igx,igx,igx,ig,jg,kg
+cc     .                                    ,x1,y1,z1)
+cc              var(i,j,k,IAX) = 0d0
+cc              var(i,j,k,IAY) = 0d0
+cc              var(i,j,k,IAZ) = x1
+cc            enddo
+cc          enddo
+cc        enddo
 #endif
 
       case ('tmsin')
@@ -1827,7 +1839,7 @@ c     Dump VMEC map on finest mesh (for plotting)
         call MPI_Barrier(MPI_COMM_WORLD,mpierr)
 #endif
 
-        call openBinFile(u_mapf,map_file,'unknown')
+        call openPOSIXBinFile(u_mapf,map_file,'unknown')
         call dumpVectorToFile(u_mapf,gmetric%grid(1)%car,.false.)
         close(u_mapf)
 
@@ -2072,8 +2084,13 @@ c     Initial guess: 1D equilibrium
         bzz0 = 1d0
         p00  = 0d0
 
-        call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
-     .                   ,p00,bth0,bzz0,vr0,psi0)
+        if (gamma > 1d0) then
+           call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
+     .          ,p00,bth0,bzz0,vr0,psi0)
+        else
+           call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+     .          ,p00,bth0,bzz0,vr0,psi0)
+        endif
 
         do i=0,nx+1
           iglobal = i + grid_params%ilo(igx) - 1
@@ -2235,9 +2252,13 @@ c     Equilibria (numerical)
 	  !Initialize toroidal field
           bzz0 = bz0
 
-cc          call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
-          call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+          if (gamma > 1d0) then
+             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
      .                     ,p00,bth0,bzz0,vr0,psi0)
+          else
+             call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
+     .                     ,p00,bth0,bzz0,vr0,psi0)
+          endif
 
           !Find electric field
           E0(1:2) = 0d0

@@ -1,110 +1,105 @@
 
 #if !defined(samrai)
 
-c explicit
-c####################################################################
-      subroutine explicit(vnp,iter,iout)
-
-c--------------------------------------------------------------------
-c     Performs first-order predictor-corrector explicit integration.
-c--------------------------------------------------------------------
-
-      use parameters
-
-      use grid
-
-      use variable_setup
-
-      use timeStepping
-
-      use newtongm
-
-      use equilibrium
-
-      implicit none
-
-c Call variables
-
-      integer :: iter,iout
-      type(var_array),pointer :: vnp
-
-c Local variables
-
-      integer :: i,j,k,ii,ieq,igr,nx,ny,nz
-
-      real(8) :: ftemp(ntotd)
-
-c Interfaces
-
-      INTERFACE
-        subroutine evaluate_NLF(igr,varray,fi)
-        use parameters
-        use variable_setup
-        integer :: igr
-        real(8) :: fi(ntotd)
-        type(var_array),pointer :: varray
-        end subroutine evaluate_NLF
-      END INTERFACE
-
-c Begin program
-
-      iter = 0
-
-      igr = 1
-
-      nx = grid_params%nxv(igr)
-      ny = grid_params%nyv(igr)
-      nz = grid_params%nzv(igr)
-
-c Predictor
-
-      ftemp = fold
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-
-            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
-
-            do ieq=1,neqd
-              vnp%array_var(ieq)%array(i,j,k) = 
-     .             u_n%array_var(ieq)%array(i,j,k) 
-     .             -0.5*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-c Corrector
-
-      call evaluate_NLF(igr,vnp,ftemp)
-
-      do k = 1,nz
-        do j = 1,ny
-          do i = 1,nx
-
-            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
-
-            do ieq=1,neqd
-              vnp%array_var(ieq)%array(i,j,k) = 
-     .              u_n%array_var(ieq)%array(i,j,k) 
-     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
-            enddo
-
-          enddo
-        enddo
-      enddo
-
-c End program
-
- 200  format (/,' New_it   Av_updt    Rel_res    Damping  GMRES')
- 210  format (i4,3x,1p,3e11.3,i4)
- 220  format ('Max newton its. exceeded; relative residual: ',1p,1e10.2)
- 230  format ('    Relative residual =',f7.2,' > 1.0')
- 320  format ('residual vor, sf, t, vpar, n =',1p,5e10.2)
-
-      end subroutine explicit
+ccc explicit
+ccc####################################################################
+cc      subroutine explicit(vnp,iter,iout)
+cc
+ccc--------------------------------------------------------------------
+ccc     Performs first-order predictor-corrector explicit integration.
+ccc--------------------------------------------------------------------
+cc
+cc      use parameters
+cc
+cc      use grid
+cc
+cc      use var_setup
+cc
+cc      use timeStepping
+cc
+cc      use nk
+cc
+cc      use equilibrium
+cc
+cc      implicit none
+cc
+ccc Call variables
+cc
+cc      integer :: iter,iout
+cc      type(var_array),pointer :: vnp
+cc
+ccc Local variables
+cc
+cc      integer :: i,j,k,ii,ieq,igr,nx,ny,nz
+cc
+cc      real(8) :: ftemp(ntotd)
+cc
+ccc Interfaces
+cc
+cc      INTERFACE
+cc        subroutine evaluate_NLF(igr,varray,fi)
+cc        use parameters
+cc        use var_setup
+cc        integer :: igr
+cc        real(8) :: fi(ntotd)
+cc        type(var_array),pointer :: varray
+cc        end subroutine evaluate_NLF
+cc      END INTERFACE
+cc
+ccc Begin program
+cc
+cc      iter = 0
+cc
+cc      igr = 1
+cc
+cc      nx = grid_params%nxv(igr)
+cc      ny = grid_params%nyv(igr)
+cc      nz = grid_params%nzv(igr)
+cc
+ccc Predictor
+cc
+cc      ftemp = fold
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc
+cc            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
+cc
+cc            do ieq=1,neqd
+cc              vnp%array_var(ieq)%array(i,j,k) = 
+cc     .             u_n%array_var(ieq)%array(i,j,k) 
+cc     .             -0.7*dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cccc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc Corrector
+cc
+cc      call evaluate_NLF(igr,vnp,ftemp)
+cc
+cc      do k = 1,nz
+cc        do j = 1,ny
+cc          do i = 1,nx
+cc
+cc            ii = neqd*(i-1 + nx*(j-1) + nx*ny*(k-1))
+cc
+cc            do ieq=1,neqd
+cc              vnp%array_var(ieq)%array(i,j,k) = 
+cc     .              u_n%array_var(ieq)%array(i,j,k) 
+cc     .             -dt*(ftemp(ii+ieq) - fsrc(ii+ieq))
+cc            enddo
+cc
+cc          enddo
+cc        enddo
+cc      enddo
+cc
+ccc End program
+cc
+cc      end subroutine explicit
 
 c findExplicitDt
 c####################################################################
@@ -137,6 +132,8 @@ c Local variables
      .          ,cs2,ca2,tmp_max,roots(3)
       real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
       logical :: cartsn
+
+      character(7) :: exp_cfl_type
 
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
@@ -216,23 +213,31 @@ c Calculate CFL
 c Calculate courant number
 
       if (.not.lagrangian) then
-        w_cour = max(maxval(eeta)*k2max,maxval(nuu+h_eta)*k2max,dd*k2max
-     .          ,chi*k2max,maxval(di**2*h_eta*k2max**2),chi_par*kbp2max)
+        w_cour = max(maxval(eeta)*k2max,maxval(nuu)*k2max,dd*k2max
+     .          ,chi*k2max,di**2*k2max**2*maxval(h_eta),chi_par*kbp2max)
       else
-        w_cour = max(maxval(eeta)*k2max,maxval(nuu+h_eta)*k2max,dd*k2max
-     .          ,chi*k2max,maxval(di**2*h_eta*k2max**2))
+        w_cour = max(maxval(eeta)*k2max,maxval(nuu)*k2max,dd*k2max
+     .          ,chi*k2max,di**2*k2max**2*maxval(h_eta))
       endif
 
 c Calculate time step
 
 cc      if (w_cfl <= w_cour) then
-cc        dt = 2d0*pi/w_cour
+cc        dt_exp = 2d0*pi/w_cour
 cc        exp_cfl_type='Courant'
 cc      else
-        dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
-     .                 /(w_cour**3 + w_cfl**3)
+cc        dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+cc     .                 /(w_cour**3 + w_cfl**3)
 cc        exp_cfl_type='CFL'
 cc      endif
+cc
+cc      if (my_rank == 0.and.itime == 0)
+cc     .     write (*,*) 'Fast time scale,'
+cc     .                 ,trim(exp_cfl_type),'='
+cc     .                 ,max(w_cour,w_cfl)
+
+      dt_exp = 0.5*pi*(2*w_cour**2 + w_cfl**2 - w_cour*w_cfl)
+     .           /(w_cour**3 + w_cfl**3)
 
 c Synchronize time step among all processors
 
@@ -248,7 +253,7 @@ c Compare with input time step
 
 c Accumulate explicit time step for average computation
 
-      dtexp = dtexp + dt
+      dtexp = dtexp + dt_exp
 
 c End program
 

@@ -19,6 +19,8 @@ c--------------------------------------------------------------------
 
       use par_int
 
+      use precond_setup, only: pc_as_solver
+
       implicit none
 
 c Call variables
@@ -33,10 +35,15 @@ c Local variables
 
       !Lagrangian
       real(8),allocatable,dimension(:,:,:)   :: tmp_nm,tmp_n,tmp_np
-     $                                         ,chipar
+     $                                         ,chipar,array
       logical :: B_weight
       real(8) :: G_tol
       integer :: sp_order
+
+      !Parareal
+      integer :: upit=4321
+      character(1024) :: pit_file
+      real(8) :: Et,Ek,Em
 
 c Interfaces
 
@@ -200,6 +207,58 @@ c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
       endif
 
 cc      call applyBC (v_arr,igx,igy,igz)
+
+c     Dump parareal convergence info
+
+#if defined(pit)
+      allocate(array(0:nx+1,0:ny+1,0:nz+1))
+
+      !Magnetic energy
+      array = scalarProduct(igrid,bcnv,bcov)
+      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+
+      !Kinetic energy
+      array = scalarProduct(igrid,vcnv,vcov)
+      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+
+      !Thermal energy
+      array = rho*tmp
+
+      if (gamma /= 1d0) then
+        Et = 1d0/(gamma-1)
+     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      else
+        Et = 0d0
+      endif
+
+      if (my_rank == 0) then
+        pit_file = 'pixie3d_pit_conv.txt'
+
+        if (itime==inewtime) then
+           open(unit=upit,file=trim(pit_file)
+     $         ,status='unknown')
+        else
+           open(unit=upit,file=trim(pit_file)
+     $         ,status='unknown',position='append')
+        endif
+
+        if (itime == inewtime) write (upit,*) "3" !Number of diagnostics
+        write(upit,*) time,Em,Ek,Et
+        close(upit)
+      endif
+
+      deallocate(array)
+
+      !Output PARAREAL checkpointing file
+      if (    (tmax .gt.0d0.and.time .ge.(tmax-1d-9*dt))
+     .    .or.(numtime.ge.0.and.itime.ge.(numtime+inewtime-1))) then
+        call writeRecordFile("pixie3d_pit_chkpnt.bin",0,0d0,dt,u_0
+     .                      ,init=.true.)
+        call writeRecordFile("pixie3d_pit_chkpnt.bin",itime,time
+     .                      ,dt,v_arr)
+      endif
+
+#endif
 
 c End program
 

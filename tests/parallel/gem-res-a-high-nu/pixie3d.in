@@ -35,7 +35,7 @@
     tmax     = 1d-1 
     dstep    = 1d-1
 
-    pbz      = 0.1
+    paz      = 0.1
     prho     = 0d-3
     odd      = f,f,f
     nh2      = 1
@@ -69,7 +69,7 @@
     nc_eom_f   = f
     nc_eom_v   = f
     sym_st     = t
-    adiabatic  = f
+
     advect     = 2
 
     debug    = f
@@ -85,25 +85,6 @@
     prof_conf = 1,'x',1,10,1
     cont_conf = 3,'x','y',1,1,1
     iplot = 64
-    jplot = 65
+    jplot = 64
     kplot = 1
  /
-
-# B-field code
-    pbx      = 0.02454
-    pby      = 0.02454
-
-# A code
-    pbz      = 0.1
-
-########################
-    sel_graph = 1,2,3,4,5,6,7,8,14
-    sel_graph = 1,8,14,15,16,17,18,19,20
-    sel_graph = 1,8,11,14,-15,17,-18,20,0
-
-    equil    = 'tmcar'
-    coords   = 'car'
-
-    maxitnwt = 1
-    tolgm    = 1d-4
-    rtol     = 1d-3
