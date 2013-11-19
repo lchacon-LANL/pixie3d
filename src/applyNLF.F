@@ -170,14 +170,10 @@ c     Heat flux
 
       if (gamma > 1d0) then
         if (chi /= 0d0) then
-          if (use_p_diff) then
-            heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,prs      !Total pressure
-cc                            ,dff=rho)  !chi_perp=chi*rho
-     .                        )      !chi_perp=chi
-          else
-            heat_flx =-chi*lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp  !Total temperature
-cc                            ,dff=rho)  !chi_perp=chi*rho
-     .                        )      !chi_perp=chi
+          if (use_p_diff) then  !Total pressure
+            heat_flx = -lap(i,j,k,nx,ny,nz,igx,igy,igz,prs,dff=cchi)
+          else                  !Total temperature
+            heat_flx = -lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp,dff=cchi)
           endif
         endif
 
@@ -404,9 +400,9 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,prs)
+                heat_flx = -lap_flx_x_ijk(i,j,k,igr,prs,diff=cchi)
               else
-                heat_flx =-chi*lap_flx_x_ijk(i,j,k,igr,tmp)
+                heat_flx = -lap_flx_x_ijk(i,j,k,igr,tmp,diff=cchi)
               endif
             else
               heat_flx = 0d0
@@ -553,9 +549,9 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,prs)
+                heat_flx = -lap_flx_y_ijk(i,j,k,igr,prs,diff=cchi)
               else
-                heat_flx =-chi*lap_flx_y_ijk(i,j,k,igr,tmp)
+                heat_flx = -lap_flx_y_ijk(i,j,k,igr,tmp,diff=cchi)
               endif
             else
               heat_flx = 0d0
@@ -700,9 +696,9 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,prs)
+                heat_flx = -lap_flx_z_ijk(i,j,k,igr,prs,diff=cchi)
               else
-                heat_flx =-chi*lap_flx_z_ijk(i,j,k,igr,tmp)
+                heat_flx = -lap_flx_z_ijk(i,j,k,igr,tmp,diff=cchi)
               endif
             else
               heat_flx = 0d0

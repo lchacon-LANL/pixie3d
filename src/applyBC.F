@@ -117,6 +117,19 @@ cc     .            ,varray%array_var(IRHO)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
 
 cc        call XferBCs(rho*jac,varray%array_var(IRHO)%array,.false.)
+cc
+cc        varray%array_var(IRHO)%array(0    ,:,:) = jac(0    ,:,:)
+cc     .                                           *rho(0    ,:,:)
+cc        varray%array_var(IRHO)%array(nnx+1,:,:) = jac(nnx+1,:,:)
+cc     .                                           *rho(nnx+1,:,:)
+cc        varray%array_var(IRHO)%array(:,0    ,:) = jac(:,0    ,:)
+cc     .                                           *rho(:,0    ,:)
+cc        varray%array_var(IRHO)%array(:,nny+1,:) = jac(:,nny+1,:)
+cc     .                                           *rho(:,nny+1,:)
+cc        varray%array_var(IRHO)%array(:,:,0    ) = jac(:,:,0    )
+cc     .                                           *rho(:,:,0    )
+cc        varray%array_var(IRHO)%array(:,:,nnz+1) = jac(:,:,nnz+1)
+cc     .                                           *rho(:,:,nnz+1)
 
 #if defined(vec_pot)
       case(IAX)
@@ -161,7 +174,7 @@ cc     .                                            *rho (:,:,0    )
 cc          varray%array_var(IVX)%array(:,:,nnz+1) = vcnv(:,:,nnz+1,1)
 cc     .                                            *rho (:,:,nnz+1)
 cc
-cc        else
+cc        Else
 cc
 cc          call XferBCs(vcnv(:,:,:,1),varray%array_var(IVX)%array
 cc     .                ,.false.)
@@ -190,6 +203,21 @@ cc
 cc          call XferBCs(vcnv(:,:,:,2),varray%array_var(IVY)%array
 cc     .                ,.false.)
 cc
+cc        endif
+cc
+cc        if (alt__eom()) then
+cc          varray%array_var(IVY)%array(0    ,:,:) =
+cc     .         varray%array_var(IVY)%array(0    ,:,:)*jac (0    ,:,:)
+cc          varray%array_var(IVY)%array(nnx+1,:,:) =
+cc     .         varray%array_var(IVY)%array(nnx+1,:,:)*jac (nnx+1,:,:)
+cc          varray%array_var(IVY)%array(:,0    ,:) =
+cc     .         varray%array_var(IVY)%array(:,0    ,:)*jac (:,0    ,:)
+cc          varray%array_var(IVY)%array(:,nny+1,:) =
+cc     .         varray%array_var(IVY)%array(:,nny+1,:)*jac (:,nny+1,:)
+cc          varray%array_var(IVY)%array(:,:,0    ) =
+cc     .         varray%array_var(IVY)%array(:,:,0    )*jac (:,:,0    )
+cc          varray%array_var(IVY)%array(:,:,nnz+1) =
+cc     .         varray%array_var(IVY)%array(:,:,nnz+1)*jac (:,:,nnz+1)
 cc        endif
 
        case(IVZ)
@@ -227,6 +255,19 @@ cc     .            ,varray%array_var(ITMP)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
 
 cc        call XferBCs(rho*tmp*jac,varray%array_var(ITMP)%array,.false.)
+
+cc        varray%array_var(ITMP)%array(0    ,:,:) = jac (0    ,:,:)
+cc     .                                           *tmpe(0    ,:,:)*a_p
+cc        varray%array_var(ITMP)%array(nnx+1,:,:) = jac (nnx+1,:,:)
+cc     .                                           *tmpe(nnx+1,:,:)*a_p
+cc        varray%array_var(ITMP)%array(:,0    ,:) = jac (:,0    ,:)
+cc     .                                           *tmpe(:,0    ,:)*a_p
+cc        varray%array_var(ITMP)%array(:,nny+1,:) = jac (:,nny+1,:)
+cc     .                                           *tmpe(:,nny+1,:)*a_p
+cc        varray%array_var(ITMP)%array(:,:,0    ) = jac (:,:,0    )
+cc     .                                           *tmpe(:,:,0    )*a_p
+cc        varray%array_var(ITMP)%array(:,:,nnz+1) = jac (:,:,nnz+1)
+cc     .                                           *tmpe(:,:,nnz+1)*a_p
 
       end select
 
@@ -293,28 +334,32 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-          eeta= res(nnx,nny,nnz,igr,tmp)
+          eeta= res(igr,tmpe)
+
+        case(ICHI)
+
+          cchi= chi_perp(igr,tmpe)
 
         case(INU)
 
 #if defined(RFX)
-          nuu = vis(nnx,nny,nnz,igr,tmp)
+          nuu = vis(igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(nnx,nny,nnz,igr,tmp)
+            nuu = rho*vis(igr,tmp)
           else
-            nuu = vis(nnx,nny,nnz,igr,tmp)
+            nuu = vis(igr,tmp)
           endif
 #endif
 
         case(IETA_0)
 
-          eeta_0=res(nnx,nny,nnz,igr,tmp_0)
+          eeta_0=res(igr,tmpe_0)
 
         case(IHETA)
 
 cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
+          h_eta=hres(igr,bcnv_0,rho)
 
         case(IRHO_0)
 
@@ -332,6 +377,15 @@ c       Temperature BCs
           call setBC(ITMP,nnx,nny,nnz,tmp_0
      .              ,u_0%array_var(ITMP)%array
      .              ,vaux%var_list(ITMP_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
+
+        case(ITMPE_0)
+
+c       Temperature BCs
+
+          call setBC(ITMP,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(ITMP)%array
+     .              ,vaux%var_list(ITMPE_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
         case(IRHO_AUX)
@@ -352,6 +406,16 @@ c       Temperature BCs
 
           call setBC(ITMP,nnx,nny,nnz,tmp,s0
      .              ,vaux%var_list(ITMP_AUX)%bconds
+     .              ,igr,igr,igr,iorder=order)
+
+        case(ITMPE_AUX)
+
+c       Temperature BCs
+
+          call XferBCs(tmpe_0,s0,.true.)
+
+          call setBC(ITMP,nnx,nny,nnz,tmpe,s0
+     .              ,vaux%var_list(ITMPE_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
         case default
@@ -435,11 +499,9 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
         case(IENI_0)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
 #else
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVECOV_N)
@@ -624,9 +686,9 @@ c       Hall electric field BC
 c       Total electric field BC
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,acov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
 #else
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
 #endif
 
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
@@ -712,16 +774,20 @@ c Select variable
 
         case(ITMP_0)
 
+          tmp_0 = tmpe_0*a_p
+
+        case(ITMPE_0)
+
           where (u_0%array_var(IRHO)%array /= 0d0)
-            tmp_0 = u_0%array_var(ITMP)%array
-     .             /u_0%array_var(IRHO)%array
+            tmpe_0 = u_0%array_var(ITMP)%array
+     .              /u_0%array_var(IRHO)%array/a_p
           end where
 
         case(IETA_0)
 
 c       Resistivity at initial time
  
-          eeta_0=res(nnx,nny,nnz,igr,tmp_0)
+          eeta_0=res(igr,tmpe_0)
 
         case(IRHO_AUX)
 
@@ -729,9 +795,17 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)
 
+          tmp = tmpe*a_p
+cc          where (varray%array_var(IRHO)%array /= 0d0)
+cc            tmp = varray%array_var(ITMP)%array
+cc     .           /varray%array_var(IRHO)%array
+cc          end where
+
+        case(ITMPE_AUX)
+
           where (varray%array_var(IRHO)%array /= 0d0)
-            tmp = varray%array_var(ITMP)%array
-     .           /varray%array_var(IRHO)%array
+            tmpe = varray%array_var(ITMP)%array
+     .            /varray%array_var(IRHO)%array/a_p
           end where
 
         case(INU)
@@ -739,26 +813,30 @@ c       Resistivity at initial time
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu = vis(nnx,nny,nnz,igr,tmp)
+          nuu = vis(igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(nnx,nny,nnz,igr,tmp)
+            nuu = rho*vis(igr,tmp)
           else
-            nuu = vis(nnx,nny,nnz,igr,tmp)
+            nuu = vis(igr,tmp)
           endif
 #endif
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          eeta= res(nnx,nny,nnz,igr,tmp)
+          eeta= res(igr,tmpe)
+
+        case(ICHI)
+
+          cchi= chi_perp(igr,tmpe)
 
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
 
 cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
+          h_eta=hres(igr,bcnv_0,rho)
 
         case default
           call pstop('preproc_AuxVar'
@@ -858,11 +936,9 @@ cc          if (sum(E0) /= 0d0) then
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
 #else
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVCNV_NM)
@@ -1039,9 +1115,9 @@ c       Hall electric field
 c       Ideal+resistive E field
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,acov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
 #else
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
 #endif
 
         case default
@@ -1122,11 +1198,13 @@ c Select variable
 
           u_0%array_var(ITMP)%array = rho_0*tmp_0*jac
 
+        case(ITMPE_0)
+
         case(IETA_0)
 
 c       Resistivity at initial time
  
-          eeta_0=res(nnx,nny,nnz,igr,tmp_0)
+          eeta_0=res(igr,tmpe_0)
 
         case(IRHO_AUX)
 
@@ -1142,31 +1220,39 @@ c       Resistivity at initial time
 
           varray%array_var(ITMP)%array = rho*tmp*jac
 
+        case(ITMPE_AUX)
+
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu = vis(nnx,nny,nnz,igr,tmp)
+          nuu = vis(igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(nnx,nny,nnz,igr,tmp)
+            nuu = rho*vis(igr,tmp)
           else
-            nuu = vis(nnx,nny,nnz,igr,tmp)
+            nuu = vis(igr,tmp)
           endif
 #endif
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          eeta= res(nnx,nny,nnz,igr,tmp)
+          eeta= res(igr,tmpe)
+
+        case(ICHI)
+
+c       Heat diffusivity (may depend on T)
+
+          cchi= chi_perp(igr,tmpe)
 
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
 
-cc          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho_0)
-          h_eta=hres(nnx,nny,nnz,igr,bcnv_0,rho)
+cc          h_eta=hres(igr,bcnv_0,rho_0)
+          h_eta=hres(igr,bcnv_0,rho)
 
         case default
           call pstop('postproc_AuxVar'
@@ -1222,11 +1308,9 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,acov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
 #else
-          E_ni_0 = E_fld_res(nnx,nny,nnz,igr,igr,igr
-     .                      ,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVCNV_NM)
@@ -1324,9 +1408,9 @@ c       Fake electron velocity: vef = v -di*jfake/rho
 c       Total E field
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,acov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
 #else
-          E_ni=E_fld_res(nnx,nny,nnz,igr,igr,igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
 #endif
 
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field

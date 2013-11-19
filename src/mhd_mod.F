@@ -122,17 +122,17 @@ c     End program
 
 c     res_spitzer
 c     #############################################################
-      function res_spitzer(t) result(res)
+      function res_spitzer(te) result(res)
 c     -------------------------------------------------------------
-c     This function computes the resistivity at a radius rr.
-c     (Daniele's RFX profile).
+c     This function computes the Spitzer resistivity for ELECTRON
+c     temperature value te.
 c     -------------------------------------------------------------
 
       implicit none
 
 c     Call variables
 
-      real(8) :: res,t
+      real(8) :: res,te
 
 c     Local variables
 
@@ -140,7 +140,7 @@ c     Local variables
 
 c     Begin program
 
-      res = eta*((1+f0)/(abs(t)+f0*beta))**(1.5)
+      res = eta*((1+f0)/(abs(te)+f0*beta))**(1.5)
 
 c     End program
 
@@ -258,6 +258,9 @@ c ######################################################################
      .                       ,ITMP_0=6
      .                       ,IRHO_AUX=7
      .                       ,ITMP_AUX=8
+     .                       ,ITMPE_0=9
+     .                       ,ITMPE_AUX=10
+     .                       ,ICHI=11
 
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov
@@ -272,9 +275,11 @@ c ######################################################################
      .                                       ,prs
      .                                       ,rho_0
      .                                       ,tmp_0
+     .                                       ,tmpe_0
      .                                       ,rho
      .                                       ,tmp
      .                                       ,tmpe
+     .                                       ,cchi
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -348,6 +353,9 @@ c     Setup pointers
         vaux%var_list(ITMP_0)%descr = 'tmp_0'
         tmp_0=> vaux%var_list(ITMP_0)%array
 
+        vaux%var_list(ITMPE_0)%descr = 'tmpe_0'
+        tmpe_0=> vaux%var_list(ITMPE_0)%array
+
 #if defined(vec_pot)
         vaux%vec_list(IACOV_0)%cnv   = .false.
         vaux%vec_list(IACOV_0)%descr = 'A_0 cov'
@@ -409,6 +417,9 @@ cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
         vaux%var_list(ITMP_AUX)%descr = 'T=Te+Ti'
         tmp => vaux%var_list(ITMP_AUX)%array
+
+        vaux%var_list(ITMPE_AUX)%descr = 'Te'
+        tmpe => vaux%var_list(ITMPE_AUX)%array
 
         vaux%vec_list(IBCNV)%cnv   = .true.
         vaux%vec_list(IBCNV)%descr = 'B cnv'
@@ -481,6 +492,9 @@ cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
         vaux%var_list(INU )%descr = 'nu'
         nuu  => vaux%var_list(INU )%array
 
+        vaux%var_list(ICHI)%descr = 'chi'
+        cchi => vaux%var_list(ICHI)%array
+
 cc        vaux%vec_list(IVSCNV)%cnv   = .true.
 cc        vaux%vec_list(IVSCNV)%descr = 'Vstar cnv'
 cc        vscnv => vaux%vec_list(IVSCNV)%vec
@@ -521,7 +535,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
           vscnv= 0d0
           bhat = 0d0
           prs  = 0d0
-          tmpe = 0d0
+cc          tmpe = 0d0
         endif
 
 c     End program
@@ -590,8 +604,8 @@ c     Begin program
       !Pressure
       prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
 
-      !Electron temperature
-      tmpe = prs/rho/a_p
+cc      !Electron temperature
+cc      tmpe = prs/rho/a_p
 
 c     End program
 
@@ -628,9 +642,11 @@ c     Set auxiliary variable BC
       !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
+      vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
 
       vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
       vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
+      vaux%var_list(ITMPE_AUX)%bconds = bcs(:,ITMP)
 
       !Flow
       vaux%vec_list(IVCNV)%bconds = bcs(:,IVX:IVZ)
@@ -796,8 +812,12 @@ cc      vaux%var_list(IRHO_0)%time_0 = .true.
       vaux%var_list(ITMP_0)%bc_dep_list(1,3) = 0 !trivial
 cc      vaux%var_list(ITMP_0)%time_0 = .true.
 
+      vaux%var_list(ITMPE_0)%bc_dep_list(1,1) = ITMPE_0*AUX
+      vaux%var_list(ITMPE_0)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMPE_0)%bc_dep_list(1,3) = 0 !trivial
+
       !Eta0
-      vaux%var_list(IETA_0)%bc_dep_list(1,1) = ITMP_0*AUX
+      vaux%var_list(IETA_0)%bc_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(IETA_0)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%bc_dep_list(1,3) = 0 !trivial
 cc      vaux%var_list(IETA_0)%time_0 = .true.
@@ -920,14 +940,24 @@ c     Current variables
       vaux%var_list(IRHO_AUX)%bc_dep_list(1,3) = 0 !trivial
 
       !Temp
-      vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      vaux%var_list(ITMP_AUX)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
 
+      !Temp_e
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(1,3) = 0 !trivial
+
       !Eta
-      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(IETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%bc_dep_list(1,3) = 0 !trivial
+
+      !Chi
+      vaux%var_list(ICHI)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ICHI)%bc_dep_list(1,3) = 0 !trivial
 
 #if defined(vec_pot)
       !A cov
@@ -1277,18 +1307,22 @@ c     Equilibrium quantities
 cc      vaux%var_list(IRHO_0)%time_0 = .true.
 
       !Temp0
-      vaux%var_list(ITMP_0)%dom_dep_list(1,1) = ITMP_0*AUX
+      vaux%var_list(ITMPE_0)%dom_dep_list(1,1) = ITMPE_0*AUX
+      vaux%var_list(ITMPE_0)%dom_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMPE_0)%dom_dep_list(1,3) = 0 !trivial
+cc      vaux%var_list(ITMP_0)%time_0 = .true.
+
+      vaux%var_list(ITMPE_0)%dom_dep_list(2,1) = IRHO_0*AUX
+      vaux%var_list(ITMPE_0)%dom_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMPE_0)%dom_dep_list(2,3) = 0 !trivial
+cc      vaux%var_list(ITMP_0)%time_0 = .true.
+
+      vaux%var_list(ITMP_0)%dom_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(ITMP_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_0)%dom_dep_list(1,3) = 0 !trivial
-cc      vaux%var_list(ITMP_0)%time_0 = .true.
-
-      vaux%var_list(ITMP_0)%dom_dep_list(2,1) = IRHO_0*AUX
-      vaux%var_list(ITMP_0)%dom_dep_list(2,2) = SCALAR
-      vaux%var_list(ITMP_0)%dom_dep_list(2,3) = 0 !trivial
-cc      vaux%var_list(ITMP_0)%time_0 = .true.
 
       !Eta0
-      vaux%var_list(IETA_0)%dom_dep_list(1,1) = ITMP_0*AUX
+      vaux%var_list(IETA_0)%dom_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(IETA_0)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IETA_0)%dom_dep_list(1,3) = 0 !trivial
 cc      vaux%var_list(IETA_0)%time_0 = .true.
@@ -1394,24 +1428,34 @@ c     Current variables
         vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
       else
-        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_AUX*AUX
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
       endif
 
       !Temp
-      vaux%var_list(ITMP_AUX)%dom_dep_list(1,1) = ITMP
+      vaux%var_list(ITMP_AUX)%dom_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(ITMP_AUX)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(ITMP_AUX)%dom_dep_list(2,1) = IRHO
-      vaux%var_list(ITMP_AUX)%dom_dep_list(2,2) = SCALAR
-      vaux%var_list(ITMP_AUX)%dom_dep_list(2,3) = 0 !trivial
+      !Electron temp
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(1,1) = ITMP
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(1,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(2,1) = IRHO
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(2,3) = 0 !trivial
 
       !Eta
-      vaux%var_list(IETA)%dom_dep_list(1,1) = ITMP_AUX*AUX
+      vaux%var_list(IETA)%dom_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(IETA)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%dom_dep_list(1,3) = 0 !trivial
+
+      !Chi
+      vaux%var_list(ICHI)%dom_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%dom_dep_list(1,2) = SCALAR
+      vaux%var_list(ICHI)%dom_dep_list(1,3) = 0 !trivial
 
 #if defined(vec_pot)
       !A cov
@@ -1604,7 +1648,7 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(3,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(3,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(4,1) = ITMP_AUX*AUX
+          vaux%vec_list(IEH)%dom_dep_list(4,1) = ITMPE_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(4,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(4,3) = 1 !non-trivial
 
@@ -1616,7 +1660,7 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(1,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(1,3) = 1 !non-trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(2,1) = ITMP_AUX*AUX
+          vaux%vec_list(IEH)%dom_dep_list(2,1) = ITMPE_AUX*AUX
           vaux%vec_list(IEH)%dom_dep_list(2,2) = SCALAR
           vaux%vec_list(IEH)%dom_dep_list(2,3) = 1 !non-trivial
 
@@ -1687,7 +1731,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,tmpe,stat=istat)
+      deallocate(pcnv,vscnv,prs,bhat,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -1722,8 +1766,11 @@ c     Begin program
      .       ,nuu
      .       ,rho_0
      .       ,tmp_0
+     .       ,tmpe_0
      .       ,rho
      .       ,tmp
+     .       ,tmpe
+     .       ,cchi
 cc     .       ,bcnv_n
 cc     .       ,jcnv_n
 cc     .       ,vecnv_0
@@ -4057,6 +4104,10 @@ c ######################################################################
           module procedure res_mesh
         END INTERFACE
 
+        INTERFACE chi_perp
+          module procedure chi_perp_mesh
+        END INTERFACE
+
         INTERFACE vis
           module procedure vis_mesh,vis_ijk
         END INTERFACE
@@ -5712,8 +5763,7 @@ c     End program
 
 c     E_fld_res
 c     #####################################################################
-      function E_fld_res(nx,ny,nz,igx,igy,igz,vcnv,bcnv,dumcov,eta2)
-     .         result(E_res)
+      function E_fld_res(igr,vcnv,bcnv,dumcov,eta2) result(E_res)
 
 c     ---------------------------------------------------------------------
 c     Computes ideal+resistive electric field, E=-(vxb)+eta*j.
@@ -5725,24 +5775,31 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz
-      real(8) :: E_res (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vcnv  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bcnv  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,dumcov(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,eta2  (0:nx+1,0:ny+1,0:nz+1)
+      integer :: igr
+      real(8) :: vcnv  (0:,0:,0:,:)
+     .          ,bcnv  (0:,0:,0:,:)
+     .          ,dumcov(0:,0:,0:,:)
+     .          ,eta2  (0:,0:,0:)
+
+      real(8) :: E_res(0:size(bcnv,1)-1
+     .                ,0:size(bcnv,2)-1
+     .                ,0:size(bcnv,3)-1
+     .                ,  size(bcnv,4)  )
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
+      integer :: igx,igy,igz,nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
       real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
-cc     .          ,vdummy(0:nx+1,0:ny+1,0:nz+1,3)
 
 c     Begin program
 
-      E_res(:,:,:,1) =-E0(1)
-      E_res(:,:,:,2) =-E0(2)
-      E_res(:,:,:,3) =-E0(3)
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
+
+      igx = igr
+      igy = igr
+      igz = igr
 
 c     Resistive term
 
@@ -5790,26 +5847,35 @@ cc        endif
 
         !Ohmic current
 #if !defined(vec_pot)
-        E_res(:,:,:,1) = E_res(:,:,:,1)+eta2*dumcov(:,:,:,1)
-        E_res(:,:,:,2) = E_res(:,:,:,2)+eta2*dumcov(:,:,:,2)
-        E_res(:,:,:,3) = E_res(:,:,:,3)+eta2*dumcov(:,:,:,3)
+        E_res = dumcov
 #else
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-              E_res(i,j,k,:) = E_res(i,j,k,:)
-     .           - eta2(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igx,igy,igz
-     .                                   ,dumcov,vol=.false.)
-            enddo
-          enddo
-        enddo
+        E_res =-veclap_cov(igr,dumcov)
+cc        do k=1,nz
+cc          do j=1,ny
+cc            do i=1,nx
+cc              E_res(i,j,k,:) = E_res(i,j,k,:)
+cc     .           - eta2(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igr,igr,igr
+cc     .                                   ,dumcov,vol=.false.)
+cc            enddo
+cc          enddo
+cc        enddo
 #endif
+
+        E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
+        E_res(:,:,:,2) = eta2*E_res(:,:,:,2)
+        E_res(:,:,:,3) = eta2*E_res(:,:,:,3)
 
       endif
 
 c     VxB term
 
-      E_res = E_res - crossProduct(igx,vcnv,bcnv,.true.)
+      E_res = E_res - crossProduct(igr,vcnv,bcnv,.true.)
+
+c     External field
+
+      E_res(:,:,:,1) = E_res(:,:,:,1) - E0(1)
+      E_res(:,:,:,2) = E_res(:,:,:,2) - E0(2)
+      E_res(:,:,:,3) = E_res(:,:,:,3) - E0(3)
 
 c     End program
 
@@ -5840,7 +5906,7 @@ c     Local variables
 
 c     Begin program
 
-      pe = rho*tmp/a_p  !Electron pressure
+      pe = rho*tmpe            !Electron pressure
 
 c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
 
@@ -5922,12 +5988,12 @@ c     End program
       end function E_fld_Hall
 
 c     res_ijk
-c     #############################################################
+c     #################################################################
       function res_ijk(i,j,k,igrid,field) result(rsvty)
-c     -------------------------------------------------------------
-c     This function computes the resistivity on the grid level
-c     igrid.
-c     -------------------------------------------------------------
+c     -----------------------------------------------------------------
+c     This function computes the local value of the resistivity on the
+c     node (i,j,k) of grid igrid according to field.
+c     -----------------------------------------------------------------
 
       implicit none
 
@@ -5972,7 +6038,7 @@ c     End program
 
 c     res_mesh
 c     #############################################################
-      function res_mesh(nx,ny,nz,igrid,field) result(rsvty)
+      function res_mesh(igrid,field) result(rsvty)
 c     -------------------------------------------------------------
 c     This function computes the resistivity on the grid level
 c     igrid.
@@ -5982,16 +6048,22 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igrid
-      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-     .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
+      integer :: igrid
+      real(8) :: field(0:,0:,0:)
+      real(8) :: rsvty(0:size(field,1)-1
+     .                ,0:size(field,2)-1
+     .                ,0:size(field,3)-1)
 
 c     Local variables
 
-      integer :: i,j,k
+      integer :: nx,ny,nz,i,j,k
       real(8) :: fmax,fmaxg
 
 c     Begin program
+
+      nx = size(field,1)-2
+      ny = size(field,2)-2
+      nz = size(field,3)-2
 
       do k=0,nz+1
         do j=0,ny+1
@@ -6038,7 +6110,7 @@ c     End program
 
 c     vis_mesh
 c     #############################################################
-      function vis_mesh(nx,ny,nz,igrid,field) result(vscty)
+      function vis_mesh(igrid,field) result(vscty)
 c     -------------------------------------------------------------
 c     This function computes the viscosity on the grid level
 c     igrid.
@@ -6048,15 +6120,21 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igrid
-      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-     .          ,vscty(0:nx+1,0:ny+1,0:nz+1)
+      integer :: igrid
+      real(8) :: field(0:,0:,0:)
+     .          ,vscty(0:size(field,1)-1
+     .                ,0:size(field,2)-1
+     .                ,0:size(field,3)-1)
 
 c     Local variables
 
-      integer :: i,j,k
+      integer :: nx,ny,nz,i,j,k
 
 c     Begin program
+
+      nx = size(field,1)-2
+      ny = size(field,2)-2
+      nz = size(field,3)-2
 
       do k=0,nz+1
         do j=0,ny+1
@@ -6072,7 +6150,7 @@ c     End program
 
 c     hres
 c     ###############################################################
-      function hres(nx,ny,nz,igr,bcnv,rho) result(h_res)
+      function hres(igr,bcnv,rho) result(h_res)
 c     ---------------------------------------------------------------
 c     Finds hyper-resistivity coefficient (global on the grid)
 c     ---------------------------------------------------------------
@@ -6083,18 +6161,24 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igr
-      real(8) :: bcnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho  (0:nx+1,0:ny+1,0:nz+1)
-     .          ,h_res(0:nx+1,0:ny+1,0:nz+1)
+      integer :: igr
+      real(8) :: bcnv (0:,0:,0:,:)
+     .          ,rho  (0:,0:,0:)
+      real(8) :: h_res(0:size(rho,1)-1
+     .                ,0:size(rho,2)-1
+     .                ,0:size(rho,3)-1)
 
 c     Local variables
 
-      integer :: ig,jg,kg,i,j,k
+      integer :: nx,ny,nz,ig,jg,kg,i,j,k
 
       real(8) :: idx,idy,idz,k2,kk,bk_par,lheta,vol,lvol
 
 c     Begin program
+
+      nx = size(rho,1)-2
+      ny = size(rho,2)-2
+      nz = size(rho,3)-2
 
 cc      hres = 0d0
 cc      vol = 0d0
@@ -6200,6 +6284,74 @@ cc     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
 c     End
 
       end function hres
+
+c     chi_perp_ijk
+c     #################################################################
+      function chi_perp_ijk(i,j,k,igrid,field) result(dfvty)
+c     -----------------------------------------------------------------
+c     This function computes the local value of the heat diffusivity on
+c     the node (i,j,k) of grid igrid according to field.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,igrid
+      real(8) :: field,dfvty
+
+c     Local variables
+
+cc      integer :: ig,jg,kg
+cc      real(8) :: rr  !Allows for changes in resistivity of f0^(-1.5)
+
+c     Begin program
+
+      dfvty = chi
+
+c     End program
+
+      end function chi_perp_ijk
+
+c     chi_perp_mesh
+c     #############################################################
+      function chi_perp_mesh(igrid,field) result(dfvty)
+c     -------------------------------------------------------------
+c     This function computes the diffusivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: igrid
+      real(8) :: field(0:,0:,0:)
+      real(8) :: dfvty(0:size(field,1)-1
+     .                ,0:size(field,2)-1
+     .                ,0:size(field,3)-1)
+
+c     Local variables
+
+      integer :: nx,ny,nz,i,j,k
+
+c     Begin program
+
+      nx = size(field,1)-2
+      ny = size(field,2)-2
+      nz = size(field,3)-2
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            dfvty(i,j,k)=chi_perp_ijk(i,j,k,igrid,field(i,j,k))
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end function chi_perp_mesh
 
       end module nlfunction_setup
 
