@@ -429,8 +429,8 @@ c####################################################################
 
         use equilibrium
 
-        use nlfunction_setup, ONLY: res,vis,E_fld_res,E_fld_hall
-     .                             ,ion_hall,fake_ve
+        use nlfunction_setup, ONLY: res,chi_perp,vis,E_fld_res
+     .                             ,ion_hall,fake_ve,E_fld_hall
      .                             ,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,save_tn,pinch_flow
@@ -606,8 +606,8 @@ c     Exceptions for specific equilibria
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
-cc        if (gamma > 1d0)
-cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+        if (gamma > 1d0)
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 
       case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
@@ -618,7 +618,7 @@ cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
 
         if (gamma > 1d0)
-     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 
       case ('vmec','tor')
 
@@ -800,6 +800,10 @@ c     Begin program
       varray%array_var(ITMP)%dom_dep_list(2,1) = IVCNV*AUX
       varray%array_var(ITMP)%dom_dep_list(2,2) = VECTOR
       varray%array_var(ITMP)%dom_dep_list(2,3) = 1 !non-trivial
+
+      varray%array_var(ITMP)%dom_dep_list(3,1) = ICHI*AUX
+      varray%array_var(ITMP)%dom_dep_list(3,2) = SCALAR
+      varray%array_var(ITMP)%dom_dep_list(3,3) = 1 !non-trivial
 
       !V
       do ieq=IVX,IVZ

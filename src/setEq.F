@@ -1963,10 +1963,9 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 ! Daniele, 11/10/2013
           if (spitzer) then
-             eta_in = res_spitzer(p00(1)/a_p)
-             E0(3) = e0_over_eta*eta_in
+            E0(3) = e0_over_eta*res_spitzer(p00(1)/a_p)
           else
-             E0(3) = e0_over_eta*eta
+            E0(3) = e0_over_eta*eta
           endif
 
           eta_in = eta
@@ -2832,7 +2831,6 @@ c       Iteration
             bth = 0.5*(bth0(i)+bth0(i-1))
 
             if (spitzer) then
-!              etah = res_spitzer(0d0,p0(i)/a_p/p00)/eta
               etah = res_spitzer(p0(i)/a_p)/eta
             else
               etah = res_rfx(rh)/eta
@@ -2855,7 +2853,6 @@ c       Iteration
             rh  = grid_params%xg(i)
 
             if (spitzer) then
-!              etah = res_spitzer(p0(i)/a_p/p00)/eta
               etah = res_spitzer(p0(i)/a_p)/eta
             else
               etah = res_rfx(rh)/eta
@@ -2929,7 +2926,6 @@ c       Iteration
           rh  = grid_params%xg(i)
 
           if (spitzer) then
-!            etah = res_spitzer(p0(i)/a_p/p00)/eta
             etah = res_spitzer(p0(i)/a_p)/eta
           else
             etah = res_rfx(rh)/eta
@@ -2994,7 +2990,6 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
         do i=1,nxd
           rh  = grid_params%xg(i)
           if (spitzer) then
-!            etah = res_spitzer(p0(i)/a_p/p00)/eta
             etah = res_spitzer(p0(i)/a_p)/eta
           else
             etah = res_rfx(rh)/eta
@@ -3051,7 +3046,7 @@ c     ---------------------------------------------------------------
 
 ! Daniele, 11/10/2013
       use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
-     .     ,res_spitzer,spitzer,a_p
+     .                           ,res_spitzer,spitzer,a_p
 
       use grid
 
@@ -3067,12 +3062,13 @@ c     Call variables
 c     Local variables
 
         integer    :: i,j,k,ig,jg,kg,it,info
-        real(8)    :: bz_avg,x1,bzh,bth,err,rh,dh,p00,etah,rhm,rhp
+        real(8)    :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
 
         real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
      .               ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
      .               ,bzf(0:nxdp),btf(0:nxdp),p0_old(0:nxdp)
      .               ,jzf(nxd),jtf(nxd),dl(nxd),d(nxd),du(nxd)
+     .               ,etah(0:nxdp)
 
         real(8)    :: pprof
         external      pprof
@@ -3094,7 +3090,7 @@ c     Begin program
 ! Daniele, 11/10/2013
 !        alpha = 0d0 !No underrelaxation
         alpha = 0.5d0 !underrelaxation constant
-        etah0 = 1. ! needed if not spitzer
+        etah0 = 1d0 ! needed if not spitzer
 
 c       Initialize iteration
 
@@ -3121,9 +3117,23 @@ c       Iteration
 
         do it=1,100
 
-! Daniele, 11/10/2013
-! underrelaxation of p
+          !Daniele, 11/10/2013
+          !underrelaxation of p
           p0 = (1d0-alpha)*p0 + alpha*p0_old
+
+          !Luis, 11/15/2013, find resistivity profile
+          if (spitzer) then
+            do i=1,nxd
+              etah(i) = res_spitzer(p0(i)/a_p)/eta
+            enddo
+            etah0 = etah(1)
+            etah  = etah/etah0
+          else
+            do i=1,nxd
+              rh = grid_params%xg(i)
+              etah(i) = res_rfx(rh)/eta
+            enddo
+          endif
 
           bth0_old = bth0
           bzz0_old = bzz0
@@ -3139,20 +3149,16 @@ c       Iteration
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
-! Daniele, 11/10/2013
-            if (spitzer) then
-               etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-            else
-               etah = res_rfx(rh)/eta
-            endif
-
+cc! Daniele, 11/10/2013
+cc            if (spitzer) then
+cc              etah = res_spitzer(p0(i)/a_p)/eta
+cc              if (i == 1) etah0 = etah
+cc            else
+cc              etah = res_rfx(rh)/eta
+cc            endif
+!Luis, 11/15/2013, replaced etah/etah0 by etah(i)
             dummy(i)=dummy(i-1)
-!     .              +(Eoeta/etah*bzh**2
-! Daniele, 11/10/2013
-     .              +(Eoeta/(etah/etah0)*bzh**2
+     .              +(Eoeta/etah(i)*bzh**2
      .               -bth*(p0(i+1)-p0(i-1))/2./dr(i))
      .                /(bzh**2+bth**2)*rh*dr(i)
 
@@ -3167,21 +3173,21 @@ c       Iteration
             bth = 0.5*(bth0(i)+bth0(i-1))
             rh  = grid_params%xg(i)
 
-! Daniele, 11/10/2013
-            if (spitzer) then
-               etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-            else
-               etah = res_rfx(rh)/eta
-            endif
-
+cc! Daniele, 11/10/2013
+cc            if (spitzer) then
+cc               etah = res_spitzer(p0(i)/a_p)/eta
+cc               if (i == 1) then
+cc                  etah0 = etah
+cc               endif
+cc            else
+cc               etah = res_rfx(rh)/eta
+cc            endif
+cc            dummy(i) = dummy(i-1)
+cc     .                +(Eoeta/(etah/etah0)
+cc     .           *bth+(p0(i+1)-p0(i-1))/2./dr(i))
+!Luis, 11/15/2013, same as above
             dummy(i) = dummy(i-1)
-!     .                +(Eoeta/etah*bth+(p0(i+1)-p0(i-1))/2./dr(i))
-! Daniele, 11/10/2013
-     .                +(Eoeta/(etah/etah0)
-     .           *bth+(p0(i+1)-p0(i-1))/2./dr(i))
+     .                +(Eoeta/etah(i)*bth+(p0(i+1)-p0(i-1))/2./dr(i))
      .                /(bzh**2+bth**2)*dr(i)
           enddo
 
@@ -3204,142 +3210,140 @@ c       Iteration
 
 ! Daniele, 12/7/2011
 ! f stands for full mesh
-        !Transfer to integer mesh
-        call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
-        btf = dummy
+          !Transfer to integer mesh
+          call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
+     .                    ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                    ,2,0)
+          btf = dummy
 
-        call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
-        bzf = dummy
+          call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
+     .                    ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                    ,2,0)
+          bzf = dummy
 
-        !Extrapolate linearly in radius @ r=0
-        btf(0) = -btf(1)
-        bzf(0) = bzf(1)
+          !Extrapolate linearly in radius @ r=0
+          btf(0) = -btf(1)
+          bzf(0) = bzf(1)
 
-        !Find pinch flow (NOT normalized to nominal resistivity)
-        vr0 = 0d0
-        do i=1,nxd
-          rh  = grid_params%xg(i)
-! Daniele, 11/10/2013
-          if (spitzer) then
-             etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-          else
-             etah =res_rfx(rh)/eta
-          endif
+          !Find pinch flow (NOT normalized to nominal resistivity)
+          vr0 = 0d0
+          do i=1,nxd
+            rh  = grid_params%xg(i)
+cc! Daniele, 11/10/2013
+cc          if (spitzer) then
+cc             etah = res_spitzer(p0(i)/a_p)/eta
+cc               if (i == 1) then
+cc                  etah0 = etah
+cc               endif
+cc          else
+cc             etah =res_rfx(rh)/eta
+cc          endif
 
 !          vr0(i) = -(Eoeta*btf(i)
 ! Daniele, 11/10/2013
-          vr0(i) = -(Eoeta*etah0*btf(i)
-     .           +etah*(p0(i+1)-p0(i-1))/2./dr(i))
-     .           /(bzf(i)**2+btf(i)**2)
-        enddo
+! Luis, 11/15/2013, replaced etah/etah0 by etah(i), and put etah0 outside (done at the end)
+!          vr0(i) = -(Eoeta*etah0*btf(i)
+!     .           +etah*(p0(i+1)-p0(i-1))/2./dr(i))
+            vr0(i) = -(Eoeta*btf(i)
+     .             +etah(i)*(p0(i+1)-p0(i-1))/2./dr(i))
+     .             /(bzf(i)**2+btf(i)**2)
+          enddo
 ! Daniele, 12/7/2011
 ! dr(nxdp)=0. so I use dr(nxd)
-        rh  = grid_params%xg(nxdp)
+          rh  = grid_params%xg(nxdp)
 ! Daniele, 11/10/2013
-        if (spitzer) then
-           etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-        else
-           etah =res_rfx(rh)/eta
-        endif
+! Luis, 11/15/2013, not needed
+cc        if (spitzer) then
+cc           etah = res_spitzer(p0(i)/a_p)/eta
+cc               if (i == 1) then
+cc                  etah0 = etah
+cc               endif
+cc        else
+cc           etah =res_rfx(rh)/eta
+cc        endif
 !        vr0(nxdp)= -(Eoeta*btf(nxdp)
 ! Daniele, 11/10/2013
-        vr0(nxdp)= -(Eoeta*etah0*btf(nxdp)
+! Luis, 11/15/2013, same as above
+          vr0(nxdp)= -(Eoeta*btf(nxdp)
 cc     .         +etah*(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
-     .         +etah*(p0(nxdp)-p0(nxd))/dr(nxd))
+     .         +etah(i)*(p0(nxdp)-p0(nxd))/dr(nxd))
      .         /(bzf(nxdp)**2+btf(nxdp)**2)
 
-        vr0(0) = -vr0(1)
+          vr0 = etah0*vr0
 
-! Daniele, 7/12/2011: find j on integer mesh
-        do i=1,nxd
-           rh  = grid_params%xg(i)
-           jzf(i)=(xh(i)*bth0(i)-xh(i-1)*bth0(i-1))/(rh*dr(i))
-           jtf(i)=-(bzz0(i)-bzz0(i-1))/dr(i)
-        enddo
-cc        jzf(0) = jzf(1)
-cc        jtf(0) = -jtf(1)
-cc       
-cc! find j(nxd) on the half mesh
-cc        jtf(nxdp)=-(1.5*bzz0(nxd)-2.*bzz0(nxd-1)
-cc     .         +0.5*bzz0(nxd-2))/dr(nxd)
-cc        jzf(nxdp)=(1.5*xh(nxd)*bth0(nxd)-2.*xh(nxd-1)*bth0(nxd-1)
-cc     .         +0.5*xh(nxd-2)*bth0(nxd-2))/(xh(nxd)*dr(nxd))
-cc
-cc! bring it to the integer mesh
-cc        jtf(nxdp)=2.*jtf(nxdp)-jtf(nxd)
-cc        jzf(nxdp)=2.*jzf(nxdp)-jzf(nxd)
+          vr0(0) = -vr0(1)
 
-        !Pressure solve
+          !Find j on integer mesh
+          do i=1,nxd
+            rh = grid_params%xg(i)
+            jzf(i)=(xh(i)*bth0(i)-xh(i-1)*bth0(i-1))/(rh*dr(i))
+            jtf(i)=-(bzz0(i)-bzz0(i-1))/dr(i)
+          enddo
 
-! source on integer
-        do i=1,nxd
-           rh  = grid_params%xg(i)
-! Daniele, 11/10/2013
-           if (spitzer) then
-              etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-           else
-              etah =res_rfx(rh)/eta
-           endif
-           p0(i)=rh*etah*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
-        enddo
+          !Pressure solve
 
-! build the (diagonal bands of the) matrix to be inverted
-        do i=1,nxd
-           rh  = grid_params%xg(i)
+          !Find heat source on integer mesh
+          do i=1,nxd
+            rh = grid_params%xg(i)
+cc! Daniele, 11/10/2013
+cc           if (spitzer) then
+cc              etah = res_spitzer(p0(i)/a_p)/eta
+cc               if (i == 1) then
+cc                  etah0 = etah
+cc               endif
+cc           else
+cc              etah =res_rfx(rh)/eta
+cc           endif
+cc           p0(i)=rh*etah*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
+! Luis, 11/15/2013, same as above
+            p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
+          enddo
+          p0 = etah0*p0
 
-           dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
+          !Build the tridiagonal matrix to be inverted
+          do i=1,nxd
+            rh  = grid_params%xg(i)
+
+            dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
      .            +vr0(i)*rh/(2.*dr(i))
 !     .            -chi/eta*xh(i-1)/dr(i)**2.
 ! Daniele, 11/10/2013
      .            -chih(i-1)/eta*xh(i-1)/dr(i)**2.
 
-           d(i)=  gamma/(gamma-1.)
+            d(i)=  gamma/(gamma-1.)
      .            *(xh(i)*vr0(i+1)-xh(i-1)*vr0(i-1))/(2.*dr(i))
      .            +0.
 !     .            +chi/eta*(xh(i)+xh(i-1))/dr(i)**2.
 ! Daniele, 11/10/2013
      .            +1./eta*(chih(i)*xh(i)+chih(i-1)*xh(i-1))/dr(i)**2.
            
-           du(i)= gamma/(gamma-1.)
+            du(i)= gamma/(gamma-1.)
      .            *(xh(i)*vr0(i))/(2.*dr(i))
      .            -vr0(i)*rh/(2.*dr(i))
 !     .            -chi/eta*xh(i)/dr(i)**2.
 ! Daniele, 11/10/2013
      .            -chih(i)/eta*xh(i)/dr(i)**2.
-        enddo
+          enddo
 
-! BCs at i=1
-        rh  = grid_params%xg(1)
-        d(1)=d(1)+vr0(1)*rh/(2.*dr(1))
+          !BCs at i=1
+          rh  = grid_params%xg(1)
+          d(1)=d(1)+vr0(1)*rh/(2.*dr(1))
 
-! BSc at i=nxd
-        rh  = grid_params%xg(nxd)
-        d(nxd)=d(nxd)
-     .         -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
-     .         +vr0(nxd)*rh/(2.*dr(nxd))
+          !BSc at i=nxd
+          rh  = grid_params%xg(nxd)
+          d(nxd)=d(nxd)
+     .          -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
+     .          +vr0(nxd)*rh/(2.*dr(nxd))
 !     .         +chi/eta*xh(nxd)/dr(nxd)**2.
 ! Daniele, 11/10/2013
      .         +chih(nxd)/eta*xh(nxd)/dr(nxd)**2.
 
-        call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd,info)
+          !Invert tridiagonal matrix
+          call DGTSV(nxd,1,dl(2:nxd),d,du(1:nxd-1),p0(1:nxd),nxd,info)
 
-        !BCs
-cc        p0(1:nxd)=b
-        p0(0)=p0(1)
-        p0(nxdp)=-p0(nxd)
+          !BCs
+          p0(0   ) =  p0(1)
+          p0(nxdp) = -p0(nxd)
 
           !Check convergence
           err = sqrt(0.3*(sum((bth0-bth0_old)**2)
@@ -3348,7 +3352,7 @@ cc        p0(1:nxd)=b
 
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,*) '1D Ohmic equilibrium iter =',it
-     .                 ,' ; Error=',err
+     .                  ,' ; Error=',err
           endif
 
           dh = xmax/nxd
@@ -3357,9 +3361,23 @@ cc        p0(1:nxd)=b
         enddo
 
         if (ilevel == 0 .and. my_rank == 0) then
-           write (*,'(a,i3,a,1pe10.2)')
+          write (*,'(a,i3,a,1pe10.2)')
      .          ' 1D equilibrium converged in '
      .          ,it,' iterations with error =',err
+        endif
+
+        !Recompute resistivity (Luis, 11/15/2013)
+        if (spitzer) then
+          do i=1,nxd
+            etah(i) = res_spitzer(p0(i)/a_p)/eta
+          enddo
+          etah0 = etah(1)
+          etah  = etah/etah0
+        else
+          do i=1,nxd
+            rh = grid_params%xg(i)
+            etah(i) = res_rfx(rh)/eta
+          enddo
         endif
 
         !Check force balance
@@ -3369,9 +3387,8 @@ cc        p0(1:nxd)=b
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
           dummy(i) = bzh*(bzz0(i)-bzz0(i-1))/dr(i)
-     $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
-cc     .              +p00*pprof(rh,1)
-     .              +(p0(i+1)-p0(i-1))/2./dr(i)
+     $               +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+     .               +(p0(i+1)-p0(i-1))/2./dr(i)
         enddo
 
         if (my_rank == 0) then
@@ -3380,25 +3397,28 @@ cc     .              +p00*pprof(rh,1)
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
         endif
 
-        !Check Ohm`s law
+        !Check Ohm's law
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
           rh  = grid_params%xg(i)
 
 ! Daniele, 11/10/2013
-          if (spitzer) then
-             etah = res_spitzer(p0(i)/a_p)/eta
-               if (i == 1) then
-                  etah0 = etah
-               endif
-          else
-             etah=res_rfx(rh)/eta
-          endif
+! Luis, 11/15/2013, not needed
+cc         if (spitzer) then
+cc           etah = res_spitzer(p0(i)/a_p)/eta
+cc           if (i == 1) then
+cc             etah0 = etah
+cc           endif
+cc         else
+cc           etah=res_rfx(rh)/eta
+cc         endif
 
 !          dummy(i) = Eoeta*bzh/etah
 ! Daniele, 11/10/2013
-          dummy(i) = Eoeta*bzh/(etah/etah0)
+!          dummy(i) = Eoeta*bzh/(etah/etah0)
+! Luis, 11/15/2013, same as above
+          dummy(i) = Eoeta*bzh/etah(i)
      $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
      $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
         enddo
@@ -3409,39 +3429,34 @@ cc     .              +p00*pprof(rh,1)
         endif
 
         !Check energy equation
+        etah = etah*etah0
         do i=1,nxd
-
           rh  = grid_params%xg(i)
-          rhm  = grid_params%xg(i-1)
-          rhp  = grid_params%xg(i+1)
+          rhm = grid_params%xg(i-1)
+          rhp = grid_params%xg(i+1)
 
 ! Daniele, 11/10/2013
-          if (spitzer) then
-             etah = res_spitzer(p0(i)/a_p)/eta
-          else
-             etah=res_rfx(rh)/eta
-          endif
+! Luis, 11/15/2013, not needed
+cc         if (spitzer) then
+cc           etah = res_spitzer(p0(i)/a_p)/eta
+cc         else
+cc           etah=res_rfx(rh)/eta
+cc         endif
 
 ! Daniele, 11/10/2013
 ! da sistemare con chi variabile!!!
-          dummy(i) = gamma/(gamma-1.)/(2.*dr(i))
-     .           *(rhp*p0(i+1)*vr0(i+1)-rhm*p0(i-1)*vr0(i-1))
-     .           -vr0(i)*rh*(p0(i+1)-p0(i-1))/(2.*dr(i))
-     .           -chi/eta
-     .          *(0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
-     .           +0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
-     .           -rh*etah*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
-
+          dummy(i) =
+     .          gamma/(gamma-1.)
+     .           *(rhp*p0(i+1)*vr0(i+1)-rhm*p0(i-1)*vr0(i-1))/(2.*dr(i))
+     .          -vr0(i)*rh*(p0(i+1)-p0(i-1))/(2.*dr(i))
+     .          -chi/eta*(0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
+     .                   +0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
+     .          -rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
         enddo
 
         if (my_rank == 0) then
           write(*,'(a,1pe14.7)') ' Energy equation error ='
      .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-!          do i=0,nxdp
-!            x1 = grid_params%xg(i) !Global coordinate
-!            write(*,*) x1,dummy(i)*eta
-!          enddo
-
         endif
 
         !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
