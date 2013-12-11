@@ -1287,7 +1287,7 @@ c     ###################################################################
 
 c     -------------------------------------------------------------------
 c     Defines intervariable dependencies for constitutive equations of
-c     auxiliary quantities
+c     auxiliary quantities.
 c     -------------------------------------------------------------------
 
       implicit none
@@ -5850,20 +5850,15 @@ cc        endif
         E_res = dumcov
 #else
         E_res =-veclap_cov(igr,dumcov)
-cc        do k=1,nz
-cc          do j=1,ny
-cc            do i=1,nx
-cc              E_res(i,j,k,:) = E_res(i,j,k,:)
-cc     .           - eta2(i,j,k)*veclap_cov(i,j,k,nx,ny,nz,igr,igr,igr
-cc     .                                   ,dumcov,vol=.false.)
-cc            enddo
-cc          enddo
-cc        enddo
 #endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
         E_res(:,:,:,2) = eta2*E_res(:,:,:,2)
         E_res(:,:,:,3) = eta2*E_res(:,:,:,3)
+
+      else
+
+        E_res = 0d0
 
       endif
 
