@@ -641,8 +641,19 @@ c     Set auxiliary variable BC
 
       !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
+      where (vaux%var_list(IRHO_0)%bconds == EQU)
+        vaux%var_list(IRHO_0)%bconds = EXT
+      end where
+
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
+      where (vaux%var_list(ITMP_0)%bconds == EQU)
+        vaux%var_list(ITMP_0)%bconds = EXT
+      end where
+
       vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
+      where (vaux%var_list(ITMPE_0)%bconds == EQU)
+        vaux%var_list(ITMPE_0)%bconds = EXT
+      end where
 
       vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
       vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
