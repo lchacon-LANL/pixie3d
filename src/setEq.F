@@ -60,7 +60,7 @@ c Local variables
      .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
-     .          ,hlx,y_char
+     .          ,hlx,y_char,pw
 
       real(8) :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
      .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
@@ -1889,6 +1889,7 @@ c     --------------------------------------------------
         e0_over_eta = grid_params%params(5)
         beta        = grid_params%params(6)
         m0_over_nu  = grid_params%params(7)
+        pw = grid_params%params(8)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1951,11 +1952,11 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 ! Daniele, 11/10/2013
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
-     .                     ,p00,bth0,bzz0,vr0,psi0)
+             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,pw
+     .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
-     .                     ,p00,bth0,bzz0,vr0,psi0)
+             call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+     .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
 	  !Find electric field
@@ -1987,11 +1988,11 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 #if defined(RFX)
         if (my_rank == 0.and.(.not.test)) then
-          write (*,*) 'r,bth0,bzz0,q0,vr0'
+          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
           do i=0,nxdp
             x1 = grid_params%xg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
-     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
+     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),p00(i)
           enddo
         endif
 #endif
@@ -2084,11 +2085,11 @@ c     Initial guess: 1D equilibrium
         p00  = 0d0
 
         if (gamma > 1d0) then
-           call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
-     .          ,p00,bth0,bzz0,vr0,psi0)
+           call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,0d0
+     .                            ,p00,bth0,bzz0,vr0,psi0)
         else
-           call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
-     .          ,p00,bth0,bzz0,vr0,psi0)
+           call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+     .                            ,p00,bth0,bzz0,vr0,psi0)
         endif
 
         do i=0,nx+1
@@ -2182,6 +2183,7 @@ c     Density and temperature
         e0_over_eta = grid_params%params(5)
         beta        = grid_params%params(6)
         m0_over_nu  = grid_params%params(7)
+        pw = grid_params%params(8)
 
         nh2 = mm       !To set the right perturbation wavelength
         nh3 = kk*RR    !To set the right perturbation wavelength
@@ -2252,11 +2254,11 @@ c     Equilibria (numerical)
           bzz0 = bz0
 
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch
-     .                     ,p00,bth0,bzz0,vr0,psi0)
+             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,pw
+     .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d(-kk,e0_over_eta,theta_ppnch
-     .                     ,p00,bth0,bzz0,vr0,psi0)
+             call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+     .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
           !Find electric field
@@ -2750,12 +2752,12 @@ c     On input:
 c       * kk: helical pitch (>0 by convention)
 c       * Eoeta: electric field over eta
 c       * theta: RFP theta parameter
-c       * b_tor: toroidal beta
 c       * p0: input presure profile
-c       * bth0,bzz0: output magnetic field components (bzz0 contains
+c     On output:
+c       * bth0,bzz0 (output): magnetic field components (bzz0 contains
 c                    initial guess, and bzz0(0) contains value at axis)
-c       * vr0: output radial pinch flow
-c       * psi0: output helical poloidal flux
+c       * vr0  (output): radial pinch flow
+c       * psi0 (output): helical poloidal flux
 c     ---------------------------------------------------------------
 
         use parameters
@@ -2772,13 +2774,15 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: bz0,kk,bth0(0:nxdp),bzz0(0:nxdp),vr0(0:nxdp)
-     .            ,p0(0:nxdp),Eoeta,theta,b_tor,psi0(0:nxdp)
+        real(8),intent(IN) :: kk,Eoeta,theta,p0(0:nxdp)
+
+        real(8),intent(OUT):: bth0(0:nxdp),bzz0(0:nxdp)
+     .                       ,vr0 (0:nxdp),psi0(0:nxdp)
 
 c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it
-        real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,etah
+        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,etah
 
         real(8) :: rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
@@ -3022,7 +3026,7 @@ cc        endif
 
 c     Ohm_equil_1d_xport
 c     ###############################################################
-      subroutine Ohm_equil_1d_xport(kk,Eoeta,theta,p0,bth0,bzz0,vr0
+      subroutine Ohm_equil_1d_xport(kk,Eoeta,theta,pw,p0,bth0,bzz0,vr0
      .                             ,psi0)
 
 c     ---------------------------------------------------------------
@@ -3031,51 +3035,57 @@ c     cylindrical components  of magnetic field B_theta, B_z ,
 c     and pressure profile, and radial velocity vr from imposed 
 c     electric field, theta parameter, and beta parameter.
 c     On input:
-c       * kk: helical pitch (>0 by convention)
-c       * Eoeta: electric field over eta
-c       * theta: RFP theta parameter
-c       * p0: output presure profile
-c       * bth0,bzz0: output magnetic field components (bzz0 contains
+c       * kk (input): helical pitch (>0 by convention)
+c       * Eoeta (input): electric field over eta
+c       * theta (input): RFP theta parameter
+c       * pw (input): pressure at wall boundary (r=1)
+c     On output:
+c       * p0 (output): presure profile (satisfies p(r=1)=pw)
+c       * bth0,bzz0 (output): magnetic field components (bzz0 contains
 c                    initial guess, and bzz0(0) contains value at axis)
-c       * vr0: output radial pinch flow
+c       * vr0 (output): radial pinch flow
 c     ---------------------------------------------------------------
 
-      use parameters
+        use parameters
 
-      use equilibrium
+        use equilibrium
 
 ! Daniele, 11/10/2013
-      use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
-     .                           ,res_spitzer,spitzer,a_p
+        use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
+     .                             ,res_spitzer,spitzer,a_p
 
-      use grid
+        use grid
 
-      use app_iosetup
+        use app_iosetup
 
-      implicit none
+        implicit none
 
 c     Call variables
 
-        real(8)    :: kk,bth0(0:nxdp),bzz0(0:nxdp),vr0(0:nxdp)
-     .               ,p0(0:nxdp),Eoeta,theta,b_tor,psi0(0:nxdp)
+        real(8) :: kk,bth0(0:nxdp),bzz0(0:nxdp),vr0(0:nxdp)
+     .            ,p0(0:nxdp),Eoeta,theta,b_tor,psi0(0:nxdp)
+     .            ,pw
 
 c     Local variables
 
-        integer    :: i,j,k,ig,jg,kg,it,info
-        real(8)    :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
+        integer :: i,j,k,ig,jg,kg,it,info
+        real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
 
-        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
-     .               ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
-     .               ,bzf(0:nxdp),btf(0:nxdp),p0_old(0:nxdp)
-     .               ,jzf(nxd),jtf(nxd),dl(nxd),d(nxd),du(nxd)
-     .               ,etah(0:nxdp)
+        real(8) :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
+     .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
+     .            ,bzf(0:nxdp),btf(0:nxdp),p0_old(0:nxdp)
+     .            ,jzf(nxd),jtf(nxd),dl(nxd),d(nxd),du(nxd)
+     .            ,etah(0:nxdp)
 
-        real(8)    :: pprof
-        external      pprof
+        real(8) :: pprof
+        external   pprof
 
 ! Daniele, 11/10/2013
-        real(8)    :: alpha,etah0
-        real(8)    :: chih(0:nxd)
+        real(8) :: alpha,etah0
+        real(8) :: chih(0:nxd)
+
+! Daniele, 1/8/2014
+        real(8) :: pa
 
 c     Begin program
 
@@ -3091,6 +3101,9 @@ c     Begin program
 !        alpha = 0d0 !No underrelaxation
         alpha = 0.5d0 !underrelaxation constant
         etah0 = 1d0 ! needed if not spitzer
+
+! Daniele, 1/8/2014; Luis 1/23/2014
+        pa = pw
 
 c       Initialize iteration
 
@@ -3123,13 +3136,17 @@ c       Iteration
 
           !Luis, 11/15/2013, find resistivity profile
           if (spitzer) then
-            do i=1,nxd
+!            do i=1,nxd
+! Daniele, 1/8/2014
+            do i=1,nxdp
               etah(i) = res_spitzer(p0(i)/a_p)/eta
             enddo
             etah0 = etah(1)
             etah  = etah/etah0
           else
-            do i=1,nxd
+!            do i=1,nxd
+! Daniele, 1/8/2014
+            do i=1,nxdp
               rh = grid_params%xg(i)
               etah(i) = res_rfx(rh)/eta
             enddo
@@ -3266,7 +3283,9 @@ cc        endif
 ! Luis, 11/15/2013, same as above
           vr0(nxdp)= -(Eoeta*btf(nxdp)
 cc     .         +etah*(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
-     .         +etah(i)*(p0(nxdp)-p0(nxd))/dr(nxd))
+!     .         +etah(i)*(p0(nxdp)-p0(nxd))/dr(nxd))
+! Daniele, 1/8/2014
+     .         +etah(nxdp)*(p0(nxdp)-p0(nxd))/dr(nxd))
      .         /(bzf(nxdp)**2+btf(nxdp)**2)
 
           vr0 = etah0*vr0
@@ -3299,6 +3318,13 @@ cc           p0(i)=rh*etah*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
           enddo
           p0 = etah0*p0
+
+! Daniele, 1/8/2014. BCs with finite p(a)
+          rh = grid_params%xg(nxd)
+          p0(nxd) = p0(nxd) + pa/dr(nxd)*
+     .         (-gamma/(gamma-1.)*xh(nxd)*vr0(nxd)
+     .          +vr0(nxd)*rh
+     .          +2.*chih(nxd)/eta*xh(nxd)/dr(nxd))
 
           !Build the tridiagonal matrix to be inverted
           do i=1,nxd
@@ -3343,7 +3369,9 @@ cc           p0(i)=rh*etah*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
 
           !BCs
           p0(0   ) =  p0(1)
-          p0(nxdp) = -p0(nxd)
+!          p0(nxdp) = -p0(nxd)
+! Daniele, 1/8/2014. BCs with finite p(a)
+          p0(nxdp) = -p0(nxd) + 2.*pa
 
           !Check convergence
           err = sqrt(0.3*(sum((bth0-bth0_old)**2)
