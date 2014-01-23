@@ -476,6 +476,7 @@ c Initialize grid packing structure
 
 c Consistency check
 
+      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 cc      if (di == 0d0) heta = 0d0
 
       !Adequate BCs for collapsed dimension
