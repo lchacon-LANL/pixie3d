@@ -303,7 +303,7 @@ c Set defaults
 
       pc_asm     = .false.     ! Whether we are doing additive Schwartz PC (in parallel)
       pc_debug   = .false.     ! PC debugging flag
-      pc_divclean= .true.      ! Whether to perform divergence cleaning in PC or not
+      pc_divclean= .false.     ! Whether to perform divergence cleaning in PC or not
       pc_B_solve = .true.      ! Whether to perform B-solve in PC
 
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
@@ -329,6 +329,9 @@ c Set defaults
       pbx      = 0d0           ! Bx perturbation
       pby      = 0d0           ! By perturbation
       pbz      = 0d0           ! Bz perturbation
+      pax      = 0d0           ! Ax perturbation
+      pay      = 0d0           ! Ay perturbation
+      paz      = 0d0           ! Az perturbation
       ptemp    = 0d0           ! Temperature perturbation
       nh1      = 0             ! Starting harmonic number for perturbation in axis 1
       nh2      = 0             ! Starting harmonic number for perturbation in axis 2
