@@ -1,7 +1,7 @@
 
-c module precond_variables
+c module PC_var
 c ######################################################################
-      module precond_variables
+      module PC_var
 
         use timeStepping
 
@@ -67,9 +67,9 @@ c ######################################################################
 
       contains
 
-c     allocPrecVariables
+c     allocPCVariables
 c     ###################################################################
-      subroutine allocPrecVariables
+      subroutine allocPCVariables
 
 c     -------------------------------------------------------------------
 c     Allocates preconditioner variables.
@@ -134,11 +134,11 @@ c     Begin program
 
 c     End program
 
-      end subroutine allocPrecVariables
+      end subroutine allocPCVariables
 
-c     deallocPrecVariables
+c     deallocPCVariables
 c     ###################################################################
-      subroutine deallocPrecVariables
+      subroutine deallocPCVariables
 
 c     -------------------------------------------------------------------
 c     Deallocates preconditioner variables.
@@ -189,7 +189,7 @@ c     Begin program
 
 c     End program
 
-      end subroutine deallocPrecVariables
+      end subroutine deallocPCVariables
 
 c     gather
 c     ###################################################################
@@ -2343,7 +2343,7 @@ c     End program
 
       end subroutine diagonalScaling
 
-      end module precond_variables
+      end module PC_var
 
 c  module matvec
 c ###################################################################
@@ -2351,7 +2351,7 @@ c ###################################################################
 
         use setMGBC_interface
 
-        use precond_variables
+        use PC_var
 
         use local_BCS_variables, ONLY: order_bc,nc_eom_v
 

@@ -4,7 +4,7 @@ c ####################################################################
 
         use setMGBC_interface
 
-        use precond_variables
+        use PC_var
 
         use local_BCS_variables, ONLY: order_bc
 

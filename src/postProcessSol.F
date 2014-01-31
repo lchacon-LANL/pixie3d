@@ -11,7 +11,7 @@ c--------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use precond_variables, only: pc_B_solve,pc_type,pc_divclean
+      use PC_var, only: pc_B_solve,pc_type,pc_divclean
 
       use xdraw_io
 

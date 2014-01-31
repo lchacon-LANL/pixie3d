@@ -15,7 +15,7 @@ c-------------------------------------------------------------------
 
       use grid
 
-      use precond_variables
+      use PC_var
 
       use var_io
 
@@ -1092,7 +1092,7 @@ c--------------------------------------------------------------------
 c     This subroutine finds the rhs for the velocity SI solve.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 
@@ -1133,7 +1133,7 @@ c     This subroutine finds the EM part of the rhs for the velocity
 c     SI solve.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use nlfunction_setup, ONLY: EOM_jxb,EOM_gp
 
@@ -1405,7 +1405,7 @@ c--------------------------------------------------------------------
 c     This subroutine corrects the flow field with all-new data.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 
@@ -1493,7 +1493,7 @@ c     This subroutine corrects the B-field update with all-new info,
 c     in a divergence-free manner.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 
@@ -1650,7 +1650,7 @@ c--------------------------------------------------------------------
 c     This subroutine preprocesses B rhs to add Hall correction.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 
@@ -1735,7 +1735,7 @@ c--------------------------------------------------------------------
 c     This subroutine preprocesses B rhs to add Hall correction.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 
@@ -1864,7 +1864,7 @@ c     This subroutine postprocess SI solution to find final
 c     solution to Schur complement system.
 c--------------------------------------------------------------------
 
-      use precond_variables
+      use PC_var
 
       use operators
 

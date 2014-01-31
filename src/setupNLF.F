@@ -80,7 +80,7 @@ c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
       save_tn = old_time_eval .or. source_eval
-      call applyBC(igx,varray,it=itime,bc_order=order_bc)
+      call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
 #else
       call defineAuxVariables(gv%aux)  !Set pointers
 #endif
