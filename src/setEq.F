@@ -145,11 +145,11 @@ c Label variables
         label(IVY)  = 'P^2'
       endif
       label(IVZ)  = 'P^3'
-      label(ITMP) = 'J*(pi+pe)'        
+      label(ITMP) = 'J*(pi+pe)'
 
-c Define boundary conditions and dependencies
+c Define boundary conditions for dependent variables
 
-      call setAppBCs(varray,gv%aux)
+      call defineDepVariables(varray)
 
 c Set initial guess
 
@@ -4751,7 +4751,7 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
-        use precond_variables, ONLY: csolver
+        use PC_var, ONLY: csolver
 
         use mg_xfer, ONLY: mapMGVectorToArray
 
@@ -5879,7 +5879,7 @@ cc      use grid
 cc
 cc      use equilibrium
 cc
-cc      use precond_variables
+cc      use PC_var
 cc
 cc      implicit none
 cc

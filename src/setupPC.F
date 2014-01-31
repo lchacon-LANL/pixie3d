@@ -9,7 +9,7 @@ c--------------------------------------------------------------------
 
       use grid
 
-      use precond_variables
+      use PC_var
 
       use matvec
 
@@ -45,7 +45,7 @@ c Setup PC parameters
 c Impose BCs
 
 #if !defined(samrai)
-      call applyBC(igx,varray,bc_order=order_bc)
+      call applyBC(igx,varray,gv%aux,bc_order=order_bc)
 #else
       write (*,*) 'SAMRAI version of PC not ready'
       stop
@@ -296,6 +296,6 @@ c kill_app_PC
 c###################################################################
       subroutine kill_app_PC
 
-      use precond_variables
+      use PC_var
 
       end subroutine kill_app_PC

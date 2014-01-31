@@ -1,6 +1,6 @@
-c createNonlinearFunction
+c createNLF
 c######################################################################
-      subroutine createNonlinearFunction
+      subroutine createNLF
 
 c----------------------------------------------------------------------
 c     Allocates application-related arrays
@@ -8,7 +8,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use precond_variables
+      use PC_var
 
       implicit none
 
@@ -21,20 +21,20 @@ c Begin program
 c Auxiliary variables
 
 #if !defined(samrai)
-      call defineAuxVariables(gv%aux)
+cc      call defineAuxVariables(gv%aux)
 
 c Preconditioner
 
-      call allocPrecVariables
+      call allocPCVariables
 #endif
 
 c     End programs
 
-      end subroutine createNonlinearFunction
+      end subroutine createNLF
 
-c destroyNonlinearFunction
+c destroyNLF
 c######################################################################
-      subroutine destroyNonlinearFunction
+      subroutine destroyNLF
 
 c----------------------------------------------------------------------
 c     Allocates application-related arrays
@@ -42,7 +42,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use precond_variables
+      use PC_var
 
       implicit none
 
@@ -53,11 +53,11 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-      call deallocLocalAuxVars
+cc      call deallocLocalAuxVars
 
-      call deallocPrecVariables
+      call deallocPCVariables
 #endif
 
 c End programs
 
-      end subroutine destroyNonlinearFunction
+      end subroutine destroyNLF

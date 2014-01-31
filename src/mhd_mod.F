@@ -519,24 +519,22 @@ c     Setup variable dependencies in inner domain
 
         call defineAuxDomainDeps(vaux)
 
-c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
-
-        nx = size(tmp_0,1)-2
-        ny = size(tmp_0,2)-2
-        nz = size(tmp_0,3)-2
-
-        if (.not.associated(pcnv)) then
-          allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-     .            ,prs  (0:nx+1,0:ny+1,0:nz+1)
-     .            ,tmpe (0:nx+1,0:ny+1,0:nz+1))
-          pcnv = 0d0
-          vscnv= 0d0
-          bhat = 0d0
-          prs  = 0d0
-cc          tmpe = 0d0
-        endif
+ccc     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
+cc
+cc        nx = size(tmp_0,1)-2
+cc        ny = size(tmp_0,2)-2
+cc        nz = size(tmp_0,3)-2
+cc
+cc        if (.not.associated(pcnv)) then
+cc          allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
+cc     .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .            ,prs  (0:nx+1,0:ny+1,0:nz+1))
+cc          pcnv = 0d0
+cc          vscnv= 0d0
+cc          bhat = 0d0
+cc          prs  = 0d0
+cc        endif
 
 c     End program
 
@@ -572,6 +570,23 @@ c     Begin program
       nx = grid_params%nxv(igr)
       ny = grid_params%nyv(igr)
       nz = grid_params%nzv(igr)
+
+c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
+
+cc        nx = size(tmp_0,1)-2
+cc        ny = size(tmp_0,2)-2
+cc        nz = size(tmp_0,3)-2
+
+      if (.not.associated(pcnv)) then
+        allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,prs  (0:nx+1,0:ny+1,0:nz+1))
+        pcnv = 0d0
+        vscnv= 0d0
+        bhat = 0d0
+        prs  = 0d0
+      endif
 
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
       if (chi_par /= chi .and. (.not.lagrangian)) then
