@@ -247,10 +247,13 @@ cc      ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
 c     Advection
 
       if (nc_eom_v) then
-c$$$        cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-c$$$     .                      ,v_advect)
-        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
-     $       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
+        if (v_advect <= 2) then
+          cnv=tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+     .                      ,v_advect)
+        else
+          cnv=tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
+     .       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
+        endif
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
@@ -416,14 +419,17 @@ c Begin program
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
               !Advection
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_x)
-              nullify(vec1,vec2)
+              if (v_advect > 2) then
+                adv_meth = v_advect
+                vec1 => vcnv
+                vec2 => vcnv
+                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                             ,tnsr_advc_x)
+                nullify(vec1,vec2)
+              else
+                cnv = 0d0
+              endif
 
-c$$$              cnv = 0d0
               flx_x(i+1,j,k,IVX:IVZ) = cnv
             else
               !JxB
@@ -564,14 +570,17 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_y)
-              nullify(vec1,vec2)
+              if (v_advect > 2) then
+                adv_meth = v_advect
+                vec1 => vcnv
+                vec2 => vcnv
+                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                             ,tnsr_advc_y)
+                nullify(vec1,vec2)
+              else
+                cnv = 0d0
+              endif
 
-c$$$              cnv = 0d0
               flx_y(i,j+1,k,IVX:IVZ) = cnv
             else
               !JxB
@@ -711,14 +720,17 @@ c Begin program
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
-              adv_meth = v_advect
-              vec1 => vcnv
-              vec2 => vcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_z)
-              nullify(vec1,vec2)
+              if (v_advect > 2) then
+                adv_meth = v_advect
+                vec1 => vcnv
+                vec2 => vcnv
+                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
+     .                             ,tnsr_advc_z)
+                nullify(vec1,vec2)
+              else
+                cnv = 0d0
+              endif
 
-cc              cnv = 0d0
               flx_z(i,j,k+1,IVX:IVZ) = cnv
             else
               !JxB
@@ -908,9 +920,12 @@ cc             .               ,bcnv,jcnv,.true.
      .                           + div_pi(i,j,k,:) + div_pe(i,j,k,:)
 
               !Advection
-c$$$              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
-c$$$     .                            ,v_advect)
-              cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
+              if (v_advect <= 2) then
+                cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
+     .                            ,v_advect)
+              else
+                cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
+              endif
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
                                                                        !we evolve dv/dt
