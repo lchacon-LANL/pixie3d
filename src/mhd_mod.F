@@ -657,17 +657,20 @@ c     Set auxiliary variable BC
       !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
       where (vaux%var_list(IRHO_0)%bconds == EQU)
-        vaux%var_list(IRHO_0)%bconds = EXT
+cc        vaux%var_list(IRHO_0)%bconds = EXT
+        vaux%var_list(IRHO_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMP_0)%bconds == EQU)
-        vaux%var_list(ITMP_0)%bconds = EXT
+cc        vaux%var_list(ITMP_0)%bconds = EXT
+        vaux%var_list(ITMP_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMPE_0)%bconds == EQU)
-        vaux%var_list(ITMPE_0)%bconds = EXT
+cc        vaux%var_list(ITMPE_0)%bconds = EXT
+        vaux%var_list(ITMPE_0)%bconds = DEF !Do nothing
       end where
 
       vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
@@ -970,8 +973,12 @@ c     Current variables
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMP_AUX)%bc_dep_list(1,3) = 0 !trivial
 
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,1) = ITMP_0*AUX
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMP_AUX)%bc_dep_list(2,3) = 0 !trivial
+
       !Temp_e
-      vaux%var_list(ITMPE_AUX)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(ITMPE_AUX)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%bc_dep_list(1,3) = 0 !trivial
 
