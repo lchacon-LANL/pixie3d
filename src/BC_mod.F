@@ -608,6 +608,7 @@ c     Exceptions for specific equilibria
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
@@ -619,6 +620,7 @@ c     Exceptions for specific equilibria
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       case ('vmec','tor')
 
@@ -897,7 +899,8 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsuper(3,3)
-     .          ,EE(3)
+     .          ,gsub(3,3),EE(3)
+      logical :: fo=.false.
 
 c     Begin program
 
@@ -910,45 +913,87 @@ c     Begin program
 
       i = nx
 
-      do k=1,nz
-        do j=1,ny
-          bbcnv =0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
-     .               +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
-          bbcov =0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                      ,bcnv(i  ,j,k,:))
-     .               +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
-     .                      ,bcnv(i+1,j,k,:)))
+      if (fo) then
+        do k=1,nz
+          do j=1,ny
+            bbcnv = bcnv(i,j,k,:)
 
-          b2 = dot_product(bbcnv,bbcov)
+cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
+            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+            bbcov = matmul(gsub,bcnv(i,j,k,:))
 
-          if (b2 > 0d0) then
-            if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-              bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+            b2 = dot_product(bbcnv,bbcov)
+
+            if (b2 > 0d0) then
+              if (PRESENT(dbcov)) then  !Linearize ExB flow BC
+                dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
+                bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+              endif
+
+cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+              etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+
+              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
+     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
+
+              grad_p = matmul(gsuper,grad_p)
+
+              EE = E0 + perturb_E(i,j,k,igrid)
+
+              !ExB velocity
+              v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
+     .                      -etah*grad_p(1))/b2
+              v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
+     .                      -etah*grad_p(2))/b2
+              v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
+     .                      -etah*grad_p(3))/b2
             endif
-
-cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-
-            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-
-            gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                   +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
-
-            grad_p = matmul(gsuper,grad_p)
-
-            EE = E0 + perturb_E(i,j,k,igrid)
-
-            !ExB velocity
-            v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
-     .                    -etah*grad_p(1))/b2
-            v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
-     .                    -etah*grad_p(2))/b2
-            v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
-     .                    -etah*grad_p(3))/b2
-          endif
+          enddo
         enddo
-      enddo
+      else
+        do k=1,nz
+          do j=1,ny
+            bbcnv=0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
+     .                +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
+            bbcov=0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                       ,bcnv(i  ,j,k,:))
+     .                +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
+     .                       ,bcnv(i+1,j,k,:)))
+
+            b2 = dot_product(bbcnv,bbcov)
+
+            if (b2 > 0d0) then
+              if (PRESENT(dbcov)) then  !Linearize ExB flow BC
+                dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
+                bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+              endif
+
+cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+              etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+
+              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+
+              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
+     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
+
+              grad_p = matmul(gsuper,grad_p)
+
+              EE = E0 + perturb_E(i,j,k,igrid)
+
+              !ExB velocity
+              v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
+     .                      -etah*grad_p(1))/b2
+              v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
+     .                      -etah*grad_p(2))/b2
+              v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
+     .                      -etah*grad_p(3))/b2
+            endif
+          enddo
+        enddo
+      endif
 
 c     End program
 
