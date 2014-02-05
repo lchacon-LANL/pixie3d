@@ -899,7 +899,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsuper(3,3)
-     .          ,gsub(3,3),EE(3)
+     .          ,gsub(3,3),EE(3),jach
       logical :: fo=.false.
 
 c     Begin program
@@ -916,19 +916,21 @@ c     Begin program
       if (fo) then
         do k=1,nz
           do j=1,ny
+            jach = gmetric%grid(igrid)%jac(i,j,k)
+
             bbcnv = bcnv(i,j,k,:)
 
-cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
-            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
+c$$$            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+c$$$     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
             bbcov = matmul(gsub,bcnv(i,j,k,:))
 
-            b2 = dot_product(bbcnv,bbcov)
+            b2 = dot_product(bbcnv,bbcov)/jach
 
             if (b2 > 0d0) then
               if (PRESENT(dbcov)) then  !Linearize ExB flow BC
                 dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-                bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+                bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
               endif
 
 cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
@@ -936,8 +938,9 @@ cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
 
               grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
+              gsuper = gmetric%grid(igrid)%gsup(i,j,k,:,:)
+c$$$              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
+c$$$     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
 
               grad_p = matmul(gsuper,grad_p)
 
@@ -956,19 +959,23 @@ cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
       else
         do k=1,nz
           do j=1,ny
-            bbcnv=0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
-     .                +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
+            jach = 0.5*(gmetric%grid(igrid)%jac(i+1,j,k)
+     .                 +gmetric%grid(igrid)%jac(i  ,j,k))
+
+c$$$            bbcnv=0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
+c$$$     .                +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
+            bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
             bbcov=0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .                       ,bcnv(i  ,j,k,:))
      .                +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                       ,bcnv(i+1,j,k,:)))
 
-            b2 = dot_product(bbcnv,bbcov)
+            b2 = dot_product(bbcnv,bbcov)/jach
 
             if (b2 > 0d0) then
               if (PRESENT(dbcov)) then  !Linearize ExB flow BC
                 dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-                bbcov = dum - 2*dot_product(bbcnv,dum)/b2*bbcov
+                bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
               endif
 
 cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
@@ -1075,12 +1082,13 @@ cc              endif
           do j=1,ny
             bbcnv = bcnv(i,j,k,:)
 
-cc            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
-            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
+c$$$            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+c$$$     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
             bbcov = matmul(gsub,bcnv(i,j,k,:))
 
-            b2 = dot_product(bbcov,bbcnv)
+            b2 = dot_product(bbcov,bbcnv)/gmetric%grid(igrid)%jac(i,j,k)
+
             if (b2 > 0d0) then
 cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
               ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
@@ -1091,7 +1099,8 @@ cc              if (have_jparB) then
 cc                alpha = jpar_B(i,j,k)
 cc              else
                 EE = E0 + perturb_E(i,j,k,igrid)
-                alpha = dot_product(EE,bbcnv)*ietah/b2
+                alpha = dot_product(EE,bbcnv)
+     $                 /gmetric%grid(igrid)%jac(i,j,k)*ietah/b2
 cc              endif
 
               j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
