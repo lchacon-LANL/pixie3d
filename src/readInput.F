@@ -569,6 +569,14 @@ cc         maxitnwt = 10
       postprocess = .true.
 #endif
 
+#if defined(petsc)
+      if (npx*npy*npz > np) then
+         call pstop("readInput","Too many procs specified")
+      endif
+#else
+      npx = 1 ; nyp = 1 ; npz = 1
+#endif
+         
 c Map perturbations
 
       pert(IRHO)= prho
