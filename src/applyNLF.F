@@ -921,10 +921,10 @@ cc             .               ,bcnv,jcnv,.true.
 
               !Advection
               if (v_advect <= 2) then
-                cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
+                cnv= tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
      .                            ,v_advect)
               else
-                cnv = -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
+                cnv= -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
               endif
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
