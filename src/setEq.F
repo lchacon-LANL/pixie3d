@@ -3051,7 +3051,10 @@ c     ---------------------------------------------------------------
         use equilibrium
 
 ! Daniele, 11/10/2013
-        use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
+!        use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
+!     .                             ,res_spitzer,spitzer,a_p
+! Daniele, 02/07/2014
+        use nlfunction_setup, ONLY: res_rfx,eta,gamma,dfvty_rfx
      .                             ,res_spitzer,spitzer,a_p
 
         use grid
@@ -3070,6 +3073,8 @@ c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it,info
         real(8) :: bz_avg,x1,bzh,bth,err,rh,dh,p00,rhm,rhp
+! Daniele, 02/07/2014
+        real(8) :: chirh,chirhm,chirhp
 
         real(8) :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
@@ -3099,7 +3104,9 @@ c     Begin program
 
 ! Daniele, 11/10/2013
 !        alpha = 0d0 !No underrelaxation
-        alpha = 0.5d0 !underrelaxation constant
+!        alpha = 0.5d0 !underrelaxation constant
+! Daniele, 02/07/2014
+        alpha = 0.8d0 !underrelaxation constant
         etah0 = 1d0 ! needed if not spitzer
 
 ! Daniele, 1/8/2014; Luis 1/23/2014
@@ -3114,7 +3121,8 @@ c       Initialize iteration
           xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
           dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
 !          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
-          chih(i)=chi
+! Daniele, 02/07/2014
+          chih(i)=dfvty_rfx(xh(i))
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
@@ -3382,16 +3390,29 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           rhm = grid_params%xg(i-1)
           rhp = grid_params%xg(i+1)
 
+! Daniele, 02/07/2014
+          chirh=dfvty_rfx(rh)
+          chirhm=dfvty_rfx(rhm)
+          chirhp=dfvty_rfx(rhp)
+
 ! Daniele, 11/10/2013
-! da sistemare con chi variabile!!!
           dummy(i) =
      .          gamma/(gamma-1.)
      .           *(rhp*p0(i+1)*vr0(i+1)-rhm*p0(i-1)*vr0(i-1))/(2.*dr(i))
      .          -vr0(i)*rh*(p0(i+1)-p0(i-1))/(2.*dr(i))
-     .          -chi/eta*(0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
-     .                   +0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
+!     .          -chi/eta*(0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
+!     .                   +0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))/dr(i)
+! Daniele, 02/07/2014
+     .          -1./eta*
+     .          (0.5*(chirhp+chirh)
+     .          *0.5*(rhp+rh)*(p0(i+1)-p0(i  ))/(rhp-rh)
+     .          +0.5*(chirhm+chirh)
+     .          *0.5*(rhm+rh)*(p0(i  )-p0(i-1))/(rhm-rh))
+     .          /dr(i)
      .          -rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
         enddo
+! Daniele, 02/07/2014
+        dummy = dummy*eta
 
         if (my_rank == 0) then
           write(*,'(a,1pe14.7)') ' Energy equation error ='
