@@ -79,6 +79,7 @@ c ######################################################################
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
+     .            ,aa_chi,bb_chi ! Daniele, 02/07/2014
 
         logical :: lagrangian=.false.   !Whether we perform Lagrangian step for Te
      .            ,spitzer=.false.      !Whether we are using Spitzer resistivity
@@ -136,7 +137,7 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: f0=1d-2
+      real(8) :: f0=0d0 ! Daniele, 02/07/2014
 
 c     Begin program
 
@@ -6313,6 +6314,30 @@ c     End
 
       end function hres
 
+ ! Daniele, 02/07/2014
+c     dfvty_rfx
+c     #############################################################
+      function dfvty_rfx(rr) result(dfvty)
+c     -------------------------------------------------------------
+c     This function computes the heat diffusivity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: dfvty,rr
+
+c     Begin program
+
+      !Diffusivity profile 
+      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+
+c     End program
+
+      end function dfvty_rfx
+
 c     chi_perp_ijk
 c     #################################################################
       function chi_perp_ijk(i,j,k,igrid,field) result(dfvty)
@@ -6330,12 +6355,18 @@ c     Call variables
 
 c     Local variables
 
-cc      integer :: ig,jg,kg
-cc      real(8) :: rr  !Allows for changes in resistivity of f0^(-1.5)
+! Daniele, 02/07/2014
+      integer :: ig,jg,kg
+      real(8) :: rr
 
 c     Begin program
 
-      dfvty = chi
+!     dfvty = chi
+! Daniele, 02/07/2014
+      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+      rr = grid_params%xx(ig)
+
+      dfvty = dfvty_rfx(rr)
 
 c     End program
 
