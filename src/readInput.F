@@ -579,7 +579,7 @@ cc         maxitnwt = 10
          call pstop("readInput","Too many procs specified")
       endif
 #else
-      npx = 1 ; nyp = 1 ; npz = 1
+      npx = 1 ; npy = 1 ; npz = 1
 #endif
          
 c Map perturbations
