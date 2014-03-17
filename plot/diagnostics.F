@@ -26,7 +26,7 @@ c####################################################################
 
         implicit none
 
-        integer    :: ulineplot
+        integer :: ulineplot
         character*(20) :: lineplotfile
 
         character*(20) :: diag_desc(ngraph)
