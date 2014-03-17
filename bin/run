@@ -7,7 +7,7 @@ help()
 cat <<HELP
 Usage: 
 
-run [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
+pixie3d [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
         [-equ file] [-eig file] -- inputfile [options]
 
 where:
@@ -102,6 +102,9 @@ if [ "$tar" = "t" ]
 then
   count=.	
   dir=$inputfile.scratch
+  if [ -d "scratch" ]; then
+    dir="scratch/${dir}"
+  fi
   while [ -d "$dir" ]; do
     dir="${dir}${count}"
   done
