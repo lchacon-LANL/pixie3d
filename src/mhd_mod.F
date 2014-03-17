@@ -45,25 +45,6 @@ c ######################################################################
 
         real(8) :: noise_lev
 
-cc      contains
-cc
-ccc     setDepVarDims
-ccc     ################################################################
-cc      subroutine setDepVarDims
-cc
-cc      integer :: NDEPV, NDEPS !Should be eventually defined in variable module
-cc
-ccc     ----------------------------------------------------------------
-ccc     Define problem dimensions
-ccc     ----------------------------------------------------------------
-cc
-cc      NDEPV = 2   !Number of dependent var. vectors
-cc      NDEPS = 2   !Number of dependent var. scalars
-cc
-cc      neqd = 3*NDEPV + NDEPS
-cc
-cc      end subroutine setDepVarDims
-cc
       end module problem_def
 
 c module transport_params
@@ -190,7 +171,7 @@ c ######################################################################
      .                       ,IJCNV_0  =2
      .                       ,IJCOV    =3
      .                       ,IJCOV_0  =4
-     .                       ,IJCNV_N  =23
+     .                       ,IJCNV_N  =22
 
         integer, parameter :: IBCNV    =5
      .                       ,IBCNV_0  =6
@@ -201,26 +182,27 @@ c ######################################################################
      .                       ,IVCNV_N  =10
      .                       ,IVCNV_0  =11
      .                       ,IVCOV    =12
-     .                       ,IVCNV_NM =13
+cc     .                       ,IVCNV_NM =23
 
-        integer, parameter :: IVECNV   =14
-     .                       ,IVECOV   =15
-     .                       ,IVECOV_N =16
+        integer, parameter :: IVECNV   =13
+     .                       ,IVECOV   =14
+     .                       ,IVECOV_N =15
+cc     .                       ,IVECOV_NM=24
 
-        integer, parameter :: IVEFCNV  =17
+        integer, parameter :: IVEFCNV  =16
 
-        integer, parameter :: IENI     =18
-     .                       ,IENI_0   =19
-     .                       ,IEH      =20
+        integer, parameter :: IENI     =17
+     .                       ,IENI_0   =18
+     .                       ,IEH      =19
 
-        integer, parameter :: IDIVPI   =21
-     .                       ,IDIVPE   =22
+        integer, parameter :: IDIVPI   =20
+     .                       ,IDIVPE   =21
 #else
         integer, parameter :: IJCNV   =1
      .                       ,IJCNV_0 =2
      .                       ,IJCOV   =3
      .                       ,IJCOV_0 =4
-     .                       ,IJCNV_N =26
+     .                       ,IJCNV_N =25
 
         integer, parameter :: IBCNV   =5
      .                       ,IBCNV_0 =6
@@ -235,20 +217,21 @@ c ######################################################################
      .                       ,IVCNV_0 =13
      .                       ,IVCNV_N =14
      .                       ,IVCOV   =15
-     .                       ,IVCNV_NM=16
+cc     .                       ,IVCNV_NM=26
 
-        integer, parameter :: IVECNV  =17
-     .                       ,IVECOV  =18
-     .                       ,IVECOV_N=19
+        integer, parameter :: IVECNV   =16
+     .                       ,IVECOV   =17
+     .                       ,IVECOV_N =18
+cc     .                       ,IVECOV_NM=27
 
-        integer, parameter :: IVEFCNV =20
+        integer, parameter :: IVEFCNV =19
 
-        integer, parameter :: IENI    =21
-     .                       ,IEH     =22
-     .                       ,IENI_0  =23
+        integer, parameter :: IENI    =20
+     .                       ,IEH     =21
+     .                       ,IENI_0  =22
 
-        integer, parameter :: IDIVPI  =24
-     .                       ,IDIVPE  =25
+        integer, parameter :: IDIVPI  =23
+     .                       ,IDIVPE  =24
 #endif
 
         integer, parameter :: IETA=1
@@ -292,7 +275,7 @@ cc     .                                       ,bcnv_n
      .                                       ,vcnv_0
      .                                       ,vcnv_n
      .                                       ,vcov
-     .                                       ,vcnv_nm
+cc     .                                       ,vcnv_nm
      .                                       ,pcnv
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
@@ -311,6 +294,7 @@ cc     .                                       ,bcnv_n
 cc     .                                       ,vecnv_0
      .                                       ,vecov
      .                                       ,vecov_n
+cc     .                                       ,vecov_nm
      .                                       ,vscnv
      .                                       ,vefcnv
 
@@ -392,9 +376,9 @@ cc        vaux%vec_list(IVECNV_0)%descr = 'Ve_0 cnv'
 cc        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
 
         !Old-time variables
-        vaux%vec_list(IVCNV_NM)%cnv = .true.
-        vaux%vec_list(IVCNV_NM)%descr = 'V_nm cnv'
-        vcnv_nm => vaux%vec_list(IVCNV_NM)%vec
+cc        vaux%vec_list(IVCNV_NM)%cnv = .true.
+cc        vaux%vec_list(IVCNV_NM)%descr = 'V_nm cnv'
+cc        vcnv_nm => vaux%vec_list(IVCNV_NM)%vec
 
         vaux%vec_list(IVCNV_N)%cnv = .true.
         vaux%vec_list(IVCNV_N)%descr = 'V_n cnv'
@@ -403,6 +387,10 @@ cc        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
         vaux%vec_list(IVECOV_N)%cnv   = .false.
         vaux%vec_list(IVECOV_N)%descr = 'Ve_n cov'
         vecov_n => vaux%vec_list(IVECOV_N)%vec
+
+cc        vaux%vec_list(IVECOV_NM)%cnv   = .false.
+cc        vaux%vec_list(IVECOV_NM)%descr = 'Ve_nm cov'
+cc        vecov_nm => vaux%vec_list(IVECOV_NM)%vec
 
 cc        vaux%vec_list(IBCNV_N)%cnv   = .true.
 cc        vaux%vec_list(IBCNV_N)%descr = 'B_n cnv'
@@ -929,14 +917,26 @@ cc      vaux%vec_list(IJCOV_0)%time_0 = .true.
       vaux%vec_list(IJCNV_N)%bc_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
-      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
+cc      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
+      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV*AUX
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,3) = 0 !trivial
 
-      !V_n cov
-      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,1) = IVCNV*AUX
-      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,3) = 0 !trivial
+cc      !V_nm cnv
+cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,1) = IVCNV*AUX
+cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,2) = VECTOR
+cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,3) = 0 !trivial
+
+      !Ve_n cnv
+cc      vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV_NM*AUX
+      vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV*AUX
+      vaux%vec_list(IVECOV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVECOV_N)%bc_dep_list(1,3) = 0 !trivial
+
+      !Ve_nm cnv
+cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,1) = IVECOV*AUX
+cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,2) = VECTOR
+cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%bc_dep_list(1,1) = IETA_0*AUX
@@ -1418,14 +1418,26 @@ cc      vaux%vec_list(IJCOV_0)%time_0 = .true.
       vaux%vec_list(IJCNV_N)%dom_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
-      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
+cc      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
+      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV*AUX
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,3) = 0 !trivial
 
-      !V_n cov
-      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,1) = IVCNV*AUX
-      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,2) = VECTOR
-      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,3) = 0 !trivial
+cc      !V_nm cnv
+cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,1) = IVCNV*AUX
+cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,2) = VECTOR
+cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,3) = 0 !trivial
+
+      !Ve_n cnv
+cc      vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV_NM*AUX
+      vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV*AUX
+      vaux%vec_list(IVECOV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IVECOV_N)%dom_dep_list(1,3) = 0 !trivial
+
+cc      !Ve_nm cnv
+cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,1) = IVECOV*AUX
+cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,2) = VECTOR
+cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%dom_dep_list(1,1) = IETA_0*AUX
@@ -1711,13 +1723,17 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(5,3) = 0 !trivial
 
           if (de > 0d0) then
-            vaux%vec_list(IEH)%dom_dep_list(6,1) = IVECOV_N*AUX
+            vaux%vec_list(IEH)%dom_dep_list(6,1) = IVECOV*AUX
             vaux%vec_list(IEH)%dom_dep_list(6,2) = VECTOR
             vaux%vec_list(IEH)%dom_dep_list(6,3) = 0 !trivial
 
-            vaux%vec_list(IEH)%dom_dep_list(7,1) = IVECOV*AUX
+            vaux%vec_list(IEH)%dom_dep_list(7,1) = IVECOV_N*AUX
             vaux%vec_list(IEH)%dom_dep_list(7,2) = VECTOR
             vaux%vec_list(IEH)%dom_dep_list(7,3) = 0 !trivial
+
+cc            vaux%vec_list(IEH)%dom_dep_list(8,1) = IVECOV_NM*AUX
+cc            vaux%vec_list(IEH)%dom_dep_list(8,2) = VECTOR
+cc            vaux%vec_list(IEH)%dom_dep_list(8,3) = 0 !trivial
           endif
         endif
       endif
@@ -1779,7 +1795,7 @@ c     Begin program
      .       ,vcnv_0
      .       ,vcnv_n
      .       ,vcov
-     .       ,vcnv_nm
+cc     .       ,vcnv_nm
 #if defined(vec_pot)
      .       ,acnv
      .       ,acov
@@ -1788,6 +1804,7 @@ c     Begin program
      .       ,vecnv
      .       ,vecov
      .       ,vecov_n
+cc     .       ,vecov_nm
      .       ,vefcnv
      .       ,E_ni
      .       ,E_ni_0
@@ -5957,9 +5974,9 @@ c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d
 
         !Electron inertia term
         if (de > 0d0) then
-          E_h = E_h - de**2/di**2*(vecov-vecov_n)/alpha/dt
-cc          E_h = E_h - de**2/di**2*(cnp*vecov+cn*vecov_n+cnm*vecov_nm)
-cc     .                            /alpha/dt  !Not ready (vecov_nm not available)
+          E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
+cc          E_h = E_h
+cc     .        - de**2/di**2*(cnp*vecov+cn*vecov_n+cnm*vecov_nm)/alpha/dt
         endif
 
 c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -5969,7 +5986,8 @@ c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         if (save_tn.or.source_eval) then
           E_h = 0d0
         else
-          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in U_Av_ijk
+cc          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in U_Av_ijk
+          E_h = cnp*(vcnv-vcnv_n)/alpha/dt  !Change constant in U_Av_ijk; works for BDF
         endif
 
         !Stress
