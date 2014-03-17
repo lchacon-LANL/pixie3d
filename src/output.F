@@ -28,7 +28,7 @@ c Local variables
 
       integer       :: ngrd(3),nx,ny,nz
 
-      character(10) :: advective,vadvective,ts
+      character(10) :: advective,vadvective,tsmeth
 
       real(8)       :: vmax(3),lvmax(3)
 
@@ -99,22 +99,22 @@ cc            vadvective = '   TVD'
 
           if (cnfactor <= 5d-1) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
-              ts = ' Theta'
+              tsmeth = ' Theta'
             elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
-              ts = ' BDF1 (BE)'
+              tsmeth = ' BDF1 (BE)'
             elseif (sm_flag.eq.1) then
-              ts = ' Rannacher'
+              tsmeth = ' Rannacher'
             elseif (sm_flag.eq.2) then
-              ts = ' BDF2'
+              tsmeth = ' BDF2'
             endif
           elseif (cnfactor <= 1d0) then
-            ts = ' Explicit'
+            tsmeth = ' Explicit'
           else
             call pstop('output','cnfactor not within allowed limits')
           endif
 
           write (*,10)nxd,nyd,nzd,ngrd,pc_type,timecorr,source
-     .               ,numerical_grid,advective,vadvective,ts
+     .               ,numerical_grid,advective,vadvective,tsmeth
 
           write (*,*) 
           if (cnfactor > 5d-1) then
