@@ -510,7 +510,9 @@ cc          if (save_tn.and.(.not.ion_hall)) then
 cc            call XferBCs(vecov,vecov_n,.false.)
 cc          endif
 
-        case(IVCNV_NM)
+cc        case(IVECOV_NM)
+
+cc        case(IVCNV_NM)
 
 cc          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
 
@@ -941,17 +943,21 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
-        case(IVCNV_NM)
-
-          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
+cc        case(IVCNV_NM)
+cc
+cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
 
         case(IVCNV_N)
 
           if (save_tn.and.ion_hall) vcnv_n = vcnv
 
+cc        case(IVECOV_NM)
+cc
+cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
+
         case(IVECOV_N)
 
-          if (save_tn.and.ion_hall) vecov_n= vecov
+          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov
 
         case(IJCNV_N)
 
@@ -1046,7 +1052,8 @@ c       Fake current
               if (save_tn) then !Set dt=0 at time t=t_n
                 v0 = 0d0
               else
-                v0 =  cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm
+cc                v0 =  cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm
+                v0 =  cnp*(vcnv-vcnv_n)  !Works for BDF2
               endif
 
               !j=jn + dj_fake
@@ -1313,17 +1320,21 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
-        case(IVCNV_NM)
-
-          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
+cc        case(IVCNV_NM)
+cc
+cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
 
         case(IVCNV_N)
 
           if (save_tn.and.ion_hall) vcnv_n  = vcnv
 
+cc        case(IVECOV_NM)
+cc
+cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
+
         case(IVECOV_N)
 
-          if (save_tn.and.ion_hall) vecov_n= vecov
+          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov
 
         case(IJCNV_N)
 
