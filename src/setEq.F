@@ -595,6 +595,53 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
           enddo
         enddo
 
+      case ('khihk')
+
+c     Check coordinates
+
+        if (coords /= 'car') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (.not.solve_rho)then
+          messg = 'Wrong input for this equilibrium. '
+     .          //'Check solve_rho=T'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian coordinates
+
+        var(:,:,:,IRHO) = 1d0
+
+        beta = 0.3d0
+        var(:,:,:,ITMP) = 0.5*beta/a_p
+
+        do k = klo,khi
+          do j = jlo,jhi
+            do i = ilo,ihi
+              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                    ,x1,y1,z1)
+              var(i,j,k,IVY)=vperflow
+     .                      *tanh((x1-0.5d0*(xmax+xmin))/dlambda)
+            enddo
+          enddo
+        enddo
+
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        B0(1) = 0d0
+        B0(2) = 0.04998d0
+        B0(3) = 0.998d0
+
+#if !defined(vec_pot)
+        var(:,:,:,IBX)  = B0(1)
+        var(:,:,:,IBY)  = B0(2)
+        var(:,:,:,IBZ)  = B0(3)
+#else
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
+#endif
 c     ----------------------------------------------
 c     ---------------  TEARING MODE ----------------
 c     ----------------------------------------------
