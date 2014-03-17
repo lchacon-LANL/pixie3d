@@ -621,23 +621,23 @@ c Define graphics group #5: Perturbations
 
 c End program
 
-      end subroutine defineGraphicsGroups
+      contains
 
-c defineGraphicsIO
-c ##################################################################
+c     defineGraphicsIO
+c     ###############################################################
       subroutine defineGraphicsIO
 
-c--------------------------------------------------------------------
+c     ---------------------------------------------------------------
 c     Set graphics files
-c--------------------------------------------------------------------
+c     ---------------------------------------------------------------
 
       use graphics
 
       implicit none
 
-c Call variables
+c     Call variables
 
-c Local variables
+c     Local variables
 
       hdf5_fname   = 'pixie3d.h5'
       adios_fname  = 'pixie3d.bp'
@@ -695,3 +695,5 @@ c Local variables
       drawprof(5)  = 'drawpert-prof.in'
 
       end subroutine defineGraphicsIO
+
+      end subroutine defineGraphicsGroups
