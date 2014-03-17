@@ -5,6 +5,10 @@ PETSC_A_CODE = pixplot_a.petsc.x
 
 MODS := mhd_mod.F BC_mod.F
 
+EXCLUDE += %ts_if_mod.F %ts_base_mod.F %ts_mod.F %proj_int_mod.F
+
+override CPPFLAGS += -Dplotting
+
 # Subdirectories
 
 COMMONDIR = ../common
@@ -25,10 +29,6 @@ ifeq ($(MK),t)
 endif
 
 SUBDIRS += $(COMMONDIR)/3dplot
-
-EXCLUDE += %ts_base_mod.F %proj_int_mod.F %ts_mod.F
-
-override CPPFLAGS += -Dplotting
 
 # Set link files
 
