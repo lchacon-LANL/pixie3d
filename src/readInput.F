@@ -136,9 +136,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(11,23)  !8 scalars, 22 vectors
+      call setAuxVarDims(11,22)  !11 scalars, 23 vectors
 #else
-      call setAuxVarDims(11,26)  !8 scalars, 25 vectors
+      call setAuxVarDims(11,25)  !11 scalars, 26 vectors
 #endif
 
 c Set defaults
@@ -169,7 +169,7 @@ c Set defaults
                                !     (see applyBoundaryCondtions.F)
                                !   + 'per' = periodic
                                !   + 'spt' = singular point
-                               !   + 'sym' = symmetry 
+                               !   + 'fsm' = symmetry (at faces)
                                !     (homogeneous Neumann/Dirichlet
                                !      for even/odd quantities)
 
@@ -465,6 +465,8 @@ c Check legacy parameters
 
       if (pc_max_iter>0)  pc_iter = pc_max_iter
 
+      where (bcs == 'sym') bcs = 'fsm' !Face symmetric
+
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
       if (hrtmn.gt.0d0.and.prndtl.gt.0d0) then
@@ -599,32 +601,12 @@ c Map perturbations
 #endif
       pert(ITMP)= a_p*ptemp  !Transform to total pressure
 
-c Translate boundary conditions
+c Init boundary conditions
 
-      bcond = -1
+      ioerr = initBCS(bcs)
 
-      where (bcs == 'def')
-        bcond = DEF
-      elsewhere (bcs == 'per')
-        bcond = PER
-      elsewhere (bcs == 'spt')
-        bcond = SP
-      elsewhere (bcs == 'sym')
-        bcond = FSYM  !Symmetry at faces (for conservation)
-      elsewhere (bcs == 'equ')
-        bcond = EQU
-      end where
-
-      if (minval(bcond) < 0) then
-        loc = 1 - mod(minloc(bcond),2)
-        dim = 1+(minloc(bcond) - (1+loc))/2
-        write (*,*) 'Error in defining boundary conditions'
-        write (*,*) 'Undefined boundary condition in axis',dim,
-     .              ', location',loc
-        write (*,*) 'Aborting'
-        write (*,*) bcond
-        stop
-      endif
+      if (ioerr /= 0)
+     .     call pstop('readInput','Error in initialization of BCs')
 
 c Write initialization parameters to standard output
 
