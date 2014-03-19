@@ -949,7 +949,7 @@ cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
 
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) vcnv_n = vcnv
+          if (save_tn.and.ion_hall) vcnv_n = vcnv  !Initializes for BDF2 as well
 
 cc        case(IVECOV_NM)
 cc
@@ -957,11 +957,11 @@ cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov
+          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
-cc          if (save_tn.and.ion_hall) jcnv_n = jcnv
+cc          if (save_tn.and.ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
 cc        case(IBCNV_N)
 cc
@@ -1326,7 +1326,7 @@ cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
 
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) vcnv_n  = vcnv
+          if (save_tn.and.ion_hall) vcnv_n  = vcnv  !Initializes for BDF2 as well
 
 cc        case(IVECOV_NM)
 cc
@@ -1334,11 +1334,11 @@ cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov
+          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
-          if (save_tn.and.ion_hall) jcnv_n = jcnv
+          if (save_tn.and.ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
         case(IVCOV)
 
