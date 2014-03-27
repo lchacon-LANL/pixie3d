@@ -1878,18 +1878,6 @@ c     Read VMEC coordinates and fill grid hierarchy
 
         call vmec_map(.false.)
 
-c     Dump VMEC map on finest mesh (for plotting)
-
-        if (my_rank == 0) ierr=rm_files(map_file)
-
-#if defined(petsc)
-        call MPI_Barrier(MPI_COMM_WORLD,mpierr)
-#endif
-
-        call openPOSIXBinFile(u_mapf,map_file,'unknown')
-        call dumpVectorToFile(u_mapf,gmetric%grid(1)%car,.false.)
-        close(u_mapf)
-
 c     Read VMEC equilibrium
 
 #if !defined(vec_pot)
