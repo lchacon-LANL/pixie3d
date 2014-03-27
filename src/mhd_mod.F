@@ -10,8 +10,8 @@ c ######################################################################
 
         logical :: poincare=.false.,fourier=.false.,test=.false.
 
-        integer :: u_equf=1000,u_prtf=2000,u_mapf=3000
-        character(20) :: equ_file,prt_file,map_file
+        integer :: u_equf=1000,u_prtf=2000
+        character(30) :: equ_file,prt_file
 
       end module app_iosetup
 
@@ -4735,7 +4735,7 @@ cc        endif
         gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
      .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
+        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
 cc        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
 cc     .      .and. bcSP()
@@ -5179,7 +5179,7 @@ c     Begin program
         gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
      .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
 
-        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
+        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
         if (use_p_eom) then    !grad(p)
           ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
@@ -5369,7 +5369,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm
         real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,vish,visp,vis0
+        real(8)    :: jac,ijac,vish,visp!,vis0,jac0,jacp,ijac0,ijacp
 
 c     Begin program
 
@@ -5389,25 +5389,10 @@ c     Begin program
           return
         endif
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
-     .               +gmetric%grid(igx)%jac (i ,j,k))
+        jac = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
+     .            +gmetric%grid(igx)%jac (i ,j,k))
 
-        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
-     .      .and. bcSP()
-     .      .and. flag /= 0           ) then
-          jacp = gmetric%grid(igx)%jac(ip,j,k)
-          jac0 = gmetric%grid(igx)%jac(i ,j,k)
-        else
-          jacp = jac
-          jac0 = jac
-        endif
-
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-
-        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-
-        ijac0 = 1d0/jac0
-        ijacp = 1d0/jacp
+        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
 c     Diffusive part
 
@@ -5474,7 +5459,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm
         real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,ijac,vish,visp,vis0
+        real(8)    :: jac,ijac,vish,visp
 
 c     Begin program
 
@@ -5494,8 +5479,8 @@ c     Begin program
           return
         endif
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
-     .               +gmetric%grid(igx)%jac (i,j ,k))
+        jac = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
+     .            +gmetric%grid(igx)%jac (i,j ,k))
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -5564,7 +5549,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm
         real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
-        real(8)    :: jac,ijac,vish,visp,vis0
+        real(8)    :: jac,ijac,vish,visp
 
 c     Begin program
 
@@ -5584,8 +5569,8 @@ c     Begin program
           return
         endif
 
-        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
-     .               +gmetric%grid(igx)%jac (i,j,k ))
+        jac = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
+     .            +gmetric%grid(igx)%jac (i,j,k ))
 
         call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
