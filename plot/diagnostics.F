@@ -92,10 +92,6 @@ c Begin program
       ny = grid_params%nyv(igy)
       nz = grid_params%nzv(igz)
 
-c Check for external map
-
-      if (coords == 'ext') call read_ext_map
-
 c Create diagnostic communicator
 
       select case(trim(equil))
@@ -172,54 +168,6 @@ c Initialize diagnostic value references
       call evaluateDiagnostics(varray,iigx,iigy,iigz,initialize)
 
 c End 
-
-      contains
-
-c     read_ext_map
-c     ###############################################################
-      subroutine read_ext_map
-
-        implicit none
-
-        real(8),pointer,dimension(:,:,:,:) :: ext_map
-
-        integer,pointer,dimension(:) :: mumap
-
-        integer :: nxg,nyg,nzg
-
-c     Begin program
-
-        nxg = grid_params%nxgl(iigx)
-        nyg = grid_params%nygl(iigy)
-        nzg = grid_params%nzgl(iigz)
-
-        ierr = openFiles(my_rank,np,u_mapf,map_file,mumap)
-
-        if (ierr /= 0) then
-          call pstop('evaluateDiagnostics'
-     .              ,'Problem reading map files')
-        endif
-
-c     Fill GLOBAL map
-
-        allocate(ext_map(0:nxg+1,0:nyg+1,0:nzg+1,3))
-
-        do ifile=1,size(mumap)
-          ierr=readVectorFromFiles(mumap(ifile),ext_map,.false.)
-        enddo
-
-        call closeFiles(mumap)
-
-c     Fill LOCAL map and related metrics
-
-        call defineGridMetric(grid_params,igr=iigx
-     .           ,xcar=ext_map(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:))
-
-        deallocate(ext_map)
-
-        gmetric => grid_params%gmetric
-
-      end subroutine read_ext_map
 
       end subroutine initializeDiagnostics
 
