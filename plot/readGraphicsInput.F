@@ -69,8 +69,7 @@ c Graphics defaults
                      !  drawgamma.in --generated after postprocessing--
                      !  or diagnostics.F for information on available variables)
 
-      sel_graph = (/ (i,i=1,xdraw_cont_lim) /)  !(obsolete)
-                     !Selects graphics to be shown with XDRAW contour plotter.
+      sel_graph = 0  !Selects graphics to be shown with XDRAW contour plotter.
 
 c Read graphics initialization parameters
 
