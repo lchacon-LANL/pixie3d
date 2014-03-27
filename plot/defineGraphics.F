@@ -512,8 +512,11 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(neqd+10:ngraph)%descr = ''
 #endif
 
-cc      sel_gr(3,:) = sel_graph
-      sel_gr(3,:) = (/ (i,i=1,xdraw_cont_lim) /)
+      if (sum(sel_graph) == 0) then
+        sel_gr(3,:) = (/ (i,i=1,xdraw_cont_lim) /)
+      else
+        sel_gr(3,:) = sel_graph
+      endif
 
       prof_ivar(3,:) = 0        !All profiles have same (default) independent variable: x
       prof_log (3,:) = 0        !No log scales
