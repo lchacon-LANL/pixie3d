@@ -495,7 +495,7 @@ cc      if (di == 0d0) heta = 0d0
       if (nzd == 1) bcs(5:6) = 'per'
 
       !NC EOM for non-cartesian geometry
-      if (coords /= 'car') nc_eom_f = .true.
+cc      if (coords /= 'car') nc_eom_f = .true.
 
       !Non-conservative EOM
       if (nc_eom_f) then
