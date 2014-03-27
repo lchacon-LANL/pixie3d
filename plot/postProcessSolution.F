@@ -39,16 +39,16 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: igrid
+      integer :: igrid
 
       type(var_array),pointer :: varray
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz
-      real(8)    :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
-     .             ,cov(3),cnv(3)
-      logical    :: cartsn,covariant,to_cartsn,to_cnv
+      integer :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz,ierr
+      real(8) :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
+     .          ,cov(3),cnv(3)
+      logical :: cartsn,covariant,to_cartsn,to_cnv
 
 c Begin program
 
@@ -376,20 +376,34 @@ c Divergence diagnostics
       divrgB = div(igx,bcnv)
       divrgV = div(igx,vcnv)
 
-c Total pressure
+c Pressure
+
+      p_tot = rho*tmp
 
 #if defined(RFX)
 c RFX dump
 ! Daniele, 24/10/2013
-      p_tot = rho*tmp
+cc      p_tot = rho*tmp
       if (np == 1) then
         call rfx_dump_fields
       elseif (np > 1 .and. my_rank == 0) then
         write (*,*) 'RFX fields dump not available in parallel'
       endif
-#else
-      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
+cc#else
+cc      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
 #endif
+
+c Fields dump
+
+cc      if (itime == 0) then
+cc        write (*,*) 'Removing dump files...'
+cc        ierr=rm_files('*.txt')
+cc      else
+cc        call vector_dump('b-field',bx_car,by_car,bz_car)
+cc        call vector_dump('v-field',vx_car,vy_car,vz_car)
+cc        call vector_dump('j-field',jx_car,jy_car,jz_car)
+cc        call scalar_dump('rho-field',rho)
+cc      endif
 
 c End program
 
@@ -672,5 +686,129 @@ c     Close file
 c     End program
 
       end subroutine fourier_dump
+
+c     vector_dump
+c     ################################################################
+      subroutine vector_dump(qty,vx,vy,vz)
+
+c     ---------------------------------------------------------------
+c     Dumps vector components to an ascii file
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      character(*) :: qty
+      real(8) :: vx(0:nx+1,0:ny+1,0:nz+1)
+     .          ,vy(0:nx+1,0:ny+1,0:nz+1)
+     .          ,vz(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      character(30) :: file
+      integer :: uft=2345
+
+c     Begin program
+
+c     Open file
+
+cc      write (file,'(1pe9.3)') 0.01*int(time*100)
+cc      file = trim(qty)//'_t='//trim(file)//'.txt'
+      file = trim(qty)//'.txt'
+
+      if (.not.is_file(file)) then
+        open(unit=uft,file=trim(file),status='new')
+
+        write (*,*) 'Creating vector file ',file
+
+        write (uft,'(3i5)') nx,ny,nz
+      else
+        open(unit=uft,file=trim(file),status='old',position='append')
+      endif
+
+c     Dump arrays
+
+      write (*,*) 'Dumping vector data on ',file
+
+      write (uft,'(e12.3)') time
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            write(uft,'(3i5,3e12.3)')i,j,k,vx(i,j,k),vy(i,j,k),vz(i,j,k)
+          enddo
+        enddo
+      enddo
+
+      write (uft,*)
+
+c     Close file
+
+      close(uft)
+
+c     End program
+
+      end subroutine vector_dump
+
+c     scalar_dump
+c     ################################################################
+      subroutine scalar_dump(qty,scl)
+
+c     ---------------------------------------------------------------
+c     Dumps scalar to an ascii file
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      character(*) :: qty
+      real(8) :: scl(0:nx+1,0:ny+1,0:nz+1)
+
+c     Local variables
+
+      character(30) :: file
+      integer :: uft=2345
+
+c     Begin program
+
+c     Open file
+
+cc      write (file,'(1pe9.3)') 0.01*int(time*100)
+cc      file = trim(qty)//'_t='//trim(file)//'.txt'
+      file = trim(qty)//'.txt'
+
+      if (.not.is_file(file)) then
+        open(unit=uft,file=trim(file),status='new')
+
+        write (*,*) 'Creating scalar file ',file
+
+        write (uft,'(3i5)') nx,ny,nz
+      else
+        open(unit=uft,file=trim(file),status='old',position='append')
+      endif
+
+c     Dump arrays
+
+      write (*,*) 'Dumping scalar data on ',file
+
+      write (uft,'(e12.3)') time
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            write (uft,'(3i5,e12.3)') i,j,k,scl(i,j,k)
+          enddo
+        enddo
+      enddo
+
+      write (uft,*)
+
+c     Close file
+
+      close(uft)
+
+c     End program
+
+      end subroutine scalar_dump
 
       end subroutine postProcessSolution
