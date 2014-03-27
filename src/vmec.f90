@@ -1578,9 +1578,9 @@
         subroutine half_to_int(igl,jgl,kgl,vmec_arr,local_val,order)
 
 !       ---------------------------------------------------------------------------
-!       Averages quantities from VMEC's full mesh (which is PIXIE's half mesh)
-!       to PIXIE's collocated mesh. At ghost cells, it extrapolates using a 
-!       first-order formula.
+!       Averages quantities from VMEC's full radial mesh (which is
+!       PIXIE's half radial mesh) to PIXIE's collocated mesh. At ghost
+!       cells, it extrapolates using a first-order formula.
 !       ---------------------------------------------------------------------------
 
           use oned_int
@@ -1659,7 +1659,7 @@
 
       integer :: igrid,nx,ny,nz,alloc_stat,icomp
       integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
-      real(8) :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1)
+      real(8) :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1),ph0
 
       real(8),allocatable,dimension(:,:,:,:) :: xcar
 
@@ -1730,17 +1730,17 @@
 
         ds = 1d0/nxg
         do ig = 1,nxs
-           xs(ig) = ds*(ig-1)
+          xs(ig) = ds*(ig-1)
         enddo
 
         dth = 2*pi/nyg
         do jg = 1,nys
-           ys(jg) = dth*(jg-1)
+          ys(jg) = dth*(jg-1)
         enddo
 
         dphi = 2*pi/nzg/nfp_i  !VMEC stores 1 of NFP periods in phi, ie., v=2*pi/nfp
         do kg = 1,nzs
-           zs(kg) = dphi*(kg-2)
+          zs(kg) = dphi*(kg-2)
         enddo
 
         !Spline RR, ZZ
@@ -1750,6 +1750,9 @@
         call db3ink(xs,nxs,ys,nys,zs,nzs,zz,nxs,nys,kx,ky,kz,tx,ty,tz,zz_coef,work,flg)
 
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
+
+!!$        ph0 = grid_params%zg(1)  !Reference phi=0 plane at phi(k=1)
+        ph0 = 0
 
         do k=0,nz+1
           do j=0,ny+1
@@ -1814,7 +1817,7 @@
               endif
 
               !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
-              ph1 =-grid_params%zz(kg)
+              ph1 =-grid_params%zz(kg) + ph0
               xcar(i,j,k,1)=rr1(1)*cos(ph1)
               xcar(i,j,k,2)=rr1(1)*sin(ph1)
               xcar(i,j,k,3)=sgn*zz1(1)
@@ -1825,6 +1828,8 @@
 !     Fill grid metrics hierarchy
 
         call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+
+        if (check_grid.and.igrid==1) call checkGrid(grid_params)
 
 !     Free work space (to allow processing of different grid levels)
 
@@ -2308,7 +2313,7 @@
         !Radial half-mesh (PIXIE3D's full mesh)
         ds = 1d0/nxg
         do ig = 1,nxs
-!!$           xs(ig) = ds*(ig-1)
+!!           xs(ig) = ds*(ig-1)
            xs(ig) = ds*(ig-1.5)
         enddo
 
