@@ -566,8 +566,7 @@ c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
-     .                     ,first_order=.true.)
+            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -586,8 +585,7 @@ c       Current BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
-     .                     ,first_order=.true.)
+            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -628,8 +626,7 @@ cc            else
               !BCs on j=curl(curl(A))
               if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
                 prs1 = rho*tmp
-                call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0
-     .                         ,first_order=.true.)
+                call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
               else
                 call XferBCs(jcnv_0,v0,.true.)
               endif
@@ -793,7 +790,11 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          rho = varray%array_var(IRHO)%array/jac
+          if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+            rho = varray%array_var(ITMP)%array/(tmp_0*jac)
+          else
+            rho = varray%array_var(IRHO)%array/jac
+          endif
 
         case(ITMP_AUX)
 
@@ -1215,9 +1216,9 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic) then
+          if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
             where (tmp_0 /= 0d0)
-              rho = rho_0*(tmp/tmp_0)**(1./gamma)
+              rho = rho_0*(tmp/tmp_0)**(1./(gamma-1.))
             end where
           endif
 
@@ -1225,7 +1226,11 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)
 
-          varray%array_var(ITMP)%array = rho*tmp*jac
+          if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
+            varray%array_var(ITMP)%array = rho*tmp_0*jac
+          else
+            varray%array_var(ITMP)%array = rho*tmp*jac
+          endif
 
         case(ITMPE_AUX)
 
@@ -1517,8 +1522,8 @@ c     Begin program
 
         call extrapolateBC(array (:,:,:,ivar)
      .                    ,array0(:,:,:,ivar)
-cc     .                    ,dim,loc,order)
-     .                    ,dim,loc,1)  !Required for mass conservation
+     .                    ,dim,loc,order)
+cc     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IBX,IBY,IBZ,IJX,IJY,IJZ)
 
