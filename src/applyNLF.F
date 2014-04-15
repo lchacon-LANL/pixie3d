@@ -162,7 +162,7 @@ c     Advection
       advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
      .                             ,vscnv,prs,advect)
      .        +(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                             ,vscnv,prs,1,reverse=.true.)
+     .                             ,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
 
 c     Heat flux
 
