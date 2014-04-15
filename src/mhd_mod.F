@@ -508,23 +508,6 @@ c     Setup variable dependencies in inner domain
 
         call defineAuxDomainDeps(vaux)
 
-ccc     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
-cc
-cc        nx = size(tmp_0,1)-2
-cc        ny = size(tmp_0,2)-2
-cc        nz = size(tmp_0,3)-2
-cc
-cc        if (.not.associated(pcnv)) then
-cc          allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .            ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .            ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .            ,prs  (0:nx+1,0:ny+1,0:nz+1))
-cc          pcnv = 0d0
-cc          vscnv= 0d0
-cc          bhat = 0d0
-cc          prs  = 0d0
-cc        endif
-
 c     End program
 
       end subroutine defineAuxVariables
@@ -596,6 +579,9 @@ cc        nz = size(tmp_0,3)-2
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
 
+      !Pressure
+      prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
+
       !Temperature transport velocity, v_star = v - di*j/rho/a_p
       if (slava) then
         vscnv = vcnv            !Also to recover old TM Hall performance results
@@ -604,9 +590,6 @@ cc        nz = size(tmp_0,3)-2
         vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
         vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
       endif
-
-      !Pressure
-      prs = varray%array_var(ITMP)%array/gmetric%grid(igr)%jac
 
 cc      !Electron temperature
 cc      tmpe = prs/rho/a_p
@@ -1462,17 +1445,27 @@ c     Current variables
 
       !Rho
       if ((.not.solve_rho).and.adiabatic) then
-        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
-        vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
+        if (gamma > 1d0) then
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-        vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP_0*AUX
-        vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP_0*AUX
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
 
-        vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP_AUX*AUX
-        vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
-        vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
+          vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP_AUX*AUX
+          vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
+          vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
+        else
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = ITMP_0*AUX
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
+          vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
+
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
+          vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
+        endif
       else
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_AUX*AUX
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
@@ -4393,290 +4386,6 @@ c     End program
 
       end function EOM_jxb
 
-ccc     EOM_jxb_x
-ccc     #############################################################
-cc      subroutine EOM_jxb_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t11,t12,t13,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t11-t13 for jxb force term in EOM.
-ccc     In the call sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t11,t12,t13: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-ccc     head.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t11,t12,t13
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,ip
-cc        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
-cc        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag
-cc
-ccc     Begin program
-cc
-cc        ip = i+1
-cc        if (flag == 0) ip = i
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
-cc     .               +gmetric%grid(igx)%jac (i ,j,k))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(ip,j,k,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i ,j,k,:,:))
-cc
-cc        if (isSP(i+1,j,k,igx,igy,igz)) jac = SP_flsv
-cc
-cc        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
-cc     .      .and. bcSP()
-cc     .      .and. flag /= 0           ) then
-cc          jacp = gmetric%grid(igx)%jac(ip,j,k)
-cc          jac0 = gmetric%grid(igx)%jac(i ,j,k)
-cc        else
-cc          jacp = jac
-cc          jac0 = jac
-cc        endif
-cc
-cc        ijac0 = 1d0/jac0
-cc        ijacp = 1d0/jacp
-cc
-cc        cnv0 = vec1(i,j,k,:)
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                              ,cov0(1),cov0(2),cov0(3)
-cc     .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-cc        cnvp = vec2(ip,j,k,:)
-cc        call transformFromCurvToCurv(ip,j,k,igx,igy,igz
-cc     .                              ,covp(1),covp(2),covp(3)
-cc     .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
-cc
-cc        pmag = jac*(cnvp(1)*cov0(1)*ijacp
-cc     .             +cnv0(1)*covp(1)*ijac0
-cc     .             +cnvp(2)*cov0(2)*ijac0
-cc     .             +cnv0(2)*covp(2)*ijacp
-cc     .             +cnvp(3)*cov0(3)*ijacp
-cc     .             +cnv0(3)*covp(3)*ijac0)*0.25
-cc
-cc        t11 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
-cc     .              +vec1(ip,j,k,1)*vec2(i ,j,k,1))*ijacp*ijac0*jac**2
-cc     .        +gsuper(1,1)*pmag
-cc
-cc        t12 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijacp
-cc     .              +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijac0 )*jac
-cc     .        +gsuper(1,2)*pmag
-cc
-cc        t13 = -0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
-cc     .              +vec1(i ,j,k,1)*vec2(ip,j,k,3))*ijacp*ijac0*jac**2
-cc     .        +gsuper(1,3)*pmag
-cc
-cc        if (flag /= 0) then
-cc          ijac = 1d0/jac
-cc
-cc          t11 = t11*ijac
-cc          if (.not.alt_eom) t12 = t12*ijac
-cc          t13 = t13*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine EOM_jxb_x
-cc
-ccc     EOM_jxb_y
-ccc     #############################################################
-cc      subroutine EOM_jxb_y(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t21,t22,t23,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t21-t23 for jxb force term in EOM.
-ccc     In the call sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t21,t22,t23: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-ccc     head.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t21,t22,t23
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,jp
-cc        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
-cc        real(8)    :: jac,ijac,pmag
-cc
-ccc     Begin program
-cc
-cc
-cccc        if (flag == 0) then
-cccc          jp = j
-cccc          jac    = gmetric%grid(igx)%jac (i,j ,k)
-cccc          gsuper = gmetric%grid(igx)%gsup(i,j ,k,:,:)
-cccc
-cccc          cnv0 = vec1(i,j,k,:)
-cccc          cov0 = matmul(gmetric%grid(igx)%gsup(i,j,k,:,:)
-cccc     .                 ,vec1(i,j,k,:))
-cccc        else
-cccc          jp = j+1
-cccc          jac    = 0.25*(gmetric%grid(igx)%jac_v(i-1,j,k-1)
-cccc     .                  +gmetric%grid(igx)%jac_v(i-1,j,k  )
-cccc     .                  +gmetric%grid(igx)%jac_v(i  ,j,k-1)
-cccc     .                  +gmetric%grid(igx)%jac_v(i  ,j,k  ))
-cccc          gsuper = 0.25*(gmetric%grid(igx)%gsup_v(i-1,j,k-1,:,:)
-cccc     .                  +gmetric%grid(igx)%gsup_v(i-1,j,k  ,:,:)
-cccc     .                  +gmetric%grid(igx)%gsup_v(i  ,j,k-1,:,:)
-cccc     .                  +gmetric%grid(igx)%gsup_v(i  ,j,k  ,:,:))
-cccc        endif
-cc        jp = j+1
-cc        if (flag == 0) jp = j
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (i,jp,k)
-cc     .               +gmetric%grid(igx)%jac (i,j ,k))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,jp,k,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i,j ,k,:,:))
-cc
-cc        cnv0 = vec1(i,j,k,:)
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                              ,cov0(1),cov0(2),cov0(3)
-cc     .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-cc        cnvp = vec2(i,jp,k,:)
-cc        call transformFromCurvToCurv(i,jp,k,igx,igy,igz
-cc     .                              ,covp(1),covp(2),covp(3)
-cc     .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
-cc
-cc        pmag = (cnvp(1)*cov0(1)
-cc     .         +cnv0(1)*covp(1)
-cc     .         +cnvp(2)*cov0(2)
-cc     .         +cnv0(2)*covp(2)
-cc     .         +cnvp(3)*cov0(3)
-cc     .         +cnv0(3)*covp(3))*0.25
-cc
-cc        t21 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,1) )
-cc     .        +gsuper(2,1)*pmag
-cc
-cc        t22 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,2) )
-cc     .        +gsuper(2,2)*pmag
-cc
-cc        t23 = -0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
-cc     .              +vec1(i,j ,k,2)*vec2(i,jp,k,3) )
-cc     .        +gsuper(2,3)*pmag
-cc
-cc        if (flag /= 0) then
-cc          ijac = 1d0/jac
-cc
-cc          t21 = t21*ijac
-cc          if (.not.alt_eom) t22 = t22*ijac
-cc          t23 = t23*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine EOM_jxb_y
-cc
-ccc     EOM_jxb_z
-ccc     #############################################################
-cc      subroutine EOM_jxb_z(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
-cc     .                    ,t31,t32,t33,flag)
-ccc     -------------------------------------------------------------
-ccc     Calculates tensor components t31-t33 for jxb force term in EOM.
-ccc     In the call sequence:
-ccc       * i,j,k: grid position
-ccc       * nx,ny,nz: grid size
-ccc       * igx,igy,igz: grid level (for MG evaluations)
-ccc       * alt_eom: whether to use alternate EOM in singular coord.
-ccc                  systems or not.
-ccc       * t31,t32,t33: tensor components.
-ccc       * flag: whether evaluation is a cell center i,j,k (flag=0)
-ccc               or at cell face i+1/2,j,k (flag /= 0)
-ccc     This routine has (rho,vx,vy,vz,bx,by,bz,tmp) passed via module
-ccc     head.
-ccc     -------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,flag,igx,igy,igz,nx,ny,nz
-cc        real(8)    :: t31,t32,t33
-cc        logical    :: alt_eom
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg,kp
-cc        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
-cc        real(8)    :: jac,ijac,pmag
-cc
-ccc     Begin program
-cc
-cc        kp = k+1
-cc        if (flag == 0) kp = k
-cc
-cc        jac    = 0.5*(gmetric%grid(igx)%jac (i,j,kp)
-cc     .               +gmetric%grid(igx)%jac (i,j,k ))
-cc        gsuper = 0.5*(gmetric%grid(igx)%gsup(i,j,kp,:,:)
-cc     .               +gmetric%grid(igx)%gsup(i,j,k ,:,:))
-cc
-cc        cnv0 = vec1(i,j,k,:)
-cc        call transformFromCurvToCurv(i,j,k,igx,igy,igz
-cc     .                              ,cov0(1),cov0(2),cov0(3)
-cc     .                              ,cnv0(1),cnv0(2),cnv0(3),.false.)
-cc        cnvp = vec2(i,j,kp,:)
-cc        call transformFromCurvToCurv(i,j,kp,igx,igy,igz
-cc     .                              ,covp(1),covp(2),covp(3)
-cc     .                              ,cnvp(1),cnvp(2),cnvp(3),.false.)
-cc
-cc        pmag = (cnvp(1)*cov0(1)
-cc     .         +cnv0(1)*covp(1)
-cc     .         +cnvp(2)*cov0(2)
-cc     .         +cnv0(2)*covp(2)
-cc     .         +cnvp(3)*cov0(3)
-cc     .         +cnv0(3)*covp(3))*0.25
-cc
-cc        t31 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,1) )
-cc     .        +gsuper(3,1)*pmag
-cc
-cc        t32 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,2) )
-cc     .        +gsuper(3,2)*pmag
-cc
-cc        t33 = -0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
-cc     .              +vec1(i,j,k ,3)*vec2(i,j,kp,3) )
-cc     .        +gsuper(3,3)*pmag
-cc
-cc        if (flag /= 0) then
-cc          ijac = 1d0/jac
-cc
-cc          t31 = t31*ijac
-cc          if (.not.alt_eom) t32 = t32*ijac
-cc          t33 = t33*ijac
-cc        endif
-cc
-ccc     End program
-cc
-cc      end subroutine EOM_jxb_z
-
 c     EOM_jxb_x
 c     #############################################################
       subroutine EOM_jxb_x(i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
@@ -4711,22 +4420,6 @@ c     Local variables
 
 c     Begin program
 
-cc        if (flag == 0) then
-cc          ip = i
-cc          jac    = gmetric%grid(igx)%jac (i,j ,k)
-cc          gsuper = gmetric%grid(igx)%gsup(i,j ,k,:,:)
-cc        else
-cc          ip = i+1
-cc          jac    = 0.25*(gmetric%grid(igx)%jac_v (i,j-1,k-1)
-cc     .                  +gmetric%grid(igx)%jac_v (i,j-1,k  )
-cc     .                  +gmetric%grid(igx)%jac_v (i,j  ,k-1)
-cc     .                  +gmetric%grid(igx)%jac_v (i,j  ,k  ))
-cc          gsuper = 0.25*(gmetric%grid(igx)%gsup_v(i,j-1,k-1,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i,j-1,k  ,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i,j  ,k-1,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i,j  ,k  ,:,:))
-cc        endif
-
         ip = i+1
         if (flag == 0) ip = i
 
@@ -4752,32 +4445,6 @@ cc     .      .and. flag /= 0           ) then
         ijacp = 1d0/jacp
 
         coeff = ijacp*ijac0*jac**2
-
-cc        cnv0 = vec1(i,j,k,:)
-cc        cov0 = matmul(gmetric%grid(igx)%gsub(i ,j,k,:,:),cnv0)
-cc
-cc        cnvp = vec2(ip,j,k,:)
-cc        covp = matmul(gmetric%grid(igx)%gsub(ip,j,k,:,:),cnvp)
-cc
-cc        pmag = jac*(cnvp(1)*cov0(1)*ijacp
-cc     .             +cnv0(1)*covp(1)*ijac0
-cc     .             +cnvp(2)*cov0(2)*ijac0
-cc     .             +cnv0(2)*covp(2)*ijacp
-cc     .             +cnvp(3)*cov0(3)*ijacp
-cc     .             +cnv0(3)*covp(3)*ijac0)*0.25
-cc        pmag = (cnvp(1)*cov0(1)
-cc     .         +cnv0(1)*covp(1)
-cc     .         +cnvp(2)*cov0(2)
-cc     .         +cnv0(2)*covp(2)
-cc     .         +cnvp(3)*cov0(3)
-cc     .         +cnv0(3)*covp(3))*0.25*sqrt(coeff)
-cc        pmag = 0d0
-cc        pmag = (cnvp(1)*covp(1)
-cc     .         +cnv0(1)*cov0(1)
-cc     .         +cnvp(2)*covp(2)
-cc     .         +cnv0(2)*cov0(2)
-cc     .         +cnvp(3)*covp(3)
-cc     .         +cnv0(3)*cov0(3))*0.25
 
         car0 = XformToCar(i ,j,k,igx,vec1(i ,j,k,:),.false.)
         carp = XformToCar(ip,j,k,igx,vec2(ip,j,k,:),.false.)
@@ -4846,21 +4513,6 @@ c     Local variables
 
 c     Begin program
 
-cc        if (flag == 0) then
-cc          jp = j
-cc          jac    = gmetric%grid(igx)%jac (i,j ,k)
-cc          gsuper = gmetric%grid(igx)%gsup(i,j ,k,:,:)
-cc        else
-cc          jp = j+1
-cc          jac    = 0.25*(gmetric%grid(igx)%jac_v (i-1,j,k-1)
-cc     .                  +gmetric%grid(igx)%jac_v (i-1,j,k  )
-cc     .                  +gmetric%grid(igx)%jac_v (i  ,j,k-1)
-cc     .                  +gmetric%grid(igx)%jac_v (i  ,j,k  ))
-cc          gsuper = 0.25*(gmetric%grid(igx)%gsup_v(i-1,j,k-1,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i-1,j,k  ,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i  ,j,k-1,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i  ,j,k  ,:,:))
-cc        endif
         jp = j+1
         if (flag == 0) jp = j
 
@@ -4881,19 +4533,6 @@ cc        endif
         ijacp = 1d0/jacp
 
         coeff = ijacp*ijac0*jac**2
-
-cc        cnv0 = vec1(i,j,k,:)
-cc        cov0 = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:),cnv0)
-cc
-cc        cnvp = vec2(i,jp,k,:)
-cc        covp = matmul(gmetric%grid(igx)%gsub(i,jp,k,:,:),cnvp)
-cc
-cc        pmag = (cnvp(1)*cov0(1)
-cc     .         +cnv0(1)*covp(1)
-cc     .         +cnvp(2)*cov0(2)
-cc     .         +cnv0(2)*covp(2)
-cc     .         +cnvp(3)*cov0(3)
-cc     .         +cnv0(3)*covp(3))*0.25
 
         car0 = XformToCar(i,j ,k,igx,vec1(i,j ,k,:),.false.)
         carp = XformToCar(i,jp,k,igx,vec2(i,jp,k,:),.false.)
@@ -4962,21 +4601,6 @@ c     Local variables
 
 c     Begin program
 
-cc        if (flag == 0) then
-cc          kp = k
-cc          jac    = gmetric%grid(igx)%jac (i,j ,k)
-cc          gsuper = gmetric%grid(igx)%gsup(i,j ,k,:,:)
-cc        else
-cc          kp = k+1
-cc          jac    = 0.25*(gmetric%grid(igx)%jac_v (i-1,j-1,k)
-cc     .                  +gmetric%grid(igx)%jac_v (i-1,j  ,k)
-cc     .                  +gmetric%grid(igx)%jac_v (i  ,j-1,k)
-cc     .                  +gmetric%grid(igx)%jac_v (i  ,j  ,k))
-cc          gsuper = 0.25*(gmetric%grid(igx)%gsup_v(i-1,j-1,k,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i-1,j  ,k,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i  ,j-1,k,:,:)
-cc     .                  +gmetric%grid(igx)%gsup_v(i  ,j  ,k,:,:))
-cc        endif
         kp = k+1
         if (flag == 0) kp = k
 
@@ -4997,19 +4621,6 @@ cc        endif
         ijacp = 1d0/jacp
 
         coeff = ijacp*ijac0*jac**2
-
-cc        cnv0 = vec1(i,j,k,:)
-cc        cov0 = matmul(gmetric%grid(igx)%gsub(i,j,k,:,:),cnv0)
-cc
-cc        cnvp = vec2(i,j,kp,:)
-cc        covp = matmul(gmetric%grid(igx)%gsub(i,j,kp,:,:),cnvp)
-cc
-cc        pmag = (cnvp(1)*cov0(1)
-cc     .         +cnv0(1)*covp(1)
-cc     .         +cnvp(2)*cov0(2)
-cc     .         +cnv0(2)*covp(2)
-cc     .         +cnvp(3)*cov0(3)
-cc     .         +cnv0(3)*covp(3))*0.25
 
         car0 = XformToCar(i,j,k ,igx,vec1(i,j,k ,:),.false.)
         carp = XformToCar(i,j,kp,igx,vec2(i,j,kp,:),.false.)
@@ -5093,22 +4704,23 @@ c     Begin program
           dzz = 2*grid_params%dzh(kg)
 
           if (use_p_eom) then  !grad(p)
+            !Default second-order formulas
             cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
             cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
             cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
 
-cc            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
-cc     .                    *(tt(i,j,k)+tt(ip,j,k))
-cc     .                -0.5*(rr(i,j,k)+rr(im,j,k))
-cc     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
-cc            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
-cc     .                    *(tt(i,j,k)+tt(i,jp,k))
-cc     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
-cc     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
-cc            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
-cc     .                    *(tt(i,j,k)+tt(i,j,kp))
-cc     .                -0.5*(rr(i,j,k)+rr(i,j,km))
-cc     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
+c$$$            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
+c$$$     .                    *(tt(i,j,k)+tt(ip,j,k))
+c$$$     .                -0.5*(rr(i,j,k)+rr(im,j,k))
+c$$$     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
+c$$$            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
+c$$$     .                    *(tt(i,j,k)+tt(i,jp,k))
+c$$$     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
+c$$$     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
+c$$$            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
+c$$$     .                    *(tt(i,j,k)+tt(i,j,kp))
+c$$$     .                -0.5*(rr(i,j,k)+rr(i,j,km))
+c$$$     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
 
           else                 !grad(nT) with ZIP
             cov(1) = (rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))
