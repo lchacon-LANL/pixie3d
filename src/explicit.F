@@ -251,10 +251,6 @@ c Compare with input time step
 
       dt_exp = min(dt_exp,dtbase)
 
-c Accumulate explicit time step for average computation
-
-      dtexp = dtexp + dt_exp
-
 c End program
 
       contains
