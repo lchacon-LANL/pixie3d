@@ -606,6 +606,7 @@ c     Exceptions for specific equilibria
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
+cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -618,6 +619,7 @@ cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
 
+cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -897,10 +899,10 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg
-      real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsuper(3,3)
-     .          ,gsub(3,3),EE(3),jach
-      logical :: fo=.false.
+      integer :: i,j,k
+
+      real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
+     .          ,gsub(3,3),jach
 
 c     Begin program
 
@@ -913,94 +915,44 @@ c     Begin program
 
       i = nx
 
-      if (fo) then
-        do k=1,nz
-          do j=1,ny
-            jach = gmetric%grid(igrid)%jac(i,j,k)
+      do k=1,nz
+        do j=1,ny
+          jach = 0.5*(gmetric%grid(igrid)%jac(i+1,j,k)
+     .               +gmetric%grid(igrid)%jac(i  ,j,k))
 
-            bbcnv = bcnv(i,j,k,:)
+          bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
+          bbcov=0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .                     ,bcnv(i  ,j,k,:))
+     .              +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
+     .                     ,bcnv(i+1,j,k,:)))
 
-            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
-c$$$            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-c$$$     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
-            bbcov = matmul(gsub,bcnv(i,j,k,:))
+          b2 = dot_product(bbcnv,bbcov)/jach
 
-            b2 = dot_product(bbcnv,bbcov)/jach
-
-            if (b2 > 0d0) then
-              if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-                dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-                bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
-              endif
-
-cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-              etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-
-              gsuper = gmetric%grid(igrid)%gsup(i,j,k,:,:)
-c$$$              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-c$$$     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
-
-              grad_p = matmul(gsuper,grad_p)
-
-              EE = E0 + perturb_E(i,j,k,igrid)
-
-              !ExB velocity
-              v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
-     .                      -etah*grad_p(1))/b2
-              v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
-     .                      -etah*grad_p(2))/b2
-              v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
-     .                      -etah*grad_p(3))/b2
+          if (b2 > 0d0) then
+            if (PRESENT(dbcov)) then  !Linearize ExB flow BC
+              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
+              bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
             endif
-          enddo
+
+            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+
+            gsup = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
+     .                 +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
+
+            grad_p = matmul(gsup,grad_p)
+
+            etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+
+            !ExB velocity
+            v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
+     .                    -etah*grad_p(1))/b2
+            v0(i+1,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
+     .                    -etah*grad_p(2))/b2
+            v0(i+1,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
+     .                    -etah*grad_p(3))/b2
+          endif
         enddo
-      else
-        do k=1,nz
-          do j=1,ny
-            jach = 0.5*(gmetric%grid(igrid)%jac(i+1,j,k)
-     .                 +gmetric%grid(igrid)%jac(i  ,j,k))
-
-c$$$            bbcnv=0.5*(bcnv(i+1,j,k,:)/gmetric%grid(igrid)%jac(i+1,j,k)
-c$$$     .                +bcnv(i  ,j,k,:)/gmetric%grid(igrid)%jac(i  ,j,k))
-            bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
-            bbcov=0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                       ,bcnv(i  ,j,k,:))
-     .                +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
-     .                       ,bcnv(i+1,j,k,:)))
-
-            b2 = dot_product(bbcnv,bbcov)/jach
-
-            if (b2 > 0d0) then
-              if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-                dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-                bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
-              endif
-
-cc              etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
-              etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-
-              gsuper = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                     +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
-
-              grad_p = matmul(gsuper,grad_p)
-
-              EE = E0 + perturb_E(i,j,k,igrid)
-
-              !ExB velocity
-              v0(i+1,j,k,1)=(EE(2)*bbcov(3)-EE(3)*bbcov(2)
-     .                      -etah*grad_p(1))/b2
-              v0(i+1,j,k,2)=(EE(3)*bbcov(1)-EE(1)*bbcov(3)
-     .                      -etah*grad_p(2))/b2
-              v0(i+1,j,k,3)=(EE(1)*bbcov(2)-EE(2)*bbcov(1)
-     .                      -etah*grad_p(3))/b2
-            endif
-          enddo
-        enddo
-      endif
+      enddo
 
 c     End program
 
@@ -1008,7 +960,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,j0,first_order)
+      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,j0)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -1023,14 +975,13 @@ c     Call variables
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,eta
       real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,j0
 
-      logical,optional :: first_order
-
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
-     .          ,gsub(3,3),ietah,EE(3)
-      logical :: fo
+     .          ,gsub(3,3),ietah,jach
+
+      real(8) :: x(5),vec(5),xt(1)
 
 c     Begin program
 
@@ -1041,224 +992,48 @@ c     Begin program
         stop
       endif
 
-      if (PRESENT(first_order)) then
-        fo = first_order
-      else
-        fo = .false.
-      endif
-
       i = nx
 
-      if (.not.fo) then
-        do k=1,nz
-          do j=1,ny
-            bbcnv = 0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
-            bbcov = 0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                         ,bcnv(i  ,j,k,:))
-     .                  +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
-     .                         ,bcnv(i+1,j,k,:)))
+      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            b2 = dot_product(bbcov,bbcnv)
+      do k=1,nz
+        do j=1,ny
+          !First-order extrapolation of B to boundary (critical)
+cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
+cc     $           -0.5*bcnv(i-1,j,k,:)
+          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
+     $                               /(grid_params%xx(ig)
+     $                                -grid_params%xx(ig-1))
+     $                               *(0.5*grid_params%xx(ig+1)
+     $                                +0.5*grid_params%xx(ig)
+     $                                -    grid_params%xx(ig-1))
 
-            if (b2 > 0d0) then
-cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
-              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+          gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .               +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+          bbcov = matmul(gsub,bbcnv)
 
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+          jach = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
+     .               +gmetric%grid(igrid)%jac(i+1,j,k))
 
-cc              if (have_jparB) then
-cc                alpha = jpar_B(i,j,k)
-cc              else
-                EE = E0 + perturb_E(i,j,k,igrid)
-                alpha = dot_product(EE,bbcnv)*ietah/b2
-cc              endif
+          b2 = dot_product(bbcov,bbcnv)/jach
 
-              j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
-            endif
-          enddo
+          if (b2 > 0d0) then
+cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
+            ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+
+            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+
+            alpha = dot_product(E0,bbcnv)/jach*ietah/b2
+
+            j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
+
+          endif
         enddo
-      else
-        do k=1,nz
-          do j=1,ny
-            bbcnv = bcnv(i,j,k,:)
-
-            gsub = gmetric%grid(igrid)%gsub(i,j,k,:,:)
-c$$$            gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-c$$$     .                 +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
-            bbcov = matmul(gsub,bcnv(i,j,k,:))
-
-            b2 = dot_product(bbcov,bbcnv)/gmetric%grid(igrid)%jac(i,j,k)
-
-            if (b2 > 0d0) then
-cc              ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
-              ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-
-              grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-
-cc              if (have_jparB) then
-cc                alpha = jpar_B(i,j,k)
-cc              else
-                EE = E0 + perturb_E(i,j,k,igrid)
-                alpha = dot_product(EE,bbcnv)
-     $                 /gmetric%grid(igrid)%jac(i,j,k)*ietah/b2
-cc              endif
-
-              j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
-
-            endif
-          enddo
-        enddo
-      endif
+      enddo
 
 c     End program
 
       end subroutine J_pinch_bc
-
-c     perturb_E
-c     ##############################################################
-      function perturb_E(i,j,k,igrid) result(dE)
-
-      implicit none
-
-c     Call variables
-
-      integer :: i,j,k,igrid
-      real(8) :: dE(3)
-
-c     Local variables
-
-      integer :: ig,jg,kg
-      real(8) :: mm,kk,RR,x1,y1,z1,etah
-
-c     Begin program
-
-      dE=0d0
-
-cc      !Tangential E-field to produce radial B
-cc      etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-cc
-cc      select case(coords)
-cc      case('hel','tor','cyl')
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
-cc        RR = grid_params%params(3)
-cc      case default
-cc        kk = 0d0
-cc        mm = 0d0
-cc        RR = 0d0
-cc      end select
-cc
-cc      call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-cc     .                              ,ig,jg,kg,x1,y1,z1)
-cc
-cc      !Cylindrical components
-cc      dE(1) = 0d0
-cc      dE(2) = kk*br_pert_bc*cos(mm*y1+kk*z1)
-cc      dE(3) =-mm*br_pert_bc*cos(mm*y1+kk*z1)/x1
-cc
-cc      !Transform to covariant
-cc      select case(coords)
-cc      case('hel')
-cc        dE(2) = x1*dE(2)
-cc        dE(3) = dE(3)-kk/mm*dE(2)
-cc      case('cyl')
-cc        dE(2) = x1*dE(2)
-cc      case('tor')
-cc        dE(2) = x1*dE(2)
-cc        dE(3) = RR*dE(3)
-cc      end select
-cc
-cc      dE = etah*dE
-
-      end function perturb_E
-
-ccc     res_bc
-ccc     #############################################################
-cc      function res_bc(nx,ny,nz,igrid,field) result(rsvty)
-ccc     -------------------------------------------------------------
-ccc     This function computes the resistivity at the boundary on
-ccc     the grid level igrid.
-ccc     -------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer :: nx,ny,nz,igrid
-cc      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-cc     .          ,rsvty(0:nx+1,0:ny+1,0:nz+1)
-cc
-ccc     Local variables
-cc
-cc      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
-cc
-ccc     Begin program
-cc
-cc      do dim=1,3
-cc        do loc=0,1
-cc
-cc          call findBCLoopLimits(dim,loc
-cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
-cc
-cc          do k=kmin,kmax
-cc            do j=jmin,jmax
-cc              do i=imin,imax
-cc                rsvty(i,j,k)=res_ijk(i,j,k,igrid,field(i,j,k))
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        enddo
-cc      enddo
-cc
-ccc     End program
-cc
-cc      end function res_bc
-cc
-ccc     vis_bc
-ccc     #############################################################
-cc      function vis_bc(nx,ny,nz,igrid,field) result(vscty)
-ccc     -------------------------------------------------------------
-ccc     This function computes the viscosity at the boundary
-ccc     on the grid level igrid.
-ccc     -------------------------------------------------------------
-cc
-cc      implicit none
-cc
-ccc     Call variables
-cc
-cc      integer :: nx,ny,nz,igrid
-cc      real(8) :: field(0:nx+1,0:ny+1,0:nz+1)
-cc     .          ,vscty(0:nx+1,0:ny+1,0:nz+1)
-cc
-ccc     Local variables
-cc
-cc      integer :: i,j,k,imin,imax,jmin,jmax,kmin,kmax,dim,loc
-cc
-ccc     Begin program
-cc
-cc      do dim=1,3
-cc        do loc=0,1
-cc
-cc          call findBCLoopLimits(dim,loc
-cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
-cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
-cc
-cc          do k=kmin,kmax
-cc            do j=jmin,jmax
-cc              do i=imin,imax
-cc                vscty(i,j,k)=vis_ijk(i,j,k,igrid,field(i,j,k))
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        enddo
-cc      enddo
-cc
-ccc     End program
-cc
-cc      end function vis_bc
 
       end module local_BCS_variables
 
