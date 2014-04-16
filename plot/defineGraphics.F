@@ -534,8 +534,8 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(2)%array => eeta
       graph(4)%array_graph(2)%descr = 'eta'
 
-      graph(4)%array_graph(3)%array => h_eta
-      graph(4)%array_graph(3)%descr = 'h_eta'
+      graph(4)%array_graph(3)%array => cchi
+      graph(4)%array_graph(3)%descr = 'chi'
 
       graph(4)%array_graph(4)%array => divrgB
       graph(4)%array_graph(4)%descr = 'local div(B)'
@@ -552,14 +552,8 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(8)%array => qfactor
       graph(4)%array_graph(8)%descr = 'q factor'
 
-cc      graph(4)%array_graph(7)%array => qfactr2
-cc      graph(4)%array_graph(7)%descr = 'avrgd q factor'
-
       graph(4)%array_graph(9)%array => lambda
       graph(4)%array_graph(9)%descr = 'lambda'
-
-cc      graph(4)%array_graph(8)%array => lambda2
-cc      graph(4)%array_graph(8)%descr = 'avrgd lambda'
 
       graph(4)%array_graph(10)%array => p_tot
       graph(4)%array_graph(10)%descr = 'Total pressure'
