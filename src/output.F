@@ -238,6 +238,7 @@ c     Warnings
       if (adiabatic) write (*,*) 'Using polytropic EOS'
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
+      if (spitzer) write (*,*) 'Using Spitzer resistivity'
 
       write (*,*) '****************** NOTICES ******************'
 
