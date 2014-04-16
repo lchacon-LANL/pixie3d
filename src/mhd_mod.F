@@ -61,6 +61,7 @@ c ######################################################################
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
      .            ,aa_chi,bb_chi ! Daniele, 02/07/2014
+     .            ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
         logical :: lagrangian=.false.   !Whether we perform Lagrangian step for Te
      .            ,spitzer=.false.      !Whether we are using Spitzer resistivity
@@ -5947,7 +5948,11 @@ c     Call variables
 c     Begin program
 
       !Diffusivity profile 
-      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+cc      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+      !Daniele, 02/17/2014
+      dfvty = chi*(1.-(1.-aa_chi)
+     .     *sin(pi*bb_chi*abs(rr)**cc_chi)
+     .     *abs(rr)**dd_chi)
 
 c     End program
 
