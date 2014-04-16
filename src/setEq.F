@@ -3153,11 +3153,14 @@ c       Initialize iteration
 
         !Find half-mesh positions
         do i=0,nxd
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
           dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
-!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
 ! Daniele, 02/07/2014
-          chih(i)=dfvty_rfx(xh(i))
+c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
+c$$$          chih(i)=dfvty_rfx(xh(i))
+! Luis 04/15/2014, to mimic what is done in PIXIE3D
+          chih(i)=0.5*(dfvty_rfx(grid_params%xg(i+1))
+     $                +dfvty_rfx(grid_params%xg(i  )))
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
