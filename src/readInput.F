@@ -82,6 +82,7 @@ c Namelists
      .                   ,lag_pinch_bc,recordfile,pc_debug_it
      .                   ,mg_zebra_relax,pc_max_iter
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
+     .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Problem setup
       namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
@@ -98,6 +99,7 @@ c Namelists
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,pc_divclean,pc_B_solve
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
+     .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -250,6 +252,9 @@ c Set defaults
 ! Daniele, 02/07/2014
       aa_chi   = 1d0           ! Coefficient for chi profile
       bb_chi   = 1d0           ! Coefficient for chi profile
+! Daniele, 02/17/2014
+      cc_chi   = 1d0           ! Coefficient for chi profile
+      dd_chi   = 0d0           ! Coefficient for chi profile
 
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
