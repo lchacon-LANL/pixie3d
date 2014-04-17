@@ -61,6 +61,7 @@ c ######################################################################
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
      .            ,aa_chi,bb_chi ! Daniele, 02/07/2014
+     .            ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
         logical :: lagrangian=.false.   !Whether we perform Lagrangian step for Te
      .            ,spitzer=.false.      !Whether we are using Spitzer resistivity
@@ -91,12 +92,12 @@ c     Begin program
 
       !Resistivity profile eta*(1 + aa*x^bb)^cc
       if (rf >= 0d0) then
-         res = eta*rf**cc_eta
+         res = rf**cc_eta
       else
-         res = eta*3e2
+         res = 3e2
       endif
 
-      res = min(res,eta*3e2)
+      res = min(res,3e2)
 
 c     End program
 
@@ -114,15 +115,16 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: res,te
+      real(8) :: eta0,res,te
 
 c     Local variables
 
-      real(8) :: f0=0d0 ! Daniele, 02/07/2014
+cc      real(8) :: f0=0d0 ! Daniele, 02/07/2014
 
 c     Begin program
 
-      res = eta*((1+f0)/(abs(te)+f0*beta))**(1.5)
+cc      res = eta*((1+f0)/(abs(te)+f0*beta))**(1.5)
+      res = (abs(te))**(-1.5)
 
 c     End program
 
@@ -4096,7 +4098,7 @@ c ######################################################################
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
      .            ,br_pert_bc
 
-        real(8) :: eq_params(6)
+        real(8) :: eq_params(6),te0_ref
 
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
@@ -5649,17 +5651,17 @@ c     Call variables
 c     Local variables
 
       integer :: ig,jg,kg
-      real(8) :: rr  !Allows for changes in resistivity of f0^(-1.5)
+      real(8) :: rr
 
 c     Begin program
 
       if (spitzer) then
-        rsvty = res_spitzer(field)
+        rsvty = eta*res_spitzer(field/te0_ref)
       else
         call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
         rr = grid_params%xx(ig)
 
-        rsvty = res_rfx(rr)
+        rsvty = eta*res_rfx(rr)
       endif
 
 cc      select case (equil)
@@ -5947,7 +5949,11 @@ c     Call variables
 c     Begin program
 
       !Diffusivity profile 
-      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+cc      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+      !Daniele, 02/17/2014
+      dfvty = chi*(1.-(1.-aa_chi)
+     .     *sin(pi*bb_chi*abs(rr)**cc_chi)
+     .     *abs(rr)**dd_chi)
 
 c     End program
 
