@@ -606,7 +606,6 @@ c     Exceptions for specific equilibria
 
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
-cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -619,7 +618,6 @@ cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
 
-cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
@@ -899,10 +897,12 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k
+      integer :: i,j,k,ig,jg,kg,ord
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
      .          ,gsub(3,3),jach
+
+c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
 
@@ -914,6 +914,19 @@ c     Begin program
       endif
 
       i = nx
+
+c$$$      ord = 3
+c$$$
+c$$$      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+c$$$
+c$$$      x = (/grid_params%xx(ig-3)
+c$$$     $     ,grid_params%xx(ig-2)
+c$$$     $     ,grid_params%xx(ig-1)
+c$$$     $     ,grid_params%xx(ig  )
+c$$$     $     ,grid_params%xx(ig+1)/)
+c$$$
+c$$$      xt = 0.5*(grid_params%xx(ig+1)
+c$$$     $         +grid_params%xx(ig  ))
 
       do k=1,nz
         do j=1,ny
@@ -935,13 +948,22 @@ c     Begin program
             endif
 
             grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
+c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
+c$$$
+c$$$            vec = (/ prs(i-2,j,k)
+c$$$     $              ,prs(i-1,j,k)
+c$$$     $              ,prs(i  ,j,k)
+c$$$     $              ,prs(i+1,j,k) /)
+c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 
             gsup = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
      .                 +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
 
             grad_p = matmul(gsup,grad_p)
 
-            etah =2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
 
             !ExB velocity
             v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
@@ -977,11 +999,11 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg
+      integer :: i,j,k,ig,jg,kg,ord
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach
 
-      real(8) :: x(5),vec(5),xt(1)
+c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
 
@@ -994,19 +1016,44 @@ c     Begin program
 
       i = nx
 
+c$$$      ord = 3
+
       call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+c$$$      x = (/grid_params%xx(ig-3)
+c$$$     $     ,grid_params%xx(ig-2)
+c$$$     $     ,grid_params%xx(ig-1)
+c$$$     $     ,grid_params%xx(ig  )
+c$$$     $     ,grid_params%xx(ig+1)/)
+c$$$
+c$$$      xt = 0.5*(grid_params%xx(ig+1)
+c$$$     $         +grid_params%xx(ig  ))
 
       do k=1,nz
         do j=1,ny
           !First-order extrapolation of B to boundary (critical)
-cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
-cc     $           -0.5*bcnv(i-1,j,k,:)
           bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
      $                               /(grid_params%xx(ig)
      $                                -grid_params%xx(ig-1))
      $                               *(0.5*grid_params%xx(ig+1)
      $                                +0.5*grid_params%xx(ig)
      $                                -    grid_params%xx(ig-1))
+
+c$$$          vec = (/ bcnv(i-3,j,k,1)
+c$$$     $            ,bcnv(i-2,j,k,1)
+c$$$     $            ,bcnv(i-1,j,k,1)
+c$$$     $            ,bcnv(i  ,j,k,1) /)
+c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(1:1),ord)
+c$$$          vec = (/ bcnv(i-3,j,k,2)
+c$$$     $            ,bcnv(i-2,j,k,2)
+c$$$     $            ,bcnv(i-1,j,k,2)
+c$$$     $            ,bcnv(i  ,j,k,2) /)
+c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(2:2),ord)
+c$$$          vec = (/ bcnv(i-3,j,k,3)
+c$$$     $            ,bcnv(i-2,j,k,3)
+c$$$     $            ,bcnv(i-1,j,k,3)
+c$$$     $            ,bcnv(i  ,j,k,3) /)
+c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
 
           gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1022,6 +1069,14 @@ cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
             grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
+c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
+c$$$
+c$$$            vec = (/ prs(i-2,j,k)
+c$$$     $              ,prs(i-1,j,k)
+c$$$     $              ,prs(i  ,j,k)
+c$$$     $              ,prs(i+1,j,k) /)
+c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 
             alpha = dot_product(E0,bbcnv)/jach*ietah/b2
 
