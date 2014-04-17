@@ -962,8 +962,8 @@ c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 
             grad_p = matmul(gsup,grad_p)
 
-            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+cc            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
 
             !ExB velocity
             v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
@@ -1065,8 +1065,8 @@ c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
           b2 = dot_product(bbcov,bbcnv)/jach
 
           if (b2 > 0d0) then
-cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
-            ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
+            ietah = 2d0/(eta(i+1,j,k)+eta(i,j,k))
+cc            ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
             grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)

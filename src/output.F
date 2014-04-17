@@ -199,7 +199,7 @@ c     Initial message
 
       write (*,*)
       write (*,*) '****************************************************'
-      write (*,*) '******    PIXIE3D Extended MHD code, V. '// 
+      write (*,*) '******  PIXIE3D Extended MHD code, V. '// 
      $                                       trim(release) //'   ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
@@ -238,6 +238,7 @@ c     Warnings
       if (adiabatic) write (*,*) 'Using polytropic EOS'
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
+      if (spitzer) write (*,*) 'Using Spitzer resistivity'
 
       write (*,*) '****************** NOTICES ******************'
 
