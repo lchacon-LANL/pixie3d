@@ -675,7 +675,7 @@ c     Setup solver parameters
         order_res  = 0         !To ensure conservation (avoid null space)
         order_prol = 1
       else
-        order_res  = 1         !To ensure conservation (avoid null space)
+        order_res  = 1
         order_prol = 1
       endif
 
