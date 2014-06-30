@@ -107,11 +107,8 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
 #Define targets
 
 .PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup \
-        serial-tests-b serial-tests-a \
-        rebuild-serial-tests-a rebuild-serial-tests-b \
-        parallel-tests-b parallel-tests-a \
-        rebuild-parallel-tests-a rebuild-parallel-tests-b $(SUBDIRS)
+        vmec vmec_clean setup tests rebuild-tests \
+        $(SUBDIRS)
 
 all: contrib src plot
 
@@ -136,11 +133,8 @@ setup: contrib_setup
 
 # TESTS
 
-tests: tests-a tests-b
-
-rebuild-tests: rebuild-tests-a rebuild-tests-b
-
-tests-a: ;
+tests: ;
+ifdef VECPOT
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai test-a
 else
@@ -150,8 +144,7 @@ else
 	$(MAKE) --no-print-directory -e -C tests/serial test-a
 endif
 endif
-
-tests-b: ;
+else
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai test-b
 else
@@ -161,8 +154,10 @@ else
 	$(MAKE) --no-print-directory -e -C tests/serial test-b
 endif
 endif
+endif
 
-rebuild-tests-a: ;
+rebuild-tests: ;
+ifdef VECPOT
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai rebuild-a
 else
@@ -172,8 +167,7 @@ else
 	$(MAKE) --no-print-directory -e -C tests/serial rebuild-a
 endif
 endif
-
-rebuild-tests-b: ;
+else
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai rebuild-b
 else
@@ -181,6 +175,7 @@ ifdef BOPT
 	$(MAKE) --no-print-directory -e -C tests/parallel rebuild-b
 else
 	$(MAKE) --no-print-directory -e -C tests/serial rebuild-b
+endif
 endif
 endif
 
