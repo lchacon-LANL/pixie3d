@@ -128,7 +128,7 @@ $(SUBDIRS):
 
 setup: contrib_setup
 	-@cd plot ; ln -s -f ../src/Makefile
-	-@for subdir in $(COMMONDIR) plot tests/serial tests/parallel tests/samrai; do \
+	-@for subdir in $(COMMONDIR) plot tests/serial tests/parallel ; do \
 		$(MAKE) -C $$subdir setup;  done
 
 # TESTS

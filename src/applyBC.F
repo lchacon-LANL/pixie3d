@@ -1580,7 +1580,7 @@ c     End program
 
 c scalarNeumannBC
 c #####################################################################
-      subroutine scalarNeumannBC(array,ieq,dim,loc)
+      subroutine scalarNeumannBC(array,array0,ieq,dim,loc)
 c ---------------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
 c        * array -> variable upon which BCs are imposed
@@ -1597,6 +1597,7 @@ c     Call variables
 
       integer    :: ieq,dim,loc
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
+      real(8)    :: array0(0:nxbc+1,0:nybc+1,0:nzbc+1)
 
 c     Local variables
 
