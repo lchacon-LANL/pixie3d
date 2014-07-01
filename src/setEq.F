@@ -51,7 +51,7 @@ c Local variables
      .          ,ierr,sh,it,icomp,bcnd(6,3),brank
      .          ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz
 
-      real(8) :: ldaflow,x1,y1,z1,cx,cy,cz
+      real(8) :: ldaflow,x1,y1,z1,cx,cy,cz,x00
 
       logical :: covariant,to_cartsn,cartsn,a_bc
 
@@ -386,6 +386,7 @@ c     --------------------------------------------
 
         eps   = grid_params%params(1)
         sigma = grid_params%params(2)
+        x00   = grid_params%params(3)
 
 c     Check coordinates
 
@@ -406,8 +407,10 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
-              var(i,j,k,IRHO) = 1d0 + eps*exp(-0.5*x1**2/sigma**2)
-              var(i,j,k,ITMP) = 1d0 - eps*exp(-0.5*x1**2/sigma**2)
+c$$$              var(i,j,k,IRHO) = 1d0 + eps*exp(-0.5*(x1-0.75)**2/sigma**2)
+c$$$              var(i,j,k,ITMP) = 1d0 - eps*exp(-0.5*(x1-0.75)**2/sigma**2)
+              var(i,j,k,IRHO) = 1d0 +eps*exp(-0.5*(x1-x00)**2/sigma**2)
+              var(i,j,k,ITMP) = 1d0 -eps*exp(-0.5*(x1-x00)**2/sigma**2)
 
             enddo
           enddo
@@ -688,18 +691,6 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc
-cc              call getCartesianCoordinates(i,j,k,igx,igx,igx,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc              var(i,j,k,IAX) = 0d0
-cc              var(i,j,k,IAY) = 0d0
-cc              var(i,j,k,IAZ) = x1
-cc            enddo
-cc          enddo
-cc        enddo
 #endif
 
       case ('tmsin')
@@ -940,9 +931,9 @@ c     Tearing mode in cartesian coordinates
 
         var(:,:,:,ITMP) = 0.5d0  !Electron temperature
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
@@ -989,9 +980,9 @@ c     Island coalescence in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
@@ -1036,9 +1027,9 @@ c     Island coalescence in cartesian coordinates
 
         var(:,:,:,ITMP) = 0.5*beta/a_p
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
