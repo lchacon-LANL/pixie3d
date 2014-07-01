@@ -1005,7 +1005,7 @@ c     Local variables
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach
 
-      real(8) :: x(5),vec(4),xt(1)
+c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
 
@@ -1018,7 +1018,7 @@ c     Begin program
 
       i = nx
 
-      ord = 3
+c$$$      ord = 3
 
       call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
@@ -1034,6 +1034,8 @@ c$$$     $         +grid_params%xx(ig  ))
       do k=1,nz
         do j=1,ny
           !First-order extrapolation of B to boundary (critical)
+cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
+cc     $           -0.5*bcnv(i-1,j,k,:)
           bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
      $                               /(grid_params%xx(ig)
      $                                -grid_params%xx(ig-1))

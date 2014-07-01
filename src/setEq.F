@@ -1996,13 +1996,16 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 	  !Find electric field
           E0(1:2) = 0d0
+          E0(3)   = e0_over_eta*eta
 
-! Daniele, 11/10/2013
-          if (spitzer) then
-            E0(3) = e0_over_eta*res_spitzer(p00(1)/a_p)
-          else
-            E0(3) = e0_over_eta*eta
-          endif
+!Daniele, 11/10/2013
+c$$$          if (spitzer) then
+c$$$            E0(3) = e0_over_eta*eta*res_spitzer(p00(1)/a_p)
+c$$$          else
+c$$$            E0(3) = e0_over_eta*eta
+c$$$          endif
+
+          if (spitzer) te0_ref = p00(1)/a_p !Reference Te for eta computation
 
           eta_in = eta
 
@@ -2870,9 +2873,10 @@ c       Iteration
             bth = 0.5*(bth0(i)+bth0(i-1))
 
             if (spitzer) then
-              etah = res_spitzer(p0(i)/a_p)/eta
+cc              etah = res_spitzer(p0(i)/a_p)
+              etah = res_spitzer(p0(i)/p0(1))
             else
-              etah = res_rfx(rh)/eta
+              etah = res_rfx(rh)
             endif
 
             dummy(i)=dummy(i-1)
@@ -2892,9 +2896,10 @@ c       Iteration
             rh  = grid_params%xg(i)
 
             if (spitzer) then
-              etah = res_spitzer(p0(i)/a_p)/eta
+cc              etah = res_spitzer(p0(i)/a_p)
+              etah = res_spitzer(p0(i)/p0(1))
             else
-              etah = res_rfx(rh)/eta
+              etah = res_rfx(rh)
             endif
 
             dummy(i) = dummy(i-1)
@@ -2965,9 +2970,10 @@ c       Iteration
           rh  = grid_params%xg(i)
 
           if (spitzer) then
-            etah = res_spitzer(p0(i)/a_p)/eta
+cc            etah = res_spitzer(p0(i)/a_p)
+            etah = res_spitzer(p0(i)/p0(1))
           else
-            etah = res_rfx(rh)/eta
+            etah = res_rfx(rh)
           endif
 
           dummy(i) = Eoeta*bzh/etah
@@ -3029,9 +3035,10 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
         do i=1,nxd
           rh  = grid_params%xg(i)
           if (spitzer) then
-            etah = res_spitzer(p0(i)/a_p)/eta
+cc            etah = res_spitzer(p0(i)/a_p)
+            etah = res_spitzer(p0(i)/p0(1))
           else
-            etah = res_rfx(rh)/eta
+            etah = res_rfx(rh)
           endif
 
           vr0(i) = -(Eoeta*bth0(i)+etah*(p0(i+1)-p0(i-1))/2./dr(i))
@@ -3085,10 +3092,6 @@ c     ---------------------------------------------------------------
 
         use equilibrium
 
-! Daniele, 11/10/2013
-!        use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi
-!     .                             ,res_spitzer,spitzer,a_p
-! Daniele, 02/07/2014
         use nlfunction_setup, ONLY: res_rfx,eta,gamma,dfvty_rfx
      .                             ,res_spitzer,spitzer,a_p
 
@@ -3154,7 +3157,7 @@ c       Initialize iteration
         !Find half-mesh positions
         do i=0,nxd
           dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+c$$$          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
 ! Daniele, 02/07/2014
 c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
 c$$$          chih(i)=dfvty_rfx(xh(i))
@@ -3183,14 +3186,15 @@ c       Iteration
           !Luis, 11/15/2013, find resistivity profile
           if (spitzer) then
             do i=1,nxdp
-              etah(i) = res_spitzer(p0(i)/a_p)/eta
+c$$$              etah(i) = res_spitzer(p0(i)/a_p)
+              etah(i) = res_spitzer(p0(i)/p0(1))
             enddo
-            etah0 = etah(1)
-            etah  = etah/etah0
+c$$$            etah0 = etah(1)
+c$$$            etah  = etah/etah0
           else
             do i=1,nxdp
               rh = grid_params%xg(i)
-              etah(i) = res_rfx(rh)/eta
+              etah(i) = res_rfx(rh)
             enddo
           endif
 
@@ -3377,14 +3381,15 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
         !Recompute resistivity (Luis, 11/15/2013)
         if (spitzer) then
           do i=1,nxd
-            etah(i) = res_spitzer(p0(i)/a_p)/eta
+c$$$            etah(i) = res_spitzer(p0(i)/a_p)
+            etah(i) = res_spitzer(p0(i)/p0(1))
           enddo
-          etah0 = etah(1)
-          etah  = etah/etah0
+c$$$          etah0 = etah(1)
+c$$$          etah  = etah/etah0
         else
           do i=1,nxd
             rh = grid_params%xg(i)
-            etah(i) = res_rfx(rh)/eta
+            etah(i) = res_rfx(rh)
           enddo
         endif
 
@@ -3977,7 +3982,7 @@ cc     .                  ,B_input_is_A=.true.
 c     Spline GLOBAL resistivity (normalized to nominal resistivity)
 
         do i=0,nxd+1
-          etag(i,:,:) = res_rfx(grid_params%xg(i))/eta
+          etag(i,:,:) = res_rfx(grid_params%xg(i))
         enddo
 
         call splineFld(etag)
@@ -4869,7 +4874,7 @@ c       Iteration
               gpsi2  = psir**2 + psith**2
               bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
 
-              etah =res_rfx(rh)/eta
+              etah =res_rfx(rh)
 
               spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
               spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
@@ -4972,7 +4977,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
               spsim = sqrt(1d0-psim/psi0)
               dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
-              etah  = res_rfx(rh)/eta
+              etah  = res_rfx(rh)
 
               dummy(i,j) = dummy(i-1,j)
      .                         - RR(i,j)**2/bnorm2
@@ -5061,7 +5066,7 @@ c       Find vectors and scalars
             b3(i,j,:) = IIh*rh/RR(i,j)
 
             !Find contravariant velocity components
-            etah =res_rfx(rh)/eta
+            etah =res_rfx(rh)
 
             spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
             spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
@@ -5139,7 +5144,7 @@ cc          do i=1,nx
             e3 = e3 + f_3**2*gmetric%grid(igrid)%dvol(i,j,k)
 
             !Find covariant Ohm's law components
-            etah =res_rfx(rh)/eta
+            etah =res_rfx(rh)
 
             cov = matmul(gmetric%grid(1)%gsub(i,j,k,:,:),(/ j1,j2,j3/))
 

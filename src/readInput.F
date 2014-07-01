@@ -447,7 +447,7 @@ c Read initialization parameters
 
       close(unit=uinput)
 
-#if !defined(plotting)
+#if !defined(plotting) && !defined(samrai)
       !Read projective integration configuration
       call read_PrjInt_Input(inputfile)
 #endif

@@ -84,7 +84,7 @@ c Calculate matrix-vector product
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                  ,xarr(:,:,:,1),vol=vol_wgt)
+     .                  ,xarr(:,:,:,1),vol=res_vol_wgt)
 
           enddo
         enddo
@@ -180,7 +180,7 @@ c Calculate matrix-vector product
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                  ,xarr(:,:,:,1),vol=vol_wgt)
+     .                  ,xarr(:,:,:,1),vol=res_vol_wgt)
 
           enddo
         enddo
@@ -301,7 +301,8 @@ cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
      .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))
      .                   /grid_params%dy(jg-1) )
 
-            if (vol_wgt) y(ijk)=y(ijk)*gmetric%grid(igrid)%dvol(i,j,k)
+            if (res_vol_wgt) y(ijk)=y(ijk)
+     $                             *gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
       enddo
@@ -414,7 +415,7 @@ cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                  ,xarr(:,:,:,1),dff=iRR,vol=vol_wgt)
+     .                  ,xarr(:,:,:,1),dff=iRR,vol=res_vol_wgt)
           enddo
         enddo
       enddo
@@ -540,7 +541,7 @@ cccc     .              - alpha*nu2*lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,xarr
 cc            y(ijk) = y(ijk)*volume(i,j,k,igrid,igrid,igrid)
 
             y(ijk) = lap(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                   ,xarr(:,:,:,1),vol=vol_wgt)
+     .                   ,xarr(:,:,:,1),vol=res_vol_wgt)
 
           enddo
         enddo
@@ -662,7 +663,7 @@ c Calculate matrix-vector product
      .                 *flx_nc_advec(i,j,k,nnx,nny,nnz,igrid,igrid,igrid
      .                           ,v0_cnv,dprs(:,:,:,1),1,reverse=.true.)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
@@ -802,7 +803,7 @@ c Calculate matrix-vector product
 
             ijk = i + nnx*(j-1) + nnx*nny*(k-1)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               dvol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
@@ -950,7 +951,7 @@ c Calculate matrix-vector product
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -1117,7 +1118,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -1270,7 +1271,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
 
             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -1597,7 +1598,7 @@ c Calculate matrix-vector product
 
             ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -2544,7 +2545,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -2788,7 +2789,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -3064,7 +3065,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -3176,7 +3177,7 @@ cc        call v_mtvc(0,neq,ntotf,MGx(1:ntotf),MGy(1:ntotf),igr,bcnd)
 cc
 ccc     Restrict residual
 cc
-cc        call restrictMGVector(neq,MGy,igr,igrid,0,vol_wgt)
+cc        call restrictMGVector(neq,MGy,igr,igrid,0,res_vol_wgt)
 cc
 ccc     Map coarse grid residual
 cc
@@ -3314,7 +3315,7 @@ cc            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 cc
 cc            ijkg   = ijk + isig - 1
 cc
-cc            if (vol_wgt) then
+cc            if (res_vol_wgt) then
 cc              vol = gmetric%grid(igrid)%dlvol(i,j,k)
 cc            else
 cc              vol = 1d0
@@ -3514,7 +3515,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
@@ -3829,7 +3830,7 @@ c Calculate matrix-vector product
 
             ijkg   = ijk + isig - 1
 
-            if (vol_wgt) then
+            if (res_vol_wgt) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
             else
               vol = 1d0
