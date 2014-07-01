@@ -195,11 +195,11 @@ c     -----------------------------------------------------------------
 
 c     Initial message
 
-      write (release,'(i1,a1,i1)') REL1,'.',REL2
+      write (release,'(i1,a1,f3.1)') REL1,'.',REL2
 
       write (*,*)
       write (*,*) '****************************************************'
-      write (*,*) '******    PIXIE3D Extended MHD code, V. '// 
+      write (*,*) '******  PIXIE3D Extended MHD code, V. '// 
      $                                       trim(release) //'   ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'

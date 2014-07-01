@@ -675,7 +675,7 @@ c     Setup solver parameters
         order_res  = 0         !To ensure conservation (avoid null space)
         order_prol = 1
       else
-        order_res  = 1         !To ensure conservation (avoid null space)
+        order_res  = 1
         order_prol = 1
       endif
 
@@ -702,7 +702,7 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
      .            ,iters         = gmits
      .            ,dg            = vlap_diag
      .            ,gm_driver     = .true.
-     .            ,gm_sing_matrix= sing_mat
+     .            ,sing_matrix   = sing_mat
      .            ,ks_it         = 30
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_order_res  = order_res
@@ -852,10 +852,10 @@ c     Calculate matrix-vector product
 
               vlap = veclap(i,j,k,nxx,nyy,nzz
      .                     ,igrid,igrid,igrid,vv
-     .                     ,vol=volf)
+     .                     ,vol=res_vol_wgt)
 cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
 cc       .                           ,igrid,igrid,igrid,vv
-cc       .                           ,vol=volf)
+cc       .                           ,vol=res_vol_wgt)
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = vlap(ieq)
@@ -872,7 +872,7 @@ cc       .                           ,vol=volf)
 
               vlap = veclap_cov(i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,vv
-     .                         ,vol=volf)
+     .                         ,vol=res_vol_wgt)
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = vlap(ieq)
