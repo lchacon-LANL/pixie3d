@@ -261,9 +261,9 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         var(:,:,:,ITMP) = 1d0
 
 #if !defined(vec_pot)
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               jac1 = gmetric%grid(igx)%jac(i,j,k)
 
@@ -400,9 +400,9 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        do k = klop,khip
-          do j = jlop,jhip
-            do i = ilop,ihip
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
@@ -520,9 +520,9 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
 
         var(:,:,:,ITMP) = 1d0
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
               var(i,j,k,IVY)=vperflow
@@ -573,9 +573,9 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
         var(:,:,:,IAX:IAZ) = a
 #endif
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
@@ -617,9 +617,9 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         beta = 0.3d0
         var(:,:,:,ITMP) = 0.5*beta/a_p
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
               var(i,j,k,IVY)=vperflow
@@ -730,9 +730,9 @@ c     Tearing mode in sinusoidal coordinates
 #if !defined(vec_pot)
         var(:,:,:,IBX:IBZ) = curl(igx,a)
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
               !X-Y equilibrium
              gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
@@ -850,9 +850,9 @@ c     GEM challenge
           hlx = 0.5d0*(xmax+xmin)
         endif
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
 
@@ -892,9 +892,9 @@ c     Kai TM test
 
         var(:,:,:,ITMP) = 1d0 !Electron pressure
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
 
              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                   ,x1,y1,z1)
