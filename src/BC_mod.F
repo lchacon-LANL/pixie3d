@@ -1033,15 +1033,17 @@ c$$$     $         +grid_params%xx(ig  ))
 
       do k=1,nz
         do j=1,ny
+          !Zeroth-order extrapolation of B to boundary
+          bbcnv = bcnv(i  ,j,k,:)
           !First-order extrapolation of B to boundary (critical)
-cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
-cc     $           -0.5*bcnv(i-1,j,k,:)
-          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
-     $                               /(grid_params%xx(ig)
-     $                                -grid_params%xx(ig-1))
-     $                               *(0.5*grid_params%xx(ig+1)
-     $                                +0.5*grid_params%xx(ig)
-     $                                -    grid_params%xx(ig-1))
+c$$$          bbcnv = 1.5*bcnv(i  ,j,k,:)
+c$$$     $           -0.5*bcnv(i-1,j,k,:)
+c$$$          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
+c$$$     $                               /(grid_params%xx(ig)
+c$$$     $                                -grid_params%xx(ig-1))
+c$$$     $                               *(0.5*grid_params%xx(ig+1)
+c$$$     $                                +0.5*grid_params%xx(ig)
+c$$$     $                                -    grid_params%xx(ig-1))
 
 c$$$          vec = (/ bcnv(i-3,j,k,1)
 c$$$     $            ,bcnv(i-2,j,k,1)
