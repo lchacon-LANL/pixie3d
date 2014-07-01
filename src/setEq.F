@@ -400,9 +400,9 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        do k = klo,khi
-          do j = jlo,jhi
-            do i = ilo,ihi
+        do k = klop,khip
+          do j = jlop,jhip
+            do i = ilop,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
@@ -439,9 +439,9 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         var(:,:,:,IVY)  = 0.5
         var(:,:,:,IVZ)  = 0d0
 
-        do k = klom,khi
-          do j = jlom,jhi
-            do i = ilom,ihi
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
      .                                    ,x1,y1,z1)
 
