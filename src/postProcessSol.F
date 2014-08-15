@@ -30,7 +30,7 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,igx,igy,igz,nx,ny,nz,ieq,igrid
-      real(8) :: mag,acc
+      real(8) :: mag,acc,tol_divcl
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
 
       !Lagrangian
@@ -125,9 +125,11 @@ c       Clean db
 
 cc        call grad_div_clean(db_cnv)
 
+        tol_divcl = 0.1*rtol
         call vlap_div_clean(ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
-     .                   ,w_bcs=.true.,gm_it=it_divcl)!,diag_plots=.true.)
+     .                   ,w_bcs=.true.,gm_it=it_divcl
+     $                   ,rtol=tol_divcl)   !,diag_plots=.true.)
 
 cc        call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
 
