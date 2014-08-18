@@ -666,6 +666,7 @@ c     Define BCs for dA
         bcsa(:,3) = FSYM !Recover symmetry BCs
       end where
       where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+                                        !Normal component BCs same as B (div = 0)
 
       call set_vec_symm_bc(bcsa,-1)
 
@@ -704,7 +705,7 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
      .            ,gm_driver     = .true.
      .            ,sing_matrix   = sing_mat
      .            ,ks_it         = 30
-     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_vcyc       = 1
      .            ,mg_order_res  = order_res
      .            ,mg_order_prol = order_prol
      .            ,mg_coarse_grid_size = mg_coarse_size
