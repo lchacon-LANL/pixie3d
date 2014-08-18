@@ -1,6 +1,6 @@
 c postProcessSol
 c####################################################################
-      subroutine postProcessSol(v_arr)
+      subroutine postProcessSol(vnm,vn,vnp)
 
 c--------------------------------------------------------------------
 c     Postprocess solution (e.g. filtering). In this instance, we
@@ -25,7 +25,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      type(var_array),pointer :: v_arr
+      type(var_array),pointer :: vnm,vn,vnp
 
 c Local variables
 
@@ -70,7 +70,7 @@ c Add random noise in EOM (to break symmetry)
                 do ieq=IVX,IVZ
                   call random_number(acc) !Between 0 and 1
                   acc = noise_lev*sqrt(dt)*(1-2.*acc)
-                  v_arr%array_var(ieq)%array=v_arr%array_var(ieq)%array
+                  vnp%array_var(ieq)%array=vnp%array_var(ieq)%array
      .                                      +acc
                 enddo
               enddo
@@ -83,8 +83,8 @@ c Add random noise in EOM (to break symmetry)
                 do ieq=IVX,IVZ
                   call random_number(acc) !Between 0 and 1
                   acc = noise_lev*sqrt(dt)*(1-2.*acc)
-                  v_arr%array_var(ieq)%array=v_arr%array_var(ieq )%array
-     .                                  +acc*v_arr%array_var(IRHO)%array
+                  vnp%array_var(ieq)%array=vnp%array_var(ieq )%array
+     .                                  +acc*vnp%array_var(IRHO)%array
                 enddo
               enddo
             enddo
@@ -114,18 +114,19 @@ c       Find db=B^(n+1)-B^n
         allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
-        db_cnv(:,:,:,1) = v_arr%array_var(IBX)%array
-     .                   -u_n  %array_var(IBX)%array
-        db_cnv(:,:,:,2) = v_arr%array_var(IBY)%array
-     .                   -u_n  %array_var(IBY)%array
-        db_cnv(:,:,:,3) = v_arr%array_var(IBZ)%array
-     .                   -u_n  %array_var(IBZ)%array
+        db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
+     .                   -vn %array_var(IBX)%array
+        db_cnv(:,:,:,2) = vnp%array_var(IBY)%array
+     .                   -vn %array_var(IBY)%array
+        db_cnv(:,:,:,3) = vnp%array_var(IBZ)%array
+     .                   -vn %array_var(IBZ)%array
 
 c       Clean db
 
 cc        call grad_div_clean(db_cnv)
 
-        tol_divcl = 0.1*rtol
+cc        tol_divcl = 0.1*rtol
+        tol_divcl = rtol
         call vlap_div_clean(ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
      .                   ,w_bcs=.true.,gm_it=it_divcl
@@ -135,19 +136,19 @@ cc        call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
 
 c       Find new B^(n+1)
 
-        v_arr%array_var(IBX)%array = db_cnv(:,:,:,1)
-     .                  +u_n%array_var(IBX)%array
-        v_arr%array_var(IBY)%array = db_cnv(:,:,:,2)
-     .                  +u_n%array_var(IBY)%array
-        v_arr%array_var(IBZ)%array = db_cnv(:,:,:,3)
-     .                  +u_n%array_var(IBZ)%array
+        vnp%array_var(IBX)%array = db_cnv(:,:,:,1)
+     .                 +vn%array_var(IBX)%array
+        vnp%array_var(IBY)%array = db_cnv(:,:,:,2)
+     .                 +vn%array_var(IBY)%array
+        vnp%array_var(IBZ)%array = db_cnv(:,:,:,3)
+     .                 +vn%array_var(IBZ)%array
 
 c       Update helical flux and magnetic field
 
 cc        psi = psi + da_cov(:,:,:,3)
-        bcnv(:,:,:,1) = v_arr%array_var(IBX)%array
-        bcnv(:,:,:,2) = v_arr%array_var(IBY)%array
-        bcnv(:,:,:,3) = v_arr%array_var(IBZ)%array
+        bcnv(:,:,:,1) = vnp%array_var(IBX)%array
+        bcnv(:,:,:,2) = vnp%array_var(IBY)%array
+        bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
         deallocate(db_cnv,da_cov)
 
@@ -178,37 +179,37 @@ c Perform Lagrangian temperature step
      .               ,G_tol,sp_order,B_weight,.false.)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
-        tmp_nm = u_nm %array_var(ITMP)%array
-     $          /u_nm %array_var(IRHO)%array
-        tmp_n  = u_n  %array_var(ITMP)%array
-     $          /u_n  %array_var(IRHO)%array
-        tmp_np = v_arr%array_var(ITMP)%array
-     $          /v_arr%array_var(IRHO)%array
+        tmp_nm = vnm%array_var(ITMP)%array
+     $          /vnm%array_var(IRHO)%array
+        tmp_n  = vn %array_var(ITMP)%array
+     $          /vn %array_var(IRHO)%array
+        tmp_np = vnp%array_var(ITMP)%array
+     $          /vnp%array_var(IRHO)%array
 
-        call lag_update_bdf2(igrid,ITMP,v_arr%array_var(ITMP)%bconds
+        call lag_update_bdf2(igrid,ITMP,vnp%array_var(ITMP)%bconds
      $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel-3)
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
 c$$$        call lagr_update(igrid,bcnv
 c$$$     .                  ,u_nm %array_var(ITMP)%array
-c$$$     .                  ,u_n  %array_var(ITMP)%array
-c$$$     .                  ,v_arr%array_var(ITMP)%array
+c$$$     .                  ,vn  %array_var(ITMP)%array
+c$$$     .                  ,vnp%array_var(ITMP)%array
 c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
 
         call lag_destroy
 
         !Update BCs
         call setMGBC(0,1,nx,ny,nz,igrid,tmp_np
-     .              ,v_arr%array_var(ITMP)%bconds
+     .              ,vnp%array_var(ITMP)%bconds
      .              ,iorder=order_bc,icomp=(/ITMP/))
 
         !Return pressure (with jacobian pressure)
-        v_arr%array_var(ITMP)%array = tmp_np*v_arr%array_var(IRHO)%array
+        vnp%array_var(ITMP)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
       endif
 
-cc      call applyBC (v_arr,igx,igy,igz)
+cc      call applyBC (vnp,igx,igy,igz)
 
 c     Dump parareal convergence info
 
@@ -257,7 +258,7 @@ c     Dump parareal convergence info
         call writeRecordFile("pixie3d_pit_chkpnt.bin",0,0d0,dt,u_0
      .                      ,init=.true.)
         call writeRecordFile("pixie3d_pit_chkpnt.bin",itime,time
-     .                      ,dt,v_arr)
+     .                      ,dt,vnp)
       endif
 
 #endif
