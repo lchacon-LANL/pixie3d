@@ -279,9 +279,9 @@ c End
 
 #endif
 
-c defineTSParameters
+c app_TS_Parameters
 c####################################################################
-      subroutine defineTSParameters
+      subroutine app_TS_Parameters(dt,one_over_dt,cnf)
 c--------------------------------------------------------------------
 c     Calculates application-dependent time step quantities for
 c     nonlinear residuals.
@@ -289,29 +289,15 @@ c--------------------------------------------------------------------
 
       use equilibrium
 
-      use timeStepping
-
       implicit none
 
 c Call variables
 
+      real(8) :: dt,one_over_dt(neqd),cnf(neqd)
+
 c Local variables
 
 c Begin program
-
-cc      if (bdf2) then
-cc        bdfp  = cnp
-cc        bdfn  = cn
-cc        bdfnm = cnm
-cc        cnf   = 0d0
-cc      else
-cc        bdfp  = 1d0
-cc        bdfn  =-1d0
-cc        bdfnm = 0d0
-cc        cnf   = cnfactor
-cc      endif
-cc
-cc      if (dt == 0d0) call pstop('defineTSParameters','dt=0!!!')
 
       one_over_dt = 1d0/dt
 
@@ -323,7 +309,7 @@ cc      if (dt == 0d0) call pstop('defineTSParameters','dt=0!!!')
 
 c End program
 
-      end subroutine defineTSParameters
+      end subroutine app_TS_Parameters
 
 c set_nlf_flux_x
 c#################################################################
