@@ -1019,8 +1019,7 @@ c     Current variables
 
         vaux%vec_list(IBCNV)%bc_dep_list(4,1) = IETA*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(4,2) = SCALAR
-cc        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 0 !trivial
-        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 1 !non-trivial
+        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 0 !trivial
       endif
 
       !B cov
