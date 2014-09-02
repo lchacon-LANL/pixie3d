@@ -3148,7 +3148,7 @@ c       Initialize iteration
         !Find half-mesh positions
         do i=0,nxd
           dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
-c$$$          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
 ! Daniele, 02/07/2014
 c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
 c$$$          chih(i)=dfvty_rfx(xh(i))
