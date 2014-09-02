@@ -124,8 +124,6 @@ c Create diagnostic communicator
         kplt = kplot
 #endif
 
-      case('ic-hk','ic')
-
       case default
 
         !Identify local diagnostic proc
@@ -777,7 +775,7 @@ c Dump diagnostics
 
       if (isProcessor) then
         write(ulineplot) real(time),real(diagnostics)
-cc      write(*,*) real(time),real(diagnostics)
+cc        write(*,*) real(time),real(diagnostics)
       endif
 
 c End 
