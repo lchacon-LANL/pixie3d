@@ -791,8 +791,8 @@ c Select variable
 
 #if defined(petsc)
             lref = te0_ref
-            call MPI_Reduce(lref,te0_ref,1,MPI_DOUBLE_PRECISION
-     .                 ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+            call MPI_Allreduce(lref,te0_ref,1,MPI_DOUBLE_PRECISION
+     .                        ,MPI_MAX,MPI_COMM_WORLD,mpierr)
 #endif 
           endif
 
