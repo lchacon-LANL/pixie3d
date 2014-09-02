@@ -1018,9 +1018,9 @@ c     Begin program
 
       i = nx
 
-c$$$      ord = 3
+      call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
-      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+c$$$      ord = 3
 
 c$$$      x = (/grid_params%xx(ig-3)
 c$$$     $     ,grid_params%xx(ig-2)
@@ -1033,18 +1033,22 @@ c$$$     $         +grid_params%xx(ig  ))
 
       do k=1,nz
         do j=1,ny
-          !Zeroth-order extrapolation of B to boundary
-          bbcnv = bcnv(i  ,j,k,:)
-          !First-order extrapolation of B to boundary (critical)
-c$$$          bbcnv = 1.5*bcnv(i  ,j,k,:)
-c$$$     $           -0.5*bcnv(i-1,j,k,:)
-c$$$          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
-c$$$     $                               /(grid_params%xx(ig)
-c$$$     $                                -grid_params%xx(ig-1))
-c$$$     $                               *(0.5*grid_params%xx(ig+1)
-c$$$     $                                +0.5*grid_params%xx(ig)
-c$$$     $                                -    grid_params%xx(ig-1))
-
+c ====================
+cc          !Zeroth-order extrapolation of B to boundary
+cc          bbcnv = bcnv(i  ,j,k,:)
+c ====================
+cc          !First-order extrapolation of B to boundary, uniform mesh (critical)
+cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
+cc     $           -0.5*bcnv(i-1,j,k,:)
+c ====================
+          !First-order extrapolation of B to boundary, arbitrary mesh (critical)
+          bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
+     $                               /(grid_params%xx(ig)
+     $                                -grid_params%xx(ig-1))
+     $                               *(0.5*grid_params%xx(ig+1)
+     $                                +0.5*grid_params%xx(ig)
+     $                                -    grid_params%xx(ig-1))
+c ====================
 c$$$          vec = (/ bcnv(i-3,j,k,1)
 c$$$     $            ,bcnv(i-2,j,k,1)
 c$$$     $            ,bcnv(i-1,j,k,1)
@@ -1060,6 +1064,7 @@ c$$$     $            ,bcnv(i-2,j,k,3)
 c$$$     $            ,bcnv(i-1,j,k,3)
 c$$$     $            ,bcnv(i  ,j,k,3) /)
 c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
+c ====================
 
           gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
@@ -1074,20 +1079,25 @@ c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
 cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
+c =================
             grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
-c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
-c$$$
+c =================
+cc            grad_p = 0.5*(eta (i  ,j,k)
+cc     .                   *grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
+cc     $                   +eta (i+1,j,k)
+cc     .                   *grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
+cc     .              *ietah
+c =================
 c$$$            vec = (/ prs(i-2,j,k)
 c$$$     $              ,prs(i-1,j,k)
 c$$$     $              ,prs(i  ,j,k)
 c$$$     $              ,prs(i+1,j,k) /)
 c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
+c =================
 
             alpha = dot_product(E0,bbcnv)/jach*ietah/b2
 
             j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
-
           endif
         enddo
       enddo
