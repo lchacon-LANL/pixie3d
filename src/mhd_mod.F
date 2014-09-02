@@ -337,10 +337,10 @@ c     Setup pointers
         vaux%var_list(IRHO_0)%descr = 'rho_0'
         rho_0=> vaux%var_list(IRHO_0)%array
 
-        vaux%var_list(ITMP_0)%descr = 'tmp_0'
+        vaux%var_list(ITMP_0)%descr = 'T_0'
         tmp_0=> vaux%var_list(ITMP_0)%array
 
-        vaux%var_list(ITMPE_0)%descr = 'tmpe_0'
+        vaux%var_list(ITMPE_0)%descr = 'Te_0'
         tmpe_0=> vaux%var_list(ITMPE_0)%array
 
 #if defined(vec_pot)
@@ -1019,7 +1019,8 @@ c     Current variables
 
         vaux%vec_list(IBCNV)%bc_dep_list(4,1) = IETA*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(4,2) = SCALAR
-        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 0 !trivial
+cc        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 0 !trivial
+        vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 1 !non-trivial
       endif
 
       !B cov
