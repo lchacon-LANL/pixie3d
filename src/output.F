@@ -201,6 +201,7 @@ c     Initial message
       write (*,*) '****************************************************'
       write (*,*) '******  PIXIE3D Extended MHD code, V. '// 
      $                                       trim(release) //'   ******'
+      write (*,*) '******                                        ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
       write (*,*) '******  Oak Ridge National Laboratory (08-12) ******'
@@ -208,6 +209,7 @@ c     Initial message
       write (*,*) '******             LA-CC 07-005               ******'
       write (*,*) '******                                        ******'
       write (*,*) '******        with contributions from:        ******'
+      write (*,*) '******                                        ******'
       write (*,*) '******       Daniele Bonfiglio, CNR-RFX       ******'
       write (*,*) '******           Mark Berrill, ORNL           ******'
       write (*,*) '****************************************************'
