@@ -1,7 +1,9 @@
 # README #
 
 >0.0 Table of contents
+>
 >1.0 Introduction
+>
 >2.0 Requirements
 >
 > > 2.1 Compilers
@@ -11,6 +13,7 @@
 > > 2.3 Graphics: Xdraw, Visit
 >
 >3.0 Installation instructions
+>
 >4.0 Compilation instructions
 >
 > > 4.1 Serial compilation
