@@ -1,33 +1,43 @@
 # README #
 
-0.> Table of contents
+0. Table of contents
 
-1.> Introduction
+1. Introduction
 
-2.> Requirements
-2.1> Compilers
-2.2> External libraries
-2.3> Graphics
-2.3.1> Xdraw
-2.3.2> Visit
+2. Requirements
 
-3.> Installation instructions
+2.1 Compilers
 
-4.> Compilation instructions
-4.1> Serial compilation
-4.2> Parallel compilation
-4.3> Special Makefile flags
+2.2 External libraries
 
-5.> Using PIXIE3D
-5.1> Input file
-5.2> Serial execution
-5.3> Parallel execution
-5.4> Postprocessing
+2.3 Graphics
 
-6.> References
+2.3.1 Xdraw
 
-> Appendix 1: Default values for input parameters for "pixie3d.x"
-> Appendix 2: Default values for input parameters for "pixplot.x" 
+2.3.2 Visit
+
+3. Installation instructions
+
+4. Compilation instructions
+
+4.1 Serial compilation
+
+4.2 Parallel compilation
+
+4.3 Special Makefile flags
+
+5. Using PIXIE3D
+
+5.1 Input file
+
+5.2 Serial execution
+5.3 Parallel execution
+5.4 Postprocessing
+
+6. References
+
+Appendix 1: Default values for input parameters for "pixie3d.x"
+Appendix 2: Default values for input parameters for "pixplot.x" 
   (graphics postprocessor)
 
 ----------------------------------------------------------------------
