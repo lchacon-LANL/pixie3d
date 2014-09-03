@@ -17,14 +17,19 @@
 >4.0 Compilation instructions
 >
 > > 4.1 Serial compilation
+> >
 > > 4.2 Parallel compilation
+> >
 > > 4.3 Special Makefile flags
 >
 > 5.0 Using PIXIE3D
 >
 > > 5.1 Input file
+> >
 > > 5.2 Serial execution
+> >
 > > 5.3 Parallel execution
+> >
 > > 5.4 Postprocessing
 >
 > 6.0 References
