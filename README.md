@@ -306,7 +306,8 @@ Conference on Plasma Physics, Tarragona, Spain, June 27-July 1, 2005.
 algorithm," 33rd EPS Conference on Plasma Physics, Rome, Italy, June
 19-23, 2006.
 
-> Appendix 1: Default values for input parameters for "pixie3d.x":
+Appendix 1: Default values for input parameters for "pixie3d.x"
+
       !General setup
       nxd      = 64            ! Mesh points in x-direction
       nyd      = 64            ! Mesh points in y-direction
@@ -541,8 +542,7 @@ cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
 
       dcon       = .false.     ! If using VMEC input, whether to dump DCON output
 
-> Appendix 2: Default values for input parameters for "pixplot.x" 
-  (graphics postprocessor):
+Appendix 2: Default values for input parameters for "pixplot.x" (graphics postprocessor):
 
       ndplot = 0          ! Postprocessing interval (# of time steps; integer)
       dplot  = 0d0        !       "          "      (time interval; real)
