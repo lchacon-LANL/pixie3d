@@ -141,26 +141,26 @@ attempting compilation, one must manually setup the workstation configuration
 in "common/make/make.mach.inc". There are various examples there one can
 follow. A typical workstation configuration is as follows:
 
-   ifeq ($(findstring sith,$(HOST)),sith)
-     FC = pgf95
+     ifeq ($(findstring sith,$(HOST)),sith)
+       FC = pgf95
 
-     BOPT = O
-     PETSC_DIR ?= /sw/sith/petsc/3.0.0/centos5.5_pgi10.9_opt/petsc-3.0.0-p10
-     PETSC_ARCH ?= sith-opt
+       BOPT = O
+       PETSC_DIR ?= /sw/sith/petsc/3.0.0/centos5.5_pgi10.9_opt/petsc-3.0.0-p10
+       PETSC_ARCH ?= sith-opt
 
-     HDF5 = t
-     HDF5_DIR = /sw/sith/hdf5/1.8.5/centos5.5_pgi10.9_ompi1.4.2
-     HDF5_HOME = $(HDF5_DIR)
-     HDF5_LIBS = $(HDF5_FLIB)
-     HDF5_MOD  = $(HDF5_HOME)/lib -I$(HDF5_DIR)/include
+       HDF5 = t
+       HDF5_DIR = /sw/sith/hdf5/1.8.5/centos5.5_pgi10.9_ompi1.4.2
+       HDF5_HOME = $(HDF5_DIR)
+       HDF5_LIBS = $(HDF5_FLIB)
+       HDF5_MOD  = $(HDF5_HOME)/lib -I$(HDF5_DIR)/include
 
-     ADIOS = t
-     ADIOS_HOME = $(ADIOS_DIR)
-     ADIOS_LIBS = $(ADIOS_INC) $(ADIOS_FLIB)
-     ADIOS_VER  = 1.3
+       ADIOS = t
+       ADIOS_HOME = $(ADIOS_DIR)
+       ADIOS_LIBS = $(ADIOS_INC) $(ADIOS_FLIB)
+       ADIOS_VER  = 1.3
 
-     MACHINE = sith
-   endif
+       MACHINE = sith
+     endif
 
 Typical variables to be defined in the configuration file include:
    * MACHINE: name of machine
