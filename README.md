@@ -163,6 +163,7 @@ follow. A typical workstation configuration is as follows:
      endif
 
 Typical variables to be defined in the configuration file include:
+
    * MACHINE: name of machine
    * FC: fortran compiler
    * HDF5=t,f: whether to use HDF5.
@@ -247,7 +248,7 @@ distribution. Similarly with PETSC. Specific PIXIE3D options include:
 
      OUTPUT CONTROL:                                     
         -ilevel <ilevel>: level of output info
-	-test: whether we are in test mode (suppresses output)
+        -test: whether we are in test mode (suppresses output)
 
      TIME STEPPING:                                      
         -nmax <nmax>: number of time steps     
@@ -424,8 +425,6 @@ Appendix 1: Default values for input parameters for "pixie3d.x"
       solve_prs  = .false.     ! Whether we solve for electron pressure or temperature
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
-cc      lag_pinch_bc = .false.   ! Whether to lag the paramagnetic pinch BC
-
       vol_wgt    = .true.      ! Whether residual is volume weighed or not
 
       advect     = 2           ! Type of advective scheme for scalars
