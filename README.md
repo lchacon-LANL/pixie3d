@@ -40,7 +40,7 @@
 
 ----------------------------------------------------------------------
 
-1.> Introduction
+# Introduction
 
 This readme is intended to describe the requirements to compile and
 run the code PIXIE3D. PIXIE3D solves the extended magnetohydro-
@@ -52,12 +52,12 @@ confinement fusion devices. The spatial discretization of the MHD
 equations in PIXIE3D is described in Ref. [1]. Details of the temporal
 discretization can be found in Refs. [2-5].
 
-2.> Requirements
+# Requirements
 
 We proceed to describe the minimum requirements to compile and run
 PIXIE3D.
 
-2.1> Compilers
+## Compilers
 
 The serial version of PIXIE3D (pixie3d.x) only requires a Fortran
 90/95 compiler. PIXIE3D has been compiled and tested with Absoft,
@@ -67,7 +67,7 @@ The parallel version of PIXIE3D (pixie3d.petsc.x) requires an ANSI C
 compiler in addition to the fortran compiler. In addition, certain
 libraries need to be present. We proceed to discuss these next.
 
-2.2> External libraries
+## External libraries
 
 The serial version of PIXIE3D does not require any external
 libraries. The parallel version currently uses PETSC 2.2.0 for
@@ -82,7 +82,7 @@ All these libraries contain documentation as to how to compile them
 and test them, and these are not reproduced here in the interest of
 brevity.
 
-2.3> Graphics
+## Graphics
 
 PIXIE3D comes with its own postprocessor, called pixplot.x. This file
 will take output from PIXIE3D and generate various files with time traces,
@@ -90,7 +90,7 @@ contour plots (viewable with Xdraw) and fully 3D plots (in HDF5 format,
 which can be viewed with the free Visit software). We proceed to describe 
 the visualization software below.
 
-2.3.1> Xdraw
+### Xdraw
 
 Xdraw is a free, simple (yet powerful) 1D and 2D plotter (included in
 this electronic distribution). The postprocessor "pixplot.x" will
@@ -107,7 +107,7 @@ xdraw reads the file draw[keyword].in to read its configuration, and
 plot accordingly. These draw*.in files are generated automatically by
 pixplot.x.
 
-2.3.2> Visit
+### Visit
 
 This is an open source, freely available visualization solfware
 developed at LLNL. An interface has been developed for PIXIE3D to
@@ -116,20 +116,20 @@ is required, and can be obtained from
 
 "http://www.llnl.gov/VisIt/home.html"
 
-3.> Installation instructions
+# Installation instructions
 
 PIXIE3D is easy to install. Just execute:
 
-# tar xzvf pixie3d.tar.gz
+> tar xzvf pixie3d.tar.gz
 
 to generate the directory structure, and change directories into
 "pixie3d".  From there, type:
 
-# make setup
+> make setup
 
 to setup all required compilation files.
 
-4.> Compilation instructions
+# Compilation instructions
 
 In order to compile PIXIE3D, the user will need to edit the Makefile
 in the main distribution directory to setup some system-dependent
@@ -175,32 +175,32 @@ Typical variables to be defined in the configuration file include:
    * NETCDF=t,f: whether to use NETCDF
    * LIBS: LAPACK and BLAS libraries (in serial verion only).
 
-4.1> Serial compilation
+## Serial compilation
 
 For a serial compilation, type
 
-# make distclean
-# make
+> make distclean
+> make
 
 For testing serially, type:
 
-# make tests-b
+> make tests-b
 
-4.2> Parallel compilation
+## Parallel compilation
 
 Linking against the PETSC library requires one to set the variable
 BOPT to either "g" (debugging) or "O" (optimized). For production
 runs, "O" should normally be used, and one should type
 
-# make BOPT=O distclean
-# make BOPT=O all
+> make BOPT=O distclean
+> make BOPT=O all
 
 to generate pixie3d.petsc.x and pixplot.petsc.x (the parallel
 postprocessor).  For testing in parallel, type:
 
-# make BOPT=O tests-b
+> make BOPT=O tests-b
 
-4.3> Options when invoking "make"
+## Options when invoking "make"
 
 There are several specific options for the make command:
 
@@ -215,16 +215,16 @@ compiled, generating the executables "pixie3d_a.x" and "pixplot_a.x"
 SAMR: if set, compiles AMR version of PIXIE3D using SAMRAI. Requires
 SAMRAI and SAMRAI_UTILS. This is in an experimental stage.
 
-5.> Using PIXIE3D
+# Using PIXIE3D
 
-5.1> Input file
+## Input file
 
 Before execution, the user should set the input file, "pixie3d.in". 
 Defaults are provided within PIXIE3D for all quantities,
 which are explained in the readInput.F file. An excerpt of this file
 is included in App. 1 (for pixie3d.x) and App. 2 (for pixplot.x).
 
-5.2> Serial execution
+## Serial execution
 
 Serial execution requires the user simply to type:
 
@@ -237,19 +237,17 @@ After completion of the run, the user should invoke:
 for postprocessing. Plots can be viewed by invoking xdraw or visit (if
 an HDF5 file has been created).
 
-5.3> Parallel execution
+## Parallel execution
 
 Parallel execution will be largely dependent on the MPI distribution
 that has been used to compile PETSc, and on the availability of a
 queue management system. With mpich-1.2.5.2, one would
 type, for instance:
 
-# mpiexec [mpi options] pixie3d.petsc.x -snes_mf [petsc options]
+> mpiexec [mpi options] pixie3d.petsc.x [PIXIE3D options] [petsc options]
 
 Several mpirun options are available according to the MPI
-distribution. Similarly with PETSC. The option "-snes_mf" (which
-indicates that a Jacobian-free approach is to be used) is
-mandatory. Specific PETSC options for PIXIE3D include:
+distribution. Similarly with PETSC. Specific PIXIE3D options include:
 
      OUTPUT CONTROL:                                     
         -ilevel <ilevel>: level of output info
@@ -264,7 +262,7 @@ mandatory. Specific PETSC options for PIXIE3D include:
         -npy: processors in Y direction                  
         -npz: processors in Z direction                  
 
-5.4> Postprocessing
+## Postprocessing
 
 Postprocessing is done with pixplot.x (or any of the following
 variants: pixplot_a.x for vector potential version; pixplot.petsc.x
@@ -287,7 +285,7 @@ contour plots are not generated (although time histories still are),
 and the HDF5 file pixie3d.h5 is generated instead. This file can be
 interpreted using the freely available graphics software Visit.
 
-6.> References
+# References
 
 [1] L. Chacón, "A non-staggered, conservative, , finite-volume scheme
 for 3D implicit extended magnetohydrodynamics in curvilinear
