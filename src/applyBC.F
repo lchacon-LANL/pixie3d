@@ -329,6 +329,13 @@ c Select variable
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
 
+#if !defined(samrai)
+        no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
+
         allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
 
         select case(abs(bc_inf(1)))
@@ -427,6 +434,13 @@ c       Temperature BCs
 
       case(VECTOR)
 
+#if !defined(samrai)
+        no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
+
         allocate(prs0(0:nnx+1,0:nny+1,0:nnz+1)
      .          ,prs1(0:nnx+1,0:nny+1,0:nnz+1))
 
@@ -506,23 +520,15 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 
         case(IVECOV_N)
 
-cc          if (save_tn.and.(.not.ion_hall)) then
-cc            call XferBCs(vecov,vecov_n,.false.)
-cc          endif
-
-cc        case(IVECOV_NM)
-
-cc        case(IVCNV_NM)
-
-cc          if (save_tn.and.ion_hall) call XferBCs(vcov,vcov_n,.false.)
+cc          if (.not.ion_hall) call XferBCs(vecov,vecov_n,.false.)
 
         case(IVCNV_N)
 
-cc          if (save_tn.and.ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
+cc          if (ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
 
         case(IJCNV_N)
 
-cc          if (save_tn.and.ion_hall) call XferBCs(jcnv,jcnv_n,.false.)
+cc          if (ion_hall) call XferBCs(jcnv,jcnv_n,.false.)
 
         case(IVCNV)
 
@@ -767,6 +773,13 @@ c Select variable
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
 
+#if !defined(samrai)
+        no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
+
         select case(abs(bc_inf(1)))
         case(IRHO_0)
 
@@ -861,6 +874,13 @@ cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
         end select
 
       case(VECTOR)
+
+#if !defined(samrai)
+        no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
 
 c       Allocate auxiliary variables in local domain
 
@@ -958,29 +978,21 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
-cc        case(IVCNV_NM)
-cc
-cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
-
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) vcnv_n = vcnv  !Initializes for BDF2 as well
-
-cc        case(IVECOV_NM)
-cc
-cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
+          if (ion_hall) vcnv_n = vcnv  !Initializes for BDF2 as well
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov  !Initializes for BDF2 as well
+          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
-cc          if (save_tn.and.ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
+cc          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
 cc        case(IBCNV_N)
 cc
-cc          if (save_tn) bcnv_n = bcnv !Save previous time step
+cc          bcnv_n = bcnv !Save previous time step
 
         case(IVCOV)
 
@@ -1211,6 +1223,13 @@ c Select variable
       select case(bc_inf(2)) !Whether we are dealing with scalars or vectors
       case(SCALAR)
 
+#if !defined(samrai)
+        no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
+
         select case(abs(bc_inf(1)))
         case(IRHO_0)
 
@@ -1287,6 +1306,13 @@ cc          h_eta=hres(igr,bcnv_0,rho_0)
 
       case(VECTOR)
 
+#if !defined(samrai)
+        no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
+        no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
+     $            .and.(.not.save_tn)
+        if (no_eq_bc.or.no_tn_bc) return
+#endif
+
 c       Allocate auxiliary variables in local domain
 
         select case(abs(bc_inf(1)))
@@ -1339,25 +1365,17 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
-cc        case(IVCNV_NM)
-cc
-cc          if (save_tn.and.ion_hall) vcnv_nm = vcnv_n
-
         case(IVCNV_N)
 
-          if (save_tn.and.ion_hall) vcnv_n  = vcnv  !Initializes for BDF2 as well
-
-cc        case(IVECOV_NM)
-cc
-cc          if (save_tn.and.(.not.ion_hall)) vecov_nm= vecov_n
+          if (ion_hall) vcnv_n  = vcnv  !Initializes for BDF2 as well
 
         case(IVECOV_N)
 
-          if (save_tn.and.(.not.ion_hall)) vecov_n= vecov  !Initializes for BDF2 as well
+          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
-          if (save_tn.and.ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
+          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
         case(IVCOV)
 
@@ -2388,7 +2406,7 @@ c solen_BC
 c #####################################################################
       subroutine solen_BC(array,dim,loc,face)
 c ---------------------------------------------------------------------
-c     Imposes dirichlet BC. On input:
+c     Imposes solenoidal BC. On input:
 c        * array -> contains vector
 c        * dim   -> dimension we are imposing BC on (X,Y,Z) (1,2,3)
 c        * loc   -> boundary location (0 -> left, 1->right)
