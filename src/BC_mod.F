@@ -441,6 +441,9 @@ c####################################################################
 #else
         integer :: order_bc=1
 #endif
+
+        logical :: no_eq_bc=.false.,no_tn_bc=.false.
+
       contains
 
 c     defineDepVariables
