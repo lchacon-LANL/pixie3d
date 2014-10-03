@@ -503,16 +503,25 @@ cc      if (di == 0d0) heta = 0d0
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
-      !NC EOM for non-cartesian geometry
-cc      if (coords /= 'car') nc_eom_f = .true.
-
       !Non-conservative EOM
+cc      if (coords /= 'car') nc_eom_f = .true.
       if (nc_eom_f) then
         nc_eom_jxb = .true.
         nc_eom_gp  = .true.
       endif
 
+      !Hall MHD
+      if (chi_par == 0d0) chi_par = chi
+
+      if (di == 0d0) de = 0d0
+
+      if (de > di) then
+        call pstop('readInput','Unphysical value for di and/or de')
+      endif
+
       if (cnfactor == 1d0) ion_hall = .false.
+
+      if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
       if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
 
@@ -520,6 +529,7 @@ cc      if (ion_hall) slava = .false.
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
+      !Eigenvalue computation
       if (eigen) then
         vol_wgt = .false.
         source  = .false.
@@ -548,14 +558,6 @@ cc      endif
      .        .and.equil /= 'adv2')
      .        .and.equil /= 'sod' ) then
         call pstop('readInput','No sinusoidal perturbation specified')
-      endif
-
-      if (chi_par == 0d0) chi_par = chi
-
-      if (di == 0d0) de = 0d0
-
-      if (de > di) then
-        call pstop('readInput','Unphysical value for di and/or de')
       endif
 
       !Performs divergence cleaning at postprocessing stage
