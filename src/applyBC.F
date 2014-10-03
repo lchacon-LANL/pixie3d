@@ -1567,7 +1567,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
         else  !Imposes divergence-free constraint on B, J
 
-          call solen_bc(array,dim,loc,.false.)
+          call solen_bc(array,dim,loc,.false.,.false.)
 
         endif
 
@@ -1581,7 +1581,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
         else  !Imposes divergence-free constraint on A @ physical boundaries
 
-          call solen_bc(array,dim,loc,.true.)
+          call solen_bc(array,dim,loc,.true.,.false.)
 
         endif
 
@@ -2150,7 +2150,7 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on J
 
-          call solen_BC(array,dim,loc,.false.)
+          call solen_BC(array,dim,loc,.false.,.true.)
 
         endif
 
@@ -2175,7 +2175,7 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on A
 
-          call solen_BC(array,dim,loc,.true.)
+          call solen_BC(array,dim,loc,.true.,.true.)
 
         endif
 
@@ -2383,7 +2383,7 @@ cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Giv
 
         else  !Imposes divergence-free constraint on B
 
-          call solen_BC(array,dim,loc,.false.)
+          call solen_BC(array,dim,loc,.false.,.true.)
 
         endif
 
@@ -2404,7 +2404,7 @@ c     End program
 
 c solen_BC
 c #####################################################################
-      subroutine solen_BC(array,dim,loc,face)
+      subroutine solen_BC(array,dim,loc,face,safe)
 c ---------------------------------------------------------------------
 c     Imposes solenoidal BC. On input:
 c        * array -> contains vector
@@ -2422,7 +2422,7 @@ c     Call variables
 
       integer :: dim,loc
       real(8) :: array(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
-      logical :: face
+      logical :: face,safe
 
 c     Local variables
 
@@ -2443,7 +2443,6 @@ c     Begin program
       endif
 
       call findBCLoopLimits(dim,loc
-cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
@@ -2458,6 +2457,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do k=kmin,kmax
           do j=jmin,jmax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
@@ -2465,7 +2478,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i-1,j,k,dim) = array(i+offset,j,k,dim) + dh(dim)*diver
 
@@ -2482,6 +2496,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do k=kmin,kmax
           do j=jmin,jmax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
@@ -2490,7 +2518,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i+1,j,k,dim) = array(i-offset,j,k,dim) - dh(dim)*diver
 
@@ -2507,6 +2536,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do k=kmin,kmax
           do i=imin,imax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
@@ -2514,7 +2557,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i,j-1,k,dim) = array(i,j+offset,k,dim) + dh(dim)*diver
               
@@ -2531,6 +2575,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do k=kmin,kmax
           do i=imin,imax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
@@ -2538,7 +2596,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i,j+1,k,dim) = array(i,j-offset,k,dim) - dh(dim)*diver
               
@@ -2555,6 +2614,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do j=jmin,jmax
           do i=imin,imax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
@@ -2562,7 +2635,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i,j,k-1,dim) = array(i,j,k+offset,dim) + dh(dim)*diver
 
@@ -2579,6 +2653,20 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
         do j=jmin,jmax
           do i=imin,imax
 
+            if (safe) then
+              hex = 0
+              if(isBdry(i,igxbc,1)) hex = 1
+              if(isBdry(i,igxbc,2)) hex =-1
+
+              hey = 0
+              if(isBdry(j,igybc,3)) hey = 1
+              if(isBdry(j,igybc,4)) hey =-1
+
+              hez = 0
+              if(isBdry(k,igzbc,5)) hez = 1
+              if(isBdry(k,igzbc,6)) hez =-1
+            endif
+
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
             jac0 = gmetric%grid(igxbc)%jac(i,j,k)
 
@@ -2586,7 +2674,8 @@ cc     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
             dh(2) = coeff*grid_params%dyh(jg)
             dh(3) = coeff*grid_params%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array)
+            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
+     .                    ,hex=hex,hey=hey,hez=hez)
 
             array(i,j,k+1,dim) = array(i,j,k-offset,dim) - dh(dim)*diver
 
