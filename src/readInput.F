@@ -26,6 +26,8 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
+      use graphics_io
+
       implicit none
 
 c Call variables
@@ -307,7 +309,9 @@ c Set defaults
       pc_type    = 'id'          ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
                                !   - 's1': SI without flow
-                               !   - 's2': SI with flow
+                               !   - 's2': SI with flow (iterative)
+                               !   - 's3': SI with flow (commuted)
+                               !   - 's4': EMHD split PC
       pc_iter    = 1           ! Number of SI iterations in preconditioner
       pc_tol     = 1d-3        ! PC solvers convergence tolerance
 
@@ -510,7 +514,7 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 
       if (cnfactor == 1d0) ion_hall = .false.
 
-cc      if (.not.ion_hall) pc_type = 's4'
+      if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
 
 cc      if (ion_hall) slava = .false.
 
@@ -650,6 +654,14 @@ c Write initialization parameters to standard output
         write (*,*) 'IO  configuration'
         write (*,*) '----------------- '
         write (*,i_o)
+      endif
+
+c Initialize graphics
+
+      ioerr=readGraphicsConfig(inputfile)
+
+      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
+        write (*,*) 'Namelist "graphics" not present in input file'
       endif
 
 c End program
