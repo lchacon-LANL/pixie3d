@@ -30,10 +30,7 @@ c Local variables
      .                   ,adios_plot,temp_acc,acc_ref_file
 
 
-      namelist /plots/    sel_diag,sel_graph,ndplot,dplot,hdf_plot
-     .                   ,prof_conf,cont_conf,clean
-     .                   ,iplot,jplot,kplot,poincare,xdraw_plot
-     .                   ,adios_plot,temp_acc,acc_ref_file
+      namelist /plots/    clean,poincare
 
 c Begin program
 
@@ -76,16 +73,27 @@ c Read graphics initialization parameters
       open(unit=uinput,file=inputfile,status='old')
 
       read(uinput,graphdef,iostat=ioerr)
-      if (ioerr /= 0) then
-        close(uinput)
-        open(unit=uinput,file=inputfile,status='old')
-        read(uinput,plots,iostat=ioerr)
-        if (ioerr /= 0) then
-          write (*,*) 'Problem reading "plots"' ; stop
-        endif
-      endif
 
       close(unit=uinput)
+
+      if (ioerr /= 0) then
+        open(unit=uinput,file=inputfile,status='old')
+        read(uinput,plots,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr /= 0.and.my_rank == 0) then
+          write (*,*) 'Namelist "acc_test" not present in input file'
+        endif
+
+        ioerr=readAccTestConfig (inputfile)
+        if (ioerr /= 0.and.my_rank == 0) then
+          write (*,*) 'Namelist "acc_test" not present in input file'
+        endif
+
+        ioerr=readGraphicsConfig(inputfile)
+        if (ioerr /= 0.and.my_rank == 0) then
+          write (*,*) 'Namelist "graphics" not present in input file'
+        endif
+      endif
 
 c Consistency check
 
