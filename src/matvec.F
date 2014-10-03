@@ -1476,7 +1476,7 @@ c Local variables
      .                                     ,db_cnv,db_cov,dve_cnv
      .                                     ,ve0_cnv,da_cov,dj_cnv,dj_cov
      .                                     ,rho0,bs0_cnv,da_cnv,heta0
-     .                                     ,eta0,djf_cov,djf_cnv,vz
+     .                                     ,eta0,djf_cov,djf_cnv,vzr
 
       logical    :: fpointers,is_cnv
 
@@ -1516,22 +1516,22 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
-cc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
 cc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov)
 
 c Auxiliary quantities
 
-      allocate(das   (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,db_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,db_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,dj_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
+      allocate(das    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,vz    (0:nxx+1,0:nyy+1,0:nzz+1,3))
+     .        ,vzr    (0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-      vz = 0d0
+      vzr = 0d0
 
       !Variables
       da_cov (0:,0:,0:,1:) => du_cov(:,:,:,1:3)
@@ -1548,43 +1548,23 @@ c Auxiliary quantities
 
       !Magnetic fields
       db_cnv = curl(igrid,da_cov)
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
-     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=db_cov)
+      db_cov = XformVector(igrid,db_cnv,.false.)
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
+cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=db_cov)
 
       !Currents
       dj_cnv = curl(igrid,db_cov)
-      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
-     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dj_cov)
+      dj_cov = XformVector(igrid,dj_cnv,.false.)
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
+cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dj_cov)
 
       !Electron velocity (only keep current piece)
-cc      if (form_diag) then  !For diagonal formation
-        dve_cnv = form_ve(vz,djf_cnv,rho0(:,:,:,1))
-cc        dve_cnv(:,:,:,1) =-di*djf_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc        dve_cnv(:,:,:,2) =-di*djf_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc        dve_cnv(:,:,:,3) =-di*djf_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc      else                 !For defect correction
-cc        dve_cnv(:,:,:,1) =-di*dj_cnv(:,:,:,1)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc        dve_cnv(:,:,:,2) =-di*dj_cnv(:,:,:,2)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc        dve_cnv(:,:,:,3) =-di*dj_cnv(:,:,:,3)/rho0(:,:,:,1)        !dve =-di*dj/rho (contravariant)
-cc      endif
+      dve_cnv = form_ve(vzr,djf_cnv,rho0(:,:,:,1))
 
-      if (form_diag.or.fake_ve) then  !For diagonal formation
-        das(:,:,:,1) = da_cov(:,:,:,1)
-     .                +de**2*djf_cov(:,:,:,1)/rho0(:,:,:,1) !da_star (covariant)
-        das(:,:,:,2) = da_cov(:,:,:,2)
-     .                +de**2*djf_cov(:,:,:,2)/rho0(:,:,:,1) !da_star (covariant)
-        das(:,:,:,3) = da_cov(:,:,:,3)
-     .                +de**2*djf_cov(:,:,:,3)/rho0(:,:,:,1) !da_star (covariant)
-      else
-        das(:,:,:,1) = da_cov(:,:,:,1)
-     .                +de**2*dj_cov(:,:,:,1)/rho0(:,:,:,1) !da_star (covariant)
-        das(:,:,:,2) = da_cov(:,:,:,2)
-     .                +de**2*dj_cov(:,:,:,2)/rho0(:,:,:,1) !da_star (covariant)
-        das(:,:,:,3) = da_cov(:,:,:,3)
-     .                +de**2*dj_cov(:,:,:,3)/rho0(:,:,:,1) !da_star (covariant)
-      endif
+      !da_star (covariant)
+      das = da_cov - de**2*form_ve(vzr,djf_cov,rho0(:,:,:,1))
 
 c Calculate matrix-vector product
 
@@ -1615,7 +1595,7 @@ c Calculate matrix-vector product
             a_res = a_res - alpha*etal*lap_a_cov
 
             !Convective part (-ve x curl(da_star))
-            a_res = a_res + alpha*dbs_x_ve0()
+            a_res = a_res + alpha*dbs_x_ve0(das)
 
             !Electron Hall piece: -dve x B_star = di/rho*(dj x B_star)
             cov = -crossProduct_ijk(i,j,k,igx
@@ -1667,7 +1647,7 @@ c End program
 
       deallocate(du_cnv
      .          ,du_cov
-     .          ,vz
+     .          ,vzr
      .          ,das
      .          ,db_cnv
      .          ,db_cov
@@ -1683,10 +1663,12 @@ c End program
 
 c     dbs_x_ve0
 c     ##############################################################
-      function dbs_x_ve0() result(cov)
+      function dbs_x_ve0(das) result(cov)
+
+        real(8) :: das(0:nxx+1,0:nyy+1,0:nzz+1,3)
+        real(8) :: cov(3)
 
         integer :: ip,im,jp,jm,kp,km
-        real(8) :: cov(3)
         real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
 
         ip = i+1
