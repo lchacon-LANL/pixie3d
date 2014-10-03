@@ -55,7 +55,7 @@
 !    precon   = 'id'
     precon   = 's1'
     mgtol    = 0.5d0
-    maxvcyc  = 2
+    maxvcyc  = 1
     nsweep   = 3
     precpass = 0
 
@@ -74,7 +74,7 @@
     nc_eom_v   = f
     adiabatic  = f
     ion_hall   = t
-    fake_ve    = t
+    fake_ve    = f
     sym_st     = t
     advect     = 2
     slava      = t
