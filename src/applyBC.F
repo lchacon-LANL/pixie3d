@@ -2459,8 +2459,8 @@ c     Begin program
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+cc              if(isBdry(i,igxbc,1)) hex = 1
+cc              if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
               if(isBdry(j,igybc,3)) hey = 1
@@ -2498,8 +2498,8 @@ c     Begin program
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+cc              if(isBdry(i,igxbc,1)) hex = 1
+cc              if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
               if(isBdry(j,igybc,3)) hey = 1
@@ -2542,8 +2542,8 @@ c     Begin program
               if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+cc              if(isBdry(j,igybc,3)) hey = 1
+cc              if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
               if(isBdry(k,igzbc,5)) hez = 1
@@ -2581,8 +2581,8 @@ c     Begin program
               if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+cc              if(isBdry(j,igybc,3)) hey = 1
+cc              if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
               if(isBdry(k,igzbc,5)) hez = 1
@@ -2624,8 +2624,8 @@ c     Begin program
               if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+cc              if(isBdry(k,igzbc,5)) hez = 1
+cc              if(isBdry(k,igzbc,6)) hez =-1
             endif
 
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
@@ -2663,8 +2663,8 @@ c     Begin program
               if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+cc              if(isBdry(k,igzbc,5)) hez = 1
+cc              if(isBdry(k,igzbc,6)) hez =-1
             endif
 
             call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
