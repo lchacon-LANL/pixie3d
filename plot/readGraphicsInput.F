@@ -81,7 +81,7 @@ c Read graphics initialization parameters
         read(uinput,plots,iostat=ioerr)
         close(unit=uinput)
         if (ioerr /= 0.and.my_rank == 0) then
-          write (*,*) 'Namelist "acc_test" not present in input file'
+          write (*,*) 'Namelist "plots" not present in input file'
         endif
 
         ioerr=readAccTestConfig (inputfile)
