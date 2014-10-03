@@ -245,8 +245,9 @@ c     Warnings
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'
+#if !defined(vec_pot)
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
-
+#endif
       write (*,*) '****************** NOTICES ******************'
 
 
