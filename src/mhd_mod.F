@@ -4168,6 +4168,9 @@ c     Begin program
           ve(:,:,:,1) = v(:,:,:,1)-di*j(:,:,:,1)/rho
           ve(:,:,:,2) = v(:,:,:,2)-di*j(:,:,:,2)/rho
           ve(:,:,:,3) = v(:,:,:,3)-di*j(:,:,:,3)/rho
+cc          ve(:,:,:,1) = -di*j(:,:,:,1)/rho
+cc          ve(:,:,:,2) = -di*j(:,:,:,2)/rho
+cc          ve(:,:,:,3) = -di*j(:,:,:,3)/rho
         end where
 
 c     End program
@@ -5554,8 +5557,6 @@ c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d
         !Electron inertia term
         if (de > 0d0) then
           E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
-cc          E_h = E_h
-cc     .        - de**2/di**2*(cnp*vecov+cn*vecov_n+cnm*vecov_nm)/alpha/dt
         endif
 
 c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
@@ -5798,7 +5799,7 @@ c     Local variables
 
       integer :: nx,ny,nz,ig,jg,kg,i,j,k
 
-      real(8) :: idx,idy,idz,k2,kk,bk_par,lheta,vol,lvol
+      real(8) :: idx,idy,idz,k2,kk,bk_par,lheta,vol,lvol,maxv,maxvg
 
 c     Begin program
 
@@ -5902,10 +5903,18 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
           enddo
         enddo
 
-      endif
+        if (itime == 0) then
+          maxv = maxval(h_res)
+#if defined(petsc)
+          call MPI_Reduce(maxv,maxvg,1,MPI_DOUBLE_PRECISION
+     .                   ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
+#else
+          maxvg = maxv
+#endif
+          if (my_rank == 0) write (*,*) 'Hyperresistivity=',maxvg
+        endif
 
-cc      if (my_rank == 0.and.itime == 0)
-cc     .     write (*,*) 'Hyperresistivity=',maxval(h_res)
+      endif
 
 c     End
 
