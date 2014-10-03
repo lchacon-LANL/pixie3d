@@ -53,11 +53,12 @@ c ######################################################################
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
-        real(8), allocatable, dimension(:,:)    :: mgj0cnv,mgadvdiffV0
-
-        real(8), allocatable, dimension(:,:,:)  :: mgnablaV0
-
-        real(8), allocatable, dimension(:)      :: mgdivV0
+        real(8), allocatable, dimension(:,:) :: mgadvdiffV0
+cc        real(8), allocatable, dimension(:,:)    :: mgj0cnv
+cc
+cc        real(8), allocatable, dimension(:,:,:)  :: mgnablaV0
+cc
+cc        real(8), allocatable, dimension(:)      :: mgdivV0
 
         integer, allocatable, dimension(:,:)    :: bcs,bcs_hyp
 
@@ -87,10 +88,10 @@ c     Begin program
 
         ntotd2p = 2*ntotd/neqd
 
-        allocate (mgj0cnv    (ntotd2p,3))
+cc        allocate (mgj0cnv    (ntotd2p,3))
         allocate (mgadvdiffV0(ntotd2p,3))
-        allocate (mgnablaV0  (ntotd2p,3,3))
-        allocate (mgdivV0    (ntotd2p))
+cc        allocate (mgnablaV0  (ntotd2p,3,3))
+cc        allocate (mgdivV0    (ntotd2p))
 
 #if !defined(vec_pot)
         allocate (bcs(6,neqd+3),bcs_hyp(6,6))
@@ -152,10 +153,10 @@ c     Local variables
 
 c     Begin program
 
-        deallocate (mgj0cnv)
-        deallocate (mgdivV0)
+cc        deallocate (mgj0cnv)
+cc        deallocate (mgdivV0)
         deallocate (mgadvdiffV0)
-        deallocate (mgnablaV0)
+cc        deallocate (mgnablaV0)
 
         deallocate (bcs,bcs_hyp)
 
@@ -606,16 +607,18 @@ cc        enddo
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
-        gb0%grid(igrid)%array = bcnv
+        gb0    %grid(igrid)%array = bcnv
+        gb0_cov%grid(igrid)%array = bcov
 
-        call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order)
+        call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order
+     .                      ,mgvcov=gb0_cov)
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
-        gb0_cov%grid(igrid)%array = bcov
-
-        call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
-     .                      ,iscnv=.false.)
+cc        gb0_cov%grid(igrid)%array = bcov
+cc
+cc        call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
+cc     .                      ,iscnv=.false.)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
@@ -648,16 +651,18 @@ c     Store ion velocity components in all grids (w/ BCs)
 
 c     Store current cnv components in all grids (w/ BCs)
 
-        gj0%grid(igrid)%array = jcnv
+        gj0    %grid(igrid)%array = jcnv
+        gj0_cov%grid(igrid)%array = jcov
 
-        call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid,order)
+        call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid,order
+     .                      ,mgvcov=gj0_cov)
 
 c     Store current cov components in all grids (w/ BCs)
 
-        gj0_cov%grid(igrid)%array = jcov
-
-        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
-     .                      ,order,iscnv=.false.)
+cc        gj0_cov%grid(igrid)%array = jcov
+cc
+cc        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
+cc     .                      ,order,iscnv=.false.)
 
 c     Store viscosity
 
@@ -752,19 +757,19 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 
 c     Find other auxiliary quantities and store them in all grids
 
-        !Velocity divergence (w/o BCs)
-        allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
-
-        debug2 = div(igrid,vcnv)
-
-        call restrictArrayToMGVector(1,nx,ny,nz,debug2,mgdivV0,igrid
-     .                            ,order,.false.)
-
-        deallocate(debug2)
-
+cc        !Velocity divergence (w/o BCs)
+cc        allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
+cc
+cc        debug2 = div(igrid,vcnv)
+cc
+cc        call restrictArrayToMGVector(1,nx,ny,nz,debug2,mgdivV0,igrid
+cc     .                            ,order,.false.)
+cc
+cc        deallocate(debug2)
+cc
         !jxB-grad(p)
-        allocate(vector(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,tensor(0:nx+1,0:ny+1,0:nz+1,3,3))
+        allocate(vector(0:nx+1,0:ny+1,0:nz+1,3))
+cc        allocate(tensor(0:nx+1,0:ny+1,0:nz+1,3,3))
 
         do k = 1,nz
           do j = 1,ny
@@ -781,11 +786,11 @@ c     Find other auxiliary quantities and store them in all grids
 
               jac    = gmetric%grid(igrid)%jac(i,j,k)
 
-              nabla_v= fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                         ,vcnv(:,:,:,1)
-     .                         ,vcnv(:,:,:,2)
-     .                         ,vcnv(:,:,:,3),0)
-              tensor(i,j,k,:,:) = nabla_v
+cc              nabla_v= fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
+cc     .                         ,vcnv(:,:,:,1)
+cc     .                         ,vcnv(:,:,:,2)
+cc     .                         ,vcnv(:,:,:,3),0)
+cc              tensor(i,j,k,:,:) = nabla_v
 
               if (nc_eom_v) then
                 veclap =-div_pi(i,j,k,:)
@@ -845,16 +850,17 @@ cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
      .                              ,igrid,order,.false.)
         enddo
 
-cc        do i=1,3
-cc          do j=1,3
-cc            call restrictArrayToMGVector(1,nx,ny,nz
-cc     .                              ,tensor(:,:,:,i,j)
-cc     .                              ,mgnablaV0(:,i,j)
-cc     .                              ,igrid,order,.false.)
-cc          enddo
-cc        enddo
-
-        deallocate(vector,tensor)
+cccc        do i=1,3
+cccc          do j=1,3
+cccc            call restrictArrayToMGVector(1,nx,ny,nz
+cccc     .                              ,tensor(:,:,:,i,j)
+cccc     .                              ,mgnablaV0(:,i,j)
+cccc     .                              ,igrid,order,.false.)
+cccc          enddo
+cccc        enddo
+cc
+        deallocate(vector)
+cc        deallocate(tensor)
 
 c diag ****
 cc      write (*,*) 'DIAG -- findCoeffs'
@@ -879,18 +885,18 @@ cc     .              ,grid_params%gymin,grid_params%gymax,ieq-1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
-cc        debug2 = gb0_cov%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+cc        debug2 = gve0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
 cc     .              ,grid_params%gxmin,grid_params%gxmax
 cc     .              ,grid_params%gymin,grid_params%gymax,1,110)
 cc      enddo
 cc
-cccc      do ieq=1,3
-cccc        debug2 = gv0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
-cccc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cccc     .              ,grid_params%gxmin,grid_params%gxmax
-cccc     .              ,grid_params%gymin,grid_params%gymax,1,110)
-cccc      enddo
+cc      do ieq=1,3
+cc        debug2 = gbs0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+cc     .              ,grid_params%gxmin,grid_params%gxmax
+cc     .              ,grid_params%gymin,grid_params%gymax,1,110)
+cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gj0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
@@ -904,7 +910,7 @@ cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
 cc     .            ,grid_params%gxmin,grid_params%gxmax
 cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
 cc
-cc      debug2 = gp0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+cc      debug2 = gheta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
 cc     .            ,grid_params%gxmin,grid_params%gxmax
 cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
