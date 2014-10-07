@@ -1120,12 +1120,12 @@ c Get some basic properties
       igzbc = 1
 
 c Correct B cnv
-      call solen_bc(B_cnv,1,0,.false.)
-      call solen_bc(B_cnv,2,0,.false.)
-      call solen_bc(B_cnv,3,0,.false.)
-      call solen_bc(B_cnv,1,1,.false.)
-      call solen_bc(B_cnv,2,1,.false.)
-      call solen_bc(B_cnv,3,1,.false.)
+      call solen_bc(B_cnv,1,0,.false.,.false.)
+      call solen_bc(B_cnv,2,0,.false.,.false.)
+      call solen_bc(B_cnv,3,0,.false.,.false.)
+      call solen_bc(B_cnv,1,1,.false.,.false.)
+      call solen_bc(B_cnv,2,1,.false.,.false.)
+      call solen_bc(B_cnv,3,1,.false.,.false.)
 
 c Correct B cov
       call XformVector_BC(igxbc,B_cnv,B_cov,.false.)
