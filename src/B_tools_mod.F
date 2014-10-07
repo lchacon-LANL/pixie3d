@@ -841,7 +841,7 @@ c     Map vector x to array for processing
 
       call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
      .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_vec=.true.,iorder=bc_order_a)
+     .            ,result_is_curv=.true.,iorder=bc_order_a)
 
 c     Calculate matrix-vector product
 

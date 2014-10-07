@@ -192,70 +192,70 @@ c     End program
 
       end subroutine deallocPCVariables
 
-c     gather
-c     ###################################################################
-      subroutine gather(xout,xin)
-
-c     -------------------------------------------------------------------
-c     Gathers magnitudes from different arrays to vector.
-c     -------------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8),intent(IN),dimension(:,:) :: xin
-        real(8),intent(OUT),dimension(:)  :: xout
-
-c     Local variables
-
-        integer    :: i,j,k,ii,iii,ieq
-
-c     Begin program
-
-        do ii=1,size(xin,1)
-          do ieq=1,size(xin,2)
-            iii = ieq + size(xin,2)*(ii-1)
-            xout(iii) = xin(ii,ieq)
-          enddo
-        enddo
-
-c     End program
-
-      end subroutine gather
-
-c     scatter
-c     ###################################################################
-      subroutine scatter(xout,xin)
-
-c     -------------------------------------------------------------------
-c     Scatters magnitudes in vector to different arrays indexed by the
-c     variable identifier ieq.
-c     -------------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        real(8),intent(IN)  :: xin(:)
-        real(8),intent(OUT) :: xout(:,:)
-
-c     Local variables
-
-        integer    :: i,j,k,ii,iii,ieq
-
-c     Begin program
-
-        do ii=1,size(xout,1)
-          do ieq=1,size(xout,2)
-            iii = ieq + size(xout,2)*(ii-1)
-            xout(ii,ieq) = xin(iii)
-          enddo
-        enddo
-
-c     End program
-
-      end subroutine scatter
+ccc     gather
+ccc     ###################################################################
+cc      subroutine gather(xout,xin)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Gathers magnitudes from different arrays to vector.
+ccc     -------------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        real(8),intent(IN),dimension(:,:) :: xin
+cc        real(8),intent(OUT),dimension(:)  :: xout
+cc
+ccc     Local variables
+cc
+cc        integer    :: i,j,k,ii,iii,ieq
+cc
+ccc     Begin program
+cc
+cc        do ii=1,size(xin,1)
+cc          do ieq=1,size(xin,2)
+cc            iii = ieq + size(xin,2)*(ii-1)
+cc            xout(iii) = xin(ii,ieq)
+cc          enddo
+cc        enddo
+cc
+ccc     End program
+cc
+cc      end subroutine gather
+cc
+ccc     scatter
+ccc     ###################################################################
+cc      subroutine scatter(xout,xin)
+cc
+ccc     -------------------------------------------------------------------
+ccc     Scatters magnitudes in vector to different arrays indexed by the
+ccc     variable identifier ieq.
+ccc     -------------------------------------------------------------------
+cc
+cc        implicit none
+cc
+ccc     Call variables
+cc
+cc        real(8),intent(IN)  :: xin(:)
+cc        real(8),intent(OUT) :: xout(:,:)
+cc
+ccc     Local variables
+cc
+cc        integer    :: i,j,k,ii,iii,ieq
+cc
+ccc     Begin program
+cc
+cc        do ii=1,size(xout,1)
+cc          do ieq=1,size(xout,2)
+cc            iii = ieq + size(xout,2)*(ii-1)
+cc            xout(ii,ieq) = xin(iii)
+cc          enddo
+cc        enddo
+cc
+ccc     End program
+cc
+cc      end subroutine scatter
 
 c     XtoCar
 c     ###################################################################
@@ -434,7 +434,7 @@ c     Begin program
         if (PRESENT(is_vec)) then
           isvec = is_vec
         else
-          isvec = (neq > 1)
+          isvec = (neq == 3 .or. neq == 6)
         endif
 
         if (PRESENT(is_cnv)) then
@@ -1010,8 +1010,8 @@ c     Impose BCs, and return cov, cnv components
      .              ,arr_cov=gb0_cov%grid(igr)%array !Input/output cov array
      .              ,icomp=(/ IBX /)
      .              ,is_cnv=.true.          !This informs that input is in cnv array
-     .              ,is_vec=.not.cartesian  !This informs whether input is Cartesian
-     .              ,result_is_vec=.true.   !This returns curvilinear components
+     .              ,is_curv=.not.cartesian  !This informs whether input is Cartesian
+     .              ,result_is_curv=.true.   !This returns curvilinear components
      .              ,iorder=order)
       enddo
 
@@ -1425,58 +1425,58 @@ cc              end select
 
           else  !Electron hall
 
-            !Electron inertia term: -(de/di)^2*(dv/dt - ve0 x curl(dv))
-            if (de > 0d0) then
-
-              curlv = curl(i,j,k,nx,ny,nz,igx,igy,igz,vv_cov
-     .                    ,hex=hx,hey=hy,hez=hz)
-
-              select case(half_elem)
-              case(1)
-                veh =(gve0%grid(igx)%array(i ,j,k,:)
-     .               +gve0%grid(igx)%array(ip,j,k,:))
-     .               /(gmetric%grid(igx)%jac(i ,j,k)
-     .                +gmetric%grid(igx)%jac(ip,j,k))
-
-                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
-                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
-                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
-
-                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
-              case(2)
-                veh =(gve0%grid(igx)%array(i,j ,k,:)
-     .               +gve0%grid(igx)%array(i,jp,k,:))
-     .               /(gmetric%grid(igx)%jac(i,j ,k)
-     .                +gmetric%grid(igx)%jac(i,jp,k))
-
-                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
-                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
-                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
-
-                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
-              case(3)
-                veh =(gve0%grid(igx)%array(i,j,k ,:)
-     .               +gve0%grid(igx)%array(i,j,kp,:))
-     .               /(gmetric%grid(igx)%jac(i,j,k )
-     .                +gmetric%grid(igx)%jac(i,j,kp))
-
-                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
-                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
-                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
-
-                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
-              case default
-                veh = gve0%grid(igx)%array(i,j,k ,:)
-     .               /gmetric%grid(igx)%jac(i,j,k )
-
-                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
-                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
-                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
-
-                cov = -cov + minv*vv_cov(i,j,k,:)
-              end select
-
-              uav = uav - de**2/di*cov
+cc            !Electron inertia term: -(de/di)^2*(dv/dt - ve0 x curl(dv))
+cc            if (de > 0d0) then
+cc
+cc              curlv = curl(i,j,k,nx,ny,nz,igx,igy,igz,vv_cov
+cc     .                    ,hex=hx,hey=hy,hez=hz)
+cc
+cc              select case(half_elem)
+cc              case(1)
+cc                veh =(gve0%grid(igx)%array(i ,j,k,:)
+cc     .               +gve0%grid(igx)%array(ip,j,k,:))
+cc     .               /(gmetric%grid(igx)%jac(i ,j,k)
+cc     .                +gmetric%grid(igx)%jac(ip,j,k))
+cc
+cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
+cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
+cc                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
+cc
+cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
+cc              case(2)
+cc                veh =(gve0%grid(igx)%array(i,j ,k,:)
+cc     .               +gve0%grid(igx)%array(i,jp,k,:))
+cc     .               /(gmetric%grid(igx)%jac(i,j ,k)
+cc     .                +gmetric%grid(igx)%jac(i,jp,k))
+cc
+cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
+cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
+cc                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
+cc
+cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
+cc              case(3)
+cc                veh =(gve0%grid(igx)%array(i,j,k ,:)
+cc     .               +gve0%grid(igx)%array(i,j,kp,:))
+cc     .               /(gmetric%grid(igx)%jac(i,j,k )
+cc     .                +gmetric%grid(igx)%jac(i,j,kp))
+cc
+cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
+cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
+cc                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
+cc
+cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
+cc              case default
+cc                veh = gve0%grid(igx)%array(i,j,k ,:)
+cc     .               /gmetric%grid(igx)%jac(i,j,k )
+cc
+cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
+cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
+cc                cov(3) = veh(1)*curlv(2) - veh(2)*curlv(1)
+cc
+cc                cov = -cov + minv*vv_cov(i,j,k,:)
+cc              end select
+cc
+cc              uav = uav - de**2/di*cov
 
             endif
 
@@ -1518,8 +1518,8 @@ cc     .                                ,.false.,half_elem=half_elem)
 cc              
 cc              uav = uav - di*cov
 cc            endif
-
-          endif
+cc
+cc          endif
 
         endif
 
