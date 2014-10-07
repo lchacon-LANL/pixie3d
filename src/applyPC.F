@@ -117,7 +117,7 @@ c     Perform iteration
           !Form residual vector rr=y-Ax
           call gatherVector(x,xxx)
           call matrixFreeMatVec(nn*neq,x,r)
-          call scatter(rrr,r)
+          call scatterVector(rrr,r)
           rrr = yyy - rrr
 
         enddo
@@ -526,6 +526,10 @@ c       Vector potential
           rhsc(:,1:3) = rhs(:,IAX:IAZ) - rhsc(:,1:3)
 
           call EMHD_step(rhsc(:,1:3),x(:,IAX:IAZ))
+c diag****
+cc          x(:,IAX:IAZ) = dt*rhsc(:,1:3)
+cc          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
+c diag****
 
         elseif (pc_B_solve.and.(.not.electron_hall)) then
 
@@ -1015,6 +1019,8 @@ c     This subroutine performs EMHD step for vector potential, and
 c     returns updated RHS to feed into MHD step.
 c     --------------------------------------------------------------------
 
+      use mg_io
+
       implicit none
 
 c     Call variables
@@ -1023,7 +1029,7 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: xc(nn,6),rhsc(nn,6)
+      real(8) :: xc(nn,6),rhsc(nn,6),xplot(3*nn)
 
 c     Begin program
 
@@ -1047,12 +1053,14 @@ c     Solve EMHD system
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_vcyc       = mg_vcyc
+cc     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_vcyc       = 3
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
      .            !Production
-     .            ,tol           = pc_tol
+cc     .            ,tol           = pc_tol
+     .            ,tol           = 1d-10
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
@@ -1077,6 +1085,12 @@ cc      stop
 c     Return solution and updated residual for second stage of splitting
 
       x = xc(:,1:3)
+
+c diag ****
+cc      call gather(xplot,x)
+cc      call vec_plot(3,xplot,igrid,'emhd','EMHD sol')
+cc      stop
+c diag ****
 
 c     End program
 
