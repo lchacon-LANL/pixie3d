@@ -2446,6 +2446,8 @@ c     Begin program
      .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
+      hex = 0 ; hey = 0 ; hez = 0
+
       select case (ibc)
       case (1)
  

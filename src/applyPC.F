@@ -508,7 +508,7 @@ cc          endif
         else
 
           x(:,IBX:IBZ) = dt*rhs(:,IBX:IBZ)/cnp
-          call scaleVec(igrid,3,x(:,IBX:IBZ),'div')
+          if (vol_wgt) call scaleVec(igrid,3,x(:,IBX:IBZ),'div')
 
         endif
 #else
@@ -559,7 +559,7 @@ c diag****
         else
 
           x(:,IAX:IAZ) = dt*rhs(:,IAX:IAZ)/cnp
-          call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
+          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
 
         endif
 #endif
@@ -1029,7 +1029,7 @@ c     Call variables
 
 c     Local variables
 
-      real(8) :: xc(nn,6),rhsc(nn,6),xplot(3*nn)
+      real(8) :: xc(nn,6),rhsc(nn,6)!,xplot(3*nn)
 
 c     Begin program
 
@@ -1054,22 +1054,24 @@ c     Solve EMHD system
      .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
 cc     .            ,mg_vcyc       = mg_vcyc
-     .            ,mg_vcyc       = 3
+     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
      .            !Production
-cc     .            ,tol           = pc_tol
-     .            ,tol           = 1d-10
+     .            ,tol           = pc_tol
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
+cc     .            ,mg_smooth     = 'gs'
+cc     .            ,sm_omega      = 1d0
      .            ,sm_it         = sm_iter
-cc     .            !Test
+     .            !Test
+cc     .            ,tol           = 1d-10
 cc     .            ,mg_smooth     = 'gs'
 cc     .            ,sm_omega      = 1d0
 cc     .            ,sm_it         = 5
-cc     .            !Diag
+     .            !Diag
 cc     .            ,cvrg_tst=.false.
 cccc     .            ,mg_smooth     = 'jb'
 cccc     .            ,sm_omega      = 0.5d0
@@ -1080,7 +1082,6 @@ cc     .            ,mg_coarse_grid_size = 6 !2^n x 2^n mesh
 cc     .            ,tol           = 1d-10
 cccc     .            ,mg_smooth     = 'gm'
      .            )
-cc      stop
 
 c     Return solution and updated residual for second stage of splitting
 
