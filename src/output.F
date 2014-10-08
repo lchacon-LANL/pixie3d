@@ -204,14 +204,14 @@ c     Initial message
       write (*,*) '******                                        ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
-      write (*,*) '******  Oak Ridge National Laboratory (08-12) ******'
+      write (*,*) '****** Oak Ridge  National Laboratory (08-12) ******'
       write (*,*) '****** Los Alamos National Laboratory (04-08) ******'
       write (*,*) '******             LA-CC 07-005               ******'
       write (*,*) '******                                        ******'
       write (*,*) '******        with contributions from:        ******'
       write (*,*) '******                                        ******'
       write (*,*) '******       Daniele Bonfiglio, CNR-RFX       ******'
-      write (*,*) '******           Mark Berrill, ORNL           ******'
+      write (*,*) '******    Mark Berrill, Bobby Philip, ORNL    ******'
       write (*,*) '****************************************************'
 
 c     Warnings

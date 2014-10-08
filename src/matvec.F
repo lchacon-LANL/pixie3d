@@ -1516,9 +1516,9 @@ c Map vector x to array for processing
      .                       ,.false.)
 
       call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
-     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
 cc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
+     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=du_cov)
 
 c Auxiliary quantities
@@ -1551,14 +1551,14 @@ c Auxiliary quantities
       db_cov = XformVector(igrid,db_cnv,.false.)
 cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
 cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=db_cov)
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
 
       !Currents
       dj_cnv = curl(igrid,db_cov)
       dj_cov = XformVector(igrid,dj_cnv,.false.)
 cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
 cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=dj_cov)
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 
       !Electron velocity (only keep current piece)
       dve_cnv = form_ve(vzr,djf_cnv,rho0(:,:,:,1))
@@ -1597,23 +1597,16 @@ c Calculate matrix-vector product
             !Convective part (-ve x curl(da_star))
             a_res = a_res + alpha*dbs_x_ve0(das)
 
-            !Electron Hall piece: -dve x B_star = di/rho*(dj x B_star)
+            !Electron Hall piece: -dve x B_star
             cov = -crossProduct_ijk(i,j,k,igx
      .                             ,dve_cnv(i,j,k,:)
      .                             ,bs0_cnv(i,j,k,:),.true.)
 
             a_res = a_res + alpha*cov
 
-            !Electron pressure tensor piece:-di/rho*div(pe(dve))
-cc            cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
-cc     .                         ,dve_cnv,heta0)
-cc            if (form_diag.or.fake_ve) then
-              cnv =-di*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
-     .                         ,djf_cnv,heta0)
-cc            else
-cc              cnv =-di*EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
-cc     .                         ,dj_cnv,heta0)
-cc            endif
+            !Electron pressure tensor piece:-di/rho*div(Pi(dve))
+            cnv = EOM_divPi_ijk(i,j,k,nxx,nyy,nzz,igx,igy,igz
+     .                         ,dve_cnv,heta0)
             cov = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
             a_res = a_res - alpha*di*cov/rho0(i,j,k,1)
@@ -1621,6 +1614,9 @@ cc            endif
             !Assemble residual
             if (form_diag) then
               cc_a_cov =-lap_a_cov
+cc              cc_a_cov = dj_cov(i,j,k,:)  !Unstable
+cc              cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz
+cc     .                                   ,igx,igy,igz,da_cov)
             else
               if (fake_ve) then
                 cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz
