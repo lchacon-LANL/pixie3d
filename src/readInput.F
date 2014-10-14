@@ -519,6 +519,8 @@ cc      if (coords /= 'car') nc_eom_f = .true.
         call pstop('readInput','Unphysical value for di and/or de')
       endif
 
+      if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
+
       if (cnfactor == 1d0) ion_hall = .false.
 
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall

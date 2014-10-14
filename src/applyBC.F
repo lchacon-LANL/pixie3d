@@ -1939,7 +1939,7 @@ c     Local variables
      .          ,covjp(3),covjm(3)
      .          ,covkp(3),covkm(3)
 
-      logical :: nonlinear
+      logical :: nonlinear,safe
 
       real(8),allocatable,dimension(:,:) :: rhs
 
@@ -2150,7 +2150,11 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on J
 
-          call solen_BC(array,dim,loc,.false.,.true.)
+          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+
+          call solen_BC(array,dim,loc,.false.,safe)
 
         endif
 
@@ -2383,7 +2387,11 @@ cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Giv
 
         else  !Imposes divergence-free constraint on B
 
-          call solen_BC(array,dim,loc,.false.,.true.)
+          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+
+          call solen_BC(array,dim,loc,.false.,safe)
 
         endif
 
