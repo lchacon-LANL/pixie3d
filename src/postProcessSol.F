@@ -125,8 +125,7 @@ c       Clean db
 
 cc        call grad_div_clean(db_cnv)
 
-cc        tol_divcl = 0.1*rtol
-        tol_divcl = rtol
+        tol_divcl = 0.1*rtol
         call vlap_div_clean(ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
      .                   ,w_bcs=.true.,gm_it=it_divcl
