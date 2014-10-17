@@ -567,11 +567,11 @@ cc      endif
 
       !Vector advection
       if (v_advect == 0) then
-        if (nc_eom_v) then
-          v_advect = min(advect,2) !Non-conservative EOM
-        else
+cc        if (nc_eom_v) then
+cc          v_advect = min(advect,2) !Non-conservative EOM
+cc        else
           v_advect = advect
-        endif
+cc        endif
       endif
 
       !Perform Lagrangian step at postprocessing time
