@@ -972,11 +972,11 @@ c$$$     .                        ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
 c$$$     .                        ,vol=.false.)
 c$$$            endif
 
-            if (.not.form_diag) then
-              cnv = curl_bxv     (i,j,k,igrid,v0_cnv,db,0)
-            else
+cc            if (.not.form_diag) then
+cc              cnv = curl_bxv     (i,j,k,igrid,v0_cnv,db,0)
+cc            else
               cnv = curl_bxv_upwd(i,j,k,igrid,v0_cnv,db)
-            endif
+cc            endif
 
             cnv=(cnp*db(i,j,k,:)/dt+alpha*(cnv-vlap))*vol
 
