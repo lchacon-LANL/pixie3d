@@ -341,7 +341,14 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-          eeta= res(igr,tmpe)
+          call XferBCs(eeta_0,s0,.true.)
+
+          call setBC(ITMP,nnx,nny,nnz,eeta
+     .              ,s0
+     .              ,vaux%var_list(ITMP)%bconds
+     .              ,igr,igr,igr,iorder=order)
+
+cc          eeta= res(igr,tmpe)
 
         case(ICHI)
 
@@ -1283,8 +1290,14 @@ c       Viscosity (needed for BCs; may depend on T)
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
- 
-          eeta= res(igr,tmpe)
+
+c$$$          if (fixed_spitzer) then
+c$$$            eeta= res(igr,tmpe_0)
+c$$$          elseif (lagged_spitzer) then
+c$$$            eeta= res(igr,u_n%array_var(ITMP)%array/jac)
+c$$$          else
+c$$$            eeta= res(igr,tmpe)
+c$$$          endif
 
         case(ICHI)
 
