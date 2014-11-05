@@ -2387,7 +2387,7 @@ c     Local variables
         real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm
      .            ,jacp,jacm,jacph,jacmh,jach,jac0,jac
      .            ,ijacip,ijacim,ijacjp,ijacjm,ijackp,ijackm
-     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0
+     .            ,ijacp,ijacm,ijacph,ijacmh,ijach,ijac0,ijac
 
         real(8) :: vxip,vxim,vxjp,vxjm,vxkp,vxkm
      .            ,vyip,vyim,vyjp,vyjm,vykp,vykm
@@ -2432,6 +2432,7 @@ c     Defaults
         jackm  = gmetric%grid(igr)%jac(i,j,km)
         jac    = gmetric%grid(igr)%jac(i,j,k)
 
+        ijac    = one/jac
         ijacip  = one/jacip
         ijacim  = one/jacim
         ijacjp  = one/jacjp
@@ -2439,36 +2440,149 @@ c     Defaults
         ijackp  = one/jackp
         ijackm  = one/jackm
 
+cc        !First component
+cc        flxjp = 0.5/(jac+jacjp)*(
+cc     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+cc     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,1)
+cc     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))         
+cc     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,1))
+cc     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+cc     .              +vv(i,jp,k,1)*bb(i,jp,k,2)/jacjp)
+cc        flxjm = 0.5/(jac+jacjm)*(
+cc     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+cc     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,1)
+cc     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+cc     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,1))
+cc     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
+cc     .              +vv(i,jm,k,1)*bb(i,jm,k,2)/jacjm)
+cc
+cc        flxkp = 0.5/(jac+jackp)*(
+cc     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+cc     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,1)
+cc     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+cc     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,1))
+cc     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+cc     .              +vv(i,j,kp,1)*bb(i,j,kp,3)/jackp)
+cc        flxkm = 0.5/(jac+jackm)*(
+cc     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+cc     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,1)
+cc     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+cc     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,1))
+cc     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
+cc     .              +vv(i,j,km,1)*bb(i,j,km,3)/jackm)
+cc
+cc        cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
+cc     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+cc
+cc        !Second component
+cc        flxip = 0.5/(jac+jacip)*(
+cc     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+cc     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,2)
+cc     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+cc     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,2))
+cc     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+cc     .              +vv(ip,j,k,2)*bb(ip,j,k,1)/jacip)
+cc
+cccc        if (isSP(i,j,k,igr,igr,igr)) then
+cccc          flxim = 0d0
+cccc        else
+cc          flxim = 0.5/(jac+jacim+SP_flsv)*(
+cc     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+cc     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,2)
+cc     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+cc     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,2))
+cc     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
+cc     .              +vv(im,j,k,2)*bb(im,j,k,1)/jacim)
+cccc        endif
+cc
+cc        flxkp = 0.5/(jac+jackp)*(
+cc     .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
+cc     .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,2)
+cc     .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
+cc     .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,2))
+cc     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+cc     .              +vv(i,j,kp,2)*bb(i,j,kp,3)/jackp)
+cc        flxkm = 0.5/(jac+jackm)*(
+cc     .     (    (vv(i,j,k,3)+vv(i,j,km,3))
+cc     .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,2)
+cc     .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
+cc     .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,2))
+cc     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
+cc     .              +vv(i,j,km,2)*bb(i,j,km,3)/jackm)
+cc
+cc        cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
+cc     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+cc
+cc        !Third component
+cc        flxip = 0.5/(jac+jacip)*(
+cc     .     (    (vv(i,j,k,1)+vv(ip,j,k,1))
+cc     .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,3)
+cc     .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
+cc     .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,3))
+cc     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+cc     .              +vv(ip,j,k,3)*bb(ip,j,k,1)/jacip)
+cc
+cccc        if (isSP(i,j,k,igr,igr,igr)) then
+cccc          flxim = 0d0
+cccc        else
+cc          flxim = 0.5/(jac+jacim+SP_flsv)*(
+cc     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+cc     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,3)
+cc     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+cc     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,3))
+cc     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
+cc     .              +vv(im,j,k,3)*bb(im,j,k,1)/jacim)
+cccc        endif
+cc
+cc        flxjp = 0.5/(jac+jacjp)*(
+cc     .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
+cc     .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,3)
+cc     .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))          
+cc     .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,3))
+cc     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+cc     .              +vv(i,jp,k,3)*bb(i,jp,k,2)/jacjp)
+cc        flxjm = 0.5/(jac+jacjm)*(
+cc     .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
+cc     .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,3)
+cc     .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
+cc     .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,3))
+cc     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
+cc     .              +vv(i,jm,k,3)*bb(i,jm,k,2)/jacjm)
+cc
+cc        cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
+cc     .           +(flxjp-flxjm)/grid_params%dyh(jg)
+cc
+cc ##################################################################
         !First component
         flxjp = 0.5/(jac+jacjp)*(
      .     (    (vv(i,j,k,2)+vv(i,jp,k,2))
      .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,1)
      .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))         
      .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,1))
-     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
-     .              +vv(i,jp,k,1)*bb(i,jp,k,2)/jacjp)
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)*ijac
+     .              +vv(i,jp,k,1)*bb(i,jp,k,2)*ijacjp)
         flxjm = 0.5/(jac+jacjm)*(
      .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
      .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,1)
      .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
      .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,1))
-     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)/jac
-     .              +vv(i,jm,k,1)*bb(i,jm,k,2)/jacjm)
+     .         -0.5*(vv(i,j ,k,1)*bb(i,j ,k,2)*ijac
+     .              +vv(i,jm,k,1)*bb(i,jm,k,2)*ijacjm)
 
         flxkp = 0.5/(jac+jackp)*(
      .     (    (vv(i,j,k,3)+vv(i,j,kp,3))
      .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,1)
      .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
      .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,1))
-     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
-     .              +vv(i,j,kp,1)*bb(i,j,kp,3)/jackp)
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)*ijac
+     .              +vv(i,j,kp,1)*bb(i,j,kp,3)*ijackp)
         flxkm = 0.5/(jac+jackm)*(
      .     (    (vv(i,j,k,3)+vv(i,j,km,3))
      .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,1)
      .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
      .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,1))
-     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)/jac
-     .              +vv(i,j,km,1)*bb(i,j,km,3)/jackm)
+     .         -0.5*(vv(i,j,k ,1)*bb(i,j,k ,3)*ijac
+     .              +vv(i,j,km,1)*bb(i,j,km,3)*ijackm)
 
         cnv(1) =  (flxjp-flxjm)/grid_params%dyh(jg)
      .           +(flxkp-flxkm)/grid_params%dzh(kg)
@@ -2479,19 +2593,35 @@ c     Defaults
      .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,2)
      .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
      .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,2))
-     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
-     .              +vv(ip,j,k,2)*bb(ip,j,k,1)/jacip)
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)*ijac
+     .              +vv(ip,j,k,2)*bb(ip,j,k,1)*ijacip)
 
         if (isSP(i,j,k,igr,igr,igr)) then
-          flxim = 0d0
+cc          flxim = 0d0
+cc          flxim = 0.25*(
+cc     .     (    (vv(i,j,k,1)*ijac+vv(im,j,k,1)*ijacim)
+cc     .      +abs(vv(i,j,k,1)*ijac+vv(im,j,k,1)*ijacim) )*bb(im,j,k,2)
+cc     .    +(    (vv(i,j,k,1)*ijac+vv(im,j,k,1)*ijacim)          
+cc     .      -abs(vv(i,j,k,1)*ijac+vv(im,j,k,1)*ijacim) )*bb(i ,j,k,2))
+cc     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)*ijac
+cc     .              +vv(im,j,k,2)*bb(im,j,k,1)*ijacim)
+          flxim = 0.5*(
+     .     (    (vv(i,j,k,1))
+     .      +abs(vv(i,j,k,1)) )*bb(im,j,k,2)*ijacim
+     .    +(    (vv(i,j,k,1))          
+     .      -abs(vv(i,j,k,1)) )*bb(i ,j,k,2)*ijac)
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)*ijac
+     .              +vv(im,j,k,2)*bb(im,j,k,1)*ijacim)
+cc          flxim = -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)*ijac
+cc     .                 +vv(im,j,k,2)*bb(im,j,k,1)*ijacim)
         else
           flxim = 0.5/(jac+jacim)*(
      .     (    (vv(i,j,k,1)+vv(im,j,k,1))
      .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,2)
      .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
      .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,2))
-     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)/jac
-     .              +vv(im,j,k,2)*bb(im,j,k,1)/jacim)
+     .         -0.5*(vv(i ,j,k,2)*bb(i ,j,k,1)*ijac
+     .              +vv(im,j,k,2)*bb(im,j,k,1)*ijacim)
         endif
 
         flxkp = 0.5/(jac+jackp)*(
@@ -2499,15 +2629,15 @@ c     Defaults
      .      +abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,k ,2)
      .    +(    (vv(i,j,k,3)+vv(i,j,kp,3))          
      .      -abs(vv(i,j,k,3)+vv(i,j,kp,3)) )*bb(i,j,kp,2))
-     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
-     .              +vv(i,j,kp,2)*bb(i,j,kp,3)/jackp)
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)*ijac
+     .              +vv(i,j,kp,2)*bb(i,j,kp,3)*ijackp)
         flxkm = 0.5/(jac+jackm)*(
      .     (    (vv(i,j,k,3)+vv(i,j,km,3))
      .      +abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,km,2)
      .    +(    (vv(i,j,k,3)+vv(i,j,km,3))          
      .      -abs(vv(i,j,k,3)+vv(i,j,km,3)) )*bb(i,j,k ,2))
-     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)/jac
-     .              +vv(i,j,km,2)*bb(i,j,km,3)/jackm)
+     .         -0.5*(vv(i,j,k ,2)*bb(i,j,k ,3)*ijac
+     .              +vv(i,j,km,2)*bb(i,j,km,3)*ijackm)
 
         cnv(2) =  (flxip-flxim)/grid_params%dxh(ig)
      .           +(flxkp-flxkm)/grid_params%dzh(kg)
@@ -2518,19 +2648,33 @@ c     Defaults
      .      +abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(i ,j,k,3)
      .    +(    (vv(i,j,k,1)+vv(ip,j,k,1))          
      .      -abs(vv(i,j,k,1)+vv(ip,j,k,1)) )*bb(ip,j,k,3))
-     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
-     .              +vv(ip,j,k,3)*bb(ip,j,k,1)/jacip)
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)*ijac
+     .              +vv(ip,j,k,3)*bb(ip,j,k,1)*ijacip)
 
         if (isSP(i,j,k,igr,igr,igr)) then
-          flxim = 0d0
+cc          flxim = 0d0
+cc          flxim = 0.25*(
+cc     .     (    (vv(i,j,k,1)+vv(im,j,k,1))
+cc     .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,3)*ijacim
+cc     .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
+cc     .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,3)*ijac)
+          flxim = 0.5*(
+     .     (    (vv(i,j,k,1))
+     .      +abs(vv(i,j,k,1)) )*bb(im,j,k,3)*ijacim
+     .    +(    (vv(i,j,k,1))          
+     .      -abs(vv(i,j,k,1)) )*bb(i ,j,k,3)*ijac)
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)*ijac
+     .              +vv(im,j,k,3)*bb(im,j,k,1)*ijacim)
+cc          flxim = -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)*ijac
+cc     .                 +vv(im,j,k,3)*bb(im,j,k,1)*ijacim)
         else
           flxim = 0.5/(jac+jacim)*(
      .     (    (vv(i,j,k,1)+vv(im,j,k,1))
      .      +abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(im,j,k,3)
      .    +(    (vv(i,j,k,1)+vv(im,j,k,1))          
      .      -abs(vv(i,j,k,1)+vv(im,j,k,1)) )*bb(i ,j,k,3))
-     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)/jac
-     .              +vv(im,j,k,3)*bb(im,j,k,1)/jacim)
+     .         -0.5*(vv(i ,j,k,3)*bb(i ,j,k,1)*ijac
+     .              +vv(im,j,k,3)*bb(im,j,k,1)*ijacim)
         endif
 
         flxjp = 0.5/(jac+jacjp)*(
@@ -2538,15 +2682,15 @@ c     Defaults
      .      +abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,j ,k,3)
      .    +(    (vv(i,j,k,2)+vv(i,jp,k,2))          
      .      -abs(vv(i,j,k,2)+vv(i,jp,k,2)) )*bb(i,jp,k,3))
-     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
-     .              +vv(i,jp,k,3)*bb(i,jp,k,2)/jacjp)
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)*ijac
+     .              +vv(i,jp,k,3)*bb(i,jp,k,2)*ijacjp)
         flxjm = 0.5/(jac+jacjm)*(
      .     (    (vv(i,j,k,2)+vv(i,jm,k,2))
      .      +abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,jm,k,3)
      .    +(    (vv(i,j,k,2)+vv(i,jm,k,2))          
      .      -abs(vv(i,j,k,2)+vv(i,jm,k,2)) )*bb(i,j ,k,3))
-     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)/jac
-     .              +vv(i,jm,k,3)*bb(i,jm,k,2)/jacjm)
+     .         -0.5*(vv(i,j ,k,3)*bb(i,j ,k,2)*ijac
+     .              +vv(i,jm,k,3)*bb(i,jm,k,2)*ijacjm)
 
         cnv(3) =  (flxip-flxim)/grid_params%dxh(ig)
      .           +(flxjp-flxjm)/grid_params%dyh(jg)
@@ -4265,6 +4409,38 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
 c     End program
 
       end function viscous_heat_src
+
+c     ext_heat_src
+c     ###################################################################
+      function ext_heat_src(i,j,k,igr) result(ehs)
+
+c     -------------------------------------------------------------------
+c     Provides external heat source
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer :: i,j,k,igr
+        real(8) :: ehs
+
+c     Local variables
+
+        integer :: nx,ny,nz,ig,jg,kg
+        real(8) :: rr
+
+c     Begin program
+
+        call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
+        rr = grid_params%xx(ig)
+
+        ehs = 0d0
+!        ehs = chi*exp(-(rr/0.5)**2)
+
+c     End program
+
+      end function ext_heat_src
 
 ccc     viscous_heat_src2
 ccc     ###################################################################

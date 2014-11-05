@@ -205,6 +205,9 @@ c     Sources
      .             +viscous_heat_src(i,j,k,igx,h_eta,vefcnv,vefcnv)
         endif
 
+        !External heat source
+        heat_src = heat_src + ext_heat_src(i,j,k,igx)
+
         if (heat_src < 0d0) then
           write (*,*) 'Negative heat source'
           stop
@@ -863,6 +866,9 @@ c Begin program
                   heat_src = heat_src
      .                   +viscous_heat_src(i,j,k,igr,h_eta,vefcnv,vecnv)
                 endif
+
+                !External heat source
+                heat_src = heat_src + ext_heat_src(i,j,k,igr)
 
                 if (heat_src < 0d0) then
                   write (*,*) 'Negative heat source'
