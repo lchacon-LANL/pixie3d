@@ -957,7 +957,7 @@ c Calculate matrix-vector product
               vol = 1d0
             endif
 
-            etal = geta%grid(igrid)%array(i,j,k,1)
+            etal = leta(i,j,k,1)
             vlap = etal*veclap(i,j,k,nxx,nyy,nzz
      .                        ,igrid,igrid,igrid,db
      .                        ,vol=.false.)
