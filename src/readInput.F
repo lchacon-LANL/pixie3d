@@ -212,7 +212,7 @@ c Set defaults
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
       mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
-      maxitnwt = 20            ! Maximum number of Newton its. (if zero, maxitnwt
+      maxitnwt = 10            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
       maxitgm  = maxksp        ! Maximum GMRES iterations
@@ -220,7 +220,7 @@ c Set defaults
                                !   + 0: constant forcing
                                !   + other: adaptive (Eisenstat-Walker)
 
-      global   = 0             ! Newton's globalization method:
+      global   = 1             ! Newton's globalization method:
                                !   + 0 --> no globalization
                                !   + 1 --> linesearch backtracking 
                                !   + 2 --> pseudo-transient
@@ -306,7 +306,7 @@ c Set defaults
       noise_lev  = 0d0         ! Noise level
 
       !Preconditioner parameters
-      pc_type    = 'id'          ! Type of preconditioner. Currently:
+      pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
                                !   - 's1': SI without flow
                                !   - 's2': SI with flow (iterative)
