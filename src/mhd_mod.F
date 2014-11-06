@@ -666,6 +666,11 @@ cc        vaux%var_list(ITMPE_0)%bconds = EXT
       vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
       vaux%var_list(ITMPE_AUX)%bconds = bcs(:,ITMP)
 
+      vaux%var_list(IETA)%bconds = bcs(:,ITMP)
+      where (vaux%var_list(IETA)%bconds == DIR) 
+        vaux%var_list(IETA)%bconds = EQU
+      end where
+
       !Flow
       vaux%vec_list(IVCNV)%bconds = bcs(:,IVX:IVZ)
 
@@ -970,7 +975,8 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%bc_dep_list(1,3) = 0 !trivial
 
       !Eta
-      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(IETA)%bc_dep_list(1,1) = IETA_0*AUX
       vaux%var_list(IETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%bc_dep_list(1,3) = 0 !trivial
 
