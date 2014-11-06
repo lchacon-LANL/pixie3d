@@ -343,9 +343,8 @@ c Select variable
 
           call XferBCs(eeta_0,s0,.true.)
 
-          call setBC(ITMP,nnx,nny,nnz,eeta
-     .              ,s0
-     .              ,vaux%var_list(ITMP)%bconds
+          call setBC(IETA,nnx,nny,nnz,eeta,s0
+     .              ,vaux%var_list(IETA)%bconds
      .              ,igr,igr,igr,iorder=order)
 
 cc          eeta= res(igr,tmpe)
