@@ -97,7 +97,7 @@ c     Begin program
          res = 3e2
       endif
 
-      res = min(res,3e2)
+      res = min(res,3d2)
 
 c     End program
 
@@ -4447,6 +4447,52 @@ c     Begin program
 c     End program
 
       end function ext_heat_src
+
+c     ext_mom_src
+c     ###################################################################
+      function ext_mom_src(i,j,k,igr) result(ems)
+
+c     -------------------------------------------------------------------
+c     Provides external momentum source for selected equilibria, in
+c     contravariant representation
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        integer :: i,j,k,igr
+        real(8) :: ems(3)
+
+c     Local variables
+
+        integer :: nx,ny,nz,ig,jg,kg
+        real(8) :: rr,kk,mm
+
+c     Begin program
+
+        call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
+        rr = grid_params%xx(ig)
+
+        select case(equil)
+        case('ppnch','ppnsl','ppnst')
+          mm = grid_params%params(1)
+          kk = grid_params%params(2)
+
+          ems(1) = rr*M0(1)
+          ems(2) = M0(2) + kk*rr/mm*M0(3)
+          ems(3) = rr*M0(3)
+        case ('ppn3d','p3nsl')
+          ems(1) = rr*M0(1)
+          ems(2) = M0(2)
+          ems(3) = rr*M0(3)
+        case default
+          ems = 0d0
+        end select
+
+c     End program
+
+      end function ext_mom_src
 
 ccc     viscous_heat_src2
 ccc     ###################################################################

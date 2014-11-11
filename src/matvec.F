@@ -1534,10 +1534,24 @@ c Auxiliary quantities
       vzr = 0d0
 
       !Variables
+#if defined(pgf90)
+
+      allocate(da_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,djf_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,djf_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+      da_cov (0:,0:,0:,1:) = du_cov(0:,0:,0:,1:3)
+      da_cnv (0:,0:,0:,1:) = du_cnv(0:,0:,0:,1:3)
+      djf_cov(0:,0:,0:,1:) = du_cov(0:,0:,0:,4:6)
+      djf_cnv(0:,0:,0:,1:) = du_cnv(0:,0:,0:,4:6)
+
+#else
       da_cov (0:,0:,0:,1:) => du_cov(0:,0:,0:,1:3)
       da_cnv (0:,0:,0:,1:) => du_cnv(0:,0:,0:,1:3)
       djf_cov(0:,0:,0:,1:) => du_cov(0:,0:,0:,4:6)
       djf_cnv(0:,0:,0:,1:) => du_cnv(0:,0:,0:,4:6)
+#endif
 
       !Coefficients
       ve0_cnv => gve0 %grid(igrid)%array
@@ -1639,7 +1653,11 @@ cc     .                                   ,igx,igy,igz,da_cov)
 
 c End program
 
-      nullify (da_cov,da_cnv,djf_cov,djf_cnv)
+#if defined(pgf90)
+      deallocate(da_cov,da_cnv,djf_cov,djf_cnv)
+#else
+      nullify   (da_cov,da_cnv,djf_cov,djf_cnv)
+#endif
 
       deallocate(du_cnv
      .          ,du_cov
@@ -2691,9 +2709,19 @@ cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
      .            ,result_is_curv=.true.,iorder=1,arr_cov=du_cov
      .            ,arr0=v0)
 
+#if defined(pgf90)
+      allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
+     .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
+
+      dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)
+      dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)
+      dj_cnv(0:,0:,0:,1:3)  = du    (:,:,:,4:6)
+#else
       dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
       dv_cov(0:,0:,0:,1:)  => du_cov(:,:,:,1:3)
       dj_cnv(0:,0:,0:,1:)  => du    (:,:,:,4:6)
+#endif
 
       dve_cnv = form_ve(dv,dj_cnv,rho0(:,:,:,1))
 
@@ -2898,6 +2926,12 @@ c End program
 
       deallocate(du,du_cov,dpp,v0,dE_cnv,dve_cnv,divpi
      .          ,dB_cnv,dB_cov)
+
+#if defined(pgf90)
+      deallocate(dv,dv_cov,dj_cnv)
+#else
+      nullify   (dv,dv_cov,dj_cnv)
+#endif
 
       call nullLocalPointers
 
