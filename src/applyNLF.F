@@ -114,6 +114,9 @@ c Local variables
       ! tmp equation
       real(8) :: joule,viscous,heat_flx,heat_src,gm
 
+      ! EOM equation
+      real(8) :: MS(3)
+
 c Begin program
 
       nx = grid_params%nxv(igx)
@@ -268,10 +271,12 @@ c     Advection
 
 c     Sources
 
+      MS = ext_mom_src(i,j,k,igx)
+
       if (nc_eom_v) then
-        ff(IVX:IVZ) = ff(IVX:IVZ) - jac*M0/rho(i,j,k)
+        ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
       else
-        ff(IVX:IVZ) = ff(IVX:IVZ) - jac*M0
+        ff(IVX:IVZ) = ff(IVX:IVZ) - MS
       endif
 
       if (alt__eom()) ff(IVY) = ff(IVY)*jac
@@ -811,6 +816,9 @@ c Local variables
       ! tmp equation
       real(8) :: joule,viscous,heat_src,heat_flx,gm
 
+      ! EOM equation
+      real(8) :: MS(3)
+
 c Begin program
 
       do k = 1,nz
@@ -923,7 +931,9 @@ cc             .               ,bcnv,jcnv,.true.
                                                                        !we evolve dv/dt
 
               !Momentum source
-              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) -jac*M0/rho(i,j,k)
+              MS = ext_mom_src(i,j,k,igr)
+
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - MS/rho(i,j,k)
 
               if (alt__eom()) src(i,j,k,IVY) = src(i,j,k,IVY)*jac
 
@@ -978,7 +988,9 @@ cc     .                       ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Momentum source
-              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - jac*M0
+              MS = ext_mom_src(i,j,k,igr)
+
+              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - MS
 
             endif
           enddo

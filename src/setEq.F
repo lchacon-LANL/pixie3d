@@ -2006,7 +2006,7 @@ c$$$          endif
           !Find axial flow from constant momentum source (Dirichlet at wall)
           vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
 
-          !Find momentum source
+          !Find momentum source (cylindrical)
           M0(1:2) = 0d0
           M0(3) = m0_over_nu*nu
 
@@ -2028,8 +2028,6 @@ c$$$          endif
 
         !Convert current to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
-
-        !Convert momentum source to contravariant
 
         !Build equilibrium
         do k = klom,khip
@@ -2301,7 +2299,7 @@ c     Equilibria (numerical)
           !Find axial flow from constant momentum source (Dirichlet at wall)
           vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
 
-          !Find momentum source
+          !Find momentum source (cylindrical)
           M0(1:2) = 0d0
           M0(3) = m0_over_nu*nu
 
