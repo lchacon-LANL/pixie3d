@@ -2504,6 +2504,7 @@ c Transfer BC fields info to postprocessor via input file
 
       call write_bc_field(E0,'E0')
       call write_bc_field(B0,'B0')
+      call write_bc_field(M0,'M0')
 
 c End program
 
