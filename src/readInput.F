@@ -60,8 +60,10 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,br_pert_bc
+     .                   ,irrot_br_pert,br_pert_phase
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
+     .                   ,pc_as_solver
      .                ,equil,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
@@ -72,7 +74,7 @@ c Namelists
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eig_dt,pc_as_solver
+     .                   ,eigen,eig_dt,perturb_restart
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -97,6 +99,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,spitzer,br_pert_bc
+     .                   ,irrot_br_pert,br_pert_phase
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,pc_divclean,pc_B_solve
@@ -112,7 +115,7 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,source,eigen,eig_dt
+     .                   ,source,eigen,eig_dt,perturb_restart
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -189,6 +192,7 @@ c Set defaults
                                !        dstep is calculated in code)
 
       restart  = .false.       ! Restarting flag
+      perturb_restart=.false.  ! Whether to apply perturbation after restart
       timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
       postprocess = .false.    ! Whether to run solution postprocessing after time step
       source   = .true.        ! Impose source to provide equilibrium
@@ -202,8 +206,6 @@ c Set defaults
                                !   1 -> Rannacher time stepping
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
-
-      vol_wgt  = .true.        ! Whether residual is volume weighed or not
 
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
@@ -231,6 +233,8 @@ c Set defaults
                                !   guess to GMRES (when =1) 
 
       pc_as_solver= .false.    ! Whether we use PC as solver, instead of preconditioned GMRES
+
+      vol_wgt  = .true.        ! Whether residual is volume weighed or not
 
       !Physics parameters
       nu       = 1d-3          ! Reynolds number
@@ -357,8 +361,12 @@ c Set defaults
       random   = .false.       ! Random initialization if true
 
       br_pert_bc = 0d0         ! Br perturbation magnitude at boundary (for pinch)
-                               ! Perturbation modes defined in grid_params 1 and 2
+                               ! Perturbation modes defined in nh2, nh3
                                !   for all geometries (hel, cyl, tor)
+
+      br_pert_phase = 0d0      ! Phase of Br perturbation
+
+      irrot_br_pert = .false.  ! Whether to impose irrotational magnetic perturbation
 
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
@@ -418,38 +426,49 @@ c Read initialization parameters
       inputfile  ='pixie3d.in' ! Default input file
 
       open(unit=uinput,file=inputfile,status='old')
-
       read(uinput,datin,iostat=ioerr)    !Compatibility mode
+      close(unit=uinput)
 
       if (ioerr /= 0) then
         !Reopen input file
-        close(unit=uinput)
-        open(unit=uinput,file=inputfile,status='old')
 
         ioerr = 0
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,setup,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
 
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,phys,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
 
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,fv,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
 
-        read(uinput,ts,iostat=ioerr)
+cc        open(unit=uinput,file=inputfile,status='old')
+cc        read(uinput,ts,iostat=ioerr)
+cc        close(unit=uinput)
+        ioerr = readTSInput(inputfile,.false.)
         if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
 
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,nks,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
 
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,pc,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
 
+        open(unit=uinput,file=inputfile,status='old')
         read(uinput,i_o,iostat=ioerr)
+        close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
       endif
-
-      close(unit=uinput)
 
 #if !defined(plotting) && !defined(samrai)
       !Read projective integration configuration
