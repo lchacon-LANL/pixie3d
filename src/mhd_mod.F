@@ -4226,14 +4226,14 @@ c ######################################################################
         use mg_solver
 
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
-     .            ,br_pert_bc
+     .            ,br_pert_bc,br_pert_phase
 
         real(8) :: eq_params(6),te0_ref
 
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
 
-        logical :: closed_orb
+        logical :: closed_orb,irrot_br_pert=.false.
 
         integer :: nh1,nh2,nh3,npw1=1,npw2=1,npw3=1
 

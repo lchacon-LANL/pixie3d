@@ -1917,7 +1917,7 @@ c     --------------------------------------------------
         m0_over_nu  = grid_params%params(7)
         pw = grid_params%params(8)
 
-        nh2 = mm  !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
         nh1 = nh2 !For perturbations to be of the right order
 
@@ -2093,7 +2093,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         e0_over_eta = grid_params%params(5)
         beta = grid_params%params(6)
 
-        nh2 = mm  !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
         nh1 = nh2 !For perturbations to be of the right order
 
@@ -2212,8 +2212,8 @@ c     Density and temperature
         m0_over_nu  = grid_params%params(7)
         pw = grid_params%params(8)
 
-        nh2 = mm       !To set the right perturbation wavelength
-        nh3 = kk*RR    !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
+        if (nh3 == 0) nh3 = nint(kk*RR)    !To set the right perturbation wavelength
 
         nh1 = nh2      !For perturbations to be of the right order
 
@@ -2389,19 +2389,18 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR = grid_params%params(1)              !Major radius
-cc        mm = grid_params%params(4)              !m mode
-cc        nn = grid_params%params(5)              !n mode
+        mm = grid_params%params(4)              !m mode
+        nn = grid_params%params(5)              !n mode
         e0_over_eta = grid_params%params(6)*RR  !Covariant component is constant, needs RR factor
         beta = grid_params%params(7)     !Toroidal beta
 
         kk = 0d0   !To avoid affecting q-profile
 
         !Now these must be initalized directly in input file.
-cc        nh2 =  mm       !To set the right perturbation wavelength
-cc        nh3 = -nn       !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
+        if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
 
         nh1 = nh2       !For perturbations to be of the right order
-                        !(nh2, nh3 set in input file)
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)

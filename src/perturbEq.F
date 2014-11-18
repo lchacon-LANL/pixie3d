@@ -27,20 +27,24 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,igx,igy,igz,ieq
-      real(8)    :: x1,y1,z1,jac,kx,ky,kk,eps
-     .             ,vplus,vminus,vshear,cs2,kdotB,cth
-     .             ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
-     .             ,bxx,byy,bzz,ibxx,ibyy,ibzz,axx,ayy,azz
-     .             ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
-! Daniele, 03/02/2012
-      integer    :: ip,im,jp,jm,kp,km
-      real(8)    :: dxx,dyy,dzz,RR,mm,nn
+      integer :: i,j,k,ig,jg,kg,igx,igy,igz,ieq
+      real(8) :: x1,y1,z1,jac,kx,ky,kk,eps
+     .          ,vplus,vminus,vshear,cs2,kdotB,cth
+     .          ,vxx,vyy,vzz,ivxx,ivyy,ivzz,xi,ixi,yy,iyy
+     .          ,bxx,byy,bzz,ibxx,ibyy,ibzz,axx,ayy,azz
+     .          ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
+      real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
-      logical    :: check
+      integer :: ip,im,jp,jm,kp,km
+      real(8) :: dxx,dyy,dzz,RR
 
-      integer    :: ierr
+      integer :: mm,nn
+
+      real(8) :: kbesel, beseli, dbeseli, dbeselip, dbeselim
+
+      logical :: check
+
+      integer :: ierr
       character(50) :: command
 
       save  :: w_fast,w_slow,w_shr,freq
@@ -90,74 +94,115 @@ c     Begin program
 
           !Perturb normal B-field component ensuring div(B)=0 numerically
           if (br_pert_bc /= 0d0) then
-
-! Daniele, 03/02/2012
+ 
+            !Luis, 11/17/14. We have now reserved nh2, nh3 for perturbations
             select case(coords)
-              case('hel')
-                mm = nh2
-                kk = 0d0
-              case('cyl')
-                mm = grid_params%params(1)
-                kk = grid_params%params(2)
+            case('hel')
+              mm = nh2
+              kk = 0d0
+            case('cyl')
+              RR = grid_params%params(3)
+              mm = nh2
+              kk = nh3*1d0/RR
             end select
 
-            do k = klo,khi
-              do j = jlo,jhi
-                do i = ilo,ihi
-                  call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                          ,ig,jg,kg,x1,y1,z1)
-cc                  varr%array_var(IBX)%array(i,j,k) =
-cc     .                 varr%array_var(IBX)%array(i,j,k)
-cc     .             +x1*br_pert_bc*(sin(nh2*grid_params%yy(jg+1)+nh3*z1)
-cc     .                            -sin(nh2*grid_params%yy(jg-1)+nh3*z1))
-cc     .                           /2./grid_params%dyh(jg)/nh2 !Derivative done numerically to preserve div(B)=0
-cc                  varr%array_var(IBY)%array(i,j,k) =
-cc     .                 varr%array_var(IBY)%array(i,j,k)
-cc     .                 -br_pert_bc*sin(nh2*y1+nh3*z1)/nh2
-c$$$! Daniele, 03/02/2012. radial profile of x1**4. to have a small Br perturbation at r=0
-c$$$! Daniele, 03/02/2012. cosine instead of sine to have br pert like a sine
-c$$$                  varr%array_var(IBX)%array(i,j,k) =
-c$$$     .                 varr%array_var(IBX)%array(i,j,k)
-c$$$     .              +x1**4.*br_pert_bc
-c$$$     .                   *(cos(mm*grid_params%yy(jg+1)+kk*z1)
-c$$$     .                    -cos(mm*grid_params%yy(jg-1)+kk*z1))
-c$$$     .                    /2./grid_params%dyh(jg)/mm !Derivative done numerically to preserve div(B)=0
-c$$$                  varr%array_var(IBY)%array(i,j,k) =
-c$$$     .                 varr%array_var(IBY)%array(i,j,k)
-c$$$     .                 -x1**3.*br_pert_bc*cos(mm*y1+kk*z1)/mm
+            if (irrot_br_pert) then  !Irrotational magnetic perturbation (lap(psi)=0)
 
-! Daniele, 04/22/2013. radial profile of x1**(mm+2).
-! Daniele, 04/22/2013. numerical derivative in angular direction
-                  ip = ig+1
-                  im = ig-1
-                  jp = jg+1
-                  jm = jg-1
-                  kp = kg+1
-                  km = kg-1
+              do k = klo,khi
+                do j = jlo,jhi
+                  do i = ilo,ihi
+                    call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                            ,ig,jg,kg,x1,y1,z1)
 
-                  dxx = 2*grid_params%dxh(ig)
-                  dyy = 2*grid_params%dyh(jg)
-                  dzz = 2*grid_params%dzh(kg)
+                    ip = ig+1
+                    im = ig-1
+                    jp = jg+1
+                    jm = jg-1
+                    kp = kg+1
+                    km = kg-1
 
-                  varr%array_var(IBX)%array(i,j,k) =
-     .            varr%array_var(IBX)%array(i,j,k)
-     .            +x1**(mm+2.)*br_pert_bc
-     .                   *(cos(mm*grid_params%yy(jp)+kk*z1)
-     .                    -cos(mm*grid_params%yy(jm)+kk*z1))
-     .                   /dyy/mm !Derivative done numerically to preserve div(B)=0
-                  varr%array_var(IBY)%array(i,j,k) =
-     .            varr%array_var(IBY)%array(i,j,k)
-     .            -br_pert_bc*
-     .            (grid_params%xx(ip)**(mm+2.)
-     .            -grid_params%xx(im)**(mm+2.))
+                    dxx = 2*grid_params%dxh(ig)
+                    dyy = 2*grid_params%dyh(jg)
+                    dzz = 2*grid_params%dzh(kg)
+
+                    kbesel = -mm*grid_params%params(2)
+                    beseli = BESSI(mm,kbesel*x1)
+                    dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
+     .                   + BESSI(mm-1,kbesel*x1))
+                    dbeselip =0.5*(BESSI(mm+1,kbesel*grid_params%xx(ip))
+     .                   + BESSI(mm-1,kbesel*grid_params%xx(ip)))
+                    dbeselim =0.5*(BESSI(mm+1,kbesel*grid_params%xx(im))
+     .                   + BESSI(mm-1,kbesel*grid_params%xx(im)))
+
+                    if (my_rank == 0 .and. j.eq.jlo .and. k.eq.klo) then
+                      write(*,10) x1,0.8*2.*dbeseli
+                    endif
+
+                    varr%array_var(IBX)%array(i,j,k) =
+     .                   varr%array_var(IBX)%array(i,j,k)
+     .                   -br_pert_bc*x1*dbeseli
+     .                 *(cos(mm*grid_params%yy(jp)+kk*z1+br_pert_phase)
+     .                  -cos(mm*grid_params%yy(jm)+kk*z1+br_pert_phase))
+     .                 /dyy !Derivative done numerically to preserve div(B)=0
+
+                    varr%array_var(IBY)%array(i,j,k) =
+     .                   varr%array_var(IBY)%array(i,j,k)
+     .                   +br_pert_bc*
+     .                   (grid_params%xx(ip)*dbeselip
+     .                   -grid_params%xx(im)*dbeselim)
      .                   /dxx !Derivative done numerically to preserve div(B)=0
-     .            *cos(mm*y1+kk*z1)/mm
+     .                   *cos(mm*y1+kk*z1+br_pert_phase)
 
+                    varr%array_var(IBZ)%array(i,j,k) =
+     .                   varr%array_var(IBZ)%array(i,j,k)
+     .                   -mm*br_pert_bc*x1*beseli
+     .                   *cos(mm*y1+kk*z1+br_pert_phase)
+
+                  enddo
                 enddo
               enddo
-            enddo
-          endif
 
+            else   !Standard magnetic perturbation from psi=r^(m+2)*cos(m*th + kk*z)
+
+              do k = klo,khi
+                do j = jlo,jhi
+                  do i = ilo,ihi
+                    call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                            ,ig,jg,kg,x1,y1,z1)
+
+                    ip = ig+1
+                    im = ig-1
+                    jp = jg+1
+                    jm = jg-1
+                    kp = kg+1
+                    km = kg-1
+
+                    dxx = 2*grid_params%dxh(ig)
+                    dyy = 2*grid_params%dyh(jg)
+                    dzz = 2*grid_params%dzh(kg)
+
+                    varr%array_var(IBX)%array(i,j,k) =
+     .                   varr%array_var(IBX)%array(i,j,k)
+     .                   +x1**(mm+2.)*br_pert_bc
+     .                 *(cos(mm*grid_params%yy(jp)+kk*z1+br_pert_phase)
+     .                  -cos(mm*grid_params%yy(jm)+kk*z1+br_pert_phase))
+     .                 /dyy/mm !Derivative done numerically to preserve div(B)=0
+
+                    varr%array_var(IBY)%array(i,j,k) =
+     .                   varr%array_var(IBY)%array(i,j,k)
+     .                   -br_pert_bc*
+     .                   (grid_params%xx(ip)**(mm+2.)
+     .                   -grid_params%xx(im)**(mm+2.))
+     .                   /dxx !Derivative done numerically to preserve div(B)=0
+     .                   *cos(mm*y1+kk*z1+br_pert_phase)/mm
+
+                  enddo
+                enddo
+              enddo
+
+            endif
+
+          endif
         endif
 
 ! Daniele, 03/02/2012. case 'ohtor' has been written from scratch
@@ -173,8 +218,10 @@ c$$$     .                 -x1**3.*br_pert_bc*cos(mm*y1+kk*z1)/mm
         if (br_pert_bc /= 0d0) then
 
           RR = grid_params%params(1)
-          mm = grid_params%params(4)
-          nn = grid_params%params(5)
+cc          mm = grid_params%params(4)
+cc          nn = grid_params%params(5)
+          mm = nh2
+          nn =-nh3
 
           do k = klom,khip
             do j = jlom,jhip
@@ -194,20 +241,20 @@ c$$$     .                 -x1**3.*br_pert_bc*cos(mm*y1+kk*z1)/mm
                 dzz = 2*grid_params%dzh(kg)
 
                 varr%array_var(IBX)%array(i,j,k) =
-     .          varr%array_var(IBX)%array(i,j,k)
-     .          +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-     .                 *(cos(mm*y1+nn*grid_params%zz(kp))
-     .                  -cos(mm*y1+nn*grid_params%zz(km)))
+     .               varr%array_var(IBX)%array(i,j,k)
+     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+     .                 *(cos(mm*y1+nn*grid_params%zz(kp)+br_pert_phase)
+     .                  -cos(mm*y1+nn*grid_params%zz(km)+br_pert_phase))
      .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
                 varr%array_var(IBZ)%array(i,j,k) =
-     .          varr%array_var(IBZ)%array(i,j,k)
-     .          -br_pert_bc*
-     .          (grid_params%xx(ip)**(mm+2)
-     $                *(RR+grid_params%xx(ip)*cos(y1))
-     .          -grid_params%xx(im)**(mm+2)
-     $                *(RR+grid_params%xx(im)*cos(y1)))
+     .               varr%array_var(IBZ)%array(i,j,k)
+     .               -br_pert_bc*
+     .               (grid_params%xx(ip)**(mm+2)
+     .                *(RR+grid_params%xx(ip)*cos(y1))
+     .               -grid_params%xx(im)**(mm+2)
+     .                *(RR+grid_params%xx(im)*cos(y1)))
      .                 /dxx !Derivative done numerically to preserve div(B)=0
-     .           *cos(mm*y1+nn*z1)/nn
+     .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
 
               enddo
             enddo
@@ -478,6 +525,9 @@ cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
       end select
 
 c     End program
+
+!10    format (4F8.4)
+10    format (2F12.8)
 
       contains
 
