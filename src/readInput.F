@@ -79,7 +79,7 @@ c Namelists
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian
-     .                ,equ_file,map_file,dcon
+     .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
@@ -128,7 +128,7 @@ c Namelists
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
-     .                   ,dcon,chk_src,test
+     .                   ,dcon,chk_src,test,prt_file
 
 c ******************************************************************
 
@@ -191,11 +191,11 @@ c Set defaults
       dstep    = 0.            ! Time interval between plots (if zero,
                                !        dstep is calculated in code)
 
-      restart  = .false.       ! Restarting flag
-      perturb_restart=.false.  ! Whether to apply perturbation after restart
-      timecorr = .true.        ! Time adaptive algorithm (based on Newton convergence)
-      postprocess = .false.    ! Whether to run solution postprocessing after time step
-      source   = .true.        ! Impose source to provide equilibrium
+      restart        = .false. ! Restarting flag
+      perturb_restart= .false. ! Whether to apply perturbation after restart
+      timecorr       = .true.  ! Time adaptive algorithm (based on Newton convergence)
+      postprocess    = .false. ! Whether to run solution postprocessing after time step
+      source         = .true.  ! Impose source to provide equilibrium
 
       eigen    = .false.       ! Whether to run PIXIE3D in eigensolver mode
       eig_dt   = 1d0           ! Time step for eigenvalue dynamical system

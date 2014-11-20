@@ -80,11 +80,12 @@ c     Begin program
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl','2dhel')
 
         if (is_file(prt_file)) then
-          do ieq=1,varr%nvar
-            call perturbEquilibrium_ppnch(varr%array_var(ieq)%array
-     .                                   ,varr%array_var(ieq)%bconds
-     .                                   ,pert(ieq),ieq)
-          enddo
+          call perturbEquilibrium_ppnch_ext
+cc          do ieq=1,varr%nvar
+cc            call perturbEquilibrium_ppnch(varr%array_var(ieq)%array
+cc     .                                   ,varr%array_var(ieq)%bconds
+cc     .                                   ,pert(ieq),ieq)
+cc          enddo
         else
           do ieq=1,varr%nvar
             call perturbEquilibrium_def(varr%array_var(ieq)%array
@@ -721,9 +722,9 @@ c     End program
 
       end subroutine perturbEquilibrium_kaitm
 
-c     perturbEquilibrium_ppnch
+c     perturbEquilibrium_ppnch_eig
 c     #################################################################
-      subroutine perturbEquilibrium_ppnch(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_ppnch_eig(array,bcs,perturb,ieq)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
@@ -800,7 +801,147 @@ cc            array(i,j,k) = array(i,j,k) + perturb*pert(ieq)
 
 c     End program
 
-      end subroutine perturbEquilibrium_ppnch
+      end subroutine perturbEquilibrium_ppnch_eig
+
+c     perturbEquilibrium_ppnch_ext
+c     #################################################################
+      subroutine perturbEquilibrium_ppnch_ext
+c     -----------------------------------------------------------------
+c     Marco, 14/11/2014
+c     Reads fields from and externally supplied file.
+c     Eigenfunctions of the fields are read from the external file
+c     In the external file it is written
+c     nxd
+c     nyd
+c     nzd
+c     fft_br
+c     fft_bt
+c     fft_bz
+c     fft_vr
+c     fft_vt
+c     fft_vz
+cc     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+c     Local variables
+
+      integer    :: i,j,k,ig,jg,kg,iglobal,nr,ff
+      real(8)    :: x1,y1,z1,kk,mm
+
+      complex(8), allocatable  :: fft_br(:,:,:)
+     .                           ,fft_bt(:,:,:)
+     .                           ,fft_bz(:,:,:)
+      real(8), allocatable :: rin(:),rdum(:,:),idum(:,:)
+
+c     Begin program
+
+c     Read external file
+
+      if (my_rank == 0) write (*,*) 'Reading external file...'
+
+!      ext_file = trim('fft_t450.bin')
+!      u_prtf = 345
+      open(unit=u_prtf,file=trim(prt_file),form='unformatted')
+
+      read(u_prtf) nr
+      read(u_prtf) nh2
+      read(u_prtf) nh3
+
+cc      if (nr /= nxd) then
+cc!        write(*,*) 'ciao, le griglie non corrispondono',nx,nxd
+cc!        stop
+cc        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
+cc      endif
+      write(*,*) nr,nh2,nh3
+
+      allocate(fft_br(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,fft_bt(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,fft_bz(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,rin(0:nr+1),rdum(nxd,3),idum(nxd,3))
+
+      read(u_prtf) fft_br
+      read(u_prtf) fft_bt
+      read(u_prtf) fft_bz
+
+      close (u_prtf)
+
+cc      stop
+
+c     Reconstruct input mesh
+
+      call findGlobalGrid(xmin,xmax,bcond(1),bcond(2),rin,g_pack(1),1)
+
+c     Reconstruct field on target mesh
+
+      select case(coords)
+      case('hel')
+
+        mm = grid_params%params(1)
+        kk = grid_params%params(2)
+
+        !We are NOT including equilibrium component (ff=0)
+        do ff = 1, nh2/2-1 
+          
+          call IntDriver1d (nr+2,rin,dreal(fft_br(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,1),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_br(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,1),3,0)  !Cubic splines
+
+          call IntDriver1d (nr+2,rin,dreal(fft_bt(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,2),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_bt(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,2),3,0)  !Cubic splines
+
+          call IntDriver1d (nr+2,rin,dreal(fft_bz(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,3),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_bz(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
+
+          do k = klo, khi
+            do j = jlo, jhi
+              do i = ilo, ihi
+                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                pert(IBX) = + rdum(i,1) * cos(y1)
+     .                      - idum(i,1) * sin(y1)
+                pert(IBY) = + rdum(i,2) * cos(y1)
+     .                      - idum(i,2) * sin(y1)
+                pert(IBZ) = + rdum(i,3) * cos(y1)
+     .                      - idum(i,3) * sin(y1)
+
+                varr%array_var(IBX)%array(i,j,k) =
+     .               varr%array_var(IBX)%array(i,j,k) + x1*pert(IBX)
+                varr%array_var(IBY)%array(i,j,k) =
+     .               varr%array_var(IBY)%array(i,j,k)
+     .               + pert(IBY) + kk*x1/mm * pert(IBZ)
+                varr%array_var(IBZ)%array(i,j,k) =
+     .               varr%array_var(IBZ)%array(i,j,k) + x1*pert(IBZ)
+
+              enddo
+            enddo
+          enddo
+
+        enddo
+
+      case default
+
+        call pstop('perturbEquilibrium_ppnch'
+     .            ,'Coordinate not implemented')
+
+      end select
+
+      deallocate(fft_br
+     .          ,fft_bt
+     .          ,fft_bz
+     .          ,rin,rdum,idum)
+
+c     End program
+
+      end subroutine perturbEquilibrium_ppnch_ext
 
 ccc     perturbEquilibrium_gem
 ccc     #################################################################
