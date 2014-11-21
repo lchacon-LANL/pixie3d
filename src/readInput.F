@@ -59,8 +59,9 @@ c Namelists
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,br_pert_bc
-     .                   ,irrot_br_pert,br_pert_phase
+     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,irrot_br_pert
+     .                   ,br_pert_bc,br_pert_phase
+     .                   ,br_pert_bc_old,br_pert_phase_old
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver
@@ -95,11 +96,12 @@ c Namelists
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
-     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0
+     .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params,lagrangian,spitzer,br_pert_bc
-     .                   ,irrot_br_pert,br_pert_phase
+     .                   ,eq_params,lagrangian,spitzer,irrot_br_pert
+     .                   ,br_pert_bc,br_pert_phase
+     .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
      .                   ,pc_divclean,pc_B_solve
