@@ -2505,6 +2505,9 @@ c Transfer BC fields info to postprocessor via input file
       call write_bc_field(B0,'B0')
       call write_bc_field(M0,'M0')
 
+      call write_real_field(br_pert_bc   ,'br_pert_bc_old')
+      call write_real_field(br_pert_phase,'br_pert_phase_old')
+
 c End program
 
 10    format (4f7.3,2e12.3)
@@ -2516,8 +2519,7 @@ c     ###############################################################
       subroutine write_bc_field(var,desc)
 
 c     ---------------------------------------------------------------
-c     Writes boundary electric and magnetic fields to pixie3d.in
-c     for later reading.
+c     Writes fields to pixie3d.in for later reading.
 c     ---------------------------------------------------------------
 
 c     Call variables
@@ -2531,7 +2533,7 @@ c     Local variables
 
 c     Begin program
 
-c     Transfer electric field info to postprocessor via input file
+c     Transfer variable info to input file
 
       if (sum(var) /= 0d0 .and. my_rank == 0) then
         command = 'grep '//trim(desc)//' '//trim(inputfile)
@@ -2560,6 +2562,53 @@ c     Transfer electric field info to postprocessor via input file
       endif
 
       end subroutine write_bc_field
+
+c     write_real_field
+c     ###############################################################
+      subroutine write_real_field(var,desc)
+
+c     ---------------------------------------------------------------
+c     Writes fields to pixie3d.in for later reading.
+c     ---------------------------------------------------------------
+
+c     Call variables
+
+      character(*) :: desc
+      real(8) :: var
+
+c     Local variables
+
+      character(200):: command,line
+
+c     Begin program
+
+c     Transfer variable info to input file
+
+      if (my_rank == 0) then
+        command = 'grep '//trim(desc)//' '//trim(inputfile)
+     .           // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) ierr = delete_line(inputfile,desc)
+
+        write (line,*) '   '//trim(desc)//'=',var
+
+        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) then
+          ierr = add_line_after_txt(inputfile,'datin',line)
+        else
+          ierr = add_line_after_txt(inputfile,'phys',line)
+        endif
+
+        if (ierr /= 0) then
+          command = 'Could not write '//trim(desc)//' to input file'
+          call pstop('setEq',command)
+        endif
+      endif
+
+      end subroutine write_real_field
 
       end subroutine setEquilibrium
 

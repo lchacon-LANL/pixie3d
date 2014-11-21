@@ -4227,6 +4227,7 @@ c ######################################################################
 
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
      .            ,br_pert_bc,br_pert_phase
+     .            ,br_pert_bc_old,br_pert_phase_old
 
         real(8) :: eq_params(6),te0_ref
 
