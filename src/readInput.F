@@ -60,7 +60,7 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,irrot_br_pert
-     .                   ,br_pert_bc,br_pert_phase
+     .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -100,7 +100,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,equil,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,spitzer,irrot_br_pert
-     .                   ,br_pert_bc,br_pert_phase
+     .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
@@ -368,6 +368,8 @@ c Set defaults
 
       br_pert_phase = 0d0      ! Phase of Br perturbation
 
+      br_pert_freq  = 0d0      ! Frequency of Br perturbation
+
       irrot_br_pert = .false.  ! Whether to impose irrotational magnetic perturbation
 
       !Logical grid configuration
@@ -516,6 +518,10 @@ c Initialize grid packing structure
 
 c Consistency check
 
+      !Time stepping
+      if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
+
+      !NK
       if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 cc      if (di == 0d0) heta = 0d0
 
@@ -540,8 +546,6 @@ cc      if (coords /= 'car') nc_eom_f = .true.
         call pstop('readInput','Unphysical value for di and/or de')
       endif
 
-      if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
-
       if (cnfactor == 1d0) ion_hall = .false.
 
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
@@ -560,14 +564,10 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
         sm_flag  = 0
       endif
 
+      !Miscellaneous
       if (tst_flg) test = .true.
 
       if (restart) dcon = .false.
-
-cc      if (adiabatic.and.gamma /= 1d0.and.(.not.solve_rho)) then
-cccc        solve_rho = .false.
-cc        postprocess = .true.
-cc      endif
 
       if (coords == 'hel') then   !Special case for 2D helical equilibria
          nh2 = gparams(1)
@@ -606,6 +606,10 @@ cc         maxitnwt = 10
          rtol = 1d-1
       endif
 
+      !Magnetic perturbation
+      if (br_pert_freq /= 0d0) irrot_br_pert = .true.
+
+      !Parallel in time
 #if defined(pit)
       postprocess = .true.
 #endif

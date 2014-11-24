@@ -4330,23 +4330,26 @@ c ######################################################################
         use mg_solver
 
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
-     .            ,br_pert_bc,br_pert_phase
-     .            ,br_pert_bc_old,br_pert_phase_old
 
         real(8) :: eq_params(6),te0_ref
 
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
 
-        logical :: closed_orb,irrot_br_pert=.false.
+        logical :: closed_orb
 
+        !Perturbations
         integer :: nh1,nh2,nh3,npw1=1,npw2=1,npw3=1
+        logical :: odd(3),random
 
-        logical :: odd(3),random,have_jparB=.false.
+        real(8) :: br_pert_bc,br_pert_phase,br_pert_freq
+     .            ,br_pert_bc_old,br_pert_phase_old
+
+        logical :: have_jparB=.false.,irrot_br_pert=.false.
 
         real(8),dimension(10) :: pert
 
-        type(mg_array),target  :: gpsi0,gbz0
+        type(mg_array),target :: gpsi0,gbz0
 
 cc        real(8),pointer,dimension(:,:,:) :: jpar_B => null()
  

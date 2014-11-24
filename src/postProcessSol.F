@@ -47,6 +47,14 @@ c Local variables
 
 c Interfaces
 
+      INTERFACE
+        subroutine perturbEquilibrium_ppnch_bc(varray,br_pert,br_phase)
+        use var_setup
+        type(var_array),pointer :: varray
+        real(8) :: br_pert,br_phase
+        end subroutine perturbEquilibrium_ppnch_bc
+      END INTERFACE
+
 c Begin program
 
       igrid = 1
@@ -154,6 +162,22 @@ cc        psi = psi + da_cov(:,:,:,3)
       endif
 
 #endif
+
+c Add rotating magnetic perturbation
+
+      if (br_pert_freq /= 0d0) then
+
+        !Substract old one
+        call perturbEquilibrium_ppnch_bc(vnp,-br_pert_bc
+     .                                  ,br_pert_phase)
+
+        br_pert_phase = br_pert_phase + br_pert_freq*dt
+
+        !Add new one
+        call perturbEquilibrium_ppnch_bc(vnp, br_pert_bc
+     .                                  ,br_pert_phase)
+
+      endif
 
 c Perform Lagrangian temperature step
 
