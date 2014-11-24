@@ -13,6 +13,110 @@ c ######################################################################
         integer :: u_equf=1000,u_prtf=2000
         character(30) :: equ_file,prt_file
 
+      contains
+
+c     write_bc_field_to_inputf
+c     ###############################################################
+      subroutine write_bc_field_to_inputf(var,desc)
+
+c     ---------------------------------------------------------------
+c     Writes BC fields to pixie3d.in for later reading.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      character(*) :: desc
+      real(8) :: var(3)
+
+c     Local variables
+
+      integer :: ierr
+      character(200):: command,line
+
+c     Begin program
+
+c     Transfer variable info to input file
+
+      if (sum(var) /= 0d0 .and. my_rank == 0) then
+        command = 'grep '//trim(desc)//' '//trim(inputfile)
+     .           // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) ierr = delete_line(inputfile,desc)
+
+        write (line,*) '   '//trim(desc)//'=',real(var(1),4)
+     .                                   ,',',real(var(2),4)
+     .                                   ,',',real(var(3),4)
+
+        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) then
+          ierr = add_line_after_txt(inputfile,'datin',line)
+        else
+          ierr = add_line_after_txt(inputfile,'phys',line)
+        endif
+
+        if (ierr /= 0) then
+          command = 'Could not write '//trim(desc)//' to input file'
+          call pstop('setEq',command)
+        endif
+      endif
+
+      end subroutine write_bc_field_to_inputf
+
+c     write_real_field_to_inputf
+c     ###############################################################
+      subroutine write_real_field_to_inputf(var,desc)
+
+c     ---------------------------------------------------------------
+c     Writes real field to pixie3d.in for later reading.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      character(*) :: desc
+      real(8) :: var
+
+c     Local variables
+
+      integer :: ierr
+      character(200):: command,line
+
+c     Begin program
+
+c     Transfer variable info to input file
+
+      if (my_rank == 0) then
+        command = 'grep '//trim(desc)//' '//trim(inputfile)
+     .           // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) ierr = delete_line(inputfile,desc)
+
+        write (line,*) '   '//trim(desc)//'=',var
+
+        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        ierr = shellcmd(trim(command))
+
+        if (ierr == 0) then
+          ierr = add_line_after_txt(inputfile,'datin',line)
+        else
+          ierr = add_line_after_txt(inputfile,'phys',line)
+        endif
+
+        if (ierr /= 0) then
+          command = 'Could not write '//trim(desc)//' to input file'
+          call pstop('setEq',command)
+        endif
+      endif
+
+      end subroutine write_real_field_to_inputf
+
       end module app_iosetup
 
 c module problem_def

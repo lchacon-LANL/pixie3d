@@ -93,7 +93,7 @@ cc          enddo
      .                                 ,pert(ieq),.false.)
           enddo
 
-          if (perturb_restart) then
+          if (perturb_rstrt) then
             !Substract old one
             call perturbEquilibrium_ppnch_bc(-br_pert_bc_old
      .                                      ,br_pert_phase_old)
@@ -103,6 +103,11 @@ cc          enddo
           else
             call perturbEquilibrium_ppnch_bc(br_pert_bc,br_pert_phase)
           endif
+
+          !Save current perturb state in input file for restart
+          call write_real_field_to_inputf(br_pert_bc,'br_pert_bc_old')
+          call write_real_field_to_inputf(br_pert_phase
+     $                                   ,'br_pert_phase_old')
 
         endif
 

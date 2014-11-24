@@ -75,7 +75,7 @@ c Namelists
      .                   ,sm_zebra_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eig_dt,perturb_restart
+     .                   ,eigen,eig_dt,perturb_rstrt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -117,7 +117,7 @@ c Namelists
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,source,eigen,eig_dt,perturb_restart
+     .                   ,source,eigen,eig_dt,perturb_rstrt
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -194,7 +194,7 @@ c Set defaults
                                !        dstep is calculated in code)
 
       restart        = .false. ! Restarting flag
-      perturb_restart= .false. ! Whether to apply perturbation after restart
+      perturb_rstrt= .false. ! Whether to apply perturbation after restart
       timecorr       = .true.  ! Time adaptive algorithm (based on Newton convergence)
       postprocess    = .false. ! Whether to run solution postprocessing after time step
       source         = .true.  ! Impose source to provide equilibrium
