@@ -767,7 +767,7 @@ cc!        write(*,*) 'ciao, le griglie non corrispondono',nx,nxd
 cc!        stop
 cc        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
 cc      endif
-      write(*,*) nr,nh2,nh3
+      if (my_rank == 0) write(*,*) nr,nh2,nh3
 
       allocate(fft_br(0:nr+1,0:nh2-1,0:nh3-1)
      .        ,fft_bt(0:nr+1,0:nh2-1,0:nh3-1)
@@ -1487,9 +1487,9 @@ c     Begin program
                 dbeselim =0.5*(BESSI(mm+1,kbesel*grid_params%xx(im))
      .               + BESSI(mm-1,kbesel*grid_params%xx(im)))
 
-                if (my_rank == 0 .and. j.eq.jlo .and. k.eq.klo) then
-                  write(*,10) x1,0.8*2.*dbeseli
-                endif
+cc                if (my_rank == 0 .and. j.eq.jlo .and. k.eq.klo) then
+cc                  write(*,10) x1,0.8*2.*dbeseli
+cc                endif
 
                 varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
