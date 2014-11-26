@@ -131,15 +131,10 @@ c       Find db=B^(n+1)-B^n
 
 c       Clean db
 
-cc        call grad_div_clean(db_cnv)
-
         tol_divcl = rtol
         call vlap_div_clean(ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
-     .                   ,w_bcs=.true.,gm_it=it_divcl
-     $                   ,rtol=tol_divcl)   !,diag_plots=.true.)
-
-cc        call curl_div_clean(nx,ny,nz,igx,igy,igz,db_cnv)
+     .                   ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
 
 c       Find new B^(n+1)
 
@@ -152,7 +147,6 @@ c       Find new B^(n+1)
 
 c       Update helical flux and magnetic field
 
-cc        psi = psi + da_cov(:,:,:,3)
         bcnv(:,:,:,1) = vnp%array_var(IBX)%array
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
@@ -162,22 +156,6 @@ cc        psi = psi + da_cov(:,:,:,3)
       endif
 
 #endif
-
-c Add rotating magnetic perturbation
-
-      if (br_pert_freq /= 0d0) then
-
-        !Substract old one
-        call perturbEquilibrium_ppnch_bc(vnp,-br_pert_bc
-     .                                  ,br_pert_phase)
-
-        br_pert_phase = br_pert_phase + br_pert_freq*dt
-
-        !Add new one
-        call perturbEquilibrium_ppnch_bc(vnp, br_pert_bc
-     .                                  ,br_pert_phase)
-
-      endif
 
 c Perform Lagrangian temperature step
 
@@ -221,20 +199,33 @@ c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
 
         call lag_destroy
 
-        !Update BCs
-        call setMGBC(0,1,nx,ny,nz,igrid,tmp_np
-     .              ,vnp%array_var(ITMP)%bconds
-     .              ,iorder=order_bc,icomp=(/ITMP/))
-
-        !Return pressure (with jacobian pressure)
+        !Return pressure (with jacobian)
         vnp%array_var(ITMP)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
       endif
 
-cc      call applyBC (vnp,igx,igy,igz)
+c Add rotating magnetic perturbation
 
-c     Dump parareal convergence info
+      if (br_pert_freq /= 0d0) then
+
+        !Substract old one
+        call perturbEquilibrium_ppnch_bc(vnp,-br_pert_bc
+     .                                  ,br_pert_phase)
+
+        br_pert_phase = br_pert_phase + br_pert_freq*dt
+
+        !Add new one
+        call perturbEquilibrium_ppnch_bc(vnp, br_pert_bc
+     .                                  ,br_pert_phase)
+
+      endif
+
+c Update BCs
+
+      call applyBC(igx,vnp,gv%aux,it=itime)
+
+c Dump parareal convergence info
 
 #if defined(pit)
       allocate(array(0:nx+1,0:ny+1,0:nz+1))
