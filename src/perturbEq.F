@@ -822,34 +822,22 @@ c     Reconstruct field on target mesh
           call IntDriver1d (nr+2,rin,dimag(fft_bz(:,ff,0))
      .                     ,nxd,grid_params%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
 
-cc          call getCurvilinearCoordinates(1,1,1,igx,igy,igz
-cc     .                                  ,ig,jg,kg,x1,y00,z1)
-cc          write (*,*) y00
-cc          stop
-
           do k = klo, khi
             do j = jlo, jhi
               do i = ilo, ihi
                 call getCurvilinearCoordinates(i,j,k,igx,igy,igz
      .                                        ,ig,jg,kg,x1,y1,z1)
-                
-cc                y1 = y1 - y00
 
-                pert(IBX) = + rdum(i,1) * cos(ff*y1)
-     .                      - idum(i,1) * sin(ff*y1)
-                pert(IBY) = + rdum(i,2) * cos(ff*y1)
-     .                      - idum(i,2) * sin(ff*y1)
-                pert(IBZ) = + rdum(i,3) * cos(ff*y1)
-     .                      - idum(i,3) * sin(ff*y1)
+                iglobal = i + grid_params%ilo(igx) - 1
 
-cc                varr%array_var(IBX)%array(i,j,k) =
-cc     .               varr%array_var(IBX)%array(i,j,k) + x1*pert(IBX)
-cc                varr%array_var(IBY)%array(i,j,k) =
-cc     .               varr%array_var(IBY)%array(i,j,k)
-cc     .               + pert(IBY) + kk*x1/mm * pert(IBZ)
-cc                varr%array_var(IBZ)%array(i,j,k) =
-cc     .               varr%array_var(IBZ)%array(i,j,k) + x1*pert(IBZ)
-                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + x1*pert(IBX)
+                pert(IBX) = + rdum(iglobal,1) * cos(ff*y1)
+     .                      - idum(iglobal,1) * sin(ff*y1)
+                pert(IBY) = + rdum(iglobal,2) * cos(ff*y1)
+     .                      - idum(iglobal,2) * sin(ff*y1)
+                pert(IBZ) = + rdum(iglobal,3) * cos(ff*y1)
+     .                      - idum(iglobal,3) * sin(ff*y1)
+
+                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1
                 db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
      .                                            + kk/mm * pert(IBZ)*x1
                 db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1
