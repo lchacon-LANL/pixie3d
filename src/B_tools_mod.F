@@ -566,7 +566,7 @@ c     Find dB
 c     vlap_div_clean
 c     #################################################################
       subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dacov,dbcov
-     .                         ,w_bcs,diag_plots,gm_it,rtol)
+     .                         ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -584,7 +584,7 @@ c     Call variables
       real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
       real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
 
-      logical,optional :: w_bcs,diag_plots
+      logical,optional :: w_bcs,w_pre_bcs,diag_plots
 
 c     Local variables
 
@@ -598,7 +598,7 @@ c     Local variables
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
      $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
-      logical :: vwgt,wbcs,dplots,sing_mat
+      logical :: vwgt,wbcs,w_prebcs,dplots,sing_mat
 
       character(20) :: dcf
 
@@ -618,18 +618,16 @@ c     Begin program
         wbcs = dplots
       endif
 
+      if (PRESENT(w_pre_bcs)) then
+        w_prebcs = w_pre_bcs
+      else
+        wbcs = .false.
+      endif
+
       if (PRESENT(rtol)) then
         etol = rtol
       else
         etol = 1d-4
-      endif
-
-c     Find covariant magnetic field
-
-      if (PRESENT(dbcov)) then
-        db_cov = dbcov
-      else
-        db_cov = XformVector(igx,db,.false.)
       endif
 
 c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
@@ -637,6 +635,19 @@ c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BC
       bcsb(:,1) = u_0%array_var(IBX)%bconds
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
+
+      if (w_prebcs) then
+        call setMGBC(0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
+     .              ,icomp=(/IBX/),is_vec=.true.
+     .              ,is_cnv=.true.,iorder=order_bc)
+cc        return
+      else
+        if (PRESENT(dbcov)) then
+          db_cov = dbcov
+        else
+          db_cov = XformVector(igx,db,.false.)
+        endif
+      endif
 
       do k = 1,nz
         do j = 1,ny
@@ -672,17 +683,17 @@ c     Define BCs for dA
 
 c     Setup solver parameters
 
-      if (no_map) then
+      sing_mat = no_map
+
+      if (sing_mat) then
         order_res  = 0         !To ensure conservation (avoid null space)
         order_prol = 1
       else
-        order_res  = 1
+        order_res  = 0
         order_prol = 1
       endif
 
       bc_order_a = 1
-
-      sing_mat = no_map
 
 c     Allocate diagonal matrix
 

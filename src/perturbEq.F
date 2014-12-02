@@ -110,6 +110,7 @@ cc          enddo
             call perturbEquilibrium_ppnch_bc(varr,br_pert_bc
      .                                      ,br_pert_phase)
           else
+cc            write(*,*) 'calling ppnch_br'
             call perturbEquilibrium_ppnch_bc(varr,br_pert_bc
      .                                      ,br_pert_phase)
           endif
@@ -734,40 +735,43 @@ c     fft_vt
 c     fft_vz
 cc     -----------------------------------------------------------------
 
+      use B_tools
+
+cc      use app_iosetup, ONLY:it_divcl
+
       implicit none
 
 c     Call variables
 
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,iglobal,nr,ff
-      real(8)    :: x1,y1,z1,kk,mm
+      integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz
+      real(8) :: x1,y1,z1,kk,mm,y00
 
       complex(8), allocatable  :: fft_br(:,:,:)
      .                           ,fft_bt(:,:,:)
      .                           ,fft_bz(:,:,:)
       real(8), allocatable :: rin(:),rdum(:,:),idum(:,:)
+ 
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
 c     Begin program
 
 c     Read external file
 
-      if (my_rank == 0) write (*,*) 'Reading external file...'
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Reading external perturbation file '
+     .             ,trim(prt_file)
+      endif
 
-!      ext_file = trim('fft_t450.bin')
-!      u_prtf = 345
       open(unit=u_prtf,file=trim(prt_file),form='unformatted')
 
       read(u_prtf) nr
       read(u_prtf) nh2
       read(u_prtf) nh3
 
-cc      if (nr /= nxd) then
-cc!        write(*,*) 'ciao, le griglie non corrispondono',nx,nxd
-cc!        stop
-cc        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
-cc      endif
-      if (my_rank == 0) write(*,*) nr,nh2,nh3
+      if (my_rank == 0) write(*,*) 'Perturbation mesh=',nr,nh2,nh3
 
       allocate(fft_br(0:nr+1,0:nh2-1,0:nh3-1)
      .        ,fft_bt(0:nr+1,0:nh2-1,0:nh3-1)
@@ -780,13 +784,19 @@ cc      endif
 
       close (u_prtf)
 
-cc      stop
-
 c     Reconstruct input mesh
 
       call findGlobalGrid(xmin,xmax,bcond(1),bcond(2),rin,g_pack(1),1)
 
 c     Reconstruct field on target mesh
+
+      nx = ihi-ilo+1
+      ny = jhi-jlo+1
+      nz = khi-klo+1
+
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+
+      db_cnv = 0d0
 
       select case(coords)
       case('hel')
@@ -812,26 +822,37 @@ c     Reconstruct field on target mesh
           call IntDriver1d (nr+2,rin,dimag(fft_bz(:,ff,0))
      .                     ,nxd,grid_params%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
 
+cc          call getCurvilinearCoordinates(1,1,1,igx,igy,igz
+cc     .                                  ,ig,jg,kg,x1,y00,z1)
+cc          write (*,*) y00
+cc          stop
+
           do k = klo, khi
             do j = jlo, jhi
               do i = ilo, ihi
                 call getCurvilinearCoordinates(i,j,k,igx,igy,igz
      .                                        ,ig,jg,kg,x1,y1,z1)
+                
+cc                y1 = y1 - y00
 
-                pert(IBX) = + rdum(i,1) * cos(y1)
-     .                      - idum(i,1) * sin(y1)
-                pert(IBY) = + rdum(i,2) * cos(y1)
-     .                      - idum(i,2) * sin(y1)
-                pert(IBZ) = + rdum(i,3) * cos(y1)
-     .                      - idum(i,3) * sin(y1)
+                pert(IBX) = + rdum(i,1) * cos(ff*y1)
+     .                      - idum(i,1) * sin(ff*y1)
+                pert(IBY) = + rdum(i,2) * cos(ff*y1)
+     .                      - idum(i,2) * sin(ff*y1)
+                pert(IBZ) = + rdum(i,3) * cos(ff*y1)
+     .                      - idum(i,3) * sin(ff*y1)
 
-                varr%array_var(IBX)%array(i,j,k) =
-     .               varr%array_var(IBX)%array(i,j,k) + x1*pert(IBX)
-                varr%array_var(IBY)%array(i,j,k) =
-     .               varr%array_var(IBY)%array(i,j,k)
-     .               + pert(IBY) + kk*x1/mm * pert(IBZ)
-                varr%array_var(IBZ)%array(i,j,k) =
-     .               varr%array_var(IBZ)%array(i,j,k) + x1*pert(IBZ)
+cc                varr%array_var(IBX)%array(i,j,k) =
+cc     .               varr%array_var(IBX)%array(i,j,k) + x1*pert(IBX)
+cc                varr%array_var(IBY)%array(i,j,k) =
+cc     .               varr%array_var(IBY)%array(i,j,k)
+cc     .               + pert(IBY) + kk*x1/mm * pert(IBZ)
+cc                varr%array_var(IBZ)%array(i,j,k) =
+cc     .               varr%array_var(IBZ)%array(i,j,k) + x1*pert(IBZ)
+                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + x1*pert(IBX)
+                db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
+     .                                            + kk/mm * pert(IBZ)*x1
+                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1
 
               enddo
             enddo
@@ -850,6 +871,35 @@ c     Reconstruct field on target mesh
      .          ,fft_bt
      .          ,fft_bz
      .          ,rin,rdum,idum)
+
+c     Divergence clean perturbation
+
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Divergence cleaning perturbation...'
+        if (ilevel > 0) write (*,*)
+      endif
+
+      call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
+     .                   ,db_cnv,w_pre_bcs=.true.
+     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+
+      if (my_rank == 0.and.ilevel == 0) then
+        write (*,*)
+        write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
+        write (*,*)
+      endif
+
+c     Add equilibrium
+
+      varr%array_var(IBX)%array = db_cnv(:,:,:,1)
+     .                 +varr%array_var(IBX)%array
+      varr%array_var(IBY)%array = db_cnv(:,:,:,2)
+     .                 +varr%array_var(IBY)%array
+      varr%array_var(IBZ)%array = db_cnv(:,:,:,3)
+     .                 +varr%array_var(IBZ)%array
+
+      deallocate(db_cnv)
 
 c     End program
 
@@ -1438,7 +1488,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ip,im,jp,jm,kp,km,mm,igx,igy,igz
       real(8) :: x1,y1,z1,kk,dxx,dyy,dzz,RR
 
-      real(8) :: kbesel, beseli, dbeseli, dbeselip, dbeselim
+      real(8) :: kbesel,beseli,dbeseli,dbeselip, dbeselim,br_pert_l
 
 c     Begin program
       
@@ -1461,6 +1511,12 @@ c     Begin program
 
         if (irrot_br_pert) then  !Irrotational magnetic perturbation (lap(psi)=0)
 
+          !#! Marco: rescaling of br_pert_bc to give it back it's original br(a) meaning
+          kbesel = -mm*grid_params%params(2)
+          dbeseli = 0.5*(BESSI(mm+1,kbesel)
+     .                 + BESSI(mm-1,kbesel))
+          br_pert_l = 2.d0 * br_pert / (dbeseli)
+
           do k = klo,khi
             do j = jlo,jhi
               do i = ilo,ihi
@@ -1478,29 +1534,25 @@ c     Begin program
                 dyy = 2*grid_params%dyh(jg)
                 dzz = 2*grid_params%dzh(kg)
 
-                kbesel = -mm*grid_params%params(2)
+cc                kbesel = -mm*grid_params%params(2)
                 beseli = BESSI(mm,kbesel*x1)
                 dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
-     .               + BESSI(mm-1,kbesel*x1))
+     .                       + BESSI(mm-1,kbesel*x1))
                 dbeselip =0.5*(BESSI(mm+1,kbesel*grid_params%xx(ip))
-     .               + BESSI(mm-1,kbesel*grid_params%xx(ip)))
+     .                       + BESSI(mm-1,kbesel*grid_params%xx(ip)))
                 dbeselim =0.5*(BESSI(mm+1,kbesel*grid_params%xx(im))
-     .               + BESSI(mm-1,kbesel*grid_params%xx(im)))
-
-cc                if (my_rank == 0 .and. j.eq.jlo .and. k.eq.klo) then
-cc                  write(*,10) x1,0.8*2.*dbeseli
-cc                endif
+     .                       + BESSI(mm-1,kbesel*grid_params%xx(im)))
 
                 varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
-     .               -br_pert*x1*dbeseli
+     .               -br_pert_l*x1*dbeseli
      .             *(cos(mm*grid_params%yy(jp)+kk*z1+br_phase)
      .              -cos(mm*grid_params%yy(jm)+kk*z1+br_phase))
      .             /dyy !Derivative done numerically to preserve div(B)=0
 
                 varr%array_var(IBY)%array(i,j,k) =
      .               varr%array_var(IBY)%array(i,j,k)
-     .               +br_pert*
+     .               +br_pert_l*
      .               (grid_params%xx(ip)*dbeselip
      .               -grid_params%xx(im)*dbeselim)
      .               /dxx !Derivative done numerically to preserve div(B)=0
@@ -1508,7 +1560,7 @@ cc                endif
 
                 varr%array_var(IBZ)%array(i,j,k) =
      .               varr%array_var(IBZ)%array(i,j,k)
-     .               -mm*br_pert*x1*beseli
+     .               -mm*br_pert_l*x1*beseli
      .               *cos(mm*y1+kk*z1+br_phase)
 
               enddo
