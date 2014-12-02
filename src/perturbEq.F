@@ -885,9 +885,7 @@ c     Divergence clean perturbation
      .                   ,gm_it=it_divcl,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
-        write (*,*)
         write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
-        write (*,*)
       endif
 
 c     Add equilibrium
