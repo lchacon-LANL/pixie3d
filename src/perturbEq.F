@@ -733,6 +733,7 @@ c     fft_bz
 c     fft_vr
 c     fft_vt
 c     fft_vz
+c     fft_tmp
 cc     -----------------------------------------------------------------
 
       use B_tools
@@ -748,12 +749,18 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz
       real(8) :: x1,y1,z1,kk,mm,y00
 
-      complex(8), allocatable  :: fft_br(:,:,:)
-     .                           ,fft_bt(:,:,:)
-     .                           ,fft_bz(:,:,:)
+      complex(8), allocatable,dimension(:,:,:)  :: fft_br
+     .                                            ,fft_bt
+     .                                            ,fft_bz
+     .                                            ,fft_vr
+     .                                            ,fft_vz
+     .                                            ,fft_vt          
+     .                                            ,fft_tmp
+
       real(8), allocatable :: rin(:),rdum(:,:),idum(:,:)
  
-      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv,dv_cnv
+      real(8),allocatable,dimension(:,:,:)   :: dprs
 
 c     Begin program
 
@@ -776,11 +783,19 @@ c     Read external file
       allocate(fft_br(0:nr+1,0:nh2-1,0:nh3-1)
      .        ,fft_bt(0:nr+1,0:nh2-1,0:nh3-1)
      .        ,fft_bz(0:nr+1,0:nh2-1,0:nh3-1)
-     .        ,rin(0:nr+1),rdum(nxd,3),idum(nxd,3))
+     .        ,fft_vr(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,fft_vt(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,fft_vz(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,fft_tmp(0:nr+1,0:nh2-1,0:nh3-1)
+     .        ,rin(0:nr+1),rdum(nxd,7),idum(nxd,7))
 
       read(u_prtf) fft_br
       read(u_prtf) fft_bt
       read(u_prtf) fft_bz
+      read(u_prtf) fft_vr
+      read(u_prtf) fft_vt
+      read(u_prtf) fft_vz
+      read(u_prtf) fft_tmp
 
       close (u_prtf)
 
@@ -795,8 +810,12 @@ c     Reconstruct field on target mesh
       nz = khi-klo+1
 
       allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(dv_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(dprs  (0:nx+1,0:ny+1,0:nz+1))
 
       db_cnv = 0d0
+      dv_cnv = 0d0
+      dprs   = 0d0
 
       select case(coords)
       case('hel')
@@ -807,6 +826,7 @@ c     Reconstruct field on target mesh
         !We are NOT including equilibrium component (ff=0)
         do ff = 1, nh2/2-1 
           
+c#c magnetic field
           call IntDriver1d (nr+2,rin,dreal(fft_br(:,ff,0))
      .                     ,nxd,grid_params%xg(1:nxd),rdum(:,1),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_br(:,ff,0))
@@ -821,6 +841,26 @@ c     Reconstruct field on target mesh
      .                     ,nxd,grid_params%xg(1:nxd),rdum(:,3),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_bz(:,ff,0))
      .                     ,nxd,grid_params%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
+c#c velocity field
+          call IntDriver1d (nr+2,rin,dreal(fft_vr(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,4),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_vr(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,4),3,0)  !Cubic splines
+
+          call IntDriver1d (nr+2,rin,dreal(fft_vt(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,5),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_vt(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,5),3,0)  !Cubic splines
+
+          call IntDriver1d (nr+2,rin,dreal(fft_vz(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,6),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_vz(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,6),3,0)  !Cubic splines
+c#c temperature field
+          call IntDriver1d (nr+2,rin,dreal(fft_tmp(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,7),3,0)  !Cubic splines
+          call IntDriver1d (nr+2,rin,dimag(fft_tmp(:,ff,0))
+     .                     ,nxd,grid_params%xg(1:nxd),idum(:,7),3,0)  !Cubic splines
 
           do k = klo, khi
             do j = jlo, jhi
@@ -836,12 +876,32 @@ c     Reconstruct field on target mesh
      .                      - idum(iglobal,2) * sin(ff*y1)
                 pert(IBZ) = + rdum(iglobal,3) * cos(ff*y1)
      .                      - idum(iglobal,3) * sin(ff*y1)
+                pert(IVX) = + rdum(iglobal,4) * cos(ff*y1)
+     .                      - idum(iglobal,4) * sin(ff*y1)
+                pert(IVY) = + rdum(iglobal,5) * cos(ff*y1)
+     .                      - idum(iglobal,5) * sin(ff*y1)
+                pert(IVZ) = + rdum(iglobal,6) * cos(ff*y1)
+     .                      - idum(iglobal,6) * sin(ff*y1)
+                pert(ITMP)= + rdum(iglobal,7) * cos(ff*y1)
+     .                      - idum(iglobal,7) * sin(ff*y1)
 
                 db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1
                 db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
      .                                            + kk/mm * pert(IBZ)*x1
                 db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1
+                dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1
 
+                if (alt__eom()) then
+                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
+     .                 + (pert(IVY) + kk/mm*pert(IVZ)*x1)*x1
+                else
+                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2) + pert(IVY)
+     .                                              + kk/mm*pert(IVZ)*x1
+                endif
+
+                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1
+
+                dprs(i,j,k)     = dprs(i,j,k)     + pert(ITMP)*x1
               enddo
             enddo
           enddo
@@ -858,6 +918,10 @@ c     Reconstruct field on target mesh
       deallocate(fft_br
      .          ,fft_bt
      .          ,fft_bz
+     .          ,fft_vr
+     .          ,fft_vt
+     .          ,fft_vz
+     .          ,fft_tmp
      .          ,rin,rdum,idum)
 
 c     Divergence clean perturbation
@@ -884,8 +948,16 @@ c     Add equilibrium
      .                 +varr%array_var(IBY)%array
       varr%array_var(IBZ)%array = db_cnv(:,:,:,3)
      .                 +varr%array_var(IBZ)%array
+      varr%array_var(IVX)%array = dv_cnv(:,:,:,1)
+     .                 +varr%array_var(IVX)%array
+      varr%array_var(IVY)%array = dv_cnv(:,:,:,2)
+     .                 +varr%array_var(IVY)%array
+      varr%array_var(IVZ)%array = dv_cnv(:,:,:,3)
+     .                 +varr%array_var(IVZ)%array
+      varr%array_var(ITMP)%array = dprs
+     .                 +varr%array_var(ITMP)%array
 
-      deallocate(db_cnv)
+      deallocate(db_cnv,dv_cnv,dprs)
 
 c     End program
 
