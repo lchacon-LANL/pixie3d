@@ -31,12 +31,12 @@ c Call variables
 
 c Local variables
 
-      integer    :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,order
+      integer :: i,j,k,ig,jg,kg,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax,order
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 
-      logical    :: fpointers
+      logical :: fpointers
 
 c Begin program
 
@@ -44,9 +44,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
 c Find limits for loops
 
@@ -59,9 +59,6 @@ c Map vector x to array for processing
 
 cc      xarr = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
-     .                       ,.false.)
-
       order = order_bc
       if (    abs(bcnd(1,1)) == NEU
      .    .or.abs(bcnd(2,1)) == NEU
@@ -70,8 +67,13 @@ cc      xarr = 0d0
      .    .or.abs(bcnd(5,1)) == NEU
      .    .or.abs(bcnd(6,1)) == NEU) order = 0
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=order,icomp=(/IRHO/))
+      call fillArray(igrid,neq,x,xarr,bcnd,order,gpos=gpos
+     .              ,icomp=(/IRHO/))
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x
+cc     .                       ,xarr,igrid,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+cc     .            ,iorder=order,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
 
@@ -146,9 +148,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
 c Find limits for loops
 
@@ -163,11 +165,13 @@ c Map vector x to array for processing
 
 cc      xarr = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
-     .                       ,.false.)
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=order_bc,arr0=bz0)
+      call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
+     .              ,arr0=bz0)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x
+cc     .                       ,xarr,igrid,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+cc     .            ,iorder=order_bc,arr0=bz0)
 
 c Calculate matrix-vector product
 
@@ -243,9 +247,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
 c Find limits for loops
 
@@ -258,15 +262,17 @@ c Map vector x to array for processing
 
       psi0 => gpsi0%grid(igrid)%array
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
-     .                       ,.false.)
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=order_bc,arr0=psi0)
+      call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
+     .              ,arr0=psi0)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+cc     .            ,iorder=order_bc,arr0=psi0)
 
 c Calculate matrix-vector product
 
-      kk = grid_params%params(2)
+      kk = MGgrid%params(2)
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -285,21 +291,21 @@ cc            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
             kp = k+1
             km = k-1
 
-            xhp = 0.5*(grid_params%xx(ig)+grid_params%xx(ig+1))
-            xhm = 0.5*(grid_params%xx(ig)+grid_params%xx(ig-1))
+            xhp = 0.5*(MGgrid%xx(ig)+MGgrid%xx(ig+1))
+            xhm = 0.5*(MGgrid%xx(ig)+MGgrid%xx(ig-1))
       
-            y(ijk) = 1d0/x1/grid_params%dxh(ig)
+            y(ijk) = 1d0/x1/MGgrid%dxh(ig)
      .                *( xhp/(1+(kk*xhp)**2)
      .                      *(xarr(ip,j,k,1)-xarr(i,j,k,1))
-     .                      /grid_params%dx(ig)
+     .                      /MGgrid%dx(ig)
      .                  +xhm/(1+(kk*xhm)**2)
      .                      *(xarr(im,j,k,1)-xarr(i,j,k,1))
-     .                      /grid_params%dx(ig-1))
-     .              +1d0/x1**2/grid_params%dyh(jg)
+     .                      /MGgrid%dx(ig-1))
+     .              +1d0/x1**2/MGgrid%dyh(jg)
      .                *( (xarr(i,jp,k,1)-xarr(i,j,k,1))
-     .                   /grid_params%dy(jg)
+     .                   /MGgrid%dy(jg)
      .                  +(xarr(i,jm,k,1)-xarr(i,j,k,1))
-     .                   /grid_params%dy(jg-1) )
+     .                   /MGgrid%dy(jg-1) )
 
             if (res_vol_wgt) y(ijk)=y(ijk)
      $                             *gmetric%grid(igrid)%dvol(i,j,k)
@@ -343,13 +349,14 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
-      real(8)    :: x(ntot),y(ntot)
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
 
 c Local variables
 
-      integer    :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+      real(8) :: aa
+      integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
 
       real(8),allocatable,dimension(:,:,:,:) :: xarr
 cc      real(8),pointer    ,dimension(:,:,:)   :: ljac
@@ -363,9 +370,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
 c Find limits for loops
 
@@ -377,17 +384,20 @@ c Map vector x to array for processing
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
 cc      xarr = 0d0
+      call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos)
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
-     .                       ,.false.)
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+cc     .            ,iorder=order_bc)
 
 c Calculate matrix-vector product
 
       !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
       allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
+
+      aa = MGgrid%params(2) !Horizontal elliptical radius
 
       do k = kmin-1,kmax+1
         do j = jmin-1,jmax+1
@@ -398,9 +408,9 @@ cc
 cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
             call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            iRR(i,j,k) =  1d0/(grid_params%params(1)
-     .                       + grid_params%xx(ig)
-     .                        *cos(grid_params%yy(jg)))**2
+            iRR(i,j,k) =  1d0/(MGgrid%params(1)
+     .                       + aa*MGgrid%xx(ig)
+     .                        *cos(MGgrid%yy(jg)))**2
           enddo
         enddo
       enddo
@@ -480,9 +490,9 @@ c Begin program
 cc      nxx = MGgrid%nxv(igx)
 cc      nyy = MGgrid%nyv(igy)
 cc      nzz = MGgrid%nzv(igz)
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
 c Find limits for loops
 
@@ -495,11 +505,13 @@ c Map vector x to array for processing
 
       xarr = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,xarr,igrid
-     .                       ,.false.)
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-     .            ,icomp=(/IRHO/))
+      call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IRHO/))
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
+cc     .            ,icomp=(/IRHO/))
 
 c Map velocity components
 
@@ -607,9 +619,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nnx = grid_params%nxv(igrid)
-      nny = grid_params%nyv(igrid)
-      nnz = grid_params%nzv(igrid)
+      nnx = MGgrid%nxv(igrid)
+      nny = MGgrid%nyv(igrid)
+      nnz = MGgrid%nzv(igrid)
 
       jac => gmetric%grid(igrid)%jac
 
@@ -626,13 +638,16 @@ c Map vector x to array for processing
       dtmp = 0d0
       dprs = 0d0
  
-      call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,dprs,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/ITMP/))
 
-cc      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
-
-      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dprs,bcnd
-     .            ,icomp=(/ITMP/),iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dprs,igrid
+cc     .                       ,.false.)
+cc
+cccc      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
+cc
+cc      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dprs,bcnd
+cc     .            ,icomp=(/ITMP/),iorder=order_bc)
 
 c Map velocity components
 
@@ -762,9 +777,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nnx = grid_params%nxv(igrid)
-      nny = grid_params%nyv(igrid)
-      nnz = grid_params%nzv(igrid)
+      nnx = MGgrid%nxv(igrid)
+      nny = MGgrid%nyv(igrid)
+      nnz = MGgrid%nzv(igrid)
 
       jac => gmetric%grid(igrid)%jac
 
@@ -781,13 +796,16 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nnx,nny,nnz,drho,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,drho,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IRHO/))
 
-cc      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
-
-      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
-     .            ,icomp=(/IRHO/),iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,drho,igrid
+cc     .                       ,.false.)
+cc
+cccc      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
+cc
+cc      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
+cc     .            ,icomp=(/IRHO/),iorder=order_bc)
 
 c Map velocity components
 
@@ -893,9 +911,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -914,12 +932,16 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,db,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-     .            ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,db,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
+cc     .            ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1056,9 +1078,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -1077,14 +1099,18 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,db,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,db,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IBX,IJX/),is_cnv=is_cnv,is_vec=.true.  !Check icomp!!!
+     .              ,result_is_curv=.true.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
-     .            ,bcnd,icomp=(/IBX,IJX/),is_cnv=is_cnv  !Check icomp!!!
-cc     .            ,is_vec=.not.si_car,result_is_vec=.true.
-     .            ,is_vec=.true.,result_is_curv=.true.
-     .            ,iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,db,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
+cc     .            ,bcnd,icomp=(/IBX,IJX/),is_cnv=is_cnv  !Check icomp!!!
+cccc     .            ,is_vec=.not.si_car,result_is_vec=.true.
+cc     .            ,is_vec=.true.,result_is_curv=.true.
+cc     .            ,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1218,9 +1244,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -1239,12 +1265,15 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,da,igrid
-     .                       ,.false.)
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc)
+      call fillArray(igrid,neq,x,da,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,da,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
+cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1363,9 +1392,9 @@ cc     .              -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
      .         +0.5*(    v0_cnv(i,j,k,3)            
      .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
 
-        cov(1) =  (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+        cov(1) =  (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
 
         flxip = 0.5*(    v0_cnv(i,j,k,1)
@@ -1392,9 +1421,9 @@ cc     .              -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
      .         +0.5*(    v0_cnv(i,j,k,3)            
      .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
 
-        cov(2) =  (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+        cov(2) =  (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
 
         flxip = 0.5*(    v0_cnv(i,j,k,1)
@@ -1421,9 +1450,9 @@ cc     .              -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
         flxkm = -v0_cnv(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
      .          -v0_cnv(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
 
-        cov(3) =  (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+        cov(3) =  (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
       end function db_x_v0
 
@@ -1490,9 +1519,9 @@ c Begin program
 
       isig = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -1508,18 +1537,23 @@ c Map vector x to array for processing
       allocate(du_cnv(0:nxx+1,0:nyy+1,0:nzz+1,neq)
      .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
+      du_cov = 0d0
       du_cnv = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du_cov,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,du_cnv,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=du_cov)
 
-      call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
-cc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=du_cov)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,du_cov,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
+cccc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cccc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=du_cov)
 
 c Auxiliary quantities
 
@@ -1717,9 +1751,9 @@ c     ##############################################################
      .         +0.5*(    ve0_cnv(i,j,k,3)            
      .              -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,1)
 
-        cov(1) =  (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+        cov(1) =  (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
         !Convective part (-ve x curl(da_star)): component 2
         flxip = 0.5*(    ve0_cnv(i,j,k,1)
@@ -1746,9 +1780,9 @@ c     ##############################################################
      .         +0.5*(    ve0_cnv(i,j,k,3)            
      .              -abs(ve0_cnv(i,j,k,3)))*das(i,j,k ,2)
 
-        cov(2) =  (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg)
+        cov(2) =  (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
         !Convective part (-ve x curl(da_star)): component 3
         flxip = 0.5*(    ve0_cnv(i,j,k,1)
@@ -1775,9 +1809,9 @@ c     ##############################################################
         flxkm = -ve0_cnv(i,j,k,1)*0.5*(das(i,j,km,1)+das(i,j,k,1))
      .          -ve0_cnv(i,j,k,2)*0.5*(das(i,j,km,2)+das(i,j,k,2))
 
-        cov(3) =( (flxip-flxim)/grid_params%dxh(ig)
-     .           +(flxjp-flxjm)/grid_params%dyh(jg)
-     .           +(flxkp-flxkm)/grid_params%dzh(kg))/jac
+        cov(3) =( (flxip-flxim)/MGgrid%dxh(ig)
+     .           +(flxjp-flxjm)/MGgrid%dyh(jg)
+     .           +(flxkp-flxkm)/MGgrid%dzh(kg))/jac
 
       end function dbs_x_ve0
 
@@ -1864,21 +1898,21 @@ c     Begin program
         kp = k+1
         km = k-1
         
-        dxx = 2*grid_params%dxh(ig)
-        dyy = 2*grid_params%dyh(jg)
-        dzz = 2*grid_params%dzh(kg)
+        dxx = 2*MGgrid%dxh(ig)
+        dyy = 2*MGgrid%dyh(jg)
+        dzz = 2*MGgrid%dzh(kg)
 
         if (half_elem > 0) then
-          dxx = grid_params%dx(ig-1)
-          dyy = grid_params%dy(jg-1)
-          dzz = grid_params%dz(kg-1)
+          dxx = MGgrid%dx(ig-1)
+          dyy = MGgrid%dy(jg-1)
+          dzz = MGgrid%dz(kg-1)
           ip = i
           jp = j
           kp = k
         elseif (half_elem < 0) then
-          dxx = grid_params%dx(ig)
-          dyy = grid_params%dy(jg)
-          dzz = grid_params%dz(kg)
+          dxx = MGgrid%dx(ig)
+          dyy = MGgrid%dy(jg)
+          dzz = MGgrid%dz(kg)
           im = i
           jm = j
           km = k
@@ -1913,98 +1947,98 @@ c     #####################################################################
 c     Fluxes at faces for calculation of grad(dv.grad(p0))
 
       flxip =( (dv(i,j,k,1)/jac+dv(ip,j,k,1)/jacip)
-     .          *(pp0(ip,j,k,1)-pp0(i,j,k,1))/grid_params%dx(ig)
+     .          *(pp0(ip,j,k,1)-pp0(i,j,k,1))/MGgrid%dx(ig)
      .        +(dv(i,j,k,2)/jac+dv(ip,j,k,2)/jacip)
      .          *(pp0(ip,jp,k,1)-pp0(ip,jm,k,1)
-     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/grid_params%dyh(jg)/4.
+     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/MGgrid%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(ip,j,k,3)/jacip)
      .          *(pp0(ip,j,kp,1)-pp0(ip,j,km,1)
-     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/grid_params%dzh(kg)/4.)
+     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/MGgrid%dzh(kg)/4.)
      .        *0.5
 
       flxim =( (dv(i,j,k,1)/jac+dv(im,j,k,1)/jacim)
-     .          *(pp0(i ,j,k,1)-pp0(im,j,k,1))/grid_params%dx(ig-1)
+     .          *(pp0(i ,j,k,1)-pp0(im,j,k,1))/MGgrid%dx(ig-1)
      .        +(dv(i,j,k,2)/jac+dv(im,j,k,2)/jacim)
      .          *(pp0(im,jp,k,1)-pp0(im,jm,k,1)
-     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/grid_params%dyh(jg)/4.
+     .           +pp0(i ,jp,k,1)-pp0(i ,jm,k,1))/MGgrid%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(im,j,k,3)/jacim)
      .          *(pp0(im,j,kp,1)-pp0(im,j,km,1)
-     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/grid_params%dzh(kg)/4.)
+     .           +pp0(i ,j,kp,1)-pp0(i ,j,km,1))/MGgrid%dzh(kg)/4.)
      .        *0.5
 
       flxjp =( (dv(i,j,k,1)/jac+dv(i,jp,k,1)/jacjp)
      .          *(pp0(ip,jp,k,1)-pp0(im,jp,k,1)
-     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/grid_params%dxh(ig)/4.
+     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/MGgrid%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,jp,k,2)/jacjp)
-     .          *(pp0(i,jp,k,1)-pp0(i,j,k,1))/grid_params%dy(jg)
+     .          *(pp0(i,jp,k,1)-pp0(i,j,k,1))/MGgrid%dy(jg)
      .        +(dv(i,j,k,3)/jac+dv(i,jp,k,3)/jacjp)
      .          *(pp0(i,jp,kp,1)-pp0(i,jp,km,1)
-     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/grid_params%dzh(kg)/4.)
+     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/MGgrid%dzh(kg)/4.)
      .        *0.5
       flxjm =( (dv(i,j,k,1)/jac+dv(i,jm,k,1)/jacjm)
      .          *(pp0(ip,jm,k,1)-pp0(im,jm,k,1)
-     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/grid_params%dxh(ig)/4.
+     .           +pp0(ip,j ,k,1)-pp0(im,j ,k,1))/MGgrid%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,jm,k,2)/jacjm)
-     .          *(pp0(i,j ,k,1)-pp0(i,jm,k,1))/grid_params%dy(jg-1)
+     .          *(pp0(i,j ,k,1)-pp0(i,jm,k,1))/MGgrid%dy(jg-1)
      .        +(dv(i,j,k,3)/jac+dv(i,jm,k,3)/jacjm)
      .          *(pp0(i,jm,kp,1)-pp0(i,jm,km,1)
-     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/grid_params%dzh(kg)/4.)
+     .           +pp0(i,j ,kp,1)-pp0(i,j ,km,1))/MGgrid%dzh(kg)/4.)
      .        *0.5
 
       flxkp =( (dv(i,j,k,1)/jac+dv(i,j,kp,1)/jackp)
      .          *(pp0(ip,j,kp,1)-pp0(im,j,kp,1)
-     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/grid_params%dxh(ig)/4.
+     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/MGgrid%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,j,kp,2)/jackp)
      .          *(pp0(i,jp,kp,1)-pp0(i,jm,kp,1)
-     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/grid_params%dyh(jg)/4.
+     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/MGgrid%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(i,j,kp,3)/jackp)
-     .          *(pp0(i,j,kp,1)-pp0(i,j,k,1))/grid_params%dz(kg) )
+     .          *(pp0(i,j,kp,1)-pp0(i,j,k,1))/MGgrid%dz(kg) )
      .        *0.5
       flxkm =( (dv(i,j,k,1)/jac+dv(i,j,km,1)/jackm)
      .          *(pp0(ip,j,km,1)-pp0(im,j,km,1)
-     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/grid_params%dxh(ig)/4.
+     .           +pp0(ip,j,k ,1)-pp0(im,j,k ,1))/MGgrid%dxh(ig)/4.
      .        +(dv(i,j,k,2)/jac+dv(i,j,km,2)/jackm)
      .          *(pp0(i,jp,km,1)-pp0(i,jm,km,1)
-     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/grid_params%dyh(jg)/4.
+     .           +pp0(i,jp,k ,1)-pp0(i,jm,k ,1))/MGgrid%dyh(jg)/4.
      .        +(dv(i,j,k,3)/jac+dv(i,j,km,3)/jackm)
-     .          *(pp0(i,j,k ,1)-pp0(i,j,km,1))/grid_params%dz(kg-1) )
+     .          *(pp0(i,j,k ,1)-pp0(i,j,km,1))/MGgrid%dz(kg-1) )
      .        *0.5
 
 c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
       !!Divergence at faces i+-1/2, etc.
-      divip = (dv(ip,j ,k,1)-dv(i ,j ,k,1))/grid_params%dx(ig)
+      divip = (dv(ip,j ,k,1)-dv(i ,j ,k,1))/MGgrid%dx(ig)
      .       +(dv(i ,jp,k,2)-dv(i ,jm,k,2)
-     .        +dv(ip,jp,k,2)-dv(ip,jm,k,2))/grid_params%dyh(jg)*0.25
+     .        +dv(ip,jp,k,2)-dv(ip,jm,k,2))/MGgrid%dyh(jg)*0.25
      .       +(dv(i ,j,kp,3)-dv(i ,j,km,3)
-     .        +dv(ip,j,kp,3)-dv(ip,j,km,3))/grid_params%dzh(kg)*0.25
-      divim = (dv(i ,j ,k,1)-dv(im,j ,k,1))/grid_params%dx(ig-1)
+     .        +dv(ip,j,kp,3)-dv(ip,j,km,3))/MGgrid%dzh(kg)*0.25
+      divim = (dv(i ,j ,k,1)-dv(im,j ,k,1))/MGgrid%dx(ig-1)
      .       +(dv(i ,jp,k,2)-dv(i ,jm,k,2)
-     .        +dv(im,jp,k,2)-dv(im,jm,k,2))/grid_params%dyh(jg)*0.25
+     .        +dv(im,jp,k,2)-dv(im,jm,k,2))/MGgrid%dyh(jg)*0.25
      .       +(dv(i ,j,kp,3)-dv(i ,j,km,3)
-     .        +dv(im,j,kp,3)-dv(im,j,km,3))/grid_params%dzh(kg)*0.25
+     .        +dv(im,j,kp,3)-dv(im,j,km,3))/MGgrid%dzh(kg)*0.25
 
       divjp = (dv(ip,j ,k,1)-dv(im,j ,k,1)
-     .        +dv(ip,jp,k,1)-dv(im,jp,k,1))/grid_params%dxh(ig)*0.25
-     .       +(dv(i ,jp,k,2)-dv(i ,j ,k,2))/grid_params%dy(jg)
+     .        +dv(ip,jp,k,1)-dv(im,jp,k,1))/MGgrid%dxh(ig)*0.25
+     .       +(dv(i ,jp,k,2)-dv(i ,j ,k,2))/MGgrid%dy(jg)
      .       +(dv(i,j ,kp,3)-dv(i,j ,km,3)
-     .        +dv(i,jp,kp,3)-dv(i,jp,km,3))/grid_params%dzh(kg)*0.25
+     .        +dv(i,jp,kp,3)-dv(i,jp,km,3))/MGgrid%dzh(kg)*0.25
       divjm = (dv(ip,j ,k,1)-dv(im,j ,k,1)
-     .        +dv(ip,jm,k,1)-dv(im,jm,k,1))/grid_params%dxh(ig)*0.25
-     .       +(dv(i ,j ,k,2)-dv(i ,jm,k,2))/grid_params%dy(jg-1)
+     .        +dv(ip,jm,k,1)-dv(im,jm,k,1))/MGgrid%dxh(ig)*0.25
+     .       +(dv(i ,j ,k,2)-dv(i ,jm,k,2))/MGgrid%dy(jg-1)
      .       +(dv(i,j ,kp,3)-dv(i,j ,km,3)
-     .        +dv(i,jm,kp,3)-dv(i,jm,km,3))/grid_params%dzh(kg)*0.25
+     .        +dv(i,jm,kp,3)-dv(i,jm,km,3))/MGgrid%dzh(kg)*0.25
 
       divkp = (dv(ip,j,k ,1)-dv(im,j,k ,1)
-     .        +dv(ip,j,kp,1)-dv(im,j,kp,1))/grid_params%dxh(ig)*0.25
+     .        +dv(ip,j,kp,1)-dv(im,j,kp,1))/MGgrid%dxh(ig)*0.25
      .       +(dv(i,jp,k ,2)-dv(i,jm,k ,2)
-     .        +dv(i,jp,kp,2)-dv(i,jm,kp,2))/grid_params%dyh(jg)*0.25
-     .       +(dv(i,j ,kp,3)-dv(i,j ,k ,3))/grid_params%dz(kg)
+     .        +dv(i,jp,kp,2)-dv(i,jm,kp,2))/MGgrid%dyh(jg)*0.25
+     .       +(dv(i,j ,kp,3)-dv(i,j ,k ,3))/MGgrid%dz(kg)
       divkm = (dv(ip,j,k ,1)-dv(im,j,k ,1)
-     .        +dv(ip,j,km,1)-dv(im,j,km,1))/grid_params%dxh(ig)*0.25
+     .        +dv(ip,j,km,1)-dv(im,j,km,1))/MGgrid%dxh(ig)*0.25
      .       +(dv(i,jp,k ,2)-dv(i,jm,k ,2)
-     .        +dv(i,jp,km,2)-dv(i,jm,km,2))/grid_params%dyh(jg)*0.25
-     .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/grid_params%dz(kg-1)
+     .        +dv(i,jp,km,2)-dv(i,jm,km,2))/MGgrid%dyh(jg)*0.25
+     .       +(dv(i,j ,k ,3)-dv(i,j ,km,3))/MGgrid%dz(kg-1)
 
       gamm = gamma
 
@@ -2027,9 +2061,9 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
 c     Transform to contravariant
 
-      cov(1) = (flxip - flxim)/grid_params%dxh(ig)
-      cov(2) = (flxjp - flxjm)/grid_params%dyh(jg)
-      cov(3) = (flxkp - flxkm)/grid_params%dzh(kg)
+      cov(1) = (flxip - flxim)/MGgrid%dxh(ig)
+      cov(2) = (flxjp - flxjm)/MGgrid%dyh(jg)
+      cov(3) = (flxkp - flxkm)/MGgrid%dzh(kg)
 
       call transformFromCurvToCurv(i,j,k,igr,igr,igr
      .                            ,cov(1),cov(2),cov(3)
@@ -2062,9 +2096,9 @@ c     #############################################################
         jac = gmetric%grid(igr)%jac(i,j,k)
         ijac = 1d0/jac
 
-        dxx = grid_params%dxh(ig)
-        dyy = grid_params%dyh(jg)
-        dzz = grid_params%dzh(kg)
+        dxx = MGgrid%dxh(ig)
+        dyy = MGgrid%dyh(jg)
+        dzz = MGgrid%dzh(kg)
 
         j0_cnv = curl(i,j,k,nxx,nyy,nzz,igr,igr,igr,b0_cov)
 
@@ -2186,7 +2220,7 @@ c     Begin program
 
         if (isSP(i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
-        if ( i + grid_params%ilo(igx)-1 < grid_params%nxgl(igx)
+        if ( i + MGgrid%ilo(igx)-1 < MGgrid%nxgl(igx)
      .      .and. bcSP()
      .      .and. flag /= 0           ) then
           jacp = gmetric%grid(igrid)%jac(ip,j,k)
@@ -2460,9 +2494,9 @@ c Begin program
       isig  = MGgrid%istartp(igrid)
       iisig = istart (igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -2491,22 +2525,27 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       
       dv = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,dv,bcnd,1,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=dv_cov
+     .              ,arr0=v0)
 
-cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-
-      if (di > 0) then
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=1,arr_cov=dv_cov
-     .            ,arr0=v0)
-      else
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov
-     .            ,arr0=v0)
-      endif
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
+cc     .                       ,.false.)
+cc
+cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc
+cc      if (di > 0) then
+cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=1,arr_cov=dv_cov
+cc     .            ,arr0=v0)
+cc      else
+cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov
+cc     .            ,arr0=v0)
+cc      endif
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
@@ -2659,9 +2698,9 @@ c Begin program
       isig  = MGgrid%istartp(igrid)
       iisig = istart (igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -2681,13 +2720,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       allocate(du    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
      .        ,du_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
-      du = 0d0
-
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,du,igrid
-     .                       ,.false.)
-
-cc      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
-
       allocate(dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,divpi  (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -2702,14 +2734,26 @@ c BCs
 
       v0 = 0d0
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
-cc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
-     .            ,result_is_curv=.true.,iorder=1,arr_cov=du_cov
-     .            ,arr0=v0)
+      du = 0d0
 
-#if defined(pgf90)
+      call fillArray(igrid,neq,x,du,bcnd,1,gpos=gpos
+cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
+
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,du,igrid
+cc     .                       ,.false.)
+cc
+cccc      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
+cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
+cccc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
+cc     .            ,result_is_curv=.true.,iorder=1,arr_cov=du_cov
+cc     .            ,arr0=v0)
+
+cc#if defined(pgf90)
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
@@ -2717,11 +2761,11 @@ cc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
       dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)
       dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)
       dj_cnv(0:,0:,0:,1:3)  = du    (:,:,:,4:6)
-#else
-      dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
-      dv_cov(0:,0:,0:,1:)  => du_cov(:,:,:,1:3)
-      dj_cnv(0:,0:,0:,1:)  => du    (:,:,:,4:6)
-#endif
+c$$$#else
+c$$$      dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
+c$$$      dv_cov(0:,0:,0:,1:)  => du_cov(:,:,:,1:3)
+c$$$      dj_cnv(0:,0:,0:,1:)  => du    (:,:,:,4:6)
+c$$$#endif
 
       dve_cnv = form_ve(dv,dj_cnv,rho0(:,:,:,1))
 
@@ -2897,14 +2941,14 @@ cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
      .                                    ,cnv(1),cnv(2),cnv(3)
      .                                    ,.false.,half_elem=3)
 
-              cnv(1) = (ajp(3)-ajm(3))/grid_params%dyh(jg)
-     .                -(akp(2)-akm(2))/grid_params%dzh(kg)
+              cnv(1) = (ajp(3)-ajm(3))/MGgrid%dyh(jg)
+     .                -(akp(2)-akm(2))/MGgrid%dzh(kg)
 
-              cnv(2) = (akp(1)-akm(1))/grid_params%dzh(kg)
-     .                -(aip(3)-aim(3))/grid_params%dxh(ig)
+              cnv(2) = (akp(1)-akm(1))/MGgrid%dzh(kg)
+     .                -(aip(3)-aim(3))/MGgrid%dxh(ig)
 
-              cnv(3) = (aip(2)-aim(2))/grid_params%dxh(ig)
-     .                -(ajp(1)-ajm(1))/grid_params%dyh(jg)
+              cnv(3) = (aip(2)-aim(2))/MGgrid%dxh(ig)
+     .                -(ajp(1)-ajm(1))/MGgrid%dyh(jg)
 
               dj = -dt*cnv/cnp
             endif
@@ -2927,11 +2971,11 @@ c End program
       deallocate(du,du_cov,dpp,v0,dE_cnv,dve_cnv,divpi
      .          ,dB_cnv,dB_cov)
 
-#if defined(pgf90)
+cc#if defined(pgf90)
       deallocate(dv,dv_cov,dj_cnv)
-#else
-      nullify   (dv,dv_cov,dj_cnv)
-#endif
+c$$$#else
+c$$$      nullify   (dv,dv_cov,dj_cnv)
+c$$$#endif
 
       call nullLocalPointers
 
@@ -2990,9 +3034,9 @@ c Begin program
       isig  = MGgrid%istartp(igrid)
       iisig = istart (igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -3025,22 +3069,26 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       
       dv = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,dv,bcnd,1,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=dv_cov)
 
-cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-
-      if (di > 0) then
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=1,arr_cov=dv_cov)
-      else
-        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
-      endif
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
+cc     .                       ,.false.)
+cc
+cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc
+cc      if (di > 0) then
+cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=1,arr_cov=dv_cov)
+cc      else
+cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
+cc      endif
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
@@ -3168,9 +3216,9 @@ ccc     Allocate MG vector
 cc
 cc        igr = 1
 cc
-cc        nxx = grid_params%nxv(igr)
-cc        nyy = grid_params%nyv(igr)
-cc        nzz = grid_params%nzv(igr)
+cc        nxx = MGgrid%nxv(igr)
+cc        nyy = MGgrid%nyv(igr)
+cc        nzz = MGgrid%nzv(igr)
 cc
 cc        ntotf = neq*nxx*nyy*nzz
 cc
@@ -3256,9 +3304,9 @@ cc
 cc      isig  = MGgrid%istartp(igrid)
 cc      iisig = istart (igrid)
 cc
-cc      nxx = grid_params%nxv(igrid)
-cc      nyy = grid_params%nyv(igrid)
-cc      nzz = grid_params%nzv(igrid)
+cc      nxx = MGgrid%nxv(igrid)
+cc      nyy = MGgrid%nyv(igrid)
+cc      nzz = MGgrid%nzv(igrid)
 cc
 cc      igx = igrid
 cc      igy = igrid
@@ -3433,9 +3481,9 @@ c Begin program
       isig  = MGgrid%istartp(igrid)
       iisig = istart (igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -3471,28 +3519,36 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       !Velocity array
       dv = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,dv,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=dv_cov)
 
-cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
+cc     .                       ,.false.)
+cc
+cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
 
       !M_star*dv array
       dzz = 0d0
 
       call mstar_mtvc(gpos,neq,ntot,x,z,igrid,bcnd)
 
-      call mapMGVectorToArray(max(0,gpos),neq,z,nxx,nyy,nzz,dzz,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,z,dzz,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),z,dzz,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
       dzp(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
       dzp(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
@@ -3630,9 +3686,9 @@ c Begin program
       isig  = MGgrid%istartp(igrid)
       iisig = istart (igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -3663,13 +3719,17 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       
       da = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,da,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,da,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,da,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
 c Calculate matrix-vector product
 
@@ -3785,9 +3845,9 @@ c Begin program
 
       isig  = MGgrid%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = MGgrid%nxv(igrid)
+      nyy = MGgrid%nyv(igrid)
+      nzz = MGgrid%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -3800,7 +3860,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      b0_cnv => gb0    %grid(igrid)%array
+      b0_cnv => gb0%grid(igrid)%array
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3809,17 +3869,21 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       
       dv = 0d0
 
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,dv,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,dv,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.,arr_cov=dv_cov)
 
-cc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-
-cc      where (bcnd == DIR) bcnd = NEU
-      !Higher-order than 1 is JB-unstable for cyl.
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
+cc     .                       ,.false.)
+cc
+cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
+cc
+cccc      where (bcnd == DIR) bcnd = NEU
+cc      !Higher-order than 1 is JB-unstable for cyl.
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
+cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
+cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 
@@ -3851,19 +3915,19 @@ c Calculate matrix-vector product
 cc     .          - di*b0_cnv(i,j,k,3)
      .          - di
      .           *((dv(ip,j,k,2)-2*dv(i,j,k,2)+dv(im,j,k,2))
-     .             /grid_params%dxh(ig)**2
+     .             /MGgrid%dxh(ig)**2
      .            -(dv(ip,jp,k,1)-dv(ip,jm,k,1)
      .             -dv(im,jp,k,1)+dv(im,jm,k,1))
-     .             /4./grid_params%dxh(ig)/grid_params%dyh(jg))
+     .             /4./MGgrid%dxh(ig)/MGgrid%dyh(jg))
 
             cnv(2) = dv(i,j,k,2)/dt
 cc     .          + di*b0_cnv(i,j,k,3)
      .          + di
      .           *((dv(i,jp,k,1)-2*dv(i,j,k,1)+dv(i,jm,k,1))
-     .             /grid_params%dyh(jg)**2
+     .             /MGgrid%dyh(jg)**2
      .            -(dv(ip,jp,k,2)-dv(ip,jm,k,2)
      .             -dv(im,jp,k,2)+dv(im,jm,k,2))
-     .             /4./grid_params%dxh(ig)/grid_params%dyh(jg))
+     .             /4./MGgrid%dxh(ig)/MGgrid%dyh(jg))
 
             cnv(3) = dv(i,j,k,3)/dt
 

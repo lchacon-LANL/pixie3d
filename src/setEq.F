@@ -2389,6 +2389,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR = grid_params%params(1)              !Major radius
+        aa = grid_params%params(2)              !Horizontal elliptical radius
         mm = grid_params%params(4)              !m mode
         nn = grid_params%params(5)              !n mode
         e0_over_eta = grid_params%params(6)*RR  !Covariant component is constant, needs RR factor
@@ -2418,7 +2419,7 @@ c     Check coordinates
 c     Ohmic GS equilibrium
 
         !Build equilibrium
-        call Ohm_GS_equil_2d(RR,e0_over_eta,beta,nx,ny,nz
+        call Ohm_GS_equil_2d(RR,aa,e0_over_eta,beta,nx,ny,nz
      .                   ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
      .                   ,var(:,:,:,IVX),var(:,:,:,IVY),var(:,:,:,ITMP))
 
@@ -4636,13 +4637,14 @@ cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
 
 c     Ohm_GS_equil_2d
 c     ###############################################################
-      subroutine Ohm_GS_equil_2d(R0,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
+      subroutine Ohm_GS_equil_2d(R0,aa,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
      .                          ,v1,v2,pp)
 
 c     ---------------------------------------------------------------
 c     Solves 2D Ohmic Grad-Shafranov equilibrium equations to find 
 c     contravariant components of magnetic field. On input:
 c       * R0: Major radius
+c       * aa: elliptical horizontal radius
 c       * Eoeta: electric field over eta
 c       * b_tor: toroidal beta
 c       * nx,ny,nz: local (processor) dimensions
@@ -4665,7 +4667,7 @@ c     ---------------------------------------------------------------
 
         use PC_var, ONLY: csolver
 
-        use mg_xfer, ONLY: mapMGVectorToArray
+        use mg_xfer, ONLY: fillArray
 
         use imposeBCinterface
 
@@ -4690,11 +4692,11 @@ c     Call variables
      .            ,v1(0:nx+1,0:ny+1,0:nz+1)
      .            ,v2(0:nx+1,0:ny+1,0:nz+1)
      .            ,pp(0:nx+1,0:ny+1,0:nz+1)
-     .            ,Eoeta,R0,b_tor
+     .            ,Eoeta,R0,b_tor,aa
 
 c     Local variables
 
-        integer :: i,j,k,ig,jg,kg,ii,it,bcnd(6),igrid,guess
+        integer :: i,j,k,ig,jg,kg,ii,it,bcnd(6,1),igrid,guess
      .            ,iglobal,jglobal,pos(2),nn
      .            ,np_RAD,my_rank_RAD,np_Z,my_rank_Z
 
@@ -4713,7 +4715,7 @@ c     Local variables
      .            ,dummy(0:nx+1,0:ny+1)
      .            ,III  (0:nx+1,0:ny+1)
      .            ,RR   (0:nx+1,0:ny+1)
-     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
+     .            ,psi(0:nx+1,0:ny+1,0:nz+1,1)
 
         real(8),allocatable,dimension(:) :: psi_rhs,psiv,errv
      .                                     ,mpivec,mpivec_in
@@ -4765,7 +4767,7 @@ c       Initialize iteration
           do i=0,nx+1
             iglobal = i + grid_params%ilo(igrid) - 1
             jglobal = j + grid_params%jlo(igrid) - 1
-            RR(i,j) = R0 + grid_params%xg(iglobal)
+            RR(i,j) = R0 + aa*grid_params%xg(iglobal)
      .                    *cos(grid_params%yg(jglobal))
           enddo
         enddo
@@ -4806,19 +4808,19 @@ c       Iteration
 
               IIh = 0.5*(III(i,j)+III(i-1,j))
 
-              psir   = 0.5*(psi(i+1,j,k)-psi(i-1,j,k))/dh
-              psith  = 0.5*(psi(i,j+1,k)-psi(i,j-1,k))/dt/rh
+              psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
+              psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt/rh
               gpsi2  = psir**2 + psith**2
               bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
 
               etah =res_rfx(rh)
 
-              spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
-              spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
+              spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
+              spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
               dpdr  = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
-              spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
-              spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
+              spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
+              spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
               dpdth = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
 
               psi_rhs(ii)= (Eoeta/etah*IIh**2*iR2(i,j,k)
@@ -4826,7 +4828,7 @@ c       Iteration
 
               !Multiply by R to ensure proper limit R->inf
               errv(ii) = (lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                             ,psi,dff=iR2,vol=.false.)
+     .                       ,psi(:,:,:,1),dff=iR2,vol=.false.)
      .                   -psi_rhs(ii))*RR(i,j)
 
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
@@ -4853,7 +4855,7 @@ c       Iteration
 
           !Solve GS Poisson eq (find psi at cell centers)
           !Define BCs
-          bcnd = bcond
+          bcnd(:,1) = bcond
           where (bcnd == DEF) bcnd = DIR
 
           guess = 1  !To reuse previous iteration
@@ -4873,11 +4875,13 @@ cc     .              ,mg_gm_coarse_solve=.true.
      .              ,sm_it         = 5
      .              )
 
-          !Map to array (w BCs)
-          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
-
-          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-     .              ,iorder=order_bc)
+          !Fill array (w BCs)
+          call fillArray(igrid,1,psiv,psi,bcnd,iorder=order_bc
+     .                  ,icomp=(/IRHO/))
+cc          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
+cc
+cc          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
+cc     .              ,iorder=order_bc)
 
           !Perform integral of III (at half-mesh on global grid in radius)
 
@@ -4900,16 +4904,16 @@ cc     .              ,mg_gm_coarse_solve=.true.
               dh = grid_params%dxh(ig)
               dt = grid_params%dyh(jg)
 
-              psir  =0.5*(psi(i+1,j  ,k)
-     .                   -psi(i-1,j  ,k))/dh
-              psith =0.5*(psi(i  ,j+1,k)
-     .                   -psi(i  ,j-1,k))/dt/rh
+              psir  =0.5*(psi(i+1,j  ,k,1)
+     .                   -psi(i-1,j  ,k,1))/dh
+              psith =0.5*(psi(i  ,j+1,k,1)
+     .                   -psi(i  ,j-1,k,1))/dt/rh
               bnorm2= IIh**2 + psir**2 + psith**2
 
-              psip  = 0.5*(psi(i+1,j,k)
-     .                    +psi(i  ,j,k))
-              psim  = 0.5*(psi(i-1,j,k)
-     .                    +psi(i  ,j,k))
+              psip  = 0.5*(psi(i+1,j,k,1)
+     .                    +psi(i  ,j,k,1))
+              psim  = 0.5*(psi(i-1,j,k,1)
+     .                    +psi(i  ,j,k,1))
               spsip = sqrt(1d0-psip/psi0)
               spsim = sqrt(1d0-psim/psi0)
               dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
@@ -4993,8 +4997,8 @@ c       Find vectors and scalars
             dt = grid_params%dyh(jg)
 
             IIh    = 0.5*(III(i,j)+III(i-1,j))
-            psir   = 0.5*(psi(i+1,j,k)-psi(i-1,j,k))/dh
-            psith  = 0.5*(psi(i,j+1,k)-psi(i,j-1,k))/dt/rh
+            psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
+            psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt/rh
             bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
 
            !Find contravariant magnetic field components in integer mesh
@@ -5005,12 +5009,12 @@ c       Find vectors and scalars
             !Find contravariant velocity components
             etah =res_rfx(rh)
 
-            spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
-            spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
+            spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
             dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
 
-            spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
-            spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
+            spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
             dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
 
             v1(i,j,:) =-(Eoeta*psir *iR2(i,j,k)+etah*dpdr )
@@ -5019,7 +5023,7 @@ c       Find vectors and scalars
      .                  *RR(i,j)/bnorm2
 
             !Find pressure
-            spsi = sqrt(1d0-psi(i,j,k)/psi0)
+            spsi = sqrt(1d0-psi(i,j,k,1)/psi0)
             pp(i,j,:) = p00*pprof(spsi,0)
           enddo
         enddo
@@ -5048,19 +5052,19 @@ cc          do i=1,nx
             dt = grid_params%dyh(jg)
 
             IIh    = 0.5*(III(i,j)+III(i-1,j))
-            psir   = (psi(i+1,j,k)-psi(i-1,j,k))/2./dh
-            psith  = (psi(i,j+1,k)-psi(i,j-1,k))/2./dt/rh
+            psir   = (psi(i+1,j,k,1)-psi(i-1,j,k,1))/2./dh
+            psith  = (psi(i,j+1,k,1)-psi(i,j-1,k,1))/2./dt/rh
             bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
 
             jac = rh*RR(i,j)
 
             !Find pressure derivatives
-            spsip = sqrt(1d0-psi(i+1,j,k)/psi0)
-            spsim = sqrt(1d0-psi(i-1,j,k)/psi0)
+            spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
+            spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
             dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
 
-            spsip = sqrt(1d0-psi(i,j+1,k)/psi0)
-            spsim = sqrt(1d0-psi(i,j-1,k)/psi0)
+            spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
+            spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
             dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
 
             !Find contravariant current components
@@ -5068,7 +5072,7 @@ cc          do i=1,nx
      .           -III(i,j-1)-III(i-1,j-1))/4./dt
             j2 =-(III(i,j)  -III(i-1,j))/dh
             j3 = jac*lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,psi,dff=iR2,vol=.false.)
+     .                  ,psi(:,:,:,1),dff=iR2,vol=.false.)
 
             !Find covariant EOM force components
             f_1 = (j2*b3(i,j,k)-j3*b2(i,j,k))/jac - dpdr
@@ -5186,7 +5190,7 @@ cc            jglobal = j + grid_params%jlo(igrid) - 1
 
             !Toroidal current
             if (iglobal == nxd) then
-              I0 = I0 + (psi(i+1,j,k)-psi(i,j,k))/dh
+              I0 = I0 + (psi(i+1,j,k,1)-psi(i,j,k,1))/dh
      .                  *2./(RR(i,j)+RR(i+1,j))*dt
             endif
 

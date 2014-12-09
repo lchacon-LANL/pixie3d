@@ -399,89 +399,6 @@ c     End program
 
       end subroutine XtoCurv
 
-c     fillArray
-c     ###################################################################
-      subroutine fillArray(igrid,icomp,neq,x,arr,bcs,iorder,arr_cov,arr0
-     .                    ,is_vec,is_cnv)
-
-c     -------------------------------------------------------------------
-c     Fills array arr (with BCs) using vector x.
-c     -------------------------------------------------------------------
-
-        use setMGBC_interface
-
-        implicit none
-
-c     Call variables
-
-        integer :: igrid,icomp,neq,iorder,bcs(:,:)
-        real(8),dimension(:,:) :: x
-        real(8),dimension(:,:,:,:) :: arr
-        real(8),optional,dimension(:,:,:,:) :: arr_cov,arr0
-        logical,optional :: is_vec,is_cnv
-
-c     Local variables
-
-        integer :: ieq,nx,ny,nz
-        logical :: isvec,iscnv
-
-c     Begin program
-
-        nx = grid_params%nxv(igrid)
-        ny = grid_params%nyv(igrid)
-        nz = grid_params%nzv(igrid)
-
-        if (PRESENT(is_vec)) then
-          isvec = is_vec
-        else
-          isvec = (neq == 3 .or. neq == 6)
-        endif
-
-        if (PRESENT(is_cnv)) then
-          iscnv = is_cnv
-        else
-          iscnv = .true.
-        endif
-
-        do ieq=1,neq
-          call mapMGVectorToArray(0,1,x(:,ieq),nx,ny,nz
-     .                           ,arr(:,:,:,ieq),igrid,.false.)
-        enddo
-
-cc        if (icomp == IVX .and. alt__eom()) then
-cc          arr(:,:,:,2) = arr(:,:,:,2)/gmetric%grid(igrid)%jac
-cc        endif
-cc
-cc        if (icomp == IRHO .or. icomp == ITMP) then
-cc          arr(:,:,:,1) = arr(:,:,:,1)/gmetric%grid(igrid)%jac
-cc        endif
-
-c$$$        call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-c$$$     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-c$$$     .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
-
-        if (PRESENT(arr0).and.PRESENT(arr_cov)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder,arr_cov=arr_cov,arr0=arr0)
-        elseif (PRESENT(arr_cov)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder,arr_cov=arr_cov)
-        elseif (PRESENT(arr0)) then
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder,arr0=arr0)
-        else
-          call setMGBC(0,neq,nx,ny,nz,igrid,arr,bcs
-     .              ,icomp=(/icomp/),is_vec=isvec,is_cnv=iscnv
-     .              ,iorder=iorder)
-        endif
-
-c     End program
-
-      end subroutine fillArray
-
 c     findPCcoeffs
 c     ###################################################################
       subroutine findPCcoeffs(igx,igy,igz,varray,vaux)
@@ -844,10 +761,9 @@ cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
         enddo
 
         do ivar=1,3
-          call restrictArrayToMGVector(1,nx,ny,nz
-     .                              ,vector(:,:,:,ivar)
-     .                              ,mgadvdiffV0(:,ivar)
-     .                              ,igrid,order,.false.)
+          call restrictArrayToMGVector(vector(:,:,:,ivar:ivar)
+     .                                ,mgadvdiffV0(:,ivar)
+     .                                ,igrid,order,.false.)
         enddo
 
 cccc        do i=1,3
@@ -1810,8 +1726,8 @@ c     Begin program
 
 c     Find rhs_v
 
-      call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc)
+      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
       if (.not.nc_eom_v) then
 
@@ -2000,8 +1916,8 @@ cc      return
 
 c     Find drho
 
-      call fillArray(igrid,IRHO,1,x(:,IRHO:IRHO),drho,bcs(:,IRHO:IRHO)
-     .              ,order_bc)
+      call fillArray(igrid,1,x(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
 c     Find dB
 
@@ -2009,8 +1925,9 @@ c     Find dB
       !Find dA
       allocate (da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
-      call fillArray(igrid,IAX,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
-     .              ,order_bc,is_vec=.true.,is_cnv=.false.)
+      call fillArray(igrid,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
+     .              ,order_bc,is_vec=.true.,is_cnv=.false.
+     .              ,icomp=(/IAX/))
 
       !Find dB
       db_cnv = curl(igrid,da_cov)
@@ -2019,9 +1936,9 @@ c     Find dB
 
       db_cov = XformVector(igrid,db_cnv,.false.)
 #else
-      call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(igrid,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
-     .              ,is_cnv=.true.)
+     .              ,is_cnv=.true.,icomp=(/IBX/))
 #endif
 
 c     Find dj* from dB*
@@ -2179,15 +2096,15 @@ c     Auxiliary variables
       tmp0 => gtmp0%grid(igrid)%array
       Eh0  => gEh0_cov%grid(igrid)%array
 
-      call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc)
+      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
 cc      vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 
-      call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),order_bc)
+      call fillArray(igrid,1,xxx(:,ITMP:ITMP),dpe
+     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
 
       dpe  = dpe/a_p
 
