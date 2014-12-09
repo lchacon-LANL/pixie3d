@@ -770,10 +770,17 @@ cc        vaux%var_list(ITMPE_0)%bconds = EXT
       vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
       vaux%var_list(ITMPE_AUX)%bconds = bcs(:,ITMP)
 
-      vaux%var_list(IETA)%bconds = bcs(:,ITMP)
-      where (vaux%var_list(IETA)%bconds == DIR) 
-        vaux%var_list(IETA)%bconds = EQU
-      end where
+      if (.not.spitzer) then
+        vaux%var_list(IETA)%bconds = bcond
+cc        where (vaux%var_list(IETA)%bconds == DIR) 
+cc          vaux%var_list(IETA)%bconds = EQU
+cc        end where
+      else
+        vaux%var_list(IETA)%bconds = bcs(:,ITMP)
+        where (vaux%var_list(IETA)%bconds == DIR)
+          vaux%var_list(IETA)%bconds = EQU
+        end where
+      endif
 
       !Flow
       vaux%vec_list(IVCNV)%bconds = bcs(:,IVX:IVZ)
@@ -4347,7 +4354,7 @@ c ######################################################################
 
         logical :: have_jparB=.false.,irrot_br_pert=.false.
 
-        real(8),dimension(10) :: pert
+        real(8),dimension(20) :: pert
 
         type(mg_array),target :: gpsi0,gbz0
 
@@ -4403,20 +4410,20 @@ c     ###################################################################
       function form_ve(v,j,rho) result(ve)
 
 c     -------------------------------------------------------------------
-c     Electron velocity ve=v-di*j/rho with j=curl(B)
+c     Electron velocity ve=v-di*j/rho
 c     -------------------------------------------------------------------
 
         implicit none
 
 c     Call variables
 
-        real(8) :: v(0:,0:,0:,:)
-     .            ,j(0:,0:,0:,:)
-     .            ,rho(0:,0:,0:)
-     .            ,ve(0:size(v,1)-1
+        real(8) :: v(:,:,:,:)
+     .            ,j(:,:,:,:)
+     .            ,rho(:,:,:)
+        real(8) :: ve(0:size(v,1)-1
      .               ,0:size(v,2)-1
      .               ,0:size(v,3)-1
-     .               ,  size(v,4)  )
+     .               ,3)
 
 c     Local variables
 

@@ -367,9 +367,10 @@ c     Store velocity solution in array format --> dv_cnv
 
         dv0cnv = 0d0
 
-        call fillArray(igrid,IVX,3,x(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .                ,order_bc,arr_cov=dv_cov,is_vec=.true.
-     .                ,is_cnv=.true.,arr0=dv0cnv)
+        call fillArray(igrid,3,x(:,IVX:IVZ),dv_cnv
+     .                ,bcs(:,IVX:IVZ),order_bc
+     .                ,arr_cov=dv_cov,is_vec=.true.
+     .                ,is_cnv=.true.,arr0=dv0cnv,icomp=(/IVX/))
 
 c     Correct rx to find Deltax (correction for rho, B, T)
 
@@ -1237,14 +1238,16 @@ c Allocate variables
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
-      call fillArray(igrid,IBX,3,xxx(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
-     .           ,order_bc,arr_cov=db_cov,is_vec=.true.,is_cnv=.true.)
+      call fillArray(igrid,3,xxx(:,IBX:IBZ),db_cnv
+     .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov
+     .           ,is_vec=.true.,is_cnv=.true.,icomp=(/IBX/))
 
 #else
 c Find dA* (w/ BCs)
 
-      call fillArray(igrid,IAX,3,xxx(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
-     .              ,order_bc,is_vec=.true.,is_cnv=.false.)
+      call fillArray(igrid,3,xxx(:,IAX:IAZ),da_cov
+     .              ,bcs(:,IAX:IAZ),order_bc,is_vec=.true.
+     .              ,is_cnv=.false.,icomp=(/IAX/))
 
 c Find dB* from dA*
 
@@ -1258,8 +1261,9 @@ c Find dB* from dA*
 
 c Find dv (w/ Bcs)
 
-      call fillArray(igrid,IVX,3,xxx(:,IVX:IVZ),dv_cnv,bcs(:,IVX:IVZ)
-     .              ,order_bc,is_vec=.true.,is_cnv=.true.,arr0=vzeros)
+      call fillArray(igrid,3,xxx(:,IVX:IVZ),dv_cnv
+     .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
+     .              ,arr0=vzeros,icomp=(/IVX/))
 
 c Find dj* from dB*
 
@@ -1273,10 +1277,10 @@ c Find dj* from dB*
 
 c Find drho, dprs arrays with BCs
 
-      call fillArray(igrid,IRHO,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc)
-      call fillArray(igrid,ITMP,1,xxx(:,ITMP:ITMP),dprs
-     .              ,bcs(:,ITMP:ITMP),order_bc)
+      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+      call fillArray(igrid,1,xxx(:,ITMP:ITMP),dprs
+     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
 
 c Find dp_cnv
 
@@ -1557,9 +1561,9 @@ c Begin program
 
 c Find dB
 
-      call fillArray(igrid,IBX,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(igrid,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
-     .              ,is_cnv=.true.)
+     .              ,is_cnv=.true.,icomp=(/IBX/))
 
 c Find dj* from dB*
 
@@ -1700,9 +1704,9 @@ c Begin program
 
 c Store velocity RHS in array format w/ BCs
 
-      call fillArray(igrid,IVX,3,yyy(:,IVX:IVZ),dgv_cnv,bcs(:,IVX:IVZ)
-     .              ,order_bc,arr_cov=dgv_cov,is_vec=.true.
-     .              ,is_cnv=.true.)
+      call fillArray(igrid,3,yyy(:,IVX:IVZ),dgv_cnv
+     .              ,bcs(:,IVX:IVZ),order_bc,arr_cov=dgv_cov
+     .              ,is_vec=.true.,is_cnv=.true.,icomp=(/IVX/))
 
 c Divide by density and volume
 
@@ -1838,9 +1842,9 @@ c Begin program
 
 c Find dB (w/ BCs)
 
-      call fillArray(igrid,IBX,3,xb,db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(igrid,3,xb,db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,is_vec=.true.,is_cnv=.true.
-     .              ,arr_cov=db_cov)
+     .              ,arr_cov=db_cov,icomp=(/IBX/))
 
 c Solve dB*=-curl(lap^(-1)(curl(dB)))
 

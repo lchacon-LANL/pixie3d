@@ -742,12 +742,13 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
 
       if (is_a_cnv) then
-        call fillArray(igx,IAX,3,x,da_cnv,bcsa,bc_order_a
+        call fillArray(igx,3,x,da_cnv,bcsa,bc_order_a
      .                ,is_vec=.true.,is_cnv=is_a_cnv
-     .                ,arr_cov=da_cov)
+     .                ,arr_cov=da_cov,icomp=(/IAX/))
       else
-        call fillArray(igx,IAX,3,x,da_cov,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=is_a_cnv)
+        call fillArray(igx,3,x,da_cov,bcsa,bc_order_a
+     .                ,is_vec=.true.,is_cnv=is_a_cnv
+     .                ,icomp=(/IAX/))
       endif
 
 c     Diagnostics
@@ -847,12 +848,16 @@ c     Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call mapMGVectorToArray(max(0,gpos),neq,x,nxx,nyy,nzz,vv,igrid
-     .                       ,.false.)
+      call fillArray(igrid,neq,x,vv,bcnd,bc_order_a,gpos=gpos
+     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,result_is_curv=.true.)
 
-      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=bc_order_a)
+cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,vv,igrid
+cc     .                       ,.false.)
+cc
+cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
+cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=bc_order_a)
 
 c     Calculate matrix-vector product
 

@@ -2,8 +2,8 @@
     ilevel   = 0
     test     = t
 
-    nxd      = 64
-    nyd      = 64 
+    nxd      = 32
+    nyd      = 32 
     nzd      = 1
 
     numerical_grid = f
