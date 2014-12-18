@@ -4230,7 +4230,7 @@ c     ##################################################################
         implicit none
 
 c     ------------------------------------------------------------------
-c     Finds B in cnv representation
+c     Checks iteration convergence
 c     ------------------------------------------------------------------
 
 c     Call variables
@@ -4248,7 +4248,7 @@ c     Begin program
 cc        tol = 0.0001*dh2
         tol = 0.01*dh2
 
-        err = sqrt(dot2(dx,dx))
+        err = rms(dx)
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,111) '2D_Ohmic_equilibrium_iter=',it
@@ -4700,7 +4700,7 @@ c     Local variables
      .            ,iglobal,jglobal,pos(2),nn
      .            ,np_RAD,my_rank_RAD,np_Z,my_rank_Z
 
-        real(8) :: bz_avg,bth_avg,gserr,oherr,rh,dh,dt,I0,bnorm2
+        real(8) :: bz_avg,bth_avg,gserr,oherr,oherr_n,rh,dh,dt,I0,bnorm2
      .            ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
      .            ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim
      .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3
@@ -4795,6 +4795,8 @@ c       Iteration
         do it=1,100
 
           !Find GS equation RHS (at cell centers)
+          oherr_n = oherr
+
           do k=1,nz
             do j=1,ny
               do i=1,nx
@@ -4844,7 +4846,7 @@ c       Iteration
           enddo
 
           !Calculate L2 norm of error
-          gserr = sqrt(dot2(errv,errv)/nxd/nyd/nzd)
+          gserr = rms(errv)!sqrt(dot2(errv,errv)/nxd/nyd/nzd)
 
 #if defined(petsc)
           e1 = oherr
@@ -4861,7 +4863,7 @@ c       Iteration
           guess = 1  !To reuse previous iteration
 
           call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
-     .              ,1,ilevel,guess,del_star,vol_wgt
+     .              ,1,0,guess,del_star,vol_wgt
      .              ,tol           = 5d-1
      .              ,gm_driver     =.true.
      .              ,ks_it         = 10
@@ -4975,7 +4977,7 @@ cc     .              ,iorder=order_bc)
           endif
 
           dh = xmax/nxd
-          if (gserr < 0.001*dh**2) exit
+          if (gserr<0.001*dh**2 .or. abs((1d0-oherr_n/oherr))<1d-3) exit
 
         enddo
 
@@ -5145,6 +5147,7 @@ cc          do i=1,nx
         e6 = sqrt(e6/pi/xmax**2)
 
         if (my_rank == 0) then
+          write (*,*)
           write (*,*) 'EOM force residual comp 1=',e1
           write (*,*) 'EOM force residual comp 2=',e2
           write (*,*) 'EOM force residual comp 3=',e3

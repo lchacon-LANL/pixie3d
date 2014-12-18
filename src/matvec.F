@@ -2586,16 +2586,13 @@ c Calculate matrix-vector product
             endif
 
             !P_si^v  ******************************
-
             psiv = D_v(i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
      .                ,.not.nc_eom_v)
 
             !P_si^T  ******************************
-
             psit = findPsit()
 
             !P_si^B  ******************************
-
             psib = findPsib()
 
             !Diagonal scaling
