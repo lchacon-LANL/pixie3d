@@ -690,7 +690,7 @@ c Initialize graphics
       ioerr=readGraphicsConfig(inputfile)
 
       if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
-        write (*,*) 'Namelist "graphics" not present in input file'
+        write (*,*) 'Problem reading "graphics" namelist'
       endif
 
 c End program

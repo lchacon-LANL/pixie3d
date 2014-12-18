@@ -5332,7 +5332,9 @@ c     Begin program
         jac = 0.5*(gmetric%grid(igx)%jac (ip,j,k)
      .            +gmetric%grid(igx)%jac (i ,j,k))
 
-        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+cc        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+        ijac = 1d0/jac
+        if (isSP2(i+1,igx).and.flag /= 0) ijac = 0d0
 
 c     Diffusive part
 
@@ -5359,8 +5361,6 @@ c     Diffusive part
 c       Postprocessing
 
         if (flag /= 0) then
-          ijac = 1d0/jac
-
           t11 = t11*ijac
           if (.not.alt_eom) t12 = t12*ijac
           t13 = t13*ijac
