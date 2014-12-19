@@ -1867,7 +1867,7 @@ c     Read VMEC coordinates and fill grid hierarchy
           call pstop('setEquilibrium',messg)
         endif
 
-        call vmec_map(.false.)
+        call vmec_map(.false.,equ_file)
 
 c     Read VMEC equilibrium
 
@@ -1876,7 +1876,18 @@ c     Read VMEC equilibrium
      .                            ,var(:,:,:,IBY)
      .                            ,var(:,:,:,IBZ)
      .                            ,var(:,:,:,ITMP)
-     .                            ,var(:,:,:,IRHO),gamma)
+     .                            ,var(:,:,:,IRHO)
+     .               ,gamma,equ_file,dcon)
+
+cc        call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
+cc     .                     ,var(:,:,:,IBX:IBZ)!,w_pre_bcs=.true.
+cc     .                     ,gm_it=it_divcl,rtol=0.1*rtol)
+cc
+cc        if (my_rank == 0.and.ilevel == 0) then
+cc          write (*,*) 'VMEC divergence cleaning converged in',it_divcl
+cc     .               ,' its'
+cc        endif
+
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 
@@ -4672,8 +4683,6 @@ c     ---------------------------------------------------------------
         use imposeBCinterface
 
         use ts_setup, ONLY: vol_wgt
-
-        use operators, ONLY: lap
 
         use transport_params
 
