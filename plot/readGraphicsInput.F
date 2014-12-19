@@ -34,10 +34,6 @@ c Local variables
 
 c Begin program
 
-c Read computation initializations (external)
-
-      call readInput
-
 c Graphics defaults
 
       ndplot = 0          ! Postprocessing interval (# of time steps; integer)
@@ -68,6 +64,10 @@ c Graphics defaults
 
       sel_graph = 0  !Selects graphics to be shown with XDRAW contour plotter.
 
+c Read computation initializations (external)
+
+      call readInput
+
 c Read graphics initialization parameters
 
       open(unit=uinput,file=inputfile,status='old')
@@ -81,17 +81,17 @@ c Read graphics initialization parameters
         read(uinput,plots,iostat=ioerr)
         close(unit=uinput)
         if (ioerr /= 0.and.my_rank == 0) then
-          write (*,*) 'Namelist "plots" not present in input file'
+          write (*,*) 'Problem reading namelist "plots"'
         endif
 
         ioerr=readAccTestConfig (inputfile)
         if (ioerr /= 0.and.my_rank == 0) then
-          write (*,*) 'Namelist "acc_test" not present in input file'
+          write (*,*) 'Problem reading namelist "acc_test"'
         endif
 
         ioerr=readGraphicsConfig(inputfile)
         if (ioerr /= 0.and.my_rank == 0) then
-          write (*,*) 'Namelist "graphics" not present in input file'
+          write (*,*) 'Problem reading namelist "graphics"'
         endif
       endif
 
