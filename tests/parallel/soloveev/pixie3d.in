@@ -11,6 +11,8 @@
 
     bcs      = 'spt','def','per','per','per','per'
 
+    equil    = 'vmec'
+
     coords   = 'ext'
  /
 
@@ -19,8 +21,6 @@
     nu       = 1d-2
     dd       = 0d-3
     chi      = 0d-3
-    
-    equil    = 'vmec'
 
     dlambda  = 0.5
 
