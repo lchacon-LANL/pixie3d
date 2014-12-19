@@ -157,21 +157,69 @@ cc          nn = grid_params%params(5)
                 dyy = 2*grid_params%dyh(jg)
                 dzz = 2*grid_params%dzh(kg)
 
-                varr%array_var(IBX)%array(i,j,k) =
+                ! Daniele, 19 Dec. 2014
+                ! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
+                ! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
+                ! to be possibly extended to generic n
+                ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
+                if (nn == 0) then
+
+                  varr%array_var(IBX)%array(i,j,k) =
+     .                 varr%array_var(IBX)%array(i,j,k)
+     .                +x1**mm*br_pert_bc*RR
+     .                 *(cos(mm*grid_params%yy(jp))
+     .                  -cos(mm*grid_params%yy(jm)))
+     .                 /dyy/mm !Derivative done numerically to preserve div(B)=0
+     .                +0.5*x1**(mm+1)*br_pert_bc
+     .                 *(cos((mm+1)*grid_params%yy(jp))
+     .                  -cos((mm+1)*grid_params%yy(jm)))
+     .                 /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
+     .                +0.5*x1**(mm+1)*br_pert_bc
+     .                 *(cos((mm-1)*grid_params%yy(jp))
+     .                  -cos((mm-1)*grid_params%yy(jm)))
+     .                 /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
+                  varr%array_var(IBY)%array(i,j,k) =
+     .                 varr%array_var(IBY)%array(i,j,k)
+     .               -br_pert_bc*RR
+     .                *(grid_params%xx(ip)**mm
+     .                 -grid_params%xx(im)**mm)
+     .                 /dxx !Derivative done numerically to preserve div(B)=0
+     .                 *cos(mm*y1)/mm
+     .               -0.5*br_pert_bc
+     .                *(grid_params%xx(ip)**(mm+1)
+     .                 -grid_params%xx(im)**(mm+1))
+     .                 /dxx !Derivative done numerically to preserve div(B)=0
+     .                 *cos((mm+1)*y1)/(mm+1)
+     .               -0.5*br_pert_bc
+     .                *(grid_params%xx(ip)**(mm+1)
+     .                 -grid_params%xx(im)**(mm+1))
+     .                 /dxx !Derivative done numerically to preserve div(B)=0
+     .                 *cos((mm-1)*y1)/(mm-1)
+                else
+
+                  ! Daniele, 19 Dec. 2014
+                  ! divergence-free perturbation with b^3=0 (fails in the n=0 case)
+                  ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
+                  varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
-     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
      .                 *(cos(mm*y1+nn*grid_params%zz(kp)+br_pert_phase)
      .                  -cos(mm*y1+nn*grid_params%zz(km)+br_pert_phase))
      .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
-                varr%array_var(IBZ)%array(i,j,k) =
+                  varr%array_var(IBZ)%array(i,j,k) =
      .               varr%array_var(IBZ)%array(i,j,k)
      .               -br_pert_bc*
-     .               (grid_params%xx(ip)**(mm+2)
+!     .               (grid_params%xx(ip)**(mm+2)
+     .               (grid_params%xx(ip)**mm
      .                *(RR+grid_params%xx(ip)*cos(y1))
-     .               -grid_params%xx(im)**(mm+2)
+!     .               -grid_params%xx(im)**(mm+2)
+     .               -grid_params%xx(im)**mm
      .                *(RR+grid_params%xx(im)*cos(y1)))
      .                 /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
+
+                endif
 
               enddo
             enddo
@@ -1565,6 +1613,11 @@ c     Begin program
           RR = grid_params%params(3)
           mm = nh2
           kk = nh3*1d0/RR
+! Daniele, 19 Dec. 2014
+! if k=0 the vacuum solution is b^1=r^m
+! see Fitzpatrick PoP 1999
+! implemented in the irrot_br_pert=.false. case
+          if (kk == 0d0) irrot_br_pert=.false.
         end select
 
         if (irrot_br_pert) then  !Irrotational magnetic perturbation (lap(psi)=0)
@@ -1573,7 +1626,9 @@ c     Begin program
           kbesel = -mm*grid_params%params(2)
           dbeseli = 0.5*(BESSI(mm+1,kbesel)
      .                 + BESSI(mm-1,kbesel))
-          br_pert_l = 2.d0 * br_pert / (dbeseli)
+!          br_pert_l = 2.d0 * br_pert / (dbeseli)
+! Daniele, 19 Dec. 2014
+          br_pert_l = br_pert/(mm*dbeseli)
 
           do k = klo,khi
             do j = jlo,jhi
@@ -1644,9 +1699,15 @@ cc                kbesel = -mm*grid_params%params(2)
                 dyy = 2*grid_params%dyh(jg)
                 dzz = 2*grid_params%dzh(kg)
 
+! Daniele, 19 Dec. 2014
+! b^1=r^m instead of r^(m+2)
+! to be consistent with the vacuum solution in the kk=0 case, 
+! see Fitzpatrick PoP 1999
+
                 varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
-     .               +x1**(mm+2.)*br_pert
+!     .               +x1**(mm+2.)*br_pert
+     .               +x1**mm*br_pert
      .             *(cos(mm*grid_params%yy(jp)+kk*z1+br_phase)
      .              -cos(mm*grid_params%yy(jm)+kk*z1+br_phase))
      .             /dyy/mm !Derivative done numerically to preserve div(B)=0
@@ -1654,8 +1715,10 @@ cc                kbesel = -mm*grid_params%params(2)
                 varr%array_var(IBY)%array(i,j,k) =
      .               varr%array_var(IBY)%array(i,j,k)
      .               -br_pert*
-     .               (grid_params%xx(ip)**(mm+2.)
-     .               -grid_params%xx(im)**(mm+2.))
+!     .               (grid_params%xx(ip)**(mm+2.)
+!     .               -grid_params%xx(im)**(mm+2.))
+     .               (grid_params%xx(ip)**mm
+     .               -grid_params%xx(im)**mm)
      .               /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+kk*z1+br_phase)/mm
 

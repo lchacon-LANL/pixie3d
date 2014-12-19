@@ -4549,21 +4549,45 @@ c     Call variables
 c     Local variables
 
         integer :: nx,ny,nz,ig,jg,kg
-        real(8) :: rr
+        real(8) :: x1,x2,x3
 
 c     Begin program
 
-        call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
-        rr = grid_params%xx(ig)
+        call getCurvilinearCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
+     .                                ,x1,x2,x3)
 
-!        ehs = 0d0
-! Daniele, 12 Nov. 2014
-        ehs = 1d-6
-!        ehs = chi*exp(-(rr/0.5)**2)
+        ehs = ext_heat_src_prof(x1)
 
 c     End program
 
       end function ext_heat_src
+
+c     ext_heat_src_prof
+c     ###################################################################
+      function ext_heat_src_prof(rr) result(ehsp)
+
+c     -------------------------------------------------------------------
+c     Provides external heat source
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        real(8) :: ehsp,rr
+
+c     Local variables
+
+c     Begin program
+
+!        ehsp = 0d0
+! Daniele, 12 Nov. 2014
+        ehsp = 1d-6
+!        ehsp = chi*exp(-(rr/0.5)**2)
+
+c     End program
+
+      end function ext_heat_src_prof
 
 c     ext_mom_src
 c     ###################################################################
