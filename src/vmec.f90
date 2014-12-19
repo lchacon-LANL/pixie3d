@@ -92,7 +92,7 @@
 !       READ-IN DATA FROM VMEC-PRODUCED WOUT FILE (LIBSTELL ROUTINE)
 
           CALL read_wout_file(wout_file, istat)
-          IF (istat .ne. 0) STOP 'Read-wout error in INIT_METRIC_ELEMENTS'
+          IF (istat .ne. 0) STOP 'Read-wout error in vmec_init'
 
           ntor_i = ntor_vmec   !Take from VMEC equilibrium file
           mpol_i = mpol_vmec   !Take from VMEC equilibrium file
@@ -1637,7 +1637,7 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(metrics)
+      subroutine vmec_map(metrics,equ_file)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -1646,7 +1646,6 @@
 
       use vmec_mod, pi_stel => pi
       use grid
-      use app_iosetup
       use equilibrium
 
       implicit none
@@ -1654,10 +1653,11 @@
 !     Input variables
 
       logical :: metrics
+      character(*) :: equ_file
 
 !     Local variables
 
-      integer :: igrid,nx,ny,nz,alloc_stat,icomp
+      integer :: igrid,nx,ny,nz,alloc_stat,icomp,ierr
       integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg
       real(8) :: r1,r2,r3,th1,v1,ph1,sgn,ds,dth,dphi,rr1(1),zz1(1),ph0
 
@@ -1679,11 +1679,8 @@
 
 !     Cycle grid levels
 
+!!$      igrid = 1
       do igrid=1,grid_params%ngrid
-
-        if (my_rank == 0) then
-           write (*,'(a,i3)') ' Reading VMEC map on grid',igrid
-        endif
 
 !     Get LOCAL limits and allocate local map array
 
@@ -1698,6 +1695,11 @@
         nxg = grid_params%nxgl(igrid)
         nyg = grid_params%nygl(igrid)
         nzg = grid_params%nzgl(igrid)
+
+        if (my_rank == 0) then
+           write (*,'(a,i3,a,i3,a,i3,a,i3)') &
+          ' Reading VMEC map on grid',igrid,', nx x ny x nz=',nxg,'x',nyg,'x',nzg
+        endif
 
 !     Read equilibrium file and setup arrays
 !     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
@@ -1737,6 +1739,11 @@
         do jg = 1,nys
           ys(jg) = dth*(jg-1)
         enddo
+
+        if( mod(nzg,nfp_i) /= 0) then
+          if (my_rank == 0) write (*,*) 'Number of VMEC periods',nfp_i
+          call pstop('vmec_map','Toroidal mesh cannot accommodate # periods')
+        endif
 
         dphi = 2*pi/nzg/nfp_i  !VMEC stores 1 of NFP periods in phi, ie., v=2*pi/nfp
         do kg = 1,nzs
@@ -1827,7 +1834,7 @@
 
 !     Fill grid metrics hierarchy
 
-        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+        call defineGridMetric(grid_params,xcar=xcar,igr=igrid,ierr=ierr)
 
         if (check_grid.and.igrid==1) call checkGrid(grid_params)
 
@@ -1837,11 +1844,20 @@
 
         call vmec_cleanup
 
+        if (ierr /= 0) exit
+
       enddo
 
 !     Set up gmetric pointer
 
       gmetric => grid_params%gmetric
+
+      if (ierr /= 0) then
+        if (my_rank == 0) then
+          write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
+        endif
+        grid_params%ngrid = igrid - 1
+      endif
 
 !     End program
 
@@ -2086,7 +2102,8 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam)
+      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam,equ_file &
+     &                   ,dcon)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2094,7 +2111,6 @@
 !     -----------------------------------------------------------------
 
         use vmec_mod, pi_stel => pi
-        use app_iosetup
         use grid
         use equilibrium
 
@@ -2105,6 +2121,9 @@
         integer :: igrid,nx,ny,nz
         real(8) :: gam
         real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
+        character(*) :: equ_file
+
+        logical :: dcon
 
 !     Local variables
 
@@ -2323,7 +2342,7 @@
            ys(jg) = dth*(jg-1)
         enddo
 
-        dphi = 2*pi/nzg
+        dphi = 2*pi/nzg/nfp_i  !VMEC stores 1 of NFP periods in phi, ie., v=2*pi/nfp
         do kg = 1,nzs
            zs(kg) = dphi*(kg-2)
         enddo
@@ -2359,6 +2378,12 @@
               th1 = grid_params%yy(jg)
               ph1 = grid_params%zz(kg)
 
+              !Impose SP BCs
+              if (r1 < 0d0) then
+                 r1  = -r1
+                 th1 = th1 + pi
+              endif
+
               !Impose periodic BCs in theta, phi
               if (th1 < 0d0 ) th1 = th1 + 2*pi
               if (th1 > 2*pi) th1 = th1 - 2*pi
@@ -2387,10 +2412,16 @@
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
 
-              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)/max_rho
+              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)
             enddo
           enddo
         enddo
+
+        if (max_rho == 0d0) then
+          rho = 1d0
+        else
+          rho = rho/max_rho
+        endif
 
 !     Free work space
 

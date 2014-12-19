@@ -55,7 +55,7 @@ c Namelists
       !Old namelist, for backward compatibility
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid
+     .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
@@ -65,7 +65,7 @@ c Namelists
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver
-     .                ,equil,dlambda,rshear,vparflow,vperflow,source
+     .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
@@ -90,7 +90,7 @@ c Namelists
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Problem setup
-      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax,equil
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3
 
@@ -98,7 +98,7 @@ c Namelists
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
-     .                   ,equil,dlambda,rshear,vparflow,vperflow
+     .                   ,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,spitzer,irrot_br_pert
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
@@ -328,7 +328,7 @@ c Set defaults
 
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
       mg_ores  = 0             ! Restriction order for MG
-      mg_oprol = 2             ! Prolongation order for MG
+      mg_oprol = 1             ! Prolongation order for MG
 
       sm_iter  = 5             ! Number of MG smoothing passes
       sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
