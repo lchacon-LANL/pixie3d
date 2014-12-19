@@ -3044,7 +3044,7 @@ c     ---------------------------------------------------------------
         use nlfunction_setup, ONLY: res_rfx,eta,gamma,dfvty_rfx
      .                             ,res_spitzer,spitzer,a_p
 ! Daniele, 12 Nov. 2014
-     .                             ,ext_heat_src
+     .                             ,ext_heat_src_prof
 
         use grid
 
@@ -3252,7 +3252,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
             rh = grid_params%xg(i)
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
 ! Daniele, 12 Nov. 2014
-     .           +rh*ext_heat_src(i,1,1,1)/eta
+     .           +rh*ext_heat_src_prof(rh)/eta
           enddo
           p0 = etah0*p0
 
