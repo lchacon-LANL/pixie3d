@@ -4556,7 +4556,9 @@ c     Begin program
         call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
         rr = grid_params%xx(ig)
 
-        ehs = 0d0
+!        ehs = 0d0
+! Daniele, 12 Nov. 2014
+        ehs = 1d-6
 !        ehs = chi*exp(-(rr/0.5)**2)
 
 c     End program
