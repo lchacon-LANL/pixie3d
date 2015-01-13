@@ -1117,6 +1117,9 @@ c Get some basic properties
       gv => patch_var
       grid_params => gv%gparams
       gmetric => gv%gparams%gmetric
+#if defined(samrai)
+      gbc_def => grid_params
+#endif
       call setVectorDimensions
 
       B_cnv => patch_var%aux%vec_list(IBCNV)%vec
