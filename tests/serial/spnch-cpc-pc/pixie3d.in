@@ -35,6 +35,7 @@
     pvx      = 1d-4
     odd      = f,f,f
     random   = f
+    nh2      = 1
 
     cnfactor = 0d0
     sm_flag  = 2
