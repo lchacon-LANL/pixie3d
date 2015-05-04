@@ -3492,9 +3492,8 @@ c     ---------------------------------------------------------------
 
         use orbit
 
-#if defined(FPA)
         use fixed_point_accelerator
-#endif
+
         implicit none
 
 c     Call variables
@@ -3523,9 +3522,8 @@ c     Local variables
 
         real(8) :: x(nx*ny*nz),r(nx*ny*nz)
 
-#if defined(FPA)
         type (fpa_state) :: fpav
-#endif
+
         logical :: phaseout_psibc=.false.
 
 c     Begin program
@@ -3587,10 +3585,8 @@ c     Gather solution
 
 c     Iteration
 
-#if defined(FPA)
         !Create fixed-point accelerator
         call fpa_create(fpav,x,maxv=5)
-#endif
 
         do it=1,200
 
@@ -3615,11 +3611,10 @@ cc          psi = solve_hel_GS(zeros,III)
           !Compute residual vector
           r = x - reshape(psi(1:nx,1:ny,1:nz),shape(x))
 
-#if defined(FPA)
           !Apply fixed-point accelerator
           call fpa_correction(fpav,r,dp=dot2)
 cc          alpha = 0d0
-#endif
+
           !Update solution
           x = x - (1d0-alpha)*r
 
@@ -3628,10 +3623,8 @@ cc          alpha = 0d0
 
         enddo
 
-#if defined(FPA)
         !Destroy fixed-point accelerator
         call fpa_destroy(fpav)
-#endif
 
 c     Compute converged magnetic field components
 
