@@ -6440,6 +6440,7 @@ cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in rea
       pc_ion_hall  = ion_hall  !Whether to use ion Ohm's law in PC
 
       mg_gm_coarse =.false. !Whether to use GMRES as the coarse solve
+cc      mg_gm_coarse = (np>1) !Whether to use GMRES as the coarse solve
       mg_glrkin    =.false. !Whether to use Galerking MG
       mg_debug     =.false. !Whether to go into debugging mode in MG
       mg_cvrg_test =.false. !Whether to perform convergence test of smoother

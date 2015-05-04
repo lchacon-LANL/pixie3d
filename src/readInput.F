@@ -569,10 +569,7 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (restart) dcon = .false.
 
-cc      if (coords == 'hel') then   !Special case for 2D helical equilibria
-cc         nh2 = gparams(1)
-cc         nh1 = nh2
-cc      endif
+      if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
 
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'

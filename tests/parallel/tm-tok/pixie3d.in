@@ -33,6 +33,7 @@
     dstep    = 1d-2
 
     pvx      = 1d-3
+    nh2      = 1
     odd      = f,f,f
     random   = f
 
