@@ -1568,7 +1568,7 @@ c Auxiliary quantities
       vzr = 0d0
 
       !Variables
-#if defined(pgf90)
+cc#if defined(pgf90)
 
       allocate(da_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -1580,12 +1580,12 @@ c Auxiliary quantities
       djf_cov(0:,0:,0:,1:) = du_cov(0:,0:,0:,4:6)
       djf_cnv(0:,0:,0:,1:) = du_cnv(0:,0:,0:,4:6)
 
-#else
-      da_cov (0:,0:,0:,1:) => du_cov(0:,0:,0:,1:3)
-      da_cnv (0:,0:,0:,1:) => du_cnv(0:,0:,0:,1:3)
-      djf_cov(0:,0:,0:,1:) => du_cov(0:,0:,0:,4:6)
-      djf_cnv(0:,0:,0:,1:) => du_cnv(0:,0:,0:,4:6)
-#endif
+cc#else
+c$$$      da_cov (0:,0:,0:,1:) => du_cov(0:,0:,0:,1:3)
+c$$$      da_cnv (0:,0:,0:,1:) => du_cnv(0:,0:,0:,1:3)
+c$$$      djf_cov(0:,0:,0:,1:) => du_cov(0:,0:,0:,4:6)
+c$$$      djf_cnv(0:,0:,0:,1:) => du_cnv(0:,0:,0:,4:6)
+cc#endif
 
       !Coefficients
       ve0_cnv => gve0 %grid(igrid)%array
@@ -1687,11 +1687,11 @@ cc     .                                   ,igx,igy,igz,da_cov)
 
 c End program
 
-#if defined(pgf90)
+cc#if defined(pgf90)
       deallocate(da_cov,da_cnv,djf_cov,djf_cnv)
-#else
-      nullify   (da_cov,da_cnv,djf_cov,djf_cnv)
-#endif
+cc#else
+cc      nullify   (da_cov,da_cnv,djf_cov,djf_cnv)
+cc#endif
 
       deallocate(du_cnv
      .          ,du_cov
