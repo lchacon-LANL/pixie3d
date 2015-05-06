@@ -49,6 +49,13 @@ cc      real(8) :: kbesel, beseli, dbeseli, dbeselip, dbeselim
 
       save  :: w_fast,w_slow,w_shr,freq
 
+! Daniele, 04 May 2015
+! to allow for multiple perturbed harmonics in the ohtor case
+      integer :: npw,ipw
+      integer,allocatable,dimension(:) :: mm_arr, nn_arr
+      real(8),allocatable,dimension(:) :: br_pert_bc_arr
+     .     ,br_pert_phase_arr
+
       INTERFACE
         function icfl(cs2,ca2,k2,k2par,di) result(root)
         real(8)   :: cs2,ca2,k2,k2par,di,root(3)
@@ -137,8 +144,66 @@ cc            write(*,*) 'calling ppnch_br'
           RR = grid_params%params(1)
 cc          mm = grid_params%params(4)
 cc          nn = grid_params%params(5)
-          mm = nh2
-          nn =-nh3
+!          mm = nh2
+!          nn =-nh3
+
+! Daniele, 04 May 2015
+! to allow for multiple perturbed harmonics in the ohtor case
+           if (is_file(prt_file)) then
+
+              if (my_rank == 0) then
+                 write (*,*)
+                 write (*,*) 'Reading external perturbation file '
+     .                ,trim(prt_file)
+              endif
+
+              open(unit=u_prtf,file=trim(prt_file),form='formatted')
+
+              read(u_prtf,*) npw
+
+              if (my_rank == 0) write(*,*) 'Perturbed harmonics=',npw
+
+              allocate(mm_arr(npw)
+     .                ,nn_arr(npw)
+     .                ,br_pert_bc_arr(npw)
+     .                ,br_pert_phase_arr(npw))
+
+              read(u_prtf,*) mm_arr
+              read(u_prtf,*) nn_arr
+              read(u_prtf,*) br_pert_bc_arr
+              read(u_prtf,*) br_pert_phase_arr
+
+              if (my_rank == 0) then
+                 write(*,*) 'mm array=',mm_arr
+                 write(*,*) 'nn array=',nn_arr
+                 write(*,*) 'br_pert_bc array=',br_pert_bc_arr
+                 write(*,*) 'br_pert_phase array=',br_pert_phase_arr
+              endif
+
+              close(u_prtf)
+
+           else
+
+              npw = 1
+
+              allocate(mm_arr(npw)
+     .                ,nn_arr(npw)
+     .                ,br_pert_bc_arr(npw)
+     .                ,br_pert_phase_arr(npw))
+
+              mm_arr(1) = nh2
+              nn_arr(1) =-nh3
+              br_pert_bc_arr(1) = br_pert_bc
+              br_pert_phase_arr(1) = br_pert_phase
+
+           endif
+
+           do ipw = 1,npw
+
+              mm = mm_arr(ipw)
+              nn = nn_arr(ipw)
+              br_pert_bc = br_pert_bc_arr(ipw)
+              br_pert_phase = br_pert_phase_arr(ipw)
 
           do k = klom,khip
             do j = jlom,jhip
@@ -157,64 +222,88 @@ cc          nn = grid_params%params(5)
                 dyy = 2*grid_params%dyh(jg)
                 dzz = 2*grid_params%dzh(kg)
 
-                ! Daniele, 19 Dec. 2014
-                ! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
-                ! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
-                ! to be possibly extended to generic n
-                ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
+! Daniele, 19 Dec. 2014
+! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
+! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
+! to be extended to generic br_pert_phase (now only particular case br_pert_phase=0.)
+! to be possibly extended to generic n
+! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
                 if (nn == 0) then
 
-                  varr%array_var(IBX)%array(i,j,k) =
-     .                 varr%array_var(IBX)%array(i,j,k)
-     .                +x1**mm*br_pert_bc*RR
-     .                 *(cos(mm*grid_params%yy(jp))
+                   varr%array_var(IBX)%array(i,j,k) =
+     .                  varr%array_var(IBX)%array(i,j,k)
+     .                  +x1**mm*br_pert_bc*RR
+     .                  *(cos(mm*grid_params%yy(jp))
      .                  -cos(mm*grid_params%yy(jm)))
-     .                 /dyy/mm !Derivative done numerically to preserve div(B)=0
-     .                +0.5*x1**(mm+1)*br_pert_bc
-     .                 *(cos((mm+1)*grid_params%yy(jp))
-     .                  -cos((mm+1)*grid_params%yy(jm)))
-     .                 /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
-     .                +0.5*x1**(mm+1)*br_pert_bc
-     .                 *(cos((mm-1)*grid_params%yy(jp))
-     .                  -cos((mm-1)*grid_params%yy(jm)))
-     .                 /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
-                  varr%array_var(IBY)%array(i,j,k) =
-     .                 varr%array_var(IBY)%array(i,j,k)
-     .               -br_pert_bc*RR
-     .                *(grid_params%xx(ip)**mm
-     .                 -grid_params%xx(im)**mm)
-     .                 /dxx !Derivative done numerically to preserve div(B)=0
-     .                 *cos(mm*y1)/mm
-     .               -0.5*br_pert_bc
-     .                *(grid_params%xx(ip)**(mm+1)
-     .                 -grid_params%xx(im)**(mm+1))
-     .                 /dxx !Derivative done numerically to preserve div(B)=0
-     .                 *cos((mm+1)*y1)/(mm+1)
-     .               -0.5*br_pert_bc
-     .                *(grid_params%xx(ip)**(mm+1)
-     .                 -grid_params%xx(im)**(mm+1))
-     .                 /dxx !Derivative done numerically to preserve div(B)=0
-     .                 *cos((mm-1)*y1)/(mm-1)
+     .                  /dyy/mm !Derivative done numerically to preserve div(B)=0
+
+                   varr%array_var(IBY)%array(i,j,k) =
+     .                  varr%array_var(IBY)%array(i,j,k)
+     .                  -br_pert_bc*RR
+     .                  *(grid_params%xx(ip)**mm
+     .                  -grid_params%xx(im)**mm)
+     .                  /dxx !Derivative done numerically to preserve div(B)=0
+     .                  *cos(mm*y1)/mm
+
+                   if (mm /= -1) then
+
+                      varr%array_var(IBX)%array(i,j,k) =
+     .                     varr%array_var(IBX)%array(i,j,k)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
+     .                     *(cos((mm+1)*grid_params%yy(jp))
+     .                     -cos((mm+1)*grid_params%yy(jm)))
+     .                     /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
+
+                      varr%array_var(IBY)%array(i,j,k) =
+     .                     varr%array_var(IBY)%array(i,j,k)
+     .                     -0.5*br_pert_bc
+     .                     *(grid_params%xx(ip)**(mm+1)
+     .                     -grid_params%xx(im)**(mm+1))
+     .                     /dxx !Derivative done numerically to preserve div(B)=0
+     .                     *cos((mm+1)*y1)/(mm+1)
+
+                   endif
+
+                   if (mm /= 1) then
+                      varr%array_var(IBX)%array(i,j,k) =
+     .                     varr%array_var(IBX)%array(i,j,k)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
+     .                     *(cos((mm-1)*grid_params%yy(jp))
+     .                     -cos((mm-1)*grid_params%yy(jm)))
+     .                     /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
+
+                      varr%array_var(IBY)%array(i,j,k) =
+     .                     varr%array_var(IBY)%array(i,j,k)
+     .                     -0.5*br_pert_bc
+     .                     *(grid_params%xx(ip)**(mm+1)
+     .                     -grid_params%xx(im)**(mm+1))
+     .                     /dxx !Derivative done numerically to preserve div(B)=0
+     .                     *cos((mm-1)*y1)/(mm-1)
+
+                   endif
+
                 else
 
-                  ! Daniele, 19 Dec. 2014
-                  ! divergence-free perturbation with b^3=0 (fails in the n=0 case)
-                  ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
-                  varr%array_var(IBX)%array(i,j,k) =
+! Daniele, 19 Dec. 2014
+! divergence-free perturbation with b^3=0 (fails in the n=0 case)
+                varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
-!     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!     .               +x1**(mm+10)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
      .                 *(cos(mm*y1+nn*grid_params%zz(kp)+br_pert_phase)
      .                  -cos(mm*y1+nn*grid_params%zz(km)+br_pert_phase))
      .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
-                  varr%array_var(IBZ)%array(i,j,k) =
+                varr%array_var(IBZ)%array(i,j,k) =
      .               varr%array_var(IBZ)%array(i,j,k)
      .               -br_pert_bc*
-!     .               (grid_params%xx(ip)**(mm+2)
-     .               (grid_params%xx(ip)**mm
+!     .               (grid_params%xx(ip)**(mm+10)
+     .               (grid_params%xx(ip)**(mm+2)
+!     .               (grid_params%xx(ip)**mm
      .                *(RR+grid_params%xx(ip)*cos(y1))
-!     .               -grid_params%xx(im)**(mm+2)
-     .               -grid_params%xx(im)**mm
+!     .               -grid_params%xx(im)**(mm+10)
+     .               -grid_params%xx(im)**(mm+2)
+!     .               -grid_params%xx(im)**mm
      .                *(RR+grid_params%xx(im)*cos(y1)))
      .                 /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
@@ -224,7 +313,10 @@ cc          nn = grid_params%params(5)
               enddo
             enddo
           enddo
-        endif
+
+          enddo
+
+       endif
 
       case ('msw')
 
