@@ -6399,7 +6399,7 @@ c ######################################################################
 
         use grid
 
-        use nk_setup
+        use ts_setup
 
         use nlfunction_setup, ONLY: ion_hall,di
 
@@ -6490,7 +6490,7 @@ cc        sm_omega_si  = 1d0
 cc        sm_iter_si   = 2
 cc      endif
 
-      call nk_setup_consistency
+      call TS_solver_consistency_chk
 
       end subroutine PC_setup
 
