@@ -22,7 +22,7 @@
 
     temp_ratio = 0.
 
-    di       = 1d-2
+    gamma    = 1d0
 
     hall_new = f
 

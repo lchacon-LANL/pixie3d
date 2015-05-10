@@ -688,7 +688,8 @@ c       Hall electric field BC
             bcnd = vaux%vec_list(IEH)%bconds
             vdum = XformVector(igr,E_h,.true.)
             call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
-     .                ,igr,igr,igr,iorder=order,is_cnv=.false.)
+     .                ,igr,igr,igr,iorder=order
+     .                ,is_cnv=vaux%vec_list(IDIVPE)%cnv)
           endif
 #endif
 

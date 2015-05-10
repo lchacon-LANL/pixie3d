@@ -331,12 +331,12 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
       case ('kaw') !KAW wave
 
-        gamma = 1d0
-
         beta = 1d4
 
         di = (xmax-xmin)/2/pi/nh1*sqrt(beta/(beta-2))  !di k_par = 1
 
+        call write_real_field_to_inputf(di,"di")
+        
 c     Check input
 
         if (coords /= 'car') then
@@ -348,6 +348,7 @@ c     Check input
      .     .and.(   (adiabatic)
      .          .or.(a_p /= 1d0)
      .          .or.(.not.solve_rho)
+     .          .or.(gamma /= 1d0)
 cc     .          .or.(use_p_eom)
      .          )
      .     ) then
