@@ -16,8 +16,6 @@ c----------------------------------------------------------------------
       use timeStepping
 #endif
 
-      use nk_setup
-
       use nlfunction_setup
 
       use precond_setup

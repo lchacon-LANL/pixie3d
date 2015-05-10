@@ -62,7 +62,7 @@ c Local variables
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char,pw
 
-      real(8) :: rint(0:nxdp),dh,offset(1),bth0(0:nxdp)
+      real(8) :: rint(0:nxdp),dh,bth0(0:nxdp)
      .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
      .          ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
      .          ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
