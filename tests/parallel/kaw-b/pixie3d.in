@@ -1,4 +1,5 @@
  &datin
+    di=   1.5917086097392663
     ilevel   = 0
     test     = t
 
@@ -21,7 +22,7 @@
 
     temp_ratio = 0.
 
-    di       = 1d-2
+    gamma    = 1d0
 
     hall_new = f
 
@@ -30,7 +31,7 @@
 
     dt       = 4d-5
     tmax     = 4d-3
-    dstep    = 5d-5
+    dstep    = 4d-5
 
     cnfactor = 0.5
     sm_flag  = 0
@@ -55,7 +56,6 @@
  /
 
  &graphdef
-    sel_diag  = 2,3,4,5,6,7,10,15,16
     sel_graph = 1,2,3,4,5,6,7,8,9
     dplot = 1d-5
     prof_conf = 1,'x',1,1,1
