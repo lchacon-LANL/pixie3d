@@ -84,7 +84,7 @@ endif
 ifdef BOPT
   CPPFLAGS += $(PREPROC)NVAR=8
 
-  ifdef VECPOT
+  ifeq ($(VECPOT),t)
     TARGET = petsc_a
   else
     TARGET = petsc
