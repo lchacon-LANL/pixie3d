@@ -2400,13 +2400,14 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
       case ('ohtor')
 
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
-        RR = grid_params%params(1)              !Major radius
-        aa = grid_params%params(2)              !Horizontal elliptical radius
-        mm = grid_params%params(4)              !m mode
-        nn = grid_params%params(5)              !n mode
-        e0_over_eta = grid_params%params(6)*RR  !Covariant component is constant, needs RR factor
-        beta = grid_params%params(7)     !Toroidal beta
-
+        RR  = grid_params%params(1)            !Major radius
+        aa  = grid_params%params(2)            !Horizontal elliptical radius
+        mm  = grid_params%params(4)            !m mode
+        nn  = grid_params%params(5)            !n mode
+        e0_over_eta = grid_params%params(6)*RR !Covariant component is constant, needs RR factor
+        beta= grid_params%params(7)            !Toroidal beta
+        pw  = grid_params%params(8)            !Pressure at wall
+        
         kk = 0d0   !To avoid affecting q-profile
 
         !Now these must be initalized directly in input file.
@@ -2447,6 +2448,7 @@ c     Ohmic GS equilibrium
 
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
+        var(:,:,:,ITMP) = var(:,:,:,ITMP) + pw
         var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
 
 #if defined(vec_pot)
@@ -5385,7 +5387,7 @@ c     Begin program
         case('ohtor')
 
           if (der == 0) then
-            pprof = (1-s**2)**2! + 1d-3
+            pprof = (1-s**2)**2
           else
             pprof =-4*s*(1-s**2)
           endif
