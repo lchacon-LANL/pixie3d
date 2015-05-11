@@ -5848,11 +5848,11 @@ cc#endif
 cc        endif
 
         !Ohmic current
-#if !defined(vec_pot)
+cc#if !defined(vec_pot)
         E_res = dumcov
-#else
-        E_res =-veclap_cov(igr,dumcov)
-#endif
+cc#else
+cc        E_res =-veclap_cov(igr,dumcov)
+cc#endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
         E_res(:,:,:,2) = eta2*E_res(:,:,:,2)
