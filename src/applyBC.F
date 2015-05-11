@@ -518,11 +518,11 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 
         case(IENI_0)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
-#else
+cc#if defined(vec_pot)
+cc          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
+cc#else
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+cc#endif
 
         case(IVECOV_N)
 
@@ -697,11 +697,11 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
-#else
+cc#if defined(vec_pot)
+cc          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
+cc#else
           E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
-#endif
+cc#endif
 
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
@@ -979,11 +979,11 @@ cc          if (sum(E0) /= 0d0) then
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
-#else
+cc#if defined(vec_pot)
+cc          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
+cc#else
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+cc#endif
 
         case(IVCNV_N)
 
@@ -1155,11 +1155,11 @@ c       Hall electric field
 
 c       Ideal+resistive E field
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
-#else
+cc#if defined(vec_pot)
+cc          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
+cc#else
           E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
-#endif
+cc#endif
 
         case default
 
@@ -1372,11 +1372,11 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
-#else
+cc#if defined(vec_pot)
+cc          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,eeta_0)
+cc#else
           E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+cc#endif
 
         case(IVCNV_N)
 
@@ -1468,11 +1468,11 @@ c       Fake electron velocity: vef = v -di*jfake/rho
 
 c       Total E field
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
-#else
+cc#if defined(vec_pot)
+cc          E_ni=E_fld_res(igr,vcnv,bcnv,acov,eeta)
+cc#else
           E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
-#endif
+cc#endif
 
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
