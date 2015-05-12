@@ -90,13 +90,13 @@ c Local variables
 #endif
       real(8),allocatable,dimension(:,:,:,:) :: vmec_car
 
-      INTERFACE
-        subroutine setAppBCs(varray,vaux)
-          use var_setup
-          type(var_array),pointer :: varray
-          type(aux_array),pointer :: vaux
-        end subroutine setAppBCs
-      END INTERFACE
+cc      INTERFACE
+cc        subroutine setAppBCs(varray,vaux)
+cc          use var_setup
+cc          type(var_array),pointer :: varray
+cc          type(aux_array),pointer :: vaux
+cc        end subroutine setAppBCs
+cc      END INTERFACE
 
 c Functions
 
@@ -336,7 +336,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
         di = (xmax-xmin)/2/pi/nh1*sqrt(beta/(beta-2))  !di k_par = 1
 
         call write_real_field_to_inputf(di,"di")
-        
+
 c     Check input
 
         if (coords /= 'car') then
@@ -2452,32 +2452,21 @@ c     Ohmic GS equilibrium
         var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
 
 #if defined(vec_pot)
-        call pstop('setEquilibrium','Equilibrium not working')
 
-cc        do k = klom,khip
-cc          do j = jlom,jhip
-cc            do i = ilom,ihip
-cc
-cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                      ,x1,y1,z1)
-cc
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-cc
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-cc     .                                    ,x1,y1,z1)
-cc
-cc              !X-Y equilibrium
-cc              b(i,j,k,1) = 0d0
-cc              b(i,j,k,2) = btheta
-cc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call findVectorPotential(var(:,:,:,IVX:IVZ)
-cc     .                          ,b
-cc     .                          ,var(:,:,:,IAX:IAZ))
+        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+
+#if defined(petsc)
+        call find_global(var(0:nx +1,0:ny+1,0:nz+1,IBX:IBZ)
+     .                  ,bg (0:nxd+1,0:ny+1,0:nd+1,1:3)
+     .                  ,mpi_comm=MPI_COMM_X)
+#else
+        bg = var(:,:,:,IBX:IBZ)
+#endif
+
+        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+     .                          ,bg,var(:,:,:,IAX:IAZ))
+
+        deallocate(bg)
 #endif
 
       case default

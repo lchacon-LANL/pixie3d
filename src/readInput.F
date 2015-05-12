@@ -425,9 +425,7 @@ c Set defaults
 
 c Read initialization parameters
 
-      inputfile  ='pixie3d.in' ! Default input file
-
-      open(unit=uinput,file=inputfile,status='old')
+      open(unit=uinput,file=in_file,status='old')
       read(uinput,datin,iostat=ioerr)    !Compatibility mode
       close(unit=uinput)
 
@@ -435,46 +433,46 @@ c Read initialization parameters
         !Reopen input file
 
         ioerr = 0
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,setup,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
 
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,phys,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
 
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,fv,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
 
-cc        open(unit=uinput,file=inputfile,status='old')
+cc        open(unit=uinput,file=in_file,status='old')
 cc        read(uinput,ts,iostat=ioerr)
 cc        close(unit=uinput)
-        ioerr = readTSInput(inputfile,.false.)
+        ioerr = readTSInput(in_file,.false.)
         if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
 
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,nks,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
 
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,pc,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
 
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,i_o,iostat=ioerr)
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
       endif
 
-#if !defined(plotting) && !defined(samrai)
+#if !defined(plotting) && !defined(samrai) && !defined(_equ)
       !Read projective integration configuration
-      call read_PrjInt_Input(inputfile)
+      call read_PrjInt_Input(in_file)
 #endif
 
 c Check legacy parameters
@@ -682,7 +680,7 @@ c Write initialization parameters to standard output
 
 c Initialize graphics
 
-      ioerr=readGraphicsConfig(inputfile)
+      ioerr=readGraphicsConfig(in_file)
 
       if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
         write (*,*) 'Problem reading "graphics" namelist'
