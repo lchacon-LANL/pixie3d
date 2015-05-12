@@ -42,7 +42,7 @@ BINDIR    =$(PWD)/bin
 
 # PIXIE3D setup
 
-SUBDIRS = src plot
+SUBDIRS = eq src plot
 
 REL1=3
 REL2=2.3
@@ -110,25 +110,20 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
         vmec vmec_clean setup tests rebuild-tests \
         $(SUBDIRS)
 
-all: contrib src plot
+all: contrib $(SUBDIRS)
 
 pixie3d: contrib src 
 
 pixplot: contrib plot
 
 $(SUBDIRS):
-#	@echo "-- Machine = $(HOST)"
-#	@echo "-- Do make in $@ with FC=$(FC)"
-#	@echo "-- HDF5_HOME=$(HDF5_HOME)"
-#	@echo "-- HDF5_LIBS=$(HDF5_LIBS)"
-#	@echo "-- MODPATH=$(MODPATH)"
 	$(MAKE) --no-print-directory -e -C $@ $(TARGET)
 
 # SETUP
 
 setup: contrib_setup
 	-@cd plot ; ln -s -f ../src/Makefile
-	-@for subdir in $(COMMONDIR) plot tests/serial tests/parallel ; do \
+	-@for subdir in $(COMMONDIR) plot eq tests/serial tests/parallel ; do \
 		$(MAKE) -C $$subdir setup;  done
 
 # TESTS

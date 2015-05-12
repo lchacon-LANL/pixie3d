@@ -70,26 +70,26 @@ c Read computation initializations (external)
 
 c Read graphics initialization parameters
 
-      open(unit=uinput,file=inputfile,status='old')
+      open(unit=uinput,file=in_file,status='old')
 
       read(uinput,graphdef,iostat=ioerr)
 
       close(unit=uinput)
 
       if (ioerr /= 0) then
-        open(unit=uinput,file=inputfile,status='old')
+        open(unit=uinput,file=in_file,status='old')
         read(uinput,plots,iostat=ioerr)
         close(unit=uinput)
         if (ioerr /= 0.and.my_rank == 0) then
           write (*,*) 'Problem reading namelist "plots"'
         endif
 
-        ioerr=readAccTestConfig (inputfile)
+        ioerr=readAccTestConfig (in_file)
         if (ioerr /= 0.and.my_rank == 0) then
           write (*,*) 'Problem reading namelist "acc_test"'
         endif
 
-        ioerr=readGraphicsConfig(inputfile)
+        ioerr=readGraphicsConfig(in_file)
         if (ioerr /= 0.and.my_rank == 0) then
           write (*,*) 'Problem reading namelist "graphics"'
         endif

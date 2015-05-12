@@ -13,6 +13,8 @@ c ######################################################################
         integer :: u_equf=1000,u_prtf=2000
         character(30) :: equ_file,prt_file
 
+        character(30) :: in_file  ='pixie3d.in' ! Default input file
+
       contains
 
 c     write_bc_field_to_inputf
@@ -40,23 +42,23 @@ c     Begin program
 c     Transfer variable info to input file
 
       if (sum(var) /= 0d0 .and. my_rank == 0) then
-        command = 'grep '//trim(desc)//' '//trim(inputfile)
+        command = 'grep '//trim(desc)//' '//trim(in_file)
      .           // ' > /dev/null'
         ierr = shellcmd(trim(command))
 
-        if (ierr == 0) ierr = delete_line(inputfile,desc)
+        if (ierr == 0) ierr = delete_line(in_file,desc)
 
         write (line,*) '   '//trim(desc)//'=',real(var(1),4)
      .                                   ,',',real(var(2),4)
      .                                   ,',',real(var(3),4)
 
-        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        command = 'grep datin ' // trim(in_file) // ' > /dev/null'
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          ierr = add_line_after_txt(inputfile,'datin',line)
+          ierr = add_line_after_txt(in_file,'datin',line)
         else
-          ierr = add_line_after_txt(inputfile,'phys',line)
+          ierr = add_line_after_txt(in_file,'phys',line)
         endif
 
         if (ierr /= 0) then
@@ -92,21 +94,21 @@ c     Begin program
 c     Transfer variable info to input file
 
       if (my_rank == 0) then
-        command = 'grep '//trim(desc)//' '//trim(inputfile)
+        command = 'grep '//trim(desc)//' '//trim(in_file)
      .           // ' > /dev/null'
         ierr = shellcmd(trim(command))
 
-        if (ierr == 0) ierr = delete_line(inputfile,desc)
+        if (ierr == 0) ierr = delete_line(in_file,desc)
 
         write (line,*) '   '//trim(desc)//'=',var
 
-        command = 'grep datin ' // trim(inputfile) // ' > /dev/null'
+        command = 'grep datin ' // trim(in_file) // ' > /dev/null'
         ierr = shellcmd(trim(command))
 
         if (ierr == 0) then
-          ierr = add_line_after_txt(inputfile,'datin',line)
+          ierr = add_line_after_txt(in_file,'datin',line)
         else
-          ierr = add_line_after_txt(inputfile,'phys',line)
+          ierr = add_line_after_txt(in_file,'phys',line)
         endif
 
         if (ierr /= 0) then
