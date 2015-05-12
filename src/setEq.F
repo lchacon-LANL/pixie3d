@@ -2457,7 +2457,7 @@ c     Ohmic GS equilibrium
 
 #if defined(petsc)
         call find_global(var(0:nx +1,0:ny+1,0:nz+1,IBX:IBZ)
-     .                  ,bg (0:nxd+1,0:ny+1,0:nd+1,1:3)
+     .                  ,bg (0:nxd+1,0:ny+1,0:nz+1,1:3)
      .                  ,mpi_comm=MPI_COMM_X)
 #else
         bg = var(:,:,:,IBX:IBZ)

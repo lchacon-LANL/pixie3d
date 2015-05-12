@@ -59,9 +59,9 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH
 
 .PHONY: setup setup_lnk target lib message clean distclean common contrib contrib_clean $(SUBDIRS)
 
-code: common pixeq_xfer.x
+code code_a: common pixeq_xfer.x
 
-petsc: common pixeq_xfer.petsc.x
+petsc petsc_a: common pixeq_xfer.petsc.x
 
 pixeq_xfer.x: $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
