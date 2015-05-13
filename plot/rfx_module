@@ -172,16 +172,16 @@ c Transform to toroidal
             vz_cov(i,j,k) = vx_car(i,j,k)*sin(-z1)
      $                     -vy_car(i,j,k)*cos(-z1)
 
-#if defined(vec_pot)
-            ax_cov(i,j,k) = ax_car(i,j,k)*cos(y1)*cos(-z1)
-     $                     +ay_car(i,j,k)*cos(y1)*sin(-z1)
-     $                     +az_car(i,j,k)*sin(y1)
-            ay_cov(i,j,k) =-ax_car(i,j,k)*sin(y1)*cos(-z1)
-     $                     -ay_car(i,j,k)*sin(y1)*sin(-z1)
-     $                     +az_car(i,j,k)*cos(y1)
-            az_cov(i,j,k) = ax_car(i,j,k)*sin(-z1)
-     $                     -ay_car(i,j,k)*cos(-z1)
-#endif
+!#if defined(vec_pot)
+!            ax_cov(i,j,k) = ax_car(i,j,k)*cos(y1)*cos(-z1)
+!     $                     +ay_car(i,j,k)*cos(y1)*sin(-z1)
+!     $                     +az_car(i,j,k)*sin(y1)
+!            ay_cov(i,j,k) =-ax_car(i,j,k)*sin(y1)*cos(-z1)
+!     $                     -ay_car(i,j,k)*sin(y1)*sin(-z1)
+!     $                     +az_car(i,j,k)*cos(y1)
+!            az_cov(i,j,k) = ax_car(i,j,k)*sin(-z1)
+!     $                     -ay_car(i,j,k)*cos(-z1)
+!#endif
 
             bx_cov(i,j,k) = bx_car(i,j,k)*cos(y1)*cos(-z1)
      $                     +by_car(i,j,k)*cos(y1)*sin(-z1)
