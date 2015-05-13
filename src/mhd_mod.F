@@ -5361,8 +5361,11 @@ c     Begin program
      .            +gmetric%grid(igx)%jac (i ,j,k))
 
 cc        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
-        ijac = 1d0/jac
-        if (isSP2(i+1,igx).and.flag /= 0) ijac = 0d0
+        if (isSP2(i+1,igx).and.flag /= 0) then
+          ijac = 0d0
+        else
+          ijac = 1d0/jac
+        endif
 
 c     Diffusive part
 
