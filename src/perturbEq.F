@@ -1722,11 +1722,65 @@ c     Begin program
 ! Daniele, 19 Dec. 2014
           br_pert_l = br_pert/(mm*dbeseli)
 
+#if defined(vec_pot)
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+cc                kbesel = -mm*grid_params%params(2)
+                beseli = BESSI(mm,kbesel*x1)
+                dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
+     .                       + BESSI(mm-1,kbesel*x1))
+
+                varr%array_var(IAX)%array(i,j,k) =
+     .               varr%array_var(IAX)%array(i,j,k)
+     .               -(mm/kbesel)**2.*br_pert_l/x1*beseli
+     .             *sin(mm*y1+kk*z1+br_phase)
+
+                varr%array_var(IAY)%array(i,j,k) =
+     .               varr%array_var(IAY)%array(i,j,k)
+     .               -(mm/kbesel)*br_pert_l*x1*dbeseli
+     .             *cos(mm*y1+kk*z1+br_phase)
+
+                if (coords.eq.'hel') then
+
+                varr%array_var(IAZ)%array(i,j,k) =
+     .               varr%array_var(IAZ)%array(i,j,k)
+     .               -br_pert_l*x1*dbeseli
+     .             *cos(mm*y1+kk*z1+br_phase)
+                
+                endif
+
+              enddo
+            enddo
+          enddo
+
+          !Redefine equilibrium to force correct BCs on perturbed A
+!          acov_0(:,:,:,1)=varr%array_var(IAX)%array
+!          acov_0(:,:,:,2)=varr%array_var(IAY)%array
+!          acov_0(:,:,:,3)=varr%array_var(IAZ)%array
+          u_0%array_var(IAX)%array=varr%array_var(IAX)%array          
+          u_0%array_var(IAY)%array=varr%array_var(IAY)%array
+          u_0%array_var(IAZ)%array=varr%array_var(IAZ)%array         
+#else
+
           do k = klo,khi
             do j = jlo,jhi
               do i = ilo,ihi
                 call getCurvilinearCoordinates(i,j,k,igx,igy,igz
      .                                        ,ig,jg,kg,x1,y1,z1)
+
+cc                kbesel = -mm*grid_params%params(2)
+                beseli = BESSI(mm,kbesel*x1)
+                dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
+     .                       + BESSI(mm-1,kbesel*x1))
+
+                dxx = 2*grid_params%dxh(ig)
+                dyy = 2*grid_params%dyh(jg)
+                dzz = 2*grid_params%dzh(kg)
 
                 ip = ig+1
                 im = ig-1
@@ -1735,14 +1789,6 @@ c     Begin program
                 kp = kg+1
                 km = kg-1
 
-                dxx = 2*grid_params%dxh(ig)
-                dyy = 2*grid_params%dyh(jg)
-                dzz = 2*grid_params%dzh(kg)
-
-cc                kbesel = -mm*grid_params%params(2)
-                beseli = BESSI(mm,kbesel*x1)
-                dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
-     .                       + BESSI(mm-1,kbesel*x1))
                 dbeselip =0.5*(BESSI(mm+1,kbesel*grid_params%xx(ip))
      .                       + BESSI(mm-1,kbesel*grid_params%xx(ip)))
                 dbeselim =0.5*(BESSI(mm+1,kbesel*grid_params%xx(im))
@@ -1771,6 +1817,8 @@ cc                kbesel = -mm*grid_params%params(2)
               enddo
             enddo
           enddo
+
+#endif
 
         else   !Standard magnetic perturbation from psi=r^(m+2)*cos(m*th + kk*z)
 
@@ -1823,8 +1871,5 @@ cc                kbesel = -mm*grid_params%params(2)
       endif
 
 c     End program
-
-!10    format (4F8.4)
-10    format (2F12.8)
 
       end subroutine perturbEquilibrium_ppnch_bc
