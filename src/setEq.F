@@ -2433,9 +2433,13 @@ c     Ohmic GS equilibrium
 
         !Build equilibrium
         call Ohm_GS_equil_2d(RR,aa,e0_over_eta,beta,nx,ny,nz
+#if defined(vec_pot)
+     .                   ,var(:,:,:,IAX),var(:,:,:,IAY),var(:,:,:,IAZ)
+#else
      .                   ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+#endif
      .                   ,var(:,:,:,IVX),var(:,:,:,IVY),var(:,:,:,ITMP))
-
+        
 	!Find electric field
         E0(1:2) = 0d0
         E0(3)   = e0_over_eta*eta
@@ -2456,11 +2460,11 @@ c     Ohmic GS equilibrium
         allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
 
 #if defined(petsc)
-        call find_global(var(0:nx +1,0:ny+1,0:nz+1,IBX:IBZ)
-     .                  ,bg (0:nxd+1,0:ny+1,0:nz+1,1:3)
+        call find_global(var(0:nx+1,0:ny+1,0:nz+1,IAX:IAZ)
+     .                  ,bg (0:nxdp,0:ny+1,0:nz+1,1:3)
      .                  ,mpi_comm=MPI_COMM_X)
 #else
-        bg = var(:,:,:,IBX:IBZ)
+        bg = var(:,:,:,IAX:IAZ)
 #endif
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
@@ -5629,8 +5633,8 @@ c Call variables
 
       integer    :: nxg,nyg,nzg
       real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,v(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,b(0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .             ,v    (ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,b    (0:nxg+1,0:nyg+1,0:nzg+1,3)
 
 c Local variables
 
@@ -5638,10 +5642,10 @@ c Local variables
      .             ,igm,igp,jgm,jgp,kgm,kgp
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
      .             ,cai_rhs(ntotdp),caiv(ntotdp)
-     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
-     .             ,cai(ilom:ihip,jlom:jhip,klom:khip)
+     .             ,phi  (ilom:ihip,jlom:jhip,klom:khip)
+     .             ,cai  (ilom:ihip,jlom:jhip,klom:khip)
      .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,a(0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .             ,a    (0:nxg+1,0:nyg+1,0:nzg+1,3)
      .             ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
 
       logical    :: spoint
