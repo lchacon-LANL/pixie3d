@@ -456,10 +456,10 @@ c     Begin program
           endif
 
 cc          if (spoint) then  !r=0 face
-cc            aa(i,j,:,3)=aa(i,j-1,:,3) + dyy*2.5d-1*(bb(i  ,j-1,:,1)
-cc     .                                             +bb(i  ,j  ,:,1)
-cc     .                                             +bb(i+1,j-1,:,1)
-cc     .                                             +bb(i+1,j  ,:,1))
+cc            aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*2.5d-1*(bb(i  ,jm,:,1)
+cc     .                                             +bb(i  ,jp,:,1)
+cc     .                                             +bb(i+1,jm,:,1)
+cc     .                                             +bb(i+1,jp,:,1))
 cc          else
             aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*5d-1*(bb(i,jm,:,1)
      .                                           +bb(i,jp,:,1))
@@ -476,23 +476,18 @@ cc          endif
           im = i-max(istep,0)
           ip = i+min(istep,0)
 
-cc          if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-cc
 cc          if (spoint) then
 cc            if (.not.glbl) then
-cc              dxx = grid_params%dxh(ig-1)
+cc              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
+cc              dxx = sign(1,istep)*grid_params%dxh(ig)
 cc            else
-cccc              dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
-cc              dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc              dxx = grid_params%xg(ip)
+cc     .             -grid_params%xg(im)
 cc            endif
 cc
-cc            a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
+cc            aa(ip,:,:,3) = aa(im,:,:,3) - 0.5*dxx*bb(ip,:,:,2)
 cc
-cc            if (isSP(i,1,1,igx,igy,igz)) then
-cc              a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
-cc            else
-cc              a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
-cc            endif
+cc            aa(ip,:,:,2) = aa(im,:,:,2) + dxx*bb(ip,:,:,3)
 cc
 cc          else
 
@@ -512,10 +507,15 @@ cc          else
 cc          endif
         enddo
 
-      !Average from radial faces to nodes in SP coordinate systems
-cc        if (spoint) aa(1:nx+1,:,:,2:3) = 0.5*(aa(1:nx+1,:,:,2:3)
-cc     .                                       +aa(0:nx  ,:,:,2:3))
-
+        !Average from radial faces to nodes in SP coordinate systems
+cc        if (spoint) then
+cc          write (*,*) min(ilo,ihi),max(ilo,ihi)+1
+cc          aa(min(ilo,ihi):max(ilo,ihi)+1,:,:,2:3) =
+cc     .         0.5*(aa(min(ilo,ihi)  :max(ilo,ihi)+1,:,:,2:3)
+cc     .             +aa(min(ilo,ihi)-1:max(ilo,ihi)  ,:,:,2:3))
+cc          aa(min(ilo,ihi)-1,:,:,2:3) = -aa(min(ilo,ihi),:,:,2:3)
+cc        endif
+        
       end subroutine line_int
 
       end subroutine curl_inv
@@ -563,65 +563,51 @@ c     Find dB
 
       end subroutine curl_div_clean
 
-c     vlap_div_clean
-c     #################################################################
-      subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dacov,dbcov
-     .                         ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+c     vlap_curl_inv
+c     ###############################################################
+      subroutine vlap_curl_inv(iout,nx,ny,nz,igx,igy,igz,db,da_cov
+     .                        ,bcsb,bcsa,dbcov,w_pre_bcs,gm_it,rtol)
 
-c     -----------------------------------------------------------------
-c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
-c     -----------------------------------------------------------------
+c     ---------------------------------------------------------------
+c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
+c     field components "b". Employs gauge div(A) = 0d0. Uses vector
+c     Laplacian.
+c     ---------------------------------------------------------------
 
       implicit none
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz,iout
+      integer :: nx,ny,nz,igx,igy,igz,iout,bcsb(6,3),bcsa(6,3)
       real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8) :: da_cov(0:nx+1,0:ny+1,0:nz+1,3)
 
       integer,optional :: gm_it
       real(8),optional :: rtol
       real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
-      real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
 
-      logical,optional :: w_bcs,w_pre_bcs,diag_plots
+      logical,optional :: w_pre_bcs
 
 c     Local variables
 
-      integer :: i,j,k,ii,icomp,bcsa(6,3),bcsb(6,3)
-     .          ,order_res,order_prol,gmits
+      integer :: i,j,k,ii,icomp,order_res,order_prol,gmits
 
-      real(8) :: da_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+      real(8) :: da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
      $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
-      logical :: vwgt,wbcs,w_prebcs,dplots,sing_mat
-
-      character(20) :: dcf
+      logical :: vwgt,wbcs,w_prebcs,sing_mat
 
 c     Begin program
-
+            
       vwgt = .true.
-
-      if (PRESENT(diag_plots)) then
-        dplots = diag_plots
-      else
-        dplots = .false.
-      endif
-
-      if (PRESENT(w_bcs)) then
-        wbcs = w_bcs
-      else
-        wbcs = dplots
-      endif
 
       if (PRESENT(w_pre_bcs)) then
         w_prebcs = w_pre_bcs
       else
-        wbcs = .false.
+        w_prebcs = .false.
       endif
 
       if (PRESENT(rtol)) then
@@ -631,10 +617,6 @@ c     Begin program
       endif
 
 c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
-
-      bcsb(:,1) = u_0%array_var(IBX)%bconds
-      bcsb(:,2) = u_0%array_var(IBY)%bconds
-      bcsb(:,3) = u_0%array_var(IBZ)%bconds
 
       if (w_prebcs) then
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
@@ -667,19 +649,6 @@ cc        return
           enddo
         enddo
       enddo
-
-c     Define BCs for dA
-
-      bcsa = bcsb
-      where (bcond == FSYM)
-        bcsa(:,1) = FSYM !Recover symmetry BCs
-        bcsa(:,2) = FSYM !Recover symmetry BCs
-        bcsa(:,3) = FSYM !Recover symmetry BCs
-      end where
-      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
-                                        !Normal component BCs same as B (div = 0)
-
-      call set_vec_symm_bc(bcsa,-1)
 
 c     Setup solver parameters
 
@@ -750,18 +719,97 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .                ,is_vec=.true.,is_cnv=is_a_cnv
      .                ,icomp=(/IAX/))
       endif
-
-c     Diagnostics
-
-      if (dplots) call dump(igx,da_cov,db)
-
+      
       if (PRESENT(gm_it)) gm_it = gmits
 
+c     End program
+
+      end subroutine vlap_curl_inv
+      
+c     vlap_div_clean
+c     #################################################################
+      subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dacov,dbcov
+     .                         ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+
+c     -----------------------------------------------------------------
+c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: nx,ny,nz,igx,igy,igz,iout
+      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
+
+      integer,optional :: gm_it
+      real(8),optional :: rtol
+      real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
+
+      logical,optional :: w_bcs,w_pre_bcs,diag_plots
+
+c     Local variables
+
+      integer :: bcsa(6,3),bcsb(6,3)
+cc      integer :: i,j,k,ii,icomp,bcsa(6,3),bcsb(6,3)
+cc     .          ,order_res,order_prol,gmits
+
+      real(8) :: da_cov (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .          ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .          ,db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+cc     .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
+cc     $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
+cc
+cc      logical :: vwgt,wbcs,w_prebcs,dplots,sing_mat
+      logical :: dplots,wbcs
+      
+cc      character(20) :: dcf
+
+c     Begin program
+
+      if (PRESENT(diag_plots)) then
+        dplots = diag_plots
+      else
+        dplots = .false.
+      endif
+
+      if (PRESENT(w_bcs)) then
+        wbcs = w_bcs
+      else
+        wbcs = dplots
+      endif
+
+c     Define BCs
+
+      bcsb(:,1) = u_0%array_var(IBX)%bconds
+      bcsb(:,2) = u_0%array_var(IBY)%bconds
+      bcsb(:,3) = u_0%array_var(IBZ)%bconds
+
+      bcsa = bcsb
+      where (bcond == FSYM)
+        bcsa(:,1) = FSYM !Recover symmetry BCs
+        bcsa(:,2) = FSYM !Recover symmetry BCs
+        bcsa(:,3) = FSYM !Recover symmetry BCs
+      end where
+      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+                                        !Normal component BCs same as B (div = 0)
+
+      call set_vec_symm_bc(bcsa,-1)
+
+c     Find dA
+
+      call vlap_curl_inv(iout,nx,ny,nz,igx,igy,igz,db,da_cov
+     .                  ,bcsb,bcsa,w_pre_bcs=w_pre_bcs
+     .                  ,gm_it=gm_it,rtol=rtol)
+      
 c     Find new dB (with BCs)
 
       db = curl(igx,da_cov)
 
       if (wbcs) then
+
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
      .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
@@ -770,6 +818,10 @@ c     Find new dB (with BCs)
 c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
+
+c     Diagnostics
+
+      if (dplots) call dump(igx,da_cov,db)
 
       end subroutine vlap_div_clean
 
