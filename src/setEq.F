@@ -2455,23 +2455,28 @@ c     Ohmic GS equilibrium
         var(:,:,:,ITMP) = var(:,:,:,ITMP) + pw
         var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
 
-#if defined(vec_pot)
-
-        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
-
-#if defined(petsc)
-        call find_global(var(0:nx+1,0:ny+1,0:nz+1,IAX:IAZ)
-     .                  ,bg (0:nxdp,0:ny+1,0:nz+1,1:3)
-     .                  ,mpi_comm=MPI_COMM_X)
-#else
-        bg = var(:,:,:,IAX:IAZ)
-#endif
-
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ))
-
-        deallocate(bg)
-#endif
+cc#if defined(vec_pot)
+cc
+cc        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+cc
+cc#if defined(petsc)
+cc        call find_global(var(0:nx+1,0:ny+1,0:nz+1,IAX:IAZ)
+cc     .                  ,bg (0:nxdp,0:ny+1,0:nz+1,1:3)
+cc     .                  ,mpi_comm=MPI_COMM_X)
+cc#else
+cc        bg = var(:,:,:,IAX:IAZ)
+cc#endif
+cc
+cc        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+cc     .                          ,bg,var(:,:,:,IAX:IAZ))
+cc
+cccc        allocate(bg(0:nx+1,0:ny+1,0:nz+1,3))
+cccc        bg = var(:,:,:,IAX:IAZ)
+cccc        call findVectorPotential(nx,ny,nz,var(:,:,:,IVX:IVZ)
+cccc     .                          ,bg,var(:,:,:,IAX:IAZ))
+cccc
+cccc        deallocate(bg)
+cc#endif
 
       case default
 
@@ -4752,7 +4757,9 @@ c     Begin program
 c       Initialize iteration
 
         !Find half-mesh positions
-        do i=0,nxd
+        xh(0) = 0.5*grid_params%xg(1)
+        dr(0) =     grid_params%xg(1)
+        do i=1,nxd
           xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
           dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
         enddo
@@ -4770,7 +4777,7 @@ c       Initialize iteration
             iglobal = i + grid_params%ilo(igrid) - 1
             jglobal = j + grid_params%jlo(igrid) - 1
             RR(i,j) = R0 + aa*grid_params%xg(iglobal)
-     .                    *cos(grid_params%yg(jglobal))
+     .                   *cos(grid_params%yg(jglobal))
           enddo
         enddo
 
@@ -4882,10 +4889,6 @@ cc     .              ,mg_gm_coarse_solve=.true.
           !Fill array (w BCs)
           call fillArray(igrid,1,psiv,psi,bcnd,iorder=order_bc
      .                  ,icomp=(/IRHO/))
-cc          call mapMGVectorToArray(0,1,psiv,nx,ny,nz,psi,igrid,.false.)
-cc
-cc          call setBC(IRHO,nx,ny,nz,psi,zeros,bcnd,igrid,igrid,igrid
-cc     .              ,iorder=order_bc)
 
           !Perform integral of III (at half-mesh on global grid in radius)
 
@@ -5257,10 +5260,81 @@ cc          write (*,999) '   q(psi=1)=',qa
  999      format (a,f10.7)
         endif
 
-c     Change sign of psi (to agree with A_3 sign convention)
+c     Transform to vector potential
+        
+#if defined(vec_pot)
 
-        psi = -psi
+        !Find B^3 at faces (III is defined at radial faces)
+        do i=0,nx
+          iglobal = i + grid_params%ilo(igrid) - 1
+          
+          III(i,:)= 2.*III(i,:)/(RR(i+1,:)+RR(i,:))*xh(iglobal)
+        enddo
+        
+        !Find A_2 at cell centers by radial integral of b^3 at cell faces
+        dummy(0,:) = 0d0
+        do i=1,nx+1
+          iglobal = i + grid_params%ilo(igrid) - 1
 
+          dummy(i,:) = dummy(i-1,:) +  III(i-1,:)*dr(iglobal-1)
+        enddo
+cc       !Find A_2 at cell centers by radial integral of b^3 at cell faces
+cc        dummy(0,:) = 0d0
+cc        iglobal = grid_params%ilo(igrid) - 1
+cc        do j=0,ny+1
+cc          i = 1
+cc          dummy(i,j) = dummy(i-1,j)
+cc     .           + q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
+cc     .                  ,grid_params%xg(iglobal+i),-1)
+cc          write (*,*) grid_params%xg(iglobal+i)
+cc          do i=2,nx+1
+cc          write (*,*) grid_params%xg(iglobal+i)
+cc            dummy(i,j) = dummy(i-1,j)
+cc     .           + q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
+cc     .                  ,grid_params%xg(iglobal+i  ),-1)
+cc     .           - q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
+cc     .                  ,grid_params%xg(iglobal+i-1),-1)
+cc          enddo
+cc        enddo
+
+#if defined(petsc)
+        !Communicate radial integration constants
+        if (npx > 1) then
+          allocate(mpivec(npx*ny))
+          call MPI_Allgather(dummy(nx,1:ny)
+     .                           ,ny,MPI_DOUBLE_PRECISION
+     .                    ,mpivec,ny,MPI_DOUBLE_PRECISION
+     .                    ,MPI_COMM_RAD,mpierr)
+
+          !Sum integration constants
+          do j=2,npx
+            mpivec(1+ny*(j-1):ny*j) = mpivec(1+ny*(j-1):ny* j   )
+     .                               +mpivec(1+ny*(j-2):ny*(j-1))
+          enddo
+
+          !Add integration constants
+          call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+
+          j = my_rank_rad
+          if (j > 0) then
+            do i=0,nx+1
+              dummy(i,1:ny) = dummy(i,1:ny) + mpivec(1+ny*(j-1):ny*j)
+            enddo
+          endif
+
+          deallocate(mpivec)
+        endif
+#endif
+
+        b1 = 0d0
+        b3 = -psi(:,:,:,1)
+
+        do k=0,nz+1
+          b2(:,:,k) = dummy
+        enddo
+
+#endif
+        
         !Save some equilibrium properties (to calculate bootstrap current)
 cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
 cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
@@ -5283,10 +5357,11 @@ c diag *****
 cc      open(unit=110,file='debug.bin',form='unformatted'
 cc     .    ,status='replace')
 cccc      call contour(psi(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
-cc      call contour(errv            ,nx,ny,0d0,1d0,0d0,1d0,0,110)
+cc      call contour(dummy,nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
+cc      call contour(III,nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
 cc      call contour(b1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
 cc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
-cc      call contour(b3 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(b3 (1:nx,1:ny,1)  ,nx,ny,0d0,1d0,0d0,1d0,0,110)
 cc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
 cc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
 cc      close (110)
@@ -5639,7 +5714,7 @@ c Call variables
 c Local variables
 
       integer    :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
-     .             ,igm,igp,jgm,jgp,kgm,kgp
+     .             ,igm,igp,jgm,jgp,kgm,kgp,its
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
      .             ,cai_rhs(ntotdp),caiv(ntotdp)
      .             ,phi  (ilom:ihip,jlom:jhip,klom:khip)
@@ -5658,8 +5733,22 @@ c Begin program
       ny = grid_params%nyv(igrid)
       nz = grid_params%nzv(igrid)
 
-      vzeros = 0d0
+c Find vector potential with div(A)=0
 
+cc      if (my_rank == 0) then
+cc        write (*,*)
+cc        write (*,*) 'Solving for vector potential...'
+cc        write (*,*)
+cc      endif
+cc      
+cc      call vlap_curl_inv(3,nx,ny,nz,igrid,igrid,igrid,b,a_cov
+cc     .                  ,gv%aux%vec_list(IBCNV)%bconds
+cc     .                  ,gv%aux%vec_list(IACOV)%bconds
+cc     .                  ,w_pre_bcs=.true.
+cc     .                  ,gm_it=its,rtol=min(rtol,1d-4))
+cc
+cc      if (my_rank == 0) write (*,*) 'GMRES its=',its
+      
 c Find vector potential with gauge Ax = 0 in GLOBAL domain
 
       call curl_inv(nxg,nyg,nzg,igrid,igrid,igrid,b,a,global=.true.)
@@ -5696,11 +5785,12 @@ c Set topological BCs
       bcnd(:,3) = bcond
 cc      where (bcnd == DEF) bcnd = -IFC
 
+      vzeros = 0d0
       a_cnv = XformVector(igrid,a_cov,.true.)
       call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .          ,igrid,igrid,igrid,is_cnv=.false.
      .          ,iorder=order_bc)
-
+cc=====================================================================
 c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
 
 cc      call findScalarPotential(v
