@@ -476,20 +476,24 @@ cc          endif
           im = i-max(istep,0)
           ip = i+min(istep,0)
 
-cc          if (spoint) then
-cc            if (.not.glbl) then
-cc              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
-cc              dxx = sign(1,istep)*grid_params%dxh(ig)
-cc            else
-cc              dxx = grid_params%xg(ip)
-cc     .             -grid_params%xg(im)
-cc            endif
-cc
+          if (spoint.and.i==1) then
+            if (.not.glbl) then
+              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
+              dxx = sign(1,istep)*grid_params%dxh(ig)
+            else
+              dxx = grid_params%xg(ip)
+     .             -grid_params%xg(im)
+            endif
+
+cc            write (*,*) i,im,ip,dxx,bb(ip,1,1,2)
 cc            aa(ip,:,:,3) = aa(im,:,:,3) - 0.5*dxx*bb(ip,:,:,2)
 cc
-cc            aa(ip,:,:,2) = aa(im,:,:,2) + dxx*bb(ip,:,:,3)
-cc
-cc          else
+cc            aa(ip,:,:,2) = aa(im,:,:,2) + 0.5*dxx*bb(ip,:,:,3)
+            aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
+     .                                             +bb(ip,:,:,2))
+            aa(ip,:,:,2) =  + 0.25*dxx*bb(ip,:,:,3) !A_2=0 @ r=0
+
+          else
 
             if (.not.glbl) then
               call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
@@ -504,7 +508,7 @@ cc          else
             aa(ip,:,:,2) = aa(im,:,:,2) + dxx*5d-1*(bb(im,:,:,3)
      .                                             +bb(ip,:,:,3))
 
-cc          endif
+          endif
         enddo
 
         !Average from radial faces to nodes in SP coordinate systems

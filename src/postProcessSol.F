@@ -36,7 +36,7 @@ c Local variables
       !Lagrangian
       real(8),allocatable,dimension(:,:,:)   :: tmp_nm,tmp_n,tmp_np
      $                                         ,chipar,array
-      logical :: B_weight
+      logical :: B_weight,do_3d
       real(8) :: G_tol
       integer :: sp_order
 
@@ -170,14 +170,17 @@ c Perform Lagrangian temperature step
         G_tol = 1d-8
         sp_order = 2
         B_weight = .false.
+        do_3d    = .true.
 
         if (maxval(chipar) == 0d0) return
 
-        if (ilevel > 0 .and. my_rank == 0)
-     .     write (*,*) '  --> Performing parallel transport step...'
+        if (ilevel > 0 .and. my_rank == 0) then
+          write (*,*)
+          write (*,*) 'Performing divergence cleaning in postproc...'
+        endif
 
-        call lag_init(igrid,nx,ny,nz,bcnv,2d0,ilevel-3
-     .               ,G_tol,sp_order,B_weight,.false.)
+        call lag_init(igrid,nx,ny,nz,bcnv,2d0,ilevel
+     .               ,G_tol,sp_order,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
         tmp_nm = vnm%array_var(ITMP)%array
@@ -188,7 +191,7 @@ c Perform Lagrangian temperature step
      $          /vnp%array_var(IRHO)%array
 
         call lag_update_bdf2(igrid,ITMP,vnp%array_var(ITMP)%bconds
-     $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel-3)
+     $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel)
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
 c$$$        call lagr_update(igrid,bcnv

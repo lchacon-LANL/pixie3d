@@ -872,6 +872,13 @@ cc        vaux%vec_list(IJCNV_0)%bconds = EXT  !Extrapolate contravariant compon
 
 #if defined(vec_pot)
       vaux%vec_list(IACOV_0)%bconds = vaux%vec_list(IJCNV_0)%bconds
+
+      select case(equil)
+      case('ohtor')
+        where(abs(vaux%vec_list(IACOV_0)%bconds) == EXT)
+          vaux%vec_list(IACOV_0)%bconds = DEF !Extrapolate covariant components
+        end where
+      end select
 #endif
 
       !Pressure tensors

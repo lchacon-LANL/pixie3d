@@ -2455,29 +2455,6 @@ c     Ohmic GS equilibrium
         var(:,:,:,ITMP) = var(:,:,:,ITMP) + pw
         var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
 
-cc#if defined(vec_pot)
-cc
-cc        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
-cc
-cc#if defined(petsc)
-cc        call find_global(var(0:nx+1,0:ny+1,0:nz+1,IAX:IAZ)
-cc     .                  ,bg (0:nxdp,0:ny+1,0:nz+1,1:3)
-cc     .                  ,mpi_comm=MPI_COMM_X)
-cc#else
-cc        bg = var(:,:,:,IAX:IAZ)
-cc#endif
-cc
-cc        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-cc     .                          ,bg,var(:,:,:,IAX:IAZ))
-cc
-cccc        allocate(bg(0:nx+1,0:ny+1,0:nz+1,3))
-cccc        bg = var(:,:,:,IAX:IAZ)
-cccc        call findVectorPotential(nx,ny,nz,var(:,:,:,IVX:IVZ)
-cccc     .                          ,bg,var(:,:,:,IAX:IAZ))
-cccc
-cccc        deallocate(bg)
-cc#endif
-
       case default
 
         messg = 'Equilibrium '//trim(equil)//' undefined'
@@ -5035,6 +5012,14 @@ c       Find vectors and scalars
           enddo
         enddo
 
+cc        do i=0,nx
+cc          call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc
+cc          rh = grid_params%xx(ig)
+cc
+cc          write (*,*) rh,III(i,1)!b3(i,1,1)/rh
+cc        enddo
+cc        stop
 c       Calculate GS convergence properties
 
         e1 = 0d0
@@ -5264,52 +5249,57 @@ c     Transform to vector potential
         
 #if defined(vec_pot)
 
-        !Find B^3 at faces (III is defined at radial faces)
-        do i=0,nx
-          iglobal = i + grid_params%ilo(igrid) - 1
-          
-          III(i,:)= 2.*III(i,:)/(RR(i+1,:)+RR(i,:))*xh(iglobal)
-        enddo
-        
-        !Find A_2 at cell centers by radial integral of b^3 at cell faces
-        dummy(0,:) = 0d0
-        do i=1,nx+1
-          iglobal = i + grid_params%ilo(igrid) - 1
-
-          dummy(i,:) = dummy(i-1,:) +  III(i-1,:)*dr(iglobal-1)
-        enddo
-cc       !Find A_2 at cell centers by radial integral of b^3 at cell faces
-cc        dummy(0,:) = 0d0
-cc        iglobal = grid_params%ilo(igrid) - 1
-cc        do j=0,ny+1
-cc          i = 1
-cc          dummy(i,j) = dummy(i-1,j)
-cc     .           + q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
-cc     .                  ,grid_params%xg(iglobal+i),-1)
-cc          write (*,*) grid_params%xg(iglobal+i)
-cc          do i=2,nx+1
-cc          write (*,*) grid_params%xg(iglobal+i)
-cc            dummy(i,j) = dummy(i-1,j)
-cc     .           + q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
-cc     .                  ,grid_params%xg(iglobal+i  ),-1)
-cc     .           - q_int(nx+1,III(0:nx,j),xh(iglobal:iglobal+nx)
-cc     .                  ,grid_params%xg(iglobal+i-1),-1)
-cc          enddo
+cc        !Find B^3 at faces (III is defined at radial faces)
+cccc        III(0,:) = 0d0
+cc        do i=0,nx
+cc          iglobal = i + grid_params%ilo(igrid) - 1
+cc          
+cc          III(i,:)= 2.*III(i,:)/(RR(i+1,:)+RR(i,:))*xh(iglobal)
+cccc          write (*,*) xh(iglobal),III(i,1),(RR(i+1,1)+RR(i,1))/2.
 cc        enddo
+cc
+cc        !Find A_2 at cell centers by radial integral of b^3 at cell faces
+cc        dummy(0,:) = 0d0
+cc        do i=1,nx+1
+cc          iglobal = i + grid_params%ilo(igrid) - 1
+cc
+cc          dummy(i,:) = dummy(i-1,:) +  III(i-1,:)*dr(iglobal-1)
+cc        enddo
+
+        !Find A_2 at cell centers by staggered radial integral of b^3 at cell centers
+        dummy = 0d0
+        if (isSP2(1,igrid)) then
+          write (*,*) my_rank
+          !Estimate B^3 at r=0
+          iglobal = grid_params%ilo(igrid) - 1
+          dummy(1,:)= 2.*III(0,:)/(RR(1,:)+RR(0,:))*xh(iglobal)
+          !Find A_2 at first cell
+          dummy(1,:) = dummy(1,:)*dr(iglobal)
+          !Extrapolate to ghost cell
+          dummy(0,:) = dummy(1,:)
+        endif
+        
+        !Integrate staggered
+        do i=1,nx,2
+          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
+
+          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*grid_params%dxh(ig)
+        enddo
 
 #if defined(petsc)
         !Communicate radial integration constants
         if (npx > 1) then
-          allocate(mpivec(npx*ny))
-          call MPI_Allgather(dummy(nx,1:ny)
-     .                           ,ny,MPI_DOUBLE_PRECISION
-     .                    ,mpivec,ny,MPI_DOUBLE_PRECISION
+          nn = ny+2
+          allocate(mpivec(npx*nn))
+          call MPI_Allgather(dummy(nx,0:ny+1)
+     .                           ,nn,MPI_DOUBLE_PRECISION
+     .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
      .                    ,MPI_COMM_RAD,mpierr)
 
           !Sum integration constants
           do j=2,npx
-            mpivec(1+ny*(j-1):ny*j) = mpivec(1+ny*(j-1):ny* j   )
-     .                               +mpivec(1+ny*(j-2):ny*(j-1))
+            mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
+     .                               +mpivec(1+nn*(j-2):nn*(j-1))
           enddo
 
           !Add integration constants
@@ -5317,8 +5307,8 @@ cc        enddo
 
           j = my_rank_rad
           if (j > 0) then
-            do i=0,nx+1
-              dummy(i,1:ny) = dummy(i,1:ny) + mpivec(1+ny*(j-1):ny*j)
+            do i=0,nx+1,2
+              dummy(i,:) = dummy(i,:) + mpivec(1+nn*(j-1):nn*j)
             enddo
           endif
 
@@ -5326,6 +5316,44 @@ cc        enddo
         endif
 #endif
 
+        do i=2,nx,2
+          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
+
+          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*grid_params%dxh(ig)
+          write (*,*) my_rank,i+1
+        enddo
+
+#if defined(petsc)
+        !Communicate radial integration constants
+        if (npx > 1) then
+          nn = ny+2
+          allocate(mpivec(npx*nn))
+          call MPI_Allgather(dummy(nx+1,0:ny+1)
+     .                           ,nn,MPI_DOUBLE_PRECISION
+     .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
+     .                    ,MPI_COMM_RAD,mpierr)
+
+          !Sum integration constants
+          do j=2,npx
+            mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
+     .                               +mpivec(1+nn*(j-2):nn*(j-1))
+          enddo
+
+          !Add integration constants
+          call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+
+          j = my_rank_rad
+          if (j > 0) then
+            do i=1,nx+1,2
+              dummy(i,:) = dummy(i,:) + mpivec(1+nn*(j-1):nn*j)
+            enddo
+          endif
+
+          deallocate(mpivec)
+        endif
+#endif
+
+        !Return vector potential components
         b1 = 0d0
         b3 = -psi(:,:,:,1)
 
