@@ -1151,7 +1151,7 @@ c--------------------------------------------------------------------
 
       use PC_var
 
-      use nlfunction_setup, ONLY: EOM_jxb,EOM_gp
+      use nlfunction_setup, ONLY: EOM_jxb,EOM_gp,no_eom_divpe
 
       use imposeBCinterface
 
@@ -1344,7 +1344,7 @@ c Find rhs_v'
      .                     ,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
-              if (part == 'lfz') then
+              if (part == 'lfz'.and.(.not.no_eom_divpe)) then
                 cnv = cnv
      .               -EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                             ,dve_cnv,heta0(:,:,:,1))

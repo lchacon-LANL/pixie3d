@@ -4391,12 +4391,13 @@ c ######################################################################
 
         integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
 
-        logical :: bootstrap =.false.   !Whether to calculate bootstrap current
-     .            ,solenoidal=.true.    !Whether we keep B solenoidal
-     .            ,nc_eom_jxb=.false.   !Whether we use JxB instead of conserv. form
-     .            ,nc_eom_gp =.false.   !Whether we use grad(p) instead of conserv. form
-     .            ,nc_eom_v  =.false.   !Whether we use v.grad(v) instead of conserv. form
-     .            ,sym_st    =.false.   !Whether to use symmetric stress tensor
+        logical :: bootstrap   =.false. !Whether to calculate bootstrap current
+     .            ,solenoidal  =.true.  !Whether we keep B solenoidal
+     .            ,nc_eom_jxb  =.false. !Whether we use JxB instead of conserv. form
+     .            ,nc_eom_gp   =.false. !Whether we use grad(p) instead of conserv. form
+     .            ,nc_eom_v    =.false. !Whether we use v.grad(v) instead of conserv. form
+     .            ,sym_st      =.false. !Whether to use symmetric stress tensor
+     .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
 
         logical :: save_tn
 

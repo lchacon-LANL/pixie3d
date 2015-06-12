@@ -247,8 +247,11 @@ c     grad(p) volume force
 
 c     Stress tensor: div(Pi+Pe)
 
-      ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:) + div_pe(i,j,k,:)
-cc      ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
+      if (no_eom_divpe) then
+        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:)
+      else
+        ff(IVX:IVZ) = ff(IVX:IVZ) + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+      endif
 
 c     Advection
 
