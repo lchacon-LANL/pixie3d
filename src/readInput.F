@@ -77,7 +77,7 @@ c Namelists
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
-     .                   ,noise,noise_lev,lagrangian
+     .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -110,7 +110,7 @@ c Namelists
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,fake_ve,slava,noise,noise_lev
-     .                   ,v_advect
+     .                   ,v_advect,no_eom_divpe
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
