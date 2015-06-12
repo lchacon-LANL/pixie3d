@@ -18,7 +18,7 @@ SUBDIRS = $(COMMONDIR)/math\
           $(COMMONDIR)/grid\
 	  $(COMMONDIR)/driver_setup\
           $(COMMONDIR)/var_setup\
-	  $(COMMONDIR)/matrixlightsolver\
+	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG
 
 # Set link files
