@@ -958,9 +958,14 @@ c     -------------------------------------------------
 
       case ('ic')
 
-        p0     = grid_params%params(1)
-        eps    = grid_params%params(2)
-        dlambda = (ymax-ymin)/4./pi
+        p0  = eq_params(1)
+        eps = eq_params(2)
+
+        if (bcond(3) == FSYM .or. bcond(4) == FSYM) then
+          dlambda = (ymax-ymin)/2./pi !(2*Ly/4/pi)
+        else
+          dlambda = (ymax-ymin)/4./pi !(Ly/4/pi)
+        endif
 
 c     Define vector potential (in curvilinear coordinates) for initialization
 
@@ -5624,8 +5629,13 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
       case ('ic')
 
-        eps = grid_params%params(2)
-        dlambda = (ymax-ymin)/2./pi/2.
+        eps = eq_params(2)
+
+        if (bcond(3) == FSYM .or. bcond(4) == FSYM) then
+          dlambda = (ymax-ymin)/2./pi !(2*Ly/4/pi)
+        else
+          dlambda = (ymax-ymin)/4./pi !(Ly/4/pi)
+        endif
 
         do k = klom,khip
           do j = jlom,jhip
@@ -5644,15 +5654,6 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
       case ('ic-hk')
 
         eps = eq_params(2)
-        dlambda = (ymax-ymin)/pi !(Ly/4/pi)
-
-cc        if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
-cc          hlx = xmax
-cc        elseif (bcond(1) == FSYM .and. bcond(2) /= FSYM) then
-cc          hlx = xmin
-cc        else
-cc          hlx = 0.5d0*(xmax+xmin)
-cc        endif
 
         if (bcond(3) == FSYM .or. bcond(4) == FSYM) then
           dlambda = (ymax-ymin)/2./pi !(2*Ly/4/pi)
