@@ -3,7 +3,7 @@
   Number of grid levels:....    4,    6,    1
   Preconditioning method:...  id
   Time correction...........   F
-  External source...........   T
+  External source...........   F
   Numerical grid............   F
   Scalar advection scheme...    ZIP   
   Velocity advection scheme.    ZIP   
