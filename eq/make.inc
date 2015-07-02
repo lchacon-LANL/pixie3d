@@ -26,8 +26,7 @@ SUBDIRS = $(COMMONDIR)/math\
 LNK_FILES = ../src/applyBC.F\
 	    ../src/BC_mod.F\
 	    ../src/mhd_mod.F\
-	    ../src/readInput.F\
-	    ../src/applyBC.F
+	    ../src/readInput.F
 
 #Exclusions
 
