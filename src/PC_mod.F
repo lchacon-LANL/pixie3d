@@ -54,13 +54,8 @@ c ######################################################################
         real(8), allocatable, dimension(:,:),target :: d_pois
 
         real(8), allocatable, dimension(:,:) :: mgadvdiffV0
-cc        real(8), allocatable, dimension(:,:)    :: mgj0cnv
-cc
-cc        real(8), allocatable, dimension(:,:,:)  :: mgnablaV0
-cc
-cc        real(8), allocatable, dimension(:)      :: mgdivV0
 
-        integer, allocatable, dimension(:,:)    :: bcs,bcs_hyp
+        integer, allocatable, dimension(:,:) :: bcs,bcs_hyp
 
         type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
      .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
@@ -88,10 +83,7 @@ c     Begin program
 
         ntotd2p = 2*ntotd/neqd
 
-cc        allocate (mgj0cnv    (ntotd2p,3))
         allocate (mgadvdiffV0(ntotd2p,3))
-cc        allocate (mgnablaV0  (ntotd2p,3,3))
-cc        allocate (mgdivV0    (ntotd2p))
 
 #if !defined(vec_pot)
         allocate (bcs(6,neqd+3),bcs_hyp(6,6))
@@ -153,10 +145,7 @@ c     Local variables
 
 c     Begin program
 
-cc        deallocate (mgj0cnv)
-cc        deallocate (mgdivV0)
         deallocate (mgadvdiffV0)
-cc        deallocate (mgnablaV0)
 
         deallocate (bcs,bcs_hyp)
 
@@ -191,71 +180,6 @@ cc        deallocate (mgnablaV0)
 c     End program
 
       end subroutine deallocPCVariables
-
-ccc     gather
-ccc     ###################################################################
-cc      subroutine gather(xout,xin)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Gathers magnitudes from different arrays to vector.
-ccc     -------------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        real(8),intent(IN),dimension(:,:) :: xin
-cc        real(8),intent(OUT),dimension(:)  :: xout
-cc
-ccc     Local variables
-cc
-cc        integer    :: i,j,k,ii,iii,ieq
-cc
-ccc     Begin program
-cc
-cc        do ii=1,size(xin,1)
-cc          do ieq=1,size(xin,2)
-cc            iii = ieq + size(xin,2)*(ii-1)
-cc            xout(iii) = xin(ii,ieq)
-cc          enddo
-cc        enddo
-cc
-ccc     End program
-cc
-cc      end subroutine gather
-cc
-ccc     scatter
-ccc     ###################################################################
-cc      subroutine scatter(xout,xin)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Scatters magnitudes in vector to different arrays indexed by the
-ccc     variable identifier ieq.
-ccc     -------------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        real(8),intent(IN)  :: xin(:)
-cc        real(8),intent(OUT) :: xout(:,:)
-cc
-ccc     Local variables
-cc
-cc        integer    :: i,j,k,ii,iii,ieq
-cc
-ccc     Begin program
-cc
-cc        do ii=1,size(xout,1)
-cc          do ieq=1,size(xout,2)
-cc            iii = ieq + size(xout,2)*(ii-1)
-cc            xout(ii,ieq) = xin(iii)
-cc          enddo
-cc        enddo
-cc
-ccc     End program
-cc
-cc      end subroutine scatter
 
 c     XtoCar
 c     ###################################################################
@@ -419,17 +343,21 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: order,nx,ny,nz,igrid,ii,ivar,igr
-     .               ,bc_pc(size(bcs,1),size(bcs,2)),ig,jg,kg
-     .               ,bc_sc(6,1),bc_vec_odd(6,3),bc_vec_even(6,3)
-     .               ,bc_cov(6,3)
-     .               ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
+        integer :: order,nx,ny,nz,igrid,ii,ivar,igr
+     .            ,bc_pc(size(bcs,1),size(bcs,2)),ig,jg,kg
+     .            ,bc_sc(6,1),bc_vec_odd(6,3),bc_vec_even(6,3)
+     .            ,bc_cov(6,3)
+     .            ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
-        real(8)    :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
-     .               ,nabla_v(3,3),jac,bnorm
+        real(8) :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
+     .            ,nabla_v(3,3),jac,bnorm
 
         real(8), allocatable, dimension(:,:,:,:) :: vector
-        real(8), allocatable, dimension(:,:,:,:,:) :: tensor
+cc        real(8), allocatable, dimension(:,:,:,:,:) :: tensor
+
+        logical :: extrp_cfss
+
+        integer :: EVEN=1,ODD=-1
 
 c     Debug
 
@@ -437,6 +365,8 @@ c     Debug
         character(13) :: debugfile
 
 c     Begin program
+
+        extrp_cfss=.false.
 
         nx = grid_params%nxv(igx)
         ny = grid_params%nyv(igy)
@@ -466,37 +396,37 @@ c     Setup BCs
 
         bc_pc(:,IJX:IJZ) = vaux%vec_list(IJCNV)%bconds
 
-        call setASM_PC_BC(igx,igy,igz,bc_pc,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(igx,igy,igz,bc_pc,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_sc(:,1) = bcond
         where (bc_sc == DEF) bc_sc = EXT
         where (bc_sc ==FSYM) bc_sc = NEU
 
-        call setASM_PC_BC(igx,igy,igz,bc_sc,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(igx,igy,igz,bc_sc,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_odd(:,1) = bcond
         bc_vec_odd(:,2) = bcond
         bc_vec_odd(:,3) = bcond
         where (bc_vec_odd == DEF) bc_vec_odd = EXT
-        call set_vec_symm_bc(bc_vec_odd,-1)   !Odd normal component
+        call set_vec_symm_bc(bc_vec_odd,ODD)   !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_even(:,1) = bcond
         bc_vec_even(:,2) = bcond
         bc_vec_even(:,3) = bcond
         where (bc_vec_even == DEF) bc_vec_even = EXT
-        call set_vec_symm_bc(bc_vec_even,1)   !Even normal component
+        call set_vec_symm_bc(bc_vec_even,EVEN)   !Even normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_even,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(igx,igy,igz,bc_vec_even,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_cov(:,1) = bcond
         bc_cov(:,2) = bcond
         bc_cov(:,3) = bcond
         where (bc_cov == DEF) bc_cov = EXT
-        call set_vec_symm_bc(bc_cov,-1)        !Odd normal component
+        call set_vec_symm_bc(bc_cov,ODD)        !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_cov,.true.,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(igx,igy,igz,bc_cov,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
 c     Store density in all grids (w/o BCs)
 
@@ -686,7 +616,6 @@ cc        deallocate(debug2)
 cc
         !jxB-grad(p)
         allocate(vector(0:nx+1,0:ny+1,0:nz+1,3))
-cc        allocate(tensor(0:nx+1,0:ny+1,0:nz+1,3,3))
 
         do k = 1,nz
           do j = 1,ny
@@ -702,12 +631,6 @@ cc        allocate(tensor(0:nx+1,0:ny+1,0:nz+1,3,3))
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               jac    = gmetric%grid(igrid)%jac(i,j,k)
-
-cc              nabla_v= fnabla_v(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                         ,vcnv(:,:,:,1)
-cc     .                         ,vcnv(:,:,:,2)
-cc     .                         ,vcnv(:,:,:,3),0)
-cc              tensor(i,j,k,:,:) = nabla_v
 
               if (nc_eom_v) then
                 veclap =-div_pi(i,j,k,:)
@@ -766,17 +689,7 @@ cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
      .                                ,igrid,order,.false.)
         enddo
 
-cccc        do i=1,3
-cccc          do j=1,3
-cccc            call restrictArrayToMGVector(1,nx,ny,nz
-cccc     .                              ,tensor(:,:,:,i,j)
-cccc     .                              ,mgnablaV0(:,i,j)
-cccc     .                              ,igrid,order,.false.)
-cccc          enddo
-cccc        enddo
-cc
         deallocate(vector)
-cc        deallocate(tensor)
 
 c diag ****
 cc      write (*,*) 'DIAG -- findCoeffs'
@@ -785,7 +698,7 @@ cc      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
 cc      open(unit=110,file=debugfile,form='unformatted'
 cc     .    ,status='replace')
 cc
-cc      igx = 3
+cc      igx = 1
 cc      k = 1
 cc
 cc      nx = grid_params%nxv(igx)
@@ -796,56 +709,57 @@ cc
 cc      do ieq=1,3
 cc        debug2 = gb0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%gxmin,grid_params%gxmax
-cc     .              ,grid_params%gymin,grid_params%gymax,ieq-1,110)
+cc     .              ,grid_params%lxmin,grid_params%lxmax
+cc     .              ,grid_params%lymin,grid_params%lymax,ieq-1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gve0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%gxmin,grid_params%gxmax
-cc     .              ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .              ,grid_params%lxmin,grid_params%lxmax
+cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gbs0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%gxmin,grid_params%gxmax
-cc     .              ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .              ,grid_params%lxmin,grid_params%lxmax
+cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gj0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%gxmin,grid_params%gxmax
-cc     .              ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .              ,grid_params%lxmin,grid_params%lxmax
+cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
 cc      enddo
 cc
 cc      debug2 = grho0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%gxmin,grid_params%gxmax
-cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .            ,grid_params%lxmin,grid_params%lxmax
+cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
 cc
 cc      debug2 = gheta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%gxmin,grid_params%gxmax
-cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .            ,grid_params%lxmin,grid_params%lxmax
+cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
 cc
 cc      debug2 = geta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%gxmin,grid_params%gxmax
-cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .            ,grid_params%lxmin,grid_params%lxmax
+cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
 cc
 cc      debug2 = gvis%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%gxmin,grid_params%gxmax
-cccc     .            ,grid_params%gymin,grid_params%gymax,0,110)
-cc     .            ,grid_params%gymin,grid_params%gymax,1,110)
+cc     .            ,grid_params%lxmin,grid_params%lxmax
+cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
 cc
 cc      deallocate(debug2)
 cc      close(110)
 cc
-cccc      call PetscEnd(mpierr)
+cc#if defined(petsc)
+cc      call PetscEnd(mpierr)
+cc#endif
 cc      stop
 c diag ****
 

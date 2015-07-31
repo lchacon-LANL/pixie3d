@@ -69,8 +69,8 @@ c Namelists
      .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
-     .                   ,pc_divclean,mg_vcyc,sm_iter
-     .                   ,sm_zebra_relax,mg_ores,mg_oprol
+     .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
+     .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt
@@ -125,6 +125,7 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
+     .                   ,sm_line_relax,sm_type,sm_omega
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -329,8 +330,11 @@ c Set defaults
       mg_ores  = 0             ! Restriction order for MG
       mg_oprol = 1             ! Prolongation order for MG
 
+      sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
+      sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
       sm_iter  = 5             ! Number of MG smoothing passes
       sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+      sm_line_relax  = .false. ! Whether to perform line relaxation in MG
 
       !Initial condition
       equil    = ''            ! Type of equilibrium (see setEquilibrium.F)
