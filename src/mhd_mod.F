@@ -6443,9 +6443,11 @@ c     ------------------------------------------------------------------
 c     Hardwire setup variables for PC and perform consistency checks.
 c     ------------------------------------------------------------------
 
+      integer :: d
+
 c     Begin program
 
-      pc_as_solver =.false. !Whether to use PC as solver instead of GMRES
+cc      pc_as_solver =.false. !Whether to use PC as solver instead of GMRES
 
       pc_asm       =.false. !Whether to do additive Schwartz PC
 cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
@@ -6459,10 +6461,11 @@ cc      mg_gm_coarse = (np>1) !Whether to use GMRES as the coarse solve
       mg_cvrg_test =.false. !Whether to perform convergence test of smoother
       mg_coarse_size = 2    !Minimum coarse grid size (mg_ratio^mg_coarse_size)
 
-      sm_type      = 'jb'   !Type of smoother ('jg','gs','gm')
-      sm_omega     = 7d-1   !Damping for MG smoother (only when 'jb' is chosen)
-      sm_ncolors   = 8      !Number of colors for diagonal calc., smoothing
-      sm_line_relax=.false. !Whether to perform line relaxation in MG
+      d = 3
+      if (nxd == 1) d = d-1
+      if (nyd == 1) d = d-1
+      if (nzd == 1) d = d-1
+      sm_ncolors   = 2**d   !Number of colors for diagonal calc., smoothing
 
       !SCIDAC 08 conference data for Hall MHD
 cc      pc_B_solve  = .true.

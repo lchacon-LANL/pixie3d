@@ -69,11 +69,6 @@ cc      xarr = 0d0
 
       call fillArray(igrid,neq,x,xarr,bcnd,order,gpos=gpos
      .              ,icomp=(/IRHO/))
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x
-cc     .                       ,xarr,igrid,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,iorder=order,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
 
@@ -167,11 +162,6 @@ cc      xarr = 0d0
 
       call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
      .              ,arr0=bz0)
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x
-cc     .                       ,xarr,igrid,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,iorder=order_bc,arr0=bz0)
 
 c Calculate matrix-vector product
 
@@ -264,11 +254,6 @@ c Map vector x to array for processing
 
       call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
      .              ,arr0=psi0)
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,iorder=order_bc,arr0=psi0)
 
 c Calculate matrix-vector product
 
@@ -386,12 +371,6 @@ c Map vector x to array for processing
 cc      xarr = 0d0
       call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,iorder=order_bc)
-
 c Calculate matrix-vector product
 
       !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
@@ -507,11 +486,6 @@ c Map vector x to array for processing
 
       call fillArray(igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IRHO/))
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,xarr,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,xarr,bcnd
-cc     .            ,icomp=(/IRHO/))
 
 c Map velocity components
 
@@ -640,14 +614,6 @@ c Map vector x to array for processing
  
       call fillArray(igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/ITMP/))
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dprs,igrid
-cc     .                       ,.false.)
-cc
-cccc      dprs(:,:,:,1) = dprs(:,:,:,1)/jac  !Transform to physical quantity
-cc
-cc      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,dprs,bcnd
-cc     .            ,icomp=(/ITMP/),iorder=order_bc)
 
 c Map velocity components
 
@@ -799,14 +765,6 @@ c Map vector x to array for processing
       call fillArray(igrid,neq,x,drho,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IRHO/))
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,drho,igrid
-cc     .                       ,.false.)
-cc
-cccc      drho(:,:,:,1) = drho(:,:,:,1)/jac !Transform to physical density
-cc
-cc      call setMGBC(max(0,gpos),neq,nnx,nny,nnz,igrid,drho,bcnd
-cc     .            ,icomp=(/IRHO/),iorder=order_bc)
-
 c Map velocity components
 
       v0_cnv => gv0%grid(igrid)%array
@@ -935,13 +893,6 @@ c Map vector x to array for processing
       call fillArray(igrid,neq,x,db,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,db,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db,bcnd
-cc     .            ,icomp=(/IBX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1103,15 +1054,6 @@ c Map vector x to array for processing
      .              ,icomp=(/IBX,IJX/),is_cnv=is_cnv,is_vec=.true.  !Check icomp!!!
      .              ,result_is_curv=.true.)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,db,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,db
-cc     .            ,bcnd,icomp=(/IBX,IJX/),is_cnv=is_cnv  !Check icomp!!!
-cccc     .            ,is_vec=.not.si_car,result_is_vec=.true.
-cc     .            ,is_vec=.true.,result_is_curv=.true.
-cc     .            ,iorder=order_bc)
-
 c Velocity field (including BCs)
 
       v0_cnv => gv0%grid(igrid)%array
@@ -1268,12 +1210,6 @@ c Map vector x to array for processing
       call fillArray(igrid,neq,x,da,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,da,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
 c Velocity field (including BCs)
 
@@ -1545,15 +1481,6 @@ c Map vector x to array for processing
       call fillArray(igrid,neq,x,du_cnv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,du_cov,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),6,nxx,nyy,nzz,igrid,du_cnv,bcnd
-cccc     .            ,icomp=(/IAX,IJX/),is_cnv=is_cnv,is_vec=.true.
-cccc     .            ,icomp=(/IAX,IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=du_cov)
 
 c Auxiliary quantities
 
@@ -2738,18 +2665,6 @@ cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
      .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,du,igrid
-cc     .                       ,.false.)
-cc
-cccc      if (alt__eom()) du(:,:,:,2) = du(:,:,:,2)/gmetric%grid(igrid)%jac
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,du,bcnd
-cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
-cccc     .            ,result_is_vec=.true.,iorder=order_bc,arr_cov=du_cov
-cc     .            ,result_is_curv=.true.,iorder=1,arr_cov=du_cov
-cc     .            ,arr0=v0)
-
 cc#if defined(pgf90)
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -3520,16 +3435,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=dv_cov)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
-cc     .                       ,.false.)
-cc
-cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
-
       !M_star*dv array
       dzz = 0d0
 
@@ -3538,14 +3443,6 @@ cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
       call fillArray(igrid,neq,z,dzz,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),z,dzz,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dzz,bcnd
-cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc)
 
       dzp(:,:,:,1)=rho0(:,:,:,1)*dzz(:,:,:,1)
       dzp(:,:,:,2)=rho0(:,:,:,1)*dzz(:,:,:,2)
@@ -3720,14 +3617,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,da,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,da,bcnd
-cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc)
-
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -3869,18 +3758,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
       call fillArray(igrid,neq,x,dv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=dv_cov)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
-cc     .                       ,.false.)
-cc
-cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/gmetric%grid(igrid)%jac
-cc
-cccc      where (bcnd == DIR) bcnd = NEU
-cc      !Higher-order than 1 is JB-unstable for cyl.
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cccc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.not.si_car
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov)
 
 c Calculate matrix-vector product
 
