@@ -1174,7 +1174,8 @@ c Local variables
       real(8)    :: upwind,etal,vol,vlap(3),vlap_cnv(3)
      $             ,cnv(3),cov(3),car(3),jac
 
-      real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv
+      real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv,db_cnv,db_cov
+     .                                         ,dj_cnv,dj_cov
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
 
       logical    :: fpointers,is_cnv
@@ -1202,8 +1203,12 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(da    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     $        ,da_cnv(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(da     (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       da = 0d0
 
@@ -1215,6 +1220,20 @@ c$$$     .              ,result_is_curv=.true.)
       call fillArray(igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=da)
+
+      !Magnetic fields
+      db_cnv = curl(igrid,da)
+      db_cov = XformVector(igrid,db_cnv,.false.)
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
+cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
+
+      !Currents
+      dj_cnv = curl(igrid,db_cov)
+      dj_cov = XformVector(igrid,dj_cnv,.false.)
+cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
+cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 
 c Velocity field (including BCs)
 
@@ -1237,9 +1256,7 @@ c Calculate matrix-vector product
 
             jac = gmetric%grid(igrid)%jac(i,j,k)
 
-cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
-
-            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+            ijk = i + nxx*(j-1) + nxx*nyy*(k-1)
 
             if (MG_get_res_vol_wgt()) then
               vol = gmetric%grid(igrid)%dlvol(i,j,k)
@@ -1248,13 +1265,18 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-10
             endif
 
             !Resistive part
-cc            vlap = veclap_cov(i,j,k,nxx,nyy,nzz
-cc     .                       ,igrid,igrid,igrid,da
-cc     .                       ,vol=.false.)
-            vlap_cnv = veclap(i,j,k,nxx,nyy,nzz
-     .                       ,igrid,igrid,igrid,da_cnv
-     .                       ,vol=.false.)
-            vlap = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),vlap_cnv)
+
+            if (form_diag) then
+              vlap = veclap_cov(i,j,k,nxx,nyy,nzz
+     .                         ,igrid,igrid,igrid,da
+     .                         ,vol=.false.)
+cc              vlap_cnv = veclap(i,j,k,nxx,nyy,nzz
+cc     .                         ,igrid,igrid,igrid,da_cnv
+cc     .                         ,vol=.false.)
+cc              vlap=matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:),vlap_cnv)
+            else
+              vlap =-dj_cov(i,j,k,:)
+            endif
 
             etal = geta%grid(igrid)%array(i,j,k,1)
 
@@ -1274,7 +1296,7 @@ cc     .                       ,vol=.false.)
 
 c End program
 
-      deallocate(da,da_cnv)
+      deallocate(da,da_cnv,db_cnv,db_cov,dj_cnv,dj_cov)
       nullify(v0_cnv)
 
       call deallocPointers(fpointers)
@@ -1296,6 +1318,7 @@ c     ##############################################################
         kp = k+1
         km = k-1
 
+        !1st component
 c$$$        flxip = -v0_cnv(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))
 c$$$     .          -v0_cnv(i,j,k,3)*0.5*(da(ip,j,k,3)+da(i,j,k,3))
 c$$$
@@ -1342,6 +1365,7 @@ c$$$     .          -v0_cnv(i,j,k,3)*0.5*(da(im,j,k,3)+da(i,j,k,3))
      .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
 
+        !2nd component
         flxip = 0.5*(    v0_cnv(i,j,k,1)
      .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
      .         +0.5*(    v0_cnv(i,j,k,1)        
@@ -1388,6 +1412,7 @@ c$$$     .          -v0_cnv(i,j,k,3)*0.5*(da(i,jm,k,3)+da(i,j,k,3))
      .           +(flxkp-flxkm)/MGgrid%dzh(kg)
 
 
+        !3rd component
         flxip = 0.5*(    v0_cnv(i,j,k,1)
      .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
      .         +0.5*(    v0_cnv(i,j,k,1)        
