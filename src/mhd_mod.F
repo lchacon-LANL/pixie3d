@@ -6478,12 +6478,12 @@ cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
       !SI solver configuration
-      sm_type_si     = sm_type
-      sm_omega_si    = sm_omega
-      sm_iter_si     = sm_iter
+      sm_type_si  = sm_type
+      sm_omega_si = sm_omega
+      sm_iter_si  = sm_iter
       sm_zebra_relax_si = sm_zebra_relax
-      mg_ores_si     = mg_ores
-      mg_oprol_si    = mg_oprol
+      mg_ores_si  = mg_ores
+      mg_oprol_si = mg_oprol
 
       !Setup for singular point geometries
       if (bcSP()) then
