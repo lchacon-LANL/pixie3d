@@ -6447,8 +6447,6 @@ c     ------------------------------------------------------------------
 
 c     Begin program
 
-cc      pc_as_solver =.false. !Whether to use PC as solver instead of GMRES
-
       pc_asm       =.false. !Whether to do additive Schwartz PC
 cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
       pc_v_solve   =.false. !Whether to perform final v corrector step
@@ -6479,15 +6477,7 @@ cccc      divCln = .false.
 cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
-      if (bcSP()) then
-        mg_oprol = 1
-cc        mg_ores  = 1
-      endif
-
       !SI solver configuration
-cc      sm_type_si     = 'gs'
-cc      sm_omega_si    = 1d0
-cc      sm_iter_si     = sm_iter/2
       sm_type_si     = sm_type
       sm_omega_si    = sm_omega
       sm_iter_si     = sm_iter
@@ -6496,15 +6486,17 @@ cc      sm_iter_si     = sm_iter/2
       mg_oprol_si    = mg_oprol
 
       !Setup for singular point geometries
-cc      if (bcSP()) then
+      if (bcSP()) then
+        mg_oprol = 1
+cc        mg_ores  = 1
 cc        mg_zebra_relax_si = .true.
-cc        mg_ores_si   = 1
-cc        mg_oprol_si  = 1
+cc        mg_ores_si   = mg_ores
+cc        mg_oprol_si  = mg_oprol
 cc
 cc        sm_type_si   = 'gs'
 cc        sm_omega_si  = 1d0
-cc        sm_iter_si   = 2
-cc      endif
+cc        sm_iter_si   = sm_iter/2
+      endif
 
       call TS_solver_consistency_chk
 
