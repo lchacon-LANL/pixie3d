@@ -1055,7 +1055,6 @@ c     Solve EMHD system
      .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
-cc     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
@@ -1064,8 +1063,6 @@ cc     .            ,mg_vcyc       = 10
      .            ,mg_coarse_grid_size = mg_coarse_size
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
-cc     .            ,mg_smooth     = 'gs'
-cc     .            ,sm_omega      = 1d0
      .            ,sm_it         = sm_iter
      .            !Test
 cc     .            ,tol           = 1d-10
