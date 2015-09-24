@@ -1511,7 +1511,7 @@ c     RFP equilibria (analytical)
         enddo
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
+     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
 
         deallocate(bg)
 #endif

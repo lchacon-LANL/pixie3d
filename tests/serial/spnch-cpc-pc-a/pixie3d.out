@@ -1,0 +1,31 @@
+
+ Solving for vector potential...
+
+
+  Grid mesh:................   32x   32x    1
+  Number of grid levels:....    4,    4,    1
+  Preconditioning method:...  s1
+  Time correction...........   F
+  External source...........   T
+  Numerical grid............   F
+  Scalar advection scheme...  SMART   
+  Velocity advection scheme.  SMART   
+  TS scheme................. BDF2     
+
+   itime    time     dt     vx_max   vy_max   vz_max  GMRES  Newton  CN factor
+      1    0.100  1.0E-01   8.9E-05  5.1E-05  2.9E-06    12     5     0.000
+      2    1.000  9.0E-01   3.9E-05  1.9E-04  4.5E-05    21     6     0.000
+      3    2.000  1.0E+00   1.4E-05  1.9E-04  6.8E-05    28     6     0.000
+      4    3.000  1.0E+00   2.4E-05  1.5E-04  5.7E-05    17     5     0.000
+      5    4.000  1.0E+00   3.8E-05  1.0E-04  3.2E-05    22     6     0.000
+      6    5.000  1.0E+00   4.3E-05  1.1E-04  2.7E-05    23     6     0.000
+      7    6.000  1.0E+00   3.4E-05  1.1E-04  3.9E-05    25     6     0.000
+      8    7.000  1.0E+00   2.8E-05  1.3E-04  5.1E-05    26     6     0.000
+      9    8.000  1.0E+00   3.0E-05  1.3E-04  5.1E-05    24     6     0.000
+     10    9.000  1.0E+00   3.7E-05  1.2E-04  4.6E-05    24     6     0.000
+     11   10.000  1.0E+00   4.0E-05  1.2E-04  4.5E-05    25     6     0.000
+
+Final statistics
+
+ itime  Newt/ndt  GMRES/ndt  GMRES/Newt
+   11       5.8       22.5        3.9
