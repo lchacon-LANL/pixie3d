@@ -952,6 +952,86 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IAX:IAZ) = a
 #endif
 
+c     --------------------------------------------------------------------
+c     ----------  FORCE FREE HARRIS WITH TANH PRESSURE PROFILE -----------
+c     --------------------------------------------------------------------
+
+       case ('diamh')
+
+c     Check coordinates                                                                                                                                              
+         if (coords /= 'car' .and. coords /= 'lpk') then
+           messg = 'Wrong coordinates for equilibrium '//equil
+           call pstop('setEquilibrium',messg)
+         endif
+
+         var(:,:,:,IVX)  = 0d0
+         var(:,:,:,IVY)  = 0d0
+         var(:,:,:,IVZ)  = 0d0
+
+         beta=1.0d0 ! For force balance in Hesse equilibrium
+         var(:,:,:,ITMP) = 1.0*beta/a_p !Electron temperature required for force balance
+         if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
+           hlx = xmax
+         elseif (bcond(1) == FSYM .and. bcond(2) /= FSYM) then
+           hlx = xmin
+         else
+           hlx = 0.5d0*(xmax+xmin)
+         endif
+
+         var(:,:,:,ITMP) = beta/a_p !Electron temperature required for force balance
+
+         do k = klom,khip
+           do j = jlom,jhip
+             do i = ilom,ihip
+               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                     ,x1,y1,z1)
+
+               var(i,j,k,IRHO)=1.0d0 + 0.5d0*tanh((x1-hlx)/rshear)
+                 
+             enddo
+           enddo
+         enddo
+
+#if !defined(vec_pot)
+         if (my_rank == 0) write(*,*) 'About to fill B'
+
+         do k = klom,khip
+           do j = jlom,jhip
+             do i = ilom,ihip
+               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+     .                                     ,x1,y1,z1)
+
+               var(i,j,k,IBX)  = 0d0                                                                       
+               var(i,j,k,IBY)  = tanh((x1-hlx)/dlambda)
+               var(i,j,k,IBZ)  = sqrt(4.0d0-(tanh((x1-hlx)/dlambda))**2
+     .                         - tanh((x1-hlx)/rshear))
+             enddo
+           enddo
+         enddo
+
+         if (my_rank == 0) write(*,*) 'B filled'
+#else
+         allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+
+         do k = 0,nz+1
+           do j = 0,ny+1
+             do i = 0,nxdp
+              x1 = grid_params%xg(i)  !Global coordinate
+              
+              bg(i,j,k,1) = 0d0                                                                       
+              bg(i,j,k,2) = tanh((x1-hlx)/dlambda)
+              bg(i,j,k,3) = sqrt(4.0d0-(tanh((x1-hlx)/dlambda))**2
+     .                    - tanh((x1-hlx)/rshear))
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+
+        deallocate(bg)
+#endif
+
 c     -------------------------------------------------
 c     ---------------  ISLAND COALESCENCE -------------
 c     -------------------------------------------------
@@ -1431,7 +1511,7 @@ c     RFP equilibria (analytical)
         enddo
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ))
+     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -2096,7 +2176,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         enddo
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ))
+     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -2213,7 +2293,7 @@ c     Density and temperature
         enddo
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ))
+     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -2397,7 +2477,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         enddo
 
         call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
-     .                          ,bg,var(:,:,:,IAX:IAZ))
+     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -5701,14 +5781,16 @@ c End program
 
       end subroutine fillVectorPotential
 
+#if defined(vec_pot)
 c findVectorPotential
 c####################################################################
-      subroutine findVectorPotential(nxg,nyg,nzg,v,b,a_cov)
+      subroutine findVectorPotential(nxg,nyg,nzg,v,b,a_cov,meth)
 
 c--------------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
-c     field components with gauge:
-c                grad(phi + eta div(a)) = 0
+c     field components. There are two methods:
+c       1) meth='line': performs line integrals
+c       2) meth='vlap': performs vector Laplacian inversion
 c
 c     On input:
 c       * v -> cnv velocity
@@ -5739,20 +5821,19 @@ c Call variables
       real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
      .             ,v    (ilom:ihip,jlom:jhip,klom:khip,3)
      .             ,b    (0:nxg+1,0:nyg+1,0:nzg+1,3)
+      character(4) :: meth
 
 c Local variables
 
-      integer    :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
-     .             ,igm,igp,jgm,jgp,kgm,kgp,its
-      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
-     .             ,cai_rhs(ntotdp),caiv(ntotdp)
-     .             ,phi  (ilom:ihip,jlom:jhip,klom:khip)
-     .             ,cai  (ilom:ihip,jlom:jhip,klom:khip)
-     .             ,a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,a    (0:nxg+1,0:nyg+1,0:nzg+1,3)
-     .             ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
-
-      logical    :: spoint
+      integer :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
+     .          ,its,ig,jg,kg
+      real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,a_cnv (ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,db_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,a     (0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .          ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: bx0,bxl,by0,byl,bz0,bzl,x1,y1,z1
+      logical :: spoint
 
 c Begin program
 
@@ -5762,143 +5843,177 @@ c Begin program
       ny = grid_params%nyv(igrid)
       nz = grid_params%nzv(igrid)
 
-c Find vector potential with div(A)=0
-
-cc      if (my_rank == 0) then
-cc        write (*,*)
-cc        write (*,*) 'Solving for vector potential...'
-cc        write (*,*)
-cc      endif
-cc      
-cc      call vlap_curl_inv(3,nx,ny,nz,igrid,igrid,igrid,b,a_cov
-cc     .                  ,gv%aux%vec_list(IBCNV)%bconds
-cc     .                  ,gv%aux%vec_list(IACOV)%bconds
-cc     .                  ,w_pre_bcs=.true.
-cc     .                  ,gm_it=its,rtol=min(rtol,1d-4))
-cc
-cc      if (my_rank == 0) write (*,*) 'GMRES its=',its
-      
-c Find vector potential with gauge Ax = 0 in GLOBAL domain
-
-      call curl_inv(nxg,nyg,nzg,igrid,igrid,igrid,b,a,global=.true.)
-
-c Restrict solution to current domain
-
-      if (nxg == nxd) then
-        igm = ilomg ; igp = ihipg
-      else
-        igm = ilom  ; igp = ihip
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Solving for vector potential...'
+        write (*,*)
       endif
 
-      if (nyg == nyd) then
-        jgm = jlomg ; jgp = jhipg
-      else
-        jgm = jlom  ; jgp = jhip
-      endif
+c Find A covariant
 
-      if (nzg == nzd) then
-        kgm = klomg ; kgp = khipg
-      else
-        kgm = klom  ; kgp = khip
-      endif
+      select case(meth)
+      case('vlap')
 
-cc      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
-cc     .     = a(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-      a_cov(ilom:ihip,jlom:jhip,klom:khip,:)
-     .     = a(igm:igp,jgm:jgp,kgm:kgp,:)
+        !Take care of boundary conditions
+        if (bcPER(2).and.bcPER(3)) then
+          !Face values
+          bz0 = 0.5*(b(0  ,1,1,3)+b(1    ,1,1,3))
+          bzl = 0.5*(b(nxg,1,1,3)+b(nxg+1,1,1,3))
 
-c Set topological BCs
+          by0 = 0.5*(b(0  ,1,1,2)+b(1    ,1,1,2))
+          byl = 0.5*(b(nxg,1,1,2)+b(nxg+1,1,1,2))
 
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                a0_cov(i,j,k,2) = -0.5*bz0*(x1-xmax)**2/(xmax-xmin)
+     .                            +0.5*bzl*(x1-xmin)**2/(xmax-xmin)
+
+                a0_cov(i,j,k,3) =  0.5*by0*(x1-xmax)**2/(xmax-xmin)
+     .                            -0.5*byl*(x1-xmin)**2/(xmax-xmin)
+              enddo
+            enddo
+          enddo
+        elseif (bcPER(1).and.bcPER(3)) then
+          !Face values
+          bx0 = 0.5*(b(1,0  ,1,1)+b(1,1    ,1,1))
+          bxl = 0.5*(b(1,nyg,1,1)+b(1,nyg+1,1,1))
+
+          bz0 = 0.5*(b(1,0  ,1,3)+b(1,1    ,1,3))
+          bzl = 0.5*(b(1,nyg,1,3)+b(1,nyg+1,1,3))
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                a0_cov(i,j,k,1) =  0.5*bz0*(y1-ymax)**2/(ymax-ymin)
+     .                            -0.5*bzl*(y1-ymin)**2/(ymax-ymin)
+
+                a0_cov(i,j,k,3) = -0.5*bx0*(y1-ymax)**2/(ymax-ymin)
+     .                            +0.5*bxl*(y1-ymin)**2/(ymax-ymin)
+              enddo
+            enddo
+          enddo
+        elseif (bcPER(1).and.bcPER(2)) then
+          !Face values
+          bx0 = 0.5*(b(1,1,0  ,1)+b(1,1,1    ,1))
+          bxl = 0.5*(b(1,1,nzg,1)+b(1,1,nzg+1,1))
+
+          by0 = 0.5*(b(1,1,0  ,2)+b(1,1,1    ,2))
+          byl = 0.5*(b(1,1,nzg,2)+b(1,1,nzg+1,2))
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
+     .                                        ,ig,jg,kg,x1,y1,z1)
+
+                a0_cov(i,j,k,1) = -0.5*by0*(z1-zmax)**2/(zmax-zmin)
+     .                            +0.5*byl*(z1-zmin)**2/(zmax-zmin)
+
+                a0_cov(i,j,k,2) =  0.5*bx0*(z1-zmax)**2/(zmax-zmin)
+     .                            -0.5*bxl*(z1-zmin)**2/(zmax-zmin)
+              enddo
+            enddo
+          enddo
+        else
+          call pstop('findVectorPotential'
+     .              ,'Option not implemented yet')
+        endif
+
+        !Find B and substract BCs
+        call XferArray(b,db_cnv)
+        db_cnv = db_cnv - curl_mesh(igrid,a0_cov)
+
+        !Find covariant vector potential update with div(A)=0
+        call vlap_curl_inv(igrid,db_cnv,a_cov
+     .                    ,gv%aux%vec_list(IBCNV)%bconds
+     .                    ,gv%aux%vec_list(IACOV)%bconds
+     .                    ,ilevel
+     .                    ,w_pre_bcs=.true.
+     .                    ,gm_it=its,rtol=min(rtol,1d-4))
+
+        if (my_rank == 0) write (*,'(a,i3)') ' A-solve GMRES its=',its
+
+        !Set BCs
+        bcnd = gv%aux%vec_list(IACOV)%bconds
+        vzeros = 0d0
+        a_cnv = XformVector(igrid,a_cov,.true.)
+        call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .            ,igrid,igrid,igrid,is_cnv=.false.
+     .            ,iorder=order_bc)
+
+        !Add BCs
+        a_cov = a_cov + a0_cov
+
+cc        !Diagnostics
+cc        call XferArray(b,db_cnv)
+cc        call B_dump(igrid,a_cov,db_cnv)
+
+      case('line')
+
+        !Find covariant vector potential with gauge Ax = 0 in specified domain
+        call curl_inv(nxg,nyg,nzg,igrid,igrid,igrid,b,a,global=.true.)
+
+        !Restrict solution to current domain (when appropriate)
+        call XferArray(a,a_cov)
+
+        !Set topological BCs
+        bcnd(:,1) = bcond
+        bcnd(:,2) = bcond
+        bcnd(:,3) = bcond
 cc      where (bcnd == DEF) bcnd = -IFC
 
-      vzeros = 0d0
-      a_cnv = XformVector(igrid,a_cov,.true.)
-      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .          ,igrid,igrid,igrid,is_cnv=.false.
-     .          ,iorder=order_bc)
-cc=====================================================================
-c Find equilibrium (d_t A = 0) scalar potential (vxb electric field)
+        vzeros = 0d0
+        a_cnv = XformVector(igrid,a_cov,.true.)
+        call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .            ,igrid,igrid,igrid,is_cnv=.false.
+     .            ,iorder=order_bc)
 
-cc      call findScalarPotential(v
-cc     .                        ,b(ilomg:ihipg,jlomg:jhipg,klomg:khipg,:)
-cc     .                        ,phi)
-
-ccc Impose **topological constraints** and find a_cnv
-cc
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cccc      where (bcnd == DEF) bcnd = EXT
-cc
-cc      a_cnv = XformVector(igrid,a_cov,.true.)
-cc      call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-cc     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
-cc
-ccc Transform A to gauge div(A)=0
-cc
-cc      !Find gauge transformation potential cai
-cc      do k=klo,khi
-cc        do j=jlo,jhi
-cc          do i=ilo,ihi
-cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc            if (vol_wgt) then
-cc              dvol = gmetric%grid(igrid)%dvol(i,j,k)
-cc            else
-cc              dvol = 1d0
-cc            endif
-cc
-cc            cai_rhs(ii)=-dvol*(div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                            ,a_cnv(:,:,:,1)
-cc     .                            ,a_cnv(:,:,:,2)
-cc     .                            ,a_cnv(:,:,:,3)))
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      !Transform A (if rhs /= 0d0)
-cc      if (sqrt(sum(cai_rhs*cai_rhs)) > 0d0) then
-cc
-cc        !Solve Poisson problem to find Gauge potential cai
-cc#if defined(petsc)
-cc        call pstop('findVectorPotential'
-cc     .          ,'Poisson solver not implemented in parallel')
-cc#else
-cc        write (*,*) 'Solving for Gauge potential'
-cc
-cc        !Define BCs
-cc        bcnd(:,1) = bcond
-cc        where (bcnd == DEF) bcnd = DIR
-cc
-cc        !Solve Poisson eq
-cc        call poisson(ntotdp,cai_rhs,caiv,30,1d-6,bcnd(:,1),ilevel,0)
-cc
-cc        !Map to array (w BCs)
-cc        call mapMGVectorToArray(0,1,caiv,nx,ny,nz,cai,igrid,.false.)
-cc
-cc        call setBC(IRHO,nx,ny,nz,cai,zeros,bcnd(:,1),igrid,igrid,igrid
-cc     .            ,iorder=2)
-cc#endif
-cc
-cc        !Gauge transformation A' = A + grad(cai)
-cc        do k=klom,khip
-cc          do j=jlom,jhip
-cc            do i=ilom,ihip
-cc              call grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,cai
-cc     .                 ,cov(1),cov(2),cov(3))
-cc              a_cov(i,j,k,:) = a_cov(i,j,k,:) + cov
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc      endif
+      end select
 
 c End program
 
+      contains
+
+c     XferArray
+c     ####################################################################
+      subroutine XferArray(ag,al)
+
+        real(8),dimension(0:,0:,0:,:) :: ag,al
+
+        integer :: igm,igp,jgm,jgp,kgm,kgp
+
+        if (nxg == nxd) then
+          igm = ilomg ; igp = ihipg
+        else
+          igm = ilom  ; igp = ihip
+        endif
+
+        if (nyg == nyd) then
+          jgm = jlomg ; jgp = jhipg
+        else
+          jgm = jlom  ; jgp = jhip
+        endif
+
+        if (nzg == nzd) then
+          kgm = klomg ; kgp = khipg
+        else
+          kgm = klom  ; kgp = khip
+        endif
+
+        al(ilom:ihip,jlom:jhip,klom:khip,:)
+     .     = ag(igm:igp,jgm:jgp,kgm:kgp,:)
+
+      end subroutine
+
       end subroutine findVectorPotential
+#endif
 
 ccc findScalarPotential
 ccc####################################################################

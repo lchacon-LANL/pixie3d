@@ -510,11 +510,6 @@ c     Local variables
 
 c     Begin program
 
-      pinch_flow = (    equil == 'ppnch' .or. equil == 'ppn3d'
-     .              .or.equil == 'ppnsl' .or. equil == 'ppnst'
-     .              .or.equil == '2dhel' .or. equil == 'p3nsl'
-     .              .or.equil == 'ohtor')
-
 c     Assign BCs
 
       do ieq=1,neqd
@@ -607,14 +602,16 @@ c     Exceptions for specific equilibria
 
       case ('ppnch','ppn3d','ppnst','2dhel')   !No stress BCs, pinch flow
 
+        pinch_flow = .true.
+
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
 
-cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
-cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
+
+        pinch_flow = .true.
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
 
@@ -622,10 +619,8 @@ cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
 
-cc        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
-cc     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
       case ('vmec','tor')
 
@@ -651,7 +646,7 @@ cc        endif
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 
-      case('gem')
+      case('gem','diamh')
 
 cc        !Dirichlet boundary conditions for tangential velocity components
 cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
@@ -911,8 +906,6 @@ c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
 
-      if (.not.pinch_flow) return
-
       if (igrid /= 1) then
         write (*,*) 'ExB_flow_bc not ready for MG treatment'
         stop
@@ -1011,8 +1004,6 @@ c     Local variables
 c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
-
-      if (.not.pinch_flow) return
 
       if (igrid /= 1) then
         write (*,*) 'J_pinch_bc not ready for MG treatment'
