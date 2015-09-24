@@ -559,7 +559,7 @@ c     Find dA from dB (w/ ghost cells)
 
 c     Diagnostics (call before db = curl(A))
 
-      if (diag_plots) call dump(igx,da_cov,db)
+      if (diag_plots) call B_dump(igx,da_cov,db)
 
 c     Find dB
 
@@ -569,8 +569,8 @@ c     Find dB
 
 c     vlap_curl_inv
 c     ###############################################################
-      subroutine vlap_curl_inv(iout,nx,ny,nz,igx,igy,igz,db,da_cov
-     .                        ,bcsb,bcsa,dbcov,w_pre_bcs,gm_it,rtol)
+      subroutine vlap_curl_inv(igrid,db,da_cov,bcsb,bcsa,iout
+     .                        ,dbcov,w_pre_bcs,gm_it,rtol)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -582,23 +582,32 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nx,ny,nz,igx,igy,igz,iout,bcsb(6,3),bcsa(6,3)
-      real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
-      real(8) :: da_cov(0:nx+1,0:ny+1,0:nz+1,3)
+      integer :: igrid,iout,bcsb(6,3),bcsa(6,3)
+      real(8) :: db(0:,0:,0:,:)
+      real(8) :: da_cov(0:,0:,0:,:)
 
       integer,optional :: gm_it
       real(8),optional :: rtol
-      real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(IN) :: dbcov(0:size(db,1)-1
+     .                                    ,0:size(db,2)-1
+     .                                    ,0:size(db,3)-1,size(db,4))
 
       logical,optional :: w_pre_bcs
 
 c     Local variables
 
-      integer :: i,j,k,ii,icomp,order_res,order_prol,gmits
+      integer :: nx,ny,nz,igx,igy,igz,i,j,k,ii,icomp,order_res
+     .          ,order_prol,gmits
 
-      real(8) :: da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
+      real(8) :: da_cnv (0:size(db,1)-1
+     .                  ,0:size(db,2)-1
+     .                  ,0:size(db,3)-1,size(db,4))
+     .          ,db_cov (0:size(db,1)-1
+     .                  ,0:size(db,2)-1
+     .                  ,0:size(db,3)-1,size(db,4))
+     .          ,db_cnv (0:size(db,1)-1
+     .                  ,0:size(db,2)-1
+     .                  ,0:size(db,3)-1,size(db,4))
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
      $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
@@ -607,6 +616,14 @@ c     Local variables
 c     Begin program
             
       vwgt = .true.
+
+      igx = igrid
+      igy = igrid
+      igz = igrid
+
+      nx = size(db,1)-2
+      ny = size(db,2)-2
+      nz = size(db,3)-2
 
       if (PRESENT(w_pre_bcs)) then
         w_prebcs = w_pre_bcs
@@ -737,6 +754,16 @@ c     #################################################################
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
+c     On input:
+c       * iout: level of output info
+c       * nx,ny,nz: mesh size
+c       * igx,igy,igz: grid level size
+c       * db: input cnv magnetic field 
+c       * dacov,dbcov (optional): cov B (input) and A (output)
+c       * w_bcs (optional): whether output has BCs
+c       * w_pre_bcs (optional): whether input requires BCs
+c       * diag_plots (optional): whether we want plots of answer
+c       * gm_it,rtol (optional): number of GMRES iterations and conv. tol.
 c     -----------------------------------------------------------------
 
       implicit none
@@ -756,21 +783,10 @@ c     Call variables
 c     Local variables
 
       integer :: bcsa(6,3),bcsb(6,3)
-cc      integer :: i,j,k,ii,icomp,bcsa(6,3),bcsb(6,3)
-cc     .          ,order_res,order_prol,gmits
 
       real(8) :: da_cov (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,da_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
-cc     $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
-cc
-cc      logical :: vwgt,wbcs,w_prebcs,dplots,sing_mat
       logical :: dplots,wbcs
       
-cc      character(20) :: dcf
-
 c     Begin program
 
       if (PRESENT(diag_plots)) then
@@ -804,8 +820,8 @@ c     Define BCs
 
 c     Find dA
 
-      call vlap_curl_inv(iout,nx,ny,nz,igx,igy,igz,db,da_cov
-     .                  ,bcsb,bcsa,w_pre_bcs=w_pre_bcs
+      call vlap_curl_inv(igx,db,da_cov,bcsb,bcsa,iout
+     .                  ,w_pre_bcs=w_pre_bcs
      .                  ,gm_it=gm_it,rtol=rtol)
       
 c     Find new dB (with BCs)
@@ -813,7 +829,6 @@ c     Find new dB (with BCs)
       db = curl(igx,da_cov)
 
       if (wbcs) then
-
         call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
      .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
@@ -825,7 +840,7 @@ c     Store vector potential
 
 c     Diagnostics
 
-      if (dplots) call dump(igx,da_cov,db)
+      if (dplots) call B_dump(igx,da_cov,db)
 
       end subroutine vlap_div_clean
 
@@ -925,10 +940,10 @@ c     Calculate matrix-vector product
 
               vlap = veclap(i,j,k,nxx,nyy,nzz
      .                     ,igrid,igrid,igrid,vv
-     .                     ,vol=res_vol_wgt)
+     .                     ,vol=MG_get_res_vol_wgt())
 cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
 cc       .                           ,igrid,igrid,igrid,vv
-cc       .                           ,vol=res_vol_wgt)
+cc       .                           ,vol=MG_get_res_vol_wgt())
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = vlap(ieq)
@@ -945,7 +960,7 @@ cc       .                           ,vol=res_vol_wgt)
 
               vlap = veclap_cov(i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,vv
-     .                         ,vol=res_vol_wgt)
+     .                         ,vol=MG_get_res_vol_wgt())
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = vlap(ieq)
@@ -1063,12 +1078,12 @@ cc      enddo
 cc
 cc      end subroutine grad_div_clean
 
-c     dump
+c     B_dump
 c     ###############################################################
-      subroutine dump(igx,da_cov,db)
+      subroutine B_dump(igx,da_cov,db)
 
 c     ---------------------------------------------------------------
-c     Dumps cleaned magnetic field diagnostics
+c     Dumps magnetic and vector potential fields
 c     ---------------------------------------------------------------
 
       implicit none
@@ -1148,11 +1163,11 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-cc        call pstop('vlap_div_clean','Dumped graphics')
+      call pstop('vlap_div_clean','Dumped graphics')
 
 c     End program
 
-      end subroutine dump
+      end subroutine B_dump
 
       end module B_tools
 

@@ -875,6 +875,8 @@ c     Begin program
 
         vw = .true. !use volume weighting
 
+        call MG_set_res_vol_wgt(vw)
+
         ncolors = 2
 
         nn2 = 2*nn
@@ -907,7 +909,7 @@ c     Next level solver
 
         solverOptions%vcyc     = 1
 cc        solverOptions%vcyc     = iter
-        solverOptions%mg_gmin  = 2
+        solverOptions%mg_coarse_grid_res  = 2
         solverOptions%orderres = 0
         solverOptions%orderprol= 2
         solverOptions%mg_mu    = 1

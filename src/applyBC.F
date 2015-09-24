@@ -1040,7 +1040,7 @@ c       Magnetic field BC (with fixed current at boundary)
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-                bcnv(i,j,k,:) = B0
+                bcnv(i,j,k,:) = XformToCurv_ijk(i,j,k,igr,B0,.true.)
      .                 + curl(i,j,k,nnx,nny,nnz,igr,igr,igr,acov)
               enddo
             enddo
