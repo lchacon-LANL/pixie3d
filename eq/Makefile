@@ -74,7 +74,7 @@ pixeq_xfer.petsc.x: $(OBJMOD) $(OBJS) $(COMMON_OBJS)
 	@echo ''
 	@echo 'Linking ' $@ ' code'
 	@echo ''
-	${FLINKER} $(FFLAGS) -o $@ $(OBJMOD) $(OBJS) $(COMMON_OBJS) $(CONTRIBLIBS) ${PETSC_SNES_LIB} $(LDFLAGS)
+	${FLINKER} $(FFLAGS) -o $@ $(OBJMOD) $(OBJS) $(COMMON_OBJS) $(CONTRIBLIBS) ${PETSC_SNES_LIB} $(LIBS) $(LDFLAGS)
 	@cp $@ $(BINDIR)
 
 target: common message $(OBJMOD) $(OBJS) $(COMMON_OBJS)
