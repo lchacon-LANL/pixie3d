@@ -11,7 +11,7 @@ c ######################################################################
         logical :: poincare=.false.,fourier=.false.,test=.false.
 
         integer :: u_equf=1000,u_prtf=2000
-        character(30) :: equ_file,prt_file
+        character(100) :: equ_file,prt_file
 
         character(30) :: in_file  ='pixie3d.in' ! Default input file
 
