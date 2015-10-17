@@ -486,22 +486,15 @@ c       Velocity BC
 
           if (pinch_flow) then
             prs0 = rho_0*tmp_0
-
             call ExB_flow_bc(igr,nnx,nny,nnz,bcnv_0,prs0,eeta_0,v0)
-
-            !Fill ghost nodes
-            vdum = XformVector(igr,vcnv_0,.false.)
-            call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
-     .                ,vaux%vec_list(IVCNV_0)%bconds
-     .                ,igr,igr,igr,iorder=order)
-          else
-            !Extrapolation
-            vdum = XformVector(igr,vcnv_0,.false.)
-            call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
-     .                ,vaux%vec_list(IVCNV_0)%bconds
-     .                ,igr,igr,igr,iorder=order)
-
           endif
+
+          !Fill ghost nodes
+          vdum = XformVector(igr,vcnv_0,.false.)
+
+          call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
+     .              ,vaux%vec_list(IVCNV_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
         case(IJCNV_0)
 
