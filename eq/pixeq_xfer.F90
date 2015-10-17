@@ -175,7 +175,7 @@ program pixeq_xfer
 
   nullify(grid_params)
   call destroyGrid(gv%gparams)
-!  call deallocateGlobalVar(gv)
+  call deallocateGlobalVar(gv)
 
   if (debug) write (*,*) "Performing STATE transfer"
 
@@ -203,7 +203,7 @@ program pixeq_xfer
   endif
 
   !Set vector dimensions and allocate variables
-!  call allocateGlobalVar(gv)
+  call allocateGlobalVar(gv)
 
   call createGrid(nxd,nyd,nzd,gv%gparams)
 
@@ -222,13 +222,16 @@ program pixeq_xfer
   if (extrude_dir(2)) ny = 1
   if (extrude_dir(3)) nz = 1
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !Write COARSE (output) file!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!
+  !Write output file!
+  !!!!!!!!!!!!!!!!!!!
 
   if (debug) write (*,*) "Writing output ",trim(orecfile)
 
-  if (debug) write (*,*) 'itime=',itm,'; time=',tt
+!!  if (debug) write (*,*) 'itime=',itm,'; time=',tt
+
+  !Reset time counters
+  itm = 0 ; tt = 0d0
 
   call xfer_varray(vref_0,vout)
 !!  call applyBC(igx,vout,gv%aux)
@@ -298,7 +301,7 @@ contains
 
       !Spline reference component
       call db3ink(xx,nxs,yy,nys,zz,nzs,arrayf &
-                ,nxs,nys,kx,ky,kz,tx,ty,tz,bcoef,work,flg)
+                 ,nxs,nys,kx,ky,kz,tx,ty,tz,bcoef,work,flg)
 
       !Interpolate to target grid
       do kc = 0,nz+1
@@ -311,7 +314,7 @@ contains
             zp = grid_params%zz(kg)
 
             interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
-                             ,kx,ky,kz,bcoef,work)
+                           ,kx,ky,kz,bcoef,work)
 !!            write (*,*) ic,jc,kc,xp,yp,zp,interp
            
             if     (extrude_dir(1).and.extrude_dir(2)) then
