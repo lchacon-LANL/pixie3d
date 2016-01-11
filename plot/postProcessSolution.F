@@ -610,9 +610,6 @@ c     Dump arrays
       tor = (equil == 'vmec' .or. coords == 'tor')
 
       write (uft) nxd,nyd,nzd,bcond,tor
-cc      write (uft) grid_params%xx(1:nxl+2)
-cc      write (uft) grid_params%yy(1:nyl+2)
-cc      write (uft) grid_params%zz(1:nzl+2)
       write (uft) grid_params%xg  !Dump global position array
       write (uft) grid_params%yg  !"
       write (uft) grid_params%zg  !"
@@ -621,9 +618,9 @@ cc      write (uft) grid_params%zz(1:nzl+2)
         write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
       endif
 
-      write (uft) varray%array_var(IBX)%array
-      write (uft) varray%array_var(IBY)%array
-      write (uft) varray%array_var(IBZ)%array
+      write (uft) bcnv(:,:,:,1)
+      write (uft) bcnv(:,:,:,2)
+      write (uft) bcnv(:,:,:,3)
       write (uft) bx_car
       write (uft) by_car
       write (uft) bz_car
