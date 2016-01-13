@@ -16,6 +16,9 @@
    E0/eta = 4.0000000
    T_flux = 0.6232323
 
+ Solving for vector potential...
+
+
   Grid mesh:................  128x   32x    1
   Number of grid levels:....    5,    4,    1
   Preconditioning method:...  id

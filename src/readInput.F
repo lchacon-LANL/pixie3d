@@ -135,6 +135,8 @@ c ******************************************************************
 
 c Begin program
 
+cc      call set_bc_debug(.true.)
+
 #if defined(petsc)
       call MPI_Comm_rank(MPI_COMM_WORLD,my_rank,mpierr)
 #endif
