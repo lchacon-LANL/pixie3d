@@ -102,7 +102,7 @@
     prof_conf = 1,'r',1,0,1
     cont_conf = 3,'R','Z',1,1,1
 !    cont_conf = 2,'R','PHI',1,1,1
-    hdf_plot  = f
+    hdf_plot  = t
     xdraw_plot= t
 /
 
