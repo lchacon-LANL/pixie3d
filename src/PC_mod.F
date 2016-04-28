@@ -366,7 +366,7 @@ c     Debug
 
 c     Begin program
 
-        extrp_cfss=.true.
+        extrp_cfss=.false.
 
         nx = grid_params%nxv(igx)
         ny = grid_params%nyv(igy)
