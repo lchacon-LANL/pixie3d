@@ -101,9 +101,9 @@ ccc End program
 cc
 cc      end subroutine explicit
 
-c findExplicitDt
+c set_explicit_dt
 c####################################################################
-      subroutine findExplicitDt(dt_exp)
+      subroutine set_explicit_dt(dt_exp)
 c--------------------------------------------------------------------
 c     This subroutine calculates the explicit CFL time step
 c--------------------------------------------------------------------
@@ -318,7 +318,7 @@ cc      theta = 0.46  !in pi units
 
       end subroutine scan_omega
 
-      end subroutine findExplicitDt
+      end subroutine set_explicit_dt
 
 #else
 

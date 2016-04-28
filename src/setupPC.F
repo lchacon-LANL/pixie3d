@@ -1,6 +1,6 @@
 c setup_app_PC
 c####################################################################
-      subroutine setup_app_PC(igrid,varray,nwt_it)
+      subroutine setup_app_PC(igrid,varray)
 
 c--------------------------------------------------------------------
 c     Finds velocity and magnetic field components in all grids
@@ -21,7 +21,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer :: igrid,nwt_it
+      integer :: igrid
       type (var_array),pointer :: varray
 
 c Local variables
@@ -36,7 +36,7 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nwt_iter = nwt_it
+      nwt_iter = nk_current_Newton_iteration()
 
 c Setup PC parameters
 
@@ -53,7 +53,7 @@ c Impose BCs
 
 c Find coefficients for linearized systems
 
-      if (nwt_it == 1) call findPCcoeffs(igx,igy,igz,varray,gv%aux)
+      if (nwt_iter == 1) call findPCcoeffs(igx,igy,igz,varray,gv%aux)
 
 c Setup PC BCs
 
@@ -61,7 +61,7 @@ c Setup PC BCs
 
 c Find required diagonals in all grids
 
-      if (nwt_it == 1) then
+      if (nwt_iter == 1) then
         form_diag = .true.
         call form_diagonals
         form_diag = .false.
