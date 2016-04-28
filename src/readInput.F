@@ -10,7 +10,7 @@ c----------------------------------------------------------------------
 
       use grid
 
-#if defined(plotting)
+#if defined(plotting) || defined(_equ)
       use ts_setup
 #else
       use timeStepping
