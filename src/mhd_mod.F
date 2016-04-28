@@ -4398,6 +4398,7 @@ c ######################################################################
      .            ,nc_eom_v    =.false. !Whether we use v.grad(v) instead of conserv. form
      .            ,sym_st      =.false. !Whether to use symmetric stress tensor
      .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
+     .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
 
         logical :: save_tn
 
@@ -5778,8 +5779,11 @@ c     End program
 
 c     E_fld_res
 c     #####################################################################
-      function E_fld_res(igr,vcnv,bcnv,dumcov,eta2) result(E_res)
-
+#if defined(vec_pot)
+      function E_fld_res(igr,vcnv,bcnv,acov,jcov,eta2) result(E_res)
+#else
+      function E_fld_res(igr,vcnv,bcnv,jcov,eta2) result(E_res)
+#endif
 c     ---------------------------------------------------------------------
 c     Computes ideal+resistive electric field, E=-(vxb)+eta*j.
 c     On input, dumcov can be either jcov (for B-field version)
@@ -5793,7 +5797,10 @@ c     Call variables
       integer :: igr
       real(8) :: vcnv  (0:,0:,0:,:)
      .          ,bcnv  (0:,0:,0:,:)
-     .          ,dumcov(0:,0:,0:,:)
+#if defined(vec_pot)
+     .          ,acov  (0:,0:,0:,:)
+#endif
+     .          ,jcov  (0:,0:,0:,:)
      .          ,eta2  (0:,0:,0:)
 
       real(8) :: E_res(0:size(bcnv,1)-1
@@ -5861,11 +5868,15 @@ cc#endif
 cc        endif
 
         !Ohmic current
-cc#if !defined(vec_pot)
-        E_res = dumcov
-cc#else
-cc        E_res =-veclap_cov(igr,dumcov)
-cc#endif
+#if defined(vec_pot)
+        if (vlap_etaj) then
+          E_res =-veclap_cov(igr,acov)
+        else
+          E_res = jcov
+        endif
+#else
+        E_res = jcov
+#endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
         E_res(:,:,:,2) = eta2*E_res(:,:,:,2)
