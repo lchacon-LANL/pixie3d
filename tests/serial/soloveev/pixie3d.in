@@ -96,7 +96,7 @@
     equ_file = 'soloveev_k=1'
  /
 
- &plots
+ &graphics
     sel_diag  = 2,12,15,17,18,19,20,22,23
     dplot = 1d-4
     prof_conf = 1,'r',1,0,1
