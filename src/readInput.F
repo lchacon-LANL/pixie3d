@@ -78,6 +78,7 @@ c Namelists
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
+     .                   ,vlap_etaj
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -110,7 +111,7 @@ c Namelists
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,fake_ve,slava,noise,noise_lev
-     .                   ,v_advect,no_eom_divpe
+     .                   ,v_advect,no_eom_divpe,vlap_etaj
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -293,6 +294,7 @@ c Set defaults
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
+      vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
 
       advect     = 2           ! Type of advective scheme for scalars
                                ! Available options:
@@ -554,6 +556,8 @@ cc      if (coords /= 'car') nc_eom_f = .true.
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
       if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
+
+      if (bcs(1) == 'spt') vlap_etaj = .false.
 
 cc      if (ion_hall) slava = .false.
 
