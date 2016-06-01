@@ -57,7 +57,7 @@ c ######################################################################
 
         integer, allocatable, dimension(:,:) :: bcs,bcs_hyp
 
-        type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov,gv0_cov
+        type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
      .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
 
@@ -108,7 +108,6 @@ c     Begin program
         call allocateMGArray(1,grho0)
         call allocateMGArray(1,gtmp0)
         call allocateMGArray(3,gv0)
-        call allocateMGArray(3,gv0_cov)
         call allocateMGArray(3,gve0)  !v_e = v_i - di*j/rho
         call allocateMGArray(3,gvs0)  !v_s = v_i - di*j/rho/a_p
         call allocateMGArray(3,gv0)
@@ -167,7 +166,6 @@ c     Begin program
         call deallocateMGArray(gve0)
         call deallocateMGArray(gvs0)
         call deallocateMGArray(gv0)
-        call deallocateMGArray(gv0_cov)
         call deallocateMGArray(ga0)
         call deallocateMGArray(gbs0)
         call deallocateMGArray(gEh0_cov)
