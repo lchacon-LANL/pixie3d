@@ -333,7 +333,7 @@ c Select variable
         no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
         allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
@@ -444,7 +444,7 @@ c       Temperature BCs
         no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
         allocate(prs0(0:nnx+1,0:nny+1,0:nnz+1)
@@ -776,7 +776,7 @@ c Select variable
         no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
         select case(abs(bc_inf(1)))
@@ -878,7 +878,7 @@ cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
         no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
 c       Allocate auxiliary variables in local domain
@@ -1226,7 +1226,7 @@ c Select variable
         no_eq_bc = vaux%var_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%var_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
         select case(abs(bc_inf(1)))
@@ -1315,7 +1315,7 @@ cc          h_eta=hres(igr,bcnv_0,rho_0)
         no_eq_bc = vaux%vec_list(abs(bc_inf(1)))%time_0.and.(time/=0d0)
         no_tn_bc = vaux%vec_list(abs(bc_inf(1)))%time_n
      $            .and.(.not.save_tn)
-        if (no_eq_bc.or.no_tn_bc) return
+        if ((no_eq_bc.or.no_tn_bc).and.(.not.restart)) return
 #endif
 
 c       Allocate auxiliary variables in local domain

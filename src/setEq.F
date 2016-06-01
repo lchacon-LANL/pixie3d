@@ -3056,6 +3056,10 @@ cc            etah = res_spitzer(p0(i)/a_p)
           vr0(i) = -(Eoeta*bth0(i)+etah*(p0(i+1)-p0(i-1))/2./dr(i))
      .             /(bzz0(i)**2+bth0(i)**2)
         enddo
+        vr0(nxdp)=-(Eoeta*bth0(nxdp)+etah*(p0(nxdp)-p0(nxd))/2./dr(nxd))
+     .            /(bzz0(nxdp)**2+bth0(nxdp)**2)
+
+        vr0(0) = -vr0(1)
 
         !Find pressure
 cc        do i=1,nxd
