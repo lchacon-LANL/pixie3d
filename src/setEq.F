@@ -5964,7 +5964,7 @@ cc        call B_dump(igrid,a_cov,db_cnv)
       case('line')
 
         !Find covariant vector potential with gauge Ax = 0 in specified domain
-        call curl_inv(nxg,nyg,nzg,igrid,igrid,igrid,b,a,global=.true.)
+        call curl_inv(igrid,b,a,global=.true.)
 
         !Restrict solution to current domain (when appropriate)
         call XferArray(a,a_cov)
