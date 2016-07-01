@@ -9,6 +9,8 @@
      &   presf_vmec=>presf, nfp_vmec=>nfp, bsupumnc_vmec=>bsupumnc,     &
      &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb,bsubvmnc_vmec=>bsubvmnc
 
+      USE B_tools, ONLY: curl_div_clean
+
       IMPLICIT NONE
 !     
 !     WRITTEN 06-27-06 BY S. P. HIRSHMAN AS PART OF THE VMEC++ PROJECT (c)
@@ -22,7 +24,6 @@
 !-----------------------------------------------
 !   L o c a l   V a r i a b l e s
 !-----------------------------------------------
-      LOGICAL :: load_metrics=.false.
 
       REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE ::                     &
      &             sqrtg,                                               &!sqrt(g): Jacobian on half grid
@@ -50,7 +51,7 @@
 
 !       vmec_init
 !       ################################################################################
-        SUBROUTINE vmec_init(ns_in,nu_in,nv_in,wout_file)
+        SUBROUTINE vmec_init(ns_in,nu_in,nv_in,wout_file,load_metrics)
 
           IMPLICIT NONE
 
@@ -77,6 +78,7 @@
      &                            bsupumnc_v,  bsupvmnc_v,  bsubvmnc_v
           REAL(rprec) :: t1, t2
           INTEGER     :: m, n, mn
+          LOGICAL     :: load_metrics
 
 !       Begin program
 
@@ -162,14 +164,14 @@
 !     CONSTRUCT R, Z, L REAL-SPACE ARRAYS ON "POLAR" MESH
 !     AND COMPUTE METRIC ELEMENTS AND JACOBIAN
 
-          CALL vmec_load_rz(istat)
+          CALL vmec_load_rz(load_metrics,istat)
           IF (istat .ne. 0) STOP 'Load R,Z error in VMEC_INIT'
 
         END SUBROUTINE vmec_init
 
 !       vmec_load_rz
 !       ################################################################################
-        SUBROUTINE vmec_load_rz(istat)
+        SUBROUTINE vmec_load_rz(load_metrics,istat)
 
 !       ------------------------------------------------------------------------------
 !       Computes R-Z map in real space from VMEC equilibrium
@@ -183,6 +185,7 @@
 !       Call variables
 
           INTEGER, INTENT(out)     :: istat
+          LOGICAL :: load_metrics
 
 !       Local variables
 
@@ -1637,7 +1640,7 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(metrics,equ_file)
+      subroutine vmec_map(equ_file)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -1652,7 +1655,7 @@
 
 !     Input variables
 
-      logical :: metrics
+!!$      logical :: metrics
       character(*) :: equ_file
 
 !     Local variables
@@ -1673,7 +1676,7 @@
 
 !     Begin program
 
-      load_metrics = metrics  !Set flag for metric elements routine
+!!$      load_metrics = metrics  !Set flag for metric elements routine
 
       nullify(gmetric)
 
@@ -1705,7 +1708,7 @@
 !     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
 
-        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
+        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file,.false.)
 
 !     Spline VMEC global map
 
@@ -1856,7 +1859,7 @@
         if (my_rank == 0) then
           write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
         endif
-        grid_params%ngrid = igrid - 1
+!        grid_params%ngrid = igrid - 1
       endif
 
 !     End program
@@ -2002,103 +2005,105 @@
 !!$
 !!$      end subroutine vmec_map
 
-!     vmec_metrics
-!     #################################################################
-      subroutine vmec_metrics(igrid,nx,ny,nz,jac,gsub,gsup)
-
-!     -----------------------------------------------------------------
-!     Give metrics at each logical mesh point in grid level (igrid).
-!     -----------------------------------------------------------------
-
-        use vmec_mod
-        use grid
-
-        implicit none
-
-!     Input variables
-
-        integer    :: igrid,nx,ny,nz
-        real(8)    :: jac (0:nx+1,0:ny+1,0:nz+1)            &
-     &               ,gsub(0:nx+1,0:ny+1,0:nz+1,3,3)        &
-     &               ,gsup(0:nx+1,0:ny+1,0:nz+1,3,3)
-
-!     Local variables
-
-        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,jkg,m,l
-        real(8)    :: sgn,ds
-
-!     Begin program
-
-!     Get GLOBAL limits (VMEC operates on global domain)
-
-        nxg = grid_params%nxgl(igrid)
-        nyg = grid_params%nygl(igrid)
-        nzg = grid_params%nzgl(igrid)
-
-!     Transfer metrics (from GLOBAL in VMEC to LOCAL)
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              !Find global limits
-              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
-
-              !Periodic boundary in theta (other boundary enforced by symmetry)
-              if (jgl == 0) jgl = nyg
-
-              !Up-down symmetry in theta (temporary, until VMEC interface is fixed)
-              sgn = 1d0
-              if (jgl > nyg/2+1) then
-                 jgl = nyg + 2 - jgl
-                 sgn = -1d0
-              endif
-
-              !Periodic boundary in phi
-              if (kgl == 0) kgl = nzg
-              if (kgl == nzg+1) kgl = 1
-
-              !Assign metric elements
-              jac(i,j,k)      = sqrtg(igl+1,jgl,kgl)
-
-              gsub(i,j,k,1,1) = gss(igl+1,jgl,kgl)
-              gsub(i,j,k,1,2) = gsu(igl+1,jgl,kgl)
-              gsub(i,j,k,1,3) = gsv(igl+1,jgl,kgl)
-              gsub(i,j,k,2,2) = guu(igl+1,jgl,kgl)
-              gsub(i,j,k,2,3) = guv(igl+1,jgl,kgl)
-              gsub(i,j,k,3,3) = gvv(igl+1,jgl,kgl)
-
-              gsup(i,j,k,1,1) = hss(igl+1,jgl,kgl)
-              gsup(i,j,k,1,2) = hsu(igl+1,jgl,kgl)
-              gsup(i,j,k,1,3) = hsv(igl+1,jgl,kgl)
-              gsup(i,j,k,2,2) = huu(igl+1,jgl,kgl)
-              gsup(i,j,k,2,3) = huv(igl+1,jgl,kgl)
-              gsup(i,j,k,3,3) = hvv(igl+1,jgl,kgl)
-
-              !Enforce symmetry
-              do m=1,3
-                 do l=1,m
-                  gsub(i,j,k,m,l) = gsub(i,j,k,l,m)
-                  gsup(i,j,k,m,l) = gsup(i,j,k,l,m)
-                enddo
-              enddo
-
-              !Transform to PIXIE3D's convention
-              gsup(i,j,k,:,:) = gsup(i,j,k,:,:)*jac(i,j,k)
-              gsub(i,j,k,:,:) = gsub(i,j,k,:,:)/jac(i,j,k)
-            enddo
-          enddo
-        enddo
-
-!     Free work space (to allow multiple calls to vmec_map for different grid levels)
-
-        call vmec_cleanup_metrics
-
-!     End program
-
-      end subroutine vmec_metrics
+      !THIS ROUTINE IS INCORRECT, AS IT DOES NOT TAKE INTO ACCOUNT APPROPRIATELY
+      !THE CHANGE OF RADIAL COORDINATES BETWEEN VMEC AND PIXIE3D (PSI -> SQRT(PSI))
+!!$!     vmec_metrics
+!!$!     #################################################################
+!!$      subroutine vmec_metrics(igrid,nx,ny,nz,jac,gsub,gsup)
+!!$
+!!$!     -----------------------------------------------------------------
+!!$!     Give metrics at each logical mesh point in grid level (igrid).
+!!$!     -----------------------------------------------------------------
+!!$
+!!$        use vmec_mod
+!!$        use grid
+!!$
+!!$        implicit none
+!!$
+!!$!     Input variables
+!!$
+!!$        integer    :: igrid,nx,ny,nz
+!!$        real(8)    :: jac (0:nx+1,0:ny+1,0:nz+1)            &
+!!$     &               ,gsub(0:nx+1,0:ny+1,0:nz+1,3,3)        &
+!!$     &               ,gsup(0:nx+1,0:ny+1,0:nz+1,3,3)
+!!$
+!!$!     Local variables
+!!$
+!!$        integer    :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,jkg,m,l
+!!$        real(8)    :: sgn,ds
+!!$
+!!$!     Begin program
+!!$
+!!$!     Get GLOBAL limits (VMEC operates on global domain)
+!!$
+!!$        nxg = grid_params%nxgl(igrid)
+!!$        nyg = grid_params%nygl(igrid)
+!!$        nzg = grid_params%nzgl(igrid)
+!!$
+!!$!     Transfer metrics (from GLOBAL in VMEC to LOCAL)
+!!$
+!!$        do k=0,nz+1
+!!$          do j=0,ny+1
+!!$            do i=0,nx+1
+!!$
+!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$
+!!$              !Find global limits
+!!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+!!$
+!!$              !Periodic boundary in theta (other boundary enforced by symmetry)
+!!$              if (jgl == 0) jgl = nyg
+!!$
+!!$              !Up-down symmetry in theta (temporary, until VMEC interface is fixed)
+!!$              sgn = 1d0
+!!$              if (jgl > nyg/2+1) then
+!!$                 jgl = nyg + 2 - jgl
+!!$                 sgn = -1d0
+!!$              endif
+!!$
+!!$              !Periodic boundary in phi
+!!$              if (kgl == 0) kgl = nzg
+!!$              if (kgl == nzg+1) kgl = 1
+!!$
+!!$              !Assign metric elements
+!!$              jac(i,j,k)      = sqrtg(igl+1,jgl,kgl)
+!!$
+!!$              gsub(i,j,k,1,1) = gss(igl+1,jgl,kgl)
+!!$              gsub(i,j,k,1,2) = gsu(igl+1,jgl,kgl)
+!!$              gsub(i,j,k,1,3) = gsv(igl+1,jgl,kgl)
+!!$              gsub(i,j,k,2,2) = guu(igl+1,jgl,kgl)
+!!$              gsub(i,j,k,2,3) = guv(igl+1,jgl,kgl)
+!!$              gsub(i,j,k,3,3) = gvv(igl+1,jgl,kgl)
+!!$
+!!$              gsup(i,j,k,1,1) = hss(igl+1,jgl,kgl)
+!!$              gsup(i,j,k,1,2) = hsu(igl+1,jgl,kgl)
+!!$              gsup(i,j,k,1,3) = hsv(igl+1,jgl,kgl)
+!!$              gsup(i,j,k,2,2) = huu(igl+1,jgl,kgl)
+!!$              gsup(i,j,k,2,3) = huv(igl+1,jgl,kgl)
+!!$              gsup(i,j,k,3,3) = hvv(igl+1,jgl,kgl)
+!!$
+!!$              !Enforce symmetry
+!!$              do m=1,3
+!!$                 do l=1,m
+!!$                  gsub(i,j,k,m,l) = gsub(i,j,k,l,m)
+!!$                  gsup(i,j,k,m,l) = gsup(i,j,k,l,m)
+!!$                enddo
+!!$              enddo
+!!$
+!!$              !Transform to PIXIE3D's convention
+!!$              gsup(i,j,k,:,:) = gsup(i,j,k,:,:)*jac(i,j,k)
+!!$              gsub(i,j,k,:,:) = gsub(i,j,k,:,:)/jac(i,j,k)
+!!$            enddo
+!!$          enddo
+!!$        enddo
+!!$
+!!$!     Free work space (to allow multiple calls to vmec_map for different grid levels)
+!!$
+!!$        call vmec_cleanup_metrics
+!!$
+!!$!     End program
+!!$
+!!$      end subroutine vmec_metrics
 
 !     vmec_equ
 !     #################################################################
@@ -2131,7 +2136,8 @@
         real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 
         real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
-        real(8),allocatable, dimension(:,:,:) :: bsup1,bsup2,bsub3,prsg
+        real(8),allocatable, dimension(:,:,:) :: bsub3,prsg
+        real(8),allocatable, dimension(:,:,:,:) :: bsup
 
         integer :: udcon=1111
 
@@ -2140,7 +2146,7 @@
         !SLATEC spline variables
         integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,sorder,alloc_stat
         real(8),dimension(:)    ,allocatable :: tx,ty,tz,work,xs,ys,zs
-        real(8),dimension(:,:,:),allocatable :: bsup1_coef,bsup2_coef,bsub3_coef,prs_coef
+        real(8),dimension(:,:,:),allocatable :: b1_coef,b2_coef,b3_coef,prs_coef
 
         real(8)  :: db3val
         external :: db3val
@@ -2162,9 +2168,9 @@
 !     [Assumes solution is up-down symmetric wrt Z=0, 
 !     and hence only gives theta=(0,pi); thereby the limit nyg/2+1 in theta]
 
-        load_metrics = .true.  !Whether to use VMEC metrics to define B components
+!!$        load_metrics = .true.  !Whether to use VMEC metrics to define B components
 
-        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file)
+        call vmec_init(nxg+1,nyg/2+1,nzg,equ_file,.true.)
 
 !     Setup equilibrium fields
 
@@ -2219,8 +2225,7 @@
 
 !     Find half-mesh PIXIE3D magnetic field components in GLOBAL mesh (flux functions)
 
-        allocate(bsup1(0:nxg+1,0:nyg+1,0:nzg+1))
-        allocate(bsup2(0:nxg+1,0:nyg+1,0:nzg+1))
+        allocate(bsup(0:nxg+1,0:nyg+1,0:nzg+1,3))
         allocate(bsub3(0:nxg+1,0:nyg+1,0:nzg+1))
         allocate(prsg (0:nxg+1,0:nyg+1,0:nzg+1))
 
@@ -2251,16 +2256,18 @@
               if (kgl == nzg+1) kgl = 1
 
               !Interpolate VMEC fields to PIXIE3D's radial mesh
-              call half_to_int(igl,jgl,kgl,bsupsijsf,bsup1(i,j,k))
-              call half_to_int(igl,jgl,kgl,bsupuijcf,bsup2(i,j,k))
+              call half_to_int(igl,jgl,kgl,bsupsijsf,bsup(i,j,k,1))
+              call half_to_int(igl,jgl,kgl,bsupuijcf,bsup(i,j,k,2))
+              call half_to_int(igl,jgl,kgl,bsupvijcf,bsup(i,j,k,3))
               call half_to_int(igl,jgl,kgl,bsubvijcf,bsub3(i,j,k))
               call half_to_int(igl,jgl,kgl,presijf  ,prsg (i,j,k))
 
-              !Find flux functions
-              jac = sqrtg(igl+1,jgl,kgl)
+              !Find flux functions w/ PIXIE3D convention
+              jac = sqrtg(igl+1,jgl,kgl) !VMEC's half mesh jacobian, including s=sqrt(psi) transformation
 
-              bsup1(i,j,k) = jac*bsup1(i,j,k)
-              bsup2(i,j,k) = jac*bsup2(i,j,k)   !Flux coordinate
+              bsup(i,j,k,1) = jac*bsup(i,j,k,1)/(2.*grid_params%xg(igl)) !B1=B1'/(2s)
+              bsup(i,j,k,2) = jac*bsup(i,j,k,2)!Flux coordinate, B2=B2'
+              bsup(i,j,k,3) = jac*bsup(i,j,k,3)!Flux coordinate, B3=B3'
             enddo
           enddo
         enddo
@@ -2296,14 +2303,16 @@
               !Periodic boundary in phi=2*pi
               if (kgl == nzg+1) kgl = 1
 
-              dum1=sum(bsup2(i,1:nyg,k))/nyg
+              dum1=sum(bsup(i,1:nyg,k,2))/nyg
               dum2=sum(bsub3(i,1:nyg,k))/nyg
 
-              bsup2(i,:,k) = dum1
+              bsup(i,:,k,2) = dum1
               bsub3(i,:,k) = dum2
              
             enddo
           enddo
+!!$        else !Divergence clean B-field (not ready yet)
+!!$          call curl_div_clean(1,bsup,.false.,global=.true.)
         endif
 
 !     Spline PIXIE3D global variables
@@ -2352,15 +2361,19 @@
 !!$        zs = grid_params%zg(0:nzg+1)
 
         !Spline B-field components
-        allocate(bsup1_coef(nxs,nys,nzs)  &
-     &          ,bsup2_coef(nxs,nys,nzs)  &
-     &          ,bsub3_coef(nxs,nys,nzs)  &
+        allocate(b1_coef(nxs,nys,nzs)  &
+     &          ,b2_coef(nxs,nys,nzs)  &
+     &          ,b3_coef(nxs,nys,nzs)  &
      &          ,prs_coef  (nxs,nys,nzs),stat=alloc_stat)
 
-        call db3ink(xs,nxs,ys,nys,zs,nzs,bsup1,nxs,nys,kx,ky,kz,tx,ty,tz,bsup1_coef,work,flg)
-        call db3ink(xs,nxs,ys,nys,zs,nzs,bsup2,nxs,nys,kx,ky,kz,tx,ty,tz,bsup2_coef,work,flg)
-        call db3ink(xs,nxs,ys,nys,zs,nzs,bsub3,nxs,nys,kx,ky,kz,tx,ty,tz,bsub3_coef,work,flg)
-        call db3ink(xs,nxs,ys,nys,zs,nzs,prsg ,nxs,nys,kx,ky,kz,tx,ty,tz,prs_coef  ,work,flg)
+        call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,1),nxs,nys,kx,ky,kz,tx,ty,tz,b1_coef,work,flg)
+        call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,2),nxs,nys,kx,ky,kz,tx,ty,tz,b2_coef,work,flg)
+        if (enf_flx_fn) then
+          call db3ink(xs,nxs,ys,nys,zs,nzs,bsub3,nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
+        else
+          call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,3),nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
+        endif
+        call db3ink(xs,nxs,ys,nys,zs,nzs,prsg ,nxs,nys,kx,ky,kz,tx,ty,tz,prs_coef ,work,flg)
 
 !     Transfer variables (from GLOBAL in VMEC to LOCAL in PIXIE3D)
 
@@ -2395,19 +2408,31 @@
               v1  = mod(ph1,2*pi/nfp_i)
 
               b1(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                          ,kx,ky,kz,bsup1_coef,work)             &
-     &                   *0.5/grid_params%xx(ig)                       !This correction comes because here
-                                                                       !the variable is x1=sqrt(s), s-> VMEC.
-              b2(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
-     &                          ,kx,ky,kz,bsup2_coef,work)             !Flux coordinate
+     &                          ,kx,ky,kz,b1_coef,work)
 
-              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)          &
-     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)&
-     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)          &
-     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2       &
-     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))         &
-     &                  *db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs   &
-     &                         ,kx,ky,kz,bsub3_coef,work)
+              b2(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                          ,kx,ky,kz,b2_coef,work)             !Flux coordinate
+
+              if (enf_flx_fn) then
+                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                            ,kx,ky,kz,b3_coef,work)             !Cov
+                b3(i,j,k) = (b3(i,j,k)                                        &
+     &                    -(gmetric%grid(igrid)%gsub(i,j,k,3,1)*b1(i,j,k)   &
+     &                     +gmetric%grid(igrid)%gsub(i,j,k,3,2)*b2(i,j,k))) &
+     &                    /gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
+              else
+                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+     &                            ,kx,ky,kz,b3_coef,work)             !Cnv
+              endif
+
+!This code does not work for hard stellarator cases
+!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)          &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)&
+!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)          &
+!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2       &
+!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))         &
+!!$     &                  *db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs   &
+!!$     &                         ,kx,ky,kz,bsub3_coef,work)
 
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
@@ -2425,11 +2450,11 @@
 
 !     Free work space
 
-        DEALLOCATE(bsup1,bsup2,bsub3,prsg,stat=istat)
+        DEALLOCATE(bsup,bsub3,prsg,stat=istat)
 
         DEALLOCATE(bsupuijcf,bsupvijcf,bsubvijcf,bsupsijsf,presijf,stat=istat)
 
-        DEALLOCATE(xs,ys,zs,work,tx,ty,tz,bsup1_coef,bsup2_coef,bsub3_coef,prs_coef,stat=istat)
+        DEALLOCATE(xs,ys,zs,work,tx,ty,tz,b1_coef,b2_coef,b3_coef,prs_coef,stat=istat)
 
         IF (istat .ne. 0) STOP 'Deallocation error in vmec_equ'
 

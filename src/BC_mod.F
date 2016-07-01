@@ -926,8 +926,8 @@ c$$$
 c$$$      xt = 0.5*(grid_params%xx(ig+1)
 c$$$     $         +grid_params%xx(ig  ))
 
-      do k=1,nz
-        do j=1,ny
+      do k=0,nz+1
+        do j=0,ny+1
           jach = 0.5*(gmetric%grid(igrid)%jac(i+1,j,k)
      .               +gmetric%grid(igrid)%jac(i  ,j,k))
 

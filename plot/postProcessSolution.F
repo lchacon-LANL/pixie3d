@@ -596,9 +596,9 @@ c     Open file
 
       ft_file = 'poinc_t='//trim(adjustl(ft_file))//'.bin'
 
-#if defined(petsc)
-      ft_file = trim(ft_file)//'_proc'//trim(int2char(my_rank))
-#endif
+      if (np > 1) then
+        ft_file = trim(ft_file)//'_proc'//trim(int2char(my_rank))
+      endif
 
       open(unit=uft,file=trim(ft_file)
      .    ,status='unknown',form='unformatted')
