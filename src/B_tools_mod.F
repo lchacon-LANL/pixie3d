@@ -20,7 +20,7 @@ c ####################################################################
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(nx,ny,nz,igx,igy,igz,b,a,global,w_bcs)
+      subroutine curl_inv(igrid,b,a,global,w_bcs)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -37,19 +37,26 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: nx,ny,nz,igx,igy,igz
-      real(8)    :: a(0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,b(0:nx+1,0:ny+1,0:nz+1,3)
+      integer    :: igrid
+      real(8)    :: a(0:,0:,0:,:)
+     .             ,b(0:,0:,0:,:)
       logical,optional :: global,w_bcs
 
 c     Local variables
 
-      integer    :: i,j,k,igrid,ii,bcnd(6,3),ig,jg,kg,ivar
+      integer    :: nx,ny,nz,igx,igy,igz
+      integer    :: i,j,k,ii,bcnd(6,3),ig,jg,kg,ivar
       real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
 
       logical    :: spoint,glbl,do_bc
 
 c     Begin program
+
+      igx = igrid ; igy = igrid ; igz = igrid
+
+      nx = size(a,1)-2
+      ny = size(a,2)-2
+      nz = size(a,3)-2
 
       if (PRESENT(global)) then
         glbl = global
@@ -62,8 +69,6 @@ c     Begin program
       else
         do_bc = (.not.glbl).or.(np == 1)
       endif
-
-      igrid = igx
 
       spoint = bcSP()
 
@@ -526,7 +531,7 @@ cc        endif
 
 c     curl_div_clean
 c     #################################################################
-      subroutine curl_div_clean(igx,db,diag_plots)
+      subroutine curl_div_clean(igx,db,diag_plots,global)
 
 c     -----------------------------------------------------------------
 c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
@@ -540,10 +545,10 @@ c     Call variables
       real(8) :: db(0:,0:,0:,:)
 
       logical :: diag_plots
+      logical,optional :: global
 
 c     Local variables
 
-      integer :: nx,ny,nz
       real(8) :: da_cov(0:size(db,1)-1
      $                 ,0:size(db,2)-1
      $                 ,0:size(db,3)-1
@@ -551,11 +556,7 @@ c     Local variables
 
 c     Find dA from dB (w/ ghost cells)
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igx)
-      nz = grid_params%nzv(igx)
-
-      call curl_inv(nx,ny,nz,igx,igx,igx,db,da_cov)
+      call curl_inv(igx,db,da_cov,global=global)
 
 c     Diagnostics (call before db = curl(A))
 
@@ -563,7 +564,7 @@ c     Diagnostics (call before db = curl(A))
 
 c     Find dB
 
-      db = curl(igx,da_cov)
+      db = curl(igx,da_cov)  !This step is NOT global!!
 
       end subroutine curl_div_clean
 
@@ -788,6 +789,12 @@ c     Local variables
       logical :: dplots,wbcs
       
 c     Begin program
+
+      if (my_rank == 0.and.iout > 1) then
+        write (*,*)
+        write (*,*) 'Div-cleaning B-field...'
+        write (*,*)
+      endif
 
       if (PRESENT(diag_plots)) then
         dplots = diag_plots

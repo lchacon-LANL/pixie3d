@@ -11,8 +11,6 @@
 
     bcs      = 'spt','def','per','per','per','per'
 
-    equil    = 'vmec'
-
     coords   = 'ext'
  /
 
@@ -34,6 +32,8 @@
 
     nh2      = 1
     nh3      =-2
+
+    equil    = 'vmec'
  /
 
  &fv

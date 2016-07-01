@@ -11,8 +11,6 @@
 
     bcs      = 'spt','def','per','per','per','per'
 
-    equil    = 'vmec'
-
     coords   = 'ext'
  /
 
@@ -34,6 +32,8 @@
 
     nh2      = 1
     nh3      =-2
+
+    equil    = 'vmec'
  /
 
  &fv
@@ -104,7 +104,8 @@
 !    cont_conf = 2,'R','PHI',1,1,1
     hdf_plot  = f
     xdraw_plot= t
-    poincare  = f
-    clean = f
  /
 
+ &plots
+   poincare = f
+ /

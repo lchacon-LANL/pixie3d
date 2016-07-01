@@ -48,9 +48,9 @@ c     Transfer variable info to input file
 
         if (ierr == 0) ierr = delete_line(in_file,desc)
 
-        write (line,*) '   '//trim(desc)//'=',real(var(1),4)
-     .                                   ,',',real(var(2),4)
-     .                                   ,',',real(var(3),4)
+        write (line,*) '   '//trim(desc)//'=',var(1)
+     .                                   ,',',var(2)
+     .                                   ,',',var(3)
 
         command = 'grep datin ' // trim(in_file) // ' > /dev/null'
         ierr = shellcmd(trim(command))
@@ -6488,6 +6488,13 @@ cccc      divCln = .false.
 cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
+      !Setup for singular point geometries
+      if (bcSP()) then
+        mg_oprol = 1
+cc        mg_ores  = 1
+cc        sm_zebra_relax = .true.
+      endif
+
       !SI solver configuration
       sm_type_si  = sm_type
       sm_omega_si = sm_omega
@@ -6495,19 +6502,6 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       sm_zebra_relax_si = sm_zebra_relax
       mg_ores_si  = mg_ores
       mg_oprol_si = mg_oprol
-
-      !Setup for singular point geometries
-      if (bcSP()) then
-        mg_oprol = 1
-cc        mg_ores  = 1
-cc        mg_zebra_relax_si = .true.
-cc        mg_ores_si   = mg_ores
-cc        mg_oprol_si  = mg_oprol
-cc
-cc        sm_type_si   = 'gs'
-cc        sm_omega_si  = 1d0
-cc        sm_iter_si   = sm_iter/2
-      endif
 
       call TS_solver_consistency_chk
 

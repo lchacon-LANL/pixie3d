@@ -1054,7 +1054,8 @@ c     Solve EMHD system
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
-     .            ,mg_vcyc       = mg_vcyc
+cc     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
@@ -1184,7 +1185,7 @@ c Local variables
 #endif
 
       real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
-     .                                       ,jcnv0,jcov0,vcnv0,vcov0
+     .                                       ,jcnv0,jcov0,vcnv0
      .                                       ,heta0
 
 c Begin program
@@ -1204,7 +1205,6 @@ c Begin program
       rho0  => grho0  %grid(igrid)%array
       tmp0  => gtmp0  %grid(igrid)%array
       vcnv0 => gv0    %grid(igrid)%array
-      vcov0 => gv0_cov%grid(igrid)%array
       bcnv0 => gb0    %grid(igrid)%array
       bcov0 => gb0_cov%grid(igrid)%array
       jcnv0 => gj0    %grid(igrid)%array
@@ -1391,7 +1391,7 @@ c Find rhs_v'
 
 c Free memory
 
-      nullify(rho0,tmp0,bcov0,bcnv0,jcnv0,jcov0,vcnv0,vcov0)
+      nullify(rho0,tmp0,bcov0,bcnv0,jcnv0,jcov0,vcnv0)
 
       deallocate(dj_cnv
      .          ,dj_cov

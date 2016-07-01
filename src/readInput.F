@@ -45,7 +45,7 @@ c Local variables
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
-     .                ,mg_zebra_relax
+     .                ,mg_zebra_relax,restart
       real(8)       :: mgtol
 
 c Namelists
@@ -89,7 +89,7 @@ c Namelists
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Problem setup
-      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax,equil
+      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3
 
@@ -103,7 +103,7 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,pc_divclean,pc_B_solve
+     .                   ,pc_divclean,pc_B_solve,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
@@ -196,7 +196,7 @@ c Set defaults
                                !        dstep is calculated in code)
 
       restart        = .false. ! Restarting flag
-      perturb_rstrt= .false. ! Whether to apply perturbation after restart
+      perturb_rstrt  = .false. ! Whether to apply perturbation after restart
       timecorr       = .true.  ! Time adaptive algorithm (based on Newton convergence)
       postprocess    = .false. ! Whether to run solution postprocessing after time step
       source         = .true.  ! Impose source to provide equilibrium
@@ -457,10 +457,12 @@ c Read initialization parameters
         close(unit=uinput)
         if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
 
-cc        open(unit=uinput,file=in_file,status='old')
-cc        read(uinput,ts,iostat=ioerr)
-cc        close(unit=uinput)
         ioerr = readTSInput(in_file,.false.)
+        if (ioerr/=0) then
+          open(unit=uinput,file=in_file,status='old')
+          read(uinput,ts,iostat=ioerr)
+          close(unit=uinput)
+        endif
         if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
 
         open(unit=uinput,file=in_file,status='old')
@@ -503,6 +505,8 @@ c Check legacy parameters
       if (pc_max_iter>0)  pc_iter = pc_max_iter
 
       where (bcs == 'sym') bcs = 'fsm' !Face symmetric
+
+      ts_restart = restart
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
@@ -574,7 +578,7 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
       !Miscellaneous
       if (tst_flg) test = .true.
 
-      if (restart) dcon = .false.
+      if (ts_restart) dcon = .false.
 
       if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
 

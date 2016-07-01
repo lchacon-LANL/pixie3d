@@ -123,7 +123,7 @@ cc            vadvective = '   TVD'
             write (*,100)
           endif
 
-          if (restart) write (*,110) itime,time,dt,vmax
+          if (ts_restart) write (*,110) itime,time,dt,vmax
 
         else
 

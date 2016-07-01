@@ -35,7 +35,7 @@ c--------------------------------------------------------------------
 
       use app_iosetup
 
-      use B_tools, ONLY:vlap_div_clean
+      use B_tools, ONLY:vlap_div_clean,curl_div_clean
 
       implicit none
 
@@ -1026,7 +1026,7 @@ c     Check coordinates
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+        call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
 
         deallocate(bg)
@@ -1510,7 +1510,7 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+        call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
 
         deallocate(bg)
@@ -1953,7 +1953,7 @@ c     Read VMEC coordinates and fill grid hierarchy
           call pstop('setEquilibrium',messg)
         endif
 
-        call vmec_map(.false.,equ_file)
+        call vmec_map(equ_file)
 
 c     Read VMEC equilibrium
 
@@ -1965,15 +1965,18 @@ c     Read VMEC equilibrium
      .                            ,var(:,:,:,IRHO)
      .               ,gamma,equ_file,dcon)
 
-cc        call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
-cc     .                     ,var(:,:,:,IBX:IBZ)!,w_pre_bcs=.true.
-cc     .                     ,gm_it=it_divcl,rtol=0.1*rtol)
-cc
-cc        if (my_rank == 0.and.ilevel == 0) then
-cc          write (*,*) 'VMEC divergence cleaning converged in',it_divcl
-cc     .               ,' its'
-cc        endif
+        if (np == 1) then
+          call curl_div_clean(igx,var(:,:,:,IBX:IBZ),.false.)
+        else
+          call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
+     .                     ,var(:,:,:,IBX:IBZ)!,w_pre_bcs=.true.
+     .                     ,gm_it=it_divcl,rtol=0.1*rtol)
 
+          if (my_rank == 0.and.ilevel == 0) then
+            write (*,*) 'VMEC divergence cleaning converged in',it_divcl
+     .               ,' its'
+          endif
+        endif
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 
@@ -2175,7 +2178,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+        call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
@@ -2292,7 +2295,7 @@ c     Density and temperature
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+        call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
@@ -2476,7 +2479,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz,var(:,:,:,IVX:IVZ)
+        call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
@@ -3056,6 +3059,10 @@ cc            etah = res_spitzer(p0(i)/a_p)
           vr0(i) = -(Eoeta*bth0(i)+etah*(p0(i+1)-p0(i-1))/2./dr(i))
      .             /(bzz0(i)**2+bth0(i)**2)
         enddo
+        vr0(nxdp)=-(Eoeta*bth0(nxdp)+etah*(p0(nxdp)-p0(nxd))/2./dr(nxd))
+     .            /(bzz0(nxdp)**2+bth0(nxdp)**2)
+
+        vr0(0) = -vr0(1)
 
         !Find pressure
 cc        do i=1,nxd
@@ -5784,7 +5791,7 @@ c End program
 #if defined(vec_pot)
 c findVectorPotential
 c####################################################################
-      subroutine findVectorPotential(nxg,nyg,nzg,v,b,a_cov,meth)
+      subroutine findVectorPotential(nxg,nyg,nzg,b,a_cov,meth)
 
 c--------------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
@@ -5819,7 +5826,6 @@ c Call variables
 
       integer    :: nxg,nyg,nzg
       real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,v    (ilom:ihip,jlom:jhip,klom:khip,3)
      .             ,b    (0:nxg+1,0:nyg+1,0:nzg+1,3)
       character(4) :: meth
 
