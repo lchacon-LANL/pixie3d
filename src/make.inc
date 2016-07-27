@@ -18,6 +18,7 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/OMP\
 	  $(COMMONDIR)/orbit
 
 ifeq ($(MK),t)
@@ -35,6 +36,7 @@ ifdef SAMR
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
+	    $(COMMONDIR)/OMP\
 	    $(COMMONDIR)/orbit\
 	    $(COMMONDIR)/driver-samrai
 endif
@@ -50,6 +52,7 @@ ifdef PETSC_C
 	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
+	    $(COMMONDIR)/OMP\
 	    $(COMMONDIR)/orbit
 
 ifeq ($(MK),t)
