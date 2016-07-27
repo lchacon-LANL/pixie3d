@@ -21,6 +21,7 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/OMP\
 	  $(COMMONDIR)/orbit
 
 ifeq ($(MK),t)
