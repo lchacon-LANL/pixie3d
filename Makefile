@@ -46,7 +46,7 @@ BINDIR    =$(PWD)/bin
 SUBDIRS = eq src plot
 
 REL1=3
-REL2=3.6
+REL2=3.7
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifeq ($(PIT),t)
