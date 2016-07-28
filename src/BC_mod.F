@@ -522,59 +522,105 @@ c     Default boundary conditions
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
       bbcs(:,IRHO) = bcsq
 
-      bcsq = bbcs(:,IVX)
-      where (bcsq == DEF) bcsq = DIR
-      bbcs(:,IVX) = bcsq
+      if (di > 0d0) then  !Force D_t(v x n) = 0 for energy conservation
+        bcsq = bbcs(:,IVX)
+        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
+        where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
+        bbcs(:,IVX) = bcsq
 
-      bcsq = bbcs(:,IVY)
-      if (     coords == 'cyl'
-     .    .or. coords == 'hel'
-     .    .or. coords == 'tor'
-     .    .or. coords == 'car') then
-        where (bcsq == DEF) bcsq =  NEU !On contravariant components
-      else
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
-      endif
-      bbcs(:,IVY) = bcsq
+        bcsq = bbcs(:,IVY)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
+        where (bcsq(5:6) == DEF) bcsq(5:6) =-EQU
+        bbcs(:,IVY) = bcsq
 
-      bcsq = bbcs(:,IVZ)
-      if (     coords == 'cyl'
-     .    .or. coords == 'hel'
-     .    .or. coords == 'tor'
-     .    .or. coords == 'car') then
-        where (bcsq == DEF) bcsq =  NEU !On contravariant components
+        bcsq = bbcs(:,IVZ)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) =-EQU
+        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+        bbcs(:,IVZ) = bcsq
       else
-        where (bcsq == DEF) bcsq = -NEU !On covariant components
+        bcsq = bbcs(:,IVX)
+        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
+        where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
+        bbcs(:,IVX) = bcsq
+
+        bcsq = bbcs(:,IVY)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
+        where (bcsq(5:6) == DEF) bcsq(5:6) =-NEU
+        bbcs(:,IVY) = bcsq
+
+        bcsq = bbcs(:,IVZ)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
+        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+        bbcs(:,IVZ) = bcsq
       endif
-      bbcs(:,IVZ) = bcsq
 
       call set_vec_symm_bc(bbcs(:,IVX:IVZ),-1)
 
 #if !defined(vec_pot)
       bcsq = bbcs(:,IBX)
-      where (bcsq == DEF) bcsq = DIR
+      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR
+      where (bcsq(3:6) == DEF) bcsq(3:6) = -NEU !On covariant components
       bbcs(:,IBX) = bcsq
 
       bcsq = bbcs(:,IBY)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
+      where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU  !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) = -NEU  !On covariant components
       bbcs(:,IBY) = bcsq
 
       bcsq = bbcs(:,IBZ)
-      where (bcsq == DEF) bcsq = -NEU  !On covariant components
+      where (bcsq(1:4) == DEF) bcsq(1:4) = -NEU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
       bbcs(:,IBZ) = bcsq
 
       call set_vec_symm_bc(bbcs(:,IBX:IBZ),1)
 #else
       bcsq = bbcs(:,IAX)
-      where (bcsq == DEF) bcsq = DIR   !On contravariant components
+      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR !On contravariant components
+      where (bcsq(3:6) == DEF) bcsq(3:6) = -EQU !On covariant components
       bbcs(:,IAX) = bcsq
 
       bcsq = bbcs(:,IAY)
-      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
+      where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) = -EQU !On covariant components
       bbcs(:,IAY) = bcsq
 
       bcsq = bbcs(:,IAZ)
-      where (bcsq == DEF) bcsq = -EQU  !On covariant components
+      where (bcsq(1:4) == DEF) bcsq(1:4) = -EQU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
       bbcs(:,IAZ) = bcsq
 
       call set_vec_symm_bc(bbcs(:,IAX:IAZ),-1)
@@ -679,6 +725,16 @@ cc        bbcs(2,ITMP) = NEU
 cc
 cc        bbcs(1,IVX)  = DIR
 cc        bbcs(2,IVX)  = DIR
+
+c$$$      case('khihk')
+c$$$
+c$$$        if (di > 0d0) then
+c$$$          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) =-EQU
+c$$$          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) =-EQU
+c$$$
+c$$$c$$$          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+c$$$c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
+c$$$        endif
 
       end select
 

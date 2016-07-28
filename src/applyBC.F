@@ -519,15 +519,17 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 
         case(IVECOV_N)
 
-cc          if (.not.ion_hall) call XferBCs(vecov,vecov_n,.false.)
+          if (.not.ion_hall) call XferBCs(vecov,vecov_n,.false.)
 
         case(IVCNV_N)
 
-cc          if (ion_hall) call XferBCs(vcnv,vcnv_n,.false.)
+#if !defined(plotting)
+          call XferBCs(vcnv,vcnv_n,.false.)
+#endif
 
         case(IJCNV_N)
 
-cc          if (ion_hall) call XferBCs(jcnv,jcnv_n,.false.)
+          if (ion_hall) call XferBCs(jcnv,jcnv_n,.false.)
 
         case(IVCNV)
 
@@ -543,7 +545,7 @@ c       Velocity BC
           call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
-
+ 
         case(IVCOV)   !Done when computing vcnv
 
 cc          call XformVector_BC(igr,vcnv,vcov,.false.)
@@ -979,7 +981,13 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IVCNV_N)
 
-          if (ion_hall) vcnv_n = vcnv  !Initializes for BDF2 as well
+#if defined(plotting)
+          vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
+          vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
+          vcnv_n(:,:,:,3) = u_n%array_var(IVZ)%array
+#else
+          vcnv_n = vcnv  !Initializes for BDF2 as well
+#endif
 
         case(IVECOV_N)
 
@@ -1372,15 +1380,15 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IVCNV_N)
 
-          if (ion_hall) vcnv_n  = vcnv  !Initializes for BDF2 as well
+cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
 
         case(IVECOV_N)
 
-          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
+cc          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
-          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
+cc          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
         case(IVCOV)
 
@@ -1402,7 +1410,6 @@ cc          call XformVector_BC(igr,vcnv,vcov,.false.)
      .                    varray%array_var(IVY)%array*jac
 
 #if defined(vec_pot)
-
         case(IACOV)
 
           varray%array_var(IAX)%array = acov(:,:,:,1)
