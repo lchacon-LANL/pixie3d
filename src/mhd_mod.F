@@ -290,7 +290,6 @@ c ######################################################################
      .                       ,IVCNV_N  =10
      .                       ,IVCNV_0  =11
      .                       ,IVCOV    =12
-cc     .                       ,IVCNV_NM =23
 
         integer, parameter :: IVECNV   =13
      .                       ,IVECOV   =14
@@ -325,12 +324,10 @@ cc     .                       ,IVECOV_NM=24
      .                       ,IVCNV_0 =13
      .                       ,IVCNV_N =14
      .                       ,IVCOV   =15
-cc     .                       ,IVCNV_NM=26
 
         integer, parameter :: IVECNV   =16
      .                       ,IVECOV   =17
      .                       ,IVECOV_N =18
-cc     .                       ,IVECOV_NM=27
 
         integer, parameter :: IVEFCNV =19
 
@@ -495,10 +492,6 @@ cc        vaux%vec_list(IVECNV_0)%descr = 'Ve_0 cnv'
 cc        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
 
         !Old-time variables
-cc        vaux%vec_list(IVCNV_NM)%cnv = .true.
-cc        vaux%vec_list(IVCNV_NM)%descr = 'V_nm cnv'
-cc        vcnv_nm => vaux%vec_list(IVCNV_NM)%vec
-
         vaux%vec_list(IVCNV_N)%cnv = .true.
         vaux%vec_list(IVCNV_N)%descr = 'V_n cnv'
         vaux%vec_list(IVCNV_N)%time_n= .true.
@@ -508,10 +501,6 @@ cc        vcnv_nm => vaux%vec_list(IVCNV_NM)%vec
         vaux%vec_list(IVECOV_N)%descr = 'Ve_n cov'
         vaux%vec_list(IVECOV_N)%time_n= .true.
         vecov_n => vaux%vec_list(IVECOV_N)%vec
-
-cc        vaux%vec_list(IVECOV_NM)%cnv   = .false.
-cc        vaux%vec_list(IVECOV_NM)%descr = 'Ve_nm cov'
-cc        vecov_nm => vaux%vec_list(IVECOV_NM)%vec
 
 cc        vaux%vec_list(IBCNV_N)%cnv   = .true.
 cc        vaux%vec_list(IBCNV_N)%descr = 'B_n cnv'
@@ -1034,21 +1023,11 @@ cc      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,3) = 0 !trivial
 
-cc      !V_nm cnv
-cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,1) = IVCNV*AUX
-cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,2) = VECTOR
-cc      vaux%vec_list(IVCNV_NM)%bc_dep_list(1,3) = 0 !trivial
-
       !Ve_n cnv
 cc      vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV_NM*AUX
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV*AUX
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,3) = 0 !trivial
-
-      !Ve_nm cnv
-cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,1) = IVECOV*AUX
-cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,2) = VECTOR
-cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%bc_dep_list(1,1) = IETA_0*AUX
@@ -1067,6 +1046,10 @@ cc      vaux%vec_list(IVECOV_NM)%bc_dep_list(1,3) = 0 !trivial
       vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IACOV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 1 !non-trivial
+
+      vaux%vec_list(IENI_0)%bc_dep_list(5,1) = IJCOV_0*AUX
+      vaux%vec_list(IENI_0)%bc_dep_list(5,2) = VECTOR
+      vaux%vec_list(IENI_0)%bc_dep_list(5,3) = 0 !non-trivial
 #else
       vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IJCOV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
@@ -1516,21 +1499,11 @@ cc      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,3) = 0 !trivial
 
-cc      !V_nm cnv
-cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,1) = IVCNV*AUX
-cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,2) = VECTOR
-cc      vaux%vec_list(IVCNV_NM)%dom_dep_list(1,3) = 0 !trivial
-
       !Ve_n cnv
 cc      vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV_NM*AUX
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV*AUX
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,3) = 0 !trivial
-
-cc      !Ve_nm cnv
-cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,1) = IVECOV*AUX
-cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,2) = VECTOR
-cc      vaux%vec_list(IVECOV_NM)%dom_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%dom_dep_list(1,1) = IETA_0*AUX

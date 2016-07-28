@@ -646,6 +646,7 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
 #else
         call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
+
 c     ----------------------------------------------
 c     ---------------  TEARING MODE ----------------
 c     ----------------------------------------------
