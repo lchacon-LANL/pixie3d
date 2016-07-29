@@ -128,8 +128,7 @@ c Begin program
 c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
       if (solve_rho) then
-        advc = flx_advec(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,rho,advect
-     $                  ,sp=bcSP()) !sp is for conservation
+        advc = rho_advc(i,j,k)
 
         if (dd /= 0d0) then
           diffus = dd*lap(i,j,k,nx,ny,nz,igx,igy,igz,rho)
@@ -162,10 +161,9 @@ c     Advection
 
       gm = gamma
 
-      advc=     gm    *flx_advec   (i,j,k,nx,ny,nz,igx,igy,igz
-     .                             ,vscnv,prs,advect)
-     .        +(gm-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                             ,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
+      advc=     gm    *prs_advc(i,j,k)
+     .        +(gm-1d0)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
+     .                              ,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
 
 c     Heat flux
 
@@ -256,13 +254,7 @@ c     Stress tensor: div(Pi+Pe)
 c     Advection
 
       if (nc_eom_v) then
-        if (v_advect <= 2) then
-          cnv=tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-     .                      ,v_advect)
-        else
-          cnv=tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv,v_advect)
-     .       -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igx,igy,igz,vcnv)
-        endif
+        cnv = v_advc(i,j,k,:)
 
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
