@@ -274,6 +274,9 @@ c ######################################################################
 
         use transport_params
 
+        integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
+        logical :: nc_eom_v    =.false. !Whether we use v.grad(v) instead of conserv. form
+
 #if !defined(vec_pot)
         integer, parameter :: IJCNV    =1
      .                       ,IJCNV_0  =2
@@ -369,6 +372,8 @@ cc     .                       ,IVECOV_NM=24
      .                                       ,tmp
      .                                       ,tmpe
      .                                       ,cchi
+     .                                       ,rho_advc
+     .                                       ,prs_advc
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -384,6 +389,7 @@ cc     .                                       ,vcnv_nm
      .                                       ,pcnv
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
+     .                                       ,v_advc
      .                                       ,E_ni
      .                                       ,E_ni_0
      .                                       ,E_h
@@ -643,7 +649,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,nx,ny,nz
+      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3)
 
       real(8) :: bnorm
 
@@ -665,11 +671,17 @@ cc        nz = size(tmp_0,3)-2
         allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,v_advc(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs  (0:nx+1,0:ny+1,0:nz+1))
         pcnv = 0d0
         vscnv= 0d0
         bhat = 0d0
         prs  = 0d0
+        v_advc = 0d0
+        rho_advc = 0d0
+        prs_advc = 0d0
       endif
 
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
@@ -702,6 +714,22 @@ cc        nz = size(tmp_0,3)-2
         vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
         vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
       endif
+
+      !Advection operators
+      bcs = gv%aux%vec_list(IVCNV)%bconds
+      if (nc_eom_v) then
+        v_advc= tensor_nc_advc_mesh(igr,vcnv,vcnv,bcs,v_advect,.false.)
+cc      else
+cc        call pstop('fillAuxVar'
+cc     .            ,'Parallel-safe conserv advc not implemented')
+cc        v_advc= tensor_advc_mesh(igr,vcnv,vcnv,bcs,v_advect,.false.)
+      endif
+
+      bcs(:,1) = varray%array_var(IRHO)%bconds
+      rho_advc = flx_advec_mesh(igr,vcnv,rho,advect,bcs(:,1),sp=bcSP())
+
+      bcs(:,1) = varray%array_var(ITMP)%bconds
+      prs_advc = flx_advec_mesh(igr,vscnv,prs,advect,bcs(:,1))
 
 cc      !Electron temperature
 cc      tmpe = prs/rho/a_p
@@ -1855,7 +1883,8 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,stat=istat)
+      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc
+     .          ,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -4362,13 +4391,10 @@ c ######################################################################
 
         use ts_setup
 
-        integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors
-
         logical :: bootstrap   =.false. !Whether to calculate bootstrap current
      .            ,solenoidal  =.true.  !Whether we keep B solenoidal
      .            ,nc_eom_jxb  =.false. !Whether we use JxB instead of conserv. form
      .            ,nc_eom_gp   =.false. !Whether we use grad(p) instead of conserv. form
-     .            ,nc_eom_v    =.false. !Whether we use v.grad(v) instead of conserv. form
      .            ,sym_st      =.false. !Whether to use symmetric stress tensor
      .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
      .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
@@ -5770,16 +5796,22 @@ c     Call variables
       integer :: igr
       real(8) :: vcnv  (0:,0:,0:,:)
      .          ,bcnv  (0:,0:,0:,:)
+     .          ,jcov  (0:,0:,0:,:)
+     .          ,eta2  (0:,0:,0:)
 #if defined(vec_pot)
      .          ,acov  (0:,0:,0:,:)
 #endif
-     .          ,jcov  (0:,0:,0:,:)
-     .          ,eta2  (0:,0:,0:)
 
-      real(8) :: E_res(0:size(bcnv,1)-1
-     .                ,0:size(bcnv,2)-1
-     .                ,0:size(bcnv,3)-1
-     .                ,  size(bcnv,4)  )
+      real(8) :: E_res(0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+#if defined(vec_pot)
+     .          ,acnv (0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+#endif
 
 c     Local variables
 
@@ -5788,9 +5820,9 @@ c     Local variables
 
 c     Begin program
 
-      nx = size(bcnv,1)-2
-      ny = size(bcnv,2)-2
-      nz = size(bcnv,3)-2
+      nx = size(vcnv,1)-2
+      ny = size(vcnv,2)-2
+      nz = size(vcnv,3)-2
 
       igx = igr
       igy = igr
@@ -5863,8 +5895,17 @@ cc        endif
 
 c     VxB term
 
+#if defined(vec_pot)
       E_res = E_res - crossProduct(igr,vcnv,bcnv,.true.)
-
+cc      E_res = E_res - v_x_curla(igr,vcnv,acov)
+cc      E_res = E_res 
+cc     .      + tensor_nc_advc_mesh(igr,vcnv,acov,1,v1_cov=.true.)
+cc     .      - tensor_nc_advc_mesh(igr,vcnv,acov,1,v1_cov=.true.
+cc     .                           ,transpose=.true.)
+#else
+      E_res = E_res - crossProduct(igr,vcnv,bcnv,.true.)
+#endif
+      
 c     External field
 
       E_res(:,:,:,1) = E_res(:,:,:,1) - E0(1)
@@ -5872,6 +5913,187 @@ c     External field
       E_res(:,:,:,3) = E_res(:,:,:,3) - E0(3)
 
 c     End program
+
+      contains
+
+c     v_x_curla
+c     ##############################################################
+      function v_x_curla(igr,vcnv,acov) result(cov)
+
+        implicit none
+
+        integer :: igr
+        real(8), dimension(0:,0:,0:,:) :: vcnv,acov
+        real(8) :: cov(0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+      
+        integer :: i,j,k,ip,im,jp,jm,kp,km,ig,jg,kg,nx,ny,nz
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,v(3)
+
+        nx = size(vcnv,1)-2
+        ny = size(vcnv,2)-2
+        nz = size(vcnv,3)-2
+
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+
+              call getMGmap(i,j,k,igr,igr,igr,ig,jg,kg)
+
+              ip = i+1
+              im = i-1
+              jp = j+1
+              jm = j-1
+              kp = k+1
+              km = k-1
+
+              v = vcnv(i,j,k,:)
+
+              !1st component
+c$$$              flxip = -v(2)*0.5*(acov(ip,j,k,2)+acov(i,j,k,2))
+c$$$     .                -v(3)*0.5*(acov(ip,j,k,3)+acov(i,j,k,3))
+c$$$
+c$$$              flxim = -v(2)*0.5*(acov(im,j,k,2)+acov(i,j,k,2))
+c$$$     .                -v(3)*0.5*(acov(im,j,k,3)+acov(i,j,k,3))
+
+              flxip =+0.5*(    -v(2)
+     .                    +abs(-v(2)))*acov(i ,j,k,2)
+     .               +0.5*(    -v(2)
+     .                    -abs(-v(2)))*acov(ip,j,k,2)
+     .               +0.5*(    -v(3)
+     .                    +abs(-v(3)))*acov(i ,j,k,3)
+     .               +0.5*(    -v(3)
+     .                    -abs(-v(3)))*acov(ip,j,k,3)
+              flxim =+0.5*(    -v(2)
+     .                    +abs(-v(2)))*acov(im,j,k,2)
+     .               +0.5*(    -v(2)
+     .                    -abs(-v(2)))*acov(i ,j,k,2)
+     .               +0.5*(    -v(3)
+     .                    +abs(-v(3)))*acov(im,j,k,3)
+     .               +0.5*(    -v(3)
+     .                    -abs(-v(3)))*acov(i ,j,k,3)
+
+              flxjp = 0.5*(    v(2)
+     .                    +abs(v(2)))*acov(i,j ,k,1)
+     .               +0.5*(    v(2)
+     .                    -abs(v(2)))*acov(i,jp,k,1)
+              flxjm = 0.5*(    v(2)
+     .                    +abs(v(2)))*acov(i,jm,k,1)
+     .               +0.5*(    v(2)
+     .                    -abs(v(2)))*acov(i,j ,k,1)
+
+              flxkp = 0.5*(    v(3)
+     .                    +abs(v(3)))*acov(i,j,k ,1)
+     .               +0.5*(    v(3)            
+     .                    -abs(v(3)))*acov(i,j,kp,1)
+              flxkm = 0.5*(    v(3)            
+     .                    +abs(v(3)))*acov(i,j,km,1)
+     .               +0.5*(    v(3)            
+     .                    -abs(v(3)))*acov(i,j,k ,1)
+
+              cov(i,j,k,1) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                       +(flxjp-flxjm)/grid_params%dyh(jg)
+     .                       +(flxkp-flxkm)/grid_params%dzh(kg)
+
+              !2nd component
+              flxip = 0.5*(    v(1)
+     .                    +abs(v(1)))*acov(i ,j,k,2)
+     .               +0.5*(    v(1)        
+     .                    -abs(v(1)))*acov(ip,j,k,2)
+              flxim = 0.5*(    v(1)        
+     .                    +abs(v(1)))*acov(im,j,k,2)
+     .               +0.5*(    v(1)        
+     .                    -abs(v(1)))*acov(i ,j,k,2)
+
+c$$$              flxjp = -v(1)*0.5*(acov(i,jp,k,1)+acov(i,j,k,1))
+c$$$           .          -v(3)*0.5*(acov(i,jp,k,3)+acov(i,j,k,3))
+c$$$
+c$$$              flxjm = -v(1)*0.5*(acov(i,jm,k,1)+acov(i,j,k,1))
+c$$$           .          -v(3)*0.5*(acov(i,jm,k,3)+acov(i,j,k,3))
+
+              flxjp =+0.5*(    -v(1)
+     .                    +abs(-v(1)))*acov(i,j ,k,1)
+     .               +0.5*(    -v(1)          
+     .                    -abs(-v(1)))*acov(i,jp,k,1)
+     .               +0.5*(    -v(3)          
+     .                    +abs(-v(3)))*acov(i,j ,k,3)
+     .               +0.5*(    -v(3)          
+     .                    -abs(-v(3)))*acov(i,jp,k,3)
+              flxjm =+0.5*(    -v(1)
+     .                    +abs(-v(1)))*acov(i,jm,k,1)
+     .               +0.5*(    -v(1)          
+     .                    -abs(-v(1)))*acov(i,j ,k,1)
+     .               +0.5*(    -v(3)          
+     .                    +abs(-v(3)))*acov(i,jm,k,3)
+     .               +0.5*(    -v(3)          
+     .                    -abs(-v(3)))*acov(i,j ,k,3)
+
+              flxkp = 0.5*(    v(3)
+     .                    +abs(v(3)))*acov(i,j,k ,2)
+     .               +0.5*(    v(3)            
+     .                    -abs(v(3)))*acov(i,j,kp,2)
+              flxkm = 0.5*(    v(3)            
+     .                    +abs(v(3)))*acov(i,j,km,2)
+     .               +0.5*(    v(3)            
+     .                    -abs(v(3)))*acov(i,j,k ,2)
+
+              cov(i,j,k,2) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                       +(flxjp-flxjm)/grid_params%dyh(jg)
+     .                       +(flxkp-flxkm)/grid_params%dzh(kg)
+
+              !3rd component
+              flxip = 0.5*(    v(1)
+     .                    +abs(v(1)))*acov(i ,j,k,3)
+     .               +0.5*(    v(1)        
+     .                    -abs(v(1)))*acov(ip,j,k,3)
+              flxim = 0.5*(    v(1)        
+     .                    +abs(v(1)))*acov(im,j,k,3)
+     .               +0.5*(    v(1)        
+     .                    -abs(v(1)))*acov(i ,j,k,3)
+
+              flxjp = 0.5*(    v(2)
+     .                    +abs(v(2)))*acov(i,j ,k,3)
+     .               +0.5*(    v(2)
+     .                    -abs(v(2)))*acov(i,jp,k,3)
+              flxjm = 0.5*(    v(2)
+     .                    +abs(v(2)))*acov(i,jm,k,3)
+     .               +0.5*(    v(2)
+     .                    -abs(v(2)))*acov(i,j ,k,3)
+
+c$$$              flxkp = -v(1)*0.5*(acov(i,j,kp,1)+acov(i,j,k,1))
+c$$$           .          -v(2)*0.5*(acov(i,j,kp,2)+acov(i,j,k,2))
+c$$$                                               
+c$$$              flxkm = -v(1)*0.5*(acov(i,j,km,1)+acov(i,j,k,1))
+c$$$           .          -v(2)*0.5*(acov(i,j,km,2)+acov(i,j,k,2))
+              flxkp =+0.5*(    -v(1)
+     .                    +abs(-v(1)))*acov(i,j,k ,1)
+     .               +0.5*(    -v(1)            
+     .                    -abs(-v(1)))*acov(i,j,kp,1)
+     .               +0.5*(    -v(2)            
+     .                    +abs(-v(2)))*acov(i,j,k ,2)
+     .               +0.5*(    -v(2)            
+     .                    -abs(-v(2)))*acov(i,j,kp,2)
+              flxkm =+0.5*(    -v(1)
+     .                    +abs(-v(1)))*acov(i,j,km,1)
+     .               +0.5*(    -v(1)            
+     .                    -abs(-v(1)))*acov(i,j,k ,1)
+     .               +0.5*(    -v(2)            
+     .                    +abs(-v(2)))*acov(i,j,km,2)
+     .               +0.5*(    -v(2)            
+     .                    -abs(-v(2)))*acov(i,j,k ,2)
+
+              cov(i,j,k,3) =  (flxip-flxim)/grid_params%dxh(ig)
+     .                       +(flxjp-flxjm)/grid_params%dyh(jg)
+     .                       +(flxkp-flxkm)/grid_params%dzh(kg)
+
+              cov(i,j,k,:) = -cov(i,j,k,:)
+          enddo
+        enddo
+      enddo
+      
+      end function v_x_curla
 
       end function E_fld_res
 
