@@ -307,6 +307,8 @@ c--------------------------------------------------------------------
 
       use local_BCS_variables
 
+      use ts_base
+
       implicit none
 
 c Call variables
@@ -323,14 +325,14 @@ c Local variables
      .          ,vv    (ilom:ihip,jlom:jhip,klom:khip,3)
 
       real(8) :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
-     .          ,told=0d0,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
+     .          ,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
      .          ,lvmax(3),ystar,lapjzm,lapjzp,dvm,dvp
      .          ,dl,ww=0d0,Bup=0d0,Bup0=1d0,Bdown=0d0
      .          ,x_xpt,y_xpt,z_xpt,x,y,z,xm,ym,zm,vi_out,ve_out
 
       logical :: cartsn
 
-      save    :: rfluxn,told
+      save    :: rfluxn
 
       INTERFACE
         subroutine postProcessSolution(igrid,varray)
@@ -476,20 +478,9 @@ c Magnetic divergence diagnostics
 
 c Growth rate diagnostics
 
-      do ieq=1,neqd
+      gammat = TS_growth_rate(varray,d_pert=dpert)
 
-        array = (varray%array_var(ieq)%array
-     .          -u_0   %array_var(ieq)%array )**2
-
-        dpert(ieq) = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
-
-        if (dpert(ieq).eq.0d0) then
-          dpert(ieq) = 0.1*maxval(abs(pert))
-        else
-          dpert(ieq) = sqrt(dpert(ieq))
-        endif
-
-      enddo
+      where(dpert == 0d0) dpert = 0.1*maxval(abs(pert))
 
 c Maximum ION velocity diagnostics
 
@@ -533,13 +524,12 @@ c Parallel electric field and reconnected flux diagnostic (assumes periodic dire
         rflux = maxval(Pflux(iplt,:,kplt))-minval(Pflux(iplt,:,kplt))
 #endif
 
-        if (time == told) then
+        if (time == tn) then
           Ez = 0d0
         else
-          Ez = (rflux-rfluxn)/(time-told)
+          Ez = (rflux-rfluxn)/(time-tn)
         endif
 
-        told = time
         rfluxn = rflux
 
       case('ic-hk','ic')
@@ -557,13 +547,12 @@ c Parallel electric field and reconnected flux diagnostic (assumes periodic dire
         rflux = maxval(Pflux(iplt,:,kplt))-Pflux(iplt,jplt,kplt)
 #endif
 
-        if (time == told) then
+        if (time == tn) then
           Ez = 0d0
         else
-          Ez = abs((rflux-rfluxn))/(time-told)
+          Ez = abs((rflux-rfluxn))/(time-tn)
         endif
 
-        told = time
         rfluxn = rflux
 
       case default
