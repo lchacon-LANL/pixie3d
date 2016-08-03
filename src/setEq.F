@@ -1966,18 +1966,18 @@ c     Read VMEC equilibrium
      .                            ,var(:,:,:,IRHO)
      .               ,gamma,equ_file,dcon)
 
-        if (np == 1) then
-          call curl_div_clean(igx,var(:,:,:,IBX:IBZ),.false.)
-        else
-          call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
-     .                     ,var(:,:,:,IBX:IBZ)!,w_pre_bcs=.true.
-     .                     ,gm_it=it_divcl,rtol=0.1*rtol)
-
-          if (my_rank == 0.and.ilevel == 0) then
-            write (*,*) 'VMEC divergence cleaning converged in',it_divcl
-     .               ,' its'
-          endif
-        endif
+c$$$        if (np == 1) then
+c$$$          call curl_div_clean(igx,var(:,:,:,IBX:IBZ),.false.)
+c$$$        else
+c$$$          call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
+c$$$     .                     ,var(:,:,:,IBX:IBZ)!,w_pre_bcs=.true.
+c$$$     .                     ,gm_it=it_divcl,rtol=0.1*rtol)
+c$$$
+c$$$          if (my_rank == 0.and.ilevel == 0) then
+c$$$            write (*,*) 'VMEC divergence cleaning converged in',it_divcl
+c$$$     .               ,' its'
+c$$$          endif
+c$$$        endif
 #else
         call pstop('setEquilibrium','Equilibrium not working')
 

@@ -1544,9 +1544,14 @@ c     ####################################################################
 
         implicit none
 
-        real(8)    :: xmin,xmax,x,period,ff
+c     Call variables
+
+        real(8)    :: xmin,xmax,x,ff
         integer    :: bcs(2),nh
 
+c     Local variables
+
+        real(8)    :: period
         logical    :: neumann(2),dirichlet(2),spoint(2),odd
 
 c     Begin program
@@ -1560,42 +1565,60 @@ c     Begin program
           call pstop('factor','m for r^m perturbation is zero')
         endif
 
-        period = pi
-        if (odd) period = 2*pi
-
         if (bcs(1) == PER) then
           ff = cos(nh*2*pi*(x-xmin)/(xmax-xmin))
         elseif (random) then
           call random_number(ff)
         elseif (neumann(1) .and. neumann(2)) then
+c$$$          if (odd) then
+c$$$            period = pi
+c$$$          else
+c$$$            period = 2*pi
+c$$$          endif
+          !Correct logic should be code above, but leaving this to avoid changes to old input decks
+          if (odd) then
+            period = 2*pi
+          else
+            period = pi
+          endif
           ff = cos(period*(x-xmin)/(xmax-xmin))
         elseif (neumann(1) .and. dirichlet(2)) then
           if (.not.odd) then
-            period = period/2.
+            period = pi/2.
           else
-            period = 3*period/4.
+            period = 3*pi/2.
           endif
           ff = cos(period*(x-xmin)/(xmax-xmin))
         elseif (dirichlet(1) .and. neumann(2)) then
           if (.not.odd) then
-            period = period/2.
+            period = pi/2.
           else
-            period = 3*period/4.
+            period = 3*pi/2.
           endif
           ff = sin(period*(x-xmin)/(xmax-xmin))
         elseif (spoint(1) .and. dirichlet(2)) then
+          if (odd) then
+            period = 2*pi
+          else
+            period = pi
+          endif
           ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
      .         *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))**(nh+1)
         elseif (spoint(1) .and. neumann(2)) then
           if (.not.odd) then
-            period = period/2.
+            period = pi/2.
             ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
           else
-            period = 3*period/4.
+            period = 3*pi/2.
             ff = (sin(period*(x-xmin)/(xmax-xmin)))**(nh+2) !To satisfy regularity at r=0 (r^m)
-     .        *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))
+     .           *sign(1d0,sin(period*(x-xmin)/(xmax-xmin)))
           endif
         else
+          if (odd) then
+            period = 2*pi
+          else
+            period = pi
+          endif
           ff = sin(period*(x-xmin)/(xmax-xmin))
         endif
 

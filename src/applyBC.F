@@ -462,11 +462,14 @@ c       Allocate auxiliary variables in local domain
 #if defined(vec_pot)
         case(IACOV_0)
 
-          vdum = XformVector(igr,acov_0,.true.)
-          call setBC(IAX,3,nnx,nny,nnz,vdum,acov_0,v0
-     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
-     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
-     .              ,iorder=2)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+c$$$          vdum = XformVector(igr,acov_0,.true.)
+c$$$          call setBC(IAX,3,nnx,nny,nnz,vdum,acov_0,v0
+c$$$     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
+c$$$     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
+c$$$     .              ,iorder=2)
 #endif
 
         case(IBCNV_0)

@@ -715,6 +715,7 @@ cc        nz = size(tmp_0,3)-2
         vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
       endif
 
+#if !defined(flux_rhs)
       !Advection operators
       bcs = gv%aux%vec_list(IVCNV)%bconds
       if (nc_eom_v) then
@@ -730,6 +731,7 @@ cc        v_advc= tensor_advc_mesh(igr,vcnv,vcnv,bcs,v_advect,.false.)
 
       bcs(:,1) = varray%array_var(ITMP)%bconds
       prs_advc = flx_advec_mesh(igr,vscnv,prs,advect,bcs(:,1))
+#endif
 
 cc      !Electron temperature
 cc      tmpe = prs/rho/a_p
