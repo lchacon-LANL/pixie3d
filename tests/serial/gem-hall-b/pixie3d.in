@@ -40,6 +40,7 @@
     pby      = 0.1
     pbz      = 0.
     nh2      = 1
+    odd      = f,f,f
 
     cnfactor = 0.5
     sm_flag  = 0

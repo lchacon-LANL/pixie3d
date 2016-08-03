@@ -42,6 +42,7 @@
     pay      = 0.
     paz      =-0.1
     nh2      = 1
+    odd      = f,f,f
 
     cnfactor = 0d0  !BDF
     sm_flag  = 2    !BDF2
