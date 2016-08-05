@@ -1678,26 +1678,24 @@
 
 !!$      load_metrics = metrics  !Set flag for metric elements routine
 
-      nullify(gmetric)
-
 !     Cycle grid levels
 
 !!$      igrid = 1
-      do igrid=1,grid_params%ngrid
+      do igrid=1,gv%gparams%ngrid
 
 !     Get LOCAL limits and allocate local map array
 
-        nx = grid_params%nxv(igrid)
-        ny = grid_params%nyv(igrid)
-        nz = grid_params%nzv(igrid)
+        nx = gv%gparams%nxv(igrid)
+        ny = gv%gparams%nyv(igrid)
+        nz = gv%gparams%nzv(igrid)
 
         allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-        nxg = grid_params%nxgl(igrid)
-        nyg = grid_params%nygl(igrid)
-        nzg = grid_params%nzgl(igrid)
+        nxg = gv%gparams%nxgl(igrid)
+        nyg = gv%gparams%nygl(igrid)
+        nzg = gv%gparams%nzgl(igrid)
 
         if (my_rank == 0) then
            write (*,'(a,i3,a,i3,a,i3,a,i3)') &
@@ -1761,19 +1759,19 @@
 
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
 
-!!$        ph0 = grid_params%zg(1)  !Reference phi=0 plane at phi(k=1)
+!!$        ph0 = gv%gparams%zg(1)  !Reference phi=0 plane at phi(k=1)
         ph0 = 0
 
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
               !Find local coordinates
-              r1  = grid_params%xx(ig)
-              th1 = grid_params%yy(jg)
-              ph1 = grid_params%zz(kg)
+              r1  = gv%gparams%xx(ig)
+              th1 = gv%gparams%yy(jg)
+              ph1 = gv%gparams%zz(kg)
 
               !Impose SP BCs
               if (r1 < 0d0) then
@@ -1801,10 +1799,10 @@
               v1  = mod(ph1,2*pi/nfp_i)
 
               !Extrapolate to ghost cell at psi=1 boundary (second-order)
-              if (isBdry(i-1,igrid,2)) then
-                 r1 = 0.5*(grid_params%xx(ig-1)+grid_params%xx(ig))
-                 r2 =      grid_params%xx(ig-1)
-                 r3 =      grid_params%xx(ig-2)
+              if (isBdry(gv%gparams,i-1,igrid,2)) then
+                 r1 = 0.5*(gv%gparams%xx(ig-1)+gv%gparams%xx(ig))
+                 r2 =      gv%gparams%xx(ig-1)
+                 r3 =      gv%gparams%xx(ig-2)
                  rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                                ,kx,ky,kz,rr_coef,work)                &
      &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
@@ -1827,7 +1825,7 @@
               endif
 
               !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
-              ph1 =-grid_params%zz(kg) + ph0
+              ph1 =-gv%gparams%zz(kg) + ph0
               xcar(i,j,k,1)=rr1(1)*cos(ph1)
               xcar(i,j,k,2)=rr1(1)*sin(ph1)
               xcar(i,j,k,3)=sgn*zz1(1)
@@ -1837,9 +1835,9 @@
 
 !     Fill grid metrics hierarchy
 
-        call defineGridMetric(grid_params,xcar=xcar,igr=igrid,ierr=ierr)
+        call defineGridMetric(gv%gparams,xcar=xcar,igr=igrid,ierr=ierr)
 
-        if (check_grid.and.igrid==1) call checkGrid(grid_params)
+        if (check_grid.and.igrid==1) call checkGrid(gv%gparams)
 
 !     Free work space (to allow processing of different grid levels)
 
@@ -1853,13 +1851,11 @@
 
 !     Set up gmetric pointer
 
-      gmetric => grid_params%gmetric
-
       if (ierr /= 0) then
         if (my_rank == 0) then
           write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
         endif
-!        grid_params%ngrid = igrid - 1
+!        gv%gparams%ngrid = igrid - 1
       endif
 
 !     End program
@@ -1903,7 +1899,7 @@
 !!$
 !!$!     Cycle grid levels
 !!$
-!!$      do igrid=1,grid_params%ngrid
+!!$      do igrid=1,gv%gparams%ngrid
 !!$
 !!$        if (my_rank == 0) then
 !!$           write (*,'(a,i3)') ' Reading VMEC map on grid',igrid
@@ -1911,17 +1907,17 @@
 !!$
 !!$!     Get LOCAL limits and allocate local map array
 !!$
-!!$        nx = grid_params%nxv(igrid)
-!!$        ny = grid_params%nyv(igrid)
-!!$        nz = grid_params%nzv(igrid)
+!!$        nx = gv%gparams%nxv(igrid)
+!!$        ny = gv%gparams%nyv(igrid)
+!!$        nz = gv%gparams%nzv(igrid)
 !!$
 !!$        allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
 !!$
 !!$!     Get GLOBAL limits (VMEC operates on global domain)
 !!$
-!!$        nxg = grid_params%nxgl(igrid)
-!!$        nyg = grid_params%nygl(igrid)
-!!$        nzg = grid_params%nzgl(igrid)
+!!$        nxg = gv%gparams%nxgl(igrid)
+!!$        nyg = gv%gparams%nygl(igrid)
+!!$        nzg = gv%gparams%nzgl(igrid)
 !!$
 !!$        nxs = nxg+1
 !!$
@@ -1944,12 +1940,12 @@
 !!$          do j=0,ny+1
 !!$            do i=0,nx+1
 !!$
-!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 !!$
 !!$              !Find local coordinates
-!!$              r1  = grid_params%xx(ig)
-!!$              th1 = grid_params%yy(jg)
-!!$              ph1 = grid_params%zz(kg)
+!!$              r1  = gv%gparams%xx(ig)
+!!$              th1 = gv%gparams%yy(jg)
+!!$              ph1 = gv%gparams%zz(kg)
 !!$
 !!$              !Find global limits
 !!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
@@ -1987,7 +1983,7 @@
 !!$
 !!$!     Fill grid metrics hierarchy
 !!$
-!!$        call defineGridMetric(grid_params,xcar=xcar,igr=igrid)
+!!$        call defineGridMetric(gv%gparams,xcar=xcar,igr=igrid)
 !!$
 !!$!     Free work space (to allow processing of different grid levels)
 !!$
@@ -1999,7 +1995,7 @@
 !!$
 !!$!     Set up gmetric pointer
 !!$
-!!$      gmetric => grid_params%gmetric
+!!$      gmetric => gv%gparams%gmetric
 !!$
 !!$!     End program
 !!$
@@ -2036,9 +2032,9 @@
 !!$
 !!$!     Get GLOBAL limits (VMEC operates on global domain)
 !!$
-!!$        nxg = grid_params%nxgl(igrid)
-!!$        nyg = grid_params%nygl(igrid)
-!!$        nzg = grid_params%nzgl(igrid)
+!!$        nxg = gv%gparams%nxgl(igrid)
+!!$        nyg = gv%gparams%nygl(igrid)
+!!$        nzg = gv%gparams%nzgl(igrid)
 !!$
 !!$!     Transfer metrics (from GLOBAL in VMEC to LOCAL)
 !!$
@@ -2046,7 +2042,7 @@
 !!$          do j=0,ny+1
 !!$            do i=0,nx+1
 !!$
-!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 !!$
 !!$              !Find global limits
 !!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
@@ -2160,9 +2156,9 @@
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-        nxg = grid_params%nxgl(igrid)
-        nyg = grid_params%nygl(igrid)
-        nzg = grid_params%nzgl(igrid)
+        nxg = gv%gparams%nxgl(igrid)
+        nyg = gv%gparams%nygl(igrid)
+        nzg = gv%gparams%nzgl(igrid)
 
 !     Read equilibrium file and setup arrays
 !     [Assumes solution is up-down symmetric wrt Z=0, 
@@ -2265,7 +2261,7 @@
               !Find flux functions w/ PIXIE3D convention
               jac = sqrtg(igl+1,jgl,kgl) !VMEC's half mesh jacobian, including s=sqrt(psi) transformation
 
-              bsup(i,j,k,1) = jac*bsup(i,j,k,1)/(2.*grid_params%xg(igl)) !B1=B1'/(2s)
+              bsup(i,j,k,1) = jac*bsup(i,j,k,1)/(2.*gv%gparams%xg(igl)) !B1=B1'/(2s)
               bsup(i,j,k,2) = jac*bsup(i,j,k,2)!Flux coordinate, B2=B2'
               bsup(i,j,k,3) = jac*bsup(i,j,k,3)!Flux coordinate, B3=B3'
             enddo
@@ -2356,9 +2352,9 @@
            zs(kg) = dphi*(kg-2)
         enddo
 
-!!$        xs = grid_params%xg(0:nxg+1)
-!!$        ys = grid_params%yg(0:nyg+1)
-!!$        zs = grid_params%zg(0:nzg+1)
+!!$        xs = gv%gparams%xg(0:nxg+1)
+!!$        ys = gv%gparams%yg(0:nyg+1)
+!!$        zs = gv%gparams%zg(0:nzg+1)
 
         !Spline B-field components
         allocate(b1_coef(nxs,nys,nzs)  &
@@ -2381,15 +2377,15 @@
           do j=0,ny+1
             do i=0,nx+1
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
               !Find global limits
-              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
+              call fromLocalToGlobalLimits(gv%gparams,igrid,i,j,k,igl,jgl,kgl)
 
               !Find local coordinates
-              r1  = grid_params%xx(ig)
-              th1 = grid_params%yy(jg)
-              ph1 = grid_params%zz(kg)
+              r1  = gv%gparams%xx(ig)
+              th1 = gv%gparams%yy(jg)
+              ph1 = gv%gparams%zz(kg)
 
               !Impose SP BCs
               if (r1 < 0d0) then
@@ -2417,20 +2413,20 @@
                 b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cov
                 b3(i,j,k) = (b3(i,j,k)                                        &
-     &                    -(gmetric%grid(igrid)%gsub(i,j,k,3,1)*b1(i,j,k)   &
-     &                     +gmetric%grid(igrid)%gsub(i,j,k,3,2)*b2(i,j,k))) &
-     &                    /gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
+     &                    -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*b1(i,j,k)   &
+     &                     +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*b2(i,j,k))) &
+     &                    /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
               else
                 b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cnv
               endif
 
 !This code does not work for hard stellarator cases
-!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)          &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)&
-!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)          &
-!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2       &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))         &
+!!$              b3(i,j,k) = gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)          &
+!!$     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)&
+!!$     &                  +(gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,3)          &
+!!$     &                   -gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)**2       &
+!!$     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2))         &
 !!$     &                  *db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs   &
 !!$     &                         ,kx,ky,kz,bsub3_coef,work)
 
@@ -2508,9 +2504,9 @@
 !!$
 !!$!     Get GLOBAL limits (VMEC operates on global domain)
 !!$
-!!$        nxg = grid_params%nxgl(igrid)
-!!$        nyg = grid_params%nygl(igrid)
-!!$        nzg = grid_params%nzgl(igrid)
+!!$        nxg = gv%gparams%nxgl(igrid)
+!!$        nyg = gv%gparams%nygl(igrid)
+!!$        nzg = gv%gparams%nzgl(igrid)
 !!$
 !!$!     Read equilibrium file and setup arrays
 !!$!     [VMEC++ assumes solution is up-down symmetric wrt Z=0, 
@@ -2577,7 +2573,7 @@
 !!$          do j=0,ny+1
 !!$            do i=0,nx+1
 !!$
-!!$              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+!!$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 !!$
 !!$              !Find global limits
 !!$              call fromLocalToGlobalLimits(i,j,k,igl,jgl,kgl,igrid,igrid,igrid)
@@ -2612,17 +2608,17 @@
 !!$              jac = sqrtg(igl+1,jgl,kgl)
 !!$
 !!$              !Transform b1, b2 to PIXIE's contravariant representation (b3 left covariant)
-!!$              b1(i,j,k) = jac*b1(i,j,k)*0.5/grid_params%xx(ig)  !This correction comes because here
+!!$              b1(i,j,k) = jac*b1(i,j,k)*0.5/gv%gparams%xx(ig)  !This correction comes because here
 !!$                                                                !the variable is x1=sqrt(s), s-> VMEC.
 !!$              b2(i,j,k) = jac*b2(i,j,k)   !Flux coordinate
 !!$
-!!$!!              b3(i,j,k) = gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
+!!$!!              b3(i,j,k) = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)*b3(i,j,k)
 !!$!!            Cov component               !Flux coordinate
-!!$!!              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
-!!$!!     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
-!!$!!     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
-!!$!!     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
-!!$!!     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
+!!$!!              b3(i,j,k) = gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
+!!$!!     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
+!!$!!     &                  +(gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
+!!$!!     &                   -gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
+!!$!!     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
 !!$
 !!$              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)
 !!$
@@ -2677,11 +2673,11 @@
 !!$        do k=0,nz+1
 !!$          do j=0,ny+1
 !!$            do i=0,nx+1
-!!$              b3(i,j,k) = gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
-!!$     &                  +(gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
-!!$     &                   -gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
-!!$     &                   /gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
+!!$              b3(i,j,k) = gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)            &
+!!$     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2)*b2(i,j,k)  &
+!!$     &                  +(gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,3)            &
+!!$     &                   -gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,3,2)**2         &
+!!$     &                   /gv%gparams%gmetric%grid(igrid)%gsup(i,j,k,2,2))*b3(i,j,k)
 !!$            enddo
 !!$          enddo
 !!$        enddo

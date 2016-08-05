@@ -34,11 +34,11 @@ c Local variables
 
 c Begin program
 
-      ngrd = (/ grid_params%ngrdx,grid_params%ngrdy,grid_params%ngrdz /)
+      ngrd = (/ gv%gparams%ngrdx,gv%gparams%ngrdy,gv%gparams%ngrdz /)
 
-      nx = grid_params%nxv(1)
-      ny = grid_params%nyv(1)
-      nz = grid_params%nzv(1)
+      nx = gv%gparams%nxv(1)
+      ny = gv%gparams%nyv(1)
+      nz = gv%gparams%nzv(1)
 
 c Find maximum velocity and magnetic field components (cartesian)
 

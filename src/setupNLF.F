@@ -72,9 +72,9 @@ c Interfaces
 
 c Begin program
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
 c Impose boundary conditions and find auxiliary quantities
 
@@ -141,7 +141,8 @@ c     Begin program
       if (minvg < 0d0) then
 
         if (minv < 0d0) then
-          index = globalIndex(igx,minloc(array(1:nx,1:ny,1:nz)))
+          index = globalIndex(gv%gparams,igx
+     .                       ,minloc(array(1:nx,1:ny,1:nz)))
           write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
      .              ,' global pos=',index
         endif

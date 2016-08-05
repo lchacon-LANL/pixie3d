@@ -52,9 +52,9 @@ cc      iter = 0
 cc
 cc      igr = 1
 cc
-cc      nx = grid_params%nxv(igr)
-cc      ny = grid_params%nyv(igr)
-cc      nz = grid_params%nzv(igr)
+cc      nx = gv%gparams%nxv(igr)
+cc      ny = gv%gparams%nyv(igr)
+cc      nz = gv%gparams%nzv(igr)
 cc
 ccc Predictor
 cc
@@ -151,9 +151,9 @@ c diag ****
       igy = 1
       igz = 1
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
 c Calculate CFL
 
@@ -165,33 +165,33 @@ c Calculate CFL
         do j=1,ny
           do i=1,nx
 
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
             !Maximum magnetic field norm and maximum beta
-            bnorm = vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
+            bnorm=vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:),.false.)
 
             ca2 = bnorm/rho(i,j,k)
 
             !Maximum kk
-            idx  = pi/grid_params%dx(ig)
+            idx  = pi/gv%gparams%dx(ig)
             if (nx == 1) idx = 0d0
-            idy  = pi/grid_params%dy(jg)
+            idy  = pi/gv%gparams%dy(jg)
             if (ny == 1) idy = 0d0
-            idz  = pi/grid_params%dz(kg)
+            idz  = pi/gv%gparams%dz(kg)
             if (nz == 1) idz = 0d0
 
-            k2 = vectorNorm(i,j,k,igx,(/idx,idy,idz/),.true.)
+            k2 = vectorNorm(gv%gparams,i,j,k,igx,(/idx,idy,idz/),.true.)
 
             k2max = max(k2max,k2)
 
             !k.v
-            kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+            kv_par = scalarProduct(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
      .                            ,abs(vcnv(i,j,k,:)))
 
             !(k.B/B)^2
             if (bnorm > 0d0) then
-              kb_par2 = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                               ,abs(bcnv(i,j,k,:)))**2
+              kb_par2=scalarProduct(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
+     .                             ,abs(bcnv(i,j,k,:)))**2
      .                 /bnorm
             else
               kb_par2 = 0d0
@@ -365,8 +365,6 @@ c Local variables
 c Begin program
 
       gv => patch_var
-      grid_params => gv%gparams
-      gmetric => gv%gparams%gmetric
       tmp   => gv%aux%var_list(ITMP_AUX)%array
       rho   => gv%aux%var_list(IRHO_AUX)%array
       vcnv  => gv%aux%vec_list(IVCNV)%vec
@@ -379,9 +377,9 @@ c Begin program
        igy = 1
        igz = 1
 
-       nx = grid_params%nxv(igx)
-       ny = grid_params%nyv(igy)
-       nz = grid_params%nzv(igz)
+       nx = gv%gparams%nxv(igx)
+       ny = gv%gparams%nyv(igy)
+       nz = gv%gparams%nzv(igz)
 
 c Calculate CFL
 
@@ -393,33 +391,35 @@ c Calculate CFL
          do j=1,ny
            do i=1,nx
 
-             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+             call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
              !Maximum magnetic field norm and maximum beta
-             bnorm = vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
+             bnorm = vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
+     .                         ,.false.)
 
              ca2 = bnorm/rho(i,j,k)
 
              !Maximum kk
-             idx  = pi/grid_params%dx(ig)
+             idx  = pi/gv%gparams%dx(ig)
              if (nx == 1) idx = 0d0
-             idy  = pi/grid_params%dy(jg)
+             idy  = pi/gv%gparams%dy(jg)
              if (ny == 1) idy = 0d0
-             idz  = pi/grid_params%dz(kg)
+             idz  = pi/gv%gparams%dz(kg)
              if (nz == 1) idz = 0d0
 
-             k2 = vectorNorm(i,j,k,igx,(/idx,idy,idz/),.true.)
+             k2 = vectorNorm(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
+     .                      ,.true.)
 
              k2max = max(k2max,k2)
 
              !k.v
-             kv_par = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
+             kv_par = scalarProduct(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
      .                            ,abs(vcnv(i,j,k,:)))
 
              !(k.B/B)^2
              if (bnorm > 0d0) then
-               kb_par2 = scalarProduct(i,j,k,igx,(/idx,idy,idz/)
-     .                               ,abs(bcnv(i,j,k,:)))**2
+               kb_par2 = scalarProduct(gv%gparams,i,j,k,igx
+     .                           ,(/idx,idy,idz/),abs(bcnv(i,j,k,:)))**2
      .                 /bnorm
              else
                kb_par2 = 0d0

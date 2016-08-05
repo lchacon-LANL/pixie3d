@@ -935,7 +935,7 @@ c     End subroutine
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(igrid,nx,ny,nz,bcnv,prs,eta,v0,dbcov)
+      subroutine ExB_flow_bc(g_def,igrid,bcnv,prs,eta,v0,dbcov)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -946,14 +946,16 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer :: igrid,nx,ny,nz
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,eta
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,v0
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3),optional :: dbcov
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8),dimension(0:,0:,0:)   :: prs,eta
+      real(8),dimension(0:,0:,0:,:) :: bcnv,v0
+      real(8),dimension(0:,0:,0:,:),optional :: dbcov
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ord
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
      .          ,gsub(3,3),jach
@@ -961,6 +963,10 @@ c     Local variables
 c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
+
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
 
       if (igrid /= 1) then
         write (*,*) 'ExB_flow_bc not ready for MG treatment'
@@ -973,24 +979,24 @@ c$$$      ord = 3
 c$$$
 c$$$      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
 c$$$
-c$$$      x = (/grid_params%xx(ig-3)
-c$$$     $     ,grid_params%xx(ig-2)
-c$$$     $     ,grid_params%xx(ig-1)
-c$$$     $     ,grid_params%xx(ig  )
-c$$$     $     ,grid_params%xx(ig+1)/)
+c$$$      x = (/g_def%xx(ig-3)
+c$$$     $     ,g_def%xx(ig-2)
+c$$$     $     ,g_def%xx(ig-1)
+c$$$     $     ,g_def%xx(ig  )
+c$$$     $     ,g_def%xx(ig+1)/)
 c$$$
-c$$$      xt = 0.5*(grid_params%xx(ig+1)
-c$$$     $         +grid_params%xx(ig  ))
+c$$$      xt = 0.5*(g_def%xx(ig+1)
+c$$$     $         +g_def%xx(ig  ))
 
       do k=0,nz+1
         do j=0,ny+1
-          jach = 0.5*(gmetric%grid(igrid)%jac(i+1,j,k)
-     .               +gmetric%grid(igrid)%jac(i  ,j,k))
+          jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i+1,j,k)
+     .               +g_def%gmetric%grid(igrid)%jac(i  ,j,k))
 
           bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
-          bbcov=0.5*(matmul(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+          bbcov=0.5*(matmul(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .                     ,bcnv(i  ,j,k,:))
-     .              +matmul(gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
+     .              +matmul(g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
      .                     ,bcnv(i+1,j,k,:)))
 
           b2 = dot_product(bbcnv,bbcov)/jach
@@ -1001,7 +1007,8 @@ c$$$     $         +grid_params%xx(ig  ))
               bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
             endif
 
-            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+            grad_p
+     .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
 c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
 c$$$
@@ -1011,8 +1018,8 @@ c$$$     $              ,prs(i  ,j,k)
 c$$$     $              ,prs(i+1,j,k) /)
 c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 
-            gsup = 0.5*(gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                 +gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
+            gsup = 0.5*(g_def%gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
+     .                 +g_def%gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
 
             grad_p = matmul(gsup,grad_p)
 
@@ -1036,7 +1043,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(igrid,nx,ny,nz,bcnv,prs,eta,j0)
+      subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,j0)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -1047,19 +1054,25 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
-      integer :: igrid,nx,ny,nz
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,eta
-      real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bcnv,j0
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8),dimension(0:,0:,0:)   :: prs,eta
+      real(8),dimension(0:,0:,0:,:) :: bcnv,j0
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ord
+      integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
       real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach
 
 c$$$      real(8) :: x(5),vec(4),xt(1)
 
 c     Begin program
+
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
 
       if (igrid /= 1) then
         write (*,*) 'J_pinch_bc not ready for MG treatment'
@@ -1068,18 +1081,18 @@ c     Begin program
 
       i = nx
 
-      call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
+      call getMGmap(g_def,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
 c$$$      ord = 3
 
-c$$$      x = (/grid_params%xx(ig-3)
-c$$$     $     ,grid_params%xx(ig-2)
-c$$$     $     ,grid_params%xx(ig-1)
-c$$$     $     ,grid_params%xx(ig  )
-c$$$     $     ,grid_params%xx(ig+1)/)
+c$$$      x = (/g_def%xx(ig-3)
+c$$$     $     ,g_def%xx(ig-2)
+c$$$     $     ,g_def%xx(ig-1)
+c$$$     $     ,g_def%xx(ig  )
+c$$$     $     ,g_def%xx(ig+1)/)
 c$$$
-c$$$      xt = 0.5*(grid_params%xx(ig+1)
-c$$$     $         +grid_params%xx(ig  ))
+c$$$      xt = 0.5*(g_def%xx(ig+1)
+c$$$     $         +g_def%xx(ig  ))
 
       do k=1,nz
         do j=1,ny
@@ -1093,11 +1106,11 @@ cc     $           -0.5*bcnv(i-1,j,k,:)
 c ====================
           !First-order extrapolation of B to boundary, arbitrary mesh (critical)
           bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
-     $                               /(grid_params%xx(ig)
-     $                                -grid_params%xx(ig-1))
-     $                               *(0.5*grid_params%xx(ig+1)
-     $                                +0.5*grid_params%xx(ig)
-     $                                -    grid_params%xx(ig-1))
+     $                               /(g_def%xx(ig)
+     $                                -g_def%xx(ig-1))
+     $                               *(0.5*g_def%xx(ig+1)
+     $                                +0.5*g_def%xx(ig)
+     $                                -    g_def%xx(ig-1))
 c ====================
 c$$$          vec = (/ bcnv(i-3,j,k,1)
 c$$$     $            ,bcnv(i-2,j,k,1)
@@ -1116,12 +1129,12 @@ c$$$     $            ,bcnv(i  ,j,k,3) /)
 c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
 c ====================
 
-          gsub = 0.5*(gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .               +gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
+          gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
+     .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
           bbcov = matmul(gsub,bbcnv)
 
-          jach = 0.5*(gmetric%grid(igrid)%jac(i  ,j,k)
-     .               +gmetric%grid(igrid)%jac(i+1,j,k))
+          jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
+     .               +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
           b2 = dot_product(bbcov,bbcnv)/jach
 
@@ -1130,7 +1143,8 @@ cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
 c =================
-            grad_p = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
+            grad_p
+     .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 c =================
 cc            grad_p = 0.5*(eta (i  ,j,k)
 cc     .                   *grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)

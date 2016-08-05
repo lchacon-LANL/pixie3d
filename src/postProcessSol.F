@@ -64,9 +64,9 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
 c Add random noise in EOM (to break symmetry)
 
@@ -132,7 +132,7 @@ c       Find db=B^(n+1)-B^n
 c       Clean db
 
         tol_divcl = rtol
-        call vlap_div_clean(ilevel,nx,ny,nz
+        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
      .                   ,igx,igy,igz,db_cnv,dacov=da_cov
      .                   ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
 
@@ -179,7 +179,7 @@ c Perform Lagrangian temperature step
           write (*,*) 'Performing divergence cleaning in postproc...'
         endif
 
-        call lag_init(igrid,nx,ny,nz,bcnv,2d0,ilevel
+        call lag_init(gv%gparams,igrid,bcnv,2d0,ilevel
      .               ,G_tol,sp_order,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
@@ -190,7 +190,8 @@ c Perform Lagrangian temperature step
         tmp_np = vnp%array_var(ITMP)%array
      $          /vnp%array_var(IRHO)%array
 
-        call lag_update_bdf2(igrid,ITMP,vnp%array_var(ITMP)%bconds
+        call lag_update_bdf2(gv%gparams,igrid,ITMP
+     .                      ,vnp%array_var(ITMP)%bconds
      $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel)
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
