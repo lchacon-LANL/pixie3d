@@ -37,7 +37,7 @@ c Local variables
       integer(4) :: i
       real(8)    :: kk
 
-      kk = grid_params%params(2)
+      kk = gv%gparams%params(2)
 
 c diag: dump text data
       if (time == 0d0) then
@@ -110,8 +110,8 @@ c Transform to cylindrical
         do j = jming,jmaxg
           do i = iming,imaxg
 
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
      $                     +vy_car(i,j,k)*sin(y1)
@@ -158,8 +158,8 @@ c Transform to toroidal
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
 !                    write (*,999) i,j,k,x1,y1,z1
 
@@ -233,8 +233,8 @@ c diag: dump text data
           do j=1,nyd
             do k=1,nzd
 
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
             write (1012) bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
      .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
      .                ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
