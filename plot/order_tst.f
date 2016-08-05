@@ -53,8 +53,8 @@ c Begin program
       igy = 1
       igz = 1
 
-      call deallocateGridStructure(grid_params)
-      call deallocateGridMetric(gmetric)
+      call deallocateGridStructure(gv%gparams)
+      call deallocateGridMetric(gv%gparams%gmetric)
 
 c Read reference grid info
 
@@ -79,7 +79,7 @@ cc      call createGrid(1,nxd,1,nyd,1,nzd,nxd,nyd,nzd,g_pack)
 
 
       do
-        ierr = readRecordFile(urecord,itime,time,dt,vref)
+        ierr = readRecordFile(urecord,itime,time,dt,gammat,vref)
 
         if (ierr /= 0) exit
       enddo
@@ -98,11 +98,11 @@ c Spline reference solution
 
       allocate(xx(nx),yy(ny),zz(nz))
 
-      call getMGmap(1,1,1,igx,igy,igz,ig,jg,kg)
+      call getMGmap(gv%gparams,1,1,1,igx,igy,igz,ig,jg,kg)
 
-      xx(1:nx) = grid_params%xx(ig-1:ig+nxd)
-      yy(1:ny) = grid_params%yy(jg-1:jg+nyd)
-      zz(1:nz) = grid_params%zz(kg-1:kg+nzd)
+      xx(1:nx) = gv%gparams%xx(ig-1:ig+nxd)
+      yy(1:ny) = gv%gparams%yy(jg-1:jg+nyd)
+      zz(1:nz) = gv%gparams%zz(kg-1:kg+nzd)
 
       flg = 0
 
@@ -121,8 +121,8 @@ c Spline reference solution
       call db3ink(xx,nx,yy,ny,zz,nz,array(0:nxd+1,0:nyd+1,0:nzd+1)
      .           ,nx,ny,kx,ky,kz,tx,ty,tz,bcoef,work,flg)
 
-      call deallocateGridMetric(gmetric)
-      call deallocateGridStructure(grid_params)
+      call deallocateGridMetric(gv%gparams%gmetric)
+      call deallocateGridStructure(gv%gparams)
 
 c Initialize current grid info and read current grid solution
 
@@ -147,7 +147,7 @@ cc      call createGrid(1,nxd,1,nyd,1,nzd,nxd,nyd,nzd,g_pack)
       call allocateDerivedType(vsol)
 
       do
-        ierr = readRecordFile(urecord,itime,time,dt,vsol)
+        ierr = readRecordFile(urecord,itime,time,dt,gammat,vsol)
 
         if (ierr /= 0) exit
       enddo
@@ -164,13 +164,13 @@ c Calculate difference
       do k = 1,nzd
         do j = 1,nyd
           do i = 1,nxd
-            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
-            xp = grid_params%xx(ig)
-            yp = grid_params%yy(jg)
-            zp = grid_params%zz(kg)
+            xp = gv%gparams%xx(ig)
+            yp = gv%gparams%yy(jg)
+            zp = gv%gparams%zz(kg)
 
-            jac = gmetric%grid(igx)%jac(i,j,k)
+            jac = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
             interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nx,ny,nz
      .                     ,kx,ky,kz,bcoef,work)

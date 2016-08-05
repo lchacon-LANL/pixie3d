@@ -88,9 +88,9 @@ c Begin program
       igy = iigy
       igz = iigz
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
 c Create diagnostic communicator
 
@@ -100,9 +100,11 @@ c Create diagnostic communicator
 #if defined(petsc)
         split_key = MPI_UNDEFINED
 
-        if (inProc(iplot,grid_params%jlo(igy),kplot,igx,igy,igz)) then
-          call fromGlobalToLocalLimits(iplot,grid_params%jlo(igy),kplot
-     .                                ,iplt,jplt,kplt,igx,igy,igz)
+        if (inProc(gv%gparams,iplot,gv%gparams%jlo(igy),kplot
+     .            ,igx,igy,igz)) then
+          call fromGlobalToLocalLimits(gv%gparams,igx
+     .                                ,iplot,gv%gparams%jlo(igy),kplot
+     .                                ,iplt,jplt,kplt)
           split_key = 1
         endif
 
@@ -127,11 +129,11 @@ c Create diagnostic communicator
       case default
 
         !Identify local diagnostic proc
-        isProcessor = inProc(iplot,jplot,kplot,igx,igy,igz)
+        isProcessor = inProc(gv%gparams,iplot,jplot,kplot,igx,igy,igz)
 
         if (isProcessor) then
-          call fromGlobalToLocalLimits(iplot,jplot,kplot,iplt,jplt,kplt
-     .                                ,igx,igy,igz)
+          call fromGlobalToLocalLimits(gv%gparams,igx
+     .                                ,iplot,jplot,kplot,iplt,jplt,kplt)
         endif
 
       end select
@@ -348,9 +350,9 @@ c Begin program
       igy = iigy
       igz = iigz
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
       if (init) then
         Npar0 = 0d0
@@ -377,30 +379,30 @@ c Postprocess solution
 
 c Particle diagnostics
 
-      Npar = integral(igx,igy,igz,nx,ny,nz,rho,average=.false.) - Npar0
+      Npar = integral(gv%gparams,igx,rho,average=.false.) - Npar0
 
 c Momentum diagnostics (in Cartesian coords.)
 
       array = rho*vx_car
-      Ipx = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipx0
+      Ipx = integral(gv%gparams,igx,array,average=.false.) - Ipx0
                                                         
       array = rho*vy_car
-      Ipy = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipy0
+      Ipy = integral(gv%gparams,igx,array,average=.false.) - Ipy0
                                                         
       array = rho*vz_car
-      Ipz = integral(igx,igy,igz,nx,ny,nz,array,average=.false.) - Ipz0
+      Ipz = integral(gv%gparams,igx,array,average=.false.) - Ipz0
 
 c Energy diagnostics
 
       !Magnetic energy
 
       array = (bx_car**2 + by_car**2 + bz_car**2)
-      Em = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Em = 0.5*integral(gv%gparams,igx,array,average=.false.)
 
       !Ion kinetic energy
 
       array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
-      Ek = 0.5*integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      Ek = 0.5*integral(gv%gparams,igx,array,average=.false.)
 
       !Thermal energy
 
@@ -408,7 +410,7 @@ c Energy diagnostics
 
       if (gamma /= 1d0) then
         Et = 1d0/(gamma-1)
-     .      *integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+     .      *integral(gv%gparams,igx,array,average=.false.)
       else
         Et = 0d0
       endif
@@ -419,19 +421,20 @@ c Energy diagnostics
 
 c Current diagnostics
 
-      Iz = integral(igx,igy,igz,nx,ny,nz,jz_car,average=.false.) - Iz0
+      Iz = integral(gv%gparams,igx,jz_car,average=.false.) - Iz0
 
       array =(jcnv(:,:,:,1)*jcov(:,:,:,1)
      .       +jcnv(:,:,:,2)*jcov(:,:,:,2)
-     .       +jcnv(:,:,:,3)*jcov(:,:,:,3))/gmetric%grid(igx)%jac
+     .       +jcnv(:,:,:,3)*jcov(:,:,:,3))
+     .       /gv%gparams%gmetric%grid(igx)%jac
 
-      rmsj = integral(igx,igy,igz,nx,ny,nz,array,average=.false.)
+      rmsj = integral(gv%gparams,igx,array,average=.false.)
 
       rmsj = sqrt(rmsj)
 
 c Toroidal flux diagnostics
 
-      Tflux = integral(igx,igy,igz,nx,ny,nz,bcnv(:,:,:,3)
+      Tflux = integral(gv%gparams,igx,bcnv(:,:,:,3)
      .                ,average=.false.,logical_dom=.true.)
      .      - Tflux0
 
@@ -464,17 +467,17 @@ cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0
 c Velocity divergence diagnostics
 
       !Total flow divergence (conservation of flow)
-      Vflux  = integral(igx,igy,igz,nx,ny,nz,divrgV,average=.false.)
+      Vflux  = integral(gv%gparams,igx,divrgV,average=.false.)
 
 c Magnetic divergence diagnostics
 
       !Total B divergence (conservation of flux)
-      Bflux  = integral(igx,igy,igz,nx,ny,nz,divrgB,average=.false.)
+      Bflux  = integral(gv%gparams,igx,divrgB,average=.false.)
 
       !Local divergence (statement of numerical accuracy)
       array(1:nx,1:ny,1:nz) = abs(divrgB(1:nx,1:ny,1:nz))
 
-      diverB = integral(igx,igy,igz,nx,ny,nz,array,average=.true.)
+      diverB = integral(gv%gparams,igx,array,average=.true.)
 
 c Growth rate diagnostics
 
@@ -573,14 +576,15 @@ c Reconnection region diagnostics (assumes periodic direction in Y and X-point i
 
 c       Current sheet thickness
 
-        call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                              ,x_xpt,y_xpt,z_xpt)
+        call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                              ,ig,jg,kg,x_xpt,y_xpt,z_xpt)
 
         !Find mesh point where lapjz changes sign
         j = jplt+1
-        lapjzm =lap(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
+        lapjzm =lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
         do j = jplt+2,ny
-          lapjzp = lap(i,j,k,nx,ny,nz,igx,igy,igz,jz_car(:,:,:))
+          lapjzp = lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz
+     .                ,jz_car(:,:,:))
 
           !Check whether sign changes
           if (lapjzp*lapjzm < 0d0) exit
@@ -588,10 +592,10 @@ c       Current sheet thickness
         enddo
 
         !find y*
-        call getCartesianCoordinates(i,j  ,k,igx,igy,igz,ig,jg,kg
-     .                              ,x,y ,z)
-        call getCartesianCoordinates(i,j-1,k,igx,igy,igz,ig,jg,kg
-     .                              ,x,ym,z)
+        call getCartesianCoordinates(gv%gparams,i,j  ,k,igx,igy,igz
+     .                              ,ig,jg,kg,x,y ,z)
+        call getCartesianCoordinates(gv%gparams,i,j-1,k,igx,igy,igz
+     .                              ,ig,jg,kg,x,ym,z)
 
         if (lapjzp /= lapjzm) then
           ystar = y - (y-ym)/(lapjzp-lapjzm)*lapjzm
@@ -659,7 +663,8 @@ c       Current sheet length  (assumes periodic direction in Y and X-point is at
         !Find mesh point where X-component of Ve reaches extrema
         pos(1:1) = maxloc(abs(vex(:,jplt,kplt))) ; i = pos(1)
 
-        call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg,ww,y,z)
+        call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                              ,ig,jg,kg,ww,y,z)
 
         ww = abs(ww)
 

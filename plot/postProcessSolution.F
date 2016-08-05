@@ -56,9 +56,9 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
       to_cartsn = .true.
       covariant = .false.
@@ -79,22 +79,22 @@ cc      endif
 cc      call applyBCplot(igx,varray,gv%aux,it=itime,bc_order=order_bc)
       call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
 
-c Find perturbed quantities (u_pert = varray - u_ic)
+c Find perturbed quantities (u_pert = varray - u_0)
 
-      call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
+      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_pert)
 
       !Remove Jacobian factors from perturbations
       u_pert%array_var(IRHO)%array = u_pert%array_var(IRHO)%array
-     $                              /gmetric%grid(igrid)%jac
+     $                              /gv%gparams%gmetric%grid(igrid)%jac
       u_pert%array_var(IRHO)%descr = 'Rho'
 
       u_pert%array_var(ITMP)%array = u_pert%array_var(ITMP)%array
-     $                              /gmetric%grid(igrid)%jac
+     $                              /gv%gparams%gmetric%grid(igrid)%jac
       u_pert%array_var(ITMP)%descr = 'p=pi+pe'
 
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
-     $                               /gmetric%grid(igrid)%jac
+     $                               /gv%gparams%gmetric%grid(igrid)%jac
         u_pert%array_var(IVY)%descr = 'P^2'
       endif
 
@@ -136,7 +136,7 @@ c Find Cartesian components of ALL vectors
       vx_car = vcnv(:,:,:,1)
       vy_car = vcnv(:,:,:,2)
       vz_car = vcnv(:,:,:,3)
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vx_car,vy_car,vz_car,'cnv','car')
 
 #if defined(vec_pot)
@@ -145,7 +145,7 @@ c Find Cartesian components of ALL vectors
       ax_car = acov(:,:,:,1)
       ay_car = acov(:,:,:,2)
       az_car = acov(:,:,:,3)
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,ax_car,ay_car,az_car,'cov','car')
       covariant = .false.
 #endif
@@ -154,14 +154,14 @@ c Find Cartesian components of ALL vectors
       bx_car = bcnv(:,:,:,1)
       by_car = bcnv(:,:,:,2)
       bz_car = bcnv(:,:,:,3)
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,bx_car,by_car,bz_car,'cnv','car')
 
       !Find Cartesian J components
       jx_car = jcnv(:,:,:,1)
       jy_car = jcnv(:,:,:,2)
       jz_car = jcnv(:,:,:,3)
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,jx_car,jy_car,jz_car,'cnv','car')
 
 c Return if checking sources
@@ -179,7 +179,7 @@ c Electron velocity
         vey = vecnv(:,:,:,2)
         vez = vecnv(:,:,:,3)
       endif
-      call transformVector(igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vex,vey,vez,'cnv','car')
 
 c Poloidal flux diagnostics
@@ -188,19 +188,19 @@ c Poloidal flux diagnostics
       k = 1
       do i = 0,nx+1
         j = 0
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
         if (i == 0) then
           Pflux(i,j,:) = 0d0
         else
           Pflux(i,j,:) = Pflux(i-1,j,:)
      .                 - 0.5*(bcnv(i-1,j,:,2)
-     .                       +bcnv(i  ,j,:,2))*grid_params%dx(ig-1)
+     .                       +bcnv(i  ,j,:,2))*gv%gparams%dx(ig-1)
         endif
         do j = 1,ny+1
-          call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+          call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
           Pflux(i,j,:) = Pflux(i,j-1,:)
      .                 + 0.5*(bcnv(i,j-1,:,1)
-     .                       +bcnv(i,j  ,:,1))*grid_params%dy(jg-1)
+     .                       +bcnv(i,j  ,:,1))*gv%gparams%dy(jg-1)
         enddo
       enddo
 #else
@@ -225,61 +225,64 @@ c Velocity and current intrinsic components (wrt B)
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
             !V_parallel
-            norm = sqrt(vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.))
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
+     .                            ,.false.))
 
             if (norm == 0d0) then
               vpar(i,j,k) = 0d0
             else
-              vpar(i,j,k) = scalarProduct(i,j,k,igx,bcov(i,j,k,:)
+              vpar(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
+     .                                   ,bcov(i,j,k,:)
      .                                   ,vcnv(i,j,k,:))/norm
             endif
 
             !V.grad(psi)/|grad(psi)|
-            cov = grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
-            norm = sqrt(vectorNorm(i,j,k,igx,cov,.true.))
+            cov = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cov,.true.))
 
             if (norm == 0d0) then
               vpsi(i,j,k) = 0d0
             else
-              vpsi(i,j,k) = scalarProduct(i,j,k,igx,cov
+              vpsi(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx,cov
      .                                   ,vcnv(i,j,k,:))/norm
             endif
 
             !V.(b x grad(psi))/|(b x grad(psi))|
-            cnv = crossProduct(i,j,k,igx,bcov(i,j,k,:),cov,.false.)
+            cnv = crossProduct(gv%gparams,i,j,k,igx,bcov(i,j,k,:),cov
+     .                        ,.false.)
 
-            norm = sqrt(vectorNorm(i,j,k,igx,cnv,.false.))
+            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cnv,.false.))
 
             if (norm == 0d0) then
               vperp(i,j,k) = 0d0
             else
-              vperp(i,j,k) = scalarProduct(i,j,k,igx
+              vperp(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
      .                                    ,vcov(i,j,k,:),cnv)/norm
             endif
             
 cc            !J_parallel
-cc            norm = sqrt(vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.))
+cc            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:),.false.))
 cc
 cc            if (norm == 0d0) then
 cc              jpar(i,j,k) = 0d0
 cc            else
-cc              jpar(i,j,k) = scalarProduct(i,j,k,igx
+cc              jpar(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx
 cc     .                                   ,bcov(i,j,k,:),jcnv(i,j,k,:))
 cc     .                     /norm
 cc            endif
 cc
 cc            !J.grad(psi)/|grad(psi)|
 cc            cov =  grad(i,j,k,nx,ny,nz,igx,igy,igz,Pflux)
-cc            norm = sqrt(vectorNorm(i,j,k,igx,cov,.true.))
+cc            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cov,.true.))
 cc
 cc            if (norm == 0d0) then
 cc              jpsi(i,j,k) = 0d0
 cc            else
-cc              jpsi(i,j,k) = scalarProduct(i,j,k,igx,cov,jcnv(i,j,k,:))
+cc              jpsi(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx,cov,jcnv(i,j,k,:))
 cc     .                     /norm
 cc            endif
 cccc            vpsi(i,j,k) = cov(1)
@@ -292,12 +295,12 @@ cc     .              -bcov(i,j,k,1)*cov(3)
 cc            cnv(3) = bcov(i,j,k,1)*cov(2)
 cc     .              -bcov(i,j,k,2)*cov(1)
 cc
-cc            norm = sqrt(vectorNorm(i,j,k,igx,cnv,.false.))
+cc            norm = sqrt(vectorNorm(gv%gparams,i,j,k,igx,cnv,.false.))
 cc
 cc            if (norm == 0) then
 cc              jperp(i,j,k) = 0d0
 cc            else
-cc              jperp(i,j,k) = scalarProduct(i,j,k,igx,jcov(i,j,k,:),cnv)
+cc              jperp(i,j,k) = scalarProduct(gv%gparams,i,j,k,igx,jcov(i,j,k,:),cnv)
 cc     .                       /norm
 cc            endif
           enddo
@@ -327,22 +330,22 @@ cc     .             - (0.5*(vy(i,j,k)+vy(i+1,j,k))
 cc     .               *0.5*(bz(i,j,k)+bz(i+1,j,k))
 cc     .               -0.5*(vz(i,j,k)+vz(i+1,j,k))
 cc     .               *0.5*(by(i,j,k)+by(i+1,j,k)))
-cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
-cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc     .              /0.5/(gv%gparams%gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gv%gparams%gmetric%grid(1)%jac(i+1,j,k))
 cc        ee(2) = eta*(-J0(2)+0.5*(jy_cov(i,j,k)+jy_cov(i+1,j,k)))
 cc     .             - (0.5*(vz(i,j,k)+vz(i+1,j,k))
 cc     .               *0.5*(bx(i,j,k)+bx(i+1,j,k))
 cc     .               -0.5*(vx(i,j,k)+vx(i+1,j,k))
 cc     .               *0.5*(bz(i,j,k)+bz(i+1,j,k)))
-cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
-cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc     .              /0.5/(gv%gparams%gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gv%gparams%gmetric%grid(1)%jac(i+1,j,k))
 cc        ee(3) = eta*(-J0(3)+0.5*(jz_cov(i,j,k)+jz_cov(i+1,j,k)))
 cc     .             - (0.5*(vx(i,j,k)+vx(i+1,j,k))
 cc     .               *0.5*(by(i,j,k)+by(i+1,j,k))
 cc     .               -0.5*(vy(i,j,k)+vy(i+1,j,k))
 cc     .               *0.5*(bx(i,j,k)+bx(i+1,j,k)))
-cc     .              /0.5/(gmetric%grid(1)%jac(i  ,j,k)
-cc     .                   +gmetric%grid(1)%jac(i+1,j,k))
+cc     .              /0.5/(gv%gparams%gmetric%grid(1)%jac(i  ,j,k)
+cc     .                   +gv%gparams%gmetric%grid(1)%jac(i+1,j,k))
 cc        write (*,*) 'Ohms law at',i,j,k,' = ',ee
 cc      enddo
 
@@ -372,9 +375,9 @@ c Poincare output (field tracer)
 
 c Divergence diagnostics
 
-      divrgJ = div(igx,jcnv)
-      divrgB = div(igx,bcnv)
-      divrgV = div(igx,vcnv)
+      divrgJ = div(gv%gparams,igx,jcnv)
+      divrgB = div(gv%gparams,igx,bcnv)
+      divrgV = div(gv%gparams,igx,vcnv)
 
 c Pressure
 
@@ -433,13 +436,13 @@ c     Begin program
      .         ,l00(iming:imaxg,1))
 
        if (    coords == 'hel') then
-         mm = grid_params%params(1)
-         kk = grid_params%params(2)
-         RR = grid_params%params(3)
+         mm = gv%gparams%params(1)
+         kk = gv%gparams%params(2)
+         RR = gv%gparams%params(3)
        elseif (coords == 'cyl') then
          mm = 1d0
          kk = 0d0
-         RR = grid_params%params(3)
+         RR = gv%gparams%params(3)
        else
          mm = 1d0
          kk = 0d0
@@ -456,9 +459,9 @@ c     Begin program
          ll = 0d0
          do k = kming,kmaxg-1   !Careful with the periodic limits
            do j = jming,jmaxg-1 !Careful with the periodic limits
-             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+             call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
-             dv = grid_params%dyh(jg)*grid_params%dzh(kg)
+             dv = gv%gparams%dyh(jg)*gv%gparams%dzh(kg)
 
              b00(i,1) = b00(i,1) + bcnv(i,j,k,1)*dv
              b00(i,2) = b00(i,2) + bcnv(i,j,k,2)*dv
@@ -476,9 +479,10 @@ cc                q00(i,1) = q00(i,1)
 cc     .                + bcnv(i,j,k,3)/RR
 cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
              l00(i,1) = l00(i,1)
-     .                + scalarProduct(i,j,k,igx,jcov(i,j,k,:)
+     .                + scalarProduct(gv%gparams,i,j,k,igx,jcov(i,j,k,:)
      .                               ,bcnv(i,j,k,:))
-     .                  /vectorNorm(i,j,k,igx,bcnv(i,j,k,:),.false.)
+     .                  /vectorNorm(gv%gparams,i,j,k,igx,bcnv(i,j,k,:)
+     .                             ,.false.)
      .                 *dv
 
              ll = ll + dv
@@ -610,9 +614,9 @@ c     Dump arrays
       tor = (equil == 'vmec' .or. coords == 'tor')
 
       write (uft) nxd,nyd,nzd,bcond,tor
-      write (uft) grid_params%xg  !Dump global position array
-      write (uft) grid_params%yg  !"
-      write (uft) grid_params%zg  !"
+      write (uft) gv%gparams%xg  !Dump global position array
+      write (uft) gv%gparams%yg  !"
+      write (uft) gv%gparams%zg  !"
 
       if (np > 1) then
         write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
@@ -624,8 +628,8 @@ c     Dump arrays
       write (uft) bx_car
       write (uft) by_car
       write (uft) bz_car
-      write (uft) gmetric%grid(1)%jac
-      write (uft) gmetric%grid(1)%car
+      write (uft) gv%gparams%gmetric%grid(1)%jac
+      write (uft) gv%gparams%gmetric%grid(1)%car
 
 c     Close file
 
