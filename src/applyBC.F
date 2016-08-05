@@ -1520,8 +1520,8 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer    :: ieq,dim,loc,order
-      real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
-     .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1)
+      real(8)    :: array (0:,0:,0:)
+     .             ,array0(0:,0:,0:)
 
 c     Local variables
 
@@ -1631,7 +1631,7 @@ c     End program
 
 c scalarNeumannBC
 c #####################################################################
-      subroutine scalarNeumannBC(array,array0,ieq,dim,loc)
+      subroutine scalarNeumannBC(g_def,array,array0,ieq,dim,loc)
 c ---------------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
 c        * array -> variable upon which BCs are imposed
@@ -1646,9 +1646,11 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer    :: ieq,dim,loc
-      real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
-      real(8)    :: array0(0:nxbc+1,0:nybc+1,0:nzbc+1)
+      real(8)    :: array (0:,0:,0:)
+      real(8)    :: array0(0:,0:,0:)
 
 c     Local variables
 
@@ -1939,7 +1941,7 @@ c     End program
 
 c vectorNeumannBC
 c #####################################################################
-      subroutine vectorNeumannBC(ivar,array,array0,ieq,dim,loc)
+      subroutine vectorNeumannBC(g_def,ivar,array,array0,ieq,dim,loc)
 c     -----------------------------------------------------------------
 c     Imposes neumann BC for a scalar. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -1953,9 +1955,11 @@ c     -----------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer :: ieq,dim,loc,ivar
-      real(8) :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,3)
-     .          ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
+      real(8) :: array (0:,0:,0:,:)
+     .          ,array0(0:,0:,0:,:)
 
 c     Local variables
 
@@ -2004,7 +2008,7 @@ c     Begin program
 
       rhs = 0d0  !Default
 
-      call findBCLoopLimits(gv%gparams
+      call findBCLoopLimits(g_def
      .                     ,dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
@@ -2013,7 +2017,7 @@ c     Begin program
 
         if ((.not.no_map).and.(.not.bcSYM(ibc))) then
 
-          call findBCLoopLimits(gv%gparams,dim,loc
+          call findBCLoopLimits(g_def,dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
@@ -2021,53 +2025,53 @@ c     Begin program
             do j=jmin,jmax
               do i=imin,imax
 
-                call getMGmap(gv%gparams,i,j,k,igxbc,igybc,igzbc
+                call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc
      .                       ,ig,jg,kg)
 
-                gsuper = gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+                gsuper = g_def%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 
-                hessian= gv%gparams%gmetric%grid(igxbc)
+                hessian= g_def%gmetric%grid(igxbc)
      .                     %Gamma(i,j,k,:,:,:)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*gv%gparams%dxh(ig)
-                if(         isBdry(gv%gparams,i,igxbc,1)
-     .             .and.(.not.isBC(gv%gparams,i,igxbc,1,PER)))then
-                  dh(1) = gv%gparams%dx(ig)
+                dh(1) = 2.*g_def%dxh(ig)
+                if(         isBdry(g_def,i,igxbc,1)
+     .             .and.(.not.isBC(g_def,i,igxbc,1,PER)))then
+                  dh(1) = g_def%dx(ig)
                   im = i
                 endif
-                if(         isBdry(gv%gparams,i,igxbc,2)
-     .             .and.(.not.isBC(gv%gparams,i,igxbc,2,PER)))then
-                  dh(1) = gv%gparams%dx(ig-1)
+                if(         isBdry(g_def,i,igxbc,2)
+     .             .and.(.not.isBC(g_def,i,igxbc,2,PER)))then
+                  dh(1) = g_def%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*gv%gparams%dyh(jg)
-                if(         isBdry(gv%gparams,j,igybc,3)
-     .             .and.(.not.isBC(gv%gparams,j,igybc,3,PER)))then
-                  dh(2) = gv%gparams%dy(jg)
+                dh(2) = 2.*g_def%dyh(jg)
+                if(         isBdry(g_def,j,igybc,3)
+     .             .and.(.not.isBC(g_def,j,igybc,3,PER)))then
+                  dh(2) = g_def%dy(jg)
                   jm = j
                 endif
-                if(         isBdry(gv%gparams,j,igybc,4)
-     .             .and.(.not.isBC(gv%gparams,j,igybc,4,PER)))then
-                  dh(2) = gv%gparams%dy(jg-1)
+                if(         isBdry(g_def,j,igybc,4)
+     .             .and.(.not.isBC(g_def,j,igybc,4,PER)))then
+                  dh(2) = g_def%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*gv%gparams%dzh(kg)
-                if(         isBdry(gv%gparams,k,igzbc,5)
-     .             .and.(.not.isBC(gv%gparams,k,igzbc,5,PER)))then
-                  dh(3) = gv%gparams%dz(kg)
+                dh(3) = 2.*g_def%dzh(kg)
+                if(         isBdry(g_def,k,igzbc,5)
+     .             .and.(.not.isBC(g_def,k,igzbc,5,PER)))then
+                  dh(3) = g_def%dz(kg)
                   km = k
                 endif
-                if(         isBdry(gv%gparams,k,igzbc,6)
-     .             .and.(.not.isBC(gv%gparams,k,igzbc,6,PER)))then
-                  dh(3) = gv%gparams%dz(kg-1)
+                if(         isBdry(g_def,k,igzbc,6)
+     .             .and.(.not.isBC(g_def,k,igzbc,6,PER)))then
+                  dh(3) = g_def%dz(kg-1)
                   kp = k
                 endif
 
@@ -2206,7 +2210,7 @@ c     Begin program
      .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
 
-          call solen_BC(gv%gparams,array,dim,loc,.false.,safe)
+          call solen_BC(g_def,array,dim,loc,.false.,safe)
 
         endif
 
@@ -2231,7 +2235,7 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on A
 
-          call solen_BC(gv%gparams,array,dim,loc,.true.,.true.)
+          call solen_BC(g_def,array,dim,loc,.true.,.true.)
 
         endif
 
@@ -2239,7 +2243,7 @@ c     Begin program
 
         if (ivar /= dim) then
 
-          call findBCLoopLimits(gv%gparams,dim,loc
+          call findBCLoopLimits(g_def,dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
@@ -2247,56 +2251,56 @@ c     Begin program
             do j=jmin,jmax
               do i=imin,imax
 
-                call getMGmap(gv%gparams,i,j,k,igxbc,igybc,igzbc
+                call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc
      .                       ,ig,jg,kg)
 
-                gsuper= gv%gparams%gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
-                gsupip= gv%gparams%gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
-                gsupim= gv%gparams%gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
-                gsupjp= gv%gparams%gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
-                gsupjm= gv%gparams%gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
-                gsupkp= gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
-                gsupkm= gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
+                gsuper= g_def%gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
+                gsupip= g_def%gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
+                gsupim= g_def%gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
+                gsupjp= g_def%gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
+                gsupjm= g_def%gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
+                gsupkp= g_def%gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
+                gsupkm= g_def%gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*gv%gparams%dxh(ig)
+                dh(1) = 2.*g_def%dxh(ig)
 cc                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,i,igxbc,1)) then
-                  dh(1) = gv%gparams%dx(ig)
+                if(isBdry(g_def,i,igxbc,1)) then
+                  dh(1) = g_def%dx(ig)
                   im = i
                 endif
 cc                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,i,igxbc,2)) then
-                  dh(1) = gv%gparams%dx(ig-1)
+                if(isBdry(g_def,i,igxbc,2)) then
+                  dh(1) = g_def%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*gv%gparams%dyh(jg)
+                dh(2) = 2.*g_def%dyh(jg)
 cc                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,j,igybc,3)) then
-                  dh(2) = gv%gparams%dy(jg)
+                if(isBdry(g_def,j,igybc,3)) then
+                  dh(2) = g_def%dy(jg)
                   jm = j
                 endif
 cc                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,j,igybc,4)) then
-                  dh(2) = gv%gparams%dy(jg-1)
+                if(isBdry(g_def,j,igybc,4)) then
+                  dh(2) = g_def%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*gv%gparams%dzh(kg)
+                dh(3) = 2.*g_def%dzh(kg)
 cc                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,k,igzbc,5)) then
-                  dh(3) = gv%gparams%dz(kg)
+                if(isBdry(g_def,k,igzbc,5)) then
+                  dh(3) = g_def%dz(kg)
                   km = k
                 endif
 cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(gv%gparams,k,igzbc,6)) then
-                  dh(3) = gv%gparams%dz(kg-1)
+                if(isBdry(g_def,k,igzbc,6)) then
+                  dh(3) = g_def%dz(kg-1)
                   kp = k
                 endif
 
@@ -2444,7 +2448,7 @@ cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Giv
      .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
 
-          call solen_BC(gv%gparams,array,dim,loc,.false.,safe)
+          call solen_BC(g_def,array,dim,loc,.false.,safe)
 
         endif
 

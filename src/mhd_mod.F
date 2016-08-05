@@ -4769,7 +4769,7 @@ c     End program
 
 c     EOM_jxb_x
 c     #############################################################
-      subroutine EOM_jxb_x(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_jxb_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                    ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for jxb force term in EOM.
@@ -4790,22 +4790,20 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,igx,igy,igz
+        integer    :: ig,jg,kg,ip,igr
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         ip = i+1
         if (flag == 0) ip = i
@@ -4868,7 +4866,7 @@ c     End program
 
 c     EOM_jxb_y
 c     #############################################################
-      subroutine EOM_jxb_y(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_jxb_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                    ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t21-t23 for jxb force term in EOM.
@@ -4889,22 +4887,20 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,igx,igy,igz
+        integer    :: ig,jg,kg,jp,igr
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         jp = j+1
         if (flag == 0) jp = j
@@ -4962,7 +4958,7 @@ c     End program
 
 c     EOM_jxb_z
 c     #############################################################
-      subroutine EOM_jxb_z(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_jxb_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                    ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t31-t33 for jxb force term in EOM.
@@ -4983,22 +4979,20 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,igx,igy,igz
+        integer    :: ig,jg,kg,kp,igr
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         kp = k+1
         if (flag == 0) kp = k
@@ -5155,7 +5149,7 @@ c     End program
 
 c     EOM_grad_p_x
 c     #############################################################
-      subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                       ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for force term in EOM.
@@ -5176,21 +5170,19 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,igx,igy,igz
+        integer    :: ig,jg,kg,ip,igr
         real(8)    :: x,y,z
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3,3)
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         ip = i+1
         if (flag == 0) ip = i
@@ -5230,7 +5222,7 @@ c     End program
 
 c     EOM_grad_p_y
 c     #############################################################
-      subroutine EOM_grad_p_y(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_grad_p_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                    ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t21-t23 for force term in EOM.
@@ -5251,21 +5243,19 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,igx,igy,igz
+        integer    :: ig,jg,kg,jp,igr
         real(8)    :: x,y,z
         real(8)    :: jac,ijac,ptot,gsuper(3,3)
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         jp = j+1
         if (flag == 0) jp = j
@@ -5301,7 +5291,7 @@ c     End program
 
 c     EOM_grad_p_z
 c     #############################################################
-      subroutine EOM_grad_p_z(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_grad_p_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                       ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t31-t33 for force term in EOM.
@@ -5322,21 +5312,19 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,igx,igy,igz
+        integer    :: ig,jg,kg,kp,igr
         real(8)    :: x,y,z
         real(8)    :: jac,ijac,ptot,gsuper(3,3)
 
 c     Begin program
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         kp = k+1
         if (flag == 0) kp = k
@@ -5374,7 +5362,7 @@ c     End program
 
 c     EOM_diff_x
 c     #############################################################
-      subroutine EOM_diff_x(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_diff_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                     ,t11,t12,t13,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t11-t13 for EOM. In the call
@@ -5396,13 +5384,13 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t11,t12,t13
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm,igx,igy,igz
+        integer    :: ig,jg,kg,ip,im,ipp,igpp,igp,igm,igr
         real(8)    :: x,y,z,vxp,qip,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vish,visp!,vis0,jac0,jacp,ijac0,ijacp
 
@@ -5413,9 +5401,7 @@ c     Begin program
           call pstop('EOM_diff_x','Pointers not associated')
         endif
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         ip = i+1
         if (flag == 0) ip = i
@@ -5474,7 +5460,7 @@ c     End program
 
 c     EOM_diff_y
 c     #############################################################
-      subroutine EOM_diff_y(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_diff_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                     ,t21,t22,t23,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t21-t23 for EOM. In the call
@@ -5495,13 +5481,13 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,igr,nx,ny,nz
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t21,t22,t23
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm,igx,igy,igz
+        integer    :: ig,jg,kg,jp,jm,jpp,jgpp,jgp,jgm,igr
         real(8)    :: x,y,z,vyp,qjp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vish,visp
 
@@ -5512,9 +5498,7 @@ c     Begin program
           call pstop('EOM_diff_y','Pointers not associated')
         endif
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         jp = j+1
         if (flag == 0) jp = j
@@ -5570,7 +5554,7 @@ c     End program
 
 c     EOM_diff_z
 c     #############################################################
-      subroutine EOM_diff_z(g_def,i,j,k,nx,ny,nz,igr,alt_eom
+      subroutine EOM_diff_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
      .                     ,t31,t32,t33,flag)
 c     -------------------------------------------------------------
 c     Calculates tensor components t31-t33 for EOM. In the call
@@ -5591,13 +5575,13 @@ c     Call variables
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: i,j,k,flag,nx,ny,nz,igr
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
         real(8)    :: t31,t32,t33
         logical    :: alt_eom
 
 c     Local variables
 
-        integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm,igx,igy,igz
+        integer    :: ig,jg,kg,kp,km,kpp,kgpp,kgp,kgm,igr
         real(8)    :: x,y,z,vzp,qkp,ph,nabla_v_cnv(3,3)
         real(8)    :: jac,ijac,vish,visp
 
@@ -5608,9 +5592,7 @@ c     Begin program
           call pstop('EOM_diff_z','Pointers not associated')
         endif
 
-        igx = igr
-        igy = igr
-        igz = igr
+        igr = igx
 
         kp = k+1
         if (flag == 0) kp = k
@@ -5845,11 +5827,11 @@ c     Begin program
 
       vec1 => v0
       coef => diff
-      call eom_diff_x(g_def,i,j,k,nx,ny,nz,igr,.false.
+      call eom_diff_x(g_def,i,j,k,nx,ny,nz,igr,igr,igr,.false.
      .               ,pi_tnsr(1,1),pi_tnsr(1,2),pi_tnsr(1,3),0)
-      call eom_diff_y(g_def,i,j,k,nx,ny,nz,igr,.false.
+      call eom_diff_y(g_def,i,j,k,nx,ny,nz,igr,igr,igr,.false.
      .               ,pi_tnsr(2,1),pi_tnsr(2,2),pi_tnsr(2,3),0)
-      call eom_diff_z(g_def,i,j,k,nx,ny,nz,igr,.false.
+      call eom_diff_z(g_def,i,j,k,nx,ny,nz,igr,igr,igr,.false.
      .               ,pi_tnsr(3,1),pi_tnsr(3,2),pi_tnsr(3,3),0)
       nullify(vec1,coef)
 
