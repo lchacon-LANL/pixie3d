@@ -43,15 +43,15 @@ c Local variables
 
 c Begin program
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
       call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 
-      dxx = grid_params%dxh(ig)
-      dyy = grid_params%dyh(jg)
-      dzz = grid_params%dzh(kg)
+      dxx = gv%gparams%dxh(ig)
+      dyy = gv%gparams%dyh(jg)
+      dzz = gv%gparams%dzh(kg)
 
 c Assemble fluxes
 
@@ -119,11 +119,11 @@ c Local variables
 
 c Begin program
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
-      jac = gmetric%grid(igx)%jac(i,j,k)
+      jac = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
 c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -131,7 +131,7 @@ c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         advc = rho_advc(i,j,k)
 
         if (dd /= 0d0) then
-          diffus = dd*lap(i,j,k,nx,ny,nz,igx,igy,igz,rho)
+          diffus = dd*lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,rho)
         else
           diffus = 0d0
         endif
@@ -146,7 +146,7 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 #if !defined(vec_pot)
 
       !Magnetic field
-      ff(IBX:IBZ) = curl(i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
+      ff(IBX:IBZ) = curl(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,E_ni)
 
 #else
 
@@ -162,8 +162,8 @@ c     Advection
       gm = gamma
 
       advc=     gm    *prs_advc(i,j,k)
-     .        +(gm-1d0)*flx_nc_advec(i,j,k,nx,ny,nz,igx,igy,igz
-     .                              ,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
+     .        +(gm-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
+     .                         ,igx,igy,igz,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
 
 c     Heat flux
 
@@ -172,18 +172,20 @@ c     Heat flux
       if (gamma > 1d0) then
         if (chi /= 0d0) then
           if (use_p_diff) then  !Total pressure
-            heat_flx = -lap(i,j,k,nx,ny,nz,igx,igy,igz,prs,dff=cchi)
+            heat_flx = -lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,prs
+     .                     ,dff=cchi)
           else                  !Total temperature
-            heat_flx = -lap(i,j,k,nx,ny,nz,igx,igy,igz,tmp,dff=cchi)
+            heat_flx = -lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,tmp
+     .                     ,dff=cchi)
           endif
         endif
 
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
      .              -(chi_par-chi)
-     .              *par_diff(i,j,k,nx,ny,nz,igx,igy,igz,tmpe
+     .              *par_diff(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,tmpe
      .                  ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-     .                  ,symmetric=.true.,limited=.false.,vol=.false.)
+     .                  ,"symm",vol=.false.)
         endif
       endif
 
@@ -192,22 +194,22 @@ c     Sources
       if ((.not.adiabatic).and.(gamma > 1d0)) then
         !Joule heating
         joule = eeta(i,j,k)
-     .         *scalarProduct_ijk(i,j,k,igx,jcnv(i,j,k,:)
-     .                                     ,jcov(i,j,k,:))
+     .         *scalarProduct_ijk(gv%gparams,i,j,k,igx,jcnv(i,j,k,:)
+     .                                                ,jcov(i,j,k,:))
 
         !Ion viscosity
         heat_src = joule
-     .            +viscous_heat_src(i,j,k,igx,nuu,vcnv,vcnv)
+     .            +viscous_heat_src(gv%gparams,i,j,k,igx,nuu,vcnv,vcnv)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results
         if (di > 0d0) then
           heat_src = heat_src
-     .             +viscous_heat_src(i,j,k,igx,h_eta,vefcnv,vefcnv)
+     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vefcnv,vefcnv)
         endif
 
         !External heat source
-        heat_src = heat_src + ext_heat_src(i,j,k,igx)
+        heat_src = heat_src + ext_heat_src(gv%gparams,i,j,k,igx)
 
         if (heat_src < 0d0) then
           write (*,*) 'Negative heat source'
@@ -225,21 +227,19 @@ c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 c     JxB volume force
 
       if (nc_eom_jxb) then
-        cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz
+        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
 cc     .               ,bcnv,jcnv,.true.
-     .               ,bcov,jcov,.false.
-     .               ,nc_eom_jxb)
+     .               ,bcov,jcov,.false.,nc_eom_jxb)
       else
-        cnv = EOM_jxb(i,j,k,nx,ny,nz,igx,igy,igz
-     .               ,bcnv,bcnv,.true.
-     .               ,nc_eom_jxb)
+        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
+     .               ,bcnv,bcnv,.true.,nc_eom_jxb)
       endif
 
       ff(IVX:IVZ) = -cnv
 
 c     grad(p) volume force
 
-      cnv = EOM_gp(i,j,k,nx,ny,nz,igx,igy,igz,rho,tmp,nc_eom_gp)
+      cnv = EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igx,rho,tmp,nc_eom_gp)
 
       ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
 
@@ -259,14 +259,15 @@ c     Advection
         ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
                                                     !we evolve dv/dt
       else
-        cnv = tensor_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,pcnv,v_advect)
+        cnv = tensor_advc(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz
+     .                   ,vcnv,pcnv,v_advect)
 
         ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
       endif
 
 c     Sources
 
-      MS = ext_mom_src(i,j,k,igx)
+      MS = ext_mom_src(gv%gparams,i,j,k,igx)
 
       if (nc_eom_v) then
         ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
@@ -366,11 +367,11 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,1)
-     .                             ,rho,advect)!,sp=bcSP())
+              advc = scl_advc_flx_x(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,vcnv(:,:,:,1),rho,advect)!,sp=bcSP())
 
               if (dd /= 0d0) then
-                diffus = dd*lap_flx_x_ijk(i,j,k,igr,rho)
+                diffus = dd*lap_flx_x_ijk(gv%gparams,i,j,k,igr,rho)
               else
                 diffus = 0d0
               endif
@@ -392,16 +393,18 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx = -lap_flx_x_ijk(i,j,k,igr,prs,diff=cchi)
+                heat_flx = -lap_flx_x_ijk(gv%gparams,i,j,k,igr,prs
+     .                                   ,diff=cchi)
               else
-                heat_flx = -lap_flx_x_ijk(i,j,k,igr,tmp,diff=cchi)
+                heat_flx = -lap_flx_x_ijk(gv%gparams,i,j,k,igr,tmp
+     .                                   ,diff=cchi)
               endif
             else
               heat_flx = 0d0
             endif
 
-            advc = scl_advc_flx_x(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,1)
-     .                           ,prs,advect)!,sp=bcSP())
+            advc = scl_advc_flx_x(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,vscnv(:,:,:,1),prs,advect)!,sp=bcSP())
 
             flx_x(i+1,j,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
@@ -412,8 +415,8 @@ c Begin program
                 adv_meth = v_advect
                 vec1 => vcnv
                 vec2 => vcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,tnsr_advc_x)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),tnsr_advc_x)
                 nullify(vec1,vec2)
               else
                 cnv = 0d0
@@ -427,8 +430,8 @@ c Begin program
               else
                 vec1 => bcnv
                 vec2 => bcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_jxb_x)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_jxb_x)
                 nullify(vec1,vec2)
               endif
 
@@ -440,8 +443,8 @@ c Begin program
               else
                 sc1 => rho
                 sc2 => tmp
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_grad_p_x)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_grad_p_x)
                 nullify(sc1,sc2)
               endif
 
@@ -451,8 +454,8 @@ c Begin program
               adv_meth = v_advect
               vec1 => vcnv
               vec2 => pcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_x)
+              cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,alt__eom(),tnsr_advc_x)
               nullify(vec1,vec2)
 
               flx_x(i+1,j,k,IVX:IVZ) = flx_x(i+1,j,k,IVX:IVZ) + cnv
@@ -518,11 +521,11 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,2)
-     .                             ,rho,advect)
+              advc = scl_advc_flx_y(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,vcnv(:,:,:,2),rho,advect)
 
               if (dd /= 0d0) then
-                diffus = dd*lap_flx_y_ijk(i,j,k,igr,rho)
+                diffus = dd*lap_flx_y_ijk(gv%gparams,i,j,k,igr,rho)
               else
                 diffus = 0d0
               endif
@@ -544,16 +547,18 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx = -lap_flx_y_ijk(i,j,k,igr,prs,diff=cchi)
+                heat_flx = -lap_flx_y_ijk(gv%gparams,i,j,k,igr,prs
+     .                                   ,diff=cchi)
               else
-                heat_flx = -lap_flx_y_ijk(i,j,k,igr,tmp,diff=cchi)
+                heat_flx = -lap_flx_y_ijk(gv%gparams,i,j,k,igr,tmp
+     .                                   ,diff=cchi)
               endif
             else
               heat_flx = 0d0
             endif
 
-            advc = scl_advc_flx_y(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,2)
-     .                           ,prs,advect)
+            advc = scl_advc_flx_y(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,vscnv(:,:,:,2),prs,advect)
 
             flx_y(i,j+1,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
@@ -563,8 +568,8 @@ c Begin program
                 adv_meth = v_advect
                 vec1 => vcnv
                 vec2 => vcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,tnsr_advc_y)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),tnsr_advc_y)
                 nullify(vec1,vec2)
               else
                 cnv = 0d0
@@ -578,8 +583,8 @@ c Begin program
               else
                 vec1 => bcnv
                 vec2 => bcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_jxb_y)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_jxb_y)
                 nullify(vec1,vec2)
               endif
 
@@ -591,8 +596,8 @@ c Begin program
               else
                 sc1 => rho
                 sc2 => tmp
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_grad_p_y)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_grad_p_y)
                 nullify(sc1,sc2)
               endif
 
@@ -602,8 +607,8 @@ c Begin program
               adv_meth = v_advect
               vec1 => vcnv
               vec2 => pcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_y)
+              cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,alt__eom(),tnsr_advc_y)
               nullify(vec1,vec2)
 
               flx_y(i,j+1,k,IVX:IVZ) = flx_y(i,j+1,k,IVX:IVZ) + cnv
@@ -668,11 +673,11 @@ c Begin program
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (solve_rho) then
-              advc = scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vcnv(:,:,:,3)
-     .                             ,rho,advect)
+              advc = scl_advc_flx_z(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,vcnv(:,:,:,3),rho,advect)
 
               if (dd /= 0d0) then
-                diffus = dd*lap_flx_z_ijk(i,j,k,igr,rho)
+                diffus = dd*lap_flx_z_ijk(gv%gparams,i,j,k,igr,rho)
               else
                 diffus = 0d0
               endif
@@ -694,16 +699,18 @@ c Begin program
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             if ((chi /= 0d0).and.(gamma > 1d0)) then
               if (use_p_diff) then
-                heat_flx = -lap_flx_z_ijk(i,j,k,igr,prs,diff=cchi)
+                heat_flx = -lap_flx_z_ijk(gv%gparams,i,j,k,igr,prs
+     .                                   ,diff=cchi)
               else
-                heat_flx = -lap_flx_z_ijk(i,j,k,igr,tmp,diff=cchi)
+                heat_flx = -lap_flx_z_ijk(gv%gparams,i,j,k,igr,tmp
+     .                                   ,diff=cchi)
               endif
             else
               heat_flx = 0d0
             endif
 
-            advc = scl_advc_flx_z(i,j,k,nx,ny,nz,igr,vscnv(:,:,:,3)
-     .                           ,prs,advect)
+            advc = scl_advc_flx_z(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,vscnv(:,:,:,3),prs,advect)
 
             flx_z(i,j,k+1,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
 
@@ -713,8 +720,8 @@ c Begin program
                 adv_meth = v_advect
                 vec1 => vcnv
                 vec2 => vcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,tnsr_advc_z)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),tnsr_advc_z)
                 nullify(vec1,vec2)
               else
                 cnv = 0d0
@@ -728,8 +735,8 @@ c Begin program
               else
                 vec1 => bcnv
                 vec2 => bcnv
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_jxb_z)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_jxb_z)
                 nullify(vec1,vec2)
               endif
 
@@ -741,8 +748,8 @@ c Begin program
               else
                 sc1 => rho
                 sc2 => tmp
-                cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                             ,eom_grad_p_z)
+                cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                             ,alt__eom(),eom_grad_p_z)
                 nullify(sc1,sc2)
               endif
 
@@ -752,8 +759,8 @@ c Begin program
               adv_meth = v_advect
               vec1 => vcnv
               vec2 => pcnv
-              cnv = dtnsr_flx_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_z)
+              cnv = dtnsr_flx_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                           ,alt__eom(),tnsr_advc_z)
               nullify(vec1,vec2)
 
               flx_z(i,j,k+1,IVX:IVZ) = flx_z(i,j,k+1,IVX:IVZ) + cnv
@@ -820,7 +827,7 @@ c Begin program
         do j = 1,ny
           do i = 1,nx
 
-            jac = gmetric%grid(igr)%jac(i,j,k)
+            jac = gv%gparams%gmetric%grid(igr)%jac(i,j,k)
 
             !Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
             src(i,j,k,IRHO) = 0d0
@@ -828,7 +835,8 @@ c Begin program
             !Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 #if !defined(vec_pot)
             !Magnetic field
-            src(i,j,k,IBX:IBZ) = curl(i,j,k,nx,ny,nz,igr,igr,igr,E_ni)
+            src(i,j,k,IBX:IBZ)
+     .           = curl(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,E_ni)
 #else
             !Vector potential
             src(i,j,k,IAX:IAZ) = E_ni(i,j,k,:)
@@ -841,37 +849,38 @@ c Begin program
               !(parallel piece; should be made conservative)
               if (chi_par /= chi .and.(.not.lagrangian)) then
                 heat_flx = -(chi_par-chi)
-     .              *par_diff(i,j,k,nx,ny,nz,igr,igr,igr,tmpe
+     .              *par_diff(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,tmpe
      .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-     .                   ,symmetric=.true.,limited=.false.,vol=.false.)
+     .                   ,"symm",vol=.false.)
               else
                 heat_flx = 0d0
               endif
 
               !Advection (non-conservative piece, with reversed sign for velocity)
-              advc = flx_nc_advec(i,j,k,nx,ny,nz,igr,igr,igr,vscnv,prs,1
-     .                           ,reverse=.true.)
+              advc = flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
+     .                           ,vscnv,prs,1,reverse=.true.)
 
               !Sources
               if (.not.adiabatic) then
                 !Joule heating
                 joule = eeta(i,j,k)
-     .                 *scalarProduct_ijk(i,j,k,igr,jcnv(i,j,k,:)
-     .                                             ,jcov(i,j,k,:))
+     .            *scalarProduct_ijk(gv%gparams,i,j,k,igr,jcnv(i,j,k,:)
+     .                                                   ,jcov(i,j,k,:))
 
                 !Ion viscosity
                 heat_src = joule
-     .                   +viscous_heat_src(i,j,k,igr,nuu,vcnv,vcnv)
+     .             +viscous_heat_src(gv%gparams,i,j,k,igr,nuu,vcnv,vcnv)
 
                 !Electron viscosity
                 !Comment out for old TM Hall MHD performance results
                 if (di > 0d0) then
                   heat_src = heat_src
-     .                   +viscous_heat_src(i,j,k,igr,h_eta,vefcnv,vecnv)
+     .                   +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta
+     .                                    ,vefcnv,vecnv)
                 endif
 
                 !External heat source
-                heat_src = heat_src + ext_heat_src(i,j,k,igr)
+                heat_src = heat_src + ext_heat_src(gv%gparams,i,j,k,igr)
 
                 if (heat_src < 0d0) then
                   write (*,*) 'Negative heat source'
@@ -893,12 +902,12 @@ c Begin program
             if (nc_eom_v) then
               !JxB force
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(i,j,k,nx,ny,nz,igr,igr,igr
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
 cc             .               ,bcnv,jcnv,.true.
      .                       ,bcov,jcov,.false.
      .                       ,nc_eom_jxb)
               else
-                cnv = EOM_jxb(i,j,k,nx,ny,nz,igr,igr,igr
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
      .                       ,bcnv,bcnv,.true.
      .                       ,nc_eom_jxb)
               endif
@@ -906,7 +915,8 @@ cc             .               ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = -cnv
 
               !grad(p) volume force
-              cnv = EOM_gp(i,j,k,nx,ny,nz,igr,igr,igr,rho,tmp,nc_eom_gp)
+              cnv = EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
+     .                    ,nc_eom_gp)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
@@ -916,17 +926,18 @@ cc             .               ,bcnv,jcnv,.true.
 
               !Advection
               if (v_advect <= 2) then
-                cnv= tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr,vcnv,vcnv
-     .                            ,v_advect)
+                cnv= tensor_nc_advc(gv%gparams,i,j,k,nx,ny,nz
+     .                             ,igr,igr,igr,vcnv,vcnv,v_advect)
               else
-                cnv= -vcnv(i,j,k,:)*div(i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
+                cnv= -vcnv(i,j,k,:)
+     .               *div(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,vcnv)
               endif
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)/rho(i,j,k) + cnv !1/rho factor because
                                                                        !we evolve dv/dt
 
               !Momentum source
-              MS = ext_mom_src(i,j,k,igr)
+              MS = ext_mom_src(gv%gparams,i,j,k,igr)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - MS/rho(i,j,k)
 
@@ -935,17 +946,16 @@ cc             .               ,bcnv,jcnv,.true.
             else
               !JxB
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(i,j,k,nx,ny,nz,igr,igr,igr
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
 cc     .                       ,bcnv,jcnv,.true.
-     .                       ,bcov,jcov,.false.
-     .                       ,nc_eom_jxb)
+     .                       ,bcov,jcov,.false.,nc_eom_jxb)
 
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 vec1 => bcnv
                 vec2 => bcnv
-                cnv = -dtnsr_src_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                              ,eom_jxb_x,eom_jxb_y,eom_jxb_z)
+                cnv = -dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                       ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z)
                 nullify(vec1,vec2)
               endif
 
@@ -953,14 +963,15 @@ cc     .                       ,bcnv,jcnv,.true.
 
               !Grad(p)
               if (nc_eom_gp) then
-                cnv=EOM_gp(i,j,k,nx,ny,nz,igr,igr,igr,rho,tmp,nc_eom_gp)
+                cnv=EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
+     .                    ,nc_eom_gp)
 
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 sc1 => rho
                 sc2 => tmp
-                cnv = dtnsr_src_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                          ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z)
+                cnv = dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .               ,alt__eom(),eom_grad_p_x,eom_grad_p_y,eom_grad_p_z)
                 nullify(sc1,sc2)
               endif
 
@@ -976,14 +987,14 @@ cc     .                       ,bcnv,jcnv,.true.
               adv_meth = v_advect
               vec1 => vcnv
               vec2 => pcnv
-              cnv = dtnsr_src_ijk(i,j,k,nx,ny,nz,igr,alt__eom()
-     .                           ,tnsr_advc_x,tnsr_advc_y,tnsr_advc_z)
+              cnv = dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
+     .                  ,alt__eom(),tnsr_advc_x,tnsr_advc_y,tnsr_advc_z)
               nullify(vec1,vec2)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Momentum source
-              MS = ext_mom_src(i,j,k,igr)
+              MS = ext_mom_src(gv%gparams,i,j,k,igr)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) - MS
 

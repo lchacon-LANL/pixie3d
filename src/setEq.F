@@ -122,9 +122,9 @@ c Initialize required local grid information
       igy = iigx
       igz = iigx
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
 c Label variables
      
@@ -192,8 +192,8 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         gamma = 1.6667
 
-        phi   = grid_params%params(1)   !Angle of B with x-axis, in degrees
-        beta  = grid_params%params(2)   !plasma beta
+        phi   = gv%gparams%params(1)   !Angle of B with x-axis, in degrees
+        beta  = gv%gparams%params(2)   !plasma beta
 
         phi   = phi/180.*pi             !Phi in radians
 
@@ -265,7 +265,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
           do j = jlom,jhip
             do i = ilom,ihip
 
-              jac1 = gmetric%grid(igx)%jac(i,j,k)
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = 0d0
@@ -279,7 +279,7 @@ cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
 cc
-cc              jac1 = gmetric%grid(igx)%jac(i,j,k)  !Not defined in the global domain
+cc              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)  !Not defined in the global domain
 cc
 cc              b(i,j,k,1) = 0d0
 cc              b(i,j,k,2) = 0d0
@@ -385,9 +385,9 @@ c     --------------------------------------------
 
         gamma = 2d0
 
-        eps   = grid_params%params(1)
-        sigma = grid_params%params(2)
-        x00   = grid_params%params(3)
+        eps   = gv%gparams%params(1)
+        sigma = gv%gparams%params(2)
+        x00   = gv%gparams%params(3)
 
 c     Check coordinates
 
@@ -405,8 +405,8 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
 c$$$              var(i,j,k,IRHO) = 1d0 + eps*exp(-0.5*(x1-0.75)**2/sigma**2)
 c$$$              var(i,j,k,ITMP) = 1d0 - eps*exp(-0.5*(x1-0.75)**2/sigma**2)
@@ -427,8 +427,8 @@ c$$$              var(i,j,k,ITMP) = 1d0 - eps*exp(-0.5*(x1-0.75)**2/sigma**2)
 
         gamma = 2d0
 
-        eps   = grid_params%params(1)
-        sigma = grid_params%params(2)
+        eps   = gv%gparams%params(1)
+        sigma = gv%gparams%params(2)
 
 c     Check coordinates
 
@@ -446,8 +446,8 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
               y_char = 1./6.+0.5/0.866*x1
               var(i,j,k,IRHO) = 1d0+eps*0.5*(1d0+sign(1d0,y1-y_char))
@@ -481,8 +481,8 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
               var(i,j,k,IRHO) = 1d0-0.5*(1d0+sign(1d0,x1-0.5))*0.875
               var(i,j,k,ITMP) = 1d0-0.5*(1d0+sign(1d0,x1-0.5))*0.9  !Pressure
@@ -527,8 +527,8 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
               var(i,j,k,IVY)=vperflow
      .                      *tanh((x1-0.5d0*(xmax+xmin))/dlambda)
             enddo
@@ -572,7 +572,7 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
         var(:,:,:,ITMP) = 0.5*beta/a_p  !Electron temperature
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -581,12 +581,12 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
           do j = jlom,jhip
             do i = ilom,ihip
 
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 #if !defined(vec_pot)
              bb0 = var(i,j,k,IBX:IBZ)
 #else
-             bb0 = curl(i,j,k,nx,ny,nz,igx,igy,igz,a)
+             bb0 = curl(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,a)
 #endif
              var(i,j,k,IRHO) = 2 - bb0(3)**2
 
@@ -624,8 +624,8 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
               var(i,j,k,IVY)=vperflow
      .                      *tanh((x1-0.5d0*(xmax+xmin))/dlambda)
             enddo
@@ -689,7 +689,7 @@ c     Tearing mode in cartesian coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
         var(:,:,:,IBZ)=sqrt(bz0**2 - var(:,:,:,IBY)**2)
 #else
         var(:,:,:,IAX:IAZ) = a
@@ -721,17 +721,18 @@ c     Tearing mode in sinusoidal coordinates
         bz0 = 1d0
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
 
               !X-Y equilibrium
-             gsub = gmetric%grid(igx)%gsub(i,j,k,:,:)
-             jac1 = gmetric%grid(igx)%jac (i,j,k)
+             gsub = gv%gparams%gmetric%grid(igx)%gsub(i,j,k,:,:)
+             jac1 = gv%gparams%gmetric%grid(igx)%jac (i,j,k)
 
-             bnorm= vectorNorm(i,j,k,igx,var(i,j,k,IBX:IBZ),.false.)
+             bnorm= vectorNorm(gv%gparams,i,j,k,igx,var(i,j,k,IBX:IBZ)
+     .                        ,.false.)
 
              ccc = jac1*(bz0**2 - bnorm)
              bbb = gsub(3,2)*var(i,j,k,IBY) + gsub(3,1)*var(i,j,k,IBX)
@@ -781,7 +782,7 @@ cc
 cc        do k = klo,khi
 cc          do j = jlo,jhi
 cc            do i = ilo,ihi
-cc             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc             call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                   ,x1,y1,z1)
 cc
 cc             var(i,j,k,IRHO)=1d0/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
@@ -846,8 +847,8 @@ c     GEM challenge
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
              var(i,j,k,IRHO)=1d0/cosh((x1-hlx)/dlambda)**2 + 0.2
             enddo
@@ -857,7 +858,7 @@ c     GEM challenge
 #if !defined(vec_pot)
         call fillVectorPotential(igx,a)
 
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 #else
         call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
@@ -889,8 +890,8 @@ c     Kai TM test
           do j = jlom,jhip
             do i = ilom,ihip
 
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
              var(i,j,k,IRHO)=0.5/cosh((x1-0.5d0*(xmax+xmin))/dlambda)**2
      .                      +1d0
@@ -901,7 +902,7 @@ c     Kai TM test
 #if !defined(vec_pot)
         call fillVectorPotential(igx,a)
 
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 #else
         call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
@@ -937,8 +938,8 @@ c     Tearing mode in cartesian coordinates
           do j = jlom,jhip
             do i = ilom,ihip
 
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
              var(i,j,k,IRHO)=0.5/cosh((x1-xmin)/dlambda)**2
      .                      +0.5/cosh((x1-xmax)/dlambda)**2
@@ -948,7 +949,7 @@ c     Tearing mode in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -984,8 +985,8 @@ c     Check coordinates
          do k = klom,khip
            do j = jlom,jhip
              do i = ilom,ihip
-               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                     ,x1,y1,z1)
+               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .              ,ig,jg,kg,x1,y1,z1)
 
                var(i,j,k,IRHO)=1.0d0 + 0.5d0*tanh((x1-hlx)/rshear)
                  
@@ -999,8 +1000,8 @@ c     Check coordinates
          do k = klom,khip
            do j = jlom,jhip
              do i = ilom,ihip
-               call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                     ,x1,y1,z1)
+               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .              ,ig,jg,kg,x1,y1,z1)
 
                var(i,j,k,IBX)  = 0d0                                                                       
                var(i,j,k,IBY)  = tanh((x1-hlx)/dlambda)
@@ -1017,7 +1018,7 @@ c     Check coordinates
          do k = 0,nz+1
            do j = 0,ny+1
              do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+              x1 = gv%gparams%xg(i)  !Global coordinate
               
               bg(i,j,k,1) = 0d0                                                                       
               bg(i,j,k,2) = tanh((x1-hlx)/dlambda)
@@ -1070,8 +1071,8 @@ c     Island coalescence in cartesian coordinates
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
              var(i,j,k,ITMP)=(p0 + 0.5*(1-eps**2)
      $                       /(    cosh(x1/dlambda)
@@ -1082,7 +1083,7 @@ c     Island coalescence in cartesian coordinates
         enddo
 
 #if !defined(vec_pot)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 #else
         var(:,:,:,IAX:IAZ) = a
 #endif
@@ -1117,8 +1118,8 @@ c     Island coalescence in cartesian coordinates
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                   ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
              var(i,j,k,IRHO)=(0.2
      .                      +(1-eps**2)/(     cosh(x1/dlambda)
@@ -1129,12 +1130,12 @@ c     Island coalescence in cartesian coordinates
 
 #if !defined(vec_pot)
         call fillVectorPotential(igx,a)
-        var(:,:,:,IBX:IBZ) = curl(igx,a)
+        var(:,:,:,IBX:IBZ) = curl(gv%gparams,igx,a)
 
 cc        do k = klo,khi
 cc          do j = jlo,jhi
 cc            do i = ilo,ihi
-cc             call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc             call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                   ,x1,y1,z1)
 cc
 cc             var(i,j,k,IBX)=eps
@@ -1157,9 +1158,9 @@ c     ------------------------------------------------
 
       case ('3dkai')
 
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
-        RR = grid_params%params(3)
+cc        mm = gv%gparams%params(1)
+cc        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
 
 c     Check coordinates
 
@@ -1207,8 +1208,8 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               btheta = bb*x1/(1+(x1/dlambda)**2)
               bz0    = RR
@@ -1231,7 +1232,7 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              btheta = bb*x1/(1+(x1/dlambda)**2)
 cc              bz0    = RR
@@ -1250,10 +1251,10 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
 cc      case ('3dpar')  !EQ for parallel transport test
 cc
-cccc        mm = grid_params%params(1)
-cccc        kk = grid_params%params(2)
-cc        RR = grid_params%params(3)
-cc        q0 = grid_params%params(4)
+cccc        mm = gv%gparams%params(1)
+cccc        kk = gv%gparams%params(2)
+cc        RR = gv%gparams%params(3)
+cc        q0 = gv%gparams%params(4)
 cc
 ccc     Check coordinates
 cc
@@ -1322,7 +1323,7 @@ cc
 cccc        do k = 0,nzdp
 cccc          do j = 0,nydp
 cccc            do i = 0,nxdp
-cccc              x1 = grid_params%xg(i)  !Global coordinate
+cccc              x1 = gv%gparams%xg(i)  !Global coordinate
 cccc
 cccc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
 cccc
@@ -1351,10 +1352,10 @@ cc#endif
 
       case ('3drfp')
 
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        aa = grid_params%params(4)
+cc        mm = gv%gparams%params(1)
+cc        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        aa = gv%gparams%params(4)
 
 c     Check coordinates
 
@@ -1396,8 +1397,8 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -1416,7 +1417,7 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              bb     = (dlambda**2+aa)
 cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -1450,10 +1451,10 @@ c     Check coordinates
 
 c     RFP equilibria (analytical)
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        aa = grid_params%params(4)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        aa = gv%gparams%params(4)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1474,8 +1475,8 @@ c     RFP equilibria (analytical)
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -1497,7 +1498,7 @@ c     RFP equilibria (analytical)
           do j = 0,ny+1
             do i = 0,nxdp
 
-              x1 = grid_params%xg(i)  !Global coordinate
+              x1 = gv%gparams%xg(i)  !Global coordinate
 
               bb     = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -1521,10 +1522,10 @@ c     RFP equilibria (analytical)
 
 c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        q0 = grid_params%params(4)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        q0 = gv%gparams%params(4)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1551,8 +1552,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
@@ -1570,7 +1571,7 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
 cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
@@ -1611,9 +1612,9 @@ cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
 
 c     Tokamak equilibria (analytical)
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
 
         Iz           = 2.22
         bb           = 0.5*Iz
@@ -1632,8 +1633,8 @@ c     Tokamak equilibria (analytical)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               btheta = bb*x1/(1+(x1/dlambda)**2)
               bz0    = RR
@@ -1655,7 +1656,7 @@ c     Tokamak equilibria (analytical)
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              btheta = bb*x1/(1+(x1/dlambda)**2)
 cc              bz0    = RR
@@ -1683,9 +1684,9 @@ c     Check coordinates
 
 c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1696,7 +1697,7 @@ c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
         beta = 0d0
 
         do i=0,nxdp
-          x1  = grid_params%xg(i)
+          x1  = gv%gparams%xg(i)
           p00(i) = 2d-5
           q00(i) = RR*qprof(x1)
         enddo
@@ -1718,10 +1719,10 @@ c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              iglobal = i + grid_params%ilo(igx) - 1
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
@@ -1738,7 +1739,7 @@ c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              b(i,j,k,1) = 0d0
 cc              b(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
@@ -1756,11 +1757,11 @@ cc     .                          ,var(:,:,:,IAX:IAZ))
 
         bootstrap= .true.
 
-        mm   = grid_params%params(1) !Poloidal mode number
-        kk   = grid_params%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
-        RR   = grid_params%params(3) !Major radius (determines aspect ratio)
-        bz0  = grid_params%params(4) !Toroidal field at magnetic axis
-        beta = grid_params%params(5) !Beta toroidal
+        mm   = gv%gparams%params(1) !Poloidal mode number
+        kk   = gv%gparams%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
+        RR   = gv%gparams%params(3) !Major radius (determines aspect ratio)
+        bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
+        beta = gv%gparams%params(5) !Beta toroidal
 
         nh2 = mm  !To set the right perturbation wavelength
         nh1 = nh2 !For perturbations to be of the right order
@@ -1776,7 +1777,7 @@ c     Equilibria (numerical)
 
         !Find pressure and q-profiles
         do i=0,nxdp
-          x1  = grid_params%xg(i)
+          x1  = gv%gparams%xg(i)
           p00(i) = 0.5*beta*bz0**2*pprof(x1,0)/pprof(0d0,0)
           q00(i) = RR*qprof(x1)
         enddo
@@ -1797,10 +1798,10 @@ c     Equilibria (numerical)
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              iglobal = i + grid_params%ilo(igx) - 1
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
@@ -1820,7 +1821,7 @@ cc
 cc        do k = 0,nzdp
 cc          do j = 0,nydp
 cc            do i = 0,nxdp
-cc              x1 = grid_params%xg(i)  !Global coordinate
+cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
 cc              bg(i,j,k,1) = 0d0
 cc              bg(i,j,k,2) = bth0(i) + kk*x1/nh2*bzz0(i)
@@ -1840,10 +1841,10 @@ cc      case ('3dtok')
 cc
 ccc     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 cc
-cc        RR = grid_params%params(1)
-cccc        mm = grid_params%params(4)
-cccc        nn = grid_params%params(5)
-cc        q0 = grid_params%params(6)
+cc        RR = gv%gparams%params(1)
+cccc        mm = gv%gparams%params(4)
+cccc        nn = gv%gparams%params(5)
+cc        q0 = gv%gparams%params(6)
 cc
 cc        kk = 0d0   !To avoid affecting q-profile
 cc
@@ -1891,13 +1892,13 @@ cc
 cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
 cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 cc
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                    ,x1,y1,z1)
 cc
 cc              !X-Y equilibrium
 cc              var(i,j,k,IBX)  = 0d0
 cc              var(i,j,k,IBY)  = btheta
-cc              var(i,j,k,IBZ)  = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
+cc              var(i,j,k,IBZ)  = gv%gparams%gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
 cc            enddo
 cc          enddo
 cc        enddo
@@ -1914,13 +1915,13 @@ cccc
 cccc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
 cccc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 cccc
-cccc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                    ,x1,y1,z1)
 cccc
 cccc              !X-Y equilibrium
 cccc              b(i,j,k,1) = 0d0
 cccc              b(i,j,k,2) = btheta
-cccc              b(i,j,k,3) = gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
+cccc              b(i,j,k,3) = gv%gparams%gmetric%grid(igx)%gsup(i,j,k,3,3)*bz0
 cccc            enddo
 cccc          enddo
 cccc        enddo
@@ -2009,14 +2010,14 @@ c     --------------------------------------------------
 
       case ('ppnch','ppnsl','ppnst')
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        theta_ppnch = grid_params%params(4)
-        e0_over_eta = grid_params%params(5)
-        beta        = grid_params%params(6)
-        m0_over_nu  = grid_params%params(7)
-        pw = grid_params%params(8)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        theta_ppnch = gv%gparams%params(4)
+        e0_over_eta = gv%gparams%params(5)
+        beta        = gv%gparams%params(6)
+        m0_over_nu  = gv%gparams%params(7)
+        pw = gv%gparams%params(8)
 
         if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
@@ -2070,7 +2071,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           !Find pressure and q-profiles
           do i=0,nxdp
-            x1  = grid_params%xg(i)
+            x1  = gv%gparams%xg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
@@ -2105,7 +2106,7 @@ c$$$          endif
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
+          vz0 = m0_over_nu*0.25*(1-gv%gparams%xg**2)
 
           !Find momentum source (cylindrical)
           M0(1:2) = 0d0
@@ -2120,7 +2121,7 @@ c$$$          endif
         if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
           do i=0,nxdp
-            x1 = grid_params%xg(i) !Global coordinate
+            x1 = gv%gparams%xg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
      .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),p00(i)
           enddo
@@ -2135,10 +2136,10 @@ c$$$          endif
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              iglobal = i + grid_params%ilo(igx) - 1
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
@@ -2170,7 +2171,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           do j = 0,ny+1
             do i = 0,nxdp
 
-              x1 = grid_params%xg(i)  !Global coordinate
+              x1 = gv%gparams%xg(i)  !Global coordinate
 
               bg(i,j,k,1) = 0d0
               bg(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
@@ -2187,12 +2188,12 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
       case ('2dhel')
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        theta_ppnch = grid_params%params(4)
-        e0_over_eta = grid_params%params(5)
-        beta = grid_params%params(6)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        theta_ppnch = gv%gparams%params(4)
+        e0_over_eta = gv%gparams%params(5)
+        beta = gv%gparams%params(6)
 
         if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
@@ -2221,7 +2222,7 @@ c     Initial guess: 1D equilibrium
         endif
 
         do i=0,nx+1
-          iglobal = i + grid_params%ilo(igx) - 1
+          iglobal = i + gv%gparams%ilo(igx) - 1
           var(i,:,:,IBY) = bth0(iglobal)
           var(i,:,:,IBZ) = bzz0(iglobal)
         enddo
@@ -2287,7 +2288,7 @@ c     Density and temperature
         do k = 0,nz+1
           do j = 0,ny+1
             do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+              x1 = gv%gparams%xg(i)  !Global coordinate
 
               bg(i,j,k,1) = 0d0
               bg(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
@@ -2304,14 +2305,14 @@ c     Density and temperature
 
       case ('ppn3d','p3nsl')
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
-        RR = grid_params%params(3)
-        theta_ppnch = grid_params%params(4)
-        e0_over_eta = grid_params%params(5)
-        beta        = grid_params%params(6)
-        m0_over_nu  = grid_params%params(7)
-        pw = grid_params%params(8)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
+        RR = gv%gparams%params(3)
+        theta_ppnch = gv%gparams%params(4)
+        e0_over_eta = gv%gparams%params(5)
+        beta        = gv%gparams%params(6)
+        m0_over_nu  = gv%gparams%params(7)
+        pw = gv%gparams%params(8)
 
         if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
         if (nh3 == 0) nh3 = nint(kk*RR)    !To set the right perturbation wavelength
@@ -2374,7 +2375,7 @@ c     Equilibria (numerical)
 
           !Find pressure and q-profiles
           do i=0,nxdp
-            x1  = grid_params%xg(i)
+            x1  = gv%gparams%xg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
@@ -2398,7 +2399,7 @@ c     Equilibria (numerical)
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-grid_params%xg**2)
+          vz0 = m0_over_nu*0.25*(1-gv%gparams%xg**2)
 
           !Find momentum source (cylindrical)
           M0(1:2) = 0d0
@@ -2413,7 +2414,7 @@ c     Equilibria (numerical)
         if (my_rank == 0) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,vz0'
           do i=0,nxdp
-            x1 = grid_params%xg(i) !Global coordinate
+            x1 = gv%gparams%xg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
      .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
           enddo
@@ -2433,10 +2434,10 @@ cc        stop
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                      ,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              iglobal = i + grid_params%ilo(igx) - 1
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
@@ -2471,7 +2472,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         do k = 0,nz+1
           do j = 0,ny+1
             do i = 0,nxdp
-              x1 = grid_params%xg(i)  !Global coordinate
+              x1 = gv%gparams%xg(i)  !Global coordinate
 
               bg(i,j,k,1) = 0d0
               bg(i,j,k,2) = bth0(i)
@@ -2489,13 +2490,13 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
       case ('ohtor')
 
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
-        RR  = grid_params%params(1)            !Major radius
-        aa  = grid_params%params(2)            !Horizontal elliptical radius
-        mm  = grid_params%params(4)            !m mode
-        nn  = grid_params%params(5)            !n mode
-        e0_over_eta = grid_params%params(6)*RR !Covariant component is constant, needs RR factor
-        beta= grid_params%params(7)            !Toroidal beta
-        pw  = grid_params%params(8)            !Pressure at wall
+        RR  = gv%gparams%params(1)            !Major radius
+        aa  = gv%gparams%params(2)            !Horizontal elliptical radius
+        mm  = gv%gparams%params(4)            !m mode
+        nn  = gv%gparams%params(5)            !n mode
+        e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
+        beta= gv%gparams%params(7)            !Toroidal beta
+        pw  = gv%gparams%params(8)            !Pressure at wall
         
         kk = 0d0   !To avoid affecting q-profile
 
@@ -2565,11 +2566,11 @@ c Find momentum components
 
 c Apply Jacobian factors
 
-      var(:,:,:,IRHO) = var(:,:,:,IRHO)*gmetric%grid(iigx)%jac
-      var(:,:,:,ITMP) = var(:,:,:,ITMP)*gmetric%grid(iigx)%jac
+      var(:,:,:,IRHO) =var(:,:,:,IRHO)*gv%gparams%gmetric%grid(iigx)%jac
+      var(:,:,:,ITMP) =var(:,:,:,ITMP)*gv%gparams%gmetric%grid(iigx)%jac
 
       if (alt__eom()) then
-        var(:,:,:,IVY) = var(:,:,:,IVY)*gmetric%grid(iigx)%jac
+        var(:,:,:,IVY) =var(:,:,:,IVY)*gv%gparams%gmetric%grid(iigx)%jac
       endif
 
 c Transfer equilibrium to varray
@@ -2644,8 +2645,8 @@ c       Initialize iteration
 
         !Find half-mesh positions
         do i=0,nxd
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
+          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
         enddo
 
         !Average pressure and q-profiles to half mesh
@@ -2662,7 +2663,7 @@ cc          !Perform integral of B_z/qprof on half-mesh
 cc          dummy(0) = 0d0
 cc          bzz0 (0) = bz0
 cc          do i=1,nxd
-cc            rh  = grid_params%xg(i)
+cc            rh  = gv%gparams%xg(i)
 cc
 cc            bzh = 0.5*(bzz0(i)+bzz0(i-1))
 cc
@@ -2672,7 +2673,7 @@ cc          enddo
           !Perform integral of B_th^2/r on half-mesh
           dummy(0) = 0d0
           do i=1,nxd
-            rh  = grid_params%xg(i)
+            rh  = gv%gparams%xg(i)
             bth = 0.5*(bth0(i)+bth0(i-1))
             dummy(i) = dummy(i-1) + 2*bth**2/rh*dr(i)
           enddo
@@ -2693,7 +2694,7 @@ cc          enddo
           !Check convergence (force balance)
           gs_err = 0d0
           do i=1,nxd
-            rh  = grid_params%xg(i)
+            rh  = gv%gparams%xg(i)
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
@@ -2724,7 +2725,7 @@ cc     $                 +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1)))**2
 
 cc        !Check force balance
 cc        do i=1,nxd
-cc          rh  = grid_params%xg(i)
+cc          rh  = gv%gparams%xg(i)
 cc
 cc          bzh = 0.5*(bzz0(i)+bzz0(i-1))
 cc          bth = 0.5*(bth0(i)+bth0(i-1))
@@ -2759,18 +2760,18 @@ cc        endif
         endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
-        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+        eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
         eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Transfer to integer mesh
         call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bth0 = dummy
 
         call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bzz0 = dummy
 
@@ -2783,11 +2784,11 @@ cc        endif
         if (my_rank == 0 .and. equil == 'ntm2d') then
           open(unit=123,file='ntm2d.txt',status='unknown')
           write (123,*) nxdp+1
-          write (123,*) grid_params%xg(0:nxdp)
+          write (123,*) gv%gparams%xg(0:nxdp)
           write (123,*) bth0
           write (123,*) bzz0
           write (123,*) 0.5*p0
-          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
           close(123)
 cc          stop
         endif
@@ -2861,8 +2862,8 @@ c       Initialize iteration
 
         !Find half-mesh positions
         do i=0,nxd
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
+          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
@@ -2883,7 +2884,7 @@ c       Iteration
           bth0 (0) = 0d0
           do i=1,nxd
             x1 = xh(i)
-            rh = grid_params%xg(i)
+            rh = gv%gparams%xg(i)
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
@@ -2909,7 +2910,7 @@ cc              etah = res_spitzer(p0(i)/a_p)
             x1 = xh(i)
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = grid_params%xg(i)
+            rh  = gv%gparams%xg(i)
 
             if (spitzer) then
 cc              etah = res_spitzer(p0(i)/a_p)
@@ -2964,7 +2965,7 @@ cc              etah = res_spitzer(p0(i)/a_p)
 
         !Check force balance
         do i=1,nxd
-          rh  = grid_params%xg(i)
+          rh  = gv%gparams%xg(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
@@ -2983,7 +2984,7 @@ cc              etah = res_spitzer(p0(i)/a_p)
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
-          rh  = grid_params%xg(i)
+          rh  = gv%gparams%xg(i)
 
           if (spitzer) then
 cc            etah = res_spitzer(p0(i)/a_p)
@@ -3020,9 +3021,9 @@ cc            etah = res_spitzer(p0(i)/a_p)
         endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
-cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
 cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Find helical flux (integer mesh)
         psi0(0) = 0d0
@@ -3033,12 +3034,12 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
 
         !Transfer B to integer mesh
         call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bth0 = dummy
 
         call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                  ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bzz0 = dummy
 
@@ -3049,7 +3050,7 @@ cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
         !Find pinch flow (normalized to nominal resistivity)
         vr0 = 0d0
         do i=1,nxd
-          rh  = grid_params%xg(i)
+          rh  = gv%gparams%xg(i)
           if (spitzer) then
 cc            etah = res_spitzer(p0(i)/a_p)
             etah = res_spitzer(p0(i)/p0(1))
@@ -3067,7 +3068,7 @@ cc            etah = res_spitzer(p0(i)/a_p)
 
         !Find pressure
 cc        do i=1,nxd
-cc          rh  = grid_params%xg(i)
+cc          rh  = gv%gparams%xg(i)
 cc          p0(i) = p00*pprof(rh,0)
 cc        enddo
 
@@ -3075,11 +3076,11 @@ cc        enddo
 cc        if (my_rank == 0) then
 cc          open(unit=123,file='ntm2d.txt',status='unknown')
 cc          write (123,*) nxdp+1
-cc          write (123,*) grid_params%xg(0:nxdp)
+cc          write (123,*) gv%gparams%xg(0:nxdp)
 cc          write (123,*) bth0
 cc          write (123,*) bzz0
 cc          write (123,*) 0.5*p0
-cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cc          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
 cc          close(123)
 cccc          stop
 cc        endif
@@ -3178,14 +3179,14 @@ c       Initialize iteration
 
         !Find half-mesh positions
         do i=0,nxd
-          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
+          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
+          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
 ! Daniele, 02/07/2014
 c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
 c$$$          chih(i)=dfvty_rfx(xh(i))
 ! Luis 04/15/2014, to mimic what is done in PIXIE3D
-          chih(i)=0.5*(dfvty_rfx(grid_params%xg(i+1))
-     $                +dfvty_rfx(grid_params%xg(i  )))
+          chih(i)=0.5*(dfvty_rfx(gv%gparams%xg(i+1))
+     $                +dfvty_rfx(gv%gparams%xg(i  )))
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
@@ -3215,7 +3216,7 @@ c$$$            etah0 = etah(1)
 c$$$            etah  = etah/etah0
           else
             do i=1,nxdp
-              rh = grid_params%xg(i)
+              rh = gv%gparams%xg(i)
               etah(i) = res_rfx(rh)
             enddo
           endif
@@ -3229,7 +3230,7 @@ c$$$            etah  = etah/etah0
           bth0 (0) = 0d0
           do i=1,nxd
             x1 = xh(i)
-            rh = grid_params%xg(i)
+            rh = gv%gparams%xg(i)
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
@@ -3248,7 +3249,7 @@ c$$$            etah  = etah/etah0
             x1 = xh(i)
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = grid_params%xg(i)
+            rh  = gv%gparams%xg(i)
 
             dummy(i) = dummy(i-1)
      .                +(Eoeta/etah(i)*bth+(p0(i+1)-p0(i-1))/2./dr(i))
@@ -3276,12 +3277,12 @@ c$$$            etah  = etah/etah0
 ! f stands for full mesh
           !Transfer to integer mesh
           call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                    ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
           btf = dummy
 
           call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                    ,nxdp,grid_params%xg(1:nxdp),dummy(1:nxdp)
+     .                    ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
      .                    ,2,0)
           bzf = dummy
 
@@ -3311,7 +3312,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Find current j on integer mesh
           do i=1,nxd
-            rh = grid_params%xg(i)
+            rh = gv%gparams%xg(i)
             jzf(i)=(xh(i)*bth0(i)-xh(i-1)*bth0(i-1))/(rh*dr(i))
             jtf(i)=-(bzz0(i)-bzz0(i-1))/dr(i)
           enddo
@@ -3320,7 +3321,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Find heat source on integer mesh
           do i=1,nxd
-            rh = grid_params%xg(i)
+            rh = gv%gparams%xg(i)
             p0(i)=rh*etah(i)*(jtf(i)*jtf(i)+jzf(i)*jzf(i))
 ! Daniele, 12 Nov. 2014
      .           +rh*ext_heat_src_prof(rh)/eta
@@ -3328,7 +3329,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           p0 = etah0*p0
 
 ! Daniele, 1/8/2014. BCs with finite p(a)
-          rh = grid_params%xg(nxd)
+          rh = gv%gparams%xg(nxd)
           p0(nxd) = p0(nxd) + pa/dr(nxd)*
      .         (-gamma/(gamma-1.)*xh(nxd)*vr0(nxd)
      .          +vr0(nxd)*rh
@@ -3336,7 +3337,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
 
           !Build the tridiagonal matrix to be inverted
           do i=1,nxd
-            rh  = grid_params%xg(i)
+            rh  = gv%gparams%xg(i)
 
             dl(i)= -gamma/(gamma-1.)*xh(i-1)*vr0(i)/(2.*dr(i))
      .            +vr0(i)*rh/(2.*dr(i))
@@ -3360,11 +3361,11 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
           enddo
 
           !BCs at i=1
-          rh  = grid_params%xg(1)
+          rh  = gv%gparams%xg(1)
           d(1)=d(1)+vr0(1)*rh/(2.*dr(1))
 
           !BSc at i=nxd
-          rh  = grid_params%xg(nxd)
+          rh  = gv%gparams%xg(nxd)
           d(nxd)=d(nxd)
      .          -gamma/(gamma-1.)*xh(nxd)*vr0(nxd)/(2.*dr(nxd))
      .          +vr0(nxd)*rh/(2.*dr(nxd))
@@ -3412,14 +3413,14 @@ c$$$          etah0 = etah(1)
 c$$$          etah  = etah/etah0
         else
           do i=1,nxd
-            rh = grid_params%xg(i)
+            rh = gv%gparams%xg(i)
             etah(i) = res_rfx(rh)
           enddo
         endif
 
         !Check force balance
         do i=1,nxd
-          rh  = grid_params%xg(i)
+          rh  = gv%gparams%xg(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
@@ -3438,7 +3439,7 @@ c$$$          etah  = etah/etah0
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
-          rh  = grid_params%xg(i)
+          rh  = gv%gparams%xg(i)
 
           dummy(i) = Eoeta*bzh/etah(i)
      $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
@@ -3453,9 +3454,9 @@ c$$$          etah  = etah/etah0
         !Check energy equation
         etah = etah*etah0
         do i=1,nxd
-          rh  = grid_params%xg(i)
-          rhm = grid_params%xg(i-1)
-          rhp = grid_params%xg(i+1)
+          rh  = gv%gparams%xg(i)
+          rhm = gv%gparams%xg(i-1)
+          rhp = gv%gparams%xg(i+1)
 
 ! Daniele, 02/07/2014
           chirh=dfvty_rfx(rh)
@@ -3504,9 +3505,9 @@ c$$$          etah  = etah/etah0
         endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
-cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
 cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Find helical flux
         psi0(0) = 0d0
@@ -3638,8 +3639,8 @@ c     Perturb Psi and magnetic field components with helical perturbation
 
 c     Store BC information
 
-        call allocateMGArray(1,gpsi0)
-        call allocateMGArray(1,gbz0)
+        call allocateMGArray(gv%gparams,1,gpsi0)
+        call allocateMGArray(gv%gparams,1,gbz0)
 
         gpsi0%grid(igrid)%array(:,:,:,1) = dpsi
         gbz0 %grid(igrid)%array(:,:,:,1) = dIII
@@ -3759,15 +3760,15 @@ c     Initialize I(psi)
 
         k=1 ; j=1
         do i=0,nx+1
-          call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                  ,ig,jg,kg,x1,y1,z1)
+          call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid,igrid
+     .         ,igrid,ig,jg,kg,x1,y1,z1)
           III(i,:,:) = bb(i,:,:,3)  + kk*x1*bb(i,:,:,2)
         enddo
 
 c     Initialize Psi from 1D global psi
 
         do i=0,nx+1
-          iglobal = i + grid_params%ilo(igrid) - 1
+          iglobal = i + gv%gparams%ilo(igrid) - 1
           psi(i,:,:) = psig(iglobal)
         enddo
 
@@ -3807,10 +3808,10 @@ c     Begin program
         k=1
         do j=0,ny+1
           do i=0,nx+1
-            call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                    ,ig,jg,kg,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid,igrid
+     .           ,igrid,ig,jg,kg,x1,y1,z1)
 
-cc            dpsi =-eps/mm*sin(pi*x1/grid_params%xg(nxd+1))*sin(y1*mm)  !Produces finite Br perturbation at
+cc            dpsi =-eps/mm*sin(pi*x1/gv%gparams%xg(nxd+1))*sin(y1*mm)  !Produces finite Br perturbation at
 cc                                                                       !face, but cancels at ghost cells to
 cc                                                                       !avoid field lines from getting out
 cc                                                                       !of domain
@@ -3852,7 +3853,7 @@ c     Begin program
 
         bcnd = bcond
         where (bcnd == DEF) bcnd = EQU
-        call setBC(IRHO,nx,ny,nz,psi
+        call setBC(gv%gparams,IRHO,nx,ny,nz,psi
      .            ,gpsi0%grid(igrid)%array(:,:,:,1)
      .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
@@ -3865,17 +3866,17 @@ c     Phase out psi BC
             if (my_rank ==0) write (*,*) 'Phasing out psi BC...'
 
             do i=1,nx
-              call getCurvilinearCoordinates(i,1,1,igrid,igrid,igrid
-     .                                    ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,1,1,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
            
               psi(i,:,:) = psi(i,:,:)*tanh((1-x1)/eps+aa)
             enddo
 
-            do igr=1,ngrid
+            do igr=1,gv%gparams%ngrid
               gpsi0%grid(igr)%array = aa*gpsi0%grid(igr)%array
             enddo
           else
-            do igr=1,ngrid
+            do igr=1,gv%gparams%ngrid
               gpsi0%grid(igr)%array = 0d0
             enddo
           endif
@@ -3953,10 +3954,10 @@ c     Orbit integrator setup: cnv components (with BCs)
         do k=0,nzd+1
           do j=0,nyd+1
             do i=0,nxd+1
-              rh = grid_params%xg(i)
+              rh = gv%gparams%xg(i)
 
               !Cartesian components
-              th = grid_params%yg(j)
+              th = gv%gparams%yg(j)
 
               bcar(i,j,k,1) = bbg(i,j,k,1)/rh*cos(th)
      .                      -(bbg(i,j,k,2)+kk*bbg(i,j,k,3))*sin(th)
@@ -3968,7 +3969,7 @@ c     Orbit integrator setup: cnv components (with BCs)
               jac (i,j,k)  = rh
               xmap(i,j,k,1)= rh*cos(th)
               xmap(i,j,k,2)= rh*sin(th)
-              xmap(i,j,k,3)= grid_params%zg(k)
+              xmap(i,j,k,3)= gv%gparams%zg(k)
             enddo
           enddo
         enddo
@@ -3978,10 +3979,7 @@ c     Orbit setup (input Az directly)
 cc        bxg = 0d0
 cc        byg = 0d0
 cc        bzg = -psig
-        call orbit_setup(nxd+2,nyd+2,nzd+2
-     .                  ,grid_params%xg
-     .                  ,grid_params%yg
-     .                  ,grid_params%zg
+        call orbit_setup(gv%gparams,igrid
      .                  ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
      .                  ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
      .                  ,jac,xmap,bcond
@@ -3999,7 +3997,7 @@ cc     .                  ,B_input_is_A=.true.
 c     Spline GLOBAL resistivity (normalized to nominal resistivity)
 
         do i=0,nxd+1
-          etag(i,:,:) = res_rfx(grid_params%xg(i))
+          etag(i,:,:) = res_rfx(gv%gparams%xg(i))
         enddo
 
         call splineFld(etag)
@@ -4011,10 +4009,10 @@ c     Orbit integration (local processor)
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-              x0 = grid_params%xx(ig)
-              y0 = grid_params%yy(jg)
-              z0 = grid_params%zz(kg)
+              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              x0 = gv%gparams%xx(ig)
+              y0 = gv%gparams%yy(jg)
+              z0 = gv%gparams%zz(kg)
 
               bzz_avg   = 0d0
               etab2_avg = 0d0
@@ -4033,10 +4031,10 @@ c     Orbit integration (local processor)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
 
-                ff(i,j,k) = quad_int(grid_params%xx(ig-4)
-     .                              ,grid_params%xx(ig-3)
-     .                              ,grid_params%xx(ig-2)
-     .                              ,grid_params%xx(ig-1)
+                ff(i,j,k) = quad_int(gv%gparams%xx(ig-4)
+     .                              ,gv%gparams%xx(ig-3)
+     .                              ,gv%gparams%xx(ig-2)
+     .                              ,gv%gparams%xx(ig-1)
      .                              ,ff(i-4,j,k)
      .                              ,ff(i-3,j,k)
      .                              ,ff(i-2,j,k)
@@ -4065,8 +4063,8 @@ c     Impose BCs
 
         bcnd = bcond
         where (bcnd == DEF) bcnd = EXT
-        call setBC(IRHO,nx,ny,nz,ff,zeros,bcnd,igrid,igrid,igrid
-     .            ,iorder=order_bc)
+        call setBC(gv%gparams,IRHO,nx,ny,nz,ff,zeros,bcnd
+     .            ,igrid,igrid,igrid,iorder=order_bc)
 cc     .            ,iorder=2)
 
 c     Free up orbit integral work space
@@ -4113,14 +4111,14 @@ c       Begin program
             do i=1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
               rhs(ii)=-III(i,j,k)/(1+(kk*x1)**2)
      .                *(2*kk/(1+(kk*x1)**2)-jpar_B(i,j,k))
 
               if (vol_wgt) rhs(ii)=rhs(ii)
-     .                            *gmetric%grid(igrid)%dvol(i,j,k)
+     .                       *gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
             enddo
           enddo
         enddo
@@ -4135,7 +4133,7 @@ c       Solve Helical Grad-Shafranov equation (find psi at cell centers)
         psiv = reshape(psi(1:nx,1:ny,1:nz),shape(psiv))
 
         guess = 1
-        call cSolver(1,nn,rhs,psiv,bcnd
+        call cSolver(gv%gparams,1,nn,rhs,psiv,bcnd
      .              ,igrid,ilevel-1,guess,del_hel,vol_wgt
      .              ,tol           =1d-7
      .              ,gm_driver     =.true.
@@ -4156,7 +4154,7 @@ c       Solve Helical Grad-Shafranov equation (find psi at cell centers)
 
         bcnd = bcond
         where (bcnd == DEF) bcnd = EQU
-        call setBC(IRHO,nx,ny,nz,psi_new
+        call setBC(gv%gparams,IRHO,nx,ny,nz,psi_new
      .            ,gpsi0%grid(igrid)%array(:,:,:,1)
      .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
@@ -4194,7 +4192,7 @@ c       Find Laplacian RHS (at cell centers, for computation of I=B_3)
           do j=1,ny
             do i=1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              rhs(ii)=-lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              rhs(ii)=-lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                          ,psi,dff=jpar_B,vol=vol_wgt)
             enddo
           enddo
@@ -4209,7 +4207,7 @@ cc        where (bcnd == DEF) bcnd = DIR
         IIv = 0d0
 
         guess = 0
-        call cSolver(1,nn,rhs,IIv,bcnd
+        call cSolver(gv%gparams,1,nn,rhs,IIv,bcnd
      .              ,igrid,ilevel-1,guess,lap_mtvc2,vol_wgt
      .              ,tol           = 1d-7
      .              ,gm_driver     = .true.
@@ -4227,12 +4225,13 @@ cc        where (bcnd == DEF) bcnd = DIR
         !Set BCs
         III(1:nx,1:ny,1:nz) = reshape(IIv,shape(III(1:nx,1:ny,1:nz)))
 
-        call setBC(IRHO,nx,ny,nz,III,gbz0%grid(igrid)%array(:,:,:,1)
+        call setBC(gv%gparams,IRHO,nx,ny,nz,III
+     .            ,gbz0%grid(igrid)%array(:,:,:,1)
      .            ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
 c       Renormalize III so that Bz(r=0)=1d0
 
-        if (isBdry(1,igrid,1)) then
+        if (isBdry(gv%gparams,1,igrid,1)) then
           I0 = sum(III(1,1:ny,1))/nyd
         else
           I0 = 0d0
@@ -4274,10 +4273,11 @@ c     Begin program
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
-              gr = grad_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,psi)
+              gr = grad_ijk(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                     ,psi)
 
 cc              !Cylindrical
 cc              bb(i,j,k,1) = -gr(2)/x1
@@ -4296,7 +4296,7 @@ cc              bb(i,j,k,3) = III(i,j,k) - kk*x1*bb(i,j,k,2)
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
         where (bcnd == DEF) bcnd = EXT
-        call setMGBC(0,3,nx,ny,nz,igrid,bb,bcnd
+        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcnd
      .              ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
      $              ,iorder=order_bc)
 
@@ -4374,13 +4374,13 @@ c     Begin program
         do k=1,nz
           do j=1,ny-1
             do i=1,nx
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                    ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
-              j3=(grid_params%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
-     .           -grid_params%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
-     .           /2./grid_params%dxh(ig)  ! d(B_2)/dx1
-     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./grid_params%dyh(jg)
+              j3=(gv%gparams%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
+     .           -gv%gparams%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
+     .           /2./gv%gparams%dxh(ig)  ! d(B_2)/dx1
+     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./gv%gparams%dyh(jg)
                                           !-d(B_1)/dx2
 
               gs_err(i,j,k) = j3-bb(i,j,k,3)*jpar_B(i,j,k)
@@ -4388,7 +4388,7 @@ c     Begin program
           enddo
         enddo
 
-        err = integral(igrid,igrid,igrid,nx,ny,nz,gs_err**2)
+        err = integral(gv%gparams,igrid,gs_err**2)
         err = sqrt(err)
 
         if (my_rank == 0) then
@@ -4422,8 +4422,8 @@ c     Begin program
         do k=1,nz
           do j=1,ny-1
             do i=1,nx
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
               !Cyl B
               br = bb(i,j,k,1)/x1
@@ -4433,12 +4433,12 @@ c     Begin program
               bnorm2 = br**2+bth**2+bz**2
 
               !Cnv J
-              j1= (III(i,j+1,k)-III(i,j-1,k))/2./grid_params%dyh(jg) ! d(B3)/dx2
-              j2=-(III(i+1,j,k)-III(i-1,j,k))/2./grid_params%dxh(ig) !-d(B3)/dx1
-              j3=(grid_params%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
-     .           -grid_params%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
-     .           /2./grid_params%dxh(ig)  ! d(B_2)/dx1
-     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./grid_params%dyh(jg)
+              j1= (III(i,j+1,k)-III(i,j-1,k))/2./gv%gparams%dyh(jg) ! d(B3)/dx2
+              j2=-(III(i+1,j,k)-III(i-1,j,k))/2./gv%gparams%dxh(ig) !-d(B3)/dx1
+              j3=(gv%gparams%xx(ig+1)*(bb(i+1,j,k,2)+kk*bb(i+1,j,k,3))
+     .           -gv%gparams%xx(ig-1)*(bb(i-1,j,k,2)+kk*bb(i-1,j,k,3)))
+     .           /2./gv%gparams%dxh(ig)  ! d(B_2)/dx1
+     .          -(bb(i,j+1,k,1)-bb(i,j-1,k,1))/x1/2./gv%gparams%dyh(jg)
      .                                    !-d(B_1)/dx2
 
               !Cov B
@@ -4451,7 +4451,7 @@ c     Begin program
           enddo
         enddo
 
-        err = integral(igrid,igrid,igrid,nx,ny,nz,ohm_err**2)
+        err = integral(gv%gparams,igrid,ohm_err**2)
         err = sqrt(err)
 
         if (my_rank == 0) then
@@ -4482,16 +4482,15 @@ c     Begin program
 
         !Average Bz in domain
         do i=1,nx
-          call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                  ,ig,jg,kg,x1,y1,z1)
+          call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid,igrid
+     .         ,igrid,ig,jg,kg,x1,y1,z1)
           dummy(i,:,:) = bb(i,:,:,3)/x1
         enddo
 
-        bz_avg = integral(igrid,igrid,igrid,nx,ny,nz,dummy
-     .                   ,average=.true.)
+        bz_avg = integral(gv%gparams,igrid,dummy,average=.true.)
 
         !Average Bth @ boundary
-        if (isBdry(nx,igrid,2)) then
+        if (isBdry(gv%gparams,nx,igrid,2)) then
           bth_avg = sum(bb(nx,1:ny,1,2)+kk*bb(nx,1:ny,1,3))/nyd
         else
           bth_avg = 0d0
@@ -4615,8 +4614,8 @@ c     Begin program
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                      ,ig,jg,kg,x1,y1,z1)
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .             ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
               !Cyl B
               br = bb(i,j,k,1)/x1
@@ -4627,7 +4626,7 @@ c     Begin program
 
               !Cov B
               b1 = br
-              b2 = grid_params%xx(ig)*bth
+              b2 = gv%gparams%xx(ig)*bth
 
               vv(i,j,k,1) = -(Eoeta*b2)/bnorm2
               vv(i,j,k,2) =  (Eoeta*b1)/bnorm2
@@ -4827,15 +4826,15 @@ c     Begin program
 c       Initialize iteration
 
         !Find half-mesh positions
-        xh(0) = 0.5*grid_params%xg(1)
-        dr(0) =     grid_params%xg(1)
+        xh(0) = 0.5*gv%gparams%xg(1)
+        dr(0) =     gv%gparams%xg(1)
         do i=1,nxd
-          xh(i) = 0.5*(grid_params%xg(i+1)+grid_params%xg(i))
-          dr(i) =      grid_params%xg(i+1)-grid_params%xg(i)
+          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
+          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
         enddo
 
         do j=0,nyd
-          dth(j)=      grid_params%yg(j+1)-grid_params%yg(j)
+          dth(j)=      gv%gparams%yg(j+1)-gv%gparams%yg(j)
         enddo
 
         !Initial guess for psi
@@ -4844,10 +4843,10 @@ c       Initialize iteration
         !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
         do j=0,ny+1
           do i=0,nx+1
-            iglobal = i + grid_params%ilo(igrid) - 1
-            jglobal = j + grid_params%jlo(igrid) - 1
-            RR(i,j) = R0 + aa*grid_params%xg(iglobal)
-     .                   *cos(grid_params%yg(jglobal))
+            iglobal = i + gv%gparams%ilo(igrid) - 1
+            jglobal = j + gv%gparams%jlo(igrid) - 1
+            RR(i,j) = R0 + aa*gv%gparams%xg(iglobal)
+     .                   *cos(gv%gparams%yg(jglobal))
           enddo
         enddo
 
@@ -4881,11 +4880,11 @@ c       Iteration
               do i=1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-              rh = grid_params%xx (ig)
-              dh = grid_params%dxh(ig)
-              dt = grid_params%dyh(jg)
+              rh = gv%gparams%xx (ig)
+              dh = gv%gparams%dxh(ig)
+              dt = gv%gparams%dyh(jg)
 
               IIh = 0.5*(III(i,j)+III(i-1,j))
 
@@ -4908,12 +4907,12 @@ c       Iteration
      .                     -psir*dpdr-psith*dpdth)/bnorm2
 
               !Multiply by R to ensure proper limit R->inf
-              errv(ii) = (lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                       ,psi(:,:,:,1),dff=iR2,vol=.false.)
      .                   -psi_rhs(ii))*RR(i,j)
 
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
-     .                                *gmetric%grid(igrid)%dvol(i,j,k)
+     .                       *gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
 
               oherr = oherr
      .               +(Eoeta/etah*IIh*iR2(i,j,k)*psir
@@ -4941,7 +4940,7 @@ c       Iteration
 
           guess = 1  !To reuse previous iteration
 
-          call cSolver(1,nx*ny*nz,psi_rhs,psiv,bcnd
+          call cSolver(gv%gparams,1,nx*ny*nz,psi_rhs,psiv,bcnd
      .              ,1,0,guess,del_star,vol_wgt
      .              ,tol           = 5d-1
      .              ,gm_driver     =.true.
@@ -4957,8 +4956,8 @@ cc     .              ,mg_gm_coarse_solve=.true.
      .              )
 
           !Fill array (w BCs)
-          call fillArray(igrid,1,psiv,psi,bcnd,iorder=order_bc
-     .                  ,icomp=(/IRHO/))
+          call fillArray(gv%gparams,igrid,1,psiv,psi,bcnd
+     .                  ,iorder=order_bc,icomp=(/IRHO/))
 
           !Perform integral of III (at half-mesh on global grid in radius)
 
@@ -4975,11 +4974,11 @@ cc     .              ,mg_gm_coarse_solve=.true.
             do i=1,nx
               IIh = 0.5*(III(i,j)+III(i-1,j))
 
-              call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-              rh = grid_params%xx(ig)
-              dh = grid_params%dxh(ig)
-              dt = grid_params%dyh(jg)
+              rh = gv%gparams%xx(ig)
+              dh = gv%gparams%dxh(ig)
+              dt = gv%gparams%dyh(jg)
 
               psir  =0.5*(psi(i+1,j  ,k,1)
      .                   -psi(i-1,j  ,k,1))/dh
@@ -5000,7 +4999,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
               dummy(i,j) = dummy(i-1,j)
      .                         - RR(i,j)**2/bnorm2
      .                          *(Eoeta*psir/etah*iR2(i,j,k)
-     .                           +dpdr)*grid_params%dx(ig)!!*dr(iglobal)
+     .                           +dpdr)*gv%gparams%dx(ig)!!*dr(iglobal)
             enddo
           enddo
 
@@ -5067,11 +5066,11 @@ c       Find vectors and scalars
         k = 1
         do j=1,ny
           do i=1,nx
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            rh = grid_params%xx(ig)
-            dh = grid_params%dxh(ig)
-            dt = grid_params%dyh(jg)
+            rh = gv%gparams%xx(ig)
+            dh = gv%gparams%dxh(ig)
+            dt = gv%gparams%dyh(jg)
 
             IIh    = 0.5*(III(i,j)+III(i-1,j))
             psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
@@ -5106,9 +5105,9 @@ c       Find vectors and scalars
         enddo
 
 cc        do i=0,nx
-cc          call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+cc          call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 cc
-cc          rh = grid_params%xx(ig)
+cc          rh = gv%gparams%xx(ig)
 cc
 cc          write (*,*) rh,III(i,1)!b3(i,1,1)/rh
 cc        enddo
@@ -5127,14 +5126,14 @@ c       Calculate GS convergence properties
           do i=2,nx-1
 cc        do j=1,ny
 cc          do i=1,nx
-            iglobal = i + grid_params%ilo(igrid) - 1
-            jglobal = j + grid_params%jlo(igrid) - 1
+            iglobal = i + gv%gparams%ilo(igrid) - 1
+            jglobal = j + gv%gparams%jlo(igrid) - 1
 
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            rh = grid_params%xx(ig)
-            dh = grid_params%dxh(ig)
-            dt = grid_params%dyh(jg)
+            rh = gv%gparams%xx(ig)
+            dh = gv%gparams%dxh(ig)
+            dt = gv%gparams%dyh(jg)
 
             IIh    = 0.5*(III(i,j)+III(i-1,j))
             psir   = (psi(i+1,j,k,1)-psi(i-1,j,k,1))/2./dh
@@ -5156,7 +5155,7 @@ cc          do i=1,nx
             j1 = (III(i,j+1)+III(i-1,j+1)
      .           -III(i,j-1)-III(i-1,j-1))/4./dt
             j2 =-(III(i,j)  -III(i-1,j))/dh
-            j3 = jac*lap(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            j3 = jac*lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                  ,psi(:,:,:,1),dff=iR2,vol=.false.)
 
             !Find covariant EOM force components
@@ -5165,14 +5164,15 @@ cc          do i=1,nx
             f_3 = (j1*b2(i,j,k)-j2*b1(i,j,k))/jac
 
             !Accumulate errors
-            e1 = e1 + f_1**2*gmetric%grid(igrid)%dvol(i,j,k)
-            e2 = e2 + f_2**2*gmetric%grid(igrid)%dvol(i,j,k)
-            e3 = e3 + f_3**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e1 = e1 + f_1**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
+            e2 = e2 + f_2**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
+            e3 = e3 + f_3**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
 
             !Find covariant Ohm's law components
             etah =res_rfx(rh)
 
-            cov = matmul(gmetric%grid(1)%gsub(i,j,k,:,:),(/ j1,j2,j3/))
+            cov = matmul(gv%gparams%gmetric%grid(1)%gsub(i,j,k,:,:)
+     .                  ,(/ j1,j2,j3/))
 
             f_1 =      (v2(i,j,k)*b3(i,j,k)                    )/jac
             f_2 =      (                   -v1(i,j,k)*b3(i,j,k))/jac
@@ -5183,9 +5183,9 @@ cc          do i=1,nx
             f_3 =f_3-etah*cov(3)
 
             !Accumulate errors
-            e4 = e4 + f_1**2*gmetric%grid(igrid)%dvol(i,j,k)
-            e5 = e5 + f_2**2*gmetric%grid(igrid)%dvol(i,j,k)
-            e6 = e6 + f_3**2*gmetric%grid(igrid)%dvol(i,j,k)
+            e4 = e4 + f_1**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
+            e5 = e5 + f_2**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
+            e6 = e6 + f_3**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
 
@@ -5253,14 +5253,14 @@ c       Calculate GS equilibrium properties
         k = 1
         do j=1,ny
           do i=1,nx
-            iglobal = i + grid_params%ilo(igrid) - 1
-cc            jglobal = j + grid_params%jlo(igrid) - 1
+            iglobal = i + gv%gparams%ilo(igrid) - 1
+cc            jglobal = j + gv%gparams%jlo(igrid) - 1
 
-            call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            rh = grid_params%xx(ig)
-            dh = grid_params%dxh(ig)
-            dt = grid_params%dyh(jg)
+            rh = gv%gparams%xx(ig)
+            dh = gv%gparams%dxh(ig)
+            dt = gv%gparams%dyh(jg)
 
             !Q-profile
             qprof(i,j) = b3(i,j,k)/b2(i,j,k)
@@ -5345,7 +5345,7 @@ c     Transform to vector potential
 cc        !Find B^3 at faces (III is defined at radial faces)
 cccc        III(0,:) = 0d0
 cc        do i=0,nx
-cc          iglobal = i + grid_params%ilo(igrid) - 1
+cc          iglobal = i + gv%gparams%ilo(igrid) - 1
 cc          
 cc          III(i,:)= 2.*III(i,:)/(RR(i+1,:)+RR(i,:))*xh(iglobal)
 cccc          write (*,*) xh(iglobal),III(i,1),(RR(i+1,1)+RR(i,1))/2.
@@ -5354,7 +5354,7 @@ cc
 cc        !Find A_2 at cell centers by radial integral of b^3 at cell faces
 cc        dummy(0,:) = 0d0
 cc        do i=1,nx+1
-cc          iglobal = i + grid_params%ilo(igrid) - 1
+cc          iglobal = i + gv%gparams%ilo(igrid) - 1
 cc
 cc          dummy(i,:) = dummy(i-1,:) +  III(i-1,:)*dr(iglobal-1)
 cc        enddo
@@ -5364,7 +5364,7 @@ cc        enddo
         if (isSP2(1,igrid)) then
           write (*,*) my_rank
           !Estimate B^3 at r=0
-          iglobal = grid_params%ilo(igrid) - 1
+          iglobal = gv%gparams%ilo(igrid) - 1
           dummy(1,:)= 2.*III(0,:)/(RR(1,:)+RR(0,:))*xh(iglobal)
           !Find A_2 at first cell
           dummy(1,:) = dummy(1,:)*dr(iglobal)
@@ -5374,9 +5374,9 @@ cc        enddo
         
         !Integrate staggered
         do i=1,nx,2
-          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
+          call getMGmap(gv%gparams,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
-          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*grid_params%dxh(ig)
+          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*gv%gparams%dxh(ig)
         enddo
 
 #if defined(petsc)
@@ -5410,9 +5410,9 @@ cc        enddo
 #endif
 
         do i=2,nx,2
-          call getMGmap(i,1,1,igrid,igrid,igrid,ig,jg,kg)
+          call getMGmap(gv%gparams,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
-          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*grid_params%dxh(ig)
+          dummy(i+1,:) = dummy(i-1,:) + b3(i,:,1)*2*gv%gparams%dxh(ig)
           write (*,*) my_rank,i+1
         enddo
 
@@ -5457,19 +5457,19 @@ cc        enddo
 #endif
         
         !Save some equilibrium properties (to calculate bootstrap current)
-cc        eq_params(1) = 1d0/grid_params%params(3)       !Aspect ratio
+cc        eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
 cc        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
-cc        eq_params(3) = q0h(nxd)/grid_params%params(3)  !q(r=a)
+cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Dump equilibrium for eigen code
 cc        if (my_rank == 0) then
 cc          open(unit=123,file='ntm2d.txt',status='unknown')
 cc          write (123,*) nxdp+1
-cc          write (123,*) grid_params%xg(0:nxdp)
+cc          write (123,*) gv%gparams%xg(0:nxdp)
 cc          write (123,*) bth0
 cc          write (123,*) bzz0
 cc          write (123,*) 0.5*p0
-cc          write (123,*) grid_params%params(3),eq_params(2),eq_params(3)
+cc          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
 cc          close(123)
 cccc          stop
 cc        endif
@@ -5632,9 +5632,9 @@ c Local variables
 
 c Begin program
 
-      nx = grid_params%nxv(igr)
-      ny = grid_params%nyv(igr)
-      nz = grid_params%nzv(igr)
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
 
       select case (trim(equil))
 
@@ -5644,8 +5644,8 @@ c Begin program
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = x1
               a(i,j,k,3) = 0d0
@@ -5669,8 +5669,8 @@ cc        write (*,*) 'DIAG -- fillVectorPot'
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(cosh((x1-hlx)/dlambda)) 
@@ -5686,8 +5686,8 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 2*dlambda
      .               *atan(exp((x1-0.5d0*(xmax+xmin))/dlambda))
@@ -5703,8 +5703,8 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda
@@ -5729,8 +5729,8 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
@@ -5753,8 +5753,8 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
@@ -5769,8 +5769,8 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           do j = jlom,jhip
             do i = ilom,ihip
 
-              call getCartesianCoordinates(i,j,k,igr,igr,igr,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
+     .             ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = dlambda
      .             *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
               a(i,j,k,2) = 0d0
@@ -5783,7 +5783,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
 c Transform to Covariant
 
-      call XformVector_mesh2(igr,a,'car','cov')
+      call XformVector_mesh2(gv%gparams,igr,a,'car','cov')
 
 c End program
 
@@ -5846,9 +5846,9 @@ c Begin program
 
       igrid = 1
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       if (my_rank == 0) then
         write (*,*)
@@ -5873,8 +5873,8 @@ c Find A covariant
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
                 a0_cov(i,j,k,2) = -0.5*bz0*(x1-xmax)**2/(xmax-xmin)
      .                            +0.5*bzl*(x1-xmin)**2/(xmax-xmin)
@@ -5895,8 +5895,8 @@ c Find A covariant
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
                 a0_cov(i,j,k,1) =  0.5*bz0*(y1-ymax)**2/(ymax-ymin)
      .                            -0.5*bzl*(y1-ymin)**2/(ymax-ymin)
@@ -5917,8 +5917,8 @@ c Find A covariant
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,j,k,igrid,igrid,igrid
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
+     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
                 a0_cov(i,j,k,1) = -0.5*by0*(z1-zmax)**2/(zmax-zmin)
      .                            +0.5*byl*(z1-zmin)**2/(zmax-zmin)
@@ -5938,7 +5938,7 @@ c Find A covariant
         db_cnv = db_cnv - curl_mesh(igrid,a0_cov)
 
         !Find covariant vector potential update with div(A)=0
-        call vlap_curl_inv(igrid,db_cnv,a_cov
+        call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
      .                    ,gv%aux%vec_list(IBCNV)%bconds
      .                    ,gv%aux%vec_list(IACOV)%bconds
      .                    ,ilevel
@@ -5950,8 +5950,8 @@ c Find A covariant
         !Set BCs
         bcnd = gv%aux%vec_list(IACOV)%bconds
         vzeros = 0d0
-        a_cnv = XformVector(igrid,a_cov,.true.)
-        call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+        a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
+        call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .            ,igrid,igrid,igrid,is_cnv=.false.
      .            ,iorder=order_bc)
 
@@ -5977,8 +5977,8 @@ cc        call B_dump(igrid,a_cov,db_cnv)
 cc      where (bcnd == DEF) bcnd = -IFC
 
         vzeros = 0d0
-        a_cnv = XformVector(igrid,a_cov,.true.)
-        call setBC(IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+        a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
+        call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
      .            ,igrid,igrid,igrid,is_cnv=.false.
      .            ,iorder=order_bc)
 
@@ -6061,16 +6061,16 @@ ccc Begin program
 cc
 cc      igrid = 1
 cc
-cc      nx = grid_params%nxv(igrid)
-cc      ny = grid_params%nyv(igrid)
-cc      nz = grid_params%nzv(igrid)
+cc      nx = gv%gparams%nxv(igrid)
+cc      ny = gv%gparams%nyv(igrid)
+cc      nz = gv%gparams%nzv(igrid)
 cc
 ccc Find rhs
 cc
 cc      do k=klom,khip
 cc        do j=jlom,jhip
 cc          do i=ilom,ihip
-cc            jac = gmetric%grid(igrid)%jac(i,j,k)
+cc            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 cc
 cc            cov(1) = v(i,j,k,2)*b(i,j,k,3)
 cc     .             - v(i,j,k,3)*b(i,j,k,2)

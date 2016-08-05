@@ -20,7 +20,7 @@ c ####################################################################
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(igrid,b,a,global,w_bcs)
+      subroutine curl_inv(g_def,igrid,b,a,global,w_bcs)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -36,6 +36,8 @@ c     ---------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer    :: igrid
       real(8)    :: a(0:,0:,0:,:)
@@ -127,7 +129,7 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
 
-        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
+        call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
      .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
       endif
 
@@ -143,7 +145,7 @@ c     New code (SP ready, parallel-ready, version I)
         bcnd(:,2) = bcond
         bcnd(:,3) = bcond
 
-        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
+        call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
      .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
       endif
 
@@ -157,9 +159,9 @@ cc
 cc      do j=1,ny+1
 cc        if (.not.glbl) then
 cc          call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
-cc          dyy = grid_params%dy(jg-1)
+cc          dyy = g_def%dy(jg-1)
 cc        else
-cc          dyy = grid_params%yg(j)-grid_params%yg(j-1)
+cc          dyy = g_def%yg(j)-g_def%yg(j-1)
 cc        endif
 cc
 cc        if (spoint) then  !r=0 face
@@ -180,10 +182,10 @@ cc        if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
 cc
 cc        if (spoint) then
 cc          if (.not.glbl) then
-cc            dxx = grid_params%dxh(ig-1)
+cc            dxx = g_def%dxh(ig-1)
 cc          else
-cccc            dxx = 0.5*(grid_params%xg(i+1)-grid_params%xg(i-1))
-cc            dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cccc            dxx = 0.5*(g_def%xg(i+1)-g_def%xg(i-1))
+cc            dxx = g_def%xg(i)-g_def%xg(i-1)
 cc          endif
 cc
 cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
@@ -197,9 +199,9 @@ cc
 cc        else
 cc
 cc          if (.not.glbl) then
-cc            dxx = grid_params%dx(ig-1)
+cc            dxx = g_def%dx(ig-1)
 cc          else
-cc            dxx = grid_params%xg(i)-grid_params%xg(i-1)
+cc            dxx = g_def%xg(i)-g_def%xg(i-1)
 cc          endif
 cc
 cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
@@ -257,7 +259,7 @@ cc        do k=0,nz+1
 cc          do j=1,ny+1
 cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc            dyy = grid_params%dy(jg-1)
+cc            dyy = g_def%dy(jg-1)
 cc
 cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.25*(b(i  ,j-1,k,1)
 cc     .                                         +b(i  ,j  ,k,1)
@@ -274,7 +276,7 @@ cc            do i=1,nx+1
 cc
 cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc              dxx = grid_params%dxh(ig-1)
+cc              dxx = g_def%dxh(ig-1)
 cc
 cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*b(i,j,k,2)
 cc
@@ -310,7 +312,7 @@ cc        do k=0,nz+1
 cc          do j=1,ny+1
 cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc            dyy = grid_params%dy(jg-1)
+cc            dyy = g_def%dy(jg-1)
 cc
 cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.5*(b(i,j-1,k,1)
 cc     .                                        +b(i,j  ,k,1))
@@ -326,7 +328,7 @@ cc            do i=1,nx+1
 cc
 cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc              dxx = grid_params%dx(ig-1)
+cc              dxx = g_def%dx(ig-1)
 cc
 cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*0.5*(b(i-1,j,k,2)
 cc     .                                         +b(i  ,j,k,2))
@@ -356,7 +358,7 @@ cc        do k=1,nz
 cc          do j=2,ny
 cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc            dyy = grid_params%dyh(jg)
+cc            dyy = g_def%dyh(jg)
 cc
 cccc            if(j.eq.2) then
 cccc              a(1,j,k,3)=a(1,j-1,k,3)
@@ -376,7 +378,7 @@ cc            do i=2,nx
 cc
 cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
 cc
-cc              dxx = grid_params%dxh(ig)
+cc              dxx = g_def%dxh(ig)
 cc
 cccc              if(i.eq.2) then
 cccc                a(i,j,k,3)=a(i-1,j,k,3)
@@ -453,11 +455,11 @@ c     Begin program
           jp = j+min(jstep,0)
 
           if (.not.glbl) then
-            call getMGmap(i,jm,1,igx,igy,igz,ig,jg,kg)
-            dyy = sign(1,jstep)*grid_params%dy(jg)
+            call getMGmap(g_def,i,jm,1,igx,igy,igz,ig,jg,kg)
+            dyy = sign(1,jstep)*g_def%dy(jg)
           else
-            dyy = grid_params%yg(jp)
-     .           -grid_params%yg(jm)
+            dyy = g_def%yg(jp)
+     .           -g_def%yg(jm)
           endif
 
 cc          if (spoint) then  !r=0 face
@@ -483,11 +485,11 @@ cc          endif
 
           if (spoint.and.i==1) then
             if (.not.glbl) then
-              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
-              dxx = sign(1,istep)*grid_params%dxh(ig)
+              call getMGmap(g_def,im,1,1,igx,igy,igz,ig,jg,kg)
+              dxx = sign(1,istep)*g_def%dxh(ig)
             else
-              dxx = grid_params%xg(ip)
-     .             -grid_params%xg(im)
+              dxx = g_def%xg(ip)
+     .             -g_def%xg(im)
             endif
 
 cc            write (*,*) i,im,ip,dxx,bb(ip,1,1,2)
@@ -501,11 +503,11 @@ cc            aa(ip,:,:,2) = aa(im,:,:,2) + 0.5*dxx*bb(ip,:,:,3)
           else
 
             if (.not.glbl) then
-              call getMGmap(im,1,1,igx,igy,igz,ig,jg,kg)
-              dxx = sign(1,istep)*grid_params%dx(ig)
+              call getMGmap(g_def,im,1,1,igx,igy,igz,ig,jg,kg)
+              dxx = sign(1,istep)*g_def%dx(ig)
             else
-              dxx = grid_params%xg(ip)
-     .             -grid_params%xg(im)
+              dxx = g_def%xg(ip)
+     .             -g_def%xg(im)
             endif
 
             aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
@@ -531,7 +533,7 @@ cc        endif
 
 c     curl_div_clean
 c     #################################################################
-      subroutine curl_div_clean(igx,db,diag_plots,global)
+      subroutine curl_div_clean(g_def,igx,db,diag_plots,global)
 
 c     -----------------------------------------------------------------
 c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
@@ -540,6 +542,8 @@ c     -----------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer :: igx
       real(8) :: db(0:,0:,0:,:)
@@ -556,21 +560,21 @@ c     Local variables
 
 c     Find dA from dB (w/ ghost cells)
 
-      call curl_inv(igx,db,da_cov,global=global)
+      call curl_inv(g_def,igx,db,da_cov,global=global)
 
 c     Diagnostics (call before db = curl(A))
 
-      if (diag_plots) call B_dump(igx,da_cov,db)
+      if (diag_plots) call B_dump(g_def,igx,da_cov,db)
 
 c     Find dB
 
-      db = curl(igx,da_cov)  !This step is NOT global!!
+      db = curl(g_def,igx,da_cov)  !This step is NOT global!!
 
       end subroutine curl_div_clean
 
 c     vlap_curl_inv
 c     ###############################################################
-      subroutine vlap_curl_inv(igrid,db,da_cov,bcsb,bcsa,iout
+      subroutine vlap_curl_inv(g_def,igrid,db,da_cov,bcsb,bcsa,iout
      .                        ,dbcov,w_pre_bcs,gm_it,rtol)
 
 c     ---------------------------------------------------------------
@@ -582,6 +586,8 @@ c     ---------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer :: igrid,iout,bcsb(6,3),bcsa(6,3)
       real(8) :: db(0:,0:,0:,:)
@@ -641,7 +647,7 @@ c     Begin program
 c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
 
       if (w_prebcs) then
-        call setMGBC(0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
+        call setMGBC(g_def,0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
      .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
 cc        return
@@ -649,7 +655,7 @@ cc        return
         if (PRESENT(dbcov)) then
           db_cov = dbcov
         else
-          db_cov = XformVector(igx,db,.false.)
+          db_cov = XformVector(g_def,igx,db,.false.)
         endif
       endif
 
@@ -659,14 +665,15 @@ cc        return
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             if (vwgt) then
-              dvol = gmetric%grid(igx)%dlvol(i,j,k)
+              dvol = g_def%gmetric%grid(igx)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
 
-            rhs(ii,:)=-dvol*curl(i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
+            rhs(ii,:)=-dvol
+     .                *curl(g_def,i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
             if (.not.is_a_cnv)
-     .        rhs(ii,:)=matmul(gmetric%grid(igx)%gsub(i,j,k,:,:)
+     .        rhs(ii,:)=matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:)
      .                        ,rhs(ii,:))
           enddo
         enddo
@@ -691,7 +698,7 @@ c     Allocate diagonal matrix
       if (.not.allocated(vlap_diag)) then
         allocate(vlap_diag(3,3*ntotd2p))
 
-        call find_mf_diag(3,1,3*ntotdp,avlap_mtvc,igx,bcsa
+        call find_mf_diag(g_def,3,1,3*ntotdp,avlap_mtvc,igx,bcsa
      .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
       endif
 
@@ -699,7 +706,7 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
 
       x = 0d0
 
-      call cSolver(3,ntotdp,rhs,x,bcsa,igx
+      call cSolver(g_def,3,ntotdp,rhs,x,bcsa,igx
      .            ,iout,1,avlap_mtvc,vwgt
      .            ,tol           = etol
      .            ,iters         = gmits
@@ -733,11 +740,11 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
 
       if (is_a_cnv) then
-        call fillArray(igx,3,x,da_cnv,bcsa,bc_order_a
+        call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
      .                ,is_vec=.true.,is_cnv=is_a_cnv
      .                ,arr_cov=da_cov,icomp=(/IAX/))
       else
-        call fillArray(igx,3,x,da_cov,bcsa,bc_order_a
+        call fillArray(g_def,igx,3,x,da_cov,bcsa,bc_order_a
      .                ,is_vec=.true.,is_cnv=is_a_cnv
      .                ,icomp=(/IAX/))
       endif
@@ -750,8 +757,8 @@ c     End program
       
 c     vlap_div_clean
 c     #################################################################
-      subroutine vlap_div_clean(iout,nx,ny,nz,igx,igy,igz,db,dacov,dbcov
-     .                         ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+      subroutine vlap_div_clean(g_def,iout,nx,ny,nz,igx,igy,igz,db,dacov
+     .                     ,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -770,6 +777,8 @@ c     -----------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer :: nx,ny,nz,igx,igy,igz,iout
       real(8) :: db(0:nx+1,0:ny+1,0:nz+1,3)
@@ -827,16 +836,16 @@ c     Define BCs
 
 c     Find dA
 
-      call vlap_curl_inv(igx,db,da_cov,bcsb,bcsa,iout
+      call vlap_curl_inv(g_def,igx,db,da_cov,bcsb,bcsa,iout
      .                  ,w_pre_bcs=w_pre_bcs
      .                  ,gm_it=gm_it,rtol=rtol)
       
 c     Find new dB (with BCs)
 
-      db = curl(igx,da_cov)
+      db = curl(g_def,igx,da_cov)
 
       if (wbcs) then
-        call setMGBC(0,3,nx,ny,nz,igx,db,bcsb
+        call setMGBC(g_def,0,3,nx,ny,nz,igx,db,bcsb
      .              ,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
       endif
@@ -847,13 +856,13 @@ c     Store vector potential
 
 c     Diagnostics
 
-      if (dplots) call B_dump(igx,da_cov,db)
+      if (dplots) call B_dump(g_def,igx,da_cov,db)
 
       end subroutine vlap_div_clean
 
 c     avlap_mtvc
 c     ###############################################################
-      subroutine avlap_mtvc(gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine avlap_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
 c     ---------------------------------------------------------------
 c     This subroutine calculates lap(vector) in contravariant form.
 c     In call:
@@ -879,6 +888,8 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8)    :: x(ntot),y(ntot)
 
@@ -897,17 +908,19 @@ c     Local variables
 
       logical    :: fpointers,is_cnv
 
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
 c     Begin program
 
       is_cnv = is_a_cnv
 
-      call allocPointers(neq,fpointers)
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
 
-      isig = MGgrid%istartp(igrid)
+      isig = g_def%istartp(igrid)
 
-      nxx = grid_params%nxv(igrid)
-      nyy = grid_params%nyv(igrid)
-      nzz = grid_params%nzv(igrid)
+      nxx = g_def%nxv(igrid)
+      nyy = g_def%nyv(igrid)
+      nzz = g_def%nzv(igrid)
 
       igx = igrid
       igy = igrid
@@ -915,7 +928,7 @@ c     Begin program
 
 c     Find limits for loops
 
-      call limits(abs(gpos),nxx,nyy,nzz
+      call limits(mg_ctx_l,abs(gpos)
      .           ,igrid,imin,imax,jmin,jmax,kmin,kmax)
 
 c     Map vector x to array for processing
@@ -926,7 +939,7 @@ c     Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call fillArray(igrid,neq,x,vv,bcnd,bc_order_a,gpos=gpos
+      call fillArray(g_def,igrid,neq,x,vv,bcnd,bc_order_a,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
 
@@ -945,7 +958,7 @@ c     Calculate matrix-vector product
             do i = imin,imax
               ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              vlap = veclap(i,j,k,nxx,nyy,nzz
+              vlap = veclap(g_def,i,j,k,nxx,nyy,nzz
      .                     ,igrid,igrid,igrid,vv
      .                     ,vol=MG_get_res_vol_wgt())
 cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
@@ -965,7 +978,7 @@ cc       .                           ,vol=MG_get_res_vol_wgt())
             do i = imin,imax
               ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              vlap = veclap_cov(i,j,k,nxx,nyy,nzz
+              vlap = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,vv
      .                         ,vol=MG_get_res_vol_wgt())
 
@@ -982,7 +995,7 @@ c     End program
 
       deallocate(vv)
 
-      call deallocPointers(fpointers)
+      call deallocMGPointers(fpointers,mg_ctx_l)
 
       end subroutine avlap_mtvc
 
@@ -1087,7 +1100,7 @@ cc      end subroutine grad_div_clean
 
 c     B_dump
 c     ###############################################################
-      subroutine B_dump(igx,da_cov,db)
+      subroutine B_dump(g_def,igx,da_cov,db)
 
 c     ---------------------------------------------------------------
 c     Dumps magnetic and vector potential fields
@@ -1096,6 +1109,8 @@ c     ---------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer :: igx
       real(8) :: da_cov(0:,0:,0:,:)
@@ -1113,9 +1128,9 @@ c     Local variables
 
 c     Begin program
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igx)
-      nz = grid_params%nzv(igx)
+      nx = g_def%nxv(igx)
+      ny = g_def%nyv(igx)
+      nz = g_def%nzv(igx)
 
       dcf='divcl_p'//trim(int2char(my_rank))//'.bin'
 
@@ -1129,44 +1144,44 @@ c     Begin program
      .    ,status='replace')
 
       call contour(db   (:,:,1,1),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,0,110)
       call contour(db   (:,:,1,2),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       call contour(db   (:,:,1,3),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
 
       call contour(da_cov(:,:,1,1),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       call contour(da_cov(:,:,1,2),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       call contour(da_cov(:,:,1,3),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
 
-      ddb = curl(igx,da_cov)
+      ddb = curl(g_def,igx,da_cov)
 
       call contour(ddb    (:,:,1,1),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       call contour(ddb    (:,:,1,2),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       call contour(ddb    (:,:,1,3),nx+2,ny+2
-     .            ,grid_params%gxmin,grid_params%gxmax
-     .            ,grid_params%gymin,grid_params%gymax
+     .            ,g_def%gxmin,g_def%gxmax
+     .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
       close (110)
 
@@ -1193,37 +1208,36 @@ c ######################################################################
 c Get some basic properties
 
       gv => patch_var
-      grid_params => gv%gparams
-      gmetric => gv%gparams%gmetric
-      gbc_def => grid_params
 
       call setVectorDimensions
 
       B_cnv => patch_var%aux%vec_list(IBCNV)%vec
       B_cov => patch_var%aux%vec_list(IBCOV)%vec
 
-      nxbc = grid_params%nxv(1)
-      nybc = grid_params%nyv(1)
-      nzbc = grid_params%nzv(1)
-      iimnm = grid_params%ilo(1)
-      iimxp = grid_params%ihi(1)
-      jjmnm = grid_params%jlo(1)
-      jjmxp = grid_params%jhi(1)
-      kkmnm = grid_params%klo(1)
-      kkmxp = grid_params%khi(1)
+      nxbc = gv%gparams%nxv(1)
+      nybc = gv%gparams%nyv(1)
+      nzbc = gv%gparams%nzv(1)
+      iimnm = gv%gparams%ilo(1)
+      iimxp = gv%gparams%ihi(1)
+      jjmnm = gv%gparams%jlo(1)
+      jjmxp = gv%gparams%jhi(1)
+      kkmnm = gv%gparams%klo(1)
+      kkmxp = gv%gparams%khi(1)
       igxbc = 1
       igybc = 1
       igzbc = 1
 
 c Correct B cnv
-      call solen_bc(B_cnv,1,0,.false.,.false.)
-      call solen_bc(B_cnv,2,0,.false.,.false.)
-      call solen_bc(B_cnv,3,0,.false.,.false.)
-      call solen_bc(B_cnv,1,1,.false.,.false.)
-      call solen_bc(B_cnv,2,1,.false.,.false.)
-      call solen_bc(B_cnv,3,1,.false.,.false.)
+
+      call solen_bc(gv%gparams,B_cnv,1,0,.false.,.false.)
+      call solen_bc(gv%gparams,B_cnv,2,0,.false.,.false.)
+      call solen_bc(gv%gparams,B_cnv,3,0,.false.,.false.)
+      call solen_bc(gv%gparams,B_cnv,1,1,.false.,.false.)
+      call solen_bc(gv%gparams,B_cnv,2,1,.false.,.false.)
+      call solen_bc(gv%gparams,B_cnv,3,1,.false.,.false.)
 
 c Correct B cov
-      call XformVector_BC(igxbc,B_cnv,B_cov,.false.)
+
+      call XformVector_BC(gv%gparams,igxbc,B_cnv,B_cov,.false.)
 
       end subroutine fixDivB

@@ -25,7 +25,7 @@ program pixeq_xfer
 
   integer :: ic,jc,kc,if,jf,kf,ig,jg,kg,ivar,igx,igy,igz,grf,nxf,nyf,nzf
   integer :: it,itm,send_buf(3),rec_buf(3),nx,ny,nz
-  real(8) :: dt,tt,volt,vol
+  real(8) :: gammat,dt,tt,volt,vol
 
   !Interpolation
   real(8) :: xp,yp,zp,interp
@@ -122,12 +122,12 @@ program pixeq_xfer
   call allocateDerivedType(vref_0)
 
   !Read first file until last time slice
-  call readTimeStep(u_rec_in,itm,tt,dt,vref_0,ierr)
+  call readTimeStep(u_rec_in,itm,tt,dt,gammat,vref_0,ierr)
 
   if (ierr /= 0) call pstop("pixeq_xfer","Equilibrium file unreadable")
 
   do 
-    call readTimeStep(u_rec_in,itm,tt,dt,vref,ierr)
+    call readTimeStep(u_rec_in,itm,tt,dt,gammat,vref,ierr)
 
     if (ierr /= 0) exit
   enddo
@@ -149,11 +149,11 @@ program pixeq_xfer
 
   allocate(xx(nxs),yy(nys),zz(nzs))
 
-  call getMGmap(1,1,1,igx,igy,igz,ig,jg,kg)
+  call getMGmap(gv%gparams,1,1,1,igx,igy,igz,ig,jg,kg)
 
-  xx(1:nxs) = grid_params%xx(ig-1:ig+nxl)
-  yy(1:nys) = grid_params%yy(jg-1:jg+nyl)
-  zz(1:nzs) = grid_params%zz(kg-1:kg+nzl)
+  xx(1:nxs) = gv%gparams%xx(ig-1:ig+nxl)
+  yy(1:nys) = gv%gparams%yy(jg-1:jg+nyl)
+  zz(1:nzs) = gv%gparams%zz(kg-1:kg+nzl)
 
   flg = 0
 
@@ -173,7 +173,7 @@ program pixeq_xfer
   !Perform Xfer!
   !!!!!!!!!!!!!!
 
-  nullify(grid_params)
+  nullify(gv%gparams)
   call destroyGrid(gv%gparams)
   call deallocateGlobalVar(gv)
 
@@ -205,7 +205,7 @@ program pixeq_xfer
   !Set vector dimensions and allocate variables
   call allocateGlobalVar(gv)
 
-  call createGrid(nxd,nyd,nzd,gv%gparams)
+  call createGrid(nxd,nyd,nzd,xmin,xmax,ymin,ymax,zmin,zmax,gv%gparams)
 
   call setVectorDimensions
 
@@ -236,13 +236,15 @@ program pixeq_xfer
   call xfer_varray(vref_0,vout)
 !!  call applyBC(igx,vout,gv%aux)
 
-  ierr = setupIOForWrite()
+#if defined(adios)
+  ierr = init_ADIOS_IO()
+#endif
   
-  call writeRecordFile(orecfile,itm,tt,dt,vout,init=.true.)
+  call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.true.)
 
   call xfer_varray(vref,vout)
 
-  call writeRecordFile(orecfile,itm,tt,dt,vout,init=.false.)
+  call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
   
 !!  call writeDerivedType(vout,6,.true.)
   
@@ -307,11 +309,11 @@ contains
       do kc = 0,nz+1
         do jc = 0,ny+1
           do ic = 0,nx+1
-            call getMGmap(ic,jc,kc,igx,igy,igz,ig,jg,kg)
+            call getMGmap(gv%gparams,ic,jc,kc,igx,igy,igz,ig,jg,kg)
 
-            xp = grid_params%xx(ig)
-            yp = grid_params%yy(jg)
-            zp = grid_params%zz(kg)
+            xp = gv%gparams%xx(ig)
+            yp = gv%gparams%yy(jg)
+            zp = gv%gparams%zz(kg)
 
             interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
                            ,kx,ky,kz,bcoef,work)

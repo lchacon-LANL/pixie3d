@@ -104,25 +104,25 @@ c     Begin program
      .           ,v_diag_hyp(6,6*ntotd2p)
      .           ,v_diag2   (3,3*ntotd2p),STAT=alloc_stat)
 
-        call allocateMGArray(1,gp0)
-        call allocateMGArray(1,grho0)
-        call allocateMGArray(1,gtmp0)
-        call allocateMGArray(3,gv0)
-        call allocateMGArray(3,gve0)  !v_e = v_i - di*j/rho
-        call allocateMGArray(3,gvs0)  !v_s = v_i - di*j/rho/a_p
-        call allocateMGArray(3,gv0)
-        call allocateMGArray(3,gb0)
-        call allocateMGArray(3,gb0_cov)
-        call allocateMGArray(3,gj0)
-        call allocateMGArray(3,gj0_cov)
-        call allocateMGArray(3,ga0)   !B + di curl(v)
-        call allocateMGArray(3,gbs0)  !B - de^2/di curl(v_e)
-        call allocateMGArray(3,gEh0_cov)  !Hall electric field
-        call allocateMGArray(1,gvis)
-        call allocateMGArray(1,geta)
-        call allocateMGArray(1,gheta)
-        call allocateMGArray(3,gbhat)
-        call allocateMGArray(3,gdb_cov)
+        call allocateMGArray(gv%gparams,1,gp0)
+        call allocateMGArray(gv%gparams,1,grho0)
+        call allocateMGArray(gv%gparams,1,gtmp0)
+        call allocateMGArray(gv%gparams,3,gv0)
+        call allocateMGArray(gv%gparams,3,gve0)  !v_e = v_i - di*j/rho
+        call allocateMGArray(gv%gparams,3,gvs0)  !v_s = v_i - di*j/rho/a_p
+        call allocateMGArray(gv%gparams,3,gv0)
+        call allocateMGArray(gv%gparams,3,gb0)
+        call allocateMGArray(gv%gparams,3,gb0_cov)
+        call allocateMGArray(gv%gparams,3,gj0)
+        call allocateMGArray(gv%gparams,3,gj0_cov)
+        call allocateMGArray(gv%gparams,3,ga0)   !B + di curl(v)
+        call allocateMGArray(gv%gparams,3,gbs0)  !B - de^2/di curl(v_e)
+        call allocateMGArray(gv%gparams,3,gEh0_cov)  !Hall electric field
+        call allocateMGArray(gv%gparams,1,gvis)
+        call allocateMGArray(gv%gparams,1,geta)
+        call allocateMGArray(gv%gparams,1,gheta)
+        call allocateMGArray(gv%gparams,3,gbhat)
+        call allocateMGArray(gv%gparams,3,gdb_cov)
 
 c     End program
 
@@ -181,7 +181,7 @@ c     End program
 
 c     XtoCar
 c     ###################################################################
-      subroutine XtoCar(igrid,x,xout,cov)
+      subroutine XtoCar(g_def,igrid,x,xout,cov)
 
 c     -------------------------------------------------------------------
 c     Transforms vector to Cartesian components
@@ -190,6 +190,8 @@ c     -------------------------------------------------------------------
         implicit none
 
 c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
 
         integer    :: igrid
         real(8),intent(INOUT),dimension(:,:) :: x
@@ -214,9 +216,9 @@ c     Begin program
           call pstop('XtoCar','Vector has wrong dimensions')
         endif
 
-        nx = grid_params%nxv(igrid)
-        ny = grid_params%nyv(igrid)
-        nz = grid_params%nzv(igrid)
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
 
         if (PRESENT(xout)) then
           do k = 1,nz
@@ -224,7 +226,7 @@ c     Begin program
               do i = 1,nx
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-                xout(ii,:)= XformToCar(i,j,k,igrid,x(ii,:),covar)
+                xout(ii,:)= XformToCar(g_def,i,j,k,igrid,x(ii,:),covar)
               enddo
             enddo
           enddo
@@ -236,7 +238,7 @@ c     Begin program
 
                 cnv(:) = x(ii,:)
 
-                x(ii,:)= XformToCar(i,j,k,igrid,cnv,covar)
+                x(ii,:)= XformToCar(g_def,i,j,k,igrid,cnv,covar)
               enddo
             enddo
           enddo
@@ -248,7 +250,7 @@ c     End program
 
 c     XtoCurv
 c     ###################################################################
-      subroutine XtoCurv(igrid,x,xout,cov)
+      subroutine XtoCurv(g_def,igrid,x,xout,cov)
 
 c     -------------------------------------------------------------------
 c     Transform vector components from Cartesian to curvilinear
@@ -257,6 +259,8 @@ c     -------------------------------------------------------------------
         implicit none
 
 c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
 
         integer    :: igrid
         real(8),intent(INOUT),dimension(:,:) :: x
@@ -281,9 +285,9 @@ c     Begin program
           call pstop('XtoCurv','Vector has wrong dimensions')
         endif
 
-        nx = grid_params%nxv(igrid)
-        ny = grid_params%nyv(igrid)
-        nz = grid_params%nzv(igrid)
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
 
         if (PRESENT(xout)) then
           do k = 1,nz
@@ -292,7 +296,7 @@ c     Begin program
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
                 call transformVectorToCurvilinear
-     .               (i,j,k,igrid,igrid,igrid
+     .               (g_def,i,j,k,igrid,igrid,igrid
      .               ,x(ii,1),x(ii,2),x(ii,3)
      .               ,.not.covar
      .               ,xout(ii,1),xout(ii,2),xout(ii,3))
@@ -308,7 +312,7 @@ c     Begin program
                 car = x(ii,:)
 
                 call transformVectorToCurvilinear
-     .               (i,j,k,igrid,igrid,igrid
+     .               (g_def,i,j,k,igrid,igrid,igrid
      .               ,car(1),car(2),car(3)
      .               ,.not.covar
      .               ,x(ii,1),x(ii,2),x(ii,3))
@@ -323,7 +327,7 @@ c     End program
 
 c     findPCcoeffs
 c     ###################################################################
-      subroutine findPCcoeffs(igx,igy,igz,varray,vaux)
+      subroutine findPCcoeffs(igrid,varray,vaux)
 
 c     -------------------------------------------------------------------
 c     Finds coefficients for linearized systems in preconditioner
@@ -335,13 +339,13 @@ c     -------------------------------------------------------------------
 
 c     Call variables
 
-        integer :: igx,igy,igz
+        integer :: igrid
         type(var_array),pointer :: varray
         type(aux_array),pointer :: vaux
 
 c     Local variables
 
-        integer :: order,nx,ny,nz,igrid,ii,ivar,igr
+        integer :: order,nx,ny,nz,ii,ivar,igr,igx,igy,igz
      .            ,bc_pc(size(bcs,1),size(bcs,2)),ig,jg,kg
      .            ,bc_sc(6,1),bc_vec_odd(6,3),bc_vec_even(6,3)
      .            ,bc_cov(6,3)
@@ -366,11 +370,13 @@ c     Begin program
 
         extrp_cfss=.false.
 
-        nx = grid_params%nxv(igx)
-        ny = grid_params%nyv(igy)
-        nz = grid_params%nzv(igz)
+        igx = igrid
+        igy = igrid
+        igz = igrid
 
-        igrid = igx
+        nx = gv%gparams%nxv(igx)
+        ny = gv%gparams%nyv(igy)
+        nz = gv%gparams%nzv(igz)
 
         order = order_bc
 cc        order = 0
@@ -394,13 +400,15 @@ c     Setup BCs
 
         bc_pc(:,IJX:IJZ) = vaux%vec_list(IJCNV)%bconds
 
-        call setASM_PC_BC(igx,igy,igz,bc_pc,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(gv%gparams,igx,igy,igz,bc_pc,extrp_cfss
+     .                   ,IIBC=EXT)         !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_sc(:,1) = bcond
         where (bc_sc == DEF) bc_sc = EXT
         where (bc_sc ==FSYM) bc_sc = NEU
 
-        call setASM_PC_BC(igx,igy,igz,bc_sc,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(gv%gparams,igx,igy,igz,bc_sc,extrp_cfss
+     .                   ,IIBC=EXT)         !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_odd(:,1) = bcond
         bc_vec_odd(:,2) = bcond
@@ -408,7 +416,8 @@ c     Setup BCs
         where (bc_vec_odd == DEF) bc_vec_odd = EXT
         call set_vec_symm_bc(bc_vec_odd,ODD)   !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_odd,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(gv%gparams,igx,igy,igz,bc_vec_odd,extrp_cfss
+     .                   ,IIBC=EXT)         !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_vec_even(:,1) = bcond
         bc_vec_even(:,2) = bcond
@@ -416,7 +425,8 @@ c     Setup BCs
         where (bc_vec_even == DEF) bc_vec_even = EXT
         call set_vec_symm_bc(bc_vec_even,EVEN)   !Even normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_vec_even,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(gv%gparams,igx,igy,igz,bc_vec_even,extrp_cfss
+     .                   ,IIBC=EXT)         !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
         bc_cov(:,1) = bcond
         bc_cov(:,2) = bcond
@@ -424,7 +434,8 @@ c     Setup BCs
         where (bc_cov == DEF) bc_cov = EXT
         call set_vec_symm_bc(bc_cov,ODD)        !Odd normal component
 
-        call setASM_PC_BC(igx,igy,igz,bc_cov,extrp_cfss,IIBC=EXT) !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
+        call setASM_PC_BC(gv%gparams,igx,igy,igz,bc_cov,extrp_cfss
+     .                   ,IIBC=EXT)         !THIS EXTRAPOLATES COEFF. AT LOGICAL BDRYS
 
 c     Store density in all grids (w/o BCs)
 
@@ -445,7 +456,7 @@ c     Store pressure (w/ BCs)
 
         call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
 
-cc        do igr=igrid,grid_params%ngrid
+cc        do igr=igrid,gv%gparams%ngrid
 cc          gp0%grid(igrid)%array = grho0%grid(igrid)%array
 cc     .                           *gtmp0%grid(igrid)%array
 cc        enddo
@@ -470,12 +481,12 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
         if (chi_par /= chi .and. (.not.lagrangian)) then
           gbhat%grid(igrid)%array = bhat
 
-          do igr=igrid+1,grid_params%ngrid
+          do igr=igrid+1,gv%gparams%ngrid
 
-            do k=0,grid_params%nzv(igr)+1
-              do j=0,grid_params%nyv(igr)+1
-                do i=0,grid_params%nxv(igr)+1
-                  bnorm = vectorNorm(i,j,k,igr
+            do k=0,gv%gparams%nzv(igr)+1
+              do j=0,gv%gparams%nyv(igr)+1
+                do i=0,gv%gparams%nxv(igr)+1
+                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
      $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
 
                   gbhat%grid(igr)%array(i,j,k,:)
@@ -521,12 +532,12 @@ cc          gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
 cc
 cc          call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
 cc
-cc          do igr=igrid,grid_params%ngrid
+cc          do igr=igrid,gv%gparams%ngrid
 cc            gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
 cc          enddo
 cc
 cc        else
-cc          do igr=igrid,grid_params%ngrid
+cc          do igr=igrid,gv%gparams%ngrid
 cc            gvis%grid(igr)%array = 0d0
 cc          enddo
 cc        endif
@@ -567,7 +578,7 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
           !Store b_star = b - de^2/di curl(ve)
           if (de > 0d0) then
             gbs0%grid(igrid)%array = gb0%grid(igrid)%array
-     $                              -de**2/di*curl(igrid,vecov)
+     $                            -de**2/di*curl(gv%gparams,igrid,vecov)
 
             call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order)
           else
@@ -579,7 +590,8 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
             do k=0,nz+1
               do j=0,ny+1
                 do i=0,nx+1
-                  cnv = curl(i,j,k,nx,ny,nz,igrid,igrid,igrid,vcov)
+                  cnv = curl(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                      ,vcov)
                   ga0%grid(igrid)%array(i,j,k,:)
      .                   = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
                 enddo
@@ -628,16 +640,16 @@ cc
 
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              jac    = gmetric%grid(igrid)%jac(i,j,k)
+              jac    = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
               if (nc_eom_v) then
                 veclap =-div_pi(i,j,k,:)
 
-                call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+                call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
-                dxx = grid_params%dxh(ig)
-                dyy = grid_params%dyh(jg)
-                dzz = grid_params%dzh(kg)
+                dxx = gv%gparams%dxh(ig)
+                dyy = gv%gparams%dyh(jg)
+                dzz = gv%gparams%dzh(kg)
 
                 !Grad(p)
                 cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
@@ -651,7 +663,8 @@ cc
 
 cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
 
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+                call transformFromCurvToCurv(gv%gparams,i,j,k
+     .                                      ,igx,igy,igz
      .                                      ,cov(1),cov(2),cov(3)
      .                                      ,cnv(1),cnv(2),cnv(3)
      .                                      ,.true.)
@@ -682,7 +695,8 @@ cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
         enddo
 
         do ivar=1,3
-          call restrictArrayToMGVector(vector(:,:,:,ivar:ivar)
+          call restrictArrayToMGVector(gv%gparams
+     .                                ,vector(:,:,:,ivar:ivar)
      .                                ,mgadvdiffV0(:,ivar)
      .                                ,igrid,order,.false.)
         enddo
@@ -699,58 +713,58 @@ cc
 cc      igx = 1
 cc      k = 1
 cc
-cc      nx = grid_params%nxv(igx)
-cc      ny = grid_params%nyv(igx)
-cc      nz = grid_params%nzv(igx)
+cc      nx = gv%gparams%nxv(igx)
+cc      ny = gv%gparams%nyv(igx)
+cc      nz = gv%gparams%nzv(igx)
 cc      allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
 cc
 cc      do ieq=1,3
 cc        debug2 = gb0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%lxmin,grid_params%lxmax
-cc     .              ,grid_params%lymin,grid_params%lymax,ieq-1,110)
+cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .              ,gv%gparams%lymin,gv%gparams%lymax,ieq-1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gve0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%lxmin,grid_params%lxmax
-cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gbs0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%lxmin,grid_params%lxmax
-cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc      enddo
 cc
 cc      do ieq=1,3
 cc        debug2 = gj0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
 cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,grid_params%lxmin,grid_params%lxmax
-cc     .              ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc      enddo
 cc
 cc      debug2 = grho0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%lxmin,grid_params%lxmax
-cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc
 cc      debug2 = gheta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%lxmin,grid_params%lxmax
-cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc
 cc      debug2 = geta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%lxmin,grid_params%lxmax
-cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc
 cc      debug2 = gvis%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
 cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,grid_params%lxmin,grid_params%lxmax
-cc     .            ,grid_params%lymin,grid_params%lymax,1,110)
+cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
 cc
 cc      deallocate(debug2)
 cc      close(110)
@@ -799,16 +813,17 @@ c     Begin program
 
       igr = 1
 
-      nxc = grid_params%nxv(igr)
-      nyc = grid_params%nyv(igr)
-      nzc = grid_params%nzv(igr)
+      nxc = gv%gparams%nxv(igr)
+      nyc = gv%gparams%nyv(igr)
+      nzc = gv%gparams%nzv(igr)
 
 c     Find cartesian coordinates
 
       gb0%grid(1)%array = bcnv
 
       if (cartesian)
-     .   call transformVector(igr,igr,igr,0,nxc+1,0,nyc+1,0,nzc+1
+     .   call transformVector(gv%gparams
+     .                       ,igr,igr,igr,0,nxc+1,0,nyc+1,0,nzc+1
      .                       ,gb0%grid(1)%array(:,:,:,1)
      .                       ,gb0%grid(1)%array(:,:,:,2)
      .                       ,gb0%grid(1)%array(:,:,:,3)
@@ -828,12 +843,12 @@ c     Impose BCs, and return cov, cnv components
         bcmod = EXT
       end where
 
-      do igr=1,grid_params%ngrid
-        nxc = grid_params%nxv(igr)
-        nyc = grid_params%nyv(igr)
-        nzc = grid_params%nzv(igr)
+      do igr=1,gv%gparams%ngrid
+        nxc = gv%gparams%nxv(igr)
+        nyc = gv%gparams%nyv(igr)
+        nzc = gv%gparams%nzv(igr)
 
-        call setMGBC(0,neq,nxc,nyc,nzc,igr
+        call setMGBC(gv%gparams,0,neq,nxc,nyc,nzc,igr
      .              ,gb0%grid(igr)%array,bcmod       !Input/output cnv array
      .              ,arr_cov=gb0_cov%grid(igr)%array !Input/output cov array
      .              ,icomp=(/ IBX /)
@@ -883,7 +898,7 @@ c     Begin program
           allocate(d_pois(1,nn2))
 cc          call find_mf_diag_colored(1,ntotdp,lap_mtvc,1
 cc     .                             ,bcnd,d_pois,ncolors)
-          call find_mf_diag(1,1,ntotdp,lap_mtvc,1
+          call find_mf_diag(gv%gparams,1,1,ntotdp,lap_mtvc,1
      .                     ,bcnd,d_pois,ncolors,vw,.false.)
         endif
 
@@ -970,8 +985,8 @@ c     End
 
 c     D_v
 c     #####################################################################
-      function D_v(i,j,k,nx,ny,nz,igr,rho0,v0_cnv,dv,dp,conserv,stress)
-     .         result(psiv)
+      function D_v(g_def,i,j,k,nx,ny,nz,igr,rho0,v0_cnv,dv,dp,conserv
+     .            ,stress) result(psiv)
 
 c     ---------------------------------------------------------------------
 c     Find linearized advection/diffusion component of SI operator
@@ -980,6 +995,8 @@ c     ---------------------------------------------------------------------
       implicit none
 
 c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
 
       integer :: i,j,k,nx,ny,nz,igr
       real(8) :: psiv(3)
@@ -1011,16 +1028,16 @@ c     Begin program
 
         !Advection
         psiv = psiv
-     .       + alpha*(tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
+     .       + alpha*(tensor_nc_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                              ,v0_cnv,dv,1)
-     .       +        tensor_nc_advc(i,j,k,nx,ny,nz,igr,igr,igr
+     .       +        tensor_nc_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                              ,dv,v0_cnv,min(v_advect,2)))
 
         !Diffusion
         if (strss) then
           psiv = psiv
      .        +alpha/rho0(i,j,k,1)
-     .        *EOM_divPi_ijk(i,j,k,nx,ny,nz,igr,igr,igr,dv,nus(:,:,:,1))
+     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1))
         endif
       else
        !TS
@@ -1028,16 +1045,16 @@ c     Begin program
 
         !Advection
         psiv = psiv
-     .       + alpha*(tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,v0_cnv,dp
-     .                           ,1)
-     .               +tensor_advc(i,j,k,nx,ny,nz,igr,igr,igr,dp,v0_cnv
-     .                           ,v_advect))
+     .       + alpha*(tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .                           ,v0_cnv,dp,1)
+     .               +tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .                           ,dp,v0_cnv,v_advect))
 
         !Diffusion
         if (strss) then
           psiv = psiv
      .        +alpha
-     .        *EOM_divPi_ijk(i,j,k,nx,ny,nz,igr,igr,igr,dv,nus(:,:,:,1))
+     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1))
         endif
       endif
 
@@ -1045,7 +1062,7 @@ c     Begin program
 
 c     U_Av_ijk
 c     ###################################################################
-      function U_Av_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,b0,he
+      function U_Av_ijk(g_def,i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,b0,he
      .                 ,stress) result(uav)
 
 c     -------------------------------------------------------------------
@@ -1065,6 +1082,8 @@ c     -------------------------------------------------------------------
         implicit none
 
 c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
 
         integer    :: i,j,k,nx,ny,nz,igx,igy,igz
         real(8)    :: uav(3)
@@ -1116,7 +1135,7 @@ c     Ideal MHD part
         select case(half_elem)
         case(1)
 
-          if (isSP2(ip,igx,dim=1)) then
+          if (isSP2(g_def,ip,igx,dim=1)) then
             cov = 0d0
           else
             cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
@@ -1134,8 +1153,8 @@ c     Ideal MHD part
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,1)+b0(ip,j,k,1))
 
-            cov = 0.5*cov/(gmetric%grid(igx)%jac(i ,j,k)
-     .                    +gmetric%grid(igx)%jac(ip,j,k))
+            cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i ,j,k)
+     .                    +g_def%gmetric%grid(igx)%jac(ip,j,k))
           endif
 
         case(2)
@@ -1155,8 +1174,8 @@ c     Ideal MHD part
      .            -(vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,1)+b0(i,jp,k,1))
 
-          cov = 0.5*cov/(gmetric%grid(igx)%jac(i,j ,k)
-     .                  +gmetric%grid(igx)%jac(i,jp,k))
+          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j ,k)
+     .                  +g_def%gmetric%grid(igx)%jac(i,jp,k))
 
         case(3)
 
@@ -1175,8 +1194,8 @@ c     Ideal MHD part
      .            -(vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,1)+b0(i,j,kp,1))
 
-          cov = 0.5*cov/(gmetric%grid(igx)%jac(i,j,k )
-     .                  +gmetric%grid(igx)%jac(i,j,kp))
+          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j,k )
+     .                  +g_def%gmetric%grid(igx)%jac(i,j,kp))
 
         case default
           cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
@@ -1188,7 +1207,7 @@ c     Ideal MHD part
           cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
      .           - vv(i,j,k,2)*b0(i,j,k,1)
 
-          cov = cov/gmetric%grid(igx)%jac(i,j,k)
+          cov = cov/g_def%gmetric%grid(igx)%jac(i,j,k)
         end select
 
         uav = -cov !-dv x B0
@@ -1239,12 +1258,12 @@ cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
 cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
 cc              case default
 
-                cnv = EOM_divPi_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+                cnv = EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv
      .                             ,gvis%grid(igx)%array)
      .               /grho0%grid(igx)%array(i,j,k,1)
 cc              end select
 
-                call transformFromCurvToCurv(i,j,k,igx,igy,igz
+                call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
      .                                ,cov(1),cov(2),cov(3)
      .                                ,cnv(1),cnv(2),cnv(3)
      .                                ,.false.,half_elem=half_elem)
@@ -1265,8 +1284,8 @@ cc              select case(half_elem)
 cc              case(1)
 cc                veh =(gve0%grid(igx)%array(i ,j,k,:)
 cc     .               +gve0%grid(igx)%array(ip,j,k,:))
-cc     .               /(gmetric%grid(igx)%jac(i ,j,k)
-cc     .                +gmetric%grid(igx)%jac(ip,j,k))
+cc     .               /(g_def%gmetric%grid(igx)%jac(i ,j,k)
+cc     .                +g_def%gmetric%grid(igx)%jac(ip,j,k))
 cc
 cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
 cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
@@ -1276,8 +1295,8 @@ cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
 cc              case(2)
 cc                veh =(gve0%grid(igx)%array(i,j ,k,:)
 cc     .               +gve0%grid(igx)%array(i,jp,k,:))
-cc     .               /(gmetric%grid(igx)%jac(i,j ,k)
-cc     .                +gmetric%grid(igx)%jac(i,jp,k))
+cc     .               /(g_def%gmetric%grid(igx)%jac(i,j ,k)
+cc     .                +g_def%gmetric%grid(igx)%jac(i,jp,k))
 cc
 cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
 cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
@@ -1287,8 +1306,8 @@ cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
 cc              case(3)
 cc                veh =(gve0%grid(igx)%array(i,j,k ,:)
 cc     .               +gve0%grid(igx)%array(i,j,kp,:))
-cc     .               /(gmetric%grid(igx)%jac(i,j,k )
-cc     .                +gmetric%grid(igx)%jac(i,j,kp))
+cc     .               /(g_def%gmetric%grid(igx)%jac(i,j,k )
+cc     .                +g_def%gmetric%grid(igx)%jac(i,j,kp))
 cc
 cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
 cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
@@ -1297,7 +1316,7 @@ cc
 cc                cov = -cov + minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
 cc              case default
 cc                veh = gve0%grid(igx)%array(i,j,k ,:)
-cc     .               /gmetric%grid(igx)%jac(i,j,k )
+cc     .               /g_def%gmetric%grid(igx)%jac(i,j,k )
 cc
 cc                cov(1) = veh(2)*curlv(3) - veh(3)*curlv(2)
 cc                cov(2) = veh(3)*curlv(1) - veh(1)*curlv(3)
@@ -1436,8 +1455,8 @@ cc      end function U_Bv
 
 c     U_Bv_ijk
 c     ###################################################################
-      function U_Bv_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he,strs)
-     .         result(cnv)
+      function U_Bv_ijk(g_def,i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he
+     .                 ,strs) result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of vector
@@ -1451,6 +1470,8 @@ c     -------------------------------------------------------------------
         implicit none
 
 c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
 
         integer    :: i,j,k,nx,ny,nz,he,igx,igy,igz
         real(8)    :: cnv(3)
@@ -1476,81 +1497,81 @@ c     Begin program
         kp = k+1
         km = k-1
 
-        call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+        call getMGmap(g_def,i,j,k,igx,igy,igz,ig,jg,kg)
 
-        idhx = half/grid_params%dxh(ig)
-        idhy = half/grid_params%dyh(jg)
-        idhz = half/grid_params%dzh(kg)
+        idhx = half/g_def%dxh(ig)
+        idhy = half/g_def%dyh(jg)
+        idhz = half/g_def%dzh(kg)
 
         select case(he)
         case(1)
-          idhx = one/grid_params%dx(ig)
+          idhx = one/g_def%dx(ig)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
-          aim = U_Av_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
+          aip = U_Av_ijk(g_def,ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
+          aim = U_Av_ijk(g_def,i ,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          ajp = U_Av_ijk(g_def,i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          ajm = U_Av_ijk(g_def,i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          akm = U_Av_ijk(g_def,i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
 
         case(2)
-          idhy = one/grid_params%dy(jg)
+          idhy = one/g_def%dy(jg)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          aip = U_Av_ijk(g_def,ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          aim = U_Av_ijk(g_def,im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
-          ajm = U_Av_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
+          ajp = U_Av_ijk(g_def,i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
+          ajm = U_Av_ijk(g_def,i,j ,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          akm = U_Av_ijk(i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          akm = U_Av_ijk(g_def,i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
 
         case(3)
-          idhz = one/grid_params%dz(kg)
+          idhz = one/g_def%dz(kg)
 
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          aip = U_Av_ijk(g_def,ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          aim = U_Av_ijk(g_def,im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          ajp = U_Av_ijk(g_def,i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          ajm = U_Av_ijk(g_def,i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
-          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=0
-     .                  ,stress=strs)
+          akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
+          akm = U_Av_ijk(g_def,i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=0,stress=strs)
         case default
-          aip = U_Av_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          aim = U_Av_ijk(im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          aip = U_Av_ijk(g_def,ip,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          aim = U_Av_ijk(g_def,im,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
 
-          ajp = U_Av_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          ajm = U_Av_ijk(i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          ajp = U_Av_ijk(g_def,i,jp,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          ajm = U_Av_ijk(g_def,i,jm,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
           
-          akp = U_Av_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
-          akm = U_Av_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,he=he
-     .                  ,stress=strs)
+          akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
+          akm = U_Av_ijk(g_def,i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+     .                  ,he=he,stress=strs)
         end select
 
         cnv(1) = (ajp(3)-ajm(3))*idhy
@@ -1568,7 +1589,7 @@ c     End program
 
 c     U_rho_v
 c     ###################################################################
-      subroutine U_rho_v(nx,ny,nz,dv_cnv,crhs,igrid)
+      subroutine U_rho_v(g_def,igrid,dv_cnv,crhs)
 c     -------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the density solve,
 c     div(rh0*dv). Not weighed by volume or jacobian factor!
@@ -1577,15 +1598,21 @@ c     -------------------------------------------------------------------
       implicit none
 
 c     Call variables
+      
+      type(grid_mg_def),pointer :: g_def
 
-      integer :: igrid,nx,ny,nz
-      real(8) :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
+      integer :: igrid
+      real(8) :: dv_cnv(0:,0:,0:,:),crhs(:)
 
 c     Local variables
 
-      integer :: i,j,k,ii
+      integer :: i,j,k,ii,nx,ny,nz
 
 c     Begin program
+
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
       do k = 1,nz
         do j = 1,ny
@@ -1593,7 +1620,7 @@ c     Begin program
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             crhs(ii) = alpha
-     .                *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                *flx_advec(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                      ,dv_cnv,grho0%grid(igrid)%array(:,:,:,1)
      .                      ,advect,vol=.false.)
           enddo
@@ -1606,7 +1633,7 @@ c     End program
 
 c     L_rho_v
 c     #########################################################################
-      subroutine L_rho_v(nn,xxx,yyy,crhs,igrid,vwgt)
+      subroutine L_rho_v(g_def,igrid,xxx,yyy,crhs,vwgt)
 c     --------------------------------------------------------------------
 c     This subroutine finds L_rho_v (form depends on whether we
 c     are doing conservative EOM or not).
@@ -1616,31 +1643,35 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: nn,igrid,nx,ny,nz
-      real(8)    :: xxx(nn,neqd),yyy(nn,3),crhs(nn,3)
-      logical    :: vwgt
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid,nx,ny,nz
+      real(8) :: xxx(:,:),yyy(:,:),crhs(:,:)
+      logical :: vwgt
 
 c     Local variables
 
-      integer    :: i,j,k,ii,iig,isig,ivar,ip,im
-      real(8)    :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(nn,3)
+      integer :: nn,i,j,k,ii,iig,isig,ivar,ip,im
+      real(8) :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(size(xxx,1),3)
 
       real(8),allocatable,dimension(:,:,:,:),target :: dp_cnv,drho
 
 c     Begin program
 
-      isig = grid_params%istartp(igrid)
+      isig = g_def%istartp(igrid)
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nn = size(crhs,1)
+
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
       allocate(dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,drho  (0:nx+1,0:ny+1,0:nz+1,1))
 
 c     Find rhs_v
 
-      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+      call fillArray(g_def,igrid,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
       if (.not.nc_eom_v) then
@@ -1655,18 +1686,19 @@ c     Find rhs_v
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               iig = ii + isig - 1
               if (vwgt) then
-                dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+                dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
               else
                 dvol = 1d0
               endif
 
-              cnv = tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                        ,gv0%grid(igrid)%array,dp_cnv,v_advect)
 
               crhs(ii,:) = dvol*(cnp*dp_cnv(i,j,k,:)/dt - alpha*cnv)
 
               if (alt__eom()) then
-                crhs(ii,2) = crhs(ii,2)*gmetric%grid(igrid)%jac (i,j,k)
+                crhs(ii,2) = crhs(ii,2)
+     .                      *g_def%gmetric%grid(igrid)%jac(i,j,k)
               endif
             enddo
           enddo
@@ -1680,14 +1712,15 @@ c     Find rhs_v
               ii  = i + nx*(j-1) + nx*ny*(k-1)
               iig = ii + isig - 1
               if (vwgt) then
-                dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+                dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
               else
                 dvol = 1d0
               endif
               crhs(ii,:)=dvol*drho(i,j,k,1)*mgadvdiffV0(iig,:)
 
               if (alt__eom()) then
-                crhs(ii,2) = crhs(ii,2)*gmetric%grid(igrid)%jac (i,j,k)
+                crhs(ii,2) = crhs(ii,2)
+     .               *g_def%gmetric%grid(igrid)%jac(i,j,k)
               endif
             enddo
           enddo
@@ -1705,7 +1738,7 @@ c     End program
 
 c     U_Tv
 c     ####################################################################
-      subroutine U_Tv(nx,ny,nz,dv_cnv,crhs,igrid)
+      subroutine U_Tv(g_def,igr,dv_cnv,crhs)
 c     --------------------------------------------------------------------
 c     This subroutine finds the U_Tv block using dv. Not weighed by
 c     volume or jacobian factor.
@@ -1714,21 +1747,27 @@ c     --------------------------------------------------------------------
       implicit none
 
 c     Call variables
+      
+      type(grid_mg_def),pointer :: g_def
 
-      integer :: igrid,nx,ny,nz
-      real(8) :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz)
+      integer :: igr
+      real(8) :: dv_cnv(0:,0:,0:,:),crhs(:)
 
 c     Local variables
 
-      integer :: i,j,k,ii
+      integer :: i,j,k,ii,nx,ny,nz
       real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0,p0
       real(8) :: heat_src
 
 c     Begin program
 
+      nx = g_def%nxv(igr)
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
+
 c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
-      p0 => gp0%grid(igrid)%array
+      p0 => gp0%grid(igr)%array
 
       do k = 1,nz
         do j = 1,ny
@@ -1736,18 +1775,18 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             crhs(ii) = 
-     .         gamma    *flx_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .        gamma    *flx_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),advect)
-     .       +(gamma-1.)*flx_nc_advec(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .      +(gamma-1.)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),1,reverse=.true.)
           enddo
         enddo
       enddo
 
       if (.not.adiabatic) then
-        v0   => gv0  %grid(igrid)%array
-        rho0 => grho0%grid(igrid)%array
-        nu0  => gvis %grid(igrid)%array
+        v0   => gv0  %grid(igr)%array
+        rho0 => grho0%grid(igr)%array
+        nu0  => gvis %grid(igr)%array
 
         do k = 1,nz
           do j = 1,ny
@@ -1755,8 +1794,8 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               heat_src =
-     .             viscous_heat_src(i,j,k,igrid,nu0(:,:,:,1),dv_cnv,v0)
-     .            +viscous_heat_src(i,j,k,igrid,nu0(:,:,:,1),v0,dv_cnv)
+     .          viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1),dv_cnv,v0)
+     .         +viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1),v0,dv_cnv)
 
               crhs(ii) =crhs(ii)-(gamma-1d0)*heat_src
             enddo
@@ -1776,7 +1815,7 @@ c     End program
 
 c     L_T
 c     #####################################################################
-      subroutine L_T(nn,x,crhs,igrid)
+      subroutine L_T(g_def,igrid,x,crhs)
 c     ---------------------------------------------------------------------
 c     This subroutine computes L_T temperature block with dB, drho. 
 c     ---------------------------------------------------------------------
@@ -1785,12 +1824,14 @@ c     ---------------------------------------------------------------------
 
 c     Call variables
 
-      integer :: nn,igrid
-      real(8) :: x(nn,neqd),crhs(nn)
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8) :: x(:,:),crhs(:)
 
 c     Local variables
 
-      integer :: nx,ny,nz,i,j,k,ii,isig,ivar
+      integer :: nn,nx,ny,nz,i,j,k,ii,isig,ivar
       real(8) :: heat_src
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
@@ -1806,9 +1847,11 @@ c     Local variables
 
 c     Begin program
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nn = size(crhs)
+
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
       crhs = 0d0
 cc      if (adiabatic .or. (di == 0d0) ) return
@@ -1816,7 +1859,7 @@ cc      if (adiabatic .or. (di == 0d0) ) return
 cc      !To recover old TM Hall performance results
 cc      return
 
-      isig = grid_params%istartp(igrid)
+      isig = g_def%istartp(igrid)
 
       allocate (db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .         ,db_cov (0:nx+1,0:ny+1,0:nz+1,3)
@@ -1830,7 +1873,7 @@ cc      return
 
 c     Find drho
 
-      call fillArray(igrid,1,x(:,IRHO:IRHO),drho
+      call fillArray(g_def,igrid,1,x(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
 c     Find dB
@@ -1839,30 +1882,30 @@ c     Find dB
       !Find dA
       allocate (da_cov(0:nx+1,0:ny+1,0:nz+1,3))
 
-      call fillArray(igrid,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
+      call fillArray(g_def,igrid,3,x(:,IAX:IAZ),da_cov,bcs(:,IAX:IAZ)
      .              ,order_bc,is_vec=.true.,is_cnv=.false.
      .              ,icomp=(/IAX/))
 
       !Find dB
-      db_cnv = curl(igrid,da_cov)
+      db_cnv = curl(g_def,igrid,da_cov)
 
       deallocate(da_cov)
 
-      db_cov = XformVector(igrid,db_cnv,.false.)
+      db_cov = XformVector(g_def,igrid,db_cnv,.false.)
 #else
-      call fillArray(igrid,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(g_def,igrid,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
      .              ,is_cnv=.true.,icomp=(/IBX/))
 #endif
 
 c     Find dj* from dB*
 
-      dj_cnv = curl(igrid,db_cov)
-      dj_cov = XformVector(igrid,dj_cnv,.false.)
+      dj_cnv = curl(g_def,igrid,db_cov)
+      dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=order_bc)
+      call setBC(g_def,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
 
 c     Find Joule heating correction
 
@@ -1878,8 +1921,9 @@ c     Find Joule heating correction
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               heat_src = 2*eta0(i,j,k,1)
-     .                   *scalarProduct_ijk(i,j,k,igrid,j0    (i,j,k,:)
-     .                                                 ,dj_cov(i,j,k,:))
+     .                   *scalarProduct_ijk(g_def,i,j,k,igrid
+     .                                     ,j0    (i,j,k,:)
+     .                                     ,dj_cov(i,j,k,:))
 
               crhs(ii) =-(gamma-1d0)*heat_src
             enddo
@@ -1938,10 +1982,10 @@ cc        endif
 
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-                heat_src= viscous_heat_src(i,j,k,igrid
+                heat_src= viscous_heat_src(g_def,i,j,k,igrid
      .                            ,gheta%grid(igrid)%array(:,:,:,1)
      .                            ,ve0,dve_cnv)
-     .                   +viscous_heat_src(i,j,k,igrid
+     .                   +viscous_heat_src(g_def,i,j,k,igrid
      .                            ,gheta%grid(igrid)%array(:,:,:,1)
      .                            ,dve_cnv,ve0)
 
@@ -1995,9 +2039,9 @@ c     Local variables
 
 c     Begin program
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
 c     Auxiliary variables
 
@@ -2010,14 +2054,14 @@ c     Auxiliary variables
       tmp0 => gtmp0%grid(igrid)%array
       Eh0  => gEh0_cov%grid(igrid)%array
 
-      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
 cc      vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 
-      call fillArray(igrid,1,xxx(:,ITMP:ITMP),dpe
+      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dpe
      .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
 
       dpe  = dpe/a_p
@@ -2029,7 +2073,8 @@ c     Find rhs_a
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            cov = grad(i,j,k,nx,ny,nz,igrid,igrid,igrid,dpe(:,:,:,1))
+            cov = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                ,dpe(:,:,:,1))
 
 cc            cnv= EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid,vdum
 cc     .                        ,gheta%grid(igrid)%array(:,:,:,1))
@@ -2051,7 +2096,7 @@ c     End program
 
 c     U_Bv
 c     ###################################################################
-      subroutine U_Bv(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
+      subroutine U_Bv(g_def,igrid,dv_cnv,dv_cov,crhs)
 c     -------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the magnetic field
 c     solve: div(dv B0 - B0 dv)
@@ -2061,21 +2106,27 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: igrid,nx,ny,nz
-      real(8),target :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-      real(8)    :: dv_cov(0:nx+1,0:ny+1,0:nz+1,3),crhs(nx*ny*nz,3)
+      type(grid_mg_def),pointer :: g_def
+
+      integer    :: igrid
+      real(8),target :: dv_cnv(0:,0:,0:,:)
+      real(8)    :: dv_cov(0:,0:,0:,:),crhs(:,:)
 
 c     Local variables
 
-      integer    :: i,j,k,ii
+      integer    :: nx,ny,nz,i,j,k,ii
 
 c     Begin program
+
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            crhs(ii,:) = U_Bv_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+            crhs(ii,:) = U_Bv_ijk(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                       ,dv_cnv,dv_cov
      .                       ,ga0%grid(igrid)%array,0)
           enddo
@@ -2088,7 +2139,7 @@ c     End program
 
 c     U_Av
 c     ###################################################################
-      subroutine U_Av(nx,ny,nz,dv_cnv,dv_cov,crhs,igrid)
+      subroutine U_Av(g_def,igrid,dv_cnv,dv_cov,crhs)
 c     --------------------------------------------------------------------
 c     This subroutine finds the corrected rhs for the vector potential
 c     solve: U_Av(dv)
@@ -2098,16 +2149,22 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: igrid,nx,ny,nz
-      real(8)    :: dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,dv_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .             ,crhs(nx*ny*nz,3)
+      type(grid_mg_def),pointer :: g_def
+
+      integer    :: igrid
+      real(8)    :: dv_cnv(0:,0:,0:,:)
+     .             ,dv_cov(0:,0:,0:,:)
+     .             ,crhs(:,:)
 
 c     Local variables
 
-      integer    :: i,j,k,ii
+      integer    :: nx,ny,nz,i,j,k,ii
 
 c     Begin program
+
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
       if (pc_ion_hall) then
         do k = 1,nz
@@ -2115,7 +2172,8 @@ c     Begin program
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              crhs(ii,:) = U_Av_ijk(g_def,i,j,k,nx,ny,nz
+     .                             ,igrid,igrid,igrid
      .                         ,dv_cnv,dv_cov,ga0%grid(igrid)%array
      .                         ,stress=.true.)
             enddo
@@ -2127,7 +2185,8 @@ c     Begin program
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              crhs(ii,:) = U_Av_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+              crhs(ii,:) = U_Av_ijk(g_def,i,j,k,nx,ny,nz
+     .                             ,igrid,igrid,igrid
      .                         ,dv_cnv,dv_cov,gbs0%grid(igrid)%array
      .                         ,stress=.false.)
             enddo
@@ -2141,7 +2200,7 @@ c     End program
 
 c     diagonalScaling
 c     #####################################################################
-      subroutine diagonalScaling(neq,ntotp,idiag,y,x,igrid)
+      subroutine diagonalScaling(g_def,igrid,idiag,y,x)
 c     ---------------------------------------------------------------
 c     Performs x=idiag*y, where idiag contains the inverse of the
 c     diagonal.
@@ -2151,19 +2210,27 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      integer    :: neq,ntotp,igrid
-      real(8)    :: idiag(neq,*),y(ntotp,neq),x(ntotp,neq)
+      type(grid_mg_def),pointer :: g_def
+
+      integer    :: igrid
+      real(8)    :: idiag(:,:),y(:,:),x(:,:)
 
 c     Local variables
 
-      integer    :: ii,iii,iig,isig
+      integer    :: ii,iii,iig,isig,neq,ntotp
       logical    :: fpointers
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
 
 c     Begin program
 
-      call allocPointers(neq,fpointers)
+      neq = size(idiag,1)
 
-      isig = istart(igrid)
+      ntotp = size(y,1)
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig = mg_ctx_l%istart(igrid)
 
       do ii = 1,ntotp
 
@@ -2174,7 +2241,7 @@ c     Begin program
 
       enddo
 
-      call deallocPointers(fpointers)
+      call deallocMGPointers(fpointers,mg_ctx_l)
 
 c     End program
 

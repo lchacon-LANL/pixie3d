@@ -141,9 +141,9 @@ cc            write(*,*) 'calling ppnch_br'
         !Perturb normal B-field component ensuring div(B)=0 numerically
         if (br_pert_bc /= 0d0) then
 
-          RR = grid_params%params(1)
-cc          mm = grid_params%params(4)
-cc          nn = grid_params%params(5)
+          RR = gv%gparams%params(1)
+cc          mm = gv%gparams%params(4)
+cc          nn = gv%gparams%params(5)
 !          mm = nh2
 !          nn =-nh3
 
@@ -208,8 +208,8 @@ cc          nn = grid_params%params(5)
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
                 ip = ig+1
                 im = ig-1
@@ -218,9 +218,9 @@ cc          nn = grid_params%params(5)
                 kp = kg+1
                 km = kg-1
 
-                dxx = 2*grid_params%dxh(ig)
-                dyy = 2*grid_params%dyh(jg)
-                dzz = 2*grid_params%dzh(kg)
+                dxx = 2*gv%gparams%dxh(ig)
+                dyy = 2*gv%gparams%dyh(jg)
+                dzz = 2*gv%gparams%dzh(kg)
 
 ! Daniele, 19 Dec. 2014
 ! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
@@ -233,15 +233,15 @@ cc          nn = grid_params%params(5)
                    varr%array_var(IBX)%array(i,j,k) =
      .                  varr%array_var(IBX)%array(i,j,k)
      .                  +x1**mm*br_pert_bc*RR
-     .                  *(cos(mm*grid_params%yy(jp))
-     .                  -cos(mm*grid_params%yy(jm)))
+     .                  *(cos(mm*gv%gparams%yy(jp))
+     .                  -cos(mm*gv%gparams%yy(jm)))
      .                  /dyy/mm !Derivative done numerically to preserve div(B)=0
 
                    varr%array_var(IBY)%array(i,j,k) =
      .                  varr%array_var(IBY)%array(i,j,k)
      .                  -br_pert_bc*RR
-     .                  *(grid_params%xx(ip)**mm
-     .                  -grid_params%xx(im)**mm)
+     .                  *(gv%gparams%xx(ip)**mm
+     .                  -gv%gparams%xx(im)**mm)
      .                  /dxx !Derivative done numerically to preserve div(B)=0
      .                  *cos(mm*y1)/mm
 
@@ -250,15 +250,15 @@ cc          nn = grid_params%params(5)
                       varr%array_var(IBX)%array(i,j,k) =
      .                     varr%array_var(IBX)%array(i,j,k)
      .                     +0.5*x1**(mm+1)*br_pert_bc
-     .                     *(cos((mm+1)*grid_params%yy(jp))
-     .                     -cos((mm+1)*grid_params%yy(jm)))
+     .                     *(cos((mm+1)*gv%gparams%yy(jp))
+     .                     -cos((mm+1)*gv%gparams%yy(jm)))
      .                     /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
 
                       varr%array_var(IBY)%array(i,j,k) =
      .                     varr%array_var(IBY)%array(i,j,k)
      .                     -0.5*br_pert_bc
-     .                     *(grid_params%xx(ip)**(mm+1)
-     .                     -grid_params%xx(im)**(mm+1))
+     .                     *(gv%gparams%xx(ip)**(mm+1)
+     .                     -gv%gparams%xx(im)**(mm+1))
      .                     /dxx !Derivative done numerically to preserve div(B)=0
      .                     *cos((mm+1)*y1)/(mm+1)
 
@@ -268,15 +268,15 @@ cc          nn = grid_params%params(5)
                       varr%array_var(IBX)%array(i,j,k) =
      .                     varr%array_var(IBX)%array(i,j,k)
      .                     +0.5*x1**(mm+1)*br_pert_bc
-     .                     *(cos((mm-1)*grid_params%yy(jp))
-     .                     -cos((mm-1)*grid_params%yy(jm)))
+     .                     *(cos((mm-1)*gv%gparams%yy(jp))
+     .                     -cos((mm-1)*gv%gparams%yy(jm)))
      .                     /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
 
                       varr%array_var(IBY)%array(i,j,k) =
      .                     varr%array_var(IBY)%array(i,j,k)
      .                     -0.5*br_pert_bc
-     .                     *(grid_params%xx(ip)**(mm+1)
-     .                     -grid_params%xx(im)**(mm+1))
+     .                     *(gv%gparams%xx(ip)**(mm+1)
+     .                     -gv%gparams%xx(im)**(mm+1))
      .                     /dxx !Derivative done numerically to preserve div(B)=0
      .                     *cos((mm-1)*y1)/(mm-1)
 
@@ -291,20 +291,20 @@ cc          nn = grid_params%params(5)
 !     .               +x1**(mm+10)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
      .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
 !     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-     .                 *(cos(mm*y1+nn*grid_params%zz(kp)+br_pert_phase)
-     .                  -cos(mm*y1+nn*grid_params%zz(km)+br_pert_phase))
+     .                 *(cos(mm*y1+nn*gv%gparams%zz(kp)+br_pert_phase)
+     .                  -cos(mm*y1+nn*gv%gparams%zz(km)+br_pert_phase))
      .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
                 varr%array_var(IBZ)%array(i,j,k) =
      .               varr%array_var(IBZ)%array(i,j,k)
      .               -br_pert_bc*
-!     .               (grid_params%xx(ip)**(mm+10)
-     .               (grid_params%xx(ip)**(mm+2)
-!     .               (grid_params%xx(ip)**mm
-     .                *(RR+grid_params%xx(ip)*cos(y1))
-!     .               -grid_params%xx(im)**(mm+10)
-     .               -grid_params%xx(im)**(mm+2)
-!     .               -grid_params%xx(im)**mm
-     .                *(RR+grid_params%xx(im)*cos(y1)))
+!     .               (gv%gparams%xx(ip)**(mm+10)
+     .               (gv%gparams%xx(ip)**(mm+2)
+!     .               (gv%gparams%xx(ip)**mm
+     .                *(RR+gv%gparams%xx(ip)*cos(y1))
+!     .               -gv%gparams%xx(im)**(mm+10)
+     .               -gv%gparams%xx(im)**(mm+2)
+!     .               -gv%gparams%xx(im)**mm
+     .                *(RR+gv%gparams%xx(im)*cos(y1)))
      .                 /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
 
@@ -326,8 +326,8 @@ cc          nn = grid_params%params(5)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
               jac = 1d0
 
@@ -376,7 +376,7 @@ cc          nn = grid_params%params(5)
           w_slow = minval(roots)
           w_shr  = fmed(roots(1),roots(2),roots(3))
 
-          write (*,*) 'B angle =',grid_params%params(1)
+          write (*,*) 'B angle =',gv%gparams%params(1)
           write (*,*)
           write (*,*) 'shear fq=',w_shr
           write (*,*) 'fast  fq=',w_fast
@@ -384,7 +384,7 @@ cc          nn = grid_params%params(5)
           write (*,*)
 
           !Select frequency
-          select case(nint(grid_params%params(3)))
+          select case(nint(gv%gparams%params(3)))
           case(1)
             if (my_rank == 0)
      .           write (*,*) '===> Selecting fast freq...'
@@ -414,8 +414,8 @@ cc          nn = grid_params%params(5)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
               if ((cs2*kdotB*ky/freq**2-B0(2)) /= 0d0) then
                 vxx = eps*cos(kx*(x1-xmin)+ky*(y1-ymin))
@@ -515,10 +515,10 @@ cc          nn = grid_params%params(5)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
-              jac = gmetric%grid(igx)%jac(i,j,k)
+              jac = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 #if !defined(vec_pot) 
               varr%array_var(IBY)%array(i,j,k) =
      .             varr%array_var(IBY)%array(i,j,k)
@@ -544,8 +544,8 @@ cc          nn = grid_params%params(5)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .             ,ig,jg,kg,x1,y1,z1)
 
               varr%array_var(IVY)%array(i,j,k)
      .               = varr%array_var(IVY)%array(i,j,k)
@@ -619,22 +619,22 @@ c     Begin program
 
               mode = nh1+sign(ipw1,nh1)
               do i = ilom,ihip
-                call getCartesianCoordinates(i,jlo,klo,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCartesianCoordinates(gv%gparams,i,jlo,klo,igx
+     .               ,igy,igz,ig,jg,kg,x1,y1,z1)
                 fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
               enddo
 
               mode = nh2+sign(ipw2,nh2)
               do j = jlom,jhip
-                call getCartesianCoordinates(ilo,j,klo,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCartesianCoordinates(gv%gparams,ilo,j,klo,igx
+     .               ,igy,igz,ig,jg,kg,x1,y1,z1)
                 fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
               enddo
 
               mode = nh3+sign(ipw3,nh3)
               do k = klom,khip
-                call getCartesianCoordinates(ilo,jlo,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCartesianCoordinates(gv%gparams,ilo,jlo,k,igx
+     .               ,igy,igz,ig,jg,kg,x1,y1,z1)
                 fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
               enddo
 
@@ -658,22 +658,22 @@ c     Begin program
 
               mode = nh1+sign(ipw1,nh1)
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,jlo,klo,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,jlo,klo
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
                 fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
               enddo
 
               mode = nh2+sign(ipw2,nh2)
               do j = jlom,jhip
-                call getCurvilinearCoordinates(ilo,j,klo,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
                 fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
               enddo
 
               mode = nh3+sign(ipw3,nh3)
               do k = klom,khip
-                call getCurvilinearCoordinates(ilo,jlo,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,ilo,jlo,k
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
                 fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
               enddo
 
@@ -719,8 +719,8 @@ c     Local variables
 
 c     Begin program
 
-      mm = grid_params%params(1)
-      kk = grid_params%params(2)
+      mm = gv%gparams%params(1)
+      kk = gv%gparams%params(2)
 
       if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
 
@@ -735,10 +735,10 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
       do k = klom,khip
         do j = jlom,jhip
           do i = ilo,ihi
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
-            iglobal = i + grid_params%ilo(igx) - 1
+            iglobal = i + gv%gparams%ilo(igx) - 1
 
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
@@ -802,8 +802,8 @@ c     Local variables
 
 c     Begin program
 
-      mm = grid_params%params(1)
-      kk = grid_params%params(2)
+      mm = gv%gparams%params(1)
+      kk = gv%gparams%params(2)
 
 c     Read perturbation file
 
@@ -830,10 +830,10 @@ c     Find perturbations
       do i = ilo,ihi
         do k = klom,khip
           do j = jlom,jhip
-            call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
-     .                                    ,x1,y1,z1)
+            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
-            iglobal = i + grid_params%ilo(igx) - 1
+            iglobal = i + gv%gparams%ilo(igx) - 1
 
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
@@ -960,55 +960,55 @@ c     Reconstruct field on target mesh
       select case(coords)
       case('hel')
 
-        mm = grid_params%params(1)
-        kk = grid_params%params(2)
+        mm = gv%gparams%params(1)
+        kk = gv%gparams%params(2)
 
         !We are NOT including equilibrium component (ff=0)
         do ff = 1, nh2/2-1 
           
 c#c magnetic field
           call IntDriver1d (nr+2,rin,dreal(fft_br(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,1),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,1),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_br(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,1),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,1),3,0)  !Cubic splines
 
           call IntDriver1d (nr+2,rin,dreal(fft_bt(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,2),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,2),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_bt(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,2),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,2),3,0)  !Cubic splines
 
           call IntDriver1d (nr+2,rin,dreal(fft_bz(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,3),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,3),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_bz(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,3),3,0)  !Cubic splines
 c#c velocity field
           call IntDriver1d (nr+2,rin,dreal(fft_vr(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,4),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,4),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_vr(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,4),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,4),3,0)  !Cubic splines
 
           call IntDriver1d (nr+2,rin,dreal(fft_vt(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,5),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,5),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_vt(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,5),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,5),3,0)  !Cubic splines
 
           call IntDriver1d (nr+2,rin,dreal(fft_vz(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,6),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,6),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_vz(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,6),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,6),3,0)  !Cubic splines
 c#c temperature field
           call IntDriver1d (nr+2,rin,dreal(fft_tmp(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),rdum(:,7),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),rdum(:,7),3,0)  !Cubic splines
           call IntDriver1d (nr+2,rin,dimag(fft_tmp(:,ff,0))
-     .                     ,nxd,grid_params%xg(1:nxd),idum(:,7),3,0)  !Cubic splines
+     .                     ,nxd,gv%gparams%xg(1:nxd),idum(:,7),3,0)  !Cubic splines
 
           do k = klo, khi
             do j = jlo, jhi
               do i = ilo, ihi
-                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-                iglobal = i + grid_params%ilo(igx) - 1
+                iglobal = i + gv%gparams%ilo(igx) - 1
 
                 pert(IBX) = + rdum(iglobal,1) * cos(ff*y1)
      .                      - idum(iglobal,1) * sin(ff*y1)
@@ -1072,7 +1072,7 @@ c     Divergence clean perturbation
         if (ilevel > 0) write (*,*)
       endif
 
-      call vlap_div_clean(ilevel,nx,ny,nz,igx,igy,igz
+      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,w_pre_bcs=.true.
      .                   ,gm_it=it_divcl,rtol=0.1*rtol)
 
@@ -1140,7 +1140,7 @@ cc
 cc        do k = klom,khip
 cc          do j = jlom,jhip
 cc            do i = ilom,ihip
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                      ,x1,y1,z1)
 cc
 cc              psi(i,j,k)=-sin(  pi*(x1-xmin)/lx)
@@ -1162,13 +1162,13 @@ cc
 cc              if (ieq == IBX) then
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-cc     .                              /(grid_params%yy(jg+jp-j)
-cc     .                               -grid_params%yy(jg+jm-j))
+cc     .                              /(gv%gparams%yy(jg+jp-j)
+cc     .                               -gv%gparams%yy(jg+jm-j))
 cc              else
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-cc     .                              /(grid_params%xx(ig+ip-i)
-cc     .                               -grid_params%xx(ig+im-i))
+cc     .                              /(gv%gparams%xx(ig+ip-i)
+cc     .                               -gv%gparams%xx(ig+im-i))
 cc              endif
 cc            enddo
 cc          enddo
@@ -1179,7 +1179,7 @@ cccc
 cccc        do k = klom,khip
 cccc          do j = jlom,jhip
 cccc            do i = ilom,ihip
-cccc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                    ,x1,y1,z1)
 cccc
 cccc              psi(i,j,k)=sin(2*pi*(x1-xmin)/(xmax-xmin))
@@ -1201,13 +1201,13 @@ cccc
 cccc              if (ieq == IVX) then
 cccc                array(i,j,k) = array(i,j,k)
 cccc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-cccc     .                              /(grid_params%yy(jg+jp-j)
-cccc     .                               -grid_params%yy(jg+jm-j))
+cccc     .                              /(gv%gparams%yy(jg+jp-j)
+cccc     .                               -gv%gparams%yy(jg+jm-j))
 cccc              else
 cccc                array(i,j,k) = array(i,j,k)
 cccc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-cccc     .                              /(grid_params%xx(ig+ip-i)
-cccc     .                               -grid_params%xx(ig+im-i))
+cccc     .                              /(gv%gparams%xx(ig+ip-i)
+cccc     .                               -gv%gparams%xx(ig+im-i))
 cccc              endif
 cccc            enddo
 cccc          enddo
@@ -1255,7 +1255,7 @@ cc
 cc        do k = klom,khip
 cc          do j = jlom,jhip
 cc            do i = ilom,ihip
-cc              call getCartesianCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                    ,x1,y1,z1)
 cc
 cc              psi(i,j,k)=-cos(2*pi*(x1-xmin)/(xmax-xmin))
@@ -1277,13 +1277,13 @@ cc
 cc              if (ieq == IBX) then
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-cc     .                              /(grid_params%yy(jg+jp-j)
-cc     .                               -grid_params%yy(jg+jm-j))
+cc     .                              /(gv%gparams%yy(jg+jp-j)
+cc     .                               -gv%gparams%yy(jg+jm-j))
 cc              else
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-cc     .                              /(grid_params%xx(ig+ip-i)
-cc     .                               -grid_params%xx(ig+im-i))
+cc     .                              /(gv%gparams%xx(ig+ip-i)
+cc     .                               -gv%gparams%xx(ig+im-i))
 cc              endif
 cc            enddo
 cc          enddo
@@ -1333,10 +1333,10 @@ cc      igz = 1
 cc
 cc      if (ieq == IBX .or. ieq == IBY) then
 cc
-cc        mm = grid_params%params(1)
-cc        kk = grid_params%params(2)
-cc        RR = grid_params%params(3)
-cc        iq0= grid_params%params(4)
+cc        mm = gv%gparams%params(1)
+cc        kk = gv%gparams%params(2)
+cc        RR = gv%gparams%params(3)
+cc        iq0= gv%gparams%params(4)
 cc
 cc        nn = abs(kk*RR)
 cc
@@ -1357,7 +1357,7 @@ cccc
 cccc        do k = klom,khip
 cccc          do j = jlom,jhip
 cccc            do i = ilom,ihip
-cccc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                    ,x1,y1,z1)
 cccc
 cccc              psi(i,j,k)=(x1/dlambda)**mm
@@ -1382,7 +1382,7 @@ cccc
 cccc        do k = klom,khip
 cccc          do j = jlom,jhip
 cccc            do i = ilom,ihip
-cccc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
+cccc              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                    ,x1,y1,z1)
 cccc
 cccc              psi(i,j,k)=psi(i,j,k) + (x1/dlambda)**mm
@@ -1419,7 +1419,7 @@ cc
 cc            do k = klom,khip
 cc              do j = jlom,jhip
 cc                do i = ilom,ihip
-cc                  call getCurvilinearCoordinates(i,j,k,igx,igy,igz
+cc                  call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
 cc     .                                          ,ig,jg,kg,x1,y1,z1)
 cc
 cc                  psi(i,j,k)=psi(i,j,k) + (x1/dlambda)**mm
@@ -1447,13 +1447,13 @@ cc
 cc              if (ieq == IBX) then
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   - perturb*(psi(i,jp,k)-psi(i,jm,k))
-cc     .                              /(grid_params%yy(jg+jp-j)
-cc     .                               -grid_params%yy(jg+jm-j))
+cc     .                              /(gv%gparams%yy(jg+jp-j)
+cc     .                               -gv%gparams%yy(jg+jm-j))
 cc              else
 cc                array(i,j,k) = array(i,j,k)
 cc     .                   + perturb*(psi(ip,j,k)-psi(im,j,k))
-cc     .                              /(grid_params%xx(ig+ip-i)
-cc     .                               -grid_params%xx(ig+im-i))
+cc     .                              /(gv%gparams%xx(ig+ip-i)
+cc     .                               -gv%gparams%xx(ig+im-i))
 cc              endif
 cc            enddo
 cc          enddo
@@ -1515,9 +1515,9 @@ c     Begin program
         do k = klo,khi
           do j = jlo,jhi
             do i = ilo,ihi
-              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+              call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
-              grd = grad(i,j,k,nx,ny,nz,igx,igy,igz,psi)
+              grd = grad(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,psi)
 
               if (ieq == IBX) then
                 array(i,j,k) = array(i,j,k) - grd(2)
@@ -1725,7 +1725,7 @@ c     Begin program
           mm = nh2
           kk = 0d0
         case('cyl')
-          RR = grid_params%params(3)
+          RR = gv%gparams%params(3)
           mm = nh2
           kk = nh3*1d0/RR
 ! Daniele, 19 Dec. 2014
@@ -1738,7 +1738,7 @@ c     Begin program
         if (irrot_br_pert) then  !Irrotational magnetic perturbation (lap(psi)=0)
 
           !#! Marco: rescaling of br_pert_bc to give it back it's original br(a) meaning
-          kbesel = -mm*grid_params%params(2)
+          kbesel = -mm*gv%gparams%params(2)
           dbeseli = 0.5*(BESSI(mm+1,kbesel)
      .                 + BESSI(mm-1,kbesel))
 !          br_pert_l = 2.d0 * br_pert / (dbeseli)
@@ -1750,10 +1750,10 @@ c     Begin program
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
-                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-cc                kbesel = -mm*grid_params%params(2)
+cc                kbesel = -mm*gv%gparams%params(2)
                 beseli = BESSI(mm,kbesel*x1)
                 dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
      .                       + BESSI(mm-1,kbesel*x1))
@@ -1793,17 +1793,17 @@ cc                kbesel = -mm*grid_params%params(2)
           do k = klo,khi
             do j = jlo,jhi
               do i = ilo,ihi
-                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-cc                kbesel = -mm*grid_params%params(2)
+cc                kbesel = -mm*gv%gparams%params(2)
                 beseli = BESSI(mm,kbesel*x1)
                 dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
      .                       + BESSI(mm-1,kbesel*x1))
 
-                dxx = 2*grid_params%dxh(ig)
-                dyy = 2*grid_params%dyh(jg)
-                dzz = 2*grid_params%dzh(kg)
+                dxx = 2*gv%gparams%dxh(ig)
+                dyy = 2*gv%gparams%dyh(jg)
+                dzz = 2*gv%gparams%dzh(kg)
 
                 ip = ig+1
                 im = ig-1
@@ -1812,23 +1812,23 @@ cc                kbesel = -mm*grid_params%params(2)
                 kp = kg+1
                 km = kg-1
 
-                dbeselip =0.5*(BESSI(mm+1,kbesel*grid_params%xx(ip))
-     .                       + BESSI(mm-1,kbesel*grid_params%xx(ip)))
-                dbeselim =0.5*(BESSI(mm+1,kbesel*grid_params%xx(im))
-     .                       + BESSI(mm-1,kbesel*grid_params%xx(im)))
+                dbeselip =0.5*(BESSI(mm+1,kbesel*gv%gparams%xx(ip))
+     .                       + BESSI(mm-1,kbesel*gv%gparams%xx(ip)))
+                dbeselim =0.5*(BESSI(mm+1,kbesel*gv%gparams%xx(im))
+     .                       + BESSI(mm-1,kbesel*gv%gparams%xx(im)))
 
                 varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
      .               -br_pert_l*x1*dbeseli
-     .             *(cos(mm*grid_params%yy(jp)+kk*z1+br_phase)
-     .              -cos(mm*grid_params%yy(jm)+kk*z1+br_phase))
+     .             *(cos(mm*gv%gparams%yy(jp)+kk*z1+br_phase)
+     .              -cos(mm*gv%gparams%yy(jm)+kk*z1+br_phase))
      .             /dyy !Derivative done numerically to preserve div(B)=0
 
                 varr%array_var(IBY)%array(i,j,k) =
      .               varr%array_var(IBY)%array(i,j,k)
      .               +br_pert_l*
-     .               (grid_params%xx(ip)*dbeselip
-     .               -grid_params%xx(im)*dbeselim)
+     .               (gv%gparams%xx(ip)*dbeselip
+     .               -gv%gparams%xx(im)*dbeselim)
      .               /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+kk*z1+br_phase)
 
@@ -1848,8 +1848,8 @@ cc                kbesel = -mm*grid_params%params(2)
           do k = klo,khi
             do j = jlo,jhi
               do i = ilo,ihi
-                call getCurvilinearCoordinates(i,j,k,igx,igy,igz
-     .                                        ,ig,jg,kg,x1,y1,z1)
+                call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
                 ip = ig+1
                 im = ig-1
@@ -1858,9 +1858,9 @@ cc                kbesel = -mm*grid_params%params(2)
                 kp = kg+1
                 km = kg-1
 
-                dxx = 2*grid_params%dxh(ig)
-                dyy = 2*grid_params%dyh(jg)
-                dzz = 2*grid_params%dzh(kg)
+                dxx = 2*gv%gparams%dxh(ig)
+                dyy = 2*gv%gparams%dyh(jg)
+                dzz = 2*gv%gparams%dzh(kg)
 
 ! Daniele, 19 Dec. 2014
 ! b^1=r^m instead of r^(m+2)
@@ -1871,17 +1871,17 @@ cc                kbesel = -mm*grid_params%params(2)
      .               varr%array_var(IBX)%array(i,j,k)
 !     .               +x1**(mm+2.)*br_pert
      .               +x1**mm*br_pert
-     .             *(cos(mm*grid_params%yy(jp)+kk*z1+br_phase)
-     .              -cos(mm*grid_params%yy(jm)+kk*z1+br_phase))
+     .             *(cos(mm*gv%gparams%yy(jp)+kk*z1+br_phase)
+     .              -cos(mm*gv%gparams%yy(jm)+kk*z1+br_phase))
      .             /dyy/mm !Derivative done numerically to preserve div(B)=0
 
                 varr%array_var(IBY)%array(i,j,k) =
      .               varr%array_var(IBY)%array(i,j,k)
      .               -br_pert*
-!     .               (grid_params%xx(ip)**(mm+2.)
-!     .               -grid_params%xx(im)**(mm+2.))
-     .               (grid_params%xx(ip)**mm
-     .               -grid_params%xx(im)**mm)
+!     .               (gv%gparams%xx(ip)**(mm+2.)
+!     .               -gv%gparams%xx(im)**(mm+2.))
+     .               (gv%gparams%xx(ip)**mm
+     .               -gv%gparams%xx(im)**mm)
      .               /dxx !Derivative done numerically to preserve div(B)=0
      .               *cos(mm*y1+kk*z1+br_phase)/mm
 

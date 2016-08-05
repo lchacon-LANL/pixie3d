@@ -97,11 +97,11 @@ c Begin program
 
 c Local grid sizes
 
-      nnx = grid_params%nxv(igr) 
-      nny = grid_params%nyv(igr)
-      nnz = grid_params%nzv(igr)
+      nnx = gv%gparams%nxv(igr) 
+      nny = gv%gparams%nyv(igr)
+      nnz = gv%gparams%nzv(igr)
 
-      jac => gmetric%grid(igr)%jac
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c Select variable
 
@@ -110,7 +110,7 @@ c Select variable
 
 c     Density BCs
 
-cc        call setBC(IRHO,nnx,nny,nnz
+cc        call setBC(gv%gparams,IRHO,nnx,nny,nnz
 cc     .            ,varray%array_var(IRHO)%array
 cc     .            ,u_0   %array_var(IRHO)%array
 cc     .            ,varray%array_var(IRHO)%bconds
@@ -248,7 +248,7 @@ cc        endif
 
 c     Temperature BCs
 
-cc        call setBC(ITMP,nnx,nny,nnz
+cc        call setBC(gv%gparams,ITMP,nnx,nny,nnz
 cc     .            ,varray%array_var(ITMP)%array
 cc     .            ,u_0   %array_var(ITMP)%array
 cc     .            ,varray%array_var(ITMP)%bconds
@@ -320,9 +320,9 @@ c Begin program
 
 c Local grid sizes
 
-      nnx = grid_params%nxv(igr) 
-      nny = grid_params%nyv(igr)
-      nnz = grid_params%nzv(igr)
+      nnx = gv%gparams%nxv(igr) 
+      nny = gv%gparams%nyv(igr)
+      nnz = gv%gparams%nzv(igr)
 
 c Select variable
 
@@ -343,42 +343,42 @@ c Select variable
 
           call XferBCs(eeta_0,s0,.true.)
 
-          call setBC(IETA,nnx,nny,nnz,eeta,s0
+          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
      .              ,vaux%var_list(IETA)%bconds
      .              ,igr,igr,igr,iorder=order)
 
-cc          eeta= res(igr,tmpe)
+cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi= chi_perp(igr,tmpe)
+          cchi= chi_perp(gv%gparams,igr,tmpe)
 
         case(INU)
 
 #if defined(RFX)
-          nuu = vis(igr,tmp)
+          nuu = vis(gv%gparams,igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(igr,tmp)
+            nuu = rho*vis(gv%gparams,igr,tmp)
           else
-            nuu = vis(igr,tmp)
+            nuu = vis(gv%gparams,igr,tmp)
           endif
 #endif
 
         case(IETA_0)
 
-          eeta_0=res(igr,tmpe_0)
+          eeta_0=res(gv%gparams,igr,tmpe_0)
 
         case(IHETA)
 
-cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(igr,bcnv_0,rho)
+cc          h_eta=hres(gv%gparams,nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
+          h_eta=hres(gv%gparams,igr,bcnv_0,rho)
 
         case(IRHO_0)
 
 c       Density BCs
 
-          call setBC(IRHO,nnx,nny,nnz,rho_0
+          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
      .              ,u_0%array_var(IRHO)%array
      .              ,vaux%var_list(IRHO_0)%bconds
      .              ,igr,igr,igr,iorder=order)
@@ -387,7 +387,7 @@ c       Density BCs
 
 c       Temperature BCs
 
-          call setBC(ITMP,nnx,nny,nnz,tmp_0
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
      .              ,u_0%array_var(ITMP)%array
      .              ,vaux%var_list(ITMP_0)%bconds
      .              ,igr,igr,igr,iorder=order)
@@ -396,7 +396,7 @@ c       Temperature BCs
 
 c       Temperature BCs
 
-          call setBC(ITMP,nnx,nny,nnz,tmpe_0
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
      .              ,u_0%array_var(ITMP)%array
      .              ,vaux%var_list(ITMPE_0)%bconds
      .              ,igr,igr,igr,iorder=order)
@@ -407,7 +407,7 @@ c       Density BCs
 
           call XferBCs(rho_0,s0,.true.)
 
-          call setBC(IRHO,nnx,nny,nnz,rho,s0
+          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
      .              ,vaux%var_list(IRHO_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -417,7 +417,7 @@ c       Temperature BCs
 
           call XferBCs(tmp_0,s0,.true.)
 
-          call setBC(ITMP,nnx,nny,nnz,tmp,s0
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
      .              ,vaux%var_list(ITMP_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -427,7 +427,7 @@ c       Temperature BCs
 
           call XferBCs(tmpe_0,s0,.true.)
 
-          call setBC(ITMP,nnx,nny,nnz,tmpe,s0
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
      .              ,vaux%var_list(ITMPE_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -465,8 +465,8 @@ c       Allocate auxiliary variables in local domain
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          vdum = XformVector(igr,acov_0,.true.)
-c$$$          call setBC(IAX,3,nnx,nny,nnz,vdum,acov_0,v0
+c$$$          vdum = XformVector(gv%gparams,igr,acov_0,.true.)
+c$$$          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
 c$$$     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
 c$$$     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
 c$$$     .              ,iorder=2)
@@ -474,14 +474,14 @@ c$$$     .              ,iorder=2)
 
         case(IBCNV_0)
 
-          call setBC(IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
+          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
      .              ,iorder=1)
 
         case(IBCOV_0)   !Done with bcnv_0
 
-cc          call XformVector_BC(igr,bcnv_0,bcov_0,.false.)
+cc          call XformVector_BC(gv%gparams,gv%gparams,igr,bcnv_0,bcov_0,.false.)
 
         case(IVCNV_0)
 
@@ -489,13 +489,13 @@ c       Velocity BC
 
           if (pinch_flow) then
             prs0 = rho_0*tmp_0
-            call ExB_flow_bc(igr,nnx,nny,nnz,bcnv_0,prs0,eeta_0,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,v0)
           endif
 
           !Fill ghost nodes
-          vdum = XformVector(igr,vcnv_0,.false.)
+          vdum = XformVector(gv%gparams,igr,vcnv_0,.false.)
 
-          call setBC(IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
+          call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv_0,vdum,v0
      .              ,vaux%vec_list(IVCNV_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -503,21 +503,22 @@ c       Velocity BC
 
 c       Current BC
 
-          call setBC(IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
+          call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
      .              ,iorder=1)
 
         case(IJCOV_0)  !Done when computing jcov_0
 
-cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
+cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IENI_0)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
+     .                      ,eeta_0)
 #else
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVECOV_N)
@@ -540,18 +541,18 @@ c       Velocity BC
 
           if (pinch_flow) then
             prs1 = rho*tmp
-            call ExB_flow_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
           else
             call XferBCs(vcnv_0,v0,.true.)
           endif
 
-          call setBC(IVX,3,nnx,nny,nnz,vcnv,vcov,v0
+          call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vcnv,vcov,v0
      .              ,vaux%vec_list(IVCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
  
         case(IVCOV)   !Done when computing vcnv
 
-cc          call XformVector_BC(igr,vcnv,vcov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 #if defined(vec_pot)
 
@@ -561,13 +562,13 @@ c       Vector Pot. BC
 
           call XferBCs(acov_0,v0,.true.)
 
-          call setBC(IAX,3,nnx,nny,nnz,acnv,acov,v0
+          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
 
         case(IACNV)  !Done when computing acov
 
-cc          call XformVector_BC(igr,acov,acnv,.true.)
+cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
 #endif
         case(IBCNV)
@@ -576,18 +577,18 @@ c       Magnetic field BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
 
-          call setBC(IBX,3,nnx,nny,nnz,bcnv,bcov,v0
+          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
 
         case(IBCOV) !Done when computing bcnv
 
-cc          call XformVector_BC(igr,bcnv,bcov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
         case(IJCNV)
 
@@ -595,18 +596,18 @@ c       Current BC
 
           if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
 
-          call setBC(IJX,3,nnx,nny,nnz,jcnv,jcov,v0
+          call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
      .              ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
      .              ,iorder=order)
 
         case(IJCOV) !Done when computing jcnv
 
-cc          call XformVector_BC(igr,jcnv,jcov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,jcnv,jcov,.false.)
 
         case(IVECNV)
 
@@ -616,7 +617,7 @@ c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
 
         case(IVECOV)
 
-cc          call XformVector_BC(igr,vecnv,vecov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
         case(IVEFCNV)
 
@@ -627,8 +628,8 @@ cc            if (ion_hall) then
 cc              v0 = 0d0
 cc
 cc              bcnd = vaux%vec_list(IVEFCNV)%bconds
-cc              vdum = XformVector(igr,vefcnv,.false.)
-cc              call setBC(IAX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
+cc              vdum = XformVector(gv%gparams,igr,vefcnv,.false.)
+cc              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
 cc     .                ,igr,igr,igr,iorder=order
 cc     .                ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
 cc
@@ -636,18 +637,18 @@ cc            else
               !BCs on j=curl(curl(A))
               if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
                 prs1 = rho*tmp
-                call J_pinch_bc(igr,nnx,nny,nnz,bcnv,prs1,eeta,v0)
+                call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
               else
                 call XferBCs(jcnv_0,v0,.true.)
               endif
 
               bcnd = vaux%vec_list(IVEFCNV)%bconds
-              vdum = XformVector(igr,vefcnv,.false.)
-cc            call setBC(IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-cc            call setBC(IVX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-              call setBC(IAX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-     .                ,igr,igr,igr,iorder=order
-     .                ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
+              vdum = XformVector(gv%gparams,igr,vefcnv,.false.)
+cc            call setBC(gv%gparams,IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
+cc            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vefcnv,vdum,v0
+     .                  ,bcnd,igr,igr,igr,iorder=order
+     .                  ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
 cc            endif
           else
             vefcnv = jcnv
@@ -658,8 +659,8 @@ cc            endif
 #if !defined(vec_pot)
           if (di > 0d0.and.ion_hall) then
             bcnd = vaux%vec_list(IDIVPI)%bconds
-            vdum = XformVector(igr,div_pi,.false.)
-            call setBC(IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
+            vdum = XformVector(gv%gparams,igr,div_pi,.false.)
+            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
      .                ,igr,igr,igr,iorder=order
      .                ,is_cnv=vaux%vec_list(IDIVPI)%cnv)
           endif
@@ -670,8 +671,8 @@ cc            endif
 #if !defined(vec_pot)
           if (di > 0d0.and.(.not.ion_hall)) then
             bcnd = vaux%vec_list(IDIVPE)%bconds
-            vdum = XformVector(igr,div_pe,.false.)
-            call setBC(IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
+            vdum = XformVector(gv%gparams,igr,div_pe,.false.)
+            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
      .                ,igr,igr,igr,iorder=order
      .                ,is_cnv=vaux%vec_list(IDIVPE)%cnv)
           endif
@@ -684,8 +685,8 @@ c       Hall electric field BC
 #if !defined(vec_pot)
           if (di > 0d0) then
             bcnd = vaux%vec_list(IEH)%bconds
-            vdum = XformVector(igr,E_h,.true.)
-            call setBC(IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
+            vdum = XformVector(gv%gparams,igr,E_h,.true.)
+            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
      .                ,igr,igr,igr,iorder=order
      .                ,is_cnv=vaux%vec_list(IDIVPE)%cnv)
           endif
@@ -696,9 +697,9 @@ c       Hall electric field BC
 c       Total electric field BC
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
 #else
-          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
@@ -766,11 +767,11 @@ c Begin program
 
 c Local grid sizes
 
-      nnx = grid_params%nxv(igr) 
-      nny = grid_params%nyv(igr)
-      nnz = grid_params%nzv(igr)
+      nnx = gv%gparams%nxv(igr) 
+      nny = gv%gparams%nyv(igr)
+      nnz = gv%gparams%nzv(igr)
 
-      jac => gmetric%grid(igr)%jac
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c Select variable
 
@@ -817,7 +818,7 @@ c Select variable
 
 c       Resistivity at initial time
  
-          eeta_0=res(igr,tmpe_0)
+          eeta_0=res(gv%gparams,igr,tmpe_0)
 
         case(IRHO_AUX)
 
@@ -847,30 +848,30 @@ cc          end where
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu = vis(igr,tmp)
+          nuu = vis(gv%gparams,igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(igr,tmp)
+            nuu = rho*vis(gv%gparams,igr,tmp)
           else
-            nuu = vis(igr,tmp)
+            nuu = vis(gv%gparams,igr,tmp)
           endif
 #endif
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          eeta= res(igr,tmpe)
+          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi= chi_perp(igr,tmpe)
+          cchi= chi_perp(gv%gparams,igr,tmpe)
 
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
 
-cc          h_eta=hres(nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
-          h_eta=hres(igr,bcnv_0,rho)
+cc          h_eta=hres(gv%gparams,nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
+          h_eta=hres(gv%gparams,igr,bcnv_0,rho)
 
         case default
           call pstop('preproc_AuxVar'
@@ -924,7 +925,7 @@ c       Allocate auxiliary variables in local domain
             do j = 0,nny+1
               do i = 0,nnx+1
                 bcnv_0(i,j,k,:) = B0
-     .                + curl(i,j,k,nnx,nny,nnz,igr,igr,igr,acov_0)
+     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_0)
               enddo
             enddo
           enddo
@@ -936,11 +937,11 @@ c       Allocate auxiliary variables in local domain
 
         case(IBCOV_0)
 
-          bcov_0 = XformVector(igr,bcnv_0,.false.)
+          bcov_0 = XformVector(gv%gparams,igr,bcnv_0,.false.)
 
         case(IJCOV_0)
 
-          jcov_0 = XformVector(igr,jcnv_0,.false.)
+          jcov_0 = XformVector(gv%gparams,igr,jcnv_0,.false.)
 
         case(IJCNV_0)
 
@@ -960,15 +961,15 @@ cc          if (sum(E0) /= 0d0) then
               do j=0,nny+1
                 do i=0,nnx+1
                   jcnv_0(i,j,k,:) =
-     .                 matmul(gmetric%grid(igr)%gsup(i,j,k,:,:),E0)
-     .                /eeta_0(i,j,k)
+     .               matmul(gv%gparams%gmetric%grid(igr)%gsup(i,j,k,:,:)
+     .                     ,E0)/eeta_0(i,j,k)
                 enddo
               enddo
             enddo
 
           else
 
-            jcnv_0 = curl(igr,bcov_0)
+            jcnv_0 = curl(gv%gparams,igr,bcov_0)
 
           endif
 
@@ -977,9 +978,10 @@ cc          if (sum(E0) /= 0d0) then
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
+     .                      ,eeta_0)
 #else
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVCNV_N)
@@ -1006,7 +1008,7 @@ cc          bcnv_n = bcnv !Save previous time step
 
         case(IVCOV)
 
-          vcov = XformVector(igr,vcnv,.false.)
+          vcov = XformVector(gv%gparams,igr,vcnv,.false.)
 
         case(IVCNV)
 
@@ -1034,7 +1036,7 @@ cc          bcnv_n = bcnv !Save previous time step
 
         case(IACNV)
 
-          acnv = XformVector(igr,acov,.true.)
+          acnv = XformVector(gv%gparams,igr,acov,.true.)
 
         case(IBCNV)
 
@@ -1044,7 +1046,7 @@ c       Magnetic field BC (with fixed current at boundary)
             do j = 0,nny+1
               do i = 0,nnx+1
                 bcnv(i,j,k,:) = XformToCurv_ijk(i,j,k,igr,B0,.true.)
-     .                 + curl(i,j,k,nnx,nny,nnz,igr,igr,igr,acov)
+     .            + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov)
               enddo
             enddo
           enddo
@@ -1057,15 +1059,15 @@ c       Magnetic field BC (with fixed current at boundary)
 #endif
         case(IBCOV)
 
-          bcov = XformVector(igr,bcnv,.false.)
+          bcov = XformVector(gv%gparams,igr,bcnv,.false.)
 
         case(IJCOV)
 
-          jcov = XformVector(igr,jcnv,.false.)
+          jcov = XformVector(gv%gparams,igr,jcnv,.false.)
 
         case(IJCNV)
 
-          jcnv = curl(igr,bcov)
+          jcnv = curl(gv%gparams,igr,bcov)
 
         case(IVECNV)
 
@@ -1077,7 +1079,7 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
-          vecov = XformVector(igr,vecnv,.false.)
+          vecov = XformVector(gv%gparams,igr,vecnv,.false.)
 
         case(IVEFCNV)
 
@@ -1094,12 +1096,12 @@ cc                v0 =  cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm
               endif
 
               !j=jn + dj_fake
-              vefcnv = jcnv_n + form_jfake(igr,v0,div_pi,rho)
+              vefcnv = jcnv_n + form_jfake(gv%gparams,igr,v0,div_pi,rho)
             else
 #if defined(vec_pot)
               !j=curl(curl(A))
               v0 = curlcurl_cov(igr,acov)
-              vefcnv = XformVector(igr,v0,.true.)
+              vefcnv = XformVector(gv%gparams,igr,v0,.true.)
 #else
               call pstop('applyBC'
      .                  ,'No fake Ve available for B-based E-hall')
@@ -1129,7 +1131,7 @@ c old TM Hall performance results
 c       Divergence of ion stress tensor
 
           if (nu > 0d0) then
-            div_pi = EOM_divPi(igr,vcnv,nuu)
+            div_pi = EOM_divPi(gv%gparams,igr,vcnv,nuu)
           else
             div_pi = 0d0
           endif
@@ -1139,7 +1141,7 @@ c       Divergence of ion stress tensor
 c       Divergence of electron stress tensor
 
           if (di > 0d0) then
-            div_pe = EOM_divPi(igr,vefcnv,h_eta)
+            div_pe = EOM_divPi(gv%gparams,igr,vefcnv,h_eta)
           else
             div_pe = 0d0
           endif
@@ -1149,7 +1151,7 @@ c       Divergence of electron stress tensor
 c       Hall electric field
 
           if (di > 0d0) then
-            E_h  = E_fld_Hall(nnx,nny,nnz,igr,igr,igr)
+            E_h  = E_fld_Hall(gv%gparams,igr,nnx,nny,nnz)
           else
             E_h  = 0d0
           endif
@@ -1159,9 +1161,9 @@ c       Hall electric field
 c       Ideal+resistive E field
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
 #else
-          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
 
         case default
@@ -1222,11 +1224,11 @@ c Begin program
 
 c Local grid sizes
 
-      nnx = grid_params%nxv(igr) 
-      nny = grid_params%nyv(igr)
-      nnz = grid_params%nzv(igr)
+      nnx = gv%gparams%nxv(igr) 
+      nny = gv%gparams%nyv(igr)
+      nnz = gv%gparams%nzv(igr)
 
-      jac => gmetric%grid(igr)%jac
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c Select variable
 
@@ -1255,7 +1257,7 @@ c Select variable
 
 c       Resistivity at initial time
  
-          eeta_0=res(igr,tmpe_0)
+          eeta_0=res(gv%gparams,igr,tmpe_0)
 
         case(IRHO_AUX)
 
@@ -1282,12 +1284,12 @@ c       Resistivity at initial time
 c       Viscosity (needed for BCs; may depend on T)
  
 #if defined(RFX)
-          nuu = vis(igr,tmp)
+          nuu = vis(gv%gparams,igr,tmp)
 #else
           if (slava) then
-            nuu = rho*vis(igr,tmp)
+            nuu = rho*vis(gv%gparams,igr,tmp)
           else
-            nuu = vis(igr,tmp)
+            nuu = vis(gv%gparams,igr,tmp)
           endif
 #endif
         case(IETA)
@@ -1295,25 +1297,25 @@ c       Viscosity (needed for BCs; may depend on T)
 c       Resistivity (needed for BCs; may depend on T)
 
 c$$$          if (fixed_spitzer) then
-c$$$            eeta= res(igr,tmpe_0)
+c$$$            eeta= res(gv%gparams,igr,tmpe_0)
 c$$$          elseif (lagged_spitzer) then
-c$$$            eeta= res(igr,u_n%array_var(ITMP)%array/jac)
+c$$$            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
 c$$$          else
-c$$$            eeta= res(igr,tmpe)
+c$$$            eeta= res(gv%gparams,igr,tmpe)
 c$$$          endif
 
         case(ICHI)
 
 c       Heat diffusivity (may depend on T)
 
-          cchi= chi_perp(igr,tmpe)
+          cchi= chi_perp(gv%gparams,igr,tmpe)
 
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
 
-cc          h_eta=hres(igr,bcnv_0,rho_0)
-          h_eta=hres(igr,bcnv_0,rho)
+cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
+          h_eta=hres(gv%gparams,igr,bcnv_0,rho)
 
         case default
           call pstop('postproc_AuxVar'
@@ -1363,11 +1365,11 @@ c       Allocate auxiliary variables in local domain
 #endif
         case(IBCOV_0)
 
-cc          call XformVector_BC(igr,bcnv_0,bcov_0,.false.)
+cc          call XformVector_BC(gv%gparams,igr,bcnv_0,bcov_0,.false.)
 
         case(IJCOV_0)
 
-cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
+cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IJCNV_0)
 
@@ -1376,9 +1378,10 @@ cc          call XformVector_BC(igr,jcnv_0,jcov_0,.false.)
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
 #if defined(vec_pot)
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,acov_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
+     .                      ,eeta_0)
 #else
-          E_ni_0 = E_fld_res(igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
         case(IVCNV_N)
@@ -1395,7 +1398,7 @@ cc          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
 
         case(IVCOV)
 
-cc          call XformVector_BC(igr,vcnv,vcov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
         case(IVCNV)
 
@@ -1421,7 +1424,7 @@ cc          call XformVector_BC(igr,vcnv,vcov,.false.)
 
         case(IACNV)
 
-cc          call XformVector_BC(igr,acov,acnv,.true.)
+cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
         case(IBCNV)
 
@@ -1436,7 +1439,7 @@ cc          call XformVector_BC(igr,acov,acnv,.true.)
 
         case(IBCOV)
 
-cc          call XformVector_BC(igr,bcnv,bcov,.false.)
+cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
         case(IJCOV)
 
@@ -1452,7 +1455,7 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
-          call XformVector_BC(igr,vecnv,vecov,.false.)
+          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
         case(IVEFCNV)
 
@@ -1471,9 +1474,9 @@ c       Fake electron velocity: vef = v -di*jfake/rho
 c       Total E field
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(igr,vcnv,bcnv,acov,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
 #else
-          E_ni=E_fld_res(igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
 
 cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
@@ -1499,7 +1502,7 @@ c End
 
 c scalarDirichletBC
 c #####################################################################
-      subroutine scalarDirichletBC(array,array0,ieq,dim,loc,order)
+      subroutine scalarDirichletBC(g_def,array,array0,ieq,dim,loc,order)
 c ---------------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -1514,6 +1517,8 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer    :: ieq,dim,loc,order
       real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1)
      .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1)
@@ -1522,8 +1527,8 @@ c     Local variables
 
 c     Begin program
 
-      call extrapolateBC(array,array0,dim,loc,order)
-cc      call extrapolateBC(array,array0,dim,loc,1)
+      call extrapolateBC(g_def,array,array0,dim,loc,order)
+cc      call extrapolateBC(g_def,array,array0,dim,loc,1)
 
 c     End program
 
@@ -1531,7 +1536,8 @@ c     End program
 
 c vectorDirichletBC
 c #####################################################################
-      subroutine vectorDirichletBC(ivar,array,array0,ieq,dim,loc,order)
+      subroutine vectorDirichletBC(g_def,ivar,array,array0,ieq,dim,loc
+     .                            ,order)
 c ---------------------------------------------------------------------
 c     Imposes dirichlet BC. On input:
 c        * ieq -> equation number (i.e., vector component)
@@ -1546,9 +1552,11 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer    :: ieq,dim,loc,order,ivar
-      real(8)    :: array (0:nxbc+1,0:nybc+1,0:nzbc+1,*)
-     .             ,array0(0:nxbc+1,0:nybc+1,0:nzbc+1,*)
+      real(8)    :: array (0:,0:,0:,:)
+     .             ,array0(0:,0:,0:,:)
 
 c     Local variables
 
@@ -1560,6 +1568,16 @@ c     Local variables
 
       real(8),allocatable,dimension(:,:) :: rhs
 
+      INTERFACE
+        subroutine solen_bc(g_def,array,dim,loc,face,safe)
+          use grid_def_st
+          type(grid_mg_def),pointer :: g_def
+          integer :: dim,loc
+          logical :: face,safe
+          real(8) :: array(0:,0:,0:,:)
+        end subroutine solen_bc
+      END INTERFACE
+
 c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
@@ -1567,7 +1585,7 @@ c     Begin program
       select case (ieq)
       case (IVX,IVY,IVZ)
 
-        call extrapolateBC(array (:,:,:,ivar)
+        call extrapolateBC(g_def,array (:,:,:,ivar)
      .                    ,array0(:,:,:,ivar)
      .                    ,dim,loc,order)
 cc     .                    ,dim,loc,1)  !Required for mass conservation
@@ -1576,13 +1594,13 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
         if (ivar /= dim) then
 
-          call extrapolateBC(array (:,:,:,ivar)
+          call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
         else  !Imposes divergence-free constraint on B, J
 
-          call solen_bc(array,dim,loc,.false.,.false.)
+          call solen_bc(g_def,array,dim,loc,.false.,.false.)
 
         endif
 
@@ -1590,13 +1608,13 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
         if (ivar /= dim .or. bcond(ibc) == FSYM ) then
 
-          call extrapolateBC(array (:,:,:,ivar)
+          call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)
      .                      ,dim,loc,order)
 
         else  !Imposes divergence-free constraint on A @ physical boundaries
 
-          call solen_bc(array,dim,loc,.true.,.false.)
+          call solen_bc(g_def,array,dim,loc,.true.,.false.)
 
         endif
 
@@ -1683,41 +1701,41 @@ cc            do k=kmin,kmax
 cc
 cc              call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 cc
-cc              gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+cc              gsuper = gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 cc
 cc              ip = i+1
 cc              im = i-1
-cc              dh(1) = 2.*grid_params%dxh(ig)
+cc              dh(1) = 2.*gv%gparams%dxh(ig)
 cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-cc                dh(1) = grid_params%dx(ig)
+cc                dh(1) = gv%gparams%dx(ig)
 cc                im = i
 cc              endif
 cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-cc                dh(1) = grid_params%dx(ig-1)
+cc                dh(1) = gv%gparams%dx(ig-1)
 cc                ip = i
 cc              endif
 cc
 cc              jp = j+1
 cc              jm = j-1
-cc              dh(2) = 2.*grid_params%dyh(jg)
+cc              dh(2) = 2.*gv%gparams%dyh(jg)
 cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-cc                dh(2) = grid_params%dy(jg)
+cc                dh(2) = gv%gparams%dy(jg)
 cc                jm = j
 cc              endif
 cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-cc                dh(2) = grid_params%dy(jg-1)
+cc                dh(2) = gv%gparams%dy(jg-1)
 cc                jp = j
 cc              endif
 cc
 cc              kp = k+1
 cc              km = k-1
-cc              dh(3) = 2.*grid_params%dzh(kg)
+cc              dh(3) = 2.*gv%gparams%dzh(kg)
 cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-cc                dh(3) = grid_params%dz(kg)
+cc                dh(3) = gv%gparams%dz(kg)
 cc                km = k
 cc              endif
 cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-cc                dh(3) = grid_params%dz(kg-1)
+cc                dh(3) = gv%gparams%dz(kg-1)
 cc                kp = k
 cc              endif
 cccc              ip = min(i+1,nxbc)
@@ -1727,17 +1745,17 @@ cccc              jm = max(j-1,1)
 cccc              kp = min(k+1,nzbc)
 cccc              km = max(k-1,1)
 cccc
-cccc              dh(1) = 2.*grid_params%dxh(ig)
-cccc              if (i == nxbc) dh(1) = grid_params%dx(ig-1)
-cccc              if (i == 1   ) dh(1) = grid_params%dx(ig)
+cccc              dh(1) = 2.*gv%gparams%dxh(ig)
+cccc              if (i == nxbc) dh(1) = gv%gparams%dx(ig-1)
+cccc              if (i == 1   ) dh(1) = gv%gparams%dx(ig)
 cccc
-cccc              dh(2) = 2.*grid_params%dyh(jg)
-cccc              if (j == nybc) dh(2) = grid_params%dy(jg-1)
-cccc              if (j == 1   ) dh(2) = grid_params%dy(jg)
+cccc              dh(2) = 2.*gv%gparams%dyh(jg)
+cccc              if (j == nybc) dh(2) = gv%gparams%dy(jg-1)
+cccc              if (j == 1   ) dh(2) = gv%gparams%dy(jg)
 cccc
-cccc              dh(3) = 2.*grid_params%dzh(kg)
-cccc              if (k == nzbc) dh(3) = grid_params%dz(kg-1)
-cccc              if (k == 1   ) dh(3) = grid_params%dz(kg)
+cccc              dh(3) = 2.*gv%gparams%dzh(kg)
+cccc              if (k == nzbc) dh(3) = gv%gparams%dz(kg-1)
+cccc              if (k == 1   ) dh(3) = gv%gparams%dz(kg)
 cc
 cc              if (dim == 1) then
 cc                rhs(j,k) = -dh(dim)
@@ -1768,44 +1786,44 @@ cc            do k=kmin,kmax
 cc
 cc              call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 cc
-cc              gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
-cc              jac0   = gmetric%grid(igxbc)%jac (i,j,k)
+cc              gsuper = gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+cc              jac0   = gv%gparams%gmetric%grid(igxbc)%jac (i,j,k)
 cc
-cc              hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
+cc              hessian = gv%gparams%gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
 cc
 cc              ip = i+1
 cc              im = i-1
-cc              dh(1) = 2.*grid_params%dxh(ig)
+cc              dh(1) = 2.*gv%gparams%dxh(ig)
 cc              if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-cc                dh(1) = grid_params%dx(ig)
+cc                dh(1) = gv%gparams%dx(ig)
 cc                im = i
 cc              endif
 cc              if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-cc                dh(1) = grid_params%dx(ig-1)
+cc                dh(1) = gv%gparams%dx(ig-1)
 cc                ip = i
 cc              endif
 cc
 cc              jp = j+1
 cc              jm = j-1
-cc              dh(2) = 2.*grid_params%dyh(jg)
+cc              dh(2) = 2.*gv%gparams%dyh(jg)
 cc              if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-cc                dh(2) = grid_params%dy(jg)
+cc                dh(2) = gv%gparams%dy(jg)
 cc                jm = j
 cc              endif
 cc              if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-cc                dh(2) = grid_params%dy(jg-1)
+cc                dh(2) = gv%gparams%dy(jg-1)
 cc                jp = j
 cc              endif
 cc
 cc              kp = k+1
 cc              km = k-1
-cc              dh(3) = 2.*grid_params%dzh(kg)
+cc              dh(3) = 2.*gv%gparams%dzh(kg)
 cc              if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-cc                dh(3) = grid_params%dz(kg)
+cc                dh(3) = gv%gparams%dz(kg)
 cc                km = k
 cc              endif
 cc              if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-cc                dh(3) = grid_params%dz(kg-1)
+cc                dh(3) = gv%gparams%dz(kg-1)
 cc                kp = k
 cc              endif
 cccc              ip = min(i+1,nxbc)
@@ -1815,17 +1833,17 @@ cccc              jm = max(j-1,1   )
 cccc              kp = min(k+1,nzbc)
 cccc              km = max(k-1,1   )
 cccc
-cccc              dh(1) = 2.*grid_params%dxh(ig)
-cccc              if (i == nxbc) dh(1) = grid_params%dx(ig-1)
-cccc              if (i == 1   ) dh(1) = grid_params%dx(ig)
+cccc              dh(1) = 2.*gv%gparams%dxh(ig)
+cccc              if (i == nxbc) dh(1) = gv%gparams%dx(ig-1)
+cccc              if (i == 1   ) dh(1) = gv%gparams%dx(ig)
 cccc
-cccc              dh(2) = 2.*grid_params%dyh(jg)
-cccc              if (j == nybc) dh(2) = grid_params%dy(jg-1)
-cccc              if (j == 1   ) dh(2) = grid_params%dy(jg)
+cccc              dh(2) = 2.*gv%gparams%dyh(jg)
+cccc              if (j == nybc) dh(2) = gv%gparams%dy(jg-1)
+cccc              if (j == 1   ) dh(2) = gv%gparams%dy(jg)
 cccc
-cccc              dh(3) = 2.*grid_params%dzh(kg)
-cccc              if (k == nzbc) dh(3) = grid_params%dz(kg-1)
-cccc              if (k == 1   ) dh(3) = grid_params%dz(kg)
+cccc              dh(3) = 2.*gv%gparams%dzh(kg)
+cccc              if (k == nzbc) dh(3) = gv%gparams%dz(kg-1)
+cccc              if (k == 1   ) dh(3) = gv%gparams%dz(kg)
 cc
 cc              if (dim == 1) then
 cc                if (gamma > 1d0) then
@@ -1958,6 +1976,16 @@ c     Local variables
 
       real(8),allocatable,dimension(:,:) :: rhs
 
+      INTERFACE
+        subroutine solen_bc(g_def,array,dim,loc,face,safe)
+          use grid_def_st
+          type(grid_mg_def),pointer :: g_def
+          integer :: dim,loc
+          logical :: face,safe
+          real(8) :: array(0:,0:,0:,:)
+        end subroutine solen_bc
+      END INTERFACE
+
 c     Begin program
 
       ibc = (1+loc)+2*(dim-1)
@@ -1976,7 +2004,8 @@ c     Begin program
 
       rhs = 0d0  !Default
 
-      call findBCLoopLimits(dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+      call findBCLoopLimits(gv%gparams
+     .                     ,dim,loc,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                             ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
       select case (ieq)
@@ -1984,7 +2013,7 @@ c     Begin program
 
         if ((.not.no_map).and.(.not.bcSYM(ibc))) then
 
-          call findBCLoopLimits(dim,loc
+          call findBCLoopLimits(gv%gparams,dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
@@ -1992,45 +2021,53 @@ c     Begin program
             do j=jmin,jmax
               do i=imin,imax
 
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                call getMGmap(gv%gparams,i,j,k,igxbc,igybc,igzbc
+     .                       ,ig,jg,kg)
 
-                gsuper = gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+                gsuper = gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
 
-                hessian = gmetric%grid(igxbc)%Gamma(i,j,k,:,:,:)
+                hessian= gv%gparams%gmetric%grid(igxbc)
+     .                     %Gamma(i,j,k,:,:,:)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*grid_params%dxh(ig)
-                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then
-                  dh(1) = grid_params%dx(ig)
+                dh(1) = 2.*gv%gparams%dxh(ig)
+                if(         isBdry(gv%gparams,i,igxbc,1)
+     .             .and.(.not.isBC(gv%gparams,i,igxbc,1,PER)))then
+                  dh(1) = gv%gparams%dx(ig)
                   im = i
                 endif
-                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then
-                  dh(1) = grid_params%dx(ig-1)
+                if(         isBdry(gv%gparams,i,igxbc,2)
+     .             .and.(.not.isBC(gv%gparams,i,igxbc,2,PER)))then
+                  dh(1) = gv%gparams%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*grid_params%dyh(jg)
-                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then
-                  dh(2) = grid_params%dy(jg)
+                dh(2) = 2.*gv%gparams%dyh(jg)
+                if(         isBdry(gv%gparams,j,igybc,3)
+     .             .and.(.not.isBC(gv%gparams,j,igybc,3,PER)))then
+                  dh(2) = gv%gparams%dy(jg)
                   jm = j
                 endif
-                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then
-                  dh(2) = grid_params%dy(jg-1)
+                if(         isBdry(gv%gparams,j,igybc,4)
+     .             .and.(.not.isBC(gv%gparams,j,igybc,4,PER)))then
+                  dh(2) = gv%gparams%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*grid_params%dzh(kg)
-                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then
-                  dh(3) = grid_params%dz(kg)
+                dh(3) = 2.*gv%gparams%dzh(kg)
+                if(         isBdry(gv%gparams,k,igzbc,5)
+     .             .and.(.not.isBC(gv%gparams,k,igzbc,5,PER)))then
+                  dh(3) = gv%gparams%dz(kg)
                   km = k
                 endif
-                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then
-                  dh(3) = grid_params%dz(kg-1)
+                if(         isBdry(gv%gparams,k,igzbc,6)
+     .             .and.(.not.isBC(gv%gparams,k,igzbc,6,PER)))then
+                  dh(3) = gv%gparams%dz(kg-1)
                   kp = k
                 endif
 
@@ -2169,7 +2206,7 @@ c     Begin program
      .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
 
-          call solen_BC(array,dim,loc,.false.,safe)
+          call solen_BC(gv%gparams,array,dim,loc,.false.,safe)
 
         endif
 
@@ -2194,7 +2231,7 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on A
 
-          call solen_BC(array,dim,loc,.true.,.true.)
+          call solen_BC(gv%gparams,array,dim,loc,.true.,.true.)
 
         endif
 
@@ -2202,7 +2239,7 @@ c     Begin program
 
         if (ivar /= dim) then
 
-          call findBCLoopLimits(dim,loc
+          call findBCLoopLimits(gv%gparams,dim,loc
      .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
 
@@ -2210,55 +2247,56 @@ c     Begin program
             do j=jmin,jmax
               do i=imin,imax
 
-                call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+                call getMGmap(gv%gparams,i,j,k,igxbc,igybc,igzbc
+     .                       ,ig,jg,kg)
 
-                gsuper = gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
-                gsupip = gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
-                gsupim = gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
-                gsupjp = gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
-                gsupjm = gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
-                gsupkp = gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
-                gsupkm = gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
+                gsuper= gv%gparams%gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
+                gsupip= gv%gparams%gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
+                gsupim= gv%gparams%gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
+                gsupjp= gv%gparams%gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
+                gsupjm= gv%gparams%gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
+                gsupkp= gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
+                gsupkm= gv%gparams%gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
 
                 ip = i+1
                 im = i-1
-                dh(1) = 2.*grid_params%dxh(ig)
+                dh(1) = 2.*gv%gparams%dxh(ig)
 cc                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(i,igxbc,1)) then
-                  dh(1) = grid_params%dx(ig)
+                if(isBdry(gv%gparams,i,igxbc,1)) then
+                  dh(1) = gv%gparams%dx(ig)
                   im = i
                 endif
 cc                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(i,igxbc,2)) then
-                  dh(1) = grid_params%dx(ig-1)
+                if(isBdry(gv%gparams,i,igxbc,2)) then
+                  dh(1) = gv%gparams%dx(ig-1)
                   ip = i
                 endif
 
                 jp = j+1
                 jm = j-1
-                dh(2) = 2.*grid_params%dyh(jg)
+                dh(2) = 2.*gv%gparams%dyh(jg)
 cc                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(j,igybc,3)) then
-                  dh(2) = grid_params%dy(jg)
+                if(isBdry(gv%gparams,j,igybc,3)) then
+                  dh(2) = gv%gparams%dy(jg)
                   jm = j
                 endif
 cc                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(j,igybc,4)) then
-                  dh(2) = grid_params%dy(jg-1)
+                if(isBdry(gv%gparams,j,igybc,4)) then
+                  dh(2) = gv%gparams%dy(jg-1)
                   jp = j
                 endif
 
                 kp = k+1
                 km = k-1
-                dh(3) = 2.*grid_params%dzh(kg)
+                dh(3) = 2.*gv%gparams%dzh(kg)
 cc                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(k,igzbc,5)) then
-                  dh(3) = grid_params%dz(kg)
+                if(isBdry(gv%gparams,k,igzbc,5)) then
+                  dh(3) = gv%gparams%dz(kg)
                   km = k
                 endif
 cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Gives bdry noise in Soloveev case
-                if(isBdry(k,igzbc,6)) then
-                  dh(3) = grid_params%dz(kg-1)
+                if(isBdry(gv%gparams,k,igzbc,6)) then
+                  dh(3) = gv%gparams%dz(kg-1)
                   kp = k
                 endif
 
@@ -2406,7 +2444,7 @@ cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Giv
      .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
 
-          call solen_BC(array,dim,loc,.false.,safe)
+          call solen_BC(gv%gparams,array,dim,loc,.false.,safe)
 
         endif
 
@@ -2427,7 +2465,7 @@ c     End program
 
 c solen_BC
 c #####################################################################
-      subroutine solen_BC(array,dim,loc,face,safe)
+      subroutine solen_BC(g_def,array,dim,loc,face,safe)
 c ---------------------------------------------------------------------
 c     Imposes solenoidal BC. On input:
 c        * array -> contains vector
@@ -2443,8 +2481,10 @@ c ---------------------------------------------------------------------
 
 c     Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer :: dim,loc
-      real(8) :: array(0:nxbc+1,0:nybc+1,0:nzbc+1,3)
+      real(8) :: array(0:,0:,0:,:)
       logical :: face,safe
 
 c     Local variables
@@ -2465,7 +2505,7 @@ c     Begin program
         coeff = 2d0
       endif
 
-      call findBCLoopLimits(dim,loc
+      call findBCLoopLimits(g_def,dim,loc
      .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
      .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
@@ -2488,23 +2528,23 @@ cc              if(isBdry(i,igxbc,1)) hex = 1
 cc              if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+              if(isBdry(g_def,j,igybc,3)) hey = 1
+              if(isBdry(g_def,j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+              if(isBdry(g_def,k,igzbc,5)) hez = 1
+              if(isBdry(g_def,k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i-1,j,k,dim) = array(i+offset,j,k,dim) + dh(dim)*diver
 
@@ -2527,24 +2567,24 @@ cc              if(isBdry(i,igxbc,1)) hex = 1
 cc              if(isBdry(i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+              if(isBdry(g_def,j,igybc,3)) hey = 1
+              if(isBdry(g_def,j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+              if(isBdry(g_def,k,igzbc,5)) hez = 1
+              if(isBdry(g_def,k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i+1,j,k,dim) = array(i-offset,j,k,dim) - dh(dim)*diver
 
@@ -2563,27 +2603,27 @@ cc              if(isBdry(i,igxbc,2)) hex =-1
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+              if(isBdry(g_def,i,igxbc,1)) hex = 1
+              if(isBdry(g_def,i,igxbc,2)) hex =-1
 
               hey = 0
 cc              if(isBdry(j,igybc,3)) hey = 1
 cc              if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+              if(isBdry(g_def,k,igzbc,5)) hez = 1
+              if(isBdry(g_def,k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i,j-1,k,dim) = array(i,j+offset,k,dim) + dh(dim)*diver
               
@@ -2602,27 +2642,27 @@ cc              if(isBdry(j,igybc,4)) hey =-1
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+              if(isBdry(g_def,i,igxbc,1)) hex = 1
+              if(isBdry(g_def,i,igxbc,2)) hex =-1
 
               hey = 0
 cc              if(isBdry(j,igybc,3)) hey = 1
 cc              if(isBdry(j,igybc,4)) hey =-1
 
               hez = 0
-              if(isBdry(k,igzbc,5)) hez = 1
-              if(isBdry(k,igzbc,6)) hez =-1
+              if(isBdry(g_def,k,igzbc,5)) hez = 1
+              if(isBdry(g_def,k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i,j+1,k,dim) = array(i,j-offset,k,dim) - dh(dim)*diver
               
@@ -2641,27 +2681,27 @@ cc              if(isBdry(j,igybc,4)) hey =-1
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+              if(isBdry(g_def,i,igxbc,1)) hex = 1
+              if(isBdry(g_def,i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+              if(isBdry(g_def,j,igybc,3)) hey = 1
+              if(isBdry(g_def,j,igybc,4)) hey =-1
 
               hez = 0
 cc              if(isBdry(k,igzbc,5)) hez = 1
 cc              if(isBdry(k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i,j,k-1,dim) = array(i,j,k+offset,dim) + dh(dim)*diver
 
@@ -2680,27 +2720,27 @@ cc              if(isBdry(k,igzbc,6)) hez =-1
 
             if (safe) then
               hex = 0
-              if(isBdry(i,igxbc,1)) hex = 1
-              if(isBdry(i,igxbc,2)) hex =-1
+              if(isBdry(g_def,i,igxbc,1)) hex = 1
+              if(isBdry(g_def,i,igxbc,2)) hex =-1
 
               hey = 0
-              if(isBdry(j,igybc,3)) hey = 1
-              if(isBdry(j,igybc,4)) hey =-1
+              if(isBdry(g_def,j,igybc,3)) hey = 1
+              if(isBdry(g_def,j,igybc,4)) hey =-1
 
               hez = 0
 cc              if(isBdry(k,igzbc,5)) hez = 1
 cc              if(isBdry(k,igzbc,6)) hez =-1
             endif
 
-            call getMGmap(i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
-            jac0 = gmetric%grid(igxbc)%jac(i,j,k)
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+            jac0 = g_def%gmetric%grid(igxbc)%jac(i,j,k)
 
-            dh(1) = coeff*grid_params%dxh(ig)
-            dh(2) = coeff*grid_params%dyh(jg)
-            dh(3) = coeff*grid_params%dzh(kg)
+            dh(1) = coeff*g_def%dxh(ig)
+            dh(2) = coeff*g_def%dyh(jg)
+            dh(3) = coeff*g_def%dzh(kg)
 
-            diver=jac0*div(i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc,array
-     .                    ,hex=hex,hey=hey,hez=hez)
+            diver=jac0*div(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .                    ,array,hex=hex,hey=hey,hez=hez)
 
             array(i,j,k+1,dim) = array(i,j,k-offset,dim) - dh(dim)*diver
 

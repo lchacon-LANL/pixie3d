@@ -52,9 +52,9 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       if (nn /= nx*ny*nz) then
         write (*,*)'Grid sizes do not agree in apply_app_PC'
@@ -170,7 +170,8 @@ c *******************************************************************
           call rhs_A_hall(nn,xxx,rrr(:,IAX:IAZ),igrid)
           rrr(:,IAX:IAZ) = cnp/dt*xxx(:,IAX:IAZ) - rrr(:,IAZ:IAZ)
 
-          if (vol_wgt) call scaleVec(igrid,3,rrr(:,IAX:IAZ),'mul')
+          if (vol_wgt)
+     .         call scaleVec(gv%gparams,igrid,3,rrr(:,IAX:IAZ),'mul')
 
           call EMHD_step(rrr(:,IAX:IAZ),xxx(:,IAX:IAZ))
         endif
@@ -195,10 +196,13 @@ c     Apply geometric factors to PC solution to match nonlinear function
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
-            xxx(ii,IRHO) = xxx(ii,IRHO)*gmetric%grid(igrid)%jac(i,j,k)
-            xxx(ii,ITMP) = xxx(ii,ITMP)*gmetric%grid(igrid)%jac(i,j,k)
+            xxx(ii,IRHO) = xxx(ii,IRHO)
+     .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+            xxx(ii,ITMP) = xxx(ii,ITMP)
+     .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
             if (alt__eom()) then
-              xxx(ii,IVY) = xxx(ii,IVY)*gmetric%grid(igrid)%jac(i,j,k)
+              xxx(ii,IVY) = xxx(ii,IVY)
+     .                     *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
             endif
           enddo
         enddo
@@ -317,8 +321,8 @@ c     Begin program
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               if (vol_wgt) then !Residuals are volume-weighed by default
-                dvol = gmetric%grid(igx)%dlvol(i,j,k)
-                jac  = gmetric%grid(igx)%jac  (i,j,k)
+                dvol = gv%gparams%gmetric%grid(igx)%dlvol(i,j,k)
+                jac  = gv%gparams%gmetric%grid(igx)%jac  (i,j,k)
               else
                 dvol = 1d0
               endif
@@ -367,7 +371,7 @@ c     Store velocity solution in array format --> dv_cnv
 
         dv0cnv = 0d0
 
-        call fillArray(igrid,3,x(:,IVX:IVZ),dv_cnv
+        call fillArray(gv%gparams,igrid,3,x(:,IVX:IVZ),dv_cnv
      .                ,bcs(:,IVX:IVZ),order_bc
      .                ,arr_cov=dv_cov,is_vec=.true.
      .                ,is_cnv=.true.,arr0=dv0cnv,icomp=(/IVX/))
@@ -376,16 +380,16 @@ c     Correct rx to find Deltax (correction for rho, B, T)
 
         !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
         if (solve_rho) then
-          call U_rho_v(nx,ny,nz,dv_cnv  ,rhs(:,IRHO)   ,igrid)
+          call U_rho_v(gv%gparams,igrid,dv_cnv,rhs(:,IRHO))
         endif
 
 #if !defined(vec_pot)
-        call U_Bv(nx,ny,nz,dv_cnv,dv_cov,rhs(:,IBX:IBZ),igrid)
+        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
 #else
-        call U_Av(nx,ny,nz,dv_cnv,dv_cov,rhs(:,IAX:IAZ),igrid)
+        call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IAX:IAZ))
 #endif
 
-        call U_Tv(nx,ny,nz,dv_cnv       ,rhs(:,ITMP)   ,igrid)
+        call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,ITMP))
 
 c     End program
 
@@ -425,7 +429,7 @@ c       Density
             write (*,*) '  --> Solving for rho...'
           endif
 
-          call cSolver(1,nn,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
+          call cSolver(gv%gparams,1,nn,rhs(:,IRHO),x(:,IRHO),bcs(:,IRHO)
      .                ,igrid,iout,guess,rho_mtvc,vol_wgt
      .                ,tol           = pc_tol
      .                ,dg            = rho_diag
@@ -454,7 +458,7 @@ c       Magnetic field
           endif
 
           if (.not.electron_hall) then
-            call cSolver(3,nn,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
+            call cSolver(gv%gparams,3,nn,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
      .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .              ,tol           = pc_tol
      .              ,dg            = b_diag
@@ -479,7 +483,7 @@ c       Magnetic field
             rhsc(:,1:3) = rhs(:,IBX:IBZ)
             rhsc(:,4:6) = 0d0
 
-            call cSolver(6,nn,rhsc,xc,bcs_hyp
+            call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .              ,igrid,iout,guess,b_mtvc_hyp,vol_wgt
      .              ,tol           = pc_tol
      .              ,dg            = b_diag_hyp
@@ -509,7 +513,8 @@ cc          endif
         else
 
           x(:,IBX:IBZ) = dt*rhs(:,IBX:IBZ)/cnp
-          if (vol_wgt) call scaleVec(igrid,3,x(:,IBX:IBZ),'div')
+          if (vol_wgt)
+     .         call scaleVec(gv%gparams,igrid,3,x(:,IBX:IBZ),'div')
 
         endif
 #else
@@ -523,7 +528,8 @@ c       Vector potential
           endif
 
           call rhs_A_hall(nn,x,rhsc(:,1:3),igrid)
-          if (vol_wgt) call scaleVec(igrid,3,rhsc(:,1:3),'mul')
+          if (vol_wgt)
+     .         call scaleVec(gv%gparams,igrid,3,rhsc(:,1:3),'mul')
           rhsc(:,1:3) = rhs(:,IAX:IAZ) - rhsc(:,1:3)
 
           call EMHD_step(rhsc(:,1:3),x(:,IAX:IAZ))
@@ -538,7 +544,7 @@ c diag****
             write (*,*) '  --> Solving for A...'
           endif
 
-          call cSolver(3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
+          call cSolver(gv%gparams,3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
      .           ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
      .           ,tol           = pc_tol
      .           ,dg            = a_diag
@@ -560,7 +566,8 @@ c diag****
         else
 
           x(:,IAX:IAZ) = dt*rhs(:,IAX:IAZ)/cnp
-          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
+          if (vol_wgt)
+     .         call scaleVec(gv%gparams,igrid,3,x(:,IAX:IAZ),'div')
 
         endif
 #endif
@@ -572,11 +579,11 @@ c       Temperature
         endif
 
         !Correct for electron velocity/source contribution
-        call L_T(nn,x,dum,igrid)
-        if (vol_wgt) call scaleVec(igrid,1,dum,'mul')
+        call L_T(gv%gparams,igrid,x,dum)
+        if (vol_wgt) call scaleVec(gv%gparams,igrid,1,dum,'mul')
         dum = rhs(:,ITMP) - dum
 
-        call cSolver(1,nn,dum,x(:,ITMP),bcs(:,ITMP)
+        call cSolver(gv%gparams,1,nn,dum,x(:,ITMP),bcs(:,ITMP)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -622,16 +629,16 @@ c     Begin program
           write (*,*) '>>>>>>>>>>>>>>>>>>>'
         endif
 
-        call diagonalScaling(1,nn,rho_diag,rhs(:,IRHO)
-     .                      ,x(:,IRHO)   ,igrid)
-        call diagonalScaling(1,nn,tmp_diag,rhs(:,ITMP)
-     .                      ,x(:,ITMP)   ,igrid)
+        call diagonalScaling(gv%gparams,igrid,rho_diag,rhs(:,IRHO:IRHO)
+     .                      ,x(:,IRHO:IRHO))
+        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,ITMP:ITMP)
+     .                      ,x(:,ITMP:ITMP))
 #if !defined(vec_pot)
-        call diagonalScaling(3,nn,b_diag  ,rhs(:,IBX:IBZ)
-     .                      ,x(:,IBX:IBZ),igrid)
+        call diagonalScaling(gv%gparams,igrid,b_diag  ,rhs(:,IBX:IBZ)
+     .                      ,x(:,IBX:IBZ))
 #else
-        call diagonalScaling(3,nn,a_diag  ,rhs(:,IAX:IAZ)
-     .                      ,x(:,IAX:IAZ),igrid)
+        call diagonalScaling(gv%gparams,igrid,a_diag  ,rhs(:,IAX:IAZ)
+     .                      ,x(:,IAX:IAZ))
 #endif
 
 c     End program
@@ -670,7 +677,7 @@ c     Begin program
         !Solve Schur-complement SI system
         if (di == 0d0 .or. (.not.pc_ion_hall)) then
 
-          call cSolver(3,nn,rhssi,x(:,IVX:IVZ)
+          call cSolver(gv%gparams,3,nn,rhssi,x(:,IVX:IVZ)
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = v_diag
@@ -701,7 +708,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
           rhsc(:,1:3) = rhssi
           rhsc(:,4:6) = 0d0
 
-          call cSolver(6,nn,rhsc,xc,bcs_hyp
+          call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .            ,igrid,iout,guess,v_mtvc_hyp,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = v_diag_hyp
@@ -730,7 +737,7 @@ cc          do k = 1,nz
 cc            do j = 1,ny
 cc              do i = 1,nx
 cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc                x(ii,IVY) = x(ii,IVY)*gmetric%grid(igx)%jac(i,j,k)
+cc                x(ii,IVY) = x(ii,IVY)*gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 cc              enddo
 cc            enddo
 cc          enddo
@@ -767,7 +774,7 @@ c     Begin program
         call formSIrhs(nn,x,y(:,IVX:IVZ),rhspc(:,IVX:IVZ),igrid)
 
         !Solve Schur-complement SI system
-        call cSolver(3,nn,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
+        call cSolver(gv%gparams,3,nn,rhspc(:,IVX:IVZ),x(:,IVX:IVZ)
      .              ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc_af,vol_wgt
      .              ,tol           = pc_tol
      .              ,dg            = v_diag
@@ -1046,7 +1053,7 @@ c     Solve EMHD system
 
       guess = 1
 
-      call cSolver(6,nn,rhsc,xc,bcs_hyp
+      call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .            ,igrid,iout,guess,a_mtvc_hyp,vol_wgt
      .            ,dg            = a_diag_hyp
      .            ,mg_debug      = mg_debug
@@ -1125,7 +1132,7 @@ c Begin program
 
 c Find density lower block (because we are solving for dv instead of dp)
 
-      call L_rho_v(nn,xxx,eom_rhs,eom_rhs,igrid,vol_wgt)
+      call L_rho_v(gv%gparams,igrid,xxx,eom_rhs,eom_rhs,vol_wgt)
 
       rhs_si = yyy - eom_rhs
 
@@ -1190,11 +1197,11 @@ c Local variables
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      isig = gv%gparams%istartp(igrid)
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       if (      part /= 'lfz'
      .    .and. part /= 'adv'
@@ -1235,48 +1242,48 @@ c Allocate variables
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
-      call fillArray(igrid,3,xxx(:,IBX:IBZ),db_cnv
+      call fillArray(gv%gparams,igrid,3,xxx(:,IBX:IBZ),db_cnv
      .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov
      .           ,is_vec=.true.,is_cnv=.true.,icomp=(/IBX/))
 
 #else
 c Find dA* (w/ BCs)
 
-      call fillArray(igrid,3,xxx(:,IAX:IAZ),da_cov
+      call fillArray(gv%gparams,igrid,3,xxx(:,IAX:IAZ),da_cov
      .              ,bcs(:,IAX:IAZ),order_bc,is_vec=.true.
      .              ,is_cnv=.false.,icomp=(/IAX/))
 
 c Find dB* from dA*
 
-      db_cnv = curl(igrid,da_cov)
-      db_cov = XformVector(igrid,db_cnv,.false.)
+      db_cnv = curl(gv%gparams,igrid,da_cov)
+      db_cov = XformVector(gv%gparams,igrid,db_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros,bcs(:,IBX:IBZ)
-     .          ,igrid,igrid,igrid,iorder=order_bc)
+      call setBC(gv%gparams,IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros
+     .          ,bcs(:,IBX:IBZ),igrid,igrid,igrid,iorder=order_bc)
 #endif
 
 c Find dv (w/ Bcs)
 
-      call fillArray(igrid,3,xxx(:,IVX:IVZ),dv_cnv
+      call fillArray(gv%gparams,igrid,3,xxx(:,IVX:IVZ),dv_cnv
      .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
      .              ,arr0=vzeros,icomp=(/IVX/))
 
 c Find dj* from dB*
 
       !Find contravariant current (without BCs)
-      dj_cnv = curl(igrid,db_cov)
-      dj_cov = XformVector(igrid,dj_cnv,.false.)
+      dj_cnv = curl(gv%gparams,igrid,db_cov)
+      dj_cov = XformVector(gv%gparams,igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=order_bc)
+      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
 
 c Find drho, dprs arrays with BCs
 
-      call fillArray(igrid,1,xxx(:,IRHO:IRHO),drho
+      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
-      call fillArray(igrid,1,xxx(:,ITMP:ITMP),dprs
+      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dprs
      .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
 
 c Find dp_cnv
@@ -1309,10 +1316,10 @@ c Find rhs_v'
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             iig = ii + isig - 1
 
-            jac = gmetric%grid(igrid)%jac(i,j,k)
+            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
             if (vwgt) then
-              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+              dvol = gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1320,30 +1327,30 @@ c Find rhs_v'
             if (part == 'lfz' .or. part == 'all') then
 
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                     ,db_cov,jcov0,.false.,nc_eom_jxb
      .                     ,vol=.false.)
-     .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                     ,bcov0,dj_cov,.false.,nc_eom_jxb
      .                     ,vol=.false.)
               else
-                cnv = EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb
      .                     ,vol=.false.)
-     .               +EOM_jxb(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb
      .                     ,vol=.false.)
               endif
 
               cnv = cnv
-     .               -EOM_gp(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .               -EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                     ,rho0(:,:,:,1),dprs(:,:,:,1),nc_eom_gp
      .                     ,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then
                 cnv = cnv
-     .               -EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .               -EOM_divPi_ijk(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                             ,dve_cnv,heta0(:,:,:,1))
               endif
 
@@ -1360,21 +1367,25 @@ c Find rhs_v'
 
               if (nc_eom_v) then
                 cnv = cnv
-     .              +(tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .              +(tensor_nc_advc(gv%gparams,i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid
      .                              ,vcnv0,dv_cnv,min(v_advect,2))
-     .               +tensor_nc_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .               +tensor_nc_advc(gv%gparams,i,j,k,nx,ny,nz
+     .                              ,igrid,igrid,igrid
      .                              ,dv_cnv,vcnv0,min(v_advect,2)))
               else
                 cnv = cnv
-     .              +(tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,vcnv0,dp_cnv,v_advect)
-     .               +tensor_advc(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,dp_cnv,vcnv0,v_advect))
+     .              +(tensor_advc(gv%gparams,i,j,k,nx,ny,nz
+     .                           ,igrid,igrid,igrid
+     .                           ,vcnv0,dp_cnv,v_advect)
+     .               +tensor_advc(gv%gparams,i,j,k,nx,ny,nz
+     .                           ,igrid,igrid,igrid
+     .                           ,dp_cnv,vcnv0,v_advect))
               endif
 
               !Stress tensors
               cnv = cnv
-     .            + EOM_divPi_ijk(i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .            + EOM_divPi_ijk(gv%gparams,i,j,k,nx,ny,nz,igrid
      .                         ,dv_cnv,gvis%grid(igrid)%array(:,:,:,1))
 
               if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
@@ -1442,11 +1453,11 @@ c Local variables
 
 c Begin program
 
-      isig = grid_params%istartp(igrid)
+      isig = gv%gparams%istartp(igrid)
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
 c Find SI rhs (but with "complete" quantities)
 
@@ -1456,7 +1467,7 @@ c Solve for advection-diffusion part
 
       guess = 1
 
-      call cSolver(3,nn,nrhs,x(:,IVX:IVZ)
+      call cSolver(gv%gparams,3,nn,nrhs,x(:,IVX:IVZ)
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc2,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = v_diag2
@@ -1488,7 +1499,7 @@ c Correction w/o solve
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+              dvol = gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
@@ -1542,11 +1553,11 @@ c Begin program
       if (my_rank == 0 .and. iout > 0)
      .     write (*,*) 'Correcting B-field...'
 
-      isig = grid_params%istartp(igrid)
+      isig = gv%gparams%istartp(igrid)
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       allocate ( db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1558,24 +1569,25 @@ c Begin program
 
 c Find dB
 
-      call fillArray(igrid,3,x(:,IBX:IBZ),db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(gv%gparams,igrid,3,x(:,IBX:IBZ),db_cnv
+     .              ,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
      .              ,is_cnv=.true.,icomp=(/IBX/))
 
 c Find dj* from dB*
 
-      dj_cnv = curl(igrid,db_cov)
-      dj_cov = XformVector(igrid,dj_cnv,.false.)
+      dj_cnv = curl(gv%gparams,igrid,db_cov)
+      dj_cov = XformVector(gv%gparams,igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros,bcs(:,IJX:IJZ)
-     .          ,igrid,igrid,igrid,iorder=order_bc)
+      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
 
 c Find dE* (electric field update)
 
       v0cnv => gv0%grid(igrid)%array
 
-      de_cov =-crossProduct(igrid,v0cnv,db_cnv,.true.)
+      de_cov =-crossProduct(gv%gparams,igrid,v0cnv,db_cnv,.true.)
 
       de_cov(:,:,:,1) = de_cov(:,:,:,1)
      .     + geta%grid(igrid)%array(:,:,:,1)*dj_cov(:,:,:,1)
@@ -1594,10 +1606,10 @@ cc     .               -v0cnv(i,j,k,1)*db_cnv(i,j,k,3))
 cc            cov(3) = (v0cnv(i,j,k,1)*db_cnv(i,j,k,2)
 cc     .               -v0cnv(i,j,k,2)*db_cnv(i,j,k,1))
 cc
-cc            de_cov(i,j,k,:)= -cov/gmetric%grid(igrid)%jac(i,j,k)
+cc            de_cov(i,j,k,:)= -cov/gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 cc     .                       +geta%grid(igrid)%array(i,j,k,1)
 cc     .                       *dj_cov(i,j,k,:)
-cccc            de_cnv(i,j,k,:) = matmul(gmetric%grid(igrid)%gsub(i,j,k,:,:)
+cccc            de_cnv(i,j,k,:) = matmul(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,:,:)
 cccc     .                              ,de_cov(i,j,k,:))
 cc          enddo
 cc        enddo
@@ -1607,16 +1619,16 @@ cc      write (*,*) 'DIAG -- correctBfld'
 cc      open(unit=110,file='divclean.bin',form='unformatted'
 cc     .    ,status='replace')
 cc      call contour(de_cov(:,:,1,1),nx+2,ny+2
-cc     .                ,grid_params%gxmin,grid_params%gxmax
-cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
+cc     .                ,gv%gparams%gymin,gv%gparams%gymax
 cc     .                ,0,110)
 cc      call contour(de_cov(:,:,1,2),nx+2,ny+2
-cc     .                ,grid_params%gxmin,grid_params%gxmax
-cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
+cc     .                ,gv%gparams%gymin,gv%gparams%gymax
 cc     .                ,1,110)
 cc      call contour(de_cov(:,:,1,3),nx+2,ny+2
-cc     .                ,grid_params%gxmin,grid_params%gxmax
-cc     .                ,grid_params%gymin,grid_params%gymax
+cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
+cc     .                ,gv%gparams%gymin,gv%gparams%gymax
 cc     .                ,1,110)
 cc      close(110)
 
@@ -1636,13 +1648,13 @@ c Find correction
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then
-              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+              dvol = gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
             x(ii,IBX:IBZ) = dt/cnp*(crhs(ii,:)/dvol
-     .             -alpha*curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,de_cov))
+     .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
+     .                        ,igrid,igrid,igrid,de_cov))
           enddo
         enddo
       enddo
@@ -1690,9 +1702,9 @@ c Local variables
 
 c Begin program
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       rho0 => grho0%grid(igrid)%array
 
@@ -1701,7 +1713,7 @@ c Begin program
 
 c Store velocity RHS in array format w/ BCs
 
-      call fillArray(igrid,3,yyy(:,IVX:IVZ),dgv_cnv
+      call fillArray(gv%gparams,igrid,3,yyy(:,IVX:IVZ),dgv_cnv
      .              ,bcs(:,IVX:IVZ),order_bc,arr_cov=dgv_cov
      .              ,is_vec=.true.,is_cnv=.true.,icomp=(/IVX/))
 
@@ -1710,7 +1722,7 @@ c Divide by density and volume
       if (vol_wgt) then
         do ieq=1,3
           dgv_cov(:,:,:,ieq) = dgv_cov(:,:,:,ieq)
-     .                        /gmetric%grid(igrid)%dlvol
+     .                        /gv%gparams%gmetric%grid(igrid)%dlvol
         enddo
       endif
 
@@ -1727,13 +1739,13 @@ c Find curl
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             if (vol_wgt) then   !Residuals are volume-weighed by default
-              dvol = gmetric%grid(igrid)%dlvol(i,j,k)
+              dvol = gv%gparams%gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
             yyy(ii,IBX:IBZ) = yyy(ii,IBX:IBZ)
-     .                   + di*dvol*curl(i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                                 ,dgv_cov)
+     .                   + di*dvol*curl(gv%gparams,i,j,k,nx,ny,nz
+     .                                 ,igrid,igrid,igrid,dgv_cov)
           enddo
         enddo
       enddo
@@ -1773,9 +1785,9 @@ c Begin program
 
       rho0 => grho0%grid(igrid)%array
 
-      nx = grid_params%nxv(igrid)
-      ny = grid_params%nyv(igrid)
-      nz = grid_params%nzv(igrid)
+      nx = gv%gparams%nxv(igrid)
+      ny = gv%gparams%nyv(igrid)
+      nz = gv%gparams%nzv(igrid)
 
       do k = 1,nz
         do j = 1,ny
@@ -1783,7 +1795,8 @@ c Begin program
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             cnv = yyy(ii,IVX:IVZ)
-            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
+            call transformFromCurvToCurv(gv%gparams
+     .           ,i,j,k,igrid,igrid,igrid
      .           ,cov(1),cov(2),cov(3)
      .           ,cnv(1),cnv(2),cnv(3),.false.)
 
@@ -1830,16 +1843,16 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nx = grid_params%nxv(igx)
-      ny = grid_params%nyv(igy)
-      nz = grid_params%nzv(igz)
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
 
       allocate(db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB (w/ BCs)
 
-      call fillArray(igrid,3,xb,db_cnv,bcs(:,IBX:IBZ)
+      call fillArray(gv%gparams,igrid,3,xb,db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,is_vec=.true.,is_cnv=.true.
      .              ,arr_cov=db_cov,icomp=(/IBX/))
 
@@ -1849,7 +1862,7 @@ c Solve dB*=-curl(lap^(-1)(curl(dB)))
 
 c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
 
-      call vlap_div_clean(iout,nx,ny,nz,igx,igy,igz
+      call vlap_div_clean(gv%gparams,iout,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,dbcov=db_cov
      .                   ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
 
