@@ -24,7 +24,7 @@
 FLUX=f
 PER_BC_SYNC=t
 VMEC=t
-COARSE_MG = f
+COARSE_MG = t
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -42,48 +42,16 @@ BINDIR    =$(PWD)/bin
 
 -include $(COMMONDIR)/make/make.lib.inc
 
-# PIXIE3D setup
-
-SUBDIRS = eq src plot
-
-REL1=3
-REL2=3.8
-CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
+# FRAMEWORK setup
 
 ifeq ($(COARSE_MG),t)
   CPPFLAGS    += $(PREPROC)coarse_MG
-endif
-
-ifeq ($(PIT),t)
-  CPPFLAGS += -Dpit
-endif
-
-ifeq ($(FLUX),t)
-  CPPFLAGS += -Dflux_rhs
-endif
-
-ifeq ($(VECPOT),t)
-  CPPFLAGS += $(PREPROC)vec_pot
-  TARGET = code_a
 endif
 
 ifeq ($(PER_BC_SYNC),t)
 #  ifndef BOPT
     CPPFLAGS += $(PREPROC)PER_BC_SYNC
 #  endif
-endif
-
-ifeq ($(VMEC),t)
-  VMEC_DIR     = $(CONTRIBDIR)/vmec/LIBSTELL
-
-  CONTRIBLIBS += -L$(CONTRIBDIR)/vmec/lib -lstell
-  CPPFLAGS    += $(PREPROC)vmec
-  MODPATH     += $(ADDMODFLAG)$(CONTRIBDIR)/vmec/lib
-
-  ifeq ($(NETCDF),t)
-    CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
-    CONTRIBLIBS += $(NETCDF_LIBS)
-  endif
 endif
 
 ifdef BOPT
@@ -99,6 +67,40 @@ endif
 ifeq ($(SAMR),t)
   TARGET = samrai
   CPPFLAGS += -Dflux_rhs
+endif
+
+# PIXIE3D setup
+
+SUBDIRS = eq src plot
+
+REL1=3
+REL2=3.8
+CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
+
+ifeq ($(PIT),t)
+  CPPFLAGS += -Dpit
+endif
+
+ifeq ($(FLUX),t)
+  CPPFLAGS += -Dflux_rhs
+endif
+
+ifeq ($(VECPOT),t)
+  CPPFLAGS += $(PREPROC)vec_pot
+  TARGET = code_a
+endif
+
+ifeq ($(VMEC),t)
+  VMEC_DIR     = $(CONTRIBDIR)/vmec/LIBSTELL
+
+  CONTRIBLIBS += -L$(CONTRIBDIR)/vmec/lib -lstell
+  CPPFLAGS    += $(PREPROC)vmec
+  MODPATH     += $(ADDMODFLAG)$(CONTRIBDIR)/vmec/lib
+
+  ifeq ($(NETCDF),t)
+    CPPFLAGS   += $(PREPROC)NETCDF $(NETCDF_INC)
+    CONTRIBLIBS += $(NETCDF_LIBS)
+  endif
 endif
 
 #Export required variables
