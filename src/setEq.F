@@ -5361,7 +5361,7 @@ cc        enddo
 
         !Find A_2 at cell centers by staggered radial integral of b^3 at cell centers
         dummy = 0d0
-        if (isSP2(1,igrid)) then
+        if (isSP2(gv%gparams,1,igrid)) then
           write (*,*) my_rank
           !Estimate B^3 at r=0
           iglobal = gv%gparams%ilo(igrid) - 1
@@ -5935,7 +5935,7 @@ c Find A covariant
 
         !Find B and substract BCs
         call XferArray(b,db_cnv)
-        db_cnv = db_cnv - curl_mesh(igrid,a0_cov)
+        db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
 
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
@@ -5965,7 +5965,7 @@ cc        call B_dump(igrid,a_cov,db_cnv)
       case('line')
 
         !Find covariant vector potential with gauge Ax = 0 in specified domain
-        call curl_inv(igrid,b,a,global=.true.)
+        call curl_inv(gv%gparams,igrid,b,a,global=.true.)
 
         !Restrict solution to current domain (when appropriate)
         call XferArray(a,a_cov)

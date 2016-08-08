@@ -24,6 +24,7 @@
 FLUX=f
 PER_BC_SYNC=t
 VMEC=t
+COARSE_MG = f
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -48,6 +49,10 @@ SUBDIRS = eq src plot
 REL1=3
 REL2=3.8
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
+
+ifeq ($(COARSE_MG),t)
+  CPPFLAGS    += $(PREPROC)coarse_MG
+endif
 
 ifeq ($(PIT),t)
   CPPFLAGS += -Dpit
