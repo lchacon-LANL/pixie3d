@@ -1045,7 +1045,8 @@ c       Magnetic field BC (with fixed current at boundary)
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-                bcnv(i,j,k,:) = XformToCurv_ijk(i,j,k,igr,B0,.true.)
+                bcnv(i,j,k,:) =
+     .              XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
      .            + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov)
               enddo
             enddo
@@ -1100,7 +1101,7 @@ cc                v0 =  cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm
             else
 #if defined(vec_pot)
               !j=curl(curl(A))
-              v0 = curlcurl_cov(igr,acov)
+              v0 = curlcurl_cov(gv%gparams,igr,acov)
               vefcnv = XformVector(gv%gparams,igr,v0,.true.)
 #else
               call pstop('applyBC'
