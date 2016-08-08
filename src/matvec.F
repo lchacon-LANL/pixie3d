@@ -160,8 +160,9 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      bz0 => gbz0%grid(igrid)%array
-
+cc      bz0 => gbz0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,bz0,gbz0)
+ 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
 cc      xarr = 0d0
@@ -259,8 +260,9 @@ c Map vector x to array for processing
 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
-      psi0 => gpsi0%grid(igrid)%array
-
+cc      psi0 => gpsi0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,psi0,gpsi0)
+ 
       call fillArray(g_def,igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
      .              ,arr0=psi0)
 
@@ -504,8 +506,9 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      v0_cnv => gv0%grid(igrid)%array
-
+cc      v0_cnv => gv0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+ 
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -635,10 +638,14 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      v0_cnv => gvs0 %grid(igrid)%array
-      rho0   => grho0%grid(igrid)%array
-      bh0    => gbhat%grid(igrid)%array
+c$$$      v0_cnv => gvs0 %grid(igrid)%array
+c$$$      rho0   => grho0%grid(igrid)%array
+c$$$      bh0    => gbhat%grid(igrid)%array
 
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gvs0)
+      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
+      call point_to_MG_array(ntot/neq,igrid,bh0   ,gbhat)
+ 
       dtmp = dprs/rho0
 
 c Calculate matrix-vector product
@@ -788,8 +795,9 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      v0_cnv => gv0%grid(igrid)%array
-
+cc      v0_cnv => gv0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+ 
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -920,9 +928,11 @@ c Map vector x to array for processing
 
 c Velocity field (including BCs)
 
-      v0_cnv => gv0%grid(igrid)%array
-      leta   => geta%grid(igrid)%array
-
+cc      v0_cnv => gv0%grid(igrid)%array
+cc      leta   => geta%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(ntot/neq,igrid,leta,geta)
+ 
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -1083,7 +1093,8 @@ c Map vector x to array for processing
 
 c Velocity field (including BCs)
 
-      v0_cnv => gv0%grid(igrid)%array
+cc      v0_cnv => gv0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
 
 c Calculate matrix-vector product
 
@@ -1267,7 +1278,8 @@ cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 
 c Velocity field (including BCs)
 
-      v0_cnv => gv0%grid(igrid)%array
+cc      v0_cnv => gv0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
 
 c Calculate matrix-vector product
 
@@ -1617,11 +1629,17 @@ c$$$      djf_cnv(0:,0:,0:,1:) => du_cnv(0:,0:,0:,4:6)
 cc#endif
 
       !Coefficients
-      ve0_cnv => gve0 %grid(igrid)%array
-      bs0_cnv => gbs0 %grid(igrid)%array
-      rho0    => grho0%grid(igrid)%array
-      heta0   => gheta%grid(igrid)%array
-      eta0    => geta %grid(igrid)%array
+c$$$      ve0_cnv => gve0 %grid(igrid)%array
+c$$$      bs0_cnv => gbs0 %grid(igrid)%array
+c$$$      rho0    => grho0%grid(igrid)%array
+c$$$      heta0   => gheta%grid(igrid)%array
+c$$$      eta0    => geta %grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,ve0_cnv,gve0)
+      call point_to_MG_array(ntot/neq,igrid,bs0_cnv,gbs0)
+      call point_to_MG_array(ntot/neq,igrid,rho0   ,grho0)
+      call point_to_MG_array(ntot/neq,igrid,heta0  ,gheta)
+      call point_to_MG_array(ntot/neq,igrid,eta0   ,geta)
+ 
 
       !Magnetic fields
       db_cnv = curl(g_def,igrid,da_cov)
@@ -1875,26 +1893,29 @@ c ##################################################################
 
 c     defineLocalPointers
 c     #####################################################################
-      subroutine defineLocalPointers(igrid)
+      subroutine defineLocalPointers(igrid,nn)
 
-      integer :: igrid
+      implicit none
+
+      integer :: igrid,nn
 
 c     Begin program
 
-      rho0   => grho0  %grid(igrid)%array
+c$$$      rho0   => grho0  %grid(igrid)%array
+c$$$      pp0    => gp0    %grid(igrid)%array
+c$$$      v0_cnv => gv0    %grid(igrid)%array
+c$$$      b0_cnv => gb0    %grid(igrid)%array
+c$$$      b0_cov => gb0_cov%grid(igrid)%array
+c$$$      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
+c$$$cc      db_cov => gdb_cov%grid(igrid)%array
 
-      pp0    => gp0    %grid(igrid)%array
-
-      v0_cnv => gv0    %grid(igrid)%array
-
-      b0_cnv => gb0    %grid(igrid)%array
-
-      b0_cov => gb0_cov%grid(igrid)%array
-
-      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
-
-cc      db_cov => gdb_cov%grid(igrid)%array
-
+      call point_to_MG_array(nn,igrid,rho0  ,grho0)
+      call point_to_MG_array(nn,igrid,pp0   ,gp0)
+      call point_to_MG_array(nn,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nn,igrid,b0_cnv,gb0)
+      call point_to_MG_array(nn,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(nn,igrid,a0_cnv,ga0)
+ 
       end subroutine defineLocalPointers
 
 c     nullLocalPointers
@@ -2561,7 +2582,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call defineLocalPointers(igrid)
+      call defineLocalPointers(igrid,ntot/neq)
 
 c ExB flow BC (if applicable)
 
@@ -2765,7 +2786,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call defineLocalPointers(igrid)
+      call defineLocalPointers(igrid,ntot/neq)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -2846,7 +2867,8 @@ cc     .            ,result_is_vec=.true.,iorder=1)
 
 c Calculate matrix-vector product
 
-      heta0 => gheta%grid(igrid)%array
+cc      heta0 => gheta%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,heta0,gheta)
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
@@ -3096,18 +3118,20 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      rho0   => grho0  %grid(igrid)%array
+c$$$      rho0   => grho0  %grid(igrid)%array
+c$$$      pp0    => gp0    %grid(igrid)%array
+c$$$      v0_cnv => gv0    %grid(igrid)%array
+c$$$      b0_cnv => gb0    %grid(igrid)%array
+c$$$      b0_cov => gb0_cov%grid(igrid)%array
+c$$$      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
 
-      pp0    => gp0    %grid(igrid)%array
-
-      v0_cnv => gv0    %grid(igrid)%array
-
-      b0_cnv => gb0    %grid(igrid)%array
-
-      b0_cov => gb0_cov%grid(igrid)%array
-
-      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
-
+      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
+      call point_to_MG_array(ntot/neq,igrid,pp0   ,gp0)
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
+      call point_to_MG_array(ntot/neq,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(ntot/neq,igrid,a0_cnv,ga0)
+ 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dpp   (0:nxx+1,0:nyy+1,0:nzz+1,neq)
@@ -3556,18 +3580,19 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      rho0   => grho0  %grid(igrid)%array
+c$$$      rho0   => grho0  %grid(igrid)%array
+c$$$      pp0    => gp0    %grid(igrid)%array
+c$$$      v0_cnv => gv0    %grid(igrid)%array
+c$$$      b0_cnv => gb0    %grid(igrid)%array
+c$$$      b0_cov => gb0_cov%grid(igrid)%array
+c$$$      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
 
-      pp0    => gp0    %grid(igrid)%array
-
-      v0_cnv => gv0    %grid(igrid)%array
-
-      b0_cnv => gb0    %grid(igrid)%array
-
-      b0_cov => gb0_cov%grid(igrid)%array
-
-      a0_cnv => ga0    %grid(igrid)%array   !B + di curl(v)
-
+      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
+      call point_to_MG_array(ntot/neq,igrid,pp0   ,gp0)
+      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
+      call point_to_MG_array(ntot/neq,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(ntot/neq,igrid,a0_cnv,ga0)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3750,13 +3775,15 @@ c Define pointers to MG arrays
       flg_rho = .false.      !To prevent interference with v_mtvc_af
       if (.not.associated(rho0  )) then
         flg_rho = .true.
-        rho0   => grho0%grid(igrid)%array
+cc        rho0   => grho0%grid(igrid)%array
+        call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
       endif
 
       flg_v = .false.        !To prevent interference with v_mtvc_af
       if (.not.associated(v0_cnv)) then
         flg_v = .true.
-        v0_cnv => gv0  %grid(igrid)%array
+cc        v0_cnv => gv0  %grid(igrid)%array
+        call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
       endif
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
@@ -3903,7 +3930,8 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      b0_cnv => gb0%grid(igrid)%array
+cc      b0_cnv => gb0%grid(igrid)%array
+      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
