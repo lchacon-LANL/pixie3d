@@ -55,7 +55,7 @@
 
 !    precon   = 'id'
     precon   = 's1'
-    mgtol    = 0.5d0
+    mgtol    = 0.1d0
     maxvcyc  = 1
     nsweep   = 3
     precpass = 0
