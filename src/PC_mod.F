@@ -53,13 +53,14 @@ c ######################################################################
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
-        real(8), allocatable, dimension(:,:) :: mgadvdiffV0
+cc        real(8), allocatable, dimension(:,:) :: mgadvdiffV0
 
         integer, allocatable, dimension(:,:) :: bcs,bcs_hyp
 
-        type(mg_array ),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
-     .                            ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
-     .                            ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
+        type(mg_array),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
+     .                           ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
+     .                           ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
+     .                           ,g_advdiffV0
 
       contains
 
@@ -83,7 +84,7 @@ c     Begin program
 
         ntotd2p = 2*ntotd/neqd
 
-        allocate (mgadvdiffV0(ntotd2p,3))
+cc        allocate (mgadvdiffV0(ntotd2p,3))
 
 #if !defined(vec_pot)
         allocate (bcs(6,neqd+3),bcs_hyp(6,6))
@@ -123,6 +124,7 @@ c     Begin program
         call allocateMGArray(gv%gparams,1,gheta)
         call allocateMGArray(gv%gparams,3,gbhat)
         call allocateMGArray(gv%gparams,3,gdb_cov)
+        call allocateMGArray(gv%gparams,3,g_advdiffV0)
 
 c     End program
 
@@ -144,7 +146,7 @@ c     Local variables
 
 c     Begin program
 
-        deallocate (mgadvdiffV0)
+cc        deallocate (mgadvdiffV0)
 
         deallocate (bcs,bcs_hyp)
 
@@ -174,6 +176,7 @@ c     Begin program
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
         call deallocateMGArray(gbhat)
+        call deallocateMGArray(g_advdiffV0)
 
 c     End program
 
@@ -441,25 +444,23 @@ c     Store density in all grids (w/o BCs)
 
         grho0%grid(igrid)%array(:,:,:,1) = rho
 
-        call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order)
+        call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store total temperature (w/ BCs)
 
         gtmp0%grid(igrid)%array(:,:,:,1) = tmp
 
-        call restrictMGArray(ITMP,1,gtmp0,bc_pc(:,ITMP),igrid,order)
+        call restrictMGArray(ITMP,1,gtmp0,bc_pc(:,ITMP),igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store pressure (w/ BCs)
 
         !total pressure (w/ BCs)
         gp0%grid(igrid)%array(:,:,:,1) = rho*tmp
 
-        call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order)
-
-cc        do igr=igrid,gv%gparams%ngrid
-cc          gp0%grid(igrid)%array = grho0%grid(igrid)%array
-cc     .                           *gtmp0%grid(igrid)%array
-cc        enddo
+        call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
@@ -467,7 +468,7 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
         gb0_cov%grid(igrid)%array = bcov
 
         call restrictMGArray(IBX,3,gb0,bc_pc(:,IBX:IBZ),igrid,order
-     .                      ,mgvcov=gb0_cov)
+     .                      ,mgvcov=gb0_cov,order_bc=order_bc)
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
@@ -479,6 +480,7 @@ cc     .                      ,iscnv=.false.)
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
         if (chi_par /= chi .and. (.not.lagrangian)) then
+          STOP 'need to change this'
           gbhat%grid(igrid)%array = bhat
 
           do igr=igrid+1,gv%gparams%ngrid
@@ -503,7 +505,8 @@ c     Store ion velocity components in all grids (w/ BCs)
 
         gv0%grid(igrid)%array = vcnv
 
-        call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order)
+        call restrictMGArray(IVX,3,gv0,bc_pc(:,IVX:IVZ),igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store current cnv components in all grids (w/ BCs)
 
@@ -511,7 +514,7 @@ c     Store current cnv components in all grids (w/ BCs)
         gj0_cov%grid(igrid)%array = jcov
 
         call restrictMGArray(IJX,3,gj0,bc_pc(:,IJX:IJZ),igrid,order
-     .                      ,mgvcov=gj0_cov)
+     .                      ,mgvcov=gj0_cov,order_bc=order_bc)
 
 c     Store current cov components in all grids (w/ BCs)
 
@@ -524,29 +527,15 @@ c     Store viscosity
 
 cc        gvis%grid(igrid)%array(:,:,:,1) = nuu + h_eta
         gvis%grid(igrid)%array(:,:,:,1) = nuu
-        call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
-
-cc        if (nu > 0d0) then
-cc          
-cc          gvis%grid(igrid)%array(:,:,:,1) = 1d0/nuu
-cc
-cc          call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order)
-cc
-cc          do igr=igrid,gv%gparams%ngrid
-cc            gvis%grid(igr)%array = 1d0/gvis%grid(igr)%array
-cc          enddo
-cc
-cc        else
-cc          do igr=igrid,gv%gparams%ngrid
-cc            gvis%grid(igr)%array = 0d0
-cc          enddo
-cc        endif
+        call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store resistivity
 
         geta%grid(igrid)%array(:,:,:,1) = eeta
 
-        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order)
+        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
 
 c     Store Hall MHD auxiliary variables
 
@@ -555,32 +544,36 @@ c     Store Hall MHD auxiliary variables
           !Store hyperresisitivity
           gheta%grid(igrid)%array(:,:,:,1) = h_eta
 
-          call restrictMGArray(IRHO,1,gheta,bc_sc,igrid,order)
+          call restrictMGArray(IRHO,1,gheta,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
 
           !Store electron velocity components in all grids (w/ BCs)
           gve0%grid(igrid)%array = vecnv
 
-          call restrictMGArray(IVX,3,gve0,bc_vec_odd,igrid,order)
+          call restrictMGArray(IVX,3,gve0,bc_vec_odd,igrid,order
+     .                      ,order_bc=order_bc)
 cc          call restrictMGArray(IVX,3,gve0,bc_pc(:,IVX:IVZ),igrid,order)
 
           !Store hybrid velocity components in all grids (w/ BCs)
           gvs0%grid(igrid)%array = vscnv
 
-          call restrictMGArray(IVX,3,gvs0,bc_vec_odd,igrid,order)
+          call restrictMGArray(IVX,3,gvs0,bc_vec_odd,igrid,order
+     .                      ,order_bc=order_bc)
 
           !Store Hall electric field
           gEh0_cov%grid(igrid)%array = E_h
 cc          call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IJX:IJZ),igrid
           call restrictMGArray(IJX,3,gEh0_cov,bc_pc(:,IVX:IVZ),igrid
 cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
-     .                        ,order,iscnv=.false.)
+     .                        ,order,iscnv=.false.,order_bc=order_bc)
 
           !Store b_star = b - de^2/di curl(ve)
           if (de > 0d0) then
             gbs0%grid(igrid)%array = gb0%grid(igrid)%array
      $                            -de**2/di*curl(gv%gparams,igrid,vecov)
 
-            call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order)
+            call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order
+     .                          ,order_bc=order_bc)
           else
             call equateMGArray(gbs0,gb0)
           endif
@@ -598,7 +591,8 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
               enddo
             enddo
 
-            call restrictMGArray(IJX,3,ga0,bc_vec_even,igrid,order)
+            call restrictMGArray(IJX,3,ga0,bc_vec_even,igrid,order
+     .                          ,order_bc=order_bc)
 
           !Auxiliary quantities for std Hall MHD formulation: A = B_star
           else
@@ -614,18 +608,8 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 
 c     Find other auxiliary quantities and store them in all grids
 
-cc        !Velocity divergence (w/o BCs)
-cc        allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
-cc
-cc        debug2 = div(igrid,vcnv)
-cc
-cc        call restrictArrayToMGVector(1,nx,ny,nz,debug2,mgdivV0,igrid
-cc     .                            ,order,.false.)
-cc
-cc        deallocate(debug2)
-cc
         !jxB-grad(p)
-        allocate(vector(0:nx+1,0:ny+1,0:nz+1,3))
+c$$$        allocate(vector(0:nx+1,0:ny+1,0:nz+1,3))
 
         do k = 1,nz
           do j = 1,ny
@@ -663,11 +647,12 @@ cc
 
 cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
 
-                call transformFromCurvToCurv(gv%gparams,i,j,k
-     .                                      ,igx,igy,igz
-     .                                      ,cov(1),cov(2),cov(3)
-     .                                      ,cnv(1),cnv(2),cnv(3)
-     .                                      ,.true.)
+                cnv = XformToCnv_ijk(gv%gparams,i,j,k,igx,cov)
+c$$$                call transformFromCurvToCurv(gv%gparams,i,j,k
+c$$$     .                                      ,igx,igy,igz
+c$$$     .                                      ,cov(1),cov(2),cov(3)
+c$$$     .                                      ,cnv(1),cnv(2),cnv(3)
+c$$$     .                                      ,.true.)
 
                 !JxB
                 cnv(1) = jcov(i,j,k,2)*bcov(i,j,k,3)
@@ -679,29 +664,30 @@ cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
                 cnv(3) = jcov(i,j,k,1)*bcov(i,j,k,2)
      .                 - jcov(i,j,k,2)*bcov(i,j,k,1) - cnv(3)
 
-                vector(i,j,k,:) = (cnv-veclap)/rho(i,j,k)**2
+                g_advdiffV0%grid(igrid)%array(i,j,k,:)
+     .                 = (cnv-veclap)/rho(i,j,k)**2
               else
-                do ivar=1,3
-                  vector(i,j,k,ivar) = 
-     .                          cnp*gv0%grid(igrid)%array(i,j,k,ivar)/dt
-     .                        + alpha*vcnv(i,j,k,1)*nabla_v(1,ivar)/jac
-     .                        + alpha*vcnv(i,j,k,2)*nabla_v(2,ivar)/jac
-     .                        + alpha*vcnv(i,j,k,3)*nabla_v(3,ivar)/jac
-                enddo
+                g_advdiffV0%grid(igrid)%array(i,j,k,:) = 
+     .                          cnp*gv0%grid(igrid)%array(i,j,k,:)/dt
+     .                        + alpha*vcnv(i,j,k,1)*nabla_v(1,:)/jac
+     .                        + alpha*vcnv(i,j,k,2)*nabla_v(2,:)/jac
+     .                        + alpha*vcnv(i,j,k,3)*nabla_v(3,:)/jac
               endif
 
             enddo
           enddo
         enddo
 
-        do ivar=1,3
-          call restrictArrayToMGVector(gv%gparams
-     .                                ,vector(:,:,:,ivar:ivar)
-     .                                ,mgadvdiffV0(:,ivar)
-     .                                ,igrid,order,.false.)
-        enddo
-
-        deallocate(vector)
+        call restrictMGArray(IVX,3,g_advdiffV0,bc_vec_odd,igrid,order
+     .                      ,order_bc=order_bc)
+c$$$        do ivar=1,3
+c$$$          call restrictArrayToMGVector(gv%gparams
+c$$$     .                                ,vector(:,:,:,ivar:ivar)
+c$$$     .                                ,mgadvdiffV0(:,ivar)
+c$$$     .                                ,igrid,order,.false.)
+c$$$        enddo
+c$$$
+c$$$        deallocate(vector)
 
 c diag ****
 cc      write (*,*) 'DIAG -- findCoeffs'
@@ -1710,13 +1696,17 @@ c     Find rhs_v
           do j = 1,ny
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              iig = ii + isig - 1
+
               if (vwgt) then
                 dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
               else
                 dvol = 1d0
               endif
-              crhs(ii,:)=dvol*drho(i,j,k,1)*mgadvdiffV0(iig,:)
+
+cc              iig = ii + isig - 1
+cc              crhs(ii,:)=dvol*drho(i,j,k,1)*mgadvdiffV0(iig,:)
+              crhs(ii,:)=dvol*drho(i,j,k,1)
+     .                  *g_advdiffV0%grid(igrid)%array(i,j,k,:)
 
               if (alt__eom()) then
                 crhs(ii,2) = crhs(ii,2)
