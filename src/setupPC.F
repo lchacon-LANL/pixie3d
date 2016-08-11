@@ -61,11 +61,7 @@ c Setup PC BCs
 
 c Find required diagonals in all grids
 
-      if (nwt_iter == 1) then
-        form_diag = .true.
-        call form_diagonals
-        form_diag = .false.
-      endif
+      if (nwt_iter == 1) call form_diagonals
 
 c Initialize PC Jacobi it. counter
 

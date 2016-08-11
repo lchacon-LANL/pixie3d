@@ -959,7 +959,7 @@ c Calculate matrix-vector product
      .                        ,igrid,igrid,igrid,db
      .                        ,vol=.false.)
 
-c$$$            if (form_diag) then
+c$$$            if (MG_get_find_diag()) then
 c$$$               vlap = veclap(i,j,k,nxx,nyy,nzz
 c$$$     .                      ,igrid,igrid,igrid,db,diff=eta0(:,:,:,1)
 c$$$     .                      ,vol=.false.)
@@ -969,7 +969,7 @@ c$$$     .                        ,igrid,igrid,igrid,db,diff=eta0(:,:,:,1)
 c$$$     .                        ,vol=.false.)
 c$$$            endif
 
-cc            if (.not.form_diag) then
+cc            if (.not.MG_get_find_diag()) then
 cc              cnv = curl_bxv     (i,j,k,igrid,v0_cnv,db,0)
 cc            else
               cnv = curl_bxv_upwd(g_def,i,j,k,igrid,v0_cnv,db)
@@ -1298,7 +1298,7 @@ c Calculate matrix-vector product
 
             !Resistive part
 
-            if (form_diag) then
+            if (MG_get_find_diag()) then
               vlap = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,da
      .                         ,vol=.false.)
@@ -1692,7 +1692,7 @@ c Calculate matrix-vector product
             a_res = a_res - alpha*di*cov/rho0(i,j,k,1)
 
             !Assemble residual
-            if (form_diag) then
+            if (MG_get_find_diag()) then
               cc_a_cov =-lap_a_cov
 cc              cc_a_cov = dj_cov(i,j,k,:)  !Unstable
 cc              cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz
