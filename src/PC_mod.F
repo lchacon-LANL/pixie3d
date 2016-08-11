@@ -2262,6 +2262,4 @@ c ###################################################################
 
         use local_BCS_variables, ONLY: order_bc,nc_eom_v
 
-        logical :: form_diag
-
       end module matvec

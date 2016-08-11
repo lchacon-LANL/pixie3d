@@ -1061,8 +1061,8 @@ c     Solve EMHD system
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
-cc     .            ,mg_vcyc       = mg_vcyc
-     .            ,mg_vcyc       = 10
+     .            ,mg_vcyc       = mg_vcyc
+cc     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
