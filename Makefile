@@ -24,7 +24,7 @@
 FLUX=f
 PER_BC_SYNC=t
 VMEC=t
-COARSE_MG = t
+COARSE_MG=t
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -44,6 +44,24 @@ BINDIR    =$(PWD)/bin
 
 # FRAMEWORK setup
 
+ifeq ($(COARSE_MG),t)
+  CPPFLAGS += $(PREPROC)coarse_MG
+endif
+
+ifeq ($(PER_BC_SYNC),t)
+#  ifndef BOPT
+    CPPFLAGS += $(PREPROC)PER_BC_SYNC
+#  endif
+endif
+
+ifeq ($(PIT),t)
+  CPPFLAGS += -Dpit
+endif
+
+ifdef BOPT
+  CPPFLAGS += $(PREPROC)NVAR=8
+endif
+
 # PIXIE3D setup
 
 SUBDIRS = eq src plot
@@ -52,27 +70,8 @@ REL1=3
 REL2=3.8
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
-ifeq ($(COARSE_MG),t)
-  CPPFLAGS += $(PREPROC)coarse_MG
-endif
-
-ifeq ($(PIT),t)
-  CPPFLAGS += -Dpit
-endif
-
 ifeq ($(FLUX),t)
   CPPFLAGS += -Dflux_rhs
-endif
-
-ifeq ($(VECPOT),t)
-  CPPFLAGS += $(PREPROC)vec_pot
-  TARGET = code_a
-endif
-
-ifeq ($(PER_BC_SYNC),t)
-#  ifndef BOPT
-    CPPFLAGS += $(PREPROC)PER_BC_SYNC
-#  endif
 endif
 
 ifeq ($(VMEC),t)
@@ -88,13 +87,18 @@ ifeq ($(VMEC),t)
   endif
 endif
 
-ifdef BOPT
-  CPPFLAGS += $(PREPROC)NVAR=8
-
-  ifeq ($(VECPOT),t)
+ifeq ($(VECPOT),t)
+  CPPFLAGS += $(PREPROC)vec_pot
+  ifdef BOPT
     TARGET = petsc_a
   else
+    TARGET = code_a
+  endif
+else
+  ifdef BOPT
     TARGET = petsc
+  else
+    TARGET = code
   endif
 endif
 
