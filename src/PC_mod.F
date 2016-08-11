@@ -1006,7 +1006,8 @@ c     Begin program
         strss = .true.
       endif
 
-      nus => gvis%grid(igr)%array
+cc      nus => gvis%grid(igr)%array
+      call point_to_MG_array(nx,ny,nz,igr,nus,gvis)
 
       if (.not.conserv) then
         !TS
@@ -1757,7 +1758,8 @@ c     Begin program
 
 c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
-      p0 => gp0%grid(igr)%array
+cc      p0 => gp0%grid(igr)%array
+      call point_to_MG_array(nx,ny,nz,igr,p0,gp0)
 
       do k = 1,nz
         do j = 1,ny
@@ -1774,9 +1776,12 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
       enddo
 
       if (.not.adiabatic) then
-        v0   => gv0  %grid(igr)%array
-        rho0 => grho0%grid(igr)%array
-        nu0  => gvis %grid(igr)%array
+cc        v0   => gv0  %grid(igr)%array
+cc        rho0 => grho0%grid(igr)%array
+cc        nu0  => gvis %grid(igr)%array
+        call point_to_MG_array(nx,ny,nz,igr,v0  ,gv0)
+        call point_to_MG_array(nx,ny,nz,igr,rho0,grho0)
+        call point_to_MG_array(nx,ny,nz,igr,nu0 ,gvis)
 
         do k = 1,nz
           do j = 1,ny
@@ -1899,9 +1904,12 @@ c     Find dj* from dB*
 
 c     Find Joule heating correction
 
-      eta0 => geta %grid(igrid)%array
-      j0   => gj0  %grid(igrid)%array
-      rho0 => grho0%grid(igrid)%array
+cc      eta0 => geta %grid(igrid)%array
+cc      j0   => gj0  %grid(igrid)%array
+cc      rho0 => grho0%grid(igrid)%array
+      call point_to_MG_array(nx,ny,nz,igrid,eta0,geta)
+      call point_to_MG_array(nx,ny,nz,igrid,j0,gj0)
+      call point_to_MG_array(nx,ny,nz,igrid,rho0,grho0)
 
       if (.not.adiabatic) then
         do k = 1,nz
@@ -1964,7 +1972,8 @@ cc        endif
         !Heat source contribution
         if (.not.adiabatic) then
 
-          ve0 => gve0%grid(igrid)%array
+cc          ve0 => gve0%grid(igrid)%array
+          call point_to_MG_array(nx,ny,nz,igrid,ve0,gve0)
 
           do k = 1,nz
             do j = 1,ny
@@ -2039,10 +2048,14 @@ c     Auxiliary variables
      .        ,drho(0:nx+1,0:ny+1,0:nz+1,1)
      .        ,vdum(0:nx+1,0:ny+1,0:nz+1,3 ))
 
-      j0   => gj0  %grid(igrid)%array
-      rho0 => grho0%grid(igrid)%array
-      tmp0 => gtmp0%grid(igrid)%array
-      Eh0  => gEh0_cov%grid(igrid)%array
+c$$$      j0   => gj0  %grid(igrid)%array
+c$$$      rho0 => grho0%grid(igrid)%array
+c$$$      tmp0 => gtmp0%grid(igrid)%array
+c$$$      Eh0  => gEh0_cov%grid(igrid)%array
+      call point_to_MG_array(nx,ny,nz,igrid,rho0 ,grho0)
+      call point_to_MG_array(nx,ny,nz,igrid,j0   ,gj0)
+      call point_to_MG_array(nx,ny,nz,igrid,tmp0 ,gtmp0)
+      call point_to_MG_array(nx,ny,nz,igrid,Eh0  ,gEh0_cov)
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))

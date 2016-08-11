@@ -879,7 +879,7 @@ c Local variables
       real(8)    :: upwind
 
       real(8),allocatable,dimension(:,:,:,:) :: db
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,leta
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,b0_cnv,eta0
 
       logical    :: fpointers,is_cnv
 
@@ -921,7 +921,7 @@ c Map vector x to array for processing
 c Velocity field (including BCs)
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,leta,geta)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
  
 c Calculate matrix-vector product
 
@@ -954,18 +954,18 @@ c Calculate matrix-vector product
               vol = 1d0
             endif
 
-            etal = leta(i,j,k,1)
+            etal = eta0(i,j,k,1)
             vlap = etal*veclap(g_def,i,j,k,nxx,nyy,nzz
      .                        ,igrid,igrid,igrid,db
      .                        ,vol=.false.)
 
 c$$$            if (form_diag) then
 c$$$               vlap = veclap(i,j,k,nxx,nyy,nzz
-c$$$     .                      ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+c$$$     .                      ,igrid,igrid,igrid,db,diff=eta0(:,:,:,1)
 c$$$     .                      ,vol=.false.)
 c$$$            else
 c$$$               vlap =-curlcurl(i,j,k,nxx,nyy,nzz
-c$$$     .                        ,igrid,igrid,igrid,db,diff=leta(:,:,:,1)
+c$$$     .                        ,igrid,igrid,igrid,db,diff=eta0(:,:,:,1)
 c$$$     .                        ,vol=.false.)
 c$$$            endif
 
@@ -1040,7 +1040,7 @@ c Local variables
       real(8)    :: upwind,etal
 
       real(8),allocatable,dimension(:,:,:,:) :: db
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,eta0
 
       logical    :: fpointers,is_cnv
 
@@ -1084,6 +1084,7 @@ c Map vector x to array for processing
 c Velocity field (including BCs)
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
 
 c Calculate matrix-vector product
 
@@ -1127,7 +1128,7 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + 1d-3
      .                       ,igrid,igrid,igrid,db(:,:,:,4:6)
      .                       ,vol=.false.)
 
-            etal   = geta%grid(igrid)%array(i,j,k,1)
+            etal   = eta0(i,j,k,1)
 
             if (sm_type == 'gm') then
               cnv =curl_bxv(g_def,i,j,k,igrid,v0_cnv,db(:,:,:,1:3),0)
@@ -1204,7 +1205,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv,db_cnv,db_cov
      .                                         ,dj_cnv,dj_cov
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,eta0
 
       logical    :: fpointers,is_cnv
 
@@ -1268,6 +1269,7 @@ cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 c Velocity field (including BCs)
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
 
 c Calculate matrix-vector product
 
@@ -1308,7 +1310,7 @@ cc              vlap=matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:),vlap_cnv)
               vlap =-dj_cov(i,j,k,:)
             endif
 
-            etal = geta%grid(igrid)%array(i,j,k,1)
+            etal = eta0(i,j,k,1)
 
             !Convective part
             cov = db_x_v0(v0_cnv,da)/jac
@@ -1665,7 +1667,7 @@ c Calculate matrix-vector product
             a_res = cnp*das(i,j,k,:)/dt
  
             !Resistive part
-            etal = geta%grid(igrid)%array(i,j,k,1)
+            etal = eta0(i,j,k,1)
 
             lap_a_cov = veclap_cov(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz
      .                            ,da_cov)
