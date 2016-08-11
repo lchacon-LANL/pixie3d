@@ -497,28 +497,28 @@ cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
        ldum = b00
        call MPI_Allreduce(ldum,b00,3*(imaxg-iming+1)
      .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,MPI_COMM_YZ,mpierr)
+     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
        ldum = j00_cov
        call MPI_Allreduce(ldum,j00_cov,3*(imaxg-iming+1)
      .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,MPI_COMM_YZ,mpierr)
+     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
        ldum = v00
        call MPI_Allreduce(ldum,v00,3*(imaxg-iming+1)
      .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,MPI_COMM_YZ,mpierr)
+     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 
        ldum(:,1) = l00(:,1)
        call MPI_Allreduce(ldum(:,1),l00(:,1),(imaxg-iming+1)
      .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,MPI_COMM_YZ,mpierr)
+     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
        deallocate(ldum)
 
        dv = ll
        call MPI_Allreduce(dv,ll,1
      .                   ,MPI_DOUBLE_PRECISION
-     .                   ,MPI_SUM,MPI_COMM_YZ,mpierr)
+     .                   ,MPI_SUM,gv%gparams%MPI_COMM_YZ,mpierr)
 #endif
 
        !Average radial quantities
