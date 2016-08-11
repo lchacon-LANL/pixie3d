@@ -160,7 +160,7 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      call point_to_MG_array(ntot/neq,igrid,bz0,gbz0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,bz0,gbz0)
  
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
@@ -259,7 +259,7 @@ c Map vector x to array for processing
 
       allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
-      call point_to_MG_array(ntot/neq,igrid,psi0,gpsi0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,psi0,gpsi0)
  
       call fillArray(g_def,igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos
      .              ,arr0=psi0)
@@ -504,7 +504,7 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
  
 c Calculate matrix-vector product
 
@@ -635,9 +635,9 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gvs0)
-      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
-      call point_to_MG_array(ntot/neq,igrid,bh0   ,gbhat)
+      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gvs0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
  
       dtmp = dprs/rho0
 
@@ -788,7 +788,7 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gv0)
  
 c Calculate matrix-vector product
 
@@ -920,8 +920,8 @@ c Map vector x to array for processing
 
 c Velocity field (including BCs)
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
-      call point_to_MG_array(ntot/neq,igrid,leta,geta)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,leta,geta)
  
 c Calculate matrix-vector product
 
@@ -1083,7 +1083,7 @@ c Map vector x to array for processing
 
 c Velocity field (including BCs)
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
 
 c Calculate matrix-vector product
 
@@ -1267,7 +1267,7 @@ cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 
 c Velocity field (including BCs)
 
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
 
 c Calculate matrix-vector product
 
@@ -1617,11 +1617,11 @@ c$$$      djf_cnv(0:,0:,0:,1:) => du_cnv(0:,0:,0:,4:6)
 cc#endif
 
       !Coefficients
-      call point_to_MG_array(ntot/neq,igrid,ve0_cnv,gve0)
-      call point_to_MG_array(ntot/neq,igrid,bs0_cnv,gbs0)
-      call point_to_MG_array(ntot/neq,igrid,rho0   ,grho0)
-      call point_to_MG_array(ntot/neq,igrid,heta0  ,gheta)
-      call point_to_MG_array(ntot/neq,igrid,eta0   ,geta)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,ve0_cnv,gve0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,bs0_cnv,gbs0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,rho0   ,grho0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,heta0  ,gheta)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,eta0   ,geta)
 
       !Magnetic fields
       db_cnv = curl(g_def,igrid,da_cov)
@@ -1875,20 +1875,20 @@ c ##################################################################
 
 c     defineLocalPointers
 c     #####################################################################
-      subroutine defineLocalPointers(igrid,nn)
+      subroutine defineLocalPointers(igrid,nx,ny,nz)
 
       implicit none
 
-      integer :: igrid,nn
+      integer :: igrid,nx,ny,nz
 
 c     Begin program
 
-      call point_to_MG_array(nn,igrid,rho0  ,grho0)
-      call point_to_MG_array(nn,igrid,pp0   ,gp0)
-      call point_to_MG_array(nn,igrid,v0_cnv,gv0)
-      call point_to_MG_array(nn,igrid,b0_cnv,gb0)
-      call point_to_MG_array(nn,igrid,b0_cov,gb0_cov)
-      call point_to_MG_array(nn,igrid,a0_cnv,ga0)
+      call point_to_MG_array(nx,ny,nz,igrid,rho0  ,grho0)
+      call point_to_MG_array(nx,ny,nz,igrid,pp0   ,gp0)
+      call point_to_MG_array(nx,ny,nz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nx,ny,nz,igrid,b0_cnv,gb0)
+      call point_to_MG_array(nx,ny,nz,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(nx,ny,nz,igrid,a0_cnv,ga0)
  
       end subroutine defineLocalPointers
 
@@ -2556,7 +2556,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call defineLocalPointers(igrid,ntot/neq)
+      call defineLocalPointers(igrid,nxx,nyy,nzz)
 
 c ExB flow BC (if applicable)
 
@@ -2760,7 +2760,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call defineLocalPointers(igrid,ntot/neq)
+      call defineLocalPointers(igrid,nxx,nyy,nzz)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -2841,7 +2841,7 @@ cc     .            ,result_is_vec=.true.,iorder=1)
 
 c Calculate matrix-vector product
 
-      call point_to_MG_array(ntot/neq,igrid,heta0,gheta)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,heta0,gheta)
 
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
@@ -3091,12 +3091,12 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
-      call point_to_MG_array(ntot/neq,igrid,pp0   ,gp0)
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
-      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
-      call point_to_MG_array(ntot/neq,igrid,b0_cov,gb0_cov)
-      call point_to_MG_array(ntot/neq,igrid,a0_cnv,ga0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,rho0  ,grho0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,pp0   ,gp0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,a0_cnv,ga0)
  
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3546,12 +3546,12 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
-      call point_to_MG_array(ntot/neq,igrid,pp0   ,gp0)
-      call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
-      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
-      call point_to_MG_array(ntot/neq,igrid,b0_cov,gb0_cov)
-      call point_to_MG_array(ntot/neq,igrid,a0_cnv,ga0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,rho0  ,grho0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,pp0   ,gp0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cov,gb0_cov)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,a0_cnv,ga0)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3734,13 +3734,13 @@ c Define pointers to MG arrays
       flg_rho = .false.      !To prevent interference with v_mtvc_af
       if (.not.associated(rho0  )) then
         flg_rho = .true.
-        call point_to_MG_array(ntot/neq,igrid,rho0  ,grho0)
+        call point_to_MG_array(nxx,nyy,nzz,igrid,rho0  ,grho0)
       endif
 
       flg_v = .false.        !To prevent interference with v_mtvc_af
       if (.not.associated(v0_cnv)) then
         flg_v = .true.
-        call point_to_MG_array(ntot/neq,igrid,v0_cnv,gv0)
+        call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
       endif
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
@@ -3887,7 +3887,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call point_to_MG_array(ntot/neq,igrid,b0_cnv,gb0)
+      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
