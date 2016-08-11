@@ -5005,11 +5005,11 @@ cc     .              ,mg_gm_coarse_solve=.true.
 
 #if defined(petsc)
           !Broadcast poloidal integral along Z
-          call initMPI(MPI_COMM_Z,np_Z,my_rank_Z)
+          call initMPI(gv%gparams%MPI_COMM_Z,np_Z,my_rank_Z)
 
           nn = size(dummy)
           call MPI_Bcast(dummy,nn,MPI_DOUBLE_PRECISION
-     .                  ,0,MPI_COMM_Z,mpierr)
+     .                  ,0,gv%gparams%MPI_COMM_Z,mpierr)
 
           !Communicate radial integration constants
           if (npx > 1) then
@@ -5017,7 +5017,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
             call MPI_Allgather(dummy(nx,1:ny)
      .                             ,ny,MPI_DOUBLE_PRECISION
      .                      ,mpivec,ny,MPI_DOUBLE_PRECISION
-     .                      ,MPI_COMM_RAD,mpierr)
+     .                      ,gv%gparams%MPI_COMM_RAD,mpierr)
 
             !Sum integration constants
             do j=2,npx
@@ -5026,7 +5026,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
             enddo
 
             !Add integration constants
-            call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+            call initMPI(gv%gparams%MPI_COMM_RAD,np_rad,my_rank_rad)
 
             j = my_rank_rad
             if (j > 0) then
@@ -5192,27 +5192,27 @@ cc          do i=1,nx
 #if defined (petsc)
         lpsi0 = e1
         call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = e2
         call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = e3
         call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = e4
         call MPI_Allreduce(lpsi0,e4,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = e5
         call MPI_Allreduce(lpsi0,e5,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = e6
         call MPI_Allreduce(lpsi0,e6,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
         gserr = e1 + e2 + e3
@@ -5286,19 +5286,19 @@ cc            jglobal = j + gv%gparams%jlo(igrid) - 1
 #if defined (petsc)
         lpsi0 = tor_flx
         call MPI_Allreduce(lpsi0,tor_flx,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = bz2_avg
         call MPI_Allreduce(lpsi0,bz2_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = p_avg
         call MPI_Allreduce(lpsi0,p_avg,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 
         lpsi0 = I0
         call MPI_Allreduce(lpsi0,I0,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,MPI_COMM_XY,mpierr)
+     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
         !Q-profile diagnostics (not working)
