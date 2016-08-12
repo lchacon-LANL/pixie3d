@@ -1849,13 +1849,15 @@
 
       enddo
 
-!     Set up gmetric pointer
+!     Check for errors, else set up gmetric MG hierarchy
 
       if (ierr /= 0) then
-        if (my_rank == 0) then
-          write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
-        endif
+        if (my_rank == 0) write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
 !        gv%gparams%ngrid = igrid - 1
+      else
+        if (my_rank == 0) write (*,*) ' >>> Coarsening MG hierarchy'
+
+        call createMGMetricHierarchy(gv%gparams)
       endif
 
 !     End program
