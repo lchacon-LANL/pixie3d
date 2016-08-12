@@ -1855,7 +1855,7 @@
         if (my_rank == 0) write (*,*) ' >>> Discarding last VMEC mesh due to jac < 0'
 !        gv%gparams%ngrid = igrid - 1
       else
-        if (my_rank == 0) write (*,*) ' >>> Coarsening MG hierarchy'
+        if (my_rank == 0) write (*,*) ' >>> Coarsening VMEC mesh hierarchy'
 
         call createMGMetricHierarchy(gv%gparams)
       endif
