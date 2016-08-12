@@ -5387,7 +5387,7 @@ cc        enddo
           call MPI_Allgather(dummy(nx,0:ny+1)
      .                           ,nn,MPI_DOUBLE_PRECISION
      .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
-     .                    ,MPI_COMM_RAD,mpierr)
+     .                    ,gv%gparams%MPI_COMM_RAD,mpierr)
 
           !Sum integration constants
           do j=2,npx
@@ -5396,7 +5396,7 @@ cc        enddo
           enddo
 
           !Add integration constants
-          call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+          call initMPI(gv%gparams%MPI_COMM_RAD,np_rad,my_rank_rad)
 
           j = my_rank_rad
           if (j > 0) then
@@ -5424,7 +5424,7 @@ cc        enddo
           call MPI_Allgather(dummy(nx+1,0:ny+1)
      .                           ,nn,MPI_DOUBLE_PRECISION
      .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
-     .                    ,MPI_COMM_RAD,mpierr)
+     .                    ,gv%gparams%MPI_COMM_RAD,mpierr)
 
           !Sum integration constants
           do j=2,npx
@@ -5433,7 +5433,7 @@ cc        enddo
           enddo
 
           !Add integration constants
-          call initMPI(MPI_COMM_RAD,np_rad,my_rank_rad)
+          call initMPI(gv%gparams%MPI_COMM_RAD,np_rad,my_rank_rad)
 
           j = my_rank_rad
           if (j > 0) then
