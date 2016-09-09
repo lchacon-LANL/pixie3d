@@ -1451,10 +1451,10 @@ c     Check coordinates
 
 c     RFP equilibria (analytical)
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
-        aa = gv%gparams%params(4)
+        mm = gv%gparams%params(1)  !Poloidal perturbation
+        kk = gv%gparams%params(2)  !Axial perturbation (-n)
+        RR = gv%gparams%params(3)  !Toroidal radius
+        aa = gv%gparams%params(4)  !a^2 in screw pinch eq.
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1514,6 +1514,124 @@ c     RFP equilibria (analytical)
 
         call findVectorPotential(nxd,ny,nz
      .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+
+        deallocate(bg)
+#endif
+
+
+      case ('bpnch')  !BENNET SCREW PINCH BALANCED BY DENSITY
+
+c     Check coordinates
+
+        if (coords /= 'hel' .and. coords /= 'cyl' ) then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP equilibria (analytical)
+
+        mm = gv%gparams%params(1)!eq_params(1)
+        kk = gv%gparams%params(2)!eq_params(2)
+        RR = gv%gparams%params(3)!eq_params(3)
+
+!        bz0 = gv%gparams%params(1) ! Guide field strength.
+!        RR  = gv%gparams%params(2) ! Radius of q=1 surface.
+c        RR = gv%gparams%params(3)
+c        aa = gv%gparams%params(4)
+
+cc        mm  = 1d0 ! m=1 mode.
+
+        if (coords == 'hel') then
+           nh2 = mm             ! To set the right perturbation wavelength
+           nh1 = nh2            ! For perturbations to be of the right order
+        end if
+
+        !kk = 1d0/(1d0 + (RR/dlambda)**2)/(dlambda*bz0) ! kk = 2*Pi/Lz = q0/(lambda*bz0) where q(RR) = q0*(1+(RR/lambda)^2 = 1.
+        bz0 = -2*pi*mm/kk/(1d0 + (RR/dlambda)**2)/dlambda
+
+        if (my_rank == 0) then
+          write (*,*) 'm,k,rc,lam,bz0:',mm,kk,RR,dlambda,bz0
+        endif
+
+        !Build equilibrium
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+c        var(:,:,:,IRHO) = 1d0
+c        var(:,:,:,ITMP) = 1d-5
+
+        beta = 1d0
+        var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
+
+c              bb     = (dlambda**2+aa)
+c     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
+c              bz0    = 1d0!sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              var(i,j,k,IRHO) = 1d0/(1d0+(x1/dlambda)**2)**2
+
+              if (coords == 'cyl') then
+                 var(i,j,k,IBX)  = 0d0
+                 var(i,j,k,IBY)  = btheta
+                 var(i,j,k,IBZ)  = x1*bz0
+              endif
+              
+              if (coords == 'hel') then
+                 var(i,j,k,IBX)  = 0d0
+                 var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+                 var(i,j,k,IBZ)  = x1*bz0
+              endif
+
+            enddo
+          enddo
+        enddo
+#else
+        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+
+        do k = 0,nz+1
+          do j = 0,ny+1
+            do i = 0,nxdp
+
+              x1 = gv%gparams%xg(i)  !Global coordinate
+
+!              bb     = (dlambda**2+aa)
+!     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+!              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
+!              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+
+              bg(i,j,k,1) = 0d0
+              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
+              bg(i,j,k,3) = x1*bz0
+            enddo
+          enddo
+        enddo
+
+        call findVectorPotential(nxd,ny,nz
+     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+
+        do k = klom,khip
+          do j = jlom,jhip
+             do i = ilom,ihip
+
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .             ,igz,ig,jg,kg,x1,y1,z1)
+
+              var(i,j,k,IRHO) = 1d0/(1d0+(x1/dlambda)**2)**2
+
+           enddo
+        enddo
+      enddo
+
 
         deallocate(bg)
 #endif
