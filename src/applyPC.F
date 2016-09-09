@@ -153,8 +153,12 @@ c *******************************************************************
         !MHD step
         rrr = yyy
 
+cc        call switch_profile_stage(iMG)
+        
         call invert_M(rrr,xxx,0)
 
+cc        call switch_profile_stage(iPCSLV)
+        
         call invert_P_si(rrr,xxx)
 
         call find_dx(rrr,xxx,3)

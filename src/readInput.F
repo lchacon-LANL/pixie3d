@@ -32,13 +32,13 @@ c Call variables
 
 c Local variables
 
-      integer       :: dim(1),loc(1),ioerr
+      integer       :: dim(1),loc(1),ioerr,mgcf
       real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f
+      logical       :: nc_eom_f,mg_coarse_solve
 
       !Legacy parameters
       character(2)  :: precon
@@ -71,6 +71,7 @@ c Namelists
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
      .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
+     .                   ,mg_coarse_solve,mgcf
      .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt
@@ -126,7 +127,8 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
-     .                   ,sm_line_relax,sm_type,sm_omega
+     .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
+     .                   ,mgcf
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -334,6 +336,10 @@ c Set defaults
       mg_ores  = 0             ! Restriction order for MG
       mg_oprol = 1             ! Prolongation order for MG
 
+      mg_coarse_solve = .true. ! Whether to perform MG solve beyond proc mesh
+      mgcf = 0                 ! Default processor coarsening ratio per dimension in MG 
+                               !   (if zero, leave default framework value (8) unchanged)
+
       sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
       sm_iter  = 5             ! Number of MG smoothing passes
@@ -524,6 +530,13 @@ c Initialize grid packing structure
       g_pack(1) = gp1
       g_pack(2) = gp2
       g_pack(3) = gp3
+
+c Initialize MG parameters
+
+#if defined(petsc) && defined(coarse_MG)
+      if (mgcf > 0) call MG_set_proc_coarsen_factor(mgcf)
+      call MG_set_coarse_solve(mg_coarse_solve)
+#endif
 
 c Consistency check
 

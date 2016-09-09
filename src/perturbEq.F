@@ -571,6 +571,34 @@ cc      case ('3dpar')
 cc
 cc        call perturbEquilibrium_3dpar(array,bcs,pert(ieq),ieq)
 
+c$$$      case ('bpnch') ! n=m=1 mode in cylindrical geometry.
+c$$$
+c$$$         print*,'in bpnch'
+c$$$
+c$$$        kx = 0.5*pi/(xmax-xmin)
+c$$$        ky = 2.0*pi/(zmax-zmin) ! Actually kz.
+c$$$
+c$$$          do k = klom,khip
+c$$$            do j = jlom,jhip
+c$$$              do i = ilom,ihip
+c$$$                call getCurvilinearCoordinates(gv%gparams,i,j,k
+c$$$     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+c$$$
+c$$$                varr%array_var(IVX)%array(i,j,k) =
+c$$$     .               varr%array_var(IVX)%array(i,j,k)
+c$$$     .                  +pert(IVX)*x1*cos(kx*x1)
+c$$$     .               *(cos(y1)*cos(ky*z1) + sin(y1)*sin(ky*z1))
+c$$$
+c$$$               varr%array_var(IVY)%array(i,j,k) =
+c$$$     .               varr%array_var(IVY)%array(i,j,k)
+c$$$     .                  +pert(IVX)*cos(kx*x1)
+c$$$     .               *(-sin(y1)*cos(ky*z1) + cos(y1)*sin(ky*z1))
+c$$$ 
+c$$$               
+c$$$             enddo
+c$$$          enddo
+c$$$       enddo
+
       case default
 
         do ieq=1,varr%nvar
