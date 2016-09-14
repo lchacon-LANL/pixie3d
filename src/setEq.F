@@ -1518,7 +1518,6 @@ c     RFP equilibria (analytical)
         deallocate(bg)
 #endif
 
-
       case ('bpnch')  !BENNET SCREW PINCH BALANCED BY DENSITY
 
 c     Check coordinates
@@ -1542,9 +1541,9 @@ c     RFP equilibria (analytical)
 
         bz0 = RR/(1d0 + aa)/dlambda
 
-!        if (my_rank == 0) then
-!          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,aa,dlambda,bz0
-!        endif
+c$$$        if (my_rank == 0) then
+c$$$          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,aa,dlambda,bz0
+c$$$        endif
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
@@ -1559,63 +1558,62 @@ c     RFP equilibria (analytical)
           do j = jlom,jhip
             do i = ilom,ihip
 
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+              
+              r1 = sqrt(x1**2+y1**2)
+              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
+              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
+              
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .             ,igz,ig,jg,kg,x1,y1,z1)
-              
-              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
-              var(i,j,k,IRHO) = 1d0/(1d0+(x1/dlambda)**2)**2
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
-              if (coords == 'cyl') then
-                 var(i,j,k,IBX)  = 0d0
-                 var(i,j,k,IBY)  = btheta
-                 var(i,j,k,IBZ)  = x1*bz0
-              endif
-              
-              if (coords == 'hel') then
-                 var(i,j,k,IBX)  = 0d0
-                 var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-                 var(i,j,k,IBZ)  = x1*bz0
-              endif
+c$$$              if (coords == 'cyl') then
+c$$$                 var(i,j,k,IBX)  = 0d0
+c$$$                 var(i,j,k,IBY)  = btheta
+c$$$                 var(i,j,k,IBZ)  = x1*bz0
+c$$$              endif
+c$$$             
+c$$$              if (coords == 'hel') then
+c$$$                 var(i,j,k,IBX)  = 0d0
+c$$$                 var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+c$$$                 var(i,j,k,IBZ)  = x1*bz0
+c$$$              endif
+
+              ! Calculate in Cartesian, then call XformVector_mesh2 to calculate curvilinear and include the effects packing.
+              var(i,j,k,IBX) = -btheta*sin(y1)
+              var(i,j,k,IBY) =  btheta*cos(y1)
+              var(i,j,k,IBZ) = bz0
 
             enddo
           enddo
         enddo
+
+        call XformVector_mesh2(gv%gparams,igx
+     .                        ,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
-        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
-
-        do k = 0,nz+1
-          do j = 0,ny+1
-            do i = 0,nxdp
-
-              x1 = gv%gparams%xg(i)  !Global coordinate
-
-              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
-
-              bg(i,j,k,1) = 0d0
-              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
-              bg(i,j,k,3) = x1*bz0
-            enddo
-          enddo
-        enddo
-
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
-
         do k = klom,khip
           do j = jlom,jhip
              do i = ilom,ihip
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+              
+              r1 = sqrt(x1**2+y1**2)
 
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .             ,igz,ig,jg,kg,x1,y1,z1)
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
-              var(i,j,k,IRHO) = 1d0/(1d0+(x1/dlambda)**2)**2
+              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
 
-           enddo
+              var(i,j,k,IAX) = -0.5*Bz0*r1*sin(y1)
+              var(i,j,k,IAY) =  0.5*Bz0*r1*cos(y1)
+              var(i,j,k,IAZ) = -0.5*dlambda*log(1+(r1/dlambda)**2)
+          enddo
         enddo
       enddo
 
-
-        deallocate(bg)
+      call XformVector_mesh2(gv%gparams,igx
+     .                      ,var(:,:,:,IAX:IAZ),'car','cov')
 #endif
 
       case ('2dtok')
