@@ -358,7 +358,7 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 #if defined(RFX)
           nuu = vis(gv%gparams,igr,tmp)
 #else
-          if (slava) then
+          if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)
@@ -850,7 +850,7 @@ c       Viscosity (needed for BCs; may depend on T)
 #if defined(RFX)
           nuu = vis(gv%gparams,igr,tmp)
 #else
-          if (slava) then
+          if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)
@@ -1287,7 +1287,7 @@ c       Viscosity (needed for BCs; may depend on T)
 #if defined(RFX)
           nuu = vis(gv%gparams,igr,tmp)
 #else
-          if (slava) then
+          if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)

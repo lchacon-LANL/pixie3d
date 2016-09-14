@@ -148,6 +148,7 @@ c ######################################################################
      .            ,use_p_eom  =.false.  !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.  !Whether we use pressure in diffusion term in pressure eq.
      .            ,fake_ve    =.true.   !Whether to use fake ve in div(Pe)
+     .            ,nu_is_rhonu=.false.  !Whether to use rho*nu in electron and ion viscoust terms
 
         real(8) :: noise_lev
 
@@ -6539,7 +6540,7 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       elseif (heta > 0d0) then
 
-        if (slava) then
+        if (nu_is_rhonu) then
           h_res = heta
         else
           h_res = rho*heta
