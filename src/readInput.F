@@ -79,7 +79,7 @@ c Namelists
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
-     .                   ,vlap_etaj
+     .                   ,vlap_etaj,nu_is_rhonu
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -112,7 +112,7 @@ c Namelists
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,fake_ve,slava,noise,noise_lev
-     .                   ,v_advect,no_eom_divpe,vlap_etaj
+     .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
@@ -297,6 +297,8 @@ c Set defaults
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
+
+      nu_is_rhonu= .false.     ! Whether we use rho*nu or just nu in viscosity terms
 
       advect     = 2           ! Type of advective scheme for scalars
                                ! Available options:
@@ -576,6 +578,7 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
+      if (slava) nu_is_rhonu = .true.
 cc      if (ion_hall) slava = .false.
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces

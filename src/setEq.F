@@ -1575,19 +1575,13 @@ c$$$        endif
      .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
               r1 = sqrt(x1**2+y1**2)
-              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
 
-c$$$              if (coords == 'cyl') then
-c$$$                 var(i,j,k,IBX)  = 0d0
-c$$$                 var(i,j,k,IBY)  = btheta
-c$$$                 var(i,j,k,IBZ)  = x1*bz0
-c$$$              endif
-c$$$             
-c$$$              if (coords == 'hel') then
-c$$$                 var(i,j,k,IBX)  = 0d0
-c$$$                 var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-c$$$                 var(i,j,k,IBZ)  = x1*bz0
-c$$$              endif
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+
+              r1 = r1*sign(1d0,x1)
+
+              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
 
               ! Calculate in Cartesian, then call XformVector_mesh2 to calculate curvilinear and include the effects packing.
               var(i,j,k,IBX) =-btheta*sin(y1)
@@ -1600,6 +1594,25 @@ c$$$              endif
         call XformVector_mesh2(gv%gparams,igx
      .                        ,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
+c$$$        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+c$$$
+c$$$        do k = 0,nz+1
+c$$$          do j = 0,ny+1
+c$$$            do i = 0,nxdp
+c$$$
+c$$$              x1 = gv%gparams%xg(i)  !Global coordinate
+c$$$
+c$$$              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
+c$$$
+c$$$              bg(i,j,k,1) = 0d0
+c$$$              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
+c$$$              bg(i,j,k,3) = x1*bz0
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$        call findVectorPotential(nxd,ny,nz
+c$$$     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
         call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
@@ -5857,7 +5870,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
      .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = dlambda
-     .             *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
+     .                    *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = 0d0
             enddo
@@ -5881,6 +5894,9 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igr,igr
      .                                      ,igr,ig,jg,kg,x1,y1,z1)
+
+              r1 = r1*sign(1d0,x1)
+
               a(i,j,k,1) = -0.5*Bz0*r1*sin(y1)
               a(i,j,k,2) =  0.5*Bz0*r1*cos(y1)
               a(i,j,k,3) = -0.5*dlambda*log(1+(r1/dlambda)**2)
