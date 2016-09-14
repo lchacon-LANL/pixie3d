@@ -1530,36 +1530,26 @@ c     Check coordinates
 
 c     RFP equilibria (analytical)
 
-        mm = gv%gparams%params(1)!eq_params(1)
-        kk = gv%gparams%params(2)!eq_params(2)
-        RR = gv%gparams%params(3)!eq_params(3)
-
-!        bz0 = gv%gparams%params(1) ! Guide field strength.
-!        RR  = gv%gparams%params(2) ! Radius of q=1 surface.
-c        RR = gv%gparams%params(3)
-c        aa = gv%gparams%params(4)
-
-cc        mm  = 1d0 ! m=1 mode.
+        mm = gv%gparams%params(1) ! Azimuthal mode number.
+        kk = gv%gparams%params(2) ! -n where n is the axial mode number.
+        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
+        aa = gv%gparams%params(4) ! Radius^2 of q=1 surface.
 
         if (coords == 'hel') then
            nh2 = mm             ! To set the right perturbation wavelength
            nh1 = nh2            ! For perturbations to be of the right order
         end if
 
-        !kk = 1d0/(1d0 + (RR/dlambda)**2)/(dlambda*bz0) ! kk = 2*Pi/Lz = q0/(lambda*bz0) where q(RR) = q0*(1+(RR/lambda)^2 = 1.
-        bz0 = -2*pi*mm/kk/(1d0 + (RR/dlambda)**2)/dlambda
+        bz0 = RR/(1d0 + aa)/dlambda
 
-        if (my_rank == 0) then
-          write (*,*) 'm,k,rc,lam,bz0:',mm,kk,RR,dlambda,bz0
-        endif
+!        if (my_rank == 0) then
+!          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,aa,dlambda,bz0
+!        endif
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-c        var(:,:,:,IRHO) = 1d0
-c        var(:,:,:,ITMP) = 1d-5
 
         beta = 1d0
         var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
@@ -1571,12 +1561,8 @@ c        var(:,:,:,ITMP) = 1d-5
 
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
-
-c              bb     = (dlambda**2+aa)
-c     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
+              
               btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
-c              bz0    = 1d0!sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
-
               var(i,j,k,IRHO) = 1d0/(1d0+(x1/dlambda)**2)**2
 
               if (coords == 'cyl') then
@@ -1603,11 +1589,7 @@ c              bz0    = 1d0!sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               x1 = gv%gparams%xg(i)  !Global coordinate
 
-!              bb     = (dlambda**2+aa)
-!     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-!              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
               btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
-!              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               bg(i,j,k,1) = 0d0
               bg(i,j,k,2) = btheta + kk*x1/mm*bz0

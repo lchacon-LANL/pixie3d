@@ -714,6 +714,13 @@ c Initialize graphics
         write (*,*) 'Problem reading "graphics" namelist'
       endif
 
+c Debug profile stage
+
+#if defined(petsc)
+      iDBG=add_profile_stage("Debug")
+#endif
+
+
 c End program
 
       end subroutine readInput

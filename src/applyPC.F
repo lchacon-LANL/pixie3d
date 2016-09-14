@@ -38,7 +38,7 @@ c Local variables
       real(8) :: dvol,car(3),cnv(3),omg
      .          ,r(nn*neq),x(nn*neq),rrr(nn,neq),dxxx(nn,neq)
 
-      logical :: split_EMHD_after=.false.,electron_hall
+      logical :: electron_hall
 
 c Externals
 
@@ -153,19 +153,15 @@ c *******************************************************************
         !MHD step
         rrr = yyy
 
-cc        call switch_profile_stage(iMG)
-        
         call invert_M(rrr,xxx,0)
-
-cc        call switch_profile_stage(iPCSLV)
-        
+     
         call invert_P_si(rrr,xxx)
 
         call find_dx(rrr,xxx,3)
 
         !EMHD step
 #if defined(vec_pot)
-        if (pc_B_solve.and.electron_hall.and.split_EMHD_after) then
+        if (pc_B_solve.and.electron_hall.and.pc_split_EMHD_after) then
 
           if (iout > 0.and.my_rank ==0) then
             write (*,*) '  --> Solving EMHD step for A...'
@@ -525,7 +521,7 @@ cc          endif
 c       Vector potential
 
         if (pc_B_solve.and.electron_hall
-     .      .and.(.not.split_EMHD_after)) then
+     .      .and.(.not.pc_split_EMHD_after)) then
 
           if (iout > 0.and.my_rank ==0) then
             write (*,*) '  --> Solving EMHD step for A...'
