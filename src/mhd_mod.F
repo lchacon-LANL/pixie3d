@@ -6723,6 +6723,9 @@ c ######################################################################
      .            ,pc_ion_hall
      .            ,pc_divclean
      .            ,sm_zebra_relax_si
+     .            ,pc_split_EMHD_after=.false.
+
+        integer :: iDBG
 
       contains
 
