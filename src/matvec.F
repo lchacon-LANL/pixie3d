@@ -1298,14 +1298,15 @@ c Calculate matrix-vector product
 
             !Resistive part
 
-            if (MG_get_find_diag()) then
+            if (MG_get_find_diag().or.vlap_etaj) then
               vlap = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
      .                         ,igrid,igrid,igrid,da
      .                         ,vol=.false.)
 cc              vlap_cnv = veclap(g_def,i,j,k,nxx,nyy,nzz
 cc     .                         ,igrid,igrid,igrid,da_cnv
 cc     .                         ,vol=.false.)
-cc              vlap=matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:),vlap_cnv)
+cc              vlap=matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:)
+cc     .                   ,vlap_cnv)
             else
               vlap =-dj_cov(i,j,k,:)
             endif
