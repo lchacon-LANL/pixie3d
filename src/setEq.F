@@ -1553,6 +1553,19 @@ c$$$        endif
         beta = 1d0
         var(:,:,:,ITMP) = 0.5*beta/a_p !Electron temperature required for force balance
 
+        do k = klom,khip
+          do j = jlom,jhip
+             do i = ilom,ihip
+              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+              
+              r1 = sqrt(x1**2+y1**2)
+
+              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
+            enddo
+          enddo
+        enddo
+
 #if !defined(vec_pot)
         do k = klom,khip
           do j = jlom,jhip
@@ -1560,13 +1573,9 @@ c$$$        endif
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
      .                                      ,igz,ig,jg,kg,x1,y1,z1)
-              
+
               r1 = sqrt(x1**2+y1**2)
               btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
-              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
-              
-              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
 c$$$              if (coords == 'cyl') then
 c$$$                 var(i,j,k,IBX)  = 0d0
@@ -1581,10 +1590,9 @@ c$$$                 var(i,j,k,IBZ)  = x1*bz0
 c$$$              endif
 
               ! Calculate in Cartesian, then call XformVector_mesh2 to calculate curvilinear and include the effects packing.
-              var(i,j,k,IBX) = -btheta*sin(y1)
-              var(i,j,k,IBY) =  btheta*cos(y1)
+              var(i,j,k,IBX) =-btheta*sin(y1)
+              var(i,j,k,IBY) = btheta*cos(y1)
               var(i,j,k,IBZ) = bz0
-
             enddo
           enddo
         enddo
@@ -1592,28 +1600,7 @@ c$$$              endif
         call XformVector_mesh2(gv%gparams,igx
      .                        ,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
-        do k = klom,khip
-          do j = jlom,jhip
-             do i = ilom,ihip
-              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
-     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-              
-              r1 = sqrt(x1**2+y1**2)
-
-              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-
-              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
-
-              var(i,j,k,IAX) = -0.5*Bz0*r1*sin(y1)
-              var(i,j,k,IAY) =  0.5*Bz0*r1*cos(y1)
-              var(i,j,k,IAZ) = -0.5*dlambda*log(1+(r1/dlambda)**2)
-          enddo
-        enddo
-      enddo
-
-      call XformVector_mesh2(gv%gparams,igx
-     .                      ,var(:,:,:,IAX:IAZ),'car','cov')
+        call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
       case ('2dtok')
@@ -5724,7 +5711,7 @@ c Call variables
 c Local variables
 
       integer :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8) :: x1,y1,z1,eps,car(3),hlx
+      real(8) :: x1,y1,z1,r1,eps,car(3),hlx,RR,aa,bz0
       real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical :: cartsn
 
@@ -5768,7 +5755,7 @@ cc        write (*,*) 'DIAG -- fillVectorPot'
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(cosh((x1-hlx)/dlambda)) 
@@ -5785,7 +5772,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 2*dlambda
      .               *atan(exp((x1-0.5d0*(xmax+xmin))/dlambda))
@@ -5802,7 +5789,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda
@@ -5828,7 +5815,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
@@ -5852,7 +5839,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = 0d0
               a(i,j,k,2) = 0d0
               a(i,j,k,3) = -dlambda*dlog(    cosh(x1/dlambda)
@@ -5868,7 +5855,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
 
               call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr,igr
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               a(i,j,k,1) = dlambda
      .             *dlog(cosh((y1-0.5d0*(ymax+ymin))/dlambda)) 
               a(i,j,k,2) = 0d0
@@ -5876,6 +5863,30 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             enddo
           enddo
         enddo
+
+      case ('bpnch')
+
+        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
+        aa = gv%gparams%params(4) ! Radius^2 of q=1 surface.
+
+        bz0 = RR/(1d0 + aa)/dlambda
+
+        do k = klom,khip
+          do j = jlom,jhip
+             do i = ilom,ihip
+              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr
+     .                                    ,igr,ig,jg,kg,x1,y1,z1)
+              
+              r1 = sqrt(x1**2+y1**2)
+
+              call getCurvilinearCoordinates(gv%gparams,i,j,k,igr,igr
+     .                                      ,igr,ig,jg,kg,x1,y1,z1)
+              a(i,j,k,1) = -0.5*Bz0*r1*sin(y1)
+              a(i,j,k,2) =  0.5*Bz0*r1*cos(y1)
+              a(i,j,k,3) = -0.5*dlambda*log(1+(r1/dlambda)**2)
+          enddo
+        enddo
+      enddo
 
       end select
 
