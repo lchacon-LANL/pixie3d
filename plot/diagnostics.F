@@ -396,12 +396,12 @@ c Energy diagnostics
 
       !Magnetic energy
 
-      array = (bx_car**2 + by_car**2 + bz_car**2)
+      array = (bx_car*bx_car + by_car*by_car + bz_car*bz_car)
       Em = 0.5*integral(gv%gparams,igx,array,average=.false.)
 
       !Ion kinetic energy
 
-      array = rho*(vx_car**2 + vy_car**2 + vz_car**2)
+      array = rho*(vx_car*vx_car + vy_car*vy_car + vz_car*vz_car)
       Ek = 0.5*integral(gv%gparams,igx,array,average=.false.)
 
       !Thermal energy
