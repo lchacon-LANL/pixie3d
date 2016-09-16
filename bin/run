@@ -7,8 +7,8 @@ help()
 cat <<HELP
 Usage: 
 
-pixie3d [-h] [-d] [-n node] [-x executable] [-r tmax] [-rtgz file] [-np procs] [-ntar]
-        [-equ file] [-eig file] -- inputfile [options]
+pixie3d [-h] [-d] [-n node] [-x executable] [-xplot plot_exec] [-r tmax] [-rtgz file] 
+        [-np procs] [-ntar] [-equ file] [-eig file] -- inputfile [options]
 
 where:
 	-h:            gives this message
@@ -18,6 +18,7 @@ where:
         -machines machinefile : specifies file which lists machines
                          to run parallel job in (default is "machines.LINUX").
 	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-xplot executable: indicates the plot executable file (default is 'pixplot.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
 	-rtgz file:    indicates tarball file to use to restart (default is 
@@ -45,6 +46,7 @@ debug=f
 machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
+plot_ifile=pixplot
 adiosfile="adios_config.xml"
 
 # Parse command line options
@@ -60,6 +62,7 @@ case $1 in
 	-d) debug=t;shift 1;;
 	-n) node=$2;shift 2;;
 	-x) executable=$2;shift 2;;
+	-xplot) ex_plot=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
 	-np)parallel=t;np=$2;shift 2;;
@@ -141,6 +144,24 @@ if [ "$debug" = "t" ]; then
   echo "==> Program to run is $executable"
 fi
 
+if [ "$ex_plot" = "" ]
+then
+  if [ "$parallel" = "t" ]
+  then
+    ex_plot=`ls $plot_ifile.petsc.x 2>/dev/null`
+  else
+    ex_plot=`ls $plot_ifile.x 2>/dev/null`
+  fi
+else
+  ex_plot=`ls $ex_plot 2>/dev/null`
+fi
+
+if [ "$ex_plot" = "" ]
+then
+  echo "No plot executable found. Aborting"
+  exit 1
+fi
+
 # Copy necessary files to working directory
 
 if [ -f $inputfile.in ]; then
@@ -188,12 +209,9 @@ if [ -f $machinefile ]; then
 fi
 
 cp $executable $dir 2>/dev/null
+cp $ex_plot    $dir 2>/dev/null
 
-if [ "$executable" = "pixie3d.x" ]; then
-  cp pixplot.x $dir 2>/dev/null
-fi
-
-cd $dir
+cd $dir 2>/dev/null
 
 # Check for restart
 
@@ -240,28 +258,41 @@ cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
 cp $eigfile $code_ifile.eig  2>/dev/null
 
-if [ "$restart" = "t" ]
+if [ "$parallel" = "t" ]
 then
+  if [ "$restart" = "t" ]
+  then
+     options+=" -restart "
+  fi
+
+  if [ "$tmax" != "" -a "$tmax" != "0" ]
+  then
+     options+=" -tmax $tmax "
+  fi
+else
+  if [ "$restart" = "t" ]
+  then
    sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = t' \
         -e '}' \
         $code_ifile.in 
-else
+  else
    sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = f' \
         -e '}' \
         $code_ifile.in
-fi
+  fi
 
-if [ "$tmax" != "" -a "$tmax" != "0" ]
-then
+  if [ "$tmax" != "" -a "$tmax" != "0" ]
+  then
     sed -i -e '/tmax/{' \
         -e 'c\' \
         -e "    tmax     = $tmax" \
         -e '}' \
         $code_ifile.in
+  fi
 fi
 
 # Execute
