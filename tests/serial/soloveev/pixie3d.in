@@ -57,8 +57,8 @@
     tmax     = 5d-3
     dstep    = 5d-3
 
-    restart  = f
-    timecorr = f
+    ts_restart  = f
+    ts_adapt_dt = f
 
     cnfactor = 0d0
     sm_flag  = 2
