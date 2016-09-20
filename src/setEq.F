@@ -55,7 +55,7 @@ c Local variables
 
       logical :: covariant,to_cartsn,cartsn,a_bc
 
-      real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,bb
+      real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,b_0
      .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
      .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
@@ -86,17 +86,18 @@ c Local variables
       integer :: bcs(6,neqd)
 
 #if defined(vec_pot)
-      real(8),allocatable,dimension(:,:,:,:) :: ag,bg
+      real(8),allocatable,dimension(:,:,:,:) :: ag,bg,bb
 #endif
       real(8),allocatable,dimension(:,:,:,:) :: vmec_car
 
-cc      INTERFACE
-cc        subroutine setAppBCs(varray,vaux)
-cc          use var_setup
-cc          type(var_array),pointer :: varray
-cc          type(aux_array),pointer :: vaux
-cc        end subroutine setAppBCs
-cc      END INTERFACE
+      INTERFACE
+        subroutine findVectorPotential(b,a,meth)
+          use parameters
+          real(8) :: a(0:,0:,0:,:)
+     .              ,b(0:,0:,0:,:)
+          character(4) :: meth
+        end subroutine findVectorPotential
+      END INTERFACE
 
 c Functions
 
@@ -1028,8 +1029,7 @@ c     Check coordinates
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'vlap')
 
         deallocate(bg)
 #endif
@@ -1182,8 +1182,8 @@ c     Check coordinates
 
 c     Tokamak equilibria (analytical)
 
-        Iz = 2.22
-        bb = 0.5*Iz
+        Iz  = 2.22
+        b_0 = 0.5*Iz
 
 cc        nh2 = mm       !To set the right perturbation wavelength
 cc        nh3 = kk*RR    !To set the right perturbation wavelength
@@ -1211,7 +1211,7 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              btheta = bb*x1/(1+(x1/dlambda)**2)
+              btheta = b_0*x1/(1+(x1/dlambda)**2)
               bz0    = RR
 
 #if !defined(vec_pot)
@@ -1234,7 +1234,7 @@ cc          do j = 0,nydp
 cc            do i = 0,nxdp
 cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
-cc              btheta = bb*x1/(1+(x1/dlambda)**2)
+cc              btheta = b_0*x1/(1+(x1/dlambda)**2)
 cc              bz0    = RR
 cc
 cc              b(i,j,k,1)  = 0d0                  
@@ -1307,8 +1307,8 @@ cccc              btheta = 2*x1  !CosT orbit test
 cccc              bz0 = 1d0
 cc
 cc              bz0 = 1d0
-cc              bb  = q0*bz0*dlambda/RR
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              b_0  = q0*bz0*dlambda/RR
+cc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
 cc
 cc              var(i,j,k,IBX) = 0d0
 cc              var(i,j,k,IBY) = btheta
@@ -1327,10 +1327,10 @@ cccc              x1 = gv%gparams%xg(i)  !Global coordinate
 cccc
 cccc              if (coords == 'hl2') x1 = sign(sqrt(2*abs(x1)),x1)
 cccc
-cccc              bb     = (dlambda**2+aa)
+cccc              b_0     = (dlambda**2+aa)
 cccc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-cccc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cccc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cccc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+cccc              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 cccc
 cccc              if (coords == 'hel') then
 cccc                b(i,j,k,1)  = 0d0
@@ -1400,10 +1400,10 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              bb     = (dlambda**2+aa)
+              b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               var(i,j,k,IBX)  = 0d0
               var(i,j,k,IBY)  = btheta
@@ -1419,10 +1419,10 @@ cc          do j = 0,nydp
 cc            do i = 0,nxdp
 cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
-cc              bb     = (dlambda**2+aa)
+cc              b_0    = (dlambda**2+aa)
 cc     .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 cc
 cc              b(i,j,k,1) = 0d0
 cc              b(i,j,k,2) = btheta
@@ -1478,10 +1478,10 @@ c     RFP equilibria (analytical)
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              bb     = (dlambda**2+aa)
+              b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               if (coords == 'hel') then
                 var(i,j,k,IBX)  = 0d0
@@ -1500,10 +1500,10 @@ c     RFP equilibria (analytical)
 
               x1 = gv%gparams%xg(i)  !Global coordinate
 
-              bb     = (dlambda**2+aa)
+              b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               bg(i,j,k,1) = 0d0
               bg(i,j,k,2) = btheta + kk*x1/mm*bz0
@@ -1512,8 +1512,7 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'vlap')
 
         deallocate(bg)
 #endif
@@ -1594,25 +1593,56 @@ c$$$        endif
         call XformVector_mesh2(gv%gparams,igx
      .                        ,var(:,:,:,IBX:IBZ),'car','cnv')
 #else
-c$$$        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+c$$$        allocate(bb(0:nx+1,0:ny+1,0:nz+1,3)
+c$$$     .          ,bg(0:nxdp,0:nydp,0:nzdp,3))
 c$$$
 c$$$        do k = 0,nz+1
 c$$$          do j = 0,ny+1
-c$$$            do i = 0,nxdp
+c$$$            do i = 0,nx+1
 c$$$
-c$$$              x1 = gv%gparams%xg(i)  !Global coordinate
+c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
+c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 c$$$
-c$$$              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
+c$$$              r1 = sqrt(x1**2+y1**2)
 c$$$
-c$$$              bg(i,j,k,1) = 0d0
-c$$$              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
-c$$$              bg(i,j,k,3) = x1*bz0
+c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
+c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+c$$$
+c$$$              r1 = r1*sign(1d0,x1)
+c$$$
+c$$$              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
+c$$$
+c$$$              bb(i,j,k,1) =-btheta*sin(y1)
+c$$$              bb(i,j,k,2) = btheta*cos(y1)
+c$$$              bb(i,j,k,3) = bz0
 c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 c$$$
-c$$$        call findVectorPotential(nxd,ny,nz
-c$$$     .                          ,bg,var(:,:,:,IAX:IAZ),'vlap')
+c$$$        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
+c$$$
+c$$$        call find_global(bb,bg)
+c$$$
+c$$$        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'line')
+c$$$
+c$$$        deallocate(bb,bg)
+c$$$
+c$$$c$$$        do k = 0,nz+1
+c$$$c$$$          do j = 0,ny+1
+c$$$c$$$            do i = 0,nxdp
+c$$$c$$$              x1 = gv%gparams%xg(i)  !Global coordinate
+c$$$c$$$
+c$$$c$$$              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)
+c$$$c$$$
+c$$$c$$$              bg(i,j,k,1) = 0d0
+c$$$c$$$              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
+c$$$c$$$              bg(i,j,k,3) = x1*bz0
+c$$$c$$$            enddo
+c$$$c$$$          enddo
+c$$$c$$$        enddo
+c$$$c$$$
+c$$$c$$$        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'vlap')
+c$$$c$$$
         call fillVectorPotential(igx,var(:,:,:,IAX:IAZ))
 #endif
 
@@ -1629,7 +1659,7 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
         nh1 = nh2 !For perturbations to be of the right order
 
-        bb = dlambda/RR/q0
+        b_0 = dlambda/RR/q0
 
         if (coords /= 'hel') then
           messg = 'Wrong coordinates for equilibrium '//equil
@@ -1653,8 +1683,8 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               !X-Y equilibrium
               var(i,j,k,IBX)  = 0d0
@@ -1671,8 +1701,8 @@ cc          do j = 0,nydp
 cc            do i = 0,nxdp
 cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 cc
 cc              b(i,j,k,1) = 0d0
 cc              b(i,j,k,2) = btheta + kk*x1/mm*bz0
@@ -1715,7 +1745,7 @@ c     Tokamak equilibria (analytical)
         RR = gv%gparams%params(3)
 
         Iz           = 2.22
-        bb           = 0.5*Iz
+        b_0          = 0.5*Iz
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1734,7 +1764,7 @@ c     Tokamak equilibria (analytical)
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
-              btheta = bb*x1/(1+(x1/dlambda)**2)
+              btheta = b_0*x1/(1+(x1/dlambda)**2)
               bz0    = RR
 
 #if !defined(vec_pot)
@@ -1756,7 +1786,7 @@ cc          do j = 0,nydp
 cc            do i = 0,nxdp
 cc              x1 = gv%gparams%xg(i)  !Global coordinate
 cc
-cc              btheta = bb*x1/(1+(x1/dlambda)**2)
+cc              btheta = b_0*x1/(1+(x1/dlambda)**2)
 cc              bz0    = RR
 cc
 cc              b(i,j,k,1)  = 0d0                  
@@ -1946,7 +1976,7 @@ cc        q0 = gv%gparams%params(6)
 cc
 cc        kk = 0d0   !To avoid affecting q-profile
 cc
-cc        bb = dlambda/RR/q0
+cc        b_0 = dlambda/RR/q0
 cc
 ccc     Check coordinates
 cc
@@ -1987,8 +2017,8 @@ cc
 cc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                      ,x1,y1,z1)
 cc
-cc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+cc              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 cc
 cc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cc     .                                    ,x1,y1,z1)
@@ -2010,8 +2040,8 @@ cccc
 cccc              call getCurvilinearCoordinates(i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                      ,x1,y1,z1)
 cccc
-cccc              btheta = bb*(x1/dlambda)/(1+(x1/dlambda)**2)
-cccc              bz0    = sqrt(1.-bb**2*(1-1./(1+(x1/dlambda)**2)**2))
+cccc              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
+cccc              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 cccc
 cccc              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg
 cccc     .                                    ,x1,y1,z1)
@@ -2278,8 +2308,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
+        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -2395,8 +2424,7 @@ c     Density and temperature
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
+        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -2579,8 +2607,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           enddo
         enddo
 
-        call findVectorPotential(nxd,ny,nz
-     .                          ,bg,var(:,:,:,IAX:IAZ),'line')
+        call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'line')
 
         deallocate(bg)
 #endif
@@ -5917,7 +5944,7 @@ c End program
 #if defined(vec_pot)
 c findVectorPotential
 c####################################################################
-      subroutine findVectorPotential(nxg,nyg,nzg,b,a_cov,meth)
+      subroutine findVectorPotential(b,a_cov,meth)
 
 c--------------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
@@ -5950,19 +5977,21 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: nxg,nyg,nzg
-      real(8)    :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
-     .             ,b    (0:nxg+1,0:nyg+1,0:nzg+1,3)
+      real(8) :: a_cov(0:,0:,0:,:)
+     .          ,b    (0:,0:,0:,:)
       character(4) :: meth
 
 c Local variables
 
+      integer :: nxg,nyg,nzg
       integer :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
      .          ,its,ig,jg,kg
       real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,a_cnv (ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,db_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
-     .          ,a     (0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .          ,a     (0:size(b,1)-1
+     .                 ,0:size(b,2)-1
+     .                 ,0:size(b,3)-1,3)
      .          ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
       real(8) :: bx0,bxl,by0,byl,bz0,bzl,x1,y1,z1
       logical :: spoint
@@ -5971,9 +6000,13 @@ c Begin program
 
       igrid = 1
 
-      nx = gv%gparams%nxv(igrid)
-      ny = gv%gparams%nyv(igrid)
-      nz = gv%gparams%nzv(igrid)
+      nx = size(a,1)-2
+      ny = size(a,2)-2
+      nz = size(a,3)-2
+
+      nxg = size(b,1)-2
+      nyg = size(b,2)-2
+      nzg = size(b,3)-2
 
       if (my_rank == 0) then
         write (*,*)

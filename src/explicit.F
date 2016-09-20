@@ -323,7 +323,8 @@ c set_user_dt
 c####################################################################
       subroutine set_user_dt(dt)
 c--------------------------------------------------------------------
-c     This subroutine computes user-defined timestep
+c     This subroutine computes user-defined timestep, based on flow
+c     CFL constraints.
 c--------------------------------------------------------------------
 
       use variables
@@ -340,7 +341,7 @@ c Local variables
 
       integer :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
       real(8) :: kv_par,w_cfl,dt_cfl
-      real(8) :: idx,idy,idz,ldt
+      real(8) :: ih(3),ldt,v(3)
 
 c Begin program
 
@@ -363,16 +364,16 @@ c Calculate flow-based CFL
             call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
             !Maximum kk
-            idx  = pi/gv%gparams%dx(ig)
-            if (nx == 1) idx = 0d0
-            idy  = pi/gv%gparams%dy(jg)
-            if (ny == 1) idy = 0d0
-            idz  = pi/gv%gparams%dz(kg)
-            if (nz == 1) idz = 0d0
+            ih(1)  = pi/gv%gparams%dx(ig)
+            if (nx == 1) ih(1) = 0d0
+            ih(2)  = pi/gv%gparams%dy(jg)
+            if (ny == 1) ih(2) = 0d0
+            ih(3)  = pi/gv%gparams%dz(kg)
+            if (nz == 1) ih(3) = 0d0
 
             !k.v
-            kv_par = scalarProduct(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
-     .                            ,abs(vcnv(i,j,k,:)))
+            v = abs(vcnv(i,j,k,:))
+            kv_par = scalarProduct(gv%gparams,i,j,k,igx,ih,v)
 
             !Find flow CFL
             w_cfl=max(kv_par,w_cfl)
@@ -383,9 +384,9 @@ c Calculate flow-based CFL
 
 c Calculate flow-CFL time step
 
-      dt_cfl = 0.1*pi/w_cfl
+      dt_cfl = 0.15*pi/w_cfl
 
-c Synchronize time step among all processors
+c Synchronize timestep among all processors
 
 #if defined(petsc)
       ldt = dt_cfl
@@ -396,7 +397,10 @@ c Synchronize time step among all processors
 c Compare with input time step
 
       dt = min(dt,dt_cfl)
-      if (my_rank == 0) write (*,*) 'Flow-CFL dt=',dt_cfl
+
+      if (my_rank==0.and.dt==dt_cfl)
+     .     write (*,'(a,1p,1e11.4)')
+     .     '   >>>> Flow-CFL-limited dt=',dt_cfl
 
 c End program
 
