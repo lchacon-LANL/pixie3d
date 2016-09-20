@@ -439,7 +439,7 @@ c Set defaults
       debug_it = -1
       hall_new = .false.
       pc_max_iter = 0
-      timecorr = .false.
+      timecorr = .true.
       restart  = .false.
 
 c Read initialization parameters
@@ -516,7 +516,7 @@ c Check legacy parameters
 
       where (bcs == 'sym') bcs = 'fsm' !Face symmetric
 
-      if (timecorr) ts_adapt_dt = timecorr
+      if (.not.timecorr) ts_adapt_dt = timecorr
 
       if (restart) ts_restart = restart
 
@@ -579,6 +579,8 @@ cc      if (coords /= 'car') nc_eom_f = .true.
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
       if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
+
+      if (ion_hall) pc_type = 's1'
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 

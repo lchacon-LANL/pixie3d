@@ -6000,9 +6000,9 @@ c Begin program
 
       igrid = 1
 
-      nx = size(a,1)-2
-      ny = size(a,2)-2
-      nz = size(a,3)-2
+      nx = size(a_cov,1)-2
+      ny = size(a_cov,2)-2
+      nz = size(a_cov,3)-2
 
       nxg = size(b,1)-2
       nyg = size(b,2)-2
