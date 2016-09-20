@@ -25,6 +25,7 @@ FLUX=f
 PER_BC_SYNC=t
 VMEC=t
 COARSE_MG=t
+USER_DT=t
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -43,6 +44,10 @@ BINDIR    =$(PWD)/bin
 -include $(COMMONDIR)/make/make.lib.inc
 
 # FRAMEWORK setup
+
+ifeq ($(USER_DT),t)
+  CPPFLAGS += $(PREPROC)USER_PROVIDED_DT
+endif
 
 ifeq ($(COARSE_MG),t)
   CPPFLAGS += $(PREPROC)coarse_MG
