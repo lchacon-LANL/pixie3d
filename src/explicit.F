@@ -131,7 +131,6 @@ c Local variables
       real(8) :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .          ,cs2,ca2,tmp_max,roots(3)
       real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,ldt
-      logical :: cartsn
 
       character(7) :: exp_cfl_type
 
@@ -320,6 +319,89 @@ cc      theta = 0.46  !in pi units
 
       end subroutine set_explicit_dt
 
+c set_user_dt
+c####################################################################
+      subroutine set_user_dt(dt)
+c--------------------------------------------------------------------
+c     This subroutine computes user-defined timestep
+c--------------------------------------------------------------------
+
+      use variables
+
+      use nlfunction_setup, ONLY: vcnv
+
+      implicit none
+
+c Call variables
+
+      real(8) :: dt
+
+c Local variables
+
+      integer :: i,j,k,ig,jg,kg,igx,igy,igz,nx,ny,nz
+      real(8) :: kv_par,w_cfl,dt_cfl
+      real(8) :: idx,idy,idz,ldt
+
+c Begin program
+
+      igx = 1
+      igy = 1
+      igz = 1
+
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igy)
+      nz = gv%gparams%nzv(igz)
+
+c Calculate flow-based CFL
+
+      w_cfl = 0d0
+
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+
+            call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+
+            !Maximum kk
+            idx  = pi/gv%gparams%dx(ig)
+            if (nx == 1) idx = 0d0
+            idy  = pi/gv%gparams%dy(jg)
+            if (ny == 1) idy = 0d0
+            idz  = pi/gv%gparams%dz(kg)
+            if (nz == 1) idz = 0d0
+
+            !k.v
+            kv_par = scalarProduct(gv%gparams,i,j,k,igx,(/idx,idy,idz/)
+     .                            ,abs(vcnv(i,j,k,:)))
+
+            !Find flow CFL
+            w_cfl=max(kv_par,w_cfl)
+
+          enddo
+        enddo
+      enddo
+
+c Calculate flow-CFL time step
+
+      dt_cfl = 0.1*pi/w_cfl
+
+c Synchronize time step among all processors
+
+#if defined(petsc)
+      ldt = dt_cfl
+      call MPI_Allreduce(ldt,dt_cfl,1,MPI_DOUBLE_PRECISION
+     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#endif
+
+c Compare with input time step
+
+      dt = min(dt,dt_cfl)
+      if (my_rank == 0) write (*,*) 'Flow-CFL dt=',dt_cfl
+
+c End program
+
+      end subroutine set_user_dt
+
 #else
 
 c findExplicitDt
@@ -354,7 +436,6 @@ c Local variables
       real(8) :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .          ,cs2,ca2,tmp_max,roots(3)
       real(8) :: x1,x2,x3,idx,idy,idz,ldt
-      logical :: cartsn
 
       INTERFACE
       function icfl(cs2,ca2,k2,k2par,di) result(root)
