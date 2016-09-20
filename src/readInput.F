@@ -72,9 +72,9 @@ c Namelists
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
      .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
      .                   ,mg_coarse_solve,mgcf
-     .                ,dt,cnfactor,tmax,dstep,timecorr,numtime,restart
+     .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,eigen,eig_dt,perturb_rstrt
+     .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -85,7 +85,7 @@ c Namelists
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
      .                   ,lag_pinch_bc,recordfile,pc_debug_it
-     .                   ,mg_zebra_relax,pc_max_iter
+     .                   ,mg_zebra_relax,pc_max_iter,timecorr,restart
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
@@ -115,9 +115,9 @@ c Namelists
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
 
       !Temporal discretization
-      namelist /ts/    dt,cnfactor,tmax,dstep,timecorr,numtime,restart
+      namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
-     .                   ,source,eigen,eig_dt,perturb_rstrt
+     .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -197,9 +197,9 @@ c Set defaults
       dstep    = 0.            ! Time interval between plots (if zero,
                                !        dstep is calculated in code)
 
-      restart        = .false. ! Restarting flag
+      ts_restart     = .false. ! Restarting flag
+      ts_adapt_dt    = .true.  ! Time adaptive algorithm (based on Newton convergence)
       perturb_rstrt  = .false. ! Whether to apply perturbation after restart
-      timecorr       = .true.  ! Time adaptive algorithm (based on Newton convergence)
       postprocess    = .false. ! Whether to run solution postprocessing after time step
       source         = .true.  ! Impose source to provide equilibrium
 
@@ -439,6 +439,8 @@ c Set defaults
       debug_it = -1
       hall_new = .false.
       pc_max_iter = 0
+      timecorr = .false.
+      restart  = .false.
 
 c Read initialization parameters
 
@@ -514,8 +516,9 @@ c Check legacy parameters
 
       where (bcs == 'sym') bcs = 'fsm' !Face symmetric
 
-      ts_restart = restart
-      ts_adapt_dt = timecorr
+      if (timecorr) ts_adapt_dt = timecorr
+
+      if (restart) ts_restart = restart
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
