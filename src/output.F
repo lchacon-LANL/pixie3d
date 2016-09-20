@@ -113,7 +113,7 @@ cc            vadvective = '   TVD'
             call pstop('output','cnfactor not within allowed limits')
           endif
 
-          write (*,10)nxd,nyd,nzd,ngrd,pc_type,timecorr,source
+          write (*,10)nxd,nyd,nzd,ngrd,pc_type,ts_adapt_dt,source
      .               ,numerical_grid,advective,vadvective,tsmeth
 
           write (*,*) 

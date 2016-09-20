@@ -45,7 +45,7 @@ c Local variables
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
-     .                ,mg_zebra_relax,restart
+     .                ,mg_zebra_relax,restart,timecorr
       real(8)       :: mgtol
 
 c Namelists
@@ -515,6 +515,7 @@ c Check legacy parameters
       where (bcs == 'sym') bcs = 'fsm' !Face symmetric
 
       ts_restart = restart
+      ts_adapt_dt = timecorr
 
 c Obtain eta, nu, dd from Prandtl, Hartmann
 
