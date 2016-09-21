@@ -906,8 +906,6 @@ cc     -----------------------------------------------------------------
 
       use B_tools
 
-cc      use app_iosetup, ONLY:it_divcl
-
       implicit none
 
 c     Call variables
@@ -930,6 +928,8 @@ c     Local variables
       real(8),allocatable,dimension(:,:,:,:) :: db_cnv,dv_cnv
       real(8),allocatable,dimension(:,:,:)   :: dprs
 
+      type(grid_pack),dimension(3) :: g_pack
+        
 c     Begin program
 
 c     Read external file
@@ -968,6 +968,8 @@ c     Read external file
       close (u_prtf)
 
 c     Reconstruct input mesh
+
+      call get_grid_pack_config(g_pack)
 
       call findGlobalGrid(xmin,xmax,bcond(1),bcond(2),rin,g_pack(1),1)
 

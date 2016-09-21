@@ -533,9 +533,7 @@ c Find alpha_p=p_t/p_e; p_t=p_i+p_e
 
 c Initialize grid packing structure
 
-      g_pack(1) = gp1
-      g_pack(2) = gp2
-      g_pack(3) = gp3
+      call init_grid_pack_config(gp1,gp2,gp3)
 
 c Initialize MG parameters
 
@@ -679,9 +677,9 @@ c Init boundary conditions
 c Write initialization parameters to standard output
 
       if (my_rank == 0 .and. (.not. test)) then
-        write (*,*) '-------------------'
-        write (*,*) 'SETUP configuration'
-        write (*,*) '-------------------'
+        write (*,*) '------------------'
+        write (*,*) 'GRID configuration'
+        write (*,*) '------------------'
         write (*,setup)
 
         write (*,*) '------------------'
