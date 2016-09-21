@@ -481,9 +481,6 @@ c Begin program
 
       isig = g_def%istartp(igrid)
 
-cc      nxx = g_def%nxv(igx)
-cc      nyy = g_def%nyv(igy)
-cc      nzz = g_def%nzv(igz)
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
@@ -897,10 +894,6 @@ c Begin program
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
 
-      igx = igrid
-      igy = igrid
-      igz = igrid
-
 c Find limits for loops
 
       call limits(mg_ctx_l,abs(gpos)
@@ -1030,7 +1023,7 @@ c Call variables
 c Local variables
 
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .             ,i,j,k,ig,jg,kg,ieq
 
@@ -1059,10 +1052,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -1196,7 +1185,7 @@ c Call variables
 c Local variables
 
       integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
-      integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer    :: imin,imax,jmin,jmax,kmin,kmax
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .             ,i,j,k,ig,jg,kg,ieq
 
@@ -1222,10 +1211,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -1532,7 +1517,7 @@ c Call variables
 c Local variables
 
       integer :: isig,nxx,nyy,nzz
-      integer :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
+      integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .          ,i,j,k,ig,jg,kg,ieq
 
@@ -1563,10 +1548,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -1652,7 +1633,7 @@ c Calculate matrix-vector product
         do j = jmin,jmax
           do i = imin,imax
 
-            call getMGmap(g_def,i,j,k,igx,igy,igz,ig,jg,kg)
+            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
             jac = g_def%gmetric%grid(igrid)%jac(i,j,k)
 
@@ -1670,8 +1651,8 @@ c Calculate matrix-vector product
             !Resistive part
             etal = eta0(i,j,k,1)
 
-            lap_a_cov = veclap_cov(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz
-     .                            ,da_cov)
+            lap_a_cov = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
+     .                            ,igrid,igrid,igrid,da_cov)
 
             if (vlap_etaj) then
               a_res = a_res - alpha*etal*lap_a_cov
@@ -1684,14 +1665,14 @@ cc            a_res = a_res + alpha*dbs_x_ve0(das)
             a_res = a_res + alpha*db_x_v0(ve0_cnv,das)
 
             !Electron Hall piece: -dve x B_star
-            cov = -crossProduct_ijk(g_def,i,j,k,igx
+            cov = -crossProduct_ijk(g_def,i,j,k,igrid
      .                             ,dve_cnv(i,j,k,:)
      .                             ,bs0_cnv(i,j,k,:),.true.)
 
             a_res = a_res + alpha*cov
 
             !Electron pressure tensor piece:-di/rho*div(Pi(dve))
-            cnv = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igx
+            cnv = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid
      .                         ,dve_cnv,heta0)
             cov = matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
@@ -1706,7 +1687,7 @@ cc     .                                   ,igx,igy,igz,da_cov)
             else
               if (fake_ve) then
                 cc_a_cov = curlcurl_cov_ijk(g_def,i,j,k,nxx,nyy,nzz
-     .                                     ,igx,igy,igz,da_cov)
+     .                                     ,igrid,igrid,igrid,da_cov)
               else
                 cc_a_cov = dj_cov(i,j,k,:)
               endif
@@ -2024,9 +2005,6 @@ c ##################################################################
      .                                     ,j0_cov
 
       integer :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
-      integer :: imin,imax,jmin,jmax,kmin,kmax
-     .             ,nxx,nyy,nzz,ijk,ijkg,isp,igr,igx,igy,igz
-     .             ,i,j,k,ig,jg,kg,ieq
 
       real(8),allocatable,dimension(:,:) :: a_sp,a_vol
 
@@ -2072,17 +2050,23 @@ c     Begin program
 
 c     div_upwd
 c     #####################################################################
-      function div_upwd(g_def,da,half_elem)
+      function div_upwd(g_def,i,j,k,igr,da,half_elem)
 
         type(grid_mg_def),pointer :: g_def
 
-        integer    :: half_elem
-        real(8)    :: da(0:nxx+1,0:nyy+1,0:nzz+1,*),div_upwd
+c     Call variables
 
-        integer    :: ip,im,jp,jm,kp,km
+        integer    :: i,j,k,igr,half_elem
+        real(8)    :: da(0:,0:,0:,:),div_upwd
+
+c     Local variables
+
+        integer    :: ip,im,jp,jm,kp,km,ig,jg,kg
         real(8)    :: dxx,dyy,dzz,axp,axm,ayp,aym,azp,azm
 
 c     Begin program
+
+        call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
 
         ip = i+1
         im = i-1
@@ -2129,17 +2113,27 @@ cc          return
 
 c     findPsit
 c     #####################################################################
-      function findPsit(g_def) result(psit)
+      function findPsit(g_def,i,j,k,igr) result(psit)
 
       implicit none
 
+c     Call variables
+
+      integer :: i,j,k,igr
+
       type(grid_mg_def),pointer :: g_def
 
-      real(8)    :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
-     .             ,divip,divim,divjp,divjm,divkp,divkm
-     .             ,coeff,gamm,psit(3)
+c     Local variables
+
+      integer :: ig,jg,kg
+
+      real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+     .          ,divip,divim,divjp,divjm,divkp,divkm
+     .          ,coeff,gamm,psit(3)
 
 c     Fluxes at faces for calculation of grad(dv.grad(p0))
+
+      call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
 
       flxip =( (dv(i,j,k,1)/jac+dv(ip,j,k,1)/jacip)
      .          *(pp0(ip,j,k,1)-pp0(i,j,k,1))/g_def%dx(ig)
@@ -2239,7 +2233,7 @@ c      Fluxes at faces for calculation of grad(gamma*p0*div(dv))
 
       flxip = flxip
      .      + gamm*(pp0(i,j,k,1)+pp0(ip,j,k,1))*divip/(jac+jacip)
-      if (.not.isSP(g_def,i,j,k,igx,igy,igz)) then
+      if (.not.isSP(g_def,i,j,k,igr,igr,igr)) then
         flxim = flxim
      .      + gamm*(pp0(i,j,k,1)+pp0(im,j,k,1))*divim/(jac+jacim)
       endif
@@ -2270,13 +2264,20 @@ c     Transform to contravariant
 
 c     findPsib
 c     #############################################################
-      function findPsib(g_def) result(psib)
+      function findPsib(g_def,i,j,k,igr) result(psib)
 
       implicit none
 
+c     Call variables
+
+      integer :: i,j,k,igr
+
       type(grid_mg_def),pointer :: g_def
 
-      integer :: ig,jg,kg
+c     Local variables
+
+      integer :: ig,jg,kg,nxx,nyy,nzz
+
       real(8) :: coeff,jac,dxx,dyy,dzz,ijac,psib(3)
      .          ,j0_cnv(3),acnv(3)
      .          ,acnvip(3),acnvim(3)
@@ -2285,6 +2286,12 @@ c     #############################################################
      .          ,acovip(3),acovim(3)
      .          ,acovjp(3),acovjm(3)
      .          ,acovkp(3),acovkm(3)
+
+c     Begin program
+
+      nxx = g_def%nxv(igr)
+      nyy = g_def%nyv(igr)
+      nzz = g_def%nzv(igr)
 
       if (nc_eom_jxb.and.(.not.bcSP()) ) then  !Force conservative form in SP geometries
 
@@ -2689,7 +2696,10 @@ c Call variables
 
 c Local variables
 
-      integer :: iig
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,dpp
@@ -2697,8 +2707,6 @@ c Local variables
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
 c Begin program
-
-      igr = igrid
 
       is_cnv = .true.
 
@@ -2710,10 +2718,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -2799,14 +2803,14 @@ c Calculate matrix-vector product
             endif
 
             !P_si^v  ******************************
-            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
+            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igrid,rho0,v0_cnv,dv,dpp
      .                ,.not.nc_eom_v)
 
             !P_si^T  ******************************
-            psit = findPsit(g_def)
+            psit = findPsit(g_def,i,j,k,igrid)
 
             !P_si^B  ******************************
-            psib = findPsib(g_def)
+            psib = findPsib(g_def,i,j,k,igrid)
 
             !Diagonal scaling
              
@@ -2888,7 +2892,10 @@ c Call variables
 
 c Local variables
 
-      integer :: iig
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),v_res(3),divpe(3)
      .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
 
@@ -2902,8 +2909,6 @@ c Begin program
 
       if (neq /= 6) call pstop('v_mtvc_hyp','neq /= 6; aborting...')
 
-      igr = igrid
-
       is_cnv = .true.
 
       call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
@@ -2914,10 +2919,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -3047,7 +3048,7 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
+            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igrid,rho0,v0_cnv,dv,dpp
      .                ,.not.nc_eom_v,stress=.false.)
 
             !Ion viscosity piece ******************
@@ -3059,8 +3060,8 @@ c Calculate matrix-vector product
             endif
 
             !Electron viscosity piece *************
-            divpe = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igr,dve_cnv
-     .                           ,heta0)
+            divpe = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid
+     .                           ,dve_cnv,heta0)
 
             if (nc_eom_v) then
               psiv = psiv + alpha*divpe/rho0(i,j,k,1)
@@ -3070,11 +3071,11 @@ c Calculate matrix-vector product
 
             !P_si^T  ******************************
 
-            psit = findPsit(g_def)
+            psit = findPsit(g_def,i,j,k,igrid)
 
             !P_si^B  ******************************
 
-            psib = findPsib(g_def)
+            psib = findPsib(g_def,i,j,k,igrid)
 
             !Diagonal scaling
             cnv = psit + psib 
@@ -3226,14 +3227,15 @@ c Call variables
 
 c Local variables
 
-      integer    :: iig
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
       real(8),allocatable,dimension(:,:,:,:) :: dpp
 
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
 c Begin program
-
-      igr = igrid
 
       is_cnv = .true.
 
@@ -3245,10 +3247,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -3335,8 +3333,8 @@ cc            if (isSP(i,j,k,igrid,igrid,igrid)) jacim = jacim + SP_flsv
 
             !P_si^v  ******************************
 
-            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dv,dpp
-     .                ,.not.nc_eom_v)
+            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igrid,rho0,v0_cnv,dv
+     .                ,dpp,.not.nc_eom_v)
 
             cnv = psiv*vol
 
@@ -3671,24 +3669,26 @@ c Call variables
 
 c Local variables
 
-      real(8)    :: z(ntot)
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
+      real(8) :: z(ntot)
 
       real(8),allocatable,dimension(:,:,:,:) :: dzz,dzp
 
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
-        INTERFACE
-          subroutine mstar_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
-            use grid
-            type(grid_mg_def),pointer :: g_def
-            integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
-            real(8) :: x(ntot),y(ntot)
-          end subroutine mstar_mtvc
-        END INTERFACE
+      INTERFACE
+        subroutine mstar_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+          use grid
+          type(grid_mg_def),pointer :: g_def
+          integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+          real(8) :: x(ntot),y(ntot)
+        end subroutine mstar_mtvc
+      END INTERFACE
 
 c Begin program
-
-      igr = igrid
 
       is_cnv = .true.
 
@@ -3701,10 +3701,6 @@ c Begin program
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
 
-      igx = igrid
-      igy = igrid
-      igz = igrid
-
 c Find limits for loops
 
       call limits(mg_ctx_l,abs(gpos),igrid
@@ -3712,12 +3708,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call point_to_MG_array(nxx,nyy,nzz,igrid,rho0  ,grho0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,pp0   ,gp0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cov,gb0_cov)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,a0_cnv,ga0)
+      call defineLocalPointers(igrid,nxx,nyy,nzz)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -3782,16 +3773,16 @@ c Calculate matrix-vector product
 
             !P_si^v  ******************************
 
-            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igr,rho0,v0_cnv,dzz,dzp
-     .                     ,.not.nc_eom_v)
+            psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igrid,rho0,v0_cnv,dzz,dzp
+     .                ,.not.nc_eom_v)
 
             !P_si^T  ******************************
 
-            psit = findPsit(g_def)
+            psit = findPsit(g_def,i,j,k,igrid)
 
             !P_si^B  ******************************
 
-            psib = findPsib(g_def)
+            psib = findPsib(g_def,i,j,k,igrid)
 
             !Form total operator
 
@@ -3865,6 +3856,10 @@ c Call variables
 
 c Local variables
 
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
       real(8),allocatable,dimension(:,:,:,:) :: da
 
       logical :: flg_rho,flg_v
@@ -3872,8 +3867,6 @@ c Local variables
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
 c Begin program
-
-      igr = igrid
 
       is_cnv = .true.
 
@@ -3885,10 +3878,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 
@@ -3961,7 +3950,8 @@ cc            if (diff /= 0d0) cnv = gradDiv2(da)
 cc              hex = floor(sign(1d0,v0_cnv(i,j,k,ieq)))
               hex = 0
 
-              upwind = v0_cnv(i,j,k,ieq)*div_upwd(g_def,da,hex)
+              upwind = v0_cnv(i,j,k,ieq)
+     .                *div_upwd(g_def,i,j,k,igrid,da,hex)
 
               cnv(ieq) = cnp*da(i,j,k,ieq)/dt
      .                 + alpha*upwind
@@ -4028,9 +4018,11 @@ c Call variables
 
 c Local variables
 
-c Begin program
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
 
-      igr = igrid
+c Begin program
 
       is_cnv = .true.
 
@@ -4041,10 +4033,6 @@ c Begin program
       nxx = g_def%nxv(igrid)
       nyy = g_def%nyv(igrid)
       nzz = g_def%nzv(igrid)
-
-      igx = igrid
-      igy = igrid
-      igz = igrid
 
 c Find limits for loops
 

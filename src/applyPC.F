@@ -727,6 +727,8 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
+cc          call pc_diag(3,nn,xc(:,1:3),rhsc(:,1:3))
+
           x(:,IVX:IVZ) = xc(:,1:3)
         endif
 
@@ -880,6 +882,27 @@ cc        endif
 c     End program
 
       end subroutine split_PC
+
+c     pc_diag
+c     ##############################################################
+      subroutine pc_diag(neq,nn,x,y)
+
+        integer :: nn,neq
+
+        real(8) :: x(nn,neq),y(nn,neq)
+
+        real(8) :: xplot(neq*nn)
+
+c     Diagnostics
+
+        call gatherVector(xplot,x)
+        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_sol"
+     .                 ,"PC solution")
+        call gatherVector(xplot,y)
+        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_res"
+     .                 ,"PC residual")
+
+      end subroutine pc_diag
 
 c     si_PC
 c     ##############################################################
