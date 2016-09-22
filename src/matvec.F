@@ -2002,7 +2002,7 @@ c ##################################################################
 
       real(8),pointer,dimension(:,:,:,:) :: dv,dv_cov,v0_cnv,b0_cnv
      .                                     ,b0_cov,rho0,pp0,a0_cnv
-     .                                     ,j0_cov
+     .                                     ,j0_cov,vis0
 
       integer :: isig,iisig,ip,im,jp,jm,kp,km,hex,hey,hez
 
@@ -2033,7 +2033,8 @@ c     Begin program
       call point_to_MG_array(nx,ny,nz,igrid,b0_cnv,gb0)
       call point_to_MG_array(nx,ny,nz,igrid,b0_cov,gb0_cov)
       call point_to_MG_array(nx,ny,nz,igrid,a0_cnv,ga0)
- 
+      call point_to_MG_array(nx,ny,nz,igrid,vis0  ,gvis)
+
       end subroutine defineLocalPointers
 
 c     nullLocalPointers
@@ -2885,10 +2886,11 @@ c--------------------------------------------------------------------
 
 c Call variables
 
+      type(grid_mg_def),pointer :: g_def
+
       integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
       real(8) :: x(ntot),y(ntot),minv,idx,idy,idz
      .          ,idxcnv,idycnv,idzcnv,vxx,vyy,vzz
-      type(grid_mg_def),pointer :: g_def
 
 c Local variables
 
@@ -2974,7 +2976,7 @@ c$$$#endif
 c Find div(Pi(dv))
 
       if (nu > 0d0) then
-        divpi =EOM_divPi(g_def,igrid,dv,gvis%grid(igrid)%array(:,:,:,1))
+        divpi =EOM_divPi(g_def,igrid,dv,vis0(:,:,:,1))
         call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,divpi
      .            ,gv%aux%vec_list(IDIVPI)%bconds
      .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
