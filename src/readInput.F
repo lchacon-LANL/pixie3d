@@ -544,6 +544,95 @@ c Initialize MG parameters
 
 c Consistency check
 
+      call consistency_chk
+
+c Map perturbations
+
+      pert(IRHO)= prho
+      pert(IVX) = pvx
+      pert(IVY) = pvy
+      pert(IVZ) = pvz
+#if !defined(vec_pot)
+      pert(IBX) = pbx
+      pert(IBY) = pby
+      pert(IBZ) = pbz
+#else
+      pert(IAX) = pax
+      pert(IAY) = pay
+      pert(IAZ) = paz
+#endif
+      pert(ITMP)= a_p*ptemp  !Transform to total pressure
+
+c Init boundary conditions
+
+      ioerr = initBCS(bcs)
+
+      if (ioerr /= 0)
+     .     call pstop('readInput','Error in initialization of BCs')
+
+c Write initialization parameters to standard output
+
+      if (my_rank == 0 .and. (.not. test)) then
+        write (*,*) '------------------'
+        write (*,*) 'GRID configuration'
+        write (*,*) '------------------'
+        write (*,setup)
+
+        write (*,*) '------------------'
+        write (*,*) 'PHYS configuration'
+        write (*,*) '------------------'
+        write (*,phys)
+
+        write (*,*) '----------------- '
+        write (*,*) 'FV  configuration'
+        write (*,*) '----------------- '
+        write (*,fv)
+
+        write (*,*) '----------------- '
+        write (*,*) 'TS  configuration'
+        write (*,*) '----------------- '
+        write (*,ts)
+
+        write (*,*) '----------------- '
+        write (*,*) 'NKS configuration'
+        write (*,*) '----------------- '
+        write (*,nks)
+
+        write (*,*) '----------------- '
+        write (*,*) 'PC  configuration'
+        write (*,*) '----------------- '
+        write (*,pc)
+
+        write (*,*) '----------------- '
+        write (*,*) 'IO  configuration'
+        write (*,*) '----------------- '
+        write (*,i_o)
+      endif
+
+c Initialize graphics
+
+      ioerr=readGraphicsConfig(in_file)
+
+      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
+        write (*,*) 'Problem reading "graphics" namelist'
+      endif
+
+c Debug profile stage
+
+#if defined(petsc)
+      iDBG=add_profile_stage("Debug")
+#endif
+
+c End program
+
+      contains
+
+c     consistency_chk
+c     #####################################################################
+      subroutine consistency_chk
+
+      implicit none
+
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
@@ -663,84 +752,6 @@ cc         maxitnwt = 10
       npx = 1 ; npy = 1 ; npz = 1
 #endif
          
-c Map perturbations
-
-      pert(IRHO)= prho
-      pert(IVX) = pvx
-      pert(IVY) = pvy
-      pert(IVZ) = pvz
-#if !defined(vec_pot)
-      pert(IBX) = pbx
-      pert(IBY) = pby
-      pert(IBZ) = pbz
-#else
-      pert(IAX) = pax
-      pert(IAY) = pay
-      pert(IAZ) = paz
-#endif
-      pert(ITMP)= a_p*ptemp  !Transform to total pressure
-
-c Init boundary conditions
-
-      ioerr = initBCS(bcs)
-
-      if (ioerr /= 0)
-     .     call pstop('readInput','Error in initialization of BCs')
-
-c Write initialization parameters to standard output
-
-      if (my_rank == 0 .and. (.not. test)) then
-        write (*,*) '------------------'
-        write (*,*) 'GRID configuration'
-        write (*,*) '------------------'
-        write (*,setup)
-
-        write (*,*) '------------------'
-        write (*,*) 'PHYS configuration'
-        write (*,*) '------------------'
-        write (*,phys)
-
-        write (*,*) '----------------- '
-        write (*,*) 'FV  configuration'
-        write (*,*) '----------------- '
-        write (*,fv)
-
-        write (*,*) '----------------- '
-        write (*,*) 'TS  configuration'
-        write (*,*) '----------------- '
-        write (*,ts)
-
-        write (*,*) '----------------- '
-        write (*,*) 'NKS configuration'
-        write (*,*) '----------------- '
-        write (*,nks)
-
-        write (*,*) '----------------- '
-        write (*,*) 'PC  configuration'
-        write (*,*) '----------------- '
-        write (*,pc)
-
-        write (*,*) '----------------- '
-        write (*,*) 'IO  configuration'
-        write (*,*) '----------------- '
-        write (*,i_o)
-      endif
-
-c Initialize graphics
-
-      ioerr=readGraphicsConfig(in_file)
-
-      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
-        write (*,*) 'Problem reading "graphics" namelist'
-      endif
-
-c Debug profile stage
-
-#if defined(petsc)
-      iDBG=add_profile_stage("Debug")
-#endif
-
-
-c End program
+      end subroutine consistency_chk
 
       end subroutine readInput
