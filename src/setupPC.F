@@ -294,4 +294,8 @@ c###################################################################
 
       use PC_var
 
+c     Deallocate LOCAL auxiliary variables
+
+      call destroyAppBCs
+
       end subroutine kill_app_PC

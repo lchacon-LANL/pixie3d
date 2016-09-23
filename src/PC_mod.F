@@ -839,10 +839,6 @@ cc#endif
 cc      stop
 c diag ****
 
-c     Deallocate LOCAL auxiliary variables
-
-        call deallocLocalAuxVars
-
 c     End program
 
       contains
