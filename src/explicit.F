@@ -329,7 +329,7 @@ c--------------------------------------------------------------------
 
       use variables
 
-      use nlfunction_setup, ONLY: vcnv
+      use nlfunction_setup, ONLY: IVX,IVY,IVZ
 
       implicit none
 
@@ -372,7 +372,9 @@ c Calculate flow-based CFL
             if (nz == 1) ih(3) = 0d0
 
             !k.v
-            v = abs(vcnv(i,j,k,:))
+            v(1) = u_np%array_var(IVX)%array(i,j,k)
+            v(2) = u_np%array_var(IVY)%array(i,j,k)
+            v(3) = u_np%array_var(IVZ)%array(i,j,k)
             kv_par = scalarProduct(gv%gparams,i,j,k,igx,ih,v)
 
             !Find flow CFL
