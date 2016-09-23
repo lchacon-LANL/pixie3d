@@ -38,9 +38,9 @@ c Begin program
 
       nwt_iter = nk_current_Newton_iteration()
 
-c Setup PC parameters
+c Configure PC parameters
 
-      call PC_setup
+      call PC_config
 
 c Impose BCs
 

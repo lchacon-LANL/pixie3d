@@ -19,7 +19,7 @@ c--------------------------------------------------------------------
 
       use par_int
 
-      use precond_setup, only: pc_as_solver
+      use PC_setup, only: pc_as_solver
 
       implicit none
 

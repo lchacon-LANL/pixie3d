@@ -1,11 +1,89 @@
 
+c module PC_setup
+c ######################################################################
+      module PC_setup
+
+        use grid
+
+        use ts_setup
+
+        use nlfunction_setup, ONLY: ion_hall,electron_hall
+
+        !SI solver parameters
+        integer :: mg_ores_si
+     .            ,mg_oprol_si
+     .            ,sm_iter_si
+     .            ,iter_si
+
+        logical :: sm_zebra_relax_si
+
+        real(8) :: sm_omega_si
+
+        character(2) :: sm_type_si
+
+        !Configurable setup (in readInput)
+        logical :: pc_B_solve = .true.
+     .            ,pc_divclean=.false.
+
+        !Hardwired setup
+        logical :: pc_v_solve=.false.          !Whether to perform final v corrector step
+     .            ,pc_split_EMHD_after=.false. !Whether to perform ???
+
+        !Internal variables
+        logical :: pc_ion_hall
+     .            ,pc_e_hall
+ 
+        integer :: iDBG
+
+      contains
+
+c     PC_config
+c     ##################################################################
+      subroutine PC_config
+
+      implicit none
+
+c     ------------------------------------------------------------------
+c     Hardwire setup variables for PC and perform consistency checks.
+c     ------------------------------------------------------------------
+
+c     Begin program
+
+      pc_ion_hall  = ion_hall       !Whether to use ion Ohm's law in PC
+      pc_e_hall    = electron_hall  !Whether to use electron's Ohm's law in PC
+
+      !SCIDAC 08 conference data for Hall MHD
+cc      pc_B_solve  = .true.
+cc      mg_gm_coarse = .true.
+cccc      ores   = 2
+cccc      pc_B_solve  = .false.
+cccc      divCln = .false.
+
+c     SI solver configuration
+
+      sm_type_si  = sm_type
+      sm_omega_si = sm_omega
+      sm_iter_si  = sm_iter
+      sm_zebra_relax_si = sm_zebra_relax
+      mg_ores_si  = mg_ores
+      mg_oprol_si = mg_oprol
+
+c     Consistency check
+
+      call TS_solver_consistency_chk
+
+      end subroutine PC_config
+
+      end module PC_setup
+
+#if !defined(plotting) && !defined(_equ)
 c module PC_var
 c ######################################################################
       module PC_var
 
         use timeStepping
 
-        use precond_setup
+        use PC_setup
 
         use transport_params
 
@@ -16,8 +94,6 @@ c ######################################################################
         use operators
 
         use variables
-
-        use grid
 
 #if !defined(samrai)
         use nk
@@ -2265,3 +2341,4 @@ c ###################################################################
         use local_BCS_variables, ONLY: order_bc,nc_eom_v
 
       end module matvec
+#endif
