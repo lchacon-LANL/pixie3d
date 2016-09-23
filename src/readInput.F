@@ -574,15 +574,20 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 
       if (cnfactor == 1d0) ion_hall = .false.
 
+      if (di == 0d0) ion_hall = .false.
+
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
-      if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
+      electron_hall = (di > 0d0).and.(.not.ion_hall)
+
+      if (electron_hall.and.pc_type /='id') pc_type = 's4'
 
       if (ion_hall) pc_type = 's1'
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
       if (slava) nu_is_rhonu = .true.
+
 cc      if (ion_hall) slava = .false.
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces

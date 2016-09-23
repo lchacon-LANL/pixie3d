@@ -140,6 +140,7 @@ c ######################################################################
         character(5)  :: equil
 
         logical :: ion_hall   =.false.  !Whether to use ion EOM for Hall E
+     .            ,electron_hall=.false.!Whether to use e   EOM for Hall E
      .            ,pinch_flow =.false.  !Whether equilibrium has pinch flow
      .            ,slava      =.false.  !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
@@ -6199,7 +6200,7 @@ c     Begin program
 
 c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
 
-      if (.not.ion_hall) then
+      if (electron_hall) then
 
         if (de > 0d0) then
           bcnv_star = bcnv -de**2/di*curl(g_def,igx,vecov)
@@ -6708,7 +6709,7 @@ c ######################################################################
 
         use ts_setup
 
-        use nlfunction_setup, ONLY: ion_hall,di
+        use nlfunction_setup, ONLY: ion_hall,electron_hall
 
         integer :: mg_ores_si
      .            ,mg_oprol_si
@@ -6719,9 +6720,10 @@ c ######################################################################
 
         character(2) :: sm_type_si
 
-        logical :: pc_B_solve = .true.
+        logical :: pc_B_solve = .true.         !Set in readInput
      .            ,pc_v_solve
      .            ,pc_ion_hall
+     .            ,pc_e_hall
      .            ,pc_divclean
      .            ,sm_zebra_relax_si
      .            ,pc_split_EMHD_after=.false.
@@ -6744,10 +6746,10 @@ c     ------------------------------------------------------------------
 
 c     Begin program
 
-      pc_asm       =.false. !Whether to do additive Schwartz PC
-cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
-      pc_v_solve   =.false. !Whether to perform final v corrector step
-      pc_ion_hall  = ion_hall  !Whether to use ion Ohm's law in PC
+      pc_asm       =.false.         !Whether to do additive Schwartz PC
+      pc_v_solve   =.false.         !Whether to perform final v corrector step
+      pc_ion_hall  = ion_hall       !Whether to use ion Ohm's law in PC
+      pc_e_hall    = electron_hall  !Whether to use electron's Ohm's law in PC
 
       mg_gm_coarse =.false. !Whether to use GMRES as the coarse solve
 cc      mg_gm_coarse = (np>1) !Whether to use GMRES as the coarse solve
@@ -6771,7 +6773,7 @@ cccc      divCln = .false.
 
       !Consistency checks
       if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
-cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
+cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
       !Setup for singular point geometries

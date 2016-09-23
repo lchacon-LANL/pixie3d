@@ -38,8 +38,6 @@ c Local variables
       real(8) :: dvol,car(3),cnv(3),omg
      .          ,r(nn*neq),x(nn*neq),rrr(nn,neq),dxxx(nn,neq)
 
-      logical :: electron_hall
-
 c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
@@ -63,8 +61,6 @@ c Begin program
       endif
 
       xxx = 0d0
-
-      electron_hall = (di > 0d0).and.(.not.pc_ion_hall)
 
 c     Create auxiliary arrays
 

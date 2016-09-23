@@ -523,7 +523,7 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IVECOV_N)
 
-          if (.not.ion_hall) call XferBCs(vecov,vecov_n,.false.)
+          if (electron_hall) call XferBCs(vecov,vecov_n,.false.)
 
         case(IVCNV_N)
 
@@ -669,7 +669,7 @@ cc            endif
         case(IDIVPE)
 
 #if !defined(vec_pot)
-          if (di > 0d0.and.(.not.ion_hall)) then
+          if (electron_hall) then
             bcnd = vaux%vec_list(IDIVPE)%bconds
             vdum = XformVector(gv%gparams,igr,div_pe,.false.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pe,vdum,v0,bcnd
@@ -996,7 +996,7 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IVECOV_N)
 
-          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
+          if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
@@ -1391,7 +1391,7 @@ cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
 
         case(IVECOV_N)
 
-cc          if (.not.ion_hall) vecov_n= vecov  !Initializes for BDF2 as well
+cc          if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
         case(IJCNV_N)
 
