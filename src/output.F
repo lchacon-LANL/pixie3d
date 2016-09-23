@@ -10,7 +10,7 @@ c----------------------------------------------------------------------
 
       use timeStepping
 
-      use precond_setup
+      use PC_setup
 
       use app_iosetup
 
