@@ -37,6 +37,7 @@ c ######################################################################
      .                             ,form_ve
      .                             ,form_jfake
      .                             ,vlap_etaj
+     .                             ,electron_hall
 
         use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 

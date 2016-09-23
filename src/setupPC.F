@@ -137,7 +137,7 @@ c     Temperature
 c       Magnetic field
 
 #if !defined(vec_pot)
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+          if (pc_e_hall) then
             bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
             bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
             call find_mf_diag(gv%gparams,6,1,6*ntotdp,b_mtvc_hyp,1
@@ -147,7 +147,7 @@ c       Magnetic field
      .           ,IBX:IBZ),b_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
 #else
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+          if (pc_e_hall) then
             bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
             if (fake_ve) then
               bcs_hyp(:,4:6) = gv%aux%vec_list(IVEFCNV)%bconds
