@@ -371,7 +371,7 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(IHETA)
 
-cc          h_eta=hres(gv%gparams,nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
+cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
           h_eta=hres(gv%gparams,igr,bcnv_0,rho)
 
         case(IRHO_0)
@@ -533,7 +533,7 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IJCNV_N)
 
-          if (ion_hall) call XferBCs(jcnv,jcnv_n,.false.)
+          if (ion_hall.and.fake_ve) call XferBCs(jcnv,jcnv_n,.false.)
 
         case(IVCNV)
 
@@ -870,7 +870,7 @@ c       Resistivity (needed for BCs; may depend on T)
 
 c       Find hyperresistivity (electron viscosity)
 
-cc          h_eta=hres(gv%gparams,nnx,nny,nnz,igr,igr,igr,bcnv_0,rho_0)
+cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
           h_eta=hres(gv%gparams,igr,bcnv_0,rho)
 
         case default
@@ -1000,7 +1000,7 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
         case(IJCNV_N)
 
-cc          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
+          if (ion_hall.and.fake_ve) jcnv_n = jcnv  !Initializes for BDF2 as well
 
 cc        case(IBCNV_N)
 cc

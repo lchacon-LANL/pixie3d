@@ -6541,11 +6541,16 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       elseif (heta > 0d0) then
 
-        if (nu_is_rhonu) then
+        if (slava) then
           h_res = heta
         else
           h_res = rho*heta
         endif
+c$$$        if (nu_is_rhonu) then
+c$$$          h_res = rho*heta
+c$$$        else
+c$$$          h_res = heta
+c$$$        endif
 
       else
 
