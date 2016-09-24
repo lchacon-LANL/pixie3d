@@ -38,9 +38,9 @@ c Begin program
 
       nwt_iter = nk_current_Newton_iteration()
 
-c Setup PC parameters
+c Configure PC parameters
 
-      call PC_setup
+      call PC_config
 
 c Impose BCs
 
@@ -137,7 +137,7 @@ c     Temperature
 c       Magnetic field
 
 #if !defined(vec_pot)
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+          if (pc_e_hall) then
             bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
             bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
             call find_mf_diag(gv%gparams,6,1,6*ntotdp,b_mtvc_hyp,1
@@ -147,7 +147,7 @@ c       Magnetic field
      .           ,IBX:IBZ),b_diag,sm_ncolors,vol_wgt,mg_glrkin)
           endif
 #else
-          if (di > 0d0 .and. (.not.pc_ion_hall)) then
+          if (pc_e_hall) then
             bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
             if (fake_ve) then
               bcs_hyp(:,4:6) = gv%aux%vec_list(IVEFCNV)%bconds
@@ -293,5 +293,9 @@ c###################################################################
       subroutine kill_app_PC
 
       use PC_var
+
+c     Deallocate LOCAL auxiliary variables
+
+      call destroyAppBCs
 
       end subroutine kill_app_PC

@@ -3,7 +3,7 @@ A_CODE       = pixplot_a.x
 PETSCCODE    = pixplot.petsc.x
 PETSC_A_CODE = pixplot_a.petsc.x
 
-MODS := mhd_mod.F BC_mod.F
+MODS := mhd_mod.F BC_mod.F PC_mod.F
 
 EXCLUDE += %ts_io_mod.F %ts_if_mod.F %ts_base_mod.F %ts_mod.F %proj_int_mod.F
 
@@ -36,6 +36,7 @@ SUBDIRS += $(COMMONDIR)/3dplot
 LNK_FILES = ../src/applyBC.F\
 	    ../src/BC_mod.F\
 	    ../src/mhd_mod.F\
+	    ../src/PC_mod.F\
 	    ../src/readInput.F
 
 # Dependencies

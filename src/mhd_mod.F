@@ -140,6 +140,7 @@ c ######################################################################
         character(5)  :: equil
 
         logical :: ion_hall   =.false.  !Whether to use ion EOM for Hall E
+     .            ,electron_hall=.false.!Whether to use e   EOM for Hall E
      .            ,pinch_flow =.false.  !Whether equilibrium has pinch flow
      .            ,slava      =.false.  !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
@@ -6199,7 +6200,7 @@ c     Begin program
 
 c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
 
-      if (.not.ion_hall) then
+      if (electron_hall) then
 
         if (de > 0d0) then
           bcnv_star = bcnv -de**2/di*curl(g_def,igx,vecov)
@@ -6540,11 +6541,16 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       elseif (heta > 0d0) then
 
-        if (nu_is_rhonu) then
+        if (slava) then
           h_res = heta
         else
           h_res = rho*heta
         endif
+c$$$        if (nu_is_rhonu) then
+c$$$          h_res = rho*heta
+c$$$        else
+c$$$          h_res = heta
+c$$$        endif
 
       else
 
@@ -6699,98 +6705,3 @@ c     End program
       end function chi_perp_mesh
 
       end module nlfunction_setup
-
-c module precond_setup
-c ######################################################################
-      module precond_setup
-
-        use grid
-
-        use ts_setup
-
-        use nlfunction_setup, ONLY: ion_hall,di
-
-        integer :: mg_ores_si
-     .            ,mg_oprol_si
-     .            ,sm_iter_si
-     .            ,iter_si
-
-        real(8) :: sm_omega_si
-
-        character(2) :: sm_type_si
-
-        logical :: pc_B_solve = .true.
-     .            ,pc_v_solve
-     .            ,pc_ion_hall
-     .            ,pc_divclean
-     .            ,sm_zebra_relax_si
-     .            ,pc_split_EMHD_after=.false.
-
-        integer :: iDBG
-
-      contains
-
-c     PC_setup
-c     ##################################################################
-      subroutine PC_setup
-
-      implicit none
-
-c     ------------------------------------------------------------------
-c     Hardwire setup variables for PC and perform consistency checks.
-c     ------------------------------------------------------------------
-
-      integer :: d
-
-c     Begin program
-
-      pc_asm       =.false. !Whether to do additive Schwartz PC
-cc      pc_B_solve   =.true.  !Whether to invert M_B or not  <=== Now set in readInput.F
-      pc_v_solve   =.false. !Whether to perform final v corrector step
-      pc_ion_hall  = ion_hall  !Whether to use ion Ohm's law in PC
-
-      mg_gm_coarse =.false. !Whether to use GMRES as the coarse solve
-cc      mg_gm_coarse = (np>1) !Whether to use GMRES as the coarse solve
-      mg_glrkin    =.false. !Whether to use Galerking MG
-      mg_debug     =.false. !Whether to go into debugging mode in MG
-      mg_cvrg_test =.false. !Whether to perform convergence test of smoother
-      mg_coarse_size = 2    !Minimum coarse grid size (mg_ratio^mg_coarse_size)
-
-      d = 3
-      if (nxd == 1) d = d-1
-      if (nyd == 1) d = d-1
-      if (nzd == 1) d = d-1
-      sm_ncolors   = 2**d   !Number of colors for diagonal calc., smoothing
-
-      !SCIDAC 08 conference data for Hall MHD
-cc      pc_B_solve  = .true.
-cc      mg_gm_coarse = .true.
-cccc      ores   = 2
-cccc      pc_B_solve  = .false.
-cccc      divCln = .false.
-
-      !Consistency checks
-      if (pc_type == 's3') pc_B_solve = .true.    !Invert B for large-flow PC
-cc      if (pc_type == 's1' .and. (.not.ion_hall) .and. (di > 0d0))
-cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
-
-      !Setup for singular point geometries
-      if (bcSP()) then
-        mg_oprol = 1
-cc        mg_ores  = 1
-cc        sm_zebra_relax = .true.
-      endif
-
-      !SI solver configuration
-      sm_type_si  = sm_type
-      sm_omega_si = sm_omega
-      sm_iter_si  = sm_iter
-      sm_zebra_relax_si = sm_zebra_relax
-      mg_ores_si  = mg_ores
-      mg_oprol_si = mg_oprol
-
-      call TS_solver_consistency_chk
-
-      end subroutine PC_setup
-
-      end module precond_setup

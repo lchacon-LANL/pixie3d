@@ -10,7 +10,7 @@ c----------------------------------------------------------------------
 
       use timeStepping
 
-      use precond_setup
+      use PC_setup
 
       use app_iosetup
 
@@ -237,7 +237,7 @@ c     Warnings
      .     write (*,*) 'Not solving for density'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
-      if (ion_hall .and. (di > 0d0))
+      if (ion_hall)
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
       if (fake_ve) write (*,*) 'Using fake Ve in Pi_e'
