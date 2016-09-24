@@ -329,7 +329,7 @@ c--------------------------------------------------------------------
 
       use variables
 
-      use nlfunction_setup, ONLY: vcnv
+      use nlfunction_setup, ONLY: IVX,IVY,IVZ
 
       implicit none
 
@@ -372,7 +372,9 @@ c Calculate flow-based CFL
             if (nz == 1) ih(3) = 0d0
 
             !k.v
-            v = abs(vcnv(i,j,k,:))
+            v(1) = u_np%array_var(IVX)%array(i,j,k)
+            v(2) = u_np%array_var(IVY)%array(i,j,k)
+            v(3) = u_np%array_var(IVZ)%array(i,j,k)
             kv_par = scalarProduct(gv%gparams,i,j,k,igx,ih,v)
 
             !Find flow CFL
@@ -384,7 +386,11 @@ c Calculate flow-based CFL
 
 c Calculate flow-CFL time step
 
-      dt_cfl = 0.15*pi/w_cfl
+      if (w_cfl > 0d0) then
+        dt_cfl = 0.15*pi/w_cfl
+      else
+        dt_cfl = 1d10
+      endif
 
 c Synchronize timestep among all processors
 

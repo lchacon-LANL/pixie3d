@@ -169,7 +169,7 @@ c------------------------------------------------------------------
 
 c Begin program
 
-      call deallocLocalAuxVars
+      call destroyAppBCs
 
 c End program
 

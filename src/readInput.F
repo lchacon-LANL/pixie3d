@@ -18,7 +18,7 @@ c----------------------------------------------------------------------
 
       use nlfunction_setup
 
-      use precond_setup
+      use PC_setup
 
       use app_iosetup
 
@@ -533,9 +533,7 @@ c Find alpha_p=p_t/p_e; p_t=p_i+p_e
 
 c Initialize grid packing structure
 
-      g_pack(1) = gp1
-      g_pack(2) = gp2
-      g_pack(3) = gp3
+      call init_grid_pack_config(gp1,gp2,gp3)
 
 c Initialize MG parameters
 
@@ -545,6 +543,95 @@ c Initialize MG parameters
 #endif
 
 c Consistency check
+
+      call consistency_chk
+
+c Map perturbations
+
+      pert(IRHO)= prho
+      pert(IVX) = pvx
+      pert(IVY) = pvy
+      pert(IVZ) = pvz
+#if !defined(vec_pot)
+      pert(IBX) = pbx
+      pert(IBY) = pby
+      pert(IBZ) = pbz
+#else
+      pert(IAX) = pax
+      pert(IAY) = pay
+      pert(IAZ) = paz
+#endif
+      pert(ITMP)= a_p*ptemp  !Transform to total pressure
+
+c Init boundary conditions
+
+      ioerr = initBCS(bcs)
+
+      if (ioerr /= 0)
+     .     call pstop('readInput','Error in initialization of BCs')
+
+c Write initialization parameters to standard output
+
+      if (my_rank == 0 .and. (.not. test)) then
+        write (*,*) '------------------'
+        write (*,*) 'GRID configuration'
+        write (*,*) '------------------'
+        write (*,setup)
+
+        write (*,*) '------------------'
+        write (*,*) 'PHYS configuration'
+        write (*,*) '------------------'
+        write (*,phys)
+
+        write (*,*) '----------------- '
+        write (*,*) 'FV  configuration'
+        write (*,*) '----------------- '
+        write (*,fv)
+
+        write (*,*) '----------------- '
+        write (*,*) 'TS  configuration'
+        write (*,*) '----------------- '
+        write (*,ts)
+
+        write (*,*) '----------------- '
+        write (*,*) 'NKS configuration'
+        write (*,*) '----------------- '
+        write (*,nks)
+
+        write (*,*) '----------------- '
+        write (*,*) 'PC  configuration'
+        write (*,*) '----------------- '
+        write (*,pc)
+
+        write (*,*) '----------------- '
+        write (*,*) 'IO  configuration'
+        write (*,*) '----------------- '
+        write (*,i_o)
+      endif
+
+c Initialize graphics
+
+      ioerr=readGraphicsConfig(in_file)
+
+      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
+        write (*,*) 'Problem reading "graphics" namelist'
+      endif
+
+c Debug profile stage
+
+#if defined(petsc)
+      iDBG=add_profile_stage("Debug")
+#endif
+
+c End program
+
+      contains
+
+c     consistency_chk
+c     #####################################################################
+      subroutine consistency_chk
+
+      implicit none
 
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
@@ -565,7 +652,7 @@ cc      if (coords /= 'car') nc_eom_f = .true.
         nc_eom_gp  = .true.
       endif
 
-      !Hall MHD
+      !MHD
       if (chi_par == 0d0) chi_par = chi
 
       if (di == 0d0) de = 0d0
@@ -576,18 +663,31 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 
       if (cnfactor == 1d0) ion_hall = .false.
 
+      if (di == 0d0) ion_hall = .false.
+
       if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
-      if (.not.ion_hall.and.di > 0d0.and.pc_type /='id') pc_type = 's4'
-
-      if (ion_hall) pc_type = 's1'
+      electron_hall = (di > 0d0).and.(.not.ion_hall)
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
       if (slava) nu_is_rhonu = .true.
+
 cc      if (ion_hall) slava = .false.
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
+
+      !PC
+      if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
+
+      if (bcs(1) == 'spt') mg_oprol = 1
+
+      if (electron_hall.and.pc_type /='id') pc_type = 's4'
+
+      if (ion_hall) pc_type = 's1'
+
+cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
+cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
 
       !Eigenvalue computation
       if (eigen) then
@@ -652,84 +752,6 @@ cc         maxitnwt = 10
       npx = 1 ; npy = 1 ; npz = 1
 #endif
          
-c Map perturbations
-
-      pert(IRHO)= prho
-      pert(IVX) = pvx
-      pert(IVY) = pvy
-      pert(IVZ) = pvz
-#if !defined(vec_pot)
-      pert(IBX) = pbx
-      pert(IBY) = pby
-      pert(IBZ) = pbz
-#else
-      pert(IAX) = pax
-      pert(IAY) = pay
-      pert(IAZ) = paz
-#endif
-      pert(ITMP)= a_p*ptemp  !Transform to total pressure
-
-c Init boundary conditions
-
-      ioerr = initBCS(bcs)
-
-      if (ioerr /= 0)
-     .     call pstop('readInput','Error in initialization of BCs')
-
-c Write initialization parameters to standard output
-
-      if (my_rank == 0 .and. (.not. test)) then
-        write (*,*) '-------------------'
-        write (*,*) 'SETUP configuration'
-        write (*,*) '-------------------'
-        write (*,setup)
-
-        write (*,*) '------------------'
-        write (*,*) 'PHYS configuration'
-        write (*,*) '------------------'
-        write (*,phys)
-
-        write (*,*) '----------------- '
-        write (*,*) 'FV  configuration'
-        write (*,*) '----------------- '
-        write (*,fv)
-
-        write (*,*) '----------------- '
-        write (*,*) 'TS  configuration'
-        write (*,*) '----------------- '
-        write (*,ts)
-
-        write (*,*) '----------------- '
-        write (*,*) 'NKS configuration'
-        write (*,*) '----------------- '
-        write (*,nks)
-
-        write (*,*) '----------------- '
-        write (*,*) 'PC  configuration'
-        write (*,*) '----------------- '
-        write (*,pc)
-
-        write (*,*) '----------------- '
-        write (*,*) 'IO  configuration'
-        write (*,*) '----------------- '
-        write (*,i_o)
-      endif
-
-c Initialize graphics
-
-      ioerr=readGraphicsConfig(in_file)
-
-      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
-        write (*,*) 'Problem reading "graphics" namelist'
-      endif
-
-c Debug profile stage
-
-#if defined(petsc)
-      iDBG=add_profile_stage("Debug")
-#endif
-
-
-c End program
+      end subroutine consistency_chk
 
       end subroutine readInput
