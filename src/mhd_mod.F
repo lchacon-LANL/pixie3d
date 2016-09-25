@@ -6228,7 +6228,6 @@ c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
         if (save_tn.or.source_eval) then
           E_h = 0d0
         else
-cc          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in U_Av_ijk
           E_h = cnp*(vcnv-vcnv_n)/alpha/dt  !Change constant in U_Av_ijk; works for BDF
         endif
 
@@ -6238,32 +6237,36 @@ cc          E_h = (cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm)/alpha/dt  !Change constant in
         E_h(:,:,:,3) = E_h(:,:,:,3) + div_pi(:,:,:,3)/rho
 
         !Advection
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-cc              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-cccc     .                            ,min(advect,2))
-cc     .                            ,1)
-              cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                         ,vcnv,vcnv,v_advect)
-     .             -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                               ,vcnv)
-     .             +E_h(i,j,k,:)
-
-              E_h(i,j,k,:)
-     .             = matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
-            enddo
-          enddo
-        enddo
+        E_h = XformVector(g_def,igx,E_h,.false.)
+     .       +tensor_nc_advc_mesh(g_def,igx,vcnv,vcnv
+     .                           ,gv%aux%vec_list(IVCNV)%bconds
+     .                           ,v_advect,.true.)
+c$$$        do k=1,nz
+c$$$          do j=1,ny
+c$$$            do i=1,nx
+c$$$cc              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+c$$$cccc     .                            ,min(advect,2))
+c$$$cc     .                            ,1)
+c$$$              cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+c$$$     .                         ,vcnv,vcnv,v_advect)
+c$$$     .             -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+c$$$     .                               ,vcnv)
+c$$$     .             +E_h(i,j,k,:)
+c$$$
+c$$$              E_h(i,j,k,:)
+c$$$     .             = matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
 
         !Ion pressure term: grad(pi)/rho
-cc        Eh = Eh + temp_ratio*grad(igx,pe)
         if (temp_ratio > 0d0) then
+cc          Eh = Eh + temp_ratio*grad(g_def,igx,pe)/rho
           do k=1,nz
             do j=1,ny
               do i=1,nx
-                cov
-     .            = temp_ratio*grad(g_def,i,j,k,nx,ny,nz,igx,igy,igz,pe)
+                cov = temp_ratio
+     .               *grad(g_def,i,j,k,nx,ny,nz,igx,igy,igz,pe)
 
                 E_h(i,j,k,:) = E_h(i,j,k,:) + cov/rho(i,j,k)
               enddo
