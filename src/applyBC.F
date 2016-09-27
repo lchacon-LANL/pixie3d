@@ -318,6 +318,8 @@ c Local variables
 
 c Begin program
 
+      save_tn = old_time_eval .or. source_eval
+
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -721,6 +723,8 @@ c Local variables
       real(8),pointer,dimension(:,:,:) :: jac
 
 c Begin program
+
+      save_tn = old_time_eval .or. source_eval
 
 c Local grid sizes
 
@@ -1129,6 +1133,8 @@ c Local variables
       real(8),pointer,dimension(:,:,:) :: jac
 
 c Begin program
+
+      save_tn = old_time_eval .or. source_eval
 
 c Local grid sizes
 

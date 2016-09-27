@@ -1442,13 +1442,11 @@ c     Equilibrium quantities
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
-cc      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV*AUX
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%dom_dep_list(1,3) = 0 !trivial
 
       !Ve_n cnv
-cc      vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV_NM*AUX
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV*AUX
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,3) = 0 !trivial
@@ -4269,8 +4267,6 @@ c ######################################################################
      .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
      .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
 
-        logical :: save_tn
-
         INTERFACE res
           module procedure res_mesh
         END INTERFACE
@@ -6251,9 +6247,9 @@ c     Begin program
       E_h(:,:,:,3) = E_h(:,:,:,3)/rho
 
       !Temporal term: dv/dt
-      if (.not.(save_tn.or.source_eval)) then
+      if (.not.( old_time_eval.or.source_eval)) then
         E_h = E_h
-     .      + cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
+     .       +cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
       endif
 
       !Advection: v.grad(v) (covariant)

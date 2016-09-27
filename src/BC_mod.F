@@ -433,7 +433,7 @@ c####################################################################
      .                             ,ion_hall,E_fld_ihall
      .                             ,E_fld_ehall,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
-     .                             ,save_tn,pinch_flow
+     .                             ,pinch_flow
      .                             ,res_ijk,vis_ijk,form_ve
 
 #if defined(vec_pot)
@@ -443,6 +443,8 @@ c####################################################################
 #endif
 
         logical :: no_eq_bc=.false.,no_tn_bc=.false.
+
+        logical :: save_tn
 
       contains
 
