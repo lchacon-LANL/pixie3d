@@ -170,15 +170,9 @@ cc      if (chk_src) return
 
 c Electron velocity
 
-      if (fake_ve) then
-        vex = vefcnv(:,:,:,1)
-        vey = vefcnv(:,:,:,2)
-        vez = vefcnv(:,:,:,3)
-      else
-        vex = vecnv(:,:,:,1)
-        vey = vecnv(:,:,:,2)
-        vez = vecnv(:,:,:,3)
-      endif
+      vex = vecnv(:,:,:,1)
+      vey = vecnv(:,:,:,2)
+      vez = vecnv(:,:,:,3)
       call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,vex,vey,vez,'cnv','car')
 

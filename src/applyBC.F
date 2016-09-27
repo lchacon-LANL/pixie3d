@@ -355,15 +355,11 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(INU)
 
-#if defined(RFX)
-          nuu = vis(gv%gparams,igr,tmp)
-#else
           if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)
           endif
-#endif
 
         case(IETA_0)
 
@@ -531,10 +527,6 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
           call XferBCs(vcnv,vcnv_n,.false.)
 #endif
 
-        case(IJCNV_N)
-
-          if (ion_hall.and.fake_ve) call XferBCs(jcnv,jcnv_n,.false.)
-
         case(IVCNV)
 
 c       Velocity BC
@@ -619,45 +611,10 @@ c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
 
 cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
-        case(IVEFCNV)
-
-c       Current BC on fake current
-
-          if (fake_ve) then
-cc            if (ion_hall) then
-cc              v0 = 0d0
-cc
-cc              bcnd = vaux%vec_list(IVEFCNV)%bconds
-cc              vdum = XformVector(gv%gparams,igr,vefcnv,.false.)
-cc              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-cc     .                ,igr,igr,igr,iorder=order
-cc     .                ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
-cc
-cc            else
-              !BCs on j=curl(curl(A))
-              if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
-                prs1 = rho*tmp
-                call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
-              else
-                call XferBCs(jcnv_0,v0,.true.)
-              endif
-
-              bcnd = vaux%vec_list(IVEFCNV)%bconds
-              vdum = XformVector(gv%gparams,igr,vefcnv,.false.)
-cc            call setBC(gv%gparams,IJX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-cc            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vefcnv,vdum,v0,bcnd
-              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vefcnv,vdum,v0
-     .                  ,bcnd,igr,igr,igr,iorder=order
-     .                  ,is_cnv=vaux%vec_list(IVEFCNV)%cnv)
-cc            endif
-          else
-            vefcnv = jcnv
-          endif
-
         case(IDIVPI)
 
 #if !defined(vec_pot)
-          if (di > 0d0.and.ion_hall) then
+          if (ion_hall) then
             bcnd = vaux%vec_list(IDIVPI)%bconds
             vdum = XformVector(gv%gparams,igr,div_pi,.false.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,div_pi,vdum,v0,bcnd
@@ -847,15 +804,12 @@ cc          end where
 
 c       Viscosity (needed for BCs; may depend on T)
  
-#if defined(RFX)
-          nuu = vis(gv%gparams,igr,tmp)
-#else
           if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)
           endif
-#endif
+
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
@@ -998,10 +952,6 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
 
           if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
-        case(IJCNV_N)
-
-          if (ion_hall.and.fake_ve) jcnv_n = jcnv  !Initializes for BDF2 as well
-
 cc        case(IBCNV_N)
 cc
 cc          bcnv_n = bcnv !Save previous time step
@@ -1082,51 +1032,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
           vecov = XformVector(gv%gparams,igr,vecnv,.false.)
 
-        case(IVEFCNV)
-
-c       Fake current
-
-          if (fake_ve) then
-            if (ion_hall) then
-              !Ion inertia
-              if (save_tn) then !Set dt=0 at time t=t_n
-                v0 = 0d0
-              else
-cc                v0 =  cnp*vcnv+cn*vcnv_n+cnm*vcnv_nm
-                v0 =  cnp*(vcnv-vcnv_n)  !Works for BDF2
-              endif
-
-              !j=jn + dj_fake
-              vefcnv = jcnv_n + form_jfake(gv%gparams,igr,v0,div_pi,rho)
-            else
-#if defined(vec_pot)
-              !j=curl(curl(A))
-              v0 = curlcurl_cov(gv%gparams,igr,acov)
-              vefcnv = XformVector(gv%gparams,igr,v0,.true.)
-#else
-              call pstop('applyBC'
-     .                  ,'No fake Ve available for B-based E-hall')
-#endif
-            endif
-
-          else
-
-            vefcnv = jcnv
-
-          endif
-
-c old TM Hall MHD performance results
-cc          do k=1,nnz
-cc            do j=1,nny
-cc              do i=1,nnx
-cc                vefcnv(i,j,k,:) = di*veclap(i,j,k,nnx,nny,nnz
-cc     .                                       ,igr,igr,igr,vcnv
-cc     .                                       ,vol=.false.)
-cc              enddo
-cc            enddo
-cc          enddo
-c old TM Hall performance results
-
         case(IDIVPI)
 
 c       Divergence of ion stress tensor
@@ -1142,7 +1047,7 @@ c       Divergence of ion stress tensor
 c       Divergence of electron stress tensor
 
           if (di > 0d0) then
-            div_pe = EOM_divPi(gv%gparams,igr,vefcnv,h_eta)
+            div_pe = EOM_divPi(gv%gparams,igr,vecnv,h_eta)
           else
             div_pe = 0d0
           endif
@@ -1151,10 +1056,12 @@ c       Divergence of electron stress tensor
 
 c       Hall electric field
 
-          if (di > 0d0) then
-            E_h  = E_fld_Hall(gv%gparams,igr,nnx,nny,nnz)
-          else
-            E_h  = 0d0
+          if (electron_hall) then
+            E_h  = E_fld_eHall(gv%gparams,igr
+     .                        ,rho,tmpe,bcnv,div_pe,vecov,vecov_n)
+          elseif(ion_hall) then
+            E_h  = E_fld_iHall(gv%gparams,igr
+     .                        ,rho,tmpe     ,div_pi,vcnv ,vcnv_n)
           endif
 
         case(IENI)
@@ -1284,15 +1191,12 @@ c       Resistivity at initial time
 
 c       Viscosity (needed for BCs; may depend on T)
  
-#if defined(RFX)
-          nuu = vis(gv%gparams,igr,tmp)
-#else
           if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
             nuu = vis(gv%gparams,igr,tmp)
           endif
-#endif
+
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
@@ -1393,10 +1297,6 @@ cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
 
 cc          if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
 
-        case(IJCNV_N)
-
-cc          if (ion_hall) jcnv_n = jcnv  !Initializes for BDF2 as well
-
         case(IVCOV)
 
 cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
@@ -1457,12 +1357,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
           call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
-
-        case(IVEFCNV)
-
-c       Fake electron velocity: vef = v -di*jfake/rho
-
-          vefcnv = form_ve(vcnv,vefcnv,rho)
 
         case(IDIVPI)
 

@@ -430,11 +430,11 @@ c####################################################################
         use equilibrium
 
         use nlfunction_setup, ONLY: res,chi_perp,vis,E_fld_res
-     .                             ,ion_hall,fake_ve,E_fld_hall
-     .                             ,EOM_divPi,hres
+     .                             ,ion_hall,E_fld_ihall
+     .                             ,E_fld_ehall,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,save_tn,pinch_flow
-     .                             ,res_ijk,vis_ijk,form_ve,form_jfake
+     .                             ,res_ijk,vis_ijk,form_ve
 
 #if defined(vec_pot)
         integer :: order_bc=1
