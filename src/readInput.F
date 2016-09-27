@@ -45,7 +45,7 @@ c Local variables
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
      .                ,pc_debug_it,pc_max_iter
       logical       :: zebra_relax,hall_new,lag_pinch_bc,debug
-     .                ,mg_zebra_relax,restart,timecorr
+     .                ,mg_zebra_relax,restart,timecorr,fake_ve
       real(8)       :: mgtol
 
 c Namelists
@@ -111,7 +111,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
-     .                   ,ion_hall,fake_ve,slava,noise,noise_lev
+     .                   ,ion_hall,slava,noise,noise_lev
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
 
       !Temporal discretization
@@ -149,9 +149,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(11,22)  !11 scalars, 23 vectors
+      call setAuxVarDims(11,20)  !11 scalars, 20 vectors
 #else
-      call setAuxVarDims(11,25)  !11 scalars, 26 vectors
+      call setAuxVarDims(11,23)  !11 scalars, 23 vectors
 #endif
 
 c Set defaults
@@ -313,7 +313,6 @@ c Set defaults
                                !   (if zero, determine from advect below)
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
-      fake_ve    = .false.     ! Whether to use fake electron velocity in PIe in EOM
 
       slava      = .false.     ! Whether to use Slava Lukin's Hall MHD implementation
       noise      = .false.     ! Whether to add white noise to EOM
@@ -665,15 +664,17 @@ cc      if (coords /= 'car') nc_eom_f = .true.
 
       if (di == 0d0) ion_hall = .false.
 
-      if (de > 0d0) ion_hall = .false. !E inertia not implemented in ion_hall
+      if (de >  0d0) ion_hall = .false. !E inertia not implemented in ion_hall
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
-      if (slava) nu_is_rhonu = .true.
-
 cc      if (ion_hall) slava = .false.
+      if (slava) nu_is_rhonu = .true.
+#if defined(RFX)
+      nu_is_rhonu = .false.
+#endif
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
@@ -682,7 +683,7 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (bcs(1) == 'spt') mg_oprol = 1
 
-      if (electron_hall.and.pc_type /='id') pc_type = 's4'
+      if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
 
       if (ion_hall) pc_type = 's1'
 
@@ -717,13 +718,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if (solenoidal.and.(.not.pc_divclean)) postprocess = .true.
 
       !Vector advection
-      if (v_advect == 0) then
-cc        if (nc_eom_v) then
-cc          v_advect = min(advect,2) !Non-conservative EOM
-cc        else
-          v_advect = advect
-cc        endif
-      endif
+      if (v_advect == 0) v_advect = advect
 
       !Perform Lagrangian step at postprocessing time
       if (lagrangian) postprocess = .true.

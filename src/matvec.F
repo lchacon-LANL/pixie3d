@@ -1685,12 +1685,7 @@ cc              cc_a_cov = dj_cov(i,j,k,:)  !Unstable
 cc              cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz
 cc     .                                   ,igx,igy,igz,da_cov)
             else
-              if (fake_ve) then
-                cc_a_cov = curlcurl_cov_ijk(g_def,i,j,k,nxx,nyy,nzz
-     .                                     ,igrid,igrid,igrid,da_cov)
-              else
-                cc_a_cov = dj_cov(i,j,k,:)
-              endif
+              cc_a_cov = dj_cov(i,j,k,:)
             endif
 
             j_res = djf_cov(i,j,k,:) - cc_a_cov
@@ -2985,29 +2980,6 @@ c Find div(Pi(dv))
         divpi = 0d0
       endif
 
-c Find dE=U_Av(dv) (with BCs)
-
-      if (fake_ve) then
-        dE_cnv = form_jfake(g_def,igrid,cnp*dv,divpi,rho0(:,:,:,1))
-cc      else
-cc
-cc        do k = kmin,kmax
-cc          do j = jmin,jmax
-cc            do i = imin,imax
-cc              dB_cnv(i,j,k,:) = -dt/cnp*U_Bv_ijk(i,j,k,nxx,nyy,nzz
-cc     .                                 ,igrid,igrid,igrid,dv
-cc     .                                 ,dv_cov,a0_cnv,he=0
-cc     .                                 ,strs=.false.)
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dB_cnv
-cc     .            ,gv%aux%vec_list(IBCNV)%bconds,arr_cov=dB_cov
-cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_vec=.true.,iorder=1)
-      endif
-
 c Calculate matrix-vector product
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,heta0,gheta)
@@ -3096,70 +3068,66 @@ c Calculate matrix-vector product
             endif
 
             !Find current update, dj=-dt*curl(curl(dE))
-            if (fake_ve) then
-              dj = dE_cnv(i,j,k,:)
-            else
-cc              !Find dj=curl(db)
-cc              dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
+cc            !Find dj=curl(db)
+cc            dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
 
-              !Find dj=-dt*curl(U_Bv_ijk.dv)
-              cnv = U_Bv_ijk(g_def,i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,1)
-              call transformFromCurvToCurv(g_def,i,j,k
-     .                                    ,igrid,igrid,igrid
-     .                                    ,aip(1),aip(2),aip(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=1)
+            !Find dj=-dt*curl(U_Bv_ijk.dv)
+            cnv = U_Bv_ijk(g_def,i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,1)
+            call transformFromCurvToCurv(g_def,i,j,k
+     .                                  ,igrid,igrid,igrid
+     .                                  ,aip(1),aip(2),aip(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=1)
 
-              cnv = U_Bv_ijk(g_def,im,j,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,1)
-              call transformFromCurvToCurv(g_def,im,j,k
-     .                                    ,igrid,igrid,igrid
-     .                                    ,aim(1),aim(2),aim(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=1)
-                               
-              cnv = U_Bv_ijk(g_def,i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,2)
-              call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
-     .                                    ,ajp(1),ajp(2),ajp(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=2)
-                               
-              cnv = U_Bv_ijk(g_def,i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,2)
-              call transformFromCurvToCurv(g_def,i,jm,k
-     .                                    ,igrid,igrid,igrid
-     .                                    ,ajm(1),ajm(2),ajm(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=2)
-                               
-              cnv = U_Bv_ijk(g_def,i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,3)
-              call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
-     .                                    ,akp(1),akp(2),akp(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=3)
-                               
-              cnv = U_Bv_ijk(g_def,i,j,km,nxx,nyy,nzz,igrid,igrid,igrid
-     .                      ,dv,dv_cov,a0_cnv,3)
-              call transformFromCurvToCurv(g_def,i,j,km
-     .                                    ,igrid,igrid,igrid
-     .                                    ,akm(1),akm(2),akm(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=3)
+            cnv = U_Bv_ijk(g_def,im,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,1)
+            call transformFromCurvToCurv(g_def,im,j,k
+     .                                  ,igrid,igrid,igrid
+     .                                  ,aim(1),aim(2),aim(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=1)
+                             
+            cnv = U_Bv_ijk(g_def,i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,2)
+            call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ajp(1),ajp(2),ajp(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=2)
+                             
+            cnv = U_Bv_ijk(g_def,i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,2)
+            call transformFromCurvToCurv(g_def,i,jm,k
+     .                                  ,igrid,igrid,igrid
+     .                                  ,ajm(1),ajm(2),ajm(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=2)
+                             
+            cnv = U_Bv_ijk(g_def,i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,3)
+            call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,akp(1),akp(2),akp(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=3)
+                             
+            cnv = U_Bv_ijk(g_def,i,j,km,nxx,nyy,nzz,igrid,igrid,igrid
+     .                    ,dv,dv_cov,a0_cnv,3)
+            call transformFromCurvToCurv(g_def,i,j,km
+     .                                  ,igrid,igrid,igrid
+     .                                  ,akm(1),akm(2),akm(3)
+     .                                  ,cnv(1),cnv(2),cnv(3)
+     .                                  ,.false.,half_elem=3)
 
-              cnv(1) = (ajp(3)-ajm(3))/g_def%dyh(jg)
-     .                -(akp(2)-akm(2))/g_def%dzh(kg)
+            cnv(1) = (ajp(3)-ajm(3))/g_def%dyh(jg)
+     .              -(akp(2)-akm(2))/g_def%dzh(kg)
 
-              cnv(2) = (akp(1)-akm(1))/g_def%dzh(kg)
-     .                -(aip(3)-aim(3))/g_def%dxh(ig)
+            cnv(2) = (akp(1)-akm(1))/g_def%dzh(kg)
+     .              -(aip(3)-aim(3))/g_def%dxh(ig)
 
-              cnv(3) = (aip(2)-aim(2))/g_def%dxh(ig)
-     .                -(ajp(1)-ajm(1))/g_def%dyh(jg)
+            cnv(3) = (aip(2)-aim(2))/g_def%dxh(ig)
+     .              -(ajp(1)-ajm(1))/g_def%dyh(jg)
 
-              dj = -dt*cnv/cnp
-            endif
+            dj = -dt*cnv/cnp
 
             if (alt__eom()) v_res(2) = v_res(2)*jac
 

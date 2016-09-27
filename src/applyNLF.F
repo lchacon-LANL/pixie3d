@@ -205,7 +205,7 @@ c     Sources
         !Comment out for old TM Hall MHD performance results
         if (di > 0d0) then
           heat_src = heat_src
-     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vefcnv,vefcnv)
+     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vecnv,vecnv)
         endif
 
         !External heat source
@@ -876,7 +876,7 @@ c Begin program
                 if (di > 0d0) then
                   heat_src = heat_src
      .                   +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta
-     .                                    ,vefcnv,vecnv)
+     .                                    ,vecnv,vecnv)
                 endif
 
                 !External heat source

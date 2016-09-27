@@ -148,7 +148,6 @@ c ######################################################################
      .            ,solve_rho  =.true.   !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.  !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.  !Whether we use pressure in diffusion term in pressure eq.
-     .            ,fake_ve    =.true.   !Whether to use fake ve in div(Pe)
      .            ,nu_is_rhonu=.false.  !Whether to use rho*nu in electron and ion viscoust terms
 
         real(8) :: noise_lev
@@ -284,7 +283,6 @@ c ######################################################################
      .                       ,IJCNV_0  =2
      .                       ,IJCOV    =3
      .                       ,IJCOV_0  =4
-     .                       ,IJCNV_N  =22
 
         integer, parameter :: IBCNV    =5
      .                       ,IBCNV_0  =6
@@ -301,20 +299,17 @@ c ######################################################################
      .                       ,IVECOV_N =15
 cc     .                       ,IVECOV_NM=24
 
-        integer, parameter :: IVEFCNV  =16
+        integer, parameter :: IENI     =16
+     .                       ,IENI_0   =17
+     .                       ,IEH      =18
 
-        integer, parameter :: IENI     =17
-     .                       ,IENI_0   =18
-     .                       ,IEH      =19
-
-        integer, parameter :: IDIVPI   =20
-     .                       ,IDIVPE   =21
+        integer, parameter :: IDIVPI   =19
+     .                       ,IDIVPE   =20
 #else
         integer, parameter :: IJCNV   =1
      .                       ,IJCNV_0 =2
      .                       ,IJCOV   =3
      .                       ,IJCOV_0 =4
-     .                       ,IJCNV_N =25
 
         integer, parameter :: IBCNV   =5
      .                       ,IBCNV_0 =6
@@ -334,14 +329,12 @@ cc     .                       ,IVECOV_NM=24
      .                       ,IVECOV   =17
      .                       ,IVECOV_N =18
 
-        integer, parameter :: IVEFCNV =19
+        integer, parameter :: IENI    =19
+     .                       ,IEH     =20
+     .                       ,IENI_0  =21
 
-        integer, parameter :: IENI    =20
-     .                       ,IEH     =21
-     .                       ,IENI_0  =22
-
-        integer, parameter :: IDIVPI  =23
-     .                       ,IDIVPE  =24
+        integer, parameter :: IDIVPI  =22
+     .                       ,IDIVPE  =23
 #endif
 
         integer, parameter :: IETA=1
@@ -398,7 +391,6 @@ cc     .                                       ,vcnv_nm
      .                                       ,div_pi
      .                                       ,div_pe
      .                                       ,jcnv
-     .                                       ,jcnv_n
      .                                       ,jcnv_0
      .                                       ,jcov
      .                                       ,jcov_0
@@ -409,7 +401,6 @@ cc     .                                       ,vecnv_0
      .                                       ,vecov_n
 cc     .                                       ,vecov_nm
      .                                       ,vscnv
-     .                                       ,vefcnv
 
       contains
 
@@ -515,11 +506,6 @@ cc        vaux%vec_list(IBCNV_N)%descr = 'B_n cnv'
 cc        vaux%vec_list(IBCNV_N)%time_n= .true.
 cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
-        vaux%vec_list(IJCNV_N)%cnv = .true.
-        vaux%vec_list(IJCNV_N)%descr = 'J_n cnv'
-        vaux%vec_list(IJCNV_N)%time_n= .true.
-        jcnv_n => vaux%vec_list(IJCNV_N)%vec
-
         !New-time variables
         vaux%var_list(IRHO_AUX)%descr = 'rho'
         rho => vaux%var_list(IRHO_AUX)%array
@@ -571,10 +557,6 @@ cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
         vaux%vec_list(IVECOV)%cnv   = .false.
         vaux%vec_list(IVECOV)%descr = 'Ve cov'
         vecov => vaux%vec_list(IVECOV)%vec
-
-        vaux%vec_list(IVEFCNV)%cnv   = .true.
-        vaux%vec_list(IVEFCNV)%descr = 'Fake Ve cnv'
-        vefcnv => vaux%vec_list(IVEFCNV)%vec
 
         vaux%vec_list(IENI)%cnv   = .false.
         vaux%vec_list(IENI)%descr = 'E cov'
@@ -925,17 +907,6 @@ cc      call set_vec_symm_bc(vaux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
 cc      !Equilibrium electric field (non-ideal piece)
 cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH   )%bconds
 
-      !Fake electron velocity
-cc      vaux%vec_list(IVEFCNV)%bconds(:,1) = bcond
-cc      vaux%vec_list(IVEFCNV)%bconds(:,2) = bcond
-cc      vaux%vec_list(IVEFCNV)%bconds(:,3) = bcond
-cc      where (vaux%vec_list(IVEFCNV)%bconds == DEF)
-cc        vaux%vec_list(IVEFCNV)%bconds = EXT
-cc      end where
-cc      call set_vec_symm_bc(vaux%vec_list(IVEFCNV)%bconds,-1)  !Same as velocity
-
-      vaux%vec_list(IVEFCNV)%bconds= vaux%vec_list(IJCNV)%bconds
-
 c     End program
 
       end subroutine defineAuxBCs
@@ -1046,11 +1017,6 @@ c     Equilibrium quantities
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,3) = 0 !trivial
-
-      !J_n cnv
-      vaux%vec_list(IJCNV_N)%bc_dep_list(1,1) = IJCNV*AUX
-      vaux%vec_list(IJCNV_N)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IJCNV_N)%bc_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
 cc      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
@@ -1273,54 +1239,6 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IVECOV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV)%bc_dep_list(1,3) = 0 !trivial
 
-      !Fake Ve cnv
-      if (.not.fake_ve) then
-        vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IVECOV*AUX
-        vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = VECTOR
-        vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
-      else
-        if (ion_hall) then
-          !Ve_fake = v - di*curl(curl(E_fake))/rho
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IVCOV*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCNV_N*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(4,1) = IJCNV_N*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(4,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(4,3) = 0 !trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(5,1) = IDIVPI*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(5,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(5,3) = 1 !trivial
-        else
-#if defined(vec_pot)
-          !Ve_fake = v - di*curl(curl(a))/rho
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,1) = IRHO_AUX*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,2) = SCALAR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(1,3) = 0 !trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,1) = IACNV*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(2,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,1) = IVCOV*AUX
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%bc_dep_list(3,3) = 0 !trivial
-#else
-          call pstop('defineAuxBCDeps','BCs for Ve_fake undefined')
-#endif
-        endif
-
-      endif
-
       !Div(pi)
       vaux%vec_list(IDIVPI)%bc_dep_list(1,1) = INU*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
@@ -1343,7 +1261,7 @@ cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,3) = 0 !trivial
       vaux%vec_list(IDIVPE)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVEFCNV*AUX
+      vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVECNV*AUX
       vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
 
@@ -1522,11 +1440,6 @@ c     Equilibrium quantities
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,1) = IJCNV_0*AUX
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IJCOV_0)%dom_dep_list(1,3) = 0 !trivial
-
-      !J_n cnv
-      vaux%vec_list(IJCNV_N)%dom_dep_list(1,1) = IJCNV*AUX
-      vaux%vec_list(IJCNV_N)%dom_dep_list(1,2) = VECTOR
-      vaux%vec_list(IJCNV_N)%dom_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
 cc      vaux%vec_list(IVCNV_N)%dom_dep_list(1,1) = IVCNV_NM*AUX
@@ -1718,54 +1631,6 @@ c     Current variables
       vaux%vec_list(IVECOV)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV)%dom_dep_list(1,3) = 0 !trivial
 
-      !Fake Ve cnv
-      if (.not.fake_ve) then
-        vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IVECOV*AUX
-        vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = VECTOR
-        vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
-      else
-        if (ion_hall) then
-          !Ve_fake = v - di*curl(curl(E_fake))/rho
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IVCOV*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCNV_N*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%dom_dep_list(4,1) = IJCNV_N*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(4,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(4,3) = 0 !trivial
- 
-          vaux%vec_list(IVEFCNV)%dom_dep_list(5,1) = IDIVPI*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(5,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(5,3) = 1 !trivial
-        else
-#if defined(vec_pot)
-          !Ve_fake = v - di*curl(curl(a))/rho
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,1) = IRHO_AUX*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,2) = SCALAR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(1,3) = 0 !trivial
-
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,1) = IACNV*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(2,3) = 1 !non-trivial
-
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,1) = IVCOV*AUX
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,2) = VECTOR
-          vaux%vec_list(IVEFCNV)%dom_dep_list(3,3) = 0 !trivial
-#else
-          call pstop('defineAuxDomainDeps'
-     $              ,'Domain deps for Ve_fake undefined')
-#endif
-        endif
-      endif
-
       !Div(pi)
       vaux%vec_list(IDIVPI)%dom_dep_list(1,1) = INU*AUX
       vaux%vec_list(IDIVPI)%dom_dep_list(1,2) = SCALAR
@@ -1784,7 +1649,7 @@ c     Current variables
       vaux%vec_list(IDIVPE)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPE)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVEFCNV*AUX
+      vaux%vec_list(IDIVPE)%dom_dep_list(2,1) = IVECNV*AUX
       vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
 
@@ -1905,7 +1770,6 @@ c     Begin program
      .       ,vcnv_0
      .       ,vcnv_n
      .       ,vcov
-cc     .       ,vcnv_nm
 #if defined(vec_pot)
      .       ,acnv
      .       ,acov
@@ -1914,8 +1778,6 @@ cc     .       ,vcnv_nm
      .       ,vecnv
      .       ,vecov
      .       ,vecov_n
-cc     .       ,vecov_nm
-     .       ,vefcnv
      .       ,E_ni
      .       ,E_ni_0
      .       ,E_h
@@ -1933,7 +1795,6 @@ cc     .       ,vecov_nm
      .       ,tmpe
      .       ,cchi
 cc     .       ,bcnv_n
-cc     .       ,jcnv_n
 cc     .       ,vecnv_0
 cc     .       ,vscnv
 cc     .       ,pcnv
@@ -4461,45 +4322,45 @@ c     End program
 
       end function form_ve
 
-c     form_jfake
-c     ###################################################################
-      function form_jfake(g_def,igr,dv,div_pi,rho) result(jf)
-
-c     -------------------------------------------------------------------
-c     Fake current: jf=-dt*curl(curl(E_fake))=dt*vlap(E_fake)
-c     with
-c          E_fake = di*(dv/dt + div_pi(v))
-c     -------------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-        type(grid_mg_def),pointer :: g_def
-
-        integer :: igr
-        real(8) :: dv    (0:,0:,0:,:)
-     .            ,div_pi(0:,0:,0:,:)
-     .            ,rho   (0:,0:,0:)
-     .            ,jf(0:size(dv,1)-1
-     .               ,0:size(dv,2)-1
-     .               ,0:size(dv,3)-1
-     .               ,  size(dv,4)  )
-
-c     Local variables
-
-c     Begin program
-
-        dv = di*dv
-cc        dv(:,:,:,1) = di*(dv(:,:,:,1) + dt*div_pi(:,:,:,1)/rho)
-cc        dv(:,:,:,2) = di*(dv(:,:,:,2) + dt*div_pi(:,:,:,2)/rho)
-cc        dv(:,:,:,3) = di*(dv(:,:,:,3) + dt*div_pi(:,:,:,3)/rho)
-
-        jf = veclap(g_def,igr,dv)
-
-c     End program
-
-      end function form_jfake
+c$$$c     form_jfake
+c$$$c     ###################################################################
+c$$$      function form_jfake(g_def,igr,dv,div_pi,rho) result(jf)
+c$$$
+c$$$c     -------------------------------------------------------------------
+c$$$c     Fake current: jf=-dt*curl(curl(E_fake))=dt*vlap(E_fake)
+c$$$c     with
+c$$$c          E_fake = di*(dv/dt + div_pi(v))
+c$$$c     -------------------------------------------------------------------
+c$$$
+c$$$        implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$        type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$        integer :: igr
+c$$$        real(8) :: dv    (0:,0:,0:,:)
+c$$$     .            ,div_pi(0:,0:,0:,:)
+c$$$     .            ,rho   (0:,0:,0:)
+c$$$     .            ,jf(0:size(dv,1)-1
+c$$$     .               ,0:size(dv,2)-1
+c$$$     .               ,0:size(dv,3)-1
+c$$$     .               ,  size(dv,4)  )
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$        dv = di*dv
+c$$$cc        dv(:,:,:,1) = di*(dv(:,:,:,1) + dt*div_pi(:,:,:,1)/rho)
+c$$$cc        dv(:,:,:,2) = di*(dv(:,:,:,2) + dt*div_pi(:,:,:,2)/rho)
+c$$$cc        dv(:,:,:,3) = di*(dv(:,:,:,3) + dt*div_pi(:,:,:,3)/rho)
+c$$$
+c$$$        jf = veclap(g_def,igr,dv)
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end function form_jfake
 
 c     viscous_heat_src
 c     ###################################################################
@@ -6165,12 +6026,130 @@ c$$$           .          -v(2)*0.5*(acov(i,j,km,2)+acov(i,j,k,2))
 
       end function E_fld_res
 
-c     E_fld_Hall
+c$$$c     E_fld_Hall
+c$$$c     #####################################################################
+c$$$      function E_fld_Hall(g_def,igr,nx,ny,nz) result(E_h)
+c$$$
+c$$$c     ---------------------------------------------------------------------
+c$$$c     Computes Hall electric field, in two forms: ion EOM, and e EOM
+c$$$c     ---------------------------------------------------------------------
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$      type(grid_mg_def),pointer :: g_def
+c$$$
+c$$$      integer :: nx,ny,nz,igr
+c$$$      real(8) :: E_h(0:nx+1,0:ny+1,0:nz+1,3)
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3),igx,igy,igz
+c$$$      real(8) :: pe(0:nx+1,0:ny+1,0:nz+1),cov(3),cnv(3)
+c$$$     .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
+c$$$
+c$$$      real(8),pointer,dimension(:,:,:) :: jac
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$      igx = igr
+c$$$      igy = igr
+c$$$      igz = igr
+c$$$
+c$$$      pe = rho*tmpe            !Electron pressure
+c$$$
+c$$$c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
+c$$$
+c$$$      if (electron_hall) then
+c$$$
+c$$$        if (de > 0d0) then
+c$$$          bcnv_star = bcnv -de**2/di*curl(g_def,igx,vecov)
+c$$$        else
+c$$$          bcnv_star = bcnv
+c$$$        endif
+c$$$
+c$$$        E_h = crossProduct(g_def,igx,jcnv,bcnv_star,.true.)
+c$$$     .       -grad(g_def,igx,pe)
+c$$$     .       -XformVector(g_def,igx,div_pe,.false.)
+c$$$
+c$$$        E_h(:,:,:,1) = E_h(:,:,:,1)/rho
+c$$$        E_h(:,:,:,2) = E_h(:,:,:,2)/rho
+c$$$        E_h(:,:,:,3) = E_h(:,:,:,3)/rho
+c$$$
+c$$$        !Electron inertia term
+c$$$        if (de > 0d0) then
+c$$$          E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
+c$$$        endif
+c$$$
+c$$$c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
+c$$$      else
+c$$$
+c$$$        !Temporal term: dv/dt
+c$$$        if (save_tn.or.source_eval) then
+c$$$          E_h = 0d0
+c$$$        else
+c$$$          E_h = cnp*(vcnv-vcnv_n)/alpha/dt  !Change constant in U_Av_ijk; works for BDF
+c$$$        endif
+c$$$
+c$$$        !Stress
+c$$$        E_h(:,:,:,1) = E_h(:,:,:,1) + div_pi(:,:,:,1)/rho
+c$$$        E_h(:,:,:,2) = E_h(:,:,:,2) + div_pi(:,:,:,2)/rho
+c$$$        E_h(:,:,:,3) = E_h(:,:,:,3) + div_pi(:,:,:,3)/rho
+c$$$
+c$$$        !Advection (covariant)
+c$$$        E_h = XformVector(g_def,igx,E_h,.false.)
+c$$$     .       +tensor_nc_advc_mesh(g_def,igx,vcnv,vcnv
+c$$$     .                           ,gv%aux%vec_list(IVCNV)%bconds
+c$$$     .                           ,v_advect,.true.)
+c$$$c$$$        do k=1,nz
+c$$$c$$$          do j=1,ny
+c$$$c$$$            do i=1,nx
+c$$$c$$$cc              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
+c$$$c$$$cccc     .                            ,min(advect,2))
+c$$$c$$$cc     .                            ,1)
+c$$$c$$$              cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+c$$$c$$$     .                         ,vcnv,vcnv,v_advect)
+c$$$c$$$     .             -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+c$$$c$$$     .                               ,vcnv)
+c$$$c$$$     .             +E_h(i,j,k,:)
+c$$$c$$$
+c$$$c$$$              E_h(i,j,k,:)
+c$$$c$$$     .             = matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
+c$$$c$$$            enddo
+c$$$c$$$          enddo
+c$$$c$$$        enddo
+c$$$
+c$$$        !Ion pressure term: grad(pi)/rho
+c$$$        if (temp_ratio > 0d0) then
+c$$$cc          Eh = Eh + temp_ratio*grad(g_def,igx,pe)/rho
+c$$$          do k=1,nz
+c$$$            do j=1,ny
+c$$$              do i=1,nx
+c$$$                cov = temp_ratio
+c$$$     .               *grad(g_def,i,j,k,nx,ny,nz,igx,igy,igz,pe)
+c$$$
+c$$$                E_h(i,j,k,:) = E_h(i,j,k,:) + cov/rho(i,j,k)
+c$$$              enddo
+c$$$            enddo
+c$$$          enddo
+c$$$
+c$$$        endif
+c$$$
+c$$$      endif
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end function E_fld_Hall
+
+c     E_fld_eHall
 c     #####################################################################
-      function E_fld_Hall(g_def,igr,nx,ny,nz) result(E_h)
+      function E_fld_eHall(g_def,igr,rho,tmpe,bcnv,div_pe,vecov,vecov_n)
+     .         result(E_h)
 
 c     ---------------------------------------------------------------------
-c     Computes Hall electric field, in two forms: ion EOM, and e EOM
+c     Computes electron Hall electric field:
+c       E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
 c     ---------------------------------------------------------------------
 
       implicit none
@@ -6179,68 +6158,109 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      integer :: nx,ny,nz,igr
-      real(8) :: E_h(0:nx+1,0:ny+1,0:nz+1,3)
+      integer :: igr
+      real(8) :: rho(0:,0:,0:),tmpe(0:,0:,0:),div_pe(0:,0:,0:,:)
+     .          ,bcnv(0:,0:,0:,:),vecov(0:,0:,0:,:),vecov_n(0:,0:,0:,:)
+      real(8) :: E_h(0:size(rho,1)-1
+     .              ,0:size(rho,2)-1
+     .              ,0:size(rho,3)-1,3)
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3),igx,igy,igz
-      real(8) :: pe(0:nx+1,0:ny+1,0:nz+1),cov(3),cnv(3)
-     .          ,bcnv_star(0:nx+1,0:ny+1,0:nz+1,3)
+      integer :: i,j,k,ig,jg,kg,ieq,bcnd(6,3)
+      real(8) :: cov(3),cnv(3)
+      real(8) :: pe(0:size(rho,1)-1
+     .             ,0:size(rho,2)-1
+     .             ,0:size(rho,3)-1)
+     .          ,bcnv_star(0:size(rho,1)-1
+     .                    ,0:size(rho,2)-1
+     .                    ,0:size(rho,3)-1,3)
 
       real(8),pointer,dimension(:,:,:) :: jac
 
 c     Begin program
 
-      igx = igr
-      igy = igr
-      igz = igr
+      pe = rho*tmpe            !Electron pressure 
 
-      pe = rho*tmpe            !Electron pressure
-
-c     Standard Hall:  E_hall = (j x B* - grad(pe) - div(Pi_e))/rho - de^2/di^2*d(v_e)/dt
-
-      if (electron_hall) then
-
-        if (de > 0d0) then
-          bcnv_star = bcnv -de**2/di*curl(g_def,igx,vecov)
-        else
-          bcnv_star = bcnv
-        endif
-
-        E_h = crossProduct(g_def,igx,jcnv,bcnv_star,.true.)
-     .       -grad(g_def,igx,pe)
-     .       -XformVector(g_def,igx,div_pe,.false.)
-
-        E_h(:,:,:,1) = E_h(:,:,:,1)/rho
-        E_h(:,:,:,2) = E_h(:,:,:,2)/rho
-        E_h(:,:,:,3) = E_h(:,:,:,3)/rho
-
-        !Electron inertia term
-        if (de > 0d0) then
-          E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
-        endif
-
-c     Alternate Hall: E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
+      if (de > 0d0) then
+        bcnv_star = bcnv -de**2/di*curl(g_def,igr,vecov)
       else
+        bcnv_star = bcnv
+      endif
 
-        !Temporal term: dv/dt
-        if (save_tn.or.source_eval) then
-          E_h = 0d0
-        else
-          E_h = cnp*(vcnv-vcnv_n)/alpha/dt  !Change constant in U_Av_ijk; works for BDF
-        endif
+      E_h = crossProduct(g_def,igr,jcnv,bcnv_star,.true.)
+     .     -grad(g_def,igr,pe)
+     .     -XformVector(g_def,igr,div_pe,.false.)
 
-        !Stress
-        E_h(:,:,:,1) = E_h(:,:,:,1) + div_pi(:,:,:,1)/rho
-        E_h(:,:,:,2) = E_h(:,:,:,2) + div_pi(:,:,:,2)/rho
-        E_h(:,:,:,3) = E_h(:,:,:,3) + div_pi(:,:,:,3)/rho
+      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
+      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
+      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
 
-        !Advection
-        E_h = XformVector(g_def,igx,E_h,.false.)
-     .       +tensor_nc_advc_mesh(g_def,igx,vcnv,vcnv
-     .                           ,gv%aux%vec_list(IVCNV)%bconds
-     .                           ,v_advect,.true.)
+      !Electron inertia term
+      if (de > 0d0) then
+        E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
+      endif
+
+c     End program
+
+      end function E_fld_eHall
+
+c     E_fld_iHall
+c     #####################################################################
+      function E_fld_iHall(g_def,igr,rho,tmpe,div_pi,vcnv,vcnv_n) 
+     .         result(E_h)
+
+c     ---------------------------------------------------------------------
+c     Computes ion Hall electric field:
+c          E_hall = (dv/dt + v.grad(v) + div(Pi)/rho + grad(p_i)/rho)
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr
+      real(8) :: rho(0:,0:,0:),tmpe(0:,0:,0:),div_pi(0:,0:,0:,:)
+     .          ,vcnv(0:,0:,0:,:),vcnv_n(0:,0:,0:,:)
+      real(8) :: E_h(0:size(rho,1)-1
+     .              ,0:size(rho,2)-1
+     .              ,0:size(rho,3)-1,3)
+
+c     Local variables
+
+      integer :: i,j,k,nx,ny,nz
+      real(8) :: cov(3),cnv(3)
+      real(8) :: p_i(0:size(rho,1)-1
+     .              ,0:size(rho,2)-1
+     .              ,0:size(rho,3)-1)
+
+c     Begin program
+
+      !Ion pressure terms: (grad(pi)+div(Pi))/rho
+      E_h = XformVector(g_def,igr,div_pi,.false.)
+
+      if (temp_ratio > 0d0) then
+        p_i = temp_ratio*rho*tmpe
+        E_h = E_h + grad(g_def,igr,p_i)
+      endif
+
+      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
+      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
+      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
+
+      !Temporal term: dv/dt
+      if (.not.(save_tn.or.source_eval)) then
+        E_h = E_h
+     .      + cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
+      endif
+
+      !Advection: v.grad(v) (covariant)
+      E_h = E_h
+     .     +tensor_nc_advc_mesh(g_def,igr,vcnv,vcnv
+     .                         ,gv%aux%vec_list(IVCNV)%bconds
+     .                         ,v_advect,.true.)
 c$$$        do k=1,nz
 c$$$          do j=1,ny
 c$$$            do i=1,nx
@@ -6259,27 +6279,9 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 
-        !Ion pressure term: grad(pi)/rho
-        if (temp_ratio > 0d0) then
-cc          Eh = Eh + temp_ratio*grad(g_def,igx,pe)/rho
-          do k=1,nz
-            do j=1,ny
-              do i=1,nx
-                cov = temp_ratio
-     .               *grad(g_def,i,j,k,nx,ny,nz,igx,igy,igz,pe)
-
-                E_h(i,j,k,:) = E_h(i,j,k,:) + cov/rho(i,j,k)
-              enddo
-            enddo
-          enddo
-
-        endif
-
-      endif
-
 c     End program
 
-      end function E_fld_Hall
+      end function E_fld_iHall
 
 c     res_ijk
 c     #################################################################

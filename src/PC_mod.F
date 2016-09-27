@@ -111,7 +111,6 @@ c ######################################################################
      .                             ,v_advect
      .                             ,adiabatic
      .                             ,form_ve
-     .                             ,form_jfake
      .                             ,vlap_etaj
      .                             ,electron_hall
 
