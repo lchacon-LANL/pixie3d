@@ -79,7 +79,7 @@ c Namelists
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
-     .                   ,vlap_etaj,nu_is_rhonu
+     .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -113,6 +113,7 @@ c Namelists
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,slava,noise,noise_lev
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
+     .                   ,heta_is_rhoheta
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -298,7 +299,8 @@ c Set defaults
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
 
-      nu_is_rhonu= .false.     ! Whether we use rho*nu or just nu in viscosity terms
+      nu_is_rhonu= .false.     ! Whether we use rho*nu or just nu in ion viscosity term
+      heta_is_rhoheta= .true.  ! Whether we use rho*heta or just heta in e viscosity term
 
       advect     = 2           ! Type of advective scheme for scalars
                                ! Available options:
@@ -671,7 +673,11 @@ cc      if (coords /= 'car') nc_eom_f = .true.
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
 cc      if (ion_hall) slava = .false.
-      if (slava) nu_is_rhonu = .true.
+      if (slava) then
+        nu_is_rhonu = .true.
+        heta_is_rhoheta = .false.
+        e_cons_vstar = .false.
+      endif
 #if defined(RFX)
       nu_is_rhonu = .false.
 #endif
