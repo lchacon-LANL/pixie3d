@@ -139,16 +139,18 @@ c ######################################################################
 
         character(5)  :: equil
 
-        logical :: ion_hall   =.false.  !Whether to use ion EOM for Hall E
-     .            ,electron_hall=.false.!Whether to use e   EOM for Hall E
-     .            ,pinch_flow =.false.  !Whether equilibrium has pinch flow
-     .            ,slava      =.false.  !Whether to use Slava Lukin's Hall MHD implementation
-     .            ,noise      =.false.  !Whether to add noise to EOM (to break symmetry)
-     .            ,adiabatic  =.false.  !Whether to use adiabatic EOS (no heat sources)
-     .            ,solve_rho  =.true.   !Whether we solve for rho or use rho=1
-     .            ,use_p_eom  =.false.  !Whether we use pressure or n*T to drive EOM
-     .            ,use_p_diff =.false.  !Whether we use pressure in diffusion term in pressure eq.
-     .            ,nu_is_rhonu=.false.  !Whether to use rho*nu in electron and ion viscoust terms
+        logical :: ion_hall   =.false.   !Whether to use ion EOM for Hall E
+     .            ,electron_hall=.false. !Whether to use e   EOM for Hall E
+     .            ,pinch_flow =.false.   !Whether equilibrium has pinch flow
+     .            ,slava      =.false.   !Whether to use Slava Lukin's Hall MHD implementation
+     .            ,noise      =.false.   !Whether to add noise to EOM (to break symmetry)
+     .            ,adiabatic  =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
+     .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
+     .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
+     .            ,nu_is_rhonu=.false.   !Whether to use rho*nu in electron viscous term
+     .            ,heta_is_rhoheta=.true.!Whether to use rho*heta in ion viscoust term
+     .            ,e_cons_vstar=.true.   !Whether we use energy conserving velocity in T eq.
 
         real(8) :: noise_lev
 
@@ -692,7 +694,7 @@ cc        nz = size(tmp_0,3)-2
       prs=varray%array_var(ITMP)%array/gv%gparams%gmetric%grid(igr)%jac
 
       !Temperature transport velocity, v_star = v - di*j/rho/a_p
-      if (slava) then
+      if (.not.e_cons_vstar) then
         vscnv = vcnv            !Also to recover old TM Hall performance results
       else
         vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
@@ -6542,16 +6544,16 @@ cc      if (my_rank == 0) write (*,*) 'Hyperresistivity=',hres
 
       elseif (heta > 0d0) then
 
-        if (slava) then
-          h_res = heta
-        else
-          h_res = rho*heta
-        endif
-c$$$        if (nu_is_rhonu) then
-c$$$          h_res = rho*heta
-c$$$        else
+c$$$        if (slava) then
 c$$$          h_res = heta
+c$$$        else
+c$$$          h_res = rho*heta
 c$$$        endif
+        if (heta_is_rhoheta) then
+          h_res = rho*heta
+        else
+          h_res = heta
+        endif
 
       else
 

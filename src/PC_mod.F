@@ -2006,18 +2006,12 @@ c     Hall MHD correction
 
       if (di > 0d0) then
 
-        if (.not.(slava.and.adiabatic)) then
-cc          do ieq=1,3
-cc            dj_cnv(:,:,:,ieq) = dj_cnv(:,:,:,ieq)
-cc     .                        - j0(:,:,:,ieq)*drho(:,:,:,1)
-cc     .                                       /rho0(:,:,:,1)
-cc          enddo
-
+        if (.not.(e_cons_vstar.and.adiabatic)) then
           dve_cnv = form_ve(vzeros,dj_cnv,rho0(:,:,:,1))
         endif
 
 cc        !dv_star contribution
-cc        if (.not.slava) then
+cc        if (.not.e_cons_vstar) then
 cc
 cc          !Find correction to tmp RHS
 cc          p0 => gp0%grid(igrid)%array
@@ -2045,7 +2039,6 @@ cc        endif
         !Heat source contribution
         if (.not.adiabatic) then
 
-cc          ve0 => gve0%grid(igrid)%array
           call point_to_MG_array(nx,ny,nz,igrid,ve0,gve0)
 
           do k = 1,nz
