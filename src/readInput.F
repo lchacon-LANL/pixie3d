@@ -691,7 +691,7 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
 
-      if (ion_hall) pc_type = 's1'
+      if (ion_hall     .and.pc_type /='id') pc_type = 's1' !Exception for tests
 
 cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall
