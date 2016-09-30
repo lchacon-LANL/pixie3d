@@ -299,7 +299,6 @@ c ######################################################################
         integer, parameter :: IVECNV   =13
      .                       ,IVECOV   =14
      .                       ,IVECOV_N =15
-cc     .                       ,IVECOV_NM=24
 
         integer, parameter :: IENI     =16
      .                       ,IENI_0   =17
@@ -382,7 +381,6 @@ cc     .                                       ,bcnv_n
      .                                       ,vcnv_0
      .                                       ,vcnv_n
      .                                       ,vcov
-cc     .                                       ,vcnv_nm
      .                                       ,pcnv
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
@@ -398,10 +396,8 @@ cc     .                                       ,vcnv_nm
      .                                       ,jcov_0
 
         real(8),pointer,dimension(:,:,:,:) :: vecnv
-cc     .                                       ,vecnv_0
      .                                       ,vecov
      .                                       ,vecov_n
-cc     .                                       ,vecov_nm
      .                                       ,vscnv
 
       contains
@@ -1021,13 +1017,11 @@ c     Equilibrium quantities
       vaux%vec_list(IJCOV_0)%bc_dep_list(1,3) = 0 !trivial
 
       !V_n cnv
-cc      vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV_NM*AUX
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,1) = IVCNV*AUX
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV_N)%bc_dep_list(1,3) = 0 !trivial
 
       !Ve_n cnv
-cc      vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV_NM*AUX
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,1) = IVECOV*AUX
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,3) = 0 !trivial
@@ -1246,17 +1240,9 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCOV*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCNV*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%bc_dep_list(2,3) = 1 !non-trivial
-
-      vaux%vec_list(IDIVPI)%bc_dep_list(3,1) = IVCNV*AUX
-      vaux%vec_list(IDIVPI)%bc_dep_list(3,2) = VECTOR
-      vaux%vec_list(IDIVPI)%bc_dep_list(3,3) = 1 !non-trivial
-
-cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,1) = IDIVPI*AUX
-cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,2) = VECTOR
-cc      vaux%vec_list(IDIVPI)%bc_dep_list(4,3) = 0 !trivial
 
       !Div(pe)
       vaux%vec_list(IDIVPE)%bc_dep_list(1,1) = IHETA*AUX
@@ -1278,7 +1264,7 @@ cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IVCNV_N*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
 cc          vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
 cc
-cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = IVCOV*AUX
+cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = IVCNV*AUX
 cc          vaux%vec_list(IEH)%bc_dep_list(2,2) = VECTOR
 cc          vaux%vec_list(IEH)%bc_dep_list(2,3) = 1 !non-trivial
 cc
@@ -1328,7 +1314,6 @@ cc        endif
       endif
 
       !Total Electric field
-cc#if !defined(vec_pot)
       vaux%vec_list(IENI)%bc_dep_list(1,1) = IENI_0*AUX
       vaux%vec_list(IENI)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(1,3) = 0 !trivial
@@ -1354,11 +1339,6 @@ cc#if !defined(vec_pot)
         vaux%vec_list(IENI)%bc_dep_list(6,2) = VECTOR
         vaux%vec_list(IENI)%bc_dep_list(6,3) = 0 !trivial
       endif
-cc#else
-cc      vaux%vec_list(IENI)%bc_dep_list(1,1) = IENI*AUX
-cc      vaux%vec_list(IENI)%bc_dep_list(1,2) = VECTOR
-cc      vaux%vec_list(IENI)%bc_dep_list(1,3) = 0 !trivial
-cc#endif
 
 c     End program
 
@@ -1636,13 +1616,9 @@ c     Current variables
       vaux%vec_list(IDIVPI)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%dom_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%dom_dep_list(2,1) = IVCOV*AUX
+      vaux%vec_list(IDIVPI)%dom_dep_list(2,1) = IVCNV*AUX
       vaux%vec_list(IDIVPI)%dom_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%dom_dep_list(2,3) = 1 !non-trivial
-
-      vaux%vec_list(IDIVPI)%dom_dep_list(3,1) = IVCNV*AUX
-      vaux%vec_list(IDIVPI)%dom_dep_list(3,2) = VECTOR
-      vaux%vec_list(IDIVPI)%dom_dep_list(3,3) = 1 !non-trivial
 
       !Div(pe)
       vaux%vec_list(IDIVPE)%dom_dep_list(1,1) = IHETA*AUX
@@ -1660,7 +1636,7 @@ c     Current variables
           vaux%vec_list(IEH)%dom_dep_list(1,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(1,3) = 0 !trivial
 
-          vaux%vec_list(IEH)%dom_dep_list(2,1) = IVCOV*AUX
+          vaux%vec_list(IEH)%dom_dep_list(2,1) = IVCNV*AUX
           vaux%vec_list(IEH)%dom_dep_list(2,2) = VECTOR
           vaux%vec_list(IEH)%dom_dep_list(2,3) = 1 !non-trivial
 
@@ -1704,10 +1680,6 @@ c     Current variables
             vaux%vec_list(IEH)%dom_dep_list(7,1) = IVECOV_N*AUX
             vaux%vec_list(IEH)%dom_dep_list(7,2) = VECTOR
             vaux%vec_list(IEH)%dom_dep_list(7,3) = 0 !trivial
-
-cc            vaux%vec_list(IEH)%dom_dep_list(8,1) = IVECOV_NM*AUX
-cc            vaux%vec_list(IEH)%dom_dep_list(8,2) = VECTOR
-cc            vaux%vec_list(IEH)%dom_dep_list(8,3) = 0 !trivial
           endif
         endif
       endif
@@ -6236,46 +6208,49 @@ c     Local variables
 
 c     Begin program
 
-      !Ion pressure terms: (grad(pi)+div(Pi))/rho
-      E_h = XformVector(g_def,igr,div_pi,.false.)
+      nx = size(rho,1)-2
+      ny = size(rho,2)-2
+      nz = size(rho,3)-2
 
-      if (temp_ratio > 0d0) then
-        p_i = temp_ratio*rho*tmpe
-        E_h = E_h + grad(g_def,igr,p_i)
-      endif
+c$$$      !Ion pressure terms: 
+c$$$      E_h = XformVector(g_def,igr,div_pi,.false.)
+c$$$
+c$$$      if (temp_ratio > 0d0) then
+c$$$        p_i = temp_ratio*rho*tmpe
+c$$$        E_h = E_h + grad(g_def,igr,p_i)
+c$$$      endif
+c$$$
+c$$$      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
+c$$$      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
+c$$$      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
+c$$$
+c$$$      !Temporal term: dv/dt
+c$$$      E_h = E_h
+c$$$     .    +cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
 
-      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
-      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
-      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
+      !dv/dt + v.grad(v) + (grad(pi)+div(Pi))/rho
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            cnv = EOM_gp(g_def,i,j,k,nx,ny,nz,igr,rho,tmpe,nc_eom_gp)
+            cnv = (div_pi(i,j,k,:) + temp_ratio*cnv)/rho(i,j,k)
+c$$$     .           + tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+c$$$     .                        ,vcnv,vcnv,v_advect)
+c$$$     .           -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+c$$$     .                             ,vcnv)
+     .           +cnp/(alpha*dt)*(vcnv(i,j,k,:)-vcnv_n(i,j,k,:))
 
-      !Temporal term: dv/dt
-      if (.not.( old_time_eval.or.source_eval)) then
-        E_h = E_h
-     .       +cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
-      endif
+            E_h(i,j,k,:)
+     .           = matmul(g_def%gmetric%grid(igr)%gsub(i,j,k,:,:),cnv)
+          enddo
+        enddo
+      enddo
 
       !Advection: v.grad(v) (covariant)
       E_h = E_h
      .     +tensor_nc_advc_mesh(g_def,igr,vcnv,vcnv
      .                         ,gv%aux%vec_list(IVCNV)%bconds
      .                         ,v_advect,.true.)
-c$$$        do k=1,nz
-c$$$          do j=1,ny
-c$$$            do i=1,nx
-c$$$cc              cnv = tensor_nc_advc(i,j,k,nx,ny,nz,igx,igy,igz,vcnv,vcnv
-c$$$cccc     .                            ,min(advect,2))
-c$$$cc     .                            ,1)
-c$$$              cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-c$$$     .                         ,vcnv,vcnv,v_advect)
-c$$$     .             -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-c$$$     .                               ,vcnv)
-c$$$     .             +E_h(i,j,k,:)
-c$$$
-c$$$              E_h(i,j,k,:)
-c$$$     .             = matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:),cnv)
-c$$$            enddo
-c$$$          enddo
-c$$$        enddo
 
 c     End program
 

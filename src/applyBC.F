@@ -948,13 +948,21 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
           vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
           vcnv_n(:,:,:,3) = u_n%array_var(IVZ)%array
+
+          if (.not.nc_eom_v) then
+            where (rho /= 0d0)
+              vcnv_n(:,:,:,1) = vcnv_n(:,:,:,1)/rho
+              vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/rho
+              vcnv_n(:,:,:,3) = vcnv_n(:,:,:,3)/rho
+            end where
+          endif
 #else
           vcnv_n = vcnv  !Initializes for BDF2 as well
 #endif
 
         case(IVECOV_N)
 
-          if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
+          if (electron_hall) vecov_n = vecov  !Initializes for BDF2 as well
 
 cc        case(IBCNV_N)
 cc

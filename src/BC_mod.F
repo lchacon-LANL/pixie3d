@@ -525,7 +525,6 @@ c     Default boundary conditions
       bbcs(:,IRHO) = bcsq
 
       if (di > 0d0) then  !Force D_t(v x n) = 0 for energy conservation
-cc      if (electron_hall) then  !Force D_t(v x n) = 0 for energy conservation
 
         bcsq = bbcs(:,IVX)
         where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
