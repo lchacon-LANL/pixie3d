@@ -662,17 +662,23 @@ cc      if (coords /= 'car') nc_eom_f = .true.
         call pstop('readInput','Unphysical value for di and/or de')
       endif
 
-      if (cnfactor == 1d0) ion_hall = .false.
+      if ((cnfactor==1d0).or.(di==0d0).or.(de>0d0)) ion_hall = .false.
 
-      if (di == 0d0) ion_hall = .false.
+      if ((ion_hall.or.de>0d0).and.(cnfactor==0d0.and.sm_flag==2)) then
+        call pstop('readInput'
+     .            ,'Cannot do BDF2 with e inertia or ion Hall')
+      endif
 
-      if (de >  0d0) ion_hall = .false. !E inertia not implemented in ion_hall
+c$$$      if (ion_hall.and.(cnfactor==0d0.and.sm_flag==2)) then
+c$$$        if (my_rank == 0)
+c$$$     .       write (*,*) 'Doing NC velocity update for ion Hall'
+c$$$        nc_eom_v = .true.
+c$$$      endif
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
       if (bcs(1) == 'spt') vlap_etaj = .false.
 
-cc      if (ion_hall) slava = .false.
       if (slava) then
         nu_is_rhonu = .true.
         heta_is_rhoheta = .false.
