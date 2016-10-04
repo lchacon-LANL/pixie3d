@@ -1233,9 +1233,11 @@ c Map vector x to array for processing
 c$$$      call fillArray(g_def,igrid,neq,x,da,bcnd,order_bc,gpos=gpos
 c$$$     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
 c$$$     .              ,result_is_curv=.true.)
+      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
       call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=da)
+      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
       !Magnetic fields
       db_cnv = curl(g_def,igrid,da)
@@ -1564,9 +1566,11 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
+      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
       call fillArray(g_def,igrid,neq,x,du_cnv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov)
+      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
 c Auxiliary quantities
 
@@ -2897,7 +2901,7 @@ c Local variables
      .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
-     .                                     ,dve_cnv,divpi,dB_cnv,dB_cov
+     .                                     ,dve_cnv,dB_cnv,dB_cov
      .                                     ,heta0,dj_cnv
 
       type(mg_ctx),pointer :: mg_ctx_l => null()
@@ -2933,7 +2937,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
 
       allocate(dve_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dpp    (0:nxx+1,0:nyy+1,0:nzz+1,3)
-     .        ,divpi  (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dE_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dB_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dB_cov (0:nxx+1,0:nyy+1,0:nzz+1,3))
@@ -2947,18 +2950,22 @@ c BCs
 
       du = 0d0
 
+      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
+
       call fillArray(g_def,igrid,neq,x,du,bcnd,1,gpos=gpos
 cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
      .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
+
+      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
 cc#if defined(pgf90)
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-      dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)
-      dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)
+      dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)   !Initialize module variable
+      dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)   !Initialize module variable
       dj_cnv(0:,0:,0:,1:3)  = du    (:,:,:,4:6)
 c$$$#else
 c$$$      dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
@@ -2967,18 +2974,6 @@ c$$$      dj_cnv(0:,0:,0:,1:)  => du    (:,:,:,4:6)
 c$$$#endif
 
       dve_cnv = form_ve(dv,dj_cnv,rho0(:,:,:,1))
-
-c Find div(Pi(dv))
-
-      if (nu > 0d0) then
-        divpi =EOM_divPi(g_def,igrid,dv,vis0(:,:,:,1))
-        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,divpi
-     .            ,gv%aux%vec_list(IDIVPI)%bconds
-     .            ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc)
-      else
-        divpi = 0d0
-      endif
 
 c Calculate matrix-vector product
 
@@ -3023,15 +3018,7 @@ c Calculate matrix-vector product
             !P_si^v  ******************************
 
             psiv = D_v(g_def,i,j,k,nxx,nyy,nzz,igrid,rho0,v0_cnv,dv,dpp
-     .                ,.not.nc_eom_v,stress=.false.)
-
-            !Ion viscosity piece ******************
-
-            if (nc_eom_v) then
-              psiv = psiv + alpha*divpi(i,j,k,:)/rho0(i,j,k,1)
-            else
-              psiv = psiv + alpha*divpi(i,j,k,:)
-            endif
+     .                ,.not.nc_eom_v)
 
             !Electron viscosity piece *************
             divpe = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid
@@ -3144,7 +3131,7 @@ cc              y(neq*(ijk-1)+ieq+3) = vol*(du(i,j,k,ieq+3)-dj(ieq))
 
 c End program
 
-      deallocate(du,du_cov,dpp,v0,dE_cnv,dve_cnv,divpi
+      deallocate(du,du_cov,dpp,v0,dE_cnv,dve_cnv
      .          ,dB_cnv,dB_cov)
 
 cc#if defined(pgf90)

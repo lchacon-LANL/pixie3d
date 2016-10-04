@@ -434,17 +434,9 @@ c     Local variables
         real(8) :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
      .            ,nabla_v(3,3),jac,bnorm
 
-        real(8), allocatable, dimension(:,:,:,:) :: vector
-cc        real(8), allocatable, dimension(:,:,:,:,:) :: tensor
-
         logical :: extrp_cfss
 
         integer :: EVEN=1,ODD=-1
-
-c     Debug
-
-        real(8),allocatable,dimension(:,:,:) :: debug2
-        character(13) :: debugfile
 
 c     Begin program
 
@@ -466,6 +458,8 @@ c     Fill LOCAL auxiliary variables
         call fillLocalAuxVars(igrid,varray,vaux)
 
 c     Setup BCs
+
+        call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
 
         !Set boundary conditions
         do ieq=1,neqd
@@ -649,6 +643,14 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
             gbs0%grid(igrid)%array = gb0%grid(igrid)%array
      $                            -de**2/di*curl(gv%gparams,igrid,vecov)
 
+            call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid
+     .              ,gbs0%grid(igrid)%array,bc_vec_even
+     .              ,icomp=(/ IBX /)
+     .              ,is_cnv=.true.           !This informs that input is in cnv array
+     .              ,is_curv=.true.          !This informs whether input is Cartesian
+     .              ,result_is_curv=.true.   !This returns curvilinear components
+     .              ,iorder=order)
+
             call restrictMGArray(IBX,3,gbs0,bc_vec_even,igrid,order
      .                          ,order_bc=order_bc)
           else
@@ -657,18 +659,18 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 
           !Auxiliary quantities for new Hall MHD formulation: A = B + di*curl(v) 
           if (pc_ion_hall) then
-            do k=0,nz+1
-              do j=0,ny+1
-                do i=0,nx+1
-                  cnv = curl(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                      ,vcov)
-                  ga0%grid(igrid)%array(i,j,k,:)
-     .                   = gb0%grid(igrid)%array(i,j,k,:) + di*cnv
-                enddo
-              enddo
-            enddo
+            ga0%grid(igrid)%array = gb0%grid(igrid)%array
+     .                            + di*curl(gv%gparams,igrid,vcov)
 
-            call restrictMGArray(IJX,3,ga0,bc_vec_even,igrid,order
+            call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid
+     .              ,ga0%grid(igrid)%array,bc_vec_even
+     .              ,icomp=(/ IBX /)
+     .              ,is_cnv=.true.           !This informs that input is in cnv array
+     .              ,is_curv=.true.          !This informs whether input is Cartesian
+     .              ,result_is_curv=.true.   !This returns curvilinear components
+     .              ,iorder=order)
+
+            call restrictMGArray(IBX,3,ga0,bc_vec_even,igrid,order
      .                          ,order_bc=order_bc)
 
           !Auxiliary quantities for std Hall MHD formulation: A = B_star
@@ -686,8 +688,6 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 c     Find other auxiliary quantities and store them in all grids
 
         !jxB-grad(p)
-c$$$        allocate(vector(0:nx+1,0:ny+1,0:nz+1,3))
-
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -757,90 +757,104 @@ c$$$     .                                      ,.true.)
 
         call restrictMGArray(IVX,3,g_advdiffV0,bc_vec_odd,igrid,order
      .                      ,order_bc=order_bc)
-c$$$        do ivar=1,3
-c$$$          call restrictArrayToMGVector(gv%gparams
-c$$$     .                                ,vector(:,:,:,ivar:ivar)
-c$$$     .                                ,mgadvdiffV0(:,ivar)
-c$$$     .                                ,igrid,order,.false.)
-c$$$        enddo
-c$$$
-c$$$        deallocate(vector)
+
+        call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
 c diag ****
-cc      write (*,*) 'DIAG -- findCoeffs'
-cc
-cc      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
-cc      open(unit=110,file=debugfile,form='unformatted'
-cc     .    ,status='replace')
-cc
-cc      igx = 1
-cc      k = 1
-cc
-cc      nx = gv%gparams%nxv(igx)
-cc      ny = gv%gparams%nyv(igx)
-cc      nz = gv%gparams%nzv(igx)
-cc      allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
-cc
-cc      do ieq=1,3
-cc        debug2 = gb0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
-cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .              ,gv%gparams%lymin,gv%gparams%lymax,ieq-1,110)
-cc      enddo
-cc
-cc      do ieq=1,3
-cc        debug2 = gve0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
-cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc      enddo
-cc
-cc      do ieq=1,3
-cc        debug2 = gbs0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
-cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc      enddo
-cc
-cc      do ieq=1,3
-cc        debug2 = gj0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
-cc        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .              ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc      enddo
-cc
-cc      debug2 = grho0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
-cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc
-cc      debug2 = gheta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
-cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc
-cc      debug2 = geta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
-cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc
-cc      debug2 = gvis%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
-cc      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
-cc     .            ,gv%gparams%lxmin,gv%gparams%lxmax
-cc     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
-cc
-cc      deallocate(debug2)
-cc      close(110)
-cc
-cc#if defined(petsc)
-cc      call PetscEnd(mpierr)
-cc#endif
-cc      stop
+cc        call dump_pc_coeffs
 c diag ****
 
 c     End program
 
       contains
+
+c     dump_pc_coeffs
+c     ###############################################################
+      subroutine dump_pc_coeffs
+
+      implicit none
+
+      real(8),allocatable,dimension(:,:,:) :: debug2
+      character(13) :: debugfile
+
+      write (*,*) 'DIAG -- findCoeffs'
+
+      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
+      open(unit=110,file=debugfile,form='unformatted'
+     .    ,status='replace')
+
+      igx = 1
+      k = 1
+
+      nx = gv%gparams%nxv(igx)
+      ny = gv%gparams%nyv(igx)
+      nz = gv%gparams%nzv(igx)
+      allocate(debug2(0:nx+1,0:ny+1,0:nz+1))
+
+      do ieq=1,3
+        debug2 = gb0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+     .              ,gv%gparams%lymin,gv%gparams%lymax,ieq-1,110)
+      enddo
+
+      do ieq=1,3
+        debug2 = gve0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+      enddo
+
+c$$$      do ieq=1,3
+c$$$        debug2 = gbs0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+c$$$        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+c$$$     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+c$$$     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+c$$$      enddo
+
+      do ieq=1,3
+        debug2 = ga0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+      enddo
+
+      do ieq=1,3
+        debug2 = gj0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,ieq)
+        call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .              ,gv%gparams%lxmin,gv%gparams%lxmax
+     .              ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+      enddo
+
+      debug2 = grho0%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+
+      debug2 = gheta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+
+      debug2 = geta%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+
+      debug2 = gvis%grid(igx)%array(0:nx+1,0:ny+1,0:nz+1,1)
+      call contour(debug2(0:nx+1,0:ny+1,k),nx+2,ny+2
+     .            ,gv%gparams%lxmin,gv%gparams%lxmax
+     .            ,gv%gparams%lymin,gv%gparams%lymax,1,110)
+
+      deallocate(debug2)
+      close(110)
+
+#if defined(petsc)
+      call PetscEnd(mpierr)
+#endif
+      stop
+
+      end subroutine dump_pc_coeffs
 
 c     restrict_B
 c     ###############################################################
@@ -1079,7 +1093,6 @@ c     Begin program
         strss = .true.
       endif
 
-cc      nus => gvis%grid(igr)%array
       call point_to_MG_array(nx,ny,nz,igr,nus,gvis)
 
       if (.not.conserv) then
@@ -1293,44 +1306,44 @@ c     Hall MHD part
 
             uav = uav + di*cov
 
-            if (str .and. half_elem == 0) then
-cc              select case(half_elem)
-cc              case(1)
-cc                cnv = (EOM_divPi(i ,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,gvis%grid(igx)%array)
-cc     .                +EOM_divPi(ip,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,gvis%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
-cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
-cc              case(2)
-cc                cnv = (EOM_divPi(i,j ,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,gvis%grid(igx)%array)
-cc     .                +EOM_divPi(i,jp,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,gvis%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
-cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
-cc              case(3)
-cc                cnv = (EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,gvis%grid(igx)%array)
-cc     .                +EOM_divPi(i,j,kp,nx,ny,nz,igx,igy,igz,vv
-cc     .                          ,gvis%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
-cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
-cc              case default
-
-                cnv = EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv
-     .                             ,gvis%grid(igx)%array)
-     .               /grho0%grid(igx)%array(i,j,k,1)
-cc              end select
-
-                call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-     .                                ,cov(1),cov(2),cov(3)
-     .                                ,cnv(1),cnv(2),cnv(3)
-     .                                ,.false.,half_elem=half_elem)
-
-                uav = uav + di*cov
-
-            endif
+c$$$            if (str .and. half_elem == 0) then
+c$$$cc              select case(half_elem)
+c$$$cc              case(1)
+c$$$cc                cnv = (EOM_divPi(i ,j,k,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                               ,gvis%grid(igx)%array)
+c$$$cc     .                +EOM_divPi(ip,j,k,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                               ,gvis%grid(igx)%array))
+c$$$cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
+c$$$cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
+c$$$cc              case(2)
+c$$$cc                cnv = (EOM_divPi(i,j ,k,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                          ,gvis%grid(igx)%array)
+c$$$cc     .                +EOM_divPi(i,jp,k,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                          ,gvis%grid(igx)%array))
+c$$$cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
+c$$$cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
+c$$$cc              case(3)
+c$$$cc                cnv = (EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                          ,gvis%grid(igx)%array)
+c$$$cc     .                +EOM_divPi(i,j,kp,nx,ny,nz,igx,igy,igz,vv
+c$$$cc     .                          ,gvis%grid(igx)%array))
+c$$$cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
+c$$$cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
+c$$$cc              case default
+c$$$
+c$$$                cnv = EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv
+c$$$     .                             ,gvis%grid(igx)%array)
+c$$$     .               /grho0%grid(igx)%array(i,j,k,1)
+c$$$cc              end select
+c$$$
+c$$$                call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
+c$$$     .                                ,cov(1),cov(2),cov(3)
+c$$$     .                                ,cnv(1),cnv(2),cnv(3)
+c$$$     .                                ,.false.,half_elem=half_elem)
+c$$$
+c$$$                uav = uav + di*cov
+c$$$
+c$$$            endif
 
           else  !Electron hall
 

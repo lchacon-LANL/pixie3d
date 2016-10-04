@@ -123,16 +123,15 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
 #Define targets
 
 .PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup tests rebuild-tests \
-        $(SUBDIRS)
+        vmec vmec_clean setup tests rebuild-tests $(SUBDIRS)
 
-all: contrib $(SUBDIRS)
+all: $(SUBDIRS)
 
 pixie3d: contrib src 
 
 pixplot: contrib plot
 
-$(SUBDIRS):
+$(SUBDIRS): contrib
 	$(MAKE) --no-print-directory -e -C $@ $(TARGET)
 
 # SETUP
