@@ -6200,57 +6200,52 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,nx,ny,nz
-      real(8) :: cov(3),cnv(3)
+c$$$      integer :: i,j,k,nx,ny,nz
+c$$$      real(8) :: cov(3),cnv(3)
       real(8) :: p_i(0:size(rho,1)-1
      .              ,0:size(rho,2)-1
-     .              ,0:size(rho,3)-1)
+     .              ,0:size(rho,3)-1),idt
 
 c     Begin program
 
-      nx = size(rho,1)-2
-      ny = size(rho,2)-2
-      nz = size(rho,3)-2
-
-c$$$      !Ion pressure terms: 
-c$$$      E_h = XformVector(g_def,igr,div_pi,.false.)
+      !Pressure terms: (grad(pi)+div(Pi))/rho (contravariant)
+c$$$      nx = size(rho,1)-2
+c$$$      ny = size(rho,2)-2
+c$$$      nz = size(rho,3)-2
 c$$$
-c$$$      if (temp_ratio > 0d0) then
-c$$$        p_i = temp_ratio*rho*tmpe
-c$$$        E_h = E_h + grad(g_def,igr,p_i)
-c$$$      endif
-c$$$
-c$$$      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
-c$$$      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
-c$$$      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
-c$$$
-c$$$      !Temporal term: dv/dt
-c$$$      E_h = E_h
-c$$$     .    +cnp/alpha/dt*XformVector(g_def,igr,(vcnv-vcnv_n),.false.) !Works for BDF
+c$$$      do k=1,nz
+c$$$        do j=1,ny
+c$$$          do i=1,nx
+c$$$            cnv = EOM_gp(g_def,i,j,k,nx,ny,nz,igr,rho,tmpe,nc_eom_gp)
+c$$$            E_h(i,j,k,:) = (div_pi(i,j,k,:) + temp_ratio*cnv)/rho(i,j,k)
+c$$$c$$$     .           + tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+c$$$c$$$     .                        ,vcnv,vcnv,v_advect)
+c$$$c$$$     .           -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+c$$$c$$$     .                             ,vcnv)
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
 
-      !dv/dt + v.grad(v) + (grad(pi)+div(Pi))/rho
-      do k=1,nz
-        do j=1,ny
-          do i=1,nx
-            cnv = EOM_gp(g_def,i,j,k,nx,ny,nz,igr,rho,tmpe,nc_eom_gp)
-            cnv = (div_pi(i,j,k,:) + temp_ratio*cnv)/rho(i,j,k)
-c$$$     .           + tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-c$$$     .                        ,vcnv,vcnv,v_advect)
-c$$$     .           -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-c$$$     .                             ,vcnv)
-     .           +cnp/(alpha*dt)*(vcnv(i,j,k,:)-vcnv_n(i,j,k,:))
+      p_i = temp_ratio*rho*tmpe
+      E_h = grad(g_def,igr,p_i)  !Covariant
+      E_h = div_pi + XformVector(g_def,igr,E_h,.true.) !Contravariant
 
-            E_h(i,j,k,:)
-     .           = matmul(g_def%gmetric%grid(igr)%gsub(i,j,k,:,:),cnv)
-          enddo
-        enddo
-      enddo
+      E_h(:,:,:,1) = E_h(:,:,:,1)/rho
+      E_h(:,:,:,2) = E_h(:,:,:,2)/rho
+      E_h(:,:,:,3) = E_h(:,:,:,3)/rho
 
-      !Advection: v.grad(v) (covariant)
+      !Temporal derivative: dv/dt (contravariant)
+      idt = cnp/(alpha*dt)
+      E_h = E_h + idt*(vcnv-vcnv_n)
+
+      !Advection: v.grad(v) (contravariant)
       E_h = E_h
      .     +tensor_nc_advc_mesh(g_def,igr,vcnv,vcnv
      .                         ,gv%aux%vec_list(IVCNV)%bconds
-     .                         ,v_advect,.true.)
+     .                         ,v_advect,.false.)
+
+      !Transform to covariant
+      E_h = XformVector(g_def,igr,E_h,.false.)
 
 c     End program
 

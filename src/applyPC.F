@@ -693,6 +693,8 @@ c     Begin program
      .            ,sm_zebra_relax= sm_zebra_relax_si
      .            )
 
+cc          call pc_diag(3,nn,xc(:,1:3),rhsc(:,1:3))
+
         else
 
 cc          bcs_hnew(:,1:3) = bcs(:,IVX:IVZ)

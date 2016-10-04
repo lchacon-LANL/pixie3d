@@ -556,9 +556,11 @@ c       Vector Pot. BC
 
           call XferBCs(acov_0,v0,.true.)
 
+          call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
           call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+          call set_force_corners(.false.)
 
         case(IACNV)  !Done when computing acov
 
@@ -576,9 +578,11 @@ c       Magnetic field BC
             call XferBCs(jcnv_0,v0,.true.)
           endif
 
+          call set_force_corners(.true.) !Force corners owing to div(B)=0 BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+          call set_force_corners(.false.)
 
         case(IBCOV) !Done when computing bcnv
 
