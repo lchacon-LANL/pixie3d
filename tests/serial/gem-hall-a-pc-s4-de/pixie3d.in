@@ -44,8 +44,8 @@
     nh2      = 1
     odd      = f,f,f
 
-    cnfactor = 0d0  !BDF
-    sm_flag  = 2    !BDF2
+    cnfactor = 0.5d0
+    sm_flag  = 1
 
     restart  = f
     timecorr = f

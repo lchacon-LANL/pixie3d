@@ -80,6 +80,7 @@ c Namelists
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
+     .                   ,subtract_E0
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -113,7 +114,7 @@ c Namelists
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,slava,noise,noise_lev
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
-     .                   ,heta_is_rhoheta
+     .                   ,heta_is_rhoheta,subtract_E0
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -150,9 +151,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(11,20)  !11 scalars, 20 vectors
+      call setAuxVarDims(11,21)  !11 scalars, 21 vectors
 #else
-      call setAuxVarDims(11,23)  !11 scalars, 23 vectors
+      call setAuxVarDims(11,24)  !11 scalars, 24 vectors
 #endif
 
 c Set defaults
@@ -301,6 +302,7 @@ c Set defaults
 
       nu_is_rhonu= .false.     ! Whether we use rho*nu or just nu in ion viscosity term
       heta_is_rhoheta= .true.  ! Whether we use rho*heta or just heta in e viscosity term
+      subtract_E0= .false.     ! Whether we subtract initial E in Ohm's law
 
       advect     = 2           ! Type of advective scheme for scalars
                                ! Available options:
@@ -681,7 +683,8 @@ c$$$      endif
 
       if (slava) then
         nu_is_rhonu = .true.
-        heta_is_rhoheta = .false.
+        heta_is_rhoheta = .true.
+        subtract_E0  = .true.
         e_cons_vstar = .false.
       endif
 #if defined(RFX)

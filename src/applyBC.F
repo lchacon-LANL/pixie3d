@@ -512,12 +512,20 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IENI_0)
 
+c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
+
 #if defined(vec_pot)
           E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
      .                      ,eeta_0)
 #else
           E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
+
+        case(IVECNV_0)
+
+c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
+
+          vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
 
         case(IVECOV_N)
 
@@ -664,7 +672,8 @@ c       Total electric field BC
 #else
           E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
-cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
+
+          E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
           if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
 
@@ -946,6 +955,12 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
+        case(IVECNV_0)
+
+c       Electron velocity ve=v-di*j/rho with j=curl(B)
+
+          vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
+
         case(IVCNV_N)
 
 #if defined(plotting)
@@ -1063,9 +1078,14 @@ c       Divergence of ion stress tensor
 c       Divergence of electron stress tensor
 
           if (di > 0d0) then
-            div_pe = EOM_divPi(gv%gparams,igr,vecnv,h_eta,.false.)
+            if (subtract_E0) then
+              div_pe=EOM_divPi(gv%gparams,igr,vecnv-vecnv_0,h_eta
+     .                        ,.false.)
+            else
+              div_pe=EOM_divPi(gv%gparams,igr,vecnv,h_eta,.false.)
+            endif
           else
-            div_pe = 0d0
+            div_pe=0d0
           endif
 
         case(IEH)
@@ -1307,6 +1327,12 @@ c       Electric field (time=0, initial EOM equ => only ideal+resistive contribu
           E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
 #endif
 
+        case(IVECNV_0)
+
+c       Electron velocity ve=v-di*j/rho with j=curl(B)
+
+          vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
+
         case(IVCNV_N)
 
 cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
@@ -1392,7 +1418,7 @@ c       Total E field
           E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
 
-cc          E_ni = E_ni - E_ni_0  !Substract imposed electric field
+          if (subtract_E0) E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
           if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
 
