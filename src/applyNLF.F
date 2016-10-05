@@ -199,13 +199,14 @@ c     Sources
 
         !Ion viscosity
         heat_src = joule
-     .            +viscous_heat_src(gv%gparams,i,j,k,igx,nuu,vcnv,vcnv)
+     .      +viscous_heat_src(gv%gparams,i,j,k,igx,nuu,vcnv,vcnv,sym_st)
 
         !Electron viscosity
         !Comment out for old TM Hall MHD performance results
         if (di > 0d0) then
           heat_src = heat_src
-     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vecnv,vecnv)
+     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vecnv,vecnv
+     .                        ,.false.)
         endif
 
         !External heat source
@@ -869,14 +870,15 @@ c Begin program
 
                 !Ion viscosity
                 heat_src = joule
-     .             +viscous_heat_src(gv%gparams,i,j,k,igr,nuu,vcnv,vcnv)
+     .                   +viscous_heat_src(gv%gparams,i,j,k,igr,nuu
+     .                                    ,vcnv,vcnv,sym_st)
 
                 !Electron viscosity
                 !Comment out for old TM Hall MHD performance results
                 if (di > 0d0) then
                   heat_src = heat_src
      .                   +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta
-     .                                    ,vecnv,vecnv)
+     .                                    ,vecnv,vecnv,.false.)
                 endif
 
                 !External heat source
