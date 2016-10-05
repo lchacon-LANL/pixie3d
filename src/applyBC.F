@@ -651,7 +651,7 @@ c       Hall electric field BC
             vdum = XformVector(gv%gparams,igr,E_h,.true.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
      .                ,igr,igr,igr,iorder=order
-     .                ,is_cnv=vaux%vec_list(IDIVPE)%cnv)
+     .                ,is_cnv=vaux%vec_list(IEH)%cnv)
           endif
 #endif
 
@@ -1053,7 +1053,7 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 c       Divergence of ion stress tensor
 
           if (nu > 0d0) then
-            div_pi = EOM_divPi(gv%gparams,igr,vcnv,nuu)
+            div_pi = EOM_divPi(gv%gparams,igr,vcnv,nuu,sym_st)
           else
             div_pi = 0d0
           endif
@@ -1063,7 +1063,7 @@ c       Divergence of ion stress tensor
 c       Divergence of electron stress tensor
 
           if (di > 0d0) then
-            div_pe = EOM_divPi(gv%gparams,igr,vecnv,h_eta)
+            div_pe = EOM_divPi(gv%gparams,igr,vecnv,h_eta,.false.)
           else
             div_pe = 0d0
           endif
