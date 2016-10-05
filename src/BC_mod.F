@@ -433,7 +433,7 @@ c####################################################################
      .                             ,ion_hall,E_fld_ihall
      .                             ,E_fld_ehall,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
-     .                             ,pinch_flow
+     .                             ,pinch_flow,sym_st
      .                             ,res_ijk,vis_ijk,form_ve
 
 #if defined(vec_pot)
