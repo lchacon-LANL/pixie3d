@@ -688,6 +688,8 @@ c$$$      endif
       nu_is_rhonu = .false.
 #endif
 
+      if (ion_hall) no_eom_divpe = .false.       !Include divpe in ion EOM
+
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       !PC
