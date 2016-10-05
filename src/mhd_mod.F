@@ -299,6 +299,7 @@ c ######################################################################
         integer, parameter :: IVECNV   =13
      .                       ,IVECOV   =14
      .                       ,IVECOV_N =15
+     .                       ,IVECNV_0 =21
 
         integer, parameter :: IENI     =16
      .                       ,IENI_0   =17
@@ -329,6 +330,7 @@ c ######################################################################
         integer, parameter :: IVECNV   =16
      .                       ,IVECOV   =17
      .                       ,IVECOV_N =18
+     .                       ,IVECNV_0 =24
 
         integer, parameter :: IENI    =19
      .                       ,IEH     =20
@@ -398,6 +400,7 @@ cc     .                                       ,bcnv_n
         real(8),pointer,dimension(:,:,:,:) :: vecnv
      .                                       ,vecov
      .                                       ,vecov_n
+     .                                       ,vecnv_0
      .                                       ,vscnv
 
       contains
@@ -484,9 +487,10 @@ c     Setup pointers
         vaux%vec_list(IENI_0)%time_0 = .true.
         E_ni_0 => vaux%vec_list(IENI_0)%vec
 
-cc        vaux%vec_list(IVECNV_0)%cnv   = .true.
-cc        vaux%vec_list(IVECNV_0)%descr = 'Ve_0 cnv'
-cc        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
+        vaux%vec_list(IVECNV_0)%cnv   = .true.
+        vaux%vec_list(IVECNV_0)%descr = 'Ve_0 cnv'
+        vaux%vec_list(IVECNV_0)%time_0 = .true.
+        vecnv_0 => vaux%vec_list(IVECNV_0)%vec
 
         !Old-time variables
         vaux%vec_list(IVCNV_N)%cnv = .true.
@@ -1053,6 +1057,19 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 0 !trivial
 #endif
 
+      !Ve cnv = v - di*j/rho
+      vaux%vec_list(IVECNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
+      vaux%vec_list(IVECNV_0)%bc_dep_list(1,2) = SCALAR
+      vaux%vec_list(IVECNV_0)%bc_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVECNV_0)%bc_dep_list(2,1) = IVCNV_0*AUX
+      vaux%vec_list(IVECNV_0)%bc_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVECNV_0)%bc_dep_list(2,3) = 0 !trivial
+
+      vaux%vec_list(IVECNV_0)%bc_dep_list(3,1) = IJCNV_0*AUX
+      vaux%vec_list(IVECNV_0)%bc_dep_list(3,2) = VECTOR
+      vaux%vec_list(IVECNV_0)%bc_dep_list(3,3) = 0 !trivial
+
 c     Current variables
 
       !Rho
@@ -1245,13 +1262,9 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IDIVPI)%bc_dep_list(2,3) = 1 !non-trivial
 
       !Div(pe)
-      vaux%vec_list(IDIVPE)%bc_dep_list(1,1) = IHETA*AUX
-      vaux%vec_list(IDIVPE)%bc_dep_list(1,2) = SCALAR
-      vaux%vec_list(IDIVPE)%bc_dep_list(1,3) = 1 !non-trivial
-
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,1) = IVECNV*AUX
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,2) = VECTOR
-      vaux%vec_list(IDIVPE)%bc_dep_list(2,3) = 1 !non-trivial
+      vaux%vec_list(IDIVPE)%bc_dep_list(1,1) = IDIVPE*AUX
+      vaux%vec_list(IDIVPE)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IDIVPE)%bc_dep_list(1,3) = 0 !trivial
 
       !E Hall
       if (di > 0d0) then
@@ -1450,6 +1463,19 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%dom_dep_list(4,3) = 0 !trivial
 
+      !Ve cnv = v - di*j/rho
+      vaux%vec_list(IVECNV_0)%dom_dep_list(1,1) = IRHO_0*AUX
+      vaux%vec_list(IVECNV_0)%dom_dep_list(1,2) = SCALAR
+      vaux%vec_list(IVECNV_0)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVECNV_0)%dom_dep_list(2,1) = IVCNV_0*AUX
+      vaux%vec_list(IVECNV_0)%dom_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVECNV_0)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%vec_list(IVECNV_0)%dom_dep_list(3,1) = IJCNV_0*AUX
+      vaux%vec_list(IVECNV_0)%dom_dep_list(3,2) = VECTOR
+      vaux%vec_list(IVECNV_0)%dom_dep_list(3,3) = 0 !trivial
+
 c     Current variables
 
       !Rho
@@ -1629,6 +1655,10 @@ c     Current variables
       vaux%vec_list(IDIVPE)%dom_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPE)%dom_dep_list(2,3) = 1 !non-trivial
 
+      vaux%vec_list(IDIVPE)%dom_dep_list(3,1) = IVECNV_0*AUX
+      vaux%vec_list(IDIVPE)%dom_dep_list(3,2) = VECTOR
+      vaux%vec_list(IDIVPE)%dom_dep_list(3,3) = 1 !non-trivial
+
       !E Hall
       if (di > 0d0) then
         if (ion_hall) then
@@ -1750,6 +1780,7 @@ c     Begin program
      .       ,vecnv
      .       ,vecov
      .       ,vecov_n
+     .       ,vecnv_0
      .       ,E_ni
      .       ,E_ni_0
      .       ,E_h
@@ -4240,7 +4271,8 @@ c ######################################################################
      .            ,sym_st      =.false. !Whether to use symmetric stress tensor
      .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
      .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
-
+     .            ,subtract_E0 =.false. !Whether we substract initial E in Ohm's law
+        
         logical,private :: symm_pi
 
         INTERFACE res
