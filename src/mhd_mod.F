@@ -4241,6 +4241,8 @@ c ######################################################################
      .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
      .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
 
+        logical,private :: symm_pi
+
         INTERFACE res
           module procedure res_mesh
         END INTERFACE
@@ -4334,7 +4336,7 @@ c$$$      end function form_jfake
 
 c     viscous_heat_src
 c     ###################################################################
-      function viscous_heat_src(g_def,i,j,k,igr,visc,vcnv1,vcnv2)
+      function viscous_heat_src(g_def,i,j,k,igr,visc,vcnv1,vcnv2,symm)
      .         result(vhs)
 
 c     -------------------------------------------------------------------
@@ -4352,6 +4354,8 @@ c     Call variables
      .            ,vcnv2(0:,0:,0:,:)
      .            ,visc (0:,0:,0:)
      .            ,vhs
+        
+        logical :: symm
 
 c     Local variables
 
@@ -4367,7 +4371,7 @@ c     Begin program
 c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^m)
 
         if (visc(i,j,k) > 0d0) then
-          pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc)
+          pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc,symm)
 
           nabla_v = fnabla_v(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                      ,vcnv2(:,:,:,1)
@@ -5271,7 +5275,7 @@ c     Diffusive part
      .                    ,vec1(:,:,:,3),0,cnv=.true.)
         endif
 
-        if (sym_st) then
+        if (symm_pi) then
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
@@ -5363,7 +5367,7 @@ c       Diffusive part
      .                    ,vec1(:,:,:,3),0,cnv=.true.)
         endif
 
-        if (sym_st) then
+        if (symm_pi) then
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
@@ -5457,7 +5461,7 @@ c       Diffusive part
      .                    ,vec1(:,:,:,3),0,cnv=.true.)
         endif
 
-        if (sym_st) then
+        if (symm_pi) then
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         endif
 
@@ -5481,7 +5485,7 @@ c     End program
 
 c     EOM_divPi_ijk
 c     #####################################################################
-      function EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igr,v0,dff)
+      function EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igr,v0,dff,symm)
      .         result(cnv)
 
 c     ---------------------------------------------------------------------
@@ -5500,13 +5504,16 @@ c     Call variables
       real(8),target :: v0 (0:nxx+1,0:nyy+1,0:nzz+1,3)
       real(8),target :: dff(0:nxx+1,0:nyy+1,0:nzz+1)
 
+      logical :: symm
+
 c     Local variables
 
 c     Begin program
 
       vec1 => v0
       coef => dff
-
+      symm_pi = symm
+      
       cnv = div_tensor(g_def,i,j,k,nxx,nyy,nzz,igr,igr,igr,alt__eom()
      .                ,eom_diff_x,eom_diff_y,eom_diff_z
      .                ,vol=.false.)
@@ -5519,7 +5526,7 @@ c     End program
 
 c     EOM_divPi
 c     #####################################################################
-      function EOM_divPi(g_def,igr,v0,diff) result(cnv)
+      function EOM_divPi(g_def,igr,v0,diff,symm) result(cnv)
 
 c     ---------------------------------------------------------------------
 c     Find divergence of electron pressure stress tensor. Returns
@@ -5541,6 +5548,8 @@ c     Call variables
      $               ,0:size(v0,3)-1
      $               ,  size(v0,4)  )
 
+      logical :: symm
+
 c     Local variables
 
       integer :: i,j,k,nxx,nyy,nzz
@@ -5557,7 +5566,7 @@ c     Begin program
         do j=1,nyy
           do i=1,nxx
             cnv(i,j,k,:)
-     .           = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igr,v0,diff)
+     .        = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igr,v0,diff,symm)
           enddo
         enddo
       enddo
@@ -5636,7 +5645,7 @@ c$$$      end function EOM_divPe
 
 c     EOM_Pi_ijk
 c     #####################################################################
-      function EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,v0,diff)
+      function EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,v0,diff,symm)
      .         result(pi_tnsr)
 
 c     ---------------------------------------------------------------------
@@ -5654,12 +5663,16 @@ c     Call variables
       real(8),target :: v0  (0:nx+1,0:ny+1,0:nz+1,3)
       real(8),target :: diff(0:nx+1,0:ny+1,0:nz+1)
 
+      logical :: symm
+
 c     Local variables
 
 c     Begin program
 
       vec1 => v0
       coef => diff
+      symm_pi = symm
+
       call eom_diff_x(g_def,i,j,k,nx,ny,nz,igr,igr,igr,.false.
      .               ,pi_tnsr(1,1),pi_tnsr(1,2),pi_tnsr(1,3),0)
       call eom_diff_y(g_def,i,j,k,nx,ny,nz,igr,igr,igr,.false.

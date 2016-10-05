@@ -693,7 +693,7 @@ c     Begin program
      .            ,sm_zebra_relax= sm_zebra_relax_si
      .            )
 
-cc          call pc_diag(3,nn,xc(:,1:3),rhsc(:,1:3))
+cc          call pc_diag(3,nn,x,rhssi)
 
         else
 
@@ -725,7 +725,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
-cc          call pc_diag(3,nn,xc(:,1:3),rhsc(:,1:3))
+cc          call pc_diag(6,nn,xc,rhsc)
 
           x(:,IVX:IVZ) = xc(:,1:3)
         endif
@@ -1372,7 +1372,7 @@ c Find rhs_v'
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then
                 cnv = cnv
      .               -EOM_divPi_ijk(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                             ,dve_cnv,heta0(:,:,:,1))
+     .                             ,dve_cnv,heta0(:,:,:,1),.false.)
               endif
 
               if (nc_eom_v) then
@@ -1407,7 +1407,8 @@ c Find rhs_v'
               !Stress tensors
               cnv = cnv
      .            + EOM_divPi_ijk(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                         ,dv_cnv,gvis%grid(igrid)%array(:,:,:,1))
+     .                         ,dv_cnv,gvis%grid(igrid)%array(:,:,:,1)
+     .                         ,sym_st)
 
               if (nc_eom_v) cnv = cnv/rho0(i,j,k,1)
             endif

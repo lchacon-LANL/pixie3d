@@ -7,7 +7,7 @@ c ######################################################################
 
         use ts_setup
 
-        use nlfunction_setup, ONLY: ion_hall,electron_hall
+        use nlfunction_setup, ONLY: ion_hall,electron_hall,sym_st
 
         !SI solver parameters
         integer :: mg_ores_si
@@ -1110,7 +1110,8 @@ c     Begin program
         if (strss) then
           psiv = psiv
      .        +alpha/rho0(i,j,k,1)
-     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1))
+     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1)
+     .                      ,sym_st)
         endif
       else
        !TS
@@ -1127,7 +1128,8 @@ c     Begin program
         if (strss) then
           psiv = psiv
      .        +alpha
-     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1))
+     .        *EOM_divPi_ijk(g_def,i,j,k,nx,ny,nz,igr,dv,nus(:,:,:,1)
+     .                      ,sym_st)
         endif
       endif
 
@@ -1173,6 +1175,8 @@ c     Local variables
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
      .               ,veh(3),curlv(3),half=0.5d0,ijacip
         logical    :: str
+
+        real(8),dimension(:,:,:,:),pointer :: rho0,nu0
 
 c     Begin program
 
@@ -1306,44 +1310,41 @@ c     Hall MHD part
 
             uav = uav + di*cov
 
-c$$$            if (str .and. half_elem == 0) then
-c$$$cc              select case(half_elem)
-c$$$cc              case(1)
-c$$$cc                cnv = (EOM_divPi(i ,j,k,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                               ,gvis%grid(igx)%array)
-c$$$cc     .                +EOM_divPi(ip,j,k,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                               ,gvis%grid(igx)%array))
-c$$$cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
-c$$$cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
-c$$$cc              case(2)
-c$$$cc                cnv = (EOM_divPi(i,j ,k,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                          ,gvis%grid(igx)%array)
-c$$$cc     .                +EOM_divPi(i,jp,k,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                          ,gvis%grid(igx)%array))
-c$$$cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
-c$$$cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
-c$$$cc              case(3)
-c$$$cc                cnv = (EOM_divPi(i,j,k ,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                          ,gvis%grid(igx)%array)
-c$$$cc     .                +EOM_divPi(i,j,kp,nx,ny,nz,igx,igy,igz,vv
-c$$$cc     .                          ,gvis%grid(igx)%array))
-c$$$cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
-c$$$cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
-c$$$cc              case default
-c$$$
-c$$$                cnv = EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv
-c$$$     .                             ,gvis%grid(igx)%array)
-c$$$     .               /grho0%grid(igx)%array(i,j,k,1)
-c$$$cc              end select
-c$$$
-c$$$                call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-c$$$     .                                ,cov(1),cov(2),cov(3)
-c$$$     .                                ,cnv(1),cnv(2),cnv(3)
-c$$$     .                                ,.false.,half_elem=half_elem)
-c$$$
-c$$$                uav = uav + di*cov
-c$$$
-c$$$            endif
+            if (str .and. half_elem == 0) then
+c$$$            if (str) then
+              call point_to_MG_array(nx,ny,nz,igx,rho0,grho0)
+              call point_to_MG_array(nx,ny,nz,igx,nu0 ,gvis)
+
+c$$$              select case(half_elem)
+c$$$              case(1)
+c$$$                cnv =(EOM_divPi_ijk(g_def,i ,j,k,nx,ny,nz,igx,vv,nu0)
+c$$$     .               +EOM_divPi_ijk(g_def,ip,j,k,nx,ny,nz,igx,vv,nu0))
+c$$$     .               /(rho0(i ,j,k,1)
+c$$$     .                +rho0(ip,j,k,1))
+c$$$              case(2)
+c$$$                cnv =(EOM_divPi_ijk(g_def,i,j ,k,nx,ny,nz,igx,vv,nu0)
+c$$$     .               +EOM_divPi_ijk(g_def,i,jp,k,nx,ny,nz,igx,vv,nu0))
+c$$$     .               /(rho0(i,j ,k,1)
+c$$$     .                +rho0(i,jp,k,1))
+c$$$              case(3)
+c$$$                cnv =(EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv,nu0)
+c$$$     .               +EOM_divPi_ijk(g_def,i,j,kp,nx,ny,nz,igx,vv,nu0))
+c$$$     .               /(rho0(i,j,k ,1)
+c$$$     .                +rho0(i,j,kp,1))
+c$$$              case default
+                cnv = EOM_divPi_ijk(g_def,i,j,k ,nx,ny,nz,igx,vv,nu0
+     .                             ,sym_st)
+     .               /rho0(i,j,k,1)
+c$$$              end select
+
+              call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
+     .                                ,cov(1),cov(2),cov(3)
+     .                                ,cnv(1),cnv(2),cnv(3)
+     .                                ,.false.,half_elem=half_elem)
+
+              uav = uav + di*cov
+
+            endif
 
           else  !Electron hall
 
@@ -1407,29 +1408,29 @@ cc            if (str) then
 cc              select case(half_elem)
 cc              case(1)
 cc                cnv = (EOM_divPi_ijk(i ,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,gheta%grid(igx)%array)
+cc     .                               ,heta0)
 cc     .                +EOM_divPi_ijk(ip,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                               ,gheta%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i ,j,k,1)
-cc     .                 +grho0%grid(igx)%array(ip,j,k,1))
+cc     .                               ,heta0))
+cc     .                /(rho0(i ,j,k,1)
+cc     .                 +rho0(ip,j,k,1))
 cc              case(2)
 cc                cnv = (EOM_divPi_ijk(i,j ,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                              ,gheta%grid(igx)%array)
+cc     .                              ,heta0)
 cc     .                +EOM_divPi_ijk(i,jp,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                              ,gheta%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i,j ,k,1)
-cc     .                 +grho0%grid(igx)%array(i,jp,k,1))
+cc     .                              ,heta0))
+cc     .                /(rho0(i,j ,k,1)
+cc     .                 +rho0(i,jp,k,1))
 cc              case(3)
 cc                cnv = (EOM_divPi_ijk(i,j,k ,nx,ny,nz,igx,igy,igz,vv
-cc     .                              ,gheta%grid(igx)%array)
+cc     .                              ,heta0)
 cc     .                +EOM_divPi_ijk(i,j,kp,nx,ny,nz,igx,igy,igz,vv
-cc     .                              ,gheta%grid(igx)%array))
-cc     .                /(grho0%grid(igx)%array(i,j,k ,1)
-cc     .                 +grho0%grid(igx)%array(i,j,kp,1))
+cc     .                              ,heta0))
+cc     .                /(rho0(i,j,k ,1)
+cc     .                 +rho0(i,j,kp,1))
 cc              case default
 cc                cnv = EOM_divPi_ijk(i,j,k,nx,ny,nz,igx,igy,igz,vv
-cc     .                            ,gheta%grid(igx)%array(:,:,:,1))
-cc     .               /grho0%grid(igx)%array(i,j,k,1)
+cc     .                            ,heta0)
+cc     .               /rho0(i,j,k,1)
 cc
 cc              end select
 cc
@@ -1875,8 +1876,10 @@ cc        nu0  => gvis %grid(igr)%array
               ii  = i + nx*(j-1) + nx*ny*(k-1)
 
               heat_src =
-     .          viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1),dv_cnv,v0)
-     .         +viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1),v0,dv_cnv)
+     .          viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1)
+     .                          ,dv_cnv,v0,sym_st)
+     .         +viscous_heat_src(g_def,i,j,k,igr,nu0(:,:,:,1)
+     .                          ,v0,dv_cnv,sym_st)
 
               crhs(ii) =crhs(ii)-(gamma-1d0)*heat_src
             enddo
@@ -2062,10 +2065,10 @@ cc        endif
 
                 heat_src= viscous_heat_src(g_def,i,j,k,igrid
      .                            ,gheta%grid(igrid)%array(:,:,:,1)
-     .                            ,ve0,dve_cnv)
+     .                            ,ve0,dve_cnv,.false.)
      .                   +viscous_heat_src(g_def,i,j,k,igrid
      .                            ,gheta%grid(igrid)%array(:,:,:,1)
-     .                            ,dve_cnv,ve0)
+     .                            ,dve_cnv,ve0,.false.)
 
                 crhs(ii) = crhs(ii) - (gamma-1d0)*heat_src
               enddo

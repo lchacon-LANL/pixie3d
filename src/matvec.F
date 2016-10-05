@@ -1677,7 +1677,7 @@ cc            a_res = a_res + alpha*dbs_x_ve0(das)
 
             !Electron pressure tensor piece:-di/rho*div(Pi(dve))
             cnv = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid
-     .                         ,dve_cnv,heta0)
+     .                         ,dve_cnv,heta0,.false.)
             cov = matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:),cnv)
 
             a_res = a_res - alpha*di*cov/rho0(i,j,k,1)
@@ -2747,23 +2747,6 @@ c Map vector x to array for processing (return dv in curvilinear comp.)
      .              ,result_is_curv=.true.,arr_cov=dv_cov
      .              ,arr0=v0)
 
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,dv,igrid
-cc     .                       ,.false.)
-cc
-cccc      if (alt__eom()) dv(:,:,:,2) = dv(:,:,:,2)/g_def%gmetric%grid(igrid)%jac
-cc
-cc      if (di > 0) then
-cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=1,arr_cov=dv_cov
-cc     .            ,arr0=v0)
-cc      else
-cc        call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,dv,bcnd
-cc     .            ,icomp=(/IVX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dv_cov
-cc     .            ,arr0=v0)
-cc      endif
-
       dpp(:,:,:,1)=rho0(:,:,:,1)*dv(:,:,:,1)
       dpp(:,:,:,2)=rho0(:,:,:,1)*dv(:,:,:,2)
       dpp(:,:,:,3)=rho0(:,:,:,1)*dv(:,:,:,3)
@@ -3022,7 +3005,7 @@ c Calculate matrix-vector product
 
             !Electron viscosity piece *************
             divpe = EOM_divPi_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid
-     .                           ,dve_cnv,heta0)
+     .                           ,dve_cnv,heta0,.false.)
 
             if (nc_eom_v) then
               psiv = psiv + alpha*divpe/rho0(i,j,k,1)
