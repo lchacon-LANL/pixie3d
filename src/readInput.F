@@ -684,7 +684,6 @@ c$$$      endif
       if (slava) then
         nu_is_rhonu = .true.
         heta_is_rhoheta = .true.
-        subtract_E0  = .true.
         e_cons_vstar = .false.
       endif
 #if defined(RFX)
