@@ -641,7 +641,6 @@ c     #####################################################################
 
       !NK
       if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
-cc      if (di == 0d0) heta = 0d0
 
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
@@ -659,6 +658,8 @@ cc      if (coords /= 'car') nc_eom_f = .true.
       if (chi_par == 0d0) chi_par = chi
 
       if (di == 0d0) de = 0d0
+
+cc      if (di == 0d0) heta = 0d0
 
       if (de > di) then
         call pstop('readInput','Unphysical value for di and/or de')
