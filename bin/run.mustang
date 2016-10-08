@@ -8,7 +8,7 @@ cat <<HELP
 Usage: 
 
 run [-h] [-d] [-n nodes] [-np procs] [-wc hh:mm:ss] [-x executable] [-r tmax] [-rtgz file] [-ntar]
-        [-equ file] [-eig file] -- inputfile [options]
+        [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
 	-h:            gives this message
@@ -26,6 +26,7 @@ where:
                          tarfile inputfile.tar.gz)
 	-equ:          equilibrium file 
 	-eig:          eigenmode file 
+        -recursive     whether we automatically monitor termination and restart
 	inputfile:     is the input file with or without the extension .in
 	options:       options passed directly to the executable
 HELP
@@ -44,6 +45,7 @@ restartfile=""
 code_ifile=pixie3d
 wtime=""
 adiosfile="adios_config.xml"
+recursive=f
 
 # Parse command line options
 
@@ -65,6 +67,7 @@ case $1 in
 	-ntar)tar=f;shift 1;;
 	-equ)equf=t;equfile=$2;shift 2;;
 	-eig)eigf=t;eigfile=$2;shift 2;;
+	-recursive)recursive=t;shift 1;;
 	--) shift;break;;
 	-*) echo "error: no such option $1. -h for help";exit 1;;
 	*)  break;;
@@ -324,5 +327,10 @@ if [ "$debug" = "t" ]; then
    echo "==> Executing MSUB script..."
 fi
 
-#msub go.msub
-#~/bin/scriptmanage go.msub
+if [ "$recursive" = "t" ]; then
+  ./scriptmanage go.msub
+else
+  msub go.msub
+fi
+
+
