@@ -287,7 +287,11 @@ module purge
 module load gcc/4.7.2
 module load openmpi/1.6.5
 
-#mpirun -np  $(( nodes*np )) $executable $options > $inputfile.log 2>&1
+#mpiexec -np  $(( nodes*np )) $executable $options >> $inputfile.log 2>&1
+
+RETURN_VALUE=\$?  #Exit code from last job
+
+date
 
 # Store tarball in proper place
 
@@ -310,6 +314,8 @@ then
 
 fi
 
+echo "\$RETURN_VALUE" > exit_code.txt
+
 QSUB
 
 # Execute
@@ -319,4 +325,4 @@ if [ "$debug" = "t" ]; then
 fi
 
 #msub go.msub
-~/bin/scriptmanage go.msub
+#~/bin/scriptmanage go.msub
