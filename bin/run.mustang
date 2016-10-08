@@ -14,7 +14,7 @@ where:
 	-h:            gives this message
 	-d:            turn on debugging
 	-n nodes:      indicates the number of nodes
-	-np procs:     indicates the number of processors per node
+	-np procs:     indicates the number of processors
 	-wc time:      indicates wall-clock time (in format hr:min:sec)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
@@ -46,6 +46,7 @@ code_ifile=pixie3d
 wtime=""
 adiosfile="adios_config.xml"
 recursive=f
+create_dir=t
 
 # Parse command line options
 
@@ -107,7 +108,7 @@ fi
 
 path=$PWD
 
-if [ "$tar" = "t" ]
+if [ "$create_dir" = "t" ]
 then
   count=.	
   dir=$inputfile.scratch
@@ -274,7 +275,7 @@ cat > go.msub <<QSUB
 #  predict the duration of the job
 #MSUB -l walltime=$wtime
 #  request resources: one node 8 core
-#MSUB -l nodes=$nodes:ppn=$np
+#MSUB -l nodes=$nodes:ppn=24
 #  specify the pathname for output
 #MSUB -o $inputfile.msub.log
 #  name for job
@@ -290,7 +291,7 @@ module purge
 module load gcc/4.7.2
 module load openmpi/1.6.5
 
-#mpiexec -np  $(( nodes*np )) $executable $options >> $inputfile.log 2>&1
+mpiexec -np $np $executable $options -cpu_quota 56000 >> $inputfile.log 2>&1
 
 RETURN_VALUE=\$?  #Exit code from last job
 
