@@ -1,0 +1,68 @@
+#!/bin/bash
+
+check_job()
+{
+RUNTEST=""
+while [ "$RUNTEST" != "State: Running" -a "$RUNTEST" != "State: Completed" ]
+do
+sleep 30
+checkjob $1 > currentjob.txt
+RUNTEST=$(grep State currentjob.txt | xargs)
+echo 'result=' $RUNTEST
+done
+rm currentjob.txt
+}
+
+new_job()
+{
+sed -e s/"restart  = f"/"restart  = t"/g pixie2d.in > pixie2d.in2
+mv pixie2d.in2 pixie2d.in
+JOB=$(msub $1 -l depend=$JOB | xargs)
+echo 'New JOB='$JOB
+
+RETURN_VALUE=""
+while [ "$RETURN_VALUE" = "" ]
+do
+  sleep 30
+  RETURN_VALUE=$(cat exit_code.txt)
+done
+
+if [ "$RETURN_VALUE" = "1" ]; then
+  new_job $1
+  check_job $JOB
+else
+  exit
+fi
+
+}
+
+date
+
+# First submission
+
+JOB=$(msub $1 | xargs)
+echo 'New JOB='$JOB
+
+check_job $JOB
+
+RETURN_VALUE=""
+while [ "$RETURN_VALUE" = "" ]
+do
+  sleep 30
+  RETURN_VALUE=$(cat exit_code.txt)
+done
+
+# Subsequent submissions
+
+if [ "$RETURN_VALUE" = "1" ]; then  #CPU quota exit; restart
+  new_job $1
+  check_job $JOB
+fi
+
+#Clean up
+
+date
+
+rm exit_code.txt
+echo 'Done'
+exit
