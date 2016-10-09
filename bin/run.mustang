@@ -7,7 +7,7 @@ help()
 cat <<HELP
 Usage: 
 
-"$0" -A account -wc hh:mm:ss [-h] [-d] [-n nodes] [-np procs] [-x executable] [-r tmax]
+$0 -A account -wc hh:mm:ss [-h] [-d] [-n nodes] [-np procs] [-x executable] [-r tmax]
          [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
