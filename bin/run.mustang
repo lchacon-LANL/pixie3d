@@ -7,11 +7,11 @@ help()
 cat <<HELP
 Usage: 
 
-run -A account -wc hh:mm:ss [-h] [-d] [-n nodes] [-np procs] [-x executable] [-r tmax]
+"$0" -A account -wc hh:mm:ss [-h] [-d] [-n nodes] [-np procs] [-x executable] [-r tmax]
          [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
-        -A:            selects account (required)
+        -A:            selects account (w15_magreconn, s15_icfifp; required)
 	-wc time:      indicates wall-clock time (in format hr:min:sec; required)
 	-h:            gives this message
 	-d:            turn on debugging
