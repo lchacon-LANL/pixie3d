@@ -80,7 +80,7 @@ c Namelists
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
-     .                   ,subtract_E0
+     .                   ,subtract_E0,e_cons_vstar
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -114,7 +114,7 @@ c Namelists
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
      .                   ,ion_hall,slava,noise,noise_lev
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
-     .                   ,heta_is_rhoheta,subtract_E0
+     .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
