@@ -47,7 +47,7 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
-      call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
+      call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
       dxx = gv%gparams%dxh(ig)
       dyy = gv%gparams%dyh(jg)
