@@ -1,5 +1,19 @@
 #!/bin/bash
 
+help()
+{
+cat <<HELP
+Usage: 
+
+$0 submit_script [job#]
+
+where:
+	submit_script: is the script file to be submitted
+	job#:          is an optional job number to begin monitoring
+HELP
+exit 0
+}
+
 check_job()
 {
 RUNTEST=""
@@ -41,6 +55,15 @@ else
 fi
 
 }
+
+#Parse input options
+
+if [ "$#" = 0 ]; then
+  help
+  exit 1
+fi
+
+# Begin script
 
 date
 
