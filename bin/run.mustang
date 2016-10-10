@@ -205,6 +205,10 @@ cp $executable $dir 2>/dev/null
 #  cp pixplot.x $dir 2>/dev/null
 #fi
 
+if [ "$recursive" = "t" ]; then
+  cp scriptmanage $dir
+fi
+
 cd $dir
 
 # Check for restart

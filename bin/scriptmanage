@@ -5,12 +5,22 @@ check_job()
 RUNTEST=""
 while [ "$RUNTEST" != "State: Running" -a "$RUNTEST" != "State: Completed" ]
 do
-sleep 30
-checkjob $1 > currentjob.txt
-RUNTEST=$(grep State currentjob.txt | xargs)
-echo 'result=' $RUNTEST
+  sleep 30
+  checkjob $1 > currentjob.txt
+  RUNTEST=$(grep State currentjob.txt | xargs)
+  echo 'result=' $RUNTEST
 done
 rm currentjob.txt
+}
+
+check_return_code()
+{
+RETURN_VALUE=""
+while [ "$RETURN_VALUE" = "" ]
+do
+  sleep 30
+  RETURN_VALUE=$(cat exit_code.txt)
+done
 }
 
 new_job()
@@ -20,16 +30,12 @@ mv pixie2d.in2 pixie2d.in
 JOB=$(msub $1 -l depend=$JOB | xargs)
 echo 'New JOB='$JOB
 
-RETURN_VALUE=""
-while [ "$RETURN_VALUE" = "" ]
-do
-  sleep 30
-  RETURN_VALUE=$(cat exit_code.txt)
-done
+check_job $JOB
+
+check_return_code
 
 if [ "$RETURN_VALUE" = "1" ]; then
   new_job $1
-  check_job $JOB
 else
   exit
 fi
@@ -40,23 +46,21 @@ date
 
 # First submission
 
-JOB=$(msub $1 | xargs)
-echo 'New JOB='$JOB
+JOB="$2"
+
+if [ "$JOB" = "" ]; then
+  JOB=$(msub $1 | xargs)
+  echo 'New JOB='$JOB
+fi
 
 check_job $JOB
 
-RETURN_VALUE=""
-while [ "$RETURN_VALUE" = "" ]
-do
-  sleep 30
-  RETURN_VALUE=$(cat exit_code.txt)
-done
+check_return_code
 
 # Subsequent submissions
 
 if [ "$RETURN_VALUE" = "1" ]; then  #CPU quota exit; restart
   new_job $1
-  check_job $JOB
 fi
 
 #Clean up
