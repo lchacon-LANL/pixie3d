@@ -1205,6 +1205,16 @@ c ######################################################################
       real(8),pointer :: B_cnv(:,:,:,:)
       real(8),pointer :: B_cov(:,:,:,:)
 
+      INTERFACE
+        subroutine solen_bc(g_def,array,dim,loc,face,safe)
+          use grid_def_st
+          type(grid_mg_def),pointer :: g_def
+          integer :: dim,loc
+          logical :: face,safe
+          real(8) :: array(0:,0:,0:,:)
+        end subroutine solen_bc
+      END INTERFACE
+
 c Get some basic properties
 
       gv => patch_var

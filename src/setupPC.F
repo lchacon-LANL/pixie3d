@@ -36,8 +36,6 @@ c Begin program
       igy = igrid
       igz = igrid
 
-      nwt_iter = nk_current_Newton_iteration()
-
 c Configure PC parameters
 
       call PC_config
@@ -45,6 +43,8 @@ c Configure PC parameters
 c Impose BCs
 
 #if !defined(samrai)
+      nwt_iter = nk_current_Newton_iteration()
+
       call applyBC(igx,varray,gv%aux,bc_order=order_bc)
 #else
       write (*,*) 'SAMRAI version of PC not ready'
