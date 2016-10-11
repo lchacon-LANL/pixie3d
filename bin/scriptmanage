@@ -29,18 +29,22 @@ rm currentjob.txt
 
 check_return_code()
 {
+echo "Checking return value for job $JOB"
 RETURN_VALUE=""
 while [ "$RETURN_VALUE" = "" ]
 do
-  sleep 30
-  RETURN_VALUE=$(cat exit_code.txt)
+  echo "Waiting for return value..."
+  sleep 120
+  RETURN_VALUE=$(cat exit_code.txt 2> /dev/null)
 done
+echo "Return value found: $RETURN_VALUE"
 }
 
 new_job()
 {
-sed -e s/"restart  = f"/"restart  = t"/g pixie2d.in > pixie2d.in2
-mv pixie2d.in2 pixie2d.in
+sed -e s/"restart  = f"/"restart  = t"/g pixie3d.in > pixie3d.in2
+mv pixie3d.in2 pixie3d.in
+rm exit_code.txt
 JOB=$(msub $1 -l depend=$JOB | xargs)
 echo 'New JOB='$JOB
 
@@ -72,6 +76,7 @@ date
 JOB="$2"
 
 if [ "$JOB" = "" ]; then
+  rm exit_code.txt
   JOB=$(msub $1 | xargs)
   echo 'New JOB='$JOB
 fi
