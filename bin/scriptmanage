@@ -54,10 +54,7 @@ check_return_code
 
 if [ "$RETURN_VALUE" = "1" ]; then
   new_job $1
-else
-  exit
 fi
-
 }
 
 #Parse input options
