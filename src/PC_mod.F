@@ -431,8 +431,7 @@ c     Local variables
      .            ,bc_cov(6,3)
      .            ,i,j,k,ip,im,jp,jm,kp,km,nxg,nyg,nzg,ieq
 
-        real(8) :: veclap(3),cnv(3),cov(3),dxx,dyy,dzz
-     .            ,nabla_v(3,3),jac,bnorm
+        real(8) :: cnv(3),cov(3),dxx,dyy,dzz,jac,bnorm
 
         logical :: extrp_cfss
 
@@ -687,24 +686,23 @@ cc          call restrictMGArray(IJX,3,gEh0_cov,bc_cov,igrid
 
 c     Find other auxiliary quantities and store them in all grids
 
-        !jxB-grad(p)
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
+        if (nc_eom_v) then
 
-              ip = i+1
-              im = i-1
-              jp = j+1
-              jm = j-1
-              kp = k+1
-              km = k-1
+          !jxB-grad(p)
+          do k = 1,nz
+            do j = 1,ny
+              do i = 1,nx
 
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
+                ip = i+1
+                im = i-1
+                jp = j+1
+                jm = j-1
+                kp = k+1
+                km = k-1
 
-              jac    = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+                ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-              if (nc_eom_v) then
-                veclap =-div_pi(i,j,k,:)
+                jac    = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
                 call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -713,23 +711,16 @@ c     Find other auxiliary quantities and store them in all grids
                 dzz = gv%gparams%dzh(kg)
 
                 !Grad(p)
-                cov(1) = 0.5*( rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
-     .                        +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
+                cov(1) =0.5*(rho(i,j,k)*(tmp(ip,j,k)-tmp(im,j,k))/dxx
+     .                      +tmp(i,j,k)*(rho(ip,j,k)-rho(im,j,k))/dxx)
 
-                cov(2) = 0.5*( rho(i,j,k)*(tmp(i,jp,k)-tmp(i,jm,k))/dyy
-     .                        +tmp(i,j,k)*(rho(i,jp,k)-rho(i,jm,k))/dyy)
+                cov(2) =0.5*(rho(i,j,k)*(tmp(i,jp,k)-tmp(i,jm,k))/dyy
+     .                      +tmp(i,j,k)*(rho(i,jp,k)-rho(i,jm,k))/dyy)
         
-                cov(3) = 0.5*( rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
-     .                        +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
-
-cc                cov = cov*a_p    !Multiply by alpha_p=1 + Ti/Te
+                cov(3) =0.5*(rho(i,j,k)*(tmp(i,j,kp)-tmp(i,j,km))/dzz
+     .                      +tmp(i,j,k)*(rho(i,j,kp)-rho(i,j,km))/dzz)
 
                 cnv = XformToCnv_ijk(gv%gparams,i,j,k,igx,cov)
-c$$$                call transformFromCurvToCurv(gv%gparams,i,j,k
-c$$$     .                                      ,igx,igy,igz
-c$$$     .                                      ,cov(1),cov(2),cov(3)
-c$$$     .                                      ,cnv(1),cnv(2),cnv(3)
-c$$$     .                                      ,.true.)
 
                 !JxB
                 cnv(1) = jcov(i,j,k,2)*bcov(i,j,k,3)
@@ -742,21 +733,23 @@ c$$$     .                                      ,.true.)
      .                 - jcov(i,j,k,2)*bcov(i,j,k,1) - cnv(3)
 
                 g_advdiffV0%grid(igrid)%array(i,j,k,:)
-     .                 = (cnv-veclap)/rho(i,j,k)**2
-              else
-                g_advdiffV0%grid(igrid)%array(i,j,k,:) = 
-     .                          cnp*gv0%grid(igrid)%array(i,j,k,:)/dt
-     .                        + alpha*vcnv(i,j,k,1)*nabla_v(1,:)/jac
-     .                        + alpha*vcnv(i,j,k,2)*nabla_v(2,:)/jac
-     .                        + alpha*vcnv(i,j,k,3)*nabla_v(3,:)/jac
-              endif
+     .                 = (cnv+div_pi(i,j,k,:))/rho(i,j,k)**2
+c$$$                else
+c$$$                  g_advdiffV0%grid(igrid)%array(i,j,k,:) = 
+c$$$     .                            cnp*gv0%grid(igrid)%array(i,j,k,:)/dt
+c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,1)*nabla_v(1,:)/jac
+c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,2)*nabla_v(2,:)/jac
+c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,3)*nabla_v(3,:)/jac
+c$$$                endif
 
+              enddo
             enddo
           enddo
-        enddo
 
-        call restrictMGArray(IVX,3,g_advdiffV0,bc_vec_odd,igrid,order
-     .                      ,order_bc=order_bc)
+          call restrictMGArray(IVX,3,g_advdiffV0,bc_vec_odd,igrid,order
+     .                        ,order_bc=order_bc)
+
+        endif
 
         call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
@@ -1766,7 +1759,7 @@ c     Find rhs_v
               endif
 
               cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                        ,gv0%grid(igrid)%array,dp_cnv,v_advect)
+     .                         ,gv0%grid(igrid)%array,dp_cnv,v_advect)
 
               crhs(ii,:) = dvol*(cnp*dp_cnv(i,j,k,:)/dt - alpha*cnv)
 
@@ -1791,8 +1784,6 @@ c     Find rhs_v
                 dvol = 1d0
               endif
 
-cc              iig = ii + isig - 1
-cc              crhs(ii,:)=dvol*drho(i,j,k,1)*mgadvdiffV0(iig,:)
               crhs(ii,:)=dvol*drho(i,j,k,1)
      .                  *g_advdiffV0%grid(igrid)%array(i,j,k,:)
 

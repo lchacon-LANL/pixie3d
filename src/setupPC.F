@@ -132,56 +132,54 @@ c     Temperature
         call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
      .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
 
-        if (sm_type /= 'gm') then
+        if (sm_type == 'gm') return
 
-c       Magnetic field
+c      Magnetic field
 
 #if !defined(vec_pot)
-          if (pc_e_hall) then
-            bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(gv%gparams,6,1,6*ntotdp,b_mtvc_hyp,1
-     .           ,bcs_hyp,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          else
-            call find_mf_diag(gv%gparams,3,1,3*ntotdp,b_mtvc,1,bcs(:
-     .           ,IBX:IBZ),b_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
+        if (pc_e_hall) then
+          bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+          call find_mf_diag(gv%gparams,6,1,6*ntotdp,b_mtvc_hyp,1
+     .        ,bcs_hyp,b_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+        else
+          call find_mf_diag(gv%gparams,3,1,3*ntotdp,b_mtvc,1,bcs(:
+     .        ,IBX:IBZ),b_diag,sm_ncolors,vol_wgt,mg_glrkin)
+        endif
 #else
-          if (pc_e_hall) then
-            bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
-            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-            call find_mf_diag(gv%gparams,6,1,6*ntotdp,a_mtvc_hyp,1
-     .           ,bcs_hyp,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
+        if (pc_e_hall) then
+          bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+          call find_mf_diag(gv%gparams,6,1,6*ntotdp,a_mtvc_hyp,1
+     .        ,bcs_hyp,a_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+        endif
 
-          call find_mf_diag(gv%gparams,3,1,3*ntotdp,a_mtvc,1,bcs(:
-     .         ,IAX:IAZ),a_diag,sm_ncolors,vol_wgt,mg_glrkin)
+        call find_mf_diag(gv%gparams,3,1,3*ntotdp,a_mtvc,1,bcs(:
+     .      ,IAX:IAZ),a_diag,sm_ncolors,vol_wgt,mg_glrkin)
 #endif
 
-c        Velocity
+c       Velocity
 
-          if (pc_v_solve) then
-            call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc2,1,bcs(:
-     .           ,IVX:IVZ),v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
-          endif
-
-          select case(pc_type)
-          case('s1','s2','s4')
-            if (di == 0d0 .or. (.not.pc_ion_hall)) then
-              call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc,1,bcs(:
-     .             ,IVX:IVZ),v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-            else
-              bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
-              bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-              call find_mf_diag(gv%gparams,6,1,6*ntotdp,v_mtvc_hyp,1
-     .             ,bcs_hyp,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
-            endif
-          case('s3')
-            call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc_af,1,bcs(:
-     .           ,IVX:IVZ),v_diag,sm_ncolors,vol_wgt,mg_glrkin)
-          end select
-
+        if (pc_v_solve) then
+          call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc2,1,bcs(:
+     .         ,IVX:IVZ),v_diag2,sm_ncolors,vol_wgt,mg_glrkin)
         endif
+
+        select case(pc_type)
+        case('s1','s2','s4')
+          if (di == 0d0 .or. (.not.pc_ion_hall)) then
+            call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc,1,bcs(:
+     .           ,IVX:IVZ),v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+          else
+            bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+            bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+            call find_mf_diag(gv%gparams,6,1,6*ntotdp,v_mtvc_hyp,1
+     .           ,bcs_hyp,v_diag_hyp,sm_ncolors,vol_wgt,mg_glrkin)
+          endif
+        case('s3')
+          call find_mf_diag(gv%gparams,3,1,3*ntotdp,v_mtvc_af,1,bcs(:
+     .         ,IVX:IVZ),v_diag,sm_ncolors,vol_wgt,mg_glrkin)
+        end select
 
 c diag ***** DIAGONAL WRITE UP
 cc      isig = 1

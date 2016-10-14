@@ -275,6 +275,7 @@ c End
 
       end subroutine applyDepVarBC
 
+
 c applyAuxVarBC
 c####################################################################
       subroutine applyAuxVarBC(igr,bc_inf,varray,vaux,order)
@@ -514,12 +515,11 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
-     .                      ,eeta_0)
-#else
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+c$$$#if defined(vec_pot)
+c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
+c$$$#else
+          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+c$$$#endif
 
         case(IVECNV_0)
 
@@ -627,7 +627,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
         case(IDIVPI)
 
-#if !defined(vec_pot)
+#if !defined(vec_pot) || defined(plotting)
           if (ion_hall) then
             bcnd = vaux%vec_list(IDIVPI)%bconds
             vdum = XformVector(gv%gparams,igr,div_pi,.false.)
@@ -639,7 +639,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
         case(IDIVPE)
 
-#if !defined(vec_pot)
+#if !defined(vec_pot) || defined(plotting)
           if (electron_hall) then
             bcnd = vaux%vec_list(IDIVPE)%bconds
             vdum = XformVector(gv%gparams,igr,div_pe,.false.)
@@ -653,7 +653,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
 c       Hall electric field BC
 
-#if !defined(vec_pot)
+#if !defined(vec_pot) || defined(plotting)
           if (di > 0d0) then
             bcnd = vaux%vec_list(IEH)%bconds
             vdum = XformVector(gv%gparams,igr,E_h,.true.)
@@ -667,15 +667,13 @@ c       Hall electric field BC
 
 c       Total electric field BC
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
-#else
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
+#if !defined(vec_pot) || defined(plotting)
+          E_ni=E_fld_res_B(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
-
-          E_ni = E_ni - E_ni_0  !Substract imposed electric field
-
-          if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
+c$$$
+c$$$          if (subtract_E0) E_ni = E_ni - E_ni_0  !Substract imposed electric field
+c$$$
+c$$$          if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
 
         case default
           write (*,*) abs(bc_inf(1))
@@ -734,6 +732,11 @@ c Local variables
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
       real(8),pointer,dimension(:,:,:) :: jac
+
+c Debug
+
+      real(8),allocatable,dimension(:,:,:) :: debug2
+      character(13) :: debugfile
 
 c Begin program
 
@@ -948,12 +951,11 @@ cc          if (sum(E0) /= 0d0) then
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
-     .                      ,eeta_0)
-#else
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+c$$$#if defined(vec_pot)
+c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
+c$$$#else
+          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+c$$$#endif
 
         case(IVECNV_0)
 
@@ -1093,11 +1095,11 @@ c       Divergence of electron stress tensor
 c       Hall electric field
 
           if (electron_hall) then
-            E_h  = E_fld_eHall(gv%gparams,igr
-     .                        ,rho,tmpe,bcnv,div_pe,vecov,vecov_n)
+            E_h  = E_fld_eHall(gv%gparams,igr,rho,tmpe,bcnv
+     .                        ,div_pe,vecov,vecov_n)
           elseif(ion_hall) then
-            E_h  = E_fld_iHall(gv%gparams,igr
-     .                        ,rho,tmpe     ,div_pi,vcnv ,vcnv_n)
+            E_h  = E_fld_iHall(gv%gparams,igr,rho,tmpe
+     .                        ,div_pi,vcnv ,vcnv_n)
           endif
 
         case(IENI)
@@ -1105,10 +1107,37 @@ c       Hall electric field
 c       Ideal+resistive E field
 
 #if defined(vec_pot)
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
+          E_ni=E_fld_res_A(gv%gparams,igr,vcnv,acov,jcov,eeta)
 #else
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
+          E_ni=E_fld_res_B(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
+
+c diag *****
+c$$$      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
+c$$$      open(unit=110,file=debugfile,form='unformatted'
+c$$$     .    ,status='replace')
+c$$$
+c$$$      k   = 1
+c$$$
+c$$$      allocate(debug2(0:nnx+1,0:nny+1,0:nnz+1))
+c$$$
+c$$$      debug2 = E_ni(:,:,:,1)
+c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
+c$$$     .     ,xmax,0d0,ymax,0,110)
+c$$$      debug2 = E_ni(:,:,:,2)
+c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
+c$$$     .     ,xmax,0d0,ymax,1,110)
+c$$$      debug2 = E_ni(:,:,:,3)
+c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
+c$$$     .     ,xmax,0d0,ymax,1,110)
+c$$$
+c$$$      deallocate(debug2)
+c$$$      close(110)
+c$$$
+c$$$cc      call pstop('flx_nc_advec_mesh','DIAG')
+c$$$      stop
+c$$$cc      pause
+c diag *****
 
         case default
 
@@ -1318,14 +1347,11 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
 
         case(IENI_0)
 
-c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
-
-#if defined(vec_pot)
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,acov_0,jcov_0
-     .                      ,eeta_0)
-#else
-          E_ni_0 = E_fld_res(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
-#endif
+c$$$#if defined(vec_pot)
+c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
+c$$$#else
+c$$$          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+c$$$#endif
 
         case(IVECNV_0)
 
@@ -1412,11 +1438,11 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 c       Total E field
 
-#if defined(vec_pot)
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,acov,jcov,eeta)
-#else
-          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
-#endif
+c$$$#if defined(vec_pot)
+c$$$          E_ni=E_fld_res(gv%gparams,igr,vcov,acov,jcov,eeta)
+c$$$#else
+c$$$          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
+c$$$#endif
 
           if (subtract_E0) E_ni = E_ni - E_ni_0  !Substract imposed electric field
 

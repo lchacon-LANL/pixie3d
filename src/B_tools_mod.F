@@ -443,7 +443,7 @@ c     Begin program
         jstep = -1
         if (jlo < jhi) jstep = 1
 
-        a(ilo-istep,jlo-jstep,:,3)=0d0
+        aa(ilo-istep,jlo-jstep,:,3)=0d0
 
         i = ilo-istep
 
