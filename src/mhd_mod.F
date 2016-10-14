@@ -383,6 +383,7 @@ cc     .                                       ,bcnv_n
      .                                       ,vcnv_0
      .                                       ,vcnv_n
      .                                       ,vcov
+cc     .                                       ,vcov_0
      .                                       ,pcnv
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
@@ -903,8 +904,11 @@ cc      call set_vec_symm_bc(vaux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
 
       vaux%vec_list(IDIVPE)%bconds = vaux%vec_list(IDIVPI)%bconds
 
+      !Electric field (resistive piece)
+cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IVCOV)%bconds
+
       !Electric field (Hall piece)
-      vaux%vec_list(IEH   )%bconds = vaux%vec_list(IVCOV )%bconds
+      vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
 
 cc      !Equilibrium electric field (non-ideal piece)
 cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH   )%bconds
@@ -1035,27 +1039,24 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IENI_0)%bc_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IENI_0)%bc_dep_list(2,1) = IBCOV_0*AUX
+      vaux%vec_list(IENI_0)%bc_dep_list(2,1) = IJCOV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(2,2) = VECTOR
-      vaux%vec_list(IENI_0)%bc_dep_list(2,3) = 0 !trivial
+      vaux%vec_list(IENI_0)%bc_dep_list(2,3) = 0 !non-trivial
 
       vaux%vec_list(IENI_0)%bc_dep_list(3,1) = IVCNV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI_0)%bc_dep_list(3,3) = 0 !trivial
 
-#if defined(vec_pot)
-      vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IACOV_0*AUX
-      vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
-      vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 1 !non-trivial
-
-      vaux%vec_list(IENI_0)%bc_dep_list(5,1) = IJCOV_0*AUX
-      vaux%vec_list(IENI_0)%bc_dep_list(5,2) = VECTOR
-      vaux%vec_list(IENI_0)%bc_dep_list(5,3) = 0 !non-trivial
-#else
-      vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IJCOV_0*AUX
+c$$$#if defined(vec_pot)
+c$$$      vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IACOV_0*AUX
+c$$$      vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
+c$$$      vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 1 !non-trivial
+c$$$
+c$$$#else
+      vaux%vec_list(IENI_0)%bc_dep_list(4,1) = IBCNV_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%bc_dep_list(4,3) = 0 !trivial
-#endif
+c$$$#endif
 
       !Ve cnv = v - di*j/rho
       vaux%vec_list(IVECNV_0)%bc_dep_list(1,1) = IRHO_0*AUX
@@ -1335,17 +1336,23 @@ cc        endif
       vaux%vec_list(IENI)%bc_dep_list(2,2) = SCALAR
       vaux%vec_list(IENI)%bc_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(3,1) = IBCOV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(3,1) = IJCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCOV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCNV*AUX
       vaux%vec_list(IENI)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(5,1) = IJCOV*AUX
+#if defined(vec_pot)
+      vaux%vec_list(IENI)%bc_dep_list(5,1) = IACOV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(5,2) = VECTOR
+      vaux%vec_list(IENI)%bc_dep_list(5,3) = 1 !non-trivial
+#else
+      vaux%vec_list(IENI)%bc_dep_list(5,1) = IBCNV*AUX
       vaux%vec_list(IENI)%bc_dep_list(5,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(5,3) = 0 !trivial
+#endif
 
       if (di > 0d0) then
         vaux%vec_list(IENI)%bc_dep_list(6,1) = IEH*AUX
@@ -1451,17 +1458,23 @@ c     Equilibrium quantities
       vaux%vec_list(IENI_0)%dom_dep_list(1,2) = SCALAR
       vaux%vec_list(IENI_0)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%vec_list(IENI_0)%dom_dep_list(2,1) = IBCNV_0*AUX
+      vaux%vec_list(IENI_0)%dom_dep_list(2,1) = IJCOV_0*AUX
       vaux%vec_list(IENI_0)%dom_dep_list(2,2) = VECTOR
-      vaux%vec_list(IENI_0)%dom_dep_list(2,3) = 0 !trivial
+      vaux%vec_list(IENI_0)%dom_dep_list(2,3) = 0 !non-trivial
 
       vaux%vec_list(IENI_0)%dom_dep_list(3,1) = IVCNV_0*AUX
       vaux%vec_list(IENI_0)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI_0)%dom_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI_0)%dom_dep_list(4,1) = IJCOV_0*AUX
+c$$$#if defined(vec_pot)
+c$$$      vaux%vec_list(IENI_0)%dom_dep_list(4,1) = IACOV_0*AUX
+c$$$      vaux%vec_list(IENI_0)%dom_dep_list(4,2) = VECTOR
+c$$$      vaux%vec_list(IENI_0)%dom_dep_list(4,3) = 1 !non-trivial
+c$$$#else
+      vaux%vec_list(IENI_0)%dom_dep_list(4,1) = IBCNV_0*AUX
       vaux%vec_list(IENI_0)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI_0)%dom_dep_list(4,3) = 0 !trivial
+c$$$#endif
 
       !Ve cnv = v - di*j/rho
       vaux%vec_list(IVECNV_0)%dom_dep_list(1,1) = IRHO_0*AUX
@@ -1723,17 +1736,23 @@ c     Current variables
       vaux%vec_list(IENI)%dom_dep_list(2,2) = SCALAR
       vaux%vec_list(IENI)%dom_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(3,1) = IBCOV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(3,1) = IJCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCOV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCNV*AUX
       vaux%vec_list(IENI)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(5,1) = IJCOV*AUX
+#if defined(vec_pot)
+      vaux%vec_list(IENI)%dom_dep_list(5,1) = IACOV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(5,2) = VECTOR
+      vaux%vec_list(IENI)%dom_dep_list(5,3) = 1 !non-trivial
+#else
+      vaux%vec_list(IENI)%dom_dep_list(5,1) = IBCNV*AUX
       vaux%vec_list(IENI)%dom_dep_list(5,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(5,3) = 0 !trivial
+#endif
 
       if (di > 0d0) then
         vaux%vec_list(IENI)%dom_dep_list(6,1) = IEH*AUX
@@ -5717,18 +5736,12 @@ c     End program
 
       end function EOM_Pi_ijk
 
-c     E_fld_res
+c     E_fld_res_B
 c     #####################################################################
-#if defined(vec_pot)
-      function E_fld_res(g_def,igr,vcnv,bcnv,acov,jcov,eta2)
-     .         result(E_res)
-#else
-      function E_fld_res(g_def,igr,vcnv,bcnv,jcov,eta2) result(E_res)
-#endif
+      function E_fld_res_B(g_def,igr,vcnv,bcnv,jcov,eta2) result(E_res)
+
 c     ---------------------------------------------------------------------
 c     Computes ideal+resistive electric field, E=-(vxb)+eta*j.
-c     On input, dumcov can be either jcov (for B-field version)
-c     or acov (for vector potential version).
 c     ---------------------------------------------------------------------
 
       implicit none
@@ -5738,28 +5751,19 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igr
-      real(8) :: vcnv  (0:,0:,0:,:)
+      real(8) :: jcov  (0:,0:,0:,:)
+     .          ,vcnv  (0:,0:,0:,:)
      .          ,bcnv  (0:,0:,0:,:)
-     .          ,jcov  (0:,0:,0:,:)
      .          ,eta2  (0:,0:,0:)
-#if defined(vec_pot)
-     .          ,acov  (0:,0:,0:,:)
-#endif
 
       real(8) :: E_res(0:size(vcnv,1)-1
      .                ,0:size(vcnv,2)-1
      .                ,0:size(vcnv,3)-1
      .                ,  size(vcnv,4)  )
-#if defined(vec_pot)
-     .          ,acnv (0:size(vcnv,1)-1
-     .                ,0:size(vcnv,2)-1
-     .                ,0:size(vcnv,3)-1
-     .                ,  size(vcnv,4)  )
-#endif
 
 c     Local variables
 
-      integer :: igx,igy,igz,nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
+      integer :: nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
       real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
 
 c     Begin program
@@ -5767,10 +5771,6 @@ c     Begin program
       nx = size(vcnv,1)-2
       ny = size(vcnv,2)-2
       nz = size(vcnv,3)-2
-
-      igx = igr
-      igy = igr
-      igz = igr
 
 c     Resistive term
 
@@ -5805,7 +5805,6 @@ cc              enddo
 cc            enddo
 cc          enddo
 cc
-cc#if !defined(vec_pot)
 cc          !Impose topological BCs
 cc          bcnd(:,1) = bcond
 cc          bcnd(:,2) = bcond
@@ -5813,19 +5812,79 @@ cc          bcnd(:,3) = bcond
 cc
 cc          call setBC(IAX,3,nx,ny,nz,vdummy,E_res,vzeros,bcnd
 cc     .              ,igx,igy,igz,iorder=2,is_cnv=.false.)
-cc#endif
 cc        endif
 
         !Ohmic current
-#if defined(vec_pot)
+        E_res(:,:,:,1) = eta2*jcov(:,:,:,1)
+        E_res(:,:,:,2) = eta2*jcov(:,:,:,2)
+        E_res(:,:,:,3) = eta2*jcov(:,:,:,3)
+
+      else
+
+        E_res = 0d0
+
+      endif
+
+c     VxB term
+
+      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
+      
+c     External field
+
+      E_res(:,:,:,1) = E_res(:,:,:,1) - E0(1)
+      E_res(:,:,:,2) = E_res(:,:,:,2) - E0(2)
+      E_res(:,:,:,3) = E_res(:,:,:,3) - E0(3)
+
+c     End program
+
+      end function E_fld_res_B
+
+c     E_fld_res_A
+c     #####################################################################
+      function E_fld_res_A(g_def,igr,vcnv,acov,jcov,eta2) result(E_res)
+
+c     ---------------------------------------------------------------------
+c     Computes ideal+resistive electric field, E=-(v x curl(A))+eta*j.
+c     ---------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr
+      real(8) :: jcov  (0:,0:,0:,:)
+     .          ,eta2  (0:,0:,0:)
+     .          ,vcnv  (0:,0:,0:,:)
+     .          ,acov  (0:,0:,0:,:)
+
+      real(8) :: E_res(0:size(vcnv,1)-1
+     .                ,0:size(vcnv,2)-1
+     .                ,0:size(vcnv,3)-1
+     .                ,  size(vcnv,4)  )
+
+c     Local variables
+
+      integer :: nx,ny,nz,i,j,k,ig,jg,kg,ieq,bcnd(6,3)
+      real(8) :: eps,betap,qa,jbs,cov(3),cnv(3),bnorm,x1,y1,z1
+
+c     Begin program
+
+      nx = size(vcnv,1)-2
+      ny = size(vcnv,2)-2
+      nz = size(vcnv,3)-2
+
+c     Resistive term
+
+      if (eta > 0d0) then
+
+        !Ohmic current
         if (vlap_etaj) then
           E_res =-veclap_cov(g_def,igr,acov)
         else
           E_res = jcov
         endif
-#else
-        E_res = jcov
-#endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
         E_res(:,:,:,2) = eta2*E_res(:,:,:,2)
@@ -5839,16 +5898,19 @@ cc        endif
 
 c     VxB term
 
-#if defined(vec_pot)
-      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
-cc      E_res = E_res - v_x_curla(igr,vcnv,acov)
-cc      E_res = E_res 
-cc     .      + tensor_nc_advc_mesh(igr,vcnv,acov,1,v1_cov=.true.)
-cc     .      - tensor_nc_advc_mesh(igr,vcnv,acov,1,v1_cov=.true.
-cc     .                           ,transpose=.true.)
-#else
-      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
-#endif
+cc      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
+
+      !Topological BCs
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+
+      E_res = E_res 
+     .  + tensor_nc_advc_mesh (g_def,igr,vcnv,acov,bcnd,v_advect,.true.)
+c$$$     .  + tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
+c$$$     .                        ,transpose=.false.)
+     .  - tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
+     .                        ,transpose=.true.)
       
 c     External field
 
@@ -5858,188 +5920,7 @@ c     External field
 
 c     End program
 
-      contains
-
-c     v_x_curla
-c     ##############################################################
-      function v_x_curla(igr,vcnv,acov) result(cov)
-
-        implicit none
-
-        integer :: igr
-        real(8), dimension(0:,0:,0:,:) :: vcnv,acov
-        real(8) :: cov(0:size(vcnv,1)-1
-     .                ,0:size(vcnv,2)-1
-     .                ,0:size(vcnv,3)-1
-     .                ,  size(vcnv,4)  )
-      
-        integer :: i,j,k,ip,im,jp,jm,kp,km,ig,jg,kg,nx,ny,nz
-        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,v(3)
-
-        nx = size(vcnv,1)-2
-        ny = size(vcnv,2)-2
-        nz = size(vcnv,3)-2
-
-        do k=1,nz
-          do j=1,ny
-            do i=1,nx
-
-              call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
-
-              ip = i+1
-              im = i-1
-              jp = j+1
-              jm = j-1
-              kp = k+1
-              km = k-1
-
-              v = vcnv(i,j,k,:)
-
-              !1st component
-c$$$              flxip = -v(2)*0.5*(acov(ip,j,k,2)+acov(i,j,k,2))
-c$$$     .                -v(3)*0.5*(acov(ip,j,k,3)+acov(i,j,k,3))
-c$$$
-c$$$              flxim = -v(2)*0.5*(acov(im,j,k,2)+acov(i,j,k,2))
-c$$$     .                -v(3)*0.5*(acov(im,j,k,3)+acov(i,j,k,3))
-
-              flxip =+0.5*(    -v(2)
-     .                    +abs(-v(2)))*acov(i ,j,k,2)
-     .               +0.5*(    -v(2)
-     .                    -abs(-v(2)))*acov(ip,j,k,2)
-     .               +0.5*(    -v(3)
-     .                    +abs(-v(3)))*acov(i ,j,k,3)
-     .               +0.5*(    -v(3)
-     .                    -abs(-v(3)))*acov(ip,j,k,3)
-              flxim =+0.5*(    -v(2)
-     .                    +abs(-v(2)))*acov(im,j,k,2)
-     .               +0.5*(    -v(2)
-     .                    -abs(-v(2)))*acov(i ,j,k,2)
-     .               +0.5*(    -v(3)
-     .                    +abs(-v(3)))*acov(im,j,k,3)
-     .               +0.5*(    -v(3)
-     .                    -abs(-v(3)))*acov(i ,j,k,3)
-
-              flxjp = 0.5*(    v(2)
-     .                    +abs(v(2)))*acov(i,j ,k,1)
-     .               +0.5*(    v(2)
-     .                    -abs(v(2)))*acov(i,jp,k,1)
-              flxjm = 0.5*(    v(2)
-     .                    +abs(v(2)))*acov(i,jm,k,1)
-     .               +0.5*(    v(2)
-     .                    -abs(v(2)))*acov(i,j ,k,1)
-
-              flxkp = 0.5*(    v(3)
-     .                    +abs(v(3)))*acov(i,j,k ,1)
-     .               +0.5*(    v(3)            
-     .                    -abs(v(3)))*acov(i,j,kp,1)
-              flxkm = 0.5*(    v(3)            
-     .                    +abs(v(3)))*acov(i,j,km,1)
-     .               +0.5*(    v(3)            
-     .                    -abs(v(3)))*acov(i,j,k ,1)
-
-              cov(i,j,k,1) =  (flxip-flxim)/g_def%dxh(ig)
-     .                       +(flxjp-flxjm)/g_def%dyh(jg)
-     .                       +(flxkp-flxkm)/g_def%dzh(kg)
-
-              !2nd component
-              flxip = 0.5*(    v(1)
-     .                    +abs(v(1)))*acov(i ,j,k,2)
-     .               +0.5*(    v(1)        
-     .                    -abs(v(1)))*acov(ip,j,k,2)
-              flxim = 0.5*(    v(1)        
-     .                    +abs(v(1)))*acov(im,j,k,2)
-     .               +0.5*(    v(1)        
-     .                    -abs(v(1)))*acov(i ,j,k,2)
-
-c$$$              flxjp = -v(1)*0.5*(acov(i,jp,k,1)+acov(i,j,k,1))
-c$$$           .          -v(3)*0.5*(acov(i,jp,k,3)+acov(i,j,k,3))
-c$$$
-c$$$              flxjm = -v(1)*0.5*(acov(i,jm,k,1)+acov(i,j,k,1))
-c$$$           .          -v(3)*0.5*(acov(i,jm,k,3)+acov(i,j,k,3))
-
-              flxjp =+0.5*(    -v(1)
-     .                    +abs(-v(1)))*acov(i,j ,k,1)
-     .               +0.5*(    -v(1)          
-     .                    -abs(-v(1)))*acov(i,jp,k,1)
-     .               +0.5*(    -v(3)          
-     .                    +abs(-v(3)))*acov(i,j ,k,3)
-     .               +0.5*(    -v(3)          
-     .                    -abs(-v(3)))*acov(i,jp,k,3)
-              flxjm =+0.5*(    -v(1)
-     .                    +abs(-v(1)))*acov(i,jm,k,1)
-     .               +0.5*(    -v(1)          
-     .                    -abs(-v(1)))*acov(i,j ,k,1)
-     .               +0.5*(    -v(3)          
-     .                    +abs(-v(3)))*acov(i,jm,k,3)
-     .               +0.5*(    -v(3)          
-     .                    -abs(-v(3)))*acov(i,j ,k,3)
-
-              flxkp = 0.5*(    v(3)
-     .                    +abs(v(3)))*acov(i,j,k ,2)
-     .               +0.5*(    v(3)            
-     .                    -abs(v(3)))*acov(i,j,kp,2)
-              flxkm = 0.5*(    v(3)            
-     .                    +abs(v(3)))*acov(i,j,km,2)
-     .               +0.5*(    v(3)            
-     .                    -abs(v(3)))*acov(i,j,k ,2)
-
-              cov(i,j,k,2) =  (flxip-flxim)/g_def%dxh(ig)
-     .                       +(flxjp-flxjm)/g_def%dyh(jg)
-     .                       +(flxkp-flxkm)/g_def%dzh(kg)
-
-              !3rd component
-              flxip = 0.5*(    v(1)
-     .                    +abs(v(1)))*acov(i ,j,k,3)
-     .               +0.5*(    v(1)        
-     .                    -abs(v(1)))*acov(ip,j,k,3)
-              flxim = 0.5*(    v(1)        
-     .                    +abs(v(1)))*acov(im,j,k,3)
-     .               +0.5*(    v(1)        
-     .                    -abs(v(1)))*acov(i ,j,k,3)
-
-              flxjp = 0.5*(    v(2)
-     .                    +abs(v(2)))*acov(i,j ,k,3)
-     .               +0.5*(    v(2)
-     .                    -abs(v(2)))*acov(i,jp,k,3)
-              flxjm = 0.5*(    v(2)
-     .                    +abs(v(2)))*acov(i,jm,k,3)
-     .               +0.5*(    v(2)
-     .                    -abs(v(2)))*acov(i,j ,k,3)
-
-c$$$              flxkp = -v(1)*0.5*(acov(i,j,kp,1)+acov(i,j,k,1))
-c$$$           .          -v(2)*0.5*(acov(i,j,kp,2)+acov(i,j,k,2))
-c$$$                                               
-c$$$              flxkm = -v(1)*0.5*(acov(i,j,km,1)+acov(i,j,k,1))
-c$$$           .          -v(2)*0.5*(acov(i,j,km,2)+acov(i,j,k,2))
-              flxkp =+0.5*(    -v(1)
-     .                    +abs(-v(1)))*acov(i,j,k ,1)
-     .               +0.5*(    -v(1)            
-     .                    -abs(-v(1)))*acov(i,j,kp,1)
-     .               +0.5*(    -v(2)            
-     .                    +abs(-v(2)))*acov(i,j,k ,2)
-     .               +0.5*(    -v(2)            
-     .                    -abs(-v(2)))*acov(i,j,kp,2)
-              flxkm =+0.5*(    -v(1)
-     .                    +abs(-v(1)))*acov(i,j,km,1)
-     .               +0.5*(    -v(1)            
-     .                    -abs(-v(1)))*acov(i,j,k ,1)
-     .               +0.5*(    -v(2)            
-     .                    +abs(-v(2)))*acov(i,j,km,2)
-     .               +0.5*(    -v(2)            
-     .                    -abs(-v(2)))*acov(i,j,k ,2)
-
-              cov(i,j,k,3) =  (flxip-flxim)/g_def%dxh(ig)
-     .                       +(flxjp-flxjm)/g_def%dyh(jg)
-     .                       +(flxkp-flxkm)/g_def%dzh(kg)
-
-              cov(i,j,k,:) = -cov(i,j,k,:)
-          enddo
-        enddo
-      enddo
-      
-      end function v_x_curla
-
-      end function E_fld_res
+      end function E_fld_res_A
 
 c$$$c     E_fld_Hall
 c$$$c     #####################################################################

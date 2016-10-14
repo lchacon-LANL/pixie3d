@@ -6016,6 +6016,8 @@ c Begin program
 
 c Find A covariant
 
+      a0_cov = 0d0
+
       select case(meth)
       case('vlap')
 

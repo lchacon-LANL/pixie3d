@@ -71,7 +71,7 @@ c Namelists
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
      .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
-     .                   ,mg_coarse_solve,mgcf
+     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
@@ -130,7 +130,7 @@ c Namelists
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
      .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
-     .                   ,mgcf
+     .                   ,mgcf,pc_gm_driver
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -337,6 +337,7 @@ c Set defaults
       pc_divclean= .false.     ! Whether to perform divergence cleaning in PC or not
       pc_B_solve = .true.      ! Whether to perform B-solve in PC
 
+      pc_gm_driver = .false.   ! Whether GMRES drives PC solve
       mg_vcyc  = 1             ! Maximum number of MG V-cycles
       mg_ores  = 0             ! Restriction order for MG
       mg_oprol = 1             ! Prolongation order for MG
@@ -702,7 +703,9 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
 
-      if (ion_hall     .and.pc_type /='id') pc_type = 's1' !Exception for tests
+      if (ion_hall.and.pc_type /='id'
+     .            .and.pc_type /='s1'
+     .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
 
 cc      if (pc_type == 's1' .and. (electron_hall) .and. (di > 0d0))
 cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when doing Hall

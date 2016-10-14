@@ -95,6 +95,8 @@ c     Perform iteration
 
         rrr = yyy
 
+        dxxx = 0d0
+
         do iter_si=1,pc_iter
 
           !SI norm calculation
@@ -321,6 +323,7 @@ c     Begin program
                 jac  = gv%gparams%gmetric%grid(igx)%jac  (i,j,k)
               else
                 dvol = 1d0
+                jac  = 1d0
               endif
 
               if (solve_rho) y(ii,IRHO)=r(ii,IRHO)-dvol*y(ii,IRHO)*jac
@@ -619,6 +622,7 @@ c     Call variables
 c     Local variables
 
 c     Begin program
+
         if (iout > 0.and.my_rank ==0) then
           write (*,*) '>>>>>>>>>>>>>>>>>>>'
           write (*,*) 'Diagonal scaling...'
@@ -677,6 +681,7 @@ c     Begin program
      .            ,bcs(:,IVX:IVZ),igrid,iout,guess,v_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = v_diag
+     .            ,gm_driver     = pc_gm_driver
      .            ,cvrg_tst      = mg_cvrg_test
      .            ,mg_debug      = mg_debug
      .            ,mg_galerkin   = mg_glrkin
@@ -710,6 +715,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,igrid,iout,guess,v_mtvc_hyp,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = v_diag_hyp
+     .            ,gm_driver     = pc_gm_driver
      .            ,mg_debug      = mg_debug
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
@@ -1077,6 +1083,7 @@ c     Solve EMHD system
       call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .            ,igrid,iout,guess,a_mtvc_hyp,vol_wgt
      .            ,dg            = a_diag_hyp
+     .            ,gm_driver     = pc_gm_driver
      .            ,mg_debug      = mg_debug
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores

@@ -2700,7 +2700,7 @@ c Local variables
      .          ,imin,imax,jmin,jmax,kmin,kmax
      .          ,nxx,nyy,nzz
 
-      real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3)
+      real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),diag
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,dpp
 
@@ -2796,16 +2796,31 @@ c Calculate matrix-vector product
             psib = findPsib(g_def,i,j,k,igrid)
 
             !Diagonal scaling
-             
             if (pc_type == 's2') then
-cc              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
-              psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
-              psib = psib*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
-
-              cnv = (psit + psib)
+              diag = cnp/dt
+     .             + alpha*(abs(v0_cnv(i,j,k,1))/g_def%dx(ig)
+     .                     +abs(v0_cnv(i,j,k,2))/g_def%dy(jg)
+     .                     +abs(v0_cnv(i,j,k,3))/g_def%dz(kg))
+     .                     /g_def%gmetric%grid(igrid)%jac(i,j,k)
+c$$$     .             + alpha*max(dd,chi)
+c$$$     .                   *((g_def%gmetric%grid(igrid)%gsup(i,j ,k ,1,1)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(i,jm,k ,1,1))
+c$$$     .                     /g_def%dx(ig)**2
+c$$$     .                    +(g_def%gmetric%grid(igrid)%gsup(i ,j,k ,2,2)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(im,j,k ,2,2))
+c$$$     .                     /g_def%dy(jg)**2
+c$$$     .                    +(g_def%gmetric%grid(igrid)%gsup(i ,j,k ,3,3)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(im,j,k ,3,3))
+c$$$     .                     /g_def%dz(kg)**2
+c$$$     .                     )/g_def%gmetric%grid(igrid)%jac(i,j,k)
+c$$$              cnv = cnv*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
+c$$$              psit = psit*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
+c$$$              psib = psib*max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol
             else
-              cnv = dt/cnp*(psit + psib)
+              diag = cnp/dt
             endif
+
+            cnv = (psit + psib)/diag
 
             !Form total operator
 
@@ -2881,7 +2896,7 @@ c Local variables
      .          ,nxx,nyy,nzz
 
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),v_res(3),divpe(3)
-     .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3)
+     .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3),diag
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
      .                                     ,dve_cnv,dB_cnv,dB_cov
@@ -3024,11 +3039,29 @@ c Calculate matrix-vector product
             !Diagonal scaling
             cnv = psit + psib 
 
-            if (pc_type == 's2') then
-              cnv = max(rho_diag(1,ijkg),tmp_diag(1,ijkg))*vol*cnv
-            else
-              cnv = dt/cnp*cnv
-            endif
+c$$$            if (pc_type == 's2') then
+              diag = cnp/dt
+     .             + alpha*(abs(v0_cnv(i,j,k,1))/g_def%dx(ig)
+     .                     +abs(v0_cnv(i,j,k,2))/g_def%dy(jg)
+     .                     +abs(v0_cnv(i,j,k,3))/g_def%dz(kg))
+     .                     /g_def%gmetric%grid(igrid)%jac(i,j,k)
+c$$$     .             + alpha*max(dd,chi)
+c$$$     .                   *((g_def%gmetric%grid(igrid)%gsup(i,j ,k ,1,1)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(i,jm,k ,1,1))
+c$$$     .                     /g_def%dx(ig)**2
+c$$$     .                    +(g_def%gmetric%grid(igrid)%gsup(i ,j,k ,2,2)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(im,j,k ,2,2))
+c$$$     .                     /g_def%dy(jg)**2
+c$$$     .                    +(g_def%gmetric%grid(igrid)%gsup(i ,j,k ,3,3)
+c$$$     .                     +g_def%gmetric%grid(igrid)%gsup(i ,j,km,3,3))
+c$$$     .                     /g_def%dz(kg)**2
+c$$$     .                     )
+c$$$     .                     /g_def%gmetric%grid(igrid)%jac(i,j,k)
+c$$$            else
+c$$$              diag = cnp/dt
+c$$$            endif
+
+            cnv = cnv/diag
 
             !Form total operator
             if (nc_eom_v) then

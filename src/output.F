@@ -29,8 +29,9 @@ c Local variables
       integer       :: ngrd(3),nx,ny,nz
 
       character(10) :: advective,vadvective,tsmeth
+      character(40) :: pc
 
-      real(8)       :: vmax(3),lvmax(3)
+      real(8)       :: vmax(3),lvmax(3),dt__exp,ncfl
 
 c Begin program
 
@@ -53,11 +54,17 @@ c Find maximum velocity and magnetic field components (cartesian)
       where(vmax < 1d-20) vmax = 0d0
 #endif
 
+c Compute explicit time step
+
+      if (itime >= inewtime.or.ts_restart) then
+        call set_explicit_dt(dt__exp)
+      endif
+
 c Output
 
       if (my_rank == 0) then
 
-        if (itime.lt.inewtime) then
+        if (itime < inewtime) then
 
           if (.not.test) call warnings
 
@@ -113,7 +120,22 @@ cc            vadvective = '   TVD'
             call pstop('output','cnfactor not within allowed limits')
           endif
 
-          write (*,10)nxd,nyd,nzd,ngrd,pc_type,ts_adapt_dt,source
+          select case(trim(pc_type))
+          case('s1')
+            pc = ' SI PC w/o flow'
+          case('s2')
+            pc = ' SI PC with flow, iterative'
+          case('s3')
+            pc = ' SI PC with flow, commutator'
+          case('s4')
+            pc = ' EMHD split PC'
+          case ('id')
+            pc = ' Identity'
+          case default
+            pc = ' Undefined!'
+          end select
+
+          write (*,10)nxd,nyd,nzd,ngrd,trim(pc),ts_adapt_dt,source
      .               ,numerical_grid,advective,vadvective,tsmeth
 
           write (*,*) 
@@ -127,6 +149,8 @@ cc            vadvective = '   TVD'
 
         else
 
+          ncfl = dt/dt__exp
+
           if (ilevel.ge.1) then
             write (*,*) 
             if (cnfactor == 1d0) then
@@ -139,7 +163,7 @@ cc            vadvective = '   TVD'
           if (cnfactor > 5d-1) then
             write(*,115) itime,time,dt,vmax
           else
-            write(*,110) itime,time,dt,vmax,itgmres,itnewt,cnfactor
+            write(*,110) itime,time,dt,ncfl,vmax,itgmres,itnewt,cnfactor
 #if !defined(vec_pot)
      .                  ,it_divcl
             it_divcl = 0
@@ -156,25 +180,25 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-     .        /,'  Preconditioning method:...',a4,
+     .        /,'  Preconditioning method:...',a,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
      .        /,'  Scalar advection scheme...',a
      .        /,'  Velocity advection scheme.',a
      .        /,'  TS scheme.................',a)
- 100  format ('   itime    time     dt     vx_max   vy_max   vz_max',
+ 100  format ('   itime    time     dt     #CFL   vx_max   vy_max',
 #if defined(vec_pot)
-     .        '  GMRES  Newton  CN factor')
+     .        '   vz_max    GMRES Newton CN factor')
 #else
-     .        '  GMRES  Newton  CN factor  GMRES-DC')
+     .        '   vz_max    GMRES Newton CN factor  GMRES-DC')
 #endif
  105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
 
 #if defined(vec_pot)
- 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3)
+ 110  format (i7,f9.3,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3)
 #else
- 110  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1,0p,2i6,3x,f7.3,3x,i6)
+ 110  format (i7,f9.3,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3,i9)
 #endif
 
  115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
