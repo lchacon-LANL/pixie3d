@@ -733,11 +733,6 @@ c Local variables
 
       real(8),pointer,dimension(:,:,:) :: jac
 
-c Debug
-
-      real(8),allocatable,dimension(:,:,:) :: debug2
-      character(13) :: debugfile
-
 c Begin program
 
       save_tn = old_time_eval .or. source_eval
@@ -1111,33 +1106,6 @@ c       Ideal+resistive E field
 #else
           E_ni=E_fld_res_B(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
-
-c diag *****
-c$$$      debugfile = 'debug_p'//trim(int2char(my_rank))//'.bin'
-c$$$      open(unit=110,file=debugfile,form='unformatted'
-c$$$     .    ,status='replace')
-c$$$
-c$$$      k   = 1
-c$$$
-c$$$      allocate(debug2(0:nnx+1,0:nny+1,0:nnz+1))
-c$$$
-c$$$      debug2 = E_ni(:,:,:,1)
-c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
-c$$$     .     ,xmax,0d0,ymax,0,110)
-c$$$      debug2 = E_ni(:,:,:,2)
-c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
-c$$$     .     ,xmax,0d0,ymax,1,110)
-c$$$      debug2 = E_ni(:,:,:,3)
-c$$$      call contour(debug2(0:nnx+1,0:nny+1,k),nnx+2,nny+2,0d0
-c$$$     .     ,xmax,0d0,ymax,1,110)
-c$$$
-c$$$      deallocate(debug2)
-c$$$      close(110)
-c$$$
-c$$$cc      call pstop('flx_nc_advec_mesh','DIAG')
-c$$$      stop
-c$$$cc      pause
-c diag *****
 
         case default
 
