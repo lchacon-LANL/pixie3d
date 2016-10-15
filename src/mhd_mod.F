@@ -5905,13 +5905,18 @@ cc      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
       bcnd(:,2) = bcond
       bcnd(:,3) = bcond
 
-      E_res = E_res 
-     .  + tensor_nc_advc_mesh (g_def,igr,vcnv,acov,bcnd,v_advect,.true.)
-c$$$     .  + tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
-c$$$     .                        ,transpose=.false.)
+cc      if (bcSP()) then
+        E_res = E_res 
+     .  + tensor_nc_advc_mesh (g_def,igr,vcnv,acov,bcnd,ZIP,.true.)
      .  - tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
      .                        ,transpose=.true.)
-      
+c$$$      else
+c$$$        E_res = E_res 
+c$$$     .  + tensor_nc_advc_mesh (g_def,igr,vcnv,acov,bcnd,v_advect,.true.)
+c$$$     .  - tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
+c$$$     .                        ,transpose=.true.)
+c$$$      endif
+
 c     External field
 
       E_res(:,:,:,1) = E_res(:,:,:,1) - E0(1)
