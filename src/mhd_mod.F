@@ -4283,14 +4283,16 @@ c ######################################################################
 
         use ts_setup
 
-        logical :: bootstrap   =.false. !Whether to calculate bootstrap current
-     .            ,solenoidal  =.true.  !Whether we keep B solenoidal
-     .            ,nc_eom_jxb  =.false. !Whether we use JxB instead of conserv. form
-     .            ,nc_eom_gp   =.false. !Whether we use grad(p) instead of conserv. form
-     .            ,sym_st      =.false. !Whether to use symmetric stress tensor
-     .            ,no_eom_divpe=.false. !Whether we include div(Pe) in EOM
-     .            ,vlap_etaj   =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
-     .            ,subtract_E0 =.false. !Whether we substract initial E in Ohm's law
+        logical :: bootstrap    =.false. !Whether to calculate bootstrap current
+     .            ,solenoidal   =.true.  !Whether we keep B solenoidal
+     .            ,nc_eom_jxb   =.false. !Whether we use JxB instead of conserv. form
+     .            ,nc_eom_gp    =.false. !Whether we use grad(p) instead of conserv. form
+     .            ,sym_st       =.false. !Whether to use symmetric stress tensor
+     .            ,no_eom_divpe =.false. !Whether we include div(Pe) in EOM
+     .            ,vlap_etaj    =.false. !Whether we use eta*lap(A) instead of eta*j in E_res
+     .            ,subtract_E0  =.false. !Whether we substract initial E in Ohm's law
+     .            ,post_divclean=.false. !Whether to perform divergence cleaning at postproc.
+     .            ,post_smooth_B=.false. !Whether to smooth at postprocessing stage
         
         logical,private :: symm_pi
 
