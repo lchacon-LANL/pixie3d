@@ -698,13 +698,11 @@ cc      if (di == 0d0) heta = 0d0
       endif
 
       if (((cnfactor==1d0).or.(di==0d0).or.(de>0d0)).and.ion_hall) then
-        call pstop('readInput'
-     .            ,'Cannot do ion Hall with e inertia')
+        call pstop('readInput','Cannot do ion Hall with e inertia')
       endif
 
-      if ((ion_hall.or.de>0d0).and.(cnfactor==0d0.and.sm_flag==2)) then
-        call pstop('readInput'
-     .            ,'Cannot do BDF2 with e inertia or ion Hall')
+      if ((de>0d0).and.(cnfactor==0d0.and.sm_flag==2)) then
+        call pstop('readInput','Cannot do BDF2 with e inertia')
       endif
 
 c$$$      if (ion_hall.and.(cnfactor==0d0.and.sm_flag==2)) then

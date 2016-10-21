@@ -45,7 +45,7 @@
     odd      = f,f,f
 
     cnfactor = 0.5d0
-    sm_flag  = 1
+    sm_flag  = 2
 
     restart  = f
     timecorr = f
