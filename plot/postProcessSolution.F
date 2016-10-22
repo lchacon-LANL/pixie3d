@@ -79,9 +79,9 @@ cc      endif
 cc      call applyBCplot(igx,varray,gv%aux,it=itime,bc_order=order_bc)
       call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
 
-c Find perturbed quantities (u_pert = varray - u_0)
+c Find perturbed quantities (u_pert = varray - u_ic)
 
-      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_pert)
+      call AXPYDerivedType(1d0,varray,-1d0,u_ic,u_pert)
 
       !Remove Jacobian factors from perturbations
       u_pert%array_var(IRHO)%array = u_pert%array_var(IRHO)%array
