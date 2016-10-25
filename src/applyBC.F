@@ -529,12 +529,12 @@ c       Electron velocity BC: ve=v-di*j/rho with j=curl(B)
 
         case(IVECOV_N)
 
-          if (electron_hall) call XferBCs(vecov,vecov_n,.false.)
+cc          if (electron_hall) call XferBCs(vecov,vecov_n,.false.)
 
         case(IVCNV_N)
 
 #if !defined(plotting)
-          call XferBCs(vcnv,vcnv_n,.false.)
+c$$$          call XferBCs(vcnv,vcnv_n,.false.)
 #endif
 
         case(IVCNV)
@@ -803,10 +803,6 @@ c       Resistivity at initial time
         case(ITMP_AUX)
 
           tmp = tmpe*a_p
-cc          where (varray%array_var(IRHO)%array /= 0d0)
-cc            tmp = varray%array_var(ITMP)%array
-cc     .           /varray%array_var(IRHO)%array
-cc          end where
 
         case(ITMPE_AUX)
 
@@ -893,7 +889,8 @@ c       Allocate auxiliary variables in local domain
           do k = 0,nnz+1
             do j = 0,nny+1
               do i = 0,nnx+1
-                bcnv_0(i,j,k,:) = B0
+                bcnv_0(i,j,k,:) =
+     .             XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
      .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_0)
               enddo
             enddo
@@ -961,25 +958,87 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
         case(IVCNV_N)
 
 #if defined(plotting)
-          vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
-          vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
-          vcnv_n(:,:,:,3) = u_n%array_var(IVZ)%array
-
           if (.not.nc_eom_v) then
-            where (rho /= 0d0)
-              vcnv_n(:,:,:,1) = vcnv_n(:,:,:,1)/rho
-              vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/rho
-              vcnv_n(:,:,:,3) = vcnv_n(:,:,:,3)/rho
-            end where
+            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
+     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
+     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
+     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+            else
+              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
+     .                         /u_n%array_var(IRHO)%array*jac
+              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
+     .                         /u_n%array_var(IRHO)%array*jac
+              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
+     .                         /u_n%array_var(IRHO)%array*jac
+c$$$            where (rho /= 0d0)
+c$$$              vcnv_n(:,:,:,1) = vcnv_n(:,:,:,1)/rho
+c$$$              vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/rho
+c$$$              vcnv_n(:,:,:,3) = vcnv_n(:,:,:,3)/rho
+c$$$            end where
+            endif
+          else
+            vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
+            vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
+            vcnv_n(:,:,:,3) = u_n%array_var(IVZ)%array
           endif
+
+          if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
-          vcnv_n = vcnv  !Initializes for BDF2 as well
+          if (.not.nc_eom_v) then
+            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
+     .                                 /u_n %array_var(ITMP)%array
+     .                         -cnm/cnp*u_nm%array_var(IVX )%array
+     .                                 /u_nm%array_var(ITMP)%array)
+     .                         *jac*tmp_0
+              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
+     .                                 /u_n %array_var(ITMP)%array
+     .                         -cnm/cnp*u_nm%array_var(IVY )%array
+     .                                 /u_nm%array_var(ITMP)%array)
+     .                         *jac*tmp_0
+              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
+     .                                 /u_n %array_var(ITMP)%array
+     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
+     .                                 /u_nm%array_var(ITMP)%array)
+     .                         *jac*tmp_0
+            else
+              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
+     .                                 /u_n %array_var(IRHO)%array
+     .                         -cnm/cnp*u_nm%array_var(IVX )%array
+     .                                 /u_nm%array_var(IRHO)%array)
+     .                         *jac
+              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
+     .                                 /u_n %array_var(IRHO)%array
+     .                         -cnm/cnp*u_nm%array_var(IVY )%array
+     .                                 /u_nm%array_var(IRHO)%array)
+     .                         *jac
+              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
+     .                                 /u_n %array_var(IRHO)%array
+     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
+     .                                 /u_nm%array_var(IRHO)%array)
+     .                         *jac
+            endif
+          else
+            vcnv_n(:,:,:,1) = -cn/cnp*u_n %array_var(IVX)%array
+     .                       -cnm/cnp*u_nm%array_var(IVX)%array
+            vcnv_n(:,:,:,2) = -cn/cnp*u_n %array_var(IVY)%array
+     .                       -cnm/cnp*u_nm%array_var(IVY)%array
+            vcnv_n(:,:,:,3) = -cn/cnp*u_n %array_var(IVZ)%array
+     .                       -cnm/cnp*u_nm%array_var(IVZ)%array
+          endif
+
+          if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
+
+c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 #endif
 
         case(IVECOV_N)
 
-          if (electron_hall) vecov_n = vecov  !Initializes for BDF2 as well
-
+          if (electron_hall) vecov_n = vecov     !Does NOT work for BDF2
+ 
 cc        case(IBCNV_N)
 cc
 cc          bcnv_n = bcnv !Save previous time step
