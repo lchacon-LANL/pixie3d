@@ -80,7 +80,7 @@ c Namelists
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
-     .                   ,subtract_E0,e_cons_vstar
+     .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -112,7 +112,7 @@ c Namelists
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,use_p_eom,use_p_diff,advect,sym_st
-     .                   ,ion_hall,slava,noise,noise_lev
+     .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
 
@@ -157,6 +157,195 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
 #endif
 
 c Set defaults
+
+      call set_defaults
+
+c Read initialization parameters
+
+      call read_namelists
+
+c Obtain eta, nu from Prandtl, Hartmann
+
+      if (hrtmn.gt.0d0.and.prndtl.gt.0d0) then
+        nu  = sqrt(prndtl)/hrtmn
+        eta = 1d0/hrtmn/sqrt(prndtl)
+      endif
+
+c Find alpha_p=p_t/p_e; p_t=p_i+p_e
+
+      a_p = 1d0+temp_ratio
+
+c Initialize grid packing structure
+
+      call init_grid_pack_config(gp1,gp2,gp3)
+
+c Initialize MG parameters
+
+#if defined(petsc) && defined(coarse_MG)
+      if (mgcf > 0) call MG_set_proc_coarsen_factor(mgcf)
+      call MG_set_coarse_solve(mg_coarse_solve)
+#endif
+
+c Consistency check
+
+      call consistency_chk
+
+c Map perturbations
+
+      pert(IRHO)= prho
+      pert(IVX) = pvx
+      pert(IVY) = pvy
+      pert(IVZ) = pvz
+#if !defined(vec_pot)
+      pert(IBX) = pbx
+      pert(IBY) = pby
+      pert(IBZ) = pbz
+#else
+      pert(IAX) = pax
+      pert(IAY) = pay
+      pert(IAZ) = paz
+#endif
+      pert(ITMP)= a_p*ptemp  !Transform to total pressure
+
+c Init boundary conditions
+
+      ioerr = initBCS(bcs)
+
+      if (ioerr /= 0)
+     .     call pstop('readInput','Error in initialization of BCs')
+
+c Write initialization parameters to standard output
+
+      call write_namelists
+
+c Initialize graphics
+
+      ioerr=readGraphicsConfig(in_file)
+
+      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
+        write (*,*) 'Problem reading "graphics" namelist'
+      endif
+
+c Debug profile stage
+
+#if defined(petsc)
+      iDBG=add_profile_stage("Debug")
+#endif
+
+c End program
+
+      contains
+
+c     read_namelists
+c     #####################################################################
+      subroutine read_namelists
+
+      implicit none
+
+      open(unit=uinput,file=in_file,status='old')
+      read(uinput,datin,iostat=ioerr)    !Compatibility mode
+      close(unit=uinput)
+
+      if (ioerr /= 0) then
+        !Reopen input file
+
+        ioerr = 0
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,setup,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
+
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,phys,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
+
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,fv,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
+
+        ioerr = readTSInput(in_file,.false.)
+        if (ioerr/=0) then
+          open(unit=uinput,file=in_file,status='old')
+          read(uinput,ts,iostat=ioerr)
+          close(unit=uinput)
+        endif
+        if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
+
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,nks,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
+
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,pc,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
+
+        open(unit=uinput,file=in_file,status='old')
+        read(uinput,i_o,iostat=ioerr)
+        close(unit=uinput)
+        if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
+      endif
+
+#if !defined(plotting) && !defined(samrai) && !defined(_equ)
+      !Read projective integration configuration
+      call read_PrjInt_Input(in_file)
+#endif
+
+      end subroutine read_namelists
+
+c     write_namelists
+c     #####################################################################
+      subroutine write_namelists
+
+      implicit none
+
+      if (my_rank == 0 .and. (.not. test)) then
+        write (*,*) '------------------'
+        write (*,*) 'GRID configuration'
+        write (*,*) '------------------'
+        write (*,setup)
+
+        write (*,*) '------------------'
+        write (*,*) 'PHYS configuration'
+        write (*,*) '------------------'
+        write (*,phys)
+
+        write (*,*) '----------------- '
+        write (*,*) 'FV  configuration'
+        write (*,*) '----------------- '
+        write (*,fv)
+
+        write (*,*) '----------------- '
+        write (*,*) 'TS  configuration'
+        write (*,*) '----------------- '
+        write (*,ts)
+
+        write (*,*) '----------------- '
+        write (*,*) 'NKS configuration'
+        write (*,*) '----------------- '
+        write (*,nks)
+
+        write (*,*) '----------------- '
+        write (*,*) 'PC  configuration'
+        write (*,*) '----------------- '
+        write (*,pc)
+
+        write (*,*) '----------------- '
+        write (*,*) 'IO  configuration'
+        write (*,*) '----------------- '
+        write (*,i_o)
+      endif
+
+      end subroutine write_namelists
+
+c     set_defaults
+c     #####################################################################
+      subroutine set_defaults
+
+      implicit none
 
       !General setup
       nxd      = 64            ! Mesh points in x-direction
@@ -322,6 +511,8 @@ c Set defaults
       noise      = .false.     ! Whether to add white noise to EOM
       noise_lev  = 0d0         ! Noise level
 
+      post_smooth_B = .false.  ! Whether to smooth B at postprocessing stage
+
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -446,62 +637,15 @@ c Set defaults
       timecorr = .true.
       restart  = .false.
 
-c Read initialization parameters
+      end subroutine set_defaults
 
-      open(unit=uinput,file=in_file,status='old')
-      read(uinput,datin,iostat=ioerr)    !Compatibility mode
-      close(unit=uinput)
+c     consistency_chk
+c     #####################################################################
+      subroutine consistency_chk
 
-      if (ioerr /= 0) then
-        !Reopen input file
+      implicit none
 
-        ioerr = 0
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,setup,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "setup"')
-
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,phys,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "phys"')
-
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,fv,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "fv"')
-
-        ioerr = readTSInput(in_file,.false.)
-        if (ioerr/=0) then
-          open(unit=uinput,file=in_file,status='old')
-          read(uinput,ts,iostat=ioerr)
-          close(unit=uinput)
-        endif
-        if (ioerr/=0) call pstop('readInput','Problem reading "ts"')
-
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,nks,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "nks"')
-
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,pc,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "pc"')
-
-        open(unit=uinput,file=in_file,status='old')
-        read(uinput,i_o,iostat=ioerr)
-        close(unit=uinput)
-        if (ioerr/=0) call pstop('readInput','Problem reading "i_o"')
-      endif
-
-#if !defined(plotting) && !defined(samrai) && !defined(_equ)
-      !Read projective integration configuration
-      call read_PrjInt_Input(in_file)
-#endif
-
-c Check legacy parameters
-
+      !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
 
       if (precon /= '' )  pc_type = precon
@@ -523,119 +667,6 @@ c Check legacy parameters
       if (.not.timecorr) ts_adapt_dt = timecorr
 
       if (restart) ts_restart = restart
-
-c Obtain eta, nu, dd from Prandtl, Hartmann
-
-      if (hrtmn.gt.0d0.and.prndtl.gt.0d0) then
-        nu  = sqrt(prndtl)/hrtmn
-        eta = 1d0/hrtmn/sqrt(prndtl)
-      endif
-
-c Find alpha_p=p_t/p_e; p_t=p_i+p_e
-
-      a_p = 1d0+temp_ratio
-
-c Initialize grid packing structure
-
-      call init_grid_pack_config(gp1,gp2,gp3)
-
-c Initialize MG parameters
-
-#if defined(petsc) && defined(coarse_MG)
-      if (mgcf > 0) call MG_set_proc_coarsen_factor(mgcf)
-      call MG_set_coarse_solve(mg_coarse_solve)
-#endif
-
-c Consistency check
-
-      call consistency_chk
-
-c Map perturbations
-
-      pert(IRHO)= prho
-      pert(IVX) = pvx
-      pert(IVY) = pvy
-      pert(IVZ) = pvz
-#if !defined(vec_pot)
-      pert(IBX) = pbx
-      pert(IBY) = pby
-      pert(IBZ) = pbz
-#else
-      pert(IAX) = pax
-      pert(IAY) = pay
-      pert(IAZ) = paz
-#endif
-      pert(ITMP)= a_p*ptemp  !Transform to total pressure
-
-c Init boundary conditions
-
-      ioerr = initBCS(bcs)
-
-      if (ioerr /= 0)
-     .     call pstop('readInput','Error in initialization of BCs')
-
-c Write initialization parameters to standard output
-
-      if (my_rank == 0 .and. (.not. test)) then
-        write (*,*) '------------------'
-        write (*,*) 'GRID configuration'
-        write (*,*) '------------------'
-        write (*,setup)
-
-        write (*,*) '------------------'
-        write (*,*) 'PHYS configuration'
-        write (*,*) '------------------'
-        write (*,phys)
-
-        write (*,*) '----------------- '
-        write (*,*) 'FV  configuration'
-        write (*,*) '----------------- '
-        write (*,fv)
-
-        write (*,*) '----------------- '
-        write (*,*) 'TS  configuration'
-        write (*,*) '----------------- '
-        write (*,ts)
-
-        write (*,*) '----------------- '
-        write (*,*) 'NKS configuration'
-        write (*,*) '----------------- '
-        write (*,nks)
-
-        write (*,*) '----------------- '
-        write (*,*) 'PC  configuration'
-        write (*,*) '----------------- '
-        write (*,pc)
-
-        write (*,*) '----------------- '
-        write (*,*) 'IO  configuration'
-        write (*,*) '----------------- '
-        write (*,i_o)
-      endif
-
-c Initialize graphics
-
-      ioerr=readGraphicsConfig(in_file)
-
-      if (ioerr /= 0.and.my_rank == 0.and.(.not.test)) then
-        write (*,*) 'Problem reading "graphics" namelist'
-      endif
-
-c Debug profile stage
-
-#if defined(petsc)
-      iDBG=add_profile_stage("Debug")
-#endif
-
-c End program
-
-      contains
-
-c     consistency_chk
-c     #####################################################################
-      subroutine consistency_chk
-
-      implicit none
 
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
@@ -666,7 +697,10 @@ cc      if (di == 0d0) heta = 0d0
         call pstop('readInput','Unphysical value for di and/or de')
       endif
 
-      if ((cnfactor==1d0).or.(di==0d0).or.(de>0d0)) ion_hall = .false.
+      if (((cnfactor==1d0).or.(di==0d0).or.(de>0d0)).and.ion_hall) then
+        call pstop('readInput'
+     .            ,'Cannot do ion Hall with e inertia')
+      endif
 
       if ((ion_hall.or.de>0d0).and.(cnfactor==0d0.and.sm_flag==2)) then
         call pstop('readInput'
@@ -734,14 +768,32 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
         call pstop('readInput','No sinusoidal perturbation specified')
       endif
 
-      !Performs divergence cleaning at postprocessing stage
-      if (solenoidal.and.(.not.pc_divclean)) postprocess = .true.
+      !Postprocessing stage
+#if !defined(vec_pot)
+      post_divclean = .not.((.not.pc_B_solve)
+     .                .or.   pc_divclean
+     .                .or.  (.not.solenoidal)
+     .                .or.  (pc_type == 'id')
+     .                .or.  (nxd==1.and.nyd==1)
+     .                .or.  (nxd==1.and.nzd==1)
+     .                .or.  (nyd==1.and.nzd==1))
+#else
+      post_divclean = .false.
+#endif
 
+      if (.not.postprocess)
+     .     postprocess =    noise
+     .                  .or.lagrangian
+     .                  .or.post_divclean
+     .                  .or.post_smooth_B
+     .                  .or.(br_pert_freq /= 0d0)
+
+#if defined(pit)
+      postprocess = .true.
+#endif
+      
       !Vector advection
       if (v_advect == 0) v_advect = advect
-
-      !Perform Lagrangian step at postprocessing time
-      if (lagrangian) postprocess = .true.
 
       !Use PC as linear solver
       if (pc_as_solver) then
@@ -753,11 +805,6 @@ cc         maxitnwt = 10
 
       !Magnetic perturbation
       if (br_pert_freq /= 0d0) irrot_br_pert = .true.
-
-      !Parallel in time
-#if defined(pit)
-      postprocess = .true.
-#endif
 
 #if defined(petsc)
       if (npx*npy*npz > np) then
