@@ -70,7 +70,7 @@ cc      xarr = 0d0
      .    .or.abs(bcnd(5,1)) == NEU
      .    .or.abs(bcnd(6,1)) == NEU) order = 0
 
-      call fillArray(gv%gparams,igrid,neq,x,xarr,bcnd,order,gpos=gpos
+      call fillArray(g_def,igrid,neq,x,xarr,bcnd,order,gpos=gpos
      .              ,icomp=(/IRHO/))
 
 c Calculate matrix-vector product
