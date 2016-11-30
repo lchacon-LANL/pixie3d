@@ -32,7 +32,7 @@
     tmax     = 1d-1
     dstep    = 1d-1
 
-    pvx      = 0d-4
+    pvx      = 1d-4
     odd      = f,f,f
     random   = f
     nh2      = 1
