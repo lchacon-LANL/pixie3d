@@ -72,7 +72,7 @@ endif
 SUBDIRS = eq src plot
 
 REL1=4
-REL2=0.5
+REL2=1.0
 CPPFLAGS += $(PREPROC)REL1=$(REL1) $(PREPROC)REL2=$(REL2)
 
 ifeq ($(FLUX),t)
