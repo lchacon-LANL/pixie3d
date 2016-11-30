@@ -1,7 +1,7 @@
 
   Grid mesh:................  200x    1x    1
   Number of grid levels:....    4,    1,    1
-  Preconditioning method:...  id
+  Preconditioning method:... Identity
   Time correction...........   F
   External source...........   F
   Numerical grid............   F
@@ -210,7 +210,7 @@
     198    0.198  1.0E-03   9.5E-01  0.0E+00  0.0E+00
     199    0.199  1.0E-03   9.5E-01  0.0E+00  0.0E+00
     200    0.200  1.0E-03   9.5E-01  0.0E+00  0.0E+00
-Average explicit time step: 1.0000E-03
+Average explicit time step:  1.0000E-03
 
 Final statistics
 
