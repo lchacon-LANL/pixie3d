@@ -19,7 +19,8 @@ SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/driver_setup\
           $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/matrixLightSolver\
-	  $(COMMONDIR)/MG
+	  $(COMMONDIR)/MG\
+	  $(COMMONDIR)/OMP
 
 # Set link files
 

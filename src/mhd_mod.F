@@ -273,8 +273,6 @@ c ######################################################################
 
         use variables
 
-        use problem_def
-
         use transport_params
 
         integer :: advect,v_advect      !Identifies advection scheme for scalars, vectors

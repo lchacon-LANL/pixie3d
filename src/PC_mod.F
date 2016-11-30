@@ -105,14 +105,11 @@ c ######################################################################
      .                             ,nc_eom_v
      .                             ,nc_eom_jxb
      .                             ,nc_eom_gp
-     .                             ,solve_rho
      .                             ,use_p_eom
      .                             ,advect
      .                             ,v_advect
-     .                             ,adiabatic
      .                             ,form_ve
      .                             ,vlap_etaj
-     .                             ,electron_hall
 
         use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 
