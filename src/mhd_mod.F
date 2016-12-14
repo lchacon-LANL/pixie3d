@@ -2715,6 +2715,179 @@ cc     .                 +vv(im,j,k,3)*bb(im,j,k,1)*ijacim)
 
       end function curl_bxv_upwd
 
+c     curla_x_v_upwd
+c     ##############################################################
+      function curla_x_v_upwd(g_def,i,j,k,igr,v0,da) result(cov)
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+      
+        integer :: i,j,k,igr
+
+        real(8), dimension(0:,0:,0:,:) :: v0,da
+
+c     Local variables
+
+        integer :: ip,im,jp,jm,kp,km,ig,jg,kg
+        real(8) :: cov(3),jac
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm
+
+c     Begin program
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        jac = g_def%gmetric%grid(igr)%jac(i,j,k)
+
+        call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
+
+        !1st component
+c$$$        flxip = -v0(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))
+c$$$     .          -v0(i,j,k,3)*0.5*(da(ip,j,k,3)+da(i,j,k,3))
+c$$$
+c$$$        flxim = -v0(i,j,k,2)*0.5*(da(im,j,k,2)+da(i,j,k,2))
+c$$$     .          -v0(i,j,k,3)*0.5*(da(im,j,k,3)+da(i,j,k,3))
+
+        flxip =+0.5*(    -v0(i,j,k,2)
+     .              +abs(-v0(i,j,k,2)))*da(i ,j,k,2)
+     .         +0.5*(    -v0(i,j,k,2)
+     .              -abs(-v0(i,j,k,2)))*da(ip,j,k,2)
+     .         +0.5*(    -v0(i,j,k,3)
+     .              +abs(-v0(i,j,k,3)))*da(i ,j,k,3)
+     .         +0.5*(    -v0(i,j,k,3)
+     .              -abs(-v0(i,j,k,3)))*da(ip,j,k,3)
+        flxim =+0.5*(    -v0(i,j,k,2)
+     .              +abs(-v0(i,j,k,2)))*da(im,j,k,2)
+     .         +0.5*(    -v0(i,j,k,2)
+     .              -abs(-v0(i,j,k,2)))*da(i ,j,k,2)
+     .         +0.5*(    -v0(i,j,k,3)
+     .              +abs(-v0(i,j,k,3)))*da(im,j,k,3)
+     .         +0.5*(    -v0(i,j,k,3)
+     .              -abs(-v0(i,j,k,3)))*da(i ,j,k,3)
+
+        flxjp = 0.5*(    v0(i,j,k,2)
+     .              +abs(v0(i,j,k,2)))*da(i,j ,k,1)
+     .         +0.5*(    v0(i,j,k,2)
+     .              -abs(v0(i,j,k,2)))*da(i,jp,k,1)
+        flxjm = 0.5*(    v0(i,j,k,2)
+     .              +abs(v0(i,j,k,2)))*da(i,jm,k,1)
+     .         +0.5*(    v0(i,j,k,2)
+     .              -abs(v0(i,j,k,2)))*da(i,j ,k,1)
+
+        flxkp = 0.5*(    v0(i,j,k,3)
+     .              +abs(v0(i,j,k,3)))*da(i,j,k ,1)
+     .         +0.5*(    v0(i,j,k,3)            
+     .              -abs(v0(i,j,k,3)))*da(i,j,kp,1)
+        flxkm = 0.5*(    v0(i,j,k,3)            
+     .              +abs(v0(i,j,k,3)))*da(i,j,km,1)
+     .         +0.5*(    v0(i,j,k,3)            
+     .              -abs(v0(i,j,k,3)))*da(i,j,k ,1)
+
+        cov(1) =  (flxip-flxim)/g_def%dxh(ig)
+     .           +(flxjp-flxjm)/g_def%dyh(jg)
+     .           +(flxkp-flxkm)/g_def%dzh(kg)
+
+
+        !2nd component
+        flxip = 0.5*(    v0(i,j,k,1)
+     .              +abs(v0(i,j,k,1)))*da(i ,j,k,2)
+     .         +0.5*(    v0(i,j,k,1)        
+     .              -abs(v0(i,j,k,1)))*da(ip,j,k,2)
+        flxim = 0.5*(    v0(i,j,k,1)        
+     .              +abs(v0(i,j,k,1)))*da(im,j,k,2)
+     .         +0.5*(    v0(i,j,k,1)        
+     .              -abs(v0(i,j,k,1)))*da(i ,j,k,2)
+
+c$$$        flxjp = -v0(i,j,k,1)*0.5*(da(i,jp,k,1)+da(i,j,k,1))
+c$$$     .          -v0(i,j,k,3)*0.5*(da(i,jp,k,3)+da(i,j,k,3))
+c$$$
+c$$$        flxjm = -v0(i,j,k,1)*0.5*(da(i,jm,k,1)+da(i,j,k,1))
+c$$$     .          -v0(i,j,k,3)*0.5*(da(i,jm,k,3)+da(i,j,k,3))
+
+        flxjp =+0.5*(    -v0(i,j,k,1)
+     .              +abs(-v0(i,j,k,1)))*da(i,j ,k,1)
+     .         +0.5*(    -v0(i,j,k,1)          
+     .              -abs(-v0(i,j,k,1)))*da(i,jp,k,1)
+     .         +0.5*(    -v0(i,j,k,3)          
+     .              +abs(-v0(i,j,k,3)))*da(i,j ,k,3)
+     .         +0.5*(    -v0(i,j,k,3)          
+     .              -abs(-v0(i,j,k,3)))*da(i,jp,k,3)
+        flxjm =+0.5*(    -v0(i,j,k,1)
+     .              +abs(-v0(i,j,k,1)))*da(i,jm,k,1)
+     .         +0.5*(    -v0(i,j,k,1)          
+     .              -abs(-v0(i,j,k,1)))*da(i,j ,k,1)
+     .         +0.5*(    -v0(i,j,k,3)          
+     .              +abs(-v0(i,j,k,3)))*da(i,jm,k,3)
+     .         +0.5*(    -v0(i,j,k,3)          
+     .              -abs(-v0(i,j,k,3)))*da(i,j ,k,3)
+
+        flxkp = 0.5*(    v0(i,j,k,3)
+     .              +abs(v0(i,j,k,3)))*da(i,j,k ,2)
+     .         +0.5*(    v0(i,j,k,3)            
+     .              -abs(v0(i,j,k,3)))*da(i,j,kp,2)
+        flxkm = 0.5*(    v0(i,j,k,3)            
+     .              +abs(v0(i,j,k,3)))*da(i,j,km,2)
+     .         +0.5*(    v0(i,j,k,3)            
+     .              -abs(v0(i,j,k,3)))*da(i,j,k ,2)
+
+        cov(2) =  (flxip-flxim)/g_def%dxh(ig)
+     .           +(flxjp-flxjm)/g_def%dyh(jg)
+     .           +(flxkp-flxkm)/g_def%dzh(kg)
+
+        !3rd component
+        flxip = 0.5*(    v0(i,j,k,1)
+     .              +abs(v0(i,j,k,1)))*da(i ,j,k,3)
+     .         +0.5*(    v0(i,j,k,1)        
+     .              -abs(v0(i,j,k,1)))*da(ip,j,k,3)
+        flxim = 0.5*(    v0(i,j,k,1)        
+     .              +abs(v0(i,j,k,1)))*da(im,j,k,3)
+     .         +0.5*(    v0(i,j,k,1)        
+     .              -abs(v0(i,j,k,1)))*da(i ,j,k,3)
+
+        flxjp = 0.5*(    v0(i,j,k,2)
+     .              +abs(v0(i,j,k,2)))*da(i,j ,k,3)
+     .         +0.5*(    v0(i,j,k,2)
+     .              -abs(v0(i,j,k,2)))*da(i,jp,k,3)
+        flxjm = 0.5*(    v0(i,j,k,2)
+     .              +abs(v0(i,j,k,2)))*da(i,jm,k,3)
+     .         +0.5*(    v0(i,j,k,2)
+     .              -abs(v0(i,j,k,2)))*da(i,j ,k,3)
+
+c$$$        flxkp = -v0(i,j,k,1)*0.5*(da(i,j,kp,1)+da(i,j,k,1))
+c$$$     .          -v0(i,j,k,2)*0.5*(da(i,j,kp,2)+da(i,j,k,2))
+c$$$                                               
+c$$$        flxkm = -v0(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
+c$$$     .          -v0(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
+        flxkp =+0.5*(    -v0(i,j,k,1)
+     .              +abs(-v0(i,j,k,1)))*da(i,j,k ,1)
+     .         +0.5*(    -v0(i,j,k,1)            
+     .              -abs(-v0(i,j,k,1)))*da(i,j,kp,1)
+     .         +0.5*(    -v0(i,j,k,2)            
+     .              +abs(-v0(i,j,k,2)))*da(i,j,k ,2)
+     .         +0.5*(    -v0(i,j,k,2)            
+     .              -abs(-v0(i,j,k,2)))*da(i,j,kp,2)
+        flxkm =+0.5*(    -v0(i,j,k,1)
+     .              +abs(-v0(i,j,k,1)))*da(i,j,km,1)
+     .         +0.5*(    -v0(i,j,k,1)            
+     .              -abs(-v0(i,j,k,1)))*da(i,j,k ,1)
+     .         +0.5*(    -v0(i,j,k,2)            
+     .              +abs(-v0(i,j,k,2)))*da(i,j,km,2)
+     .         +0.5*(    -v0(i,j,k,2)            
+     .              -abs(-v0(i,j,k,2)))*da(i,j,k ,2)
+
+        cov(3) = ((flxip-flxim)/g_def%dxh(ig)
+     .           +(flxjp-flxjm)/g_def%dyh(jg)
+     .           +(flxkp-flxkm)/g_def%dzh(kg))/jac
+
+      end function curla_x_v_upwd
+
 ccc     curl_bxv_vrtx
 ccc     ###################################################################
 cc      function curl_bxv_vrtx(i,j,k,nx,ny,nz,igx,igy,igz,vv,bb)

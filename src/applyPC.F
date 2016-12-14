@@ -327,10 +327,10 @@ c     Begin program
               endif
 
               if (solve_rho) y(ii,IRHO)=r(ii,IRHO)-dvol*y(ii,IRHO)*jac
-#if !defined(vec_pot)
-              y(ii,IBX:IBZ)=r(ii,IBX:IBZ)-dvol*y(ii,IBX:IBZ)
-#else
+#if defined(vec_pot)
               y(ii,IAX:IAZ)=r(ii,IAX:IAZ)-dvol*y(ii,IAX:IAZ)
+#else
+              y(ii,IBX:IBZ)=r(ii,IBX:IBZ)-dvol*y(ii,IBX:IBZ)
 #endif
               y(ii,ITMP   )=r(ii,ITMP   )-dvol*y(ii,ITMP   )*jac
 
@@ -382,10 +382,10 @@ c     Correct rx to find Deltax (correction for rho, B, T)
           call U_rho_v(gv%gparams,igrid,dv_cnv,rhs(:,IRHO))
         endif
 
-#if !defined(vec_pot)
-        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
-#else
+#if defined(vec_pot)
         call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IAX:IAZ))
+#else
+        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
 #endif
 
         call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,ITMP))
@@ -411,7 +411,7 @@ c     Call variables
 
 c     Local variables
 
-        real(8) :: xc(nn,6),rhsc(nn,6),dum(nn)
+        real(8) :: dum(nn)
 
 c     Begin program
 
@@ -448,127 +448,12 @@ c       Density
      .                )  
         endif
 
-#if !defined(vec_pot)
-c       Magnetic field
+c       Magnetic field/vector potential
 
-        if (pc_B_solve) then
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving for B...'
-          endif
-
-          if (.not.electron_hall) then
-            call cSolver(gv%gparams,3,nn,rhs(:,IBX:IBZ),x(:,IBX:IBZ)
-     .              ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = b_diag
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-     .              )
-          else
-            xc(:,1:3) = x(:,IBX:IBZ)
-            xc(:,4:6) = 0d0
-
-            rhsc(:,1:3) = rhs(:,IBX:IBZ)
-            rhsc(:,4:6) = 0d0
-
-            call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
-     .              ,igrid,iout,guess,b_mtvc_hyp,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = b_diag_hyp
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-     .              )
-
-            x(:,IBX:IBZ) = xc(:,1:3)
-          endif
-
-          if (pc_divclean) call divClean(iout,nn,x(:,IBX:IBZ),igrid)
-cc          if (pc_divclean) then
-cc            call correctBfld(nn,igrid,rhs(:,IBX:IBZ),x,iout)
-cc          endif
-
-        else
-
-          x(:,IBX:IBZ) = dt*rhs(:,IBX:IBZ)/cnp
-          if (vol_wgt)
-     .         call scaleVec(gv%gparams,igrid,3,x(:,IBX:IBZ),'div')
-
-        endif
+#if defined(vec_pot)
+        call invert_A(x(:,IAX:IAZ),rhs(:,IAX:IAZ))
 #else
-c       Vector potential
-
-        if (pc_B_solve.and.electron_hall
-     .      .and.(.not.pc_split_EMHD_after)) then
-
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving EMHD step for A...'
-          endif
-
-          call rhs_A_hall(nn,x,rhsc(:,1:3),igrid)
-          if (vol_wgt)
-     .         call scaleVec(gv%gparams,igrid,3,rhsc(:,1:3),'mul')
-          rhsc(:,1:3) = rhs(:,IAX:IAZ) - rhsc(:,1:3)
-
-          call EMHD_step(rhsc(:,1:3),x(:,IAX:IAZ))
-c diag****
-cc          x(:,IAX:IAZ) = dt*rhsc(:,1:3)
-cc          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
-c diag****
-
-        elseif (pc_B_solve.and.(.not.electron_hall)) then
-
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving for A...'
-          endif
-
-          call cSolver(gv%gparams,3,nn,rhs(:,IAX:IAZ),x(:,IAX:IAZ)
-     .           ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
-     .           ,tol           = pc_tol
-     .           ,dg            = a_diag
-     .           ,mg_debug      = mg_debug
-     .           ,mg_galerkin   = mg_glrkin
-     .           ,mg_order_res  = mg_ores
-     .           ,mg_order_prol = mg_oprol
-     .           ,mg_coarse_grid_size = mg_coarse_size
-     .           ,mg_gm_coarse_solve  = mg_gm_coarse
-     .           ,mg_vcyc       = mg_vcyc
-     .           ,mg_smooth     = sm_type
-     .           ,sm_it         = sm_iter
-     .           ,sm_omega      = sm_omega
-     .           ,sm_ncolors    = sm_ncolors
-     .           ,sm_line_relax = sm_line_relax
-     .           ,sm_zebra_relax= sm_zebra_relax
-     .           )
-
-        else
-
-          x(:,IAX:IAZ) = dt*rhs(:,IAX:IAZ)/cnp
-          if (vol_wgt)
-     .         call scaleVec(gv%gparams,igrid,3,x(:,IAX:IAZ),'div')
-
-        endif
+        call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
 #endif
 
 c       Temperature
@@ -605,6 +490,161 @@ c     End program
 
       end subroutine invert_M
 
+#if defined(vec_pot)
+
+c     invert_A
+c     ##############################################################
+      subroutine invert_A(x,y)
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: x(:,:),y(:,:)
+
+c     Local variables
+
+      real(8) :: yc(nn,3)
+
+c     Vector potential
+
+      if (pc_B_solve.and.electron_hall
+     .    .and.(.not.pc_split_EMHD_after)) then
+
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving EMHD step for A...'
+        endif
+
+        call rhs_A_hall(nn,x,yc,igrid)
+        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
+        yc = y - yc
+
+        call EMHD_step(yc,x)
+c diag****
+cc          x = dt*yc
+cc          if (vol_wgt) call scaleVec(igrid,3,x,'div')
+c diag****
+
+      elseif (pc_B_solve.and.(.not.electron_hall)) then
+
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for A...'
+        endif
+
+        call cSolver(gv%gparams,3,nn,y,x
+     .         ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
+     .         ,tol           = pc_tol
+     .         ,dg            = a_diag
+     .         ,mg_debug      = mg_debug
+     .         ,mg_galerkin   = mg_glrkin
+     .         ,mg_order_res  = mg_ores
+     .         ,mg_order_prol = mg_oprol
+     .         ,mg_coarse_grid_size = mg_coarse_size
+     .         ,mg_gm_coarse_solve  = mg_gm_coarse
+     .         ,mg_vcyc       = mg_vcyc
+     .         ,mg_smooth     = sm_type
+     .         ,sm_it         = sm_iter
+     .         ,sm_omega      = sm_omega
+     .         ,sm_ncolors    = sm_ncolors
+     .         ,sm_line_relax = sm_line_relax
+     .         ,sm_zebra_relax= sm_zebra_relax
+     .         )
+
+      else
+
+        x = dt*y/cnp
+        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,x,'div')
+
+      endif
+
+      end subroutine invert_A
+
+#else
+
+c     invert_B
+c     ##############################################################
+      subroutine invert_B(x,y)
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: x(:,:),y(:,:)
+
+c     Local variables
+
+      real(8) :: yc(nn,6),xc(nn,6)
+
+c     Magnetic field
+
+      if (pc_B_solve) then
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for B...'
+        endif
+
+        if (.not.electron_hall) then
+          call cSolver(gv%gparams,3,nn,y,x
+     .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = b_diag
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_coarse_grid_size = mg_coarse_size
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            )
+        else
+          xc(:,1:3) = x
+          xc(:,4:6) = 0d0
+
+          yc(:,1:3) = y
+          yc(:,4:6) = 0d0
+
+          call cSolver(gv%gparams,6,nn,yc,xc,bcs_hyp
+     .            ,igrid,iout,guess,b_mtvc_hyp,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = b_diag_hyp
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_coarse_grid_size = mg_coarse_size
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            )
+
+          x = xc(:,1:3)
+        endif
+
+        if (pc_divclean) call divClean(iout,nn,x,igrid)
+cc        if (pc_divclean) then
+cc          call correctBfld(nn,igrid,y,x,iout)
+cc        endif
+
+      else
+
+        x = dt*y/cnp
+        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,x,'div')
+
+      endif
+
+      end subroutine invert_B
+#endif
+
 c     invert_D_M
 c     ##############################################################
       subroutine invert_D_M(rhs,x)
@@ -633,12 +673,12 @@ c     Begin program
      .                      ,x(:,IRHO:IRHO))
         call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,ITMP:ITMP)
      .                      ,x(:,ITMP:ITMP))
-#if !defined(vec_pot)
-        call diagonalScaling(gv%gparams,igrid,b_diag  ,rhs(:,IBX:IBZ)
-     .                      ,x(:,IBX:IBZ))
-#else
+#if defined(vec_pot)
         call diagonalScaling(gv%gparams,igrid,a_diag  ,rhs(:,IAX:IAZ)
      .                      ,x(:,IAX:IAZ))
+#else
+        call diagonalScaling(gv%gparams,igrid,b_diag  ,rhs(:,IBX:IBZ)
+     .                      ,x(:,IBX:IBZ))
 #endif
 
 c     End program
