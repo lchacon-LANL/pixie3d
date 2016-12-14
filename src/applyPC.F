@@ -451,7 +451,7 @@ c       Density
 c       Magnetic field/vector potential
 
 #if defined(vec_pot)
-        call invert_A(x(:,IAX:IAZ),rhs(:,IAX:IAZ))
+        call invert_A(x           ,rhs(:,IAX:IAZ))
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
 #endif
@@ -519,10 +519,10 @@ c     Vector potential
         if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
         yc = y - yc
 
-        call EMHD_step(yc,x)
+        call EMHD_step(yc,x(:,IAX:IAZ))
 c diag****
-cc          x = dt*yc
-cc          if (vol_wgt) call scaleVec(igrid,3,x,'div')
+cc          x(:,IAX:IAZ) = dt*yc
+cc          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
 c diag****
 
       elseif (pc_B_solve.and.(.not.electron_hall)) then
@@ -531,7 +531,7 @@ c diag****
           write (*,*) '  --> Solving for A...'
         endif
 
-        call cSolver(gv%gparams,3,nn,y,x
+        call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ)
      .         ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
      .         ,tol           = pc_tol
      .         ,dg            = a_diag
@@ -552,8 +552,9 @@ c diag****
 
       else
 
-        x = dt*y/cnp
-        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,x,'div')
+        x(:,IAX:IAZ) = dt*y/cnp
+        if (vol_wgt)
+     .       call scaleVec(gv%gparams,igrid,3,x(:,IAX:IAZ),'div')
 
       endif
 
