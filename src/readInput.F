@@ -768,6 +768,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
 
       !Postprocessing stage
 #if !defined(vec_pot)
+      post_smooth_B = .false.
       post_divclean = .not.((.not.pc_B_solve)
      .                .or.   pc_divclean
      .                .or.  (.not.solenoidal)
