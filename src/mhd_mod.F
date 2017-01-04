@@ -715,7 +715,7 @@ cc        v_advc= tensor_advc_mesh(igr,vcnv,vcnv,bcs,v_advect,.false.)
 
       bcs(:,1) = varray%array_var(IRHO)%bconds
       rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
-     .                        ,sp=bcSP())
+     .                        )!,sp=bcSP())
 
       bcs(:,1) = varray%array_var(ITMP)%bconds
       prs_advc =flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bcs(:,1))
