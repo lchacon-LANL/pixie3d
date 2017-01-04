@@ -1267,7 +1267,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
 
       !E Hall
       if (di > 0d0) then
-#if !defined(vec_pot)
+cc#if !defined(vec_pot)
         vaux%vec_list(IEH)%bc_dep_list(1,1) = IEH*AUX
         vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
         vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
@@ -1322,7 +1322,7 @@ cc            vaux%vec_list(IEH)%bc_dep_list(7,2) = VECTOR
 cc            vaux%vec_list(IEH)%bc_dep_list(7,3) = 0 !trivial
 cc          endif
 cc        endif
-#endif
+cc#endif
       endif
 
       !Total Electric field
@@ -6071,8 +6071,6 @@ c     Resistive term
 
 c     VxB term
 
-cc      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
-
       !Topological BCs
       bcnd(:,1) = bcond
       bcnd(:,2) = bcond
@@ -6081,7 +6079,7 @@ cc      E_res = E_res - crossProduct(g_def,igr,vcnv,bcnv,.true.)
 cc      if (bcSP()) then
         E_res = E_res 
      .  + tensor_nc_advc_mesh (g_def,igr,vcnv,acov,bcnd,ZIP,.true.)
-     .  - tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP     ,.true.
+     .  - tensor_nc_advc_mesh2(g_def,igr,vcnv,acov     ,ZIP,.true.
      .                        ,transpose=.true.)
 c$$$      else
 c$$$        E_res = E_res 
@@ -6304,8 +6302,6 @@ c     Call variables
 
 c     Local variables
 
-c$$$      integer :: i,j,k,nx,ny,nz
-c$$$      real(8) :: cov(3),cnv(3)
       real(8) :: p_i(0:size(rho,1)-1
      .              ,0:size(rho,2)-1
      .              ,0:size(rho,3)-1),idt
@@ -6313,23 +6309,6 @@ c$$$      real(8) :: cov(3),cnv(3)
 c     Begin program
 
       !Pressure terms: (grad(pi)+div(Pi))/rho (contravariant)
-c$$$      nx = size(rho,1)-2
-c$$$      ny = size(rho,2)-2
-c$$$      nz = size(rho,3)-2
-c$$$
-c$$$      do k=1,nz
-c$$$        do j=1,ny
-c$$$          do i=1,nx
-c$$$            cnv = EOM_gp(g_def,i,j,k,nx,ny,nz,igr,rho,tmpe,nc_eom_gp)
-c$$$            E_h(i,j,k,:) = (div_pi(i,j,k,:) + temp_ratio*cnv)/rho(i,j,k)
-c$$$c$$$     .           + tensor_advc(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-c$$$c$$$     .                        ,vcnv,vcnv,v_advect)
-c$$$c$$$     .           -vcnv(i,j,k,:)*div(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-c$$$c$$$     .                             ,vcnv)
-c$$$          enddo
-c$$$        enddo
-c$$$      enddo
-
       p_i = temp_ratio*rho*tmpe
       E_h = grad(g_def,igr,p_i)  !Covariant
       E_h = div_pi + XformVector(g_def,igr,E_h,.true.) !Contravariant
