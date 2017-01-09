@@ -1265,7 +1265,7 @@ c       Resistivity at initial time
 
           if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
             where (tmp_0 /= 0d0)
-              rho = rho_0*(tmp/tmp_0)**(1./(gamma-1.))
+              rho = rho_0*(tmp/tmp_0)**(1./(gamma-1d0))
             end where
           endif
 
