@@ -520,8 +520,8 @@ c     Default boundary conditions
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
       bbcs(:,IRHO) = bcsq
 
-      if (di > 0d0) then  !Force D_t(v x n) = 0 for energy conservation
-
+#if defined(vec_pot)
+      if (di > 0d0) then        !Force D_t(v x n) = 0 for energy conservation
         bcsq = bbcs(:,IVX)
         where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
         where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
@@ -554,7 +554,7 @@ c     Default boundary conditions
         bbcs(:,IVZ) = bcsq
 
       else
-
+#endif
         bcsq = bbcs(:,IVX)
         where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
         where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
@@ -585,8 +585,9 @@ c     Default boundary conditions
         where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
         where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
         bbcs(:,IVZ) = bcsq
-
+#if defined(vec_pot)
       endif
+#endif
 
       call set_vec_symm_bc(bbcs(:,IVX:IVZ),-1)
 
