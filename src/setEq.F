@@ -600,7 +600,7 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
           enddo
         enddo
 
-      case ('khihk')
+      case ('khihk')  !Homa Karimabadi's KHI
 
 c     Check coordinates
 
