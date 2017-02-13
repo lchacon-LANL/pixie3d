@@ -228,7 +228,7 @@ c--------------------------------------------------------------------
 
       use variables
 
-      use nlfunction_setup, ONLY: IVX,IVY,IVZ
+      use nlfunction_setup, ONLY: IVX,IVY,IVZ,limit_dt_flow_cfl
 
       implicit none
 
@@ -301,11 +301,13 @@ c Synchronize timestep among all processors
 
 c Compare with input time step
 
-      dt = min(dt,dt_cfl)
+      if (limit_dt_flow_cfl) then
+        dt = min(dt,dt_cfl)
 
-      if (my_rank==0.and.dt==dt_cfl)
+        if (my_rank==0.and.dt==dt_cfl)
      .     write (*,'(a,1p,1e11.4)')
      .     '   >>>> Flow-CFL-limited dt=',dt_cfl
+      endif
 
 c End program
 
