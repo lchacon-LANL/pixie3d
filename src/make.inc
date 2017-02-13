@@ -10,12 +10,12 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/io\
+	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/newtonGMRES\
 	  $(COMMONDIR)/driver_setup\
 	  $(COMMONDIR)/eigen\
-	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
 	  $(COMMONDIR)/OMP\
@@ -30,10 +30,10 @@ SUBDIRS += $(COMMONDIR)/driver
 ifdef SAMR
   SUBDIRS = $(COMMONDIR)/math\
   	    $(COMMONDIR)/io\
+	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/var_setup\
 	    $(COMMONDIR)/driver_setup\
-	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
 	    $(COMMONDIR)/OMP\
@@ -44,12 +44,12 @@ endif
 ifdef BOPT 
 ifdef PETSC_C
   SUBDIRS = $(COMMONDIR)/math\
+	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/io\
 	    $(COMMONDIR)/grid\
 	    $(COMMONDIR)/var_setup\
 	    $(COMMONDIR)/driver_setup\
 	    $(COMMONDIR)/driver-petsc\
-	    $(COMMONDIR)/interpolation/1d_int\
 	    $(COMMONDIR)/matrixLightSolver\
 	    $(COMMONDIR)/MG\
 	    $(COMMONDIR)/OMP\

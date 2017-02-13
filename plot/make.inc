@@ -15,10 +15,10 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/math\
 	  $(COMMONDIR)/io\
+	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/driver_setup\
-	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
 	  $(COMMONDIR)/OMP\
