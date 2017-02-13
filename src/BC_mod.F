@@ -514,47 +514,44 @@ c     Assign BCs
         bbcs(:,ieq) = varray%array_var(ieq)%bconds
       enddo
 
-c     Default boundary conditions
+c     Default VEL boundary conditions (no-stress)
 
       bcsq = bbcs(:,IRHO)
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
       bbcs(:,IRHO) = bcsq
 
-      if (di > 0d0) then  !Force D_t(v x n) = 0 for energy conservation
-
-        bcsq = bbcs(:,IVX)
-        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
-        where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
-        bbcs(:,IVX) = bcsq
-
-        bcsq = bbcs(:,IVY)
-        if (     coords == 'cyl'
-     .      .or. coords == 'hel'
-     .      .or. coords == 'tor'
-     .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
-        else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
-        endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
-        where (bcsq(5:6) == DEF) bcsq(5:6) =-EQU
-        bbcs(:,IVY) = bcsq
-
-        bcsq = bbcs(:,IVZ)
-        if (     coords == 'cyl'
-     .      .or. coords == 'hel'
-     .      .or. coords == 'tor'
-     .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
-        else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
-        endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) =-EQU
-        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
-        bbcs(:,IVZ) = bcsq
-
-      else
-
+c$$$      if (di > 0d0) then        !Force D_t(v x n) = 0 for energy conservation
+c$$$        bcsq = bbcs(:,IVX)
+c$$$        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
+c$$$        where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
+c$$$        bbcs(:,IVX) = bcsq
+c$$$
+c$$$        bcsq = bbcs(:,IVY)
+c$$$        if (     coords == 'cyl'
+c$$$     .      .or. coords == 'hel'
+c$$$     .      .or. coords == 'tor'
+c$$$     .      .or. coords == 'car') then
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+c$$$        else
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+c$$$        endif
+c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
+c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) =-EQU
+c$$$        bbcs(:,IVY) = bcsq
+c$$$
+c$$$        bcsq = bbcs(:,IVZ)
+c$$$        if (     coords == 'cyl'
+c$$$     .      .or. coords == 'hel'
+c$$$     .      .or. coords == 'tor'
+c$$$     .      .or. coords == 'car') then
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+c$$$        else
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+c$$$        endif
+c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) =-EQU
+c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+c$$$        bbcs(:,IVZ) = bcsq
+c$$$      else
         bcsq = bbcs(:,IVX)
         where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
         where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
@@ -585,10 +582,11 @@ c     Default boundary conditions
         where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
         where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
         bbcs(:,IVZ) = bcsq
-
-      endif
+c$$$      endif
 
       call set_vec_symm_bc(bbcs(:,IVX:IVZ),-1)
+
+c     Default B-A boundary conditions
 
 #if !defined(vec_pot)
       bcsq = bbcs(:,IBX)
@@ -627,6 +625,8 @@ c     Default boundary conditions
 
       call set_vec_symm_bc(bbcs(:,IAX:IAZ),-1)
 #endif
+
+c     Default TMP boundary conditions
 
       bcsq = bbcs(:,ITMP)
       where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
@@ -728,15 +728,17 @@ cc
 cc        bbcs(1,IVX)  = DIR
 cc        bbcs(2,IVX)  = DIR
 
-c$$$      case('khihk')
-c$$$
-c$$$        if (di > 0d0) then
-c$$$          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) =-EQU
-c$$$          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) =-EQU
-c$$$
-c$$$c$$$          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
-c$$$c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
-c$$$        endif
+      case('khihk')
+
+#if defined(vec_pot)
+        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues in A-form
+          where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
+          where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
+
+c$$$          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
+        endif
+#endif
 
       end select
 
