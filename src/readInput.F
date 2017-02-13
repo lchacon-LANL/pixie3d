@@ -404,6 +404,8 @@ c     #####################################################################
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
+      limit_dt_flow_cfl = .false. ! Whether to limit Dt according to flow CFL
+
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
@@ -689,7 +691,10 @@ cc      if (coords /= 'car') nc_eom_f = .true.
       !MHD
       if (chi_par == 0d0) chi_par = chi
 
-      if (di == 0d0) de = 0d0
+      if (di == 0d0) then
+        de = 0d0
+        ion_hall = .false.
+      endif
 
 cc      if (di == 0d0) heta = 0d0
 
@@ -697,7 +702,11 @@ cc      if (di == 0d0) heta = 0d0
         call pstop('readInput','Unphysical value for di and/or de')
       endif
 
-      if (((cnfactor==1d0).or.(di==0d0).or.(de>0d0)).and.ion_hall) then
+      if (cnfactor==1d0.and.ion_hall) then
+        call pstop('readInput','Cannot do ion Hall explicitly')
+      endif
+
+      if (de>0d0.and.ion_hall) then
         call pstop('readInput','Cannot do ion Hall with e inertia')
       endif
 
