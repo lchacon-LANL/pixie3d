@@ -1005,21 +1005,30 @@ c$$$            end where
      .                                 /u_nm%array_var(ITMP)%array)
      .                         *jac*tmp_0
             else
-              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
-     .                                 /u_n %array_var(IRHO)%array
-     .                         -cnm/cnp*u_nm%array_var(IVX )%array
-     .                                 /u_nm%array_var(IRHO)%array)
-     .                         *jac
-              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
-     .                                 /u_n %array_var(IRHO)%array
-     .                         -cnm/cnp*u_nm%array_var(IVY )%array
-     .                                 /u_nm%array_var(IRHO)%array)
-     .                         *jac
-              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
-     .                                 /u_n %array_var(IRHO)%array
-     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
-     .                                 /u_nm%array_var(IRHO)%array)
-     .                         *jac
+              if (cnm == 0d0) then
+                vcnv_n(:,:,:,1) =(u_n %array_var(IVX )%array
+     .                           /u_n %array_var(IRHO)%array)*jac
+                vcnv_n(:,:,:,2) =(u_n %array_var(IVY )%array
+     .                           /u_n %array_var(IRHO)%array)*jac
+                vcnv_n(:,:,:,3) =(u_n %array_var(IVZ )%array
+     .                           /u_n %array_var(IRHO)%array)*jac
+              else
+                vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
+     .                                   /u_n %array_var(IRHO)%array
+     .                           -cnm/cnp*u_nm%array_var(IVX )%array
+     .                                   /u_nm%array_var(IRHO)%array)
+     .                           *jac
+                vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
+     .                                   /u_n %array_var(IRHO)%array
+     .                           -cnm/cnp*u_nm%array_var(IVY )%array
+     .                                   /u_nm%array_var(IRHO)%array)
+     .                           *jac
+                vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
+     .                                   /u_n %array_var(IRHO)%array
+     .                           -cnm/cnp*u_nm%array_var(IVZ )%array
+     .                                   /u_nm%array_var(IRHO)%array)
+     .                           *jac
+             endif
             endif
           else
             vcnv_n(:,:,:,1) = -cn/cnp*u_n %array_var(IVX)%array
