@@ -865,7 +865,7 @@ c Call variables
 
 c Local variables
 
-      integer    :: isig,ip,im,jp,jm,kp,km,nxx,nyy,nzz
+      integer    :: isig,ip,im,jp,jm,kp,km,nx,ny,nz
       integer    :: imin,imax,jmin,jmax,kmin,kmax,igx,igy,igz
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .             ,i,j,k,ig,jg,kg,ieq
@@ -888,9 +888,9 @@ c Begin program
 
       isig = g_def%istartp(igrid)
 
-      nxx = g_def%nxv(igrid)
-      nyy = g_def%nyv(igrid)
-      nzz = g_def%nzv(igrid)
+      nx = g_def%nxv(igrid)
+      ny = g_def%nyv(igrid)
+      nz = g_def%nzv(igrid)
 
 c Find limits for loops
 
@@ -899,9 +899,9 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(db        (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,db_cov    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,curl_eta_dj(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(db         (0:nx+1,0:ny+1,0:nz+1,neq)
+     .        ,db_cov     (0:nx+1,0:ny+1,0:nz+1,neq)
+     .        ,curl_eta_dj(0:nx+1,0:ny+1,0:nz+1,neq))
 
       db = 0d0 ; db_cov = 0d0
 
@@ -913,8 +913,8 @@ c Map vector x to array for processing
 
 c Velocity field (including BCs)
 
-      call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
-      call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
+      call point_to_MG_array(nx,ny,nz,igrid,v0_cnv,gv0)
+      call point_to_MG_array(nx,ny,nz,igrid,eta0,geta)
 
 c Eta*J term
 
@@ -949,7 +949,7 @@ c Calculate matrix-vector product
 
             call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
-            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+            ijk    = i + nx*(j-1) + nx*ny*(k-1)
 
             if (MG_get_res_vol_wgt()) then
               vol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
@@ -2114,8 +2114,6 @@ c     Begin program
         call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
      .                              ,cov(1),cov(2),cov(3)
      .                              ,cnv(1),cnv(2),cnv(3),is_cnv)
-
-
       else
         cnv = div_tensor(g_def,i,j,k,nxx,nyy,nzz,igr,igr,igr,alt__eom()
      .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
