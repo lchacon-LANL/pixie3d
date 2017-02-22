@@ -1740,7 +1740,7 @@ c ##################################################################
       real(8) :: jacip,jacim,jacjp,jacjm,jackp,jackm,jac
 
       real(8) :: vol,psiv(3),psib(3),psit(3),cov(3),cnv(3),car(3)
-     .             ,mag(3),vlap(3)
+     .          ,mag(3),vlap(3)
 
       logical :: fpointers,is_cnv,is_car
 
@@ -2143,8 +2143,8 @@ c     Call variables
 
 c     Local variables
 
-        integer    :: ip,igrid,iisig,iig,ijk
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,gsuper(3,3),vol
+        integer    :: ip,igrid
+        real(8)    :: jac,ijac,gsuper(3,3),vol!,jac0,jacp,ijac0,ijacp
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
@@ -2161,37 +2161,38 @@ c     Begin program
 
         if (isSP(g_def,i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
-        if ( i + g_def%ilo(igx)-1 < g_def%nxgl(igx)
-     .      .and. bcSP()
-     .      .and. flag /= 0           ) then
-          jacp = g_def%gmetric%grid(igrid)%jac(ip,j,k)
-          jac0 = g_def%gmetric%grid(igrid)%jac(i ,j,k)
-        else
-          jacp = jac
-          jac0 = jac
-        endif
-
-        ijac0 = 1d0/jac0
-        ijacp = 1d0/jacp
+c$$$c$$$        if ( i + g_def%ilo(igx)-1 < g_def%nxgl(igx)
+c$$$c$$$     .      .and. bcSP()
+c$$$c$$$     .      .and. flag /= 0           ) then
+c$$$        if (flag /= 0) then
+c$$$          jacp = g_def%gmetric%grid(igrid)%jac(ip,j,k)
+c$$$          jac0 = g_def%gmetric%grid(igrid)%jac(i ,j,k)
+c$$$        else
+c$$$          jacp = jac
+c$$$          jac0 = jac
+c$$$        endif
+c$$$
+c$$$        ijac0 = 1d0/jac0
+c$$$        ijacp = 1d0/jacp
 
         if (flag /= 0) then
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,1)
         else
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,0)
         endif
 
         b0cnv = 0.5*(b0_cnv(ip,j,k,:)+b0_cnv(i,j,k,:))
-cc        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
-
-cc        b0cnv(1)=0.5*(b0_cnv(ip,j,k,1)*ijacp+b0_cnv(i,j,k,1)*ijac0)*jac
-cc        b0cnv(2)=0.5*(b0_cnv(ip,j,k,2)      +b0_cnv(i,j,k,2))
-cc        b0cnv(3)=0.5*(b0_cnv(ip,j,k,3)*ijacp+b0_cnv(i,j,k,3)*ijac0)*jac
-
-cc        b0cov(1)=0.5*(b0_cov(ip,j,k,1)      +b0_cov(i,j,k,1)      )
-cc        b0cov(2)=0.5*(b0_cov(ip,j,k,2)*ijacp+b0_cov(i,j,k,2)*ijac0)*jac
-cc        b0cov(3)=0.5*(b0_cov(ip,j,k,3)      +b0_cov(i,j,k,3)      )
+c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
+c$$$
+c$$$        b0cnv(1)=0.5*(b0_cnv(ip,j,k,1)*ijacp+b0_cnv(i,j,k,1)*ijac0)*jac
+c$$$        b0cnv(2)=0.5*(b0_cnv(ip,j,k,2)      +b0_cnv(i,j,k,2))
+c$$$        b0cnv(3)=0.5*(b0_cnv(ip,j,k,3)*ijacp+b0_cnv(i,j,k,3)*ijac0)*jac
+c$$$
+c$$$        b0cov(1)=0.5*(b0_cov(ip,j,k,1)      +b0_cov(i,j,k,1)      )
+c$$$        b0cov(2)=0.5*(b0_cov(ip,j,k,2)*ijacp+b0_cov(i,j,k,2)*ijac0)*jac
+c$$$        b0cov(3)=0.5*(b0_cov(ip,j,k,3)      +b0_cov(i,j,k,3)      )
 
         if (flag /= 0) then
           call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
@@ -2272,13 +2273,11 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,jp,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsup(i,j ,k,:,:))
 
-        ijac  = 1d0/jac
-
         if (flag /= 0) then
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,2)
         else
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,0)
         endif
 
@@ -2300,6 +2299,7 @@ c     Begin program
      .        -gsuper(2,3)*scalar_prod )
 
         if (flag /= 0) then
+          ijac  = 1d0/jac
           t21 = t21*ijac
           if (.not.alt_eom) t22 = t22*ijac
           t23 = t23*ijac
@@ -2345,13 +2345,11 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,j,kp,:,:)
      .               +g_def%gmetric%grid(igrid)%gsup(i,j,k ,:,:))
 
-        ijac  = 1d0/jac
-
         if (flag /= 0) then
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,3)
         else
-          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dv
+          acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,0)
         endif
 
@@ -2373,6 +2371,7 @@ c     Begin program
      .        -gsuper(3,3)*scalar_prod )
 
         if (flag /= 0) then
+          ijac  = 1d0/jac
           t31 = t31*ijac
           if (.not.alt_eom) t32 = t32*ijac
           t33 = t33*ijac
@@ -2679,7 +2678,7 @@ c BCs
       call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
 
       call fillArray(g_def,igrid,neq,x,du,bcnd,1,gpos=gpos
-cccc     .            ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .              ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
      .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
 
