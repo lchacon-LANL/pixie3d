@@ -45,12 +45,15 @@
 
     source   = t
 
-    precon   = 's1'
-    mgtol    = 1d-3
-    maxvcyc  = 1
-    nsweep   = 3
-    precpass = 0
-    zebra_relax=f
+    pc_type  = 's1'
+    pc_tol   = 1d-1
+    mg_vcyc  = 1
+    sm_iter  = 3
+    sm_zebra_relax=f
+
+!    mg_coarse_size = 2
+!    mgcf     = 8
+!    mg_coarse_solve = f
 
     iguess   = 0
 
@@ -70,7 +73,7 @@
     advect     = 4
  /
 
- &graphdef
+ &graphics
     sel_diag  = 2,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,5,6,7,9,10,11
     dplot = 1d-2
