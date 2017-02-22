@@ -1193,7 +1193,24 @@ c     Ideal MHD part
         case(1)
 
           if (isSP2(g_def,ip,igx,dim=1)) then
-            cov = 0d0
+            jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+            jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+            ijac0 = 1d0/jac0
+            ijacp = 1d0/jacp
+
+            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,3)*ijac0+b0(ip,j,k,3)*ijacp)
+     .              -(vv(i,j,k,3)*ijac0+vv(ip,j,k,3)*ijacp)
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+
+            cov(2) = 0d0
+
+            cov(3) = (vv(i,j,k,1)*ijac0+vv(ip,j,k,1)*ijacp)
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              -(vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,1)*ijac0+b0(ip,j,k,1)*ijacp)
+
+            cov = 0.25*cov
           else
             cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,3)+b0(ip,j,k,3))
