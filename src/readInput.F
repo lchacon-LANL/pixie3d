@@ -40,6 +40,8 @@ c Local variables
 
       logical       :: nc_eom_f,mg_coarse_solve
 
+      integer       :: mg_coarse_size
+
       !Legacy parameters
       character(2)  :: precon
       integer       :: maxvcyc,precpass,nsweep,ores,oprol,debug_it
@@ -72,9 +74,11 @@ c Namelists
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
      .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
      .                   ,mg_coarse_solve,mgcf,pc_gm_driver
+     .                   ,mg_coarse_size
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
+     .                   ,limit_dt_flow_cfl
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -120,6 +124,7 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
+     .                   ,limit_dt_flow_cfl
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -130,7 +135,7 @@ c Namelists
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
      .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
-     .                   ,mgcf,pc_gm_driver
+     .                   ,mgcf,pc_gm_driver,mg_coarse_size
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -185,6 +190,8 @@ c Initialize MG parameters
       if (mgcf > 0) call MG_set_proc_coarsen_factor(mgcf)
       call MG_set_coarse_solve(mg_coarse_solve)
 #endif
+
+      call MG_set_coarse_size(mg_coarse_size)
 
 c Consistency check
 
@@ -538,6 +545,8 @@ c     #####################################################################
       mg_coarse_solve = .true. ! Whether to perform MG solve beyond proc mesh
       mgcf = 0                 ! Default processor coarsening ratio per dimension in MG 
                                !   (if zero, leave default framework value (4) unchanged)
+
+      mg_coarse_size = 2       ! MG coarse size (integer exponent of coarsening ratio)
 
       sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
