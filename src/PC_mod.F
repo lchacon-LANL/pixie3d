@@ -52,6 +52,8 @@ c     Begin program
       pc_ion_hall  = ion_hall       !Whether to use ion Ohm's law in PC
       pc_e_hall    = electron_hall  !Whether to use electron's Ohm's law in PC
 
+cc      mg_gm_coarse = .true.
+
       !SCIDAC 08 conference data for Hall MHD
 cc      pc_B_solve  = .true.
 cc      mg_gm_coarse = .true.
@@ -117,17 +119,15 @@ c ######################################################################
         logical :: cartsn,covariant,to_cartsn,to_cnv
 
         !PC storage
-        real(8), allocatable, dimension(:,:)    :: rho_diag,tmp_diag
-     .                                            ,v_diag,v_diag_hyp
-     .                                            ,v_diag2
-     .                                            ,b_diag,b_diag_hyp
-     .                                            ,a_diag,a_diag_hyp
+        real(8), allocatable, dimension(:,:) :: rho_diag,tmp_diag
+     .                                         ,v_diag,v_diag_hyp
+     .                                         ,v_diag2
+     .                                         ,b_diag,b_diag_hyp
+     .                                         ,a_diag,a_diag_hyp
 
         real(8), allocatable, dimension(:,:) :: lap_diag,vlap_diag
 
         real(8), allocatable, dimension(:,:),target :: d_pois
-
-cc        real(8), allocatable, dimension(:,:) :: mgadvdiffV0
 
         integer, allocatable, dimension(:,:) :: bcs,bcs_hyp
 
@@ -157,8 +157,6 @@ c     Local variables
 c     Begin program
 
         ntotd2p = 2*ntotd/neqd
-
-cc        allocate (mgadvdiffV0(ntotd2p,3))
 
 #if !defined(vec_pot)
         allocate (bcs(6,neqd+3),bcs_hyp(6,6))
@@ -219,8 +217,6 @@ c     Call variables
 c     Local variables
 
 c     Begin program
-
-cc        deallocate (mgadvdiffV0)
 
         deallocate (bcs,bcs_hyp)
 
@@ -539,15 +535,15 @@ c     Store magnetic field cnv components in all grids (w/ BCs)
 
 c     Store magnetic field cov components in all grids (w/ BCs)
 
-cc        gb0_cov%grid(igrid)%array = bcov
-cc
-cc        call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
-cc     .                      ,iscnv=.false.)
+c$$$        gb0_cov%grid(igrid)%array = bcov
+c$$$
+c$$$        call restrictMGArray(IBX,3,gb0_cov,bc_pc(:,IBX:IBZ),igrid,order
+c$$$     .                      ,iscnv=.false.)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
         if (chi_par /= chi .and. (.not.lagrangian)) then
-          STOP 'need to change this'
+          STOP 'need to change this to be coarse-MG friendly'
           gbhat%grid(igrid)%array = bhat
 
           do igr=igrid+1,gv%gparams%ngrid
@@ -731,13 +727,6 @@ c     Find other auxiliary quantities and store them in all grids
 
                 g_advdiffV0%grid(igrid)%array(i,j,k,:)
      .                 = (cnv+div_pi(i,j,k,:))/rho(i,j,k)**2
-c$$$                else
-c$$$                  g_advdiffV0%grid(igrid)%array(i,j,k,:) = 
-c$$$     .                            cnp*gv0%grid(igrid)%array(i,j,k,:)/dt
-c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,1)*nabla_v(1,:)/jac
-c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,2)*nabla_v(2,:)/jac
-c$$$     .                          + alpha*gv0%grid(igrid)%array(i,j,k,3)*nabla_v(3,:)/jac
-c$$$                endif
 
               enddo
             enddo
@@ -985,7 +974,7 @@ c     Next level solver
 
         solverOptions%vcyc     = 1
 cc        solverOptions%vcyc     = iter
-        solverOptions%mg_coarse_grid_res  = 2
+cc        solverOptions%mg_coarse_grid_res  = 2  !Deprecated
         solverOptions%orderres = 0
         solverOptions%orderprol= 2
         solverOptions%mg_mu    = 1
@@ -1104,7 +1093,7 @@ c     Begin program
      .                      ,sym_st)
         endif
       else
-       !TS
+        !TS
         psiv = cnp*dp(i,j,k,:)/dt
 
         !Advection
@@ -1164,6 +1153,7 @@ c     Local variables
         integer    :: ig,jg,kg,half_elem,ip,jp,kp,hx,hy,hz
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
      .               ,veh(3),curlv(3),half=0.5d0,ijacip
+     .               ,jac0,jacp,ijac0,ijacp
         logical    :: str
 
         real(8),dimension(:,:,:,:),pointer :: rho0,nu0
@@ -1203,7 +1193,24 @@ c     Ideal MHD part
         case(1)
 
           if (isSP2(g_def,ip,igx,dim=1)) then
-            cov = 0d0
+            jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+            jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+            ijac0 = 1d0/jac0
+            ijacp = 1d0/jacp
+
+            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,3)*ijac0+b0(ip,j,k,3)*ijacp)
+     .              -(vv(i,j,k,3)*ijac0+vv(ip,j,k,3)*ijacp)
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+
+            cov(2) = 0d0
+
+            cov(3) = (vv(i,j,k,1)*ijac0+vv(ip,j,k,1)*ijacp)
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              -(vv(i,j,k,2)+vv(ip,j,k,2))
+     .              *(b0(i,j,k,1)*ijac0+b0(ip,j,k,1)*ijacp)
+
+            cov = 0.25*cov
           else
             cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,3)+b0(ip,j,k,3))
@@ -1328,9 +1335,9 @@ c$$$              case default
 c$$$              end select
 
               call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-     .                                ,cov(1),cov(2),cov(3)
-     .                                ,cnv(1),cnv(2),cnv(3)
-     .                                ,.false.,half_elem=half_elem)
+     .                                    ,cov(1),cov(2),cov(3)
+     .                                    ,cnv(1),cnv(2),cnv(3)
+     .                                    ,.false.,half_elem=half_elem)
 
               uav = uav + di*cov
 
@@ -1441,81 +1448,6 @@ cc          endif
 c     End program
 
       end function U_Av_ijk
-
-ccc     U_Bv
-ccc     ###################################################################
-cc      function U_Bv(i,j,k,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb,half_elem)
-cc     .         result(cnv)
-cc
-ccc     -------------------------------------------------------------------
-ccc     Finds contravariant components (a1,a2,a3) of vector
-ccc     
-ccc       A = curl(U_Av(dv))
-ccc
-ccc     at the grid node (i,j,k). One sided derivatives are employed when
-ccc     half_elem=1 (i,i+1), half_elem=2 (j,j+1), and half_elem=3 (k,k+1).
-ccc     -------------------------------------------------------------------
-cc
-cc        implicit none
-cc
-ccc     Call variables
-cc
-cc        integer    :: i,j,k,nx,ny,nz,half_elem,igx,igy,igz
-cc        real(8)    :: cnv(3)
-cc        real(8)    :: vv    (0:nx+1,0:ny+1,0:nz+1,3)
-cc     .               ,vv_cov(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .               ,bb    (0:nx+1,0:ny+1,0:nz+1,3)
-cc
-ccc     Local variables
-cc
-cc        integer    :: ig,jg,kg
-cc        real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz
-cc
-ccc     Begin program
-cc
-ccc     Resistive MHD part
-cc
-cc        cnv = alpha*curl_bxv(i,j,k,nx,ny,nz,igx,igy,igz,vv,bb,half_elem)
-cc
-ccc     Hall MHD part
-cc
-cc        if (di > 0d0) then
-cc
-cc          if (pc_ion_hall) then
-cc             !Hall term coefficient
-cccc             call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cccc
-cccc             idx  = 1./grid_params%dxh(ig)
-cccc             if (nxd == 1) idx = 0d0
-cccc             idy  = 1./grid_params%dyh(jg)
-cccc             if (nyd == 1) idy = 0d0
-cccc             idz  = 1./grid_params%dzh(kg)
-cccc             if (nzd == 1) idz = 0d0
-cccc
-cccc             vxx = abs(vv(i,j,k,1))
-cccc             vyy = abs(vv(i,j,k,2))
-cccc             vzz = abs(vv(i,j,k,3))
-cccc
-cccc             minv = cnp/dt
-cccc     .              +alpha*(scalarProduct(i,j,k,igx,igy,igz
-cccc     .                                 ,idx,idy,idz,vxx,vyy,vzz)
-cccc     .              +nu*vectorNorm(i,j,k,igx,igy,igz,idx,idy,idz,.true.))
-cc
-cccc             minv = minv*di/alpha
-cc            minv = cnp/dt*di
-cc          else
-cc            minv =-de**2/di/dt
-cc          endif
-cc
-cc          cnv = cnv + minv*curl(i,j,k,nx,ny,nz,igx,igy,igz
-cc     .                         ,vv_cov(:,:,:,1)
-cc     .                         ,vv_cov(:,:,:,2)
-cc     .                         ,vv_cov(:,:,:,3),he=half_elem)
-cc        endif
-cc
-ccc     End program
-cc
-cc      end function U_Bv
 
 c     U_Bv_ijk
 c     ###################################################################
@@ -1672,11 +1604,15 @@ c     Local variables
 
       integer :: i,j,k,ii,nx,ny,nz
 
+      real(8),dimension(:,:,:,:),pointer :: rho0
+
 c     Begin program
 
       nx = g_def%nxv(igrid)
       ny = g_def%nyv(igrid)
       nz = g_def%nzv(igrid)
+
+      call point_to_MG_array(nx,ny,nz,igrid,rho0,grho0)
 
       do k = 1,nz
         do j = 1,ny
@@ -1685,8 +1621,7 @@ c     Begin program
 
             crhs(ii) = alpha
      .                *flx_advec(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                      ,dv_cnv,grho0%grid(igrid)%array(:,:,:,1)
-     .                      ,advect,vol=.false.)
+     .                      ,dv_cnv,rho0(:,:,:,1),advect,vol=.false.)
           enddo
         enddo
       enddo
@@ -1718,7 +1653,7 @@ c     Local variables
       integer :: nn,i,j,k,ii,iig,isig,ivar,ip,im
       real(8) :: dvol,cov(3),cnv(3),idx,idy,idz,eom_rhs(size(xxx,1),3)
 
-      real(8),allocatable,dimension(:,:,:,:),target :: dp_cnv,drho
+      real(8),pointer,dimension(:,:,:,:) :: dp_cnv,drho,v0
 
 c     Begin program
 
@@ -1739,10 +1674,11 @@ c     Find rhs_v
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
       if (.not.nc_eom_v) then
+        call point_to_MG_array(nx,ny,nz,igrid,v0,gv0)
 
-        dp_cnv(:,:,:,1)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,1)
-        dp_cnv(:,:,:,2)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,2)
-        dp_cnv(:,:,:,3)=drho(:,:,:,1)*gv0%grid(igrid)%array(:,:,:,3)
+        dp_cnv(:,:,:,1)=drho(:,:,:,1)*v0(:,:,:,1)
+        dp_cnv(:,:,:,2)=drho(:,:,:,1)*v0(:,:,:,2)
+        dp_cnv(:,:,:,3)=drho(:,:,:,1)*v0(:,:,:,3)
 
         do k = 1,nz
           do j = 1,ny
@@ -1756,7 +1692,7 @@ c     Find rhs_v
               endif
 
               cnv = tensor_advc(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                         ,gv0%grid(igrid)%array,dp_cnv,v_advect)
+     .                         ,v0,dp_cnv,v_advect)
 
               crhs(ii,:) = dvol*(cnp*dp_cnv(i,j,k,:)/dt - alpha*cnv)
 
@@ -1769,6 +1705,7 @@ c     Find rhs_v
         enddo
 
       else
+        call point_to_MG_array(nx,ny,nz,igrid,v0,g_advdiffV0)
 
         do k = 1,nz
           do j = 1,ny
@@ -1781,8 +1718,7 @@ c     Find rhs_v
                 dvol = 1d0
               endif
 
-              crhs(ii,:)=dvol*drho(i,j,k,1)
-     .                  *g_advdiffV0%grid(igrid)%array(i,j,k,:)
+              crhs(ii,:)=dvol*drho(i,j,k,1)*v0(i,j,k,:)
 
               if (alt__eom()) then
                 crhs(ii,2) = crhs(ii,2)
@@ -1833,7 +1769,6 @@ c     Begin program
 
 c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
-cc      p0 => gp0%grid(igr)%array
       call point_to_MG_array(nx,ny,nz,igr,p0,gp0)
 
       do k = 1,nz
@@ -1851,9 +1786,6 @@ cc      p0 => gp0%grid(igr)%array
       enddo
 
       if (.not.adiabatic) then
-cc        v0   => gv0  %grid(igr)%array
-cc        rho0 => grho0%grid(igr)%array
-cc        nu0  => gvis %grid(igr)%array
         call point_to_MG_array(nx,ny,nz,igr,v0  ,gv0)
         call point_to_MG_array(nx,ny,nz,igr,rho0,grho0)
         call point_to_MG_array(nx,ny,nz,igr,nu0 ,gvis)
@@ -1916,6 +1848,7 @@ c     Local variables
      .                                          ,vzeros
 
       real(8),pointer,dimension(:,:,:,:) :: tmp0,rho0,j0,eta0,ve0,p0
+     .                                     ,heta0
 
 c     Begin program
 
@@ -1981,9 +1914,6 @@ c     Find dj* from dB*
 
 c     Find Joule heating correction
 
-cc      eta0 => geta %grid(igrid)%array
-cc      j0   => gj0  %grid(igrid)%array
-cc      rho0 => grho0%grid(igrid)%array
       call point_to_MG_array(nx,ny,nz,igrid,eta0,geta)
       call point_to_MG_array(nx,ny,nz,igrid,j0,gj0)
       call point_to_MG_array(nx,ny,nz,igrid,rho0,grho0)
@@ -2044,6 +1974,7 @@ cc        endif
         if (.not.adiabatic) then
 
           call point_to_MG_array(nx,ny,nz,igrid,ve0,gve0)
+          call point_to_MG_array(nx,ny,nz,igrid,heta0,gheta)
 
           do k = 1,nz
             do j = 1,ny
@@ -2052,11 +1983,9 @@ cc        endif
                 ii  = i + nx*(j-1) + nx*ny*(k-1)
 
                 heat_src= viscous_heat_src(g_def,i,j,k,igrid
-     .                            ,gheta%grid(igrid)%array(:,:,:,1)
-     .                            ,ve0,dve_cnv,.false.)
+     .                             ,heta0(:,:,:,1),ve0,dve_cnv,.false.)
      .                   +viscous_heat_src(g_def,i,j,k,igrid
-     .                            ,gheta%grid(igrid)%array(:,:,:,1)
-     .                            ,dve_cnv,ve0,.false.)
+     .                             ,heta0(:,:,:,1),dve_cnv,ve0,.false.)
 
                 crhs(ii) = crhs(ii) - (gamma-1d0)*heat_src
               enddo
@@ -2118,10 +2047,6 @@ c     Auxiliary variables
      .        ,drho(0:nx+1,0:ny+1,0:nz+1,1)
      .        ,vdum(0:nx+1,0:ny+1,0:nz+1,3 ))
 
-c$$$      j0   => gj0  %grid(igrid)%array
-c$$$      rho0 => grho0%grid(igrid)%array
-c$$$      tmp0 => gtmp0%grid(igrid)%array
-c$$$      Eh0  => gEh0_cov%grid(igrid)%array
       call point_to_MG_array(nx,ny,nz,igrid,rho0 ,grho0)
       call point_to_MG_array(nx,ny,nz,igrid,j0   ,gj0)
       call point_to_MG_array(nx,ny,nz,igrid,tmp0 ,gtmp0)
@@ -2188,20 +2113,22 @@ c     Call variables
 c     Local variables
 
       integer    :: nx,ny,nz,i,j,k,ii
-
+      real(8),pointer,dimension(:,:,:,:) :: a0_cnv
+      
 c     Begin program
 
       nx = g_def%nxv(igrid)
       ny = g_def%nyv(igrid)
       nz = g_def%nzv(igrid)
 
+      call point_to_MG_array(nx,ny,nz,igrid,a0_cnv,ga0)
+
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             crhs(ii,:) = U_Bv_ijk(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,dv_cnv,dv_cov
-     .                       ,ga0%grid(igrid)%array,0)
+     .                           ,dv_cnv,dv_cov,a0_cnv,0)
           enddo
         enddo
       enddo
@@ -2232,6 +2159,7 @@ c     Call variables
 c     Local variables
 
       integer    :: nx,ny,nz,i,j,k,ii
+      real(8),pointer,dimension(:,:,:,:) :: a0_cnv,b0_cnv
 
 c     Begin program
 
@@ -2240,6 +2168,8 @@ c     Begin program
       nz = g_def%nzv(igrid)
 
       if (pc_ion_hall) then
+        call point_to_MG_array(nx,ny,nz,igrid,a0_cnv,ga0)
+
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -2247,12 +2177,14 @@ c     Begin program
 
               crhs(ii,:) = U_Av_ijk(g_def,i,j,k,nx,ny,nz
      .                             ,igrid,igrid,igrid
-     .                         ,dv_cnv,dv_cov,ga0%grid(igrid)%array
-     .                         ,stress=.true.)
+     .                             ,dv_cnv,dv_cov,a0_cnv
+     .                             ,stress=.true.)
             enddo
           enddo
         enddo
       else
+        call point_to_MG_array(nx,ny,nz,igrid,b0_cnv,gbs0)
+
         do k = 1,nz
           do j = 1,ny
             do i = 1,nx
@@ -2260,8 +2192,8 @@ c     Begin program
 
               crhs(ii,:) = U_Av_ijk(g_def,i,j,k,nx,ny,nz
      .                             ,igrid,igrid,igrid
-     .                         ,dv_cnv,dv_cov,gbs0%grid(igrid)%array
-     .                         ,stress=.false.)
+     .                             ,dv_cnv,dv_cov,b0_cnv
+     .                             ,stress=.false.)
             enddo
           enddo
         enddo

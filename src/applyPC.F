@@ -436,7 +436,7 @@ c       Density
      .                ,mg_galerkin   = mg_glrkin
      .                ,mg_order_res  = mg_ores
      .                ,mg_order_prol = mg_oprol
-     .                ,mg_coarse_grid_size = mg_coarse_size
+cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                ,mg_gm_coarse_solve  = mg_gm_coarse
      .                ,mg_vcyc       = mg_vcyc
      .                ,mg_smooth     = sm_type
@@ -475,7 +475,7 @@ c       Temperature
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -539,7 +539,7 @@ c diag****
      .         ,mg_galerkin   = mg_glrkin
      .         ,mg_order_res  = mg_ores
      .         ,mg_order_prol = mg_oprol
-     .         ,mg_coarse_grid_size = mg_coarse_size
+cc     .         ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .         ,mg_gm_coarse_solve  = mg_gm_coarse
      .         ,mg_vcyc       = mg_vcyc
      .         ,mg_smooth     = sm_type
@@ -592,7 +592,7 @@ c     Magnetic field
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -617,7 +617,7 @@ c     Magnetic field
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -728,7 +728,7 @@ c     Begin program
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -761,7 +761,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -829,7 +829,7 @@ c     Begin program
      .              ,mg_galerkin   = mg_glrkin
      .              ,mg_order_res  = mg_ores
      .              ,mg_order_prol = mg_oprol
-     .              ,mg_coarse_grid_size = mg_coarse_size
+cc     .              ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .              ,mg_gm_coarse_solve  = mg_gm_coarse
      .              ,mg_smooth     = sm_type_si
      .              ,mg_vcyc       = mg_vcyc
@@ -1137,7 +1137,7 @@ cc     .            ,mg_vcyc       = 10
      .            ,sm_zebra_relax= sm_zebra_relax
      .            !Production
      .            ,tol           = pc_tol
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
      .            ,sm_it         = sm_iter
@@ -1545,7 +1545,7 @@ c Solve for advection-diffusion part
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-     .            ,mg_coarse_grid_size = mg_coarse_size
+cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type
      .            ,mg_vcyc       = mg_vcyc
