@@ -78,6 +78,7 @@ c Namelists
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
+     .                   ,limit_dt_flow_cfl
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -123,6 +124,7 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
+     .                   ,limit_dt_flow_cfl
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
