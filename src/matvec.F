@@ -2144,7 +2144,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ip,igrid
-        real(8)    :: jac,ijac,gsuper(3,3),vol!,jac0,jacp,ijac0,ijacp
+        real(8)    :: jac,ijac,gsuper(3,3),vol
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
@@ -2161,20 +2161,6 @@ c     Begin program
 
         if (isSP(g_def,i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
-c$$$c$$$        if ( i + g_def%ilo(igx)-1 < g_def%nxgl(igx)
-c$$$c$$$     .      .and. bcSP()
-c$$$c$$$     .      .and. flag /= 0           ) then
-c$$$        if (flag /= 0) then
-c$$$          jacp = g_def%gmetric%grid(igrid)%jac(ip,j,k)
-c$$$          jac0 = g_def%gmetric%grid(igrid)%jac(i ,j,k)
-c$$$        else
-c$$$          jacp = jac
-c$$$          jac0 = jac
-c$$$        endif
-c$$$
-c$$$        ijac0 = 1d0/jac0
-c$$$        ijacp = 1d0/jacp
-
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
      .                   ,dv_cov,a0_cnv,1)
@@ -2185,14 +2171,6 @@ c$$$        ijacp = 1d0/jacp
 
         b0cnv = 0.5*(b0_cnv(ip,j,k,:)+b0_cnv(i,j,k,:))
 c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
-c$$$
-c$$$        b0cnv(1)=0.5*(b0_cnv(ip,j,k,1)*ijacp+b0_cnv(i,j,k,1)*ijac0)*jac
-c$$$        b0cnv(2)=0.5*(b0_cnv(ip,j,k,2)      +b0_cnv(i,j,k,2))
-c$$$        b0cnv(3)=0.5*(b0_cnv(ip,j,k,3)*ijacp+b0_cnv(i,j,k,3)*ijac0)*jac
-c$$$
-c$$$        b0cov(1)=0.5*(b0_cov(ip,j,k,1)      +b0_cov(i,j,k,1)      )
-c$$$        b0cov(2)=0.5*(b0_cov(ip,j,k,2)*ijacp+b0_cov(i,j,k,2)*ijac0)*jac
-c$$$        b0cov(3)=0.5*(b0_cov(ip,j,k,3)      +b0_cov(i,j,k,3)      )
 
         if (flag /= 0) then
           call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
