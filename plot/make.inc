@@ -1,7 +1,9 @@
-CODE         = pixplot.x
-A_CODE       = pixplot_a.x
-PETSCCODE    = pixplot.petsc.x
-PETSC_A_CODE = pixplot_a.petsc.x
+BASE         = pixplot
+EXEC         = $(BASE)-$(REL1).$(REL2)-$(LABEL)
+CODE         = $(EXEC).x
+A_CODE       = $(EXEC)_a.x
+PETSCCODE    = $(EXEC).petsc.x
+PETSC_A_CODE = $(EXEC)_a.petsc.x
 
 MODS := mhd_mod.F BC_mod.F PC_mod.F
 
