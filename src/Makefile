@@ -106,6 +106,7 @@ $(CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS) 
 	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE).x
 
 code_a: common $(A_CODE) 
 
@@ -115,6 +116,7 @@ $(A_CODE):  $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	$(FC) $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) $(LIBS) $(LDFLAGS)
 	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE)_a.x
 
 petsc: common $(PETSCCODE) 
 
@@ -124,6 +126,7 @@ $(PETSCCODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} $(LIBS)
 	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE).petsc.x
 
 petsc_a: common $(PETSC_A_CODE) 
 
@@ -133,6 +136,7 @@ $(PETSC_A_CODE): $(OBJMOD) $(OBJ) $(COMMON_OBJS)
 	@echo ''
 	${FLINKER} $(FFLAGS) -o $@ $(COMMON_OBJS) $(OBJ)  $(OBJMOD) $(CONTRIBLIBS) ${PETSC_SNES_LIB} $(LIBS)
 	@mv $@ $(BINDIR)
+	@cd $(BINDIR); ln -s -f $@ $(BASE)_a.petsc.x
 
 samrai: common $(SAMRAICODE)
 
