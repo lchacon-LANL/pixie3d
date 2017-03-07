@@ -411,7 +411,7 @@ c     #####################################################################
                                !   2 -> BDF2
       sm_pass  = 2             ! Number of initial smoother passes for Rannacher TS
 
-      limit_dt_flow_cfl = .false. ! Whether to limit Dt according to flow CFL
+      limit_dt_flow_cfl=.true. ! Whether to limit Dt according to flow CFL
 
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
