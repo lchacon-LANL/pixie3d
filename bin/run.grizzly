@@ -7,16 +7,16 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -A account -wc hh:mm:ss [-h] [-d] [-n nodes] [-np procs] [-x executable] [-r tmax]
+$0 -A account -wc hh:mm:ss -qos queue [-h] [-d] [-n nodes] [-x executable] [-r tmax]
          [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
         -A:            selects account (w15_magreconn, s15_icfifp; required)
 	-wc time:      indicates wall-clock time (in format hr:min:sec; required)
+	-qos queue:  indicates quality of service queue (required)
 	-h:            gives this message
 	-d:            turn on debugging
 	-n nodes:      indicates the number of nodes
-	-np procs:     indicates the number of processors
 	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
@@ -48,7 +48,8 @@ wtime=""
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account="w17_magreconn"
+account=""
+qos=""
 
 # Parse command line options
 
@@ -64,6 +65,7 @@ case $1 in
 	-d) debug=t;shift 1;;
 	-n) nodes=$2;shift 2;;
 	-wc) wtime=$2;shift 2;;
+	-qos) qos=$2;shift 2;;
 	-x) executable=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
@@ -110,6 +112,12 @@ fi
 if [ "x$account" = "x" ]
 then
   echo "No account specified. Aborting"
+  exit 1
+fi
+
+if [ "x$qos" = "x" ]
+then
+  echo "No queue specified. Aborting"
   exit 1
 fi
 
@@ -288,7 +296,7 @@ cat > go.msub <<QSUB
 #  predict the duration of the job
 #MSUB -l walltime=$wtime
 #  request resources: one node 36 core
-#MSUB -l qos=high,nodes=$nodes:ppn=36
+#MSUB -l qos=$qos,nodes=$nodes:ppn=36
 #  specify the pathname for output
 #MSUB -o $inputfile.msub.log
 #  name for job
