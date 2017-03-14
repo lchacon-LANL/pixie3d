@@ -188,7 +188,7 @@ cc      theta = 0.46  !in pi units
 
       ndiv = 500
 
-      write(filename,'(a,1p,e8.2,a,0p,f4.2,a)')
+      write(filename,'(a,1p,e9.2,a,0p,f4.2,a)')
      .     'omega_beta=',beta,'_theta=',theta,'pi.txt'
 
       open(unit=6666,file=trim(filename),status='unknown')
