@@ -1,8 +1,10 @@
-CODE         = pixie3d.x
-A_CODE       = pixie3d_a.x
-PETSCCODE    = pixie3d.petsc.x
-PETSC_A_CODE = pixie3d_a.petsc.x
-SAMRAICODE   = pixie3d.samrai.x
+BASE         = pixie3d
+EXEC         = $(BASE)-$(REL1).$(REL2)-$(LABEL)-adios-$(ADIOS_VER)
+CODE         = $(EXEC).x
+A_CODE       = $(EXEC)_a.x
+PETSCCODE    = $(EXEC).petsc.x
+PETSC_A_CODE = $(EXEC)_a.petsc.x
+SAMRAICODE   = $(EXEC).samrai.x
 
 MODS := mhd_mod.F BC_mod.F PC_mod.F B_tools_mod.F
 

@@ -655,7 +655,7 @@ c     Begin program
 
 c     Open file
 
-      write (ft_file,'(1pe9.3)') 0.01*int(time*100)
+      write (ft_file,'(1pe10.3)') 0.01*int(time*100)
       ft_file = 'fourier_t='//trim(ft_file)//'.txt'
 
       open(unit=uft,file=trim(ft_file),status='unknown')
