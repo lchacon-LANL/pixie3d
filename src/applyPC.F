@@ -159,7 +159,7 @@ c *******************************************************************
 
         !EMHD step
 #if defined(vec_pot)
-        if (pc_B_solve.and.electron_hall.and.pc_split_EMHD_after) then
+        if (pc_B_solve.and.pc_e_hall.and.pc_split_EMHD_after) then
 
           if (iout > 0.and.my_rank ==0) then
             write (*,*) '  --> Solving EMHD step for A...'
@@ -508,7 +508,7 @@ c     Local variables
 
 c     Vector potential
 
-      if (pc_B_solve.and.electron_hall
+      if (pc_B_solve.and.pc_e_hall
      .    .and.(.not.pc_split_EMHD_after)) then
 
         if (iout > 0.and.my_rank ==0) then
@@ -525,7 +525,7 @@ cc          x(:,IAX:IAZ) = dt*yc
 cc          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
 c diag****
 
-      elseif (pc_B_solve.and.(.not.electron_hall)) then
+      elseif (pc_B_solve.and.(.not.pc_e_hall)) then
 
         if (iout > 0.and.my_rank ==0) then
           write (*,*) '  --> Solving for A...'
@@ -583,7 +583,7 @@ c     Magnetic field
           write (*,*) '  --> Solving for B...'
         endif
 
-        if (.not.electron_hall) then
+        if (.not.pc_e_hall) then
           call cSolver(gv%gparams,3,nn,y,x
      .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .            ,tol           = pc_tol
@@ -608,6 +608,9 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
 
           yc(:,1:3) = y
           yc(:,4:6) = 0d0
+
+          bcs_hyp(:,1:3) = bcs(:,IBX:IBZ)
+          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
 
           call cSolver(gv%gparams,6,nn,yc,xc,bcs_hyp
      .            ,igrid,iout,guess,b_mtvc_hyp,vol_wgt
@@ -751,6 +754,9 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
 
           rhsc(:,1:3) = rhssi
           rhsc(:,4:6) = 0d0
+
+          bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+          bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
 
           call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .            ,igrid,iout,guess,v_mtvc_hyp,vol_wgt
@@ -1120,6 +1126,9 @@ c     Transfer initial guess and residual
 c     Solve EMHD system
 
       guess = 1
+
+      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+      bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
 
       call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
      .            ,igrid,iout,guess,a_mtvc_hyp,vol_wgt
