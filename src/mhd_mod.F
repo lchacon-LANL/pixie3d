@@ -382,7 +382,7 @@ cc     .                                       ,bcnv_n
      .                                       ,vcnv_n
      .                                       ,vcov
 cc     .                                       ,vcov_0
-     .                                       ,pcnv
+     .                                       ,pcnv => null() !Used to check
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
      .                                       ,v_advc
@@ -660,14 +660,15 @@ cc        nz = size(tmp_0,3)-2
      .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs  (0:nx+1,0:ny+1,0:nz+1))
-        pcnv = 0d0
-        vscnv= 0d0
-        bhat = 0d0
-        prs  = 0d0
-        v_advc = 0d0
-        rho_advc = 0d0
-        prs_advc = 0d0
       endif
+
+      pcnv = 0d0
+      vscnv= 0d0
+      bhat = 0d0
+      prs  = 0d0
+      v_advc = 0d0
+      rho_advc = 0d0
+      prs_advc = 0d0
 
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
       if (chi_par /= chi .and. (.not.lagrangian)) then
@@ -707,10 +708,10 @@ cc        nz = size(tmp_0,3)-2
       if (nc_eom_v) then
         v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
      .                             ,v_advect,.false.)
-cc      else
-cc        call pstop('fillAuxVar'
-cc     .            ,'Parallel-safe conserv advc not implemented')
-cc        v_advc= tensor_advc_mesh(igr,vcnv,vcnv,bcs,v_advect,.false.)
+      else
+        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
+c$$$     .     0.5*(tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
+c$$$     .         +tensor_advc_mesh(gv%gparams,igr,pcnv,vcnv,bcs,v_advect))
       endif
 
       bcs(:,1) = varray%array_var(IRHO)%bconds
