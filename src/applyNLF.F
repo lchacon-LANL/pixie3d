@@ -253,15 +253,11 @@ c     Stress tensor: div(Pi+Pe)
 
 c     Advection
 
-      cnv = v_advc(i,j,k,:)
-
       if (nc_eom_v) then
-        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
-                                                    !we evolve dv/dt
+        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k)   !1/rho factor because
+     .              + v_advc(i,j,k,:)          !we evolve dv/dt
       else
-c$$$        cnv = tensor_advc(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz
-c$$$     .                   ,vcnv,pcnv,v_advect)
-        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+        ff(IVX:IVZ) = ff(IVX:IVZ) + v_advc(i,j,k,:)
       endif
 
 c     Sources
