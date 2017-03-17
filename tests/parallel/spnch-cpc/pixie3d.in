@@ -57,11 +57,14 @@
     nc_eom_gp  = t
     nc_eom_v   = f
     solve_rho  = t
+
+    advect     = 4
+    v_advect   = 3
  /
 
  &graphdef
     sel_diag  = 2,12,15,17,18,19,20,22,23
-    sel_graph = 1,2,3,5,6,7,9,10,11
+    sel_graph = 1,2,3,5,6,7,8,9,10,11
     dplot = 1d-2
     prof_conf = 1,'r',1,10,1
     cont_conf = 3,'x','y',1,1,1
