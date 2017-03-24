@@ -22,7 +22,7 @@
 #        make BOPT=g pixie3d
 
 REL1=4
-REL2=2.4
+REL2=2.5
 
 FLUX=f
 PER_BC_SYNC=t

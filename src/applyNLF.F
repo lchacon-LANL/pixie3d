@@ -112,7 +112,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm
+      real(8) :: joule,viscous,heat_flx,heat_src
 
       ! EOM equation
       real(8) :: MS(3)
@@ -159,11 +159,10 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Advection
 
-      gm = gamma
-
-      advc=     gm    *prs_advc(i,j,k)
-     .        +(gm-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
-     .                         ,igx,igy,igz,vscnv,prs,1,reverse=.true.)  !Reverse: vscnv -> -vscnv
+      advc= gamma     *prs_advc(i,j,k)
+     .    +(gamma-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
+     .                             ,igx,igy,igz,vscnv,prs,1
+     .                             ,reverse=.true.)     !Reverse: vscnv -> -vscnv
 
 c     Heat flux
 
@@ -255,15 +254,10 @@ c     Stress tensor: div(Pi+Pe)
 c     Advection
 
       if (nc_eom_v) then
-        cnv = v_advc(i,j,k,:)
-
-        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k) + cnv  !1/rho factor because
-                                                    !we evolve dv/dt
+        ff(IVX:IVZ) = ff(IVX:IVZ)/rho(i,j,k)   !1/rho factor because
+     .              + v_advc(i,j,k,:)          !we evolve dv/dt
       else
-        cnv = tensor_advc(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz
-     .                   ,vcnv,pcnv,v_advect)
-
-        ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
+        ff(IVX:IVZ) = ff(IVX:IVZ) + v_advc(i,j,k,:)
       endif
 
 c     Sources
@@ -358,7 +352,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm
+      real(8) :: joule,viscous,heat_flx,heat_src
 
 c Begin program
 
@@ -512,7 +506,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm
+      real(8) :: joule,viscous,heat_flx,heat_src
 
 c Begin program
 
@@ -664,7 +658,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src,gm
+      real(8) :: joule,viscous,heat_flx,heat_src
 
 c Begin program
 
@@ -817,7 +811,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_src,heat_flx,gm
+      real(8) :: joule,viscous,heat_src,heat_flx
 
       ! EOM equation
       real(8) :: MS(3)
