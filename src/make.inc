@@ -1,5 +1,5 @@
 BASE         = pixie3d
-EXEC         = $(BASE)-$(REL1).$(REL2)-$(LABEL)
+EXEC         = $(BASE)-$(MACHINE)-$(REL1).$(REL2)-$(LABEL)_$(OPT)
 CODE         = $(EXEC).x
 A_CODE       = $(EXEC)_a.x
 PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
