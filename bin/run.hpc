@@ -49,7 +49,7 @@ adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
 account=""
-qos=""
+qos="standard"
 
 # Parse command line options
 
