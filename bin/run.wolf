@@ -35,7 +35,7 @@ exit 0
 
 # Defaults
 
-ppn=16   #Wolf
+ppn=16
 restart=f
 parallel=f
 tar=t
@@ -302,12 +302,12 @@ fi
 
 # Dump msub configuration file
 
-cat > go-grizzly.msub <<QSUB
+cat > go-wolf.msub <<QSUB
 #!/bin/bash
 #
 #  predict the duration of the job
 #MSUB -l walltime=$wtime
-#  request resources: one node 36 core
+#  request resources: one node $ppn core
 #MSUB -l qos=$qos,nodes=$nodes:ppn=$ppn
 #  specify the pathname for output
 #MSUB -o $inputfile.msub.log
@@ -364,9 +364,9 @@ if [ "$debug" = "t" ]; then
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.msub > scriptmanage.log
+  ./scriptmanage go-wolf.msub > scriptmanage.log
 else
-#  msub go.msub
+  msub go-wolf.msub
 fi
 
 

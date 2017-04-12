@@ -35,7 +35,7 @@ exit 0
 
 # Defaults
 
-ppn=36   #Grizzly
+ppn=36
 restart=f
 parallel=f
 tar=t
@@ -307,7 +307,7 @@ cat > go-grizzly.msub <<QSUB
 #
 #  predict the duration of the job
 #MSUB -l walltime=$wtime
-#  request resources: one node 36 core
+#  request resources: one node $ppn cores
 #MSUB -l qos=$qos,nodes=$nodes:ppn=$ppn
 #  specify the pathname for output
 #MSUB -o $inputfile.msub.log
@@ -364,9 +364,9 @@ if [ "$debug" = "t" ]; then
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.msub > scriptmanage.log
+  ./scriptmanage go-grizzly.msub > scriptmanage.log
 else
-#  msub go.msub
+  msub go-grizzly.msub
 fi
 
 
