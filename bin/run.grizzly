@@ -7,13 +7,14 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -A account -wc hh:mm:ss -qos queue [-h] [-d] [-n nodes] [-x executable] [-r tmax]
+$0 -A account -np procs -wc hh:mm:ss -qos queue [-h] [-d] [-n nodes] [-x executable] [-r tmax]
          [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
         -A:            selects account (w15_magreconn, s15_icfifp; required)
+	-np procs:     indicates the number of cores (required)
 	-wc time:      indicates wall-clock time (in format hr:min:sec; required)
-	-qos queue:  indicates quality of service queue (required)
+	-qos queue:    indicates quality of service queue (required)
 	-h:            gives this message
 	-d:            turn on debugging
 	-n nodes:      indicates the number of nodes
@@ -22,9 +23,7 @@ where:
                          (if tmax=0, final time is not changed)
 	-rtgz file:    indicates tarball file to use to restart (default is 
                          inputfile.tar.gz)
-	-ntar:         runs in foreground in current directory (default: runs in 
-                         background in separate directory and creates 
-                         tarfile inputfile.tar.gz)
+	-ntar:         does not tar up directory 
 	-equ:          equilibrium file 
 	-eig:          eigenmode file 
         -recursive     whether we automatically monitor termination and restart
@@ -36,6 +35,7 @@ exit 0
 
 # Defaults
 
+ppn=36   #Grizzly
 restart=f
 parallel=f
 tar=t
@@ -50,6 +50,8 @@ recursive=f
 create_dir=t
 account=""
 qos="standard"
+nodes=""
+np=""
 
 # Parse command line options
 
@@ -119,6 +121,16 @@ if [ "x$qos" = "x" ]
 then
   echo "No queue specified. Aborting"
   exit 1
+fi
+
+if [ "x$np" == "x" ]; then
+  echo "Please specify number of procs np"
+  exit 1
+fi
+
+if [ "x$nodes" == "x" -a "$parallel" = "t" ]; then
+  nodes=$((np / ppn + 1))
+#  nodes=$(expr $nodes + 1)
 fi
 
 # Select working directory
@@ -290,13 +302,13 @@ fi
 
 # Dump msub configuration file
 
-cat > go.msub <<QSUB
+cat > go-grizzly.msub <<QSUB
 #!/bin/bash
 #
 #  predict the duration of the job
 #MSUB -l walltime=$wtime
 #  request resources: one node 36 core
-#MSUB -l qos=$qos,nodes=$nodes:ppn=36
+#MSUB -l qos=$qos,nodes=$nodes:ppn=$ppn
 #  specify the pathname for output
 #MSUB -o $inputfile.msub.log
 #  name for job
@@ -354,7 +366,7 @@ fi
 if [ "$recursive" = "t" ]; then
   ./scriptmanage go.msub > scriptmanage.log
 else
-  msub go.msub
+#  msub go.msub
 fi
 
 
