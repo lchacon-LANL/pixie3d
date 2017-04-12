@@ -709,20 +709,7 @@ cc        nz = size(tmp_0,3)-2
         v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
      .                             ,v_advect,.false.)
       else
-        v_advc=
-c$$$     .       tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
-     .     0.5*(tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
-     .         +tensor_advc_mesh(gv%gparams,igr,pcnv,vcnv,bcs,v_advect))
-
-c$$$        !Old code
-c$$$        do k=1,nz
-c$$$          do j=1,ny
-c$$$            do i=1,nx
-c$$$              v_advc(i,j,k,:) = tensor_advc(gv%gparams,i,j,k,nx,ny,nz
-c$$$     .                                ,igx,igy,igz,vcnv,pcnv,v_advect)
-c$$$            enddo
-c$$$          enddo
-c$$$        enddo
+        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
       endif
 
       bcs(:,1) = varray%array_var(IRHO)%bconds
