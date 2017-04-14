@@ -129,7 +129,7 @@ if [ "x$np" == "x" ]; then
 fi
 
 if [ "x$nodes" == "x" -a "$parallel" = "t" ]; then
-  nodes=$((np / ppn + 1))
+  nodes=$(( ( np - 1 ) / ppn + 1))
 #  nodes=$(expr $nodes + 1)
 fi
 
