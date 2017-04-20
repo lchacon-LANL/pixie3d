@@ -771,11 +771,14 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
-     .            ,sm_it         = sm_iter_si
      .            ,sm_omega      = sm_omega_si
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_it         = sm_iter_si
+c$$$     .            !Diag
+c$$$     .            ,mg_smooth_only = .true.
+c$$$     .            ,sm_it         = 200
      .            )
 
 cc          call pc_diag(6,nn,xc,rhsc)
@@ -1873,11 +1876,7 @@ c Begin program
           do i = 1,nx
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
-            cnv = yyy(ii,IVX:IVZ)
-            call transformFromCurvToCurv(gv%gparams
-     .           ,i,j,k,igrid,igrid,igrid
-     .           ,cov(1),cov(2),cov(3)
-     .           ,cnv(1),cnv(2),cnv(3),.false.)
+            cov = XformToCov_ijk(gv%gparams,i,j,k,igrid,yyy(ii,IVX:IVZ))
 
             if (nc_eom_v) cov = cov/rho0(i,j,k,1)
 

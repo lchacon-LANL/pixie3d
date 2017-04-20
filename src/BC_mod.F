@@ -325,6 +325,17 @@ c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         endif
 #endif
 
+      case('bpnch')
+
+c$$$        !Dirichlet boundary conditions for tangential velocity components
+c$$$        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+c$$$        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+
+        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues in A-form
+          where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
+          where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
+        endif
+
       end select
 
 c     Reassign BCs back

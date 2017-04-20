@@ -1984,9 +1984,7 @@ c     Transform to contravariant
       cov(2) = (flxjp - flxjm)/g_def%dyh(jg)
       cov(3) = (flxkp - flxkm)/g_def%dzh(kg)
 
-      call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
-     .                            ,cov(1),cov(2),cov(3)
-     .                            ,cnv(1),cnv(2),cnv(3),is_cnv)
+      cnv = XformToCnv_ijk(g_def,i,j,k,igr,cov)
 
       psit = -alpha**2*cnv
 
@@ -2023,8 +2021,9 @@ c     Begin program
       nyy = g_def%nyv(igr)
       nzz = g_def%nzv(igr)
 
-      if (nc_eom_jxb.and.(.not.bcSP()) ) then  !Force conservative form in SP geometries
-
+cc      if (nc_eom_jxb.and.(.not.bcSP()).and.(di==0)) then  !Force conservative form
+cc      if (nc_eom_jxb.and.(.not.bcSP())) then  !Force conservative form in SP geometries
+      if (.true.) then
         call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
 
         jac = g_def%gmetric%grid(igr)%jac(i,j,k)
@@ -2061,59 +2060,46 @@ c     Begin program
      .      U_Bv_ijk(g_def,i,j,k-1,nxx,nyy,nzz,igr,igr,igr,dv,dv_cov
      .              ,a0_cnv,3)
 
-        call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
-     .                        ,acovip(1),acovip(2),acovip(3)
-     .                        ,acnvip(1),acnvip(2),acnvip(3)
-     .                        ,.false.,half_elem=1)
+        acovip = XformToCov_ijk_face(g_def,i  ,j,k,igr,acnvip,1)
+        acovim = XformToCov_ijk_face(g_def,i-1,j,k,igr,acnvim,1)
 
-        call transformFromCurvToCurv(g_def,i-1,j,k,igr,igr,igr
-     .                        ,acovim(1),acovim(2),acovim(3)
-     .                        ,acnvim(1),acnvim(2),acnvim(3)
-     .                        ,.false.,half_elem=1)
+        acovjp = XformToCov_ijk_face(g_def,i,j  ,k,igr,acnvjp,2)
+        acovjm = XformToCov_ijk_face(g_def,i,j-1,k,igr,acnvjm,2)
 
-        call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
-     .                        ,acovjp(1),acovjp(2),acovjp(3)
-     .                        ,acnvjp(1),acnvjp(2),acnvjp(3)
-     .                        ,.false.,half_elem=2)
+        acovkp = XformToCov_ijk_face(g_def,i,j,k  ,igr,acnvkp,3)
+        acovkm = XformToCov_ijk_face(g_def,i,j,k-1,igr,acnvkm,3)
 
-        call transformFromCurvToCurv(g_def,i,j-1,k,igr,igr,igr
-     .                        ,acovjm(1),acovjm(2),acovjm(3)
-     .                        ,acnvjm(1),acnvjm(2),acnvjm(3)
-     .                        ,.false.,half_elem=2)
+        !Curl(Curl(-A)); note: A=-dvxB+di/Dt*dv
+        cnv(1) =-( (acovjp(3)-acovjm(3))/dyy
+     .            -(acovkp(2)-acovkm(2))/dzz)
+        cnv(2) =-( (acovkp(1)-acovkm(1))/dzz
+     .            -(acovip(3)-acovim(3))/dxx)
+        cnv(3) =-( (acovip(2)-acovim(2))/dxx
+     .            -(acovjp(1)-acovjm(1))/dyy)
 
-        call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
-     .                        ,acovkp(1),acovkp(2),acovkp(3)
-     .                        ,acnvkp(1),acnvkp(2),acnvkp(3)
-     .                        ,.false.,half_elem=3)
+        !Approximate curl(curl(dv)) as -lap(dv) when forming diag
+        if (MG_get_find_diag()) then
+          cnv = cnv
+     .        + di*cnp/(dt*alpha)* veclap(g_def,i,j,k,nxx,nyy,nzz
+     .                                  ,igr,igr,igr,dv,vol=.false.)
+        endif
 
-        call transformFromCurvToCurv(g_def,i,j,k-1,igr,igr,igr
-     .                        ,acovkm(1),acovkm(2),acovkm(3)
-     .                        ,acnvkm(1),acnvkm(2),acnvkm(3)
-     .                        ,.false.,half_elem=3)
-
-        cov(1) =-b0_cnv(i,j,k,2)*( (acovip(2)-acovim(2))/dxx
-     .                            -(acovjp(1)-acovjm(1))/dyy)
-     .          -b0_cnv(i,j,k,3)*( (acovip(3)-acovim(3))/dxx
-     .                            -(acovkp(1)-acovkm(1))/dzz)
+        !Form W
+        cov(1) = b0_cnv(i,j,k,2)*cnv(3)
+     .          -b0_cnv(i,j,k,3)*cnv(2)
      .          +(j0_cnv(2)*acnv(3)-j0_cnv(3)*acnv(2))
 
-        cov(2) =-b0_cnv(i,j,k,1)*( (acovjp(1)-acovjm(1))/dyy
-     .                            -(acovip(2)-acovim(2))/dxx)
-     .          -b0_cnv(i,j,k,3)*( (acovjp(3)-acovjm(3))/dyy
-     .                            -(acovkp(2)-acovkm(2))/dzz)
+        cov(2) = b0_cnv(i,j,k,3)*cnv(1)
+     .          -b0_cnv(i,j,k,1)*cnv(3)
      .          +(j0_cnv(3)*acnv(1)-j0_cnv(1)*acnv(3))
 
-        cov(3) =-b0_cnv(i,j,k,1)*( (acovkp(1)-acovkm(1))/dzz
-     .                            -(acovip(3)-acovim(3))/dxx)
-     .          -b0_cnv(i,j,k,2)*( (acovkp(2)-acovkm(2))/dzz
-     .                            -(acovjp(3)-acovjm(3))/dyy)
+        cov(3) = b0_cnv(i,j,k,1)*cnv(2)
+     .          -b0_cnv(i,j,k,2)*cnv(1)
      .          +(j0_cnv(1)*acnv(2)-j0_cnv(2)*acnv(1))
 
         cov = cov*ijac
 
-        call transformFromCurvToCurv(g_def,i,j,k,igr,igr,igr
-     .                              ,cov(1),cov(2),cov(3)
-     .                              ,cnv(1),cnv(2),cnv(3),is_cnv)
+        cnv = XformToCnv_ijk(g_def,i,j,k,igr,cov)
       else
         cnv = div_tensor(g_def,i,j,k,nxx,nyy,nzz,igr,igr,igr,alt__eom()
      .                  ,tensor_x,tensor_y,tensor_z,vol=.false.)
@@ -2173,15 +2159,9 @@ c     Begin program
 c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
 
         if (flag /= 0) then
-          call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-     .                        ,b0cov(1),b0cov(2),b0cov(3)
-     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-     .                        ,.false.,half_elem=1)
+          b0cov = XformToCov_ijk_face(g_def,i,j,k,igx,b0cnv,1)
         else
-          call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-     .                        ,b0cov(1),b0cov(2),b0cov(3)
-     .                        ,b0cnv(1),b0cnv(2),b0cnv(3)
-     .                        ,.false.,half_elem=0)
+          b0cov = XformToCov_ijk     (g_def,i,j,k,igx,b0cnv)
         endif
 
         scalar_prod = dot_product(acnv,b0cov)
@@ -2653,22 +2633,22 @@ c BCs
 
       du = 0d0
 
-      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
+cc      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
 
-      call fillArray(g_def,igrid,neq,x,du,bcnd,1,gpos=gpos
-cc     .              ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
-     .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
+      call fillArray(g_def,igrid,neq,x,du,bcnd,1,gpos=gpos  !order=0 for stability
+     .              ,icomp=(/IVX,IJX/),is_cnv=is_cnv,is_vec=.true.
+cc     .              ,icomp=(/IVX,IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=du_cov,arr0=v0)
 
-      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
+cc      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
 cc#if defined(pgf90)
       allocate(dv    (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dv_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,dj_cnv(0:nxx+1,0:nyy+1,0:nzz+1,3))
 
-      dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)   !Initialize module variable
-      dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)   !Initialize module variable
+      dv    (0:,0:,0:,1:3)  = du    (:,:,:,1:3)   !Initialize v_mtvc_mod variable
+      dv_cov(0:,0:,0:,1:3)  = du_cov(:,:,:,1:3)   !Initialize v_mtvc_mod variable
       dj_cnv(0:,0:,0:,1:3)  = du    (:,:,:,4:6)
 c$$$#else
 c$$$      dv    (0:,0:,0:,1:)  => du    (:,:,:,1:3)
@@ -2782,49 +2762,27 @@ cc            dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
             !Find dj=-dt*curl(U_Bv_ijk.dv)
             cnv = U_Bv_ijk(g_def,i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,1)
-            call transformFromCurvToCurv(g_def,i,j,k
-     .                                  ,igrid,igrid,igrid
-     .                                  ,aip(1),aip(2),aip(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=1)
+            aip = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,1)
 
             cnv = U_Bv_ijk(g_def,im,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,1)
-            call transformFromCurvToCurv(g_def,im,j,k
-     .                                  ,igrid,igrid,igrid
-     .                                  ,aim(1),aim(2),aim(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=1)
+            aim = XformToCov_ijk_face(g_def,im,j,k,igrid,cnv,1)
                              
             cnv = U_Bv_ijk(g_def,i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,2)
-            call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
-     .                                  ,ajp(1),ajp(2),ajp(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=2)
+            ajp = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,2)
                              
             cnv = U_Bv_ijk(g_def,i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,2)
-            call transformFromCurvToCurv(g_def,i,jm,k
-     .                                  ,igrid,igrid,igrid
-     .                                  ,ajm(1),ajm(2),ajm(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=2)
+            ajm = XformToCov_ijk_face(g_def,i,jm,k,igrid,cnv,2)
                              
             cnv = U_Bv_ijk(g_def,i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,3)
-            call transformFromCurvToCurv(g_def,i,j,k,igrid,igrid,igrid
-     .                                  ,akp(1),akp(2),akp(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=3)
+            akp = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,3)
                              
             cnv = U_Bv_ijk(g_def,i,j,km,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,3)
-            call transformFromCurvToCurv(g_def,i,j,km
-     .                                  ,igrid,igrid,igrid
-     .                                  ,akm(1),akm(2),akm(3)
-     .                                  ,cnv(1),cnv(2),cnv(3)
-     .                                  ,.false.,half_elem=3)
+            akm = XformToCov_ijk_face(g_def,i,j,km,igrid,cnv,3)
 
             cnv(1) = (ajp(3)-ajm(3))/g_def%dyh(jg)
      .              -(akp(2)-akm(2))/g_def%dzh(kg)
