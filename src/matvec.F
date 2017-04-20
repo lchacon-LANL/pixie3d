@@ -2023,7 +2023,7 @@ c     Begin program
 
 cc      if (nc_eom_jxb.and.(.not.bcSP()).and.(di==0)) then  !Force conservative form
 cc      if (nc_eom_jxb.and.(.not.bcSP())) then  !Force conservative form in SP geometries
-      if (.true.) then
+      if (.false.) then
         call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
 
         jac = g_def%gmetric%grid(igr)%jac(i,j,k)
@@ -2145,7 +2145,8 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,:,:))
 
-        if (isSP(g_def,i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+        ijac  = 1d0/jac
+        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) ijac = 0d0
 
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
@@ -2179,16 +2180,9 @@ c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
      .        -gsuper(1,3)*scalar_prod )
 
         if (flag /= 0) then
-          if (isSP(g_def,i+1,j,k,igx,igy,igz)) then
-            t11 = 0d0
-            if (.not.alt_eom) t12 = 0d0
-            t13 = 0d0
-          else
-            ijac  = 1d0/jac
-            t11 = t11*ijac
-            if (.not.alt_eom) t12 = t12*ijac
-            t13 = t13*ijac
-          endif
+          t11 = t11*ijac
+          if (.not.alt_eom) t12 = t12*ijac
+          t13 = t13*ijac
         endif
 
 c     End program
