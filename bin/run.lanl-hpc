@@ -308,7 +308,9 @@ cat > go.msub <<QSUB
 #MSUB -j oe
 #  select account
 #MSUB -A $account
-#
+#  send email at beginning, end, and abort
+#MSUB -m bea
+#MSUB -M chacon@lanl.gov
 #  forward current environment variables to the job
 #MSUB -V
 
