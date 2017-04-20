@@ -2021,9 +2021,7 @@ c     Begin program
       nyy = g_def%nyv(igr)
       nzz = g_def%nzv(igr)
 
-cc      if (nc_eom_jxb.and.(.not.bcSP()).and.(di==0)) then  !Force conservative form
-cc      if (nc_eom_jxb.and.(.not.bcSP())) then  !Force conservative form in SP geometries
-      if (.false.) then
+      if (nc_eom_jxb.and.(.not.bcSP())) then  !Force conservative form in SP geometries
         call getMGmap(g_def,i,j,k,igr,igr,igr,ig,jg,kg)
 
         jac = g_def%gmetric%grid(igr)%jac(i,j,k)
@@ -2076,13 +2074,6 @@ cc      if (nc_eom_jxb.and.(.not.bcSP())) then  !Force conservative form in SP g
      .            -(acovip(3)-acovim(3))/dxx)
         cnv(3) =-( (acovip(2)-acovim(2))/dxx
      .            -(acovjp(1)-acovjm(1))/dyy)
-
-        !Approximate curl(curl(dv)) as -lap(dv) when forming diag
-        if (MG_get_find_diag()) then
-          cnv = cnv
-     .        + di*cnp/(dt*alpha)* veclap(g_def,i,j,k,nxx,nyy,nzz
-     .                                  ,igr,igr,igr,dv,vol=.false.)
-        endif
 
         !Form W
         cov(1) = b0_cnv(i,j,k,2)*cnv(3)
@@ -2576,6 +2567,7 @@ c Local variables
 
       real(8) :: b2,bbcnv(3),bbcov(3),etal,E00(3),v_res(3),divpe(3)
      .          ,dj(3),aip(3),aim(3),ajp(3),ajm(3),akp(3),akm(3),diag
+     .          ,ccda(3),cda(3),j0cnv(3),b0cnv(3)
 
       real(8),pointer,dimension(:,:,:,:) :: v0,dE_cnv,du,du_cov,dpp
      .                                     ,dve_cnv,dB_cnv,dB_cov
@@ -2712,8 +2704,23 @@ c Calculate matrix-vector product
             psit = findPsit(g_def,i,j,k,igrid)
 
             !P_si^B  ******************************
+            if (nc_eom_jxb.and.(.not.bcSP())) then !Force conservative form in SP geometries
+              j0cnv = curl(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                     ,b0_cov)
+              cda = -U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                       ,dv,dv_cov,a0_cnv,0)
 
-            psib = findPsib(g_def,i,j,k,igrid)
+              b0cnv = b0_cnv(i,j,k,:)
+              ccda  = cnp*dj_cnv(i,j,k,:)/dt  !curl(curl(dA)) from dj
+
+              psib=crossProduct_ijk(g_def,i,j,k,igrid,b0cnv,ccda,.true.)
+     .            -crossProduct_ijk(g_def,i,j,k,igrid,j0cnv,cda ,.true.)
+
+              psib= alpha*XformToCnv_ijk(g_def,i,j,k,igrid,psib)
+            else
+              psib= div_tensor(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                        ,alt__eom(),tensor_x,tensor_y,tensor_z)
+            endif
 
             !Diagonal scaling
             cnv = psit + psib 
@@ -2756,7 +2763,7 @@ cc            dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
             !Find dj=-dt*curl(U_Bv_ijk.dv)
             cnv = U_Bv_ijk(g_def,i ,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,1)
-            aip = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,1)
+            aip = XformToCov_ijk_face(g_def,i ,j,k,igrid,cnv,1)
 
             cnv = U_Bv_ijk(g_def,im,j,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,1)
@@ -2764,7 +2771,7 @@ cc            dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
                              
             cnv = U_Bv_ijk(g_def,i,j ,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,2)
-            ajp = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,2)
+            ajp = XformToCov_ijk_face(g_def,i,j ,k,igrid,cnv,2)
                              
             cnv = U_Bv_ijk(g_def,i,jm,k,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,2)
@@ -2772,7 +2779,7 @@ cc            dj=curl(i,j,k,nxx,nyy,nzz,igrid,igrid,igrid,dB_cov)
                              
             cnv = U_Bv_ijk(g_def,i,j,k ,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,3)
-            akp = XformToCov_ijk_face(g_def,i,j,k,igrid,cnv,3)
+            akp = XformToCov_ijk_face(g_def,i,j,k ,igrid,cnv,3)
                              
             cnv = U_Bv_ijk(g_def,i,j,km,nxx,nyy,nzz,igrid,igrid,igrid
      .                    ,dv,dv_cov,a0_cnv,3)
