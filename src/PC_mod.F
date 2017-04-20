@@ -1284,7 +1284,7 @@ c     Ideal MHD part
           cov = cov/g_def%gmetric%grid(igx)%jac(i,j,k)
         end select
 
-        uav = -cov !-dv x B0
+        uav = -cov !-dv x B0 part
 
 c     Hall MHD part
 
@@ -1296,14 +1296,16 @@ c     Hall MHD part
 
             select case(half_elem)
             case(1)
-              if (.not.MG_get_find_diag())
-     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
+              if (isSP2(g_def,ip,igx,dim=1)) then
+                cov = minv*vv_cov(i,j,k,:)
+                cov(2) = 0d0
+              else
+                cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
+              endif
             case(2)
-              if (.not.MG_get_find_diag())
-     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
+              cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
             case(3)
-              if (.not.MG_get_find_diag())
-     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
+              cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
             case default
               cov = minv*vv_cov(i,j,k,:)
             end select

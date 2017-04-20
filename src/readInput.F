@@ -749,7 +749,7 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 
-      if (bcs(1) == 'spt') mg_oprol = 1
+cc      if (bcs(1) == 'spt') mg_oprol = 1
 
       if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
 
