@@ -234,44 +234,48 @@ cc      stop
 c diag *****
 
 c diag ***** MATRIX GENERATION FOR MATLAB PROCESSING
-cccc      if (debug) then
-cc      write (*,*) 'DIAG -- setupPC: Building matrix...'
-cc
-cc      neq = 6
-cc      igrid = 1
-cc
-cc      nxx = grid_params%nxv(igrid)
-cc      nyy = grid_params%nyv(igrid)
-cc      nzz = grid_params%nzv(igrid)
-cc
-cc      nt = neq*nxx*nyy*nzz
-cc
-cc      allocate(v_mat(nt,nt))
-cc
-cccc      icomp = IVX
-cccc      call find_mf_mat(neq,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
-cc      icomp = IAX
-cc      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
-cc      bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
-cc      call find_mf_mat(neq,nt,a_mtvc_hyp,igrid,bcs_hyp,v_mat)
-cc
-cccc      open(unit=110,file='debug.bin',form='unformatted'
-cccc     .       ,status='replace')
-cccc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
-cccc      close(110)
-cc
-cc      open(unit=110,file='debug.mat',status='replace')
-cc      do ii=1,nt
-cc        write (110,*) (v_mat(ii,jj),jj=1,nt)
-cc      enddo
-cc      close(110)
-cc
-cc      deallocate(v_mat)
-cc
-cc      write (*,*) 'Done!'
-cc
-cc      stop
-cccc      endif
+c$$$cc      if (debug) then
+c$$$      write (*,*) 'DIAG -- setupPC: Building matrix...'
+c$$$
+c$$$      neq = 6
+c$$$      igrid = 1
+c$$$
+c$$$      nxx = gv%gparams%nxv(igrid)
+c$$$      nyy = gv%gparams%nyv(igrid)
+c$$$      nzz = gv%gparams%nzv(igrid)
+c$$$
+c$$$      nt = neq*nxx*nyy*nzz
+c$$$
+c$$$      allocate(v_mat(nt,nt))
+c$$$
+c$$$cc      icomp = IVX
+c$$$cc      call find_mf_mat(neq,nt,v_mtvc,igrid,bcs(:,IVX:IVZ),v_mat)
+c$$$cc      icomp = IAX
+c$$$cc      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+c$$$cc      bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+c$$$cc      call find_mf_mat(neq,nt,a_mtvc_hyp,igrid,bcs_hyp,v_mat)
+c$$$      icomp = IVX
+c$$$      bcs_hyp(:,1:3) = bcs(:,IVX:IVZ)
+c$$$      bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
+c$$$      call find_mf_mat(gv%gparams,neq,nt,v_mtvc_hyp,igrid,bcs_hyp,v_mat)
+c$$$
+c$$$cc      open(unit=110,file='debug.bin',form='unformatted'
+c$$$cc     .       ,status='replace')
+c$$$cc      call contour(v_mat,nt,nt,0d0,1d0,0d0,1d0,0,110)
+c$$$cc      close(110)
+c$$$
+c$$$      open(unit=110,file='debug.mat',status='replace')
+c$$$      do ii=1,nt
+c$$$        write (110,*) (v_mat(ii,jj),jj=1,nt)
+c$$$      enddo
+c$$$      close(110)
+c$$$
+c$$$      deallocate(v_mat)
+c$$$
+c$$$      write (*,*) 'Done!'
+c$$$
+c$$$      stop
+c$$$cc      endif
 c diag *****
 
       end subroutine form_diagonals

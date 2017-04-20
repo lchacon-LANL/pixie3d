@@ -1290,17 +1290,20 @@ c     Hall MHD part
 
         if (di > 0d0) then
 
-          minv = cnp/dt/alpha
+          minv = cnp/(dt*alpha)
 
           if (pc_ion_hall) then  !Ion hall
 
             select case(half_elem)
             case(1)
-              cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
+              if (.not.MG_get_find_diag())
+     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(ip,j,k,:))
             case(2)
-              cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
+              if (.not.MG_get_find_diag())
+     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,jp,k,:))
             case(3)
-              cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
+              if (.not.MG_get_find_diag())
+     .             cov = minv*0.5*(vv_cov(i,j,k,:)+vv_cov(i,j,kp,:))
             case default
               cov = minv*vv_cov(i,j,k,:)
             end select
@@ -1334,10 +1337,7 @@ c$$$              case default
      .               /rho0(i,j,k,1)
 c$$$              end select
 
-              call transformFromCurvToCurv(g_def,i,j,k,igx,igy,igz
-     .                                    ,cov(1),cov(2),cov(3)
-     .                                    ,cnv(1),cnv(2),cnv(3)
-     .                                    ,.false.,half_elem=half_elem)
+              cov = XformToCov_ijk_face(g_def,i,j,k,igx,cnv,half_elem)
 
               uav = uav + di*cov
 
