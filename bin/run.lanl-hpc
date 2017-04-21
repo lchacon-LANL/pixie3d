@@ -301,7 +301,7 @@ cat > go.msub <<QSUB
 #  request resources
 #MSUB -l qos=$qos,procs=$np
 #  specify the pathname for output
-#MSUB -o $inputfile.msub.log
+#MSUB -o $inputfile.log
 #  name for job
 #MSUB -N $inputfile
 #  combine stdout and stdin
@@ -319,7 +319,7 @@ module purge
 module load gcc/5.3.0
 module load openmpi/1.10.5
 
-mpiexec -np $np $executable $options -cpu_quota 56000 >> $inputfile.log 2>&1
+mpiexec -np $np $executable $options -cpu_quota 56000 
 
 RETURN_VALUE=\$?  #Exit code from last job
 
