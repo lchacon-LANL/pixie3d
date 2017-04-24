@@ -564,11 +564,11 @@ c       Vector Pot. BC
 
           call XferBCs(acov_0,v0,.true.)
 
-          call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
+cc          call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
           call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-          call set_force_corners(.false.)
+cc          call set_force_corners(.false.)
 
         case(IACNV)  !Done when computing acov
 
@@ -586,11 +586,11 @@ c       Magnetic field BC
             call XferBCs(jcnv_0,v0,.true.)
           endif
 
-          call set_force_corners(.true.) !Force corners owing to div(B)=0 BC
+cc          call set_force_corners(.true.) !Force corners owing to div(B)=0 BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-          call set_force_corners(.false.)
+cc          call set_force_corners(.false.)
 
         case(IBCOV) !Done when computing bcnv
 
@@ -653,7 +653,6 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 
 c       Hall electric field BC
 
-#if !defined(vec_pot) || defined(plotting)
           if (di > 0d0) then
             bcnd = vaux%vec_list(IEH)%bconds
             vdum = XformVector(gv%gparams,igr,E_h,.true.)
@@ -661,19 +660,21 @@ c       Hall electric field BC
      .                ,igr,igr,igr,iorder=order
      .                ,is_cnv=vaux%vec_list(IEH)%cnv)
           endif
-#endif
 
         case(IENI)
 
 c       Total electric field BC
 
-#if !defined(vec_pot) || defined(plotting)
+c$$$          bcnd = vaux%vec_list(IENI)%bconds
+c$$$          vdum = XformVector(gv%gparams,igr,E_ni,.true.)
+c$$$          call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_ni,v0,bcnd
+c$$$     .              ,igr,igr,igr,iorder=order
+c$$$     .              ,is_cnv=vaux%vec_list(IENI)%cnv)
+#if defined(vec_pot)
+          E_ni=E_fld_res_A(gv%gparams,igr,vcnv,acov,jcov,eeta)
+#else
           E_ni=E_fld_res_B(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
 #endif
-c$$$
-c$$$          if (subtract_E0) E_ni = E_ni - E_ni_0  !Substract imposed electric field
-c$$$
-c$$$          if (di > 0d0) E_ni = E_ni + di*E_h !Add Hall electric field
 
         case default
           write (*,*) abs(bc_inf(1))
@@ -1401,7 +1402,7 @@ cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
 
         case(IVECOV_N)
 
-cc          if (electron_hall) vecov_n= vecov  !Initializes for BDF2 as well
+cc          if (electron_hall) vecov_n= vecov  !Does NOT work for BDF2
 
         case(IVCOV)
 
@@ -1473,12 +1474,6 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
         case(IENI)
 
 c       Total E field
-
-c$$$#if defined(vec_pot)
-c$$$          E_ni=E_fld_res(gv%gparams,igr,vcov,acov,jcov,eeta)
-c$$$#else
-c$$$          E_ni=E_fld_res(gv%gparams,igr,vcnv,bcnv,jcov,eeta)
-c$$$#endif
 
           if (subtract_E0) E_ni = E_ni - E_ni_0  !Substract imposed electric field
 
