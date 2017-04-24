@@ -489,7 +489,7 @@ c     #####################################################################
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
       nc_eom_v   = .false.     ! Whether we use non-conservative form of inertia in EOM
-      no_eom_divpe = .false.   ! Whether we include div(Pe) in EOM
+      no_eom_divpe = .true.    ! Whether we include div(Pe) in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solve continuity equation or not
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
