@@ -826,6 +826,7 @@ cc        vaux%vec_list(IBCNV)%bconds =-EXT !For debugging B-field BCs
       call set_vec_symm_bc(vaux%vec_list(IBCNV)%bconds,1)
 
       vaux%vec_list(IBCOV)%bconds = vaux%vec_list(IBCNV)%bconds
+
 #else
       !Magnetic field
       vaux%vec_list(IBCNV)%bconds = bcs(:,IBX:IBZ)
@@ -882,7 +883,7 @@ cc        vaux%vec_list(IJCNV_0)%bconds = EXT  !Extrapolate contravariant compon
       select case(equil)
       case('ohtor')
         where(abs(vaux%vec_list(IACOV_0)%bconds) == EXT)
-          vaux%vec_list(IACOV_0)%bconds = DEF !Extrapolate covariant components
+          vaux%vec_list(IACOV_0)%bconds = DEF !Do nothing
         end where
       end select
 #endif

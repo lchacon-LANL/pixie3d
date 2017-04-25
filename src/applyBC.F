@@ -469,7 +469,6 @@ c$$$          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
 c$$$     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
 c$$$     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
 c$$$     .              ,iorder=2)
-#endif
 
         case(IBCNV_0)
 
@@ -479,8 +478,20 @@ c$$$     .              ,iorder=2)
      .              ,iorder=1)
 
         case(IBCOV_0)   !Done with bcnv_0
+#else
+        case(IBCNV_0)
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+c$$$          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
+c$$$     .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
+c$$$     .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
+c$$$     .              ,iorder=1)
 
-cc          call XformVector_BC(gv%gparams,gv%gparams,igr,bcnv_0,bcov_0,.false.)
+        case(IBCOV_0)
+
+          call XformVector_BC(gv%gparams,igr,bcnv_0,bcov_0,.false.)
+#endif
 
         case(IVCNV_0)
 
