@@ -758,19 +758,16 @@ c     Set auxiliary variable BC
       !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
       where (vaux%var_list(IRHO_0)%bconds == EQU)
-cc        vaux%var_list(IRHO_0)%bconds = EXT
         vaux%var_list(IRHO_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMP_0)%bconds == EQU)
-cc        vaux%var_list(ITMP_0)%bconds = EXT
         vaux%var_list(ITMP_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMPE_0)%bconds == EQU)
-cc        vaux%var_list(ITMPE_0)%bconds = EXT
         vaux%var_list(ITMPE_0)%bconds = DEF !Do nothing
       end where
 
@@ -799,7 +796,7 @@ cc        end where
 
       if (.not.pinch_flow) then
         where (vaux%vec_list(IVCNV_0)%bconds == EQU)
-          vaux%vec_list(IVCNV_0)%bconds = EXT
+          vaux%vec_list(IVCNV_0)%bconds = DEF
         end where
       endif
 
