@@ -2272,12 +2272,12 @@ c     Begin program
                 ip = i+1
                 im = i-1
                 dh(1) = 2.*g_def%dxh(ig)
-cc                if(isBdry(i,igxbc,1).and.(.not.isBC(i,igxbc,1,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) then  !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,i,igxbc,1)) then
                   dh(1) = g_def%dx(ig)
                   im = i
                 endif
-cc                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(2))) then  !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,i,igxbc,2)) then
                   dh(1) = g_def%dx(ig-1)
                   ip = i
@@ -2286,12 +2286,12 @@ cc                if(isBdry(i,igxbc,2).and.(.not.isBC(i,igxbc,2,PER)))then  !Giv
                 jp = j+1
                 jm = j-1
                 dh(2) = 2.*g_def%dyh(jg)
-cc                if(isBdry(j,igybc,3).and.(.not.isBC(j,igybc,3,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(3))) then !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,j,igybc,3)) then
                   dh(2) = g_def%dy(jg)
                   jm = j
                 endif
-cc                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(4))) then !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,j,igybc,4)) then
                   dh(2) = g_def%dy(jg-1)
                   jp = j
@@ -2300,12 +2300,12 @@ cc                if(isBdry(j,igybc,4).and.(.not.isBC(j,igybc,4,PER)))then  !Giv
                 kp = k+1
                 km = k-1
                 dh(3) = 2.*g_def%dzh(kg)
-cc                if(isBdry(k,igzbc,5).and.(.not.isBC(k,igzbc,5,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(5))) then  !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,k,igzbc,5)) then
                   dh(3) = g_def%dz(kg)
                   km = k
                 endif
-cc                if(isBdry(k,igzbc,6).and.(.not.isBC(k,igzbc,6,PER)))then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(6))) then  !Gives bdry noise in Soloveev case
                 if(isBdry(g_def,k,igzbc,6)) then
                   dh(3) = g_def%dz(kg-1)
                   kp = k
