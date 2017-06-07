@@ -7,16 +7,17 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -A account -np procs -wc hh:mm:ss -qos queue [-h] [-d] [-x executable] [-r tmax]
-         [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
+$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] [-x executable] 
+  [-r tmax] [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
-        -A:            selects account (w15_magreconn, s15_icfifp; required)
 	-np procs:     indicates the number of cores (required)
-	-wc time:      indicates wall-clock time (in format hr:min:sec; required)
-	-qos queue:    indicates quality of service queue (required)
 	-h:            gives this message
 	-d:            turn on debugging
+	-qos queue:    indicates quality of service queue (default standard)
+        -A:            selects account (default w17_magreconn)
+	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
+        -omp_tasks:    number of OMP tasks per MPI task (default 1)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
@@ -34,6 +35,8 @@ exit 0
 
 # Defaults
 
+cores_per_node=$(lscpu | grep "CPU(s):         " | cut -c8- | xargs)
+
 restart=f
 parallel=f
 tar=t
@@ -42,13 +45,14 @@ debug=f
 machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
-wtime=""
+wtime=960
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account=""
+account="w17_magreconn"
 qos="standard"
 np=""
+omp_tasks=1
 
 # Parse command line options
 
@@ -64,6 +68,7 @@ case $1 in
 	-d) debug=t;shift 1;;
 	-wc) wtime=$2;shift 2;;
 	-qos) qos=$2;shift 2;;
+	-omp_tasks) omp_tasks=$2;shift 2;;
 	-x) executable=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
@@ -242,14 +247,14 @@ then
        echo "==> Figuring out number of processors"
      fi
 
-     if [ ! -f "record.bp" ]; then
-       np=`ls record.bin_* 2> /dev/null | wc -l`
+#     if [ ! -f "record.bp" ]; then
+#       np=`ls record.bin_* 2> /dev/null | wc -l`
 
-       if [ "$np" != "1" -a "$parallel" = "f" ]; then
-         echo "This is a parallel run! Set -np to $np"
-         exit 1
-       fi
-     fi
+#       if [ "$np" != "1" -a "$parallel" = "f" ]; then
+#         echo "This is a parallel run! Set -np to $np"
+#         exit 1
+#       fi
+#     fi
 
      if [ "$debug" = "t" ]; then
        echo "Number of processors for restart = $np"
@@ -291,35 +296,36 @@ then
         $code_ifile.in
 fi
 
-# Dump msub configuration file
+# Dump SLURM configuration file
 
-cat > go.msub <<QSUB
+cat > go.sub <<QSUB
 #!/bin/bash
 #
 #  predict the duration of the job
-#MSUB -l walltime=$wtime
-#  request resources
-#MSUB -l qos=$qos,procs=$np
+#SBATCH -t $wtime
+#  request resources (qos, number of MPI tasks)
+#SBATCH --qos=$qos
+#SBATCH --nodes=$((np/cores_per_node))
+#SBATCH --ntasks-per-node=$((cores_per_node/omp_tasks))
 #  specify the pathname for output
-#MSUB -o $inputfile.log
+#SBATCH -o $inputfile.log
+#SBATCH -e $inputfile.err
 #  name for job
-#MSUB -N $inputfile
-#  combine stdout and stdin
-#MSUB -j oe
+#SBATCH --job-name $inputfile
 #  select account
-#MSUB -A $account
+#SBATCH -A $account
 #  send email at beginning, end, and abort
-#MSUB -m bea
-#MSUB -M chacon@lanl.gov
+#SBATCH --mail-type=FAIL,BEGIN,END
+#SBATCH --mail-user=chacon@lanl.gov
 #  forward current environment variables to the job
-#MSUB -V
+#SBATCH --export=ALL 
 
 date
 module purge
 module load gcc/5.3.0
 module load openmpi/1.10.5
 
-mpiexec -np $np $executable $options -cpu_quota 56000 
+mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55))
 
 RETURN_VALUE=\$?  #Exit code from last job
 
@@ -327,14 +333,13 @@ date
 
 # Store tarball in proper place
 
-if [ "$tar" = "t" ]
+if [ "$tar" = "t" -a "\$RETURN_VALUE" = "0" ]
 then
   if [ "$debug" = "t" ]; then
      echo "==> Storing tarball..."
   fi
 
-  tar zcf $inputfile.tar.gz $inputfile* record* $code_ifile.in $executable go.pbs *.log
-  rm record*
+  tar zcf $inputfile.tar.gz $inputfile* record* $code_ifile.in $executable go.sub *.log
 
   if [ -d "$path/tarfiles" ]; then
     mv $inputfile.tar.gz $path/tarfiles
@@ -348,18 +353,20 @@ fi
 
 echo "\$RETURN_VALUE" > exit_code.txt
 
+exit
+
 QSUB
 
 # Execute
 
 if [ "$debug" = "t" ]; then
-   echo "==> Executing MSUB script..."
+   echo "==> Executing SLURM script..."
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.msub > scriptmanage.log
+  ./scriptmanage go.sub > scriptmanage.log
 else
-  msub go.msub
+  sbatch go.sub
 fi
 
 

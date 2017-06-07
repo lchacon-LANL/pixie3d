@@ -1,6 +1,6 @@
 BASE         = pixplot
-EXEC         = $(BASE)-$(MACHINE)-$(REL1).$(REL2)-$(LABEL)_$(OPT)
-EXECA        = $(BASE)_a-$(MACHINE)-$(REL1).$(REL2)-$(LABEL)_$(OPT)
+EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
+EXECA        = $(BASE)_a-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
 CODE         = $(EXEC).x
 A_CODE       = $(EXECA).x
 PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
