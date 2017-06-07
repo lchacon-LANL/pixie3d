@@ -16,25 +16,24 @@ exit 0
 
 check_job()
 {
-RUNTEST=""
-while [ "$RUNTEST" != "State: Running" -a "$RUNTEST" != "State: Completed" ]
+RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
+echo "Job $1 is $RUNTEST"
+while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" ]
 do
-  sleep 30
-  checkjob $1 > currentjob.txt
-  RUNTEST=$(grep State currentjob.txt | xargs)
-  echo 'result=' $RUNTEST
+  sleep 60
+  RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
+  #echo "Job $1 is $RUNTEST"
 done
-rm currentjob.txt
+echo "Job $1 is $RUNTEST"
 }
 
 check_return_code()
 {
-echo "Checking return value for job $JOB"
+echo "Checking return value for job $1 ..."
 RETURN_VALUE=""
 while [ "$RETURN_VALUE" = "" ]
 do
-  echo "Waiting for return value..."
-  sleep 120
+  sleep 60
   RETURN_VALUE=$(cat exit_code.txt 2> /dev/null)
 done
 echo "Return value found: $RETURN_VALUE"
@@ -45,7 +44,7 @@ new_job()
 sed -e s/"restart  = f"/"restart  = t"/g pixie3d.in > pixie3d.in2
 mv pixie3d.in2 pixie3d.in
 rm exit_code.txt
-JOB=$(msub $1 -l depend=$JOB | xargs)
+JOB=$(sbatch $1 --dependency=after:$JOB | cut -d " " -f 4)
 echo 'New JOB='$JOB
 
 check_job $JOB
@@ -74,15 +73,15 @@ JOB="$2"
 
 if [ "$JOB" = "" ]; then
   rm exit_code.txt
-  JOB=$(msub $1 | xargs)
+  JOB=$(sbatch $1 | cut -d " " -f 4)
   echo 'New JOB='$JOB
 fi
 
 check_job $JOB
 
-check_return_code
+check_return_code $JOB
 
-# Subsequent submissions
+#Subsequent submissions
 
 if [ "$RETURN_VALUE" = "1" ]; then  #CPU quota exit; restart
   new_job $1
@@ -92,6 +91,5 @@ fi
 
 date
 
-rm exit_code.txt
 echo 'Done'
 exit

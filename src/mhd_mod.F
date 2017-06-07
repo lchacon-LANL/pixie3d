@@ -758,19 +758,16 @@ c     Set auxiliary variable BC
       !Density and temperature
       vaux%var_list(IRHO_0)%bconds = bcs(:,IRHO)
       where (vaux%var_list(IRHO_0)%bconds == EQU)
-cc        vaux%var_list(IRHO_0)%bconds = EXT
         vaux%var_list(IRHO_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMP_0)%bconds == EQU)
-cc        vaux%var_list(ITMP_0)%bconds = EXT
         vaux%var_list(ITMP_0)%bconds = DEF  !Do nothing
       end where
 
       vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
       where (vaux%var_list(ITMPE_0)%bconds == EQU)
-cc        vaux%var_list(ITMPE_0)%bconds = EXT
         vaux%var_list(ITMPE_0)%bconds = DEF !Do nothing
       end where
 
@@ -799,7 +796,7 @@ cc        end where
 
       if (.not.pinch_flow) then
         where (vaux%vec_list(IVCNV_0)%bconds == EQU)
-          vaux%vec_list(IVCNV_0)%bconds = EXT
+          vaux%vec_list(IVCNV_0)%bconds = DEF
         end where
       endif
 
@@ -826,6 +823,7 @@ cc        vaux%vec_list(IBCNV)%bconds =-EXT !For debugging B-field BCs
       call set_vec_symm_bc(vaux%vec_list(IBCNV)%bconds,1)
 
       vaux%vec_list(IBCOV)%bconds = vaux%vec_list(IBCNV)%bconds
+
 #else
       !Magnetic field
       vaux%vec_list(IBCNV)%bconds = bcs(:,IBX:IBZ)
@@ -882,7 +880,7 @@ cc        vaux%vec_list(IJCNV_0)%bconds = EXT  !Extrapolate contravariant compon
       select case(equil)
       case('ohtor')
         where(abs(vaux%vec_list(IACOV_0)%bconds) == EXT)
-          vaux%vec_list(IACOV_0)%bconds = DEF !Extrapolate covariant components
+          vaux%vec_list(IACOV_0)%bconds = DEF !Do nothing
         end where
       end select
 #endif
