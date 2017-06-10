@@ -316,7 +316,7 @@ cc        bbcs(2,IVX)  = DIR
       case('khihk')
 
 #if defined(vec_pot)
-        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues in A-form
+        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues
           where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
           where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
 
