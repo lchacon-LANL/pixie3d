@@ -16,8 +16,8 @@
 
     eta      = 1d-3
     nu       = 1d-3
-    dd       = 0d-3
-    chi      = 0d-2
+    dd       = 1d-3
+    chi      = 1d-3
     
     equil    = 'spnch'
 
@@ -26,11 +26,11 @@
     dlambda  = 0.5
     gparams  = 1d0,-2d0,10d0,2d0,0d0
 
-    gamma    = 1d0
+    gamma    = 1.667d0
 
-    dt       = 1d0
-    tmax     = 1d1
-    dstep    = 1d1
+    dt       = 5d-1
+    tmax     = 1d0
+    dstep    = 1d0
 
     pvx      = 1d-4
     nh2      = 1
@@ -43,7 +43,7 @@
     restart  = f
     timecorr = f
 
-    source   = t
+    source   = f
 
     precon   = 's1'
     mgtol    = 1d-3
