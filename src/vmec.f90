@@ -1185,6 +1185,8 @@
 !!$      END SUBROUTINE half_mesh_metrics
 
       SUBROUTINE vmec_half_mesh_metrics (r1_i, ru_i, rv_i, z1_i, zu_i, zv_i)
+
+      use oned_int, det1 => det   !Added by L. Chacon 6/19/17
 !-----------------------------------------------
 !   D u m m y   A r g u m e n t s
 !-----------------------------------------------
@@ -1194,12 +1196,13 @@
 !   L o c a l   V a r i a b l e s
 !-----------------------------------------------
       REAL(rprec), PARAMETER :: p5 = 1.d0/2.d0, zero = 0
-      INTEGER  :: js, lk, js1, istat
-      REAL(rprec)            :: mintest, maxtest, r1, s1, t1, eps
+      INTEGER :: js, us, vs, lk, js1, istat
+      REAL(rprec) :: mintest, maxtest, r1, s1, t1, eps
       REAL(rprec), DIMENSION(nu_i,nv_i) ::                                  &
-     &      r12, ru12, rv12, zu12, zv12, rs12, zs12, det                &
+     &      r12, ru12, rv12, zu12, zv12, rs12, zs12, det                    &
      &     ,guu0,guv0,gvv0,gsu0,gsv0,gss0,sqrtg0                        
 !!$     &     ,r12_0,ru12_0,rv12_0,zu12_0,zv12_0,rs12_0,zs12_0
+      REAL(rprec),dimension(1:ns_i) :: xs
 
 !-----------------------------------------------
 !
@@ -1245,7 +1248,7 @@
      &                        -  gvv(js,:,:)*gsu(js,:,:)*gsu(js,:,:)))
       END DO
 
-      !Extrapolate (first-order) at radial boundaries (L. Chacon, 02/01/2007)
+      !Extrapolate (first-order) at singular point (L. Chacon, 02/01/2007)
       js = 1   !SINGULAR POINT
 
 !!$      !Find derivatives at boundary face (dx/du == 0d0 at SP)
@@ -1299,7 +1302,8 @@
       gsv0  = rs12*rv12 + zs12*zv12
       gss0  = rs12*rs12 + zs12*zs12
 
-      sqrtg0= 0d0
+!!      sqrtg0= 0d0
+!!      sqrtg(js,:,:) = 2*sqrtg0 - sqrtg(js+1,:,:)
 
       !Extrapolate metrics to ghost cell
       guu(js,:,:) = 2*guu0 - guu(js+1,:,:)
@@ -1309,49 +1313,64 @@
       gsv(js,:,:) = 2*gsv0 - gsv(js+1,:,:)
       gss(js,:,:) = 2*gss0 - gss(js+1,:,:)
 
-!!      sqrtg(js,:,:) = 2*sqrtg0 - sqrtg(js+1,:,:)
       sqrtg(js,:,:) = -sqrt( abs(gss(js,:,:)*guu(js,:,:)*gvv(js,:,:)   &
      &                        +2*gsu(js,:,:)*guv(js,:,:)*gsv(js,:,:)   &
      &                        -  gsv(js,:,:)*guu(js,:,:)*gsv(js,:,:)   &
      &                        -  gss(js,:,:)*guv(js,:,:)*guv(js,:,:)   &
      &                        -  gvv(js,:,:)*gsu(js,:,:)*gsu(js,:,:)))
 
-      js = ns_i  !OUTER RADIUS
+      !Extrapolate (third-order) at outer radial boundary (L. Chacon, 06/19/2017)
+      do js=2,ns_i+1
+        xs(js-1) = js
+      enddo
+      
+      do vs=1,nv_i
+        do us=1,nu_i
+          call IntDriver1d(ns_i-1,xs(1:ns_i-1),sqrtg(2:ns_i,us,vs)  &
+     &                    ,1     ,xs(ns_i)    ,sqrtg(ns_i+1:ns_i+1,us,vs),3)
+        enddo
+      enddo
+      
+!!$      js = ns_i
+!!$      
+!!$      !Find derivatives at boundary face
+!!$      r12  = r1_i(js,:,:)
+!!$      rs12 = (r1_i(js,:,:) - r1_i(js-1,:,:))*ohs_i
+!!$      ru12 = ru_i(js,:,:)
+!!$      rv12 = rv_i(js,:,:)
+!!$      zs12 = (z1_i(js,:,:) - z1_i(js-1,:,:))*ohs_i
+!!$      zu12 = zu_i(js,:,:)
+!!$      zv12 = zv_i(js,:,:)
+!!$
+!!$      !Find metrics at boundary face
+!!$      guu0 = ru12*ru12 + zu12*zu12
+!!$      guv0 = ru12*rv12 + zu12*zv12
+!!$      gvv0 = r12*r12 + rv12*rv12 + zv12*zv12
+!!$      gsu0 = rs12*ru12 + zs12*zu12
+!!$      gsv0 = rs12*rv12 + zs12*zv12
+!!$      gss0 = rs12*rs12 + zs12*zs12
 
-      !Find derivatives at boundary face
-      r12  = r1_i(js,:,:)
-      rs12 = (r1_i(js,:,:) - r1_i(js-1,:,:))*ohs_i
-      ru12 = ru_i(js,:,:)
-      rv12 = rv_i(js,:,:)
-      zs12 = (z1_i(js,:,:) - z1_i(js-1,:,:))*ohs_i
-      zu12 = zu_i(js,:,:)
-      zv12 = zv_i(js,:,:)
-
-      !Find metrics at boundary face
-      guu0 = ru12*ru12 + zu12*zu12
-      guv0 = ru12*rv12 + zu12*zv12
-      gvv0 = r12*r12 + rv12*rv12 + zv12*zv12
-      gsu0 = rs12*ru12 + zs12*zu12
-      gsv0 = rs12*rv12 + zs12*zv12
-      gss0 = rs12*rs12 + zs12*zs12
-
-      sqrtg0 = r12*(ru12*zs12 - rs12*zu12)
-
-      !Extrapolate metrics to ghost cell
-      guu(js+1,:,:) = 2*guu0 - guu(js,:,:)
-      guv(js+1,:,:) = 2*guv0 - guv(js,:,:)
-      gvv(js+1,:,:) = 2*gvv0 - gvv(js,:,:)
-      gsu(js+1,:,:) = 2*gsu0 - gsu(js,:,:)
-      gsv(js+1,:,:) = 2*gsv0 - gsv(js,:,:)
-      gss(js+1,:,:) = 2*gss0 - gss(js,:,:)
-
-!!      sqrtg(js+1,:,:) = 2*sqrtg0 - sqrtg(js,:,:)
-      sqrtg(js+1,:,:) = sqrt((  gss(js+1,:,:)*guu(js+1,:,:)*gvv(js+1,:,:)   &
-     &                       +2*gsu(js+1,:,:)*guv(js+1,:,:)*gsv(js+1,:,:)   &
-     &                       -  gsv(js+1,:,:)*guu(js+1,:,:)*gsv(js+1,:,:)   &
-     &                       -  gss(js+1,:,:)*guv(js+1,:,:)*guv(js+1,:,:)   &
-     &                       -  gvv(js+1,:,:)*gsu(js+1,:,:)*gsu(js+1,:,:)))
-
+!!!$      sqrtg0 = sqrt((  gss0*guu0*gvv0   &
+!!!$     &              +2*gsu0*guv0*gsv0   &
+!!!$     &              -  gsv0*guu0*gsv0   &
+!!!$     &              -  gss0*guv0*guv0   &
+!!!$     &              -  gvv0*gsu0*gsu0))
+!!!$
+!!!$      sqrtg(js+1,:,:) = 2*sqrtg0 - sqrtg(js,:,:)
+      
+!!$      !Extrapolate metrics to ghost cell
+!!$      guu(js+1,:,:) = 2*guu0 - guu(js,:,:)
+!!$      guv(js+1,:,:) = 2*guv0 - guv(js,:,:)
+!!$      gvv(js+1,:,:) = 2*gvv0 - gvv(js,:,:)
+!!$      gsu(js+1,:,:) = 2*gsu0 - gsu(js,:,:)
+!!$      gsv(js+1,:,:) = 2*gsv0 - gsv(js,:,:)
+!!$      gss(js+1,:,:) = 2*gss0 - gss(js,:,:)
+!!$
+!!$      sqrtg(js+1,:,:) = sqrt((  gss(js+1,:,:)*guu(js+1,:,:)*gvv(js+1,:,:)   &
+!!$     &                       +2*gsu(js+1,:,:)*guv(js+1,:,:)*gsv(js+1,:,:)   &
+!!$     &                       -  gsv(js+1,:,:)*guu(js+1,:,:)*gsv(js+1,:,:)   &
+!!$     &                       -  gss(js+1,:,:)*guv(js+1,:,:)*guv(js+1,:,:)   &
+!!$     &                       -  gvv(js+1,:,:)*gsu(js+1,:,:)*gsu(js+1,:,:)))
 
       !Test
       mintest = MINVAL(sqrtg(2:ns_i+1,:,:))
@@ -1590,15 +1609,15 @@
 
 !       Call variables
 
-          integer     :: igl,jgl,kgl
-          integer   ,optional :: order
+          integer :: igl,jgl,kgl
+          integer,optional :: order
 
           real(rprec) :: vmec_arr(ns_i,nu_i,nv_i),local_val
 
 !       Local variables
 
-          integer     :: ordr
-          real(8)     :: pos(5),val(5)
+          integer :: ordr
+          real(8) :: pos(5),val(5)
 
 !       Begin program
 
@@ -2170,7 +2189,7 @@
 
         call vmec_init(nxg+1,nyg/2+1,nzg,equ_file,.true.)
 
-!     Setup equilibrium fields
+!     Setup equilibrium fields (at VMEC integer mesh -- PIXIE3D's half mesh)
 
         call vmec_init_fields
 
@@ -2223,7 +2242,7 @@
 
 !     Find half-mesh PIXIE3D magnetic field components in GLOBAL mesh (flux functions)
 
-        allocate(bsup(0:nxg+1,0:nyg+1,0:nzg+1,3))
+        allocate(bsup (0:nxg+1,0:nyg+1,0:nzg+1,3))
         allocate(bsub3(0:nxg+1,0:nyg+1,0:nzg+1))
         allocate(prsg (0:nxg+1,0:nyg+1,0:nzg+1))
 
@@ -2253,7 +2272,7 @@
               !Periodic boundary in phi=2*pi
               if (kgl == nzg+1) kgl = 1
 
-              !Interpolate VMEC fields to PIXIE3D's radial mesh
+              !Interpolate VMEC fields to PIXIE3D's integer radial mesh
               call half_to_int(igl,jgl,kgl,bsupsijsf,bsup(i,j,k,1))
               call half_to_int(igl,jgl,kgl,bsupuijcf,bsup(i,j,k,2))
               call half_to_int(igl,jgl,kgl,bsupvijcf,bsup(i,j,k,3))
@@ -2261,14 +2280,19 @@
               call half_to_int(igl,jgl,kgl,presijf  ,prsg (i,j,k))
 
               !Find flux functions w/ PIXIE3D convention
-              jac = sqrtg(igl+1,jgl,kgl) !VMEC's half mesh jacobian, including s=sqrt(psi) transformation
-
+              jac = sqrtg(igl+1,jgl,kgl) !VMEC's half-mesh jacobian, including s=sqrt(psi) transformation
               bsup(i,j,k,1) = jac*bsup(i,j,k,1)/(2.*gv%gparams%xg(igl)) !B1=B1'/(2s)
               bsup(i,j,k,2) = jac*bsup(i,j,k,2)!Flux coordinate, B2=B2'
               bsup(i,j,k,3) = jac*bsup(i,j,k,3)!Flux coordinate, B3=B3'
             enddo
           enddo
         enddo
+
+!!$          write (*,*) 'jac',sqrtg(:,1,1)
+!!$          write (*,*) 'b1',bsup(:,1,1,1)
+!!$          write (*,*) 'b2',bsup(:,1,1,2)
+!!$          write (*,*) 'b3',bsup(:,1,1,3)
+!!$          stop
 
         !Calculate maximum density (to normalize density later)
         max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
@@ -2359,10 +2383,10 @@
 !!$        zs = gv%gparams%zg(0:nzg+1)
 
         !Spline B-field components
-        allocate(b1_coef(nxs,nys,nzs)  &
-     &          ,b2_coef(nxs,nys,nzs)  &
-     &          ,b3_coef(nxs,nys,nzs)  &
-     &          ,prs_coef  (nxs,nys,nzs),stat=alloc_stat)
+        allocate(b1_coef (nxs,nys,nzs)  &
+     &          ,b2_coef (nxs,nys,nzs)  &
+     &          ,b3_coef (nxs,nys,nzs)  &
+     &          ,prs_coef(nxs,nys,nzs),stat=alloc_stat)
 
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,1),nxs,nys,kx,ky,kz,tx,ty,tz,b1_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,2),nxs,nys,kx,ky,kz,tx,ty,tz,b2_coef,work,flg)
