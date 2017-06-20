@@ -868,7 +868,8 @@ cc        vaux%vec_list(IJCNV)%bconds =-EXT !Use contravariant components for ex
       vaux%vec_list(IJCNV_0)%bconds = vaux%vec_list(IJCNV)%bconds
 
       where (abs(vaux%vec_list(IJCNV_0)%bconds) == EQU)
-        vaux%vec_list(IJCNV_0)%bconds =-EXT  !Extrapolate covariant components
+        vaux%vec_list(IJCNV_0)%bconds = DEF  !Do nothing (curl takes care of it)
+cc        vaux%vec_list(IJCNV_0)%bconds =-EXT  !Extrapolate covariant components
 cc        vaux%vec_list(IJCNV_0)%bconds = EXT  !Extrapolate contravariant components
       end where
 

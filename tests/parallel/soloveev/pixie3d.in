@@ -93,7 +93,7 @@
     check_grid = f
     chk_src  = f
     test     = t
-    equ_file = 'soloveev_k=1'
+    equ_file = 'wout_soloveev_k=1.txt'
  /
 
  &graphics
