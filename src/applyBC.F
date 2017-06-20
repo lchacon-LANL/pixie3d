@@ -2242,10 +2242,10 @@ c     Begin program
 
         if (ivar /= dim) then
 
-cc          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-cc     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-cc     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
-          safe = .false.
+          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
+     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+cc          safe = .false.
           
           call curl_bc(g_def,array,array0,ivar,dim,loc,.true.,safe)
 
@@ -2836,16 +2836,28 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
             if (safe) then
               hex = 0
-              if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) hex = 1
-              if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) hex =-1
+              if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) then
+                hex = 1 ; im = i
+              endif
+              if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) then
+                hex =-1 ; ip = i
+              endif
 
               hey = 0
-              if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) hey = 1
-              if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) hey =-1
+              if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) then
+                hey = 1 ; jm = j
+              endif
+              if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) then
+                hey =-1 ; jp = j
+              endif
 
               hez = 0
-              if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) hez = 1
-              if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) hez =-1
+              if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) then
+                hez = 1 ; km = k
+              endif
+              if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) then
+                hez =-1 ; kp = k
+              endif
             endif
 
             call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
@@ -2861,12 +2873,14 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
             crl=curl(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
      .              ,array,hex=hex,hey=hey,hez=hez)
 
+            dh(1) = (ip-im)*g_def%dxh(ig)
+            dh(2) = (jp-jm)*g_def%dyh(jg)
+            dh(3) = (kp-km)*g_def%dzh(kg)
+
             select case (dim)
             case (1)
 
               dh(1) = coeff*g_def%dxh(ig)
-              dh(2) = 2d0  *g_def%dyh(jg)
-              dh(3) = 2d0  *g_def%dzh(kg)
 
               if (face) then
                 if (ibc == 1) then
@@ -2894,9 +2908,7 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
             case(2)
 
-              dh(1) = 2d0  *g_def%dxh(ig)
               dh(2) = coeff*g_def%dyh(jg)
-              dh(3) = 2d0  *g_def%dzh(kg)
 
               if (face) then
                 if (ibc == 3) then
@@ -2924,8 +2936,6 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
             case(3)
 
-              dh(1) = 2d0  *g_def%dxh(ig)
-              dh(2) = 2d0  *g_def%dyh(jg)
               dh(3) = coeff*g_def%dzh(kg)
 
               if (face) then
