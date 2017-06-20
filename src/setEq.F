@@ -2137,6 +2137,10 @@ c     Read VMEC coordinates and fill grid hierarchy
           call pstop('setEquilibrium',messg)
         endif
 
+        if (.not.is_file(equ_file)) then
+          call pstop('setEq','VMEC EQU file not found')
+        endif
+
         call vmec_map(equ_file)
 
 c     Read VMEC equilibrium
