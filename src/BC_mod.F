@@ -257,7 +257,7 @@ c     Exceptions for specific equilibria
 
       case ('vmec','tor')
 
-cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF
+cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
         !Dirichlet boundary conditions for tangential components
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
