@@ -928,21 +928,7 @@ c diag ****
 
             jcnv_0 = 0d0
 
-          elseif (sum(E0) /= 0d0) then
 c diag ****
-cc          if (sum(E0) /= 0d0) then
-
-            !Enforce imposed E field
-            do k=0,nnz+1
-              do j=0,nny+1
-                do i=0,nnx+1
-                  jcnv_0(i,j,k,:) =
-     .               matmul(gv%gparams%gmetric%grid(igr)%gsup(i,j,k,:,:)
-     .                     ,E0)/eeta_0(i,j,k)
-                enddo
-              enddo
-            enddo
-
           else
 
             jcnv_0 = curl(gv%gparams,igr,bcov_0)
@@ -2261,7 +2247,7 @@ cc     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
 cc     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
           safe = .false.
           
-          call curl_bc(g_def,array,array0,ivar,dim,loc,.false.,safe)
+          call curl_bc(g_def,array,array0,ivar,dim,loc,.true.,safe)
 
 cc          call findBCLoopLimits(g_def,dim,loc
 cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
@@ -2290,7 +2276,7 @@ cccc                if(isBdry(g_def,i,igxbc,1)) then
 cc                  dh(1) = g_def%dx(ig)
 cc                  im = i
 cc                endif
-cc                if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(2))) then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) then  !Gives bdry noise in Soloveev case
 cccc                if(isBdry(g_def,i,igxbc,2)) then
 cc                  dh(1) = g_def%dx(ig-1)
 cc                  ip = i
@@ -2299,12 +2285,12 @@ cc
 cc                jp = j+1
 cc                jm = j-1
 cc                dh(2) = 2.*g_def%dyh(jg)
-cc                if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(3))) then !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) then !Gives bdry noise in Soloveev case
 cccc                if(isBdry(g_def,j,igybc,3)) then
 cc                  dh(2) = g_def%dy(jg)
 cc                  jm = j
 cc                endif
-cc                if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(4))) then !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) then !Gives bdry noise in Soloveev case
 cccc                if(isBdry(g_def,j,igybc,4)) then
 cc                  dh(2) = g_def%dy(jg-1)
 cc                  jp = j
@@ -2313,12 +2299,12 @@ cc
 cc                kp = k+1
 cc                km = k-1
 cc                dh(3) = 2.*g_def%dzh(kg)
-cc                if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(5))) then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) then  !Gives bdry noise in Soloveev case
 cccc                if(isBdry(g_def,k,igzbc,5)) then
 cc                  dh(3) = g_def%dz(kg)
 cc                  km = k
 cc                endif
-cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(6))) then  !Gives bdry noise in Soloveev case
+cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) then  !Gives bdry noise in Soloveev case
 cccc                if(isBdry(g_def,k,igzbc,6)) then
 cc                  dh(3) = g_def%dz(kg-1)
 cc                  kp = k
@@ -2810,7 +2796,11 @@ c     Local variables
       integer :: imax,imin,jmax,jmin,kmax,kmin,offset
      .          ,im,jm,km,ip,jp,kp
       integer :: i,j,k,ig,jg,kg,ibc,hex,hey,hez,icomp,isgn
-      real(8) :: dh(3),coeff,gsuper(3,3),crl(3)
+      real(8) :: dh(3),coeff,crl(3)
+      real(8) :: gsuper(3,3),gspavg(3,3)
+     .          ,gsupip(3,3),gsupim(3,3)
+     .          ,gsupjp(3,3),gsupjm(3,3)
+     .          ,gsupkp(3,3),gsupkm(3,3)
 
 c     Begin program
 
@@ -2847,20 +2837,26 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
             if (safe) then
               hex = 0
               if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) hex = 1
-              if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(2))) hex =-1
+              if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) hex =-1
 
               hey = 0
-              if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(3))) hey = 1
-              if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(4))) hey =-1
+              if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) hey = 1
+              if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) hey =-1
 
               hez = 0
-              if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(5))) hez = 1
-              if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(6))) hez =-1
+              if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) hez = 1
+              if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) hez =-1
             endif
 
             call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
 
-            gsuper= g_def%gmetric%grid(igxbc)%gsup(i,j,k,:,:)
+            gsuper= g_def%gmetric%grid(igxbc)%gsup(i ,j,k,:,:)
+            gsupip= g_def%gmetric%grid(igxbc)%gsup(ip,j,k,:,:)
+            gsupim= g_def%gmetric%grid(igxbc)%gsup(im,j,k,:,:)
+            gsupjp= g_def%gmetric%grid(igxbc)%gsup(i,jp,k,:,:)
+            gsupjm= g_def%gmetric%grid(igxbc)%gsup(i,jm,k,:,:)
+            gsupkp= g_def%gmetric%grid(igxbc)%gsup(i,j,kp,:,:)
+            gsupkm= g_def%gmetric%grid(igxbc)%gsup(i,j,km,:,:)
 
             crl=curl(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
      .              ,array,hex=hex,hey=hey,hez=hez)
@@ -2872,18 +2868,28 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
               dh(2) = 2d0  *g_def%dyh(jg)
               dh(3) = 2d0  *g_def%dzh(kg)
 
+              if (face) then
+                if (ibc == 1) then
+                  gspavg = 0.5*(gsuper+gsupim)
+                elseif (ibc == 2) then
+                  gspavg = 0.5*(gsuper+gsupip)
+                endif
+              else
+                gspavg = gsuper
+              endif
+                
               if (ivar == 2) then
                 icomp = 3
                 isgn  = 1
 
                 crl(dim) =(array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               elseif (ivar == 3) then
                 icomp = 2
                 isgn  =-1
 
                 crl(dim) =(array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               endif
 
             case(2)
@@ -2892,18 +2898,28 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
               dh(2) = coeff*g_def%dyh(jg)
               dh(3) = 2d0  *g_def%dzh(kg)
 
+              if (face) then
+                if (ibc == 3) then
+                  gspavg = 0.5*(gsuper+gsupjm)
+                elseif (ibc == 4) then
+                  gspavg = 0.5*(gsuper+gsupjp)
+                endif
+              else
+                gspavg = gsuper
+              endif
+              
               if (ivar == 3) then
                 icomp = 1
                 isgn  = 1
 
                 crl(dim) =(array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               elseif (ivar == 1) then
                 icomp = 3
                 isgn  =-1
 
                 crl(dim) =(array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               endif
 
             case(3)
@@ -2912,18 +2928,28 @@ cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
               dh(2) = 2d0  *g_def%dyh(jg)
               dh(3) = coeff*g_def%dzh(kg)
 
+              if (face) then
+                if (ibc == 5) then
+                  gspavg = 0.5*(gsuper+gsupkm)
+                elseif (ibc == 6) then
+                  gspavg = 0.5*(gsuper+gsupkp)
+                endif
+              else
+                gspavg = gsuper
+              endif
+
               if (ivar == 1) then
                 icomp = 2
                 isgn  = 1
 
                 crl(dim) =(array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               elseif (ivar == 2) then
                 icomp = 1
                 isgn  =-1
 
                 crl(dim) =(array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                  +isgn*gsuper(dim,icomp)*crl(dim)/gsuper(dim,dim)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
               endif
 
             end select
