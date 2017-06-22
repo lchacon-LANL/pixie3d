@@ -71,9 +71,9 @@ endif
 
 REL1=$(shell hg log -r "." --template "{latesttag}\n")
 
-SUBDIRS = eq src plot
-
 CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
+
+SUBDIRS = eq src plot
 
 ifeq ($(FLUX),t)
   CPPFLAGS += -Dflux_rhs
