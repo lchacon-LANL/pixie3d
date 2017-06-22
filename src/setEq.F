@@ -2196,9 +2196,9 @@ c     --------------------------------------------------
 
       case ('ppnch','ppnsl','ppnst')
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
+        mm          = gv%gparams%params(1)
+        kk          = gv%gparams%params(2)
+        RR          = gv%gparams%params(3)
         theta_ppnch = gv%gparams%params(4)
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
