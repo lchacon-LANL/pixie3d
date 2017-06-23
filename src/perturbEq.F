@@ -205,18 +205,62 @@ cc          nn = gv%gparams%params(5)
               br_pert_bc = br_pert_bc_arr(ipw)
               br_pert_phase = br_pert_phase_arr(ipw)
 
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,j,k
+#if defined(vec_pot)
+
+              do k = klom,khip
+                do j = jlom,jhip
+                  do i = ilom,ihip
+                    call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+
+                    varr%array_var(IAZ)%array(i,j,k) =
+     .                  varr%array_var(IAZ)%array(i,j,k)
+     .                  +x1**mm*br_pert_bc*RR
+     .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
+
+                    if (mm /= -1) then
+
+                      varr%array_var(IAZ)%array(i,j,k) =
+     .                     varr%array_var(IAZ)%array(i,j,k)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
+     .                    *cos((mm+1)*y1+nn*z1+br_pert_phase)/(mm+1)
+
+                    endif
+
+                    if (mm /= 1) then
+
+                      varr%array_var(IAZ)%array(i,j,k) =
+     .                     varr%array_var(IAZ)%array(i,j,k)
+     .                     +0.5*x1**(mm+1)*br_pert_bc
+     .                    *cos((mm-1)*y1+nn*z1+br_pert_phase)/(mm-1)
+
+                    endif
+
+                  enddo
+                enddo
+              enddo
+
+         !Redefine equilibrium to force correct BCs on perturbed A
+! acov_0(:,:,:,1)=varr%array_var(IAX)%array
+! acov_0(:,:,:,2)=varr%array_var(IAY)%array
+! acov_0(:,:,:,3)=varr%array_var(IAZ)%array
+              u_0%array_var(IAX)%array=varr%array_var(IAX)%array
+              u_0%array_var(IAY)%array=varr%array_var(IAY)%array
+              u_0%array_var(IAZ)%array=varr%array_var(IAZ)%array
+
+#else
+              do k = klom,khip
+                do j = jlom,jhip
+                  do i = ilom,ihip
+                    call getCurvilinearCoordinates(gv%gparams,i,j,k
      .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-                ip = ig+1
-                im = ig-1
-                jp = jg+1
-                jm = jg-1
-                kp = kg+1
-                km = kg-1
+                    ip = ig+1
+                    im = ig-1
+                    jp = jg+1
+                    jm = jg-1
+                    kp = kg+1
+                    km = kg-1
 
                 dxx = 2*gv%gparams%dxh(ig)
                 dyy = 2*gv%gparams%dyh(jg)
@@ -313,7 +357,7 @@ cc          nn = gv%gparams%params(5)
               enddo
             enddo
           enddo
-
+#endif
           enddo
 
        endif
