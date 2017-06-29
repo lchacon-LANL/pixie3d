@@ -4638,10 +4638,14 @@ c     Local variables
 
 c     Begin program
 
+#if defined(RFX)
         call getCurvilinearCoordinates(g_def,i,j,k,igr,igr,igr,ig,jg,kg
      .                                ,x1,x2,x3)
 
         ehs = ext_heat_src_prof(x1)
+#else
+        ehs = 0d0
+#endif
 
 c     End program
 
@@ -4665,10 +4669,16 @@ c     Local variables
 
 c     Begin program
 
-!        ehsp = 0d0
 ! Daniele, 12 Nov. 2014
-        ehsp = 1d-6
+!        ehsp = 1d-6
 !        ehsp = chi*exp(-(rr/0.5)**2)
+! Luis, June 29, 2017
+!        select case(equil)
+!        case('ppnch','ppnsl','ppnst','ppn3d','p3nsl')
+!          ehsp = 1d-6
+!        case default
+          ehsp = 0d0
+!        end select
 
 c     End program
 
