@@ -29,7 +29,7 @@ SUBDIRS = $(COMMONDIR)/math\
 
 ifeq ($(MK),t)
   SUBDIRS += $(COMMONDIR)/mk
-  EXCLUDE = %mk_pc_mod.F
+  EXCLUDE += %mk_pc_mod.F
 endif
 
 SUBDIRS += $(COMMONDIR)/3dplot

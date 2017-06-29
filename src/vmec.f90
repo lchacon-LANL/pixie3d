@@ -1331,24 +1331,24 @@
         enddo
       enddo
       
-!!$      js = ns_i
-!!$      
-!!$      !Find derivatives at boundary face
-!!$      r12  = r1_i(js,:,:)
-!!$      rs12 = (r1_i(js,:,:) - r1_i(js-1,:,:))*ohs_i
-!!$      ru12 = ru_i(js,:,:)
-!!$      rv12 = rv_i(js,:,:)
-!!$      zs12 = (z1_i(js,:,:) - z1_i(js-1,:,:))*ohs_i
-!!$      zu12 = zu_i(js,:,:)
-!!$      zv12 = zv_i(js,:,:)
-!!$
-!!$      !Find metrics at boundary face
-!!$      guu0 = ru12*ru12 + zu12*zu12
-!!$      guv0 = ru12*rv12 + zu12*zv12
-!!$      gvv0 = r12*r12 + rv12*rv12 + zv12*zv12
-!!$      gsu0 = rs12*ru12 + zs12*zu12
-!!$      gsv0 = rs12*rv12 + zs12*zv12
-!!$      gss0 = rs12*rs12 + zs12*zs12
+      js = ns_i
+      
+      !Find derivatives at boundary face
+      r12  = r1_i(js,:,:)
+      rs12 =(r1_i(js,:,:) - r1_i(js-1,:,:))*ohs_i
+      ru12 = ru_i(js,:,:)
+      rv12 = rv_i(js,:,:)
+      zs12 =(z1_i(js,:,:) - z1_i(js-1,:,:))*ohs_i
+      zu12 = zu_i(js,:,:)
+      zv12 = zv_i(js,:,:)
+
+      !Find metrics at boundary face
+      guu0 = ru12*ru12 + zu12*zu12
+      guv0 = ru12*rv12 + zu12*zv12
+      gvv0 = r12*r12 + rv12*rv12 + zv12*zv12
+      gsu0 = rs12*ru12 + zs12*zu12
+      gsv0 = rs12*rv12 + zs12*zv12
+      gss0 = rs12*rs12 + zs12*zs12
 
 !!!$      sqrtg0 = sqrt((  gss0*guu0*gvv0   &
 !!!$     &              +2*gsu0*guv0*gsv0   &
@@ -1358,14 +1358,14 @@
 !!!$
 !!!$      sqrtg(js+1,:,:) = 2*sqrtg0 - sqrtg(js,:,:)
       
-!!$      !Extrapolate metrics to ghost cell
-!!$      guu(js+1,:,:) = 2*guu0 - guu(js,:,:)
-!!$      guv(js+1,:,:) = 2*guv0 - guv(js,:,:)
-!!$      gvv(js+1,:,:) = 2*gvv0 - gvv(js,:,:)
-!!$      gsu(js+1,:,:) = 2*gsu0 - gsu(js,:,:)
-!!$      gsv(js+1,:,:) = 2*gsv0 - gsv(js,:,:)
-!!$      gss(js+1,:,:) = 2*gss0 - gss(js,:,:)
-!!$
+      !Extrapolate metrics to ghost cell
+      guu(js+1,:,:) = 2*guu0 - guu(js,:,:)
+      guv(js+1,:,:) = 2*guv0 - guv(js,:,:)
+      gvv(js+1,:,:) = 2*gvv0 - gvv(js,:,:)
+      gsu(js+1,:,:) = 2*gsu0 - gsu(js,:,:)
+      gsv(js+1,:,:) = 2*gsv0 - gsv(js,:,:)
+      gss(js+1,:,:) = 2*gss0 - gss(js,:,:)
+
 !!$      sqrtg(js+1,:,:) = sqrt((  gss(js+1,:,:)*guu(js+1,:,:)*gvv(js+1,:,:)   &
 !!$     &                       +2*gsu(js+1,:,:)*guv(js+1,:,:)*gsv(js+1,:,:)   &
 !!$     &                       -  gsv(js+1,:,:)*guu(js+1,:,:)*gsv(js+1,:,:)   &
