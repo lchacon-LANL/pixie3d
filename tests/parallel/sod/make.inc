@@ -1,3 +1,4 @@
 EXEC = ./pixie3d.petsc.x
 PLOT = ./pixplot.petsc.x
-EXEC_OPT=-npx 2 -npy 1
+NP = 4
+EXEC_OPT=-npx 4 -npy 1
