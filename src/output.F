@@ -135,7 +135,7 @@ cc            vadvective = '   TVD'
             pc = ' Undefined!'
           end select
 
-          write (*,10)nxd,nyd,nzd,npx,npy,npz,ngrd,trim(pc),ts_adapt_dt
+          write (*,10)nxd,nyd,nzd,ngrd,npx,npy,npz,trim(pc),ts_adapt_dt
      .               ,source,numerical_grid,advective,vadvective,tsmeth
 
           write (*,*) 
