@@ -135,9 +135,13 @@ cc            vadvective = '   TVD'
             pc = ' Undefined!'
           end select
 
+#if defined(petsc)
           write (*,10)nxd,nyd,nzd,ngrd,npx,npy,npz,trim(pc),ts_adapt_dt
      .               ,source,numerical_grid,advective,vadvective,tsmeth
-
+#else
+          write (*,10)nxd,nyd,nzd,ngrd,trim(pc),ts_adapt_dt
+     .               ,source,numerical_grid,advective,vadvective,tsmeth
+#endif
           write (*,*) 
           if (cnfactor > 5d-1) then
             write (*,105)
@@ -180,7 +184,9 @@ c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
+#if defined(petsc)
      .        /,'  Number of processors:.....',i5,',',i5,',',i5
+#endif
      .        /,'  Preconditioning method:...',a,
      .        /,'  Time correction...........',l4,
      .        /,'  External source...........',l4,

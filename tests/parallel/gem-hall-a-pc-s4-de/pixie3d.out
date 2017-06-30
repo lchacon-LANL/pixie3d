@@ -1,6 +1,7 @@
 
   Grid mesh:................   64x   64x    1
   Number of grid levels:....    4,    4,    1
+  Number of processors:.....    2,    2,    1
   Preconditioning method:... EMHD split PC
   Time correction...........   F
   External source...........   F
