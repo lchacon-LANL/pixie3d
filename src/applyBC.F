@@ -2460,8 +2460,22 @@ cc          end select
 
       case default
 
-        write (*,*) 'Variable=',ieq
-        call pstop('vectorNeumanBC','Variable not implemented')
+c$$$        write (*,*) 'Variable=',ieq
+c$$$        call pstop('vectorNeumanBC','Variable not implemented')
+        select case (ibc)
+        case (1)
+          array(0     ,:,:,ivar) = array(1   +offset,:,:,ivar)
+        case (2)                                             
+          array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar)
+        case (3)                                             
+          array(:,0     ,:,ivar) = array(:,1   +offset,:,ivar)
+        case (4)                                             
+          array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar)
+        case (5)                                             
+          array(:,:,0     ,ivar) = array(:,:,1   +offset,ivar)
+        case (6)                                             
+          array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar)
+        end select
 
       end select
 

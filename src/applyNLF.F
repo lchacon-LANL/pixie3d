@@ -182,9 +182,8 @@ c     Heat flux
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
      .              -(chi_par-chi)
-     .              *par_diff(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,tmpe
-     .                  ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-     .                  ,"symm",vol=.false.)
+     .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
+     .                       ,"symm",vol=.false.)
         endif
       endif
 
@@ -844,9 +843,8 @@ c Begin program
               !(parallel piece; should be made conservative)
               if (chi_par /= chi .and.(.not.lagrangian)) then
                 heat_flx = -(chi_par-chi)
-     .              *par_diff(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,tmpe
-     .                   ,bhat(:,:,:,1),bhat(:,:,:,2),bhat(:,:,:,3),2
-     .                   ,"symm",vol=.false.)
+     .              *par_diff(gv%gparams,i,j,k,igr,tmpe,bhat,2
+     .                       ,"symm",vol=.false.)
               else
                 heat_flx = 0d0
               endif
