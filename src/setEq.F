@@ -57,7 +57,7 @@ c Local variables
 
       real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,b_0
      .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
-     .          ,r0(1),aa,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
+     .          ,r0(1),aa,bb,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char,pw
@@ -2675,6 +2675,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR  = gv%gparams%params(1)            !Major radius
         aa  = gv%gparams%params(2)            !Horizontal elliptical radius
+        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
         mm  = gv%gparams%params(4)            !m mode
         nn  = gv%gparams%params(5)            !n mode
         e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
@@ -4960,11 +4961,11 @@ c     Local variables
      .            ,np_RAD,my_rank_RAD,np_Z,my_rank_Z
 
         real(8) :: bz_avg,bth_avg,gserr,oherr,oherr_n,rh,dh,dt,I0,bnorm2
-     .            ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia,gpsi2
-     .            ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim
-     .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3
-     .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol
-     .            ,cov(3),e4,e5,e6
+     .            ,psir,psith,x1,y1,z1,IIh,spsi,psi0,psia
+     .            ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim,cnv(3)
+     .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3,II2
+     .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol,gpsi(3)
+     .            ,cov(3),e4,e5,e6,bcnv(3),gp(3),gp_cnv(3),dp_dpsi,gpsi2
 
         real(8) :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
 
@@ -5069,25 +5070,50 @@ c       Iteration
               dh = gv%gparams%dxh(ig)
               dt = gv%gparams%dyh(jg)
 
+              jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+              !Compute (R*|B|)^2
               IIh = 0.5*(III(i,j)+III(i-1,j))
 
-              psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
-              psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt/rh
-              gpsi2  = psir**2 + psith**2
-              bnorm2 = IIh**2 + gpsi2  !This is R^2*B^2
+              gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                   ,psi(:,:,:,1))
+              gpsi(3) = 0d0
 
-              etah =res_rfx(rh)
+              gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
 
+              bcnv(1) = -gpsi(2)
+              bcnv(2) = gpsi(1)
+              bcnv(3) = jac*IIh*iR2(i,j,k)
+              bnorm2=vectorNorm_ijk(gv%gparams,i,j,k,igrid,bcnv,.false.)
+              bnorm2=bnorm2*RR(i,j)*RR(i,j)  !This is R^2*B^2
+
+              !Compute grad(p)
               spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
               spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
-              dpdr  = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
+              gp(1) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
               spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
               spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
-              dpdth = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt/rh
+              gp(2) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt
 
-              psi_rhs(ii)= (Eoeta/etah*IIh**2*iR2(i,j,k)
-     .                     -psir*dpdr-psith*dpdth)/bnorm2
+              gp(3) = 0d0
+
+              !Compute dp/dpsi=grad_psi.grad_p/|grad_psi|^2
+              gp_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gp)
+
+              dp_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
+     .                                   ,gpsi,gp_cnv)
+c$$$              if (gpsi2 > 0d0) then
+c$$$                dp_dpsi = dp_dpsi/gpsi2
+c$$$              else
+c$$$                dp_dpsi = 0d0
+c$$$              endif
+
+              !Compute GS RHS
+              etah =res_rfx(rh)
+c$$$              II2 = IIh*IIh/bnorm2
+c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
+              II2 = IIh*IIh
+              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi)/bnorm2
 
               !Multiply by R to ensure proper limit R->inf
               errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
@@ -5097,6 +5123,9 @@ c       Iteration
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
      .                       *gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
 
+              !Check convergence of Ohm's law
+              psir  = gpsi(1)
+              dpdr  = gp(1)
               oherr = oherr
      .               +(Eoeta/etah*IIh*iR2(i,j,k)*psir
      .                +IIh*dpdr
@@ -5155,20 +5184,29 @@ cc     .              ,mg_gm_coarse_solve=.true.
           do j=1,ny
             dummy(0,j) = 0d0
             do i=1,nx
-              IIh = 0.5*(III(i,j)+III(i-1,j))
-
               call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
               rh = gv%gparams%xx(ig)
               dh = gv%gparams%dxh(ig)
               dt = gv%gparams%dyh(jg)
 
-              psir  =0.5*(psi(i+1,j  ,k,1)
-     .                   -psi(i-1,j  ,k,1))/dh
-              psith =0.5*(psi(i  ,j+1,k,1)
-     .                   -psi(i  ,j-1,k,1))/dt/rh
-              bnorm2= IIh**2 + psir**2 + psith**2
+              jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
+              !Compute |B|^2
+              gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                   ,psi(:,:,:,1))
+              gpsi(3) = 0d0
+
+              psir   = gpsi(1)
+
+              IIh = 0.5*(III(i,j)+III(i-1,j))
+
+              bcnv(1) = -gpsi(2)
+              bcnv(2) = gpsi(1)
+              bcnv(3) = jac*IIh*iR2(i,j,k)
+              bnorm2=vectorNorm_ijk(gv%gparams,i,j,k,igrid,bcnv,.false.)
+
+              !Compute grad(p)
               psip  = 0.5*(psi(i+1,j,k,1)
      .                    +psi(i  ,j,k,1))
               psim  = 0.5*(psi(i-1,j,k,1)
@@ -5180,9 +5218,8 @@ cc     .              ,mg_gm_coarse_solve=.true.
               etah  = res_rfx(rh)
 
               dummy(i,j) = dummy(i-1,j)
-     .                         - RR(i,j)**2/bnorm2
-     .                          *(Eoeta*psir/etah*iR2(i,j,k)
-     .                           +dpdr)*gv%gparams%dx(ig)!!*dr(iglobal)
+     .                    -(Eoeta*psir/etah*iR2(i,j,k)+dpdr)/bnorm2
+     .                    *gv%gparams%dx(ig)
             enddo
           enddo
 
@@ -5255,15 +5292,24 @@ c       Find vectors and scalars
             dh = gv%gparams%dxh(ig)
             dt = gv%gparams%dyh(jg)
 
+            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+            !Find contravariant magnetic field components in integer mesh
             IIh    = 0.5*(III(i,j)+III(i-1,j))
-            psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
-            psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt/rh
-            bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
 
-           !Find contravariant magnetic field components in integer mesh
-            b1(i,j,:) =-psith*rh
-            b2(i,j,:) = psir
-            b3(i,j,:) = IIh*rh/RR(i,j)
+            gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                 ,psi(:,:,:,1))
+            gpsi(3) = 0d0
+
+            gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
+
+            bcnv(1) = -gpsi(2)
+            bcnv(2) = gpsi(1)
+            bcnv(3) = jac*IIh*iR2(i,j,k)
+            bnorm2=vectorNorm_ijk(gv%gparams,i,j,k,igrid,bcnv,.false.)
+
+            b1(i,j,:) = bcnv(1)
+            b2(i,j,:) = bcnv(2)
+            b3(i,j,:) = bcnv(3)
 
             !Find contravariant velocity components
             etah =res_rfx(rh)
@@ -5274,12 +5320,19 @@ c       Find vectors and scalars
 
             spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
             spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
-            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt/rh
+            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
 
-            v1(i,j,:) =-(Eoeta*psir *iR2(i,j,k)+etah*dpdr )
-     .                  *RR(i,j)*rh/bnorm2
-            v2(i,j,:) =-(Eoeta*psith*iR2(i,j,k)+etah*dpdth)
-     .                  *RR(i,j)/bnorm2
+            psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
+            psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt
+
+            cov(1) = -(Eoeta*psir *iR2(i,j,k)+etah*dpdr )/bnorm2
+            cov(2) = -(Eoeta*psith*iR2(i,j,k)+etah*dpdth)/bnorm2
+            cov(3) = 0d0
+
+            cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,cov)
+
+            v1(i,j,:) = cnv(1)
+            v2(i,j,:) = cnv(2)
 
             !Find pressure
             spsi = sqrt(1d0-psi(i,j,k,1)/psi0)
@@ -5287,14 +5340,6 @@ c       Find vectors and scalars
           enddo
         enddo
 
-cc        do i=0,nx
-cc          call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-cc
-cc          rh = gv%gparams%xx(ig)
-cc
-cc          write (*,*) rh,III(i,1)!b3(i,1,1)/rh
-cc        enddo
-cc        stop
 c       Calculate GS convergence properties
 
         e1 = 0d0
@@ -5318,12 +5363,21 @@ cc          do i=1,nx
             dh = gv%gparams%dxh(ig)
             dt = gv%gparams%dyh(jg)
 
-            IIh    = 0.5*(III(i,j)+III(i-1,j))
-            psir   = (psi(i+1,j,k,1)-psi(i-1,j,k,1))/2./dh
-            psith  = (psi(i,j+1,k,1)-psi(i,j-1,k,1))/2./dt/rh
-            bnorm2 = (IIh**2+psir**2+psith**2)*iR2(i,j,k)
+            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
-            jac = rh*RR(i,j)
+            !Compute |B|^2
+            IIh    = 0.5*(III(i,j)+III(i-1,j))
+
+            gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                 ,psi(:,:,:,1))
+            gpsi(3) = 0d0
+
+            gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
+
+            bcnv(1) = -gpsi(2)
+            bcnv(2) = gpsi(1)
+            bcnv(3) = jac*IIh*iR2(i,j,k)
+            bnorm2=vectorNorm_ijk(gv%gparams,i,j,k,igrid,bcnv,.false.)
 
             !Find pressure derivatives
             spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
