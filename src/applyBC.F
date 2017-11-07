@@ -311,7 +311,7 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
 
@@ -736,7 +736,7 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
      $          ,lref
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
@@ -1221,7 +1221,7 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),pointer,dimension(:,:,:) :: jac
 

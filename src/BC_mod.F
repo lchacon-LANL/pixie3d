@@ -249,8 +249,8 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = EQU
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
@@ -624,6 +624,7 @@ cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
      .                    -etah*grad_p(2))/b2
             v0(i+1,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
      .                    -etah*grad_p(3))/b2
+
           endif
         enddo
       enddo
