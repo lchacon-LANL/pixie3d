@@ -2698,8 +2698,9 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
 c     Check coordinates
 
-        if (coords /= 'tor') then
-          messg = 'Need "tor" coordinates for equilibrium '//equil
+        if (coords /= 'tor' .and. coords /= 'sha') then
+          messg = 'Need "tor" or "sha" coordinates for equilibrium '
+     .           //equil
           call pstop('setEquilibrium',messg)
         endif
 
