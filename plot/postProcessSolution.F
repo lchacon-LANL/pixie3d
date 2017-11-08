@@ -605,7 +605,7 @@ c     Dump arrays
 
       write (*,*) 'Dumping Poincare file ',ft_file
 
-      tor = (equil == 'vmec' .or. coords == 'tor')
+      tor = (equil == 'vmec' .or. coords == 'tor' .or. coords == 'sha')
 
       write (uft) nxd,nyd,nzd,bcond,tor
       write (uft) gv%gparams%xg  !Dump global position array
