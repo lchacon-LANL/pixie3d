@@ -500,6 +500,7 @@ c       Velocity BC
           if (pinch_flow) then
             prs0 = rho_0*tmp_0
             call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,v0)
+            v0(nnx+1,:,:,:) = 0.5*(v0(nnx+1,:,:,:)+vcnv_0(nnx,:,:,:))
           endif
 
           !Fill ghost nodes
@@ -555,6 +556,7 @@ c       Velocity BC
           if (pinch_flow) then
             prs1 = rho*tmp
             call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            v0(nnx+1,:,:,:) = 0.5*(v0(nnx+1,:,:,:)+vcnv(nnx,:,:,:))
           else
             call XferBCs(vcnv_0,v0,.true.)
           endif
