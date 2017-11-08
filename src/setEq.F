@@ -4966,6 +4966,7 @@ c     Local variables
      .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3,II2
      .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol,gpsi(3)
      .            ,cov(3),e4,e5,e6,bcnv(3),gp(3),gp_cnv(3),dp_dpsi,gpsi2
+     .            ,bcov(3)
 
         real(8) :: xh(0:nxd),dr(0:nxd),dth(0:nyd)
 
@@ -5314,28 +5315,25 @@ c       Find vectors and scalars
             b2(i,j,:) = bcnv(2)
             b3(i,j,:) = bcnv(3)
 
+            bcov = XformToCov_ijk(gv%gparams,i,j,k,igrid,bcnv)
+
             !Find contravariant velocity components
             etah =res_rfx(rh)
 
             spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
             spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
-            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
+            gp(1) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
             spsip = sqrt(1d0-psi(i,j+1,k,1)/psi0)
             spsim = sqrt(1d0-psi(i,j-1,k,1)/psi0)
-            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
+            gp(2) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt
 
-            psir   = 0.5*(psi(i+1,j,k,1)-psi(i-1,j,k,1))/dh
-            psith  = 0.5*(psi(i,j+1,k,1)-psi(i,j-1,k,1))/dt
+            gp(3) = 0d0
 
-            cov(1) = -(Eoeta*psir *iR2(i,j,k)+etah*dpdr )/bnorm2
-            cov(2) = -(Eoeta*psith*iR2(i,j,k)+etah*dpdth)/bnorm2
-            cov(3) = 0d0
+            gp_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gp)
 
-            cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,cov)
-
-            v1(i,j,:) = cnv(1)
-            v2(i,j,:) = cnv(2)
+            v1(i,j,:) =-(Eoeta*bcov(2)+etah*gp_cnv(1))/bnorm2
+            v2(i,j,:) = (Eoeta*bcov(1)-etah*gp_cnv(2))/bnorm2
 
             !Find pressure
             spsi = sqrt(1d0-psi(i,j,k,1)/psi0)

@@ -549,9 +549,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
-     .          ,gsub(3,3),jach
-
-c$$$      real(8) :: x(5),vec(4),xt(1)
+     .          ,gsub(3,3),jac
 
 c     Begin program
 
@@ -564,66 +562,35 @@ c     Begin program
         stop
       endif
 
-      i = nx
-
-c$$$      ord = 3
-c$$$
-c$$$      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-c$$$
-c$$$      x = (/g_def%xx(ig-3)
-c$$$     $     ,g_def%xx(ig-2)
-c$$$     $     ,g_def%xx(ig-1)
-c$$$     $     ,g_def%xx(ig  )
-c$$$     $     ,g_def%xx(ig+1)/)
-c$$$
-c$$$      xt = 0.5*(g_def%xx(ig+1)
-c$$$     $         +g_def%xx(ig  ))
+      i = nx + 1
 
       do k=0,nz+1
         do j=0,ny+1
-          jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i+1,j,k)
-     .               +g_def%gmetric%grid(igrid)%jac(i  ,j,k))
+          jac = g_def%gmetric%grid(igrid)%jac(i,j,k)
 
-          bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
-          bbcov=0.5*(matmul(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                     ,bcnv(i  ,j,k,:))
-     .              +matmul(g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
-     .                     ,bcnv(i+1,j,k,:)))
+          bbcnv = bcnv(i,j,k,:)
+          bbcov = XformToCov_ijk(g_def,i,j,k,igrid,bbcnv)
 
-          b2 = dot_product(bbcnv,bbcov)/jach
+          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
 
           if (b2 > 0d0) then
             if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-              bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
+              dum = dbcov(i,j,k,:)
+              bbcov = dum - 2*dot_product(bbcnv,dum)/(jac*b2)*bbcov
             endif
 
-            grad_p
-     .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
-c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
-c$$$
-c$$$            vec = (/ prs(i-2,j,k)
-c$$$     $              ,prs(i-1,j,k)
-c$$$     $              ,prs(i  ,j,k)
-c$$$     $              ,prs(i+1,j,k) /)
-c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
+            grad_p = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
+            grad_p = XformToCnv_ijk(g_def,i,j,k,igrid,grad_p)
 
-            gsup = 0.5*(g_def%gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                 +g_def%gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
-
-            grad_p = matmul(gsup,grad_p)
-
-            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+            etah = eta(i,j,k)
 
             !ExB velocity
-            v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
-     .                    -etah*grad_p(1))/b2
-            v0(i+1,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
-     .                    -etah*grad_p(2))/b2
-            v0(i+1,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
-     .                    -etah*grad_p(3))/b2
+            v0(i,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
+     .                 -etah*grad_p(1))/b2
+            v0(i,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
+     .                 -etah*grad_p(2))/b2
+            v0(i,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
+     .                 -etah*grad_p(3))/b2
 
           endif
         enddo

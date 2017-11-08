@@ -1168,7 +1168,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%var_list(IHETA)%bc_dep_list(2,3) = 1 !non-trivial
 
       !V cnv
-      vaux%vec_list(IVCNV)%bc_dep_list(1,1) = IVCOV*AUX
+      vaux%vec_list(IVCNV)%bc_dep_list(1,1) = IVCNV*AUX
       vaux%vec_list(IVCNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCNV)%bc_dep_list(1,3) = 0 !trivial
 
@@ -1195,9 +1195,13 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       endif
 
       !V cov
-      vaux%vec_list(IVCOV)%bc_dep_list(1,1) = IVCNV*AUX
+      vaux%vec_list(IVCOV)%bc_dep_list(1,1) = IVCOV*AUX
       vaux%vec_list(IVCOV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCOV)%bc_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVCOV)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IVCOV)%bc_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVCOV)%bc_dep_list(2,3) = 0 !trivial
 
       !J cnv
       vaux%vec_list(IJCNV)%bc_dep_list(1,1) = IJCNV*AUX
