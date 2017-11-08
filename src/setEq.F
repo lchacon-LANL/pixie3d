@@ -2707,7 +2707,7 @@ c     Check coordinates
 c     Ohmic GS equilibrium
 
         !Build equilibrium
-        call Ohm_GS_equil_2d(RR,aa,e0_over_eta,beta,nx,ny,nz
+        call Ohm_GS_equil_2d(RR,e0_over_eta,beta,nx,ny,nz
 #if defined(vec_pot)
      .                   ,var(:,:,:,IAX),var(:,:,:,IAY),var(:,:,:,IAZ)
 #else
@@ -4900,14 +4900,13 @@ cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
 
 c     Ohm_GS_equil_2d
 c     ###############################################################
-      subroutine Ohm_GS_equil_2d(R0,aa,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
+      subroutine Ohm_GS_equil_2d(R0,Eoeta,b_tor,nx,ny,nz,b1,b2,b3
      .                          ,v1,v2,pp)
 
 c     ---------------------------------------------------------------
 c     Solves 2D Ohmic Grad-Shafranov equilibrium equations to find 
 c     contravariant components of magnetic field. On input:
 c       * R0: Major radius
-c       * aa: elliptical horizontal radius
 c       * Eoeta: electric field over eta
 c       * b_tor: toroidal beta
 c       * nx,ny,nz: local (processor) dimensions
@@ -4953,7 +4952,7 @@ c     Call variables
      .            ,v1(0:nx+1,0:ny+1,0:nz+1)
      .            ,v2(0:nx+1,0:ny+1,0:nz+1)
      .            ,pp(0:nx+1,0:ny+1,0:nz+1)
-     .            ,Eoeta,R0,b_tor,aa
+     .            ,Eoeta,b_tor,R0
 
 c     Local variables
 
@@ -5028,10 +5027,13 @@ c       Initialize iteration
         !Initalize toroidal radius (R=R0+r*cos(theta)) and 1/R^2
         do j=0,ny+1
           do i=0,nx+1
-            iglobal = i + gv%gparams%ilo(igrid) - 1
-            jglobal = j + gv%gparams%jlo(igrid) - 1
-            RR(i,j) = R0 + aa*gv%gparams%xg(iglobal)
-     .                   *cos(gv%gparams%yg(jglobal))
+            call getCartesianCoordinates(gv%gparams,i,j,1
+     .           ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
+            RR(i,j) = sqrt(x1**2+y1**2)
+c$$$            iglobal = i + gv%gparams%ilo(igrid) - 1
+c$$$            jglobal = j + gv%gparams%jlo(igrid) - 1
+c$$$            RR(i,j) = R0 + aa*gv%gparams%xg(iglobal)
+c$$$     .                   *cos(gv%gparams%yg(jglobal))
           enddo
         enddo
 
