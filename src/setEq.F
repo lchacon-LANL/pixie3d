@@ -5031,10 +5031,6 @@ c       Initialize iteration
             call getCartesianCoordinates(gv%gparams,i,j,1
      .           ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
             RR(i,j) = sqrt(x1**2+y1**2)
-c$$$            iglobal = i + gv%gparams%ilo(igrid) - 1
-c$$$            jglobal = j + gv%gparams%jlo(igrid) - 1
-c$$$            RR(i,j) = R0 + aa*gv%gparams%xg(iglobal)
-c$$$     .                   *cos(gv%gparams%yg(jglobal))
           enddo
         enddo
 
@@ -5157,8 +5153,8 @@ c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
           guess = 1  !To reuse previous iteration
 
           call cSolver(gv%gparams,1,nx*ny*nz,psi_rhs,psiv,bcnd
-     .              ,1,0,guess,del_star,vol_wgt
-     .              ,tol           = 5d-1
+     .              ,1,ilevel,guess,del_star,vol_wgt
+     .              ,tol           = 1d-1
      .              ,gm_driver     =.true.
      .              ,ks_it         = 10
      .              ,mg_order_res  = 0
@@ -5297,6 +5293,7 @@ c       Find vectors and scalars
             dt = gv%gparams%dyh(jg)
 
             jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+
             !Find contravariant magnetic field components in integer mesh
             IIh    = 0.5*(III(i,j)+III(i-1,j))
 
