@@ -349,7 +349,7 @@ c Call variables
 
 c Local variables
 
-      real(8) :: aa
+      real(8) :: x1,y1,z1
       integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
       integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
 
@@ -388,20 +388,13 @@ c Calculate matrix-vector product
       !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
       allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
 
-      aa = g_def%params(2) !Horizontal elliptical radius
-
       do k = kmin-1,kmax+1
         do j = jmin-1,jmax+1
           do i = imin-1,imax+1
-cc            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
-cc     .                                  ,ig,jg,kg,x1,y1,z1)
-cc
-cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
-            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
 
-            iRR(i,j,k) =  1d0/(g_def%params(1)
-     .                       + aa*g_def%xx(ig)
-     .                        *cos(g_def%yy(jg)))**2
+            iRR(i,j,k) = 1d0/(x1**2+y1**2)
           enddo
         enddo
       enddo
