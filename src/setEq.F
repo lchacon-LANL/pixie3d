@@ -2698,7 +2698,7 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
 
 c     Check coordinates
 
-        if (coords /= 'tor' .and. coords /= 'sha') then
+        if (coords/='tor'.and.coords/='sha'.and.coords/='sh2') then
           messg = 'Need "tor" or "sha" coordinates for equilibrium '
      .           //equil
           call pstop('setEquilibrium',messg)
