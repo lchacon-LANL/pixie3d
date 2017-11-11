@@ -255,7 +255,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 
-      case ('vmec','tor')
+      case ('vmec','tor','stell')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
