@@ -409,7 +409,7 @@ c Energy diagnostics
       array = rho*tmp
 
       if (gamma /= 1d0) then
-        Et = 1d0/(gamma-1)
+        Et = 1d0/(gamma-1d0)
      .      *integral(gv%gparams,igx,array,average=.false.)
       else
         Et = 0d0
@@ -462,7 +462,11 @@ cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0
        if (Iz0   /= 0d0) Iz    = Iz   /Iz0   
        if (Tflux0/= 0d0) Tflux = Tflux/Tflux0
 
-       energy = energy/(Ek0 + Em0 + Et0)
+       if (Ek0 + Em0 + Et0 > 0d0) then
+         energy = energy/(Ek0 + Em0 + Et0)
+       else
+         energy = 0d0
+       endif
 
 c Velocity divergence diagnostics
 
@@ -504,7 +508,6 @@ c Maximum ELECTRON velocity diagnostics
       call MPI_Reduce(lvmax,vemax,3,MPI_DOUBLE_PRECISION
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
-
 
 c Problem specific diagnostics  <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -741,11 +744,11 @@ c Diagnostic assignment
 
       diagnostics(neqd+20)= Ez/Bup0**2
       diagnostics(neqd+21)= rflux
-      diagnostics(neqd+22) = dl
-      diagnostics(neqd+23) = ww
+      diagnostics(neqd+22)= dl
+      diagnostics(neqd+23)= ww
 
-      diagnostics(neqd+24) = Bup/Bup0
-      diagnostics(neqd+25) = Bdown/Bup0
+      diagnostics(neqd+24)= Bup/Bup0
+      diagnostics(neqd+25)= Bdown/Bup0
       diagnostics(neqd+26:neqd+28) = vemax
 
       !Compensate for symmetry BCs
