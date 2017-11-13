@@ -2698,8 +2698,11 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
 
 c     Check coordinates
 
-        if (coords/='tor'.and.coords/='sha'.and.coords/='sh2') then
-          messg = 'Need "tor" or "sha" coordinates for equilibrium '
+        if (      coords /= 'tor'
+     .      .and. coords /= 'sha' 
+     .      .and. coords /= 'sh2') then
+          messg = 
+     .         'Need "tor", "sha" or "sh2" coordinates for equilibrium '
      .           //equil
           call pstop('setEquilibrium',messg)
         endif
@@ -2729,6 +2732,75 @@ c     Ohmic GS equilibrium
         var(:,:,:,IRHO) = 1d0
         var(:,:,:,ITMP) = var(:,:,:,ITMP) + pw
         var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
+
+      case ('stell')
+
+        !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
+        RR  = gv%gparams%params(1)            !Major radius
+        aa  = gv%gparams%params(2)            !Horizontal elliptical radius
+cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
+        mm  = gv%gparams%params(4)            !m mode
+        nn  = gv%gparams%params(5)            !n mode
+        e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
+        beta= gv%gparams%params(7)            !Toroidal beta
+        pw  = gv%gparams%params(8)            !Pressure at wall
+        
+        kk = 0d0   !To avoid affecting q-profile
+
+        !Now these must be initalized directly in input file.
+        if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
+        if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
+
+        nh1 = nh2       !For perturbations to be of the right order
+
+        if (nh2 == 0 .and. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     Check coordinates
+
+        if (coords /= 'stl') then
+          messg = 'Need "stl" coordinates for equilibrium '
+     .           //equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c$$$c     Ohmic GS equilibrium
+c$$$
+c$$$        !Build equilibrium
+c$$$        call Ohm_GS_equil_2d(RR,e0_over_eta,beta,nx,ny,nz
+c$$$#if defined(vec_pot)
+c$$$     .                   ,var(:,:,:,IAX),var(:,:,:,IAY),var(:,:,:,IAZ)
+c$$$#else
+c$$$     .                   ,var(:,:,:,IBX),var(:,:,:,IBY),var(:,:,:,IBZ)
+c$$$#endif
+c$$$     .                   ,var(:,:,:,IVX),var(:,:,:,IVY),var(:,:,:,ITMP))
+c$$$        
+c$$$	!Find electric field
+c$$$        E0(1:2) = 0d0
+c$$$        E0(3)   = e0_over_eta*eta
+c$$$        eta_in  = eta
+c$$$
+c$$$        !Adjust pinch flow to current resistivity
+c$$$        var(:,:,:,IVX) = var(:,:,:,IVX)*eta
+c$$$        var(:,:,:,IVY) = var(:,:,:,IVY)*eta
+c$$$        var(:,:,:,IVZ) = 0d0
+c$$$
+c$$$        !Fill other arrays
+c$$$        var(:,:,:,IRHO) = 1d0
+c$$$        var(:,:,:,ITMP) = var(:,:,:,ITMP) + pw
+c$$$        var(:,:,:,ITMP) = var(:,:,:,ITMP)/a_p/var(:,:,:,IRHO)
+
+        var(:,:,:,IRHO) = 1d0
+        var(:,:,:,ITMP) = 0d0
+        var(:,:,:,IBX) = 0d0
+        var(:,:,:,IBY) = 0d0
+        var(:,:,:,IBZ) = 0d0
+        var(:,:,:,IVX) = 0d0
+        var(:,:,:,IVY) = 0d0
+        var(:,:,:,IVZ) = 0d0
 
       case default
 
