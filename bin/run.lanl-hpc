@@ -322,8 +322,9 @@ cat > go.sub <<QSUB
 
 date
 module purge
-module load gcc/5.3.0
+module load intel/17.0.1 
 module load openmpi/1.10.5
+module load hdf5-parallel
 
 mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55))
 
