@@ -806,7 +806,7 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+          if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
             rho = varray%array_var(ITMP)%array/(tmp_0*jac)
           else
             rho = varray%array_var(IRHO)%array/jac
@@ -957,7 +957,7 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 #if defined(plotting)
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
               vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
      .                         /u_n%array_var(ITMP)%array*jac*tmp_0
               vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
@@ -986,7 +986,7 @@ c$$$            end where
           if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
+            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
               vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
      .                                 /u_n %array_var(ITMP)%array
      .                         -cnm/cnp*u_nm%array_var(IVX )%array
@@ -1272,7 +1272,7 @@ c       Resistivity at initial time
 
           if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
             where (tmp_0 /= 0d0)
-              rho = rho_0*(tmp/tmp_0)**(1./(gamma-1d0))
+              rho = rho_0*(tmp/tmp_0)**(1d0/(gamma-1d0))
             end where
           endif
 
