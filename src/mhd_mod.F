@@ -1258,7 +1258,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%bc_dep_list(2,3) = 1 !non-trivial
 
@@ -1340,7 +1340,7 @@ cc#endif
       vaux%vec_list(IENI)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
 
@@ -1740,7 +1740,7 @@ c     Current variables
       vaux%vec_list(IENI)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
 
