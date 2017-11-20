@@ -475,7 +475,7 @@ c$$$     .              ,iorder=2)
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-     .              ,iorder=1)
+     .              ,iorder=1,solen=solenoidal)
 
         case(IBCOV_0)   !Done with bcnv_0
 #else
@@ -517,7 +517,7 @@ c       Current BC
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
-     .              ,iorder=1)
+     .              ,iorder=1,solen=solenoidal)
 
         case(IJCOV_0)  !Done when computing jcov_0
 
@@ -601,7 +601,8 @@ c       Magnetic field BC
 
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
-     .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+     .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv
+     .              ,solen=solenoidal)
 
         case(IBCOV) !Done when computing bcnv
 
@@ -620,7 +621,7 @@ c       Current BC
 
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
      .              ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
-     .              ,iorder=order)
+     .              ,iorder=order,solen=solenoidal)
 
         case(IJCOV) !Done when computing jcnv
 
