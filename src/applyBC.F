@@ -475,7 +475,7 @@ c$$$     .              ,iorder=2)
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-     .              ,iorder=1,solen=solenoidal)
+     .              ,iorder=1)
 
         case(IBCOV_0)   !Done with bcnv_0
 #else
@@ -517,7 +517,7 @@ c       Current BC
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv_0,jcov_0,v0
      .              ,vaux%vec_list(IJCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IJCNV_0)%cnv
-     .              ,iorder=1,solen=solenoidal)
+     .              ,iorder=1)
 
         case(IJCOV_0)  !Done when computing jcov_0
 
@@ -577,11 +577,10 @@ c       Vector Pot. BC
 
           call XferBCs(acov_0,v0,.true.)
 
-cc          call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
           call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-cc          call set_force_corners(.false.)
+     .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
+     .              ,sp_reg=.true.)
 
         case(IACNV)  !Done when computing acov
 
@@ -601,8 +600,7 @@ c       Magnetic field BC
 
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
-     .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv
-     .              ,solen=solenoidal)
+     .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
 
         case(IBCOV) !Done when computing bcnv
 
@@ -621,7 +619,7 @@ c       Current BC
 
           call setBC(gv%gparams,IJX,3,nnx,nny,nnz,jcnv,jcov,v0
      .              ,vaux%vec_list(IJCNV)%bconds,igr,igr,igr
-     .              ,iorder=order,solen=solenoidal)
+     .              ,iorder=order)
 
         case(IJCOV) !Done when computing jcnv
 
