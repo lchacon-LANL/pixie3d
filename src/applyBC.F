@@ -275,7 +275,6 @@ c End
 
       end subroutine applyDepVarBC
 
-
 c applyAuxVarBC
 c####################################################################
       subroutine applyAuxVarBC(igr,bc_inf,varray,vaux,order)
@@ -313,7 +312,7 @@ c Local variables
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
-      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
+      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acov_n,acnv_n
 
       real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
 
@@ -575,12 +574,45 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          call XferBCs(acov_0,v0,.true.)
+          if (regularize_A) then
+            allocate(acov_n(0:nnx+1,0:nny+1,0:nnz+1,3)
+     .              ,acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
 
-          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
-     .              ,sp_reg=.true.)
+            !Subtract previous time step (to regularize delta only)
+            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
+            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
+            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
+            acnv_n = XformVector(gv%gparams,igr,acov_n,.true.)
+
+            acov = acov-acov_n
+            acnv = acnv-acnv_n
+
+c$$$            acnv_n = XformVector(gv%gparams,igr,acov_0,.true.)
+c$$$
+c$$$            acov = acov-acov_0
+c$$$            acnv = acnv-acnv_n
+
+            !Impose BC
+            v0 = 0d0
+
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
+     .                ,sp_reg=.true.)
+
+            !Add previous time step
+            acov = acov + acov_n
+cc            acov = acov + acov_0
+            acnv = acnv + acnv_n
+
+            deallocate(acov_n,acnv_n)
+          else
+            call XferBCs(acov_0,v0,.true.)
+
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+          endif
 
         case(IACNV)  !Done when computing acov
 
@@ -1428,7 +1460,7 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
         case(IACNV)
 
-cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
+cc          acnv = XformVector(gv%gparams,igr,acov,.true.)
 
         case(IBCNV)
 
