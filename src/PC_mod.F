@@ -125,7 +125,7 @@ c ######################################################################
      .                                         ,b_diag,b_diag_hyp
      .                                         ,a_diag,a_diag_hyp
 
-        real(8), allocatable, dimension(:,:) :: lap_diag,vlap_diag
+        real(8), allocatable, dimension(:,:) :: lap_diag!,vlap_diag
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 

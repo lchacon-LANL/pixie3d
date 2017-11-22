@@ -1530,18 +1530,16 @@ c     RFP equilibria (analytical)
             do i = ilom,ihip
 
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .             ,igz,ig,jg,kg,x1,y1,z1)
+     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
               b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
               btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
-              if (coords == 'hel') then
-                var(i,j,k,IBX)  = 0d0
-                var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-                var(i,j,k,IBZ)  = x1*bz0
-              endif
+              var(i,j,k,IBX)  = 0d0
+              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
+              var(i,j,k,IBZ)  = x1*bz0
             enddo
           enddo
         enddo
@@ -1550,7 +1548,7 @@ c     RFP equilibria (analytical)
 
         do k = 0,nz+1
           do j = 0,ny+1
-            do i = 0,nxdp
+            do i = 0,nxdp  !Global radial loop
 
               x1 = gv%gparams%xg(i)  !Global coordinate
 
@@ -6135,10 +6133,9 @@ c       1) meth='line': performs line integrals
 c       2) meth='vlap': performs vector Laplacian inversion
 c
 c     On input:
-c       * v -> cnv velocity
 c       * b -> cnv magnetic field
 c     On output:
-c       * a -> cov vector potential
+c       * a_cov -> cov vector potential
 c--------------------------------------------------------------------
 
       use parameters
