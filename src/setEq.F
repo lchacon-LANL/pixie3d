@@ -6144,7 +6144,7 @@ c--------------------------------------------------------------------
 
       use operators
 
-      use local_BCS_variables, ONLY: order_bc
+      use local_BCS_variables,ONLY: order_bc,default_B_BCs,default_A_BCs
 
       use imposeBCinterface
 
@@ -6163,8 +6163,8 @@ c Call variables
 c Local variables
 
       integer :: nxg,nyg,nzg
-      integer :: i,j,k,igrid,ii,bcnd(6,3),nx,ny,nz
-     .          ,its,ig,jg,kg
+      integer :: i,j,k,igrid,ii,nx,ny,nz,its,ig,jg,kg
+     .          ,bcnd(6,3),bcs_b(6,3),bcs_a(6,3),bcsq(6)
       real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,a_cnv (ilom:ihip,jlom:jhip,klom:khip,3)
      .          ,db_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
@@ -6193,143 +6193,60 @@ c Begin program
         write (*,*)
       endif
 
-c Find A covariant
+c Find A BCs (fluxes) via line integrals
 
-      a0_cov = 0d0
+      call curl_inv(gv%gparams,igrid,b,a,global=.true.)
 
-      select case(meth)
-      case('vlap')
+      !Restrict solution to current domain (when appropriate)
+      call XferGlobalArray(a,a_cov)
 
-        !Take care of boundary conditions
-        if (bcPER(2).and.bcPER(3)) then
-          !Face values
-          bz0 = 0.5*(b(0  ,1,1,3)+b(1    ,1,1,3))
-          bzl = 0.5*(b(nxg,1,1,3)+b(nxg+1,1,1,3))
+      !Set topological BCs
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
 
-          by0 = 0.5*(b(0  ,1,1,2)+b(1    ,1,1,2))
-          byl = 0.5*(b(nxg,1,1,2)+b(nxg+1,1,1,2))
+      vzeros = 0d0
+      a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
+      call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
 
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
-     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
+c Correct A covariant
 
-                a0_cov(i,j,k,2) = -0.5*bz0*(x1-xmax)**2/(xmax-xmin)
-     .                            +0.5*bzl*(x1-xmin)**2/(xmax-xmin)
+      if (meth == 'vlap') then
 
-                a0_cov(i,j,k,3) =  0.5*by0*(x1-xmax)**2/(xmax-xmin)
-     .                            -0.5*byl*(x1-xmin)**2/(xmax-xmin)
-              enddo
-            enddo
-          enddo
-        elseif (bcPER(1).and.bcPER(3)) then
-          !Face values
-          bx0 = 0.5*(b(1,0  ,1,1)+b(1,1    ,1,1))
-          bxl = 0.5*(b(1,nyg,1,1)+b(1,nyg+1,1,1))
+        a0_cov = a_cov
 
-          bz0 = 0.5*(b(1,0  ,1,3)+b(1,1    ,1,3))
-          bzl = 0.5*(b(1,nyg,1,3)+b(1,nyg+1,1,3))
-
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
-     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
-
-                a0_cov(i,j,k,1) =  0.5*bz0*(y1-ymax)**2/(ymax-ymin)
-     .                            -0.5*bzl*(y1-ymin)**2/(ymax-ymin)
-
-                a0_cov(i,j,k,3) = -0.5*bx0*(y1-ymax)**2/(ymax-ymin)
-     .                            +0.5*bxl*(y1-ymin)**2/(ymax-ymin)
-              enddo
-            enddo
-          enddo
-        elseif (bcPER(1).and.bcPER(2)) then
-          !Face values
-          bx0 = 0.5*(b(1,1,0  ,1)+b(1,1,1    ,1))
-          bxl = 0.5*(b(1,1,nzg,1)+b(1,1,nzg+1,1))
-
-          by0 = 0.5*(b(1,1,0  ,2)+b(1,1,1    ,2))
-          byl = 0.5*(b(1,1,nzg,2)+b(1,1,nzg+1,2))
-
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,j,k,igrid
-     .               ,igrid,igrid,ig,jg,kg,x1,y1,z1)
-
-                a0_cov(i,j,k,1) = -0.5*by0*(z1-zmax)**2/(zmax-zmin)
-     .                            +0.5*byl*(z1-zmin)**2/(zmax-zmin)
-
-                a0_cov(i,j,k,2) =  0.5*bx0*(z1-zmax)**2/(zmax-zmin)
-     .                            -0.5*bxl*(z1-zmin)**2/(zmax-zmin)
-              enddo
-            enddo
-          enddo
-        else
-          call pstop('findVectorPotential'
-     .              ,'Option not implemented yet')
-        endif
+        !BC defs (not yet defined in application)
+        call default_A_BCs(bcs_a)
+        call default_B_BCs(bcs_b)
 
         !Find B and substract BCs
-        call XferArray(b,db_cnv)
+        call XferGlobalArray(b,db_cnv)
         db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
 
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
-     .                    ,gv%aux%vec_list(IBCNV)%bconds
-     .                    ,gv%aux%vec_list(IACOV)%bconds
-     .                    ,ilevel
-     .                    ,w_pre_bcs=.true.
-     .                    ,gm_it=its,rtol=min(rtol,1d-4))
+     .                    ,bcs_b,bcs_a,ilevel,gm_it=its
+     .                    ,rtol=min(rtol,1d-7))
 
         if (my_rank == 0) write (*,'(a,i3)') ' A-solve GMRES its=',its
-
-        !Set BCs
-        bcnd = gv%aux%vec_list(IACOV)%bconds
-        vzeros = 0d0
-        a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
-        call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .            ,igrid,igrid,igrid,is_cnv=.false.
-     .            ,iorder=order_bc)
 
         !Add BCs
         a_cov = a_cov + a0_cov
 
-cc        !Diagnostics
-cc        call XferArray(b,db_cnv)
-cc        call B_dump(igrid,a_cov,db_cnv)
+c$$$        !Diagnostics
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call B_dump(gv%gparams,igrid,a_cov,db_cnv)
 
-      case('line')
-
-        !Find covariant vector potential with gauge Ax = 0 in specified domain
-        call curl_inv(gv%gparams,igrid,b,a,global=.true.)
-
-        !Restrict solution to current domain (when appropriate)
-        call XferArray(a,a_cov)
-
-        !Set topological BCs
-        bcnd(:,1) = bcond
-        bcnd(:,2) = bcond
-        bcnd(:,3) = bcond
-cc      where (bcnd == DEF) bcnd = -IFC
-
-        vzeros = 0d0
-        a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
-        call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .            ,igrid,igrid,igrid,is_cnv=.false.
-     .            ,iorder=order_bc)
-
-      end select
+      endif
 
 c End program
 
       contains
 
-c     XferArray
+c     XferGlobalArray
 c     ####################################################################
-      subroutine XferArray(ag,al)
+      subroutine XferGlobalArray(ag,al)
 
         real(8),dimension(0:,0:,0:,:) :: ag,al
 
