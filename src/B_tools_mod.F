@@ -612,7 +612,7 @@ c     Local variables
      .          ,db_cov (0:size(db,1)-1
      .                  ,0:size(db,2)-1
      .                  ,0:size(db,3)-1,size(db,4))
-     .          ,db_cnv (0:size(db,1)-1
+     .          ,dj_cnv (0:size(db,1)-1
      .                  ,0:size(db,2)-1
      .                  ,0:size(db,3)-1,size(db,4))
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
@@ -644,7 +644,7 @@ c     Begin program
         etol = 1d-4
       endif
 
-c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
+c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has BCs)
 
       if (w_prebcs) then
         call setMGBC(g_def,0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
@@ -659,6 +659,8 @@ cc        return
         endif
       endif
 
+      dj_cnv = curl(g_def,igrid,db_cov)
+
       do k = 1,nz
         do j = 1,ny
           do i = 1,nx
@@ -670,11 +672,12 @@ cc        return
               dvol = 1d0
             endif
 
-            rhs(ii,:)=-dvol
-     .                *curl(g_def,i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
-            if (.not.is_a_cnv)
-     .        rhs(ii,:)=matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:)
-     .                        ,rhs(ii,:))
+            if (.not.is_a_cnv) then
+              rhs(ii,:) = XformToCov(g_def,i,j,k,igx,dj_cnv(i,j,k,:))
+            else
+              rhs(ii,:) = dj_cnv(i,j,k,:)
+            endif
+            rhs(ii,:) = -dvol*rhs(ii,:)
           enddo
         enddo
       enddo
@@ -691,9 +694,9 @@ c     Setup solver parameters
         order_prol = 1
       endif
 
-      bc_order_a = 1
+      bc_order_a = 2
 
-c     Invert vector laplacian to find dA=-vlap^-1(dJ)
+c     Invert vector laplacian to find dA=vlap^-1(dJ)
 
       x = 0d0
 
@@ -731,12 +734,11 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
 
       if (is_a_cnv) then
         call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=.true.
-     .                ,arr_cov=da_cov,icomp=(/IAX/))
+     .                ,is_vec=.true.,is_cnv=.true. ,icomp=(/IAX/)
+     .                ,arr_cov=da_cov)
       else
         call fillArray(g_def,igx,3,x,da_cov,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=.false.
-     .                ,icomp=(/IAX/))
+     .                ,is_vec=.true.,is_cnv=.false.,icomp=(/IAX/))
       endif
       
       if (PRESENT(gm_it)) gm_it = gmits
