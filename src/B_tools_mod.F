@@ -829,7 +829,11 @@ c     Find dA
       call vlap_curl_inv(g_def,igx,db,da_cov,bcsb,bcsa,iout
      .                  ,w_pre_bcs=w_pre_bcs
      .                  ,gm_it=gm_it,rtol=rtol)
-      
+
+c     Diagnostics
+
+      if (dplots) call B_dump(g_def,igx,da_cov,db)
+
 c     Find new dB (with BCs)
 
       db = curl(g_def,igx,da_cov)
@@ -843,10 +847,6 @@ c     Find new dB (with BCs)
 c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
-
-c     Diagnostics
-
-      if (dplots) call B_dump(g_def,igx,da_cov,db)
 
       end subroutine vlap_div_clean
 
@@ -932,13 +932,6 @@ c     Map vector x to array for processing
       call fillArray(g_def,igrid,neq,x,vv,bcnd,bc_order_a,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,vv,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=bc_order_a)
 
 c     Calculate matrix-vector product
 
@@ -1175,7 +1168,7 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-      call pstop('vlap_div_clean','Dumped graphics')
+      call pstop('B_dump','Dumped graphics')
 
 c     End program
 
