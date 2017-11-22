@@ -23,9 +23,9 @@ c####################################################################
 
         integer :: order_bc=1
 
-        logical :: no_eq_bc=.false.,no_tn_bc=.false.
+        logical :: regularize_A = .true.  !Whether we regularize A @ SP
 
-        logical :: save_tn
+        logical :: no_eq_bc,save_tn,no_tn_bc
 
       contains
 
