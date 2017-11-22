@@ -693,15 +693,6 @@ c     Setup solver parameters
 
       bc_order_a = 1
 
-c     Allocate diagonal matrix
-
-      if (.not.allocated(vlap_diag)) then
-        allocate(vlap_diag(3,3*ntotd2p))
-
-        call find_mf_diag(g_def,3,1,3*ntotdp,avlap_mtvc,igx,bcsa
-     .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
-      endif
-
 c     Invert vector laplacian to find dA=-vlap^-1(dJ)
 
       x = 0d0
@@ -710,7 +701,6 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
      .            ,iout,1,avlap_mtvc,vwgt
      .            ,tol           = etol
      .            ,iters         = gmits
-     .            ,dg            = vlap_diag
      .            ,gm_driver     = .true.
      .            ,sing_matrix   = sing_mat
      .            ,ks_it         = 30
@@ -741,11 +731,11 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
 
       if (is_a_cnv) then
         call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=is_a_cnv
+     .                ,is_vec=.true.,is_cnv=.true.
      .                ,arr_cov=da_cov,icomp=(/IAX/))
       else
         call fillArray(g_def,igx,3,x,da_cov,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=is_a_cnv
+     .                ,is_vec=.true.,is_cnv=.false.
      .                ,icomp=(/IAX/))
       endif
       
