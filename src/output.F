@@ -135,8 +135,8 @@ cc            vadvective = '   TVD'
             pc = ' Undefined!'
           end select
 
-#if defined(petsc)
-          write (*,10)nxd,nyd,nzd,ngrd,npx,npy,npz,trim(pc),ts_adapt_dt
+#if defined(petsc) && defined(coarse_MG)
+          write (*,10)nxd,nyd,nzd,npx,npy,npz,trim(pc),ts_adapt_dt
      .               ,source,numerical_grid,advective,vadvective,tsmeth
 #else
           write (*,10)nxd,nyd,nzd,ngrd,trim(pc),ts_adapt_dt
@@ -183,9 +183,10 @@ cc            vadvective = '   TVD'
 c End program
 
  10   format (/,'  Grid mesh:................',i5,'x',i5,'x',i5
-     .        /,'  Number of grid levels:....',i5,',',i5,',',i5
-#if defined(petsc)
+#if defined(petsc) && defined(coarse_MG)
      .        /,'  Number of processors:.....',i5,',',i5,',',i5
+#else
+     .        /,'  Number of grid levels:....',i5,',',i5,',',i5
 #endif
      .        /,'  Preconditioning method:...',a,
      .        /,'  Time correction...........',l4,
