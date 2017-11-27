@@ -37,6 +37,8 @@ c--------------------------------------------------------------------
 
       use B_tools, ONLY:vlap_div_clean,curl_div_clean
 
+      use par_int, ONLY: find_polar_coords
+
       implicit none
 
 c Call variables
@@ -2323,16 +2325,21 @@ c$$$          endif
               call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
      .             ,igz,ig,jg,kg,x1,y1,z1)
 
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1
+     .                              ,z1,'cyl')
+
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               iglobal = i + gv%gparams%ilo(igx) - 1
 
 #if !defined(vec_pot)
-              var(i,j,k,IBX) = 0d0
-              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              var(i,j,k,IBZ) = x1*bzz0(iglobal)
+              var(i,j,k,IBX)=0d0
+              var(i,j,k,IBY)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              var(i,j,k,IBZ)=jac1*bzz0(iglobal)
 #endif
-              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
-              var(i,j,k,IVY) = kk*x1/mm*vz0(iglobal)
-              var(i,j,k,IVZ) = x1*vz0(iglobal)
+              var(i,j,k,IVX)=x1*vr0(iglobal)*eta/eta_in
+              var(i,j,k,IVY)=kk*jac1/mm*vz0(iglobal)
+              var(i,j,k,IVZ)=jac1*vz0(iglobal)
 
               if (solve_rho) then
                 var(i,j,k,IRHO) = rho0(iglobal)
@@ -2357,9 +2364,11 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
               x1 = gv%gparams%xg(i)  !Global coordinate
 
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               bg(i,j,k,1) = 0d0
-              bg(i,j,k,2) = bth0(i) + kk*x1/mm*bzz0(i)
-              bg(i,j,k,3) = x1*bzz0(i)
+              bg(i,j,k,2) = jac1*(bth0(i)/x1 + kk/mm*bzz0(i))
+              bg(i,j,k,3) = jac1*bzz0(i)
             enddo
           enddo
         enddo
@@ -3080,6 +3089,8 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
+        use par_int, ONLY: find_polar_coords
+
         implicit none
 
 c     Call variables
@@ -3092,10 +3103,11 @@ c     Call variables
 c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it
-        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,etah
+        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,etah,th,zz
 
         real(8) :: rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
-     .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
+     .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd),rg(0:nxdp)
+     .            ,rl(nxl)
 
         real(8) :: pprof
         external   pprof
@@ -3115,10 +3127,26 @@ c       Initialize iteration
         bz0 = bzz0(0)
         p00 = maxval(p0)
 
-        !Find half-mesh positions
+c       Find global-mesh radial positions and increments
+
+        do i=1,nxl
+          call find_polar_coords(gv%gparams,1,i,1,1,rl(i),th
+     .                          ,zz,'cyl')
+        enddo
+
+#if defined(petsc)
+        call MPI_Allgather(rl(1:nxl),nxl,MPI_DOUBLE_PRECISION
+     .                    ,rg(1:nxd),nxl,MPI_DOUBLE_PRECISION
+     .                    ,gv%gparams%MPI_COMM_X,mpierr)
+#else
+        rg(1:nxd) = rl
+#endif
+        rg(0)    = -rg(1)           !@ SP
+        rg(nxdp) = 2*xmax - rg(nxd) !@ radial boundary
+
         do i=0,nxd
-          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
+          xh(i) = 0.5*(rg(i+1)+rg(i))
+          dr(i) =      rg(i+1)-rg(i)
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
@@ -3138,8 +3166,8 @@ c       Iteration
           dummy(0) = 0d0
           bth0 (0) = 0d0
           do i=1,nxd
-            x1 = xh(i)
-            rh = gv%gparams%xg(i)
+            x1 = xh(i)  !Half mesh
+            rh = rg(i)  !Full mesh
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
@@ -3162,10 +3190,11 @@ cc              etah = res_spitzer(p0(i)/a_p)
           !Perform integral of Bz
           dummy = 0d0
           do i=1,nxd
-            x1 = xh(i)
+            x1 = xh(i)  !Half mesh
+            rh = rg(i)  !Full mesh
+
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
-            rh  = gv%gparams%xg(i)
 
             if (spitzer) then
 cc              etah = res_spitzer(p0(i)/a_p)
@@ -3184,7 +3213,7 @@ cc              etah = res_spitzer(p0(i)/a_p)
           if (theta /= 0d0) then
             bz_avg = 0d0
             do i=1,nxd
-               bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
+               bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
             enddo
             bz_avg = bz_avg/xmax**2
             bzz0 = bth0(nxd)/theta/bz_avg*bzz0
@@ -3220,12 +3249,12 @@ cc              etah = res_spitzer(p0(i)/a_p)
 
         !Check force balance
         do i=1,nxd
-          rh  = gv%gparams%xg(i)
+          rh  = rg(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
           dummy(i) = bzh*(bzz0(i)-bzz0(i-1))/dr(i)
-     $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+     $              +bth/rh*(bth0(i)*xh(i)-bth0(i-1)*xh(i-1))/dr(i)
      .              +(p0(i+1)-p0(i-1))/2./dr(i)
         enddo
 
@@ -3239,7 +3268,7 @@ cc              etah = res_spitzer(p0(i)/a_p)
         do i=1,nxd
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
-          rh  = gv%gparams%xg(i)
+          rh  = rg(i)
 
           if (spitzer) then
 cc            etah = res_spitzer(p0(i)/a_p)
@@ -3249,7 +3278,7 @@ cc            etah = res_spitzer(p0(i)/a_p)
           endif
 
           dummy(i) = Eoeta*bzh/etah
-     $              -bzh/rh*(bth0(i)*i-bth0(i-1)*(i-1))
+     $              -bzh/rh*(bth0(i)*xh(i)-bth0(i-1)*xh(i-1))/dr(i)
      $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
         enddo
 
@@ -3261,7 +3290,7 @@ cc            etah = res_spitzer(p0(i)/a_p)
         !Calculate pinch equilibrium features (theta parameter, Bz(r=0), I0)
         bz_avg = 0d0
         do i=1,nxd
-          bz_avg = bz_avg + (bzz0(i)*i + bzz0(i-1)*(i-1))*dr(i)**2
+          bz_avg = bz_avg + (bzz0(i)*xh(i)+bzz0(i-1)*xh(i-1))*dr(i)
         enddo
 
         if (my_rank == 0) then
@@ -3289,12 +3318,12 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Transfer B to integer mesh
         call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bth0 = dummy
 
         call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
+     .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
      .                  ,2,0)
         bzz0 = dummy
 
@@ -3305,7 +3334,7 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         !Find pinch flow (normalized to nominal resistivity)
         vr0 = 0d0
         do i=1,nxd
-          rh  = gv%gparams%xg(i)
+          rh  = rg(i)
           if (spitzer) then
 cc            etah = res_spitzer(p0(i)/a_p)
             etah = res_spitzer(p0(i)/p0(1))
@@ -3323,7 +3352,7 @@ cc            etah = res_spitzer(p0(i)/a_p)
 
         !Find pressure
 cc        do i=1,nxd
-cc          rh  = gv%gparams%xg(i)
+cc          rh  = rg(i)
 cc          p0(i) = p00*pprof(rh,0)
 cc        enddo
 
@@ -3331,7 +3360,7 @@ cc        enddo
 cc        if (my_rank == 0) then
 cc          open(unit=123,file='ntm2d.txt',status='unknown')
 cc          write (123,*) nxdp+1
-cc          write (123,*) gv%gparams%xg(0:nxdp)
+cc          write (123,*) rg(0:nxdp)
 cc          write (123,*) bth0
 cc          write (123,*) bzz0
 cc          write (123,*) 0.5*p0
