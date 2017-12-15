@@ -432,6 +432,7 @@ c     Call variables
 
 c     Local variables
 
+        real(8) :: dr1,jac
         integer :: i,im,ip,imin,imax,istep
      .            ,j,jm,jp,jmin,jmax,jstep
 
@@ -462,15 +463,8 @@ c     Begin program
      .           -g_def%yg(jm)
           endif
 
-cc          if (spoint) then  !r=0 face
-cc            aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*2.5d-1*(bb(i  ,jm,:,1)
-cc     .                                             +bb(i  ,jp,:,1)
-cc     .                                             +bb(i+1,jm,:,1)
-cc     .                                             +bb(i+1,jp,:,1))
-cc          else
-            aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*5d-1*(bb(i,jm,:,1)
-     .                                           +bb(i,jp,:,1))
-cc          endif
+          aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*5d-1*(bb(i,jm,:,1)
+     .                                         +bb(i,jp,:,1))
         enddo
 
         aa(ilo-istep,:,:,2)=0d0
@@ -492,12 +486,12 @@ cc          endif
      .             -g_def%xg(im)
             endif
 
-cc            write (*,*) i,im,ip,dxx,bb(ip,1,1,2)
-cc            aa(ip,:,:,3) = aa(im,:,:,3) - 0.5*dxx*bb(ip,:,:,2)
-cc
-cc            aa(ip,:,:,2) = aa(im,:,:,2) + 0.5*dxx*bb(ip,:,:,3)
-            aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
-     .                                             +bb(ip,:,:,2))
+            !Find dr from Jacobian @ r=2, jac=dr^2/2/dxi
+c$$$            jac = g_def%gmetric%grid(igx)%jac(i,1,1)
+c$$$            dr1 = sqrt(2*dxx*jac)
+c$$$            write (*,*) dr1/dxx
+            dr1 = dxx
+            aa(ip,:,:,3) =  - 0.25*dr1*bb(ip,:,:,2) !A_3=0 @ r=0
             aa(ip,:,:,2) =  + 0.25*dxx*bb(ip,:,:,3) !A_2=0 @ r=0
 
           else
@@ -574,8 +568,8 @@ c     Find dB
 
 c     vlap_curl_inv
 c     ###############################################################
-      subroutine vlap_curl_inv(g_def,igrid,db,da_cov,bcsb,bcsa,iout
-     .                        ,dbcov,w_pre_bcs,gm_it,rtol)
+      subroutine vlap_curl_inv(g_def,igrid,db_cnv,da_cov,bcsb,bcsa
+     .                        ,iout,dbcov,da0cov,w_pre_bcs,gm_it,rtol)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -590,31 +584,39 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igrid,iout,bcsb(6,3),bcsa(6,3)
-      real(8) :: db(0:,0:,0:,:)
+      real(8) :: db_cnv(0:,0:,0:,:)
       real(8) :: da_cov(0:,0:,0:,:)
 
       integer,optional :: gm_it
       real(8),optional :: rtol
-      real(8),optional,INTENT(IN) :: dbcov(0:size(db,1)-1
-     .                                    ,0:size(db,2)-1
-     .                                    ,0:size(db,3)-1,size(db,4))
+      real(8),optional,INTENT(IN) :: dbcov(0:size(db_cnv,1)-1
+     .                                    ,0:size(db_cnv,2)-1
+     .                                    ,0:size(db_cnv,3)-1
+     .                                    ,  size(db_cnv,4))
+      real(8),optional,INTENT(IN) :: da0cov(0:size(db_cnv,1)-1
+     .                                     ,0:size(db_cnv,2)-1
+     .                                     ,0:size(db_cnv,3)-1
+     .                                     ,  size(db_cnv,4))
 
       logical,optional :: w_pre_bcs
 
 c     Local variables
 
       integer :: nx,ny,nz,igx,igy,igz,i,j,k,ii,icomp,order_res
-     .          ,order_prol,gmits
+     .          ,order_prol,gmits,bcsga(6,3)
 
-      real(8) :: da_cnv (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
-     .          ,db_cov (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
-     .          ,dj_cnv (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
+      real(8) :: da_cnv (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,dlapa0 (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,db_cov (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,dj_cnv (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
      $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
@@ -628,9 +630,9 @@ c     Begin program
       igy = igrid
       igz = igrid
 
-      nx = size(db,1)-2
-      ny = size(db,2)-2
-      nz = size(db,3)-2
+      nx = size(db_cnv,1)-2
+      ny = size(db_cnv,2)-2
+      nz = size(db_cnv,3)-2
 
       if (PRESENT(w_pre_bcs)) then
         w_prebcs = w_pre_bcs
@@ -644,22 +646,35 @@ c     Begin program
         etol = 1d-4
       endif
 
+c     Find Lap(A0)
+
+      if (PRESENT(da0cov)) then
+        if (is_a_cnv) then
+          dlapa0 = XformToCnv(g_def,igrid,da0cov)
+          dlapa0 = veclap    (g_def,igrid,dlapa0)
+        else
+          dlapa0 = veclap_cov(g_def,igrid,da0cov)
+          dlapa0 = XformToCnv(g_def,igrid,dlapa0)
+        endif
+      else
+        dlapa0 = 0d0
+      endif
+
 c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has BCs)
 
       if (w_prebcs) then
-        call setMGBC(g_def,0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
-     .              ,icomp=(/IBX/),is_vec=.true.
+        call setMGBC(g_def,0,3,nx,ny,nz,igx,db_cnv,bcsb
+     .              ,arr_cov=db_cov,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
-cc        return
       else
         if (PRESENT(dbcov)) then
           db_cov = dbcov
         else
-          db_cov = XformVector(g_def,igx,db,.false.)
+          db_cov = XformVector(g_def,igx,db_cnv,.false.)
         endif
       endif
 
-      dj_cnv = curl(g_def,igrid,db_cov)
+      dj_cnv = curl(g_def,igrid,db_cov) + dlapa0
 
       do k = 1,nz
         do j = 1,ny
@@ -695,7 +710,7 @@ c     Setup solver parameters
       endif
 
       bc_order_a = 2
-
+      
 c     Invert vector laplacian to find dA=vlap^-1(dJ)
 
       x = 0d0
@@ -740,6 +755,8 @@ cc     .            ,sm_zebra_relax= mg_zebra_relax_si
         call fillArray(g_def,igx,3,x,da_cov,bcsa,bc_order_a
      .                ,is_vec=.true.,is_cnv=.false.,icomp=(/IAX/))
       endif
+
+      if (PRESENT(da0cov)) da_cov = da_cov + da0cov
       
       if (PRESENT(gm_it)) gm_it = gmits
 
@@ -896,7 +913,7 @@ c     Local variables
      .             ,vlap(3),cnv(3),cov(3),car(3)
       real(8)    :: upwind,etal
 
-      real(8),allocatable,dimension(:,:,:,:) :: vv,v0
+      real(8),pointer,dimension(:,:,:,:) :: vv
 
       logical    :: fpointers,is_cnv
 
@@ -946,14 +963,10 @@ c     Calculate matrix-vector product
               vlap = veclap(g_def,i,j,k,nxx,nyy,nzz
      .                     ,igrid,igrid,igrid,vv
      .                     ,vol=MG_get_res_vol_wgt())
-cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
-cc       .                           ,igrid,igrid,igrid,vv
-cc       .                           ,vol=MG_get_res_vol_wgt())
 
               do ieq=1,3
                 y(neq*(ijk-1)+ieq) = vlap(ieq)
               enddo
-
             enddo
           enddo
         enddo
@@ -1122,7 +1135,7 @@ c     Begin program
       call createDrawInCfile(9,trim(dcf),'Solution','t','x','y'
      .        ,(/'Bx_in ','By_in ','Bz_in '
      $          ,'Ax_out','Ay_out','Az_out'
-     $          ,'Bx_out','By_out','Bz_out'/)
+     $          ,'Bx_dff','By_dff','Bz_dff'/)
      .        ,'-c -X0 -L57','drawdc_p'//trim(int2char(my_rank))//'.in')
 
       open(unit=110,file=trim(dcf),form='unformatted'
@@ -1154,7 +1167,7 @@ c     Begin program
      .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
 
-      ddb = curl(g_def,igx,da_cov)
+      ddb = curl(g_def,igx,da_cov)-db
 
       call contour(ddb    (:,:,1,1),nx+2,ny+2
      .            ,g_def%gxmin,g_def%gxmax
