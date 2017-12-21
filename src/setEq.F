@@ -2266,10 +2266,10 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 ! Daniele, 11/10/2013
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,pw
+             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,pw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
@@ -2303,18 +2303,7 @@ c$$$          endif
 
         endif
 
-#if defined(RFX)
-        if (my_rank == 0.and.(.not.test)) then
-          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
-          do i=0,nxdp
-            x1 = gv%gparams%xg(i) !Global coordinate
-            write(*,10) x1,bth0(i),bzz0(i)
-     .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),p00(i)
-          enddo
-        endif
-#endif
-
-        !Convert current to covariant at r=1d0
+        !Convert electric field to covariant at r=1d0
         E0(3) = -kk/mm*E0(2) + E0(3)
 
         !Build equilibrium
@@ -2413,10 +2402,10 @@ c     Initial guess: 1D equilibrium
         p00  = 0d0
 
         if (gamma > 1d0) then
-           call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,0d0
+           call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,0d0
      .                            ,p00,bth0,bzz0,vr0,psi0)
         else
-           call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+           call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
      .                            ,p00,bth0,bzz0,vr0,psi0)
         endif
 
@@ -2594,10 +2583,10 @@ c     Equilibria (numerical)
           bzz0 = bz0
 
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,e0_over_eta,theta_ppnch,pw
+             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,pw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
-             call Ohm_equil_1d      (-kk,e0_over_eta,theta_ppnch
+             call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
@@ -2879,8 +2868,6 @@ c Transfer BC fields info to postprocessor via input file
 
 c End program
 
-10    format (4f7.3,2e12.3)
-
       end subroutine setEquilibrium
 
 c     GS_equil_1d
@@ -3089,7 +3076,7 @@ cc          stop
 
 c     Ohm_equil_1d
 c     ###############################################################
-      subroutine Ohm_equil_1d(kk,Eoeta,theta,p0,bth0,bzz0,vr0,psi0)
+      subroutine Ohm_equil_1d(kk,RR,Eoeta,theta,p0,bth0,bzz0,vr0,psi0)
 
 c     ---------------------------------------------------------------
 c     Solves 1D Ohmic eq. equations to find cylindrical components
@@ -3123,7 +3110,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-        real(8),intent(IN) :: kk,Eoeta,theta,p0(0:nxdp)
+        real(8),intent(IN) :: kk,RR,Eoeta,theta,p0(0:nxdp)
 
         real(8),intent(OUT):: bth0(0:nxdp),bzz0(0:nxdp)
      .                       ,vr0 (0:nxdp),psi0(0:nxdp)
@@ -3453,12 +3440,24 @@ cc          close(123)
 cccc          stop
 cc        endif
 
+#if defined(RFX)
+        if (my_rank == 0.and.(.not.test)) then
+          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
+          do i=0,nxdp
+            write(*,10) rg(i),bth0(i),bzz0(i)
+     .             ,(rg(i)*bzz0(i))/(RR*bth0(i)),vr0(i),p0(i)
+          enddo
+        endif
+
+ 10     format (4f7.3,2e12.3)
+#endif
+
       end subroutine Ohm_equil_1d
 
 c     Ohm_equil_1d_xport
 c     ###############################################################
-      subroutine Ohm_equil_1d_xport(kk,Eoeta,theta,pw,p0,bth0,bzz0,vr0
-     .                             ,psi0)
+      subroutine Ohm_equil_1d_xport(kk,RR,Eoeta,theta,pw,p0,bth0,bzz0
+     .                             ,vr0,psi0)
 
 c     ---------------------------------------------------------------
 c     Solves 1D Ohmic eq. equations coupled with transport to find
@@ -3496,7 +3495,7 @@ c     Call variables
 
         real(8) :: kk,bth0(0:nxdp),bzz0(0:nxdp),vr0(0:nxdp)
      .            ,p0(0:nxdp),Eoeta,theta,b_tor,psi0(0:nxdp)
-     .            ,pw
+     .            ,pw,RR
 
 c     Local variables
 
@@ -3888,7 +3887,19 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         bth0 = btf
         bzz0 = bzf
 
-101     format (5f7.3,2e12.3)
+#if defined(RFX)
+        if (my_rank == 0.and.(.not.test)) then
+          write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
+          do i=0,nxdp
+            rh  = gv%gparams%xg(i)
+            write(*,10) rh,bth0(i),bzz0(i)
+     .             ,(rh*bzz0(i))/(RR*bth0(i)),vr0(i),p0(i)
+          enddo
+        endif
+ 10     format (4f7.3,2e12.3)
+#endif
+
+ 101    format (5f7.3,2e12.3)
 
       end subroutine Ohm_equil_1d_xport
 
