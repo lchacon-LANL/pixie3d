@@ -2358,7 +2358,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
               bb(i,j,k,1) = 0d0
               bb(i,j,k,2) = jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
-              bb(i,j,k,3) = jac1*bzz0(i)
+              bb(i,j,k,3) = jac1*bzz0(iglobal)
             enddo
           enddo
         enddo
