@@ -2312,7 +2312,7 @@ c$$$          endif
             do i = ilom,ihip
 
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
-     .                              ,'cyl')
+     .                              ,coords)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
@@ -2349,8 +2349,8 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
           do j = 0,ny+1
             do i = 0,nx+1
 
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1
-     .                              ,z1,'cyl')
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
@@ -3118,12 +3118,12 @@ c     Call variables
 c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it
-        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,etah,th,zz
-     .            ,dx1,dx2,gp
+        real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,th,zz
+     .            ,dx1,dx2,gp,dvol
 
         real(8) :: rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd),rg(0:nxdp)
-     .            ,rl(nxl),drh(0:nxd)
+     .            ,rl(nxl),drh(0:nxd),eta0(0:nxdp)
 
         real(8) :: pprof
         external   pprof
@@ -3132,9 +3132,9 @@ c     Begin program
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) '************************************'
+          write (*,*) '***************************'
           write (*,*) '1D Ohmic equilibrium solver'
-          write (*,*) '************************************'
+          write (*,*) '***************************'
           write (*,*)
         endif
 
@@ -3179,6 +3179,15 @@ c       Find global-mesh radial positions and increments
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
+        !Resistivity profile
+        do i=1,nxdp
+          if (spitzer) then
+            eta0(i) = res_spitzer(p0(i)/p0(1))
+          else
+            eta0(i) = res_rfx(rg(i))
+          endif
+        enddo
+
 c       Iteration
 
         do it=1,100
@@ -3196,13 +3205,6 @@ c       Iteration
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
-            if (spitzer) then
-cc              etah = res_spitzer(p0(i)/a_p)
-              etah = res_spitzer(p0(i)/p0(1))
-            else
-              etah = res_rfx(rh)
-            endif
-
             !Second order pressure gradient
             dx1=drh(i-1)
             dx2=drh(i)
@@ -3210,15 +3212,14 @@ cc              etah = res_spitzer(p0(i)/a_p)
             gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
      .            +p0(i  )*(dx2-dx1)/dx2/dx1
      .            -p0(i-1)*dx2/dx1/(dx1+dx2))
-cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
 
-            !Accumulate integral
+            !Accumulate integral on half mesh
+            dvol = 0.5*(xh(i)**2-xh(i-1)**2) !rg(i)*dr(i)
             dummy(i)=dummy(i-1)
-     .              +(Eoeta/etah*bzh**2-bth*gp)
-     .                /(bzh**2+bth**2)*rh*dr(i)
+     .              +(Eoeta/eta0(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
 
-            !Transform to Bth
-            bth0(i) = dummy(i)/x1
+            !Transform to Bth on half-mesh
+            bth0(i) = dummy(i)/xh(i)
           enddo
 
           !Perform integral of Bz
@@ -3230,13 +3231,6 @@ cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
 
-            if (spitzer) then
-cc              etah = res_spitzer(p0(i)/a_p)
-              etah = res_spitzer(p0(i)/p0(1))
-            else
-              etah = res_rfx(rh)
-            endif
-
             !Second order pressure gradient
             dx1 = drh(i-1)
             dx2 = drh(i)
@@ -3244,11 +3238,10 @@ cc              etah = res_spitzer(p0(i)/a_p)
             gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
      .            +p0(i  )*(dx2-dx1)/dx2/dx1
      .            -p0(i-1)*dx2/dx1/(dx1+dx2))
-cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
 
             !Accumulate integral
             dummy(i) = dummy(i-1)
-     .               +(Eoeta/etah*bth+gp)/(bzh**2+bth**2)*dr(i)
+     .               +(Eoeta/eta0(i)*bth+gp)/(bzh**2+bth**2)*dr(i)
           enddo
 
           !Transform to Bz
@@ -3300,7 +3293,6 @@ cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
           gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
      .          +p0(i  )*(dx2-dx1)/dx2/dx1
      .          -p0(i-1)*dx2/dx1/(dx1+dx2))
-cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
 
           bzh = 0.5*(bzz0(i)+bzz0(i-1))
           bth = 0.5*(bth0(i)+bth0(i-1))
@@ -3321,14 +3313,7 @@ cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
           bth = 0.5*(bth0(i)+bth0(i-1))
           rh  = rg(i)
 
-          if (spitzer) then
-cc            etah = res_spitzer(p0(i)/a_p)
-            etah = res_spitzer(p0(i)/p0(1))
-          else
-            etah = res_rfx(rh)
-          endif
-
-          dummy(i) = Eoeta*bzh/etah
+          dummy(i) = Eoeta*bzh/eta0(i)
      $              -bzh/rh*(bth0(i)*xh(i)-bth0(i-1)*xh(i-1))/dr(i)
      $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
         enddo
@@ -3367,15 +3352,15 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         enddo
         psi0 = psi0 - 0.5*(psi0(nxd)+psi0(nxdp)) !Homogeneous Dirichlet BC
 
-        !Transfer B to integer mesh
+        !Transfer B and V to integer mesh
         call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,3,0)
+     .                  ,2,0)
         bth0 = dummy
 
         call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp)
-     .                  ,3,0)
+     .                  ,2,0)
         bzz0 = dummy
 
         !Extrapolate linearly in radius @ r=0
@@ -3385,38 +3370,24 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         !Find pinch flow at cell centers (normalized to nominal resistivity)
         vr0 = 0d0
 
-        do i=1,nxd
+        do i=1,nxdp
           rh  = rg(i)
-          if (spitzer) then
-cc            etah = res_spitzer(p0(i)/a_p)
-            etah = res_spitzer(p0(i)/p0(1))
+
+          dx1 = drh(i-1)
+
+          if (i < nxdp) then
+            !Second order pressure gradient
+            dx2 = drh(i)
+
+            gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
+     .            +p0(i  )*(dx2-dx1)/dx2/dx1
+     .            -p0(i-1)*dx2/dx1/(dx1+dx2))
           else
-            etah = res_rfx(rh)
+            gp = (p0(i)-p0(i-1))/dx1
           endif
 
-          !Second order pressure gradient
-          dx1 = drh(i-1)
-          dx2 = drh(i)
-
-          gp = ( p0(i+1)*dx1/dx2/(dx1+dx2)
-     .          +p0(i  )*(dx2-dx1)/dx2/dx1
-     .          -p0(i-1)*dx2/dx1/(dx1+dx2))
-cc            gp = (p0(i+1)-p0(i-1))/2./dr(i)
-
-          vr0(i) = -(Eoeta*bth0(i)+etah*gp)/(bzz0(i)**2+bth0(i)**2)
+          vr0(i) = -(Eoeta*bth0(i)+eta0(i)*gp)/(bzz0(i)**2+bth0(i)**2)
         enddo
-
-        !i=nxd+1
-        rh  = rg(nxdp)
-        if (spitzer) then
-cc            etah = res_spitzer(p0(i)/a_p)
-          etah = res_spitzer(p0(nxdp)/p0(1))
-        else
-          etah = res_rfx(rh)
-        endif
-        gp = (p0(nxdp)-p0(nxd))/(rg(nxdp)-rg(nxd))
-        vr0(nxdp)=-(Eoeta*bth0(nxdp) + etah*gp)
-     .            /(bzz0(nxdp)**2+bth0(nxdp)**2)
 
         !i=0
         vr0(0) = -vr0(1)
@@ -6352,6 +6323,40 @@ c Correct A covariant
         !Find B and substract BCs
         call XferGlobalArray(b,db_cnv)
         db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
+
+c diag ****
+c$$$c$$$        db_cnv(:,:,:,1) = div(gv%gparams,igrid,a0_cov)
+c$$$c$$$        write (*,*) "divA",sqrt(sum(db_cnv(:,:,:,1)**2))
+c$$$c$$$  stop
+c$$$        db_cnv = curl(gv%gparams,igrid,a_cov)
+c$$$
+c$$$        !Cnv check (FIRST ORDER at boundaries???)
+c$$$        db_cnv = curl  (gv%gparams,igrid
+c$$$     .                 ,XformToCov(gv%gparams,igrid,db_cnv))
+c$$$     .          +veclap(gv%gparams,igrid,a_cnv)
+c$$$
+c$$$c$$$        !Contravariant check (WORKS)
+c$$$c$$$        db_cnv = curlcurl(gv%gparams,igrid,a_cnv,.true.)
+c$$$c$$$     .          +veclap  (gv%gparams,igrid,a_cnv)
+c$$$
+c$$$c$$$        !Covariant check (WORKS)
+c$$$c$$$        db_cnv = curlcurl_cov(gv%gparams,igrid,a_cov)
+c$$$c$$$     .          +veclap_cov  (gv%gparams,igrid,a_cov)
+c$$$
+c$$$        do i=1,nx
+c$$$c$$$          write(*,*) i,gradDiv(gv%gparams,i,1,1,nx,ny,nz
+c$$$c$$$     .                        ,igrid,igrid,igrid
+c$$$c$$$     .                        ,a_cnv,cnv=.true.)
+c$$$c$$$          write(*,*) i,curlcurl_ijk(gv%gparams,i,1,1,nx,ny,nz
+c$$$c$$$     .                        ,igrid,igrid,igrid
+c$$$c$$$     .                        ,a_cnv,.true.)
+c$$$c$$$          write(*,*) i,veclap(gv%gparams,i,1,1,nx,ny,nz
+c$$$c$$$     .                       ,igrid,igrid,igrid
+c$$$c$$$     .                       ,a_cnv,alteom=.true.)
+c$$$          write(*,*) i,db_cnv(i,1,1,:)
+c$$$        enddo
+c$$$        stop
+c diag ****
 
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
