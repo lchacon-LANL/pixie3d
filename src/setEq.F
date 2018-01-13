@@ -6316,10 +6316,10 @@ c Find A BCs (fluxes) via line integrals
      .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order)
 
 c diag ****
-      if (test) then
-        call XferGlobalArray(b,db_cnv)
-        call checkCurl  (a_cov,db_cnv)
-      endif
+c$$$      if (test) then
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call checkCurl  (a_cov,db_cnv)
+c$$$      endif
 c diag ****
 
 c$$$      !Diagnostics
