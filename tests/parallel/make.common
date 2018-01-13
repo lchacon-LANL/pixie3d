@@ -28,7 +28,7 @@ endif
 
 #Define targets
 
-.PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
+.PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup clean
 
 setup: ;
 	-@ln -s -f ../../../bin/$(EXEC)
@@ -36,7 +36,7 @@ setup: ;
 
 rebuild rebuild-a rebuild-b: ;
 	@echo "Rebuilding parallel test in $(LOCALDIR)"
-	-@rm pixie3d.out* pixie3d.tst* pixie3d.err* record.* 2> /dev/null
+	-@rm -f pixie3d.out* pixie3d.tst* pixie3d.err* record.* 2> /dev/null
 	@$(PAREXEC) > pixie3d.out
 
 test test-a test-b: ;
@@ -50,3 +50,6 @@ test test-a test-b: ;
 
 run: ;
 	@$(PAREXEC)
+
+clean: ;
+	-@rm -f draw*.in *.bin pixie3d.tst* pixie3d.err* *.txt *.vlog 2>/dev/null
