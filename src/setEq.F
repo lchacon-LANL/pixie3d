@@ -1530,9 +1530,10 @@ c     RFP equilibria (analytical)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
 
-              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
               b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
@@ -1540,35 +1541,44 @@ c     RFP equilibria (analytical)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               var(i,j,k,IBX)  = 0d0
-              var(i,j,k,IBY)  = btheta + kk*x1/mm*bz0
-              var(i,j,k,IBZ)  = x1*bz0
+              var(i,j,k,IBY)  = jac1*(btheta/x1 + kk/mm*bz0)
+              var(i,j,k,IBZ)  = jac1*bz0
             enddo
           enddo
         enddo
 #else
-        allocate(bg(0:nxdp,0:ny+1,0:nz+1,3))
+        allocate(bb(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bg(0:nxdp,0:ny+1,0:nz+1,3))
 
-        do k = 0,nz+1
-          do j = 0,ny+1
-            do i = 0,nxdp  !Global radial loop
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
 
-              x1 = gv%gparams%xg(i)  !Global coordinate
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
               b_0    = (dlambda**2+aa)
      .                 /sqrt((dlambda**2+aa)**2-dlambda**4)
               btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
-              bg(i,j,k,1) = 0d0
-              bg(i,j,k,2) = btheta + kk*x1/mm*bz0
-              bg(i,j,k,3) = x1*bz0
+              bb(i,j,k,1) = 0d0
+              bb(i,j,k,2) = jac1*(btheta/x1 + kk/mm*bz0)
+              bb(i,j,k,3) = jac1*bz0
             enddo
           enddo
         enddo
 
+        call find_global(bb,bg
+#if defined(petsc)
+     .                  ,mpi_comm=gv%gparams%MPI_COMM_X
+#endif
+     .                  )
+
         call findVectorPotential(bg,var(:,:,:,IAX:IAZ),'vlap')
 
-        deallocate(bg)
+        deallocate(bb,bg)
 #endif
 
       case ('bpnch')  !BENNET SCREW PINCH BALANCED BY DENSITY
@@ -6257,7 +6267,7 @@ c Call variables
 
 c Local variables
 
-      integer :: nxg,nyg,nzg
+      integer :: nxg,nyg,nzg,order
       integer :: i,j,k,igrid,ii,nx,ny,nz,its,ig,jg,kg
      .          ,bcnd(6,3),bcs_b(6,3),bcs_a(6,3),bcsq(6)
       real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
@@ -6290,21 +6300,27 @@ c Begin program
 
 c Find A BCs (fluxes) via line integrals
 
-      call curl_inv(gv%gparams,igrid,b,a,global=.true.)
+      call curl_inv(gv%gparams,igrid,b,a,global=.true.,order=4)
 
       !Restrict solution to current domain (when appropriate)
       call XferGlobalArray(a,a_cov)
-
+      
       !Set topological BCs
       bcnd(:,1) = bcond
       bcnd(:,2) = bcond
       bcnd(:,3) = bcond
-      where(bcnd == DEF) bcnd = EXT
 
       vzeros = 0d0
-      a_cnv = XformVector(gv%gparams,igrid,a_cov,.true.)
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
       call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=2)
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order)
+
+c diag ****
+      if (test) then
+        call XferGlobalArray(b,db_cnv)
+        call checkCurl  (a_cov,db_cnv)
+      endif
+c diag ****
 
 c$$$      !Diagnostics
 c$$$      call XferGlobalArray(b,db_cnv)
@@ -6323,40 +6339,6 @@ c Correct A covariant
         !Find B and substract BCs
         call XferGlobalArray(b,db_cnv)
         db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
-
-c diag ****
-c$$$c$$$        db_cnv(:,:,:,1) = div(gv%gparams,igrid,a0_cov)
-c$$$c$$$        write (*,*) "divA",sqrt(sum(db_cnv(:,:,:,1)**2))
-c$$$c$$$  stop
-c$$$        db_cnv = curl(gv%gparams,igrid,a_cov)
-c$$$
-c$$$        !Cnv check (FIRST ORDER at boundaries???)
-c$$$        db_cnv = curl  (gv%gparams,igrid
-c$$$     .                 ,XformToCov(gv%gparams,igrid,db_cnv))
-c$$$     .          +veclap(gv%gparams,igrid,a_cnv)
-c$$$
-c$$$c$$$        !Contravariant check (WORKS)
-c$$$c$$$        db_cnv = curlcurl(gv%gparams,igrid,a_cnv,.true.)
-c$$$c$$$     .          +veclap  (gv%gparams,igrid,a_cnv)
-c$$$
-c$$$c$$$        !Covariant check (WORKS)
-c$$$c$$$        db_cnv = curlcurl_cov(gv%gparams,igrid,a_cov)
-c$$$c$$$     .          +veclap_cov  (gv%gparams,igrid,a_cov)
-c$$$
-c$$$        do i=1,nx
-c$$$c$$$          write(*,*) i,gradDiv(gv%gparams,i,1,1,nx,ny,nz
-c$$$c$$$     .                        ,igrid,igrid,igrid
-c$$$c$$$     .                        ,a_cnv,cnv=.true.)
-c$$$c$$$          write(*,*) i,curlcurl_ijk(gv%gparams,i,1,1,nx,ny,nz
-c$$$c$$$     .                        ,igrid,igrid,igrid
-c$$$c$$$     .                        ,a_cnv,.true.)
-c$$$c$$$          write(*,*) i,veclap(gv%gparams,i,1,1,nx,ny,nz
-c$$$c$$$     .                       ,igrid,igrid,igrid
-c$$$c$$$     .                       ,a_cnv,alteom=.true.)
-c$$$          write(*,*) i,db_cnv(i,1,1,:)
-c$$$        enddo
-c$$$        stop
-c diag ****
 
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
@@ -6382,6 +6364,8 @@ c     XferGlobalArray
 c     ####################################################################
       subroutine XferGlobalArray(ag,al)
 
+        implicit none
+      
         real(8),dimension(0:,0:,0:,:) :: ag,al
 
         integer :: igm,igp,jgm,jgp,kgm,kgp
@@ -6407,7 +6391,114 @@ c     ####################################################################
         al(ilom:ihip,jlom:jhip,klom:khip,:)
      .     = ag(igm:igp,jgm:jgp,kgm:kgp,:)
 
-      end subroutine
+      end subroutine XferGlobalArray
+
+c     checkCurl
+c     ####################################################################
+      subroutine checkCurl(a_cov,b_cnv)
+
+      implicit none
+
+      real(8) :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      real(8) :: b_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: diva (ilom:ihip,jlom:jhip,klom:khip)
+      real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv3(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv4(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv5(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov (ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov3(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      integer :: j=2,k=1
+      
+c     Begin program
+
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
+
+      do i=0,nx
+        write(*,*) "Acnvdiag",gv%gparams%xx(i+1)
+     .                    ,a_cnv (i,j,k,2)  !Benchmark
+     .                    ,a_cnv (i,j,k,3)  !Benchmark
+        write(*,*) "Acovdiag",gv%gparams%xx(i+1)
+     .                    ,a_cov (i,j,k,2)  !Benchmark
+     .                    ,a_cov (i,j,k,3)  !curl(A)
+      enddo
+
+      !Div(A) diagnostic
+      diva = div(gv%gparams,igrid,a_cnv)
+      write (*,*) "divA=",sqrt(sum(diva**2))
+
+      !Curl benchmark
+      b_cov = XformToCov(gv%gparams,igrid,b_cnv)
+      j_cnv = curl(gv%gparams,igrid,b_cov)
+
+      !Curl-veclap diagnostic
+      order = 2
+
+c$$$      b_cnv2 = curl(gv%gparams,igrid,a_cov,order=4)
+c$$$      b_cov2 = XformToCov(gv%gparams,igrid,b_cnv2)
+      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov)
+      b_cov2 = XformToCov_vrtx(gv%gparams,igrid,b_cnv2)
+
+      do i=0,nx
+        write(*,*) "Bcnvdiag",gv%gparams%xx(i+1)
+     .                    ,b_cnv (i,j,k,2)  !Benchmark
+     .                    ,b_cnv2(i,j,k,2)  !curl(A)
+     .                    ,b_cnv (i,j,k,3)  !Benchmark
+     .                    ,b_cnv2(i,j,k,3)  !curl(A)
+        write(*,*) "Bcovdiag",gv%gparams%xx(i+1)
+     .                    ,b_cov (i,j,k,2)  !Benchmark
+     .                    ,b_cov2(i,j,k,2)  !curl(A)
+     .                    ,b_cov (i,j,k,3)  !Benchmark
+     .                    ,b_cov2(i,j,k,3)  !curl(A)
+      enddo
+
+      !Currents
+cc      j_cnv2= curl_vrtx2cell_mesh(gv%gparams,igrid,b_cov2)
+cc      j_cnv2= curl  (gv%gparams,igrid,b_cov2,order=order)
+      j_cnv2=-veclap    (gv%gparams,igrid,a_cnv)
+      j_cnv3=-veclap_cnv(gv%gparams,igrid,a_cnv)
+      j_cnv4=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cnv4= XformToCnv(gv%gparams,igrid,j_cnv4)
+      j_cnv5= curlcurl_vrtx(gv%gparams,igrid,a_cov)
+
+      do i=1,nx
+        write(*,*) "Jcnvdiag",gv%gparams%xx(i+1)
+     .                    ,j_cnv (i,j,k,2)  !Benchmark
+     .                    ,j_cnv2(i,j,k,2)  
+     .                    ,j_cnv3(i,j,k,2)  
+     .                    ,j_cnv4(i,j,k,2)  
+     .                    ,j_cnv5(i,j,k,2)  
+     .                    ,j_cnv (i,j,k,3)  !Benchmark
+     .                    ,j_cnv2(i,j,k,3)  
+     .                    ,j_cnv3(i,j,k,3)  
+     .                    ,j_cnv4(i,j,k,3)  
+     .                    ,j_cnv5(i,j,k,3)  
+      enddo
+
+      j_cov = XformToCov(gv%gparams,igrid,j_cnv)
+      j_cov2=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cov3= XformToCov(gv%gparams,igrid,j_cnv3)
+      do i=1,nx
+        write(*,*) "Jcovdiag",gv%gparams%xx(i+1)
+     .                    ,j_cov (i,j,k,2)  !Benchmark
+     .                    ,j_cov2(i,j,k,2)  !veclap_cov
+     .                    ,j_cov3(i,j,k,2)  !veclap_cnv
+     .                    ,j_cov (i,j,k,3)  !Benchmark
+     .                    ,j_cov2(i,j,k,3)  !veclap_cov
+     .                    ,j_cov3(i,j,k,3)  !veclap_cnv
+      enddo
+
+      stop
+
+      end subroutine checkCurl
 
       end subroutine findVectorPotential
 #endif
