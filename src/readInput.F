@@ -742,7 +742,7 @@ c$$$      endif
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
-      if (bcs(1) == 'spt') vlap_etaj = .false.
+cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
       if (slava) then
         nu_is_rhonu = .true.
