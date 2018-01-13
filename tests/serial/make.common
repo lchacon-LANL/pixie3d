@@ -36,3 +36,6 @@ test-a test-b test: ;
 run: ;
 	@$(SEREXEC)
 
+clean: ;
+	-@rm -f draw*.in *.bin pixie3d.tst* pixie3d.err* *.txt *.vlog 2>/dev/null
+

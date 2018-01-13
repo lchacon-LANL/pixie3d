@@ -1,10 +1,9 @@
 
  Solving for vector potential...
 
- A-solve GMRES its= 13
+ A-solve GMRES its= 14
 
   Grid mesh:................   32x   32x    1
-  Number of grid levels:....    4,    3,    1
   Number of processors:.....    1,    2,    1
   Preconditioning method:... SI PC w/o flow
   Time correction...........   F

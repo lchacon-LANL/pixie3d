@@ -22,3 +22,8 @@ test-a rebuild-a: ;
 test-b rebuild-b: ;
 	-@for subdir in $(DIRS_B) ; do \
 		$(MAKE) --no-print-directory -e -C $$subdir $@;  done
+
+clean: ;
+	-@for subdir in $(DIRS); do \
+		$(MAKE) --no-print-directory -e -C $$subdir $@; done
+
