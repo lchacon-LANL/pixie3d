@@ -1,6 +1,5 @@
 
   Grid mesh:................  200x    1x    1
-  Number of grid levels:....    2,    1,    1
   Number of processors:.....    4,    1,    1
   Preconditioning method:... Identity
   Time correction...........   F

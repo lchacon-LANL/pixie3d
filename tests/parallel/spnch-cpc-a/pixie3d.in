@@ -17,7 +17,7 @@
     eta      = 1d-3
     nu       = 1d-3
     dd       = 1d-3
-    chi      = 0d-2
+    chi      = 0d-3
     
     equil    = 'spnch'
 
@@ -31,7 +31,7 @@
     dt       = 1d-2
     tmax     = 1d-1
     dstep    = 1d-1
-
+    
     pvx      = 1d-4
     nh2      = 1
     odd      = f,f,f
@@ -44,7 +44,16 @@
 
     source   = t
 
-    precon   = 'id'
+    pc_type  = 'id'
+    mg_vcyc  = 1
+    sm_iter  = 3
+
+    maxksp   = 20
+    maxitgm  = 20
+    tolgm    = 8d-1
+    rtol     = 1d-3
+    atol     = 0d0
+    method   = 1
 
     iguess   = 0
 
@@ -53,8 +62,7 @@
     vol_wgt  = t
 
     solenoidal = t
-    nc_eom_jxb = t
-    nc_eom_gp  = t
+    nc_eom_f   = t
     nc_eom_v   = f
     solve_rho  = t
 
