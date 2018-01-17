@@ -26,6 +26,8 @@ c----------------------------------------------------------------------
 
       use graphics_io
 
+      use local_BCS_variables
+
       implicit none
 
 c Call variables
@@ -85,6 +87,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
+     .                   ,regularize_A
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -119,6 +122,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
+     .                   ,regularize_A
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -522,6 +526,8 @@ c     #####################################################################
 
       post_smooth_B = .false.  ! Whether to smooth B at postprocessing stage
 
+      regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
+
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -690,6 +696,11 @@ c     #####################################################################
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
+      !Do NOT regularize A @ SP when plotting
+#if defined(plotting)
+      regularize_A = .false.
+#endif
+
       !Non-conservative EOM
 cc      if (coords /= 'car') nc_eom_f = .true.
       if (nc_eom_f) then
@@ -731,7 +742,7 @@ c$$$      endif
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
-      if (bcs(1) == 'spt') vlap_etaj = .false.
+cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
       if (slava) then
         nu_is_rhonu = .true.
@@ -824,6 +835,7 @@ cc         maxitnwt = 10
       !Magnetic perturbation
       if (br_pert_freq /= 0d0) irrot_br_pert = .true.
 
+      !Parallelization
 #if defined(petsc)
       if (npx*npy*npz > np) then
          call pstop("readInput","Too many procs specified")
@@ -831,7 +843,7 @@ cc         maxitnwt = 10
 #else
       npx = 1 ; npy = 1 ; npz = 1
 #endif
-         
+
       end subroutine consistency_chk
 
       end subroutine readInput

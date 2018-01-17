@@ -31,6 +31,8 @@ c--------------------------------------------------------------------
 
       use app_iosetup
 
+      use poincare_io
+
 #if defined(RFX)
       use rfx
 #endif
@@ -48,7 +50,7 @@ c Local variables
       integer :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz,ierr
       real(8) :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
      .          ,cov(3),cnv(3)
-      logical :: cartsn,covariant,to_cartsn,to_cnv
+      logical :: cartsn,covariant,to_cartsn,to_cnv,tor
 
 c Begin program
 
@@ -365,7 +367,15 @@ c Fourier output
 
 c Poincare output (field tracer)
 
-      if (poincare) call poincare_plot_dump
+      tor = (equil  == 'vmec'
+     $  .or. coords == 'tor'
+     $  .or. coords == 'sha'
+     $  .or. coords == 'sh2'
+     $  .or. coords == 'stl')
+
+      if (poincare)
+     . call poincare_plot_dump(gv%gparams,time,bcnv,bx_car,by_car,bz_car
+     .                        ,tor)
 
 c Divergence diagnostics
 
@@ -443,7 +453,7 @@ c     Begin program
          RR = 1d0
        endif
 
-          !Find mean fields
+       !Find mean fields
        do i = iming,imaxg
          b00    (i,:) = 0d0
          j00_cov(i,:) = 0d0
@@ -558,80 +568,6 @@ cc          close(1000)
        deallocate(b00,j00_cov,v00,q00,l00)
 
       end subroutine tor_diag
-
-c     poincare_plot_dump
-c     ################################################################
-      subroutine poincare_plot_dump
-
-c     ---------------------------------------------------------------
-c     Integrates array(i,j,k) on periodic dimensions of domain
-c     (nx)x(ny)x(nz) to find quasi-linear profiles.
-c     ---------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      character(30) :: ft_file,ft_file_old=''
-      integer :: uft=2345
-      logical :: tor
-
-      save :: ft_file_old
-
-c     Begin program
-
-c     Open file
-
-      write (ft_file,'(f9.3)') time
-
-      if (trim(ft_file) == trim(ft_file_old)) then
-        return
-      else
-        ft_file_old = ft_file
-      endif
-
-      ft_file = 'poinc_t='//trim(adjustl(ft_file))//'.bin'
-
-      if (np > 1) then
-        ft_file = trim(ft_file)//'_proc'//trim(int2char(my_rank))
-      endif
-
-      open(unit=uft,file=trim(ft_file)
-     .    ,status='unknown',form='unformatted')
-
-c     Dump arrays
-
-      write (*,*) 'Dumping Poincare file ',ft_file
-
-      tor = (equil == 'vmec' .or. coords == 'tor')
-
-      write (uft) nxd,nyd,nzd,bcond,tor
-      write (uft) gv%gparams%xg  !Dump global position array
-      write (uft) gv%gparams%yg  !"
-      write (uft) gv%gparams%zg  !"
-
-      if (np > 1) then
-        write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
-      endif
-
-      write (uft) bcnv(:,:,:,1)
-      write (uft) bcnv(:,:,:,2)
-      write (uft) bcnv(:,:,:,3)
-      write (uft) bx_car
-      write (uft) by_car
-      write (uft) bz_car
-      write (uft) gv%gparams%gmetric%grid(1)%jac
-      write (uft) gv%gparams%gmetric%grid(1)%car
-
-c     Close file
-
-      close(uft)
-
-c     End program
-
-      end subroutine poincare_plot_dump
 
 c     fourier_dump
 c     ################################################################

@@ -1,7 +1,7 @@
  Reading KAI TM perturbations
 
   Grid mesh:................   64x   32x    1
-  Number of grid levels:....    4,    4,    1
+  Number of processors:.....    2,    1,    1
   Preconditioning method:... Identity
   Time correction...........   F
   External source...........   T

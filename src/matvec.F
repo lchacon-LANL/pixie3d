@@ -349,7 +349,7 @@ c Call variables
 
 c Local variables
 
-      real(8) :: aa
+      real(8) :: x1,y1,z1
       integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
       integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
 
@@ -388,20 +388,13 @@ c Calculate matrix-vector product
       !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
       allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
 
-      aa = g_def%params(2) !Horizontal elliptical radius
-
       do k = kmin-1,kmax+1
         do j = jmin-1,jmax+1
           do i = imin-1,imax+1
-cc            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
-cc     .                                  ,ig,jg,kg,x1,y1,z1)
-cc
-cc            iRR(i,j,k) = 1d0/(x1**2+y1**2)
-            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
 
-            iRR(i,j,k) =  1d0/(g_def%params(1)
-     .                       + aa*g_def%xx(ig)
-     .                        *cos(g_def%yy(jg)))**2
+            iRR(i,j,k) = 1d0/(x1**2+y1**2)
           enddo
         enddo
       enddo
@@ -1182,7 +1175,7 @@ c Local variables
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .             ,i,j,k,ig,jg,kg,ieq
 
-      real(8)    :: upwind,etal,vol,vlap(3),vlap_cnv(3)
+      real(8)    :: upwind,vol,vlap(3),vlap_cnv(3)
      $             ,cnv(3),cov(3),car(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv,db_cnv,db_cov
@@ -1223,28 +1216,37 @@ c Map vector x to array for processing
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-c$$$      call fillArray(g_def,igrid,neq,x,da,bcnd,order_bc,gpos=gpos
-c$$$     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-c$$$     .              ,result_is_curv=.true.)
       call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
       call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.,arr_cov=da)
       call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
-      !Magnetic fields
-      db_cnv = curl(g_def,igrid,da)
-      db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
-cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
-
       !Currents
-      dj_cnv = curl(g_def,igrid,db_cov)
-      dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
-cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
+      if (MG_get_find_diag().or.vlap_etaj) then
+c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
+        !!!!!
+c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
+c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+        !!!!!!
+        dj_cnv =-veclap    (g_def,igrid,da_cnv)
+        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+        !!!!!!!
+c$$$        dj_cnv =-veclap_cnv(g_def,igrid,da_cnv)
+c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+        !!!!!!!
+c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+      else
+        db_cnv = curl(g_def,igrid,da)
+        db_cov = XformVector(g_def,igrid,db_cnv,.false.)
+c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
+c$$$     .              ,is_vec=.true.,result_is_curv=.true.
+c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
+
+        dj_cnv = curl(g_def,igrid,db_cov)
+        dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
+      endif
 
 c Velocity field (including BCs)
 
@@ -1275,27 +1277,13 @@ c Calculate matrix-vector product
             endif
 
             !Resistive part
-
-            if (MG_get_find_diag().or.vlap_etaj) then
-              vlap = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
-     .                         ,igrid,igrid,igrid,da
-     .                         ,vol=.false.)
-cc              vlap_cnv = veclap(g_def,i,j,k,nxx,nyy,nzz
-cc     .                         ,igrid,igrid,igrid,da_cnv
-cc     .                         ,vol=.false.)
-cc              vlap=matmul(g_def%gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cc     .                   ,vlap_cnv)
-            else
-              vlap =-dj_cov(i,j,k,:)
-            endif
-
-            etal = eta0(i,j,k,1)
+            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
 
             !Convective part
             cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv,da)
 
             !Assemble residual
-            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov - etal*vlap))*vol
+            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov - vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cov(ieq)
