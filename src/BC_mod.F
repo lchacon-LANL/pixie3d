@@ -19,13 +19,13 @@ c####################################################################
      .                             ,E_fld_ehall,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,pinch_flow,sym_st,subtract_E0
-     .                             ,res_ijk,vis_ijk,form_ve
+     .                             ,res_ijk,vis_ijk,form_ve,solenoidal
 
         integer :: order_bc=1
 
-        logical :: no_eq_bc=.false.,no_tn_bc=.false.
+        logical :: regularize_A = .true.  !Whether we regularize A @ SP
 
-        logical :: save_tn
+        logical :: no_eq_bc,save_tn,no_tn_bc
 
       contains
 
@@ -99,128 +99,25 @@ c     Assign BCs
         bbcs(:,ieq) = varray%array_var(ieq)%bconds
       enddo
 
+c     Default RHO boundary conditions 
+
+      call default_SCL_BCs(bbcs(:,IRHO))
+
 c     Default VEL boundary conditions (no-stress)
 
-      bcsq = bbcs(:,IRHO)
-      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-      bbcs(:,IRHO) = bcsq
-
-c$$$      if (di > 0d0) then        !Force D_t(v x n) = 0 for energy conservation
-c$$$        bcsq = bbcs(:,IVX)
-c$$$        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
-c$$$        where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
-c$$$        bbcs(:,IVX) = bcsq
-c$$$
-c$$$        bcsq = bbcs(:,IVY)
-c$$$        if (     coords == 'cyl'
-c$$$     .      .or. coords == 'hel'
-c$$$     .      .or. coords == 'tor'
-c$$$     .      .or. coords == 'car') then
-c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
-c$$$        else
-c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
-c$$$        endif
-c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
-c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) =-EQU
-c$$$        bbcs(:,IVY) = bcsq
-c$$$
-c$$$        bcsq = bbcs(:,IVZ)
-c$$$        if (     coords == 'cyl'
-c$$$     .      .or. coords == 'hel'
-c$$$     .      .or. coords == 'tor'
-c$$$     .      .or. coords == 'car') then
-c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
-c$$$        else
-c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
-c$$$        endif
-c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) =-EQU
-c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
-c$$$        bbcs(:,IVZ) = bcsq
-c$$$      else
-        bcsq = bbcs(:,IVX)
-        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
-        where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
-        bbcs(:,IVX) = bcsq
-
-        bcsq = bbcs(:,IVY)
-        if (     coords == 'cyl'
-     .      .or. coords == 'hel'
-     .      .or. coords == 'tor'
-     .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
-        else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
-        endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
-        where (bcsq(5:6) == DEF) bcsq(5:6) =-NEU
-        bbcs(:,IVY) = bcsq
-
-        bcsq = bbcs(:,IVZ)
-        if (     coords == 'cyl'
-     .      .or. coords == 'hel'
-     .      .or. coords == 'tor'
-     .      .or. coords == 'car') then
-          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
-        else
-          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
-        endif
-        where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
-        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
-        bbcs(:,IVZ) = bcsq
-c$$$      endif
-
-      call set_vec_symm_bc(bbcs(:,IVX:IVZ),-1)
+      call default_V_BCs(bbcs(:,IVX:IVZ))
 
 c     Default B-A boundary conditions
 
 #if !defined(vec_pot)
-      bcsq = bbcs(:,IBX)
-      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR
-      where (bcsq(3:6) == DEF) bcsq(3:6) = -NEU !On covariant components
-      bbcs(:,IBX) = bcsq
-
-      bcsq = bbcs(:,IBY)
-      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
-      where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU  !On covariant components
-      where (bcsq(5:6) == DEF) bcsq(5:6) = -NEU  !On covariant components
-      bbcs(:,IBY) = bcsq
-
-      bcsq = bbcs(:,IBZ)
-      where (bcsq(1:4) == DEF) bcsq(1:4) = -NEU !On covariant components
-      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
-      bbcs(:,IBZ) = bcsq
-
-      call set_vec_symm_bc(bbcs(:,IBX:IBZ),1)
+      call default_B_BCs(bbcs(:,IBX:IBZ))
 #else
-      bcsq = bbcs(:,IAX)
-      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR !On contravariant components
-      where (bcsq(3:6) == DEF) bcsq(3:6) = -EQU !On covariant components
-      bbcs(:,IAX) = bcsq
-
-      bcsq = bbcs(:,IAY)
-      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
-      where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
-      where (bcsq(5:6) == DEF) bcsq(5:6) = -EQU !On covariant components
-      bbcs(:,IAY) = bcsq
-
-      bcsq = bbcs(:,IAZ)
-      where (bcsq(1:4) == DEF) bcsq(1:4) = -EQU !On covariant components
-      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
-      bbcs(:,IAZ) = bcsq
-
-      call set_vec_symm_bc(bbcs(:,IAX:IAZ),-1)
+      call default_A_BCs(bbcs(:,IAX:IAZ))
 #endif
 
 c     Default TMP boundary conditions
 
-      bcsq = bbcs(:,ITMP)
-      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
-cc      if (gamma /= 1d0 .and. (.not.use_p_eom)) then
-cc        where (bcsq == DEF) bcsq = DIR
-cc      else
-cc        where (bcsq == DEF) bcsq = NEU !To allow isothermal case
-cc      endif
-      bbcs(:,ITMP) = bcsq
+      call default_SCL_BCs(bbcs(:,ITMP))
 
 c     Exceptions for specific equilibria
 
@@ -249,13 +146,13 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = DIR
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = DIR
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = EQU
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
 
-      case ('vmec','tor')
+      case ('vmec','tor','stell')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
@@ -549,9 +446,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
-     .          ,gsub(3,3),jach
-
-c$$$      real(8) :: x(5),vec(4),xt(1)
+     .          ,gsub(3,3),jac
 
 c     Begin program
 
@@ -564,66 +459,36 @@ c     Begin program
         stop
       endif
 
-      i = nx
-
-c$$$      ord = 3
-c$$$
-c$$$      call getMGmap(i,j,k,igrid,igrid,igrid,ig,jg,kg)
-c$$$
-c$$$      x = (/g_def%xx(ig-3)
-c$$$     $     ,g_def%xx(ig-2)
-c$$$     $     ,g_def%xx(ig-1)
-c$$$     $     ,g_def%xx(ig  )
-c$$$     $     ,g_def%xx(ig+1)/)
-c$$$
-c$$$      xt = 0.5*(g_def%xx(ig+1)
-c$$$     $         +g_def%xx(ig  ))
+      i = nx + 1
 
       do k=0,nz+1
         do j=0,ny+1
-          jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i+1,j,k)
-     .               +g_def%gmetric%grid(igrid)%jac(i  ,j,k))
+          jac = g_def%gmetric%grid(igrid)%jac(i,j,k)
 
-          bbcnv=0.5*(bcnv(i+1,j,k,:)+bcnv(i  ,j,k,:))
-          bbcov=0.5*(matmul(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
-     .                     ,bcnv(i  ,j,k,:))
-     .              +matmul(g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:)
-     .                     ,bcnv(i+1,j,k,:)))
+          bbcnv = bcnv(i,j,k,:)
+          bbcov = XformToCov_ijk(g_def,i,j,k,igrid,bbcnv)
 
-          b2 = dot_product(bbcnv,bbcov)/jach
+          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
 
           if (b2 > 0d0) then
             if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
-              bbcov = dum - 2*dot_product(bbcnv,dum)/(jach*b2)*bbcov
+              dum = dbcov(i,j,k,:)
+              bbcov = dum - 2*dot_product(bbcnv,dum)/(jac*b2)*bbcov
             endif
 
-            grad_p
-     .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-c$$$            grad_p = 0.5*(grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
-c$$$     $                   +grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
-c$$$
-c$$$            vec = (/ prs(i-2,j,k)
-c$$$     $              ,prs(i-1,j,k)
-c$$$     $              ,prs(i  ,j,k)
-c$$$     $              ,prs(i+1,j,k) /)
-c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
+            grad_p = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
+            grad_p = XformToCnv_ijk(g_def,i,j,k,igrid,grad_p)
 
-            gsup = 0.5*(g_def%gmetric%grid(igrid)%gsup(i+1,j,k,:,:)
-     .                 +g_def%gmetric%grid(igrid)%gsup(i  ,j,k,:,:))
-
-            grad_p = matmul(gsup,grad_p)
-
-            etah = 2d0/(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
-cc            etah = 0.5*(eta(i+1,j,k)+eta(i,j,k))
+            etah = eta(i,j,k)
 
             !ExB velocity
-            v0(i+1,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
-     .                    -etah*grad_p(1))/b2
-            v0(i+1,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
-     .                    -etah*grad_p(2))/b2
-            v0(i+1,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
-     .                    -etah*grad_p(3))/b2
+            v0(i,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
+     .                 -etah*grad_p(1))/b2
+            v0(i,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
+     .                 -etah*grad_p(2))/b2
+            v0(i,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
+     .                 -etah*grad_p(3))/b2
+
           endif
         enddo
       enddo
@@ -760,6 +625,234 @@ c =================
 c     End program
 
       end subroutine J_pinch_bc
+
+c     init_BCs
+c     ####################################################################
+      subroutine init_BCs(bcsq)
+c     --------------------------------------------------------------------
+c     Defines default BCs for SCALARS (rho, T)
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bcsq(:,:)
+
+c     Local variables
+
+      integer :: i
+
+c     Begin program
+
+      do i=1,size(bcsq,2)
+        bcsq(:,i) = bcond
+      enddo
+
+c     End program
+
+      end subroutine init_BCs
+
+c     default_SCL_BCs
+c     ####################################################################
+      subroutine default_SCL_BCs(bcsq)
+c     --------------------------------------------------------------------
+c     Defines default BCs for SCALARS (rho, T)
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bcsq(6)
+
+c     Local variables
+
+c     Begin program
+
+      where (bcsq == DEF .or. bcsq == FSYM) bcsq = NEU
+
+c     End program
+
+      end subroutine default_SCL_BCs
+
+c     default_B_BCs
+c     ####################################################################
+      subroutine default_B_BCs(bbcs)
+c     --------------------------------------------------------------------
+c     Defines default BCs for magnetic field
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bbcs(6,3)
+
+c     Local variables
+
+      integer :: bcsq(6)
+
+c     Begin program
+
+      call init_BCs(bbcs)
+
+      bcsq = bbcs(:,1)
+      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR
+      where (bcsq(3:6) == DEF) bcsq(3:6) = -NEU !On covariant components
+      bbcs(:,1) = bcsq
+
+      bcsq = bbcs(:,2)
+      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
+      where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU  !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) = -NEU  !On covariant components
+      bbcs(:,2) = bcsq
+
+      bcsq = bbcs(:,3)
+      where (bcsq(1:4) == DEF) bcsq(1:4) = -NEU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
+      bbcs(:,3) = bcsq
+
+      call set_vec_symm_bc(bbcs,1)
+
+c     End program
+
+      end subroutine default_B_BCs
+
+c     default_A_BCs
+c     ####################################################################
+      subroutine default_A_BCs(bbcs)
+c     --------------------------------------------------------------------
+c     Defines default BCs for vector potential
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bbcs(6,3)
+
+c     Local variables
+
+      integer :: bcsq(6)
+
+c     Begin program
+
+      call init_BCs(bbcs)
+
+      bcsq = bbcs(:,1)
+      where (bcsq(1:2) == DEF) bcsq(1:2) =  DIR !On contravariant components
+      where (bcsq(3:6) == DEF) bcsq(3:6) = -EQU !On covariant components
+      bbcs(:,1) = bcsq
+
+      bcsq = bbcs(:,2)
+      where (bcsq(3:4) == DEF) bcsq(3:4) =  DIR
+      where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) = -EQU !On covariant components
+      bbcs(:,2) = bcsq
+
+      bcsq = bbcs(:,3)
+      where (bcsq(1:4) == DEF) bcsq(1:4) = -EQU !On covariant components
+      where (bcsq(5:6) == DEF) bcsq(5:6) =  DIR
+      bbcs(:,3) = bcsq
+
+      call set_vec_symm_bc(bbcs,-1)
+
+c     End program
+
+      end subroutine default_A_BCs
+
+c     default_V_BCs
+c     ####################################################################
+      subroutine default_V_BCs(bbcs)
+c     --------------------------------------------------------------------
+c     Defines default BCs for velocity
+c     --------------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: bbcs(6,3)
+
+c     Local variables
+
+      integer :: bcsq(6)
+
+c     Begin program
+
+      call init_BCs(bbcs)
+
+c$$$      if (di > 0d0) then        !Force D_t(v x n) = 0 for energy conservation
+c$$$        bcsq = bbcs(:,1)
+c$$$        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
+c$$$        where (bcsq(3:6) == DEF) bcsq(3:6) =-EQU !On covariant components
+c$$$        bbcs(:,1) = bcsq
+c$$$
+c$$$        bcsq = bbcs(:,2)
+c$$$        if (     coords == 'cyl'
+c$$$     .      .or. coords == 'hel'
+c$$$     .      .or. coords == 'tor'
+c$$$     .      .or. coords == 'car') then
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+c$$$        else
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+c$$$        endif
+c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
+c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) =-EQU
+c$$$        bbcs(:,2) = bcsq
+c$$$
+c$$$        bcsq = bbcs(:,3)
+c$$$        if (     coords == 'cyl'
+c$$$     .      .or. coords == 'hel'
+c$$$     .      .or. coords == 'tor'
+c$$$     .      .or. coords == 'car') then
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) =  EQU !On contravariant components
+c$$$        else
+c$$$          where (bcsq(1:2) == DEF) bcsq(1:2) = -EQU !On covariant components
+c$$$        endif
+c$$$        where (bcsq(3:4) == DEF) bcsq(3:4) =-EQU
+c$$$        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+c$$$        bbcs(:,3) = bcsq
+c$$$      else
+
+        bcsq = bbcs(:,1)
+        where (bcsq(1:2) == DEF) bcsq(1:2) = DIR
+        where (bcsq(3:6) == DEF) bcsq(3:6) =-NEU !On covariant components
+        bbcs(:,1) = bcsq
+
+        bcsq = bbcs(:,2)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) = DIR
+        where (bcsq(5:6) == DEF) bcsq(5:6) =-NEU
+        bbcs(:,2) = bcsq
+
+        bcsq = bbcs(:,3)
+        if (     coords == 'cyl'
+     .      .or. coords == 'hel'
+     .      .or. coords == 'tor'
+     .      .or. coords == 'car') then
+          where (bcsq(1:2) == DEF) bcsq(1:2) =  NEU !On contravariant components
+        else
+          where (bcsq(1:2) == DEF) bcsq(1:2) = -NEU !On covariant components
+        endif
+        where (bcsq(3:4) == DEF) bcsq(3:4) =-NEU
+        where (bcsq(5:6) == DEF) bcsq(5:6) = DIR
+        bbcs(:,3) = bcsq
+c$$$      endif
+
+      call set_vec_symm_bc(bbcs,-1)
+
+c     End program
+
+      end subroutine default_V_BCs
 
       end module local_BCS_variables
 

@@ -339,7 +339,7 @@ c     ###############################################################
         implicit none
 
         real(8) :: tol_divcl
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
@@ -348,8 +348,7 @@ c     ###############################################################
 
 c       Find db=B^(n+1)-B^n
 
-        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
@@ -362,7 +361,7 @@ c       Clean db
 
         tol_divcl = rtol
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
+     .                   ,igx,igy,igz,db_cnv
      .                   ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
 
 c       Find new B^(n+1)
@@ -380,7 +379,7 @@ c       Update helical flux and magnetic field
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-        deallocate(db_cnv,da_cov)
+        deallocate(db_cnv)
 
       end subroutine post__divclean
 

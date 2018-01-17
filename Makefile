@@ -219,4 +219,9 @@ distclean:
 	-@for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
 
+testclean:
+	-@for subdir in tests/serial tests/parallel ; do \
+		$(MAKE) -C $$subdir clean;  done
+
+
 

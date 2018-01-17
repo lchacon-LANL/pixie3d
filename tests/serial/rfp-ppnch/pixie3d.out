@@ -1,44 +1,44 @@
  Calculating equilibrium ppnch...
 
- ************************************
+ ***************************
  1D Ohmic equilibrium solver
- ************************************
+ ***************************
 
- 1D equilibrium converged in  10 iterations with error =  1.84E-06
+ 1D equilibrium converged in   8 iterations with error =  4.08E-05
 
- Force-balance error = 4.3041172E-05
- Ohms law      error = 8.2479882E-05
+ Force-balance error = 2.7818097E-03
+ Ohms law      error = 7.6747232E-03
 
  Pinch equilibrium features:
-   Theta  = 1.6482468
+   Theta  = 1.6518018
    Bz(r=0)= 1.0000000
-   I0     = 2.0544812
+   I0     = 2.0634714
    E0/eta = 4.0000000
-   T_flux = 0.6232323
+   T_flux = 0.6246123
 
-  Grid mesh:................  128x   32x    1
-  Number of grid levels:....    6,    4,    1
+  Grid mesh:................   32x   32x    1
+  Number of grid levels:....    4,    4,    1
   Preconditioning method:... Identity
   Time correction...........   F
-  External source...........   T
-  Numerical grid............   F
-  Scalar advection scheme...    ZIP   
-  Velocity advection scheme.    ZIP   
+  External source...........   F
+  Numerical grid............   T
+  Scalar advection scheme...  SMART   
+  Velocity advection scheme.  SMART   
   TS scheme................. Theta    
 
    itime    time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor  GMRES-DC
-      1    0.005  5.0E-03 5.7E+01  1.2E-02  2.3E-07  5.8E-09     3     3     0.500        0
-      2    0.010  5.0E-03 5.7E+01  1.2E-02  7.0E-07  2.3E-08     3     3     0.500        0
-      3    0.015  5.0E-03 5.7E+01  1.2E-02  1.4E-06  5.2E-08     4     3     0.500        0
-      4    0.020  5.0E-03 5.7E+01  1.2E-02  2.2E-06  9.2E-08     7     4     0.500        0
-      5    0.025  5.0E-03 5.7E+01  1.2E-02  3.3E-06  1.4E-07    10     5     0.500        0
-      6    0.030  5.0E-03 5.7E+01  1.2E-02  4.6E-06  2.1E-07    14     5     0.500        0
-      7    0.035  5.0E-03 5.7E+01  1.2E-02  6.1E-06  2.8E-07    13     5     0.500        0
-      8    0.040  5.0E-03 5.7E+01  1.2E-02  7.9E-06  3.7E-07    13     5     0.500        0
-      9    0.045  5.0E-03 5.7E+01  1.2E-02  9.8E-06  4.6E-07    11     5     0.500        0
-     10    0.050  5.0E-03 5.7E+01  1.2E-02  1.2E-05  5.7E-07    13     5     0.500        0
+      1    0.010  1.0E-02 1.1E+01  1.1E-02  1.4E-06  3.3E-08     4     4     0.500        0
+      2    0.020  1.0E-02 1.1E+01  1.1E-02  4.9E-06  1.3E-07     4     4     0.500        0
+      3    0.030  1.0E-02 1.1E+01  1.1E-02  9.8E-06  3.0E-07     5     4     0.500        0
+      4    0.040  1.0E-02 1.1E+01  1.1E-02  1.5E-05  5.3E-07     5     4     0.500        0
+      5    0.050  1.0E-02 1.1E+01  1.1E-02  2.1E-05  8.3E-07     5     4     0.500        0
+      6    0.060  1.0E-02 1.1E+01  1.1E-02  2.8E-05  1.2E-06     6     5     0.500        0
+      7    0.070  1.0E-02 1.1E+01  1.1E-02  3.6E-05  1.6E-06     8     5     0.500        0
+      8    0.080  1.0E-02 1.1E+01  1.1E-02  4.5E-05  2.1E-06     7     5     0.500        0
+      9    0.090  1.0E-02 1.1E+01  1.1E-02  5.6E-05  2.7E-06     7     4     0.500        0
+     10    0.100  1.0E-02 1.1E+01  1.1E-02  7.0E-05  3.3E-06     7     4     0.500        0
 
 Final statistics
 
  itime  Newt/ndt  GMRES/ndt  GMRES/Newt
-   10       4.3        9.1        2.1
+   10       4.3        5.8        1.3

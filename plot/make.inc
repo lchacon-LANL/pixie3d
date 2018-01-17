@@ -16,8 +16,8 @@ override CPPFLAGS += -Dplotting
 
 COMMONDIR = ../common
 
-SUBDIRS = $(COMMONDIR)/math\
-	  $(COMMONDIR)/io\
+SUBDIRS = $(COMMONDIR)/io\
+	  $(COMMONDIR)/math\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\

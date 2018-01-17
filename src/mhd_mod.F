@@ -1195,9 +1195,13 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       endif
 
       !V cov
-      vaux%vec_list(IVCOV)%bc_dep_list(1,1) = IVCNV*AUX
+      vaux%vec_list(IVCOV)%bc_dep_list(1,1) = IVCOV*AUX
       vaux%vec_list(IVCOV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVCOV)%bc_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IVCOV)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IVCOV)%bc_dep_list(2,2) = VECTOR
+      vaux%vec_list(IVCOV)%bc_dep_list(2,3) = 0 !trivial
 
       !J cnv
       vaux%vec_list(IJCNV)%bc_dep_list(1,1) = IJCNV*AUX
@@ -1254,7 +1258,7 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
       vaux%vec_list(IDIVPI)%bc_dep_list(1,2) = SCALAR
       vaux%vec_list(IDIVPI)%bc_dep_list(1,3) = 1 !non-trivial
 
-      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCNV*AUX
+      vaux%vec_list(IDIVPI)%bc_dep_list(2,1) = IVCOV*AUX
       vaux%vec_list(IDIVPI)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IDIVPI)%bc_dep_list(2,3) = 1 !non-trivial
 
@@ -1336,7 +1340,7 @@ cc#endif
       vaux%vec_list(IENI)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%bc_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%bc_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%bc_dep_list(4,3) = 0 !trivial
 
@@ -1736,7 +1740,7 @@ c     Current variables
       vaux%vec_list(IENI)%dom_dep_list(3,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(3,3) = 0 !trivial
 
-      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCNV*AUX
+      vaux%vec_list(IENI)%dom_dep_list(4,1) = IVCOV*AUX
       vaux%vec_list(IENI)%dom_dep_list(4,2) = VECTOR
       vaux%vec_list(IENI)%dom_dep_list(4,3) = 0 !trivial
 
@@ -4597,9 +4601,7 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
           pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc,symm)
 
           nabla_v = fnabla_v(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-     .                      ,vcnv2(:,:,:,1)
-     .                      ,vcnv2(:,:,:,2)
-     .                      ,vcnv2(:,:,:,3),0)
+     .                      ,vcnv2,0)
 
           !Make nabla_v covariant on both sides
           nabla_v = matmul(nabla_v
@@ -5498,14 +5500,10 @@ c     Diffusive part
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),1,cnv=.true.)
+     .                          ,vec1,1,cnv=.true.)
         else
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),0,cnv=.true.)
+     .                          ,vec1,0,cnv=.true.)
         endif
 
         if (symm_pi) then
@@ -5590,14 +5588,10 @@ c       Diffusive part
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),2,cnv=.true.)
+     .                          ,vec1,2,cnv=.true.)
         else
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),0,cnv=.true.)
+     .                          ,vec1,0,cnv=.true.)
         endif
 
         if (symm_pi) then
@@ -5684,14 +5678,10 @@ c       Diffusive part
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),3,cnv=.true.)
+     .                          ,vec1,3,cnv=.true.)
         else
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                    ,vec1(:,:,:,1)
-     .                    ,vec1(:,:,:,2)
-     .                    ,vec1(:,:,:,3),0,cnv=.true.)
+     .                          ,vec1,0,cnv=.true.)
         endif
 
         if (symm_pi) then
@@ -6036,10 +6026,10 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igr
-      real(8) :: jcov  (0:,0:,0:,:)
-     .          ,eta2  (0:,0:,0:)
-     .          ,vcnv  (0:,0:,0:,:)
-     .          ,acov  (0:,0:,0:,:)
+      real(8) :: jcov(0:,0:,0:,:)
+     .          ,eta2(0:,0:,0:)
+     .          ,vcnv(0:,0:,0:,:)
+     .          ,acov(0:,0:,0:,:)
 
       real(8) :: E_res(0:size(vcnv,1)-1
      .                ,0:size(vcnv,2)-1
@@ -6063,9 +6053,14 @@ c     Resistive term
 
         !Ohmic current
         if (vlap_etaj) then
-          E_res =-veclap_cov(g_def,igr,acov)
+c$$$          E_res = -veclap_cnv(g_def,igr,XformToCnv(g_def,igr,acov))
+c$$$          E_res = XformToCov(g_def,igr,E_res)
+c$$$          E_res =-veclap_cov(g_def,igr,acov)
+c$$$          E_res =-veclap_vrtx(g_def,igr,acov,ret_cnv=.false.)
+          E_res =-veclap_vrtx(g_def,igr,acov,ret_cnv=.false.)
         else
           E_res = jcov
+c$$$          E_res = curlcurl_vrtx(gv%gparams,igr,acov)
         endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)
