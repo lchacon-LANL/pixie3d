@@ -52,4 +52,4 @@ run: ;
 	@$(PAREXEC)
 
 clean: ;
-	-@rm -f draw*.in *.bin pixie3d.tst* pixie3d.err* *.txt *.vlog 2>/dev/null
+	-@rm -f draw*.in *.bin pixie3d.tst* pixie3d.err* *.vlog 2>/dev/null
