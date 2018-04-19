@@ -123,8 +123,8 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup tests rebuild-tests $(SUBDIRS)
+.PHONY: pixie3d pixplot allclean distclean petsc all contrib contrib_clean \
+        vmec vmec_clean setup tests rebuild-tests testclean $(SUBDIRS)
 
 all: $(SUBDIRS)
 

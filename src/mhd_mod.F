@@ -172,8 +172,10 @@ c ######################################################################
      .            ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .            ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
-        logical :: lagrangian=.false.   !Whether we perform Lagrangian step for Te
-     .            ,spitzer=.false.      !Whether we are using Spitzer resistivity
+        logical :: lagrangian=.false.     !Whether we perform Lagrangian step for Te
+     .            ,spitzer=.false.        !Whether we are using Spitzer resistivity
+     .            ,fixed_spitzer=.false.  !Whether we are using Spitzer resistivity
+     .            ,lagged_spitzer=.false. !Whether we are using Spitzer resistivity
 
       contains
 
