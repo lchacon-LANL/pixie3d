@@ -868,7 +868,14 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          eeta= res(gv%gparams,igr,tmpe)
+cc          eeta= res(gv%gparams,igr,tmpe)
+          if (fixed_spitzer) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_spitzer) then
+            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
 
         case(ICHI)
 
@@ -1333,13 +1340,13 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-c$$$          if (fixed_spitzer) then
-c$$$            eeta= res(gv%gparams,igr,tmpe_0)
-c$$$          elseif (lagged_spitzer) then
-c$$$            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
-c$$$          else
-c$$$            eeta= res(gv%gparams,igr,tmpe)
-c$$$          endif
+          if (fixed_spitzer) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_spitzer) then
+            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
 
         case(ICHI)
 
