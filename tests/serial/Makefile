@@ -6,7 +6,7 @@ DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a")
 
 #Define targets
 
-.PHONY: test-a test-b rebuild-a rebuild-b setup
+.PHONY: test-a test-b rebuild-a rebuild-b setup clean
 
 setup: ;
 	-@for subdir in $(DIRS); do \
