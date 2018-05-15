@@ -186,6 +186,11 @@ cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
         where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
 
+      case('vela2')
+
+c$$$        if (gamma > 1d0)
+c$$$     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+
       case('adv2')
 
         bbcs(1,IRHO) = EQU

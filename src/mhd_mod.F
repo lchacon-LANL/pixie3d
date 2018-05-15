@@ -174,8 +174,8 @@ c ######################################################################
 
         logical :: lagrangian=.false.     !Whether we perform Lagrangian step for Te
      .            ,spitzer=.false.        !Whether we are using Spitzer resistivity
-     .            ,fixed_spitzer=.false.  !Whether we are using Spitzer resistivity
-     .            ,lagged_spitzer=.false. !Whether we are using Spitzer resistivity
+     .            ,fixed_spitzer=.false.  !Whether we are fixing the T to T_0
+     .            ,lagged_spitzer=.false. !Whether we are lagging T to T_n
 
       contains
 
