@@ -1029,6 +1029,7 @@ c     Check coordinates
 
          beta=1.0d0 ! For force balance in Hesse equilibrium
          var(:,:,:,ITMP) = 1.0*beta/a_p !Electron temperature required for force balance
+ 
          if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
            hlx = xmax
          elseif (bcond(1) == FSYM .and. bcond(2) /= FSYM) then
@@ -1865,7 +1866,7 @@ cc     .                          ,b
 cc     .                          ,var(:,:,:,IAX:IAZ))
 #endif
 
-      case ('rfp83')
+      case ('rfp83','vela1','vela2')
 
 c     Check coordinates
 
@@ -1874,23 +1875,23 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
-
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
+        mm   = gv%gparams%params(1) !Poloidal mode number
+        kk   = gv%gparams%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
+        RR   = gv%gparams%params(3) !Major radius (determines aspect ratio)
+        bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
+        beta = gv%gparams%params(5) !Beta toroidal
 
         nh2 = mm  !To set the right perturbation wavelength
-
         nh1 = nh2 !For perturbations to be of the right order
 
-        !Find pressure and q-profiles
-        bz0  = 1d0
-        beta = 0d0
+c$$$     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
+
+c$$$        bz0  = 1d0
+c$$$        beta = 4d-5
 
         do i=0,nxdp
           x1  = gv%gparams%xg(i)
-          p00(i) = 2d-5
+          p00(i) = 0.5*beta*bz0**2*pprof(x1,0)/pprof(0d0,0)
           q00(i) = RR*qprof(x1)
         enddo
 
@@ -1901,11 +1902,13 @@ c     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
         call GS_equil_1d(q00,p00,bth0,bzz0)
 
         !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
+        var(:,:,:,IVX:IVZ)  = 0d0
 
-        var(:,:,:,IRHO) = 1d0
+        if (equil(1:4) == 'vela') then
+          var(:,:,:,IRHO) = 1d0/(gamma-1d0)
+        else
+          var(:,:,:,IRHO) = 1d0
+        endif
 
 #if !defined(vec_pot)
         do k = klom,khip
@@ -1997,11 +2000,11 @@ c     Equilibria (numerical)
 
 #if !defined(vec_pot)
               var(i,j,k,IBX) = 0d0
-              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/nh2*bzz0(iglobal)
+              var(i,j,k,IBY) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
               var(i,j,k,IBZ) = x1*bzz0(iglobal)
 #endif
 
-              var(i,j,k,ITMP) = 0.5*p00(iglobal)/var(i,j,k,IRHO)
+              var(i,j,k,ITMP) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
             enddo
           enddo
@@ -2990,15 +2993,14 @@ cc          enddo
             gs_err = gs_err
      .                +(bzh*(bzz0(i)-bzz0(i-1))/dr(i)
      .                     +(p0h (i)-p0h (i-1))/dr(i)
-cc     $                 +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1)))**2
-     $                 +0.5*(bth0(i)**2-bth0(i-1)**2)/dr(i)
+     .                 +0.5*(bth0(i)**2-bth0(i-1)**2)/dr(i)
      .                 +bth**2/rh)**2
           enddo
           gs_err = sqrt(gs_err/nxd)
 
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,*) '1D Grad-Shafranov equilibrium iter =',it
-     .                 ,' ; Force balance rror=',gs_err
+     .                 ,' ; Force balance error=',gs_err
           endif
 
           dh = xmax/nxd
@@ -5925,7 +5927,7 @@ c     Call variables
 c     Local variables
 
         integer :: p
-        real(8) :: q0,qa
+        real(8) :: q0,qa,qstar,RR,aa
 
 c     Begin program
 
@@ -5941,6 +5943,20 @@ c     Begin program
         case('rfp83')
 
           qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)
+
+        case('vela1')
+
+          qstar = 1.5
+
+          RR   = gv%gparams%params(3)
+          
+          aa = 1./(qstar*RR)
+          
+          qprof = r**2/(aa*RR)
+
+        case('vela2')
+
+          qprof = log(1+r)+exp(r)
 
         case default
 
@@ -5972,6 +5988,8 @@ c     Call variables
 
 c     Local variables
 
+        real(8) :: qstar,aa,RR
+
 c     Begin program
 
         select case(equil)
@@ -5998,6 +6016,28 @@ c     Begin program
           else
             pprof =-4*s*(1-s**2)
           endif
+
+        case('rfp83')
+
+          if (der == 0) then
+            pprof = 1d0
+          else
+            pprof = 0d0
+          endif
+
+        case('vela1')
+
+          qstar = 1.5
+
+          RR   = gv%gparams%params(3)
+          
+          aa = 1./(qstar*RR)
+          
+          pprof = 0.5*(1-s*s)**2*(1+2*s**2-s**4+2./3.*aa**2*(5-2*s*s))
+
+        case('vela2')
+
+          pprof = 1.1 + 0.1*s**2 - 1.1*s**4
 
         case default
 
