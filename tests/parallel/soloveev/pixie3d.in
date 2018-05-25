@@ -80,7 +80,7 @@
  /
 
  &pc
-    pc_type   = 'id'
+    pc_type   = 's1'
     pc_tol    = 1d-1
     pc_iter   = 0
     mg_vcyc   = 2
