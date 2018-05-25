@@ -40,6 +40,10 @@ c Configure PC parameters
 
       call PC_config
 
+c Allocate PC variables
+
+      if (.not.pc_vars_allcd) call allocPCVariables
+
 c Impose BCs
 
 #if !defined(samrai)

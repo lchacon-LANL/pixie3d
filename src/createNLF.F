@@ -25,7 +25,7 @@ cc      call defineAuxVariables(gv%aux)
 
 c Preconditioner
 
-      call allocPCVariables
+cc      call allocPCVariables
 #endif
 
 c     End programs
