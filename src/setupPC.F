@@ -292,4 +292,6 @@ c     Deallocate LOCAL auxiliary variables
 
       call destroyAppBCs
 
+cc      if (pc_vars_allcd) call deallocPCVariables
+      
       end subroutine kill_app_PC

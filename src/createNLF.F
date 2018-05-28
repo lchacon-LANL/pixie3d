@@ -55,7 +55,7 @@ c Begin program
 #if !defined(samrai)
 cc      call deallocLocalAuxVars
 
-      call deallocPCVariables
+      if (pc_vars_allcd) call deallocPCVariables
 #endif
 
 c End programs
