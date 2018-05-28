@@ -427,15 +427,23 @@ c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
 c$$$     .              ,vaux%var_list(ITMP_AUX)%bconds
 c$$$     .              ,igr,igr,igr,iorder=order)
 
-          !Impose BCs on perturbation only
+!Impose BCs on perturbation only
           s0 = 0d0
-          tmp = tmp - tmp_0
+          if (use_p_eom) then
+            tmp = rho*tmp-rho_0*tmp_0
+          else
+            tmp = tmp - tmp_0
+          endif
           
           call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
      .              ,vaux%var_list(ITMP_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
-          tmp = tmp + tmp_0
+          if (use_p_eom) then
+            tmp = (tmp+rho_0*tmp_0)/rho
+          else
+            tmp = tmp + tmp_0
+          endif
           
         case(ITMPE_AUX)
 
@@ -449,13 +457,21 @@ c$$$     .              ,igr,igr,igr,iorder=order)
           
           !Impose BCs on perturbation only
           s0 = 0d0
-          tmpe = tmpe - tmpe_0
+          if (use_p_eom) then
+            tmpe = rho*tmpe-rho_0*tmpe_0
+          else
+            tmpe = tmpe - tmp_0
+          endif
           
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-     .              ,vaux%var_list(ITMP_AUX)%bconds
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+     .              ,vaux%var_list(ITMPE_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
-          tmpe = tmpe + tmpe_0
+           if (use_p_eom) then
+            tmpe = (tmpe+rho_0*tmpe_0)/rho
+          else
+            tmpe = tmpe + tmpe_0
+          endif
 
         case default
           call pstop('applyAuxVarBC'
@@ -1344,7 +1360,7 @@ c       Resistivity at initial time
 
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)
+        case(ITMP_AUX)  !Recover electron pressure
 
           if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
             varray%array_var(ITMP)%array = rho*tmp_0*jac
