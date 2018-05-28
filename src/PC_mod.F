@@ -251,6 +251,8 @@ c     Begin program
         call deallocateMGArray(gbhat)
         call deallocateMGArray(g_advdiffV0)
 
+        pc_vars_allcd = .false.
+
 c     End program
 
       end subroutine deallocPCVariables
