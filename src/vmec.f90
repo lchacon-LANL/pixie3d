@@ -1659,7 +1659,7 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(equ_file)
+      subroutine vmec_map(equ_file,g_def)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -1674,6 +1674,7 @@
 
 !     Input variables
 
+      type(grid_mg_def),pointer :: g_def
 !!$      logical :: metrics
       character(*) :: equ_file
 
@@ -1700,21 +1701,21 @@
 !     Cycle grid levels
 
 !!$      igrid = 1
-      do igrid=1,gv%gparams%ngrid
+      do igrid=1,g_def%ngrid
 
 !     Get LOCAL limits and allocate local map array
 
-        nx = gv%gparams%nxv(igrid)
-        ny = gv%gparams%nyv(igrid)
-        nz = gv%gparams%nzv(igrid)
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
 
         allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-        nxg = gv%gparams%nxgl(igrid)
-        nyg = gv%gparams%nygl(igrid)
-        nzg = gv%gparams%nzgl(igrid)
+        nxg = g_def%nxgl(igrid)
+        nyg = g_def%nygl(igrid)
+        nzg = g_def%nzgl(igrid)
 
         if (my_rank == 0) then
            write (*,'(a,i3,a,i3,a,i3,a,i3)') &
@@ -1778,19 +1779,19 @@
 
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
 
-!!$        ph0 = gv%gparams%zg(1)  !Reference phi=0 plane at phi(k=1)
+!!$        ph0 = g_def%zg(1)  !Reference phi=0 plane at phi(k=1)
         ph0 = 0
 
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
 
-              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
               !Find local coordinates
-              r1  = gv%gparams%xx(ig)
-              th1 = gv%gparams%yy(jg)
-              ph1 = gv%gparams%zz(kg)
+              r1  = g_def%xx(ig)
+              th1 = g_def%yy(jg)
+              ph1 = g_def%zz(kg)
 
               !Impose SP BCs
               if (r1 < 0d0) then
@@ -1818,10 +1819,10 @@
               v1  = mod(ph1,2*pi/nfp_i)
 
               !Extrapolate to ghost cell at psi=1 boundary (second-order)
-              if (isBdry(gv%gparams,i-1,igrid,2)) then
-                 r1 = 0.5*(gv%gparams%xx(ig-1)+gv%gparams%xx(ig))
-                 r2 =      gv%gparams%xx(ig-1)
-                 r3 =      gv%gparams%xx(ig-2)
+              if (isBdry(g_def,i-1,igrid,2)) then
+                 r1 = 0.5*(g_def%xx(ig-1)+g_def%xx(ig))
+                 r2 =      g_def%xx(ig-1)
+                 r3 =      g_def%xx(ig-2)
                  rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                                ,kx,ky,kz,rr_coef,work)                &
      &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
@@ -1844,7 +1845,7 @@
               endif
 
               !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
-              ph1 =-gv%gparams%zz(kg) + ph0
+              ph1 =-g_def%zz(kg) + ph0
               xcar(i,j,k,1)=rr1(1)*cos(ph1)
               xcar(i,j,k,2)=rr1(1)*sin(ph1)
               xcar(i,j,k,3)=sgn*zz1(1)
@@ -1854,9 +1855,9 @@
 
 !     Fill grid metrics hierarchy
 
-        call defineGridMetric(gv%gparams,xcar=xcar,igr=igrid,ierr=ierr)
+        call defineGridMetric(g_def,xcar=xcar,igr=igrid,ierr=ierr)
 
-        if (check_grid.and.igrid==1) call checkGrid(gv%gparams)
+        if (check_grid.and.igrid==1) call checkGrid(g_def)
 
 !     Free work space (to allow processing of different grid levels)
 
@@ -1874,7 +1875,7 @@
         if (my_rank == 0) write (*,*) ' >>> Discarding leftover VMEC meshes due to jac < 0'
       else
         if (my_rank == 0) write (*,*) ' >>> Coarsening VMEC mesh hierarchy'
-        call createMGMetricHierarchy(gv%gparams)
+        call createMGMetricHierarchy(g_def)
       endif
 
 !     End program

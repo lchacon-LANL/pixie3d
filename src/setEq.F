@@ -2154,7 +2154,7 @@ c     Read VMEC coordinates and fill grid hierarchy
           call pstop('setEq','VMEC EQU file not found')
         endif
 
-        call vmec_map(equ_file)
+cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
 
 c     Read VMEC equilibrium
 
