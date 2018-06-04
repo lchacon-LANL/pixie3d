@@ -9,8 +9,8 @@
      &   presf_vmec=>presf, nfp_vmec=>nfp, bsupumnc_vmec=>bsupumnc,     &
      &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb,bsubvmnc_vmec=>bsubvmnc
 
-      USE B_tools, ONLY: curl_div_clean
-
+!!      USE B_tools, ONLY: curl_div_clean
+      
       IMPLICIT NONE
 !     
 !     WRITTEN 06-27-06 BY S. P. HIRSHMAN AS PART OF THE VMEC++ PROJECT (c)
