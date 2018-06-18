@@ -45,4 +45,4 @@ LNK_FILES = ../src/applyBC.F\
 
 # Dependencies
 
-#postProcessSolution.o: diagnostics.o
+postProcessSolution.o: rfx_module

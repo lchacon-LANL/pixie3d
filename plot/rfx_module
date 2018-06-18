@@ -20,6 +20,8 @@ c ######################################################################
 
       use imposeBCinterface
 
+      use par_int, ONLY: find_polar_coords
+
       implicit none
 
       contains
@@ -104,14 +106,18 @@ c Find electric field
 
       if (coords == 'cyl' .or. coords == 'hel') then
 
-c Transform to cylindrical
+c Transform to cylindrical (from Cartesian)
 
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                            ,coords)
+!            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+!     .                                    ,ig,jg,kg,x1,y1,z1)
 
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+            if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
+	                              !for Cartesian component error)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
      $                     +vy_car(i,j,k)*sin(y1)
@@ -158,9 +164,14 @@ c Transform to toroidal
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                            ,coords)
+!            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+!     .                                    ,ig,jg,kg,x1,y1,z1)
 
+            if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
+	                              !for Cartesian component error)
+	    
 !                    write (*,999) i,j,k,x1,y1,z1
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)*cos(-z1)
