@@ -6348,6 +6348,8 @@ c     This function computes the local value of the resistivity on the
 c     node (i,j,k) of grid igrid according to field.
 c     -----------------------------------------------------------------
 
+        use par_int, ONLY: find_polar_coords
+
       implicit none
 
 c     Call variables
@@ -6360,16 +6362,14 @@ c     Call variables
 c     Local variables
 
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr,th,zz
 
 c     Begin program
 
       if (spitzer) then
         rsvty = eta*res_spitzer(field/te0_ref)
       else
-        call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-        rr = g_def%xx(ig)
-
+        call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,'cyl')
         rsvty = eta*res_rfx(rr)
       endif
 
