@@ -524,7 +524,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
-      real(8) :: b2,bbcnv(3),bbcov(3),grad_p(3),alpha
+      real(8) :: Jb2,b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach
 
 c$$$      real(8) :: x(5),vec(4),xt(1)
@@ -567,37 +567,55 @@ cc     $           -0.5*bcnv(i-1,j,k,:)
 c ====================
           !First-order extrapolation of B to boundary, arbitrary mesh (critical)
           bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
-     $                               /(g_def%xx(ig)
-     $                                -g_def%xx(ig-1))
+     $                             /(g_def%xx(ig) -g_def%xx(ig-1))
      $                               *(0.5*g_def%xx(ig+1)
      $                                +0.5*g_def%xx(ig)
      $                                -    g_def%xx(ig-1))
-c ====================
-c$$$          vec = (/ bcnv(i-3,j,k,1)
-c$$$     $            ,bcnv(i-2,j,k,1)
-c$$$     $            ,bcnv(i-1,j,k,1)
-c$$$     $            ,bcnv(i  ,j,k,1) /)
-c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(1:1),ord)
-c$$$          vec = (/ bcnv(i-3,j,k,2)
-c$$$     $            ,bcnv(i-2,j,k,2)
-c$$$     $            ,bcnv(i-1,j,k,2)
-c$$$     $            ,bcnv(i  ,j,k,2) /)
-c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(2:2),ord)
-c$$$          vec = (/ bcnv(i-3,j,k,3)
-c$$$     $            ,bcnv(i-2,j,k,3)
-c$$$     $            ,bcnv(i-1,j,k,3)
-c$$$     $            ,bcnv(i  ,j,k,3) /)
-c$$$          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
-c ====================
 
           gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
           bbcov = matmul(gsub,bbcnv)
+c ====================
+cc          !High-order extrapolation of B to boundary, arbitrary mesh (critical)
+cc          vec = (/ bcnv(i-3,j,k,1)
+cc     $            ,bcnv(i-2,j,k,1)
+cc     $            ,bcnv(i-1,j,k,1)
+cc     $            ,bcnv(i  ,j,k,1) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(1:1),ord)
+cc          vec = (/ bcnv(i-3,j,k,2)
+cc     $            ,bcnv(i-2,j,k,2)
+cc     $            ,bcnv(i-1,j,k,2)
+cc     $            ,bcnv(i  ,j,k,2) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(2:2),ord)
+cc          vec = (/ bcnv(i-3,j,k,3)
+cc     $            ,bcnv(i-2,j,k,3)
+cc     $            ,bcnv(i-1,j,k,3)
+cc     $            ,bcnv(i  ,j,k,3) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
+cc
+cc          !High-order extrapolation of B to boundary, arbitrary mesh (critical)
+cc          vec = (/ bcov(i-3,j,k,1)
+cc     $            ,bcov(i-2,j,k,1)
+cc     $            ,bcov(i-1,j,k,1)
+cc     $            ,bcov(i  ,j,k,1) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(1:1),ord)
+cc          vec = (/ bcov(i-3,j,k,2)
+cc     $            ,bcov(i-2,j,k,2)
+cc     $            ,bcov(i-1,j,k,2)
+cc     $            ,bcov(i  ,j,k,2) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(2:2),ord)
+cc          vec = (/ bcov(i-3,j,k,3)
+cc     $            ,bcov(i-2,j,k,3)
+cc     $            ,bcov(i-1,j,k,3)
+cc     $            ,bcov(i  ,j,k,3) /)
+cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(3:3),ord)
+c ====================
 
           jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
      .               +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
-          b2 = dot_product(bbcov,bbcnv)/jach
+          Jb2 = dot_product(bbcov,bbcnv)
+          b2  = Jb2/jach
 
           if (b2 > 0d0) then
 cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
@@ -620,7 +638,7 @@ c$$$     $              ,prs(i+1,j,k) /)
 c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 c =================
 
-            alpha = dot_product(E0,bbcnv)/jach*ietah/b2
+            alpha = dot_product(E0,bbcnv)*ietah/Jb2
 
             j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
           endif
