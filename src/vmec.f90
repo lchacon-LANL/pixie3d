@@ -9,8 +9,6 @@
      &   presf_vmec=>presf, nfp_vmec=>nfp, bsupumnc_vmec=>bsupumnc,     &
      &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb,bsubvmnc_vmec=>bsubvmnc
 
-!!      USE B_tools, ONLY: curl_div_clean
-      
       IMPLICIT NONE
 !     
 !     WRITTEN 06-27-06 BY S. P. HIRSHMAN AS PART OF THE VMEC++ PROJECT (c)
@@ -2123,8 +2121,7 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam,equ_file &
-     &                   ,dcon)
+      subroutine vmec_equ(iout,igrid,bb,prs,rho,gam,equ_file,dcon,divcl)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2139,16 +2136,17 @@
 
 !      Call variables
 
-        integer :: igrid,nx,ny,nz
+        integer :: igrid,iout
         real(8) :: gam
-        real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
+        real(8),dimension(0:,0:,0:,:) :: bb
+        real(8),dimension(0:,0:,0:)   :: prs,rho
         character(*) :: equ_file
 
-        logical :: dcon
+        logical :: dcon,divcl
 
 !     Local variables
 
-        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
+        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat,its,nx,ny,nz
         real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 
         real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
@@ -2157,7 +2155,7 @@
 
         integer :: udcon=1111
 
-        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
+        logical :: enf_tor_flx_fn  !Whether we enforce flux functions in toroidal geom.
 
         !SLATEC spline variables
         integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,sorder,alloc_stat
@@ -2175,6 +2173,10 @@
         endif
 
 !     Get GLOBAL limits (VMEC operates on global domain)
+
+        nx  = gv%gparams%nxv(igrid)
+        ny  = gv%gparams%nyv(igrid)
+        nz  = gv%gparams%nzv(igrid)
 
         nxg = gv%gparams%nxgl(igrid)
         nyg = gv%gparams%nygl(igrid)
@@ -2297,8 +2299,8 @@
         max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
 
         !Clean flux functions (Tokamak case)
-        enf_flx_fn = (nfp_i == 1)
-        if (enf_flx_fn) then
+        enf_tor_flx_fn = (nfp_i == 1)
+        if (enf_tor_flx_fn) then
           do k=0,nzg+1
             do i=0,nxg+1
                igl = i
@@ -2324,16 +2326,16 @@
               !Periodic boundary in phi=2*pi
               if (kgl == nzg+1) kgl = 1
 
-              dum1=sum(bsup(i,1:nyg,k,2))/nyg
+              dum1=sum(bsup (i,1:nyg,k,2))/nyg
               dum2=sum(bsub3(i,1:nyg,k))/nyg
 
-              bsup(i,:,k,2) = dum1
-              bsub3(i,:,k) = dum2
+              bsup (i,:,k,2) = dum1
+              bsub3(i,:,k)   = dum2
              
             enddo
           enddo
-!!$        else !Divergence clean B-field (not ready yet)
-!!$          call curl_div_clean(1,bsup,.false.,global=.true.)
+        else !Divergence clean B-field (outside)
+          divcl = .true.
         endif
 
 !     Spline PIXIE3D global variables
@@ -2389,7 +2391,7 @@
 
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,1),nxs,nys,kx,ky,kz,tx,ty,tz,b1_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,2),nxs,nys,kx,ky,kz,tx,ty,tz,b2_coef,work,flg)
-        if (enf_flx_fn) then
+        if (enf_tor_flx_fn) then
           call db3ink(xs,nxs,ys,nys,zs,nzs,bsub3,nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
         else
           call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,3),nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
@@ -2428,21 +2430,21 @@
               !Map phi to VMEC toroidal coordinate, v
               v1  = mod(ph1,2*pi/nfp_i)
 
-              b1(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              bb(i,j,k,1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                          ,kx,ky,kz,b1_coef,work)
 
-              b2(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              bb(i,j,k,2) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                          ,kx,ky,kz,b2_coef,work)             !Flux coordinate
 
-              if (enf_flx_fn) then
-                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              if (enf_tor_flx_fn) then
+                bb(i,j,k,3) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cov
-                b3(i,j,k) = (b3(i,j,k)                                        &
-     &                    -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*b1(i,j,k)   &
-     &                     +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*b2(i,j,k))) &
+                bb(i,j,k,3) = (bb(i,j,k,3)                                        &
+     &                    -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*bb(i,j,k,1)   &
+     &                     +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*bb(i,j,k,2))) &
      &                    /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
               else
-                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+                bb(i,j,k,3) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cnv
               endif
 
@@ -2518,7 +2520,7 @@
 !!$
 !!$        integer :: udcon=1111
 !!$
-!!$        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
+!!$        logical :: enf_tor_flx_fn  !Whether we enforce flux functions in toroidal geom.
 !!$
 !!$!     Begin program
 !!$
@@ -2656,8 +2658,8 @@
 !!$
 !!$!       Clean flux functions (Tokamak case)
 !!$        
-!!$        enf_flx_fn = (nfp_i == 1)
-!!$        if (enf_flx_fn.and.(np == 1)) then
+!!$        enf_tor_flx_fn = (nfp_i == 1)
+!!$        if (enf_tor_flx_fn.and.(np == 1)) then
 !!$          do k=0,nzg+1
 !!$            do i=0,nxg+1
 !!$               igl = i

@@ -4414,6 +4414,8 @@ c ######################################################################
 
         use mg_solver
 
+        use par_int, ONLY: find_polar_coords
+
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
         real(8) :: eq_params(6),te0_ref
@@ -6369,7 +6371,7 @@ c     Begin program
       if (spitzer) then
         rsvty = eta*res_spitzer(field/te0_ref)
       else
-        call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,'cyl')
+        call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
         rsvty = eta*res_rfx(rr)
       endif
 
