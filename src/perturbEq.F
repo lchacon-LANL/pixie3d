@@ -1144,8 +1144,11 @@ c     Divergence clean perturbation
         if (ilevel > 0) write (*,*)
       endif
 
-      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,w_pre_bcs=.true.
+c$$$      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
+c$$$     .                   ,db_cnv,w_pre_bcs=.true.
+c$$$     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+      call B_div_clean(gv%gparams,ilevel,igx
+     .                   ,db_cnv,"line",w_pre_bcs=.true.
      .                   ,gm_it=it_divcl,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then

@@ -1911,7 +1911,7 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,ii,igx,igy,igz,nx,ny,nz,its
-      real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
 c Begin program
 
@@ -1926,24 +1926,20 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
-      allocate(db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB (w/ BCs)
 
       call fillArray(gv%gparams,igrid,3,xb,db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,is_vec=.true.,is_cnv=.true.
-     .              ,arr_cov=db_cov,icomp=(/IBX/))
+     .              ,icomp=(/IBX/))
 
 c Solve dB*=-curl(lap^(-1)(curl(dB)))
 
       its = 0
 
-c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
-
-      call vlap_div_clean(gv%gparams,iout,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,dbcov=db_cov
-     .                   ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
+      call B_div_clean(gv%gparams,iout,igrid,db_cnv,"vlap"
+     .                ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
 
       it_divcl = it_divcl + its
 
@@ -1958,7 +1954,7 @@ c Map array to vector
         enddo
       enddo
 
-      deallocate(db_cnv,db_cov)
+      deallocate(db_cnv)
 
 c End program
 
