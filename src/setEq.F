@@ -4616,9 +4616,9 @@ c     Local variables
      .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3,II2
      .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol,gpsi(3)
      .            ,cov(3),e4,e5,e6,bcnv(3),gp(3),gp_cnv(3),dp_dpsi,gpsi2
-     .            ,bcov(3),th,zz,dh,dt
+     .            ,bcov(3),th,zz,dh,dt,rh
 
-        real(8) :: xh(0:nxd),drh(0:nxd),rl(nxl),dr(0:nxd)!,rg(0:nxdp)
+        real(8) :: xh(0:nxd),drh(0:nxd),dr(0:nxd)
 
         real(8) :: iR2  (0:nx+1,0:ny+1,0:nz+1)
      .            ,zeros(0:nx+1,0:ny+1,0:nz+1)
@@ -4659,22 +4659,6 @@ c     Begin program
         qprof = 0d0 ; III = 0d0 !; psig = 0d0
 
 c       Initialize iteration
-
-        !Integer mesh positions
-        do i=1,nxl
-          call find_polar_coords(gv%gparams,1,i,1,1,rl(i),th,zz
-     .         ,coords)
-        enddo
-        
-c$$$#if defined(petsc)
-c$$$        call MPI_Allgather(rl(1:nxl),nxl,MPI_DOUBLE_PRECISION
-c$$$     .                    ,rg(1:nxd),nxl,MPI_DOUBLE_PRECISION
-c$$$     .                    ,gv%gparams%MPI_COMM_X,mpierr)
-c$$$#else
-c$$$        rg(1:nxd) = rl
-c$$$#endif
-c$$$        rg(0)    = -rg(1)           !@ SP
-c$$$        rg(nxdp) = 2*xmax - rg(nxd) !@ radial boundary
 
         !Find half-mesh positions and spacings
         xh (0) = 0.5*gv%gparams%xg(1)
@@ -4734,7 +4718,10 @@ c       Iteration
 
               call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
+              call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
+     .                              ,coords)
 c$$$              rh = gv%gparams%xx (ig)
+
               dh = gv%gparams%dxh(ig)
               dt = gv%gparams%dyh(jg)
 
@@ -4777,7 +4764,7 @@ c$$$                dp_dpsi = 0d0
 c$$$              endif
 
               !Compute GS RHS
-              etah =res_rfx(rl(ig))
+              etah =res_rfx(rh)
 c$$$              II2 = IIh*IIh/bnorm2
 c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
               II2 = IIh*IIh
@@ -4854,7 +4841,10 @@ cc     .              ,mg_gm_coarse_solve=.true.
             do i=1,nx
               call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
+              call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
+     .                              ,coords)
 c$$$              rh = gv%gparams%xx(ig)
+
               dh = gv%gparams%dxh(ig)
               dt = gv%gparams%dyh(jg)
 
@@ -4883,7 +4873,7 @@ c$$$              rh = gv%gparams%xx(ig)
               spsim = sqrt(1d0-psim/psi0)
               dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/dh
 
-              etah  = res_rfx(rl(ig))
+              etah  = res_rfx(rh)
 
               dummy(i,j) = dummy(i-1,j)
      .                    -(Eoeta*psir/etah*iR2(i,j,k)+dpdr)/bnorm2
@@ -4956,6 +4946,8 @@ c       Find vectors and scalars
           do i=1,nx
             call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
+            call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
+     .                            ,coords)
 c$$$            rh = gv%gparams%xx(ig)
             dh = gv%gparams%dxh(ig)
             dt = gv%gparams%dyh(jg)
@@ -4983,7 +4975,7 @@ c$$$            rh = gv%gparams%xx(ig)
             bcov = XformToCov_ijk(gv%gparams,i,j,k,igrid,bcnv)
 
             !Find contravariant velocity components
-            etah =res_rfx(rl(ig))
+            etah =res_rfx(rh)
 
             spsip = sqrt(1d0-psi(i+1,j,k,1)/psi0)
             spsim = sqrt(1d0-psi(i-1,j,k,1)/psi0)
@@ -5021,6 +5013,9 @@ c       Calculate GS convergence properties
 cc        do j=1,ny
 cc          do i=1,nx
             call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
+     .                            ,coords)
 
 c$$$            rh = gv%gparams%xx(ig)
             dh = gv%gparams%dxh(ig)
@@ -5069,7 +5064,7 @@ c$$$            rh = gv%gparams%xx(ig)
             e3 = e3 + f_3**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
 
             !Find covariant Ohm's law components
-            etah =res_rfx(rl(ig))
+            etah =res_rfx(rh)
 
             cov = matmul(gv%gparams%gmetric%grid(1)%gsub(i,j,k,:,:)
      .                  ,(/ j1,j2,j3/))
