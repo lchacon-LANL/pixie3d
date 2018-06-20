@@ -2355,6 +2355,10 @@ c Transfer BC fields info to postprocessor via input file
       call write_bc_field_to_inputf(M0,'M0')
 
 c End program
+      
+#if defined(RFX)
+10    format (4f7.3,2e12.3)
+#endif
 
       end subroutine setEquilibrium
 
