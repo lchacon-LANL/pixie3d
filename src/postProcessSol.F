@@ -360,11 +360,11 @@ c       Find db=B^(n+1)-B^n
 c       Clean db
 
         tol_divcl = rtol
-        call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"line"
-     .                  ,gm_it=it_divcl,rtol=tol_divcl)
-c$$$        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-c$$$     .                     ,igx,igy,igz,db_cnv
-c$$$     .                     ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
+c$$$        call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
+c$$$     .                  ,gm_it=it_divcl,rtol=tol_divcl)
+        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
+     .                     ,igx,igy,igz,db_cnv
+     .                     ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
 
 c       Find new B^(n+1)
 

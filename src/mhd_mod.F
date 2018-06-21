@@ -6371,8 +6371,13 @@ c     Begin program
       if (spitzer) then
         rsvty = eta*res_spitzer(field/te0_ref)
       else
-        call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
-        rsvty = eta*res_rfx(rr)
+        select case (equil)
+        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          rsvty = eta*res_rfx(rr)
+        case default
+          rsvty = eta
+        end select
       endif
 
 cc      select case (equil)
