@@ -1772,6 +1772,8 @@
         !Spline RR, ZZ
         allocate(rr_coef(nxs,nys,nzs),zz_coef(nxs,nys,nzs),stat=alloc_stat)
 
+	write (*,*) "vmec diag",sqrt(sum(rr**2)),sqrt(sum(zz**2))
+
         call db3ink(xs,nxs,ys,nys,zs,nzs,rr,nxs,nys,kx,ky,kz,tx,ty,tz,rr_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,zz,nxs,nys,kx,ky,kz,tx,ty,tz,zz_coef,work,flg)
 
@@ -2121,7 +2123,7 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(iout,igrid,bb,prs,rho,gam,equ_file,dcon,divcl)
+      subroutine vmec_equ(iout,igrid,nx,ny,nz,bb,prs,rho,gam,equ_file,dcon,divcl)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2136,17 +2138,17 @@
 
 !      Call variables
 
-        integer :: igrid,iout
+        integer :: igrid,iout,nx,ny,nz
         real(8) :: gam
-        real(8),dimension(0:,0:,0:,:) :: bb
-        real(8),dimension(0:,0:,0:)   :: prs,rho
+        real(8),dimension(0:nx+1,0:ny+2,0:nz+1,3) :: bb
+        real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,rho
         character(*) :: equ_file
 
         logical :: dcon,divcl
 
 !     Local variables
 
-        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat,its,nx,ny,nz
+        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat,its
         real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 
         real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
@@ -2174,9 +2176,9 @@
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-        nx  = gv%gparams%nxv(igrid)
-        ny  = gv%gparams%nyv(igrid)
-        nz  = gv%gparams%nzv(igrid)
+!        nx  = gv%gparams%nxv(igrid)
+!        ny  = gv%gparams%nyv(igrid)
+!        nz  = gv%gparams%nzv(igrid)
 
         nxg = gv%gparams%nxgl(igrid)
         nyg = gv%gparams%nygl(igrid)

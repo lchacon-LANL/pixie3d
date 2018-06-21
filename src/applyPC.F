@@ -1986,6 +1986,15 @@ c Local variables
       integer    :: ieq,ii,ntot
       real(8)    :: xi(nn*neq),bi(nn*neq)
 
+      INTERFACE
+        subroutine mstar_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+          use grid
+          type(grid_mg_def),pointer :: g_def
+          integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+          real(8) :: x(ntot),y(ntot)
+        end subroutine mstar_mtvc
+      END INTERFACE
+
 c Begin program
 
       ntot = nn*neq
@@ -2000,7 +2009,7 @@ c Gather variables
 
 c Perform matvec with M_star
 
-      call mstar_mtvc(0,3,nn*neq,xi,bi,igrid,bcnd)
+      call mstar_mtvc(gv%gparams,0,3,nn*neq,xi,bi,igrid,bcnd)
 
 c Scatter solution
 
