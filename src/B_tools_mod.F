@@ -796,6 +796,8 @@ c     Begin program
 
 c     Find vector potential
 
+      its = 0
+
       call findVectorPotential(g_def,iout,igrid,db,da_cov,meth
      .                        ,its=its,rtol=rtol)
 
