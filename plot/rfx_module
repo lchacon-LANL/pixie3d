@@ -243,10 +243,15 @@ c diag: dump text data
         do i=0,nxd+1
           do j=1,nyd
             do k=1,nzd
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+              if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
+	                                !for Cartesian component error)
 
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
-            write (1012) bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+!              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+!     .                                      ,ig,jg,kg,x1,y1,z1)
+              write (1012) x1,y1,z1
+     .                ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
      .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
      .                ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
      .                ,ecyl(i,j,k,1),ecyl(i,j,k,2),ecyl(i,j,k,3)

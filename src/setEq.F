@@ -94,6 +94,18 @@ c Functions
       real(8) :: qprof,pprof
       external   qprof,pprof
 
+      INTERFACE
+        subroutine vmec_equ(iout,igrid,bb,prs,rho,gam,equ_file,dcon
+     .                     ,divcl)
+          integer :: igrid,iout
+          real(8) :: gam
+          real(8),dimension(0:,0:,0:,:) :: bb
+          real(8),dimension(0:,0:,0:)   :: prs,rho
+          character(*) :: equ_file
+          logical :: dcon,divcl
+        end subroutine vmec_equ
+      END INTERFACE
+
 c Begin program
 
       ldaflow = dlambda/rshear
