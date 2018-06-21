@@ -510,7 +510,7 @@ c Local variables
         use parameters
         use var_setup
         integer :: igr
-        real(8) :: fi(:)
+        real(8) :: fi(ntotd)
         type(var_array),pointer :: varray
         end subroutine evaluate_NLF
       END INTERFACE

@@ -767,7 +767,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: bcsb(6,3),nx,ny,nz
+      integer :: bcsb(6,3),nx,ny,nz,its
 
       real(8) :: da_cov (0:size(db,1)-1
      .                  ,0:size(db,2)-1
@@ -797,12 +797,14 @@ c     Begin program
 c     Find vector potential
 
       call findVectorPotential(g_def,iout,igrid,db,da_cov,meth
-     .                        ,its=gm_it,rtol=rtol)
+     .                        ,its=its,rtol=rtol)
 
       if (my_rank == 0.and.iout > 0.and.(.not.PRESENT(gm_it))) then
         write (*,'(a,i3,a)') meth//' divergence cleaning converged in'
-     .                      ,gm_it,' its'
+     .                      ,its,' its'
       endif
+
+      if (PRESENT(gm_it)) gm_it = its
 
 c     Diagnostics
 
