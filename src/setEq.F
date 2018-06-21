@@ -35,7 +35,7 @@ c--------------------------------------------------------------------
 
       use app_iosetup
 
-      use B_tools, ONLY: B_div_clean
+      use B_tools, ONLY: B_div_clean,findVectorPotential
 
       implicit none
 
@@ -104,7 +104,6 @@ c Begin program
 
       do ieq=1,neqd
         var(:,:,:,ieq) = varray%array_var(ieq)%array
-cc        var(:,:,:,ieq:ieq) => varray%array_var(ieq:ieq)%array
       enddo
 
 c Initialize required local grid information
@@ -501,7 +500,7 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
           do j = jlom,jhip
             do i = ilom,ihip
               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
               var(i,j,k,IVY)=vperflow
      .                      *tanh((x1-0.5d0*(xmax+xmin))/dlambda)
             enddo
@@ -511,15 +510,12 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        B0 = 0d0
-        B0(3) = 1d0
-
 #if !defined(vec_pot)
-        bb(:,:,:,1)  = B0(1)
-        bb(:,:,:,2)  = B0(2)
-        bb(:,:,:,3)  = B0(3)
+        bb(:,:,:,1)  = 0d0
+        bb(:,:,:,2)  = 0d0
+        bb(:,:,:,3)  = 1d0
 #else
-        aa = 0d0 ; find_a = .false.
+        find_a = fillVectorPotential(igx,aa)
 #endif
 
       case ('3dkh')
@@ -636,8 +632,9 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-c     Double periodic Kelvin-Helmholtz with constant magnetic field and pressure in cartesian coordinates                                                                                                        
-
+c     Double periodic Kelvin-Helmholtz with constant magnetic field and pressure
+c     in cartesian coordinates
+        
         var(:,:,:,IRHO) = 1d0
 
         beta = 0.3d0
@@ -647,14 +644,12 @@ c     Double periodic Kelvin-Helmholtz with constant magnetic field and pressure
           do j = jlom,jhip
             do i = ilom,ihip
               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .             ,ig,jg,kg,x1,y1,z1)
+     .                                    ,ig,jg,kg,x1,y1,z1)
 
               var(i,j,k,IVY)=vperflow
      .                      *(tanh((x1-(xmin+(xmax-xmin)/4d0))/dlambda)
      .                   -tanh((x1-(xmin+3d0*(xmax-xmin)/4d0))/dlambda)
      .                    -1d0)
-
-c(x1-0.5d0*(xmax+xmin))/dlambda)
             enddo
           enddo
         enddo
@@ -673,7 +668,6 @@ c(x1-0.5d0*(xmax+xmin))/dlambda)
 #else
         aa = 0d0 ; find_a = .false.
 #endif
-
 
 c     ----------------------------------------------
 c     ---------------  TEARING MODE ----------------
@@ -1388,16 +1382,6 @@ c$$$        endif
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
 
-c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-c$$$
-c$$$              r1 = sqrt(x1**2+y1**2)
-c$$$
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-c$$$
-c$$$              r1 = r1*sign(1d0,x1)
-
               btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
 
               ! Calculate in Cartesian, then call XformVector_mesh2
@@ -1448,8 +1432,6 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
             do i = ilom,ihip
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
 
               btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
@@ -1509,8 +1491,6 @@ c     Tokamak equilibria (analytical)
             do i = ilom,ihip
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               btheta = b_0*x1/(1+(x1/dlambda)**2)
               bz0    = RR
@@ -1574,8 +1554,6 @@ c$$$        beta = 4d-5
             do i = ilom,ihip
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               iglobal = i + gv%gparams%ilo(igx) - 1
 
@@ -1633,11 +1611,8 @@ c     Equilibria (numerical)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .             ,igz,ig,jg,kg,x1,y1,z1)
 
               iglobal = i + gv%gparams%ilo(igx) - 1
 
@@ -1994,9 +1969,8 @@ c     Magnetic field
         do k = 0,nz+1
           do j = 0,ny+1
             do i = 0,nx+1
-
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1
-     .                              ,z1,'cyl')
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,'cyl')
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
@@ -2184,7 +2158,7 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
         
         kk = 0d0   !To avoid affecting q-profile
 
-        !Now these must be initalized directly in input file.
+        !Now these must be initialized directly in input file.
         if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
         if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
 
@@ -2313,8 +2287,7 @@ c Transfer magnetic field/vector potential
 
 #if defined(vec_pot)
       if (find_a) then
-        call findVectorPotential(gv%gparams,ilevel,igrid,bb
-     .                          ,aa,'vlap')
+        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap')
       endif
       var(:,:,:,IAX:IAZ) = aa
 #else
@@ -4776,8 +4749,8 @@ c$$$              psi_rhs(ii)= (Eoeta/etah*iR2(i,j,k)*II2-dp_dpsi*(1d0-II2))
 
               !Multiply by R to ensure proper limit R->inf
               errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                       ,psi(:,:,:,1),dff=iR2,vol=.false.)
-     .                   -psi_rhs(ii))*RR(i,j)
+     .                      ,psi(:,:,:,1),dff=iR2,vol=.false.)
+     .                  -psi_rhs(ii))*RR(i,j)
 
               if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
      .                       *gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
@@ -5763,123 +5736,3 @@ c Transform to Covariant
 c End program
 
       end function fillVectorPotential
-
-ccc findScalarPotential
-ccc####################################################################
-cc      subroutine findScalarPotential(v,b,phi)
-cc
-ccc--------------------------------------------------------------------
-ccc     Finds scalar equilibrium potential from equilibrium velocity and 
-ccc     magnetic fields, obeying the relation:
-ccc     
-ccc         lap(phi_0) = div(v0 x B0)
-ccc
-ccc     This automatically takes into account ExB flows at the boundary.
-ccc--------------------------------------------------------------------
-cc
-cc      use parameters
-cc
-cc      use grid
-cc
-cc      use equilibrium
-cc
-cc      use PC_var
-cc
-cc      implicit none
-cc
-ccc Call variables
-cc
-cc      real(8)    :: v(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .             ,b(ilom:ihip,jlom:jhip,klom:khip,3)
-cc     .             ,phi(ilom:ihip,jlom:jhip,klom:khip)
-cc
-ccc Local variables
-cc
-cc      integer    :: igrid,ii,bcnd(6,1)
-cc      real(8)    :: phi_rhs(ntotdp),phiv(ntotdp),cov(3)
-cc     .             ,dum(ilom:ihip,jlom:jhip,klom:khip,3),dvol
-cc
-ccc Begin program
-cc
-cc      igrid = 1
-cc
-cc      nx = gv%gparams%nxv(igrid)
-cc      ny = gv%gparams%nyv(igrid)
-cc      nz = gv%gparams%nzv(igrid)
-cc
-ccc Find rhs
-cc
-cc      do k=klom,khip
-cc        do j=jlom,jhip
-cc          do i=ilom,ihip
-cc            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-cc
-cc            cov(1) = v(i,j,k,2)*b(i,j,k,3)
-cc     .             - v(i,j,k,3)*b(i,j,k,2)
-cc
-cc            cov(2) = v(i,j,k,3)*b(i,j,k,1)
-cc     .             - v(i,j,k,1)*b(i,j,k,3)
-cc
-cc            cov(3) = v(i,j,k,1)*b(i,j,k,2)
-cc     .             - v(i,j,k,2)*b(i,j,k,1)
-cc
-cc            cov = cov/jac
-cc
-cc            call transformFromCurvToCurv(i,j,k,igrid,igrid,igrid
-cc     .                                  ,cov(1),cov(2),cov(3)
-cc     .                                  ,dum(i,j,k,1)
-cc     .                                  ,dum(i,j,k,2)
-cc     .                                  ,dum(i,j,k,3),.true.)
-cc
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-cc      do k=klo,khi
-cc        do j=jlo,jhi
-cc          do i=ilo,ihi
-cc            ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc
-cc            if (vol_wgt) then
-cc              dvol = volume(i,j,k,igrid,igrid,igrid)
-cc            else
-cc              dvol = 1d0
-cc            endif
-cc
-cc            phi_rhs(ii) = dvol*div(i,j,k,nx,ny,nz,igrid,igrid,igrid
-cc     .                        ,dum(:,:,:,1),dum(:,:,:,2),dum(:,:,:,3))
-cc          enddo
-cc        enddo
-cc      enddo
-cc
-ccc Solve for potential
-cc
-cc      if (sqrt(sum(phi_rhs*phi_rhs))>0d0) then
-cc
-cc#if defined(petsc)
-cc
-cc        call pstop('findScalarPotential'
-cc     .          ,'Poisson solver not implemented in parallel')
-cc
-cc#else
-cc
-cc        !Define BCs
-cc        bcnd(:,1) = bcond
-cc        where (bcnd == DEF) bcnd = DIR
-cc
-cc        !Solve Poisson eq
-cc        call poisson(ntotdp,phi_rhs,phiv,30,1d-6,bcnd,ilevel,0)
-cc
-cc        !Map to array (w/o BCs)
-cc        call mapMGVectorToArray(0,1,phiv,nx,ny,nz,phi,igrid,.false.)
-cc#endif
-cc
-cc      else
-cc
-cc        phi = 0d0
-cc
-cc      endif
-cc
-ccc End program
-cc
-cc      end subroutine findScalarPotential
