@@ -2176,9 +2176,9 @@
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-!        nx  = gv%gparams%nxv(igrid)
-!        ny  = gv%gparams%nyv(igrid)
-!        nz  = gv%gparams%nzv(igrid)
+!!$        nx  = gv%gparams%nxv(igrid)
+!!$        ny  = gv%gparams%nyv(igrid)
+!!$        nz  = gv%gparams%nzv(igrid)
 
         nxg = gv%gparams%nxgl(igrid)
         nyg = gv%gparams%nygl(igrid)

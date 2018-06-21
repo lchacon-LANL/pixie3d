@@ -1749,7 +1749,7 @@ cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
 c     Read VMEC equilibrium
 
         call vmec_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,ITMP)
-     .                             ,var(:,:,:,IRHO)
+     .                                      ,var(:,:,:,IRHO)
      .               ,gamma,equ_file,dcon,div_clean)
 
         find_a = .false.
