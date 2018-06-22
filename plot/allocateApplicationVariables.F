@@ -6,7 +6,7 @@ c----------------------------------------------------------------------
 c     Allocates graphics-related arrays
 c----------------------------------------------------------------------
 
-      use parameters
+      use app_iosetup
 
       use auxiliaryVariables
 
@@ -18,6 +18,14 @@ c Call variables
 
 c Local variables
 
+      INTERFACE
+         subroutine vmec_map(equ_file,g_def)
+         use grid
+         type(grid_mg_def),pointer :: g_def
+         character(*) :: equ_file
+         end subroutine
+      END INTERFACE
+
 c Begin program
 
       call allocAuxPlotVar
@@ -25,6 +33,10 @@ c Begin program
 c Allocate auxiliary variables
 
       call defineAuxVariables(gv%aux)
+
+c Read coordinate map
+      
+      if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
 
 c End programs
 
@@ -37,8 +49,6 @@ c######################################################################
 c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
-
-      use parameters
 
       use auxiliaryVariables
 

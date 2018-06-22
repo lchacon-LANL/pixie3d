@@ -6,7 +6,9 @@ c ####################################################################
 
         use PC_var
 
-        use local_BCS_variables, ONLY: order_bc
+        use local_BCS_variables, ONLY:order_bc
+     .                               ,default_A_BCs
+     .                               ,default_B_BCs
 
         use app_iosetup
 
@@ -126,7 +128,7 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,3) = bcond
 
         call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
-     .              ,is_vec=.true.,is_cnv=.false.,iorder=order)
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=min(order,2))
       endif
 
 c     End program
@@ -399,7 +401,7 @@ c     Begin program
 
 c     curl_div_clean
 c     #################################################################
-      subroutine curl_div_clean(g_def,igx,db,diag_plots,global)
+      subroutine curl_div_clean(g_def,igx,db,diag_plots,global,order)
 
 c     -----------------------------------------------------------------
 c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
@@ -416,6 +418,7 @@ c     Call variables
 
       logical :: diag_plots
       logical,optional :: global
+      integer,optional :: order
 
 c     Local variables
 
@@ -426,7 +429,7 @@ c     Local variables
 
 c     Find dA from dB (w/ ghost cells)
 
-      call curl_inv(g_def,igx,db,da_cov,global=global)
+      call curl_inv(g_def,igx,db,da_cov,global=global,order=order)
 
 c     Diagnostics (call before db = curl(A))
 
@@ -515,7 +518,7 @@ c     Begin program
       if (PRESENT(rtol)) then
         etol = rtol
       else
-        etol = 1d-4
+        etol = 1d-7
       endif
 
 c     Find Lap(A0)
@@ -725,6 +728,111 @@ c     Store vector potential
       if (PRESENT(dacov)) dacov = da_cov
 
       end subroutine vlap_div_clean
+
+c     B_div_clean
+c     #################################################################
+      subroutine B_div_clean(g_def,iout,igrid,db,meth,dacov
+     .                      ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+
+c     -----------------------------------------------------------------
+c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
+c     On input:
+c       * iout: level of output info
+c       * igrid: grid level size
+c       * db: input cnv magnetic field 
+c       * dacov (optional): cov A (output)
+c       * meth: divergence cleaning method ("vlap","line")
+c       * w_bcs (optional): whether output has BCs
+c       * w_pre_bcs (optional): whether input requires BCs
+c       * diag_plots (optional): whether we want plots of answer
+c       * gm_it,rtol (optional): number of GMRES iterations and conv. tol.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: iout,igrid
+      real(8) :: db(0:,0:,0:,:)
+
+      character(4) :: meth
+
+      integer,optional :: gm_it
+      real(8),optional :: rtol
+      real(8),optional,INTENT(OUT):: dacov(0:,0:,0:,:)
+
+      logical,optional :: w_bcs,w_pre_bcs,diag_plots
+
+c     Local variables
+
+      integer :: bcsb(6,3),nx,ny,nz,its
+
+      real(8) :: da_cov (0:size(db,1)-1
+     .                  ,0:size(db,2)-1
+     .                  ,0:size(db,3)-1,3)
+      logical :: dplots,wbcs
+
+c     Begin program
+
+      if (my_rank == 0.and.iout > 0) then
+        write (*,*)
+        write (*,*) 'Div-cleaning B-field...'
+        write (*,*)
+      endif
+
+      if (PRESENT(diag_plots)) then
+        dplots = diag_plots
+      else
+        dplots = .false.
+      endif
+
+      if (PRESENT(w_bcs)) then
+        wbcs = w_bcs
+      else
+        wbcs = dplots
+      endif
+
+c     Find vector potential
+
+      its = 0
+
+      call findVectorPotential(g_def,iout,igrid,db,da_cov,meth
+     .                        ,its=its,rtol=rtol)
+
+      if (my_rank == 0.and.iout > 0.and.(.not.PRESENT(gm_it))) then
+        write (*,'(a,i3,a)') meth//' divergence cleaning converged in'
+     .                      ,its,' its'
+      endif
+
+      if (PRESENT(gm_it)) gm_it = its
+
+c     Diagnostics
+
+      if (dplots) call B_dump(g_def,igrid,da_cov,db)
+
+c     Find new dB (with BCs)
+
+      db = curl(g_def,igrid,da_cov)
+
+      if (wbcs) then
+        call default_B_BCs(bcsb)
+
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
+
+        call setMGBC(g_def,0,3,nx,ny,nz,igrid,db,bcsb
+     .              ,icomp=(/IBX/),is_vec=.true.
+     .              ,is_cnv=.true.,iorder=order_bc)
+      endif
+
+c     Store vector potential
+
+      if (PRESENT(dacov)) dacov = da_cov
+
+      end subroutine B_div_clean
 
 c     avlap_mtvc
 c     ###############################################################
@@ -1024,6 +1132,288 @@ c     Begin program
 c     End program
 
       end subroutine B_dump
+
+c     findVectorPotential
+c     #############################################################
+      subroutine findVectorPotential(g_def,iout,igrid,b_cnv,a_cov,meth
+     .                              ,its,rtol)
+
+c     -------------------------------------------------------------
+c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
+c     field components. There are two methods:
+c       1) meth='line': performs line integrals
+c       2) meth='vlap': performs vector Laplacian inversion
+c
+c     On input:
+c       * b_cnv -> cnv magnetic field
+c     On output:
+c       * a_cov -> cov vector potential
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: iout,igrid
+      real(8) :: a_cov(0:,0:,0:,:)
+     .          ,b_cnv(0:,0:,0:,:)
+      character(4) :: meth
+
+      integer,optional,INTENT(OUT) :: its
+      real(8),optional,INTENT(IN)  :: rtol
+
+c     Local variables
+
+      integer :: nxg,nyg,nzg,order,gm_its
+      integer :: i,j,k,ii,nx,ny,nz,ig,jg,kg
+     .          ,bcnd(6,3),bcs_b(6,3),bcs_a(6,3),bcsq(6)
+      real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,a_cnv (ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,db_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: bx0,bxl,by0,byl,bz0,bzl,x1,y1,z1,r_tol
+      logical :: spoint
+
+      real(8),pointer,dimension(:,:,:,:) :: ag,bg
+      
+c     Begin program
+
+      nx = size(a_cov,1)-2
+      ny = size(a_cov,2)-2
+      nz = size(a_cov,3)-2
+
+c     Gather global magnetic field
+
+      nxg = g_def%nxgl(igrid)  !Only communicate along X for line integral
+      nyg = ny
+      nzg = nz
+
+      allocate(ag(0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .        ,bg(0:nxg+1,0:nyg+1,0:nzg+1,3))
+
+      call find_global(b_cnv,bg
+#if defined(petsc)
+     .                ,mpi_comm=g_def%MPI_COMM_X
+#endif
+     .                )
+
+      if (my_rank == 0.and.iout > 0) then
+        write (*,*)
+        write (*,*) 'Solving for vector potential...'
+        write (*,*)
+      endif
+
+c     Find A BCs (fluxes) via line integrals
+
+      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=4)
+
+      !Restrict solution to current domain (when appropriate)
+      call XferGlobalArray(ag,a_cov)
+
+      deallocate(ag,bg)
+
+      !Set topological BCs
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+
+      vzeros = 0d0
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
+      call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order)
+
+c diag ****
+c$$$      if (test) then
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call checkCurl  (a_cov,db_cnv)
+c$$$      endif
+c diag ****
+
+c$$$      !Diagnostics
+c$$$      call XferGlobalArray(b,db_cnv)
+c$$$      call B_dump(gv%gparams,igrid,a_cov,db_cnv)
+
+c     Correct A covariant
+
+      if (meth == 'vlap') then
+
+        a0_cov = a_cov
+
+        !BC defs (not yet defined in application)
+        call default_A_BCs(bcs_a)
+        call default_B_BCs(bcs_b)
+
+        !Find B and substract BCs
+        call XferGlobalArray(b_cnv,db_cnv)
+        db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
+
+        !Find covariant vector potential update with div(A)=0
+        call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
+     .                    ,bcs_b,bcs_a,iout,gm_it=gm_its
+     .                    ,rtol=rtol)
+
+        if (.not.PRESENT(its)) then
+          if(my_rank==0) write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
+        else
+          its = gm_its
+        endif
+
+        !Add BCs
+        a_cov = a_cov + a0_cov
+
+c$$$        !Diagnostics
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call B_dump(gv%gparams,igrid,a_cov,db_cnv)
+
+      endif
+
+c     End program
+
+      contains
+
+c     XferGlobalArray
+c     ####################################################################
+      subroutine XferGlobalArray(ag,al)
+
+        implicit none
+      
+        real(8),dimension(0:,0:,0:,:) :: ag,al
+
+        integer :: igm,igp,jgm,jgp,kgm,kgp
+
+        if (nxg == nxd) then
+          igm = ilomg ; igp = ihipg
+        else
+          igm = ilom  ; igp = ihip
+        endif
+
+        if (nyg == nyd) then
+          jgm = jlomg ; jgp = jhipg
+        else
+          jgm = jlom  ; jgp = jhip
+        endif
+
+        if (nzg == nzd) then
+          kgm = klomg ; kgp = khipg
+        else
+          kgm = klom  ; kgp = khip
+        endif
+
+        al(ilom:ihip,jlom:jhip,klom:khip,:)
+     .     = ag(igm:igp,jgm:jgp,kgm:kgp,:)
+
+      end subroutine XferGlobalArray
+
+c     checkCurl
+c     ####################################################################
+      subroutine checkCurl(a_cov,b_cnv)
+
+      implicit none
+
+      real(8) :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      real(8) :: b_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: diva (ilom:ihip,jlom:jhip,klom:khip)
+      real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv3(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv4(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv5(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov (ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov3(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      integer :: j=2,k=1
+      
+c     Begin program
+
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
+
+      do i=0,nx
+        write(*,*) "Acnvdiag",gv%gparams%xx(i+1)
+     .                    ,a_cnv (i,j,k,2)  !Benchmark
+     .                    ,a_cnv (i,j,k,3)  !Benchmark
+        write(*,*) "Acovdiag",gv%gparams%xx(i+1)
+     .                    ,a_cov (i,j,k,2)  !Benchmark
+     .                    ,a_cov (i,j,k,3)  !curl(A)
+      enddo
+
+      !Div(A) diagnostic
+      diva = div(gv%gparams,igrid,a_cnv)
+      write (*,*) "divA=",sqrt(sum(diva**2))
+
+      !Curl benchmark
+      b_cov = XformToCov(gv%gparams,igrid,b_cnv)
+      j_cnv = curl(gv%gparams,igrid,b_cov)
+
+      !Curl-veclap diagnostic
+      order = 2
+
+c$$$      b_cnv2 = curl(gv%gparams,igrid,a_cov,order=4)
+c$$$      b_cov2 = XformToCov(gv%gparams,igrid,b_cnv2)
+      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov)
+      b_cov2 = XformToCov_vrtx(gv%gparams,igrid,b_cnv2)
+
+      do i=0,nx
+        write(*,*) "Bcnvdiag",gv%gparams%xx(i+1)
+     .                    ,b_cnv (i,j,k,2)  !Benchmark
+     .                    ,b_cnv2(i,j,k,2)  !curl(A)
+     .                    ,b_cnv (i,j,k,3)  !Benchmark
+     .                    ,b_cnv2(i,j,k,3)  !curl(A)
+        write(*,*) "Bcovdiag",gv%gparams%xx(i+1)
+     .                    ,b_cov (i,j,k,2)  !Benchmark
+     .                    ,b_cov2(i,j,k,2)  !curl(A)
+     .                    ,b_cov (i,j,k,3)  !Benchmark
+     .                    ,b_cov2(i,j,k,3)  !curl(A)
+      enddo
+
+      !Currents
+cc      j_cnv2= curl_vrtx2cell_mesh(gv%gparams,igrid,b_cov2)
+cc      j_cnv2= curl  (gv%gparams,igrid,b_cov2,order=order)
+      j_cnv2=-veclap    (gv%gparams,igrid,a_cnv)
+      j_cnv3=-veclap_cnv(gv%gparams,igrid,a_cnv)
+      j_cnv4=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cnv4= XformToCnv(gv%gparams,igrid,j_cnv4)
+      j_cnv5= curlcurl_vrtx(gv%gparams,igrid,a_cov)
+
+      do i=1,nx
+        write(*,*) "Jcnvdiag",gv%gparams%xx(i+1)
+     .                    ,j_cnv (i,j,k,2)  !Benchmark
+     .                    ,j_cnv2(i,j,k,2)  
+     .                    ,j_cnv3(i,j,k,2)  
+     .                    ,j_cnv4(i,j,k,2)  
+     .                    ,j_cnv5(i,j,k,2)  
+     .                    ,j_cnv (i,j,k,3)  !Benchmark
+     .                    ,j_cnv2(i,j,k,3)  
+     .                    ,j_cnv3(i,j,k,3)  
+     .                    ,j_cnv4(i,j,k,3)  
+     .                    ,j_cnv5(i,j,k,3)  
+      enddo
+
+      j_cov = XformToCov(gv%gparams,igrid,j_cnv)
+      j_cov2=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cov3= XformToCov(gv%gparams,igrid,j_cnv3)
+      do i=1,nx
+        write(*,*) "Jcovdiag",gv%gparams%xx(i+1)
+     .                    ,j_cov (i,j,k,2)  !Benchmark
+     .                    ,j_cov2(i,j,k,2)  !veclap_cov
+     .                    ,j_cov3(i,j,k,2)  !veclap_cnv
+     .                    ,j_cov (i,j,k,3)  !Benchmark
+     .                    ,j_cov2(i,j,k,3)  !veclap_cov
+     .                    ,j_cov3(i,j,k,3)  !veclap_cnv
+      enddo
+
+      stop
+
+      end subroutine checkCurl
+
+      end subroutine findVectorPotential
 
       end module B_tools
 

@@ -1,7 +1,4 @@
-
- Solving for vector potential...
-
- A-solve GMRES its= 14
+ A-solve GMRES its= 15
 
   Grid mesh:................   32x   32x    1
   Number of processors:.....    1,    2,    1

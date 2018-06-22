@@ -174,8 +174,8 @@ c ######################################################################
 
         logical :: lagrangian=.false.     !Whether we perform Lagrangian step for Te
      .            ,spitzer=.false.        !Whether we are using Spitzer resistivity
-     .            ,fixed_spitzer=.false.  !Whether we are using Spitzer resistivity
-     .            ,lagged_spitzer=.false. !Whether we are using Spitzer resistivity
+     .            ,fixed_spitzer=.false.  !Whether we are fixing the T to T_0
+     .            ,lagged_spitzer=.false. !Whether we are lagging T to T_n
 
       contains
 
@@ -4414,6 +4414,8 @@ c ######################################################################
 
         use mg_solver
 
+        use par_int, ONLY: find_polar_coords
+
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
         real(8) :: eq_params(6),te0_ref
@@ -6348,6 +6350,8 @@ c     This function computes the local value of the resistivity on the
 c     node (i,j,k) of grid igrid according to field.
 c     -----------------------------------------------------------------
 
+        use par_int, ONLY: find_polar_coords
+
       implicit none
 
 c     Call variables
@@ -6360,17 +6364,20 @@ c     Call variables
 c     Local variables
 
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr,th,zz
 
 c     Begin program
 
       if (spitzer) then
         rsvty = eta*res_spitzer(field/te0_ref)
       else
-        call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-        rr = g_def%xx(ig)
-
-        rsvty = eta*res_rfx(rr)
+        select case (equil)
+        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          rsvty = eta*res_rfx(rr)
+        case default
+          rsvty = eta
+        end select
       endif
 
 cc      select case (equil)

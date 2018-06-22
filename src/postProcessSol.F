@@ -360,9 +360,11 @@ c       Find db=B^(n+1)-B^n
 c       Clean db
 
         tol_divcl = rtol
+c$$$        call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
+c$$$     .                  ,gm_it=it_divcl,rtol=tol_divcl)
         call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                   ,igx,igy,igz,db_cnv
-     .                   ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
+     .                     ,igx,igy,igz,db_cnv
+     .                     ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
 
 c       Find new B^(n+1)
 
@@ -508,7 +510,7 @@ c Local variables
         use parameters
         use var_setup
         integer :: igr
-        real(8) :: fi(:)
+        real(8) :: fi(ntotd)
         type(var_array),pointer :: varray
         end subroutine evaluate_NLF
       END INTERFACE

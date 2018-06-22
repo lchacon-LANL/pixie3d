@@ -384,20 +384,28 @@ c       Density BCs
         case(ITMP_0)
 
 c       Temperature BCs
+          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
-     .              ,u_0%array_var(ITMP)%array
-     .              ,vaux%var_list(ITMP_0)%bconds
-     .              ,igr,igr,igr,iorder=order)
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
+c$$$     .              ,u_0%array_var(ITMP)%array
+c$$$     .              ,vaux%var_list(ITMP_0)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(ITMPE_0)
+          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 c       Temperature BCs
 
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
-     .              ,u_0%array_var(ITMP)%array
-     .              ,vaux%var_list(ITMPE_0)%bconds
-     .              ,igr,igr,igr,iorder=order)
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
+c$$$     .              ,u_0%array_var(ITMP)%array
+c$$$     .              ,vaux%var_list(ITMPE_0)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(IRHO_AUX)
 
@@ -413,21 +421,41 @@ c       Density BCs
 
 c       Temperature BCs
 
-          call XferBCs(tmp_0,s0,.true.)
+c$$$          call XferBCs(tmp_0,s0,.true.)
+c$$$
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
+c$$$     .              ,vaux%var_list(ITMP_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
+          !Impose BCs on perturbation only
+          s0 = 0d0
+          tmp = tmp - tmp_0
+          
           call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
      .              ,vaux%var_list(ITMP_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
+          tmp = tmp + tmp_0
+          
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-          call XferBCs(tmpe_0,s0,.true.)
-
+c$$$          call XferBCs(tmpe_0,s0,.true.)
+c$$$
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+c$$$     .              ,vaux%var_list(ITMPE_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
+          
+          !Impose BCs on perturbation only
+          s0 = 0d0
+          tmpe = tmpe - tmpe_0
+          
           call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
      .              ,vaux%var_list(ITMPE_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
+
+          tmpe = tmpe + tmpe_0
 
         case default
           call pstop('applyAuxVarBC'
@@ -1310,13 +1338,13 @@ c       Resistivity at initial time
 
           if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
             where (tmp_0 /= 0d0)
-              rho = rho_0*(tmp/tmp_0)**(1d0/(gamma-1d0))
+              rho = rho_0*(abs(tmp/tmp_0))**(1d0/(gamma-1d0))
             end where
           endif
 
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)
+        case(ITMP_AUX)  !Recover electron pressure
 
           if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
             varray%array_var(ITMP)%array = rho*tmp_0*jac
