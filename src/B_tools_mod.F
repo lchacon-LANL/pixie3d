@@ -1254,8 +1254,8 @@ c     Correct A covariant
      .                    ,bcs_b,bcs_a,iout,gm_it=gm_its
      .                    ,rtol=rtol)
 
-        if (my_rank == 0.and.(.not.PRESENT(its))) then
-          write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
+        if (.not.PRESENT(its)) then
+          if(my_rank==0) write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
         else
           its = gm_its
         endif
