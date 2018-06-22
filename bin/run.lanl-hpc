@@ -326,9 +326,11 @@ module load intel/17.0.1
 module load openmpi/1.10.5
 module load hdf5-parallel
 
-mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55))
+mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) >> $inputfile.out
 
 RETURN_VALUE=\$?  #Exit code from last job
+
+echo "\$RETURN_VALUE" > exit_code.txt
 
 date
 
@@ -351,8 +353,6 @@ then
   rm -r $dir
 
 fi
-
-echo "\$RETURN_VALUE" > exit_code.txt
 
 exit
 

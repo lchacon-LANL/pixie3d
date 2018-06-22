@@ -1,6 +1,6 @@
 #Define variables
 
-MPIEXEC=mpiexec
+MPIEXEC=mpiexec --oversubscribe
 NP=2
 EXEC=$(wildcard pixie3d*petsc.x)
 

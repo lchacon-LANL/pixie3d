@@ -9,8 +9,6 @@
      &   presf_vmec=>presf, nfp_vmec=>nfp, bsupumnc_vmec=>bsupumnc,     &
      &   bsupvmnc_vmec=>bsupvmnc, wb_vmec=>wb,bsubvmnc_vmec=>bsubvmnc
 
-      USE B_tools, ONLY: curl_div_clean
-
       IMPLICIT NONE
 !     
 !     WRITTEN 06-27-06 BY S. P. HIRSHMAN AS PART OF THE VMEC++ PROJECT (c)
@@ -124,11 +122,11 @@
           DO ntype = 1, 3
              IF (ntype .eq. 1) THEN
                 istat = 0
-                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)   
+                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)
              ELSE IF (ntype .eq. 2) THEN
                 istat = 0
                 CALL Spline_Fourier_Modes(zmns_vmec, zmns_spline, istat)   
-             ELSE 
+              ELSE 
                 CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupumnc_v)
 !!                istat = 1
@@ -446,7 +444,7 @@
 !-----------------------------------------------
       REAL(rprec), PARAMETER          :: one = 1
       INTEGER                         :: js, modes, ntype, mp
-      REAL(rprec), DIMENSION(:), POINTER :: y_vmec, y_spline
+      REAL(rprec), DIMENSION(ns_vmec) :: y_vmec!, y_spline
       REAL(rprec), DIMENSION(ns_vmec) :: snodes_vmec, y2_vmec, fac1
       REAL(rprec), DIMENSION(ns_i)    :: snodes, fac2
       REAL(rprec)                     :: hs_vmec, yp1, ypn, expm
@@ -499,21 +497,21 @@
       ymn_spline = 0d0   !L. Chacon, 2/20/07, to avoid definition error below
 
       DO modes = 1, mnmax
-         y_vmec => ymn_vmec(modes,:)
-         y_spline => ymn_spline(modes,:)
+         y_vmec   = ymn_vmec(modes,:)
+!         y_spline = ymn_spline(modes,:)
          mp = xm_vmec(modes)
 
          IF (istat.eq.0 .and. mp.gt.0) THEN
             IF (MOD(mp,2) .eq. 1) THEN 
-               expm = 1
+               expm = 1d0
             ELSE
-               expm = 2
+               expm = 2d0
             END IF
             y_vmec = y_vmec*(fac1**expm)
 !LC 6/5/07            IF (mp .le. 2) y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
             IF (mp .le. 2) then
-               call IntDriver1d(4,snodes_vmec(2:5),ymn_vmec(modes,2:5)   &
-     &                         ,1,snodes_vmec(1:1),ymn_vmec(modes,1:1),3)
+               call IntDriver1d(4,snodes_vmec(2:5),y_vmec(2:5)   &
+     &                         ,1,snodes_vmec(1:1),y_vmec(1:1),3)
             ENDIF
          END IF
 
@@ -534,8 +532,8 @@
 !
 !        4 and 5: spline vmec coefficients into snodes mesh (L. Chacon, 6/5/07)
 !
-         call IntDriver1d(ns_vmec,snodes_vmec,ymn_vmec(modes,:)   &
-     &                   ,ns_i   ,snodes     ,y_spline        ,3)
+         call IntDriver1d(ns_vmec,snodes_vmec,y_vmec   &
+     &                   ,ns_i   ,snodes     ,ymn_spline(modes,:),3)
 
 !
 !        PRINT OUT FOR CHECKING (Modified by L. Chacon 6/5/07)
@@ -557,13 +555,13 @@
 !        RECOVER RADIAL DEPENDENCE
 !
          IF (istat.eq.0 .and. mp.gt.0) THEN
-            y_spline = y_spline*(fac2**expm)
+            ymn_spline(modes,:) = ymn_spline(modes,:)*(fac2**expm)
          END IF
 
       END DO
 
 !LC      stop
-
+      
       istat = 0
 
       END SUBROUTINE Spline_Fourier_Modes
@@ -1659,7 +1657,7 @@
 
 !     vmec_map
 !     #################################################################
-      subroutine vmec_map(equ_file)
+      subroutine vmec_map(equ_file,g_def)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -1674,6 +1672,7 @@
 
 !     Input variables
 
+      type(grid_mg_def),pointer :: g_def
 !!$      logical :: metrics
       character(*) :: equ_file
 
@@ -1700,21 +1699,21 @@
 !     Cycle grid levels
 
 !!$      igrid = 1
-      do igrid=1,gv%gparams%ngrid
+      do igrid=1,g_def%ngrid
 
 !     Get LOCAL limits and allocate local map array
 
-        nx = gv%gparams%nxv(igrid)
-        ny = gv%gparams%nyv(igrid)
-        nz = gv%gparams%nzv(igrid)
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
 
         allocate(xcar(0:nx+1,0:ny+1,0:nz+1,3))
 
 !     Get GLOBAL limits (VMEC operates on global domain)
 
-        nxg = gv%gparams%nxgl(igrid)
-        nyg = gv%gparams%nygl(igrid)
-        nzg = gv%gparams%nzgl(igrid)
+        nxg = g_def%nxgl(igrid)
+        nyg = g_def%nygl(igrid)
+        nzg = g_def%nzgl(igrid)
 
         if (my_rank == 0) then
            write (*,'(a,i3,a,i3,a,i3,a,i3)') &
@@ -1778,19 +1777,19 @@
 
 !     Transfer map (from GLOBAL in VMEC to LOCAL)
 
-!!$        ph0 = gv%gparams%zg(1)  !Reference phi=0 plane at phi(k=1)
+!!$        ph0 = g_def%zg(1)  !Reference phi=0 plane at phi(k=1)
         ph0 = 0
 
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
 
-              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+              call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 
               !Find local coordinates
-              r1  = gv%gparams%xx(ig)
-              th1 = gv%gparams%yy(jg)
-              ph1 = gv%gparams%zz(kg)
+              r1  = g_def%xx(ig)
+              th1 = g_def%yy(jg)
+              ph1 = g_def%zz(kg)
 
               !Impose SP BCs
               if (r1 < 0d0) then
@@ -1818,10 +1817,10 @@
               v1  = mod(ph1,2*pi/nfp_i)
 
               !Extrapolate to ghost cell at psi=1 boundary (second-order)
-              if (isBdry(gv%gparams,i-1,igrid,2)) then
-                 r1 = 0.5*(gv%gparams%xx(ig-1)+gv%gparams%xx(ig))
-                 r2 =      gv%gparams%xx(ig-1)
-                 r3 =      gv%gparams%xx(ig-2)
+              if (isBdry(g_def,i-1,igrid,2)) then
+                 r1 = 0.5*(g_def%xx(ig-1)+g_def%xx(ig))
+                 r2 =      g_def%xx(ig-1)
+                 r3 =      g_def%xx(ig-2)
                  rr1(1) = 8./3.*db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                                ,kx,ky,kz,rr_coef,work)                &
      &                      -2.*db3val(r2,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
@@ -1844,7 +1843,7 @@
               endif
 
               !Transform to Cartesian geometry (minus sign in phi to preserve a right-handed ref. sys.)
-              ph1 =-gv%gparams%zz(kg) + ph0
+              ph1 =-g_def%zz(kg) + ph0
               xcar(i,j,k,1)=rr1(1)*cos(ph1)
               xcar(i,j,k,2)=rr1(1)*sin(ph1)
               xcar(i,j,k,3)=sgn*zz1(1)
@@ -1854,9 +1853,9 @@
 
 !     Fill grid metrics hierarchy
 
-        call defineGridMetric(gv%gparams,xcar=xcar,igr=igrid,ierr=ierr)
+        call defineGridMetric(g_def,xcar=xcar,igr=igrid,ierr=ierr)
 
-        if (check_grid.and.igrid==1) call checkGrid(gv%gparams)
+        if (check_grid.and.igrid==1) call checkGrid(g_def)
 
 !     Free work space (to allow processing of different grid levels)
 
@@ -1874,7 +1873,7 @@
         if (my_rank == 0) write (*,*) ' >>> Discarding leftover VMEC meshes due to jac < 0'
       else
         if (my_rank == 0) write (*,*) ' >>> Coarsening VMEC mesh hierarchy'
-        call createMGMetricHierarchy(gv%gparams)
+        call createMGMetricHierarchy(g_def)
       endif
 
 !     End program
@@ -2122,8 +2121,8 @@
 
 !     vmec_equ
 !     #################################################################
-      subroutine vmec_equ(igrid,nx,ny,nz,b1,b2,b3,prs,rho,gam,equ_file &
-     &                   ,dcon)
+      subroutine vmec_equ(iout,igrid,nx,ny,nz,bb,prs,rho,gam,equ_file &
+     &                   ,dcon,divcl)
 
 !     -----------------------------------------------------------------
 !     Give equilibrium fields at each logical mesh point in grid
@@ -2138,16 +2137,17 @@
 
 !      Call variables
 
-        integer :: igrid,nx,ny,nz
+        integer :: igrid,iout,nx,ny,nz
         real(8) :: gam
-        real(8),dimension(0:nx+1,0:ny+1,0:nz+1) :: b1,b2,b3,prs,rho
+        real(8),dimension(0:nx+1,0:ny+1,0:nz+1,3) :: bb
+        real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,rho
         character(*) :: equ_file
 
-        logical :: dcon
+        logical :: dcon,divcl
 
 !     Local variables
 
-        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat
+        integer :: nxg,nyg,nzg,i,j,k,igl,jgl,kgl,ig,jg,kg,istat,its
         real(8) :: r1,z1,th1,ph1,v1,dphi,dth,sgn,jac,ds,dum1,dum2,ppi,max_rho
 
         real(8),allocatable, dimension(:)     :: pflx,ff_i,q_i
@@ -2156,7 +2156,7 @@
 
         integer :: udcon=1111
 
-        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
+        logical :: enf_tor_flx_fn  !Whether we enforce flux functions in toroidal geom.
 
         !SLATEC spline variables
         integer :: kx,ky,kz,nxs,nys,nzs,dim,flg,sorder,alloc_stat
@@ -2174,6 +2174,10 @@
         endif
 
 !     Get GLOBAL limits (VMEC operates on global domain)
+
+!!$        nx  = gv%gparams%nxv(igrid)
+!!$        ny  = gv%gparams%nyv(igrid)
+!!$        nz  = gv%gparams%nzv(igrid)
 
         nxg = gv%gparams%nxgl(igrid)
         nyg = gv%gparams%nygl(igrid)
@@ -2296,8 +2300,8 @@
         max_rho = maxval(prsg(1:nxg,1:nyg,1:nzg)**(1d0/gam))
 
         !Clean flux functions (Tokamak case)
-        enf_flx_fn = (nfp_i == 1)
-        if (enf_flx_fn) then
+        enf_tor_flx_fn = (nfp_i == 1)
+        if (enf_tor_flx_fn) then
           do k=0,nzg+1
             do i=0,nxg+1
                igl = i
@@ -2323,16 +2327,16 @@
               !Periodic boundary in phi=2*pi
               if (kgl == nzg+1) kgl = 1
 
-              dum1=sum(bsup(i,1:nyg,k,2))/nyg
+              dum1=sum(bsup (i,1:nyg,k,2))/nyg
               dum2=sum(bsub3(i,1:nyg,k))/nyg
 
-              bsup(i,:,k,2) = dum1
-              bsub3(i,:,k) = dum2
+              bsup (i,:,k,2) = dum1
+              bsub3(i,:,k)   = dum2
              
             enddo
           enddo
-!!$        else !Divergence clean B-field (not ready yet)
-!!$          call curl_div_clean(1,bsup,.false.,global=.true.)
+        else !Divergence clean B-field (outside)
+          divcl = .true.
         endif
 
 !     Spline PIXIE3D global variables
@@ -2388,7 +2392,7 @@
 
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,1),nxs,nys,kx,ky,kz,tx,ty,tz,b1_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,2),nxs,nys,kx,ky,kz,tx,ty,tz,b2_coef,work,flg)
-        if (enf_flx_fn) then
+        if (enf_tor_flx_fn) then
           call db3ink(xs,nxs,ys,nys,zs,nzs,bsub3,nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
         else
           call db3ink(xs,nxs,ys,nys,zs,nzs,bsup(:,:,:,3),nxs,nys,kx,ky,kz,tx,ty,tz,b3_coef,work,flg)
@@ -2427,21 +2431,21 @@
               !Map phi to VMEC toroidal coordinate, v
               v1  = mod(ph1,2*pi/nfp_i)
 
-              b1(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              bb(i,j,k,1) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                          ,kx,ky,kz,b1_coef,work)
 
-              b2(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              bb(i,j,k,2) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                          ,kx,ky,kz,b2_coef,work)             !Flux coordinate
 
-              if (enf_flx_fn) then
-                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+              if (enf_tor_flx_fn) then
+                bb(i,j,k,3) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cov
-                b3(i,j,k) = (b3(i,j,k)                                        &
-     &                    -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*b1(i,j,k)   &
-     &                     +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*b2(i,j,k))) &
+                bb(i,j,k,3) = (bb(i,j,k,3)                                        &
+     &                    -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*bb(i,j,k,1)   &
+     &                     +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*bb(i,j,k,2))) &
      &                    /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
               else
-                b3(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
+                bb(i,j,k,3) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs  &
      &                            ,kx,ky,kz,b3_coef,work)             !Cnv
               endif
 
@@ -2457,7 +2461,7 @@
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
 
-              rho(i,j,k) = max(prs(i,j,k),0d0)**(1d0/gam)
+              rho(i,j,k) = abs(prs(i,j,k))**(1d0/gam)
             enddo
           enddo
         enddo
@@ -2517,7 +2521,7 @@
 !!$
 !!$        integer :: udcon=1111
 !!$
-!!$        logical :: enf_flx_fn  !Whether we enforce flux functions in toroidal geom.
+!!$        logical :: enf_tor_flx_fn  !Whether we enforce flux functions in toroidal geom.
 !!$
 !!$!     Begin program
 !!$
@@ -2655,8 +2659,8 @@
 !!$
 !!$!       Clean flux functions (Tokamak case)
 !!$        
-!!$        enf_flx_fn = (nfp_i == 1)
-!!$        if (enf_flx_fn.and.(np == 1)) then
+!!$        enf_tor_flx_fn = (nfp_i == 1)
+!!$        if (enf_tor_flx_fn.and.(np == 1)) then
 !!$          do k=0,nzg+1
 !!$            do i=0,nxg+1
 !!$               igl = i

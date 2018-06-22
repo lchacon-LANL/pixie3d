@@ -117,6 +117,7 @@ c ######################################################################
 
         integer :: ntotd2p,nwt_iter
         logical :: cartsn,covariant,to_cartsn,to_cnv
+     $            ,pc_vars_allcd=.false.
 
         !PC storage
         real(8), allocatable, dimension(:,:) :: rho_diag,tmp_diag
@@ -198,6 +199,8 @@ c     Begin program
         call allocateMGArray(gv%gparams,3,gdb_cov)
         call allocateMGArray(gv%gparams,3,g_advdiffV0)
 
+        pc_vars_allcd = .true.
+
 c     End program
 
       end subroutine allocPCVariables
@@ -247,6 +250,8 @@ c     Begin program
         call deallocateMGArray(gheta)
         call deallocateMGArray(gbhat)
         call deallocateMGArray(g_advdiffV0)
+
+        pc_vars_allcd = .false.
 
 c     End program
 
@@ -442,8 +447,8 @@ c     Begin program
         ny = gv%gparams%nyv(igy)
         nz = gv%gparams%nzv(igz)
 
-        order = order_bc
-cc        order = 0
+cc        order = order_bc
+        order = 0
 
 c     Fill LOCAL auxiliary variables
 

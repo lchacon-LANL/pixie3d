@@ -130,7 +130,7 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
-     .                   ,limit_dt_flow_cfl
+     .                   ,limit_dt_flow_cfl,restart
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
@@ -793,6 +793,8 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
+     .        .and.equil(1:4) /= 'vela'
+     .        .and.equil /= 'rfp83'
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
      .        .and.equil /= 'sod' ) then

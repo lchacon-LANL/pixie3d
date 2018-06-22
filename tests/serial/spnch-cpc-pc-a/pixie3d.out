@@ -1,6 +1,3 @@
-
- Solving for vector potential...
-
  A-solve GMRES its= 15
 
   Grid mesh:................   32x   32x    1

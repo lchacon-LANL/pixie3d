@@ -6,17 +6,31 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
-      use nlfunction_setup
+      use app_iosetup
 
-      use PC_var
+      use problem_def
+
+cc      use nlfunction_setup
+
+cc      use PC_var
 
       implicit none
+
+      INTERFACE
+         subroutine vmec_map(equ_file,g_def)
+         use grid
+         type(grid_mg_def),pointer :: g_def
+         character(*) :: equ_file
+         end subroutine
+      END INTERFACE
 
 c Call variables
 
 c Local variables
 
 c Begin program
+
+      if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
 
 c Auxiliary variables
 
@@ -25,7 +39,7 @@ cc      call defineAuxVariables(gv%aux)
 
 c Preconditioner
 
-      call allocPCVariables
+cc      call allocPCVariables
 #endif
 
 c     End programs
@@ -40,7 +54,7 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
-      use nlfunction_setup
+cc      use nlfunction_setup
 
       use PC_var
 
@@ -55,7 +69,7 @@ c Begin program
 #if !defined(samrai)
 cc      call deallocLocalAuxVars
 
-      call deallocPCVariables
+      if (pc_vars_allcd) call deallocPCVariables
 #endif
 
 c End programs
