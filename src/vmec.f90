@@ -104,8 +104,6 @@
 
           IF (wb_i .eq. 0._dp) STOP 'wb_vmec = 0!'
 
-          write (*,*) "vmec diag",sqrt(sum(rmnc_vmec**2)),sqrt(sum(zmns_vmec**2))
-
 !       Allocate space for splined arrays
 
           ALLOCATE(rr(ns_i,nu_i,0:nv_i+1),zz(ns_i,nu_i,0:nv_i+1))
@@ -125,14 +123,9 @@
              IF (ntype .eq. 1) THEN
                 istat = 0
                 CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)
-                
-                write (*,*) "vmec R diag",sqrt(sum(rmnc_vmec**2))
-
              ELSE IF (ntype .eq. 2) THEN
                 istat = 0
                 CALL Spline_Fourier_Modes(zmns_vmec, zmns_spline, istat)   
-
-                write (*,*) "vmec Z diag",sqrt(sum(zmns_vmec**2))
               ELSE 
                 CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupumnc_v)
@@ -154,9 +147,6 @@
 
              IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT'
           END DO
-
-        write (*,*) "vmec Z diag",sqrt(sum(zmns_vmec**2)),sqrt(sum(zmns_spline**2))
-        write (*,*) "vmec R diag",sqrt(sum(rmnc_vmec**2)),sqrt(sum(rmnc_spline**2))
 
 !       Spline 1-D arrays: careful -> convert phipf VMEC and multiply
 !       by ds-vmec/ds-island, since phipf_i = d(PHI)/ds-island
