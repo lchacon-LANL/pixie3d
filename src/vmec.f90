@@ -104,6 +104,8 @@
 
           IF (wb_i .eq. 0._dp) STOP 'wb_vmec = 0!'
 
+          write (*,*) "vmec diag",sqrt(sum(rmnc_vmec**2)),sqrt(sum(zmns_vmec**2))
+
 !       Allocate space for splined arrays
 
           ALLOCATE(rr(ns_i,nu_i,0:nv_i+1),zz(ns_i,nu_i,0:nv_i+1))
@@ -122,11 +124,16 @@
           DO ntype = 1, 3
              IF (ntype .eq. 1) THEN
                 istat = 0
-                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)   
+                CALL Spline_Fourier_Modes(rmnc_vmec, rmnc_spline, istat)
+                
+                write (*,*) "vmec R diag",sqrt(sum(rmnc_vmec**2))
+
              ELSE IF (ntype .eq. 2) THEN
                 istat = 0
                 CALL Spline_Fourier_Modes(zmns_vmec, zmns_spline, istat)   
-             ELSE 
+
+                write (*,*) "vmec Z diag",sqrt(sum(zmns_vmec**2))
+              ELSE 
                 CALL Convert_From_Nyq(bsupumnc_v,bsupumnc_vmec)       !These have mnmax_nyq members
                 CALL Convert_To_Full_Mesh(bsupumnc_v)
 !!                istat = 1
@@ -147,6 +154,9 @@
 
              IF (istat .ne. 0) STOP 'Spline error in VMEC_INIT'
           END DO
+
+        write (*,*) "vmec Z diag",sqrt(sum(zmns_vmec**2)),sqrt(sum(zmns_spline**2))
+        write (*,*) "vmec R diag",sqrt(sum(rmnc_vmec**2)),sqrt(sum(rmnc_spline**2))
 
 !       Spline 1-D arrays: careful -> convert phipf VMEC and multiply
 !       by ds-vmec/ds-island, since phipf_i = d(PHI)/ds-island
@@ -444,7 +454,7 @@
 !-----------------------------------------------
       REAL(rprec), PARAMETER          :: one = 1
       INTEGER                         :: js, modes, ntype, mp
-      REAL(rprec), DIMENSION(:), POINTER :: y_vmec, y_spline
+      REAL(rprec), DIMENSION(ns_vmec) :: y_vmec!, y_spline
       REAL(rprec), DIMENSION(ns_vmec) :: snodes_vmec, y2_vmec, fac1
       REAL(rprec), DIMENSION(ns_i)    :: snodes, fac2
       REAL(rprec)                     :: hs_vmec, yp1, ypn, expm
@@ -497,21 +507,21 @@
       ymn_spline = 0d0   !L. Chacon, 2/20/07, to avoid definition error below
 
       DO modes = 1, mnmax
-         y_vmec => ymn_vmec(modes,:)
-         y_spline => ymn_spline(modes,:)
+         y_vmec   = ymn_vmec(modes,:)
+!         y_spline = ymn_spline(modes,:)
          mp = xm_vmec(modes)
 
          IF (istat.eq.0 .and. mp.gt.0) THEN
             IF (MOD(mp,2) .eq. 1) THEN 
-               expm = 1
+               expm = 1d0
             ELSE
-               expm = 2
+               expm = 2d0
             END IF
             y_vmec = y_vmec*(fac1**expm)
 !LC 6/5/07            IF (mp .le. 2) y_vmec(1) = 2*y_vmec(2) - y_vmec(3)
             IF (mp .le. 2) then
-               call IntDriver1d(4,snodes_vmec(2:5),ymn_vmec(modes,2:5)   &
-     &                         ,1,snodes_vmec(1:1),ymn_vmec(modes,1:1),3)
+               call IntDriver1d(4,snodes_vmec(2:5),y_vmec(2:5)   &
+     &                         ,1,snodes_vmec(1:1),y_vmec(1:1),3)
             ENDIF
          END IF
 
@@ -532,8 +542,8 @@
 !
 !        4 and 5: spline vmec coefficients into snodes mesh (L. Chacon, 6/5/07)
 !
-         call IntDriver1d(ns_vmec,snodes_vmec,ymn_vmec(modes,:)   &
-     &                   ,ns_i   ,snodes     ,y_spline        ,3)
+         call IntDriver1d(ns_vmec,snodes_vmec,y_vmec   &
+     &                   ,ns_i   ,snodes     ,ymn_spline(modes,:),3)
 
 !
 !        PRINT OUT FOR CHECKING (Modified by L. Chacon 6/5/07)
@@ -555,13 +565,13 @@
 !        RECOVER RADIAL DEPENDENCE
 !
          IF (istat.eq.0 .and. mp.gt.0) THEN
-            y_spline = y_spline*(fac2**expm)
+            ymn_spline(modes,:) = ymn_spline(modes,:)*(fac2**expm)
          END IF
 
       END DO
 
 !LC      stop
-
+      
       istat = 0
 
       END SUBROUTINE Spline_Fourier_Modes
@@ -1771,8 +1781,6 @@
 
         !Spline RR, ZZ
         allocate(rr_coef(nxs,nys,nzs),zz_coef(nxs,nys,nzs),stat=alloc_stat)
-
-!!$        write (*,*) "vmec diag",sqrt(sum(rr**2)),sqrt(sum(zz**2))
 
         call db3ink(xs,nxs,ys,nys,zs,nzs,rr,nxs,nys,kx,ky,kz,tx,ty,tz,rr_coef,work,flg)
         call db3ink(xs,nxs,ys,nys,zs,nzs,zz,nxs,nys,kx,ky,kz,tx,ty,tz,zz_coef,work,flg)
