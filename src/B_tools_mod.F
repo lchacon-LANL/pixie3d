@@ -922,7 +922,8 @@ c     Calculate matrix-vector product
            do i = imin,imax
              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-             vlap = veclap_cnv(g_def,i,j,k,nxx,nyy,nzz
+             vlap = veclap    (g_def,i,j,k,nxx,nyy,nzz
+cc             vlap = veclap_cnv(g_def,i,j,k,nxx,nyy,nzz
      .                        ,igrid,igrid,igrid,vv
      .                        ,vol=MG_get_res_vol_wgt())
 

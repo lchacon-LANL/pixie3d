@@ -23,7 +23,7 @@ c####################################################################
 
         integer :: order_bc=1
 
-        logical :: regularize_A = .true.  !Whether we regularize A @ SP
+        logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
         logical :: no_eq_bc,save_tn,no_tn_bc
 

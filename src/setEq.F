@@ -57,7 +57,7 @@ c Local variables
 
       real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,b_0
      .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
-     .          ,r0(1),a1,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
+     .          ,r0(1),a1,b1,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char,pw
@@ -2149,7 +2149,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR  = gv%gparams%params(1)            !Major radius
         a1  = gv%gparams%params(2)            !Horizontal elliptical radius
-cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
+        b1  = gv%gparams%params(3)            !Vertical   elliptical radius
         mm  = gv%gparams%params(4)            !m mode
         nn  = gv%gparams%params(5)            !n mode
         e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
