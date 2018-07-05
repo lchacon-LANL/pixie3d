@@ -1733,7 +1733,7 @@ c     Read VMEC equilibrium
 #if !defined(vec_pot)
         if (div_clean) then
 #endif
-          call B_div_clean(gv%gparams,ilevel,igx,bb,"line"
+          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
      &                    ,rtol=1d-7,dacov=aa)
 
 #if !defined(vec_pot)
@@ -2167,6 +2167,11 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (eta == 0d0) then
+          messg='Need finite resistivity for this equilibrium'
           call pstop('setEquilibrium',messg)
         endif
 
