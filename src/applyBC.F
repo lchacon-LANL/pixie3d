@@ -375,11 +375,15 @@ cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
         case(IRHO_0)
 
 c       Density BCs
+          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !Provide these in equilibrium routine!
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
-     .              ,u_0%array_var(IRHO)%array
-     .              ,vaux%var_list(IRHO_0)%bconds
-     .              ,igr,igr,igr,iorder=order)
+c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
+c$$$     .              ,u_0%array_var(IRHO)%array
+c$$$     .              ,vaux%var_list(IRHO_0)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(ITMP_0)
 
@@ -395,12 +399,12 @@ c$$$     .              ,vaux%var_list(ITMP_0)%bconds
 c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(ITMPE_0)
-          
+
+c       Temperature BCs
+
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-c       Temperature BCs
 
 c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
 c$$$     .              ,u_0%array_var(ITMP)%array
@@ -411,11 +415,20 @@ c$$$     .              ,igr,igr,igr,iorder=order)
 
 c       Density BCs
 
-          call XferBCs(rho_0,s0,.true.)
+c$$$          call XferBCs(rho_0,s0,.true.)
+c$$$
+c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
+c$$$     .              ,vaux%var_list(IRHO_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
+          s0 = 0d0
+          rho = rho - rho_0
+          
           call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
      .              ,vaux%var_list(IRHO_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
+
+          rho = rho + rho_0
 
         case(ITMP_AUX)
 
@@ -865,8 +878,14 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
-            rho = varray%array_var(ITMP)%array/(tmp_0*jac)
+          if ((.not.solve_rho).and.adiabatic) then
+            if (gamma > 1d0) then
+              rho = varray%array_var(ITMP)%array
+     .             /varray%array_var(IRHO)%array
+              rho = rho_0*(abs(rho/tmp_0))**(1d0/(gamma-1d0))
+            else
+              rho = varray%array_var(ITMP)%array/(tmp_0*jac)
+            endif
           else
             rho = varray%array_var(IRHO)%array/jac
           endif
@@ -1336,11 +1355,11 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
-            where (tmp_0 /= 0d0)
-              rho = rho_0*(abs(tmp/tmp_0))**(1d0/(gamma-1d0))
-            end where
-          endif
+c$$$          if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
+c$$$            where (tmp_0 /= 0d0)
+c$$$              rho = rho_0*(abs(tmp/tmp_0))**(1d0/(gamma-1d0))
+c$$$            end where
+c$$$          endif
 
           varray%array_var(IRHO)%array = rho*jac
 
