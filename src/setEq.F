@@ -1733,9 +1733,8 @@ c     Read VMEC equilibrium
 #if !defined(vec_pot)
         if (div_clean) then
 #endif
-          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
-     &                    ,rtol=1d-7,dacov=aa)
-
+c$$$          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
+c$$$     &                    ,rtol=1d-7,dacov=aa)
 #if !defined(vec_pot)
         endif
 #endif
