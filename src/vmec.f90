@@ -1871,6 +1871,8 @@
 
       if (ierr /= 0) then
         if (my_rank == 0) write (*,*) ' >>> Discarding leftover VMEC meshes due to jac < 0'
+        g_def%ngrid = igrid - 1
+        call deallocateGridStructure(g_def%g_crse_def)
       else
         if (my_rank == 0) write (*,*) ' >>> Coarsening VMEC mesh hierarchy'
         call createMGMetricHierarchy(g_def)
