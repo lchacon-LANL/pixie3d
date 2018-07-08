@@ -415,60 +415,60 @@ c$$$     .              ,igr,igr,igr,iorder=order)
 
 c       Density BCs
 
-c$$$          call XferBCs(rho_0,s0,.true.)
-c$$$
-c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
-c$$$     .              ,vaux%var_list(IRHO_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call XferBCs(rho_0,s0,.true.)
 
-          s0 = 0d0
-          rho = rho - rho_0
-          
           call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
      .              ,vaux%var_list(IRHO_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
-          rho = rho + rho_0
+c$$$          s0 = 0d0
+c$$$          rho = rho - rho_0
+c$$$          
+c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
+c$$$     .              ,vaux%var_list(IRHO_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
+c$$$
+c$$$          rho = rho + rho_0
 
         case(ITMP_AUX)
 
 c       Temperature BCs
 
-c$$$          call XferBCs(tmp_0,s0,.true.)
-c$$$
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-c$$$     .              ,vaux%var_list(ITMP_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call XferBCs(tmp_0,s0,.true.)
 
-          !Impose BCs on perturbation only
-          s0 = 0d0
-          tmp = tmp - tmp_0
-          
           call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
      .              ,vaux%var_list(ITMP_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
-          tmp = tmp + tmp_0
+c$$$          !Impose BCs on perturbation only
+c$$$          s0 = 0d0
+c$$$          tmp = tmp - tmp_0
+c$$$          
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
+c$$$     .              ,vaux%var_list(ITMP_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
+c$$$
+c$$$          tmp = tmp + tmp_0
           
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-c$$$          call XferBCs(tmpe_0,s0,.true.)
-c$$$
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
-c$$$     .              ,vaux%var_list(ITMPE_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
-          
-          !Impose BCs on perturbation only
-          s0 = 0d0
-          tmpe = tmpe - tmpe_0
-          
+          call XferBCs(tmpe_0,s0,.true.)
+
           call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
      .              ,vaux%var_list(ITMPE_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
-
-          tmpe = tmpe + tmpe_0
+          
+c$$$          !Impose BCs on perturbation only
+c$$$          s0 = 0d0
+c$$$          tmpe = tmpe - tmpe_0
+c$$$          
+c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+c$$$     .              ,vaux%var_list(ITMPE_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
+c$$$
+c$$$          tmpe = tmpe + tmpe_0
 
         case default
           call pstop('applyAuxVarBC'
