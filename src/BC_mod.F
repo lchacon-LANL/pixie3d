@@ -160,8 +160,11 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
-c$$$        if (gamma > 1d0)
-c$$$     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+        if (gamma > 1d0) then
+          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
+        else
+          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
+        endif
 
 cc      case ('ntm2d')                   !No slip BCs
 cc
