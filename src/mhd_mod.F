@@ -281,32 +281,32 @@ c ######################################################################
         logical :: nc_eom_v    =.false. !Whether we use v.grad(v) instead of conserv. form
 
 #if !defined(vec_pot)
-        integer, parameter :: IJCNV    =1
-     .                       ,IJCNV_0  =2
-     .                       ,IJCOV    =3
-     .                       ,IJCOV_0  =4
+        integer, parameter :: IJCNV   =1
+     .                       ,IJCNV_0 =2
+     .                       ,IJCOV   =3
+     .                       ,IJCOV_0 =4
 
-        integer, parameter :: IBCNV    =5
-     .                       ,IBCNV_0  =6
-     .                       ,IBCOV    =7
-     .                       ,IBCOV_0  =8
+        integer, parameter :: IBCNV   =5
+     .                       ,IBCNV_0 =6
+     .                       ,IBCOV   =7
+     .                       ,IBCOV_0 =8
 
-        integer, parameter :: IVCNV    =9
-     .                       ,IVCNV_N  =10
-     .                       ,IVCNV_0  =11
-     .                       ,IVCOV    =12
+        integer, parameter :: IVCNV   =9
+     .                       ,IVCNV_N =10
+     .                       ,IVCNV_0 =11
+     .                       ,IVCOV   =12
 
-        integer, parameter :: IVECNV   =13
-     .                       ,IVECOV   =14
-     .                       ,IVECOV_N =15
-     .                       ,IVECNV_0 =21
+        integer, parameter :: IVECNV  =13
+     .                       ,IVECOV  =14
+     .                       ,IVECOV_N=15
+     .                       ,IVECNV_0=21
 
-        integer, parameter :: IENI     =16
-     .                       ,IENI_0   =17
-     .                       ,IEH      =18
+        integer, parameter :: IENI    =16
+     .                       ,IENI_0  =17
+     .                       ,IEH     =18
 
-        integer, parameter :: IDIVPI   =19
-     .                       ,IDIVPE   =20
+        integer, parameter :: IDIVPI  =19
+     .                       ,IDIVPE  =20
 #else
         integer, parameter :: IJCNV   =1
      .                       ,IJCNV_0 =2
@@ -327,10 +327,10 @@ c ######################################################################
      .                       ,IVCNV_N =14
      .                       ,IVCOV   =15
 
-        integer, parameter :: IVECNV   =16
-     .                       ,IVECOV   =17
-     .                       ,IVECOV_N =18
-     .                       ,IVECNV_0 =24
+        integer, parameter :: IVECNV  =16
+     .                       ,IVECOV  =17
+     .                       ,IVECOV_N=18
+     .                       ,IVECNV_0=24
 
         integer, parameter :: IENI    =19
      .                       ,IEH     =20
@@ -340,17 +340,17 @@ c ######################################################################
      .                       ,IDIVPE  =23
 #endif
 
-        integer, parameter :: IETA=1
-     .                       ,IETA_0=2
-     .                       ,INU=3
-     .                       ,IHETA=4
-     .                       ,IRHO_0=5
-     .                       ,ITMP_0=6
-     .                       ,IRHO_AUX=7
-     .                       ,ITMP_AUX=8
-     .                       ,ITMPE_0=9
+        integer, parameter :: IETA     =1
+     .                       ,IETA_0   =2
+     .                       ,INU      =3
+     .                       ,IHETA    =4
+     .                       ,IRHO_0   =5
+     .                       ,ITMP_0   =6
+     .                       ,IRHO_AUX =7
+     .                       ,ITMP_AUX =8
+     .                       ,ITMPE_0  =9
      .                       ,ITMPE_AUX=10
-     .                       ,ICHI=11
+     .                       ,ICHI     =11
 
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov
@@ -377,13 +377,11 @@ c ######################################################################
      .                                       ,bcnv_0
      .                                       ,bcov
      .                                       ,bcov_0
-cc     .                                       ,bcnv_n
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcnv_0
      .                                       ,vcnv_n
      .                                       ,vcov
-cc     .                                       ,vcov_0
      .                                       ,pcnv => null() !Used to check
 
         real(8),pointer,dimension(:,:,:,:) :: bhat
@@ -503,11 +501,6 @@ c     Setup pointers
         vaux%vec_list(IVECOV_N)%descr = 'Ve_n cov'
         vaux%vec_list(IVECOV_N)%time_n= .true.
         vecov_n => vaux%vec_list(IVECOV_N)%vec
-
-cc        vaux%vec_list(IBCNV_N)%cnv   = .true.
-cc        vaux%vec_list(IBCNV_N)%descr = 'B_n cnv'
-cc        vaux%vec_list(IBCNV_N)%time_n= .true.
-cc        bcnv_n => vaux%vec_list(IBCNV_N)%vec
 
         !New-time variables
         vaux%var_list(IRHO_AUX)%descr = 'rho'
@@ -1274,62 +1267,9 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
 
       !E Hall
       if (di > 0d0) then
-cc#if !defined(vec_pot)
         vaux%vec_list(IEH)%bc_dep_list(1,1) = IEH*AUX
         vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
         vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
-cc        if (ion_hall) then
-cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IVCNV_N*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(1,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(1,3) = 0 !trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = IVCNV*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(2,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(2,3) = 1 !non-trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(3,1) = IRHO_AUX*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(3,2) = SCALAR
-cc          vaux%vec_list(IEH)%bc_dep_list(3,3) = 1 !non-trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(4,1) = ITMP_AUX*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(4,2) = SCALAR
-cc          vaux%vec_list(IEH)%bc_dep_list(4,3) = 1 !non-trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(5,1) = IDIVPI*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(5,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(5,3) = 0 !trivial
-cc        else
-cc          vaux%vec_list(IEH)%bc_dep_list(1,1) = IRHO_AUX*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(1,2) = SCALAR
-cc          vaux%vec_list(IEH)%bc_dep_list(1,3) = 1 !non-trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(2,1) = ITMP_AUX*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(2,2) = SCALAR
-cc          vaux%vec_list(IEH)%bc_dep_list(2,3) = 1 !non-trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(3,1) = IBCNV*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(3,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(3,3) = 0 !trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(4,1) = IJCNV*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(4,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(4,3) = 0 !trivial
-cc
-cc          vaux%vec_list(IEH)%bc_dep_list(5,1) = IDIVPE*AUX
-cc          vaux%vec_list(IEH)%bc_dep_list(5,2) = VECTOR
-cc          vaux%vec_list(IEH)%bc_dep_list(5,3) = 0 !trivial
-cc
-cc          if (de > 0d0) then
-cc            vaux%vec_list(IEH)%bc_dep_list(6,1) = IVECOV_N*AUX
-cc            vaux%vec_list(IEH)%bc_dep_list(6,2) = VECTOR
-cc            vaux%vec_list(IEH)%bc_dep_list(6,3) = 0 !trivial
-cc
-cc            vaux%vec_list(IEH)%bc_dep_list(7,1) = IVECOV*AUX
-cc            vaux%vec_list(IEH)%bc_dep_list(7,2) = VECTOR
-cc            vaux%vec_list(IEH)%bc_dep_list(7,3) = 0 !trivial
-cc          endif
-cc        endif
-cc#endif
       endif
 
       !Total Electric field
@@ -1825,7 +1765,6 @@ c     Begin program
      .       ,tmp
      .       ,tmpe
      .       ,cchi
-cc     .       ,bcnv_n
 cc     .       ,vecnv_0
 cc     .       ,vscnv
 cc     .       ,pcnv

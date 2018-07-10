@@ -376,40 +376,28 @@ cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
 
 c       Density BCs
           
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !Provide these in equilibrium routine!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
-c$$$     .              ,u_0%array_var(IRHO)%array
-c$$$     .              ,vaux%var_list(IRHO_0)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
+     .              ,u_0%array_var(IRHO)%array
+     .              ,vaux%var_list(IRHO_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
         case(ITMP_0)
 
 c       Temperature BCs
           
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !Provide these in equilibrium routine!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
-c$$$     .              ,u_0%array_var(ITMP)%array
-c$$$     .              ,vaux%var_list(ITMP_0)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
+     .              ,u_0%array_var(ITMP)%array
+     .              ,vaux%var_list(ITMP_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
         case(ITMPE_0)
 
 c       Temperature BCs
 
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !Provide these in equilibrium routine!
-          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
-c$$$     .              ,u_0%array_var(ITMP)%array
-c$$$     .              ,vaux%var_list(ITMPE_0)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(ITMP)%array
+     .              ,vaux%var_list(ITMPE_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
         case(IRHO_AUX)
 
@@ -1042,26 +1030,21 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 #if defined(plotting)
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
+c$$$            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
+c$$$              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
+c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+c$$$              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
+c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+c$$$              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
+c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
+c$$$            else
               vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-            else
-              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
      .                         /u_n%array_var(IRHO)%array*jac
-c$$$            where (rho /= 0d0)
-c$$$              vcnv_n(:,:,:,1) = vcnv_n(:,:,:,1)/rho
-c$$$              vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/rho
-c$$$              vcnv_n(:,:,:,3) = vcnv_n(:,:,:,3)/rho
-c$$$            end where
-            endif
+c$$$            endif
           else
             vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
             vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
@@ -1071,23 +1054,23 @@ c$$$            end where
           if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
-              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVX )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVY )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-            else
+c$$$            if ((.not.solve_rho).and.adiabatic.gamma == 1d0) then
+c$$$              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
+c$$$     .                                 /u_n %array_var(ITMP)%array
+c$$$     .                         -cnm/cnp*u_nm%array_var(IVX )%array
+c$$$     .                                 /u_nm%array_var(ITMP)%array)
+c$$$     .                         *jac*tmp_0
+c$$$              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
+c$$$     .                                 /u_n %array_var(ITMP)%array
+c$$$     .                         -cnm/cnp*u_nm%array_var(IVY )%array
+c$$$     .                                 /u_nm%array_var(ITMP)%array)
+c$$$     .                         *jac*tmp_0
+c$$$              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
+c$$$     .                                 /u_n %array_var(ITMP)%array
+c$$$     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
+c$$$     .                                 /u_nm%array_var(ITMP)%array)
+c$$$     .                         *jac*tmp_0
+c$$$            else
               if (cnm == 0d0) then
                 vcnv_n(:,:,:,1) =(u_n %array_var(IVX )%array
      .                           /u_n %array_var(IRHO)%array)*jac
@@ -1112,7 +1095,7 @@ c$$$            end where
      .                                   /u_nm%array_var(IRHO)%array)
      .                           *jac
              endif
-            endif
+c$$$            endif
           else
             vcnv_n(:,:,:,1) = -cn/cnp*u_n %array_var(IVX)%array
      .                       -cnm/cnp*u_nm%array_var(IVX)%array

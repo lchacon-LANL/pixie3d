@@ -163,7 +163,7 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         if (gamma > 1d0) then
           where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
         else
-          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = DIR
+          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU !Do not change EQU
         endif
 
 cc      case ('ntm2d')                   !No slip BCs
