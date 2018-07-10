@@ -719,7 +719,10 @@ cc        nz = size(tmp_0,3)-2
      .                        )!,sp=bcSP())
 
       bcs(:,1) = varray%array_var(ITMP)%bconds
-      prs_advc =flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bcs(:,1))
+      prs_advc =gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect
+     .                              ,bcs(:,1))
+     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect
+     .                              ,bcs(:,1),rvrs=.true.) !Reverse: v -> -v
 #endif
 
 cc      !Electron temperature
