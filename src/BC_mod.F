@@ -101,7 +101,7 @@ c     Assign BCs
 
 c     Default RHO boundary conditions 
 
-      call default_SCL_BCs(bbcs(:,IRHO))
+      call default_SCL_BCs(bbcs(:,IRHO))  !Neumann at walls
 
 c     Default VEL boundary conditions (no-stress)
 
@@ -117,7 +117,7 @@ c     Default B-A boundary conditions
 
 c     Default TMP boundary conditions
 
-      call default_SCL_BCs(bbcs(:,ITMP))
+      call default_SCL_BCs(bbcs(:,ITMP))  !Neumann at walls
 
 c     Exceptions for specific equilibria
 
@@ -134,7 +134,7 @@ c     Exceptions for specific equilibria
 
         pinch_flow = .true.
 
-        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX ) = EQU
+        where (bbcs(:,IVX ) == DIR) bbcs(:,IVX) = EQU
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
@@ -143,11 +143,11 @@ c     Exceptions for specific equilibria
 
         pinch_flow = .true.
 
-        where (bbcs(:,IVX) == DIR) bbcs(:,IVX ) = EQU
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY ) = EQU
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ ) = EQU
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
         if (gamma > 1d0)
      .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
