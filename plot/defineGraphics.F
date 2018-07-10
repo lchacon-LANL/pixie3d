@@ -64,42 +64,17 @@ c Define graphics group #1: Contravariant variables
       graph(1)%descr='Cnv_variables'
 
 #if !defined(vec_pot)
-c$$$      do ieq = 1,neqd
-c$$$        graph(1)%array_graph(ieq)%array => u_np%array_var(ieq)%array
-c$$$        graph(1)%array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
-c$$$      enddo
+      do ieq = 1,neqd
+        graph(1)%array_graph(ieq)%array => u_np%array_var(ieq)%array
+        graph(1)%array_graph(ieq)%descr =  u_np%array_var(ieq)%descr
+      enddo
 
-      graph(1)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
-      graph(1)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
-
-      graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
-      graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
-
-cc      graph(1)%array_graph(IVX)%array => vx
-cc      graph(1)%array_graph(IVX)%descr = 'V^1'
-cc                                                           
-cc      graph(1)%array_graph(IVY)%array => vy
-cc      graph(1)%array_graph(IVY)%descr = 'V^2'
-cc                                                           
-cc      graph(1)%array_graph(IVZ)%array => vz
-cc      graph(1)%array_graph(IVZ)%descr = 'V^3'
-      graph(1)%array_graph(IVX)%array => u_np%array_var(IVX)%array
-      graph(1)%array_graph(IVX)%descr =  u_np%array_var(IVX)%descr
-                                                           
-      graph(1)%array_graph(IVY)%array => u_np%array_var(IVY)%array
-      graph(1)%array_graph(IVY)%descr =  u_np%array_var(IVY)%descr
-                                                           
-      graph(1)%array_graph(IVZ)%array => u_np%array_var(IVZ)%array
-      graph(1)%array_graph(IVZ)%descr =  u_np%array_var(IVZ)%descr
-
-      graph(1)%array_graph(IBX)%array => u_np%array_var(IBX)%array
-      graph(1)%array_graph(IBX)%descr =  u_np%array_var(IBX)%descr
-
-      graph(1)%array_graph(IBY)%array => u_np%array_var(IBY)%array
-      graph(1)%array_graph(IBY)%descr =  u_np%array_var(IBY)%descr
-
-      graph(1)%array_graph(IBZ)%array => u_np%array_var(IBZ)%array
-      graph(1)%array_graph(IBZ)%descr =  u_np%array_var(IBZ)%descr
+c$$$      graph(1)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
+c$$$      graph(1)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
+c$$$
+c$$$      graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
+c$$$
 
       graph(1)%array_graph(neqd+1)%array => jx
       graph(1)%array_graph(neqd+1)%descr = 'J^1'
@@ -112,26 +87,17 @@ cc      graph(1)%array_graph(IVZ)%descr = 'V^3'
 
       graph(1)%array_graph(neqd+4:ngraph)%descr = ''
 #else
-c$$$      graph(1)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-c$$$      graph(1)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
-c$$$
-c$$$      graph(1)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-c$$$      graph(1)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
-c$$$
-c$$$      graph(1)%array_graph(IVX)%array => vx
-c$$$      graph(1)%array_graph(IVX)%descr = 'V^1'
-c$$$                                                           
-c$$$      graph(1)%array_graph(IVY)%array => vy
-c$$$      graph(1)%array_graph(IVY)%descr = 'V^2'
-c$$$                                                           
-c$$$      graph(1)%array_graph(IVZ)%array => vz
-c$$$      graph(1)%array_graph(IVZ)%descr = 'V^3'
+      graph(1)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
+      graph(1)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
 
-      graph(1)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
-      graph(1)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
+      graph(1)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
+      graph(1)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
 
-      graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
-      graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
+c$$$      graph(1)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
+c$$$      graph(1)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
+c$$$
+c$$$      graph(1)%array_graph(ITMP)%array=>gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(1)%array_graph(ITMP)%descr= gv%aux%var_list(ITMP_AUX)%descr
 
       graph(1)%array_graph(IVX)%array => u_np%array_var(IVX)%array
       graph(1)%array_graph(IVX)%descr =  u_np%array_var(IVX)%descr
@@ -186,11 +152,6 @@ c Define graphics group #2: Cov variables
       graph(2)%descr='Cov_variables'
 
 #if !defined(vec_pot)
-c$$$      graph(2)%array_graph(IRHO)%array=> u_np%array_var(IRHO)%array
-c$$$      graph(2)%array_graph(IRHO)%descr=  u_np%array_var(IRHO)%descr
-c$$$
-c$$$      graph(2)%array_graph(ITMP)%array=> u_np%array_var(ITMP)%array
-c$$$      graph(2)%array_graph(ITMP)%descr=  u_np%array_var(ITMP)%descr
       graph(2)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(2)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
@@ -226,11 +187,6 @@ c$$$      graph(2)%array_graph(ITMP)%descr=  u_np%array_var(ITMP)%descr
 
       graph(2)%array_graph(neqd+4:ngraph)%descr = ''
 #else
-c$$$      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-c$$$      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
-c$$$                                                                    
-c$$$      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-c$$$      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
       graph(2)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(2)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
@@ -290,12 +246,6 @@ c Define graphics group #2: Cyl variables
       graph(2)%descr='Cyl_variables'
 
 #if !defined(vec_pot)
-c$$$      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-c$$$      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
-c$$$                                                                    
-c$$$      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-c$$$      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
-
       graph(2)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(2)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
@@ -332,12 +282,6 @@ c$$$      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
       graph(2)%array_graph(neqd+4:ngraph)%descr = ''
 
 #else
-c$$$      graph(2)%array_graph(IRHO)%array => u_np%array_var(IRHO)%array
-c$$$      graph(2)%array_graph(IRHO)%descr =  u_np%array_var(IRHO)%descr
-c$$$                                                                    
-c$$$      graph(2)%array_graph(ITMP)%array => u_np%array_var(ITMP)%array
-c$$$      graph(2)%array_graph(ITMP)%descr =  u_np%array_var(ITMP)%descr
-
       graph(2)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(2)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 

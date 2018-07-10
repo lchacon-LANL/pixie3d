@@ -1355,12 +1355,6 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-c$$$          if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
-c$$$            where (tmp_0 /= 0d0)
-c$$$              rho = rho_0*(abs(tmp/tmp_0))**(1d0/(gamma-1d0))
-c$$$            end where
-c$$$          endif
-
           varray%array_var(IRHO)%array = rho*jac
 
         case(ITMP_AUX)  !Recover electron pressure
