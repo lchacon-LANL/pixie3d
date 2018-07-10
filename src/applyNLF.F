@@ -159,10 +159,11 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Advection
 
-      advc= gamma     *prs_advc(i,j,k)
-     .    +(gamma-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
-     .                             ,igx,igy,igz,vscnv,prs,1
-     .                             ,reverse=.true.)     !Reverse: vscnv -> -vscnv
+      advc= prs_advc(i,j,k)
+c$$$      advc= gamma     *prs_advc(i,j,k)
+c$$$     .    +(gamma-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
+c$$$     .                             ,igx,igy,igz,vscnv,prs,1
+c$$$     .                             ,reverse=.true.)     !Reverse: vscnv -> -vscnv
 
 c     Heat flux
 
