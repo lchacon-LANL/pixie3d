@@ -1438,33 +1438,19 @@ c     Current variables
 
       !Rho
       if ((.not.solve_rho).and.adiabatic) then
-        if (gamma > 1d0) then
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP_0*AUX
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP_0*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
 
-          vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP
-          vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
-
-          vaux%var_list(IRHO_AUX)%dom_dep_list(4,1) = IRHO
-          vaux%var_list(IRHO_AUX)%dom_dep_list(4,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(4,3) = 0 !trivial
-        else
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = ITMP_0*AUX
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
-
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,1) = ITMP
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
-          vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
-        endif
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
       else
-        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_AUX*AUX
+        vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
       endif
@@ -1479,7 +1465,7 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%dom_dep_list(1,3) = 0 !trivial
 
-      vaux%var_list(ITMPE_AUX)%dom_dep_list(2,1) = IRHO
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(2,1) = IRHO_AUX*AUX
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,3) = 0 !trivial
 

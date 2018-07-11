@@ -842,7 +842,7 @@ c Select variable
 
           where (u_0%array_var(IRHO)%array /= 0d0)
             tmpe_0 = u_0%array_var(ITMP)%array
-     .              /u_0%array_var(IRHO)%array/a_p
+     .             /(u_0%array_var(IRHO)%array*a_p)
           elsewhere
             tmpe_0 = 0d0
           end where
@@ -867,26 +867,20 @@ c       Resistivity at initial time
         case(IRHO_AUX)
 
           if ((.not.solve_rho).and.adiabatic) then
-            if (gamma > 1d0) then
-              rho = varray%array_var(ITMP)%array
-     .             /varray%array_var(IRHO)%array
-              rho = rho_0*(abs(rho/tmp_0))**(1d0/(gamma-1d0))
-            else
-              rho = varray%array_var(ITMP)%array/(tmp_0*jac)
-            endif
+            rho = varray%array_var(ITMP)%array/(rho_0*tmp_0*jac)
+            rho = rho_0*(abs(rho))**(1d0/gamma)
           else
             rho = varray%array_var(IRHO)%array/jac
           endif
 
-        case(ITMP_AUX)
+        case(ITMP_AUX)  !Total temperature
 
           tmp = tmpe*a_p
 
-        case(ITMPE_AUX)
+        case(ITMPE_AUX) !Electron temperature
 
-          where (varray%array_var(IRHO)%array /= 0d0)
-            tmpe = varray%array_var(ITMP)%array
-     .            /varray%array_var(IRHO)%array/a_p
+          where (rho /= 0d0)
+            tmpe = varray%array_var(ITMP)%array/(rho*jac*a_p)
           end where
 
         case(INU)
@@ -1030,21 +1024,12 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 #if defined(plotting)
           if (.not.nc_eom_v) then
-c$$$            if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
-c$$$              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
-c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-c$$$              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
-c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-c$$$              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
-c$$$     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-c$$$            else
               vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
      .                         /u_n%array_var(IRHO)%array*jac
-c$$$            endif
           else
             vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
             vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
@@ -1054,23 +1039,6 @@ c$$$            endif
           if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
           if (.not.nc_eom_v) then
-c$$$            if ((.not.solve_rho).and.adiabatic.gamma == 1d0) then
-c$$$              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
-c$$$     .                                 /u_n %array_var(ITMP)%array
-c$$$     .                         -cnm/cnp*u_nm%array_var(IVX )%array
-c$$$     .                                 /u_nm%array_var(ITMP)%array)
-c$$$     .                         *jac*tmp_0
-c$$$              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
-c$$$     .                                 /u_n %array_var(ITMP)%array
-c$$$     .                         -cnm/cnp*u_nm%array_var(IVY )%array
-c$$$     .                                 /u_nm%array_var(ITMP)%array)
-c$$$     .                         *jac*tmp_0
-c$$$              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
-c$$$     .                                 /u_n %array_var(ITMP)%array
-c$$$     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
-c$$$     .                                 /u_nm%array_var(ITMP)%array)
-c$$$     .                         *jac*tmp_0
-c$$$            else
               if (cnm == 0d0) then
                 vcnv_n(:,:,:,1) =(u_n %array_var(IVX )%array
      .                           /u_n %array_var(IRHO)%array)*jac
@@ -1095,7 +1063,6 @@ c$$$            else
      .                                   /u_nm%array_var(IRHO)%array)
      .                           *jac
              endif
-c$$$            endif
           else
             vcnv_n(:,:,:,1) = -cn/cnp*u_n %array_var(IVX)%array
      .                       -cnm/cnp*u_nm%array_var(IVX)%array
@@ -1342,11 +1309,7 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)  !Recover electron pressure
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
-            varray%array_var(ITMP)%array = rho*tmp_0*jac
-          else
-            varray%array_var(ITMP)%array = rho*tmp*jac
-          endif
+          varray%array_var(ITMP)%array = rho*tmp*jac
 
         case(ITMPE_AUX)
 
