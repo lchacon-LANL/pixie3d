@@ -150,7 +150,7 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
         if (gamma > 1d0)
-     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU !Do not change EQU
 
       case ('vmec','tor','stell')
 
@@ -160,11 +160,7 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
-        if (gamma > 1d0) then
-          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
-        else
-          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU !Do not change EQU
-        endif
+        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = DIR
 
 cc      case ('ntm2d')                   !No slip BCs
 cc

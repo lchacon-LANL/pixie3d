@@ -2464,7 +2464,8 @@
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
 
-              rho(i,j,k) = sign(1d0,prs(i,j,k))*abs(prs(i,j,k))**(1d0/gam)
+!!$              rho(i,j,k) = sign(1d0,prs(i,j,k))*abs(prs(i,j,k))**(1d0/gam)
+              rho(i,j,k) = abs(prs(i,j,k))**(1d0/gam)  !Forces positive density
             enddo
           enddo
         enddo
