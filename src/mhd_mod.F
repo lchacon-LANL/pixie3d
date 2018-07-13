@@ -629,7 +629,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3)
+      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3),bc(6)
 
       real(8) :: bnorm
 
@@ -711,15 +711,16 @@ cc        nz = size(tmp_0,3)-2
       rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
      .                        )!,sp=bcSP())
 
-      bcs(:,1) = varray%array_var(ITMP)%bconds
-      prs_advc =gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect
-     .                              ,bcs(:,1))
-     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect
-     .                              ,bcs(:,1),rvrs=.true.) !Reverse: v -> -v
+      bc = varray%array_var(ITMP)%bconds
+      if (use_p_eom) then !Need this for strong stability
+       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
+      else
+       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
+     .                              ,rvrs=.true.) !Reverse: v -> -v
+      endif
 #endif
-
-cc      !Electron temperature
-cc      tmpe = prs/rho/a_p
 
 c     End program
 
