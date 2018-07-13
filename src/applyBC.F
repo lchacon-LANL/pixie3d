@@ -422,41 +422,41 @@ c$$$          rho = rho + rho_0
 
 c       Temperature BCs
 
-          call XferBCs(tmp_0,s0,.true.)
-
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-     .              ,vaux%var_list(ITMP_AUX)%bconds
-     .              ,igr,igr,igr,iorder=order)
-
-c$$$          !Impose BCs on perturbation only
-c$$$          s0 = 0d0
-c$$$          tmp = tmp - tmp_0
-c$$$          
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-c$$$     .              ,vaux%var_list(ITMP_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
-c$$$
-c$$$          tmp = tmp + tmp_0
+          if (adiabatic) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmp = tmp - tmp_0
+            bcsq = vaux%var_list(ITMP_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmp = tmp + tmp_0
+          else
+            call XferBCs(tmp_0,s0,.true.)
+            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
+     .                ,vaux%var_list(ITMP_AUX)%bconds
+     .                ,igr,igr,igr,iorder=order)
+          endif
           
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-          call XferBCs(tmpe_0,s0,.true.)
-
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
-     .              ,vaux%var_list(ITMPE_AUX)%bconds
-     .              ,igr,igr,igr,iorder=order)
-          
-c$$$          !Impose BCs on perturbation only
-c$$$          s0 = 0d0
-c$$$          tmpe = tmpe - tmpe_0
-c$$$          
-c$$$          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
-c$$$     .              ,vaux%var_list(ITMPE_AUX)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
-c$$$
-c$$$          tmpe = tmpe + tmpe_0
+          if (adiabatic) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmpe = tmpe - tmpe_0
+            bcsq = vaux%var_list(ITMPE_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmpe = tmpe + tmpe_0
+          else
+            call XferBCs(tmpe_0,s0,.true.)
+            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+     .                ,vaux%var_list(ITMPE_AUX)%bconds
+     .                ,igr,igr,igr,iorder=order)
+          endif
 
         case default
           call pstop('applyAuxVarBC'
@@ -867,7 +867,8 @@ c       Resistivity at initial time
         case(IRHO_AUX)
 
           if ((.not.solve_rho).and.adiabatic) then
-            rho = varray%array_var(ITMP)%array/(rho_0*tmp_0*jac)
+            rho = varray%array_var(ITMP)%array
+     .           /u_0   %array_var(ITMP)%array
             rho = rho_0*(abs(rho))**(1d0/gamma)
           else
             rho = varray%array_var(IRHO)%array/jac

@@ -62,6 +62,16 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
+c Postprocessing density
+
+c$$$      if (adiabatic .and. (.not.solve_rho)) then
+c$$$        if (my_rank == 0) write (*,*) 'Postprocessing density'
+c$$$        vnp%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+c$$$     .       u_0%array_var(IRHO)%array(1:nx,1:ny,1:nz)
+c$$$     .     *(vnp%array_var(ITMP)%array(1:nx,1:ny,1:nz)
+c$$$     .      /u_0%array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
+c$$$      endif
+
 c Add random noise in EOM (to break symmetry)
 
       if (noise) then
