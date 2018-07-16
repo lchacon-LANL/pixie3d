@@ -110,27 +110,16 @@ c Select variable
 
 c     Density BCs
 
+cc        varray%array_var(IRHO)%array = varray%array_var(IRHO)%array/jac
+cc        
 cc        call setBC(gv%gparams,IRHO,nnx,nny,nnz
 cc     .            ,varray%array_var(IRHO)%array
 cc     .            ,u_0   %array_var(IRHO)%array
 cc     .            ,varray%array_var(IRHO)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
-
-cc        call XferBCs(rho*jac,varray%array_var(IRHO)%array,.false.)
 cc
-cc        varray%array_var(IRHO)%array(0    ,:,:) = jac(0    ,:,:)
-cc     .                                           *rho(0    ,:,:)
-cc        varray%array_var(IRHO)%array(nnx+1,:,:) = jac(nnx+1,:,:)
-cc     .                                           *rho(nnx+1,:,:)
-cc        varray%array_var(IRHO)%array(:,0    ,:) = jac(:,0    ,:)
-cc     .                                           *rho(:,0    ,:)
-cc        varray%array_var(IRHO)%array(:,nny+1,:) = jac(:,nny+1,:)
-cc     .                                           *rho(:,nny+1,:)
-cc        varray%array_var(IRHO)%array(:,:,0    ) = jac(:,:,0    )
-cc     .                                           *rho(:,:,0    )
-cc        varray%array_var(IRHO)%array(:,:,nnz+1) = jac(:,:,nnz+1)
-cc     .                                           *rho(:,:,nnz+1)
-
+cc        varray%array_var(IRHO)%array = varray%array_var(IRHO)%array*jac
+        
 #if defined(vec_pot)
       case(IAX)
 
@@ -385,8 +374,8 @@ c       Density BCs
 
 c       Temperature BCs
           
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
-     .              ,u_0%array_var(ITMP)%array
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp_0
+     .              ,u_0%array_var(IPRS)%array
      .              ,vaux%var_list(ITMP_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -394,8 +383,8 @@ c       Temperature BCs
 
 c       Temperature BCs
 
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
-     .              ,u_0%array_var(ITMP)%array
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(IPRS)%array
      .              ,vaux%var_list(ITMPE_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -422,41 +411,41 @@ c$$$          rho = rho + rho_0
 
 c       Temperature BCs
 
-          if (adiabatic) then
-          !Impose BCs on perturbation only
-            s0 = 0d0
-            tmp = tmp - tmp_0
-            bcsq = vaux%var_list(ITMP_AUX)%bconds
-            where (bcsq == EQU) bcsq = NEU
-            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-     .                ,bcsq,igr,igr,igr,iorder=order)
-            tmp = tmp + tmp_0
-          else
+c$$$          if (adiabatic) then
+c$$$          !Impose BCs on perturbation only
+c$$$            s0 = 0d0
+c$$$            tmp = tmp - tmp_0
+c$$$            bcsq = vaux%var_list(ITMP_AUX)%bconds
+c$$$            where (bcsq == EQU) bcsq = NEU
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
+c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
+c$$$            tmp = tmp + tmp_0
+c$$$          else
             call XferBCs(tmp_0,s0,.true.)
-            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
      .                ,vaux%var_list(ITMP_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-          endif
+c$$$          endif
           
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-          if (adiabatic) then
-          !Impose BCs on perturbation only
-            s0 = 0d0
-            tmpe = tmpe - tmpe_0
-            bcsq = vaux%var_list(ITMPE_AUX)%bconds
-            where (bcsq == EQU) bcsq = NEU
-            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
-     .                ,bcsq,igr,igr,igr,iorder=order)
-            tmpe = tmpe + tmpe_0
-          else
+c$$$          if (adiabatic) then
+c$$$          !Impose BCs on perturbation only
+c$$$            s0 = 0d0
+c$$$            tmpe = tmpe - tmpe_0
+c$$$            bcsq = vaux%var_list(ITMPE_AUX)%bconds
+c$$$            where (bcsq == EQU) bcsq = NEU
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
+c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
+c$$$            tmpe = tmpe + tmpe_0
+c$$$          else
             call XferBCs(tmpe_0,s0,.true.)
-            call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
      .                ,vaux%var_list(ITMPE_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-          endif
+c$$$          endif
 
         case default
           call pstop('applyAuxVarBC'
@@ -841,7 +830,7 @@ c Select variable
         case(ITMPE_0)
 
           where (u_0%array_var(IRHO)%array /= 0d0)
-            tmpe_0 = u_0%array_var(ITMP)%array
+            tmpe_0 = u_0%array_var(IPRS)%array
      .             /(u_0%array_var(IRHO)%array*a_p)
           elsewhere
             tmpe_0 = 0d0
@@ -867,8 +856,8 @@ c       Resistivity at initial time
         case(IRHO_AUX)
 
           if ((.not.solve_rho).and.adiabatic) then
-            rho = varray%array_var(ITMP)%array
-     .           /u_0   %array_var(ITMP)%array
+            rho = varray%array_var(IPRS)%array
+     .           /u_0   %array_var(IPRS)%array
             rho = rho_0*(abs(rho))**(1d0/gamma)
           else
             rho = varray%array_var(IRHO)%array/jac
@@ -881,7 +870,7 @@ c       Resistivity at initial time
         case(ITMPE_AUX) !Electron temperature
 
           where (rho /= 0d0)
-            tmpe = varray%array_var(ITMP)%array/(rho*jac*a_p)
+            tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
           end where
 
         case(INU)
@@ -902,7 +891,7 @@ cc          eeta= res(gv%gparams,igr,tmpe)
           if (fixed_spitzer) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_spitzer) then
-            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
@@ -1294,7 +1283,7 @@ c Select variable
 
         case(ITMP_0)
 
-          u_0%array_var(ITMP)%array = rho_0*tmp_0*jac
+          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
 
         case(ITMPE_0)
 
@@ -1310,7 +1299,7 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)  !Recover electron pressure
 
-          varray%array_var(ITMP)%array = rho*tmp*jac
+cc          varray%array_var(IPRS)%array = rho*tmp*jac
 
         case(ITMPE_AUX)
 
@@ -1331,7 +1320,7 @@ c       Resistivity (needed for BCs; may depend on T)
           if (fixed_spitzer) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_spitzer) then
-            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
@@ -1799,7 +1788,7 @@ cc            enddo
 cc          enddo
 cc        enddo
 cc
-cc      case (ITMP)
+cc      case (IPRS)
 cc
 cc        do i=imin,imax
 cc          do j=jmin,jmax

@@ -377,8 +377,8 @@ cc          nn = gv%gparams%params(5)
      .                     varr%array_var(IRHO)%array(i,j,k)
      .                     +jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 
-              varr%array_var(ITMP)%array(i,j,k) =
-     .                     varr%array_var(ITMP)%array(i,j,k)
+              varr%array_var(IPRS)%array(i,j,k) =
+     .                     varr%array_var(IPRS)%array(i,j,k)
      .                     +a_p*jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 
 #if defined(vec_pot)
@@ -514,8 +514,8 @@ cc          nn = gv%gparams%params(5)
               varr%array_var(IRHO)%array(i,j,k) =
      .               varr%array_var(IRHO)%array(i,j,k) - xi/freq
 
-              varr%array_var(ITMP)%array(i,j,k) =
-     .               varr%array_var(ITMP)%array(i,j,k)
+              varr%array_var(IPRS)%array(i,j,k) =
+     .               varr%array_var(IPRS)%array(i,j,k)
      .             - cs2*xi/freq !For total pressure
 
 #if !defined(vec_pot)
@@ -828,12 +828,12 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
      .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
             enddo
 
-            pert(ITMP) = pert(ITMP)*a_p  !Transform to total temperature
+            pert(IPRS) = pert(IPRS)*a_p  !Transform to total temperature
 
-            varr%array_var(ITMP)%array(i,j,k) =
-     .               varr%array_var(ITMP)%array(i,j,k)*(1d0 
+            varr%array_var(IPRS)%array(i,j,k) =
+     .               varr%array_var(IPRS)%array(i,j,k)*(1d0 
      .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .               + pert(ITMP)*varr%array_var(IRHO)%array(i,j,k)
+     .               + pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
 
           enddo
         enddo
@@ -1094,7 +1094,7 @@ c#c temperature field
      .                      - idum(iglobal,5) * sin(ff*y1)
                 pert(IVZ) = + rdum(iglobal,6) * cos(ff*y1)
      .                      - idum(iglobal,6) * sin(ff*y1)
-                pert(ITMP)= + rdum(iglobal,7) * cos(ff*y1)
+                pert(IPRS)= + rdum(iglobal,7) * cos(ff*y1)
      .                      - idum(iglobal,7) * sin(ff*y1)
 
                 db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1
@@ -1113,7 +1113,7 @@ c#c temperature field
 
                 dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1
 
-                dprs(i,j,k)     = dprs(i,j,k)     + pert(ITMP)*x1
+                dprs(i,j,k)     = dprs(i,j,k)     + pert(IPRS)*x1
               enddo
             enddo
           enddo
@@ -1169,8 +1169,8 @@ c     Add equilibrium
      .                 +varr%array_var(IVY)%array
       varr%array_var(IVZ)%array = dv_cnv(:,:,:,3)
      .                 +varr%array_var(IVZ)%array
-      varr%array_var(ITMP)%array = dprs
-     .                 +varr%array_var(ITMP)%array
+      varr%array_var(IPRS)%array = dprs
+     .                 +varr%array_var(IPRS)%array
 
       deallocate(db_cnv,dv_cnv,dprs)
 
