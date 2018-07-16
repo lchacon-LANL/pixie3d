@@ -117,7 +117,7 @@ c     Default B-A boundary conditions
 
 c     Default TMP boundary conditions
 
-      call default_SCL_BCs(bbcs(:,ITMP))  !Neumann at walls
+      call default_SCL_BCs(bbcs(:,IPRS))  !Neumann at walls
 
 c     Exceptions for specific equilibria
 
@@ -137,7 +137,7 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX ) == DIR) bbcs(:,IVX) = EQU
 
         if (gamma > 1d0)
-     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+     .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
       case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
@@ -150,7 +150,7 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
         if (gamma > 1d0)
-     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU !Do not change EQU
+     .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
       case ('vmec','tor','stell')
 
@@ -160,7 +160,8 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
-        where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
+        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
 cc      case ('ntm2d')                   !No slip BCs
 cc
@@ -175,7 +176,7 @@ cc          where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
 cc          where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 cc        endif
 
-        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+        where (abs(bbcs(:,IPRS)) == DIR) bbcs(:,IPRS) = NEU
 
       case('gem','diamh')
 
@@ -183,12 +184,12 @@ cc        !Dirichlet boundary conditions for tangential velocity components
 cc        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
 cc        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
 
-        where (abs(bbcs(:,ITMP)) == DIR) bbcs(:,ITMP) = NEU
+        where (abs(bbcs(:,IPRS)) == DIR) bbcs(:,IPRS) = NEU
 
       case('vela2')
 
 c$$$        if (gamma > 1d0)
-c$$$     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+c$$$     .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
       case('adv2')
 
@@ -197,10 +198,10 @@ c$$$     .       where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
         bbcs(3,IRHO) = EQU
         bbcs(4,IRHO) = EXT
         
-        bbcs(1,ITMP) = EQU
-        bbcs(2,ITMP) = EXT
-        bbcs(3,ITMP) = EQU
-        bbcs(4,ITMP) = EXT
+        bbcs(1,IPRS) = EQU
+        bbcs(2,IPRS) = EXT
+        bbcs(3,IPRS) = EQU
+        bbcs(4,IPRS) = EXT
 
         where (bcond == DEF) bbcs(:,IVX) = NEU
         where (bcond == DEF) bbcs(:,IVY) = NEU
@@ -210,8 +211,8 @@ cc
 cc        bbcs(1,IRHO) = NEU
 cc        bbcs(2,IRHO) = NEU
 cc        
-cc        bbcs(1,ITMP) = NEU
-cc        bbcs(2,ITMP) = NEU
+cc        bbcs(1,IPRS) = NEU
+cc        bbcs(2,IPRS) = NEU
 cc
 cc        bbcs(1,IVX)  = DIR
 cc        bbcs(2,IVX)  = DIR
@@ -223,7 +224,7 @@ cc        bbcs(2,IVX)  = DIR
           where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
           where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
 
-c$$$          where (abs(bbcs(:,ITMP)) == NEU) bbcs(:,ITMP) = EQU
+c$$$          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         endif
 #endif
@@ -269,9 +270,9 @@ c     Begin program
       varray%array_var(IRHO)%bc_dep_list(1,3) = 0 !trivial
 
       !Tmp
-      varray%array_var(ITMP)%bc_dep_list(1,1) = ITMP_AUX*AUX
-      varray%array_var(ITMP)%bc_dep_list(1,2) = SCALAR
-      varray%array_var(ITMP)%bc_dep_list(1,3) = 0 !trivial
+      varray%array_var(IPRS)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      varray%array_var(IPRS)%bc_dep_list(1,2) = SCALAR
+      varray%array_var(IPRS)%bc_dep_list(1,3) = 0 !trivial
 
       !V
       if (nc_eom_v) then
@@ -343,17 +344,17 @@ c     Begin program
       varray%array_var(IRHO)%dom_dep_list(2,3) = 1 !non-trivial
 
       !Tmp
-      varray%array_var(ITMP)%dom_dep_list(1,1) = ITMP_AUX*AUX
-      varray%array_var(ITMP)%dom_dep_list(1,2) = SCALAR
-      varray%array_var(ITMP)%dom_dep_list(1,3) = 1 !non-trivial
+      varray%array_var(IPRS)%dom_dep_list(1,1) = ITMP_AUX*AUX
+      varray%array_var(IPRS)%dom_dep_list(1,2) = SCALAR
+      varray%array_var(IPRS)%dom_dep_list(1,3) = 1 !non-trivial
 
-      varray%array_var(ITMP)%dom_dep_list(2,1) = IVCNV*AUX
-      varray%array_var(ITMP)%dom_dep_list(2,2) = VECTOR
-      varray%array_var(ITMP)%dom_dep_list(2,3) = 1 !non-trivial
+      varray%array_var(IPRS)%dom_dep_list(2,1) = IVCNV*AUX
+      varray%array_var(IPRS)%dom_dep_list(2,2) = VECTOR
+      varray%array_var(IPRS)%dom_dep_list(2,3) = 1 !non-trivial
 
-      varray%array_var(ITMP)%dom_dep_list(3,1) = ICHI*AUX
-      varray%array_var(ITMP)%dom_dep_list(3,2) = SCALAR
-      varray%array_var(ITMP)%dom_dep_list(3,3) = 1 !non-trivial
+      varray%array_var(IPRS)%dom_dep_list(3,1) = ICHI*AUX
+      varray%array_var(IPRS)%dom_dep_list(3,2) = SCALAR
+      varray%array_var(IPRS)%dom_dep_list(3,3) = 1 !non-trivial
 
       !V
       do ieq=IVX,IVZ

@@ -621,7 +621,7 @@ c Map vector x to array for processing
       dprs = 0d0
  
       call fillArray(g_def,igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
-     .              ,icomp=(/ITMP/))
+     .              ,icomp=(/IPRS/))
 
 c Map velocity components
 

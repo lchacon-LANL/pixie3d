@@ -196,7 +196,7 @@ c     Apply geometric factors to PC solution to match nonlinear function
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             xxx(ii,IRHO) = xxx(ii,IRHO)
      .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-            xxx(ii,ITMP) = xxx(ii,ITMP)
+            xxx(ii,IPRS) = xxx(ii,IPRS)
      .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
             if (alt__eom()) then
               xxx(ii,IVY) = xxx(ii,IVY)
@@ -332,7 +332,7 @@ c     Begin program
 #else
               y(ii,IBX:IBZ)=r(ii,IBX:IBZ)-dvol*y(ii,IBX:IBZ)
 #endif
-              y(ii,ITMP   )=r(ii,ITMP   )-dvol*y(ii,ITMP   )*jac
+              y(ii,IPRS   )=r(ii,IPRS   )-dvol*y(ii,IPRS   )*jac
 
             enddo
           enddo
@@ -388,7 +388,7 @@ c     Correct rx to find Deltax (correction for rho, B, T)
         call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
 #endif
 
-        call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,ITMP))
+        call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,IPRS))
 
 c     End program
 
@@ -465,9 +465,9 @@ c       Temperature
         !Correct for electron velocity/source contribution
         call L_T(gv%gparams,igrid,x,dum)
         if (vol_wgt) call scaleVec(gv%gparams,igrid,1,dum,'mul')
-        dum = rhs(:,ITMP) - dum
+        dum = rhs(:,IPRS) - dum
 
-        call cSolver(gv%gparams,1,nn,dum,x(:,ITMP),bcs(:,ITMP)
+        call cSolver(gv%gparams,1,nn,dum,x(:,IPRS),bcs(:,IPRS)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -675,8 +675,8 @@ c     Begin program
 
         call diagonalScaling(gv%gparams,igrid,rho_diag,rhs(:,IRHO:IRHO)
      .                      ,x(:,IRHO:IRHO))
-        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,ITMP:ITMP)
-     .                      ,x(:,ITMP:ITMP))
+        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,IPRS:IPRS)
+     .                      ,x(:,IPRS:IPRS))
 #if defined(vec_pot)
         call diagonalScaling(gv%gparams,igrid,a_diag  ,rhs(:,IAX:IAZ)
      .                      ,x(:,IAX:IAZ))
@@ -1361,8 +1361,8 @@ c Find drho, dprs arrays with BCs
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
      .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
-      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dprs
-     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
+      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
+     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
 c Find dp_cnv
 

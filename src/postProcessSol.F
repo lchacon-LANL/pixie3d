@@ -68,8 +68,8 @@ c$$$      if (adiabatic .and. (.not.solve_rho)) then
 c$$$        if (my_rank == 0) write (*,*) 'Postprocessing density'
 c$$$        vnp%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
 c$$$     .       u_0%array_var(IRHO)%array(1:nx,1:ny,1:nz)
-c$$$     .     *(vnp%array_var(ITMP)%array(1:nx,1:ny,1:nz)
-c$$$     .      /u_0%array_var(ITMP)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
+c$$$     .     *(vnp%array_var(IPRS)%array(1:nx,1:ny,1:nz)
+c$$$     .      /u_0%array_var(IPRS)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
 c$$$      endif
 
 c Add random noise in EOM (to break symmetry)
@@ -435,28 +435,28 @@ c     ###############################################################
      .               ,G_tol,sp_order,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
-        tmp_nm = vnm%array_var(ITMP)%array
+        tmp_nm = vnm%array_var(IPRS)%array
      $          /vnm%array_var(IRHO)%array
-        tmp_n  = vn %array_var(ITMP)%array
+        tmp_n  = vn %array_var(IPRS)%array
      $          /vn %array_var(IRHO)%array
-        tmp_np = vnp%array_var(ITMP)%array
+        tmp_np = vnp%array_var(IPRS)%array
      $          /vnp%array_var(IRHO)%array
 
-        call lag_update_bdf2(gv%gparams,igrid,ITMP
-     .                      ,vnp%array_var(ITMP)%bconds
+        call lag_update_bdf2(gv%gparams,igrid,IPRS
+     .                      ,vnp%array_var(IPRS)%bconds
      $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel)
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
 c$$$        call lagr_update(igrid,bcnv
-c$$$     .                  ,u_nm %array_var(ITMP)%array
-c$$$     .                  ,vn  %array_var(ITMP)%array
-c$$$     .                  ,vnp%array_var(ITMP)%array
+c$$$     .                  ,u_nm %array_var(IPRS)%array
+c$$$     .                  ,vn  %array_var(IPRS)%array
+c$$$     .                  ,vnp%array_var(IPRS)%array
 c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
 
         call lag_destroy
 
         !Return pressure (with jacobian)
-        vnp%array_var(ITMP)%array = tmp_np*vnp%array_var(IRHO)%array
+        vnp%array_var(IPRS)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
         

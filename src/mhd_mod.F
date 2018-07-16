@@ -131,10 +131,10 @@ c ######################################################################
 
 #if !defined(vec_pot)
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7
-     .                 ,ITMP=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
+     .                 ,IPRS=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
 #else
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
-     .                 ,ITMP=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
+     .                 ,IPRS=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
 #endif
 
         character(5)  :: equil
@@ -686,7 +686,7 @@ cc        nz = size(tmp_0,3)-2
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
 
       !Pressure
-      prs=varray%array_var(ITMP)%array/gv%gparams%gmetric%grid(igr)%jac
+      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
 
       !Temperature transport velocity, v_star = v - di*j/rho/a_p
       if (.not.e_cons_vstar) then
@@ -711,7 +711,7 @@ cc        nz = size(tmp_0,3)-2
       rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
      .                        )!,sp=bcSP())
 
-      bc = varray%array_var(ITMP)%bconds
+      bc = varray%array_var(IPRS)%bconds
       if (use_p_eom) then !Need this for strong stability
        prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
      .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
@@ -760,19 +760,19 @@ c     Set auxiliary variable BC
         vaux%var_list(IRHO_0)%bconds = DEF  !Do nothing
       end where
 
-      vaux%var_list(ITMP_0)%bconds = bcs(:,ITMP)
+      vaux%var_list(ITMP_0)%bconds = bcs(:,IPRS)
       where (vaux%var_list(ITMP_0)%bconds == EQU)
         vaux%var_list(ITMP_0)%bconds = DEF  !Do nothing
       end where
 
-      vaux%var_list(ITMPE_0)%bconds = bcs(:,ITMP)
+      vaux%var_list(ITMPE_0)%bconds = bcs(:,IPRS)
       where (vaux%var_list(ITMPE_0)%bconds == EQU)
         vaux%var_list(ITMPE_0)%bconds = DEF !Do nothing
       end where
 
       vaux%var_list(IRHO_AUX)%bconds = bcs(:,IRHO)
-      vaux%var_list(ITMP_AUX)%bconds = bcs(:,ITMP)
-      vaux%var_list(ITMPE_AUX)%bconds = bcs(:,ITMP)
+      vaux%var_list(ITMP_AUX)%bconds = bcs(:,IPRS)
+      vaux%var_list(ITMPE_AUX)%bconds = bcs(:,IPRS)
 
       if (.not.spitzer) then
         vaux%var_list(IETA)%bconds = bcond
@@ -780,7 +780,7 @@ cc        where (vaux%var_list(IETA)%bconds == DIR)
 cc          vaux%var_list(IETA)%bconds = EQU
 cc        end where
       else
-        vaux%var_list(IETA)%bconds = bcs(:,ITMP)
+        vaux%var_list(IETA)%bconds = bcs(:,IPRS)
         where (vaux%var_list(IETA)%bconds == DIR)
           vaux%var_list(IETA)%bconds = EQU
         end where
@@ -1447,7 +1447,7 @@ c     Current variables
         vaux%var_list(IRHO_AUX)%dom_dep_list(2,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(2,3) = 0 !trivial
 
-        vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = ITMP
+        vaux%var_list(IRHO_AUX)%dom_dep_list(3,1) = IPRS
         vaux%var_list(IRHO_AUX)%dom_dep_list(3,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(3,3) = 0 !trivial
       else
@@ -1462,7 +1462,7 @@ c     Current variables
       vaux%var_list(ITMP_AUX)%dom_dep_list(1,3) = 0 !trivial
 
       !Electron temp
-      vaux%var_list(ITMPE_AUX)%dom_dep_list(1,1) = ITMP
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(1,1) = IPRS
       vaux%var_list(ITMPE_AUX)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%dom_dep_list(1,3) = 0 !trivial
 

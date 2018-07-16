@@ -519,7 +519,7 @@ c     Store total temperature (w/ BCs)
 
         gtmp0%grid(igrid)%array(:,:,:,1) = tmp
 
-        call restrictMGArray(ITMP,1,gtmp0,bc_pc(:,ITMP),igrid,order
+        call restrictMGArray(IPRS,1,gtmp0,bc_pc(:,IPRS),igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store pressure (w/ BCs)
@@ -527,7 +527,7 @@ c     Store pressure (w/ BCs)
         !total pressure (w/ BCs)
         gp0%grid(igrid)%array(:,:,:,1) = rho*tmp
 
-        call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order
+        call restrictMGArray(IPRS,1,gp0,bc_pc(:,IPRS),igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
@@ -2064,8 +2064,8 @@ cc      vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 
-      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
+      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dpe
+     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
       dpe  = dpe/a_p
 
