@@ -111,7 +111,7 @@ c Select variable
 c     Density BCs
 
 cc        varray%array_var(IRHO)%array = varray%array_var(IRHO)%array/jac
-cc        
+cc
 cc        call setBC(gv%gparams,IRHO,nnx,nny,nnz
 cc     .            ,varray%array_var(IRHO)%array
 cc     .            ,u_0   %array_var(IRHO)%array
@@ -233,30 +233,19 @@ cc     .                ,.false.)
 cc
 cc        endif
 
-      case(ITMP)
+      case(IPRS)
 
 c     Temperature BCs
 
+cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array/jac
+cc
 cc        call setBC(gv%gparams,ITMP,nnx,nny,nnz
 cc     .            ,varray%array_var(ITMP)%array
 cc     .            ,u_0   %array_var(ITMP)%array
 cc     .            ,varray%array_var(ITMP)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
-
-cc        call XferBCs(rho*tmp*jac,varray%array_var(ITMP)%array,.false.)
-
-cc        varray%array_var(ITMP)%array(0    ,:,:) = jac (0    ,:,:)
-cc     .                                           *tmpe(0    ,:,:)*a_p
-cc        varray%array_var(ITMP)%array(nnx+1,:,:) = jac (nnx+1,:,:)
-cc     .                                           *tmpe(nnx+1,:,:)*a_p
-cc        varray%array_var(ITMP)%array(:,0    ,:) = jac (:,0    ,:)
-cc     .                                           *tmpe(:,0    ,:)*a_p
-cc        varray%array_var(ITMP)%array(:,nny+1,:) = jac (:,nny+1,:)
-cc     .                                           *tmpe(:,nny+1,:)*a_p
-cc        varray%array_var(ITMP)%array(:,:,0    ) = jac (:,:,0    )
-cc     .                                           *tmpe(:,:,0    )*a_p
-cc        varray%array_var(ITMP)%array(:,:,nnz+1) = jac (:,:,nnz+1)
-cc     .                                           *tmpe(:,:,nnz+1)*a_p
+cc
+cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array*jac
 
       end select
 
@@ -1299,7 +1288,7 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)  !Recover electron pressure
 
-cc          varray%array_var(IPRS)%array = rho*tmp*jac
+          varray%array_var(IPRS)%array = rho*tmp*jac
 
         case(ITMPE_AUX)
 
