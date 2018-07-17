@@ -20,7 +20,8 @@ SUBDIRS = $(COMMONDIR)/math\
           $(COMMONDIR)/var_setup\
 	  $(COMMONDIR)/matrixLightSolver\
 	  $(COMMONDIR)/MG\
-	  $(COMMONDIR)/OMP
+	  $(COMMONDIR)/OMP\
+	  $(COMMONDIR)/orbit
 
 # Set link files
 

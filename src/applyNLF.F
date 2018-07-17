@@ -159,10 +159,7 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Advection
 
-      advc= gamma     *prs_advc(i,j,k)
-     .    +(gamma-1d0)*flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz
-     .                             ,igx,igy,igz,vscnv,prs,1
-     .                             ,reverse=.true.)     !Reverse: vscnv -> -vscnv
+      advc = prs_advc(i,j,k)
 
 c     Heat flux
 
@@ -219,7 +216,7 @@ c     Sources
       endif
 
       !Add contributions
-      ff(ITMP) = (advc + (gamma-1d0)*(heat_flx-heat_src))*jac
+      ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_src))*jac
 
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -400,7 +397,7 @@ c Begin program
             advc = scl_advc_flx_x(gv%gparams,i,j,k,nx,ny,nz,igr
      .                           ,vscnv(:,:,:,1),prs,advect)!,sp=bcSP())
 
-            flx_x(i+1,j,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
+            flx_x(i+1,j,k,IPRS) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
@@ -554,7 +551,7 @@ c Begin program
             advc = scl_advc_flx_y(gv%gparams,i,j,k,nx,ny,nz,igr
      .                           ,vscnv(:,:,:,2),prs,advect)
 
-            flx_y(i,j+1,k,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
+            flx_y(i,j+1,k,IPRS) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
@@ -706,7 +703,7 @@ c Begin program
             advc = scl_advc_flx_z(gv%gparams,i,j,k,nx,ny,nz,igr
      .                           ,vscnv(:,:,:,3),prs,advect)
 
-            flx_z(i,j,k+1,ITMP) = gamma*advc + (gamma-1d0)*heat_flx
+            flx_z(i,j,k+1,IPRS) = gamma*advc + (gamma-1d0)*heat_flx
 
             !EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
             if (nc_eom_v) then
@@ -884,11 +881,11 @@ c Begin program
                 heat_src = 0d0
               endif
 
-              src(i,j,k,ITMP)=(gamma-1d0)*(advc+(heat_flx-heat_src))*jac
+              src(i,j,k,IPRS)=(gamma-1d0)*(advc+(heat_flx-heat_src))*jac
 
             else
 
-              src(i,j,k,ITMP) = 0d0
+              src(i,j,k,IPRS) = 0d0
 
             endif
 

@@ -218,7 +218,7 @@ c Map perturbations
       pert(IAY) = pay
       pert(IAZ) = paz
 #endif
-      pert(ITMP)= a_p*ptemp  !Transform to total pressure
+      pert(IPRS)= a_p*ptemp  !Transform to total pressure
 
 c Init boundary conditions
 

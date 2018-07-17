@@ -133,7 +133,7 @@ c     Density
 
 c     Temperature
 
-        call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
+        call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,IPRS)
      .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
 
         if (sm_type == 'gm') return

@@ -922,7 +922,8 @@ c     Calculate matrix-vector product
            do i = imin,imax
              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-             vlap = veclap_cnv(g_def,i,j,k,nxx,nyy,nzz
+             vlap = veclap    (g_def,i,j,k,nxx,nyy,nzz
+cc             vlap = veclap_cnv(g_def,i,j,k,nxx,nyy,nzz
      .                        ,igrid,igrid,igrid,vv
      .                        ,vol=MG_get_res_vol_wgt())
 
@@ -1246,8 +1247,7 @@ c     Correct A covariant
         call default_B_BCs(bcs_b)
 
         !Find B and substract BCs
-        call XferGlobalArray(b_cnv,db_cnv)
-        db_cnv = db_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
+        db_cnv = b_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
 
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov

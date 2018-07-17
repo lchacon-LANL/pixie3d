@@ -1871,6 +1871,8 @@
 
       if (ierr /= 0) then
         if (my_rank == 0) write (*,*) ' >>> Discarding leftover VMEC meshes due to jac < 0'
+        g_def%ngrid = igrid - 1
+        call deallocateGridStructure(g_def%g_crse_def)
       else
         if (my_rank == 0) write (*,*) ' >>> Coarsening VMEC mesh hierarchy'
         call createMGMetricHierarchy(g_def)
@@ -2301,6 +2303,9 @@
 
         !Clean flux functions (Tokamak case)
         enf_tor_flx_fn = (nfp_i == 1)
+
+        divcl = .not.enf_tor_flx_fn !Whether to divergence clean
+        
         if (enf_tor_flx_fn) then
           do k=0,nzg+1
             do i=0,nxg+1
@@ -2335,8 +2340,6 @@
              
             enddo
           enddo
-        else !Divergence clean B-field (outside)
-          divcl = .true.
         endif
 
 !     Spline PIXIE3D global variables
@@ -2461,7 +2464,8 @@
               prs(i,j,k) = db3val(r1,th1,v1,0,0,0,tx,ty,tz,nxs,nys,nzs &
      &                           ,kx,ky,kz,prs_coef,work)
 
-              rho(i,j,k) = abs(prs(i,j,k))**(1d0/gam)
+!!$              rho(i,j,k) = sign(1d0,prs(i,j,k))*abs(prs(i,j,k))**(1d0/gam)
+              rho(i,j,k) = abs(prs(i,j,k))**(1d0/gam)  !Forces positive density
             enddo
           enddo
         enddo
