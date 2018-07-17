@@ -621,7 +621,7 @@ c Map vector x to array for processing
       dprs = 0d0
  
       call fillArray(g_def,igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
-     .              ,icomp=(/ITMP/))
+     .              ,icomp=(/IPRS/))
 
 c Map velocity components
 
@@ -645,14 +645,23 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            upwind = gm*flx_advec(g_def,i,j,k,nnx,nny,nnz
+            if (use_p_eom) then !Need this for strong stability
+              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
+     .                          ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
+     .                          ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
+     .               +(gm-1.)*dprs(i,j,k,1)
+     .                       *div(g_def,i,j,k,nnx,nny,nnz
+     .                           ,igrid,igrid,igrid,v0_cnv)
+            else
+              upwind = gm*flx_advec(g_def,i,j,k,nnx,nny,nnz
      .                           ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
      .                           ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .             +(gm-1.)
+     .               +(gm-1.)
      .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
      .                              ,igrid,igrid,igrid,v0_cnv
      .                              ,dprs(:,:,:,1),1,reverse=.true.)
-
+            endif
+            
             if (MG_get_res_vol_wgt()) then
               dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
             else
