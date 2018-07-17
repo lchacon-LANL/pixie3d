@@ -223,7 +223,7 @@ c     -----------------------------------------------------------------
 
       implicit none
 
-      character (5) :: release
+      character (50) :: release
 
 c     Initial message
 
