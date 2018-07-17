@@ -239,10 +239,10 @@ c     Temperature BCs
 
 cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array/jac
 cc
-cc        call setBC(gv%gparams,ITMP,nnx,nny,nnz
-cc     .            ,varray%array_var(ITMP)%array
-cc     .            ,u_0   %array_var(ITMP)%array
-cc     .            ,varray%array_var(ITMP)%bconds
+cc        call setBC(gv%gparams,IPRS,nnx,nny,nnz
+cc     .            ,varray%array_var(IPRS)%array
+cc     .            ,u_0   %array_var(IPRS)%array
+cc     .            ,varray%array_var(IPRS)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
 cc
 cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array*jac
