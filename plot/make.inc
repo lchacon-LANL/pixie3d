@@ -8,7 +8,7 @@ PETSC_A_CODE = $(EXECA)-adios-$(ADIOS_VER).petsc.x
 
 MODS := mhd_mod.F BC_mod.F PC_mod.F
 
-EXCLUDE += %ts_io_mod.F %ts_if_mod.F %ts_base_mod.F %ts_mod.F %proj_int_mod.F
+EXCLUDE += %ts_if_mod.F %ts_mod.F %proj_int_mod.F
 
 override CPPFLAGS += -Dplotting
 

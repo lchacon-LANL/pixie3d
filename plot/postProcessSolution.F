@@ -19,7 +19,7 @@ c--------------------------------------------------------------------
 
       use auxPlotVariables
 
-      use ts_setup
+      use ts_io
 
       use operators
 
@@ -359,7 +359,7 @@ c Toroidal diagnostics (quasi-linear q-profile, lambda profile)
 
 c Fourier output
 
-      if (np == 1 .and. fourier) then
+      if (np == 1 .and. fourier.and.TS_chk_plot_dump(.false.)) then
         call fourier_dump
       elseif (np > 1 .and. fourier .and. my_rank == 0) then
         write (*,*) 'Fourier dump not available in parallel'
@@ -373,7 +373,7 @@ c Poincare output (field tracer)
      $  .or. coords == 'sh2'
      $  .or. coords == 'stl')
 
-      if (poincare)
+      if (poincare.and.TS_chk_plot_dump(.false.))
      . call poincare_plot_dump(gv%gparams,time,bcnv,bx_car,by_car,bz_car
      .                        ,tor)
 
