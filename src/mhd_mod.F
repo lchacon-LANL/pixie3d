@@ -643,18 +643,14 @@ c     Begin program
 
 c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
-cc        nx = size(tmp_0,1)-2
-cc        ny = size(tmp_0,2)-2
-cc        nz = size(tmp_0,3)-2
-
       if (.not.associated(pcnv)) then
-        allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc(0:nx+1,0:ny+1,0:nz+1,3)
+        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs  (0:nx+1,0:ny+1,0:nz+1))
+     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
       endif
 
       pcnv = 0d0
@@ -692,9 +688,9 @@ cc        nz = size(tmp_0,3)-2
       if (.not.e_cons_vstar) then
         vscnv = vcnv            !Also to recover old TM Hall performance results
       else
-        vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
-        vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
-        vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
+        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
+        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
+        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
       endif
 
 #if !defined(flux_rhs)
