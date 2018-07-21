@@ -693,12 +693,25 @@ c     #####################################################################
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
       !NK
-      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
+cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
+
+      !Adequate size for collapsed dimension
+      if (numerical_grid .and. coords /= 'car') then
+        if (nxd == 1) then
+          xmax = 1d-3 ; xmin = 0d0
+        endif
+        if (nyd == 1) then
+          ymax = 1d-3 ; ymin = 0d0
+        endif
+        if (nzd == 1) then
+          zmax = 1d-3 ; zmin = 0d0
+        endif
+      endif
 
       !Do NOT regularize A @ SP when plotting
 #if defined(plotting)
