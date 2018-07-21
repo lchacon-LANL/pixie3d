@@ -1420,10 +1420,8 @@ c Find rhs_v'
      .                     ,vol=.false.)
               endif
 
-              cnv = cnv
-     .               -EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,rho0(:,:,:,1),dprs(:,:,:,1),nc_eom_gp
-     .                     ,vol=.false.)
+              cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
+     .                          ,dprs(:,:,:,1),nc_eom_gp,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then
