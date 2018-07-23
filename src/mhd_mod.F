@@ -148,6 +148,7 @@ c ######################################################################
      .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
+     .            ,use_p_classic_eq =.false.   !Whether we use classic (p.div(v)) pressure evolution eq.
      .            ,nu_is_rhonu=.false.   !Whether to use rho*nu in electron viscous term
      .            ,heta_is_rhoheta=.true.!Whether to use rho*heta in ion viscoust term
      .            ,e_cons_vstar=.true.   !Whether we use energy conserving velocity in T eq.
@@ -708,7 +709,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .                        )!,sp=bcSP())
 
       bc = varray%array_var(IPRS)%bconds
-      if (use_p_eom) then !Need this for strong stability
+      if (use_p_classic_eq) then !Classic p evolution eq
        prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
      .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
       else

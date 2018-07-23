@@ -280,6 +280,11 @@ cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
      .     write (*,*) 'Using grad(p) instead of grad(nT) in EOM'
       if (use_p_diff)
      .     write (*,*) 'Using lap(p) instead of lap(T) in pressure eq.'
+      if (use_p_classic_eq) then
+        write (*,*) 'Using p.div(v) form of pressure eq.'
+      else
+        write (*,*) 'Using -v.grad(p) form of pressure eq.'
+      endif
 #if !defined(vec_pot)
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
 #endif
