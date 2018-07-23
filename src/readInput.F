@@ -88,7 +88,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
-     .                   ,regularize_A
+     .                   ,regularize_A,use_p_classic_eq
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -124,7 +124,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
-     .                   ,regularize_A
+     .                   ,regularize_A,use_p_classic_eq
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -502,6 +502,7 @@ c     #####################################################################
       solve_rho  = .true.      ! Whether we solve continuity equation or not
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
+      use_p_classic_eq = .false. !Whether we use classic form of pressure eq (p.div(v))
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
