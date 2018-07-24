@@ -102,12 +102,13 @@ c ######################################################################
 #endif
         use mg_solver
 
+        use problem_def, ONLY: use_p_eom
+
         use nlfunction_setup, ONLY: EOM_divPi_ijk
      .                             ,viscous_heat_src
      .                             ,nc_eom_v
      .                             ,nc_eom_jxb
      .                             ,nc_eom_gp
-     .                             ,use_p_eom
      .                             ,advect
      .                             ,v_advect
      .                             ,form_ve
