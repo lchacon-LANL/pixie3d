@@ -235,7 +235,11 @@ cc     .               ,bcnv,jcnv,.true.
 
 c     grad(p) volume force
 
-      cnv = EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igx,rho,tmp,nc_eom_gp)
+      if (use_p_eom) then
+        cnv = EOM_gp (gv%gparams,i,j,k,nx,ny,nz,igx,prs    ,nc_eom_gp)
+      else
+        cnv = EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igx,rho,tmp,nc_eom_gp)
+      endif
 
       ff(IVX:IVZ) = ff(IVX:IVZ) + cnv
 
@@ -906,8 +910,8 @@ cc             .               ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = -cnv
 
               !grad(p) volume force
-              cnv = EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
-     .                    ,nc_eom_gp)
+              cnv = EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
+     .                     ,nc_eom_gp)
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
@@ -954,15 +958,16 @@ cc     .                       ,bcnv,jcnv,.true.
 
               !Grad(p)
               if (nc_eom_gp) then
-                cnv=EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
-     .                    ,nc_eom_gp)
+                cnv=EOM_gnT(gv%gparams,i,j,k,nx,ny,nz,igr,rho,tmp
+     .                     ,nc_eom_gp)
 
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 sc1 => rho
                 sc2 => tmp
                 cnv = dtnsr_src_ijk(gv%gparams,i,j,k,nx,ny,nz,igr
-     .               ,alt__eom(),eom_grad_p_x,eom_grad_p_y,eom_grad_p_z)
+     .               ,alt__eom()
+     .               ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z)
                 nullify(sc1,sc2)
               endif
 

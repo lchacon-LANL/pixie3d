@@ -148,6 +148,7 @@ c ######################################################################
      .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
+     .            ,use_p_classic_eq =.false.   !Whether we use classic (p.div(v)) pressure evolution eq.
      .            ,nu_is_rhonu=.false.   !Whether to use rho*nu in electron viscous term
      .            ,heta_is_rhoheta=.true.!Whether to use rho*heta in ion viscoust term
      .            ,e_cons_vstar=.true.   !Whether we use energy conserving velocity in T eq.
@@ -643,18 +644,14 @@ c     Begin program
 
 c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 
-cc        nx = size(tmp_0,1)-2
-cc        ny = size(tmp_0,2)-2
-cc        nz = size(tmp_0,3)-2
-
       if (.not.associated(pcnv)) then
-        allocate(pcnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc(0:nx+1,0:ny+1,0:nz+1,3)
+        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs  (0:nx+1,0:ny+1,0:nz+1))
+     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
       endif
 
       pcnv = 0d0
@@ -692,9 +689,9 @@ cc        nz = size(tmp_0,3)-2
       if (.not.e_cons_vstar) then
         vscnv = vcnv            !Also to recover old TM Hall performance results
       else
-        vscnv(:,:,:,1) = vcnv(:,:,:,1)-di*jcnv(:,:,:,1)/rho/a_p
-        vscnv(:,:,:,2) = vcnv(:,:,:,2)-di*jcnv(:,:,:,2)/rho/a_p
-        vscnv(:,:,:,3) = vcnv(:,:,:,3)-di*jcnv(:,:,:,3)/rho/a_p
+        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
+        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
+        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
       endif
 
 #if !defined(flux_rhs)
@@ -712,7 +709,7 @@ cc        nz = size(tmp_0,3)-2
      .                        )!,sp=bcSP())
 
       bc = varray%array_var(IPRS)%bconds
-      if (use_p_eom) then !Need this for strong stability
+      if (use_p_classic_eq) then !Classic p evolution eq
        prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
      .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
       else
@@ -5059,8 +5056,8 @@ c     End program
 
 c     EOM_gp
 c     ###################################################################
-      function EOM_gp(g_def,i,j,k,nx,ny,nz,igrid,rr,tt,nc_eom_gp
-     .               ,vol) result(cnv)
+      function EOM_gp(g_def,i,j,k,nx,ny,nz,igrid,pp,nc_eom_gp,vol)
+     .         result(cnv)
 
 c     -------------------------------------------------------------------
 c     Finds contravariant components (a1,a2,a3) of the EOM force term
@@ -5075,8 +5072,7 @@ c     Call variables
 
         integer    :: igrid,i,j,k,nx,ny,nz
         real(8)    :: cnv(3)
-        real(8),target :: rr(0:nx+1,0:ny+1,0:nz+1)
-     $                   ,tt(0:nx+1,0:ny+1,0:nz+1)
+        real(8),target :: pp(0:nx+1,0:ny+1,0:nz+1)
         logical    :: nc_eom_gp
         logical,optional,intent(IN) :: vol
 
@@ -5109,53 +5105,25 @@ c     Begin program
           dyy = 2*g_def%dyh(jg)
           dzz = 2*g_def%dzh(kg)
 
-          if (use_p_eom) then  !grad(p)
-            !Default second-order formulas
-            cov(1) = (rr(ip,j,k)*tt(ip,j,k)-rr(im,j,k)*tt(im,j,k))/dxx
-            cov(2) = (rr(i,jp,k)*tt(i,jp,k)-rr(i,jm,k)*tt(i,jm,k))/dyy
-            cov(3) = (rr(i,j,kp)*tt(i,j,kp)-rr(i,j,km)*tt(i,j,km))/dzz
+          cov(1) = (pp(ip,j,k)-pp(im,j,k))/dxx
+          cov(2) = (pp(i,jp,k)-pp(i,jm,k))/dyy
+          cov(3) = (pp(i,j,kp)-pp(i,j,km))/dzz
 
-c$$$            cov(1) = ( 0.5*(rr(i,j,k)+rr(ip,j,k))
-c$$$     .                    *(tt(i,j,k)+tt(ip,j,k))
-c$$$     .                -0.5*(rr(i,j,k)+rr(im,j,k))
-c$$$     .                    *(tt(i,j,k)+tt(im,j,k)))/dxx
-c$$$            cov(2) = ( 0.5*(rr(i,j,k)+rr(i,jp,k))
-c$$$     .                    *(tt(i,j,k)+tt(i,jp,k))
-c$$$     .                -0.5*(rr(i,j,k)+rr(i,jm,k))
-c$$$     .                    *(tt(i,j,k)+tt(i,jm,k)))/dyy
-c$$$            cov(3) = ( 0.5*(rr(i,j,k)+rr(i,j,kp))
-c$$$     .                    *(tt(i,j,k)+tt(i,j,kp))
-c$$$     .                -0.5*(rr(i,j,k)+rr(i,j,km))
-c$$$     .                    *(tt(i,j,k)+tt(i,j,km)))/dzz
-
-          else                 !grad(nT) with ZIP
-            cov(1) = (rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))
-     .               +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k)))/dxx
-
-            cov(2) = (rr(i,j,k)*(tt(i,jp,k)-tt(i,jm,k))
-     .               +tt(i,j,k)*(rr(i,jp,k)-rr(i,jm,k)))/dyy
-          
-            cov(3) = (rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))
-     .               +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km)))/dzz
-          endif
-
-          cnv = matmul(g_def%gmetric%grid(igx)%gsup(i,j,k,:,:),cov)
+          cnv = XformToCnv(g_def,i,j,k,igx,cov)
 
           if (vol_wgt) cnv = cnv*g_def%gmetric%grid(igrid)%dvol(i,j,k)
-
         else
-          sc1 => rr
-          sc2 => tt
+          sc2 => pp
           cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
      .                    ,eom_grad_p_x,eom_grad_p_y,eom_grad_p_z
      .                    ,vol=vol_wgt)
-          nullify(sc1,sc2)
+          nullify(sc2)
         endif
 
 c     End program
 
       end function EOM_gp
-
+      
 c     EOM_grad_p_x
 c     #############################################################
       subroutine EOM_grad_p_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
@@ -5203,18 +5171,10 @@ c     Begin program
 
         if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
-        if (use_p_eom) then    !grad(p)
-          ptot = 0.5*jac*(sc1(i ,j,k)*sc2(i ,j,k)
-     .                   +sc1(ip,j,k)*sc2(ip,j,k))
-        else                   !grad(nT) with ZIP
-          ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
-     .                   +sc1(i ,j,k)*sc2(ip,j,k))
-        endif
+        ptot = 0.5*jac*(sc2(i,j,k)+sc2(ip,j,k))
 
         t11 = gsuper(1,1)*ptot
-
         t12 = gsuper(1,2)*ptot
-
         t13 = gsuper(1,3)*ptot
 
         if (flag /= 0) then
@@ -5274,13 +5234,7 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,:,:)
      .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,:,:))
 
-        if (use_p_eom) then    !grad(p)
-          ptot = 0.5*jac*(sc1(i,j ,k)*sc2(i,j ,k)
-     .                   +sc1(i,jp,k)*sc2(i,jp,k))
-        else                   !grad(nT) with ZIP
-          ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
-     .                   +sc1(i,j ,k)*sc2(i,jp,k))
-        endif
+        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,jp,k))
 
         t21 = gsuper(2,1)*ptot
         t22 = gsuper(2,2)*ptot
@@ -5343,18 +5297,10 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,:,:)
      .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,:,:))
 
-        if (use_p_eom) then    !grad(p)
-          ptot = 0.5*jac*(sc1(i,j,k )*sc2(i,j,k )
-     .                   +sc1(i,j,kp)*sc2(i,j,kp))
-        else                   !grad(nT) with ZIP
-          ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
-     .                   +sc1(i,j,k )*sc2(i,j,kp))
-        endif
+        ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,j,kp))
 
         t31 = gsuper(3,1)*ptot
-
         t32 = gsuper(3,2)*ptot
-
         t33 = gsuper(3,3)*ptot
 
         if (flag /= 0) then
@@ -5368,6 +5314,279 @@ c     Begin program
 c     End program
 
       end subroutine EOM_grad_p_z
+
+c     EOM_gnT
+c     ###################################################################
+      function EOM_gnT(g_def,i,j,k,nx,ny,nz,igrid,rr,tt,nc_eom_gp,vol)
+     .         result(cnv)
+
+c     -------------------------------------------------------------------
+c     Finds contravariant components (a1,a2,a3) of the EOM force term
+c     grad(prs) at cell centers.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: igrid,i,j,k,nx,ny,nz
+        real(8)    :: cnv(3)
+        real(8),target :: rr(0:nx+1,0:ny+1,0:nz+1)
+     $                   ,tt(0:nx+1,0:ny+1,0:nz+1)
+        logical    :: nc_eom_gp
+        logical,optional,intent(IN) :: vol
+
+c     Local variables
+
+        integer    :: ig,jg,kg,ip,im,jp,jm,kp,km,igx,igy,igz
+        real(8)    :: cov(3),jac,cnv1(3),dxx,dyy,dzz
+        logical    :: vol_wgt
+
+c     Begin program
+
+        igx = igrid
+        igy = igrid
+        igz = igrid
+
+        vol_wgt = .false.
+        if (PRESENT(vol)) vol_wgt = vol
+
+        if (nc_eom_gp) then
+          ip = i+1
+          im = i-1
+          jp = j+1
+          jm = j-1
+          kp = k+1
+          km = k-1
+
+          call getMGmap(g_def,i,j,k,igx,igy,igz,ig,jg,kg)
+
+          dxx = 2*g_def%dxh(ig)
+          dyy = 2*g_def%dyh(jg)
+          dzz = 2*g_def%dzh(kg)
+
+          !grad(nT) with ZIP
+          cov(1) = (rr(i,j,k)*(tt(ip,j,k)-tt(im,j,k))
+     .             +tt(i,j,k)*(rr(ip,j,k)-rr(im,j,k)))/dxx
+
+          cov(2) = (rr(i,j,k)*(tt(i,jp,k)-tt(i,jm,k))
+     .             +tt(i,j,k)*(rr(i,jp,k)-rr(i,jm,k)))/dyy
+          
+          cov(3) = (rr(i,j,k)*(tt(i,j,kp)-tt(i,j,km))
+     .             +tt(i,j,k)*(rr(i,j,kp)-rr(i,j,km)))/dzz
+
+          cnv = XformToCnv(g_def,i,j,k,igx,cov)
+
+          if (vol_wgt) cnv = cnv*g_def%gmetric%grid(igrid)%dvol(i,j,k)
+
+        else
+          sc1 => rr
+          sc2 => tt
+          cnv = div_tensor(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt__eom()
+     .                    ,eom_grad_nT_x,eom_grad_nT_y,eom_grad_nT_z
+     .                    ,vol=vol_wgt)
+          nullify(sc1,sc2)
+        endif
+
+c     End program
+
+      end function EOM_gnT
+
+c     EOM_grad_nT_x
+c     #############################################################
+      subroutine EOM_grad_nT_x(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                       ,t11,t12,t13,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t11-t13 for grad(nT) term in EOM.
+c     In the call sequence:
+c       * i,j,k: grid position
+c       * nx,ny,nz: grid size
+c       * igx,igy,igz: grid level (for MG evaluations)
+c       * alt_eom: whether to use alternate EOM in singular coord.
+c                  systems or not.
+c       * t11,t12,t13: tensor components.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i+1/2,j,k (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+        real(8)    :: t11,t12,t13
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer    :: ig,jg,kg,ip,igr
+        real(8)    :: x,y,z
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3,3)
+
+c     Begin program
+
+        igr = igx
+
+        ip = i+1
+        if (flag == 0) ip = i
+
+        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
+     .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,:,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,:,:))
+
+        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+
+        ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
+     .                 +sc1(i ,j,k)*sc2(ip,j,k))
+
+        t11 = gsuper(1,1)*ptot
+        t12 = gsuper(1,2)*ptot
+        t13 = gsuper(1,3)*ptot
+
+        if (flag /= 0) then
+          ijac = 1d0/jac
+
+          t11 = t11*ijac
+          if (.not.alt_eom) t12 = t12*ijac
+          t13 = t13*ijac
+        endif
+
+c     End program
+
+      end subroutine EOM_grad_nT_x
+
+c     EOM_grad_nT_y
+c     #############################################################
+      subroutine EOM_grad_nT_y(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                    ,t21,t22,t23,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t21-t23 for grad(nT) term in EOM.
+c     In the call sequence:
+c       * i,j,k: grid position
+c       * nx,ny,nz: grid size
+c       * igx,igy,igz: grid level (for MG evaluations)
+c       * alt_eom: whether to use alternate EOM in singular coord.
+c                  systems or not.
+c       * t21,t22,t23: tensor components.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i+1/2,j,k (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+        real(8)    :: t21,t22,t23
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer    :: ig,jg,kg,jp,igr
+        real(8)    :: x,y,z
+        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+
+c     Begin program
+
+        igr = igx
+
+        jp = j+1
+        if (flag == 0) jp = j
+
+        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
+     .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,:,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,:,:))
+
+        ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
+     .                 +sc1(i,j ,k)*sc2(i,jp,k))
+
+        t21 = gsuper(2,1)*ptot
+        t22 = gsuper(2,2)*ptot
+        t23 = gsuper(2,3)*ptot
+
+        if (flag /= 0) then
+          ijac = 1d0/jac
+
+          t21 = t21*ijac
+          if (.not.alt_eom) t22 = t22*ijac
+          t23 = t23*ijac
+        endif
+
+c     End program
+
+      end subroutine EOM_grad_nT_y
+
+c     EOM_grad_nT_z
+c     #############################################################
+      subroutine EOM_grad_nT_z(g_def,i,j,k,nx,ny,nz,igx,igy,igz,alt_eom
+     .                       ,t31,t32,t33,flag)
+c     -------------------------------------------------------------
+c     Calculates tensor components t31-t33 for grad(nT) term in EOM.
+c     In the call sequence:
+c       * i,j,k: grid position
+c       * nx,ny,nz: grid size
+c       * igx,igy,igz: grid level (for MG evaluations)
+c       * alt_eom: whether to use alternate EOM in singular coord.
+c                  systems or not.
+c       * t31,t32,t33: tensor components.
+c       * flag: whether evaluation is a cell center i,j,k (flag=0)
+c               or at cell face i+1/2,j,k (flag /= 0)
+c     -------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer    :: i,j,k,flag,nx,ny,nz,igx,igy,igz
+        real(8)    :: t31,t32,t33
+        logical    :: alt_eom
+
+c     Local variables
+
+        integer    :: ig,jg,kg,kp,igr
+        real(8)    :: x,y,z
+        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+
+c     Begin program
+
+        igr = igx
+
+        kp = k+1
+        if (flag == 0) kp = k
+
+        jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
+     .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,:,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,:,:))
+
+        ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
+     .                 +sc1(i,j,k )*sc2(i,j,kp))
+
+        t31 = gsuper(3,1)*ptot
+        t32 = gsuper(3,2)*ptot
+        t33 = gsuper(3,3)*ptot
+
+        if (flag /= 0) then
+          ijac = 1d0/jac
+
+          t31 = t31*ijac
+          if (.not.alt_eom) t32 = t32*ijac
+          t33 = t33*ijac
+        endif
+
+c     End program
+
+      end subroutine EOM_grad_nT_z
 
 c     EOM_diff_x
 c     #############################################################

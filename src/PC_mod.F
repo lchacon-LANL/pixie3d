@@ -1571,7 +1571,7 @@ c     Begin program
           
           akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
      .                  ,he=he,stress=strs)
-          akm = U_Av_ijk(g_def,i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+          akm = U_Av_ijk(g_def,i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
      .                  ,he=he,stress=strs)
         end select
 
