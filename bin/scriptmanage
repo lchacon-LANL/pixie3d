@@ -43,7 +43,7 @@ new_job()
 {
 sed -e s/"restart  = f"/"restart  = t"/g pixie3d.in > pixie3d.in2
 mv pixie3d.in2 pixie3d.in
-rm exit_code.txt
+rm exit_code.txt 2> /dev/null
 JOB=$(sbatch $1 --dependency=after:$JOB | cut -d " " -f 4)
 echo 'New JOB='$JOB
 
