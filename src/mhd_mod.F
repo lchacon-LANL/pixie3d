@@ -6421,8 +6421,8 @@ c     Begin program
       endif
 
       E_h = crossProduct(g_def,igr,jcnv,bcnv_star,.true.)
-     .     -grad(g_def,igr,pe)
-     .     -XformVector(g_def,igr,div_pe,.false.)
+     .     -grad        (g_def,igr,pe)
+     .     -XformVector (g_def,igr,div_pe,.false.)
 
       E_h(:,:,:,1) = E_h(:,:,:,1)/rho
       E_h(:,:,:,2) = E_h(:,:,:,2)/rho
@@ -6430,7 +6430,7 @@ c     Begin program
 
       !Electron inertia term
       if (de > 0d0) then
-        E_h = E_h - de**2/di**2*cnp*(vecov-vecov_n)/alpha/dt  !Works for BDF2
+        E_h = E_h - (de/di)**2*cnp*(vecov-vecov_n)/alpha/dt  !Does NOT work for BDF2
       endif
 
 c     End program

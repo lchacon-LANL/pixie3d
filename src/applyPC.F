@@ -448,20 +448,6 @@ cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                )  
         endif
 
-c       Magnetic field/vector potential
-
-#if defined(vec_pot)
-        call invert_A(x           ,rhs(:,IAX:IAZ))
-#else
-        call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
-#endif
-
-c       Temperature
-
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving for T...'
-        endif
-
         !Correct for electron velocity/source contribution
         call L_T(gv%gparams,igrid,x,dum)
         if (vol_wgt) call scaleVec(gv%gparams,igrid,1,dum,'mul')
@@ -485,6 +471,21 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
+
+c       Magnetic field/vector potential
+
+#if defined(vec_pot)
+        call invert_A(x           ,rhs(:,IAX:IAZ))
+#else
+        call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
+#endif
+
+c       Temperature
+
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for T...'
+        endif
+
 
 c     End program
 
