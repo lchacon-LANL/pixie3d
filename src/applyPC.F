@@ -155,24 +155,6 @@ c *******************************************************************
 
         call si_PC(rrr,xxx,4)
 
-        !EMHD step
-#if defined(vec_pot)
-        if (pc_B_solve.and.pc_e_hall.and.pc_split_EMHD_after) then
-
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving EMHD step for A...'
-          endif
-
-          call L_A(nn,xxx,rrr(:,IAX:IAZ),igrid)
-          rrr(:,IAX:IAZ) = cnp/dt*xxx(:,IAX:IAZ) - rrr(:,IAZ:IAZ)
-
-          if (vol_wgt)
-     .         call scaleVec(gv%gparams,igrid,3,rrr(:,IAX:IAZ),'mul')
-
-          call EMHD_step(rrr(:,IAX:IAZ),xxx(:,IAX:IAZ))
-        endif
-#endif
-
 c     Postprocessing of velocity -> momentum
 
         if (pc_v_solve)
@@ -481,7 +463,7 @@ c       Temperature
 c       Magnetic field/vector potential
 
 #if defined(vec_pot)
-        call invert_A(x(:,IAX:IAZ),rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
+        call invert_A(x           ,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ),guess)
 cc        call invert_B_from_A(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
@@ -499,17 +481,16 @@ c     ##############################################################
 
 c     Call variables
 
-      integer :: bcs(:,:),guess
-      real(8) :: x(:,:),y(:,:)
+      integer :: bcs(6,3),guess
+      real(8) :: x(nn,neq),y(nn,3)
 
 c     Local variables
 
-      real(8) :: yc(size(y,1),size(y,2))
+      real(8) :: yc(nn,3)
 
 c     Vector potential
 
-      if (pc_B_solve.and.pc_e_hall
-     .    .and.(.not.pc_split_EMHD_after)) then
+      if (pc_B_solve.and.pc_e_hall) then
 
         if (iout > 0.and.my_rank ==0) then
           write (*,*) '  --> Solving EMHD step for A...'
@@ -519,7 +500,7 @@ c     Vector potential
         if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
         yc = y - yc
 
-        call EMHD_step(yc,x)
+        call EMHD_step(yc,x(:,IAX:IAZ),guess)
 
       elseif (pc_B_solve.and.(.not.pc_e_hall)) then
 
@@ -527,7 +508,7 @@ c     Vector potential
           write (*,*) '  --> Solving for A...'
         endif
 
-        call cSolver(gv%gparams,3,nn,y,x,bcs,igrid
+        call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
      .              ,iout,guess,a_mtvc,vol_wgt
      .              ,tol           = pc_tol
      .              ,dg            = a_diag
@@ -1160,7 +1141,7 @@ c     Begin program
 
 c     EMHD_step
 c     ###################################################################
-      subroutine EMHD_step(b,x)
+      subroutine EMHD_step(b,x,guess)
 c     --------------------------------------------------------------------
 c     This subroutine performs EMHD step for vector potential, and
 c     returns updated RHS to feed into MHD step.
@@ -1172,6 +1153,7 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
+      integer :: guess
       real(8) :: x(nn,3),b(nn,3)
 
 c     Local variables

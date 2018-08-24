@@ -50,7 +50,7 @@
     mg_vcyc  = 1
     sm_iter  = 3
     sm_zebra_relax=f
-
+    mf_eps   = 1d-4
 !    mg_coarse_size = 2
 !    mgcf     = 8
 !    mg_coarse_solve = f

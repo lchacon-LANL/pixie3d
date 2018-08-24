@@ -27,7 +27,6 @@ c ######################################################################
 
         !Hardwired setup
         logical :: pc_v_solve=.false.          !Whether to perform final v corrector step
-     .            ,pc_split_EMHD_after=.false. !Whether to perform ???
 
         !Internal variables
         logical :: pc_ion_hall
