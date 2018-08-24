@@ -490,41 +490,44 @@ c     Local variables
 
 c     Vector potential
 
-      if (pc_B_solve.and.pc_e_hall) then
+      if (pc_B_solve) then
 
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving EMHD step for A...'
+        if (pc_e_hall) then  !Electron Hall
+
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving EMHD step for A...'
+          endif
+
+          call L_A(nn,x,yc,igrid)
+          if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
+          yc = y - yc
+
+          call EMHD_step(yc,x(:,IAX:IAZ),guess)
+          
+        else                 !Ion Hall
+
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for A...'
+          endif
+
+          call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
+     .                ,iout,guess,a_mtvc,vol_wgt
+     .                ,tol           = pc_tol
+     .                ,dg            = a_diag
+     .                ,mg_debug      = mg_debug
+     .                ,mg_galerkin   = mg_glrkin
+     .                ,mg_order_res  = mg_ores
+     .                ,mg_order_prol = mg_oprol
+     .                ,mg_gm_coarse_solve  = mg_gm_coarse
+     .                ,mg_vcyc       = mg_vcyc
+     .                ,mg_smooth     = sm_type
+     .                ,sm_it         = sm_iter
+     .                ,sm_omega      = sm_omega
+     .                ,sm_ncolors    = sm_ncolors
+     .                ,sm_line_relax = sm_line_relax
+     .                ,sm_zebra_relax= sm_zebra_relax
+     .                )
         endif
-
-        call L_A(nn,x,yc,igrid)
-        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
-        yc = y - yc
-
-        call EMHD_step(yc,x(:,IAX:IAZ),guess)
-
-      elseif (pc_B_solve.and.(.not.pc_e_hall)) then
-
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving for A...'
-        endif
-
-        call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
-     .              ,iout,guess,a_mtvc,vol_wgt
-     .              ,tol           = pc_tol
-     .              ,dg            = a_diag
-     .              ,mg_debug      = mg_debug
-     .              ,mg_galerkin   = mg_glrkin
-     .              ,mg_order_res  = mg_ores
-     .              ,mg_order_prol = mg_oprol
-     .              ,mg_gm_coarse_solve  = mg_gm_coarse
-     .              ,mg_vcyc       = mg_vcyc
-     .              ,mg_smooth     = sm_type
-     .              ,sm_it         = sm_iter
-     .              ,sm_omega      = sm_omega
-     .              ,sm_ncolors    = sm_ncolors
-     .              ,sm_line_relax = sm_line_relax
-     .              ,sm_zebra_relax= sm_zebra_relax
-     .              )
 
       else
 
