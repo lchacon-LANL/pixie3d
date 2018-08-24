@@ -165,7 +165,7 @@ c *******************************************************************
             write (*,*) '  --> Solving EMHD step for A...'
           endif
 
-          call rhs_A_hall(nn,xxx,rrr(:,IAX:IAZ),igrid)
+          call L_A(nn,xxx,rrr(:,IAX:IAZ),igrid)
           rrr(:,IAX:IAZ) = cnp/dt*xxx(:,IAX:IAZ) - rrr(:,IAZ:IAZ)
 
           if (vol_wgt)
@@ -436,7 +436,6 @@ c       Density
      .                ,mg_galerkin   = mg_glrkin
      .                ,mg_order_res  = mg_ores
      .                ,mg_order_prol = mg_oprol
-cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                ,mg_gm_coarse_solve  = mg_gm_coarse
      .                ,mg_vcyc       = mg_vcyc
      .                ,mg_smooth     = sm_type
@@ -446,6 +445,12 @@ cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
      .                )  
+        endif
+
+c       Temperature
+
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for T...'
         endif
 
         !Correct for electron velocity/source contribution
@@ -461,7 +466,6 @@ cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -479,13 +483,6 @@ c       Magnetic field/vector potential
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
 #endif
-
-c       Temperature
-
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving for T...'
-        endif
-
 
 c     End program
 
@@ -589,11 +586,11 @@ c     Magnetic field
      .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = b_diag
+cc     .            ,gm_driver     = pc_gm_driver
      .            ,mg_debug      = mg_debug
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -621,7 +618,6 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -732,7 +728,6 @@ c     Begin program
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -768,7 +763,6 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -836,7 +830,6 @@ c     Begin program
      .              ,mg_galerkin   = mg_glrkin
      .              ,mg_order_res  = mg_ores
      .              ,mg_order_prol = mg_oprol
-cc     .              ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .              ,mg_gm_coarse_solve  = mg_gm_coarse
      .              ,mg_smooth     = sm_type_si
      .              ,mg_vcyc       = mg_vcyc
@@ -1093,7 +1086,6 @@ c     Begin program
 
       end subroutine norm_test
 
-#if defined(vec_pot)
 c     EMHD_step
 c     ###################################################################
       subroutine EMHD_step(b,x)
@@ -1147,7 +1139,6 @@ cc     .            ,mg_vcyc       = 10
      .            ,sm_zebra_relax= sm_zebra_relax
      .            !Production
      .            ,tol           = pc_tol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
      .            ,sm_it         = sm_iter
@@ -1181,7 +1172,6 @@ c diag ****
 c     End program
 
       end subroutine EMHD_step
-#endif
 
       end subroutine apply_app_PC
 
@@ -1553,7 +1543,6 @@ c Solve for advection-diffusion part
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type
      .            ,mg_vcyc       = mg_vcyc
@@ -1608,13 +1597,13 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: nn,igrid,iout
-      real(8)    :: x(nn,neqd),crhs(nn,3)
+      integer :: nn,igrid,iout
+      real(8) :: x(nn,3),crhs(nn,3)
 
 c Local variables
 
-      integer    :: i,j,k,ii,isig,ivar,nx,ny,nz,bcnd(6,3)
-      real(8)    :: dvol,cov(3),cnv(3)
+      integer :: i,j,k,ii,isig,ivar,nx,ny,nz,bcnd(6,3)
+      real(8) :: dvol,cov(3),cnv(3)
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
      .                                          ,db_cov

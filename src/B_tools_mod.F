@@ -20,7 +20,7 @@ c ####################################################################
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(g_def,igrid,b,a,global,w_bcs,order)
+      subroutine curl_inv(g_def,igrid,b,a,global,w_bcs,order,sp)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -39,7 +39,7 @@ c     Call variables
       integer    :: igrid
       real(8)    :: a(0:,0:,0:,:)
      .             ,b(0:,0:,0:,:)
-      logical,optional :: global,w_bcs
+      logical,optional :: global,w_bcs,sp
       integer,optional :: order
 
 c     Local variables
@@ -70,7 +70,11 @@ c     Begin program
         do_bc = (.not.glbl).or.(np == 1)
       endif
 
-      spoint = bcSP()
+      if (PRESENT(sp)) then
+        spoint = sp
+      else
+        spoint = bcSP()
+      endif
 
 c     Consistency check
 
@@ -692,16 +696,18 @@ c     Define BCs
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
 
-      bcsa = bcsb
-      where (bcond == FSYM)
-        bcsa(:,1) = FSYM !Recover symmetry BCs
-        bcsa(:,2) = FSYM !Recover symmetry BCs
-        bcsa(:,3) = FSYM !Recover symmetry BCs
-      end where
-      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
-                                        !Normal component BCs same as B (div = 0)
+      call default_A_BCs(bcsa)
 
-      call set_vec_symm_bc(bcsa,-1)
+c$$$      bcsa = bcsb
+c$$$      where (bcond == FSYM)
+c$$$        bcsa(:,1) = FSYM !Recover symmetry BCs
+c$$$        bcsa(:,2) = FSYM !Recover symmetry BCs
+c$$$        bcsa(:,3) = FSYM !Recover symmetry BCs
+c$$$      end where
+c$$$      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+c$$$                                        !Normal component BCs same as B (div = 0)
+c$$$
+c$$$      call set_vec_symm_bc(bcsa,-1)
 
 c     Find dA
 
@@ -1128,7 +1134,8 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-      call pstop('B_dump','Dumped graphics')
+      write (*,*) "Dumped graphics in B_dump"
+cc      call pstop('B_dump','Dumped graphics')
 
 c     End program
 
@@ -1137,7 +1144,7 @@ c     End program
 c     findVectorPotential
 c     #############################################################
       subroutine findVectorPotential(g_def,iout,igrid,b_cnv,a_cov,meth
-     .                              ,its,rtol)
+     .                              ,its,rtol,sp)
 
 c     -------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
@@ -1164,6 +1171,7 @@ c     Call variables
 
       integer,optional,INTENT(OUT) :: its
       real(8),optional,INTENT(IN)  :: rtol
+      logical,optional :: sp
 
 c     Local variables
 
@@ -1208,7 +1216,7 @@ c     Gather global magnetic field
 
 c     Find A BCs (fluxes) via line integrals
 
-      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=4)
+      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=4,sp=sp)
 
       !Restrict solution to current domain (when appropriate)
       call XferGlobalArray(ag,a_cov)
