@@ -81,7 +81,7 @@ c     Split PC
 c     Postprocessing of velocity -> momentum
 
         if (pc_v_solve)
-     .       call correctVfld(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
+     .       call correct_V(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
 
         if (.not.nc_eom_v) call get_dP
 
@@ -149,7 +149,7 @@ c *******************************************************************
 c     Postprocessing of velocity -> momentum
 
         if (pc_v_solve)
-     .       call correctVfld(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
+     .       call correct_V(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
 
         if (.not.nc_eom_v) call get_dP
 
@@ -189,7 +189,7 @@ c     ##############################################################
 
 c     --------------------------------------------------------------
 c     Finds update dx=(drho,dB,dT), for:
-c       * flag = 0: M^-1 ~ dt update (no inv required)
+c       * flag = 0: small-flow update (no inv required)
 c       * flag = 1: diagonal splitting (requires inv(D_M))
 c       * flag = 2: Approximation of U to [M (D_M)^-1 U] (requires inv(D_M))
 c       * flag = 3: standard Schur complement (requires inv(M))
@@ -219,10 +219,10 @@ c     Begin program
 
 #if !defined(vec_pot)
           if (pc_divclean)
-     .        call correctBfld(nn,igrid,rr(:,IBX:IBZ),x(:,IBX:IBZ),iout)
+     .        call correct_B2(nn,igrid,rr(:,IBX:IBZ),x(:,IBX:IBZ),iout)
 #endif
-          x = x - dt/cnp*udv
-
+          x = x - (dt/cnp)*udv
+          
         case(1)
 
           call correct_dx_rhs(rr,udv)
@@ -319,7 +319,7 @@ c     End program
 
 c     find_Udv
 c     ##############################################################
-      subroutine find_Udv(x,rhs)
+      subroutine find_Udv(x,udv)
 
 c     --------------------------------------------------------------
 c     Finds the operator U(dv)
@@ -329,7 +329,7 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: x(nn,neq),rhs(nn,neq)
+        real(8) :: x(nn,neq),udv(nn,neq)
 
 c     Local variables
 
@@ -339,7 +339,7 @@ c     Local variables
 
 c     Begin program
 
-        rhs = 0d0
+        udv = 0d0
 
 c     Store velocity solution in array format --> dv_cnv
 
@@ -352,18 +352,18 @@ c     Store velocity solution in array format --> dv_cnv
 
 c     Correct rx to find Deltax (correction for rho, B, T)
 
-        !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
+        !Find corrections to rho,B,tmp right hand sides (Udv --> udv)
         if (solve_rho) then
-          call U_rho_v(gv%gparams,igrid,dv_cnv,rhs(:,IRHO))
+          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
         endif
 
 #if defined(vec_pot)
-        call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IAX:IAZ))
+        call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IAX:IAZ))
 #else
-        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
+        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IBX:IBZ))
 #endif
 
-        call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,IPRS))
+        call U_Tv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
 
 c     End program
 
@@ -538,7 +538,7 @@ c     ##############################################################
 c     Call variables
 
       integer :: guess
-      real(8) :: x(:,:),y(:,:)
+      real(8) :: x(nn,3),y(nn,3)
 
 c     Local variables
 
@@ -571,7 +571,8 @@ cc     .            ,gm_driver     = pc_gm_driver
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
-cc          if (pc_divclean) call correctBfld(nn,igrid,y,x,iout)
+cc          if (pc_divclean) call correct_B2(nn,igrid,y,x,iout)
+cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
 cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
 
 cc          pause
@@ -605,7 +606,7 @@ cc          pause
 
           x = xc(:,1:3)
 
-cc          if (pc_divclean) call correctBfld(nn,igrid,y,x,iout) !Need to add Hall MHD terms
+cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout) !Need to add Hall MHD terms
 cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
         endif
 
@@ -826,20 +827,6 @@ cc          call pc_diag(6,nn,xc,rhsc)
 
           x(:,IVX:IVZ) = xc(:,1:3)
         endif
-
-        !Transform velocity field for consistency with NLF
-cc        if (alt__eom()) then
-cc
-cc          do k = 1,nz
-cc            do j = 1,ny
-cc              do i = 1,nx
-cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc                x(ii,IVY) = x(ii,IVY)*gv%gparams%gmetric%grid(igx)%jac(i,j,k)
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        endif
 
 c     End program
 
@@ -1468,9 +1455,9 @@ c End program
 
       end subroutine L_y_star
 
-c correctVfld
+c correct_V
 c #########################################################################
-      subroutine correctVfld(nn,x,crhs,igrid,iout)
+      subroutine correct_V(nn,x,crhs,igrid,iout)
 c--------------------------------------------------------------------
 c     This subroutine corrects the flow field with all-new data.
 c--------------------------------------------------------------------
@@ -1552,11 +1539,11 @@ c Correction w/o solve
 
 c End program
 
-      end subroutine correctVfld
+      end subroutine correct_V
 
-c correctBfld
+c correct_B
 c #########################################################################
-      subroutine correctBfld(nn,igrid,crhs,x,iout)
+      subroutine correct_B(nn,igrid,rhs,x,iout)
 c--------------------------------------------------------------------
 c     This subroutine corrects the B-field update with all-new info,
 c     in a divergence-free manner.
@@ -1573,7 +1560,7 @@ c--------------------------------------------------------------------
 c Call variables
 
       integer :: nn,igrid,iout
-      real(8) :: x(nn,3),crhs(nn,3)
+      real(8) :: x(nn,3),rhs(nn,3)
 
 c Local variables
 
@@ -1584,7 +1571,7 @@ c Local variables
      .                                          ,db_cov
      .                                          ,dj_cnv
      .                                          ,dj_cov
-     .                                          ,de_cov
+cc     .                                          ,de_cov
      .                                          ,vzeros
 
       real(8),pointer,dimension(:,:,:,:) :: v0_cnv,eta0
@@ -1607,11 +1594,13 @@ c Begin program
 cc     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
 
+      vzeros = 0d0
+
 c Find dB
 
       call fillArray(gv%gparams,igrid,3,x,db_cnv,bcs(:,IBX:IBZ)
-     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
-cc     .              ,2,arr_cov=db_cov,is_vec=.true.
+cc     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
+     .              ,2,arr_cov=db_cov,is_vec=.true.
      .              ,is_cnv=.true.,icomp=(/IBX/))
 
 c Find dj* from dB*
@@ -1619,13 +1608,13 @@ c Find dj* from dB*
       dj_cnv = curl(gv%gparams,igrid,db_cov)
       dj_cov = XformToCov(gv%gparams,igrid,dj_cnv)
 
-      bcnd(:,1) = bcond
-      bcnd(:,2) = bcond
-      bcnd(:,3) = bcond
+c$$$      bcnd(:,1) = bcond
+c$$$      bcnd(:,2) = bcond
+c$$$      bcnd(:,3) = bcond
       !Find covariant components of dj with BCs
       call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
-cc     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
-     .          ,bcnd,igrid,igrid,igrid,iorder=order_bc)
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
+cc     .          ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
 c Find dE* (electric field update)
 
@@ -1640,7 +1629,7 @@ cc      de_cov(:,:,:,3) = de_cov(:,:,:,3) + eta0(:,:,:,1)*dj_cov(:,:,:,3)
       dj_cov(:,:,:,2) = eta0(:,:,:,1)*dj_cov(:,:,:,2)
       dj_cov(:,:,:,3) = eta0(:,:,:,1)*dj_cov(:,:,:,3)
 
-c$$$      write (*,*) 'DIAG -- correctBfld'
+c$$$      write (*,*) 'DIAG -- correct_B'
 c$$$      open(unit=110,file='divclean.bin',form='unformatted'
 c$$$     .    ,status='replace')
 c$$$      call contour(db_cov(:,:,1,1),nx+2,ny+2
@@ -1692,7 +1681,7 @@ c Find correction
             else
               dvol = 1d0
             endif
-            x(ii,:) = dt/cnp*(crhs(ii,:)/dvol
+            x(ii,:) = dt/cnp*(rhs(ii,:)/dvol
 c$$$cc     .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
 c$$$cc     .                        ,igrid,igrid,igrid,de_cov)
      .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
@@ -1713,7 +1702,52 @@ c End program
 cc     .          ,de_cov
      .          ,vzeros)
 
-      end subroutine correctBfld
+      end subroutine correct_B
+
+c correct_B2
+c #########################################################################
+      subroutine correct_B2(nn,igrid,rhs,x,iout)
+c--------------------------------------------------------------------
+c     This subroutine corrects the B-field update with all-new info,
+c     in a divergence-free manner.
+c--------------------------------------------------------------------
+
+      use PC_var
+
+      implicit none
+
+c Call variables
+
+      integer :: nn,igrid,iout
+      real(8) :: x(nn,3),rhs(nn,3)
+
+c Local variables
+
+      real(8) :: dx(nn,3),rr(nn,3)
+
+c Begin program
+
+      if (my_rank == 0 .and. iout > 0)
+     .     write (*,*) 'Correcting B-field...'
+
+c Subtract RHS
+
+      rr = (dt/cnp)*rhs
+      if (vol_wgt) call scaleVec(gv%gparams,igrid,3,rr,'div')
+
+      dx = x - rr
+
+c Divergence clean
+
+      call divClean(nn,igrid,dx,iout)
+
+c Add RHS
+
+      x = dx + rr
+
+c End program
+
+      end subroutine correct_B2
 
 c preprocessBflRHS
 c ###################################################################
