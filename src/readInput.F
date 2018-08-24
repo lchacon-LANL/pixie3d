@@ -694,6 +694,8 @@ c     #####################################################################
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
+      if (tst_flg) test = .true.
+
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
@@ -781,9 +783,13 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (bcs(1) == 'spt') mg_oprol = 1
 
-      if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
+      if (test.and.
+     .    electron_hall.and.pc_type /='id'
+     .                 .and.pc_type /='s1'
+     .                 .and.pc_type /='s4') pc_type = 's4'!Exception for tests
 
-      if (ion_hall.and.pc_type /='id'
+      if (test.and.
+     .    ion_hall.and.pc_type /='id'
      .            .and.pc_type /='s1'
      .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
 
@@ -799,8 +805,6 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       endif
 
       !Miscellaneous
-      if (tst_flg) test = .true.
-
       if (ts_restart) dcon = .false.
 
       if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
