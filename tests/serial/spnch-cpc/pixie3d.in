@@ -48,7 +48,6 @@
 
     iguess   = 0
 
-    mf_eps   = 1d-6
 
     vol_wgt  = t
 
