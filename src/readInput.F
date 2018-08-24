@@ -426,7 +426,7 @@ c     #####################################################################
       rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 1d-4          ! Newtom matrix-free differencing parameter
+      mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
       maxitnwt = 10            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension
