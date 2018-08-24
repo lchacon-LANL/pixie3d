@@ -53,8 +53,7 @@
 
     source   = f
 
-!    precon   = 'id'
-    precon   = 's1'
+    precon   = 's4'
     mgtol    = 0.1d0
     maxvcyc  = 1
     nsweep   = 3

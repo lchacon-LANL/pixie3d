@@ -76,7 +76,6 @@ c *******************************************************************
 
 c     Split PC
 
-cc        call split_PC
         call si_PC(yyy,xxx,0)
 
 c     Postprocessing of velocity -> momentum
@@ -133,7 +132,6 @@ c *******************************************************************
 
 c     Commuted Schur complement PC
 
-cc        call star_PC
         call si_PC(yyy,xxx,3)
 
 c     Postprocessing of velocity -> momentum
@@ -141,19 +139,12 @@ c     Postprocessing of velocity -> momentum
         if (.not.nc_eom_v) call get_dP
 
 c *******************************************************************
-c     EMHD split preconditioner
+c     Semi-implicit preconditioner version IV (solving M^1 in corrector)
 c *******************************************************************
 
       case('s4')
 
-#if !defined(vec_pot)
-        call pstop('applyPC','s4 PC not implemented for B')
-#endif
-
-        !MHD step
-        rrr = yyy
-
-        call si_PC(rrr,xxx,4)
+        call si_PC(yyy,xxx,4)
 
 c     Postprocessing of velocity -> momentum
 
@@ -463,7 +454,7 @@ c       Temperature
 c       Magnetic field/vector potential
 
 #if defined(vec_pot)
-        call invert_A(x           ,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
+        call invert_A(x,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ),guess)
 cc        call invert_B_from_A(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
@@ -946,44 +937,6 @@ c     End program
 
       end subroutine get_dP
 
-c$$$c     split_PC
-c$$$c     ##############################################################
-c$$$      subroutine split_PC
-c$$$
-c$$$c     --------------------------------------------------------------
-c$$$c     Gets momentum update
-c$$$c     --------------------------------------------------------------
-c$$$
-c$$$        implicit none
-c$$$
-c$$$c     Call variables
-c$$$
-c$$$c     Local variables
-c$$$
-c$$$        integer    :: ii,iii,i,j,k
-c$$$
-c$$$c     Begin program
-c$$$
-c$$$c     Predictor step
-c$$$
-c$$$        call invert_M(yyy,xxx,0)
-c$$$
-c$$$c     SI step: Deltav --> xxx(:,IVX:IVZ)
-c$$$
-c$$$        call invert_P_si(yyy,xxx)
-c$$$
-c$$$c     Corrector step
-c$$$
-c$$$cc        if (di == 0.or.pc_ion_hall) then
-c$$$          call correct_dx(yyy,xxx,0)
-c$$$cc        else
-c$$$cc          call correct_dx(yyy,xxx,4)
-c$$$cc        endif
-c$$$
-c$$$c     End program
-c$$$
-c$$$      end subroutine split_PC
-
 c     pc_diag
 c     ##############################################################
       subroutine pc_diag(neq,nn,x,y)
@@ -1052,40 +1005,6 @@ c     Correct dx
 c     End program
 
       end subroutine si_PC
-
-c$$$c     star_PC
-c$$$c     ##############################################################
-c$$$      subroutine star_PC
-c$$$
-c$$$c     --------------------------------------------------------------
-c$$$c     Gets momentum update
-c$$$c     --------------------------------------------------------------
-c$$$
-c$$$        implicit none
-c$$$
-c$$$c     Call variables
-c$$$
-c$$$c     Local variables
-c$$$
-c$$$        integer :: ii,iii,i,j,k
-c$$$
-c$$$c     Begin program
-c$$$
-c$$$c     Predictor step
-c$$$
-c$$$        call invert_M(yyy,xxx,1)
-c$$$
-c$$$c     SI step: Deltav --> xxx(:,IVX:IVZ)
-c$$$
-c$$$        call invert_P_star_si(yyy,xxx)
-c$$$
-c$$$c     Solve for dx
-c$$$
-c$$$        call correct_dx(yyy,xxx,4)
-c$$$
-c$$$c     End program
-c$$$
-c$$$      end subroutine star_PC
 
 c     norm_test
 c     ##############################################################
