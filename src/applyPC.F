@@ -246,12 +246,6 @@ c     Begin program
 
           x = x + dx
 
-        case(4)
-
-          call correct_dx_rhs(rr,udv)
-
-          call invert_M(udv,x,1)
-
         case(3)
 
           dum = 0d0
@@ -260,6 +254,12 @@ c     Begin program
           call invert_M(udv,dx,0)
 
           x = x + dx
+
+        case(4)
+
+          call correct_dx_rhs(rr,udv)
+
+          call invert_M(udv,x,1)
 
         case default
 
@@ -1171,8 +1171,6 @@ c     Transfer initial guess and residual
       rhsc(:,4:6) = 0d0
 
 c     Solve EMHD system
-
-      guess = 1
 
       call default_A_BCs(bcs_hyp(:,1:3))
 cc      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
