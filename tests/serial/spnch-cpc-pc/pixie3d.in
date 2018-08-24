@@ -45,12 +45,12 @@
 
     source   = t
 
-    precon   = 's1'
-    mgtol    = 1d-3
-    maxvcyc  = 1
-    nsweep   = 3
-    precpass = 0
-    zebra_relax=f
+    pc_type  = 's1'
+    pc_tol   = 1d-3
+    mg_vcyc  = 1
+    sm_iter  = 3
+    mg_zebra_relax=f
+    mf_eps   = 1d-4
 
     iguess   = 0
 
