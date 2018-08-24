@@ -925,7 +925,7 @@ c Eta*J term
         curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2) !eta*dj_cnv
         curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3) !eta*dj_cnv
 
-        curl_eta_dj = XformVector(g_def,igrid,curl_eta_dj,.false.)!eta*dj_cov
+        curl_eta_dj = XformToCov(g_def,igrid,curl_eta_dj)         !eta*dj_cov
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
         curl_eta_dj =-veclap(g_def,igrid,db)
@@ -958,7 +958,7 @@ c Calculate matrix-vector product
             endif
 
 cc            if (.not.MG_get_find_diag()) then
-cc              cnv = curl_bxv     (i,j,k,igrid,v0_cnv,db,0)
+cc              cnv = curl_bxv     (g_def,i,j,k,igrid,v0_cnv,db,0)
 cc            else
               cnv = curl_bxv_upwd(g_def,i,j,k,igrid,v0_cnv,db)
 cc            endif

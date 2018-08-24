@@ -1986,13 +1986,13 @@ c     Local variables
           real(8) :: array(0:,0:,0:,:)
         end subroutine solen_bc
 
-        subroutine curl_bc(g_def,array,array0,ivar,dim,loc,face,safe)
+        subroutine curl_BC(g_def,array,array0,ivar,dim,loc,face,safe)
           use grid_def_st
           type(grid_mg_def),pointer :: g_def
           integer :: dim,loc,ivar
           logical :: face,safe
           real(8) :: array(0:,0:,0:,:),array0(0:,0:,0:,:)
-        end subroutine curl_bc
+        end subroutine curl_BC
       END INTERFACE
 
 c     Begin program
@@ -2251,208 +2251,8 @@ c     Begin program
           safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
      .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
-cc          safe = .false.
           
-          call curl_bc(g_def,array,array0,ivar,dim,loc,.true.,safe)
-
-cc          call findBCLoopLimits(g_def,dim,loc
-cc     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-cc     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
-cc
-cc          do k=kmin,kmax
-cc            do j=jmin,jmax
-cc              do i=imin,imax
-cc
-cc                call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc
-cc     .                       ,ig,jg,kg)
-cc
-cc                gsuper= g_def%gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
-cc                gsupip= g_def%gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
-cc                gsupim= g_def%gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
-cc                gsupjp= g_def%gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
-cc                gsupjm= g_def%gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
-cc                gsupkp= g_def%gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
-cc                gsupkm= g_def%gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
-cc
-cc                ip = i+1
-cc                im = i-1
-cc                dh(1) = 2.*g_def%dxh(ig)
-cc                if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) then  !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,i,igxbc,1)) then
-cc                  dh(1) = g_def%dx(ig)
-cc                  im = i
-cc                endif
-cc                if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) then  !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,i,igxbc,2)) then
-cc                  dh(1) = g_def%dx(ig-1)
-cc                  ip = i
-cc                endif
-cc
-cc                jp = j+1
-cc                jm = j-1
-cc                dh(2) = 2.*g_def%dyh(jg)
-cc                if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) then !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,j,igybc,3)) then
-cc                  dh(2) = g_def%dy(jg)
-cc                  jm = j
-cc                endif
-cc                if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) then !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,j,igybc,4)) then
-cc                  dh(2) = g_def%dy(jg-1)
-cc                  jp = j
-cc                endif
-cc
-cc                kp = k+1
-cc                km = k-1
-cc                dh(3) = 2.*g_def%dzh(kg)
-cc                if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) then  !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,k,igzbc,5)) then
-cc                  dh(3) = g_def%dz(kg)
-cc                  km = k
-cc                endif
-cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) then  !Gives bdry noise in Soloveev case
-cccc                if(isBdry(g_def,k,igzbc,6)) then
-cc                  dh(3) = g_def%dz(kg-1)
-cc                  kp = k
-cc                endif
-cc
-cc                if (dim == 1) then
-cc
-cc                  if (ibc == 1) then
-cc                    gsupavg = 0.5*(gsuper+gsupim)
-cc                  elseif (ibc == 2) then
-cc                    gsupavg = 0.5*(gsuper+gsupip)
-cc                  endif
-cc
-cc                  jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
-cc     .                -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
-cc
-cc                  if (ivar == 2) then
-cc                    icomp = 3
-cc                    isgn  = 1
-cc
-cc                    rhs(j,k) = 
-cc     .                  (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-cc     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  elseif (ivar == 3) then
-cc                    icomp = 2
-cc                    isgn  =-1
-cc
-cc                    rhs(j,k) =
-cc     .                  (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-cc     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  endif
-cc
-cc                  if (ibc == 1) then
-cc                    ee = array0(i-1,j,k,icomp)
-cc                  elseif (ibc == 2) then
-cc                    ee = array0(i+1,j,k,icomp)
-cc                  endif
-cc
-cc                  rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
-cc
-cc                elseif (dim == 2) then
-cc
-cc                  if (ibc == 3) then
-cc                    gsupavg = 0.5*(gsuper+gsupjm)
-cc                  elseif (ibc == 4) then
-cc                    gsupavg = 0.5*(gsuper+gsupjp)
-cc                  endif
-cc
-cc                  jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
-cc     .                -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
-cc
-cc                  if (ivar == 3) then
-cc                    icomp = 1
-cc                    isgn  = 1
-cc
-cc                    rhs(i,k) =
-cc     .                   (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-cc     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  elseif (ivar == 1) then
-cc                    icomp = 3
-cc                    isgn  =-1
-cc
-cc                    rhs(i,k) = 
-cc     .                  (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-cc     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  endif
-cc
-cc                  if (ibc == 3) then
-cc                    ee = array0(i,j-1,k,icomp)
-cc                  elseif (ibc == 4) then
-cc                    ee = array0(i,j+1,k,icomp)
-cc                  endif
-cc 
-cc                  rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
-cc
-cc                elseif (dim == 3) then
-cc
-cc                  if (ibc == 5) then
-cc                    gsupavg = 0.5*(gsuper+gsupkm)
-cc                  elseif (ibc == 6) then
-cc                    gsupavg = 0.5*(gsuper+gsupkp)
-cc                  endif
-cc
-cc                  jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
-cc     .                -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
-cc
-cc                  if (ivar == 1) then
-cc                    icomp = 2
-cc                    isgn  = 1
-cc
-cc                    rhs(i,j) =
-cc     .                   (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-cc     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  elseif (ivar == 2) then
-cc                    icomp = 1
-cc                    isgn  =-1
-cc
-cc                    rhs(i,j) = 
-cc     .                   (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-cc     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-cc                  endif
-cc
-cc                  if (ibc == 5) then
-cc                    ee = array0(i,j,k-1,icomp)
-cc                  elseif (ibc == 6) then
-cc                    ee = array0(i,j,k+1,icomp)
-cc                  endif
-cc
-cc                  rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
-cc
-cc                endif
-cc
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc          select case (ibc)
-cc          case (1)
-cc            array(0     ,jmin:jmax,kmin:kmax,ivar)
-cc     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
-cc     $                     - rhs(jmin:jmax,kmin:kmax)
-cc          case (2)
-cc            array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
-cc     $                     = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
-cc     $                     + rhs(jmin:jmax,kmin:kmax)
-cc          case (3)
-cc            array(imin:imax,0     ,kmin:kmax,ivar)
-cc     $                     = array(imin:imax,1+offset,kmin:kmax,ivar)
-cc     $                     - rhs(imin:imax,kmin:kmax)
-cc          case (4)
-cc            array(imin:imax,nybc+1,kmin:kmax,ivar)
-cc     $                     = array(imin:imax,nybc-offset,kmin:kmax,ivar)
-cc     $                     + rhs(imin:imax,kmin:kmax)
-cc          case (5)
-cc            array(imin:imax,jmin:jmax,0     ,ivar)
-cc     $                     = array(imin:imax,jmin:jmax,1+offset,ivar)
-cc     $                     - rhs(imin:imax,jmin:jmax)
-cc          case (6)
-cc            array(imin:imax,jmin:jmax,nzbc+1,ivar)
-cc     $                     = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
-cc     $                     + rhs(imin:imax,jmin:jmax)
-cc          end select
+          call curl_BC(g_def,array,array0,ivar,dim,loc,.true.,safe)
 
         else  !Imposes divergence-free constraint on B
 
@@ -2466,8 +2266,6 @@ cc          end select
 
       case default
 
-c$$$        write (*,*) 'Variable=',ieq
-c$$$        call pstop('vectorNeumanBC','Variable not implemented')
         select case (ibc)
         case (1)
           array(0     ,:,:,ivar) = array(1   +offset,:,:,ivar)

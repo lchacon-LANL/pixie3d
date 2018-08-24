@@ -2018,9 +2018,9 @@ c     End program
 
       end subroutine L_T
 
-c     rhs_A_hall
+c     L_A
 c     #########################################################################
-      subroutine rhs_A_hall(nn,xxx,rhs_a,igrid)
+      subroutine L_A(nn,xxx,rhs_a,igrid)
 c     --------------------------------------------------------------------------
 c     This subroutine corrects the rhs for the std Hall vector potential Eq.
 c     including density and temperature/pressure corrections.
@@ -2096,7 +2096,7 @@ c     Free memory
 
 c     End program
 
-      end subroutine rhs_A_hall
+      end subroutine L_A
 
 c     U_Bv
 c     ###################################################################

@@ -1472,8 +1472,8 @@ c     Tokamak equilibria (analytical)
         kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
 
-        Iz           = 2.22
-        b_0          = 0.5*Iz
+        Iz  = 2.22
+        b_0 = 0.5*Iz
 
         nh2 = mm  !To set the right perturbation wavelength
 

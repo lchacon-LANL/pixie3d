@@ -114,7 +114,7 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,pc_divclean,pc_B_solve,equil
+     .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
@@ -142,6 +142,7 @@ c Namelists
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
      .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
      .                   ,mgcf,pc_gm_driver,mg_coarse_size
+     .                   ,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -425,7 +426,7 @@ c     #####################################################################
       rtol     = 1d-4          ! Newton relative convergence tolerance
       atol     = 0d0           ! Newton absolute convergence tolerance
       stol     = 0d0           ! Newton update convergence tolerance
-      mf_eps   = 1d-6          ! Newtom matrix-free differencing parameter
+      mf_eps   = 1d-4          ! Newtom matrix-free differencing parameter
       maxitnwt = 10            ! Maximum number of Newton its. (if zero, maxitnwt
                                !        is determined in code)
       maxksp   = 15            ! Maximum krylov subspace dimension

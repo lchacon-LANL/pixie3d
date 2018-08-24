@@ -51,7 +51,6 @@
     iguess   = 0
 
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
     nc_eom_f   = t
