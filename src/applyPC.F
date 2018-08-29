@@ -218,8 +218,8 @@ c     Begin program
         case(0)
 
 #if !defined(vec_pot)
-          if (pc_divclean)
-     .        call correct_B2(nn,igrid,rr(:,IBX:IBZ),x(:,IBX:IBZ),iout)
+c$$$          if (pc_divclean)
+c$$$     .        call correct_B(nn,igrid,rr(:,IBX:IBZ),x(:,IBX:IBZ),iout)
 #endif
           x = x - (dt/cnp)*udv
           
@@ -457,7 +457,7 @@ c       Magnetic field/vector potential
         call invert_A(x,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ),guess)
-cc        call invert_B_from_A(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
+cc        call invert_B_from_A(x,rhs(:,IBX:IBZ))
 #endif
 
 c     End program
@@ -501,7 +501,11 @@ c     Vector potential
             write (*,*) '  --> Solving for A...'
           endif
 
+#if defined(vec_pot)
           call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
+#else
+          call cSolver(gv%gparams,3,nn,y,x(:,IBX:IBZ),bcs,igrid
+#endif
      .                ,iout,guess,a_mtvc,vol_wgt
      .                ,tol           = pc_tol
      .                ,dg            = a_diag
@@ -571,7 +575,6 @@ cc     .            ,gm_driver     = pc_gm_driver
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
 
-cc          if (pc_divclean) call correct_B2(nn,igrid,y,x,iout)
 cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
 cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
 
@@ -629,17 +632,22 @@ c     ##############################################################
 
 c     Call variables
 
-      real(8) :: x(:,:),y(:,:)
+      real(8) :: x(nn,neq),y(nn,3)
 
 c     Local variables
 
-      integer :: bcsa(6,3),nx,ny,nz
-      real(8) :: rhsa(size(y,1),size(y,2)),xa(size(x,1),size(x,2))
+      integer :: bcsa(6,3),nx,ny,nz,ieq
+      real(8) :: rhsa(nn,3),xplot(nn*3)
       real(8),allocatable,dimension(:,:,:,:) :: da,db
 
 c     Magnetic field
 
+cc      vlap_etaj = .true.
+      
       if (pc_B_solve) then
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for B from A...'
+        endif
 
         nx = gv%gparams%nxv(igrid)
         ny = gv%gparams%nyv(igrid)
@@ -664,13 +672,33 @@ c     Magnetic field
           enddo
         enddo
 
+c diag ****
+c$$$        call gatherVector(xplot,rhsa)
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"A_rhs","A RHS")
+c$$$        
+c$$$        call gatherVector(xplot,y)
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_orhs","B RHS old")
+c$$$        
+c$$$        db = curl(gv%gparams,igrid,da)
+c$$$        do k = 1,nz
+c$$$          do j = 1,ny
+c$$$            do i = 1,nx
+c$$$              ii  = i + nx*(j-1) + nx*ny*(k-1)
+c$$$              do ieq=1,3
+c$$$                xplot(3*(ii-1)+ieq)=db(i,j,k,ieq) !- xplot(3*(ii-1)+ieq)
+c$$$              enddo
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_nrhs","B RHS new")
+c diag ****
+
         !Invert A
         call default_A_BCs(bcsa)
-        xa = 0d0
-        call invert_A(xa,rhsa,bcsa,0)
+        call invert_A(x,rhsa,bcsa,0)
         
         !Take curl
-        call fillArray(gv%gparams,igrid,3,xa,da,bcsa
+        call fillArray(gv%gparams,igrid,3,x(:,IBX:IBZ),da,bcsa
      .                ,order_bc,is_vec=.true.,is_cnv=.true.
      .                ,icomp=(/IAX/))
         db = curl(gv%gparams,igrid,da)
@@ -680,7 +708,7 @@ c     Magnetic field
           do j = 1,ny
             do i = 1,nx
               ii  = i + nx*(j-1) + nx*ny*(k-1)
-              x(ii,:)=db(i,j,k,:)
+              x(ii,IBX:IBZ)=db(i,j,k,:)
             enddo
           enddo
         enddo
@@ -937,10 +965,10 @@ c     ##############################################################
 c     Diagnostics
 
         call gatherVector(xplot,x)
-        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_sol"
+        call vec_plot_gl(gv%gparams,neq,xplot,igrid,"pc_sol"
      .                 ,"PC solution")
         call gatherVector(xplot,y)
-        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_res"
+        call vec_plot_gl(gv%gparams,neq,xplot,igrid,"pc_res"
      .                 ,"PC residual")
 
       end subroutine pc_diag
@@ -1571,13 +1599,23 @@ c Local variables
      .                                          ,db_cov
      .                                          ,dj_cnv
      .                                          ,dj_cov
-cc     .                                          ,de_cov
+     .                                          ,de_cov
      .                                          ,vzeros
 
       real(8),pointer,dimension(:,:,:,:) :: v0_cnv,eta0
 
+      real(8) :: dx(nn,3),rr(nn,3),xplot(nn*3)
+
 c Begin program
 
+c diag ****
+c$$$      dx = cnp*x/dt
+c$$$      rr = rhs
+c$$$      if (vol_wgt) call scaleVec(gv%gparams,igrid,3,rr,'div')
+c$$$
+c$$$      dx = rr - dx
+c diag ****
+      
       if (my_rank == 0 .and. iout > 0)
      .     write (*,*) 'Correcting B-field...'
 
@@ -1591,7 +1629,7 @@ c Begin program
      .          ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
-cc     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
 
       vzeros = 0d0
@@ -1599,9 +1637,8 @@ cc     .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
 c Find dB
 
       call fillArray(gv%gparams,igrid,3,x,db_cnv,bcs(:,IBX:IBZ)
-cc     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
-     .              ,2,arr_cov=db_cov,is_vec=.true.
-     .              ,is_cnv=.true.,icomp=(/IBX/))
+     .              ,order_bc,arr_cov=db_cov,is_vec=.true.
+     .              ,is_cnv=.true.,icomp=(/IBX/))!,sp_reg=.true.)
 
 c Find dj* from dB*
 
@@ -1613,7 +1650,8 @@ c$$$      bcnd(:,2) = bcond
 c$$$      bcnd(:,3) = bcond
       !Find covariant components of dj with BCs
       call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
-     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc
+     .          ,sp_reg=.true.)
 cc     .          ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
 c Find dE* (electric field update)
@@ -1621,54 +1659,28 @@ c Find dE* (electric field update)
       v0_cnv => gv0 %grid(igrid)%array
       eta0   => geta%grid(igrid)%array
 
-cc      de_cov =-crossProduct(gv%gparams,igrid,v0cnv,db_cnv,.true.)
-cc      de_cov(:,:,:,1) = de_cov(:,:,:,1) + eta0(:,:,:,1)*dj_cov(:,:,:,1)
-cc      de_cov(:,:,:,2) = de_cov(:,:,:,2) + eta0(:,:,:,1)*dj_cov(:,:,:,2)
-cc      de_cov(:,:,:,3) = de_cov(:,:,:,3) + eta0(:,:,:,1)*dj_cov(:,:,:,3)
-      dj_cov(:,:,:,1) = eta0(:,:,:,1)*dj_cov(:,:,:,1)
-      dj_cov(:,:,:,2) = eta0(:,:,:,1)*dj_cov(:,:,:,2)
-      dj_cov(:,:,:,3) = eta0(:,:,:,1)*dj_cov(:,:,:,3)
+      de_cov = crossProduct(gv%gparams,igrid,db_cnv,v0_cnv,.true.)
+      de_cov(:,:,:,1) = de_cov(:,:,:,1) + eta0(:,:,:,1)*dj_cov(:,:,:,1)
+      de_cov(:,:,:,2) = de_cov(:,:,:,2) + eta0(:,:,:,1)*dj_cov(:,:,:,2)
+      de_cov(:,:,:,3) = de_cov(:,:,:,3) + eta0(:,:,:,1)*dj_cov(:,:,:,3)
 
-c$$$      write (*,*) 'DIAG -- correct_B'
-c$$$      open(unit=110,file='divclean.bin',form='unformatted'
-c$$$     .    ,status='replace')
-c$$$      call contour(db_cov(:,:,1,1),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,0,110)
-c$$$      call contour(db_cov(:,:,1,2),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(db_cov(:,:,1,3),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cov(:,:,1,1),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cnv(:,:,1,2),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cnv(:,:,1,3),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cnv(:,:,1,1),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cov(:,:,1,2),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      call contour(dj_cov(:,:,1,3),nx+2,ny+2
-c$$$     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-c$$$     .                ,gv%gparams%gymin,gv%gparams%gymax
-c$$$     .                ,1,110)
-c$$$      close(110)
+      de_cov = curl(gv%gparams,igrid,de_cov)
+
+c diag ****
+c$$$      do k = 1,nz
+c$$$        do j = 1,ny
+c$$$          do i = 1,nx
+c$$$            ii  = i + nx*(j-1) + nx*ny*(k-1)
+c$$$            dx(ii,:) = dx(ii,:) - alpha*de_cov(i,j,k,:)
+c$$$cc            if (i <= 2) dx(ii,:) = 0d0
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+c$$$
+c$$$      call gatherVector(xplot,dx)
+c$$$      call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_updt"
+c$$$     .                 ,"B update")
+c diag ****
 
 c Find correction
 
@@ -1681,14 +1693,7 @@ c Find correction
             else
               dvol = 1d0
             endif
-            x(ii,:) = dt/cnp*(rhs(ii,:)/dvol
-c$$$cc     .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
-c$$$cc     .                        ,igrid,igrid,igrid,de_cov)
-     .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
-     .                        ,igrid,igrid,igrid,dj_cov)
-     .             -alpha*curl_bxv(gv%gparams,i,j,k,igrid
-     .                            ,v0_cnv,db_cnv,0)
-     .                       )
+            x(ii,:) = dt/cnp*(rhs(ii,:)/dvol-alpha*de_cov(i,j,k,:))
           enddo
         enddo
       enddo
@@ -1699,7 +1704,7 @@ c End program
      .          ,db_cov
      .          ,dj_cnv
      .          ,dj_cov
-cc     .          ,de_cov
+     .          ,de_cov
      .          ,vzeros)
 
       end subroutine correct_B
