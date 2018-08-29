@@ -132,7 +132,7 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,3) = bcond
 
         call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
-     .              ,is_vec=.true.,is_cnv=.false.,iorder=min(order,2))
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=order)
       endif
 
 c     End program
@@ -290,35 +290,35 @@ c     Begin program
 
             select case(lorder)
             case(1)
-              aa(ip,:,:,3) =  - 0.25*dxx*bb(ip,:,:,2) !A_3=0 @ r=0
-              aa(ip,:,:,2) =  + 0.25*dxx*bb(ip,:,:,3) !A_2=0 @ r=0
+              aa(ip,:,:,3) =  - 0.25*dxx*bb(i+1,:,:,2) !A_3=0 @ r=0
+              aa(ip,:,:,2) =  + 0.25*dxx*bb(i+1,:,:,3) !A_2=0 @ r=0
             case(2)
               !A_3=0 @ r=0
-              aa(ip,:,:,3) =-dxx*(51*bb(ip  ,:,:,2)
-     .                              -bb(ip+1,:,:,2))/192d0
+              aa(ip,:,:,3) =-dxx*(51*bb(i+1,:,:,2)
+     .                              -bb(i+2,:,:,2))/192d0
               !A_2=0 @ r=0
-              aa(ip,:,:,2) = dxx*(51*bb(ip  ,:,:,3)
-     .                              -bb(ip+1,:,:,3))/192d0
+              aa(ip,:,:,2) = dxx*(51*bb(i+1,:,:,3)
+     .                              -bb(i+2,:,:,3))/192d0
             case(3)
               !A_3=0 @ r=0
-              aa(ip,:,:,3) =-dxx*(b1*bb(ip  ,:,:,2)
-     .                           -b2*bb(ip+1,:,:,2)
-     .                           +b3*bb(ip+2,:,:,2))
+              aa(ip,:,:,3) =-dxx*(b1*bb(i+1,:,:,2)
+     .                           -b2*bb(i+2,:,:,2)
+     .                           +b3*bb(i+3,:,:,2))
               !A_2=0 @ r=0
-              aa(ip,:,:,2) = dxx*(b1*bb(ip  ,:,:,3)
-     .                           -b2*bb(ip+1,:,:,3)
-     .                           +b3*bb(ip+2,:,:,3))
+              aa(ip,:,:,2) = dxx*(b1*bb(i+1,:,:,3)
+     .                           -b2*bb(i+2,:,:,3)
+     .                           +b3*bb(i+3,:,:,3))
             case(4)
-              aa(ip,:,:,3) =-dxx*(a1*bb(ip  ,:,:,2)
-     .                           -a2*bb(ip+1,:,:,2)
-     .                           +a3*bb(ip+2,:,:,2)
-     .                           -a4*bb(ip+3,:,:,2)
-     .                           +a5*bb(ip+4,:,:,2))
-              aa(ip,:,:,2) = dxx*(a1*bb(ip  ,:,:,3)
-     .                           -a2*bb(ip+1,:,:,3)
-     .                           +a3*bb(ip+2,:,:,3)
-     .                           -a4*bb(ip+3,:,:,3)
-     .                           +a5*bb(ip+4,:,:,3))
+              aa(ip,:,:,3) =-dxx*(a1*bb(i+1,:,:,2)
+     .                           -a2*bb(i+2,:,:,2)
+     .                           +a3*bb(i+3,:,:,2)
+     .                           -a4*bb(i+4,:,:,2)
+     .                           +a5*bb(i+5,:,:,2))
+              aa(ip,:,:,2) = dxx*(a1*bb(i+1,:,:,3)
+     .                           -a2*bb(i+2,:,:,3)
+     .                           +a3*bb(i+3,:,:,3)
+     .                           -a4*bb(i+4,:,:,3)
+     .                           +a5*bb(i+5,:,:,3))
             end select
 
           else
@@ -1118,7 +1118,7 @@ c     Begin program
      .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
 
-      ddb = curl(g_def,igx,da_cov)-db
+      ddb = curl(g_def,igx,da_cov)!-db
 
       call contour(ddb    (:,:,1,1),nx+2,ny+2
      .            ,g_def%gxmin,g_def%gxmax
@@ -1144,7 +1144,7 @@ c     End program
 c     findVectorPotential
 c     #############################################################
       subroutine findVectorPotential(g_def,iout,igrid,b_cnv,a_cov,meth
-     .                              ,its,rtol,sp)
+     .                              ,its,rtol,sp,lorder)
 
 c     -------------------------------------------------------------
 c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
@@ -1172,6 +1172,7 @@ c     Call variables
       integer,optional,INTENT(OUT) :: its
       real(8),optional,INTENT(IN)  :: rtol
       logical,optional :: sp
+      integer,optional :: lorder
 
 c     Local variables
 
@@ -1216,7 +1217,7 @@ c     Gather global magnetic field
 
 c     Find A BCs (fluxes) via line integrals
 
-      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=4,sp=sp)
+      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=lorder,sp=sp)
 
       !Restrict solution to current domain (when appropriate)
       call XferGlobalArray(ag,a_cov)
