@@ -1416,7 +1416,6 @@ c Auxiliary quantities
 
       !Variables
 cc#if defined(pgf90)
-
       allocate(da_cov (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,3)
      .        ,djf_cov(0:nxx+1,0:nyy+1,0:nzz+1,3)
@@ -1426,7 +1425,6 @@ cc#if defined(pgf90)
       da_cnv (0:,0:,0:,1:) = du_cnv(0:,0:,0:,1:3)
       djf_cov(0:,0:,0:,1:) = du_cov(0:,0:,0:,4:6)
       djf_cnv(0:,0:,0:,1:) = du_cnv(0:,0:,0:,4:6)
-
 cc#else
 c$$$      da_cov (0:,0:,0:,1:) => du_cov(0:,0:,0:,1:3)
 c$$$      da_cnv (0:,0:,0:,1:) => du_cnv(0:,0:,0:,1:3)
@@ -1444,9 +1442,10 @@ cc#endif
       !Magnetic fields
       db_cnv = curl(g_def,igrid,da_cov)
       db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv,bcs(:,IBX:IBZ)
-cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
+      call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+     .            ,bcs(:,IBX:IBZ)
+     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
 
       !Currents
       dj_cnv = curl(g_def,igrid,db_cov)
@@ -1515,6 +1514,8 @@ cc            a_res = a_res + alpha*db_x_v0(ve0_cnv,das)
 
             !Assemble residual
             if (MG_get_find_diag()) then
+c$$$            if (MG_get_find_diag()
+c$$$     .          .or.nk_current_Newton_iteration()>1) then
               cc_a_cov =-lap_a_cov
 cc              cc_a_cov = dj_cov(i,j,k,:)  !Unstable
 cc              cc_a_cov = curlcurl_cov_ijk(i,j,k,nxx,nyy,nzz
