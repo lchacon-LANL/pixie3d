@@ -1757,6 +1757,8 @@ c     --------------------------------------------------
 
       case ('ppnch','ppnsl','ppnst')
 
+        find_a = .true.
+
         mm          = gv%gparams%params(1)
         kk          = gv%gparams%params(2)
         RR          = gv%gparams%params(3)
@@ -1903,6 +1905,8 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
       case ('2dhel')
 
+        find_a = .true.
+
         mm = gv%gparams%params(1)
         kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
@@ -1983,6 +1987,8 @@ c     Magnetic field
         enddo
 
       case ('ppn3d','p3nsl')
+
+        find_a = .true.
 
         mm = gv%gparams%params(1)
         kk = gv%gparams%params(2)
