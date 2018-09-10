@@ -44,7 +44,7 @@ c     Call variables
 
 c     Local variables
 
-      integer    :: nx,ny,nz,igx,igy,igz
+      integer    :: nx,ny,nz,igx,igy,igz,lorder
       integer    :: i,j,k,ii,bcnd(6,3),ig,jg,kg,ivar
       real(8)    :: dxx,dyy,dvol,cov(3)
 
@@ -76,6 +76,12 @@ c     Begin program
         spoint = bcSP()
       endif
 
+      if (PRESENT(order)) then
+        lorder = order
+      else
+        lorder = 3
+      endif
+
 c     Consistency check
 
       if (igrid /= 1 .and. glbl) then
@@ -91,38 +97,38 @@ c     Quadrant-based code (SP ready, parallel-ready)
       if (spoint) then  !Separate quadrants only in theta
 
         if (ny == 1) then
-          call line_int(1,nx,1,ny,b,a,order=order)
+          call line_int(1,nx,1,ny,b,a,lorder)
         else
           !Lower-right quadrant
           call line_int(1,nx,ny/2-1,1
      .               ,b(0:nx+1,0:ny/2,0:nz+1,1:3)
-     .               ,a(0:nx+1,0:ny/2,0:nz+1,1:3),order=order)
+     .               ,a(0:nx+1,0:ny/2,0:nz+1,1:3),lorder)
 
           !Upper-right quadrant
           call line_int(1,nx,ny/2+1,ny
      .               ,b(0:nx+1,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(0:nx+1,ny/2:ny+1,0:nz+1,1:3),order=order)
+     .               ,a(0:nx+1,ny/2:ny+1,0:nz+1,1:3),lorder)
         endif
       else
         !Lower-left quadrant
         call line_int(nx/2-1,1,ny/2-1,1
      .               ,b(0:nx/2,0:ny/2,0:nz+1,1:3)
-     .               ,a(0:nx/2,0:ny/2,0:nz+1,1:3),order=order)
+     .               ,a(0:nx/2,0:ny/2,0:nz+1,1:3),lorder)
 
         !Lower-right quadrant
         call line_int(nx/2+1,nx,ny/2-1,1
      .               ,b(nx/2:nx+1,0:ny/2,0:nz+1,1:3)
-     .               ,a(nx/2:nx+1,0:ny/2,0:nz+1,1:3),order=order)
+     .               ,a(nx/2:nx+1,0:ny/2,0:nz+1,1:3),lorder)
 
         !Upper-left quadrant
         call line_int(nx/2-1,1,ny/2+1,ny
      .               ,b(0:nx/2,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(0:nx/2,ny/2:ny+1,0:nz+1,1:3),order=order)
+     .               ,a(0:nx/2,ny/2:ny+1,0:nz+1,1:3),lorder)
 
         !Upper-right quadrant
         call line_int(nx/2+1,nx,ny/2+1,ny
      .               ,b(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3),order=order)
+     .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3),lorder)
       endif
 
       !Boundary conditions: topological constraints (SP, PER)
@@ -132,7 +138,7 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,3) = bcond
 
         call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
-     .              ,is_vec=.true.,is_cnv=.false.,iorder=order)
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=min(lorder,2))
       endif
 
 c     End program
@@ -141,7 +147,7 @@ c     End program
 
 c     line_int
 c     #############################################################
-      subroutine line_int(ilo,ihi,jlo,jhi,bb,aa,order)
+      subroutine line_int(ilo,ihi,jlo,jhi,bb,aa,lorder)
 
 c     -------------------------------------------------------------
 c     Performs line integral to find vector potential from magnetic
@@ -157,7 +163,7 @@ c     Call variables
      .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
         real(8) :: aa(min(ilo,ihi)-1:max(ilo,ihi)+1
      .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
-        integer, optional :: order
+        integer :: lorder
         
 c     Local variables
 
@@ -186,15 +192,7 @@ c     Local variables
      .                      ,a4=388149d0   /1.8579456d9
      .                      ,a5=26021d0    /1.8579456d9
 
-        integer :: lorder
-
 c     Begin program
-
-        if (PRESENT(order)) then
-          lorder = order
-        else
-          lorder = 2
-        endif
 
         istep = -1
         if (ilo < ihi) istep = 1
@@ -1176,7 +1174,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: nxg,nyg,nzg,order,gm_its
+      integer :: nxg,nyg,nzg,gm_its
       integer :: i,j,k,ii,nx,ny,nz,ig,jg,kg
      .          ,bcnd(6,3),bcs_b(6,3),bcs_a(6,3),bcsq(6)
       real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
@@ -1232,7 +1230,7 @@ c     Find A BCs (fluxes) via line integrals
       vzeros = 0d0
       a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
       call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
-     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order)
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order_bc)
 
 c diag ****
 c$$$      if (test) then
@@ -1320,6 +1318,8 @@ c     ####################################################################
       subroutine checkCurl(a_cov,b_cnv)
 
       implicit none
+
+      integer :: order
 
       real(8) :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
       real(8) :: b_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
