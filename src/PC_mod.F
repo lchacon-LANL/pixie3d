@@ -1197,9 +1197,10 @@ c     Ideal MHD part
         select case(half_elem)
         case(1)
 
+          jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+          jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+
           if (isSP2(g_def,ip,igx,dim=1)) then
-            jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
-            jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
             ijac0 = 1d0/jac0
             ijacp = 1d0/jacp
 
@@ -1232,11 +1233,13 @@ c     Ideal MHD part
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,1)+b0(ip,j,k,1))
 
-            cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i ,j,k)
-     .                    +g_def%gmetric%grid(igx)%jac(ip,j,k))
+            cov = 0.5*cov/(jacp+jac0)
           endif
 
         case(2)
+
+          jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
+          jac0 = g_def%gmetric%grid(igx)%jac(i,j ,k)
 
           cov(1) = (vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,3)+b0(i,jp,k,3))
@@ -1253,10 +1256,12 @@ c     Ideal MHD part
      .            -(vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,1)+b0(i,jp,k,1))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j ,k)
-     .                  +g_def%gmetric%grid(igx)%jac(i,jp,k))
+          cov = 0.5*cov/(jacp+jac0)
 
         case(3)
+
+          jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
+          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k )
 
           cov(1) = (vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,3)+b0(i,j,kp,3))
@@ -1273,10 +1278,11 @@ c     Ideal MHD part
      .            -(vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,1)+b0(i,j,kp,1))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j,k )
-     .                  +g_def%gmetric%grid(igx)%jac(i,j,kp))
+          cov = 0.5*cov/(jacp+jac0)
 
         case default
+          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k)
+
           cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
      .           - vv(i,j,k,3)*b0(i,j,k,2)
 
@@ -1286,7 +1292,7 @@ c     Ideal MHD part
           cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
      .           - vv(i,j,k,2)*b0(i,j,k,1)
 
-          cov = cov/g_def%gmetric%grid(igx)%jac(i,j,k)
+          cov = cov/jac0
         end select
 
         uav = -cov !-dv x B0
