@@ -112,7 +112,10 @@ c -------------------------------------------------------------------
 
 c Smooth magnetic field
 
-      if (post_smooth_B) call post__smooth_B
+      if (post_smooth_B) then
+        call post__smooth_B
+        call post__smooth_V
+      endif
 
 c Divergence-clean magnetic field when PC is on
 
@@ -223,7 +226,11 @@ c     Begin program
 
         if (my_rank == 0) then
           if (ilevel > 0) write (*,*)
-          write (*,*) 'Performing smoothing in postproc...'
+#if defined(vec_pot)
+          write (*,*) 'Performing A smoothing in postproc...'
+#else
+          write (*,*) 'Performing B smoothing in postproc...'
+#endif
         endif
 
 c     Find db=B^(n+1)-B^n
@@ -341,6 +348,101 @@ c     Find new A^(n+1) or B^(n+1)
         deallocate(x,xrhs)
       
       end subroutine post__smooth_B
+
+c     post__smooth_V
+c     ###############################################################
+      subroutine post__smooth_V
+
+        implicit none
+
+        integer :: nn,bcnd(6,3),filter_it,ig,jg,kg,ii,guess,iout
+        real(8) :: opt_om,dvol
+        real(8),allocatable,dimension(:,:) :: xrhs,x
+
+        external  sm_mtvc
+
+c     Begin program
+        
+        nn = nx*ny*nz
+
+        if (my_rank == 0) then
+          if (ilevel > 0) write (*,*)
+          write (*,*) 'Performing V smoothing in postproc...'
+        endif
+
+c     Find db=B^(n+1)-B^n
+
+        allocate(x(nn,3),xrhs(nn,3))
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+
+              dvol = gv%gparams%gmetric%grid(igx)%dlvol(i,j,k)
+
+              x   (ii,1) = vnp%array_var(IVX)%array(i,j,k)
+     .                    -vn %array_var(IVX)%array(i,j,k)
+              x   (ii,2) = vnp%array_var(IVY)%array(i,j,k)
+     .                    -vn %array_var(IVY)%array(i,j,k)
+              x   (ii,3) = vnp%array_var(IVZ)%array(i,j,k)
+     .                    -vn %array_var(IVZ)%array(i,j,k)
+
+              xrhs(ii,:) = x(ii,:)*dvol
+            enddo
+          enddo
+        enddo
+
+        do ieq=IVX,IVZ
+          bcnd(:,ieq-IVX+1) = vnp%array_var(ieq)%bconds(:)
+        enddo
+
+c     Smooth A or B
+
+        filter_it = 4
+
+        dvol = 1d0
+        if (nxd > 1) dvol = dvol*(xmax-xmin)/nxd
+        if (nyd > 1) dvol = dvol*(ymax-ymin)/nyd
+        if (nzd > 1) dvol = dvol*(zmax-zmin)/nzd
+
+        opt_om = dt*di/dvol
+
+        opt_om = (1.+2.*opt_om)/(1.+4.*opt_om)
+
+        iout = ilevel - 1
+        guess = 1
+
+        call cSolver(gv%gparams,3,nn,xrhs,x,bcnd
+     .              ,igx,iout,guess,sm_mtvc,.true.
+     .              ,mg_smooth     = 'jb'
+     .              ,sm_it         = filter_it
+     .              ,sm_omega      = opt_om
+     .              ,sm_ncolors    = 2
+     .              ,mg_smooth_only= .true.
+     .              )
+
+c     Find new A^(n+1) or B^(n+1)
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              vnp%array_var(IVX)%array(i,j,k) = x(ii,1)
+     .                 +vn%array_var(IVX)%array(i,j,k)
+              vnp%array_var(IVY)%array(i,j,k) = x(ii,2)
+     .                 +vn%array_var(IVY)%array(i,j,k)
+              vnp%array_var(IVZ)%array(i,j,k) = x(ii,3)
+     .                 +vn%array_var(IVZ)%array(i,j,k)
+            enddo
+          enddo
+        enddo
+
+        deallocate(x,xrhs)
+      
+      end subroutine post__smooth_V
 
 c     post__divclean
 c     ###############################################################
