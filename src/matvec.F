@@ -1184,7 +1184,7 @@ c Local variables
       integer    :: ijk,ijkg,ipjkg,imjkg,ijpkg,ijmkg,ijkpg,ijkmg
      .             ,i,j,k,ig,jg,kg,ieq
 
-      real(8)    :: upwind,vol,vlap(3),vlap_cnv(3)
+      real(8)    :: upwind,vol,vlap(3),vlap_cnv(3),ijac
      $             ,cnv(3),cov(3),car(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv,db_cnv,db_cov
@@ -1231,31 +1231,31 @@ c Map vector x to array for processing
      .              ,result_is_curv=.true.,arr_cov=da)
       call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
 
-      !Currents
-      if (MG_get_find_diag().or.vlap_etaj) then
-c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
-        !!!!!
-c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
+c$$$      !Currents
+c$$$      if (MG_get_find_diag().or.vlap_etaj) then
+c$$$c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
+c$$$        !!!!!
+c$$$c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!
+c$$$        dj_cnv =-veclap    (g_def,igrid,da_cnv)
 c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!
-        dj_cnv =-veclap    (g_def,igrid,da_cnv)
-        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!!
-c$$$        dj_cnv =-veclap_cnv(g_def,igrid,da_cnv)
-c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!!
-c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
-      else
-        db_cnv = curl(g_def,igrid,da)
-        db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
-c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
-c$$$     .              ,is_vec=.true.,result_is_curv=.true.
-c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
-
-        dj_cnv = curl(g_def,igrid,db_cov)
-        dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
-      endif
+c$$$        !!!!!!!
+c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,da_cnv)
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$      else
+c$$$        db_cnv = curl(g_def,igrid,da)
+c$$$        db_cov = XformVector(g_def,igrid,db_cnv,.false.)
+c$$$c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+c$$$c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
+c$$$c$$$     .              ,is_vec=.true.,result_is_curv=.true.
+c$$$c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
+c$$$
+c$$$        dj_cnv = curl(g_def,igrid,db_cov)
+c$$$        dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
+c$$$      endif
 
 c Velocity field (including BCs)
 
@@ -1286,13 +1286,19 @@ c Calculate matrix-vector product
             endif
 
             !Resistive part
-            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
+cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
+            vlap = eta0(i,j,k,1)
+     $            *veclap_cov(g_def,i,j,k,nxx,nyy,nzz
+     .                       ,igrid,igrid,igrid,da
+     .                       ,vol=.false.)
 
             !Convective part
-            cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv,da)
+cc            cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv,da)
+            ijac = 1d0/g_def%gmetric%grid(igrid)%jac(i,j,k)
+            cov = db_x_v0()
 
             !Assemble residual
-            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov - vlap))*vol
+            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov*ijac - vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cov(ieq)
@@ -1310,6 +1316,131 @@ c End program
       call deallocMGPointers(fpointers,mg_ctx_l)
 
       contains
+
+c     db_x_v0
+c     ##############################################################
+      function db_x_v0() result(cov)
+
+        integer :: ip,im,jp,jm,kp,km
+        real(8) :: cov(3)
+        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,idx,idy,idz
+
+        ip = i+1
+        im = i-1
+        jp = j+1
+        jm = j-1
+        kp = k+1
+        km = k-1
+
+        idx = g_def%dxh(ig)
+        idy = g_def%dyh(jg)
+        idz = g_def%dzh(kg)
+
+        !1st component
+        flxip = -v0_cnv(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))
+     .          -v0_cnv(i,j,k,3)*0.5*(da(ip,j,k,3)+da(i,j,k,3))
+
+        flxim = -v0_cnv(i,j,k,2)*0.5*(da(im,j,k,2)+da(i,j,k,2))
+     .          -v0_cnv(i,j,k,3)*0.5*(da(im,j,k,3)+da(i,j,k,3))
+
+cc        flxip =-0.5*(    v0_cnv(i,j,k,2)
+cc     .              +abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
+cc     .         -0.5*(    v0_cnv(i,j,k,2)
+cc     .              -abs(v0_cnv(i,j,k,2)))*da(ip,j,k,2)
+cc     .         -0.5*(    v0_cnv(i,j,k,3)
+cc     .              +abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
+cc     .         -0.5*(    v0_cnv(i,j,k,3)
+cc     .              -abs(v0_cnv(i,j,k,3)))*da(ip,j,k,3)
+cc        flxim =-0.5*(    v0_cnv(i,j,k,2)
+cc     .              +abs(v0_cnv(i,j,k,2)))*da(im,j,k,2)
+cc     .         -0.5*(    v0_cnv(i,j,k,2)
+cc     .              -abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
+cc     .         -0.5*(    v0_cnv(i,j,k,3)
+cc     .              +abs(v0_cnv(i,j,k,3)))*da(im,j,k,3)
+cc     .         -0.5*(    v0_cnv(i,j,k,3)
+cc     .              -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
+
+        flxjp = 0.5*(    v0_cnv(i,j,k,2)
+     .              +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
+     .         +0.5*(    v0_cnv(i,j,k,2)
+     .              -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,1)
+        flxjm = 0.5*(    v0_cnv(i,j,k,2)
+     .              +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,1)
+     .         +0.5*(    v0_cnv(i,j,k,2)
+     .              -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
+
+        flxkp = 0.5*(    v0_cnv(i,j,k,3)
+     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
+     .         +0.5*(    v0_cnv(i,j,k,3)            
+     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,1)
+        flxkm = 0.5*(    v0_cnv(i,j,k,3)            
+     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,km,1)
+     .         +0.5*(    v0_cnv(i,j,k,3)            
+     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
+
+        cov(1) =  (flxip-flxim)*idx
+     .           +(flxjp-flxjm)*idy
+     .           +(flxkp-flxkm)*idz
+
+        !2nd component
+        flxip = 0.5*(    v0_cnv(i,j,k,1)
+     .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
+     .         +0.5*(    v0_cnv(i,j,k,1)        
+     .              -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,2)
+        flxim = 0.5*(    v0_cnv(i,j,k,1)        
+     .              +abs(v0_cnv(i,j,k,1)))*da(im,j,k,2)
+     .         +0.5*(    v0_cnv(i,j,k,1)        
+     .              -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
+
+        flxjp = -v0_cnv(i,j,k,1)*0.5*(da(i,jp,k,1)+da(i,j,k,1))
+     .          -v0_cnv(i,j,k,3)*0.5*(da(i,jp,k,3)+da(i,j,k,3))
+
+        flxjm = -v0_cnv(i,j,k,1)*0.5*(da(i,jm,k,1)+da(i,j,k,1))
+     .          -v0_cnv(i,j,k,3)*0.5*(da(i,jm,k,3)+da(i,j,k,3))
+
+        flxkp = 0.5*(    v0_cnv(i,j,k,3)
+     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
+     .         +0.5*(    v0_cnv(i,j,k,3)            
+     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,2)
+        flxkm = 0.5*(    v0_cnv(i,j,k,3)            
+     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,km,2)
+     .         +0.5*(    v0_cnv(i,j,k,3)            
+     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
+
+        cov(2) =  (flxip-flxim)*idx
+     .           +(flxjp-flxjm)*idy
+     .           +(flxkp-flxkm)*idz
+
+        !3rd component
+        flxip = 0.5*(    v0_cnv(i,j,k,1)
+     .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
+     .         +0.5*(    v0_cnv(i,j,k,1)        
+     .              -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,3)
+        flxim = 0.5*(    v0_cnv(i,j,k,1)        
+     .              +abs(v0_cnv(i,j,k,1)))*da(im,j,k,3)
+     .         +0.5*(    v0_cnv(i,j,k,1)        
+     .              -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
+
+        flxjp = 0.5*(    v0_cnv(i,j,k,2)
+     .              +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
+     .         +0.5*(    v0_cnv(i,j,k,2)
+     .              -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,3)
+        flxjm = 0.5*(    v0_cnv(i,j,k,2)
+     .              +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,3)
+     .         +0.5*(    v0_cnv(i,j,k,2)
+     .              -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
+
+        flxkp = -v0_cnv(i,j,k,1)*0.5*(da(i,j,kp,1)+da(i,j,k,1))
+     .          -v0_cnv(i,j,k,2)*0.5*(da(i,j,kp,2)+da(i,j,k,2))
+                                               
+        flxkm = -v0_cnv(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
+     .          -v0_cnv(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
+
+        cov(3) =  (flxip-flxim)*idx
+     .           +(flxjp-flxjm)*idy
+     .           +(flxkp-flxkm)*idz
+
+      end function db_x_v0
 
       end subroutine a_mtvc
 
