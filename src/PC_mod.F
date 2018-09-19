@@ -1158,7 +1158,7 @@ c     Local variables
         integer    :: ig,jg,kg,half_elem,ip,jp,kp,hx,hy,hz
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
      .               ,veh(3),curlv(3),half=0.5d0,ijacip
-     .               ,jac0,jacp,ijac0,ijacp
+     .               ,jac0,jacp,ijac0,ijacp,ijac
         logical    :: str
 
         real(8),dimension(:,:,:,:),pointer :: rho0,nu0
@@ -1170,17 +1170,6 @@ c     Begin program
         else
           half_elem = 0
         endif
-
-        hx = 0 ; hy = 0 ; hz = 0
-
-        select case(half_elem)
-        case(1)
-          hx = 1
-        case(2)
-          hy = 1
-        case(3)
-          hz = 1
-        end select
 
         if (PRESENT(stress)) then
           str = stress
@@ -1216,24 +1205,29 @@ c     Ideal MHD part
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,1)*ijac0+b0(ip,j,k,1)*ijacp)
 
-            cov = 0.25*cov
+            uav = -0.25*cov
           else
-            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+            ijac = 2d0/(jacp+jac0)
+
+            uav(1) =-0.25*ijac
+     $             *((vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,3)+b0(ip,j,k,3))
      .              -(vv(i,j,k,3)+vv(ip,j,k,3))
-     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2)))
 
-            cov(2) = (vv(i,j,k,3)+vv(ip,j,k,3))
+            uav(2) =-0.25*ijac
+     $             *((vv(i,j,k,3)+vv(ip,j,k,3))
      .              *(b0(i,j,k,1)+b0(ip,j,k,1))
      .              -(vv(i,j,k,1)+vv(ip,j,k,1))
-     .              *(b0(i,j,k,3)+b0(ip,j,k,3))
+     .              *(b0(i,j,k,3)+b0(ip,j,k,3)))
 
-            cov(3) = (vv(i,j,k,1)+vv(ip,j,k,1))
+            uav(3) =-0.25*ijac
+     $             *((vv(i,j,k,1)+vv(ip,j,k,1))
      .              *(b0(i,j,k,2)+b0(ip,j,k,2))
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
-     .              *(b0(i,j,k,1)+b0(ip,j,k,1))
+     .              *(b0(i,j,k,1)+b0(ip,j,k,1)))
 
-            cov = 0.5*cov/(jacp+jac0)
+cc            uav = -0.5*cov/(jacp+jac0)
           endif
 
         case(2)
@@ -1241,65 +1235,84 @@ c     Ideal MHD part
           jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
           jac0 = g_def%gmetric%grid(igx)%jac(i,j ,k)
 
-          cov(1) = (vv(i,j,k,2)+vv(i,jp,k,2))
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,3)+b0(i,jp,k,3))
      .            -(vv(i,j,k,3)+vv(i,jp,k,3))
-     .            *(b0(i,j,k,2)+b0(i,jp,k,2))
+     .            *(b0(i,j,k,2)+b0(i,jp,k,2)))
                                        
-          cov(2) = (vv(i,j,k,3)+vv(i,jp,k,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,jp,k,3))
      .            *(b0(i,j,k,1)+b0(i,jp,k,1))
      .            -(vv(i,j,k,1)+vv(i,jp,k,1))
-     .            *(b0(i,j,k,3)+b0(i,jp,k,3))
+     .            *(b0(i,j,k,3)+b0(i,jp,k,3)))
                                        
-          cov(3) = (vv(i,j,k,1)+vv(i,jp,k,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,jp,k,1))
      .            *(b0(i,j,k,2)+b0(i,jp,k,2))
      .            -(vv(i,j,k,2)+vv(i,jp,k,2))
-     .            *(b0(i,j,k,1)+b0(i,jp,k,1))
+     .            *(b0(i,j,k,1)+b0(i,jp,k,1)))
 
-          cov = 0.5*cov/(jacp+jac0)
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case(3)
 
           jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
           jac0 = g_def%gmetric%grid(igx)%jac(i,j,k )
 
-          cov(1) = (vv(i,j,k,2)+vv(i,j,kp,2))
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,3)+b0(i,j,kp,3))
      .            -(vv(i,j,k,3)+vv(i,j,kp,3))
-     .            *(b0(i,j,k,2)+b0(i,j,kp,2))
+     .            *(b0(i,j,k,2)+b0(i,j,kp,2)))
                                          
-          cov(2) = (vv(i,j,k,3)+vv(i,j,kp,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,j,kp,3))
      .            *(b0(i,j,k,1)+b0(i,j,kp,1))
      .            -(vv(i,j,k,1)+vv(i,j,kp,1))
-     .            *(b0(i,j,k,3)+b0(i,j,kp,3))
+     .            *(b0(i,j,k,3)+b0(i,j,kp,3)))
                                          
-          cov(3) = (vv(i,j,k,1)+vv(i,j,kp,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,j,kp,1))
      .            *(b0(i,j,k,2)+b0(i,j,kp,2))
      .            -(vv(i,j,k,2)+vv(i,j,kp,2))
-     .            *(b0(i,j,k,1)+b0(i,j,kp,1))
+     .            *(b0(i,j,k,1)+b0(i,j,kp,1)))
 
-          cov = 0.5*cov/(jacp+jac0)
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case default
-          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k)
+          ijac0 = 1d0/g_def%gmetric%grid(igx)%jac(i,j,k)
 
-          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-     .           - vv(i,j,k,3)*b0(i,j,k,2)
+          uav(1) =-(vv(i,j,k,2)*b0(i,j,k,3)
+     .             -vv(i,j,k,3)*b0(i,j,k,2))*ijac0
 
-          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-     .           - vv(i,j,k,1)*b0(i,j,k,3)
+          uav(2) =-(vv(i,j,k,3)*b0(i,j,k,1)
+     .             -vv(i,j,k,1)*b0(i,j,k,3))*ijac0
 
-          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-     .           - vv(i,j,k,2)*b0(i,j,k,1)
-
-          cov = cov/jac0
+          uav(3) =-(vv(i,j,k,1)*b0(i,j,k,2)
+     .             -vv(i,j,k,2)*b0(i,j,k,1))*ijac0
         end select
 
-        uav = -cov !-dv x B0
+cc        uav = -cov !-dv x B0
 
 c     Hall MHD part
 
         if (di > 0d0) then
+
+          hx = 0 ; hy = 0 ; hz = 0
+
+          select case(half_elem)
+          case(1)
+             hx = 1
+          case(2)
+             hy = 1
+          case(3)
+             hz = 1
+          end select
 
           minv = cnp/dt/alpha
 
