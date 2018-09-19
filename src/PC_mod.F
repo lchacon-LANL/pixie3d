@@ -1183,11 +1183,12 @@ c     Begin program
 
 c     Ideal MHD part
 
+        jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+
         select case(half_elem)
         case(1)
 
           jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
-          jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
 
           if (isSP2(g_def,ip,igx,dim=1)) then
             ijac0 = 1d0/jac0
@@ -1233,7 +1234,6 @@ cc            uav = -0.5*cov/(jacp+jac0)
         case(2)
 
           jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
-          jac0 = g_def%gmetric%grid(igx)%jac(i,j ,k)
 
           ijac = 2d0/(jacp+jac0)
 
@@ -1260,7 +1260,6 @@ cc          uav = -0.5*cov/(jacp+jac0)
         case(3)
 
           jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
-          jac0 = g_def%gmetric%grid(igx)%jac(i,j,k )
 
           ijac = 2d0/(jacp+jac0)
 
@@ -1285,7 +1284,7 @@ cc          uav = -0.5*cov/(jacp+jac0)
 cc          uav = -0.5*cov/(jacp+jac0)
 
         case default
-          ijac0 = 1d0/g_def%gmetric%grid(igx)%jac(i,j,k)
+          ijac0 = 1d0/jac0
 
           uav(1) =-(vv(i,j,k,2)*b0(i,j,k,3)
      .             -vv(i,j,k,3)*b0(i,j,k,2))*ijac0
@@ -1467,7 +1466,10 @@ cc          endif
 
         endif
 
-        uav = alpha*uav
+cc        uav = alpha*uav
+        uav(1) = alpha*uav(1)
+        uav(2) = alpha*uav(2)
+        uav(3) = alpha*uav(3)
 
 c     End program
 
