@@ -3926,9 +3926,9 @@ c End program
 
       end subroutine hall_mtvc
 
-c sm_mtvc
+c sm_mtvc_B
 c####################################################################
-      subroutine sm_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine sm_mtvc_B(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
 c     for the velocity SI system.
@@ -3990,7 +3990,7 @@ c Find limits for loops
 
 c Define pointers to MG arrays
 
-      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
+cc      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
 
 c Map vector x to array for processing (return dv in curvilinear comp.)
 
@@ -4057,8 +4057,139 @@ c End program
 
       deallocate(dv)
 
-      nullify(b0_cnv)
+cc      nullify(b0_cnv)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
-      end subroutine sm_mtvc
+      end subroutine sm_mtvc_B
+      
+c sm_mtvc_V
+c####################################################################
+      subroutine sm_mtvc_V(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for the velocity SI system.
+c     In call:
+c      * gpos: vector index of position on the numerical grid:
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use nlfunction_setup
+
+      use v_mtvc_mod
+
+      implicit none
+
+c Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer    :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8)    :: x(ntot),y(ntot),minv,idx,idy,idz,
+     .              idxcnv,idycnv,idzcnv,vxx,vyy,vzz
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
+c Local variables
+
+      integer :: iig,ieq,ijk,ijkg,i,j,k,ig,jg,kg
+     .          ,imin,imax,jmin,jmax,kmin,kmax
+     .          ,nxx,nyy,nzz
+
+      real(8) :: coeff
+
+c Begin program
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig  = g_def%istartp(igrid)
+
+      nxx = g_def%nxv(igrid)
+      nyy = g_def%nyv(igrid)
+      nzz = g_def%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(mg_ctx_l,abs(gpos),igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Define pointers to MG arrays
+
+cc      call point_to_MG_array(nxx,nyy,nzz,igrid,b0_cnv,gb0)
+
+c Map vector x to array for processing (return dv in curvilinear comp.)
+
+      allocate(dv(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      
+      dv = 0d0
+
+      call fillArray(g_def,igrid,neq,x,dv,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IVX/),is_cnv=.true.,is_vec=.true.
+     .              ,result_is_curv=.true.)
+
+c Calculate matrix-vector product
+
+      coeff = 1d0
+c$$$      do k = kmin,kmax
+c$$$        do j = jmin,jmax
+c$$$          do i = imin,imax
+c$$$            coeff= max(coeff
+c$$$     .     ,sqrt(vectorNorm(g_def,i,j,k,igrid,b0_cnv(i,j,k,:),.false.)))
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+
+      coeff = di*coeff  !v_A*di
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            !Preparations
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            ijkg   = ijk + isig - 1
+
+            vol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
+
+            cnv(:) = (dv(ip,j,k,:)-2*dv(i,j,k,:)+dv(im,j,k,:))
+     .              +(dv(i,jp,k,:)-2*dv(i,j,k,:)+dv(i,jm,k,:))
+     .              +(dv(i,j,kp,:)-2*dv(i,j,k,:)+dv(i,j,km,:))
+
+            do ieq=1,3
+              y(neq*(ijk-1)+ieq) = dv(i,j,k,ieq)*vol-dt*coeff*cnv(ieq)
+            enddo
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(dv)
+
+cc      nullify(b0_cnv)
+
+      call deallocMGPointers(fpointers,mg_ctx_l)
+
+      end subroutine sm_mtvc_V
