@@ -1573,15 +1573,16 @@ cc#endif
       !Magnetic fields
       db_cnv = curl(g_def,igrid,da_cov)
       db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-      call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
-     .            ,bcs(:,IBX:IBZ)
-     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
+cc      call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+cc     .            ,bcs(:,IBX:IBZ)
+cc     .            ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
+cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=db_cov)
 
       !Currents
       dj_cnv = curl(g_def,igrid,db_cov)
       dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
-cc      call setMGBC(max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv,bcs(:,IJX:IJZ)
+cc      call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,dj_cnv
+cc     .            ,bcs(:,IJX:IJZ)
 cc     .            ,icomp=(/IJX/),is_cnv=.true.,is_vec=.true.
 cc     .            ,result_is_curv=.true.,iorder=order_bc,arr_cov=dj_cov)
 
