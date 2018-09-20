@@ -218,7 +218,7 @@ c     ###############################################################
         real(8) :: opt_om,dvol
         real(8),allocatable,dimension(:,:) :: xrhs,x
 
-        external  sm_mtvc
+        external  sm_mtvc_B
 
 c     Begin program
         
@@ -306,7 +306,7 @@ c     Smooth A or B
         guess = 1
 
         call cSolver(gv%gparams,3,nn,xrhs,x,bcnd
-     .              ,igx,iout,guess,sm_mtvc,.true.
+     .              ,igx,iout,guess,sm_mtvc_B,.true.
      .              ,mg_smooth     = 'jb'
      .              ,sm_it         = filter_it
      .              ,sm_omega      = opt_om
@@ -359,7 +359,7 @@ c     ###############################################################
         real(8) :: opt_om,dvol
         real(8),allocatable,dimension(:,:) :: xrhs,x
 
-        external  sm_mtvc
+        external  sm_mtvc_V
 
 c     Begin program
         
@@ -416,7 +416,7 @@ c     Smooth A or B
         guess = 1
 
         call cSolver(gv%gparams,3,nn,xrhs,x,bcnd
-     .              ,igx,iout,guess,sm_mtvc,.true.
+     .              ,igx,iout,guess,sm_mtvc_V,.true.
      .              ,mg_smooth     = 'jb'
      .              ,sm_it         = filter_it
      .              ,sm_omega      = opt_om
