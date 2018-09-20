@@ -1190,7 +1190,7 @@ c     Ideal MHD part
 
           jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
 
-          if (isSP2(g_def,ip,igx,dim=1)) then
+          if (isSP2(g_def,ip,igx)) then
             ijac0 = 1d0/jac0
             ijacp = 1d0/jacp
 
