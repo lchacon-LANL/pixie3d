@@ -1997,7 +1997,7 @@ c     Exceptions
             jackm  = half*(g_def%gmetric%grid(igx)%jac(ip,j,km)
      .                    +g_def%gmetric%grid(igx)%jac(i ,j,km))
 
-            if (isSP2(g_def,i+1,igx,dim=1)) then
+            if (isSP2(g_def,i+1,igx)) then
               jacjp = SP_flsv
               jacjm = SP_flsv
               jackp = SP_flsv
