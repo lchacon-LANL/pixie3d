@@ -177,9 +177,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 #else
         B0(3) = 1d0
 
-        aa = 0d0
-
-        find_a = .false.
+        aa = 0d0 ; find_a = .false.
 #endif
 
       case ('3wv') !3-wave MHD test
