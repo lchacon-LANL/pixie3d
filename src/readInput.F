@@ -556,9 +556,9 @@ c     #####################################################################
 
       mg_coarse_solve = .true. ! Whether to perform MG solve beyond proc mesh
       mgcf = 0                 ! Default processor coarsening ratio per dimension in MG 
-                               !   (if zero, leave default framework value (4) unchanged)
+                               !   (if zero, leave default framework value unchanged)
 
-      mg_coarse_size = 2       ! MG coarse size (integer exponent of coarsening ratio)
+      mg_coarse_size = 2       ! MG minimum mesh coarse size (integer exponent of coarsening ratio)
 
       sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
