@@ -2211,9 +2211,9 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on J
 
-          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
 
           call solen_BC(g_def,array,dim,loc,.false.,safe)
 
@@ -2248,17 +2248,17 @@ c     Begin program
 
         if (ivar /= dim) then
 
-          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
           
           call curl_BC(g_def,array,array0,ivar,dim,loc,.true.,safe)
 
         else  !Imposes divergence-free constraint on B
 
-          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
 
           call solen_BC(g_def,array,dim,loc,.false.,safe)
 
