@@ -224,7 +224,7 @@ c     JxB volume force
 
       if (nc_eom_jxb) then
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-cc     .               ,bcnv,jcnv,.true.
+cc     .               ,bcnv,jcnv,.true.,nc_eom_jxb)
      .               ,bcov,jcov,.false.,nc_eom_jxb)
       else
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
