@@ -1259,7 +1259,7 @@ c     Correct A covariant
         !Find covariant vector potential update with div(A)=0
         call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
      .                    ,bcs_b,bcs_a,iout,gm_it=gm_its
-     .                    ,rtol=rtol)
+     .                    ,rtol=rtol,w_pre_bcs=.true.)
 
         if (.not.PRESENT(its)) then
           if(my_rank==0) write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
