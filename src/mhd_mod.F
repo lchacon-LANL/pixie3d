@@ -5656,14 +5656,6 @@ cc        if (isSP(ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
 c     Diffusive part
 
-        if (flag /= 0) then
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,1,1,1,cnv=.true.)
-        else
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,1,1,cnv=.true.)
-        endif
-
         if (symm_pi) then
           if (flag /= 0) then
             nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
