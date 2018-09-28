@@ -1214,23 +1214,31 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(da     (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(da(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       da = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
-      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
-      call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
+      call fillArray(g_def,igrid,neq,x,da,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-     .              ,result_is_curv=.true.,arr_cov=da)
-      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
+     .              ,result_is_curv=.true.)
 
+c$$$      allocate(da     (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+c$$$     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+c$$$     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+c$$$     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+c$$$     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+c$$$     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+c$$$
+c$$$      da = 0d0
+c$$$
+c$$$      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
+c$$$      call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
+c$$$     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+c$$$     .              ,result_is_curv=.true.,arr_cov=da)
+c$$$      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
+c$$$
 c$$$      !Currents
 c$$$      if (MG_get_find_diag().or.vlap_etaj) then
 c$$$c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
@@ -1294,12 +1302,6 @@ cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
 
             !Convective part
             cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
-c$$$            cov = db_x_v0()
-c$$$            cov = tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
-c$$$     .                          ,igrid,igrid,igrid,v0_cnv,da,ZIP)
-c$$$     .           -tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
-c$$$     .                          ,igrid,igrid,igrid,v0_cnv,da,ZIP
-c$$$     .                          ,transpose=.true.)
             
             !Assemble residual
             cov=(cnp*da(i,j,k,:)/dt+alpha*(cov-vlap))*vol
@@ -1318,136 +1320,6 @@ c End program
       nullify(v0_cnv)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
-
-      contains
-
-c     db_x_v0
-c     ##############################################################
-      function db_x_v0() result(cov)
-
-        integer :: ip,im,jp,jm,kp,km
-        real(8) :: cov(3)
-        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,idx,idy,idz
-     .            ,ijac
-
-        ip = i+1
-        im = i-1
-        jp = j+1
-        jm = j-1
-        kp = k+1
-        km = k-1
-
-        ijac = 1d0/g_def%gmetric%grid(igrid)%jac(i,j,k)
-        
-        idx = ijac/g_def%dxh(ig)
-        idy = ijac/g_def%dyh(jg)
-        idz = ijac/g_def%dzh(kg)
-
-        !1st component
-        flxip = -v0_cnv(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))
-     .          -v0_cnv(i,j,k,3)*0.5*(da(ip,j,k,3)+da(i,j,k,3))
-
-        flxim = -v0_cnv(i,j,k,2)*0.5*(da(im,j,k,2)+da(i,j,k,2))
-     .          -v0_cnv(i,j,k,3)*0.5*(da(im,j,k,3)+da(i,j,k,3))
-
-cc        flxip =-0.5*(    v0_cnv(i,j,k,2)
-cc     .              +abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
-cc     .         -0.5*(    v0_cnv(i,j,k,2)
-cc     .              -abs(v0_cnv(i,j,k,2)))*da(ip,j,k,2)
-cc     .         -0.5*(    v0_cnv(i,j,k,3)
-cc     .              +abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
-cc     .         -0.5*(    v0_cnv(i,j,k,3)
-cc     .              -abs(v0_cnv(i,j,k,3)))*da(ip,j,k,3)
-cc        flxim =-0.5*(    v0_cnv(i,j,k,2)
-cc     .              +abs(v0_cnv(i,j,k,2)))*da(im,j,k,2)
-cc     .         -0.5*(    v0_cnv(i,j,k,2)
-cc     .              -abs(v0_cnv(i,j,k,2)))*da(i ,j,k,2)
-cc     .         -0.5*(    v0_cnv(i,j,k,3)
-cc     .              +abs(v0_cnv(i,j,k,3)))*da(im,j,k,3)
-cc     .         -0.5*(    v0_cnv(i,j,k,3)
-cc     .              -abs(v0_cnv(i,j,k,3)))*da(i ,j,k,3)
-
-        flxjp = 0.5*(    v0_cnv(i,j,k,2)
-     .              +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
-     .         +0.5*(    v0_cnv(i,j,k,2)
-     .              -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,1)
-        flxjm = 0.5*(    v0_cnv(i,j,k,2)
-     .              +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,1)
-     .         +0.5*(    v0_cnv(i,j,k,2)
-     .              -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,1)
-
-        flxkp = 0.5*(    v0_cnv(i,j,k,3)
-     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
-     .         +0.5*(    v0_cnv(i,j,k,3)            
-     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,1)
-        flxkm = 0.5*(    v0_cnv(i,j,k,3)            
-     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,km,1)
-     .         +0.5*(    v0_cnv(i,j,k,3)            
-     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,1)
-
-        cov(1) =  (flxip-flxim)*idx
-     .           +(flxjp-flxjm)*idy
-     .           +(flxkp-flxkm)*idz
-
-        !2nd component
-        flxip = 0.5*(    v0_cnv(i,j,k,1)
-     .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
-     .         +0.5*(    v0_cnv(i,j,k,1)        
-     .              -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,2)
-        flxim = 0.5*(    v0_cnv(i,j,k,1)        
-     .              +abs(v0_cnv(i,j,k,1)))*da(im,j,k,2)
-     .         +0.5*(    v0_cnv(i,j,k,1)        
-     .              -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,2)
-
-        flxjp = -v0_cnv(i,j,k,1)*0.5*(da(i,jp,k,1)+da(i,j,k,1))
-     .          -v0_cnv(i,j,k,3)*0.5*(da(i,jp,k,3)+da(i,j,k,3))
-
-        flxjm = -v0_cnv(i,j,k,1)*0.5*(da(i,jm,k,1)+da(i,j,k,1))
-     .          -v0_cnv(i,j,k,3)*0.5*(da(i,jm,k,3)+da(i,j,k,3))
-
-        flxkp = 0.5*(    v0_cnv(i,j,k,3)
-     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
-     .         +0.5*(    v0_cnv(i,j,k,3)            
-     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,kp,2)
-        flxkm = 0.5*(    v0_cnv(i,j,k,3)            
-     .              +abs(v0_cnv(i,j,k,3)))*da(i,j,km,2)
-     .         +0.5*(    v0_cnv(i,j,k,3)            
-     .              -abs(v0_cnv(i,j,k,3)))*da(i,j,k ,2)
-
-        cov(2) =  (flxip-flxim)*idx
-     .           +(flxjp-flxjm)*idy
-     .           +(flxkp-flxkm)*idz
-
-        !3rd component
-        flxip = 0.5*(    v0_cnv(i,j,k,1)
-     .              +abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
-     .         +0.5*(    v0_cnv(i,j,k,1)        
-     .              -abs(v0_cnv(i,j,k,1)))*da(ip,j,k,3)
-        flxim = 0.5*(    v0_cnv(i,j,k,1)        
-     .              +abs(v0_cnv(i,j,k,1)))*da(im,j,k,3)
-     .         +0.5*(    v0_cnv(i,j,k,1)        
-     .              -abs(v0_cnv(i,j,k,1)))*da(i ,j,k,3)
-
-        flxjp = 0.5*(    v0_cnv(i,j,k,2)
-     .              +abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
-     .         +0.5*(    v0_cnv(i,j,k,2)
-     .              -abs(v0_cnv(i,j,k,2)))*da(i,jp,k,3)
-        flxjm = 0.5*(    v0_cnv(i,j,k,2)
-     .              +abs(v0_cnv(i,j,k,2)))*da(i,jm,k,3)
-     .         +0.5*(    v0_cnv(i,j,k,2)
-     .              -abs(v0_cnv(i,j,k,2)))*da(i,j ,k,3)
-
-        flxkp = -v0_cnv(i,j,k,1)*0.5*(da(i,j,kp,1)+da(i,j,k,1))
-     .          -v0_cnv(i,j,k,2)*0.5*(da(i,j,kp,2)+da(i,j,k,2))
-                                               
-        flxkm = -v0_cnv(i,j,k,1)*0.5*(da(i,j,km,1)+da(i,j,k,1))
-     .          -v0_cnv(i,j,k,2)*0.5*(da(i,j,km,2)+da(i,j,k,2))
-
-        cov(3) =  (flxip-flxim)*idx
-     .           +(flxjp-flxjm)*idy
-     .           +(flxkp-flxkm)*idz
-
-      end function db_x_v0
 
       end subroutine a_mtvc
 
@@ -1633,7 +1505,6 @@ c Calculate matrix-vector product
             endif
 
             !Convective part (curl(da_star) x ve)
-cc            a_res = a_res + alpha*dbs_x_ve0()
             a_res = a_res
      .            + alpha*curla_x_v_upwd(g_def,i,j,k,igrid
      .                                  ,ve0_cnv(i,j,k,:),das)
@@ -1696,169 +1567,6 @@ cc#endif
       nullify(ve0_cnv,rho0,bs0_cnv,heta0,eta0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
-
-c$$$      contains
-c$$$
-c$$$c     dbs_x_ve0
-c$$$c     ##############################################################
-c$$$      function dbs_x_ve0() result(cov)
-c$$$
-c$$$        integer :: ip,im,jp,jm,kp,km
-c$$$        real(8) :: cov(3),ijac
-c$$$        real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,cnv(3)
-c$$$
-c$$$        ip = i+1
-c$$$        im = i-1
-c$$$        jp = j+1
-c$$$        jm = j-1
-c$$$        kp = k+1
-c$$$        km = k-1
-c$$$
-c$$$        ijac = 1d0/g_def%gmetric%grid(igrid)%jac(i,j,k)
-c$$$
-c$$$        cnv = ve0_cnv(i,j,k,:)
-c$$$        
-c$$$        !1st component
-c$$$c$$$        flxip = -cnv(2)*0.5*(das(ip,j,k,2)+das(i,j,k,2))
-c$$$c$$$     .          -cnv(3)*0.5*(das(ip,j,k,3)+das(i,j,k,3))
-c$$$c$$$
-c$$$c$$$        flxim = -cnv(2)*0.5*(das(im,j,k,2)+das(i,j,k,2))
-c$$$c$$$     .          -cnv(3)*0.5*(das(im,j,k,3)+das(i,j,k,3))
-c$$$
-c$$$        flxip =+0.5*(    -cnv(2)
-c$$$     .              +abs(-cnv(2)))*das(i ,j,k,2)
-c$$$     .         +0.5*(    -cnv(2)
-c$$$     .              -abs(-cnv(2)))*das(ip,j,k,2)
-c$$$     .         +0.5*(    -cnv(3)
-c$$$     .              +abs(-cnv(3)))*das(i ,j,k,3)
-c$$$     .         +0.5*(    -cnv(3)
-c$$$     .              -abs(-cnv(3)))*das(ip,j,k,3)
-c$$$        flxim =+0.5*(    -cnv(2)
-c$$$     .              +abs(-cnv(2)))*das(im,j,k,2)
-c$$$     .         +0.5*(    -cnv(2)
-c$$$     .              -abs(-cnv(2)))*das(i ,j,k,2)
-c$$$     .         +0.5*(    -cnv(3)
-c$$$     .              +abs(-cnv(3)))*das(im,j,k,3)
-c$$$     .         +0.5*(    -cnv(3)
-c$$$     .              -abs(-cnv(3)))*das(i ,j,k,3)
-c$$$
-c$$$        flxjp = 0.5*(    cnv(2)
-c$$$     .              +abs(cnv(2)))*das(i,j ,k,1)
-c$$$     .         +0.5*(    cnv(2)
-c$$$     .              -abs(cnv(2)))*das(i,jp,k,1)
-c$$$        flxjm = 0.5*(    cnv(2)
-c$$$     .              +abs(cnv(2)))*das(i,jm,k,1)
-c$$$     .         +0.5*(    cnv(2)
-c$$$     .              -abs(cnv(2)))*das(i,j ,k,1)
-c$$$
-c$$$        flxkp = 0.5*(    cnv(3)
-c$$$     .              +abs(cnv(3)))*das(i,j,k ,1)
-c$$$     .         +0.5*(    cnv(3)            
-c$$$     .              -abs(cnv(3)))*das(i,j,kp,1)
-c$$$        flxkm = 0.5*(    cnv(3)            
-c$$$     .              +abs(cnv(3)))*das(i,j,km,1)
-c$$$     .         +0.5*(    cnv(3)            
-c$$$     .              -abs(cnv(3)))*das(i,j,k ,1)
-c$$$
-c$$$        cov(1) =  (flxip-flxim)/g_def%dxh(ig)
-c$$$     .           +(flxjp-flxjm)/g_def%dyh(jg)
-c$$$     .           +(flxkp-flxkm)/g_def%dzh(kg)
-c$$$
-c$$$
-c$$$        !2nd component
-c$$$        flxip = 0.5*(    cnv(1)
-c$$$     .              +abs(cnv(1)))*das(i ,j,k,2)
-c$$$     .         +0.5*(    cnv(1)        
-c$$$     .              -abs(cnv(1)))*das(ip,j,k,2)
-c$$$        flxim = 0.5*(    cnv(1)        
-c$$$     .              +abs(cnv(1)))*das(im,j,k,2)
-c$$$     .         +0.5*(    cnv(1)        
-c$$$     .              -abs(cnv(1)))*das(i ,j,k,2)
-c$$$
-c$$$c$$$        flxjp = -cnv(1)*0.5*(das(i,jp,k,1)+das(i,j,k,1))
-c$$$c$$$     .          -cnv(3)*0.5*(das(i,jp,k,3)+das(i,j,k,3))
-c$$$c$$$
-c$$$c$$$        flxjm = -cnv(1)*0.5*(das(i,jm,k,1)+das(i,j,k,1))
-c$$$c$$$     .          -cnv(3)*0.5*(das(i,jm,k,3)+das(i,j,k,3))
-c$$$
-c$$$        flxjp =+0.5*(    -cnv(1)
-c$$$     .              +abs(-cnv(1)))*das(i,j ,k,1)
-c$$$     .         +0.5*(    -cnv(1)          
-c$$$     .              -abs(-cnv(1)))*das(i,jp,k,1)
-c$$$     .         +0.5*(    -cnv(3)          
-c$$$     .              +abs(-cnv(3)))*das(i,j ,k,3)
-c$$$     .         +0.5*(    -cnv(3)          
-c$$$     .              -abs(-cnv(3)))*das(i,jp,k,3)
-c$$$        flxjm =+0.5*(    -cnv(1)
-c$$$     .              +abs(-cnv(1)))*das(i,jm,k,1)
-c$$$     .         +0.5*(    -cnv(1)          
-c$$$     .              -abs(-cnv(1)))*das(i,j ,k,1)
-c$$$     .         +0.5*(    -cnv(3)          
-c$$$     .              +abs(-cnv(3)))*das(i,jm,k,3)
-c$$$     .         +0.5*(    -cnv(3)          
-c$$$     .              -abs(-cnv(3)))*das(i,j ,k,3)
-c$$$
-c$$$        flxkp = 0.5*(    cnv(3)
-c$$$     .              +abs(cnv(3)))*das(i,j,k ,2)
-c$$$     .         +0.5*(    cnv(3)            
-c$$$     .              -abs(cnv(3)))*das(i,j,kp,2)
-c$$$        flxkm = 0.5*(    cnv(3)            
-c$$$     .              +abs(cnv(3)))*das(i,j,km,2)
-c$$$     .         +0.5*(    cnv(3)            
-c$$$     .              -abs(cnv(3)))*das(i,j,k ,2)
-c$$$
-c$$$        cov(2) =  (flxip-flxim)/g_def%dxh(ig)
-c$$$     .           +(flxjp-flxjm)/g_def%dyh(jg)
-c$$$     .           +(flxkp-flxkm)/g_def%dzh(kg)
-c$$$
-c$$$        !3rd component
-c$$$        flxip = 0.5*(    cnv(1)
-c$$$     .              +abs(cnv(1)))*das(i ,j,k,3)
-c$$$     .         +0.5*(    cnv(1)        
-c$$$     .              -abs(cnv(1)))*das(ip,j,k,3)
-c$$$        flxim = 0.5*(    cnv(1)        
-c$$$     .              +abs(cnv(1)))*das(im,j,k,3)
-c$$$     .         +0.5*(    cnv(1)        
-c$$$     .              -abs(cnv(1)))*das(i ,j,k,3)
-c$$$
-c$$$        flxjp = 0.5*(    cnv(2)
-c$$$     .              +abs(cnv(2)))*das(i,j ,k,3)
-c$$$     .         +0.5*(    cnv(2)
-c$$$     .              -abs(cnv(2)))*das(i,jp,k,3)
-c$$$        flxjm = 0.5*(    cnv(2)
-c$$$     .              +abs(cnv(2)))*das(i,jm,k,3)
-c$$$     .         +0.5*(    cnv(2)
-c$$$     .              -abs(cnv(2)))*das(i,j ,k,3)
-c$$$
-c$$$c$$$        flxkp = -cnv(1)*0.5*(das(i,j,kp,1)+das(i,j,k,1))
-c$$$c$$$     .          -cnv(2)*0.5*(das(i,j,kp,2)+das(i,j,k,2))
-c$$$c$$$                                               
-c$$$c$$$        flxkm = -cnv(1)*0.5*(das(i,j,km,1)+das(i,j,k,1))
-c$$$c$$$     .          -cnv(2)*0.5*(das(i,j,km,2)+das(i,j,k,2))
-c$$$        flxkp =+0.5*(    -cnv(1)
-c$$$     .              +abs(-cnv(1)))*das(i,j,k ,1)
-c$$$     .         +0.5*(    -cnv(1)            
-c$$$     .              -abs(-cnv(1)))*das(i,j,kp,1)
-c$$$     .         +0.5*(    -cnv(2)            
-c$$$     .              +abs(-cnv(2)))*das(i,j,k ,2)
-c$$$     .         +0.5*(    -cnv(2)            
-c$$$     .              -abs(-cnv(2)))*das(i,j,kp,2)
-c$$$        flxkm =+0.5*(    -cnv(1)
-c$$$     .              +abs(-cnv(1)))*das(i,j,km,1)
-c$$$     .         +0.5*(    -cnv(1)            
-c$$$     .              -abs(-cnv(1)))*das(i,j,k ,1)
-c$$$     .         +0.5*(    -cnv(2)            
-c$$$     .              +abs(-cnv(2)))*das(i,j,km,2)
-c$$$     .         +0.5*(    -cnv(2)            
-c$$$     .              -abs(-cnv(2)))*das(i,j,k ,2)
-c$$$
-c$$$        cov(3) = ((flxip-flxim)/g_def%dxh(ig)
-c$$$     .           +(flxjp-flxjm)/g_def%dyh(jg)
-c$$$     .           +(flxkp-flxkm)/g_def%dzh(kg))
-c$$$
-c$$$        cov = cov*ijac
-c$$$
-c$$$      end function dbs_x_ve0
 
       end subroutine a_mtvc_hyp
 
