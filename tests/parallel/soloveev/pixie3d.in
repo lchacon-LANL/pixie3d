@@ -74,7 +74,6 @@
     rtol     = 1d-4
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
     iguess   = 0
  /

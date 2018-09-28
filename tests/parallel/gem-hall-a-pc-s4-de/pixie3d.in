@@ -67,7 +67,6 @@
     tolgm    = 8d-1
     rtol     = 1d-3
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
     nc_eom_f   = f

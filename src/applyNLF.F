@@ -224,7 +224,7 @@ c     JxB volume force
 
       if (nc_eom_jxb) then
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-cc     .               ,bcnv,jcnv,.true.
+cc     .               ,bcnv,jcnv,.true.,nc_eom_jxb)
      .               ,bcov,jcov,.false.,nc_eom_jxb)
       else
         cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
@@ -916,8 +916,14 @@ cc             .               ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe)
-              src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
-     .                           + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+              if (no_eom_divpe) then
+                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+     .                             + div_pi(i,j,k,:)
+              else
+                src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ)
+     .                             + div_pi(i,j,k,:) + div_pe(i,j,k,:)
+              endif
+
 
               !Advection
               if (v_advect <= 2) then
@@ -974,7 +980,11 @@ cc     .                       ,bcnv,jcnv,.true.
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv
 
               !Stress tensor: div(Pi+Pe) (should be made conservative)
-              cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
+              if (no_eom_divpe) then
+                cnv = div_pi(i,j,k,:)
+              else
+                cnv = div_pi(i,j,k,:) + div_pe(i,j,k,:)
+              endif
               if (alt__eom()) cnv(2) = cnv(2)*jac
 
               src(i,j,k,IVX:IVZ) = src(i,j,k,IVX:IVZ) + cnv

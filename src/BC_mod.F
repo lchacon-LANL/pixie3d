@@ -504,7 +504,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,j0)
+      subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,j0,dbcnv)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -520,6 +520,7 @@ c     Call variables
       integer :: igrid
       real(8),dimension(0:,0:,0:)   :: prs,eta
       real(8),dimension(0:,0:,0:,:) :: bcnv,j0
+      real(8),dimension(0:,0:,0:,:),optional :: dbcnv
 
 c     Local variables
 
@@ -639,6 +640,10 @@ c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 c =================
 
             alpha = dot_product(E0,bbcnv)*ietah/Jb2
+
+            if (PRESENT(dbcnv)) then
+              bbcnv = dbcnv(i,j,k,:)
+            endif
 
             j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
           endif
