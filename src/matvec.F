@@ -1302,7 +1302,7 @@ cc            cov = db_x_v0()
      .                          ,transpose=.true.)
             
             !Assemble residual
-            cov=(cnp*da(i,j,k,:)/dt + alpha*(cov*ijac - vlap))*vol
+            cov=(cnp*da(i,j,k,:)/dt+alpha*(cov-etal*vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cov(ieq)
