@@ -65,9 +65,9 @@ c Namelists
      .                   ,lagged_spitzer,irrot_br_pert
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
-     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
+     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
-     .                   ,pc_as_solver
+     .                   ,pc_as_solver,fpa,fpa_it
      .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
@@ -134,8 +134,8 @@ c Namelists
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
-     .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
-     .                   ,iguess,pc_as_solver
+     .                   ,maxitgm,global,method,damp,dt0,vol_wgt
+     .                   ,iguess,pc_as_solver,fpa,fpa_it
 
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
