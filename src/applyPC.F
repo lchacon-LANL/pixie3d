@@ -1197,9 +1197,12 @@ c Find density lower block (because we are solving for dv instead of dp)
 
 c Find linearized EOM rhs [-jxB+grad(p)] correction
 
-cc      call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
-      call L_y_star(nn,xxx,eom_rhs,igrid,'all',vol_wgt)
-
+      if (pinch_flow) then
+        call L_y_star(nn,xxx,eom_rhs,igrid,'all',vol_wgt)
+      else
+        call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
+      endif
+      
       rhs_si = rhs_si - eom_rhs
 
 c End program
