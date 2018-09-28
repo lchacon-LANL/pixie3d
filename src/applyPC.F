@@ -42,7 +42,7 @@ c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
      .          ,v_mtvc_af,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
-     .          ,v_mtvc_hyp
+     .          ,v_mtvc_hyp,a_mtvc2
 
 c Begin program
 
@@ -1197,7 +1197,8 @@ c Find density lower block (because we are solving for dv instead of dp)
 
 c Find linearized EOM rhs [-jxB+grad(p)] correction
 
-      call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
+cc      call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
+      call L_y_star(nn,xxx,eom_rhs,igrid,'all',vol_wgt)
 
       rhs_si = rhs_si - eom_rhs
 
@@ -1216,6 +1217,8 @@ c--------------------------------------------------------------------
       use PC_var
 
       use nlfunction_setup, ONLY: EOM_jxb,EOM_gp,no_eom_divpe
+
+      use local_BCS_variables, ONLY: ExB_flow_bc,J_pinch_bc
 
       use imposeBCinterface
 
@@ -1238,7 +1241,7 @@ c Local variables
      .                                                ,db_cnv
      .                                                ,db_cov
      .                                                ,dv_cnv
-     .                                                ,vzeros
+     .                                                ,v0
      .                                                ,dp_cnv
      .                                                ,dve_cnv
      .                                                ,dve_cov
@@ -1252,7 +1255,7 @@ c Local variables
 
       real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
      .                                       ,jcnv0,jcov0,vcnv0
-     .                                       ,heta0
+     .                                       ,heta0,eta0
 
 c Begin program
 
@@ -1275,6 +1278,7 @@ c Begin program
       bcov0 => gb0_cov%grid(igrid)%array
       jcnv0 => gj0    %grid(igrid)%array
       jcov0 => gj0_cov%grid(igrid)%array
+      eta0  => geta   %grid(igrid)%array
       heta0 => gheta  %grid(igrid)%array
 
 c Allocate variables
@@ -1284,7 +1288,7 @@ c Allocate variables
      .        ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,vzeros(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,v0    (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1296,13 +1300,20 @@ c Allocate variables
 #endif
      .        )
 
-      vzeros = 0d0
+      v0 = 0d0
+
+c Find drho, dprs arrays with BCs
+
+      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
+     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
       call fillArray(gv%gparams,igrid,3,xxx(:,IBX:IBZ),db_cnv
-     .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov
+     .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov,arr0=v0
      .           ,is_vec=.true.,is_cnv=.true.,icomp=(/IBX/))
 
 #else
@@ -1317,16 +1328,15 @@ c Find dB* from dA*
       db_cnv = curl(gv%gparams,igrid,da_cov)
       db_cov = XformVector(gv%gparams,igrid,db_cnv,.false.)
 
+      if (pinch_flow) then      !Jt = alpha*Bt in cnv representation
+        call J_pinch_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+     .                 ,eta0(:,:,:,1),v0,dbcnv=db_cnv)
+      endif
+
       !Find covariant components of dj with BCs
-      call setBC(gv%gparams,IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros
+      call setBC(gv%gparams,IBX,3,nx,ny,nz,db_cnv,db_cov,v0
      .          ,bcs(:,IBX:IBZ),igrid,igrid,igrid,iorder=order_bc)
 #endif
-
-c Find dv (w/ Bcs)
-
-      call fillArray(gv%gparams,igrid,3,xxx(:,IVX:IVZ),dv_cnv
-     .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
-     .              ,arr0=vzeros,icomp=(/IVX/))
 
 c Find dj* from dB*
 
@@ -1335,15 +1345,21 @@ c Find dj* from dB*
       dj_cov = XformVector(gv%gparams,igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
+      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,v0
      .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
 
-c Find drho, dprs arrays with BCs
+c Find dv (w/ Bcs)
 
-      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
-      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
-     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
+      if (pinch_flow) then
+        v0(nx+1,:,:,:) = 0d0
+        call ExB_flow_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+     .                  ,eta0(:,:,:,1),v0,dbcov=db_cov)
+        v0(nx+1,:,:,:) = 0.5*v0(nx+1,:,:,:)
+      endif
+
+      call fillArray(gv%gparams,igrid,3,xxx(:,IVX:IVZ),dv_cnv
+     .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
+     .              ,arr0=v0,icomp=(/IVX/))
 
 c Find dp_cnv
 
@@ -1467,7 +1483,7 @@ c Free memory
      .          ,db_cnv
      .          ,db_cov
      .          ,dv_cnv
-     .          ,vzeros
+     .          ,v0
      .          ,dp_cnv
      .          ,dve_cnv
      .          ,dve_cov

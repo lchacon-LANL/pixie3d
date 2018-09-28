@@ -897,13 +897,13 @@ cc      call set_vec_symm_bc(vaux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
       vaux%vec_list(IDIVPE)%bconds = vaux%vec_list(IDIVPI)%bconds
 
       !Electric field (resistive piece)
-      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
+cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
 
       !Electric field (Hall piece)
       vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
 
 cc      !Equilibrium electric field (non-ideal piece)
-cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH   )%bconds
+cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH)%bconds
 
 c     End program
 
