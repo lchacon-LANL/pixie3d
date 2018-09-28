@@ -1185,7 +1185,7 @@ c Local variables
      .             ,i,j,k,ig,jg,kg,ieq,meth,bcnd2(6,3)
 
       real(8)    :: upwind,vol,vlap(3),vlap_cnv(3)
-     $             ,cnv(3),cov(3),car(3),etal
+     $             ,cnv(3),cov(3),car(3)
 
       real(8),allocatable,dimension(:,:,:,:) :: da,da_cnv,db_cnv,db_cov
      .                                         ,dj_cnv,dj_cov
@@ -1293,16 +1293,16 @@ cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
      .                       ,vol=.false.)
 
             !Convective part
-cc            cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
-cc            cov = db_x_v0()
-            cov = tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
-     .                          ,igrid,igrid,igrid,v0_cnv,da,meth)
-     .           -tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
-     .                          ,igrid,igrid,igrid,v0_cnv,da,ZIP
-     .                          ,transpose=.true.)
+            cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
+c$$$            cov = db_x_v0()
+c$$$            cov = tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
+c$$$     .                          ,igrid,igrid,igrid,v0_cnv,da,ZIP)
+c$$$     .           -tensor_nc_advc(g_def,i,j,k,nxx,nyy,nzz
+c$$$     .                          ,igrid,igrid,igrid,v0_cnv,da,ZIP
+c$$$     .                          ,transpose=.true.)
             
             !Assemble residual
-            cov=(cnp*da(i,j,k,:)/dt+alpha*(cov-etal*vlap))*vol
+            cov=(cnp*da(i,j,k,:)/dt+alpha*(cov-vlap))*vol
 
             do ieq=1,3
               y(neq*(ijk-1)+ieq) = cov(ieq)
@@ -1328,6 +1328,7 @@ c     ##############################################################
         integer :: ip,im,jp,jm,kp,km
         real(8) :: cov(3)
         real(8) :: flxip,flxim,flxjp,flxjm,flxkp,flxkm,idx,idy,idz
+     .            ,ijac
 
         ip = i+1
         im = i-1
@@ -1336,9 +1337,11 @@ c     ##############################################################
         kp = k+1
         km = k-1
 
-        idx = g_def%dxh(ig)
-        idy = g_def%dyh(jg)
-        idz = g_def%dzh(kg)
+        ijac = 1d0/g_def%gmetric%grid(igrid)%jac(i,j,k)
+        
+        idx = ijac/g_def%dxh(ig)
+        idy = ijac/g_def%dyh(jg)
+        idz = ijac/g_def%dzh(kg)
 
         !1st component
         flxip = -v0_cnv(i,j,k,2)*0.5*(da(ip,j,k,2)+da(i,j,k,2))

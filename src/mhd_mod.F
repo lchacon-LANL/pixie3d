@@ -4537,7 +4537,7 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
           pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc,symm)
 
           nabla_v = fnabla_v(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-     .                      ,vcnv2,0)
+     .                      ,vcnv2,0,1,3)
 
           !Make nabla_v covariant on both sides
           nabla_v = matmul(nabla_v
@@ -5658,14 +5658,29 @@ c     Diffusive part
 
         if (flag /= 0) then
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,1,cnv=.true.)
+     .                          ,vec1,1,1,1,cnv=.true.)
         else
           nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,cnv=.true.)
+     .                          ,vec1,0,1,1,cnv=.true.)
         endif
 
         if (symm_pi) then
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,1,1,3,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,0,1,3,cnv=.true.)
+          endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        else
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,1,1,1,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,0,1,1,cnv=.true.)
+          endif
         endif
 
         t11 = -vish*nabla_v_cnv(1,1)
@@ -5744,16 +5759,23 @@ c     Begin program
 
 c       Diffusive part
 
-        if (flag /= 0) then
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,2,cnv=.true.)
-        else
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,cnv=.true.)
-        endif
-
         if (symm_pi) then
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,2,1,3,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                            ,vec1,0,1,3,cnv=.true.)
+          endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        else
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,2,2,2,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,0,2,2,cnv=.true.)
+          endif
         endif
 
         t21 = -vish*nabla_v_cnv(2,1)
@@ -5834,16 +5856,23 @@ c     Begin program
 
 c       Diffusive part
 
-        if (flag /= 0) then
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,3,cnv=.true.)
-        else
-          nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,cnv=.true.)
-        endif
-
         if (symm_pi) then
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,3,1,3,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,0,1,3,cnv=.true.)
+          endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
+        else
+          if (flag /= 0) then
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,3,3,3,cnv=.true.)
+          else
+            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
+     .                          ,vec1,0,3,3,cnv=.true.)
+          endif
         endif
 
         t31 = -vish*nabla_v_cnv(3,1)
