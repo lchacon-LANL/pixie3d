@@ -27,7 +27,6 @@ c ######################################################################
 
         !Hardwired setup
         logical :: pc_v_solve=.false.          !Whether to perform final v corrector step
-     .            ,pc_split_EMHD_after=.false. !Whether to perform ???
 
         !Internal variables
         logical :: pc_ion_hall
@@ -185,13 +184,12 @@ c     Begin program
         call allocateMGArray(gv%gparams,3,gv0)
         call allocateMGArray(gv%gparams,3,gve0)  !v_e = v_i - di*j/rho
         call allocateMGArray(gv%gparams,3,gvs0)  !v_s = v_i - di*j/rho/a_p
-        call allocateMGArray(gv%gparams,3,gv0)
         call allocateMGArray(gv%gparams,3,gb0)
         call allocateMGArray(gv%gparams,3,gb0_cov)
-        call allocateMGArray(gv%gparams,3,gj0)
-        call allocateMGArray(gv%gparams,3,gj0_cov)
         call allocateMGArray(gv%gparams,3,ga0)   !B + di curl(v)
         call allocateMGArray(gv%gparams,3,gbs0)  !B - de^2/di curl(v_e)
+        call allocateMGArray(gv%gparams,3,gj0)
+        call allocateMGArray(gv%gparams,3,gj0_cov)
         call allocateMGArray(gv%gparams,3,gEh0_cov)  !Hall electric field
         call allocateMGArray(gv%gparams,1,gvis)
         call allocateMGArray(gv%gparams,1,geta)
@@ -235,21 +233,21 @@ c     Begin program
         call deallocateMGArray(gp0)
         call deallocateMGArray(grho0)
         call deallocateMGArray(gtmp0)
-        call deallocateMGArray(gb0)
-        call deallocateMGArray(gb0_cov)
-        call deallocateMGArray(gj0)
-        call deallocateMGArray(gj0_cov)
+        call deallocateMGArray(gv0)
         call deallocateMGArray(gve0)
         call deallocateMGArray(gvs0)
-        call deallocateMGArray(gv0)
+        call deallocateMGArray(gb0)
+        call deallocateMGArray(gb0_cov)
         call deallocateMGArray(ga0)
         call deallocateMGArray(gbs0)
+        call deallocateMGArray(gj0)
+        call deallocateMGArray(gj0_cov)
         call deallocateMGArray(gEh0_cov)
-        call deallocateMGArray(gdb_cov)
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
         call deallocateMGArray(gbhat)
+        call deallocateMGArray(gdb_cov)
         call deallocateMGArray(g_advdiffV0)
 
         pc_vars_allcd = .false.
@@ -1159,7 +1157,7 @@ c     Local variables
         integer    :: ig,jg,kg,half_elem,ip,jp,kp,hx,hy,hz
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
      .               ,veh(3),curlv(3),half=0.5d0,ijacip
-     .               ,jac0,jacp,ijac0,ijacp
+     .               ,jac0,jacp,ijac0,ijacp,ijac
         logical    :: str
 
         real(8),dimension(:,:,:,:),pointer :: rho0,nu0
@@ -1171,17 +1169,6 @@ c     Begin program
         else
           half_elem = 0
         endif
-
-        hx = 0 ; hy = 0 ; hz = 0
-
-        select case(half_elem)
-        case(1)
-          hx = 1
-        case(2)
-          hy = 1
-        case(3)
-          hz = 1
-        end select
 
         if (PRESENT(stress)) then
           str = stress
@@ -1195,12 +1182,14 @@ c     Begin program
 
 c     Ideal MHD part
 
+        jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+
         select case(half_elem)
         case(1)
 
-          if (isSP2(g_def,ip,igx,dim=1)) then
-            jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
-            jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+          jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+
+          if (isSP2(g_def,ip,igx)) then
             ijac0 = 1d0/jac0
             ijacp = 1d0/jacp
 
@@ -1216,85 +1205,112 @@ c     Ideal MHD part
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,1)*ijac0+b0(ip,j,k,1)*ijacp)
 
-            cov = 0.25*cov
+            uav = -0.25*cov
           else
-            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+            ijac = 2d0/(jacp+jac0)
+
+            uav(1) =-0.25*ijac
+     $             *((vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,3)+b0(ip,j,k,3))
      .              -(vv(i,j,k,3)+vv(ip,j,k,3))
-     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2)))
 
-            cov(2) = (vv(i,j,k,3)+vv(ip,j,k,3))
+            uav(2) =-0.25*ijac
+     $             *((vv(i,j,k,3)+vv(ip,j,k,3))
      .              *(b0(i,j,k,1)+b0(ip,j,k,1))
      .              -(vv(i,j,k,1)+vv(ip,j,k,1))
-     .              *(b0(i,j,k,3)+b0(ip,j,k,3))
+     .              *(b0(i,j,k,3)+b0(ip,j,k,3)))
 
-            cov(3) = (vv(i,j,k,1)+vv(ip,j,k,1))
+            uav(3) =-0.25*ijac
+     $             *((vv(i,j,k,1)+vv(ip,j,k,1))
      .              *(b0(i,j,k,2)+b0(ip,j,k,2))
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
-     .              *(b0(i,j,k,1)+b0(ip,j,k,1))
+     .              *(b0(i,j,k,1)+b0(ip,j,k,1)))
 
-            cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i ,j,k)
-     .                    +g_def%gmetric%grid(igx)%jac(ip,j,k))
+cc            uav = -0.5*cov/(jacp+jac0)
           endif
 
         case(2)
 
-          cov(1) = (vv(i,j,k,2)+vv(i,jp,k,2))
+          jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
+
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,3)+b0(i,jp,k,3))
      .            -(vv(i,j,k,3)+vv(i,jp,k,3))
-     .            *(b0(i,j,k,2)+b0(i,jp,k,2))
+     .            *(b0(i,j,k,2)+b0(i,jp,k,2)))
                                        
-          cov(2) = (vv(i,j,k,3)+vv(i,jp,k,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,jp,k,3))
      .            *(b0(i,j,k,1)+b0(i,jp,k,1))
      .            -(vv(i,j,k,1)+vv(i,jp,k,1))
-     .            *(b0(i,j,k,3)+b0(i,jp,k,3))
+     .            *(b0(i,j,k,3)+b0(i,jp,k,3)))
                                        
-          cov(3) = (vv(i,j,k,1)+vv(i,jp,k,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,jp,k,1))
      .            *(b0(i,j,k,2)+b0(i,jp,k,2))
      .            -(vv(i,j,k,2)+vv(i,jp,k,2))
-     .            *(b0(i,j,k,1)+b0(i,jp,k,1))
+     .            *(b0(i,j,k,1)+b0(i,jp,k,1)))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j ,k)
-     .                  +g_def%gmetric%grid(igx)%jac(i,jp,k))
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case(3)
 
-          cov(1) = (vv(i,j,k,2)+vv(i,j,kp,2))
+          jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
+
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,3)+b0(i,j,kp,3))
      .            -(vv(i,j,k,3)+vv(i,j,kp,3))
-     .            *(b0(i,j,k,2)+b0(i,j,kp,2))
+     .            *(b0(i,j,k,2)+b0(i,j,kp,2)))
                                          
-          cov(2) = (vv(i,j,k,3)+vv(i,j,kp,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,j,kp,3))
      .            *(b0(i,j,k,1)+b0(i,j,kp,1))
      .            -(vv(i,j,k,1)+vv(i,j,kp,1))
-     .            *(b0(i,j,k,3)+b0(i,j,kp,3))
+     .            *(b0(i,j,k,3)+b0(i,j,kp,3)))
                                          
-          cov(3) = (vv(i,j,k,1)+vv(i,j,kp,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,j,kp,1))
      .            *(b0(i,j,k,2)+b0(i,j,kp,2))
      .            -(vv(i,j,k,2)+vv(i,j,kp,2))
-     .            *(b0(i,j,k,1)+b0(i,j,kp,1))
+     .            *(b0(i,j,k,1)+b0(i,j,kp,1)))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j,k )
-     .                  +g_def%gmetric%grid(igx)%jac(i,j,kp))
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case default
-          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-     .           - vv(i,j,k,3)*b0(i,j,k,2)
+          ijac0 = 1d0/jac0
 
-          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-     .           - vv(i,j,k,1)*b0(i,j,k,3)
+          uav(1) =-(vv(i,j,k,2)*b0(i,j,k,3)
+     .             -vv(i,j,k,3)*b0(i,j,k,2))*ijac0
 
-          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-     .           - vv(i,j,k,2)*b0(i,j,k,1)
+          uav(2) =-(vv(i,j,k,3)*b0(i,j,k,1)
+     .             -vv(i,j,k,1)*b0(i,j,k,3))*ijac0
 
-          cov = cov/g_def%gmetric%grid(igx)%jac(i,j,k)
+          uav(3) =-(vv(i,j,k,1)*b0(i,j,k,2)
+     .             -vv(i,j,k,2)*b0(i,j,k,1))*ijac0
         end select
 
-        uav = -cov !-dv x B0
+cc        uav = -cov !-dv x B0
 
 c     Hall MHD part
 
         if (di > 0d0) then
+
+          hx = 0 ; hy = 0 ; hz = 0
+
+          select case(half_elem)
+          case(1)
+             hx = 1
+          case(2)
+             hy = 1
+          case(3)
+             hz = 1
+          end select
 
           minv = cnp/dt/alpha
 
@@ -1449,7 +1465,10 @@ cc          endif
 
         endif
 
-        uav = alpha*uav
+cc        uav = alpha*uav
+        uav(1) = alpha*uav(1)
+        uav(2) = alpha*uav(2)
+        uav(3) = alpha*uav(3)
 
 c     End program
 
@@ -2018,9 +2037,9 @@ c     End program
 
       end subroutine L_T
 
-c     rhs_A_hall
+c     L_A
 c     #########################################################################
-      subroutine rhs_A_hall(nn,xxx,rhs_a,igrid)
+      subroutine L_A(nn,xxx,rhs_a,igrid)
 c     --------------------------------------------------------------------------
 c     This subroutine corrects the rhs for the std Hall vector potential Eq.
 c     including density and temperature/pressure corrections.
@@ -2096,7 +2115,7 @@ c     Free memory
 
 c     End program
 
-      end subroutine rhs_A_hall
+      end subroutine L_A
 
 c     U_Bv
 c     ###################################################################

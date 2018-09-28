@@ -43,13 +43,13 @@
 
     source   = t
 
-    precon   = 's1'
-    mgtol    = 1d-5
-    maxvcyc  = 1
-    nsweep   = 4
+    pc_type  = 's1'
+    pc_tol   = 1d-5
+    mg_vcyc  = 1
+    sm_iter  = 4
     precpass = 1
-    ores     = 2
-    oprol    = 2
+    mg_ores  = 2
+    mg_oprol = 2
 
     iguess   = 0
 
@@ -58,7 +58,6 @@
     tolgm    = 8d-1
     rtol     = 1d-4
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
     nc_eom_f   = f

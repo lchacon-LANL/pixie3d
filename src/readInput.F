@@ -65,9 +65,9 @@ c Namelists
      .                   ,lagged_spitzer,irrot_br_pert
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
-     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
+     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
-     .                   ,pc_as_solver
+     .                   ,pc_as_solver,fpa,fpa_it
      .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
@@ -114,7 +114,7 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,pc_divclean,pc_B_solve,equil
+     .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
@@ -134,14 +134,15 @@ c Namelists
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
-     .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
-     .                   ,iguess,pc_as_solver
+     .                   ,maxitgm,global,method,damp,dt0,vol_wgt
+     .                   ,iguess,pc_as_solver,fpa,fpa_it
 
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
      .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
      .                   ,mgcf,pc_gm_driver,mg_coarse_size
+     .                   ,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -555,9 +556,9 @@ c     #####################################################################
 
       mg_coarse_solve = .true. ! Whether to perform MG solve beyond proc mesh
       mgcf = 0                 ! Default processor coarsening ratio per dimension in MG 
-                               !   (if zero, leave default framework value (4) unchanged)
+                               !   (if zero, leave default framework value unchanged)
 
-      mg_coarse_size = 2       ! MG coarse size (integer exponent of coarsening ratio)
+      mg_coarse_size = 2       ! MG minimum mesh coarse size (integer exponent of coarsening ratio)
 
       sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
@@ -693,6 +694,8 @@ c     #####################################################################
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
+      if (tst_flg) test = .true.
+
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
@@ -780,9 +783,13 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (bcs(1) == 'spt') mg_oprol = 1
 
-      if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
+      if (test.and.
+     .    electron_hall.and.pc_type /='id'
+     .                 .and.pc_type /='s1'
+     .                 .and.pc_type /='s4') pc_type = 's4'!Exception for tests
 
-      if (ion_hall.and.pc_type /='id'
+      if (test.and.
+     .    ion_hall.and.pc_type /='id'
      .            .and.pc_type /='s1'
      .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
 
@@ -798,8 +805,6 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       endif
 
       !Miscellaneous
-      if (tst_flg) test = .true.
-
       if (ts_restart) dcon = .false.
 
       if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria

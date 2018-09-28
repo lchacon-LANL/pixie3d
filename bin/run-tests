@@ -1,23 +1,29 @@
 #!/bin/bash
 
-make -s allclean
-tput setaf 1; make -s src | sed '/^\s*$/d'
-tput setaf 4; echo "SERIAL B tests..."
-tput setaf 0; make -s tests > tests/tests-B.txt
+rm tests/*.txt tests/*.html
 
 make -s allclean
+tput setaf 4; echo "COMPILING SERIAL B tests..."
+tput setaf 1; make -s src | sed '/^\s*$/d'
+tput setaf 4; echo "RUNNING SERIAL B tests..."
+tput setaf 0; make -s tests > tests/tests-B.txt
+
+make -s distclean
+tput setaf 4; echo "COMPILING SERIAL A tests..."
 tput setaf 1; make -s VECPOT=t src | sed '/^\s*$/d'
-tput setaf 4; echo "SERIAL A tests..."
+tput setaf 4; echo "RUNNING SERIAL A tests..."
 tput setaf 0; make -s VECPOT=t tests > tests/tests-A.txt
 
 make -s allclean
+tput setaf 4; echo "COMPILING PARALLEL B tests..."
 tput setaf 1; make -s BOPT=O src | sed '/^\s*$/d'
-tput setaf 4; echo "PARALLEL B tests..."
+tput setaf 4; echo "RUNNING PARALLEL B tests..."
 tput setaf 0; make -s BOPT=O tests > tests/tests-parallel-B.txt
 
-make -s allclean
+make -s distclean
+tput setaf 4; echo "COMPILING PARALLEL A tests..."
 tput setaf 1; make -s BOPT=O VECPOT=t src | sed '/^\s*$/d'
-tput setaf 4; echo "PARALLEL A tests..."
+tput setaf 4; echo "RUNNING PARALLEL A tests..."
 tput setaf 0; make -s BOPT=O VECPOT=t tests > tests/tests-parallel-A.txt
 
 tput setaf 7; tput setab 4; echo "Assembling HTML file..."

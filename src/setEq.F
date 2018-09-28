@@ -96,6 +96,8 @@ c Functions
 
 c Begin program
 
+      find_a = .true.
+
       ldaflow = dlambda/rshear
 
       E0 = 0d0 ; B0 = 0d0
@@ -175,9 +177,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 #else
         B0(3) = 1d0
 
-        aa = 0d0
-
-        find_a = .false.
+        aa = 0d0 ; find_a = .false.
 #endif
 
       case ('3wv') !3-wave MHD test
@@ -1472,8 +1472,8 @@ c     Tokamak equilibria (analytical)
         kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
 
-        Iz           = 2.22
-        b_0          = 0.5*Iz
+        Iz  = 2.22
+        b_0 = 0.5*Iz
 
         nh2 = mm  !To set the right perturbation wavelength
 
