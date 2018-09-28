@@ -1316,7 +1316,7 @@ cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
 
 c End program
 
-      deallocate(da,da_cnv,db_cnv,db_cov,dj_cnv,dj_cov)
+      deallocate(da,da_cnv,db_cnv,db_cov,dj_cnv,dj_cov,STAT=ierr)
       nullify(v0_cnv)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
