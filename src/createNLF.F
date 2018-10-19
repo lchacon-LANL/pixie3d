@@ -10,10 +10,6 @@ c----------------------------------------------------------------------
 
       use problem_def
 
-cc      use nlfunction_setup
-
-cc      use PC_var
-
       implicit none
 
       INTERFACE
@@ -30,16 +26,12 @@ c Local variables
 
 c Begin program
 
+#if defined(vmec)
       if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
+#endif
 
-c Auxiliary variables
-
-#if !defined(samrai)
-cc      call defineAuxVariables(gv%aux)
-
-c Preconditioner
-
-cc      call allocPCVariables
+#if defined(efit)
+      if (trim(equil) == 'efit') call efit_map(equ_file,gv%gparams)
 #endif
 
 c     End programs
@@ -67,8 +59,6 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-cc      call deallocLocalAuxVars
-
       if (pc_vars_allcd) call deallocPCVariables
 #endif
 
