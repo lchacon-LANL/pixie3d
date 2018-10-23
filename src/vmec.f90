@@ -1673,7 +1673,6 @@
 !     Input variables
 
       type(grid_mg_def),pointer :: g_def
-!!$      logical :: metrics
       character(*) :: equ_file
 
 !     Local variables

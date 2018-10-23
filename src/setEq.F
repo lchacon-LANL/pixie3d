@@ -1751,8 +1751,6 @@ c     Other equilibrium quantities
         end where
 #endif
 
-#if defined(efit)
-
 c     --------------------------------------------------
 c     ---------------  EFIT EQUILIBRIUM ----------------
 c     --------------------------------------------------
@@ -1777,15 +1775,11 @@ c     --------------------------------------------------
           call pstop('setEq','EFIT EQU file not found')
         endif
 
-c     Read VMEC coordinates and fill grid hierarchy
+c     Read EFIT equilibrium
 
-cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
-
-c     Read VMEC equilibrium
-
-        call vmec_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
-     .                                      ,var(:,:,:,IRHO)
-     .               ,gamma,equ_file,dcon,div_clean)
+c$$$        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+c$$$     .                                      ,var(:,:,:,IRHO)
+c$$$     .               ,gamma,equ_file,dcon,div_clean)
 
         find_a = .false.
 
@@ -1809,7 +1803,6 @@ c     Other equilibrium quantities
         elsewhere
           var(:,:,:,IPRS) = 0d0
         end where
-#endif
 
 c     --------------------------------------------------
 c     ---------------  OHMIC EQUILIBRIA ----------------
