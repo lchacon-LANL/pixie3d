@@ -152,7 +152,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
-      case ('vmec','tor','stell')
+      case ('vmec','tor','stell','efit')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 

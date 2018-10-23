@@ -14,9 +14,15 @@ c----------------------------------------------------------------------
 
       INTERFACE
          subroutine vmec_map(equ_file,g_def)
-         use grid
-         type(grid_mg_def),pointer :: g_def
-         character(*) :: equ_file
+           use grid
+           type(grid_mg_def),pointer :: g_def
+           character(*) :: equ_file
+         end subroutine
+
+         subroutine efit_map(equ_file,g_def)
+           use grid
+           type(grid_mg_def),pointer :: g_def
+           character(*) :: equ_file
          end subroutine
       END INTERFACE
 
@@ -30,9 +36,7 @@ c Begin program
       if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
 #endif
 
-#if defined(efit)
       if (trim(equil) == 'efit') call efit_map(equ_file,gv%gparams)
-#endif
 
 c     End programs
 
