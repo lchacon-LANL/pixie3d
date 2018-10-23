@@ -113,11 +113,6 @@ c Transform to cylindrical (from Cartesian)
           do i = iming,imaxg
             call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                            ,coords)
-!            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-!     .                                    ,ig,jg,kg,x1,y1,z1)
-
-            if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
-	                              !for Cartesian component error)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
      $                     +vy_car(i,j,k)*sin(y1)
@@ -166,13 +161,6 @@ c Transform to toroidal
           do i = iming,imaxg
             call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                            ,coords)
-!            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-!     .                                    ,ig,jg,kg,x1,y1,z1)
-
-            if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
-	                              !for Cartesian component error)
-	    
-!                    write (*,999) i,j,k,x1,y1,z1
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)*cos(-z1)
      $                     +vy_car(i,j,k)*cos(y1)*sin(-z1)
@@ -245,11 +233,6 @@ c diag: dump text data
             do k=1,nzd
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
-              if (x1 < 0d0) y1 = y1+pi  !Add pi at ghost cell (HACK: to correct 
-	                                !for Cartesian component error)
-
-!              call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-!     .                                      ,ig,jg,kg,x1,y1,z1)
               write (1012) x1,y1,z1
      .                ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
      .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
