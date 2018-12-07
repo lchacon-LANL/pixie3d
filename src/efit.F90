@@ -591,10 +591,11 @@
         
         open(unit=110,file="efit_psi.txt",status='unknown')
 
+        k = 1
         do j=0,ny+1
            do i=0,nx+1
 
-              call find_RZ(gv%gparams,igrid,i,j,1,RR,ZZ)
+              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
 !!$              call getMGmap(gv%gparams,i,j,1,igrid,igrid,igrid,ig,jg,kg)
 !!$
 !!$              !Find toroidal coordinates
@@ -606,7 +607,7 @@
 !!$              RR = gv%gparams%params(1) + a1*r1*cos(th1)
 !!$              ZZ = a2*r1*sin(th1)
 
-              write (110,*) RR,ZZ,psi(i,j,1)
+              write (110,*) RR,ZZ,psi(i,j,k)
            enddo
            write (110,*)
         enddo
