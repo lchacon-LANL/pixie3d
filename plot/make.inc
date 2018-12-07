@@ -42,7 +42,7 @@ LNK_FILES = ../src/applyBC.F\
 	    ../src/PC_mod.F\
 	    ../src/readInput.F\
 	    ../src/vmec.f90\
-	    ../src/efit.f90
+	    ../src/efit.F90
 
 # Dependencies
 
