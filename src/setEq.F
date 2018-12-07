@@ -1766,7 +1766,7 @@ c     --------------------------------------------------
           call pstop('setEquilibrium',messg)
         endif
 
-        if (coords /= 'ext') then
+        if (coords /= 'tor') then
           messg = 'Need "ext" coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -1777,9 +1777,9 @@ c     --------------------------------------------------
 
 c     Read EFIT equilibrium
 
-c$$$        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
-c$$$     .                                      ,var(:,:,:,IRHO)
-c$$$     .               ,gamma,equ_file,dcon,div_clean)
+        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                      ,var(:,:,:,IRHO)
+     .               ,gamma,equ_file)
 
         find_a = .false.
 

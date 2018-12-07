@@ -23,7 +23,14 @@ c Local variables
          use grid
          type(grid_mg_def),pointer :: g_def
          character(*) :: equ_file
-         end subroutine
+         end subroutine vmec_map
+
+         subroutine efit_map(equ_file,g_def)
+           use grid
+           type(grid_mg_def),pointer :: g_def
+           character(*) :: equ_file
+         end subroutine efit_map
+
       END INTERFACE
 
 c Begin program
@@ -36,7 +43,11 @@ c Allocate auxiliary variables
 
 c Read coordinate map
       
+#if defined(vmec)
       if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
+#endif
+
+      if (trim(equil) == 'efit') call efit_map(equ_file,gv%gparams)
 
 c End programs
 
