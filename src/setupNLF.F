@@ -130,13 +130,8 @@ c     Begin program
 
       minv = minval(array(1:nx,1:ny,1:nz))
 
-#if defined(petsc)
-      call MPI_Allreduce(minv,minvg,1,MPI_DOUBLE_PRECISION
-     .                  ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#else
-      minvg = minv
-#endif
-
+      minvg = pmin(minv)  !Parallel min
+      
       if (minvg < 0d0) then
 
         if (minv < 0d0) then
