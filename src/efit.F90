@@ -581,7 +581,8 @@
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
               endif
 
-              if (prs(i,j,k) < 0d0) prs(i,j,k) = 0d0
+              if (prs(i,j,k) < 0d0) &
+                   prs(i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
 
             enddo
           enddo
@@ -672,7 +673,6 @@
      &           -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*bb(i,j,k,1)   &
      &            +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*bb(i,j,k,2))) &
      &            /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
-
             enddo
           enddo
         enddo

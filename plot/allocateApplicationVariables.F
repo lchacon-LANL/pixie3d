@@ -19,18 +19,17 @@ c Call variables
 c Local variables
 
       INTERFACE
-         subroutine vmec_map(equ_file,g_def)
-         use grid
-         type(grid_mg_def),pointer :: g_def
-         character(*) :: equ_file
-         end subroutine vmec_map
+        subroutine vmec_map(equ_file,g_def)
+          use grid
+          type(grid_mg_def),pointer :: g_def
+          character(*) :: equ_file
+        end subroutine vmec_map
 
-         subroutine efit_map(equ_file,g_def)
-           use grid
-           type(grid_mg_def),pointer :: g_def
-           character(*) :: equ_file
-         end subroutine efit_map
-
+        subroutine efit_map(equ_file,g_def)
+          use grid
+          type(grid_mg_def),pointer :: g_def
+          character(*) :: equ_file
+        end subroutine efit_map
       END INTERFACE
 
 c Begin program
