@@ -1286,7 +1286,7 @@ c       Resistivity at initial time
 
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)  !Recover electron pressure
+        case(ITMP_AUX)  !Recover total pressure
 
           varray%array_var(IPRS)%array = rho*tmp*jac
 

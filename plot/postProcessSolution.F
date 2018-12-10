@@ -383,7 +383,7 @@ c Divergence diagnostics
       divrgB = div(gv%gparams,igx,bcnv)
       divrgV = div(gv%gparams,igx,vcnv)
 
-c Pressure
+c Total pressure
 
       p_tot = rho*tmp
 

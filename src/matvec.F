@@ -929,6 +929,7 @@ c Eta*J term
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
         curl_eta_dj =-veclap(g_def,igrid,db)
+        write (*,*) curl_eta_dj(:,:,:,1)
         curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
         curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
         curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)

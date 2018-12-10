@@ -37,29 +37,7 @@
       real(8),dimension(:,:),allocatable :: psi_coef
 
       !Module variables
-      real(8) :: r_max,r_min,z_max,LL
-
-!!$      REAL(8), DIMENSION(:,:,:), ALLOCATABLE ::                     &
-!!$     &             sqrtg,                                               &!sqrt(g): Jacobian on half grid
-!!$     &             gss, gsu, gsv, guu, guv, gvv,                        &!symmetric elements of lower metric tensor (full mesh)
-!!$     &             hss, hsu, hsv, huu, huv, hvv                          !symmetric elements of upper metric tensor (half mesh)
-!!$
-!!$      REAL(8), DIMENSION(:,:), ALLOCATABLE ::                       &
-!!$     &             rmnc_spline, zmns_spline, bsupumnc_spline,           &
-!!$     &             bsupvmnc_spline, bsubvmnc_spline
-!!$
-!!$      REAL(8), DIMENSION(:,:,:), ALLOCATABLE ::                     &
-!!$     &             rmnc_i, zmns_i, bsupumncf_i, bsupvmncf_i, bsubvmncf_i
-
-!!$      REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: rr,zz
-
-!!$      REAL(8), DIMENSION(:,:,:), ALLOCATABLE :: bsupuijcf,          &
-!!$     &  bsupvijcf, bsubvijcf, bsupsijsf, presijf
-!!$
-!!$!     LOCAL (PRIVATE) HELPER ROUTINES (NOT ACCESSIBLE FROM OUTSIDE THIS MODULE)
-!!$!
-!!$!LC 2/2/07      PRIVATE spline_fourier_modes, loadrzl_vmec,       &
-!!$      PRIVATE spline_fourier_modes,convert_to_full_mesh, vmec_load_rz
+      real(8) :: r_max,r_min,z_max,LL,iLL
 
       CONTAINS
 
@@ -274,24 +252,30 @@
 
         LL = 0.5*(r_max-r_min) !Dimensionalization length
 
-        write (*,*) "a (m)=",LL
-        write (*,*) "R_max (m)=",r_max
-        write (*,*) "R_min (m)=",r_min
-        write (*,*) "Z_max (m)=",z_max
+        iLL = 1d0/LL
+        
+        if (my_rank == 0) then
+          write (*,*) "a (m)=",LL
+          write (*,*) "R_max (m)=",r_max
+          write (*,*) "R_min (m)=",r_min
+          write (*,*) "Z_max (m)=",z_max
+        endif
+        
+        r_max = r_max*iLL
+        r_min = r_min*iLL
+        z_max = z_max*iLL
 
-        r_max = r_max/LL
-        r_min = r_min/LL
-        z_max = z_max/LL
+        if (my_rank == 0) then
+          write (*,*) "R_max/a=",r_max
+          write (*,*) "R_min/a=",r_min
+          write (*,*) "Z_max/a=",z_max
+        endif
+        
+        rdim = rdim*iLL
+        rleft = rleft*iLL
 
-        write (*,*) "R_max/a=",r_max
-        write (*,*) "R_min/a=",r_min
-        write (*,*) "Z_max/a=",z_max
-
-        rdim = rdim/LL
-        rleft = rleft/LL
-
-        zdim = zdim/LL
-        zmid = zmid/LL
+        zdim = zdim*iLL
+        zmid = zmid*iLL
 
 !     SPLINE PSI ON R-Z MESH
 
@@ -416,8 +400,14 @@
 
 !     Begin program
 
-      if (my_rank == 0) write (*,'(a)') ' Creating EFIT map'
-
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,'(a)') ' Creating EFIT map...'
+        write (*,*)
+        write (*,'(a)') ' EFIT Domain dimensions:'
+        write (*,*)
+      endif
+      
       !Read equilibrium file
 
       call efit_init(equ_file)
@@ -431,9 +421,11 @@
       gparams(2) = scale               !Horizontal elliptical radius
       gparams(3) = z_max*scale         !Vertical elliptical radius
 
-      write (*,*) "R/a =",0.5*(r_max+r_min)
-      write (*,*) "Z/a =",z_max
-      write (*,*) "Domain limits=",xmax,xmin,ymax,ymin,zmax,zmin
+      if (my_rank == 0) then
+        write (*,*) "R/a =",0.5*(r_max+r_min)
+        write (*,*) "Z/a =",z_max
+!!$        write (*,*) "Domain limits=",xmax,xmin,ymax,ymin,zmax,zmin
+      endif
       
       nxg = g_def%nglx
       nyg = g_def%ngly
@@ -468,16 +460,16 @@
         real(8),dimension(0:nx+1,0:ny+1,0:nz+1)   :: prs,rho
         character(*) :: equ_file
 
-!!        logical :: dcon,divcl
+!!$        logical :: dcon
 
 !     Local variables
 
-        integer :: i,j,k,igl,jgl,kgl,ig,jg,kg,istat,its,inbv,bcsb(6,3)
-        real(8) :: max_prs,RR,ZZ,psi_max,psi_min,BB0,iB0,ip0,ipsi0,a1,a2,x1,y1,z1
+        integer :: i,j,k,ig,jg,kg,istat,inbv,bcsb(6,3),nxg,nyg,nzg
+        real(8) :: max_prs,RR,ZZ,psi_max,psi_min,BB0,iB0,ip0,ipsi0,x1,y1,z1
 
         real(8),allocatable, dimension(:,:,:) :: bsub3,psi
 
-        integer :: udcon=1111
+        logical :: dump=.false.
 
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
@@ -487,15 +479,258 @@
         if (my_rank == 0) then
            write (*,*)
            write (*,*) 'Reading EFIT equilibrium...'
+           write (*,*)
         endif
 
-!!$!     Get GLOBAL limits (VMEC operates on global domain)
+!     Get GLOBAL limits
+
+        nxg = gv%gparams%nxgl(igrid)
+        nyg = gv%gparams%nygl(igrid)
+        nzg = gv%gparams%nzgl(igrid)
+
+!     Interpolate poloidal flux and associated qtys
+
+        allocate(psi  (0:nx+1,0:ny+1,0:nz+1) &
+                ,bsub3(0:nx+1,0:ny+1,0:nz+1))
+
+        inbv = 1
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+
+              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
+
+              !Interpolate poloidal flux
+              psi(i,j,k) = db2val(RR,ZZ,0,0,tx,tz,nxs,nzs  &
+                                 ,kx,kz,psi_coef,work)
+
+              !Interpolate pressure
+              if (psi(i,j,k) > sibry) then
+                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
+                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
+              else
+                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+              endif
+
+              if (prs(i,j,k) < 0d0) prs(i,j,k) = abs(prs(i,j,k))
+
+            enddo
+          enddo
+        enddo
+
+!     Check EFIT qtys
+
+        call efit_chk(dump)
+
+!     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
+
+        BB0 = abs(dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work))/rmaxis
+
+        iB0 = 1d0/BB0
+        
+        ip0 = (4*pi)*1d-7/(BB0*BB0)  !(B0^2/mu_0)^(-1)
+
+        ipsi0 = iB0*iLL
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
+          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
+        endif
+        
+!     Normalized pressure
+
+        prs = prs*ip0 + 1d-5 !Add pressure floor
+
+!     Find magnetic field components
+
+        !Poloidal B (cnv)
+        bb = 0d0
+        bb(:,:,:,3) = psi*ipsi0*iLL  !Cov A (R*A_T)
+
+        bb = curl(gv%gparams,igrid,bb)
+
+        !Toroidal B
+        bb(:,:,:,3) = bsub3*ipsi0   !Cov B (R*B_T)
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              bb(i,j,k,3) = (bb(i,j,k,3)                                        &
+     &           -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*bb(i,j,k,1)   &
+     &            +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*bb(i,j,k,2))) &
+     &            /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
+            enddo
+          enddo
+        enddo
+
+        !BCs
+        bcsb(:,1) = bcond
+        bcsb(:,2) = bcond
+        bcsb(:,3) = bcond
+        call default_B_BCs(bcsb)
+        where (bcsb == -NEU) bcsb = -EXT  !Extrapolate tangential components
+        
+        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcsb &
+     &              ,icomp=(/IBX/),is_vec=.true.           &
+     &              ,is_cnv=.true.,iorder=order_bc)
+
+!     Find normalized density
+
+        max_prs = maxval(prs)
+        max_prs = pmax(max_prs)
+        
+        if (max_prs == 0d0) then
+          rho = 1d0
+        else
+          rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
+        endif
+
+!     Check GS equilibrium
+
+        call GS_chk(dump)
+
+!     Free work space
+
+        DEALLOCATE(psi,bsub3,stat=istat)
+        
+        call efit_cleanup
+
+!     End program
+
+      contains
+
+!     efit_chk
+!     #################################################################
+      subroutine efit_chk(dump)
+
+        implicit none
+        
+        logical :: dump
+
+        if (dump) then
+           !GNUPLOT Psi(R,Z), P(R,Z), B_3(R,Z)
+           open(unit=110,file="efit_qtys.txt",status='unknown')
+
+           k = 1
+           do j=0,ny+1
+              do i=0,nx+1
+                 call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
+                 write (110,*) RR,ZZ,psi(i,j,k),prs(i,j,k),bsub3(i,j,k)
+              enddo
+              write (110,*)
+           enddo
+           
+           close(110)
+
+           !XDRAW plot Psi, P, I=R*Bt
+           call createDrawInCfile(3,"efit_qtys.bin",'Solution','t','x','y' &
+                            ,(/'Psi','Prs','B_3'/),'-c -X0 -L57','drawefit_qtys.in')
+
+           open(unit=110,file="efit_qtys.bin",form='unformatted',status='unknown')
+
+           call contour(psi  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,0,110)
+           call contour(prs  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
+           call contour(bsub3(:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
+
+           close(110)
+        endif
+
+        if (my_rank == 0) then
+           write (*,*) "Magnetic axis coords=",rmaxis/LL,zmaxis/LL
+           psi_min = db2val(rmaxis*iLL,zmaxis*iLL,0,0,tx,tz,nxs,nzs  &
+     &                     ,kx,kz,psi_coef,work)
+
+           psi_max = db2val(r_max,0d0,0,0,tx,tz,nxs,nzs  &
+     &                     ,kx,kz,psi_coef,work)
+
+           write (*,*) "delta psi_min =",psi_min-simag
+           write (*,*) "delta psi_max =",(psi_max-sibry)/sibry
+        endif
+
+      end subroutine efit_chk
+      
+!     GS_chk
+!     #################################################################
+      subroutine GS_chk(dump)
+
+        implicit none
+
+        logical :: dump
+        
+        real(8),allocatable, dimension(:,:,:,:) :: vv,jj
+        real(8),allocatable, dimension(:,:,:)   :: mag1,mag2,mag1g,mag2g
+
+        real(8) :: gs_error,norm1,norm2
+        
+        allocate(vv  (0:nx+1,0:ny+1,0:nz+1,3) &
+                ,jj  (0:nx+1,0:ny+1,0:nz+1,3) &
+                ,mag1(0:nx+1,0:ny+1,0:nz+1)   &
+                ,mag2(0:nx+1,0:ny+1,0:nz+1))
+
+        vv = XformToCov(gv%gparams,igrid,bb)
+        jj = curl(gv%gparams,igrid,vv)
+
+        vv = crossProduct(gv%gparams,igrid,jj,bb,.true.)
+        mag1 = vectorNorm(gv%gparams,igrid,vv,.true.)
+        norm1 = integral(gv%gparams,igrid,mag1,average=.true.)
+
+        vv = vv - grad(gv%gparams,igrid,prs)
+        mag2 = vectorNorm(gv%gparams,igrid,vv,.true.)
+        gs_error = integral(gv%gparams,igrid,mag2,average=.true.)
+
+        if (my_rank == 0) then
+          write (*,*)
+          write (*,*) "Checking EFIT GS error..."
+          write (*,*)
+          write (*,*) "Relative GS error =",sqrt(gs_error/norm1)
+        endif
+        
+        !Diagnostics plots
+        if (dump) then
+           allocate(mag1g(0:nxg+1,0:nyg+1,0:nzg+1))
+           allocate(mag2g(0:nxg+1,0:nyg+1,0:nzg+1))
+
+           mag1 = sqrt(mag1)
+           mag2 = sqrt(mag2)
+        
+           call find_global_nobc(mag1 (1:nx ,1:ny ,1:nz ) &
+     &                          ,mag1g(1:nxg,1:nyg,1:nzg))
+           call find_global_nobc(mag2 (1:nx ,1:ny ,1:nz ) &
+     &                          ,mag2g(1:nxg,1:nyg,1:nzg))
+
+           if (my_rank == 0) then
+              call createDrawInCfile(2,"efit_gschk.bin",'Solution','t','x','y' &
+                            ,(/'JxB ','GS E'/),'-c -X0 -L57','drawefit_gschk.in')
+
+              open(unit=110,file="efit_gschk.bin",form='unformatted',status='unknown')
+
+              call contour(mag1g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,0,110)
+              call contour(mag2g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,1,110)
+
+              close(110)
+           endif
+        endif
+        
+        DEALLOCATE(vv,jj,mag1,mag2,mag1g,mag2g,stat=istat)
+ 
+      end subroutine GS_chk
+ 
+!!$!     dcon_dump
+!!$!     #################################################################
+!!$      subroutine dcon_dump
 !!$
-!!$        nxg = gv%gparams%nxgl(igrid)
-!!$        nyg = gv%gparams%nygl(igrid)
-!!$        nzg = gv%gparams%nzgl(igrid)
+!!$        implicit none
 !!$
-!!$!     DCON dump
+!!$        real(8),allocatable, dimension(:) :: pflx,ff_i,q_i
+!!$
+!!$        REAL(rprec), DIMENSION(:,:,:), ALLOCATABLE :: rr,zz
+!!$      
+!!$        integer :: udcon=1111
+!!$
+!!$!     DCON dump (NOT WORKING)
 !!$
 !!$        if (dcon .and. my_rank == 0) then
 !!$
@@ -541,239 +776,7 @@
 !!$
 !!$          deallocate(pflx,ff_i,q_i)
 !!$        endif
-
-        a1 = gv%gparams%params(2)  !Minor radius
-        a2 = gv%gparams%params(3)  !Major radius
-        
-!     Interpolate poloidal flux and associated qtys
-
-        allocate(psi  (0:nx+1,0:ny+1,0:nz+1) &
-                ,bsub3(0:nx+1,0:ny+1,0:nz+1))
-
-        inbv = 1
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-
-              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
-!!$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
 !!$
-!!$              !Find toroidal coordinates
-!!$              r1  = gv%gparams%xx(ig)
-!!$              th1 = gv%gparams%yy(jg)
-!!$              ph1 = gv%gparams%zz(kg)
-!!$
-!!$              !Find R,Z coordinates
-!!$              RR = gv%gparams%params(1) + a1*r1*cos(th1)
-!!$              ZZ = a2*r1*sin(th1)
-
-              !Interpolate poloidal flux
-              psi(i,j,k) = db2val(RR,ZZ,0,0,tx,tz,nxs,nzs  &
-                                 ,kx,kz,psi_coef,work)
-
-              !Interpolate pressure
-              if (psi(i,j,k) > sibry) then
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
-                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
-              else
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
-                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
-              endif
-
-              if (prs(i,j,k) < 0d0) &
-                   prs(i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
-
-            enddo
-          enddo
-        enddo
-
-!     Check poloidal flux limits
-        
-        open(unit=110,file="efit_psi.txt",status='unknown')
-
-        k = 1
-        do j=0,ny+1
-           do i=0,nx+1
-
-              call find_RZ(gv%gparams,igrid,i,j,k,RR,ZZ)
-!!$              call getMGmap(gv%gparams,i,j,1,igrid,igrid,igrid,ig,jg,kg)
-!!$
-!!$              !Find toroidal coordinates
-!!$              r1  = gv%gparams%xx(ig)
-!!$              th1 = gv%gparams%yy(jg)
-!!$              ph1 = gv%gparams%zz(kg)
-!!$
-!!$              !Find R,Z coordinates
-!!$              RR = gv%gparams%params(1) + a1*r1*cos(th1)
-!!$              ZZ = a2*r1*sin(th1)
-
-              write (110,*) RR,ZZ,psi(i,j,k)
-           enddo
-           write (110,*)
-        enddo
-
-        close(110)
-
-!!$        !Plot Psi(R,Z)
-!!$        call createDrawInCfile(3,"efit_p3d.bin",'Solution','t','x','y' &
-!!$                            ,(/'Psi','Prs','B_3'/),'-c -X0 -L57','drawp3d.in')
-!!$
-!!$        open(unit=110,file="efit_p3d.bin",form='unformatted',status='unknown')
-!!$
-!!$        call contour(psi  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,0,110)
-!!$        call contour(prs  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(bsub3(:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        close(110)
-
-!!$        write (*,*) "Magnetic axis coords=",rmaxis/LL,zmaxis/LL
-!!$        psi_min = db2val(rmaxis/LL,zmaxis/LL,0,0,tx,tz,nxs,nzs  &
-!!$     &                  ,kx,kz,psi_coef,work)
-!!$
-!!$        psi_max = db2val(r_max,0d0,0,0,tx,tz,nxs,nzs  &
-!!$     &                  ,kx,kz,psi_coef,work)
-!!$
-!!$        write (*,*) "dpsi_min",psi_min-simag
-!!$        write (*,*) "dpsi_max =",psi_max-sibry
-!!$
-!!$        STOP "efit_equ"
-
-!!$        psi_min = simag
-!!$        psi_max = sibry
-
-!     Normalization magnetic field (toroidal at magnetic axis) and pressure
-
-        BB0 = dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work)/rmaxis
-
-        iB0 = 1d0/BB0
-        
-        ip0 = 2*iB0*iB0*(4*pi)*1d-7
-
-        ipsi0 = iB0/LL
-
-!     Normalized pressure
-
-        prs = prs*ip0
-
-!     Find magnetic field components
-
-        !Poloidal B (cnv)
-        bb = 0d0
-        bb(:,:,:,3) = psi*ipsi0  !Cov A
-
-        bb = curl(gv%gparams,igrid,bb)
-
-        !Toroidal B
-        bb(:,:,:,3) = bsub3*iB0  !Covariant
-
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              bb(i,j,k,3) = (bb(i,j,k,3)                                        &
-     &           -(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,1)*bb(i,j,k,1)   &
-     &            +gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,2)*bb(i,j,k,2))) &
-     &            /gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,3,3)       !Xform to cnv
-            enddo
-          enddo
-        enddo
-
-        !BCs
-        bcsb(:,1) = bcond
-        bcsb(:,2) = bcond
-        bcsb(:,3) = bcond
-        call default_B_BCs(bcsb)
-        where (bcsb == -NEU) bcsb = -EXT  !Extrapolate tangential components
-        
-        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcsb &
-     &              ,icomp=(/IBX/),is_vec=.true.           &
-     &              ,is_cnv=.true.,iorder=order_bc)
-
-!     Find normalized density
-
-        max_prs = maxval(prs)
-        max_prs = pmax(max_prs)
-        
-        if (max_prs == 0d0) then
-          rho = 1d0
-        else
-          rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
-        endif
-
-!!$        !Diagnostics plots
-!!$        call createDrawInCfile(7,"efit_p3d.bin",'Solution','t','x','y' &
-!!$                            ,(/'Psi','Prs','B_3','B^1','B^2','B^3','rho'/) &
-!!$                            ,'-c -X0 -L57','drawp3d.in')
-!!$
-!!$        open(unit=110,file="efit_p3d.bin",form='unformatted',status='unknown')
-!!$
-!!$        call contour(psi  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,0,110)
-!!$        call contour(prs  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(bsub3(:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(bb   (:,:,1,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(bb   (:,:,1,2),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(bb   (:,:,1,3),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$        call contour(rho  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
-!!$
-!!$        close(110)
-
-!     Free work space
-
-        DEALLOCATE(psi,bsub3,stat=istat)
-        
-        call efit_cleanup
-
-!     End program
+!!$      end subroutine dcon_dump
 
       end subroutine efit_equ
-
-!!$!     vmec_init_fields
-!!$!     #################################################################
-!!$      SUBROUTINE vmec_init_fields
-!!$
-!!$!     -----------------------------------------------------------------
-!!$!     Gives contravariant magnetic fields components and pressure
-!!$!     at grid level igrid
-!!$!     -----------------------------------------------------------------
-!!$
-!!$       USE stel_kinds
-!!$       USE stel_constants            
-!!$       USE island_params, ns=>ns_i, ntheta=>nu_i, nzeta=>nv_i,                &
-!!$    &          mpol=>mpol_i, ntor=>ntor_i, nuv=>nuv_i, mnmax=>mnmax_i,        &
-!!$    &          ohs=>ohs_i, nfp=>nfp_i
-!!$       USE vmec_mod, ONLY: bsupumncf_i,bsupvmncf_i,bsubvmncf_i,presf_i        &
-!!$                          ,bsupuijcf  ,bsupvijcf  ,bsubvijcf  ,bsupsijsf      &
-!!$                          ,presijf
-!!$       USE fourier, ONLY:  toijsp
-!!$
-!!$       IMPLICIT NONE
-!!$
-!!$!      Local variables
-!!$
-!!$       INTEGER:: istat, jk
-!!$
-!!$!      Begin program
-!!$
-!!$!      Allocate variables
-!!$
-!!$       ALLOCATE (bsupsijsf(ns,ntheta,nzeta)  &
-!!$                ,bsupuijcf(ns,ntheta,nzeta)  &
-!!$                ,bsupvijcf(ns,ntheta,nzeta)  &
-!!$                ,bsubvijcf(ns,ntheta,nzeta), stat=istat)
-!!$       IF (istat .ne. 0) STOP 'Allocation error in vmec_init_fields'
-!!$
-!!$       ALLOCATE(presijf(ns,ntheta,nzeta), stat=istat)
-!!$       IF (istat .ne. 0) STOP 'Allocation error in vmec_init_fields'
-!!$
-!!$!      Fill GLOBAL variables (at VMEC integer mesh -- PIXIE3D's half mesh)
-!!$
-!!$!LC12/14/06       bsupsijsh = zero                       ! It is zero in VMEC (flux surfaces)
-!!$       bsupsijsf = zero                                ! It is zero in VMEC (flux surfaces)
-!!$       CALL toijsp (bsupumncf_i, bsupuijcf, 0, 0, 0, 0)
-!!$       CALL toijsp (bsupvmncf_i, bsupvijcf, 0, 0, 0, 0)
-!!$       CALL toijsp (bsubvmncf_i, bsubvijcf, 0, 0, 0, 0)
-!!$
-!!$       DO jk = 1, ns
-!!$         presijf(jk,:,:) =  presf_i(jk)                ! Init pressure
-!!$       ENDDO
-!!$
-!!$      END SUBROUTINE vmec_init_fields 

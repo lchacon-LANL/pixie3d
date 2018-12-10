@@ -682,7 +682,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
 
-      !Pressure
+      !Total pressure
       prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
 
       !Temperature transport velocity, v_star = v - di*j/rho/a_p

@@ -115,7 +115,7 @@ c     Default B-A boundary conditions
       call default_A_BCs(bbcs(:,IAX:IAZ))
 #endif
 
-c     Default TMP boundary conditions
+c     Default PRS boundary conditions
 
       call default_SCL_BCs(bbcs(:,IPRS))  !Neumann at walls
 
@@ -152,7 +152,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
-      case ('vmec','tor','stell','efit')
+      case ('vmec','tor','stell')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
@@ -162,6 +162,17 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
 cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = DIR
+
+      case ('efit')
+
+cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
+
+        !Dirichlet boundary conditions for tangential components
+        where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) = DIR
+        where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
+
+cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
+cc        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = DIR
 
 cc      case ('ntm2d')                   !No slip BCs
 cc
