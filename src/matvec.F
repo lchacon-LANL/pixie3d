@@ -903,7 +903,7 @@ c Map vector x to array for processing
      .        ,db_cov     (0:nx+1,0:ny+1,0:nz+1,neq)
      .        ,curl_eta_dj(0:nx+1,0:ny+1,0:nz+1,neq))
 
-      db = 0d0 ; db_cov = 0d0
+      db = 0d0 ; db_cov = 0d0 ; curl_eta_dj = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
@@ -929,7 +929,6 @@ c Eta*J term
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
         curl_eta_dj =-veclap(g_def,igrid,db)
-        write (*,*) curl_eta_dj(:,:,:,1)
         curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
         curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
         curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)
