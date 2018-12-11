@@ -58,6 +58,7 @@ c Namelists
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
+     .                   ,efit_coords
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
@@ -101,7 +102,7 @@ c Namelists
       !Problem setup
       namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz,gp1,gp2,gp3
+     .                   ,npx,npy,npz,gp1,gp2,gp3,efit_coords
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de

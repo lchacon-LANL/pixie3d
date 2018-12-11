@@ -376,7 +376,7 @@
 
 !     efit_map
 !     #################################################################
-      subroutine efit_map(equ_file,g_def)
+      subroutine efit_map(equ_file,g_def,coord)
 
 !     -----------------------------------------------------------------
 !     Give Cartesian coordinates of each logical mesh point at grid
@@ -392,7 +392,7 @@
 !     Input variables
 
       type(grid_mg_def),pointer :: g_def
-      character(*) :: equ_file
+      character(*) :: equ_file,coord
 
 !     Local variables
 
@@ -415,15 +415,19 @@
 
       !Setup geometry
 
-      select case(trim(coords))
+      select case(trim(coord))
       case('tor')
 
+        coords = coord
+        
         scale = 1.1
         gparams(1) = 0.5*(r_max+r_min)   !Major radius
         gparams(2) = scale               !Horizontal elliptical radius
         gparams(3) = z_max*scale         !Vertical elliptical radius
 
       case('tsq')
+
+        coords = coord
 
         scale = 1.1
         gparams(1) = 0.5*(r_max+r_min)   !Major radius
@@ -579,15 +583,12 @@
         enddo
 
         !BCs
-        bcsb(:,1) = bcond
-        bcsb(:,2) = bcond
-        bcsb(:,3) = bcond
         call default_B_BCs(bcsb)
         where (bcsb == -NEU) bcsb = -EXT  !Extrapolate tangential components
         
         call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcsb &
      &              ,icomp=(/IBX/),is_vec=.true.           &
-     &              ,is_cnv=.true.,iorder=order_bc)
+     &              ,is_cnv=.true.,iorder=2)
 
 !     Find normalized density
 
