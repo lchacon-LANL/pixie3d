@@ -977,6 +977,10 @@ c diag ****
             jcnv_0 = 0d0
 
 c diag ****
+c$$$          elseif (equil=='efit') then
+c$$$
+c$$$            jcnv_0 = 0d0
+
           else
 
             jcnv_0 = curl(gv%gparams,igr,bcov_0)
@@ -1286,7 +1290,7 @@ c       Resistivity at initial time
 
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)  !Recover electron pressure
+        case(ITMP_AUX)  !Recover total pressure
 
           varray%array_var(IPRS)%array = rho*tmp*jac
 

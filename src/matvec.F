@@ -903,7 +903,7 @@ c Map vector x to array for processing
      .        ,db_cov     (0:nx+1,0:ny+1,0:nz+1,neq)
      .        ,curl_eta_dj(0:nx+1,0:ny+1,0:nz+1,neq))
 
-      db = 0d0 ; db_cov = 0d0
+      db = 0d0 ; db_cov = 0d0 ; curl_eta_dj = 0d0
 
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
@@ -1214,7 +1214,8 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(da(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+      allocate(da    (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dj_cov(0:nxx+1,0:nyy+1,0:nzz+1,neq))
 
       da = 0d0
 
@@ -1296,10 +1297,10 @@ c Calculate matrix-vector product
             !Resistive part
 cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
             vlap = eta0(i,j,k,1)
-     $            *veclap_cov(g_def,i,j,k,nxx,nyy,nzz
+     .            *veclap_cov(g_def,i,j,k,nxx,nyy,nzz
      .                       ,igrid,igrid,igrid,da
      .                       ,vol=.false.)
-
+     .            
             !Convective part
             cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
             

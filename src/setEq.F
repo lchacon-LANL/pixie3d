@@ -1708,8 +1708,6 @@ c     --------------------------------------------------
           call pstop('setEquilibrium',messg)
         endif
 
-c     Read VMEC coordinates and fill grid hierarchy
-
         if (coords /= 'ext') then
           messg = 'Need "ext" coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
@@ -1718,6 +1716,8 @@ c     Read VMEC coordinates and fill grid hierarchy
         if (.not.is_file(equ_file)) then
           call pstop('setEq','VMEC EQU file not found')
         endif
+
+c     Read VMEC coordinates and fill grid hierarchy
 
 cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
 
@@ -1750,6 +1750,60 @@ c     Other equilibrium quantities
           var(:,:,:,IPRS) = 0d0
         end where
 #endif
+
+c     --------------------------------------------------
+c     ---------------  EFIT EQUILIBRIUM ----------------
+c     --------------------------------------------------
+
+      case ('efit')    
+
+        nh1 = nh2       !For perturbations to be of the right order in radius
+                        !(nh2,nh3 set by input file)
+
+        if (nh2 == 0 .and. nh3 == 0) then
+          messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (coords /= 'tor'.and.coords /= 'tsq') then
+          messg = 'Need tor or tsq coordinates for EFIT equilibrium '
+     .            //equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        if (.not.is_file(equ_file)) then
+          call pstop('setEq','EFIT EQU file not found')
+        endif
+
+c     Read EFIT equilibrium
+
+        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                      ,var(:,:,:,IRHO)
+     .               ,gamma,equ_file)
+
+        find_a = .false.
+
+        !Divergence clean field if not Tokamak
+#if !defined(vec_pot)
+        if (div_clean) then
+#endif
+c$$$          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
+c$$$     &                    ,rtol=1d-7,dacov=aa)
+#if !defined(vec_pot)
+        endif
+#endif
+
+c     Other equilibrium quantities
+
+        var(:,:,:,IVX:IVZ)  = 0d0
+
+        !Transform to e temperature
+        where (var(:,:,:,IRHO) /= 0d0)
+          var(:,:,:,IPRS) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
+        elsewhere
+          var(:,:,:,IPRS) = 0d0
+        end where
 
 c     --------------------------------------------------
 c     ---------------  OHMIC EQUILIBRIA ----------------
