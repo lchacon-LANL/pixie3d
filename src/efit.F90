@@ -265,18 +265,19 @@
         r_min = r_min*iLL
         z_max = z_max*iLL
 
-        if (my_rank == 0) then
-          write (*,*) "R_max/a=",r_max
-          write (*,*) "R_min/a=",r_min
-          write (*,*) "Z_max/a=",z_max
-        endif
-        
-        rdim = rdim*iLL
+        rdim  = rdim *iLL
         rleft = rleft*iLL
 
         zdim = zdim*iLL
         zmid = zmid*iLL
 
+        if (my_rank == 0) then
+          write (*,*) "R_max/a=",rleft+rdim
+          write (*,*) "R_min/a=",rleft
+          write (*,*) "Z_max/a=",zmid + 0.5*zdim
+          write (*,*) "Z_min/a=",zmid - 0.5*zdim
+        endif
+        
 !     SPLINE PSI ON R-Z MESH
 
         sorder = 3
@@ -413,20 +414,33 @@
       call efit_init(equ_file)
 
       !Setup geometry
+
+      select case(trim(coords))
+      case('tor')
+
+        scale = 1.1
+        gparams(1) = 0.5*(r_max+r_min)   !Major radius
+        gparams(2) = scale               !Horizontal elliptical radius
+        gparams(3) = z_max*scale         !Vertical elliptical radius
+
+      case('tsq')
+
+        scale = 1.1
+        gparams(1) = 0.5*(r_max+r_min)   !Major radius
+        gparams(2) = 2*scale               !Horizontal dimension
+        gparams(3) = 2*z_max*scale         !Vertical   dimension
+
+      case default
+
+        call pstop("efit_map","Coordinates unknown")
+
+      end select
       
-      coords = 'tor'
-
-      scale = 1.1
-      gparams(1) = 0.5*(r_max+r_min)   !Major radius
-      gparams(2) = scale               !Horizontal elliptical radius
-      gparams(3) = z_max*scale         !Vertical elliptical radius
-
       if (my_rank == 0) then
         write (*,*) "R/a =",0.5*(r_max+r_min)
         write (*,*) "Z/a =",z_max
-!!$        write (*,*) "Domain limits=",xmax,xmin,ymax,ymin,zmax,zmin
       endif
-      
+        
       nxg = g_def%nglx
       nyg = g_def%ngly
       nzg = g_def%nglz
@@ -476,6 +490,8 @@
 
 !     Begin program
 
+        dump = .false.
+        
         if (my_rank == 0) then
            write (*,*)
            write (*,*) 'Reading EFIT equilibrium...'
@@ -519,10 +535,6 @@
             enddo
           enddo
         enddo
-
-!     Check EFIT qtys
-
-        call efit_chk(dump)
 
 !     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
 
@@ -588,6 +600,10 @@
           rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
         endif
 
+!     Check EFIT qtys
+
+        call efit_chk(.false.)
+
 !     Check GS equilibrium
 
         call GS_chk(dump)
@@ -626,20 +642,24 @@
            close(110)
 
            !XDRAW plot Psi, P, I=R*Bt
-           call createDrawInCfile(3,"efit_qtys.bin",'Solution','t','x','y' &
-                            ,(/'Psi','Prs','B_3'/),'-c -X0 -L57','drawefit_qtys.in')
+           call createDrawInCfile(6,"efit_qtys.bin",'Solution','t','x','y' &
+                ,(/'Psi','Prs','B_3','B^1','B^2','B^3'/),'-c -X0 -L57'     &
+                ,'drawefit_qtys.in')
 
            open(unit=110,file="efit_qtys.bin",form='unformatted',status='unknown')
 
            call contour(psi  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,0,110)
            call contour(prs  (:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
            call contour(bsub3(:,:,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
+           call contour(bb   (:,:,1,1),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
+           call contour(bb   (:,:,1,2),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
+           call contour(bb   (:,:,1,3),nx+2,ny+2,xmin,xmax,ymin,ymax,1,110)
 
            close(110)
         endif
 
         if (my_rank == 0) then
-           write (*,*) "Magnetic axis coords=",rmaxis/LL,zmaxis/LL
+           write (*,*) "Magnetic axis normalized coords=",rmaxis*iLL,zmaxis*iLL
            psi_min = db2val(rmaxis*iLL,zmaxis*iLL,0,0,tx,tz,nxs,nzs  &
      &                     ,kx,kz,psi_coef,work)
 
@@ -650,6 +670,8 @@
            write (*,*) "delta psi_max =",(psi_max-sibry)/sibry
         endif
 
+        if (dump) STOP "EFIT CHECK"
+        
       end subroutine efit_chk
       
 !     GS_chk
