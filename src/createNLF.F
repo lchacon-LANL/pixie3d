@@ -10,6 +10,8 @@ c----------------------------------------------------------------------
 
       use problem_def
 
+      use equilibrium
+
       implicit none
 
       INTERFACE
@@ -19,10 +21,10 @@ c----------------------------------------------------------------------
            character(*) :: equ_file
          end subroutine vmec_map
 
-         subroutine efit_map(equ_file,g_def)
+         subroutine efit_map(equ_file,g_def,coord)
            use grid
            type(grid_mg_def),pointer :: g_def
-           character(*) :: equ_file
+           character(*) :: equ_file,coord
          end subroutine efit_map
       END INTERFACE
 
@@ -33,10 +35,11 @@ c Local variables
 c Begin program
 
 #if defined(vmec)
-      if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
+      if (trim(equil)=='vmec') call vmec_map(equ_file,gv%gparams)
 #endif
 
-      if (trim(equil) == 'efit') call efit_map(equ_file,gv%gparams)
+      if (trim(equil)=='efit') call efit_map(equ_file,gv%gparams
+     .                                      ,efit_coords)
 
 c     End programs
 
