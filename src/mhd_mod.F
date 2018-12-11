@@ -682,7 +682,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
 
-      !Pressure
+      !Total pressure
       prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
 
       !Temperature transport velocity, v_star = v - di*j/rho/a_p
@@ -4352,6 +4352,8 @@ c ######################################################################
 
         real(8) :: eq_params(6),te0_ref
 
+        character(3) :: efit_coords='tor'
+        
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
 
