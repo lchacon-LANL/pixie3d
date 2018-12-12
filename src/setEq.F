@@ -114,6 +114,8 @@ c Initialize required local grid information
       igy = iigx
       igz = iigx
 
+      igr = iigx
+      
       nx = gv%gparams%nxv(igx)
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
@@ -1505,7 +1507,7 @@ c     Tokamak equilibria (analytical)
           enddo
         enddo
 
-      case ('rfp83','vela1','vela2')
+      case ('rfp83','vela1','vela2','tbbr1')
 
 c     Check coordinates
 
@@ -1555,7 +1557,7 @@ c$$$        beta = 4d-5
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
 
-              iglobal = i + gv%gparams%ilo(igx) - 1
+              iglobal = i + gv%gparams%ilo(igr) - 1
 
               bb(i,j,k,1)  = 0d0
               bb(i,j,k,2)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
@@ -2562,7 +2564,7 @@ cc        endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
         eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
-        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)        !Poloidal beta
         eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Transfer to integer mesh
@@ -5446,8 +5448,7 @@ c     Call variables
 
 c     Local variables
 
-        integer :: p
-        real(8) :: q0,qa,qstar,RR,aa
+        real(8) :: q0,qa,qstar,RR,aa,jz1,p
 
 c     Begin program
 
@@ -5456,13 +5457,15 @@ c     Begin program
 
           q0 = 1.02
           qa = 4.
-          p  = 1
+          p  = 1.
 
           qprof = q0*(1+r**(2*p)*( (qa/q0)**p - 1 ))**(1./p)
 
         case('rfp83')
 
-          qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)
+          RR   = gv%gparams%params(3)
+          
+          qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)/RR
 
         case('vela1')
 
@@ -5478,6 +5481,19 @@ c     Begin program
 
           qprof = log(1+r)+exp(r)
 
+        case('tbbr1')
+
+          q0  = 1.04 !1.06
+          jz1 = 0d0
+          aa  = 0.45
+          p   = 1.13
+          
+          RR   = gv%gparams%params(3)
+
+          qa = q0*r**2/(0.5*jz1*r**2+aa**2*(1-0.5*jz1))
+
+          qprof = 1d0*(q0**p+qa**p)**(1./p)
+          
         case default
 
           call pstop('qprof','Undefined q profile')
@@ -5537,7 +5553,7 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
-        case('rfp83')
+        case('rfp83','tbbr1')
 
           if (der == 0) then
             pprof = 1d0

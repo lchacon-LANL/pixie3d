@@ -814,6 +814,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
      .        .and.equil(1:4) /= 'vela'
+     .        .and.equil(1:4) /= 'tbbr'
      .        .and.equil /= 'rfp83'
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
