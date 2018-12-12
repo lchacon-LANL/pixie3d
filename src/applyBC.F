@@ -269,7 +269,8 @@ c--------------------------------------------------------------------
       use var_setup
 
 c diag ****
-      use app_iosetup
+c$$$      use xdraw_io
+c$$$      use app_iosetup
 c diag ****
 
       implicit none
@@ -640,6 +641,22 @@ c       Magnetic field BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
+
+c$$$        !diag ****
+c$$$        v0 = abs(bcnv-bcnv_0)
+c$$$        call createDrawInCfile(3,"debug.bin",'Solution','t','x','y'
+c$$$     .           ,(/'DB1','DB2','DB3'/),'-c -X0 -L57'
+c$$$     .           ,'drawdebug.in')
+c$$$
+c$$$        open(unit=110,file="debug.bin",form='unformatted'
+c$$$     .       ,status='unknown')
+c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
+c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        close(110)
+c$$$
+c$$$        stop
+c$$$        !diag ****
 
         case(IBCOV) !Done when computing bcnv
 
@@ -2338,7 +2355,8 @@ c     Begin program
       endif
 
       call findBCLoopLimits(g_def,dim,loc
-     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
       hex = 0 ; hey = 0 ; hez = 0
