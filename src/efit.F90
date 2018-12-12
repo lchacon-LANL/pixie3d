@@ -584,8 +584,8 @@
 
         !BCs
         call default_B_BCs(bcsb)
-        where (bcsb == -NEU) bcsb = -EXT  !Extrapolate tangential components
-        
+        where (bcsb == -NEU) bcsb = -DEF  !Do nothing to tangential components
+
         call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcsb &
      &              ,icomp=(/IBX/),is_vec=.true.           &
      &              ,is_cnv=.true.,iorder=2)
