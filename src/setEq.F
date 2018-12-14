@@ -1557,11 +1557,13 @@ c$$$        beta = 4d-5
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
 
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               iglobal = i + gv%gparams%ilo(igr) - 1
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              bb(i,j,k,3)  = x1*bzz0(iglobal)
+              bb(i,j,k,1)=0d0
+              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk*x1/mm*bzz0(iglobal))
+              bb(i,j,k,3)=jac1*bzz0(iglobal)
 
               var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
@@ -1872,7 +1874,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           bz0 = 1d0
 
-          !Find pressure and q-profiles
+          !Find pressure profile
           do i=0,nxdp
             x1  = gv%gparams%xg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
@@ -2417,6 +2419,8 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
+        use nlfunction_setup, ONLY: a_p
+
         implicit none
 
 c     Call variables
@@ -2427,11 +2431,12 @@ c     Call variables
 c     Local variables
 
         integer    :: i,j,k,ig,jg,kg,it
-        real(8)    :: bz_avg,x1,bzh,bth,gs_err,rh,dh
+        real(8)    :: bz_avg,x1,bzh,bth,gs_err,rh,dh,th,zz
 
         real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp)
      .               ,p0h(0:nxdp),q0h(0:nxdp)
-     .               ,xh(0:nxd),dr(0:nxd)
+     .               ,xh(0:nxd),dr(0:nxd),rg(0:nxdp)
+     .               ,rl(nxl)
 
 c     Begin program
 
@@ -2447,10 +2452,27 @@ c       Initialize iteration
 
         bz0 = bzz0(0)
 
+c       Find global-mesh radial positions and increments
+
+        do i=1,nxl
+          call find_polar_coords(gv%gparams,1,i,1,1,rl(i),th
+     .                          ,zz,coords)
+        enddo
+
+#if defined(petsc)
+        call MPI_Allgather(rl(1:nxl),nxl,MPI_DOUBLE_PRECISION
+     .                    ,rg(1:nxd),nxl,MPI_DOUBLE_PRECISION
+     .                    ,gv%gparams%MPI_COMM_X,mpierr)
+#else
+        rg(1:nxd) = rl
+#endif
+        rg(0)    = -rg(1)           !@ SP
+        rg(nxdp) = 2*xmax - rg(nxd) !@ radial boundary
+
         !Find half-mesh positions
         do i=0,nxd
-          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
+          xh(i) = 0.5*(rg(i+1)+rg(i))
+          dr(i) =      rg(i+1)-rg(i)
         enddo
 
         !Average pressure and q-profiles to half mesh
@@ -2477,7 +2499,7 @@ cc          enddo
           !Perform integral of B_th^2/r on half-mesh
           dummy(0) = 0d0
           do i=1,nxd
-            rh  = gv%gparams%xg(i)
+            rh = rg(i)  !Full mesh
             bth = 0.5*(bth0(i)+bth0(i-1))
             dummy(i) = dummy(i-1) + 2*bth**2/rh*dr(i)
           enddo
@@ -2488,7 +2510,7 @@ cc          enddo
 
           !Calculate Bz, Btheta on half-mesh
           do i=0,nxd
-            x1  = xh(i)
+            x1  = xh(i)   !Half mesh
             bth0(i) = x1*bzz0(i)/q0h(i)
             bzz0(i) = sign(1d0,q0h(i))
      .               *sqrt((bz0**2+2*(p0h(0)-p0h(i))-dummy(i))
@@ -2498,7 +2520,7 @@ cc          enddo
           !Check convergence (force balance)
           gs_err = 0d0
           do i=1,nxd
-            rh  = gv%gparams%xg(i)
+            rh  = rg(i)
 
             bzh = 0.5*(bzz0(i)+bzz0(i-1))
             bth = 0.5*(bth0(i)+bth0(i-1))
@@ -2570,12 +2592,12 @@ cc        endif
         !Transfer to integer mesh
         call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
      .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
+     .                  ,3,0)
         bth0 = dummy
 
         call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
      .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
+     .                  ,3,0)
         bzz0 = dummy
 
         !Extrapolate linearly in radius @ r=0
@@ -2584,13 +2606,12 @@ cc        endif
 
         !Dump equilibrium for eigen code
 
-        if (my_rank == 0 .and. equil == 'ntm2d') then
-          open(unit=123,file='ntm2d.txt',status='unknown')
+        if (my_rank == 0) then
+          open(unit=123,file=trim(equil)//'.txt',status='unknown')
           write (123,*) nxdp+1
-          write (123,*) gv%gparams%xg(0:nxdp)
-          write (123,*) bth0
-          write (123,*) bzz0
-          write (123,*) 0.5*p0
+          do i=0,nxdp
+            write (123,*) gv%gparams%xg(i),bth0(i),bzz0(i),p0(i)/a_p
+          enddo
           write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
           close(123)
 cc          stop
@@ -2736,7 +2757,7 @@ c       Iteration
      .            -p0(i-1)*dx2/dx1/(dx1+dx2))
 
             !Accumulate integral on half mesh
-            dvol = 0.5*(xh(i)**2-xh(i-1)**2) !rg(i)*dr(i)
+            dvol = 0.5*(xh(i)**2-xh(i-1)**2)
             dummy(i)=dummy(i-1)
      .              +(Eoeta/eta0(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
 
@@ -5483,16 +5504,16 @@ c     Begin program
 
         case('tbbr1')
 
-          q0  = 1.04 !1.06
-          jz1 = 0d0
-          aa  = 0.45
-          p   = 1.13
-          
           RR   = gv%gparams%params(3)
+          
+          q0   = gv%gparams%params(6)  !q0*R
+          jz1  = gv%gparams%params(7)
+          aa   = gv%gparams%params(8)
+          p    = gv%gparams%params(9)
 
           qa = q0*r**2/(0.5*jz1*r**2+aa**2*(1-0.5*jz1))
 
-          qprof = 1d0*(q0**p+qa**p)**(1./p)
+          qprof = 1d0/RR*(q0**p+qa**p)**(1./p)
           
         case default
 
