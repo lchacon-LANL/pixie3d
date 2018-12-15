@@ -831,7 +831,8 @@ cc      post_smooth_B = .false.
      .                .or.  (pc_type == 'id')
      .                .or.  (nxd==1.and.nyd==1)
      .                .or.  (nxd==1.and.nzd==1)
-     .                .or.  (nyd==1.and.nzd==1))
+     .                .or.  (nyd==1.and.nzd==1)
+     .                .or.  (cnfactor == 1d0))
       post_divclean = post_divclean.or.post_smooth_B
 #else
       post_divclean = .false.

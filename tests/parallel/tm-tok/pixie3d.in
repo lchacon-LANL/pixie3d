@@ -36,6 +36,7 @@
     nh2      = 1
     odd      = f,f,f
     random   = f
+!    prt_file = "pixie3d-2.eig"
 
     cnfactor = 0.5
 
