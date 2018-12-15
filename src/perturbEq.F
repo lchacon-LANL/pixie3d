@@ -79,10 +79,10 @@ c     Begin program
       select case(equil)
       case ('2dkai','3dkai')
 
-        command = 'test -f '//trim(prt_file)
-        ierr = shellcmd(trim(command))
+cc        command = 'test -f '//trim(prt_file)
+cc        ierr = shellcmd(trim(command))
 
-        if (ierr == 0) then
+        if (is_file(trim(prt_file))) then
           call perturbEquilibrium_kaitm
         else
           do ieq=1,varr%nvar
@@ -643,12 +643,16 @@ c$$$       enddo
 
       case default
 
-        do ieq=1,varr%nvar
-          call perturbEquilibrium_def(varr%array_var(ieq)%array
-     .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),.false.)
-        enddo
-
+        if(is_file(trim(prt_file))) then
+          call perturbEquilibrium_eig(maxval(pert))
+        else
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_def(varr%array_var(ieq)%array
+     .                                 ,varr%array_var(ieq)%bconds
+     .                                 ,pert(ieq),.false.)
+          enddo
+        endif
+        
       end select
 
 c     End program
@@ -782,7 +786,7 @@ c     Call variables
 c     Local variables
 
       integer    :: i,j,k,ig,jg,kg,iglobal
-      real(8)    :: x1,y1,z1,kk,mm
+      real(8)    :: x1,y1,z1,kk,mm,jac1
       real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
 
       real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
@@ -805,35 +809,43 @@ cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
       do k = klom,khip
         do j = jlom,jhip
           do i = ilo,ihi
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             iglobal = i + gv%gparams%ilo(igx) - 1
 
+            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
             pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
 
-            pert(IRHO) = x1*pert(IRHO)
+            pert(IVX) = jac1*pert(IVX)
+            if (coords=='hel')
+     .           pert(IVY)= jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+            pert(IVZ) = jac1*pert(IVZ)
 
-            pert(IVX) = x1*pert(IVX)
-            if (equil == '2dkai') pert(IVY)=pert(IVY)+kk*x1/mm*pert(IVZ)
-            if (alt__eom()) pert(IVY) = x1*pert(IVY)
-            pert(IVZ) = x1*pert(IVZ)
+            pert(IBX) = jac1*pert(IBX)
+            if (coords=='hel')
+     .           pert(IBY)= jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+            pert(IBZ) = jac1*pert(IBZ)
 
-            pert(IBX) = x1*pert(IBX)
-            if (equil == '2dkai') pert(IBY)=pert(IBY)+kk*x1/mm*pert(IBZ)
-            pert(IBZ) = x1*pert(IBZ)
-
-            do ieq=1,varr%nvar-1
+            do ieq=IVX,IBZ
               varr%array_var(ieq)%array(i,j,k) =
      .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
             enddo
 
+            !Pressure and density
+            pert(IRHO) = jac1*pert(IRHO)
             pert(IPRS) = pert(IPRS)*a_p  !Transform to total temperature
 
             varr%array_var(IPRS)%array(i,j,k) =
      .               varr%array_var(IPRS)%array(i,j,k)*(1d0 
      .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
      .               + pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+
+            varr%array_var(IRHO)%array(i,j,k)
+     .         = varr%array_var(IRHO)%array(i,j,k) + pert(IRHO)
 
           enddo
         enddo
@@ -845,30 +857,30 @@ c     End program
 
       end subroutine perturbEquilibrium_kaitm
 
-c     perturbEquilibrium_ppnch_eig
+c     perturbEquilibrium_eig
 c     #################################################################
-      subroutine perturbEquilibrium_ppnch_eig(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_eig(perturb)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
 c     perturbation of magnitude perturb, and introduces it in array.
 c     -----------------------------------------------------------------
 
+      use var_setup
+      
       implicit none
 
 c     Call variables
 
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-
+      real(8) :: perturb
+      
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,iglobal,nxx
-      real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+      integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr
+      real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1
 
-      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
+      real(8),allocatable,dimension(:) :: xx
+      real(8),allocatable,dimension(:,:) :: ii,rr,idum,rdum
 
 c     Begin program
 
@@ -877,54 +889,92 @@ c     Begin program
 
 c     Read perturbation file
 
-      if (my_rank == 0) write (*,*) 'Reading PPNCH eigenmodes...'
+      if (my_rank == 0) write (*,*) 'Reading eigenmodes...'
 
       open(unit=u_prtf,file=trim(prt_file),status='old')
 
-      read(u_prtf,*) nxx
+      read(u_prtf,*) nxx,neq
 
-      if (nxx /= nxd) then
-        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
+      if (neq /= neqd) then
+        call pstop("perturbEquilibrium_ppnch_eig"
+     .            ,"Incorrect number of equations in input eig file")
       endif
+      
+      allocate(xx(nxx),rdum(nxx,neq),idum(nxx,neq))
 
-      do i=1,nxd
-        read(u_prtf,*) dum,rr(i,1:8),ii(i,1:8)
+      do i=1,nxx
+        read(u_prtf,*) xx(i),rdum(i,:),idum(i,:)
       enddo
 
       close (u_prtf)
 
-      ii = -ii
+c     Interpolate to local mesh
 
+      allocate(rr(nxd,neqd),ii(nxd,neqd))
+      
+      do ieq=1,neq
+        call IntDriver1d (nxx,xx,rdum(:,ieq)
+     .                   ,nxd,gv%gparams%xg(1:nxd),rr(:,ieq),3,0) !Cubic splines
+        call IntDriver1d (nxx,xx,idum(:,ieq)
+     .                   ,nxd,gv%gparams%xg(1:nxd),ii(:,ieq),3,0) !Cubic splines
+      enddo
+      
+      deallocate(xx,rdum,idum)
+      
 c     Find perturbations
 
-      do i = ilo,ihi
-        do k = klom,khip
-          do j = jlom,jhip
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+      ii = -ii
+
+      do k = klom,khip
+        do j = jlom,jhip
+          do i = ilo,ihi
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             iglobal = i + gv%gparams%ilo(igx) - 1
 
-            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
+            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-            pert(2) = x1*pert(2)
-            if (coords == 'hel') pert(3) = pert(3)+kk*x1/mm*pert(4)
-            pert(4) = x1*pert(4)
+            pert = perturb*(rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1))
 
-            pert(5) = x1*pert(5)
-            if (coords == 'hel') pert(6) = pert(6)+kk*x1/mm*pert(7)
-            pert(7) = x1*pert(7)
+            !Transform velocity
+            pert(IVX) = jac1*pert(IVX)
+            if (coords=='hel')
+     .           pert(IVY)=jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+            pert(IVZ) = jac1*pert(IVZ)
 
-cc            array(i,j,k) = array(i,j,k) + pert(ieq)
-cc            array(i,j,k) = array(i,j,k) + perturb*pert(ieq)
-            array(i,j,k) = array(i,j,k) + 1d-3*pert(ieq)
+            !Transform magnetic field
+            pert(IBX) = jac1*pert(IBX)
+            if (coords=='hel')
+     .           pert(IBY) = jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+            pert(IBZ) = jac1*pert(IBZ)
+            
+            do ieq=IVX,IBZ
+              varr%array_var(ieq)%array(i,j,k)
+     .           = varr%array_var(ieq)%array(i,j,k) + pert(ieq)
+            enddo
+
+            !Pressure and density
+            pert(IPRS) = pert(IPRS)*a_p   !Transform to pressure
+            varr%array_var(IPRS)%array(i,j,k)
+     .         = varr%array_var(IPRS)%array(i,j,k)*(1d0 
+     .         + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+     .         +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+
+            varr%array_var(IRHO)%array(i,j,k)
+     .         = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
+
           enddo
         enddo
       enddo
 
+      deallocate(rr,ii)
+      
 c     End program
 
-      end subroutine perturbEquilibrium_ppnch_eig
+      end subroutine perturbEquilibrium_eig
 
 c     perturbEquilibrium_ppnch_ext
 c     #################################################################
