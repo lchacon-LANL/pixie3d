@@ -77,20 +77,17 @@ c     Begin program
       igz = 1
 
       select case(equil)
-      case ('2dkai','3dkai')
-
-cc        command = 'test -f '//trim(prt_file)
-cc        ierr = shellcmd(trim(command))
-
-        if (is_file(trim(prt_file))) then
-          call perturbEquilibrium_kaitm
-        else
-          do ieq=1,varr%nvar
-            call perturbEquilibrium_def(varr%array_var(ieq)%array
-     .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq),.false.)
-          enddo
-        endif
+c$$$      case ('2dkai','3dkai')
+c$$$
+c$$$        if (is_file(trim(prt_file))) then
+c$$$          call perturbEquilibrium_kaitm
+c$$$        else
+c$$$          do ieq=1,varr%nvar
+c$$$            call perturbEquilibrium_def(varr%array_var(ieq)%array
+c$$$     .                                 ,varr%array_var(ieq)%bconds
+c$$$     .                                 ,pert(ieq),.false.)
+c$$$          enddo
+c$$$        endif
 
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl','2dhel')
 
@@ -769,93 +766,93 @@ c     End program
 
       end subroutine perturbEquilibrium_def
 
-c     perturbEquilibrium_kaitm
-c     #################################################################
-      subroutine perturbEquilibrium_kaitm
-
-c     -----------------------------------------------------------------
-c     Perturbs equilibrium quantities according to eigenmodes computed
-c     by Kai Germaschewski (note: eigenvectors are not correct, and
-c     result in evolution by PIXIE3D to correct them).
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer    :: i,j,k,ig,jg,kg,iglobal
-      real(8)    :: x1,y1,z1,kk,mm,jac1
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
-
-      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
-
-c     Begin program
-
-      mm = gv%gparams%params(1)
-      kk = gv%gparams%params(2)
-
-      if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
-
-      open(unit=u_prtf,file=trim(prt_file),status='old')
-
-      do i=1,nxd
-        read(u_prtf,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
-     .                 ,ii(i,1),ii(i,8),ii(i,2:7)
-cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
-      enddo
-
-      do k = klom,khip
-        do j = jlom,jhip
-          do i = ilo,ihi
-cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-cc     .                                    ,ig,jg,kg,x1,y1,z1)
-            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
-
-            iglobal = i + gv%gparams%ilo(igx) - 1
-
-            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
-
-            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
-
-            pert(IVX) = jac1*pert(IVX)
-            if (coords=='hel')
-     .           pert(IVY)= jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
-            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
-            pert(IVZ) = jac1*pert(IVZ)
-
-            pert(IBX) = jac1*pert(IBX)
-            if (coords=='hel')
-     .           pert(IBY)= jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
-            pert(IBZ) = jac1*pert(IBZ)
-
-            do ieq=IVX,IBZ
-              varr%array_var(ieq)%array(i,j,k) =
-     .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
-            enddo
-
-            !Pressure and density
-            pert(IRHO) = jac1*pert(IRHO)
-            pert(IPRS) = pert(IPRS)*a_p  !Transform to total temperature
-
-            varr%array_var(IPRS)%array(i,j,k) =
-     .               varr%array_var(IPRS)%array(i,j,k)*(1d0 
-     .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .               + pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
-
-            varr%array_var(IRHO)%array(i,j,k)
-     .         = varr%array_var(IRHO)%array(i,j,k) + pert(IRHO)
-
-          enddo
-        enddo
-      enddo
-
-      close (u_prtf)
-
-c     End program
-
-      end subroutine perturbEquilibrium_kaitm
+c$$$c     perturbEquilibrium_kaitm
+c$$$c     #################################################################
+c$$$      subroutine perturbEquilibrium_kaitm
+c$$$
+c$$$c     -----------------------------------------------------------------
+c$$$c     Perturbs equilibrium quantities according to eigenmodes computed
+c$$$c     by Kai Germaschewski (note: eigenvectors are not correct, and
+c$$$c     result in evolution by PIXIE3D to correct them).
+c$$$c     -----------------------------------------------------------------
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$      integer    :: i,j,k,ig,jg,kg,iglobal
+c$$$      real(8)    :: x1,y1,z1,kk,mm,jac1
+c$$$      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+c$$$
+c$$$      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$      mm = gv%gparams%params(1)
+c$$$      kk = gv%gparams%params(2)
+c$$$
+c$$$      if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
+c$$$
+c$$$      open(unit=u_prtf,file=trim(prt_file),status='old')
+c$$$
+c$$$      do i=1,nxd
+c$$$        read(u_prtf,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
+c$$$     .                 ,ii(i,1),ii(i,8),ii(i,2:7)
+c$$$cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
+c$$$      enddo
+c$$$
+c$$$      do k = klom,khip
+c$$$        do j = jlom,jhip
+c$$$          do i = ilo,ihi
+c$$$cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+c$$$cc     .                                    ,ig,jg,kg,x1,y1,z1)
+c$$$            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
+c$$$
+c$$$            iglobal = i + gv%gparams%ilo(igx) - 1
+c$$$
+c$$$            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+c$$$
+c$$$            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
+c$$$
+c$$$            pert(IVX) = jac1*pert(IVX)
+c$$$            if (coords=='hel')
+c$$$     .           pert(IVY)= jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+c$$$            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+c$$$            pert(IVZ) = jac1*pert(IVZ)
+c$$$
+c$$$            pert(IBX) = jac1*pert(IBX)
+c$$$            if (coords=='hel')
+c$$$     .           pert(IBY)= jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+c$$$            pert(IBZ) = jac1*pert(IBZ)
+c$$$
+c$$$            do ieq=IVX,IBZ
+c$$$              varr%array_var(ieq)%array(i,j,k) =
+c$$$     .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
+c$$$            enddo
+c$$$
+c$$$            !Pressure and density
+c$$$            pert(IRHO) = jac1*pert(IRHO)
+c$$$            pert(IPRS) = pert(IPRS)*a_p  !Transform to total temperature
+c$$$
+c$$$            varr%array_var(IPRS)%array(i,j,k) =
+c$$$     .               varr%array_var(IPRS)%array(i,j,k)*(1d0 
+c$$$     .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+c$$$     .               + pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+c$$$
+c$$$            varr%array_var(IRHO)%array(i,j,k)
+c$$$     .         = varr%array_var(IRHO)%array(i,j,k) + pert(IRHO)
+c$$$
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+c$$$
+c$$$      close (u_prtf)
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine perturbEquilibrium_kaitm
 
 c     perturbEquilibrium_eig
 c     #################################################################
@@ -889,17 +886,25 @@ c     Begin program
 
 c     Read perturbation file
 
-      if (my_rank == 0) write (*,*) 'Reading eigenmodes...'
-
-      open(unit=u_prtf,file=trim(prt_file),status='old')
-
-      read(u_prtf,*) nxx,neq
-
-      if (neq /= neqd) then
-        call pstop("perturbEquilibrium_ppnch_eig"
-     .            ,"Incorrect number of equations in input eig file")
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Reading EXTERNAL eigenmodes...'
       endif
-      
+
+      if (is_file(trim(prt_file))) then
+        open(unit=u_prtf,file=trim(prt_file),status='old')
+
+        read(u_prtf,*) nxx,neq
+
+        if (neq /= neqd) then
+          call pstop("perturbEquilibrium_eig"
+     .            ,"Incorrect number of equations in input eig file")
+        endif
+      else
+        call pstop("perturbEquilibrium_eig"
+     .            ,"Eig file doest not exist")
+      endif
+        
       allocate(xx(nxx),rdum(nxx,neq),idum(nxx,neq))
 
       do i=1,nxx
@@ -908,7 +913,11 @@ c     Read perturbation file
 
       close (u_prtf)
 
-c     Interpolate to local mesh
+#if defined(petsc)
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+
+c     Interpolate to local mesh (does NOT work with packing yet)
 
       allocate(rr(nxd,neqd),ii(nxd,neqd))
       
