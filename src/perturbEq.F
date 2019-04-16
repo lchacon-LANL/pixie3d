@@ -877,7 +877,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr
-      real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1
+      real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1,rg(0:nxdp)
 
       real(8),allocatable,dimension(:) :: xx
       real(8),allocatable,dimension(:,:) :: ii,rr,idum,rdum
@@ -910,13 +910,13 @@ c     Read perturbation file
 
 c     Interpolate to local mesh
 
+      call find_global_radial_mesh(rg)
+      
       allocate(rr(nxd,neqd),ii(nxd,neqd))
       
       do ieq=1,neq
-        call IntDriver1d (nxx,xx,rdum(:,ieq)
-     .                   ,nxd,gv%gparams%xg(1:nxd),rr(:,ieq),3,0) !Cubic splines
-        call IntDriver1d (nxx,xx,idum(:,ieq)
-     .                   ,nxd,gv%gparams%xg(1:nxd),ii(:,ieq),3,0) !Cubic splines
+        call IntDriver1d(nxx,xx,rdum(:,ieq),nxd,rg(1:nxd),rr(:,ieq),3,0) !Cubic splines
+        call IntDriver1d(nxx,xx,idum(:,ieq),nxd,rg(1:nxd),ii(:,ieq),3,0) !Cubic splines
       enddo
       
       deallocate(xx,rdum,idum)
@@ -928,8 +928,6 @@ c     Find perturbations
       do k = klom,khip
         do j = jlom,jhip
           do i = ilo,ihi
-cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-cc     .                                    ,ig,jg,kg,x1,y1,z1)
             call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             iglobal = i + gv%gparams%ilo(igx) - 1
@@ -939,16 +937,20 @@ cc     .                                    ,ig,jg,kg,x1,y1,z1)
             pert = perturb*(rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1))
 
             !Transform velocity
-            pert(IVX) = jac1*pert(IVX)
+            pert(IVX) = x1*pert(IVX)
             if (coords=='hel')
      .           pert(IVY)=jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+            if (coords=='cyl')
+     .           pert(IVY)=jac1*pert(IVY)/x1
             if (alt__eom()) pert(IVY) = jac1*pert(IVY)
             pert(IVZ) = jac1*pert(IVZ)
 
             !Transform magnetic field
-            pert(IBX) = jac1*pert(IBX)
+            pert(IBX) = x1*pert(IBX)
             if (coords=='hel')
      .           pert(IBY) = jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+            if (coords=='cyl')
+     .           pert(IBY) = jac1*pert(IBY)/x1
             pert(IBZ) = jac1*pert(IBZ)
             
             do ieq=IVX,IBZ
