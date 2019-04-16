@@ -1511,7 +1511,7 @@ c     Tokamak equilibria (analytical)
 
 c     Check coordinates
 
-        if (coords /= 'hel') then
+        if (coords /= 'hel'.and.coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -1566,26 +1566,49 @@ c$$$        beta = 4d-5
           var(:,:,:,IRHO) = 1d0
         endif
 
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
-     .                              ,coords)
+        select case(coords)
+        case('hel')
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
 
-              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              iglobal = i + gv%gparams%ilo(igr) - 1
+                iglobal = i + gv%gparams%ilo(igr) - 1
 
-              bb(i,j,k,1)=0d0
-              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
-              bb(i,j,k,3)=jac1*bzz0(iglobal)
+                bb(i,j,k,1)=0d0
+                bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+                bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
+              enddo
             enddo
           enddo
-        enddo
+        case('cyl')
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
 
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+                iglobal = i + gv%gparams%ilo(igr) - 1
+
+                bb(i,j,k,1)=0d0
+                bb(i,j,k,2)=jac1*bth0(iglobal)/x1
+                bb(i,j,k,3)=jac1*bzz0(iglobal)
+
+                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
+              enddo
+            enddo
+          enddo
+        end select
+        
       case ('ntm2d')
 
         bootstrap= .true.
@@ -2191,16 +2214,18 @@ cc        stop
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                              ,coords)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) =      bth0(iglobal)
+              bb(i,j,k,2) = jac1*bth0(iglobal)/x1
               bb(i,j,k,3) = jac1*bzz0(iglobal)
 
-              var(i,j,k,IVX) = jac1*vr0(iglobal)*eta/eta_in
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = jac1*vz0(iglobal)
 
@@ -2652,7 +2677,6 @@ cc        endif
         bzz0(0) = bzz0(1)
 
         !Dump equilibrium for eigen code
-
         if (my_rank == 0) then
           open(unit=123,file=trim(equil)//'.txt',status='unknown')
           write (123,*) nxdp+1
