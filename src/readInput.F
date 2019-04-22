@@ -40,7 +40,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,mg_coarse_solve
+      logical       :: nc_eom_f,mg_coarse_solve,refine_eq
 
       integer       :: mg_coarse_size
 
@@ -82,7 +82,7 @@ c Namelists
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
-     .                   ,limit_dt_flow_cfl
+     .                   ,limit_dt_flow_cfl,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -421,6 +421,8 @@ c     #####################################################################
 
       limit_dt_flow_cfl=.true. ! Whether to limit Dt according to flow CFL
 
+      refine_eq = .false.      ! Whether we run PIXIE3D in equilibrium refinement mode
+
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
@@ -697,6 +699,14 @@ c     #####################################################################
 
       if (tst_flg) test = .true.
 
+      if (refine_eq) then
+        dd  = 1d0        !To damp density
+        chi = 1d0        !To damp pressure profile
+        nu  = 1d0        !To damp flow
+        eta = 0d0        !To avoid resistive diffusion
+        source = .false. !To let equilibrium float
+      endif
+
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
@@ -844,6 +854,7 @@ cc      post_smooth_B = .false.
      .                  .or.post_divclean
      .                  .or.post_smooth_B
      .                  .or.(br_pert_freq /= 0d0)
+     .                  .or.refine_eq
 
 #if defined(pit)
       postprocess = .true.
