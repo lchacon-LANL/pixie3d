@@ -62,6 +62,8 @@
     debug_it = 1
 
     check_grid = f
+
+    prt_file = "pixie3d-eigen.eig"
  /
 
  &graphdef

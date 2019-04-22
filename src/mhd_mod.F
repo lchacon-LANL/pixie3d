@@ -704,9 +704,8 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
         v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
       endif
 
-      bcs(:,1) = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
-     .                        )!,sp=bcSP())
+      bc = varray%array_var(IRHO)%bconds
+      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
 
       bc = varray%array_var(IPRS)%bconds
       if (use_p_classic_eq) then !Classic p evolution eq

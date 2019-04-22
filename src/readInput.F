@@ -35,7 +35,7 @@ c Call variables
 c Local variables
 
       integer       :: dim(1),loc(1),ioerr,mgcf
-      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptmp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
@@ -72,7 +72,7 @@ c Namelists
      .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
-     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
@@ -114,7 +114,7 @@ c Namelists
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
      .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
@@ -220,7 +220,7 @@ c Map perturbations
       pert(IAY) = pay
       pert(IAZ) = paz
 #endif
-      pert(IPRS)= a_p*ptemp  !Transform to total pressure
+      pert(IPRS)= a_p*ptmp  !Transform to total pressure
 
 c Init boundary conditions
 
@@ -588,7 +588,7 @@ c     #####################################################################
       pax      = 0d0           ! Ax perturbation
       pay      = 0d0           ! Ay perturbation
       paz      = 0d0           ! Az perturbation
-      ptemp    = 0d0           ! Temperature perturbation
+      ptmp     = 0d0           ! Temperature perturbation
       nh1      = 0             ! Starting harmonic number for perturbation in axis 1
       nh2      = 0             ! Starting harmonic number for perturbation in axis 2
       nh3      = 0             ! Starting harmonic number for perturbation in axis 3
