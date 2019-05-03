@@ -467,15 +467,16 @@ c       Allocate auxiliary variables in local domain
 
         v0   = 0d0
         vdum = 0d0
+        E_bc = 0d0
 
         if (pinch_flow) then
-          E_bc(:,:,:,1) = E0(1)
-          E_bc(:,:,:,2) = E0(2)
-          E_bc(:,:,:,3) = E0(3)
+          E_bc(nnx+1,:,:,1) = E0(1)
+          E_bc(nnx+1,:,:,2) = E0(2)
+          E_bc(nnx+1,:,:,3) = E0(3)
         endif
 
         if (res_wall_bc) then
-          E_bc = 0d0
+          !Placeholder
         endif
 
         pinch_bc = pinch_flow.or.res_wall_bc
