@@ -25,7 +25,7 @@ c####################################################################
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
-        logical :: no_eq_bc,save_tn,no_tn_bc
+        logical :: no_eq_bc,save_tn,no_tn_bc,res_wall_bc=.false.
 
       contains
 
@@ -439,7 +439,7 @@ c     End subroutine
 
 c     ExB_flow_bc
 c     #################################################################
-      subroutine ExB_flow_bc(g_def,igrid,bcnv,prs,eta,v0,dbcov)
+      subroutine ExB_flow_bc(g_def,igrid,bcnv,prs,eta,E_0,v0,dbcov)
 
 c     -----------------------------------------------------------------
 c     Finds ExB flow boundary condition when Eo is imposed at boundary
@@ -454,7 +454,7 @@ c     Call variables
 
       integer :: igrid
       real(8),dimension(0:,0:,0:)   :: prs,eta
-      real(8),dimension(0:,0:,0:,:) :: bcnv,v0
+      real(8),dimension(0:,0:,0:,:) :: bcnv,v0,E_0
       real(8),dimension(0:,0:,0:,:),optional :: dbcov
 
 c     Local variables
@@ -498,11 +498,11 @@ c     Begin program
             etah = eta(i,j,k)
 
             !ExB velocity
-            v0(i,j,k,1)=(E0(2)*bbcov(3)-E0(3)*bbcov(2)
+            v0(i,j,k,1)=(E_0(i,j,k,2)*bbcov(3)-E_0(i,j,k,3)*bbcov(2)
      .                 -etah*grad_p(1))/b2
-            v0(i,j,k,2)=(E0(3)*bbcov(1)-E0(1)*bbcov(3)
+            v0(i,j,k,2)=(E_0(i,j,k,3)*bbcov(1)-E_0(i,j,k,1)*bbcov(3)
      .                 -etah*grad_p(2))/b2
-            v0(i,j,k,3)=(E0(1)*bbcov(2)-E0(2)*bbcov(1)
+            v0(i,j,k,3)=(E_0(i,j,k,1)*bbcov(2)-E_0(i,j,k,2)*bbcov(1)
      .                 -etah*grad_p(3))/b2
 
           endif
@@ -515,7 +515,7 @@ c     End program
 
 c     J_pinch_bc
 c     #################################################################
-      subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,j0,dbcnv)
+      subroutine J_pinch_bc(g_def,igrid,bcnv,prs,eta,E_0,j0,dbcnv)
 
 c     -----------------------------------------------------------------
 c     Finds current boundary condition when Eo is imposed at boundary
@@ -530,7 +530,7 @@ c     Call variables
 
       integer :: igrid
       real(8),dimension(0:,0:,0:)   :: prs,eta
-      real(8),dimension(0:,0:,0:,:) :: bcnv,j0
+      real(8),dimension(0:,0:,0:,:) :: bcnv,j0,E_0
       real(8),dimension(0:,0:,0:,:),optional :: dbcnv
 
 c     Local variables
@@ -650,7 +650,7 @@ c$$$     $              ,prs(i+1,j,k) /)
 c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 c =================
 
-            alpha = dot_product(E0,bbcnv)*ietah/Jb2
+            alpha = dot_product(E_0(i+1,j,k,:),bbcnv)*ietah/Jb2
 
             if (PRESENT(dbcnv)) then
               bbcnv = dbcnv(i,j,k,:)
