@@ -477,6 +477,7 @@ c       Allocate auxiliary variables in local domain
 
         if (res_wall_bc) then
           !Placeholder
+          !call rw_bc(E_bc)
         endif
 
         pinch_bc = pinch_flow.or.res_wall_bc

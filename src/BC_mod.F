@@ -665,6 +665,90 @@ c     End program
 
       end subroutine J_pinch_bc
 
+c     rw_bc
+c     #################################################################
+      subroutine rw_bc(g_def,bcov,bcnv,tau_w,rv,E_0)
+
+c     -----------------------------------------------------------------
+c     Finds tangential cov electric field components according to
+c     resistive wall BCs.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      real(8) :: tau_w,rv
+      real(8),dimension(0:,0:,0:,:) :: bcnv,bcov,E_0
+
+c     Local variables
+
+      integer :: i,j,k,nx,ny,nz,nn,mm
+
+      real(8) :: phinm(0:size(bcnv,2)-1,0:size(bcnv,3)-1)
+
+c$$$      real(8) :: x(5),vec(4),xt(1)
+
+c     Begin program
+
+      nx = size(bcnv,1)-2
+      ny = size(bcnv,2)-2
+      nz = size(bcnv,3)-2
+
+      i = nx + 1
+
+c     FFT normal component of magnetic field at resistive wall
+
+      bcov(i,:,:,1) --> bcovnm(:,:)
+
+c     Find potential solution outside of wall
+
+      !Case n=m=0
+      phi00 = 0d0
+
+      !Case n=0, m/=0
+      phi0m(0,m) = -bcovnm(0,m)/m*(rv**(2*m)+1d0)/(rv**(2*m)-1d0)
+
+      !Other cases
+      RR = gv%gparams%params(3)
+      if (coords == 'hel') then
+        kn = gv%gparams%params(2)
+      else
+        kn = n/RR
+      endif
+      pv = kn*rv
+
+      Impv =
+      Km   =
+      kmpv =
+      Im   =
+      Kmp  =
+      Imp  =
+      
+      phinm(n,m) = bcovnm(n,m)/kn*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
+      
+c     Reconstruct magnetic field components outside plasma wall
+
+      !B_theta
+      phinm(n,m) -> ii*m*phinm(n,m)
+      inverse FFT -> bcov(i,:,:,2)
+
+      !B-z
+      phinm(n,m) -> ii*kn*phinm(n,m)
+      inverse FFT -> bcov(i,:,:,3)
+      
+c     Find electric field components
+
+      E_0(i,:,:,1) = 0d0
+      E_0(i,:,:,2) =-(bcov(i,:,:,3)-bcov(i-1,:,:,3))/tau_w
+      E_0(i,:,:,3) = (bcov(i,:,:,2)-bcov(i-1,:,:,2))/tau_w
+
+c     End program
+
+      end subroutine rw_bc
+
 c     init_BCs
 c     ####################################################################
       subroutine init_BCs(bcsq)
