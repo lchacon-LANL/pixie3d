@@ -292,9 +292,12 @@ c Local variables
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acov_n,acnv_n
+     .                                         ,E_bc
 
       real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
 
+      logical :: pinch_bc
+      
 c Begin program
 
       save_tn = old_time_eval .or. source_eval
@@ -453,16 +456,29 @@ c$$$          endif
         if ((no_eq_bc.or.no_tn_bc).and.(.not.ts_restart)) return
 #endif
 
+c       Allocate auxiliary variables in local domain
+
         allocate(prs0(0:nnx+1,0:nny+1,0:nnz+1)
      .          ,prs1(0:nnx+1,0:nny+1,0:nnz+1))
 
-c       Allocate auxiliary variables in local domain
-
         allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
-     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
+     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3)
+     .          ,E_bc(0:nnx+1,0:nny+1,0:nnz+1,3))
 
         v0   = 0d0
         vdum = 0d0
+
+        if (pinch_flow) then
+          E_bc(:,:,:,1) = E0(1)
+          E_bc(:,:,:,2) = E0(2)
+          E_bc(:,:,:,3) = E0(3)
+        endif
+
+        if (res_wall_bc) then
+          E_bc = 0d0
+        endif
+
+        pinch_bc = pinch_flow.or.res_wall_bc
 
         select case(abs(bc_inf(1)))
 #if defined(vec_pot)
@@ -504,9 +520,9 @@ c$$$     .              ,iorder=1)
 
 c       Velocity BC
 
-          if (pinch_flow) then
+          if (pinch_bc) then
             prs0 = rho_0*tmp_0
-            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
             v0(nnx+1,:,:,:) = 0.5*(v0(nnx+1,:,:,:)+vcnv_0(nnx,:,:,:))
           endif
 
@@ -560,9 +576,9 @@ c$$$          call XferBCs(vcnv,vcnv_n,.false.)
 
 c       Velocity BC
 
-          if (pinch_flow) then
+          if (pinch_bc) then
             prs1 = rho*tmp
-            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
             v0(nnx+1,:,:,:) = 0.5*(v0(nnx+1,:,:,:)+vcnv(nnx,:,:,:))
           else
             call XferBCs(vcnv_0,v0,.true.)
@@ -631,9 +647,9 @@ cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
 c       Magnetic field BC
 
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -666,9 +682,9 @@ cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
 c       Current BC
 
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -752,7 +768,7 @@ c$$$     .              ,is_cnv=vaux%vec_list(IENI)%cnv)
 
 c       Deallocate variables 
 
-        deallocate(v0,vdum,prs0,prs1)
+        deallocate(v0,vdum,prs0,prs1,E_bc)
 
       end select
 

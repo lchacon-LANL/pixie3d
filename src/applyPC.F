@@ -1245,6 +1245,7 @@ c Local variables
      .                                                ,db_cov
      .                                                ,dv_cnv
      .                                                ,v0
+     .                                                ,E_0
      .                                                ,dp_cnv
      .                                                ,dve_cnv
      .                                                ,dve_cov
@@ -1292,6 +1293,7 @@ c Allocate variables
      .        ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,v0    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,E_0   (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1303,7 +1305,7 @@ c Allocate variables
 #endif
      .        )
 
-      v0 = 0d0
+      v0 = 0d0 ; E_0 = 0d0
 
 c Find drho, dprs arrays with BCs
 
@@ -1333,7 +1335,7 @@ c Find dB* from dA*
 
       if (pinch_flow) then      !Jt = alpha*Bt in cnv representation
         call J_pinch_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
-     .                 ,eta0(:,:,:,1),v0,dbcnv=db_cnv)
+     .                 ,eta0(:,:,:,1),E_0,v0,dbcnv=db_cnv)
       endif
 
       !Find covariant components of dj with BCs
@@ -1356,7 +1358,7 @@ c Find dv (w/ Bcs)
       if (pinch_flow) then
         v0(nx+1,:,:,:) = 0d0
         call ExB_flow_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
-     .                  ,eta0(:,:,:,1),v0,dbcov=db_cov)
+     .                  ,eta0(:,:,:,1),E_0,v0,dbcov=db_cov)
         v0(nx+1,:,:,:) = 0.5*v0(nx+1,:,:,:)
       endif
 
