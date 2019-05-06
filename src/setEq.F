@@ -49,7 +49,7 @@ c Local variables
 
       integer :: i,j,k,ig,jg,kg,ieq,nmax,iglobal,jglobal
      .          ,ierr,sh,it,icomp,bcnd(6,3),brank
-     .          ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz
+     .          ,igx,igy,igz,nx,ny,nz,igr,nxx,nyy,nzz,mmm
 
       real(8) :: ldaflow,x1,y1,z1,cx,cy,cz,x00
 
@@ -60,7 +60,7 @@ c Local variables
      .          ,r0(1),a1,b1,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
      .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
-     .          ,hlx,y_char,pw
+     .          ,hlx,y_char,pw,besselIp,besselI,br,bz
 
       real(8) :: rint(0:nxdp),dh,bth0(0:nxdp)
      .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
@@ -1804,6 +1804,57 @@ c     Other equilibrium quantities
         elsewhere
           var(:,:,:,IPRS) = 0d0
         end where
+
+c     ------------------------------------------
+c     ---------------  RWM TEST ----------------
+c     ------------------------------------------
+
+      case ('rwhel')
+
+        mm   = gv%gparams%params(1)
+        kk   = gv%gparams%params(2)
+        RR   = gv%gparams%params(3)
+        beta = gv%gparams%params(6)
+        pw   = gv%gparams%params(8)
+
+        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
+
+        nh1 = nh2 !For perturbations to be of the right order
+
+c     Check coordinates
+
+        if (coords /= 'hel') then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+        !Build equilibrium
+        mmm = nint(mm)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+              besselIp = BESSI(mmm-1,kk) - mm/kk*BESSI(mmm,kk)
+              besselI  = BESSI(mmm,kk)
+              br  = kk*besselIp*cos(y1)
+              bth =-mm*besselI *sin(y1)
+              bz  =-kk*besselI *sin(y1)
+
+              bb(i,j,k,1)=x1*br
+              bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
+              bb(i,j,k,3)=jac1*bz
+
+              var(i,j,k,IVX:IVZ)=0d0
+              var(i,j,k,IRHO) = 1d0
+
+              var(i,j,k,IPRS) = pw
+            enddo
+          enddo
+        enddo
 
 c     --------------------------------------------------
 c     ---------------  OHMIC EQUILIBRIA ----------------
