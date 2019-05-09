@@ -25,7 +25,12 @@ c####################################################################
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
-        logical :: no_eq_bc,save_tn,no_tn_bc,res_wall_bc=.true.
+        logical :: no_eq_bc,save_tn,no_tn_bc
+
+        !Resistive wall vars
+        logical :: res_wall_bc=.true.
+
+        real(8) :: tau_w=1d0,r_v=1.5d0
 
       contains
 
@@ -130,7 +135,7 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IBX) == DIR) bbcs(:,IBX) = -NEU
         where (bbcs(:,IBY) ==-NEU) bbcs(:,IBY) =  DIR
 
-      case ('ppnch','ppn3d','ppnst','2dhel')   !No stress BCs, pinch flow
+      case ('ppnch','ppn3d','ppnst','2dhel','rwhel')   !No stress BCs, pinch flow
 
         pinch_flow = .true.
 
@@ -687,9 +692,10 @@ c     Local variables
 
       integer :: i,j,k,nx,ny,nz,nn,mm
 
-      real(8) :: phinm(0:size(bcnv,2)-1,0:size(bcnv,3)-1)
-
-c$$$      real(8) :: x(5),vec(4),xt(1)
+      real(8) :: phinm  (0:size(bcov,2)-1
+     .                  ,0:size(bcov,3)-1)
+     .          ,bcovext(0:size(bcov,2)-1
+     .                  ,0:size(bcov,3)-1,2:3)
 
 c     Begin program
 
@@ -711,11 +717,38 @@ cc      case('tor')
  
 c     Find electric field components @ r=1 (store in (nx+1))
 
+      !Cnv from curl
       E_0(i,:,:,1) = 0d0
-      E_0(i,:,:,2) =-(bcov(i,:,:,3)-(1.5*bcov(i-1,:,:,3)
-     .                              +0.5*bcov(i-2,:,:,3)))/tau_w
-      E_0(i,:,:,3) = (bcov(i,:,:,2)-(1.5*bcov(i-1,:,:,2)
-     .                              +0.5*bcov(i-2,:,:,2)))/tau_w
+      E_0(i,:,:,2) =-(bcovext(:,:,3)-(1.5*bcov(i-1,:,:,3)
+     .                               -0.5*bcov(i-2,:,:,3)))/tau_w
+      E_0(i,:,:,3) = (bcovext(:,:,2)-(1.5*bcov(i-1,:,:,2)
+     .                               -0.5*bcov(i-2,:,:,2)))/tau_w
+
+      !Xform to Cov
+      do k=0,nz+1
+        do j=0,ny+1
+          E_0(i,j,k,:) = XformToCov(g_def,i,j,k,1,E_0(i,j,k,:))
+        enddo
+      enddo
+      
+c$$$      write (*,*) '==========================='
+c$$$      write (*,*) 'Helical cov E'
+c$$$      do j=1,nyd
+c$$$        write (*,*) i,j,E_0(i,j,1,2:3)
+c$$$      enddo
+c$$$      write (*,*) '==========================='
+c$$$      write (*,*) 'Inside helical cov B'
+c$$$      do j=1,nyd
+c$$$        write (*,*) i,j,(1.5*bcov(i-1,j,1,1)-0.5*bcov(i-2,j,1,1))
+c$$$     .                 ,(1.5*bcov(i-1,j,1,2)-0.5*bcov(i-2,j,1,2))
+c$$$     .                 ,(1.5*bcov(i-1,j,1,3)-0.5*bcov(i-2,j,1,3))
+c$$$      enddo
+c$$$      write (*,*) '==========================='
+c$$$      write (*,*) 'Outside helical cov B'
+c$$$      do j=1,nyd
+c$$$        write (*,*) i,j,bcovext(j,1,2:3)
+c$$$      enddo
+c$$$      stop
 
 c     End program
 
@@ -725,28 +758,21 @@ c     rw_hel
 c     ####################################################################
       subroutine rw_hel
 
-      integer :: i_bc,m,n,jglobal,i,j,mmm
+      integer :: i_bc,m,n,jglobal,i,j,mmm,m1
       real(8) :: theta(nyd),Bn(1,nyd,1),Bnl(1,ny,1)
      .          ,Br_m(nyd),Bi_m(nyd),mm(nyd)
-     .          ,phir_m(nyd),phii_m(nyd),pv,RR,kn,rm
-     .          ,Bth(nyd),Bz(nyd),rbc
-      real(8) :: Impv,Kmpv,Kmp,Imp,Km,Im
-      complex(16) :: ii=(0d0,1d0)
+     .          ,phir_m(nyd),phii_m(nyd)
+     .          ,Bth(nyd),Bz(nyd)
+      real(8) :: Impv,Kmpv,Kmp,Imp,Km,Im,pv,pw,RR,kk,rm,rbc
 
       i_bc = nx + 1
 
-      !Helical geometry parameters
-      kn = g_def%params(2)
-
       !Global angular mesh
-      theta = g_def%yg
+      theta = g_def%yg(1:nyd)
 
       !Extrapolate to r=1
       Bnl(1,:,1) = 1.5*bcov(nx  ,1:ny,1,1)
-     .            +0.5*bcov(nx-1,1:ny,1,1)
-c diag***
-      Bnl(1,:,1) = sin(2*theta)
-c diag***
+     .            -0.5*bcov(nx-1,1:ny,1,1)
       
       !Gather Bnormal in parallel along boundary
 #if defined(petsc)
@@ -757,6 +783,7 @@ c diag***
 
       !Perform FFT
       call fft(nyd,Bn(1,:,1),theta,nyd,Br_m,Bi_m,mm,0,0)
+
 c diag***
 c$$$      call ifft(nyd,Bth,theta,nyd,Br_m,Bi_m,mm,0)
 c$$$
@@ -769,100 +796,64 @@ c$$$      write (*,*) "Real=",br_m
 c$$$      write (*,*) "Imag=",bi_m
 c$$$      write (*,*) "Ampl=",sqrt(br_m**2+bi_m**2)
 c$$$      write (*,*) mm
-c$$$      write (*,*) BESSI(2,0.7d0)
-c$$$      write (*,*) BESSK(1,1.0d0)
 c$$$      stop
 c diag***
       !Find potential solution Phi outside of resistive wall
-      if (kn == 0d0) then
-        do m=1,nyd
-          if (mm(m) == 0d0) then
-            phir_m(m) = 0d0 ; phii_m(m) = 0d0
+      kk = g_def%params(2)
+
+      if (kk == 0d0) then
+        do m=0,nyd-1
+          if (m == 0) then
+            phir_m(m+1) = 0d0 ; phii_m(m+1) = 0d0
           else
             rm = rv**(2*mm(m))
-            phir_m(m) = -Br_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
-            phii_m(m) = -Bi_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
+            phir_m(m+1) = -Br_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
+            phii_m(m+1) = -Bi_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
           endif
         enddo
       else
+        pw = abs(kk)
+        pv = abs(kk)*rv
         do m=1,nyd
-          pv = kn*rv
-          mmm =nint(mm(m))
-          Km   = BESSK(mmm  ,kn)                   
-          Kmp  =-BESSK(mmm-1,kn) - mmm/kn*BESSI(mmm,kn)
-          Kmpv =-BESSK(mmm-1,pv) - mmm/pv*BESSI(mmm,pv)
-          Im   = BESSI(mmm  ,kn)
-          Imp  = BESSI(mmm-1,kn) - mmm/kn*BESSI(mmm,kn)
-          Impv = BESSI(mmm-1,pv) - mmm/pv*BESSI(mmm,pv)
-          phir_m(m) = Br_m(m)/kn*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
-          phii_m(m) = Bi_m(m)/kn*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
+          m1   = abs(nint(mm(m)))
+          mmm  = abs(m1-1)
+          Km   = BESSK(m1 ,pw)                   
+          Kmp  =-BESSK(mmm,pw) - m1/pw*BESSI(m1,pw)
+          Kmpv =-BESSK(mmm,pv) - m1/pv*BESSI(m1,pv)
+          Im   = BESSI(m1 ,pw)
+          Imp  = BESSI(mmm,pw) - m1/pw*BESSI(m1,pw)
+          Impv = BESSI(mmm,pv) - m1/pv*BESSI(m1,pv)
+          phir_m(m)=Br_m(m)/pw*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
+          phii_m(m)=Bi_m(m)/pw*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
         enddo
       endif
 
       !Reconstruct GLOBAL cyl magnetic field components from grad(Phi) outside plasma wall
-      !Bth
-      Br_m = ii*mm*phir_m
-      Bi_m = ii*mm*phii_m
+      !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
+      Br_m = mm*phii_m
+      Bi_m =-mm*phir_m
       call ifft(nyd,Bth,theta,nyd,Br_m,Bi_m,mm,0)
 
-      !Bz
-      Br_m = ii*kn*phir_m
-      Bi_m = ii*kn*phii_m
+      !Bz [multiply by -sqrt(-1)*k; minus sign from convention of iFFT]
+      m    = g_def%params(1)
+      Br_m = mm*kk/m*phii_m  !mm vector, m scalar; for helical only
+      Bi_m =-mm*kk/m*phir_m  !mm vector, m scalar; for helical only
       call ifft(nyd,Bz,theta,nyd,Br_m,Bi_m,mm,0)
 
       !Get LOCAL helical (cov) magnetic field components @ r=1 (store in (nx+1))
       rbc = 1d0
-      m   = g_def%params(1)
 
       do k = klom,khip
         do j = jlom,jhip
           jglobal = j + gv%gparams%jlo(1) - 1
-          bcov(i_bc,j,k,2) = rbc*Bth(jglobal)/m
-          bcov(i_bc,j,k,3) = Bz (jglobal) - rbc*kn/m*Bth(jglobal)
+          if (jglobal > nyd) jglobal = jglobal - nyd
+          if (jglobal < 1  ) jglobal = nyd + jglobal
+          bcovext(j,k,2) = rbc*Bth(jglobal)/m
+          bcovext(j,k,3) = Bz (jglobal) - rbc*kk/m*Bth(jglobal)
         enddo
       enddo
-      
-      end subroutine rw_hel
 
-c$$$c     FFT normal component of magnetic field at resistive wall
-c$$$
-c$$$      bcov(i,:,:,1) --> bcovnm(:,:)
-c$$$
-c$$$c     Find potential solution outside of wall
-c$$$
-c$$$      !Case n=m=0
-c$$$      phi00 = 0d0
-c$$$
-c$$$      !Case n=0, m/=0
-c$$$      phi0m(0,m) = -bcovnm(0,m)/m*(rv**(2*m)+1d0)/(rv**(2*m)-1d0)
-c$$$
-c$$$      !Other cases
-c$$$      RR = gv%gparams%params(3)
-c$$$      if (coords == 'hel') then
-c$$$        kn = gv%gparams%params(2)
-c$$$      else
-c$$$        kn = n/RR
-c$$$      endif
-c$$$      pv = kn*rv
-c$$$
-c$$$      Impv =
-c$$$      Km   =
-c$$$      kmpv =
-c$$$      Im   =
-c$$$      Kmp  =
-c$$$      Imp  =
-c$$$      
-c$$$      phinm(n,m) = bcovnm(n,m)/kn*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
-c$$$      
-c$$$c     Reconstruct magnetic field components outside plasma wall
-c$$$
-c$$$      !B_theta
-c$$$      phinm(n,m) -> ii*m*phinm(n,m)
-c$$$      inverse FFT -> bcov(i,:,:,2)
-c$$$
-c$$$      !B-z
-c$$$      phinm(n,m) -> ii*kn*phinm(n,m)
-c$$$      inverse FFT -> bcov(i,:,:,3)
+      end subroutine rw_hel
 
       end subroutine rw_bc
 

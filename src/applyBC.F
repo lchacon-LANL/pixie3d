@@ -476,10 +476,7 @@ c       Allocate auxiliary variables in local domain
         endif
 
         if (res_wall_bc) then
-          !Placeholder
-          
-          call rw_bc(gv%gparams,bcov,1d0,1.5d0,E_bc)
-          stop
+          call rw_bc(gv%gparams,bcov,tau_w,r_v,E_bc)
         endif
 
         pinch_bc = pinch_flow.or.res_wall_bc
@@ -661,7 +658,7 @@ c       Magnetic field BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-
+                    
 c$$$        !diag ****
 c$$$        v0 = abs(bcnv-bcnv_0)
 c$$$        call createDrawInCfile(3,"debug.bin",'Solution','t','x','y'
