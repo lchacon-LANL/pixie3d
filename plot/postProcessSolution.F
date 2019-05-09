@@ -216,6 +216,12 @@ c Poloidal velocity diagnostic
         if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
+c Poloidal velocity diagnostic
+
+      if (res_wall_bc) then
+        if (my_rank == 0) write (*,*) 'Bn_@_wall',time,bcov(nx+1,1,1,1)
+      endif
+      
 c Velocity and current intrinsic components (wrt B)
 
       do k = kming,kmaxg
