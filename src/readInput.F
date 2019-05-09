@@ -65,7 +65,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
-     .                   ,br_pert_bc_old,br_pert_phase_old
+     .                   ,br_pert_bc_old,br_pert_phase_old,res_wall_bc
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -808,8 +808,11 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       !Miscellaneous
       if (ts_restart) dcon = .false.
 
-      if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
-
+      if (coords == 'hel') then
+        nh2 = nint(gparams(1))
+        nh1 = nh2               !Special case for 2D helical equilibria
+      endif
+      
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'

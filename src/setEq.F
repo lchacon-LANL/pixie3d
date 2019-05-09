@@ -56,11 +56,13 @@ c Local variables
       logical :: covariant,to_cartsn,cartsn,a_bc,find_a,div_clean
 
       real(8) :: r,jac1,bnorm,aaa,bbb,ccc,qq,qqp,q0,RR,ff,nn,b_0
-     .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,vr,rrho,r1
+     .          ,aspect_ratio,mm,kk,Iz,bz0,btheta,rrho,r1
      .          ,r0(1),a1,b1,dummy1,dummy2,dummy3,eta_in,err,bz_avg,dr
-     .          ,bzh,bth,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,eps
+     .          ,bzh,rh,e0_over_eta,m0_over_nu,theta_ppnch,p0,prsw,eps
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
-     .          ,hlx,y_char,pw,besselIp,besselI,br,bz
+     .          ,hlx,y_char,besselIp,besselI,br,bth,bz,kn,pv,pw
+     .          ,Impv,Kmpv,Kmp,Imp,Km,Im,vr,vth,vz
+     .          ,Er,Eth,Ez,btho,bzo,bthi,bzi
 
       real(8) :: rint(0:nxdp),dh,bth0(0:nxdp)
      .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
@@ -1814,8 +1816,8 @@ c     ------------------------------------------
         mm   = gv%gparams%params(1)
         kk   = gv%gparams%params(2)
         RR   = gv%gparams%params(3)
-        beta = gv%gparams%params(6)
-        pw   = gv%gparams%params(8)
+        beta = gv%gparams%params(4)
+        prsw = gv%gparams%params(5)
 
         if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
@@ -1828,8 +1830,38 @@ c     Check coordinates
           call pstop('setEquilibrium',messg)
         endif
 
-        !Build equilibrium
-        mmm = nint(mm)
+        !Amplitude of external B at bdry
+        kn = abs(kk)
+        pw = kn
+        pv = kn*r_v
+        Km   = BESSK(nh2  ,pw)                   
+        Kmp  =-BESSK(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
+        Kmpv =-BESSK(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
+        Im   = BESSI(nh2  ,pw)
+        Imp  = BESSI(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
+        Impv = BESSI(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
+        btho =-mm*Imp*(Km *Impv-Kmpv*Im )
+     .               /(Kmp*Impv-Kmpv*Imp)
+        bzo  =-kk*Imp*(Km *Impv-Kmpv*Im )
+     .               /(Kmp*Impv-Kmpv*Imp)
+
+        !Amplitude of internal B at bdry
+        bthi =-mm*Im     !Sign according to DFT convention
+        bzi  =-kk*Im     !Sign according to DFT convention
+
+        !Build vacuum potential
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+              r = abs(x1)
+              besselI = BESSI(nh2,kn*r)
+              aa(i,j,k,1) = besselI*cos(y1)
+            enddo
+          enddo
+        enddo
+
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
@@ -1838,20 +1870,59 @@ c     Check coordinates
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              besselIp = BESSI(mmm-1,kk) - mm/kk*BESSI(mmm,kk)
-              besselI  = BESSI(mmm,kk)
-              br  = kk*besselIp*cos(y1)
-              bth =-mm*besselI *sin(y1)
-              bz  =-kk*besselI *sin(y1)
+              !Cnv helical B field
+              r = abs(x1)
+              besselIp = BESSI(nh2-1,kn*r) - nh2/(kn*r)*BESSI(nh2,kn*r)
+              besselI  = BESSI(nh2  ,kn*r)
+              br  = kn*besselIp*cos(y1)
+              bth =-mm*besselI *sin(y1)/x1  !Sign according to DFT convention
+              bz  =-kk*besselI *sin(y1)     !Sign according to DFT convention
 
               bb(i,j,k,1)=x1*br
               bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
               bb(i,j,k,3)=jac1*bz
 
-              var(i,j,k,IVX:IVZ)=0d0
+c$$$              bb(i,j,k,:) = grad_ijk(gv%gparams,i,j,k,nx,ny,nz,igx,igx
+c$$$     .                              ,igx,aa(:,:,:,1))
+c$$$
+c$$$              bb(i,j,k,:) = XformToCnv(gv%gparams,i,j,k,1,bb(i,j,k,:))
+
+              !Boundary cov helical electric field @ r=1
+              Er  = 0d0
+              Eth =-(bzo -bzi )*sin(y1)/tau_w
+              Ez  = (btho-bthi)*sin(y1)/tau_w
+
+              !Cyl pinch flow
+              vr  = ( Eth*bz-Ez*bth)/(br**2+bz**2+bth**2)
+              vth = (  Ez*br       )/(br**2+bz**2+bth**2)
+              vz  = (-Eth*br       )/(br**2+bz**2+bth**2)
+
+c$$$              if (i==nx+1.and.k==1.and.(j>jlom.and.j<jhip)) then
+c$$$                !Inside cyl B
+c$$$                write (*,*) i,j,br,bth,bz
+c$$$                !================
+c$$$                if (j==1) write (*,*) "Inside helical cov B"
+c$$$                bz  = bz - kk*bth
+c$$$                write (*,*) i,j,br,bth,bz
+c$$$                !================
+c$$$                !Outer helical cov B
+c$$$                if (j==1) write (*,*) "Outside helical cov B"
+c$$$                write (*,*) i,j,btho*sin(y1),(bzo- kk*btho)*sin(y1)
+c$$$                !================
+c$$$                !Helical cov E
+c$$$                if (j==1) write (*,*) "Helical cov E"
+c$$$                Ez  = Ez - kk*Eth
+c$$$                write (*,*) i,j,Eth,Ez
+c$$$              endif
+             
+              var(i,j,k,IVX)=x1*vr
+              var(i,j,k,IVY)=jac1*(vth/x1+kk/mm*vz)
+              var(i,j,k,IVZ)=jac1*vz
+cc              var(i,j,k,IVX:IVZ)=0d0
+
               var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,IPRS) = pw
+              var(i,j,k,IPRS) = prsw
             enddo
           enddo
         enddo
@@ -1869,7 +1940,7 @@ c     --------------------------------------------------
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
         m0_over_nu  = gv%gparams%params(7)
-        pw = gv%gparams%params(8)
+        prsw        = gv%gparams%params(8)
 
         if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
 
@@ -1932,7 +2003,7 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
 ! Daniele, 11/10/2013
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,pw
+             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,prsw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
              call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
@@ -2096,7 +2167,7 @@ c     Magnetic field
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
         m0_over_nu  = gv%gparams%params(7)
-        pw = gv%gparams%params(8)
+        prsw = gv%gparams%params(8)
 
         if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
         if (nh3 == 0) nh3 = nint(kk*RR)    !To set the right perturbation wavelength
@@ -2167,7 +2238,7 @@ c     Equilibria (numerical)
           bzz0 = bz0
 
           if (gamma > 1d0) then
-             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,pw
+             call Ohm_equil_1d_xport(-kk,RR,e0_over_eta,theta_ppnch,prsw
      .                              ,p00,bth0,bzz0,vr0,psi0)
           else
              call Ohm_equil_1d      (-kk,RR,e0_over_eta,theta_ppnch
@@ -2258,7 +2329,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         nn  = gv%gparams%params(5)            !n mode
         e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
         beta= gv%gparams%params(7)            !Toroidal beta
-        pw  = gv%gparams%params(8)            !Pressure at wall
+        prsw= gv%gparams%params(8)            !Pressure at wall
         
         kk = 0d0   !To avoid affecting q-profile
 
@@ -2315,7 +2386,7 @@ c     Ohmic GS equilibrium
 
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
-        var(:,:,:,IPRS) = var(:,:,:,IPRS) + pw
+        var(:,:,:,IPRS) = var(:,:,:,IPRS) + prsw
         var(:,:,:,IPRS) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
 
       case ('stell')
@@ -2328,7 +2399,7 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
         nn  = gv%gparams%params(5)            !n mode
         e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
         beta= gv%gparams%params(7)            !Toroidal beta
-        pw  = gv%gparams%params(8)            !Pressure at wall
+        prsw= gv%gparams%params(8)            !Pressure at wall
         
         kk = 0d0   !To avoid affecting q-profile
 
@@ -2375,7 +2446,7 @@ c$$$        var(:,:,:,IVZ) = 0d0
 c$$$
 c$$$        !Fill other arrays
 c$$$        var(:,:,:,IRHO) = 1d0
-c$$$        var(:,:,:,IPRS) = var(:,:,:,IPRS) + pw
+c$$$        var(:,:,:,IPRS) = var(:,:,:,IPRS) + prsw
 c$$$        var(:,:,:,IPRS) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
 
         var(:,:,:,IRHO) = 1d0
