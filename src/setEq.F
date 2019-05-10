@@ -1835,8 +1835,8 @@ c     Check coordinates
         pw = kn
         pv = kn*r_v
         Km   = BESSK(nh2  ,pw)                   
-        Kmp  =-BESSK(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
-        Kmpv =-BESSK(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
+        Kmp  =-BESSK(nh2-1,pw) - nh2/pw*BESSK(nh2,pw)
+        Kmpv =-BESSK(nh2-1,pv) - nh2/pv*BESSK(nh2,pv)
         Im   = BESSI(nh2  ,pw)
         Imp  = BESSI(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
         Impv = BESSI(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
@@ -1846,8 +1846,8 @@ c     Check coordinates
      .               /(Kmp*Impv-Kmpv*Imp)
 
         !Amplitude of internal B at bdry
-        bthi =-mm*Im     !Sign according to DFT convention
-        bzi  =-kk*Im     !Sign according to DFT convention
+        bthi =-mm*Im
+        bzi  =-kk*Im
 
         !Build vacuum potential
         do k = klom,khip
@@ -1875,8 +1875,8 @@ c     Check coordinates
               besselIp = BESSI(nh2-1,kn*r) - nh2/(kn*r)*BESSI(nh2,kn*r)
               besselI  = BESSI(nh2  ,kn*r)
               br  = kn*besselIp*cos(y1)
-              bth =-mm*besselI *sin(y1)/x1  !Sign according to DFT convention
-              bz  =-kk*besselI *sin(y1)     !Sign according to DFT convention
+              bth =-mm*besselI *sin(y1)/x1
+              bz  =-kk*besselI *sin(y1)
 
               bb(i,j,k,1)=x1*br
               bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
@@ -1895,23 +1895,23 @@ c$$$              bb(i,j,k,:) = XformToCnv(gv%gparams,i,j,k,1,bb(i,j,k,:))
               !Cyl pinch flow
               vr  = ( Eth*bz-Ez*bth)/(br**2+bz**2+bth**2)
               vth = (  Ez*br       )/(br**2+bz**2+bth**2)
-              vz  = (-Eth*br       )/(br**2+bz**2+bth**2)
+              vz  = (       -Eth*br)/(br**2+bz**2+bth**2)
 
 c$$$              if (i==nx+1.and.k==1.and.(j>jlom.and.j<jhip)) then
 c$$$                !Inside cyl B
 c$$$                write (*,*) i,j,br,bth,bz
 c$$$                !================
 c$$$                if (j==1) write (*,*) "Inside helical cov B"
-c$$$                bz  = bz - kk*bth
+c$$$                bz  = bz - kk/mm*bth
 c$$$                write (*,*) i,j,br,bth,bz
 c$$$                !================
 c$$$                !Outer helical cov B
 c$$$                if (j==1) write (*,*) "Outside helical cov B"
-c$$$                write (*,*) i,j,btho*sin(y1),(bzo- kk*btho)*sin(y1)
+c$$$                write (*,*) i,j,btho*sin(y1),(bzo- kk/mm*btho)*sin(y1)
 c$$$                !================
 c$$$                !Helical cov E
 c$$$                if (j==1) write (*,*) "Helical cov E"
-c$$$                Ez  = Ez - kk*Eth
+c$$$                Ez  = Ez - kk/mm*Eth
 c$$$                write (*,*) i,j,Eth,Ez
 c$$$              endif
              

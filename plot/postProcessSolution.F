@@ -216,10 +216,11 @@ c Poloidal velocity diagnostic
         if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
-c Poloidal velocity diagnostic
+c Resistive wall diagnostics
 
       if (res_wall_bc) then
-        if (my_rank == 0) write (*,*) 'Bn_@_wall',time,bcov(nx+1,1,1,1)
+        if (my_rank == 0) write (*,*) '||Bn||',time,
+     .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,1)**2,average=.false.))
       endif
       
 c Velocity and current intrinsic components (wrt B)

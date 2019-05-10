@@ -818,8 +818,8 @@ c diag***
           m1   = abs(nint(mm(m)))
           mmm  = abs(m1-1)
           Km   = BESSK(m1 ,pw)                   
-          Kmp  =-BESSK(mmm,pw) - m1/pw*BESSI(m1,pw)
-          Kmpv =-BESSK(mmm,pv) - m1/pv*BESSI(m1,pv)
+          Kmp  =-BESSK(mmm,pw) - m1/pw*BESSK(m1,pw)
+          Kmpv =-BESSK(mmm,pv) - m1/pv*BESSK(m1,pv)
           Im   = BESSI(m1 ,pw)
           Imp  = BESSI(mmm,pw) - m1/pw*BESSI(m1,pw)
           Impv = BESSI(mmm,pv) - m1/pv*BESSI(m1,pv)
@@ -848,7 +848,7 @@ c diag***
           jglobal = j + gv%gparams%jlo(1) - 1
           if (jglobal > nyd) jglobal = jglobal - nyd
           if (jglobal < 1  ) jglobal = nyd + jglobal
-          bcovext(j,k,2) = rbc*Bth(jglobal)/m
+          bcovext(j,k,2) = rbc*Bth(jglobal)
           bcovext(j,k,3) = Bz (jglobal) - rbc*kk/m*Bth(jglobal)
         enddo
       enddo
