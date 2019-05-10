@@ -65,7 +65,8 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
-     .                   ,br_pert_bc_old,br_pert_phase_old,res_wall_bc
+     .                   ,br_pert_bc_old,br_pert_phase_old
+     .                   ,res_wall_bc,r_v,tau_w
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -82,7 +83,9 @@ c Namelists
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
-     .                   ,limit_dt_flow_cfl
+     .                   ,limit_dt_flow_cfl,ts_ramp_up_dt
+     .                   ,ts_ramp_up_dt_fraction
+     .                   ,ts_ramp_up_dt_recovery
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
