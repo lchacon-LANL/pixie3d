@@ -670,9 +670,9 @@ c     End program
 
       end subroutine J_pinch_bc
 
-c     rw_bc
+c     find_Ebc
 c     #################################################################
-      subroutine rw_bc(g_def,bcov,tau_w,rv,E_0)
+      subroutine find_Ebc(g_def,bcov,E_0)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -685,7 +685,48 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8) :: tau_w,rv
+      real(8),dimension(0:,0:,0:,:) :: bcov,E_0
+
+c     Local variables
+
+      integer :: i,nx
+      
+c     Begin program
+
+      nx = size(bcov,1)-2
+
+      i = nx + 1
+      
+      if (pinch_flow.and.(.not.res_wall_bc)) then
+        E_bc(i,:,:,1) = E0(1)
+        E_bc(i,:,:,2) = E0(2)
+        E_bc(i,:,:,3) = E0(3)
+      endif
+      
+cc      if (res_wall_bc.and.old_time_eval) then
+      if (res_wall_bc) then
+        call rw_bc(gv%gparams,bcov,E_bc)
+      endif
+ 
+c     End program
+
+      end subroutine find_Ebc
+      
+c     rw_bc
+c     #################################################################
+      subroutine rw_bc(g_def,bcov,E_0)
+
+c     -----------------------------------------------------------------
+c     Finds tangential cov electric field components according to
+c     resistive wall BCs.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
       real(8),dimension(0:,0:,0:,:) :: bcov,E_0
 
 c     Local variables
@@ -697,8 +738,10 @@ c     Local variables
      .          ,bcovext(0:size(bcov,2)-1
      .                  ,0:size(bcov,3)-1,2:3)
 
+      real(8) :: dum
+      
 c     Begin program
-
+     
       nx = size(bcov,1)-2
       ny = size(bcov,2)-2
       nz = size(bcov,3)-2
@@ -730,7 +773,11 @@ c     Find electric field components @ r=1 (store in (nx+1))
           E_0(i,j,k,:) = XformToCov(g_def,i,j,k,1,E_0(i,j,k,:))
         enddo
       enddo
-      
+
+c$$$      write (*,*) "Bext",sqrt(sum(bcovext(:,:,2:3)**2))
+c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i,1:ny,1:nz,2:3)**2))
+c$$$      dum = sqrt(sum(E_0(i,:,:,2:3)**2))
+c$$$      if (my_rank == 0) write (*,*) "||Ebc||",time,dum
 c$$$      write (*,*) '==========================='
 c$$$      write (*,*) 'Helical cov E'
 c$$$      do j=1,nyd
@@ -773,7 +820,7 @@ c     ####################################################################
       !Extrapolate to r=1
       Bnl(1,:,1) = 1.5*bcov(nx  ,1:ny,1,1)
      .            -0.5*bcov(nx-1,1:ny,1,1)
-      
+
       !Gather Bnormal in parallel along boundary
 #if defined(petsc)
       call find_global_nobc(Bnl,Bn,mpi_comm=g_def%MPI_COMM_Y)
@@ -806,14 +853,14 @@ c diag***
           if (m == 0) then
             phir_m(m+1) = 0d0 ; phii_m(m+1) = 0d0
           else
-            rm = rv**(2*mm(m))
+            rm = r_v**(2*mm(m))
             phir_m(m+1) = -Br_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
             phii_m(m+1) = -Bi_m(m)/mm(m)*(rm+1d0)/(rm-1d0)
           endif
         enddo
       else
         pw = abs(kk)
-        pv = abs(kk)*rv
+        pv = abs(kk)*r_v
         do m=1,nyd
           m1   = abs(nint(mm(m)))
           mmm  = abs(m1-1)
@@ -823,8 +870,8 @@ c diag***
           Im   = BESSI(m1 ,pw)
           Imp  = BESSI(mmm,pw) - m1/pw*BESSI(m1,pw)
           Impv = BESSI(mmm,pv) - m1/pv*BESSI(m1,pv)
-          phir_m(m)=Br_m(m)/pw*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
-          phii_m(m)=Bi_m(m)/pw*(Impv*Km-Kmpv*Im)/(Kmp*Impv-Kmpv*Imp)
+          phir_m(m)=Br_m(m)/pw*(Impv*Km-Kmpv*Im)/(Impv*Kmp-Kmpv*Imp)
+          phii_m(m)=Bi_m(m)/pw*(Impv*Km-Kmpv*Im)/(Impv*Kmp-Kmpv*Imp)
         enddo
       endif
 
@@ -852,7 +899,7 @@ c diag***
           bcovext(j,k,3) = Bz (jglobal) - rbc*kk/m*Bth(jglobal)
         enddo
       enddo
-
+    
       end subroutine rw_hel
 
       end subroutine rw_bc

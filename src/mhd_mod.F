@@ -403,6 +403,8 @@ c ######################################################################
      .                                       ,vecnv_0
      .                                       ,vscnv
 
+        real(8),pointer,dimension(:,:,:,:) :: E_bc
+        
       contains
 
 c     defineAuxVariables
@@ -1709,7 +1711,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc
+      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,E_bc
      .          ,stat=istat)
 
       nullify(bcnv

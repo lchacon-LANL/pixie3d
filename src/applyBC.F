@@ -292,7 +292,6 @@ c Local variables
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acov_n,acnv_n
-     .                                         ,E_bc
 
       real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
 
@@ -462,22 +461,13 @@ c       Allocate auxiliary variables in local domain
      .          ,prs1(0:nnx+1,0:nny+1,0:nnz+1))
 
         allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
-     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3)
-     .          ,E_bc(0:nnx+1,0:nny+1,0:nnz+1,3))
+     .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+        if (.not.associated(E_bc))
+     .       allocate(E_bc(0:nnx+1,0:nny+1,0:nnz+1,3))
 
         v0   = 0d0
         vdum = 0d0
-        E_bc = 0d0
-
-        if (pinch_flow) then
-          E_bc(nnx+1,:,:,1) = E0(1)
-          E_bc(nnx+1,:,:,2) = E0(2)
-          E_bc(nnx+1,:,:,3) = E0(3)
-        endif
-
-        if (res_wall_bc) then
-          call rw_bc(gv%gparams,bcov,tau_w,r_v,E_bc)
-        endif
 
         pinch_bc = pinch_flow.or.res_wall_bc
 
@@ -496,6 +486,12 @@ c$$$     .              ,iorder=2)
 
         case(IBCNV_0)
 
+          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+            prs0 = rho_0*tmp_0
+            call find_Ebc(gv%gparams,bcov_0,E_bc)  !First time this is called
+            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+          endif
+          
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -504,13 +500,21 @@ c$$$     .              ,iorder=2)
         case(IBCOV_0)   !Done with bcnv_0
 #else
         case(IBCNV_0)
+
+          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+            prs0 = rho_0*tmp_0
+            call find_Ebc(gv%gparams,bcov_0,E_bc)  !First time this is called
+            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+
+            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
+     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
+     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
+     .                ,iorder=1)
+          else
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
-c$$$     .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
-c$$$     .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-c$$$     .              ,iorder=1)
+          endif
 
         case(IBCOV_0)
 
@@ -632,8 +636,24 @@ cc            acov = acov + acov_0
 
             deallocate(acov_n,acnv_n)
           else
-            call XferBCs(acov_0,v0,.true.)
-
+c$$$            if (res_wall_bc) then
+c$$$              call find_Ebc(gv%gparams,bcov,E_bc) !First time this is called
+c$$$              allocate(acov_n(0:nnx+1,0:nny+1,0:nnz+1,3))
+c$$$
+c$$$              acov_n(nnx:,:,:,1) = u_n%array_var(IAX)%array(nnx:,:,:)
+c$$$              acov_n(nnx:,:,:,2) = u_n%array_var(IAY)%array(nnx:,:,:)
+c$$$              acov_n(nnx:,:,:,3) = u_n%array_var(IAZ)%array(nnx:,:,:)
+c$$$
+c$$$              call XferBCs(acov_n,v0,.true.)
+c$$$
+c$$$!              write (*,*) "here",time,old_time_eval,source_eval,itime
+c$$$!              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:) - dt*E_bc(nnx+1,:,:,:)
+c$$$
+c$$$              deallocate(acov_n)
+c$$$            else
+              call XferBCs(acov_0,v0,.true.)
+c$$$            endif
+            
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
@@ -650,6 +670,7 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
+            call find_Ebc(gv%gparams,bcov,E_bc)  !First time this is called
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -685,6 +706,7 @@ c       Current BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
+cc            write (*,*) "J"
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -769,7 +791,7 @@ c$$$     .              ,is_cnv=vaux%vec_list(IENI)%cnv)
 
 c       Deallocate variables 
 
-        deallocate(v0,vdum,prs0,prs1,E_bc)
+        deallocate(v0,vdum,prs0,prs1)
 
       end select
 
@@ -1641,7 +1663,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IAX,IAY,IAZ)
 
-        if (ivar /= dim .or. bcond(ibc) == FSYM ) then
+        if (ivar/=dim.or.bcond(ibc)==FSYM) then
 
           call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)
@@ -1652,7 +1674,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
           call solen_bc(g_def,array,dim,loc,.true.,.false.)
 
         endif
-
+        
       case default
 
         messg = 'Variable '//int2char(ieq)//' does not exist'
