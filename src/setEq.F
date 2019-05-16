@@ -1849,18 +1849,18 @@ c     Check coordinates
         bthi =-mm*Im
         bzi  =-kk*Im
 
-        !Build vacuum potential
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
-     .                              ,coords)
-              r = abs(x1)
-              besselI = BESSI(nh2,kn*r)
-              aa(i,j,k,1) = besselI*cos(y1)
-            enddo
-          enddo
-        enddo
+c$$$        !Build vacuum potential
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+c$$$     .                              ,coords)
+c$$$              r = abs(x1)
+c$$$              besselI = BESSI(nh2,kn*r)
+c$$$              aa(i,j,k,1) = besselI*cos(y1)
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1926,6 +1926,10 @@ cc              var(i,j,k,IVX:IVZ)=0d0
             enddo
           enddo
         enddo
+
+#if !defined(vec_pot)
+        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
+#endif
 
 c     --------------------------------------------------
 c     ---------------  OHMIC EQUILIBRIA ----------------

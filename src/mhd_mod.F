@@ -291,6 +291,7 @@ c ######################################################################
      .                       ,IBCNV_0 =6
      .                       ,IBCOV   =7
      .                       ,IBCOV_0 =8
+     .                       ,IBCOV_N =22
 
         integer, parameter :: IVCNV   =9
      .                       ,IVCNV_N =10
@@ -318,6 +319,7 @@ c ######################################################################
      .                       ,IBCNV_0 =6
      .                       ,IBCOV   =7
      .                       ,IBCOV_0 =8
+     .                       ,IBCOV_N =25
 
         integer, parameter :: IACNV   =9
      .                       ,IACOV   =10
@@ -378,6 +380,7 @@ c ######################################################################
      .                                       ,bcnv_0
      .                                       ,bcov
      .                                       ,bcov_0
+     .                                       ,bcov_n
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcnv_0
@@ -504,6 +507,11 @@ c     Setup pointers
         vaux%vec_list(IVECOV_N)%descr = 'Ve_n cov'
         vaux%vec_list(IVECOV_N)%time_n= .true.
         vecov_n => vaux%vec_list(IVECOV_N)%vec
+
+        vaux%vec_list(IBCOV_N)%cnv = .false.
+        vaux%vec_list(IBCOV_N)%descr = 'B_n cov'
+        vaux%vec_list(IBCOV_N)%time_n= .true.
+        bcov_n => vaux%vec_list(IBCOV_N)%vec
 
         !New-time variables
         vaux%var_list(IRHO_AUX)%descr = 'rho'
@@ -1028,6 +1036,11 @@ c     Equilibrium quantities
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%bc_dep_list(1,3) = 0 !trivial
 
+      !B_n cov
+      vaux%vec_list(IBCOV_N)%bc_dep_list(1,1) = IBCOV_N*AUX
+      vaux%vec_list(IBCOV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCOV_N)%bc_dep_list(1,3) = 0 !trivial
+
       !E-field cov
       vaux%vec_list(IENI_0)%bc_dep_list(1,1) = IETA_0*AUX
       vaux%vec_list(IENI_0)%bc_dep_list(1,2) = SCALAR
@@ -1139,6 +1152,10 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(4,1) = IETA*AUX
         vaux%vec_list(IBCNV)%bc_dep_list(4,2) = SCALAR
         vaux%vec_list(IBCNV)%bc_dep_list(4,3) = 0 !trivial
+
+        vaux%vec_list(IBCNV)%bc_dep_list(5,1) = IBCOV_N*AUX
+        vaux%vec_list(IBCNV)%bc_dep_list(5,2) = VECTOR
+        vaux%vec_list(IBCNV)%bc_dep_list(5,3) = 0 !trivial
       endif
 
       !B cov
@@ -1186,6 +1203,10 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
         vaux%vec_list(IVCNV)%bc_dep_list(5,1) = IBCOV*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(5,2) = VECTOR
         vaux%vec_list(IVCNV)%bc_dep_list(5,3) = 0 !trivial
+
+        vaux%vec_list(IVCNV)%bc_dep_list(6,1) = IBCOV_N*AUX
+        vaux%vec_list(IVCNV)%bc_dep_list(6,2) = VECTOR
+        vaux%vec_list(IVCNV)%bc_dep_list(6,3) = 0 !trivial
       else
         vaux%vec_list(IVCNV)%bc_dep_list(2,1) = IVCNV_0*AUX
         vaux%vec_list(IVCNV)%bc_dep_list(2,2) = VECTOR
@@ -1222,6 +1243,10 @@ cc      vaux%var_list(IHETA)%bc_dep_list(2,3) = 0 !trivial
         vaux%vec_list(IJCNV)%bc_dep_list(5,1) = IBCOV*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(5,2) = VECTOR
         vaux%vec_list(IJCNV)%bc_dep_list(5,3) = 1 !non-trivial
+
+        vaux%vec_list(IJCNV)%bc_dep_list(6,1) = IBCOV_N*AUX
+        vaux%vec_list(IJCNV)%bc_dep_list(6,2) = VECTOR
+        vaux%vec_list(IJCNV)%bc_dep_list(6,3) = 1 !non-trivial
       else
         vaux%vec_list(IJCNV)%bc_dep_list(2,1) = IJCNV_0*AUX
         vaux%vec_list(IJCNV)%bc_dep_list(2,2) = VECTOR
@@ -1397,6 +1422,11 @@ c     Equilibrium quantities
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,1) = IVECOV*AUX
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,3) = 0 !trivial
+
+      !B_n cov
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,1) = IBCOV*AUX
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,3) = 0 !trivial
 
       !E-field cov
       vaux%vec_list(IENI_0)%dom_dep_list(1,1) = IETA_0*AUX
@@ -1718,6 +1748,7 @@ c     Begin program
      .       ,bcnv_0
      .       ,bcov
      .       ,bcov_0
+     .       ,bcov_n
      .       ,jcnv
      .       ,jcnv_0
      .       ,jcov

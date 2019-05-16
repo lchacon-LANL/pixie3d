@@ -299,8 +299,12 @@ c Local variables
       
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -463,9 +467,6 @@ c       Allocate auxiliary variables in local domain
         allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
      .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
 
-        if (.not.associated(E_bc))
-     .       allocate(E_bc(0:nnx+1,0:nny+1,0:nnz+1,3))
-
         v0   = 0d0
         vdum = 0d0
 
@@ -488,7 +489,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,E_bc)  !First time this is called
+            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)  !First time this is called
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -503,7 +504,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,E_bc)  !First time this is called
+            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)  !First time this is called
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -637,7 +638,7 @@ cc            acov = acov + acov_0
             deallocate(acov_n,acnv_n)
           else
 c$$$            if (res_wall_bc) then
-c$$$              call find_Ebc(gv%gparams,bcov,E_bc) !First time this is called
+c$$$              call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
 c$$$              allocate(acov_n(0:nnx+1,0:nny+1,0:nnz+1,3))
 c$$$
 c$$$              acov_n(nnx:,:,:,1) = u_n%array_var(IAX)%array(nnx:,:,:)
@@ -670,7 +671,7 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call find_Ebc(gv%gparams,bcov,E_bc)  !First time this is called
+            call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -699,6 +700,8 @@ c$$$        !diag ****
         case(IBCOV) !Done when computing bcnv
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
+
+        case(IBCOV_N)
 
         case(IJCNV)
 
@@ -841,8 +844,12 @@ c Local variables
 
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -1120,10 +1127,10 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
           if (electron_hall) vecov_n = vecov     !Does NOT work for BDF2
  
-cc        case(IBCNV_N)
-cc
-cc          bcnv_n = bcnv !Save previous time step
+        case(IBCOV_N)
 
+          bcov_n = bcov !Save previous time step
+          
         case(IVCOV)
 
           vcov = XformVector(gv%gparams,igr,vcnv,.false.)
@@ -1303,8 +1310,12 @@ c Local variables
 
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -1456,6 +1467,8 @@ c$$$#endif
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
           vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
+
+        case(IBCOV_N)
 
         case(IVCNV_N)
 
