@@ -472,12 +472,15 @@ c       Find db=B^(n+1)-B^n
 c       Clean db
 
         tol_divcl = rtol
-c$$$        call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
-c$$$     .                  ,gm_it=it_divcl,rtol=tol_divcl)
-        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                     ,igx,igy,igz,db_cnv
-     .                     ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
-
+        if (res_wall_bc) then
+          call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
+     .                    ,gm_it=it_divcl,rtol=tol_divcl)
+        else
+          call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
+     .                       ,igx,igy,igz,db_cnv
+     .                       ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
+        endif
+        
 c       Find new B^(n+1)
 
         vnp%array_var(IBX)%array = db_cnv(:,:,:,1)
