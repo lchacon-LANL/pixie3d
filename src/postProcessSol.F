@@ -21,6 +21,8 @@ c--------------------------------------------------------------------
 
       use PC_setup, only: pc_as_solver
 
+      use local_BCS_variables, ONLY: res_wall_bc
+
       implicit none
 
 c Call variables

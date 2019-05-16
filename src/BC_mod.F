@@ -28,7 +28,7 @@ c####################################################################
         logical :: no_eq_bc,save_tn,no_tn_bc
 
         !Resistive wall vars
-        logical :: res_wall_bc=.true.
+        logical :: res_wall_bc=.true.,implicit_rw_bc=.false.
 
         real(8) :: tau_w=1d0,r_v=1.5d0
 
@@ -698,6 +698,8 @@ c     Begin program
       nz = size(bcov,3)-2
 
       i = nx + 1
+
+      if ((.not.implicit_rw_bc).and.(.not.old_time_eval)) return  !Explicit RW BC
       
       if (.not.associated(E_bc))
      .       allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
@@ -836,7 +838,7 @@ c     ####################################################################
      .          ,d2phir_m(nyd),d2phii_m(nyd)
      .          ,dBr(nyd),Bth(nyd),Bz(nyd)
       real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
-     .          ,efac,gamma
+     .          ,efac,gamma,dum
 
       i_bc = nx + 1
 
@@ -909,16 +911,16 @@ c     ####################################################################
           !Evolve normal B component
           gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
           efac  = exp(-gamma*dt/tau_w)
+c diag ****
+          if(m1==nint(g_def%params(1)).and.old_time_eval) then
+            dum=log((efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m))/Br_m(m))
+     .         *tau_w/dt
+            write (*,*)"Br norm. decay=",dum
+          endif
+c diag ****
           Br_m(m) = efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m)
           Bi_m(m) = efac*Bi_m(m)-(1d0-efac)/gamma*gBi_m(m)
 
-c diag ****
-          if(m1==nint(g_def%params(1)).and.old_time_eval) then
-            gamma=log(Br_m(m)/Brn_m(m))*tau_w/dt
-            write (*,*)"Br norm. decay=",gamma
-          endif
-c diag ****
-          
           !Find phi_nm
           phir_m(m)=Br_m(m)/pw*(dImv*Km-dKmv*Im)/(dImv*dKm-dKmv*dIm)
           phii_m(m)=Bi_m(m)/pw*(dImv*Km-dKmv*Im)/(dImv*dKm-dKmv*dIm)
