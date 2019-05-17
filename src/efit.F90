@@ -37,8 +37,10 @@
       real(8),dimension(:,:),allocatable :: psi_coef
 
       !Module variables
-      real(8) :: r_max,r_min,z_max,LL,iLL
+      real(8) :: r_max,r_min,z_max,LL,iLL,psisgn
 
+      logical :: short_efit_file=.true.,efit_dbg=.false.
+      
       CONTAINS
 
 !     find_RZ
@@ -64,7 +66,7 @@
      &            ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
         RR = sqrt(x1**2+y1**2)
-        ZZ = z1
+        ZZ = z1 + zmaxis*iLL
 
       END SUBROUTINE find_RZ
         
@@ -80,6 +82,7 @@
         
         !Local variables
         character(10) :: case(6)
+        real(8) :: chk_simag,chk_sibry
 
         integer :: i,j
         !Begin program
@@ -88,59 +91,143 @@
         open (unit=neqdsk,file=trim(efit_file),status="old")
    
         read (neqdsk,2000,IOSTAT=istat) (case(i),i=1,6),idum,nw,nh
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 1"
+          return
+        endif
         
         allocate(psirz(nw,nh),fpol(nw),pres(nw),ffprim(nw),pprime(nw),qpsi(nw) &
                 ,pressw(nw),pwprim(nw),dmion(nw),rhovn(nw))
    
         read (neqdsk,2020,IOSTAT=istat) rdim,zdim,rcentr,rleft,zmid
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 2"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) rmaxis,zmaxis,simag,sibry,bcentr
-        if (istat /= 0) return
-        read (neqdsk,2020,IOSTAT=istat) current,simag,xdum,rmaxis,xdum
-        if (istat /= 0) return
-        read (neqdsk,2020,IOSTAT=istat) zmaxis,xdum,sibry,xdum,xdum
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 3"
+          return
+        endif
+        
+        read (neqdsk,2020,IOSTAT=istat) current,chk_simag,xdum,rmaxis,xdum
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 4"
+          return
+        endif
+
+        read (neqdsk,2020,IOSTAT=istat) zmaxis,xdum,chk_sibry,xdum,xdum
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 5"
+          return
+        endif
+
+        if (chk_sibry /= sibry.or.chk_simag/=simag) then
+          write (*,*) "Inconsistent psi limits; FIX in EQU file"
+          istat = 1
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (fpol(i),i=1,nw)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 6"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (pres(i),i=1,nw)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 7"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (ffprim(i),i=1,nw)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 8"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (pprime(i),i=1,nw)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 9"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) ((psirz(i,j),i=1,nw),j=1,nh)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 10"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (qpsi(i),i=1,nw)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 11"
+          return
+        endif
 
         read (neqdsk,2022,IOSTAT=istat) nbbbs,limitr
-        if (istat /= 0) return
-
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 12"
+          return
+        endif
+        
         allocate(rbbbs(nbbbs),zbbbs(nbbbs),rlim(limitr),zlim(limitr))
 
         read (neqdsk,2020,IOSTAT=istat) (rbbbs(i),zbbbs(i),i=1,nbbbs)
-        if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 13"
+          return
+        endif
+
         read (neqdsk,2020,IOSTAT=istat) (rlim(i),zlim(i),i=1,limitr)
-        if (istat /= 0) return
-
-        read (neqdsk,2024,IOSTAT=istat) kvtor,rvtor,nmass
-        if (istat /= 0) return
-        if (kvtor.gt.0) then
-          read (neqdsk,2020,IOSTAT=istat) (pressw(i),i=1,nw)
-          if (istat /= 0) return
-          read (neqdsk,2020,IOSTAT=istat) (pwprim(i),i=1,nw)
-          if (istat /= 0) return
+        if (istat /= 0) then
+          write (*,*) "EFIT read error 14"
+          return
         endif
-        if (nmass.gt.0) then
-          read (neqdsk,2020,IOSTAT=istat) (dmion(i),i=1,nw)
-          if (istat /= 0) return
-        endif
-        read (neqdsk,2020,IOSTAT=istat) (rhovn(i),i=1,nw)
-        if (istat /= 0) return
 
-!!        call read_chk()
+        if (.not.short_efit_file) then
+          read (neqdsk,2024,IOSTAT=istat) kvtor,rvtor,nmass
+          if (istat /= 0) then
+            write (*,*) "EFIT read error 15"
+            istat = 0 !Incomplete EFIT file; not a terminating error
+            short_efit_file = .true.
+            return
+          endif
+
+          if (kvtor.gt.0) then
+            read (neqdsk,2020,IOSTAT=istat) (pressw(i),i=1,nw)
+            if (istat /= 0) then
+              write (*,*) "EFIT read error 16"
+              return
+            endif
+
+            read (neqdsk,2020,IOSTAT=istat) (pwprim(i),i=1,nw)
+            if (istat /= 0) then
+              write (*,*) "EFIT read error 17"
+              return
+            endif
+          endif
+        
+          if (nmass.gt.0) then
+            read (neqdsk,2020,IOSTAT=istat) (dmion(i),i=1,nw)
+            if (istat /= 0) then
+              write (*,*) "EFIT read error 18"
+              return
+            endif
+          endif
+        
+          read (neqdsk,2020,IOSTAT=istat) (rhovn(i),i=1,nw)
+          if (istat /= 0) then
+            write (*,*) "EFIT read error 19"
+            return
+          endif
+        endif
+
         close (neqdsk)
+
+        return
+        
+!!$        call read_chk()
    
 2000    format (6a8,3i4)
 2020    format (5e16.9)
@@ -149,6 +236,8 @@
 
       contains
 
+!       read_chk
+!       #########################################################################
         subroutine read_chk
 
           !Plot Psi(R,Z)
@@ -164,14 +253,21 @@
           !Plot flux boundary (gnuplot)
           open(unit=110,file="efit_bdrys.txt",status='unknown')
           do i=1,nbbbs
-             write(110,2020) rbbbs(i),zbbbs(i)
+             write(110,*) rbbbs(i),zbbbs(i)
           enddo
           close(110)
 
           !Plot limiter boundary (gnuplot)
           open(unit=110,file="efit_limits.txt",status='unknown')
           do i=1,limitr
-             write(110,2020) rlim(i),zlim(i)
+             write(110,*) rlim(i),zlim(i)
+          enddo
+          close(110)
+
+          !Plot q profile (gnuplot)
+          open(unit=110,file="efit_q.txt",status='unknown')
+          do i=1,nw
+             write(110,*) i,qpsi(i)
           enddo
           close(110)
 
@@ -192,17 +288,20 @@
 
           write(*,2020) (rbbbs(i),zbbbs(i),i=1,nbbbs)
           write(*,2020) (rlim(i),zlim(i),i=1,limitr)
-          write(*,2024) kvtor,rvtor,nmass
 
-          if (kvtor.gt.0) then
-            write(*,2020) (pressw(i),i=1,nw)
-            write(*,2020) (pwprim(i),i=1,nw)
-          endif
-          if (nmass.gt.0) then
-            write(*,2020) (dmion(i),i=1,nw)
-          endif
-          write(*,2020) (rhovn(i),i=1,nw)
+          if (.not.short_efit_file) then
+            write(*,2024) kvtor,rvtor,nmass
 
+            if (kvtor.gt.0) then
+              write(*,2020) (pressw(i),i=1,nw)
+              write(*,2020) (pwprim(i),i=1,nw)
+            endif
+            if (nmass.gt.0) then
+              write(*,2020) (dmion(i),i=1,nw)
+            endif
+            write(*,2020) (rhovn(i),i=1,nw)
+          endif
+          
 2000      format (6a8,3i4)
 2020      format (5e16.9)
 2022      format (2i5)
@@ -243,6 +342,11 @@
 
         CALL read_efit_file(efit_file, istat)
         IF (istat .ne. 0) STOP 'Read-efit error in efit_init'
+        
+        if (my_rank == 0) then
+          write (*,*) "Psi at magnetic axis",simag
+          write (*,*) "Psi at magnetic bdry",sibry
+        endif
         
 !     FIND DOMAIN LIMITS AND SETUP GEOMETRY
 
@@ -310,9 +414,23 @@
         !Coeffs
         allocate(psi_coef(nxs,nzs),stat=alloc_stat)
 
+        if (efit_dbg.and.my_rank==0) write (*,*) "Splining psirz..."
+
+        psisgn = (sibry-simag)/abs(sibry-simag)
+        psirz = (psirz-simag)*psisgn
+
+        sibry = abs(sibry-simag)
+        simag = 0d0
+        
+        if (efit_dbg.and.my_rank==0) write (*,*) "After Psi limits",simag,sibry
+
         call db2ink(xs,nxs,zs,nzs,psirz,nxs,kx,kz,tx,tz,psi_coef,work,flg)
 
+        if (efit_dbg.and.my_rank==0) write (*,*) "Finished!"
+
 !     SPLINE 1D PSI-DEPENDENT ARRAYS
+
+        if (efit_dbg.and.my_rank==0) write (*,*) "Splining psi functions..."
 
         allocate(ps(nxs),stat=alloc_stat)
 
@@ -346,6 +464,8 @@
         call dbintk(ps,pprime,tps,nxs,kx,pprime_coef,q,work)
         call dbintk(ps,qpsi  ,tps,nxs,kx,qpsi_coef  ,q,work)
 
+        if (efit_dbg) write (*,*) "Finished!"
+        
         deallocate(q)
       
 !     Destroy storage
@@ -419,20 +539,18 @@
       case('tor')
 
         coords = coord
-        
-        scale = 1.1
-        gparams(1) = 0.5*(r_max+r_min)   !Major radius
-        gparams(2) = scale               !Horizontal elliptical radius
-        gparams(3) = z_max*scale         !Vertical elliptical radius
+
+        gparams(1) = 0.5*((1-gparams(1))*r_max+(1+gparams(1))*r_min)   !Major radius (biased)
+!!        gparams(2) = scale               !Horizontal elliptical radius
+        gparams(3) = z_max*gparams(3)    !Vertical elliptical radius
 
       case('tsq')
 
         coords = coord
 
-        scale = 1.1
         gparams(1) = 0.5*(r_max+r_min)   !Major radius
-        gparams(2) = 2*scale               !Horizontal dimension
-        gparams(3) = 2*z_max*scale         !Vertical   dimension
+        gparams(2) = 2*gparams(2)        !Horizontal dimension
+        gparams(3) = z_max*gparams(3)    !Vertical   dimension
 
       case default
 
@@ -483,19 +601,15 @@
 !     Local variables
 
         integer :: i,j,k,ig,jg,kg,istat,inbv,bcsb(6,3),nxg,nyg,nzg
-        real(8) :: max_prs,RR,ZZ,psi_max,psi_min,BB0,iB0,ip0,ipsi0,x1,y1,z1
+        real(8) :: max_prs,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1
 
         real(8),allocatable, dimension(:,:,:) :: bsub3,psi
-
-        logical :: dump=.false.
 
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
 
 !     Begin program
 
-        dump = .false.
-        
         if (my_rank == 0) then
            write (*,*)
            write (*,*) 'Reading EFIT equilibrium...'
@@ -548,7 +662,7 @@
         
         ip0 = (4*pi)*1d-7/(BB0*BB0)  !(B0^2/mu_0)^(-1)
 
-        ipsi0 = iB0*iLL
+        ipsi0 = iB0*iLL*psisgn
 
         if (my_rank == 0) then
           write (*,*)
@@ -607,7 +721,7 @@
 
 !     Check GS equilibrium
 
-        call GS_chk(dump)
+        call GS_chk(.true.)
 
 !     Free work space
 
@@ -627,6 +741,8 @@
         
         logical :: dump
 
+        real(8) :: psi_mag,psi_bry
+        
         if (dump) then
            !GNUPLOT Psi(R,Z), P(R,Z), B_3(R,Z)
            open(unit=110,file="efit_qtys.txt",status='unknown')
@@ -661,14 +777,15 @@
 
         if (my_rank == 0) then
            write (*,*) "Magnetic axis normalized coords=",rmaxis*iLL,zmaxis*iLL
-           psi_min = db2val(rmaxis*iLL,zmaxis*iLL,0,0,tx,tz,nxs,nzs  &
+           psi_mag = db2val(rmaxis*iLL,zmaxis*iLL,0,0,tx,tz,nxs,nzs  &
      &                     ,kx,kz,psi_coef,work)
 
-           psi_max = db2val(r_max,0d0,0,0,tx,tz,nxs,nzs  &
+           psi_bry = db2val(rbbbs(1)*iLL,zbbbs(1)*iLL,0,0,tx,tz,nxs,nzs  &
      &                     ,kx,kz,psi_coef,work)
 
-           write (*,*) "delta psi_min =",psi_min-simag
-           write (*,*) "delta psi_max =",(psi_max-sibry)/sibry
+!!           write (*,*) simag,sibry
+           write (*,*) "delta psi_mag =",(psi_mag-simag)/max(simag,sibry)
+           write (*,*) "delta psi_bry =",(psi_bry-sibry)/max(simag,sibry)
         endif
 
         if (dump) STOP "EFIT CHECK"
@@ -684,14 +801,15 @@
         logical :: dump
         
         real(8),allocatable, dimension(:,:,:,:) :: vv,jj
-        real(8),allocatable, dimension(:,:,:)   :: mag1,mag2,mag1g,mag2g
+        real(8),allocatable, dimension(:,:,:)   :: mag1,mag2,mag3,mag1g,mag2g,mag3g
 
         real(8) :: gs_error,norm1,norm2
         
         allocate(vv  (0:nx+1,0:ny+1,0:nz+1,3) &
                 ,jj  (0:nx+1,0:ny+1,0:nz+1,3) &
                 ,mag1(0:nx+1,0:ny+1,0:nz+1)   &
-                ,mag2(0:nx+1,0:ny+1,0:nz+1))
+                ,mag2(0:nx+1,0:ny+1,0:nz+1)   &
+                ,mag3(0:nx+1,0:ny+1,0:nz+1))
 
         vv = XformToCov(gv%gparams,igrid,bb)
         jj = curl(gv%gparams,igrid,vv)
@@ -700,9 +818,12 @@
         mag1 = vectorNorm(gv%gparams,igrid,vv,.true.)
         norm1 = integral(gv%gparams,igrid,mag1,average=.true.)
 
-        vv = vv - grad(gv%gparams,igrid,prs)
-        mag2 = vectorNorm(gv%gparams,igrid,vv,.true.)
-        gs_error = integral(gv%gparams,igrid,mag2,average=.true.)
+        jj = grad(gv%gparams,igrid,prs)
+        mag2 = vectorNorm(gv%gparams,igrid,jj,.true.)
+        
+        vv = vv - jj
+        mag3 = vectorNorm(gv%gparams,igrid,vv,.true.)
+        gs_error = integral(gv%gparams,igrid,mag3,average=.true.)
 
         if (my_rank == 0) then
           write (*,*)
@@ -715,29 +836,34 @@
         if (dump) then
            allocate(mag1g(0:nxg+1,0:nyg+1,0:nzg+1))
            allocate(mag2g(0:nxg+1,0:nyg+1,0:nzg+1))
+           allocate(mag3g(0:nxg+1,0:nyg+1,0:nzg+1))
 
            mag1 = sqrt(mag1)
            mag2 = sqrt(mag2)
+           mag3 = sqrt(mag3)
         
            call find_global_nobc(mag1 (1:nx ,1:ny ,1:nz ) &
      &                          ,mag1g(1:nxg,1:nyg,1:nzg))
            call find_global_nobc(mag2 (1:nx ,1:ny ,1:nz ) &
      &                          ,mag2g(1:nxg,1:nyg,1:nzg))
+           call find_global_nobc(mag3 (1:nx ,1:ny ,1:nz ) &
+     &                          ,mag3g(1:nxg,1:nyg,1:nzg))
 
            if (my_rank == 0) then
-              call createDrawInCfile(2,"efit_gschk.bin",'Solution','t','x','y' &
-                            ,(/'JxB ','GS E'/),'-c -X0 -L57','drawefit_gschk.in')
+              call createDrawInCfile(3,"efit_gschk.bin",'Solution','t','x','y' &
+                            ,(/'JxB ','grdP','GS E'/),'-c -X0 -L57','drawefit_gschk.in')
 
               open(unit=110,file="efit_gschk.bin",form='unformatted',status='unknown')
 
               call contour(mag1g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,0,110)
               call contour(mag2g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,1,110)
+              call contour(mag3g(1:nxd,1:nyd,1),nxd,nyd,xmin,xmax,ymin,ymax,1,110)
 
               close(110)
            endif
         endif
         
-        DEALLOCATE(vv,jj,mag1,mag2,mag1g,mag2g,stat=istat)
+        DEALLOCATE(vv,jj,mag1,mag2,mag3,mag1g,mag2g,mag3g,stat=istat)
  
       end subroutine GS_chk
  
