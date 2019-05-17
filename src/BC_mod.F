@@ -28,7 +28,11 @@ c####################################################################
         logical :: no_eq_bc,save_tn,no_tn_bc
 
         !Resistive wall vars
-        logical :: res_wall_bc=.true.,implicit_rw_bc=.true.
+        logical :: res_wall_bc   =.true.
+     .            ,implicit_rw_bc=.false.
+     .            ,rw_dbg        =.true.
+
+        real(8),allocatable,dimension(:) :: Brn_m,Bin_m
 
         real(8) :: tau_w=1d0,r_v=1.5d0
 
@@ -699,13 +703,17 @@ c     Begin program
 
       i = nx + 1
 
+#if !defined(plotting)
+cc      write (*,*) res_wall_bc,implicit_rw_bc,old_time_eval,source_eval
+      if (      res_wall_bc
+     .    .and.(.not.implicit_rw_bc)
+     .    .and.(.not.(old_time_eval.or.source_eval))
+     .    .and.(associated(E_bc))) return             !Explicit RW BC
+#endif
+      
       if (.not.associated(E_bc))
      .       allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
  
-      if (     (.not.implicit_rw_bc)
-     .    .and.(.not.(old_time_eval.or.source_eval))) return !Explicit RW BC
-      
-cc      if (res_wall_bc.and.old_time_eval) then
       if (res_wall_bc) then
         call rw_bc(gv%gparams,bcov,bcnv,E_bc)
         E_bc(i,:,:,1) = E0(1) + E_bc(i,:,:,1)
@@ -841,31 +849,54 @@ c     ####################################################################
       real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
      .          ,efac,gamma,dum
 
+c     Begin program
+      
       i_bc = nx + 1
 
-      !Global angular mesh
+c     Global angular mesh
+      
       theta = g_def%yg(1:nyd)
 
-      !Extrapolate to r=1 old-time Bn
-      Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
-     .            -0.5*bcov_n(i_bc-2,1:ny,1,1)
+c     Process Bnormal (old time)
 
+#if !defined(plotting)
+      if ((old_time_eval.or.source_eval)) then
+#endif
+        if (.not.allocated(Brn_m)) allocate(Brn_m(nyd),Bin_m(nyd))
+        
+        !Extrapolate to r=1 old-time Bn
+        Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
+     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)
+
+        !Gather Bnormal in parallel along boundary
+#if defined(petsc)
+        call find_global_nobc(Bnl ,Bn ,mpi_comm=g_def%MPI_COMM_Y)
+#else
+        call find_global_nobc(Bnl ,Bn )
+#endif
+
+        !Perform FFT
+        call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
+
+#if !defined(plotting)
+      endif
+#endif
+      
+c     Process gradient of Bnormal (new time)
+      
       !Compute new-time gradient of Bn
       dh = g_def%xg(nxd)-g_def%xg(nxd-1)
       gBnl(1,:,1) =(bcov(i_bc-1,1:ny,1,1)
      .             -bcov(i_bc-2,1:ny,1,1))/dh
 
-      !Gather Bnormal in parallel along boundary
+      !Gather gradient in parallel along boundary
 #if defined(petsc)
-      call find_global_nobc(Bnl ,Bn ,mpi_comm=g_def%MPI_COMM_Y)
       call find_global_nobc(gBnl,gBn,mpi_comm=g_def%MPI_COMM_Y)
 #else
-      call find_global_nobc(Bnl ,Bn )
       call find_global_nobc(gBnl,gBn)
 #endif
 
       !Perform FFT
-      call fft(nyd,Bn (1,:,1),theta,nyd,Br_m ,Bi_m ,mm,0,0)
       call fft(nyd,gBn(1,:,1),theta,nyd,gBr_m,gBi_m,mm,0,0)
 
       !Find potential solution Phi outside of resistive wall
@@ -883,15 +914,15 @@ c     ####################################################################
             if (.not.source_eval) then
               gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
               efac  = exp(-gamma*dt/tau_w)
-c diag ****
-              if(m1==nint(g_def%params(1)).and.old_time_eval) then
-               dum=log((efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m))/Br_m(m))
-     .         *tau_w/dt
+
+              Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
+              Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+
+              if(m1==nint(g_def%params(1)).and.old_time_eval.and.rw_dbg)
+     .        then
+                dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
                 write (*,*)"Br norm. decay k=0 =",dum
               endif
-c diag ****
-              Br_m(m) = efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m)
-              Bi_m(m) = efac*Bi_m(m)-(1d0-efac)/gamma*gBi_m(m)
             endif
 
             !Find phi_nm
@@ -925,15 +956,14 @@ c diag ****
           if (.not.source_eval) then
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
             efac  = exp(-gamma*dt/tau_w)
-c diag ****
-            if(m1==nint(g_def%params(1)).and.old_time_eval) then
-            dum=log((efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m))/Br_m(m))
-     .         *tau_w/dt
-            write (*,*)"Br norm. decay k/=0 =",dum
+            Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
+            Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+
+            if(m1==nint(g_def%params(1)).and.old_time_eval.and.rw_dbg)
+     .      then
+              dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
+              write (*,*)"Br norm. decay k/=0 =",dum
             endif
-c diag ****
-            Br_m(m) = efac*Br_m(m)-(1d0-efac)/gamma*gBr_m(m)
-            Bi_m(m) = efac*Bi_m(m)-(1d0-efac)/gamma*gBi_m(m)
           endif
           
           !Find phi_nm
