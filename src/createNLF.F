@@ -57,11 +57,15 @@ cc      use nlfunction_setup
 
       use PC_var
 
+      use local_BCS_variables, ONLY: Brn_m,Bin_m
+
       implicit none
 
 c Call variables
 
 c Local variables
+
+      integer :: alloc_stat
 
 c Begin program
 
@@ -69,6 +73,8 @@ c Begin program
       if (pc_vars_allcd) call deallocPCVariables
 #endif
 
+      deallocate(Brn_m,Bin_m,stat=alloc_stat)
+      
 c End programs
 
       end subroutine destroyNLF
