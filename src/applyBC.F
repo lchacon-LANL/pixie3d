@@ -1129,7 +1129,11 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
  
         case(IBCOV_N)
 
-          bcov_n = bcov !Save previous time step
+          if (source_eval) then
+            bcov_n = bcov_0     !Set it to initial cond.
+          else
+            bcov_n = bcov       !Save previous time step
+          endif
           
         case(IVCOV)
 
