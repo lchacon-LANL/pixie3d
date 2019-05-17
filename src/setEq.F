@@ -1825,30 +1825,38 @@ c     ------------------------------------------
 
 c     Check coordinates
 
-        if (coords /= 'hel') then
+        if (coords /= 'hel'.and.coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
 
         !Amplitude of external B at bdry
         kn = abs(kk)
-        pw = kn
-        pv = kn*r_v
-        Km   = BESSK(nh2  ,pw)                   
-        Kmp  =-BESSK(nh2-1,pw) - nh2/pw*BESSK(nh2,pw)
-        Kmpv =-BESSK(nh2-1,pv) - nh2/pv*BESSK(nh2,pv)
-        Im   = BESSI(nh2  ,pw)
-        Imp  = BESSI(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
-        Impv = BESSI(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
-        btho =-mm*Imp*(Km *Impv-Kmpv*Im )
-     .               /(Kmp*Impv-Kmpv*Imp)
-        bzo  =-kk*Imp*(Km *Impv-Kmpv*Im )
-     .               /(Kmp*Impv-Kmpv*Imp)
-
-        !Amplitude of internal B at bdry
-        bthi =-mm*Im
-        bzi  =-kk*Im
-
+        if (kn /= 0d0) then
+          pw = kn
+          pv = kn*r_v
+          Km   = BESSK(nh2  ,pw)                   
+          Kmp  =-BESSK(nh2-1,pw) - nh2/pw*BESSK(nh2,pw)
+          Kmpv =-BESSK(nh2-1,pv) - nh2/pv*BESSK(nh2,pv)
+          Im   = BESSI(nh2  ,pw)
+          Imp  = BESSI(nh2-1,pw) - nh2/pw*BESSI(nh2,pw)
+          Impv = BESSI(nh2-1,pv) - nh2/pv*BESSI(nh2,pv)
+          btho =-mm*Imp*(Km *Impv-Kmpv*Im )
+     .                 /(Kmp*Impv-Kmpv*Imp)
+          bzo  =-kk*Imp*(Km *Impv-Kmpv*Im )
+     .                 /(Kmp*Impv-Kmpv*Imp)
+        
+          !Amplitude of internal B at bdry
+          bthi =-mm*Im
+          bzi  =-kk*Im
+        else
+          btho =-mm*(r_v**(2*mm)+1d0)/(1d0-r_v**(2*mm))
+          bzo  = 0d0
+        
+          !Amplitude of internal B at bdry
+          bthi =-mm
+          bzi  = 0d0
+        endif
 c$$$        !Build vacuum potential
 c$$$        do k = klom,khip
 c$$$          do j = jlom,jhip
@@ -1872,12 +1880,18 @@ c$$$        enddo
 
               !Cnv helical B field
               r = abs(x1)
-              besselIp = BESSI(nh2-1,kn*r) - nh2/(kn*r)*BESSI(nh2,kn*r)
-              besselI  = BESSI(nh2  ,kn*r)
-              br  = kn*besselIp*cos(y1)
-              bth =-mm*besselI *sin(y1)/x1
-              bz  =-kk*besselI *sin(y1)
-
+              if (kn /= 0d0) then
+                besselIp = BESSI(nh2-1,kn*r)-nh2/(kn*r)*BESSI(nh2,kn*r)
+                besselI  = BESSI(nh2  ,kn*r)
+                br  = kn*besselIp*cos(y1)
+                bth =-mm*besselI *sin(y1)/x1
+                bz  =-kk*besselI *sin(y1)
+              else
+                br  = mm*x1**(mm-1)*cos(y1)
+                bth =-mm*x1**(mm-1)*sin(y1)
+                bz  = 0d0
+              endif
+              
               bb(i,j,k,1)=x1*br
               bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
               bb(i,j,k,3)=jac1*bz
@@ -1887,15 +1901,15 @@ c$$$     .                              ,igx,aa(:,:,:,1))
 c$$$
 c$$$              bb(i,j,k,:) = XformToCnv(gv%gparams,i,j,k,1,bb(i,j,k,:))
 
-              !Boundary cov helical electric field @ r=1
+              !Boundary cyl electric field @ r=1
               Er  = 0d0
-              Eth =-(bzo -bzi )*sin(y1)/tau_w
-              Ez  = (btho-bthi)*sin(y1)/tau_w
+              Eth =-(bzo -bzi )/tau_w*sin(y1)
+              Ez  = (btho-bthi)/tau_w*sin(y1)
 
               !Cyl pinch flow
-              vr  = ( Eth*bz-Ez*bth)/(br**2+bz**2+bth**2)
-              vth = (  Ez*br       )/(br**2+bz**2+bth**2)
-              vz  = (       -Eth*br)/(br**2+bz**2+bth**2)
+              vr  = (Eth*bz-Ez*bth)/(br**2+bz**2+bth**2)
+              vth = ( Ez*br       )/(br**2+bz**2+bth**2)
+              vz  = (      -Eth*br)/(br**2+bz**2+bth**2)
 
 c$$$              if (i==nx+1.and.k==1.and.(j>jlom.and.j<jhip)) then
 c$$$                !Inside cyl B
@@ -1914,7 +1928,7 @@ c$$$                if (j==1) write (*,*) "Helical cov E"
 c$$$                Ez  = Ez - kk/mm*Eth
 c$$$                write (*,*) i,j,Eth,Ez
 c$$$              endif
-             
+
               var(i,j,k,IVX)=x1*vr
               var(i,j,k,IVY)=jac1*(vth/x1+kk/mm*vz)
               var(i,j,k,IVZ)=jac1*vz
