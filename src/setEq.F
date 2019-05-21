@@ -1911,13 +1911,14 @@ c$$$              bb(i,j,k,:) = XformToCnv(gv%gparams,i,j,k,1,bb(i,j,k,:))
               vth = ( Ez*br       )/(br**2+bz**2+bth**2)
               vz  = (      -Eth*br)/(br**2+bz**2+bth**2)
 
-c$$$              if (i==nx+1.and.k==1.and.(j>jlom.and.j<jhip)) then
+              if (i==nx+1.and.k==1.and.(j>jlom.and.j<jhip)) then
 c$$$                !Inside cyl B
 c$$$                write (*,*) i,j,br,bth,bz
 c$$$                !================
-c$$$                if (j==1) write (*,*) "Inside helical cov B"
+c$$$                if (j==1) write (*,*) "Inside helical cov B @ setEq"
+c$$$                bth = x1*bth
 c$$$                bz  = bz - kk/mm*bth
-c$$$                write (*,*) i,j,br,bth,bz
+c$$$                write (*,*) i,j,bth,bz
 c$$$                !================
 c$$$                !Outer helical cov B
 c$$$                if (j==1) write (*,*) "Outside helical cov B"
@@ -1927,7 +1928,7 @@ c$$$                !Helical cov E
 c$$$                if (j==1) write (*,*) "Helical cov E"
 c$$$                Ez  = Ez - kk/mm*Eth
 c$$$                write (*,*) i,j,Eth,Ez
-c$$$              endif
+              endif
 
               var(i,j,k,IVX)=x1*vr
               var(i,j,k,IVY)=jac1*(vth/x1+kk/mm*vz)
