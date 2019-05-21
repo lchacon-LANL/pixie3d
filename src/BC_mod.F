@@ -471,7 +471,7 @@ c     Local variables
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
 
       real(8) :: b2,bbcnv(3),bbcov(3),dum(3),grad_p(3),etah,gsup(3,3)
-     .          ,gsub(3,3),jac
+     .          ,gsub(3,3),jac,E00(3)
 
 c     Begin program
 
@@ -507,11 +507,13 @@ c     Begin program
             etah = eta(i,j,k)
 
             !ExB velocity
-            v0(i,j,k,1)=(E_0(i,j,k,2)*bbcov(3)-E_0(i,j,k,3)*bbcov(2)
+            E00 = E_0(i,j,k,:) + E0
+            
+            v0(i,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
      .                 -etah*grad_p(1))/b2
-            v0(i,j,k,2)=(E_0(i,j,k,3)*bbcov(1)-E_0(i,j,k,1)*bbcov(3)
+            v0(i,j,k,2)=(E00(3)*bbcov(1)-E00(1)*bbcov(3)
      .                 -etah*grad_p(2))/b2
-            v0(i,j,k,3)=(E_0(i,j,k,1)*bbcov(2)-E_0(i,j,k,2)*bbcov(1)
+            v0(i,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
      .                 -etah*grad_p(3))/b2
 
           endif
@@ -546,7 +548,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg,ord,nx,ny,nz
       real(8) :: Jb2,b2,bbcnv(3),bbcov(3),grad_p(3),alpha
-     .          ,gsub(3,3),ietah,jach
+     .          ,gsub(3,3),ietah,jach,E00(3)
 
 c$$$      real(8) :: x(5),vec(4),xt(1)
 
@@ -659,7 +661,8 @@ c$$$     $              ,prs(i+1,j,k) /)
 c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
 c =================
 
-            alpha = dot_product(E_0(i+1,j,k,:),bbcnv)*ietah/Jb2
+            E00 = E_0(i+1,j,k,:)+E0
+            alpha = dot_product(E00,bbcnv)*ietah/Jb2
 
             if (PRESENT(dbcnv)) then
               bbcnv = dbcnv(i,j,k,:)
@@ -693,7 +696,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,nx,ny,nz
+      integer :: ibc,nx,ny,nz
       
 c     Begin program
 
@@ -701,7 +704,7 @@ c     Begin program
       ny = size(bcov,2)-2
       nz = size(bcov,3)-2
 
-      i = nx + 1
+      ibc = nx + 1
 
 #if !defined(plotting)
       if (      res_wall_bc
@@ -715,15 +718,8 @@ c     Begin program
  
       if (res_wall_bc) then
         call rw_bc(gv%gparams,bcov,bcnv,E_bc)
-        !Add m=n=0 component
-        E_bc(i,:,:,1) = E0(1) + E_bc(i,:,:,1)
-        E_bc(i,:,:,2) = E0(2) + E_bc(i,:,:,2)
-        E_bc(i,:,:,3) = E0(3) + E_bc(i,:,:,3)
       else
-        E_bc = 0d0
-        E_bc(i,:,:,1) = E0(1)
-        E_bc(i,:,:,2) = E0(2)
-        E_bc(i,:,:,3) = E0(3)
+        E_bc(ibc,:,:,:) = 0d0
       endif
 
 c     End program

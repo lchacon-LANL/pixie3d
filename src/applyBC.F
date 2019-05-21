@@ -291,7 +291,7 @@ c Local variables
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
-      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acov_n,acnv_n
+      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acnv_n
 
       real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
 
@@ -605,13 +605,12 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 c       Vector Pot. BC
 
           if (regularize_A) then
-            allocate(acov_n(0:nnx+1,0:nny+1,0:nnz+1,3)
-     .              ,acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
+            allocate(acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
 
             !Subtract previous time step (to regularize delta only)
-            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
-            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
-            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
+c$$$            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
             acnv_n = XformVector(gv%gparams,igr,acov_n,.true.)
 
             acov = acov-acov_n
@@ -635,25 +634,21 @@ c$$$            acnv = acnv-acnv_n
 cc            acov = acov + acov_0
             acnv = acnv + acnv_n
 
-            deallocate(acov_n,acnv_n)
+            deallocate(acnv_n)
           else
-c$$$            if (res_wall_bc) then
-c$$$              call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
-c$$$              allocate(acov_n(0:nnx+1,0:nny+1,0:nnz+1,3))
-c$$$
-c$$$              acov_n(nnx:,:,:,1) = u_n%array_var(IAX)%array(nnx:,:,:)
-c$$$              acov_n(nnx:,:,:,2) = u_n%array_var(IAY)%array(nnx:,:,:)
-c$$$              acov_n(nnx:,:,:,3) = u_n%array_var(IAZ)%array(nnx:,:,:)
-c$$$
-c$$$              call XferBCs(acov_n,v0,.true.)
-c$$$
-c$$$!              write (*,*) "here",time,old_time_eval,source_eval,itime
-c$$$!              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:) - dt*E_bc(nnx+1,:,:,:)
-c$$$
-c$$$              deallocate(acov_n)
-c$$$            else
+#if defined(plotting)
+            if (res_wall_bc) then
+#else
+            if (res_wall_bc.and.(.not.source_eval)) then
+#endif
+              call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
+
+              call XferBCs(acov_n,v0,.true.)
+
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
+            else
               call XferBCs(acov_0,v0,.true.)
-c$$$            endif
+            endif
             
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
@@ -664,14 +659,17 @@ c$$$            endif
 
 cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
+        case(IACOV_N)
 #endif
         case(IBCNV)
 
 c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
-            prs1 = rho*tmp
+#if !defined(vec_pot)
             call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
+#endif
+            prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -680,22 +678,6 @@ c       Magnetic field BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-                    
-c$$$        !diag ****
-c$$$        v0 = abs(bcnv-bcnv_0)
-c$$$        call createDrawInCfile(3,"debug.bin",'Solution','t','x','y'
-c$$$     .           ,(/'DB1','DB2','DB3'/),'-c -X0 -L57'
-c$$$     .           ,'drawdebug.in')
-c$$$
-c$$$        open(unit=110,file="debug.bin",form='unformatted'
-c$$$     .       ,status='unknown')
-c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
-c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
-c$$$        close(110)
-c$$$
-c$$$        stop
-c$$$        !diag ****
 
         case(IBCOV) !Done when computing bcnv
 
@@ -709,7 +691,6 @@ c       Current BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-cc            write (*,*) "J"
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
@@ -1129,11 +1110,19 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
  
         case(IBCOV_N)
 
+#if defined(plotting)
+          if (itime==0) then
+            bcov_n = bcov_0     !Set it to initial cond.
+          else
+            bcov_n = bcov       !Save previous time step
+          endif
+#else
           if (source_eval) then
             bcov_n = bcov_0     !Set it to initial cond.
           else
             bcov_n = bcov       !Save previous time step
           endif
+#endif
           
         case(IVCOV)
 
@@ -1156,6 +1145,27 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
           if (alt__eom()) vcnv(:,:,:,2) = vcnv(:,:,:,2)/jac
 
 #if defined(vec_pot)
+        case(IACOV_N)
+
+#if defined(plotting)
+          if (itime==0) then
+            acov_n = acov_0     !Set it to initial cond.
+          else
+            acov_n = acov       !Save previous time step
+          endif
+#else
+          if (source_eval) then
+            acov_n = acov_0     !Set it to initial cond.
+          else
+cc            acov_n = acov       !Save previous time step
+            acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
+     .                       -cnm/cnp*u_nm%array_var(IAX)%array
+            acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
+     .                       -cnm/cnp*u_nm%array_var(IAY)%array
+            acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
+     .                       -cnm/cnp*u_nm%array_var(IAZ)%array
+          endif
+#endif
 
         case(IACOV)
 
@@ -1502,6 +1512,8 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
      .                    varray%array_var(IVY)%array*jac
 
 #if defined(vec_pot)
+        case(IACOV_N)
+
         case(IACOV)
 
           varray%array_var(IAX)%array = acov(:,:,:,1)
@@ -1680,7 +1692,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IAX,IAY,IAZ)
 
-        if (ivar/=dim.or.bcond(ibc)==FSYM) then
+        if (ivar/=dim.or.bcond(ibc)==FSYM.or.res_wall_bc) then
 
           call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)

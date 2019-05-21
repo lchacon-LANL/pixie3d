@@ -324,6 +324,7 @@ c ######################################################################
         integer, parameter :: IACNV   =9
      .                       ,IACOV   =10
      .                       ,IACOV_0 =11
+     .                       ,IACOV_N =26
 
         integer, parameter :: IVCNV   =12
      .                       ,IVCNV_0 =13
@@ -359,6 +360,7 @@ c ######################################################################
         real(8),pointer,dimension(:,:,:,:) :: acov
      .                                       ,acov_0
      .                                       ,acnv
+     .                                       ,acov_n
 #endif
 
         real(8),pointer,dimension(:,:,:)   :: nuu
@@ -555,6 +557,11 @@ c     Setup pointers
         vaux%vec_list(IACOV)%cnv   = .false.
         vaux%vec_list(IACOV)%descr = 'A cov'
         acov => vaux%vec_list(IACOV)%vec
+
+        vaux%vec_list(IACOV_N)%cnv = .false.
+        vaux%vec_list(IACOV_N)%descr = 'A_n cov'
+        vaux%vec_list(IACOV_N)%time_n= .true.
+        acov_n => vaux%vec_list(IACOV_N)%vec
 #endif
 
         vaux%vec_list(IVECNV)%cnv   = .true.
@@ -1125,6 +1132,11 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%vec_list(IACNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivial
 
+      !A_n cov
+      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IACOV_N*AUX
+      vaux%vec_list(IACOV)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IACOV)%bc_dep_list(1,3) = 0 !trivial
+
       !B cnv
       vaux%vec_list(IBCNV)%bc_dep_list(1,1) = IACOV*AUX
       vaux%vec_list(IBCNV)%bc_dep_list(1,2) = VECTOR
@@ -1428,6 +1440,13 @@ c     Equilibrium quantities
       vaux%vec_list(IBCOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IBCOV_N)%dom_dep_list(1,3) = 0 !trivial
 
+#if defined(vec_pot)
+      !A_n cov
+      vaux%vec_list(IACOV_N)%dom_dep_list(1,1) = IACOV*AUX
+      vaux%vec_list(IACOV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IACOV_N)%dom_dep_list(1,3) = 0 !trivial
+#endif
+      
       !E-field cov
       vaux%vec_list(IENI_0)%dom_dep_list(1,1) = IETA_0*AUX
       vaux%vec_list(IENI_0)%dom_dep_list(1,2) = SCALAR
@@ -1761,6 +1780,7 @@ c     Begin program
      .       ,acnv
      .       ,acov
      .       ,acov_0
+     .       ,acov_n
 #endif
      .       ,vecnv
      .       ,vecov
