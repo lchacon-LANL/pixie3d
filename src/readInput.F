@@ -170,7 +170,7 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
 #if !defined(vec_pot)
       call setAuxVarDims(11,22)  !11 scalars, 22 vectors
 #else
-      call setAuxVarDims(11,25)  !11 scalars, 25 vectors
+      call setAuxVarDims(11,26)  !11 scalars, 26 vectors
 #endif
 
 c Set defaults
