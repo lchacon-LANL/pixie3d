@@ -707,8 +707,7 @@ c     Begin program
       ibc = nx + 1
 
 #if !defined(plotting)
-      if (      res_wall_bc
-     .    .and.(.not.implicit_rw_bc)
+      if (     (.not.implicit_rw_bc)
      .    .and.(.not.(old_time_eval.or.source_eval))
      .    .and.(associated(E_bc))) return             !Explicit RW BC
 #endif
