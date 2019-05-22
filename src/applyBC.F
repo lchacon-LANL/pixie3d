@@ -489,7 +489,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)  !First time this is called
+            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -504,7 +504,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)  !First time this is called
+            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -636,11 +636,11 @@ cc            acov = acov + acov_0
 
             deallocate(acnv_n)
           else
-#if defined(plotting)
+cc#if defined(plotting)
             if (res_wall_bc) then
-#else
-            if (res_wall_bc.and.(.not.source_eval)) then
-#endif
+c$$$#else
+c$$$            if (res_wall_bc.and.(.not.source_eval)) then
+c$$$#endif
               call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
 
               call XferBCs(acov_n,v0,.true.)
