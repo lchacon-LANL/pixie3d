@@ -732,6 +732,13 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
       regularize_A = .false.
 #endif
 
+      !Resistive wall limitation for A-version
+#if defined(vec_pot)
+      if (implicit_rw_bc) then
+        call pstop('readInput','Cannot do implicit RW BC with A yet...')
+      endif
+#endif
+
       !Non-conservative EOM
 cc      if (coords /= 'car') nc_eom_f = .true.
       if (nc_eom_f) then
