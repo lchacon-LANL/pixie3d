@@ -21,11 +21,15 @@ c####################################################################
      .                             ,pinch_flow,sym_st,subtract_E0
      .                             ,res_ijk,vis_ijk,form_ve,solenoidal
 
+        use xdraw_io
+
+        use app_iosetup
+
         integer :: order_bc=1
 
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
-        logical :: no_eq_bc,save_tn,no_tn_bc
+        logical :: no_eq_bc,save_tn,no_tn_bc,bc_vars_allcd
 
         !Resistive wall vars
         logical :: res_wall_bc   =.true.
@@ -37,6 +41,68 @@ c####################################################################
         real(8) :: tau_w=1d0,r_v=1.5d0
 
       contains
+
+c     allocBCVariables
+c     ###################################################################
+      subroutine allocBCVariables
+
+c     -------------------------------------------------------------------
+c     Allocates preconditioner variables.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+c     Local variables
+
+        integer :: alloc_stat
+
+        integer :: nx,ny,nz
+      
+c     Begin program
+
+        nx = gv%gparams%nxv(1) 
+        ny = gv%gparams%nyv(1)
+        nz = gv%gparams%nzv(1)
+
+        allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
+
+        E_bc = 0d0
+      
+        if(res_wall_bc.and.coords=='hel')allocate(Brn_m(nyd),Bin_m(nyd))
+
+        bc_vars_allcd = .true.
+
+c     End program
+
+      end subroutine allocBCVariables
+
+c     deallocBCVariables
+c     ###################################################################
+      subroutine deallocBCVariables
+
+c     -------------------------------------------------------------------
+c     Deallocates preconditioner variables.
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+c     Local variables
+
+        integer :: alloc_stat
+
+c     Begin program
+
+        deallocate(E_bc,Brn_m,Bin_m,stat=alloc_stat)
+      
+        bc_vars_allcd = .false.
+
+c     End program
+
+      end subroutine deallocBCVariables
 
 c     defineDepVariables
 c     ####################################################################
@@ -679,7 +745,7 @@ c     End program
 
 c     find_Ebc
 c     #################################################################
-      subroutine find_Ebc(g_def,bcov,bcnv,E_0)
+      subroutine find_Ebc(g_def,bcov_n,bcov,E_0)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -692,34 +758,24 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8),dimension(0:,0:,0:,:) :: bcov,bcnv,E_0
+      real(8),dimension(0:,0:,0:,:) :: bcov_n,bcov,E_0
 
 c     Local variables
 
-      integer :: ibc,nx,ny,nz
-      
 c     Begin program
 
-      nx = size(bcov,1)-2
-      ny = size(bcov,2)-2
-      nz = size(bcov,3)-2
-
-      ibc = nx + 1
-
-#if !defined(plotting)
-      if (     (.not.implicit_rw_bc)
-     .    .and.(.not.(old_time_eval.or.source_eval))
-     .    .and.(associated(E_bc))) return             !Explicit RW BC
-#endif
-      
-      if (.not.associated(E_bc))
-     .       allocate(E_bc(0:nx+1,0:ny+1,0:nz+1,3))
+      if (.not.(implicit_rw_bc.or.save_tn)) return !Explicit RW BC
  
-      if (res_wall_bc) then
-        call rw_bc(gv%gparams,bcov,bcnv,E_bc)
+      if (implicit_rw_bc) then
+cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
+cc        write(*,*) "bcov   BC",sqrt(sum(bcov  (nxd-1:nxd,1:nyd,1,:)**2))
+        call rw_bc(g_def,bcov_n,bcov  ,E_0)
       else
-        E_bc(ibc,:,:,:) = 0d0
+cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
+        call rw_bc(g_def,bcov_n,bcov_n,E_0)
       endif
+c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
+c$$$     .             ,sqrt(sum(E0**2))
 
 c     End program
 
@@ -727,7 +783,7 @@ c     End program
       
 c     rw_bc
 c     #################################################################
-      subroutine rw_bc(g_def,bcov,bcnv,E_0)
+      subroutine rw_bc(g_def,bcov_n,bcov,E_0)
 
 c     -----------------------------------------------------------------
 c     Finds tangential cov electric field components according to
@@ -740,7 +796,7 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8),dimension(0:,0:,0:,:) :: bcov,bcnv,E_0
+      real(8),dimension(0:,0:,0:,:) :: bcov_n,bcov,E_0
 
 c     Local variables
 
@@ -874,10 +930,8 @@ c     Global angular mesh
 c     Process Bnormal (old time)
 
 #if !defined(plotting)
-      if ((old_time_eval.or.source_eval)) then
+      if (save_tn) then
 #endif
-        if (.not.allocated(Brn_m)) allocate(Brn_m(nyd),Bin_m(nyd))
-        
         !Extrapolate to r=1 old-time Bn
 c$$$        Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
 c$$$     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)

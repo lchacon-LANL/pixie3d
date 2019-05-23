@@ -268,11 +268,6 @@ c--------------------------------------------------------------------
 
       use var_setup
 
-c diag ****
-c$$$      use xdraw_io
-c$$$      use app_iosetup
-c diag ****
-
       implicit none
 
 c Call variables
@@ -489,7 +484,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)
+            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -504,7 +499,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            call find_Ebc(gv%gparams,bcov_0,bcnv_0,E_bc)
+            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -636,15 +631,9 @@ cc            acov = acov + acov_0
 
             deallocate(acnv_n)
           else
-cc#if defined(plotting)
             if (res_wall_bc) then
-c$$$#else
-c$$$            if (res_wall_bc.and.(.not.source_eval)) then
-c$$$#endif
-              call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
-
+              call find_Ebc(gv%gparams,bcov_n,bcov,E_bc)
               call XferBCs(acov_n,v0,.true.)
-
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
             else
               call XferBCs(acov_0,v0,.true.)
@@ -667,7 +656,7 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            call find_Ebc(gv%gparams,bcov,bcnv,E_bc) !First time this is called
+            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_n,bcov,E_bc) !First time this is called
 #endif
             prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
@@ -795,10 +784,6 @@ c--------------------------------------------------------------------
       use auxiliaryVariables
 
       use var_setup
-
-c diag ****
-      use app_iosetup
-c diag ****
 
       implicit none
 
@@ -1112,17 +1097,46 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
 #if defined(plotting)
           if (itime==0) then
-            bcov_n = bcov_0     !Set it to initial cond.
-          else
-            bcov_n = bcov       !Save previous time step
-          endif
 #else
           if (source_eval) then
+#endif
             bcov_n = bcov_0     !Set it to initial cond.
           else
+#if defined(vec_pot)
+            do k = 0,nnz+1
+              do j = 0,nny+1
+                do i = 0,nnx+1
+                  bcov_n(i,j,k,:) =
+     .                 XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
+     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_n)
+                enddo
+              enddo
+            enddo
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)         
+c diag ****
+c$$$        call createDrawInCfile(6,"debug.bin",'Solution','t','x','y'
+c$$$     .           ,(/'DB1','DB2','DB3','DB4','DB5','DB6'/),'-c -X0 -L57'
+c$$$     .           ,'drawdebug.in')
+c$$$
+c$$$        open(unit=110,file="debug.bin",form='unformatted'
+c$$$     .       ,status='unknown')
+c$$$        write (*,*) "acov_n @ ibcov_n",acov_n(:,1,1,2)
+c$$$        v0 = acov_n
+c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
+c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        v0 = bcov_n
+c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        close(110)
+c$$$
+c$$$        pause
+c diag ****
+#else
             bcov_n = bcov       !Save previous time step
-          endif
 #endif
+          endif
           
         case(IVCOV)
 
