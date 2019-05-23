@@ -765,7 +765,19 @@ c     Local variables
 c     Begin program
 
       if (.not.(implicit_rw_bc.or.save_tn)) return !Explicit RW BC
- 
+
+#if defined(vec_pot)
+      if (implicit_rw_bc) then
+cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
+cc        write(*,*) "bcov   BC",sqrt(sum(bcov  (nxd-1:nxd,1:nyd,1,:)**2))
+        call rw_bc(g_def,bcov  ,bcov  ,E_0)
+      else
+cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
+        call rw_bc(g_def,bcov_n,bcov_n,E_0)
+      endif
+c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
+c$$$     .             ,sqrt(sum(E0**2))
+#else
       if (implicit_rw_bc) then
 cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
 cc        write(*,*) "bcov   BC",sqrt(sum(bcov  (nxd-1:nxd,1:nyd,1,:)**2))
@@ -776,7 +788,8 @@ cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
       endif
 c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
 c$$$     .             ,sqrt(sum(E0**2))
-
+#endif
+      
 c     End program
 
       end subroutine find_Ebc
@@ -929,14 +942,16 @@ c     Global angular mesh
 
 c     Process Bnormal (old time)
 
-#if !defined(plotting)
-      if (save_tn) then
-#endif
+#if defined(vec_pot)
+      if (save_tn.or.implicit_rw_bc) then
         !Extrapolate to r=1 old-time Bn
-c$$$        Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
-c$$$     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)
+        Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
+     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)
+#else
+      if (save_tn) then
         Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
      .              +0.5*bcov_n(i_bc-1,1:ny,1,1)
+#endif
 
         !Gather Bnormal in parallel along boundary
 #if defined(petsc)
@@ -947,22 +962,15 @@ c$$$     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)
 
         !Perform FFT
         call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
-
-#if !defined(plotting)
       endif
-#endif
       
 c     Process gradient of Bnormal (new time)
       
+#if !defined(vec_pot)            
       !Compute new-time gradient of Bn
       dh = g_def%xg(nxd)-g_def%xg(nxd-1)
-      if (implicit_rw_bc) then
-        gBnl(1,:,1) =(bcov(i_bc-1,1:ny,1,1)
-     .               -bcov(i_bc-2,1:ny,1,1))/dh
-      else
-        gBnl(1,:,1) =(bcov_n(i_bc  ,1:ny,1,1)
-     .               -bcov_n(i_bc-1,1:ny,1,1))/dh
-      endif
+      gBnl(1,:,1) =(bcov(i_bc-1,1:ny,1,1)
+     .             -bcov(i_bc-2,1:ny,1,1))/dh
       
       !Gather gradient in parallel along boundary
 #if defined(petsc)
@@ -973,7 +981,8 @@ c     Process gradient of Bnormal (new time)
 
       !Perform FFT
       call fft(nyd,gBn(1,:,1),theta,nyd,gBr_m,gBi_m,mm,0,0)
-
+#endif
+      
       !Find potential solution Phi outside of resistive wall
       kk = g_def%params(2)
 
@@ -986,6 +995,7 @@ c     Process gradient of Bnormal (new time)
             rm = r_v**(2*mm(m))
             
             !Evolve normal B component
+#if !defined(vec_pot)            
             if (.not.source_eval) then
               gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
               efac  = exp(-gamma*dt/tau_w)
@@ -1005,7 +1015,10 @@ c     Process gradient of Bnormal (new time)
               Br_m(m) = Brn_m(m)
               Bi_m(m) = Bin_m(m)
             endif
-
+#else
+            Br_m(m) = Brn_m(m)
+            Bi_m(m) = Bin_m(m)
+#endif
             !Find phi_nm
             dum = (rm+1d0)/((1d0-rm)*mm(m))
             phir_m(m) = Br_m(m)*dum
@@ -1035,6 +1048,7 @@ c     Process gradient of Bnormal (new time)
           dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
 
           !Evolve normal B component
+#if !defined(vec_pot)            
           if (.not.source_eval) then
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
             efac  = exp(-gamma*dt/tau_w)
@@ -1053,7 +1067,11 @@ c     Process gradient of Bnormal (new time)
             Br_m(m) = Brn_m(m)
             Bi_m(m) = Bin_m(m)
           endif
-          
+#else
+          Br_m(m) = Brn_m(m)
+          Bi_m(m) = Bin_m(m)
+#endif
+
           !Find phi_nm
           dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
           phir_m(m)=Br_m(m)*dum

@@ -14,6 +14,8 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
+      use local_BCS_variables, ONLY: allocBCVariables
+
       implicit none
 
 c Call variables
@@ -51,6 +53,10 @@ c Read coordinate map
       if (trim(equil)=='efit') call efit_map(equ_file,gv%gparams
      .                                      ,efit_coords)
 
+c Allocate BC variables
+      
+      call allocBCVariables
+ 
 c End programs
 
       end subroutine allocateApplicationVariables
@@ -67,6 +73,8 @@ c----------------------------------------------------------------------
 
       use auxPlotVariables
 
+      use local_BCS_variables, ONLY: bc_vars_allcd,deallocBCVariables
+
       implicit none
 
 c Call variables
@@ -78,6 +86,8 @@ c Begin program
       call deallocLocalAuxVars
 
       call deallocAuxPlotVar
+
+      if (bc_vars_allcd) call deallocBCVariables
 
 c End programs
 
