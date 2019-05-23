@@ -457,7 +457,6 @@ c       Magnetic field/vector potential
         call invert_A(x,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
 #else
         call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ),guess)
-cc        call invert_B_from_A(x,rhs(:,IBX:IBZ))
 #endif
 
 c     End program
@@ -501,11 +500,7 @@ c     Vector potential
             write (*,*) '  --> Solving for A...'
           endif
 
-#if defined(vec_pot)
           call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
-#else
-          call cSolver(gv%gparams,3,nn,y,x(:,IBX:IBZ),bcs,igrid
-#endif
      .                ,iout,guess,a_mtvc,vol_wgt
      .                ,tol           = pc_tol
      .                ,dg            = a_diag
@@ -526,8 +521,9 @@ c     Vector potential
 
       else
 
-        x = dt*y/cnp
-        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,x,'div')
+        x(:,IAX:IAZ) = dt*y/cnp
+        if (vol_wgt)
+     .       call scaleVec(gv%gparams,igrid,3,x(:,IAX:IAZ),'div')
 
       endif
 

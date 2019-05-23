@@ -1127,15 +1127,19 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%vec_list(IACOV)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IACOV)%bc_dep_list(2,3) = 0 !trivial
 
+      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IBCOV_N*AUX
+      vaux%vec_list(IACOV)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IACOV)%bc_dep_list(1,3) = 0 !trivial
+
       !A cnv
       vaux%vec_list(IACNV)%bc_dep_list(1,1) = IACOV*AUX
       vaux%vec_list(IACNV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivial
 
       !A_n cov
-      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IACOV_N*AUX
-      vaux%vec_list(IACOV)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IACOV)%bc_dep_list(1,3) = 0 !trivial
+      vaux%vec_list(IACOV_N)%bc_dep_list(1,1) = IACOV_N*AUX
+      vaux%vec_list(IACOV_N)%bc_dep_list(1,2) = VECTOR
+      vaux%vec_list(IACOV_N)%bc_dep_list(1,3) = 0 !trivial
 
       !B cnv
       vaux%vec_list(IBCNV)%bc_dep_list(1,1) = IACOV*AUX
@@ -1435,16 +1439,25 @@ c     Equilibrium quantities
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IVECOV_N)%dom_dep_list(1,3) = 0 !trivial
 
-      !B_n cov
-      vaux%vec_list(IBCOV_N)%dom_dep_list(1,1) = IBCOV*AUX
-      vaux%vec_list(IBCOV_N)%dom_dep_list(1,2) = VECTOR
-      vaux%vec_list(IBCOV_N)%dom_dep_list(1,3) = 0 !trivial
-
 #if defined(vec_pot)
       !A_n cov
-      vaux%vec_list(IACOV_N)%dom_dep_list(1,1) = IACOV*AUX
+      vaux%vec_list(IACOV_N)%dom_dep_list(1,1) = IACOV_N*AUX
       vaux%vec_list(IACOV_N)%dom_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV_N)%dom_dep_list(1,3) = 0 !trivial
+
+      vaux%vec_list(IACOV_N)%dom_dep_list(2,1) = IACOV_0*AUX
+      vaux%vec_list(IACOV_N)%dom_dep_list(2,2) = VECTOR
+      vaux%vec_list(IACOV_N)%dom_dep_list(2,3) = 0 !trivial
+
+      !B_n cov
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,1) = IACOV_N*AUX
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,3) = 1 !non-trivial     
+#else
+      !B_n cov
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,1) = IBCOV_N*AUX
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,2) = VECTOR
+      vaux%vec_list(IBCOV_N)%dom_dep_list(1,3) = 0 !trivial     
 #endif
       
       !E-field cov
@@ -1760,7 +1773,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,E_bc
+      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
      .          ,stat=istat)
 
       nullify(bcnv

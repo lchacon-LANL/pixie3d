@@ -12,6 +12,8 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
+      use local_BCS_variables, ONLY: allocBCVariables
+
       implicit none
 
       INTERFACE
@@ -41,6 +43,8 @@ c Begin program
       if (trim(equil)=='efit') call efit_map(equ_file,gv%gparams
      .                                      ,efit_coords)
 
+      call allocBCVariables
+      
 c     End programs
 
       end subroutine createNLF
@@ -53,11 +57,9 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
-cc      use nlfunction_setup
-
       use PC_var
 
-      use local_BCS_variables, ONLY: Brn_m,Bin_m
+      use local_BCS_variables, ONLY: bc_vars_allcd,deallocBCVariables
 
       implicit none
 
@@ -65,15 +67,13 @@ c Call variables
 
 c Local variables
 
-      integer :: alloc_stat
-
 c Begin program
 
 #if !defined(samrai)
       if (pc_vars_allcd) call deallocPCVariables
 #endif
 
-      deallocate(Brn_m,Bin_m,stat=alloc_stat)
+      if (bc_vars_allcd) call deallocBCVariables
       
 c End programs
 
