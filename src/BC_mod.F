@@ -820,8 +820,8 @@ c     Begin program
       my_local_rank = 0
 #endif
       
-cc      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
-      debug_io = rw_dbg.and.my_local_rank==0
+      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
+cc      debug_io = rw_dbg.and.my_local_rank==0
 
 c     Compute EXTERNAL tangential magnetic field components
 
