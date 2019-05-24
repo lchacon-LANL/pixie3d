@@ -1187,13 +1187,17 @@ c diag ****
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
           else  !This determines bcov_n also
-cc            acov_n = acov       !Save previous time step
+c$$$        acov_n = acov       !Save previous time step
+            !BDF2 interpolation is critical for accuracy in RW!!
             acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
      .                       -cnm/cnp*u_nm%array_var(IAX)%array
             acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
      .                       -cnm/cnp*u_nm%array_var(IAY)%array
             acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
      .                       -cnm/cnp*u_nm%array_var(IAZ)%array
+c$$$            acov_n(:,:,:,1) =u_n %array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) =u_n %array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) =u_n %array_var(IAZ)%array
           endif
 #endif
 
