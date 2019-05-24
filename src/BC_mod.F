@@ -813,7 +813,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,nx,ny,nz,nn,mm
+      integer :: i_bc,j,k,nx,ny,nz,nn,mm,my_local_rank
 
       real(8) :: phinm  (0:size(bcov,2)-1
      .                  ,0:size(bcov,3)-1)
@@ -824,6 +824,8 @@ c     Local variables
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2)
       
+      logical :: debug_io
+
 c     Begin program
      
       if (g_def%ihi(1) /= nxd) return
@@ -832,7 +834,18 @@ c     Begin program
       ny = size(bcov,2)-2
       nz = size(bcov,3)-2
 
-      i = nx + 1
+      i_bc = nx + 1
+      
+#if defined(petsc)
+      call MPI_Comm_rank(g_def%MPI_COMM_Y,my_local_rank,mpierr)
+#else
+      my_local_rank = 0
+#endif
+      
+cc      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
+      debug_io = rw_dbg.and.my_local_rank==0
+
+c     Compute EXTERNAL tangential magnetic field components
 
       select case(coords)
       case('hel')
@@ -844,11 +857,11 @@ cc      case('tor')
      .       ,'Resistive wall BC not implemented for '//coords)
       end select
 
-c     Find internal tangential magnetic field components, EXCLUDING m=n=0 mode
+c     Find INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode
 
       !Extrapolate to face
-      bcovint(:,:,2:3) = 1.5*bcov(i-1,:,:,2:3)
-     .                  -0.5*bcov(i-2,:,:,2:3)
+      bcovint(:,:,2:3) = 1.5*bcov(i_bc-1,:,:,2:3)
+     .                  -0.5*bcov(i_bc-2,:,:,2:3)
 
       !Perform angular average
       bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
@@ -870,36 +883,36 @@ c     Find internal tangential magnetic field components, EXCLUDING m=n=0 mode
 c     Find electric field components @ r=1 (store in (nx+1))
 
       !Cnv from curl
-      E_0(i,:,:,1) = 0d0
-      E_0(i,:,:,2) =-(bcovext(:,:,3)-bcovint(:,:,3))/tau_w
-      E_0(i,:,:,3) = (bcovext(:,:,2)-bcovint(:,:,2))/tau_w
+      E_0(i_bc,:,:,1) = 0d0
+      E_0(i_bc,:,:,2) =-(bcovext(:,:,3)-bcovint(:,:,3))/tau_w
+      E_0(i_bc,:,:,3) = (bcovext(:,:,2)-bcovint(:,:,2))/tau_w
 
       !Xform E_0 to Cov @ boundary
       do k=0,nz+1
         do j=0,ny+1
-          E_0(i,j,k,:)
-     .         =XformToCov_ijk_face(g_def,i-1,j,k,1,E_0(i,j,k,:),1)
+          E_0(i_bc,j,k,:)
+     .        =XformToCov_ijk_face(g_def,i_bc-1,j,k,1,E_0(i_bc,j,k,:),1)
         enddo
       enddo
 
 c$$$      write (*,*) "Bext",sqrt(sum(bcovext(:,:,2:3)**2))
-c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i,1:ny,1:nz,2:3)**2))
-c$$$      dum = sqrt(sum(E_0(i,:,:,2:3)**2))
+c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i_bc,1:ny,1:nz,2:3)**2))
+c$$$      dum = sqrt(sum(E_0(i_bc,:,:,2:3)**2))
 c$$$      if (my_rank == 0) write (*,*) "||Ebc||",time,dum
 c$$$      write (*,*) '==========================='
 c$$$      write (*,*) 'Helical cov E'
 c$$$      do j=1,nyd
-c$$$        write (*,*) i,j,E_0(i,j,1,2:3)
+c$$$        write (*,*) i_bc,j,E_0(i_bc,j,1,2:3)
 c$$$      enddo
 c$$$      write (*,*) '==========================='
 c$$$      write (*,*) 'Inside helical cov B'
 c$$$      do j=1,nyd
-c$$$        write (*,*) i,j,bcovint(j,1,2:3)
+c$$$        write (*,*) i_bc,j,bcovint(j,1,2:3)
 c$$$      enddo
 c$$$      write (*,*) '==========================='
 c$$$      write (*,*) 'Outside helical cov B'
 c$$$      do j=1,nyd
-c$$$        write (*,*) i,j,bcovext(j,1,2:3)
+c$$$        write (*,*) i_bc,j,bcovext(j,1,2:3)
 c$$$      enddo
 c$$$      stop
 
@@ -911,7 +924,7 @@ c     rw_hel
 c     ####################################################################
       subroutine rw_hel
 
-      integer :: i_bc,m,n,jglobal,i,j,m1,mm2,mm1,my_local_rank
+      integer :: m,n,jglobal,i,j,m1,mm2,mm1
       real(8) :: theta(nyd)
      .          ,Bn(1,nyd,1),gBn(1,nyd,1)
      .          ,Bnl(1,ny,1),gBnl(1,ny,1)
@@ -923,18 +936,7 @@ c     ####################################################################
       real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
      .          ,efac,gamma,dum
 
-      logical :: debug_io
 c     Begin program
-      
-      i_bc = nx + 1
-
-#if defined(petsc)
-      call MPI_Comm_rank(g_def%MPI_COMM_Y,my_local_rank,mpierr)
-#else
-      my_local_rank = 0
-#endif
-      
-      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
       
 c     Global angular mesh
       
