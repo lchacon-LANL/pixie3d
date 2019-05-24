@@ -766,29 +766,10 @@ c     Begin program
 
       if (.not.(implicit_rw_bc.or.save_tn)) return !Explicit RW BC
 
-#if defined(vec_pot)
-      if (implicit_rw_bc) then
-cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
-cc        write(*,*) "bcov   BC",sqrt(sum(bcov  (nxd-1:nxd,1:nyd,1,:)**2))
-        call rw_bc(g_def,bcov  ,bcov  ,E_0)
-      else
-cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
-        call rw_bc(g_def,bcov_n,bcov_n,E_0)
-      endif
+      call rw_bc(g_def,bcov_n,bcov,E_0)
 c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
-c$$$     .             ,sqrt(sum(E0**2))
-#else
-      if (implicit_rw_bc) then
-cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
-cc        write(*,*) "bcov   BC",sqrt(sum(bcov  (nxd-1:nxd,1:nyd,1,:)**2))
-        call rw_bc(g_def,bcov_n,bcov  ,E_0)
-      else
-cc        write(*,*) "bcov_n BC",sqrt(sum(bcov_n(nxd-1:nxd,1:nyd,1,:)**2))
-        call rw_bc(g_def,bcov_n,bcov_n,E_0)
-      endif
-c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
-c$$$     .             ,sqrt(sum(E0**2))
-#endif
+c$$$     .                     ,sqrt(sum(bcov_n(nxd+1,1:nyd,1,:)**2))
+c$$$     .                     ,sqrt(sum(bcov  (nxd+1,1:nyd,1,:)**2))
       
 c     End program
 
@@ -946,9 +927,14 @@ c     Process Bnormal (old time)
 
 #if defined(vec_pot)
       if (save_tn.or.implicit_rw_bc) then
-        !Extrapolate to r=1 old-time Bn
-        Bnl(1,:,1) = 1.5*bcov_n(i_bc-1,1:ny,1,1)
-     .              -0.5*bcov_n(i_bc-2,1:ny,1,1)
+        !Extrapolate to r=1 Bn
+        if (save_tn) then
+          Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
+     .                +0.5*bcov_n(i_bc-1,1:ny,1,1)
+        else
+          Bnl(1,:,1) = 1.5*bcov  (i_bc-1,1:ny,1,1)
+     .                -0.5*bcov  (i_bc-2,1:ny,1,1)
+        endif
 #else
       if (save_tn) then
         Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
