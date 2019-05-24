@@ -632,11 +632,27 @@ cc            acov = acov + acov_0
             deallocate(acnv_n)
           else
             if (res_wall_bc) then
+              
+              if (implicit_rw_bc) then
+                !Extrapolate Vec-Pot and new-time B to boundary
+                bcnd = vaux%vec_list(IACOV)%bconds
+                where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                    ,bcnd,igr,igr,igr,iorder=2
+     .                    ,is_cnv=vaux%vec_list(IACOV)%cnv)
+                bcov = curl(gv%gparams,igr,acov)
+                bcov = XformToCov(gv%gparams,igr,bcov)
+              endif
+              
               call find_Ebc(gv%gparams,bcov_n,bcov,E_bc)
+              
               call XferBCs(acov_n,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
+              
             else
+
               call XferBCs(acov_0,v0,.true.)
+              
             endif
             
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
@@ -1170,7 +1186,7 @@ c diag ****
 #else
           if (source_eval) then
             acov_n = acov_0     !Set it to initial cond.
-          else
+          else  !This determines bcov_n also
 cc            acov_n = acov       !Save previous time step
             acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
      .                       -cnm/cnp*u_nm%array_var(IAX)%array
