@@ -1119,7 +1119,7 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
 
 #if defined(vec_pot)
       !A cov
-      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IACOV_0*AUX
+      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IBCOV_0*AUX
       vaux%vec_list(IACOV)%bc_dep_list(1,2) = VECTOR
       vaux%vec_list(IACOV)%bc_dep_list(1,3) = 0 !trivial
 
@@ -1127,9 +1127,9 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%vec_list(IACOV)%bc_dep_list(2,2) = VECTOR
       vaux%vec_list(IACOV)%bc_dep_list(2,3) = 0 !trivial
 
-      vaux%vec_list(IACOV)%bc_dep_list(1,1) = IBCOV_N*AUX
-      vaux%vec_list(IACOV)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IACOV)%bc_dep_list(1,3) = 0 !trivial
+      vaux%vec_list(IACOV)%bc_dep_list(3,1) = IBCOV_N*AUX
+      vaux%vec_list(IACOV)%bc_dep_list(3,2) = VECTOR
+      vaux%vec_list(IACOV)%bc_dep_list(3,3) = 0 !trivial
 
       !A cnv
       vaux%vec_list(IACNV)%bc_dep_list(1,1) = IACOV*AUX
