@@ -767,9 +767,6 @@ c     Begin program
       if (.not.(implicit_rw_bc.or.save_tn)) return !Explicit RW BC
 
       call rw_bc(g_def,bcov_n,bcov,E_0)
-c$$$      write (*,*) "E_bc BC",sqrt(sum(E_0(nxd+1,1:nyd,1,:)**2))
-c$$$     .                     ,sqrt(sum(bcov_n(nxd+1,1:nyd,1,:)**2))
-c$$$     .                     ,sqrt(sum(bcov  (nxd+1,1:nyd,1,:)**2))
       
 c     End program
 
@@ -876,6 +873,12 @@ c     Find electric field components @ r=1 (store in (nx+1))
         enddo
       enddo
 
+      if (debug_io) then
+        write (*,*) "E_bc BC",sqrt(sum(E_0   (i_bc,1:nyd,1,:)**2))
+     .                       ,sqrt(sum(bcov_n(i_bc,1:nyd,1,:)**2))
+     .                       ,sqrt(sum(bcov  (i_bc,1:nyd,1,:)**2))
+      endif
+        
 c$$$      write (*,*) "Bext",sqrt(sum(bcovext(:,:,2:3)**2))
 c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i_bc,1:ny,1:nz,2:3)**2))
 c$$$      dum = sqrt(sum(E_0(i_bc,:,:,2:3)**2))
@@ -905,6 +908,10 @@ c     rw_hel
 c     ####################################################################
       subroutine rw_hel
 
+c     Call variables
+
+c     Local variables
+      
       integer :: m,n,jglobal,i,j,m1,mm2,mm1
       real(8) :: theta(nyd)
      .          ,Bn(1,nyd,1),gBn(1,nyd,1)
@@ -928,7 +935,7 @@ c     Process Bnormal (old time)
 #if defined(vec_pot)
       if (save_tn.or.implicit_rw_bc) then
         !Extrapolate to r=1 Bn
-        if (save_tn) then
+        if (save_tn.and.(.not.implicit_rw_bc)) then
           Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
      .                +0.5*bcov_n(i_bc-1,1:ny,1,1)
         else
@@ -955,7 +962,7 @@ c     Process Bnormal (old time)
 c     Process gradient of Bnormal (new time)
       
 #if !defined(vec_pot)            
-      !Compute new-time gradient of Bn
+      !Compute half-time gradient of Bn
       dh = g_def%xg(nxd)-g_def%xg(nxd-1)
       gBnl(1,:,1) =(bcov(i_bc-1,1:ny,1,1)
      .             -bcov(i_bc-2,1:ny,1,1))/dh
