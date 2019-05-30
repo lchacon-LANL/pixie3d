@@ -484,7 +484,9 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
+#if !defined(vec_pot)
+            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
+#endif
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -499,7 +501,7 @@ c$$$     .              ,iorder=2)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
+            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -633,19 +635,25 @@ cc            acov = acov + acov_0
           else
             if (res_wall_bc) then
               
-              if (implicit_rw_bc) then
+              if (implicit_rw_bc.and.(.not.save_tn)) then
                 !Extrapolate Vec-Pot and new-time B to boundary
                 bcnd = vaux%vec_list(IACOV)%bconds
                 where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+                !Predictor step
+c$$$                call XferBCs(acov_n,v0,.true.)
+c$$$                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
                 call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                    ,bcnd,igr,igr,igr,iorder=2
      .                    ,is_cnv=vaux%vec_list(IACOV)%cnv)
                 bcov = curl(gv%gparams,igr,acov)
                 bcov = XformToCov(gv%gparams,igr,bcov)
+                !Corrector step
+                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+              elseif (save_tn) then
+                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
               endif
-              
-              call find_Ebc(gv%gparams,bcov_n,bcov,E_bc)
-              
+
               call XferBCs(acov_n,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
               
@@ -672,7 +680,13 @@ c       Magnetic field BC
 
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
-            if(res_wall_bc) call find_Ebc(gv%gparams,bcov_n,bcov,E_bc) !First time this is called
+            if (res_wall_bc) then
+              if (implicit_rw_bc.and.(.not.save_tn)) then
+                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+              elseif (save_tn) then
+                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+              endif
+            endif
 #endif
             prs1 = rho*tmp
             call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
@@ -1151,6 +1165,13 @@ c$$$        pause
 c diag ****
 #else
             bcov_n = bcov       !Save previous time step
+c$$$            bcov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IBX)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBX)%array
+c$$$            bcov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IBY)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBY)%array
+c$$$            bcov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IBZ)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
+c$$$            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
 #endif
           endif
           
