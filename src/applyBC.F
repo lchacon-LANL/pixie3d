@@ -639,7 +639,7 @@ cc            acov = acov + acov_0
                 !Extrapolate Vec-Pot and new-time B to boundary
                 bcnd = vaux%vec_list(IACOV)%bconds
                 where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
-                !Predictor step
+c$$$                !Predictor step (not working)
 c$$$                call XferBCs(acov_n,v0,.true.)
 c$$$                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
 c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
