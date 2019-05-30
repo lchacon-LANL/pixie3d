@@ -35,6 +35,7 @@ c####################################################################
         logical :: res_wall_bc   =.true.
      .            ,implicit_rw_bc=.false.
      .            ,rw_dbg        =.true.
+     .            ,rw_hel_v1     =.true.
 
         real(8),allocatable,dimension(:) :: Brn_m,Bin_m
 
@@ -742,35 +743,6 @@ c =================
 c     End program
 
       end subroutine J_pinch_bc
-
-c     find_Ebc
-c     #################################################################
-      subroutine find_Ebc(g_def,bcov_n,bcov,E_0)
-
-c     -----------------------------------------------------------------
-c     Finds tangential cov electric field components according to
-c     resistive wall BCs.
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      type(grid_mg_def),pointer :: g_def
-
-      real(8),dimension(0:,0:,0:,:) :: bcov_n,bcov,E_0
-
-c     Local variables
-
-c     Begin program
-
-      if (.not.(implicit_rw_bc.or.save_tn)) return !Explicit RW BC
-
-      call rw_bc(g_def,bcov_n,bcov,E_0)
-      
-c     End program
-
-      end subroutine find_Ebc
       
 c     rw_bc
 c     #################################################################
@@ -820,14 +792,18 @@ c     Begin program
       my_local_rank = 0
 #endif
       
-      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
-cc      debug_io = rw_dbg.and.my_local_rank==0
+cc      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
+      debug_io = rw_dbg.and.my_local_rank==0
 
 c     Compute EXTERNAL tangential magnetic field components
 
       select case(coords)
       case('hel')
-        call rw_hel
+        if (rw_hel_v1) then
+          call rw_hel           !Bn only updated in time for B
+        else
+          call rw_hel2          !Bn updated in time for B and A
+        endif
 cc      case('cyl')
 cc      case('tor')
       case default
@@ -873,11 +849,11 @@ c     Find electric field components @ r=1 (store in (nx+1))
         enddo
       enddo
 
-      if (debug_io) then
-        write (*,*) "E_bc BC",sqrt(sum(E_0   (i_bc,1:nyd,1,:)**2))
-     .                       ,sqrt(sum(bcov_n(i_bc,1:nyd,1,:)**2))
-     .                       ,sqrt(sum(bcov  (i_bc,1:nyd,1,:)**2))
-      endif
+c$$$      if (debug_io) then
+c$$$        write (*,*) "||E_bc||",sqrt(sum(E_0   (i_bc,1:nyd,1,:)**2))
+c$$$     .             ,"||Bn_n||",sqrt(sum(bcov_n(i_bc,1:nyd,1,:)**2))
+c$$$     .             ,"||Bn  ||",sqrt(sum(bcov  (i_bc,1:nyd,1,:)**2))
+c$$$      endif
         
 c$$$      write (*,*) "Bext",sqrt(sum(bcovext(:,:,2:3)**2))
 c$$$      write (*,*) "||Ebc||",time,sqrt(sum(E_0(i_bc,1:ny,1:nz,2:3)**2))
@@ -907,6 +883,12 @@ c     End program
 c     rw_hel
 c     ####################################################################
       subroutine rw_hel
+      
+c     -----------------------------------------------------------------
+c     Performs RW BC updated Bn in time for both B but not A
+c     -----------------------------------------------------------------
+
+      implicit none
 
 c     Call variables
 
@@ -933,20 +915,24 @@ c     Global angular mesh
 c     Process Bnormal (old time)
 
 #if defined(vec_pot)
-      if (save_tn.or.implicit_rw_bc) then
-        !Extrapolate to r=1 Bn
-        if (save_tn.and.(.not.implicit_rw_bc)) then
-          Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
-     .                +0.5*bcov_n(i_bc-1,1:ny,1,1)
-        else
-          Bnl(1,:,1) = 1.5*bcov  (i_bc-1,1:ny,1,1)
-     .                -0.5*bcov  (i_bc-2,1:ny,1,1)
-        endif
+c$$$      Bnl(1,:,1) = 1.5*bcov  (i_bc-1,1:ny,1,1)
+c$$$     .            -0.5*bcov  (i_bc-2,1:ny,1,1)
+      Bnl(1,:,1) = 0.5*bcov(i_bc  ,1:ny,1,1)
+     .            +0.5*bcov(i_bc-1,1:ny,1,1)
+
+      !Gather Bnormal in parallel along boundary
+#if defined(petsc)
+      call find_global_nobc(Bnl ,Bn,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      call find_global_nobc(Bnl ,Bn)
+#endif
+
+        !Perform FFT
+      call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
 #else
       if (save_tn) then
         Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
      .              +0.5*bcov_n(i_bc-1,1:ny,1,1)
-#endif
 
         !Gather Bnormal in parallel along boundary
 #if defined(petsc)
@@ -958,15 +944,21 @@ c     Process Bnormal (old time)
         !Perform FFT
         call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
       endif
+#endif
       
 c     Process gradient of Bnormal (new time)
       
 #if !defined(vec_pot)            
       !Compute half-time gradient of Bn
       dh = g_def%xg(nxd)-g_def%xg(nxd-1)
-      gBnl(1,:,1) =(bcov(i_bc-1,1:ny,1,1)
-     .             -bcov(i_bc-2,1:ny,1,1))/dh
-      
+      gBnl(1,:,1) =(bcov_n(i_bc  ,1:ny,1,1)
+     .             -bcov_n(i_bc-1,1:ny,1,1))/dh
+      if (implicit_rw_bc) then
+        gBnl(1,:,1) =0.5*(gBnl(1,:,1)
+     .            +(bcov(i_bc  ,1:ny,1,1)
+     .             -bcov(i_bc-1,1:ny,1,1))/dh)
+      endif
+
       !Gather gradient in parallel along boundary
 #if defined(petsc)
       call find_global_nobc(gBnl,gBn,mpi_comm=g_def%MPI_COMM_Y)
@@ -1093,6 +1085,184 @@ c     Process gradient of Bnormal (new time)
       enddo
     
       end subroutine rw_hel
+
+c     rw_hel2
+c     ####################################################################
+      subroutine rw_hel2
+
+c     -----------------------------------------------------------------
+c     Performs RW BC update for Bn in time for both B and A versions
+c     -----------------------------------------------------------------
+
+      implicit none
+      
+c     Call variables
+
+c     Local variables
+      
+      integer :: m,n,jglobal,i,j,m1,mm2,mm1
+      real(8) :: theta(nyd)
+     .          ,Bn(1,nyd,1),gBn(1,nyd,1)
+     .          ,Bnl(1,ny,1),gBnl(1,ny,1)
+     .          ,Br_m(nyd),Bi_m(nyd)
+     .          ,gBr_m(nyd),gBi_m(nyd),mm(nyd)
+     .          ,phir_m(nyd),phii_m(nyd)
+     .          ,d2phir_m(nyd),d2phii_m(nyd)
+     .          ,dBr(nyd),Bth(nyd),Bz(nyd)
+      real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
+     .          ,efac,gamma,dum
+
+c     Begin program
+
+c     Global angular mesh
+      
+      theta = g_def%yg(1:nyd)
+
+c     Process Bnormal (old time)
+
+      if (save_tn) then
+        Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
+     .              +0.5*bcov_n(i_bc-1,1:ny,1,1)
+
+        !Gather Bnormal in parallel along boundary
+#if defined(petsc)
+        call find_global_nobc(Bnl ,Bn,mpi_comm=g_def%MPI_COMM_Y)
+#else
+        call find_global_nobc(Bnl ,Bn)
+#endif
+
+        !Perform FFT
+        call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
+      endif
+      
+c     Process gradient of Bnormal (new time)
+      
+      !Compute half-time gradient of Bn
+      dh = g_def%xg(nxd)-g_def%xg(nxd-1)
+      gBnl(1,:,1) =(bcov_n(i_bc  ,1:ny,1,1)
+     .             -bcov_n(i_bc-1,1:ny,1,1))/dh
+c$$$      if (implicit_rw_bc) then
+c$$$        gBnl(1,:,1) =0.5*(gBnl(1,:,1)
+c$$$     .            +(bcov(i_bc  ,1:ny,1,1)
+c$$$     .             -bcov(i_bc-1,1:ny,1,1))/dh)
+c$$$      endif
+
+      !Gather gradient in parallel along boundary
+#if defined(petsc)
+      call find_global_nobc(gBnl,gBn,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      call find_global_nobc(gBnl,gBn)
+#endif
+
+      !Perform FFT
+      call fft(nyd,gBn(1,:,1),theta,nyd,gBr_m,gBi_m,mm,0,0)
+      
+      !Find potential solution Phi outside of resistive wall
+      kk = g_def%params(2)
+
+      if (kk == 0d0) then
+        do m=1,nyd
+          m1   = abs(nint(mm(m)))
+          if (m1 == 0) then
+            phir_m(m) = 0d0 ; phii_m(m) = 0d0
+          else
+            rm = r_v**(2*mm(m))
+            
+            !Evolve normal B component
+            if (.not.source_eval) then
+              gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
+              efac  = exp(-gamma*dt/tau_w)
+
+              Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
+              Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+
+              if(m1==nint(g_def%params(1)).and.debug_io) then
+                if (Brn_m(m)*Br_m(m) > 0d0) then  
+                  dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
+                else
+                  dum=0d0
+                endif
+                write (*,*)"Br norm. decay k=0 =",dum
+              endif
+            else
+              Br_m(m) = Brn_m(m)
+              Bi_m(m) = Bin_m(m)
+            endif
+            
+            !Find phi_nm
+            dum = (rm+1d0)/((1d0-rm)*mm(m))
+            phir_m(m) = Br_m(m)*dum
+            phii_m(m) = Bi_m(m)*dum
+          endif
+        enddo
+      else
+        pw = abs(kk)
+        pv = abs(kk)*r_v
+        do m=1,nyd
+          m1   = abs(nint(mm(m)))
+          mm1  = abs(m1-1)
+          mm2  = abs(m1-2)
+
+          !Bessel function evals
+          Km   = BESSK(m1 ,pw)                   
+          dKm  =-BESSK(mm1,pw) - m1/pw*BESSK(m1,pw)
+          d2Km =                   BESSK(mm2,pw)
+     .         +  (2*m1-1)/ pw    *BESSK(mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSK(m1 ,pw)
+          dKmv =-BESSK(mm1,pv) - m1/pv*BESSK(m1,pv)
+          Im   = BESSI(m1 ,pw)
+          dIm  = BESSI(mm1,pw) - m1/pw*BESSI(m1,pw)
+          d2Im =                   BESSI(mm2,pw)
+     .         -  (2*m1-1)/ pw    *BESSI(mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSI(m1 ,pw)
+          dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
+
+          !Evolve normal B component
+          if (.not.source_eval) then
+            gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
+            efac  = exp(-gamma*dt/tau_w)
+            Br_m(m) = efac*Brn_m(m)-(1d0-efac)/gamma*gBr_m(m)
+            Bi_m(m) = efac*Bin_m(m)-(1d0-efac)/gamma*gBi_m(m)
+
+            if(m1==nint(g_def%params(1)).and.debug_io) then
+              if (Brn_m(m)*Br_m(m) > 0d0) then
+                dum=log(Br_m(m)/Brn_m(m))*tau_w/dt
+              else
+                dum=0d0
+              endif
+              write (*,*)"Br norm. decay k/=0 =",dum
+            endif
+          else
+            Br_m(m) = Brn_m(m)
+            Bi_m(m) = Bin_m(m)
+          endif
+
+          !Find phi_nm
+          dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
+          phir_m(m)=Br_m(m)*dum
+          phii_m(m)=Bi_m(m)*dum
+        enddo
+      endif
+
+      !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
+      Br_m = mm*phii_m
+      Bi_m =-mm*phir_m
+      call ifft(nyd,Bth,theta,nyd,Br_m,Bi_m,mm,0)
+
+      !Get LOCAL helical (cov) magnetic field components @ r=1 (store in (nx+1))
+      rbc = 1d0
+
+      do k = klom,khip
+        do j = jlom,jhip
+          jglobal = j + gv%gparams%jlo(1) - 1
+          if (jglobal > nyd) jglobal = jglobal - nyd
+          if (jglobal < 1  ) jglobal = nyd + jglobal
+          bcovext(j,k,2) = rbc*Bth(jglobal)
+          bcovext(j,k,3) = 0d0
+        enddo
+      enddo
+    
+      end subroutine rw_hel2
 
 c$$$c     rw_cyl
 c$$$c     ####################################################################
