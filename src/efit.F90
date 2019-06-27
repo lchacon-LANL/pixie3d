@@ -37,7 +37,7 @@
       real(8),dimension(:,:),allocatable :: psi_coef
 
       !Module variables
-      real(8) :: r_max,r_min,z_max,LL,iLL,psisgn
+      real(8) :: r_max,r_min,z_max,LL,iLL,psisgn=1d0,e_bp=0d0
 
       logical :: short_efit_file=.true.,efit_dbg=.false.
       
@@ -544,6 +544,17 @@
 !!        gparams(2) = scale               !Horizontal elliptical radius
         gparams(3) = z_max*gparams(3)    !Vertical elliptical radius
 
+      case('sh3')
+
+        coords = coord
+
+        gparams(1) = rmaxis      !Magnetic axis R-coord
+        gparams(2) = zmaxis      !Magnetic axis Z-coord
+        gparams(3) = 0.5*rdim    !Minor radius
+        gparams(4) = zdim/rdim   !Elongation
+        ! gparams(5),delta, provided in input deck
+        ! gparams(6), zeta, provided in input deck
+
       case('tsq')
 
         coords = coord
@@ -659,10 +670,10 @@
         BB0 = abs(dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work))/rmaxis
 
         iB0 = 1d0/BB0
-        
-        ip0 = (4*pi)*1d-7/(BB0*BB0)  !(B0^2/mu_0)^(-1)
+        ip0 = (4*pi)*1d-7*iB0*iB0  !(B0^2/mu_0)^(-1)
 
-        ipsi0 = iB0*iLL*psisgn
+        ipsi0 = iB0*iLL*(2*pi)**(-e_bp)
+!!        ipsi0 = iB0*iLL*(2*pi)**(-1d0)
 
         if (my_rank == 0) then
           write (*,*)
