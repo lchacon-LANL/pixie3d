@@ -281,12 +281,16 @@ c Define GENERIC diagnostics
       diag_desc(neqd+28)= 'Max Vey'
       diag_desc(neqd+29)= 'Max Vez'
 
+#if defined(vec_pot)
       diag_desc(neqd+30)= '||dbx||'
       diag_desc(neqd+31)= '||dby||'
       diag_desc(neqd+32)= '||dbz||'
 
       diag_desc(neqd+33:ngraph) = ''
-
+#else
+      diag_desc(neqd+30:ngraph) = ''
+#endif
+      
 c Define corresponding independent variables
 
       diag_ivar(:) = 0  !This means that the independent variable is time
@@ -788,8 +792,10 @@ c Diagnostic assignment
       
       diagnostics(neqd+27:neqd+29)= vemax
 
+#if defined(vec_pot)
       diagnostics(neqd+30:neqd+32)= bnorm
-
+#endif
+      
       !Compensate for symmetry BCs
       if (bcond(1) == FSYM .or. bcond(2) == FSYM) then
         diagnostics(neqd+1:neqd+3) = 2*diagnostics(neqd+1:neqd+3) !To compensate for symmetry
