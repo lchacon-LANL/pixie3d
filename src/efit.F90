@@ -579,6 +579,7 @@
       nyg = g_def%ngly
       nzg = g_def%nglz
 
+      call destroyGrid(g_def)
       call createGrid(nxg,nyg,nzg,xmin,xmax,ymin,ymax,zmin,zmax,g_def)
 
 !     End program
