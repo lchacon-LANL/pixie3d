@@ -6,7 +6,7 @@
 
       use grid
 
-      use local_BCS_variables, ONLY: default_B_BCs,bcond,setMGBC,order_bc
+      use local_BCS_variables, ONLY: default_B_BCs,default_A_BCs,bcond,setMGBC,order_bc
 
       IMPLICIT NONE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -543,7 +543,7 @@
         gparams(1) = 0.5*((1-gparams(1))*r_max+(1+gparams(1))*r_min)   !Major radius (biased)
 !!        gparams(2) = scale               !Horizontal elliptical radius
         gparams(3) = z_max*gparams(3)    !Vertical elliptical radius
-
+        
       case('sh3')
 
         coords = coord
@@ -613,10 +613,11 @@
 
 !     Local variables
 
-        integer :: i,j,k,ig,jg,kg,istat,inbv,bcsb(6,3),nxg,nyg,nzg
+        integer :: i,j,k,ig,jg,kg,istat,inbv,bcs(6,3),nxg,nyg,nzg
         real(8) :: max_prs,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1
 
         real(8),allocatable, dimension(:,:,:) :: bsub3,psi
+        real(8),allocatable, dimension(:,:,:,:) :: aa
 
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
@@ -638,7 +639,8 @@
 !     Interpolate poloidal flux and associated qtys
 
         allocate(psi  (0:nx+1,0:ny+1,0:nz+1) &
-                ,bsub3(0:nx+1,0:ny+1,0:nz+1))
+                ,bsub3(0:nx+1,0:ny+1,0:nz+1) &
+                ,aa   (0:nx+1,0:ny+1,0:nz+1,3))
 
         inbv = 1
 
@@ -667,6 +669,17 @@
           enddo
         enddo
 
+        !BCs
+        aa(:,:,:,1:2) = 0d0
+        aa(:,:,:,3  ) = psi
+        
+        call default_A_BCs(bcs)
+        where (bcs == -EQU) bcs = -DEF  !Do nothing to tangential components
+
+        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,aa,bcs &
+     &              ,icomp=(/IAX/),is_vec=.true.           &
+     &              ,is_cnv=.false.,iorder=2)
+
 !     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
 
         BB0 = abs(dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work))/rmaxis
@@ -690,10 +703,8 @@
 !     Find magnetic field components
 
         !Poloidal B (cnv)
-        bb = 0d0
-        bb(:,:,:,3) = psi*ipsi0*iLL  !Cov A (R*A_T)
-
-        bb = curl(gv%gparams,igrid,bb)
+        aa = aa*ipsi0*iLL  !Cov A (R*A_T)
+        bb = curl(gv%gparams,igrid,aa)
 
         !Toroidal B
         bb(:,:,:,3) = bsub3*ipsi0   !Cov B (R*B_T)
@@ -710,10 +721,10 @@
         enddo
 
         !BCs
-        call default_B_BCs(bcsb)
-        where (bcsb == -NEU) bcsb = -DEF  !Do nothing to tangential components
+        call default_B_BCs(bcs)
+        where (bcs == -NEU) bcs = -DEF  !Do nothing to tangential components
 
-        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcsb &
+        call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcs &
      &              ,icomp=(/IBX/),is_vec=.true.           &
      &              ,is_cnv=.true.,iorder=2)
 

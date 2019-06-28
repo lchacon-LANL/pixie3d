@@ -378,6 +378,7 @@ c Poincare output (field tracer)
      $  .or. coords == 'tor'
      $  .or. coords == 'sha'
      $  .or. coords == 'sh2'
+     $  .or. coords == 'sh3'
      $  .or. coords == 'stl')
 
       if (poincare.and.TS_chk_plot_dump(.false.))
