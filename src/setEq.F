@@ -1766,7 +1766,7 @@ c     --------------------------------------------------
           call pstop('setEquilibrium',messg)
         endif
 
-        if (coords /= 'tor'.and.coords /= 'tsq') then
+        if (coords/='tor'.and.coords/='tsq'.and.coords/='sh3') then
           messg = 'Need tor or tsq coordinates for EFIT equilibrium '
      .            //equil
           call pstop('setEquilibrium',messg)
