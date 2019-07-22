@@ -548,11 +548,22 @@
 
         coords = coord
 
-        gparams(1) = 0.5*((1-gparams(1))*r_max+(1+gparams(1))*r_min)   !Major radius (biased)
+        if (gparams(1) == 0d0) then
+          gparams(1) = 0.5*(r_max+r_min) !Major radius (biased)
+        else
+          gparams(1) = gparams(1)*iLL    !Magnetic axis R-coord
+        endif
+        if (gparams(2) /= 0d0) then
+          gparams(2) = gparams(2)*iLL    !Magnetic axis Z-coord
+        endif
         !gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
-        !gparams(2) = 0d0         !Magnetic axis R-coord
-        if (gparams(3) == 0d0) gparams(3) = 1d0    !Minor radius
-        gparams(4) = 2*z_max/(r_max-r_min)   !Elongation
+        !gparams(2) = 0d0         !Magnetic axis Z-coord
+        if (gparams(3) == 0d0) then
+          gparams(3) = 1d0    !Minor radius
+        else
+          gparams(3) = gparams(3)*iLL    !Minor radius
+        endif
+        if (gparams(4) == 0d0) gparams(4) = 2*z_max/(r_max-r_min)   !Elongation
         ! gparams(5),delta, provided in input deck
         ! gparams(6), zeta, provided in input deck
 
