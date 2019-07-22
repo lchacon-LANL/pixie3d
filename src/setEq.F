@@ -122,7 +122,7 @@ c Initialize required local grid information
 
 c Label variables
      
-      label(IRHO) = 'J*Rho'
+      label(IRHO) = 'J.Rho'
 #if !defined(vec_pot)
       label(IBX)  = 'B^1'
       label(IBY)  = 'B^2'
@@ -139,7 +139,7 @@ c Label variables
         label(IVY)  = 'P^2'
       endif
       label(IVZ)  = 'P^3'
-      label(IPRS) = 'J*(pi+pe)'
+      label(IPRS) = 'J.(pi+pe)'
 
 c Define boundary conditions for dependent variables
 
