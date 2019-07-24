@@ -251,14 +251,14 @@
           close(110)
 
           !Plot flux boundary (gnuplot)
-          open(unit=110,file="efit_bdrys.txt",status='unknown')
+          open(unit=110,file="efit_psi_bdry.txt",status='unknown')
           do i=1,nbbbs
              write(110,*) rbbbs(i),zbbbs(i)
           enddo
           close(110)
 
           !Plot limiter boundary (gnuplot)
-          open(unit=110,file="efit_limits.txt",status='unknown')
+          open(unit=110,file="efit_limiter_bdry.txt",status='unknown')
           do i=1,limitr
              write(110,*) rlim(i),zlim(i)
           enddo
