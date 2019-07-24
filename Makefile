@@ -69,7 +69,7 @@ endif
 
 # PIXIE3D setup
 
-REL1=$(shell hg log -r "." --template "{latesttag}\n")
+REL1=$(shell hg log -r "." --template "{latesttag}\n")-$(shell hg branch)
 
 CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
 
