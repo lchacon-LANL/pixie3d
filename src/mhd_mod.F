@@ -268,6 +268,31 @@ c     End program
 
       end function vis_def
 
+c     chi_brag
+c     #############################################################
+      function chi_brag(te) result(chi)
+c     -------------------------------------------------------------
+c     This function computes the Spitzer resistivity for ELECTRON
+c     temperature value te.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: chi,te
+
+c     Local variables
+
+c     Begin program
+
+      STOP "chi(Te) not implemented yet"
+cc      chi = (abs(te))**(-1.5)
+
+c     End program
+
+      end function chi_brag
+
       end module transport_params
 
 c module auxiliaryVariables
@@ -6959,16 +6984,21 @@ c     Local variables
 
 ! Daniele, 02/07/2014
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr,th,zz
 
 c     Begin program
 
-!     dfvty = chi
-! Daniele, 02/07/2014
-      call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-      rr = g_def%xx(ig)
-
-      dfvty = dfvty_rfx(rr)
+      if (spitzer) then
+        dfvty = chi*chi_brag(field/te0_ref)
+      else
+        select case (equil)
+        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          dfvty = dfvty_rfx(rr)
+        case default
+          dfvty = chi
+        end select
+      endif
 
 c     End program
 
