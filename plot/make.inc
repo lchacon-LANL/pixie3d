@@ -18,6 +18,7 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/math\
+	  $(COMMONDIR)/fft\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
@@ -41,7 +42,8 @@ LNK_FILES = ../src/applyBC.F\
 	    ../src/mhd_mod.F\
 	    ../src/PC_mod.F\
 	    ../src/readInput.F\
-	    ../src/vmec.f90
+	    ../src/vmec.f90\
+	    ../src/efit.F90
 
 # Dependencies
 
