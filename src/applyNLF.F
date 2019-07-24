@@ -178,7 +178,7 @@ c     Heat flux
 
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
-     .              -(chi_par-chi)
+     .              -(chi_par-cchi(i,j,k))
      .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
      .                       ,"symm",vol=.false.)
         endif
