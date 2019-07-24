@@ -123,7 +123,7 @@ export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
 
 #Define targets
 
-.PHONY: pixie3d pixplot allclean distclean petsc all contrib contrib_clean \
+.PHONY: pixie3d pixplot srcclean allclean distclean petsc all contrib contrib_clean \
         vmec vmec_clean setup tests rebuild-tests testclean $(SUBDIRS)
 
 all: $(SUBDIRS)
@@ -212,6 +212,10 @@ contrib_pack: ;
 	-@tar czf contrib.tgz contrib
 
 # CLEAN ALL
+
+srcclean:
+	$(MAKE) --no-print-directory -C src clean
+	$(MAKE) --no-print-directory -C plot clean
 
 allclean: contrib_clean distclean
 
