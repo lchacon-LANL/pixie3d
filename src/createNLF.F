@@ -10,18 +10,24 @@ c----------------------------------------------------------------------
 
       use problem_def
 
-cc      use nlfunction_setup
+      use equilibrium
 
-cc      use PC_var
+      use local_BCS_variables, ONLY: allocBCVariables
 
       implicit none
 
       INTERFACE
          subroutine vmec_map(equ_file,g_def)
-         use grid
-         type(grid_mg_def),pointer :: g_def
-         character(*) :: equ_file
-         end subroutine
+           use grid
+           type(grid_mg_def),pointer :: g_def
+           character(*) :: equ_file
+         end subroutine vmec_map
+
+         subroutine efit_map(equ_file,g_def,coord)
+           use grid
+           type(grid_mg_def),pointer :: g_def
+           character(*) :: equ_file,coord
+         end subroutine efit_map
       END INTERFACE
 
 c Call variables
@@ -30,18 +36,15 @@ c Local variables
 
 c Begin program
 
-      if (trim(equil) == 'vmec') call vmec_map(equ_file,gv%gparams)
-
-c Auxiliary variables
-
-#if !defined(samrai)
-cc      call defineAuxVariables(gv%aux)
-
-c Preconditioner
-
-cc      call allocPCVariables
+#if defined(vmec)
+      if (trim(equil)=='vmec') call vmec_map(equ_file,gv%gparams)
 #endif
 
+      if (trim(equil)=='efit') call efit_map(equ_file,gv%gparams
+     .                                      ,efit_coords)
+
+      call allocBCVariables
+      
 c     End programs
 
       end subroutine createNLF
@@ -54,9 +57,9 @@ c----------------------------------------------------------------------
 c     Allocates application-related arrays
 c----------------------------------------------------------------------
 
-cc      use nlfunction_setup
-
       use PC_var
+
+      use local_BCS_variables, ONLY: bc_vars_allcd,deallocBCVariables
 
       implicit none
 
@@ -67,11 +70,11 @@ c Local variables
 c Begin program
 
 #if !defined(samrai)
-cc      call deallocLocalAuxVars
-
       if (pc_vars_allcd) call deallocPCVariables
 #endif
 
+      if (bc_vars_allcd) call deallocBCVariables
+      
 c End programs
 
       end subroutine destroyNLF

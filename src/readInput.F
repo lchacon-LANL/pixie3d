@@ -58,13 +58,15 @@ c Namelists
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
+     .                   ,efit_coords
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,fixed_spitzer
-     .                   ,lagged_spitzer,irrot_br_pert
+     .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert
+     .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
+     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
      .                   ,pc_as_solver,fpa,fpa_it
@@ -81,7 +83,9 @@ c Namelists
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
-     .                   ,limit_dt_flow_cfl
+     .                   ,limit_dt_flow_cfl,ts_ramp_up_dt
+     .                   ,ts_ramp_up_dt_fraction
+     .                   ,ts_ramp_up_dt_recovery
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
@@ -101,15 +105,15 @@ c Namelists
       !Problem setup
       namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz,gp1,gp2,gp3
+     .                   ,npx,npy,npz,gp1,gp2,gp3,efit_coords
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
      .                   ,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params,lagrangian,spitzer,fixed_spitzer
-     .                   ,lagged_spitzer,irrot_br_pert
+     .                   ,eq_params,lagrangian,irrot_br_pert
+     .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
@@ -117,6 +121,7 @@ c Namelists
      .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
+     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -163,9 +168,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(11,21)  !11 scalars, 21 vectors
+      call setAuxVarDims(11,22)  !11 scalars, 22 vectors
 #else
-      call setAuxVarDims(11,24)  !11 scalars, 24 vectors
+      call setAuxVarDims(11,26)  !11 scalars, 26 vectors
 #endif
 
 c Set defaults
@@ -493,6 +498,11 @@ c     #####################################################################
       B0       = 0d0           ! Boundary magnetic field (cnv)
       M0       = 0d0           ! Momentum source
 
+      res_wall_bc= .false.     ! Whether we are using resistive wall BCs
+      tau_w    = 1d2           ! Resistive wall thin-shell time
+      r_v      = 1.5           ! Radius of outer conducting shell
+      implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
+
       !Nonlinear function parameters
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
@@ -807,8 +817,11 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       !Miscellaneous
       if (ts_restart) dcon = .false.
 
-      if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
-
+      if (coords == 'hel') then
+        nh2 = nint(gparams(1))
+        nh1 = nh2               !Special case for 2D helical equilibria
+      endif
+      
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
