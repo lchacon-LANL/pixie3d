@@ -66,7 +66,7 @@
      &            ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
         RR = sqrt(x1**2+y1**2)
-        ZZ = z1 + zmaxis*iLL
+        ZZ = z1 !+ zmaxis*iLL
 
       END SUBROUTINE find_RZ
         
@@ -350,19 +350,20 @@
         
 !     FIND DOMAIN LIMITS AND SETUP GEOMETRY
 
-        z_max = maxval(zbbbs)
-        r_max = maxval(rbbbs)
-        r_min = minval(rbbbs)
+        !Limiter box
+        z_max = maxval(zlim)
+        r_max = maxval(rlim)
+        r_min = minval(rlim)
 
         LL = 0.5*(r_max-r_min) !Dimensionalization length
 
         iLL = 1d0/LL
         
         if (my_rank == 0) then
-          write (*,*) "a (m)=",LL
-          write (*,*) "R_max (m)=",r_max
-          write (*,*) "R_min (m)=",r_min
-          write (*,*) "Z_max (m)=",z_max
+          write (*,*) "Minor rad.  a (m)=",LL
+          write (*,*) "Limiter R_max (m)=",r_max
+          write (*,*) "Limiter R_min (m)=",r_min
+          write (*,*) "Limiter Z_max (m)=",z_max
         endif
         
         r_max = r_max*iLL
@@ -376,10 +377,10 @@
         zmid = zmid*iLL
 
         if (my_rank == 0) then
-          write (*,*) "R_max/a=",rleft+rdim
-          write (*,*) "R_min/a=",rleft
-          write (*,*) "Z_max/a=",zmid + 0.5*zdim
-          write (*,*) "Z_min/a=",zmid - 0.5*zdim
+          write (*,*) "Psi box R_max/a=",rleft+rdim
+          write (*,*) "Psi box R_min/a=",rleft
+          write (*,*) "Psi box Z_max/a=",zmid + 0.5*zdim
+          write (*,*) "Psi box Z_min/a=",zmid - 0.5*zdim
         endif
         
 !     SPLINE PSI ON R-Z MESH
