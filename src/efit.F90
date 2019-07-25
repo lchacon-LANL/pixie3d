@@ -39,7 +39,7 @@
       !Module variables
       real(8) :: r_max,r_min,z_max,LL,iLL,psisgn=1d0,e_bp=0d0
 
-      logical :: short_efit_file=.true.,efit_dbg=.false.
+      logical :: short_efit_file=.true.,efit_dbg=.false.,efit_rho_adiab=.false.
       
       CONTAINS
 
@@ -745,7 +745,7 @@
         max_prs = maxval(prs)
         max_prs = pmax(max_prs)
         
-        if (max_prs == 0d0) then
+        if (max_prs == 0d0.or.(.not.efit_rho_adiab)) then
           rho = 1d0
         else
           rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
