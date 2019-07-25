@@ -216,6 +216,13 @@ c Poloidal velocity diagnostic
         if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
+c Resistive wall diagnostics
+
+      if (res_wall_bc) then
+        if (my_rank == 0) write (*,*) '||Bn||',time,
+     .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,1)**2,average=.false.))
+      endif
+      
 c Velocity and current intrinsic components (wrt B)
 
       do k = kming,kmaxg
@@ -371,6 +378,7 @@ c Poincare output (field tracer)
      $  .or. coords == 'tor'
      $  .or. coords == 'sha'
      $  .or. coords == 'sh2'
+     $  .or. coords == 'sh3'
      $  .or. coords == 'stl')
 
       if (poincare.and.TS_chk_plot_dump(.false.))

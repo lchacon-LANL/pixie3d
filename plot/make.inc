@@ -18,6 +18,7 @@ COMMONDIR = ../common
 
 SUBDIRS = $(COMMONDIR)/io\
 	  $(COMMONDIR)/math\
+	  $(COMMONDIR)/fft\
 	  $(COMMONDIR)/interpolation/1d_int\
 	  $(COMMONDIR)/grid\
 	  $(COMMONDIR)/var_setup\
