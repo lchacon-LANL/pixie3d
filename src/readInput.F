@@ -781,11 +781,7 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
         e_cons_vstar = .false.
       endif
 #if defined(RFX)
-      if (slava) then
-        call pstop("readInput","Incompatible input with RFX")
-      else
-        nu_is_rhonu = .false.
-      endif
+      if (.not.slava) nu_is_rhonu = .false.
 #endif
 
       if (ion_hall) no_eom_divpe = .false.       !Include divpe in ion EOM
