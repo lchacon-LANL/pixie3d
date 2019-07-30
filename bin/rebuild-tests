@@ -22,3 +22,4 @@ tput setaf 0; make -s BOPT=O VECPOT=t rebuild-tests
 
 tput setaf 7; tput setab 4; echo "Done rebuilding tests."
 
+tput sgr0
