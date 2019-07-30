@@ -779,10 +779,11 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
         nu_is_rhonu = .true.
         heta_is_rhoheta = .true.
         e_cons_vstar = .false.
-      endif
+      else
 #if defined(RFX)
-      nu_is_rhonu = .false.
+        nu_is_rhonu = .false.
 #endif
+      endif
 
       if (ion_hall) no_eom_divpe = .false.       !Include divpe in ion EOM
 
