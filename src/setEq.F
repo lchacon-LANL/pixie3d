@@ -1476,13 +1476,24 @@ c     Tokamak equilibria (analytical)
         kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
 
-        Iz  = 2.22
-        b_0 = 0.5*Iz
-
         nh2 = mm  !To set the right perturbation wavelength
 
         nh1 = nh2 !For perturbations to be of the right order
 
+        call find_global_radial_mesh(rg)
+
+        Iz  = 2.22
+        b_0 = 0.5*Iz
+        do i=0,nxdp
+          x1  = rg(i)
+          bth0(i) = b_0*x1/(1+(x1/dlambda)**2)
+          bzz0(i) = RR
+          p00(i)  = a_p*(1d0+1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2)
+        enddo
+
+        !Dump equilibrium for eigen code
+        call dump_1d_eq
+        
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
@@ -1493,23 +1504,43 @@ c     Tokamak equilibria (analytical)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
-     .                              ,coords)
+              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              btheta = b_0*x1/(1+(x1/dlambda)**2)
-              bz0    = RR
+              iglobal = i + gv%gparams%ilo(igr) - 1
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
-              bb(i,j,k,3)  = jac1*bz0
+              bb(i,j,k,1)=0d0
+              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = 1d0
-     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
             enddo
           enddo
         enddo
+
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+c$$$     .                              ,coords)
+c$$$
+c$$$              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+c$$$
+c$$$              btheta = b_0*x1/(1+(x1/dlambda)**2)
+c$$$              bz0    = RR
+c$$$
+c$$$              bb(i,j,k,1)  = 0d0
+c$$$              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
+c$$$              bb(i,j,k,3)  = jac1*bz0
+c$$$
+c$$$              var(i,j,k,IPRS) = 1d0
+c$$$     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
 
       case ('rfp83','vela1','vela2','tbbr1')
 
@@ -1526,7 +1557,7 @@ c     Check coordinates
         bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
         beta = gv%gparams%params(5) !Beta toroidal
 
-        nh2 = mm  !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
         nh1 = nh2 !For perturbations to be of the right order
 
         if (test
@@ -1561,6 +1592,9 @@ c$$$        beta = 4d-5
         !Solve 1D Grad-Shafranov equation
         call GS_equil_1d(rg,q00,p00,bth0,bzz0)
 
+        !Dump equilibrium for eigen code
+        call dump_1d_eq
+
         !Build equilibrium
         var(:,:,:,IVX:IVZ)  = 0d0
 
@@ -1592,6 +1626,14 @@ c$$$        beta = 4d-5
             enddo
           enddo
         case('cyl')
+          if (nh3 == 0) nh3 = nint(kk*RR) !To set the right perturbation wavelength
+
+          if (nh2 == 0 .and. nh3 == 0) then
+            messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+            call pstop('setEquilibrium',messg)
+          endif
+
           do k = klom,khip
             do j = jlom,jhip
               do i = ilom,ihip
@@ -2584,6 +2626,30 @@ c End program
 10    format (4f7.3,2e12.3)
 #endif
 
+      contains
+
+c     dump_1d_eq
+c     ###############################################################
+      subroutine dump_1d_eq
+
+c     ---------------------------------------------------------------
+c     Dump 1d equilibrium for eigen analysis
+c     ---------------------------------------------------------------
+
+      implicit none
+
+      if (my_rank == 0) then
+        open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
+        write (123,*) nxdp+1
+        do i=0,nxdp
+          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p
+        enddo
+        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
+        close(123)
+      endif
+
+      end subroutine dump_1d_eq
+      
       end subroutine setEquilibrium
 
 c     find_global_radial_mesh
@@ -2817,18 +2883,6 @@ cc          write (*,*) dummy(1:nxd)
         eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)        !Poloidal beta
         eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
-        !Dump equilibrium for eigen code
-        if (my_rank == 0) then
-          open(unit=123,file=trim(equil)//'.txt',status='unknown')
-          write (123,*) nxdp
-          do i=0,nxd
-            write (123,*) rh(i),bth0(i),bzz0(i),p0h(i)/a_p
-          enddo
-          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
-          close(123)
-cc          stop
-        endif
-        
         !Transfer to integer mesh
         call IntDriver1d(nxdp,rh(0:nxd),bth0(0:nxd)
      .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp),3,0)
@@ -2841,18 +2895,6 @@ cc          stop
         !Extrapolate linearly in radius @ r=0
         bth0(0) =-bth0(1)
         bzz0(0) = bzz0(1)
-
-        !Dump equilibrium for eigen code
-        if (my_rank == 0) then
-          open(unit=123,file=trim(equil)//'.txt',status='unknown')
-          write (123,*) nxdp+1
-          do i=0,nxdp
-            write (123,*) rg(i),bth0(i),bzz0(i),p0(i)/a_p
-          enddo
-          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
-          close(123)
-cc          stop
-        endif
 
       end subroutine GS_equil_1d
 
