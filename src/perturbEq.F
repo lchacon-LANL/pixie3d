@@ -888,7 +888,8 @@ c     Read perturbation file
 
       if (my_rank == 0) then
         write (*,*)
-        write (*,*) 'Reading EXTERNAL eigenmodes...'
+        write (*,*) 'Reading EXTERNAL eigenmodes from '
+     .       //trim(prt_file)//'...'
       endif
 
       if (is_file(trim(prt_file))) then
@@ -932,8 +933,6 @@ c     Interpolate to local mesh (does NOT work with packing yet)
       
 c     Find perturbations
 
-      ii = -ii
-
       do k = klom,khip
         do j = jlom,jhip
           do i = ilo,ihi
@@ -943,7 +942,7 @@ c     Find perturbations
 
             jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-            pert = perturb*(rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1))
+            pert = perturb*(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
 
             !Transform velocity
             pert(IVX) = x1*pert(IVX)
