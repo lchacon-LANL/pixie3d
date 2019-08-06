@@ -1632,6 +1632,13 @@ c$$$        beta = 4d-5
             messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
             call pstop('setEquilibrium',messg)
+          else
+            messg=' Perturbation harmonics nh1, nh2, nh3 for '
+     .          //trim(equil)//' equilibrium are'
+            if (my_rank==0) then
+              write (*,*)
+              write (*,'(a,3i3)') trim(messg),nh1,nh2,nh3
+            endif
           endif
 
           do k = klom,khip
