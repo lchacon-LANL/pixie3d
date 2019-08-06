@@ -865,6 +865,8 @@ c     -----------------------------------------------------------------
 
       use var_setup
       
+      use B_tools, pert2 => pert
+
       implicit none
 
 c     Call variables
@@ -873,11 +875,13 @@ c     Call variables
       
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr
+      integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr,nx,ny,nz
       real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1,rg(0:nxdp)
 
       real(8),allocatable,dimension(:) :: xx
       real(8),allocatable,dimension(:,:) :: ii,rr,idum,rdum
+
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
 c     Begin program
 
@@ -933,54 +937,141 @@ c     Interpolate to local mesh (does NOT work with packing yet)
       
 c     Find perturbations
 
-      do k = klom,khip
-        do j = jlom,jhip
-          do i = ilo,ihi
-            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
+      nx = ihi-ilo+1
+      ny = jhi-jlo+1
+      nz = khi-klo+1
 
-            iglobal = i + gv%gparams%ilo(igx) - 1
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
-            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+      select case(coords)
+      case('hel')
 
-            pert = perturb*(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
 
-            !Transform velocity
-            pert(IVX) = x1*pert(IVX)
-            if (coords=='hel')
-     .           pert(IVY)=jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
-            if (coords=='cyl')
-     .           pert(IVY)=jac1*pert(IVY)/x1
-            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
-            pert(IVZ) = jac1*pert(IVZ)
+              y1 = mm*y1
+              
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
-            !Transform magnetic field
-            pert(IBX) = x1*pert(IBX)
-            if (coords=='hel')
-     .           pert(IBY) = jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
-            if (coords=='cyl')
-     .           pert(IBY) = jac1*pert(IBY)/x1
-            pert(IBZ) = jac1*pert(IBZ)
-            
-            do ieq=IVX,IBZ
-              varr%array_var(ieq)%array(i,j,k)
-     .           = varr%array_var(ieq)%array(i,j,k) + pert(ieq)
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+              pert=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+
+              !Transform velocity
+              pert(IVX) = x1*pert(IVX)
+              pert(IVY)=jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+              if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+              pert(IVZ) = jac1*pert(IVZ)
+
+              do ieq=IVX,IVZ
+                varr%array_var(ieq)%array(i,j,k)
+     .            = varr%array_var(ieq)%array(i,j,k) + perturb*pert(ieq)
+              enddo
+
+              !Transform magnetic field
+              pert(IBX) = x1*pert(IBX)
+              pert(IBY) = jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+              pert(IBZ) = jac1*pert(IBZ)
+              
+              db_cnv(i,j,k,:) = pert(IBX:IBZ)
+              
+              !Pressure and density
+              pert(IRHO) = perturb*pert(IRHO)
+              pert(IPRS) = perturb*pert(IPRS)*a_p   !Transform to pressure
+              varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)*(1d0 
+     .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+     .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+
+              varr%array_var(IRHO)%array(i,j,k)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
+
             enddo
-
-            !Pressure and density
-            pert(IPRS) = pert(IPRS)*a_p   !Transform to pressure
-            varr%array_var(IPRS)%array(i,j,k)
-     .         = varr%array_var(IPRS)%array(i,j,k)*(1d0 
-     .         + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .         +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
-
-            varr%array_var(IRHO)%array(i,j,k)
-     .         = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
-
           enddo
         enddo
-      enddo
 
+      case('cyl')
+        
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+
+              y1 = mm*y1 + kk*z1
+              
+              iglobal = i + gv%gparams%ilo(igx) - 1
+
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+              pert=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+
+              !Transform velocity
+              pert(IVX) = x1*pert(IVX)
+              pert(IVY)=jac1*pert(IVY)/x1
+              if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+              pert(IVZ) = jac1*pert(IVZ)
+
+              do ieq=IVX,IVZ
+                varr%array_var(ieq)%array(i,j,k)
+     .            = varr%array_var(ieq)%array(i,j,k) + perturb*pert(ieq)
+              enddo
+
+              !Transform magnetic field
+              pert(IBX) = x1*pert(IBX)
+              pert(IBY) = jac1*pert(IBY)/x1
+              pert(IBZ) = jac1*pert(IBZ)
+              
+              db_cnv(i,j,k,:) = pert(IBX:IBZ)
+              
+              !Pressure and density
+              pert(IRHO) = perturb*pert(IRHO)
+              pert(IPRS) = perturb*pert(IPRS)*a_p   !Transform to pressure
+              varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)*(1d0 
+     .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+     .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+
+              varr%array_var(IRHO)%array(i,j,k)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
+
+            enddo
+          enddo
+        enddo
+
+      case default
+
+        call pstop('perturbEquilibrium_ppnch'
+     .            ,'Coordinate not implemented')
+        
+      end select
+      
       deallocate(rr,ii)
+
+c     Divergence clean B perturbation
+
+c$$$      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
+c$$$     .                   ,db_cnv,w_pre_bcs=.true.
+c$$$     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+c$$$c$$$      call B_div_clean(gv%gparams,ilevel,igx
+c$$$c$$$     .                ,db_cnv,"line",w_pre_bcs=.true.
+c$$$c$$$     .                ,gm_it=it_divcl,rtol=0.1*rtol)
+c$$$
+c$$$      if (my_rank == 0.and.ilevel == 0) then
+c$$$        write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
+c$$$      endif
+
+      varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
+     .                 +varr%array_var(IBX)%array
+      varr%array_var(IBY)%array = perturb*db_cnv(:,:,:,2)
+     .                 +varr%array_var(IBY)%array
+      varr%array_var(IBZ)%array = perturb*db_cnv(:,:,:,3)
+     .                 +varr%array_var(IBZ)%array
+
+      deallocate(db_cnv)
       
 c     End program
 
