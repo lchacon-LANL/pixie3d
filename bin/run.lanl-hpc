@@ -305,7 +305,7 @@ cat > go.sub <<QSUB
 #SBATCH -t $wtime
 #  request resources (qos, number of MPI tasks)
 #SBATCH --qos=$qos
-#SBATCH --nodes=$((np/cores_per_node))
+#SBATCH --nodes=$((np/cores_per_node+1))
 #SBATCH --ntasks-per-node=$((cores_per_node/omp_tasks))
 #  specify the pathname for output
 #SBATCH -o $inputfile.log
