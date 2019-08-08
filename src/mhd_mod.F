@@ -145,6 +145,7 @@ c ######################################################################
      .            ,slava      =.false.   !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise      =.false.   !Whether to add noise to EOM (to break symmetry)
      .            ,adiabatic  =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,adiabatic_rho  =.false.   !Whether to use adiabatic formula for rho
      .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.

@@ -25,6 +25,7 @@
     gamma    = 1.6667
 
     adiabatic  = t
+    adiabatic_rho = t
 
     pvx      = 1d-4
     odd      = f
@@ -46,7 +47,6 @@
     nc_eom_f   = t
     nc_eom_v   = f
 
-    solve_rho  = f
     use_p_eom  = t
     use_p_diff = t
  /

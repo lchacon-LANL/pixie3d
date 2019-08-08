@@ -88,6 +88,7 @@ c Namelists
      .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
+     .                   ,adiabatic_rho
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
@@ -110,7 +111,7 @@ c Namelists
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
+     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,irrot_br_pert
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
@@ -490,8 +491,6 @@ c     #####################################################################
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
-
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
       lagrangian = .false.     ! Whether we perform Lagrangian step for Te
@@ -506,6 +505,8 @@ c     #####################################################################
       implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
 
       !Nonlinear function parameters
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      adiabatic_rho = .false.  ! Whether we use adiabatic rho formula
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
@@ -799,6 +800,8 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
+      if (.not.adiabatic) adiabatic_rho = .false.
+      
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 
