@@ -1062,7 +1062,7 @@ c$$$     .                ,gm_it=it_divcl,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
         write (*,'(a,i3,a)')
-     .       'Divergence cleaning converged in',it_divcl,' its'
+     .       ' Divergence cleaning converged in',it_divcl,' its'
       endif
 
       varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
