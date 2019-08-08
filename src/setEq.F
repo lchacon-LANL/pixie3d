@@ -1542,7 +1542,7 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 
-      case ('rfp83','vela1','vela2','tbbr1')
+      case ('rfp83','vela1','vela2','tbbr1','tbbr2')
 
 c     Check coordinates
 
@@ -5788,18 +5788,18 @@ c     Begin program
 
           qprof = log(1+r)+exp(r)
 
-        case('tbbr1')
+        case('tbbr1','tbbr2')
 
           RR   = gv%gparams%params(3)
           
-          q0   = gv%gparams%params(6)  !q0*R
+          q0   = gv%gparams%params(6)
           jz1  = gv%gparams%params(7)
           aa   = gv%gparams%params(8)
           p    = gv%gparams%params(9)
 
           qa = r**2/(0.5*jz1*r**2+aa**2*(1-0.5*jz1))
 
-          qprof = q0/RR*(1d0+qa**p)**(1./p)
+          qprof = q0*(1d0+qa**p)**(1./p)
           
         case default
 
@@ -5866,6 +5866,14 @@ c     Begin program
             pprof = 1d0
           else
             pprof = 0d0
+          endif
+
+        case('tbbr2')
+
+          if (der == 0) then
+            pprof = 1d0+s**2
+          else
+            pprof = 2*s
           endif
 
         case('vela1')

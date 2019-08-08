@@ -978,13 +978,13 @@ c     Find perturbations
               
               db_cnv(i,j,k,:) = pert(IBX:IBZ)
               
-              !Pressure and density
+              !Total pressure and density
               pert(IRHO) = perturb*pert(IRHO)
-              pert(IPRS) = perturb*pert(IPRS)*a_p   !Transform to pressure
+              pert(IPRS) = perturb*pert(IPRS)
               varr%array_var(IPRS)%array(i,j,k)
      .           = varr%array_var(IPRS)%array(i,j,k)*(1d0 
      .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+     .           +  a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
 
               varr%array_var(IRHO)%array(i,j,k)
      .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
@@ -1053,16 +1053,17 @@ c     Find perturbations
 
 c     Divergence clean B perturbation
 
-c$$$      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
-c$$$     .                   ,db_cnv,w_pre_bcs=.true.
-c$$$     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
-c$$$c$$$      call B_div_clean(gv%gparams,ilevel,igx
-c$$$c$$$     .                ,db_cnv,"line",w_pre_bcs=.true.
-c$$$c$$$     .                ,gm_it=it_divcl,rtol=0.1*rtol)
-c$$$
-c$$$      if (my_rank == 0.and.ilevel == 0) then
-c$$$        write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
-c$$$      endif
+      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
+     .                   ,db_cnv,w_pre_bcs=.true.
+     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+c$$$      call B_div_clean(gv%gparams,ilevel,igx
+c$$$     .                ,db_cnv,"line",w_pre_bcs=.true.
+c$$$     .                ,gm_it=it_divcl,rtol=0.1*rtol)
+
+      if (my_rank == 0.and.ilevel == 0) then
+        write (*,'(a,i3,a)')
+     .       'Divergence cleaning converged in',it_divcl,' its'
+      endif
 
       varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
      .                 +varr%array_var(IBX)%array
