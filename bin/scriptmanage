@@ -49,7 +49,7 @@ echo 'New JOB='$JOB
 
 check_job $JOB
 
-check_return_code
+check_return_code $JOB
 
 if [ "$RETURN_VALUE" = "1" ]; then
   new_job $1
@@ -72,7 +72,9 @@ date
 JOB="$2"
 
 if [ "$JOB" = "" ]; then
-  rm exit_code.txt
+  sed -e s/"restart  = t"/"restart  = f"/g dpic.in > pixie3d.in2
+  mv pixie3d.in2 pixie3d.in
+  rm exit_code.txt 2> /dev/null
   JOB=$(sbatch $1 | cut -d " " -f 4)
   echo 'New JOB='$JOB
 fi
