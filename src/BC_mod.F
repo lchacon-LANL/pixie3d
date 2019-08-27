@@ -215,9 +215,22 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
-      case ('ppnsl','p3nsl','ohtor','tbbr1','tbbr2')           !No slip BCs, pinch flow
+      case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
 
         pinch_flow = .true.
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
+
+        !Dirichlet boundary conditions for tangential components
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+
+        if (gamma > 1d0)
+     .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
+
+      case ('tbbr1','tbbr2') !No slip BCs, pinch flow
+
+        pinch_flow = .false.
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
