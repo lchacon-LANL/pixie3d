@@ -72,7 +72,7 @@ date
 JOB="$2"
 
 if [ "$JOB" = "" ]; then
-  sed -e s/"restart  = t"/"restart  = f"/g dpic.in > pixie3d.in2
+  sed -e s/"restart  = t"/"restart  = f"/g pixie3d.in > pixie3d.in2
   mv pixie3d.in2 pixie3d.in
   rm exit_code.txt 2> /dev/null
   JOB=$(sbatch $1 | cut -d " " -f 4)
