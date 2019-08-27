@@ -18,7 +18,7 @@ check_job()
 {
 RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
 echo "Job $1 is $RUNTEST"
-while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED"]
+while [ "$RUNTEST" != "RUNNING" -a "$RUNTEST" != "COMPLETED" -a "$RUNTEST" != "CANCELLED" ]
 do
   sleep 60
   RUNTEST=$(scontrol show job $1 | grep State | cut -d "=" -f 2 | cut -d " " -f 1)
