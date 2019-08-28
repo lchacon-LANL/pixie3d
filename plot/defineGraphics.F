@@ -502,8 +502,8 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(9)%array => lambda
       graph(4)%array_graph(9)%descr = 'lambda'
 
-      graph(4)%array_graph(10)%array => p_tot
-      graph(4)%array_graph(10)%descr = 'Total pressure'
+      graph(4)%array_graph(10)%array => tmp
+      graph(4)%array_graph(10)%descr = 'Temperature'
 
       graph(4)%array_graph(11)%array => vpar
       graph(4)%array_graph(11)%descr = 'V||'
