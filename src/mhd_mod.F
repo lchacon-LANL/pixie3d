@@ -686,8 +686,12 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
           do j=0,ny+1
             do i=0,nx+1
               bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
-     .                          ,.false.)
-              bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+     .             ,.false.)
+              if (bnorm == 0d0) then
+                bhat(i,j,k,:) = 0d0
+              else
+                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+              endif
             enddo
           enddo
         enddo
