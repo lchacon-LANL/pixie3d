@@ -153,9 +153,9 @@ c Find Cartesian components of ALL vectors
 #endif
 
       !Cartesian B components
-      bx_car = bcnv(:,:,:,1)
-      by_car = bcnv(:,:,:,2)
-      bz_car = bcnv(:,:,:,3)
+      bx_car = bcnv(:,:,:,1)!-bcnv_0(:,:,:,1)
+      by_car = bcnv(:,:,:,2)!-bcnv_0(:,:,:,2)
+      bz_car = bcnv(:,:,:,3)!-bcnv_0(:,:,:,3)
       call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,bx_car,by_car,bz_car,'cnv','car')
 

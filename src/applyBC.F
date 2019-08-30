@@ -903,7 +903,7 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic) then
+          if (adiabatic_rho) then
             rho = varray%array_var(IPRS)%array
      .           /u_0   %array_var(IPRS)%array
             rho = rho_0*(abs(rho))**(1d0/gamma)

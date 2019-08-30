@@ -32,10 +32,11 @@
     tmax     = 1d-2
     dstep    = 1d-2
 
-    pvx      = 1d-3
+    pvx      = 1d-5
     nh2      = 1
-    odd      = f,f,f
-    random   = f
+!    odd      = f,f,f
+!    random   = f
+    prt_file = "pixie3d-eigen.eig"
 
     cnfactor = 0.5
 
@@ -50,8 +51,6 @@
     tolgm    = 0.8
     iguess   = 0
 
-    method   = 1
-
     solenoidal = t
     nc_eom_f   = t
     nc_eom_v   = f
@@ -65,7 +64,7 @@
  /
 
  &graphdef
-    sel_diag  = 2,12,15,17,18,19,20,22,23
+    sel_diag  = 2,3,4,5,6,7,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,4,5,6,7,8,11
     dplot = 1d-2
     prof_conf = 1,'r',1,10,1
