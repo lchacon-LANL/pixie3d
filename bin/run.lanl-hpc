@@ -8,7 +8,7 @@ cat <<HELP
 Usage: 
 
 $0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] [-x executable] 
-  [-r tmax] [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
+  [-t tmax] [-r tmax] [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
 
 where:
 	-np procs:     indicates the number of cores (required)
@@ -19,6 +19,7 @@ where:
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-t tmax:       indicates final simulation time
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
 	-rtgz file:    indicates tarball file to use to restart (default is 
@@ -70,6 +71,7 @@ case $1 in
 	-qos) qos=$2;shift 2;;
 	-omp_tasks) omp_tasks=$2;shift 2;;
 	-x) executable=$2;shift 2;;
+	-t) restart=f;tmax=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
 	-np)parallel=t;np=$2;shift 2;;
@@ -225,8 +227,6 @@ if [ "$recursive" = "t" ]; then
   cp scriptmanage $dir
 fi
 
-cd $dir
-
 # Check for restart
 
 if [ "$restart" = "t" -a "$tar" = "t" ]
@@ -267,6 +267,8 @@ fi
 
 # Execution preparations
 
+cd $dir
+
 rm $code_ifile.in  2>/dev/null
 cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
@@ -305,7 +307,7 @@ cat > go.sub <<QSUB
 #SBATCH -t $wtime
 #  request resources (qos, number of MPI tasks)
 #SBATCH --qos=$qos
-#SBATCH --nodes=$((np/cores_per_node))
+#SBATCH --nodes=$((np/cores_per_node+1))
 #SBATCH --ntasks-per-node=$((cores_per_node/omp_tasks))
 #  specify the pathname for output
 #SBATCH -o $inputfile.log
@@ -342,7 +344,9 @@ then
      echo "==> Storing tarball..."
   fi
 
-  tar zcf $inputfile.tar.gz $inputfile* record* $code_ifile.in $executable go.sub *.log
+  cd ..
+
+  tar zcf $inputfile.tar.gz $dir/$inputfile* $dir/record* $dir/$code_ifile.in $dir/$code_ifile.eig $dir/$executable $dir/go.sub $dir/*.log $dir/*.out $dir/adios_config.xml
 
   if [ -d "$path/tarfiles" ]; then
     mv $inputfile.tar.gz $path/tarfiles
@@ -370,4 +374,4 @@ else
   sbatch go.sub
 fi
 
-
+exit
