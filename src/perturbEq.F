@@ -986,7 +986,8 @@ c     Find perturbations
      .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
      .           +  a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
 
-              varr%array_var(IRHO)%array(i,j,k)
+              if (solve_rho.or.adiabatic_rho)
+     .             varr%array_var(IRHO)%array(i,j,k)
      .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
 
             enddo
@@ -1035,7 +1036,8 @@ c     Find perturbations
      .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
      .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
 
-              varr%array_var(IRHO)%array(i,j,k)
+              if (solve_rho.or.adiabatic_rho)
+     .             varr%array_var(IRHO)%array(i,j,k)
      .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
 
             enddo
