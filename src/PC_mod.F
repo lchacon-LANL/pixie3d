@@ -547,24 +547,26 @@ c$$$     .                      ,iscnv=.false.)
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
         if (chi_par /= chi .and. (.not.lagrangian)) then
-          STOP 'need to change this to be coarse-MG friendly'
           gbhat%grid(igrid)%array = bhat
+          call restrictMGArray(IBX,3,gbhat,bc_pc(:,IBX:IBZ),igrid,order
+     .                        ,order_bc=order_bc)
 
-          do igr=igrid+1,gv%gparams%ngrid
-
-            do k=0,gv%gparams%nzv(igr)+1
-              do j=0,gv%gparams%nyv(igr)+1
-                do i=0,gv%gparams%nxv(igr)+1
-                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
-     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
-
-                  gbhat%grid(igr)%array(i,j,k,:)
-     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
-                enddo
-              enddo
-            enddo
-
-          enddo
+c$$$          STOP 'need to change this to be coarse-MG friendly'
+c$$$          do igr=igrid+1,gv%gparams%ngrid
+c$$$
+c$$$            do k=0,gv%gparams%nzv(igr)+1
+c$$$              do j=0,gv%gparams%nyv(igr)+1
+c$$$                do i=0,gv%gparams%nxv(igr)+1
+c$$$                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
+c$$$     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
+c$$$
+c$$$                  gbhat%grid(igr)%array(i,j,k,:)
+c$$$     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+c$$$                enddo
+c$$$              enddo
+c$$$            enddo
+c$$$
+c$$$          enddo
 
         endif
 
