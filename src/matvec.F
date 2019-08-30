@@ -645,7 +645,7 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            if (use_p_eom) then !Need this for strong stability
+            if (use_p_classic_eq) then !Need this for strong stability
               upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
      .                          ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
      .                          ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
