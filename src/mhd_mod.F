@@ -145,6 +145,7 @@ c ######################################################################
      .            ,slava      =.false.   !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise      =.false.   !Whether to add noise to EOM (to break symmetry)
      .            ,adiabatic  =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,adiabatic_rho  =.false.   !Whether to use adiabatic formula for rho
      .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
@@ -721,9 +722,8 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
         v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
       endif
 
-      bcs(:,1) = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
-     .                        )!,sp=bcSP())
+      bc = varray%array_var(IRHO)%bconds
+      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
 
       bc = varray%array_var(IPRS)%bconds
       if (use_p_classic_eq) then !Classic p evolution eq

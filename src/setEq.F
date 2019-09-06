@@ -64,18 +64,18 @@ c Local variables
      .          ,Impv,Kmpv,Kmp,Imp,Km,Im,vr,vth,vz
      .          ,Er,Eth,Ez,btho,bzo,bthi,bzi
 
-      real(8) :: rint(0:nxdp),dh,bth0(0:nxdp)
-     .          ,bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
-     .          ,eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
-     .          ,jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
-     .          ,bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
-     .          ,q00(0:nxdp),dum (ilom:ihip,2)
-     .          ,ldum(ilom:ihip,2)
-     .          ,r2  (ilom:ihip,jlom:jhip)
-     .          ,br02d (0:nxdp,0:nydp),bth02d(0:nxdp,0:nydp)
-     .          ,bzz02d(0:nxdp,0:nydp)
-     .          ,vth02d(0:nxdp,0:nydp),vr02d(0:nxdp,0:nydp)
-     .          ,psi0(0:nxdp)
+      real(8) :: dh,bth0(0:nxdp)
+      real(8) :: bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
+      real(8) :: eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
+      real(8) :: jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
+      real(8) :: bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
+      real(8) :: q00(0:nxdp),dum (ilom:ihip,2)
+      real(8) :: ldum(ilom:ihip,2)
+      real(8) :: r2  (ilom:ihip,jlom:jhip)
+      real(8) :: br02d (0:nxdp,0:nydp),bth02d(0:nxdp,0:nydp)
+      real(8) :: bzz02d(0:nxdp,0:nydp)
+      real(8) :: vth02d(0:nxdp,0:nydp),vr02d(0:nxdp,0:nydp)
+      real(8) :: psi0(0:nxdp),rg(0:nxdp)
 
       real(8) :: pp(ilom:ihip,jlom:jhip)
 
@@ -102,7 +102,7 @@ c Begin program
 
       ldaflow = dlambda/rshear
 
-      E0 = 0d0 ; B0 = 0d0
+      E0 = 0d0 ; B0 = 0d0 ; bth0 = 0d0
 
       label => varray%array_var%descr
 
@@ -116,6 +116,8 @@ c Initialize required local grid information
       igy = iigx
       igz = iigx
 
+      igr = iigx
+      
       nx = gv%gparams%nxv(igx)
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
@@ -1474,13 +1476,24 @@ c     Tokamak equilibria (analytical)
         kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
 
-        Iz  = 2.22
-        b_0 = 0.5*Iz
-
         nh2 = mm  !To set the right perturbation wavelength
 
         nh1 = nh2 !For perturbations to be of the right order
 
+        call find_global_radial_mesh(rg)
+
+        Iz  = 2.22
+        b_0 = 0.5*Iz
+        do i=0,nxdp
+          x1  = rg(i)
+          bth0(i) = b_0*x1/(1+(x1/dlambda)**2)
+          bzz0(i) = RR
+          p00(i)  = a_p*(1d0+1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2)
+        enddo
+
+        !Dump equilibrium for eigen code
+        call dump_1d_eq
+        
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
@@ -1491,27 +1504,49 @@ c     Tokamak equilibria (analytical)
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
-     .                              ,coords)
+              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
 
-              btheta = b_0*x1/(1+(x1/dlambda)**2)
-              bz0    = RR
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = btheta + kk*x1/mm*bz0
-              bb(i,j,k,3)  = x1*bz0
+              iglobal = i + gv%gparams%ilo(igr) - 1
 
-              var(i,j,k,IPRS) = 1d0
-     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+              bb(i,j,k,1)=0d0
+              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,3)=jac1*bzz0(iglobal)
+
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
             enddo
           enddo
         enddo
 
-      case ('rfp83','vela1','vela2')
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+c$$$     .                              ,coords)
+c$$$
+c$$$              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+c$$$
+c$$$              btheta = b_0*x1/(1+(x1/dlambda)**2)
+c$$$              bz0    = RR
+c$$$
+c$$$              bb(i,j,k,1)  = 0d0
+c$$$              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
+c$$$              bb(i,j,k,3)  = jac1*bz0
+c$$$
+c$$$              var(i,j,k,IPRS) = 1d0
+c$$$     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+
+      case ('rfp83','vela1','vela2','tbbr1','tbbr2')
 
 c     Check coordinates
 
-        if (coords /= 'hel') then
+        if (coords /= 'hel'.and.coords /= 'cyl') then
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
@@ -1522,16 +1557,31 @@ c     Check coordinates
         bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
         beta = gv%gparams%params(5) !Beta toroidal
 
-        nh2 = mm  !To set the right perturbation wavelength
+        if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
         nh1 = nh2 !For perturbations to be of the right order
+
+        if (test
+     .     .and.(    (a_p /= 2d0)
+     .          .or. (.not.adiabatic)
+     .          .or. (.not.solve_rho)
+cc     .          .or. (use_p_eom)
+     .          )
+     .     ) then
+          messg = 'Wrong input. '
+cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
+     .          //'Check adiab,Ti/Te,solve_rho=T,1.0,T'
+          call pstop('setEquilibrium',messg)
+        endif
 
 c$$$     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
 
 c$$$        bz0  = 1d0
 c$$$        beta = 4d-5
 
+        call find_global_radial_mesh(rg)
+
         do i=0,nxdp
-          x1  = gv%gparams%xg(i)
+          x1  = rg(i)
           p00(i) = 0.5*beta*bz0**2*pprof(x1,0)/pprof(0d0,0)
           q00(i) = RR*qprof(x1)
         enddo
@@ -1540,7 +1590,10 @@ c$$$        beta = 4d-5
         bzz0 = bz0  
 
         !Solve 1D Grad-Shafranov equation
-        call GS_equil_1d(q00,p00,bth0,bzz0)
+        call GS_equil_1d(rg,q00,p00,bth0,bzz0)
+
+        !Dump equilibrium for eigen code
+        call dump_1d_eq
 
         !Build equilibrium
         var(:,:,:,IVX:IVZ)  = 0d0
@@ -1551,24 +1604,64 @@ c$$$        beta = 4d-5
           var(:,:,:,IRHO) = 1d0
         endif
 
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
-     .                              ,coords)
+        select case(coords)
+        case('hel')
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
 
-              iglobal = i + gv%gparams%ilo(igx) - 1
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              bb(i,j,k,3)  = x1*bzz0(iglobal)
+                iglobal = i + gv%gparams%ilo(igr) - 1
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+                bb(i,j,k,1)=0d0
+                bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+                bb(i,j,k,3)=jac1*bzz0(iglobal)
 
+                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
+              enddo
             enddo
           enddo
-        enddo
+        case('cyl')
+          if (nh3 == 0) nh3 = nint(kk*RR) !To set the right perturbation wavelength
 
+          if (nh2 == 0 .and. nh3 == 0) then
+            messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+            call pstop('setEquilibrium',messg)
+          else
+            messg=' Perturbation harmonics nh1, nh2, nh3 for '
+     .          //trim(equil)//' equilibrium are'
+            if (my_rank==0) then
+              write (*,*)
+              write (*,'(a,3i3)') trim(messg),nh1,nh2,nh3
+            endif
+          endif
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
+
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+                iglobal = i + gv%gparams%ilo(igr) - 1
+
+                bb(i,j,k,1)=0d0
+                bb(i,j,k,2)=jac1*bth0(iglobal)/x1
+                bb(i,j,k,3)=jac1*bzz0(iglobal)
+
+                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+
+              enddo
+            enddo
+          enddo
+        end select
+        
       case ('ntm2d')
 
         bootstrap= .true.
@@ -1591,9 +1684,11 @@ c     Check coordinates
 
 c     Equilibria (numerical)
 
+        call find_global_radial_mesh(rg)
+        
         !Find pressure and q-profiles
         do i=0,nxdp
-          x1  = gv%gparams%xg(i)
+          x1  = rg(i)
           p00(i) = 0.5*beta*bz0**2*pprof(x1,0)/pprof(0d0,0)
           q00(i) = RR*qprof(x1)
         enddo
@@ -1602,7 +1697,7 @@ c     Equilibria (numerical)
         bzz0 = bz0  
 
         !Solve 1D Grad-Shafranov equation
-        call GS_equil_1d(q00,p00,bth0,bzz0)
+        call GS_equil_1d(rg,q00,p00,bth0,bzz0)
 
         !Build equilibrium
 
@@ -2011,9 +2106,11 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           bz0 = 1d0
 
-          !Find pressure and q-profiles
+          call find_global_radial_mesh(rg)
+
+          !Find pressure profile
           do i=0,nxdp
-            x1  = gv%gparams%xg(i)
+            x1  = rg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
@@ -2048,7 +2145,7 @@ c$$$          endif
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-gv%gparams%xg**2)
+          vz0 = m0_over_nu*0.25*(1-rg**2)
 
           !Find momentum source (cylindrical)
           M0(1:2) = 0d0
@@ -2247,9 +2344,11 @@ c     Equilibria (numerical)
 
           bz0 = 1d0
 
+          call find_global_radial_mesh(rg)
+
           !Find pressure and q-profiles
           do i=0,nxdp
-            x1  = gv%gparams%xg(i)
+            x1  = rg(i)
             p00(i) = 0.5*beta*bz0**2*pprof(x1,0)
           enddo
 
@@ -2273,7 +2372,7 @@ c     Equilibria (numerical)
           vr0 = eta*vr0
 
           !Find axial flow from constant momentum source (Dirichlet at wall)
-          vz0 = m0_over_nu*0.25*(1-gv%gparams%xg**2)
+          vz0 = m0_over_nu*0.25*(1-rg**2)
 
           !Find momentum source (cylindrical)
           M0(1:2) = 0d0
@@ -2288,7 +2387,7 @@ c     Equilibria (numerical)
         if (my_rank == 0) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,vz0'
           do i=0,nxdp
-            x1 = gv%gparams%xg(i) !Global coordinate
+            x1 = rg(i) !Global coordinate
             write(*,10) x1,bth0(i),bzz0(i)
      .             ,(x1*bzz0(i))/(RR*bth0(i)),vr0(i),vz0(i)
           enddo
@@ -2307,16 +2406,18 @@ cc        stop
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                              ,coords)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) =      bth0(iglobal)
+              bb(i,j,k,2) = jac1*bth0(iglobal)/x1
               bb(i,j,k,3) = jac1*bzz0(iglobal)
 
-              var(i,j,k,IVX) = jac1*vr0(iglobal)*eta/eta_in
+              var(i,j,k,IVX) = x1*vr0(iglobal)*eta/eta_in
               var(i,j,k,IVY) = 0d0
               var(i,j,k,IVZ) = jac1*vz0(iglobal)
 
@@ -2532,17 +2633,85 @@ c End program
 10    format (4f7.3,2e12.3)
 #endif
 
+      contains
+
+c     dump_1d_eq
+c     ###############################################################
+      subroutine dump_1d_eq
+
+c     ---------------------------------------------------------------
+c     Dump 1d equilibrium for eigen analysis
+c     ---------------------------------------------------------------
+
+      implicit none
+
+      if (my_rank == 0) then
+        open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
+        write (123,*) nxdp+1
+        do i=0,nxdp
+          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p
+        enddo
+        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
+        close(123)
+      endif
+
+      end subroutine dump_1d_eq
+      
       end subroutine setEquilibrium
 
+c     find_global_radial_mesh
+c     ###############################################################
+      subroutine find_global_radial_mesh(rg)
+
+c     ---------------------------------------------------------------
+c     Find radial global-mesh 
+c     ---------------------------------------------------------------
+
+      use parameters
+
+      use equilibrium
+
+      implicit none
+
+c     Call variables
+      
+      real(8) :: rg(0:nxdp)
+
+c     Local variables
+
+      integer :: i
+      real(8) :: rl(nxl),th,zz
+
+c     Begin program
+
+      do i=1,nxl
+        call find_polar_coords(gv%gparams,1,i,1,1,rl(i),th,zz,coords)
+      enddo
+
+#if defined(petsc)
+      call MPI_Allgather(rl(1:nxl),nxl,MPI_DOUBLE_PRECISION
+     .                  ,rg(1:nxd),nxl,MPI_DOUBLE_PRECISION
+     .                  ,gv%gparams%MPI_COMM_X,mpierr)
+#else
+      rg(1:nxd) = rl
+#endif
+
+      rg(0)    = -rg(1)         !@ SP
+      rg(nxdp) = 2*xmax - rg(nxd) !@ radial boundary
+
+c     End program
+
+      end subroutine find_global_radial_mesh
+      
 c     GS_equil_1d
 c     ###############################################################
-      subroutine GS_equil_1d(Rxq0,p0,bth0,bzz0)
+      subroutine GS_equil_1d(rg,Rxq0,p0,bth0,bzz0)
 
 c     ---------------------------------------------------------------
 c     Solves 1D Grad-Shafranov equation to find cylindrical components
 c     of magnetic field B_theta, B_z from specified q-profile and
 c     pressure profile. On input:
-c       * RR: major radius (aspect ratio -> 1/RR)
+c       * rg: global (possibly non-uniform) radial mesh
 c       * Rxq0,p0: normalized q-profile (RR x q) and pressure profile
 c       * bth0,bzz0: output magnetic field components (bzz0 contains
 c                    initial guess, and bzz0(0) contains value at axis)
@@ -2556,21 +2725,28 @@ c     ---------------------------------------------------------------
 
         use app_iosetup
 
+        use nlfunction_setup, ONLY: a_p
+
         implicit none
 
 c     Call variables
 
         real(8)    :: bth0(0:nxdp),bzz0(0:nxdp)
-     .               ,p0(0:nxdp),Rxq0(0:nxdp)
+     .               ,p0(0:nxdp),Rxq0(0:nxdp),rg(0:nxdp)
 
 c     Local variables
 
         integer    :: i,j,k,ig,jg,kg,it
-        real(8)    :: bz_avg,x1,bzh,bth,gs_err,rh,dh
+        real(8)    :: bz_avg,bz0,x1,bzh,bth,gs_err,dh,rr
 
-        real(8)    :: bz0,rint(0:nxdp),dummy(0:nxdp)
-     .               ,p0h(0:nxdp),q0h(0:nxdp)
-     .               ,xh(0:nxd),dr(0:nxd)
+        real(8)    :: bth_f(0:nxdp)
+     .               ,xg(0:nxdp),dr(0:nxd),dx(0:nxd)
+     .               ,p0h(0:nxd),q0h(0:nxd),rh(0:nxd)
+     .               ,xh(0:nxd),jach(0:nxd),dummy(0:nxdp)
+
+        real(8),parameter :: cm=-1d0/12d0       !Upwinded
+     .                      ,c0=2d0/3d0 
+     .                      ,cp=5d0/12d0
 
 c     Begin program
 
@@ -2582,80 +2758,85 @@ c     Begin program
           write (*,*)
         endif
 
-c       Initialize iteration
+c     Initialize mesh qtys
+
+        xg = gv%gparams%xg
+        
+        !Find half-mesh positions
+        do i=0,nxd
+          rh(i) = 0.5*(rg(i+1)+rg(i))
+          dr(i) =      rg(i+1)-rg(i)
+          xh(i) = 0.5*(xg(i+1)+xg(i))
+          dx(i) =      xg(i+1)-xg(i)
+        enddo
+
+c     Initialize iteration
+
+        !Average pressure and q-profiles to half mesh
+c$$$        do i=0,nxd
+c$$$          p0h(i) = 0.5*(p0(i)  +p0  (i+1)) !Average pressure  to half mesh
+c$$$          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average q-profile to half mesh
+c$$$        enddo
+        call IntDriver1d(nxd+2,xg,p0  ,nxd+1,xh(0:nxd),p0h,3,0)
+        call IntDriver1d(nxd+2,xg,Rxq0,nxd+1,xh(0:nxd),q0h,3,0)
+        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),jach,3,1)
 
         bz0 = bzz0(0)
 
-        !Find half-mesh positions
-        do i=0,nxd
-          xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-          dr(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
-        enddo
-
-        !Average pressure and q-profiles to half mesh
-        do i=0,nxd
-          p0h(i) = 0.5*(p0(i)  +p0  (i+1)) !Average pressure  to half mesh
-          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average q-profile to half mesh
-        enddo
-
-c       Iteration
+c     Iteration
 
         do it=1,100
 
-cc          !Perform integral of B_z/qprof on half-mesh
-cc          dummy(0) = 0d0
-cc          bzz0 (0) = bz0
-cc          do i=1,nxd
-cc            rh  = gv%gparams%xg(i)
-cc
-cc            bzh = 0.5*(bzz0(i)+bzz0(i-1))
-cc
-cc            dummy(i) = dummy(i-1) + 2*(bzh/Rxq0(i))**2*rh*dr(i)
-cc          enddo
+cc          call IntDriver1d(nxd+1,rh(0:nxd),bth0 (0:nxd)
+cc     .                    ,nxd  ,rg(1:nxd),bth_f(1:nxd),3,0)
 
-          !Perform integral of B_th^2/r on half-mesh
+          !Perform integral of B_th^2/r on half-mesh (3rd order)
           dummy(0) = 0d0
           do i=1,nxd
-            rh  = gv%gparams%xg(i)
-            bth = 0.5*(bth0(i)+bth0(i-1))
-            dummy(i) = dummy(i-1) + 2*bth**2/rh*dr(i)
+cc            dummy(i) = dummy(i-1) + 2*bth_f(i)**2/rg(i)*jach(i)*dx(i)
+cc            dummy(i) = dummy(i-1) + 2*bth0(i-1)*bth0(i)/rg(i)*dr(i)
+            if (i == 1) then
+              dummy(i) = dummy(i-1)
+     .                 + 0d0
+     .                 + 2*c0*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+     .                 + 2*cm*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
+            elseif (i == 2) then
+              dummy(i) = dummy(i-1)
+     .                 + 0d0
+     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+            else
+              dummy(i) = dummy(i-1)
+     .                 + 2*cm*bth0(i-2)**2/rh(i-2)*jach(i-2)*dx(i-2)
+     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+            endif
           enddo
 
           !Safeguard for solvability
-          where (dummy>bz0**2+2*(p0h(0)-p0h))
-     .           dummy=bz0**2+2*(p0h(0)-p0h)
+          where (dummy(0:nxd)>bz0**2+2*(p0h(0)-p0h))
+     .           dummy(0:nxd)=bz0**2+2*(p0h(0)-p0h)
 
           !Calculate Bz, Btheta on half-mesh
           do i=0,nxd
-            x1  = xh(i)
-            bth0(i) = x1*bzz0(i)/q0h(i)
+            x1  = rh(i)   !Half mesh
             bzz0(i) = sign(1d0,q0h(i))
      .               *sqrt((bz0**2+2*(p0h(0)-p0h(i))-dummy(i))
      .                    /((x1/q0h(i))**2+1))
           enddo
 
-          !Check convergence (force balance)
-          gs_err = 0d0
-          do i=1,nxd
-            rh  = gv%gparams%xg(i)
-
-            bzh = 0.5*(bzz0(i)+bzz0(i-1))
-            bth = 0.5*(bth0(i)+bth0(i-1))
-            gs_err = gs_err
-     .                +(bzh*(bzz0(i)-bzz0(i-1))/dr(i)
-     .                     +(p0h (i)-p0h (i-1))/dr(i)
-     .                 +0.5*(bth0(i)**2-bth0(i-1)**2)/dr(i)
-     .                 +bth**2/rh)**2
-          enddo
-          gs_err = sqrt(gs_err/nxd)
-
+          !Check convergence
+          gs_err = sqrt(sum(bth0(0:nxd)-rh*bzz0(0:nxd)/q0h(0:nxd))**2)  !RMS error
+          
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,*) '1D Grad-Shafranov equilibrium iter =',it
      .                 ,' ; Force balance error=',gs_err
           endif
 
-          dh = xmax/nxd
-          if (gs_err < 0.01*dh**2) exit
+          !Updated poloidal B-field component
+          bth0(0:nxd) = rh*bzz0(0:nxd)/q0h
+
+          if (gs_err < 1d-7) exit
 
         enddo
 
@@ -2665,28 +2846,31 @@ cc          enddo
      .          ,it,' iterations with force-balance error =',gs_err
         endif
 
-cc        !Check force balance
-cc        do i=1,nxd
-cc          rh  = gv%gparams%xg(i)
-cc
-cc          bzh = 0.5*(bzz0(i)+bzz0(i-1))
-cc          bth = 0.5*(bth0(i)+bth0(i-1))
-cc          dummy(i) =  bzh*(bzz0(i)-bzz0(i-1))/dr(i)
-cc     .                   +(p0h (i)-p0h (i-1))/dr(i)
-cc     $              +bth/rh*(bth0(i)*i-bth0(i-1)*(i-1))
-cc        enddo
-cc
-cc        if (my_rank == 0) then
-cc          write(*,*)
-cc          write(*,'(a,1pe14.7)') ' Force-balance error ='
-cc     .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
-cccc          write (*,*) dummy(1:nxd)
-cc        endif
+        !Check force balance
+        do i=1,nxd
+          rr  = rg(i)
+
+          bzh = 0.5*(bzz0(i)+bzz0(i-1))
+          bth = 0.5*(bth0(i)+bth0(i-1))
+          gs_err = gs_err
+     .              +(bzh*(bzz0(i)-bzz0(i-1))/dr(i)
+     .                   +(p0h (i)-p0h (i-1))/dr(i)
+     .               +0.5*(bth0(i)**2-bth0(i-1)**2)/dr(i)
+     .               +bth**2/rr)**2
+        enddo
+        gs_err = sqrt(gs_err/nxd)
+
+        if (my_rank == 0) then
+          write(*,*)
+          write(*,'(a,1pe14.7)') ' Force-balance error ='
+     .                        ,sqrt(sum(dummy(1:nxd)**2)/nxd)
+cc          write (*,*) dummy(1:nxd)
+        endif
 
         !Calculate equilibrium properties
         bz_avg = 0d0
         do i=1,nxd
-          x1  = xh(i)
+          x1  = rh(i)
           bz_avg = bz_avg + 2*bzz0(i)*x1*dr(i)
         enddo
 
@@ -2703,37 +2887,21 @@ cc        endif
 
         !Save some equilibrium properties (to calculate bootstrap current)
         eq_params(1) = 1d0/gv%gparams%params(3)       !Aspect ratio
-        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)         !Poloidal beta
+        eq_params(2) = 2*p0h(0)/(bth0(nxd)**2)        !Poloidal beta
         eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
 
         !Transfer to integer mesh
-        call IntDriver1d(nxdp,xh(0:nxd),bth0(0:nxd)
-     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
+        call IntDriver1d(nxdp,rh(0:nxd),bth0(0:nxd)
+     .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp),3,0)
         bth0 = dummy
 
-        call IntDriver1d(nxdp,xh(0:nxd),bzz0(0:nxd)
-     .                  ,nxdp,gv%gparams%xg(1:nxdp),dummy(1:nxdp)
-     .                  ,2,0)
+        call IntDriver1d(nxdp,rh(0:nxd),bzz0(0:nxd)
+     .                  ,nxdp,rg(1:nxdp),dummy(1:nxdp),3,0)
         bzz0 = dummy
 
         !Extrapolate linearly in radius @ r=0
-        bth0(0) = -bth0(1)
+        bth0(0) =-bth0(1)
         bzz0(0) = bzz0(1)
-
-        !Dump equilibrium for eigen code
-
-        if (my_rank == 0 .and. equil == 'ntm2d') then
-          open(unit=123,file='ntm2d.txt',status='unknown')
-          write (123,*) nxdp+1
-          write (123,*) gv%gparams%xg(0:nxdp)
-          write (123,*) bth0
-          write (123,*) bzz0
-          write (123,*) 0.5*p0
-          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
-          close(123)
-cc          stop
-        endif
 
       end subroutine GS_equil_1d
 
@@ -2782,7 +2950,7 @@ c     Local variables
         real(8) :: bz0,bz_avg,x1,bzh,bth,err,rh,dh,p00,th,zz
      .            ,dx1,dx2,gp,dvol
 
-        real(8) :: rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
+        real(8) :: dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd),rg(0:nxdp)
      .            ,rl(nxl),drh(0:nxd),eta0(0:nxdp)
 
@@ -2875,7 +3043,7 @@ c       Iteration
      .            -p0(i-1)*dx2/dx1/(dx1+dx2))
 
             !Accumulate integral on half mesh
-            dvol = 0.5*(xh(i)**2-xh(i-1)**2) !rg(i)*dr(i)
+            dvol = 0.5*(xh(i)**2-xh(i-1)**2)
             dummy(i)=dummy(i-1)
      .              +(Eoeta/eta0(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
 
@@ -3136,7 +3304,7 @@ c     Local variables
 ! Daniele, 02/07/2014
         real(8) :: chirh,chirhm,chirhp
 
-        real(8) :: bz0,rint(0:nxdp),dummy(0:nxdp),bth0_old(0:nxdp)
+        real(8) :: bz0,dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd)
      .            ,bzf(0:nxdp),btf(0:nxdp),p0_old(0:nxdp)
      .            ,jzf(nxd),jtf(nxd),dl(nxd),d(nxd),du(nxd)
@@ -5587,8 +5755,7 @@ c     Call variables
 
 c     Local variables
 
-        integer :: p
-        real(8) :: q0,qa,qstar,RR,aa
+        real(8) :: q0,qa,qstar,RR,aa,jz1,p
 
 c     Begin program
 
@@ -5597,13 +5764,15 @@ c     Begin program
 
           q0 = 1.02
           qa = 4.
-          p  = 1
+          p  = 1.
 
           qprof = q0*(1+r**(2*p)*( (qa/q0)**p - 1 ))**(1./p)
 
         case('rfp83')
 
-          qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)
+          RR   = gv%gparams%params(3)
+          
+          qprof = 0.6125*(1 - 1.8748*r**2 + 0.8323*r**4)/RR
 
         case('vela1')
 
@@ -5619,6 +5788,19 @@ c     Begin program
 
           qprof = log(1+r)+exp(r)
 
+        case('tbbr1','tbbr2')
+
+          RR   = gv%gparams%params(3)
+          
+          q0   = gv%gparams%params(6)
+          jz1  = gv%gparams%params(7)
+          aa   = gv%gparams%params(8)
+          p    = gv%gparams%params(9)
+
+          qa = r**2/(0.5*jz1*r**2+aa**2*(1-0.5*jz1))
+
+          qprof = q0*(1d0+qa**p)**(1./p)
+          
         case default
 
           call pstop('qprof','Undefined q profile')
@@ -5678,12 +5860,20 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
-        case('rfp83')
+        case('rfp83','tbbr1')
 
           if (der == 0) then
             pprof = 1d0
           else
             pprof = 0d0
+          endif
+
+        case('tbbr2')
+
+          if (der == 0) then
+            pprof = 1d0+s**2
+          else
+            pprof = 2*s
           endif
 
         case('vela1')

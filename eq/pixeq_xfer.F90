@@ -122,6 +122,8 @@ program pixeq_xfer
   call allocateDerivedType(vref_0)
 
   !Read first file until last time slice
+  if (debug) write (*,*) "Reading REFERENCE record file ",trim(irecfile)
+
   call readTimeStep(u_rec_in,itm,tt,dt,gammat,vref_0,ierr)
 
   if (ierr /= 0) call pstop("pixeq_xfer","Equilibrium file unreadable")
@@ -130,12 +132,13 @@ program pixeq_xfer
     call readTimeStep(u_rec_in,itm,tt,dt,gammat,vref,ierr)
 
     if (ierr /= 0) exit
+    if (debug) write (*,*) 'itime=',itm,'; time=',tt
   enddo
 
   call closeRestartFileForRead(u_rec_in)
+ 
+  if (debug) write (*,*) "Done!"
 
-  call finalize_IO
-  
   !Init PIXIE3D variables
 !  call setAppBCs(vref,gv%aux)
 
@@ -154,7 +157,7 @@ program pixeq_xfer
   xx(1:nxs) = gv%gparams%xx(ig-1:ig+nxl)
   yy(1:nys) = gv%gparams%yy(jg-1:jg+nyl)
   zz(1:nzs) = gv%gparams%zz(kg-1:kg+nzl)
-
+  
   flg = 0
 
   kx = min(order+1,nxs-1)
@@ -218,17 +221,21 @@ program pixeq_xfer
   ny = nyl
   nz = nzl
   
-  if (extrude_dir(1)) nx = 1
-  if (extrude_dir(2)) ny = 1
-  if (extrude_dir(3)) nz = 1
+  if (extrude_dir(1)) then
+    nx = 1 ; xp = xmin
+  endif
+  if (extrude_dir(2)) then
+    ny = 1 ; yp = ymin
+  endif
+  if (extrude_dir(3)) then
+    nz = 1 ; zp = zmin
+  endif
 
   !!!!!!!!!!!!!!!!!!!
   !Write output file!
   !!!!!!!!!!!!!!!!!!!
 
-  if (debug) write (*,*) "Writing output ",trim(orecfile)
-
-!!  if (debug) write (*,*) 'itime=',itm,'; time=',tt
+  if (debug) write (*,*) "Writing output ",trim(orecfile),' at itime=',itm,'; time=',tt
 
   !Reset time counters
   itm = 0 ; tt = 0d0
@@ -245,7 +252,11 @@ program pixeq_xfer
   call xfer_varray(vref,vout)
 
   call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
-  
+
+#if defined(adios)
+  ierr = destroy_ADIOS_IO()
+#endif
+
 !!  call writeDerivedType(vout,6,.true.)
   
   !!!!!!!!!!!!!!!!!!!!!!
@@ -311,30 +322,50 @@ contains
           do ic = 0,nx+1
             call getMGmap(gv%gparams,ic,jc,kc,igx,igy,igz,ig,jg,kg)
 
-            xp = gv%gparams%xx(ig)
-            yp = gv%gparams%yy(jg)
-            zp = gv%gparams%zz(kg)
-
-            interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
-                           ,kx,ky,kz,bcoef,work)
-!!            write (*,*) ic,jc,kc,xp,yp,zp,interp
-           
             if     (extrude_dir(1).and.extrude_dir(2)) then
+              zp = gv%gparams%zz(kg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(:,:,kc) = interp
             elseif (extrude_dir(1).and.extrude_dir(3)) then
+              yp = gv%gparams%yy(jg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(:,jc,:) = interp
             elseif (extrude_dir(2).and.extrude_dir(3)) then
+              xp = gv%gparams%xx(ig)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(ic,:,:) = interp
             elseif (extrude_dir(1)) then
+              yp = gv%gparams%yy(jg)
+              zp = gv%gparams%zz(kg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(:,jc,kc) = interp
             elseif (extrude_dir(2)) then
+              xp = gv%gparams%xx(ig)
+              zp = gv%gparams%zz(kg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(ic,:,kc) = interp
             elseif (extrude_dir(3)) then
+              xp = gv%gparams%xx(ig)
+              yp = gv%gparams%yy(jg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(ic,jc,:) = interp
             else
+              xp = gv%gparams%xx(ig)
+              yp = gv%gparams%yy(jg)
+              zp = gv%gparams%zz(kg)
+              interp = db3val(xp,yp,zp,0,0,0,tx,ty,tz,nxs,nys,nzs &
+                             ,kx,ky,kz,bcoef,work)
               arrayc(ic,jc,kc) = interp
             endif
 
+            !!write (*,*) ivar,ic,jc,kc,xp,yp,zp,interp
+           
           enddo
         enddo
       enddo
