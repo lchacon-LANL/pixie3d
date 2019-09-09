@@ -683,7 +683,7 @@ c Calculate matrix-vector product
 
             if (chi_par /= chi .and.(.not.lagrangian)) then
               plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),bh0
-     .                       ,2,"symm",vol=.false.)
+     .                       ,2,"mimetic",vol=.false.)
               plap = (gamma-1d0)*(chi_par-chi)/a_p*plap !Factor of a_p because operator acts on Te
             else
               plap = 0d0
