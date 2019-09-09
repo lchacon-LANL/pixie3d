@@ -180,7 +180,7 @@ c     Heat flux
           heat_flx = heat_flx
      .              -(chi_par-chi)
      .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
-     .                       ,"symm",vol=.false.)
+     .                       ,"mimetic",vol=.false.)
         endif
       endif
 
