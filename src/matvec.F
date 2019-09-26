@@ -918,7 +918,7 @@ c Velocity field (including BCs)
 
 c Eta*J term
 
-      if (.not.MG_get_find_diag()) then
+      if (.not.MG_get_find_diag().and.(.not.spitzer)) then
         curl_eta_dj = curl(g_def,igrid,db_cov)                    !dj_cnv
 
         curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1) !eta*dj_cnv
@@ -928,10 +928,10 @@ c Eta*J term
         curl_eta_dj = XformToCov(g_def,igrid,curl_eta_dj)         !eta*dj_cov
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
-        curl_eta_dj =-veclap(g_def,igrid,db)
-        curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
-        curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
-        curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)
+        curl_eta_dj =-veclap(g_def,igrid,db,diff=eta0(:,:,:,1))
+c$$$        curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
+c$$$        curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
+c$$$        curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)
       endif
 
 c Calculate matrix-vector product
