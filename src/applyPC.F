@@ -552,7 +552,27 @@ c     Magnetic field
         endif
 
         if (.not.pc_e_hall) then
-          call cSolver(gv%gparams,3,nn,y,x
+          if (spitzer) then
+            call cSolver(gv%gparams,3,nn,y,x
+     .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = b_diag
+     .            ,gm_driver     = spitzer !pc_gm_driver
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = 5 !mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            )
+          else
+            call cSolver(gv%gparams,3,nn,y,x
      .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = b_diag
@@ -570,7 +590,7 @@ cc     .            ,gm_driver     = pc_gm_driver
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
      .            )
-
+          endif
 cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
 cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
 

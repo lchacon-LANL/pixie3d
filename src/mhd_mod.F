@@ -6612,7 +6612,7 @@ c     Local variables
 c     Begin program
 
       if (spitzer) then
-        rsvty = eta*res_spitzer(field/te0_ref)
+        rsvty = min(eta*res_spitzer(field/te0_ref),1d-1)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
