@@ -178,9 +178,10 @@ c     Heat flux
 
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_flx = heat_flx
-     .              -(chi_par-chi)
-     .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
-     .                       ,"mimetic",vol=.false.)
+     .              -(chi_par-chi)*prs_pdff(i,j,k)
+c$$$     .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
+c$$$     .                       ,"dutoit",vol=.false.
+c$$$     .                       ,bcs=varray%array_var(IPRS)%bconds)
         endif
       endif
 
@@ -844,8 +845,9 @@ c Begin program
               !(parallel piece; should be made conservative)
               if (chi_par /= chi .and.(.not.lagrangian)) then
                 heat_flx = -(chi_par-chi)
-     .              *par_diff(gv%gparams,i,j,k,igr,tmpe,bhat,2
-     .                       ,"symm",vol=.false.)
+     .              *prs_pdff(i,j,k)
+c$$$     .              *par_diff(gv%gparams,i,j,k,igr,tmpe,bhat,2
+c$$$     .                       ,"mimetic",vol=.false.)
               else
                 heat_flx = 0d0
               endif

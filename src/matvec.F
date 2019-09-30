@@ -585,7 +585,7 @@ c Local variables
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0,tmp0
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
@@ -628,6 +628,7 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
+      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
  
       dtmp = dprs/rho0
 
@@ -682,8 +683,9 @@ c Calculate matrix-vector product
             endif
 
             if (chi_par /= chi .and.(.not.lagrangian)) then
-              plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),bh0
-     .                       ,2,"mimetic",vol=.false.)
+              plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
+     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
+     .                       ,advc_mthd=UPWD)
               plap = (gamma-1d0)*(chi_par-chi)/a_p*plap !Factor of a_p because operator acts on Te
             else
               plap = 0d0
