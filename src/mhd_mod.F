@@ -378,6 +378,7 @@ c ######################################################################
      .                                       ,cchi
      .                                       ,rho_advc
      .                                       ,prs_advc
+     .                                       ,prs_pdff
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -669,6 +670,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs_pdff(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
       endif
 
@@ -679,7 +681,8 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       v_advc = 0d0
       rho_advc = 0d0
       prs_advc = 0d0
-
+      prs_pdff = 0d0
+      
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
       if (chi_par /= chi .and. (.not.lagrangian)) then
         do k=0,nz+1
@@ -737,6 +740,11 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
        prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
      .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
      .                              ,rvrs=.true.) !Reverse: v -> -v
+      endif
+
+      if (chi_par /= chi .and.(.not.lagrangian)) then
+        prs_pdff = par_diff(gv%gparams,igr,tmpe,bhat,2
+     .                     ,"dutoit",vol=.false.,bcs=bc,advc_mthd=UPWD)
       endif
 #endif
 
@@ -1778,7 +1786,7 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
-     .          ,stat=istat)
+     .          ,prs_pdff,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
