@@ -112,6 +112,7 @@ c ######################################################################
      .                             ,v_advect
      .                             ,form_ve
      .                             ,vlap_etaj
+     .                             ,fillLocalAuxVars
 
         use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 

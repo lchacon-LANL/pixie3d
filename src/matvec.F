@@ -675,7 +675,7 @@ c Calculate matrix-vector product
      .                         ,dprs(:,:,:,1))
               else
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                         ,dtmp(:,:,:,1))
+     .                         ,dtmp(:,:,:,1))/a_p !Factor of a_p because operator acts on Te
               endif
               slap = (gamma-1d0)*chi*slap
             else

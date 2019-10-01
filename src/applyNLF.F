@@ -112,7 +112,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src
+      real(8) :: joule,viscous,heat_flx,heat_srce
 
       ! EOM equation
       real(8) :: MS(3)
@@ -163,61 +163,15 @@ c     Advection
 
 c     Heat flux
 
-      heat_flx = 0d0
-
-      if (gamma > 1d0) then
-        if (chi /= 0d0) then
-          if (use_p_diff) then  !Total pressure
-            heat_flx = -lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,prs
-     .                     ,dff=cchi)
-          else                  !Total temperature
-            heat_flx = -lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,tmp
-     .                     ,dff=cchi)
-          endif
-        endif
-
-        if (chi_par /= chi .and.(.not.lagrangian)) then
-          heat_flx = heat_flx
-     .              -(chi_par-chi)*prs_pdff(i,j,k)
-c$$$     .              *par_diff(gv%gparams,i,j,k,igx,tmpe,bhat,2
-c$$$     .                       ,"dutoit",vol=.false.
-c$$$     .                       ,bcs=varray%array_var(IPRS)%bconds)
-        endif
-      endif
+      heat_flx = heat_xport(i,j,k)
 
 c     Sources
 
-      if ((.not.adiabatic).and.(gamma > 1d0)) then
-        !Joule heating
-        joule = eeta(i,j,k)
-     .         *scalarProduct_ijk(gv%gparams,i,j,k,igx,jcnv(i,j,k,:)
-     .                                                ,jcov(i,j,k,:))
+      heat_srce = heat_src(i,j,k)
+      
+c     Add contributions
 
-        !Ion viscosity
-        heat_src = joule
-     .      +viscous_heat_src(gv%gparams,i,j,k,igx,nuu,vcnv,vcnv,sym_st)
-
-        !Electron viscosity
-        !Comment out for old TM Hall MHD performance results
-        if (di > 0d0) then
-          heat_src = heat_src
-     .       +viscous_heat_src(gv%gparams,i,j,k,igx,h_eta,vecnv,vecnv
-     .                        ,.false.)
-        endif
-
-        !External heat source
-        heat_src = heat_src + ext_heat_src(gv%gparams,i,j,k,igx)
-
-        if (heat_src < 0d0) then
-          write (*,*) 'Negative heat source'
-          stop
-        endif
-      else
-        heat_src = 0d0
-      endif
-
-      !Add contributions
-      ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_src))*jac
+      ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_srce))*jac
 
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -353,7 +307,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src
+      real(8) :: joule,viscous,heat_flx
 
 c Begin program
 
@@ -507,7 +461,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src
+      real(8) :: joule,viscous,heat_flx
 
 c Begin program
 
@@ -659,7 +613,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_flx,heat_src
+      real(8) :: joule,viscous,heat_flx
 
 c Begin program
 
@@ -812,7 +766,7 @@ c Local variables
       real(8) :: advc,diffus
 
       ! tmp equation
-      real(8) :: joule,viscous,heat_src,heat_flx
+      real(8) :: joule,viscous,heat_srce,heat_flx
 
       ! EOM equation
       real(8) :: MS(3)
@@ -840,54 +794,19 @@ c Begin program
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-            if (gamma > 1d0) then
-              !Heat Flux
-              !(parallel piece; should be made conservative)
-              if (chi_par /= chi .and.(.not.lagrangian)) then
-                heat_flx = -(chi_par-chi)
-     .              *prs_pdff(i,j,k)
-c$$$     .              *par_diff(gv%gparams,i,j,k,igr,tmpe,bhat,2
-c$$$     .                       ,"mimetic",vol=.false.)
-              else
-                heat_flx = 0d0
-              endif
+            !Heat Flux (should be made completely conservative)
+            heat_flx = heat_xport(i,j,k)
 
+            !Heat sources
+            if (gamma > 1d0) then
               !Advection (non-conservative piece, with reversed sign for velocity)
               advc = flx_nc_advec(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
      .                           ,vscnv,prs,1,reverse=.true.)
 
               !Sources
-              if (.not.adiabatic) then
-                !Joule heating
-                joule = eeta(i,j,k)
-     .            *scalarProduct_ijk(gv%gparams,i,j,k,igr,jcnv(i,j,k,:)
-     .                                                   ,jcov(i,j,k,:))
+              heat_srce = heat_src(i,j,k)
 
-                !Ion viscosity
-                heat_src = joule
-     .                   +viscous_heat_src(gv%gparams,i,j,k,igr,nuu
-     .                                    ,vcnv,vcnv,sym_st)
-
-                !Electron viscosity
-                !Comment out for old TM Hall MHD performance results
-                if (di > 0d0) then
-                  heat_src = heat_src
-     .                   +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta
-     .                                    ,vecnv,vecnv,.false.)
-                endif
-
-                !External heat source
-                heat_src = heat_src + ext_heat_src(gv%gparams,i,j,k,igr)
-
-                if (heat_src < 0d0) then
-                  write (*,*) 'Negative heat source'
-                  stop
-                endif
-              else
-                heat_src = 0d0
-              endif
-
-              src(i,j,k,IPRS)=(gamma-1d0)*(advc+(heat_flx-heat_src))*jac
+              src(i,j,k,IPRS)=(gamma-1d0)*(advc+heat_flx-heat_srce)*jac
 
             else
 
