@@ -4793,15 +4793,15 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       if (gamma > 1d0) then
         if (chi /= 0d0) then
           if (use_p_diff) then  !Total pressure
-            heat_xport = -lap(gv%gparams,igr,prs ,dff=cchi)
+            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
           else                  !Electron temperature
-            heat_xport = -lap(gv%gparams,igr,tmpe,dff=cchi)
+            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
           endif
         endif
 
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_xport = heat_xport
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmpe,bhat,2
+     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
      .                              ,"dutoit",vol=.false.,bcs=bc
      .                              ,advc_mthd=SMART)
         endif
@@ -4810,7 +4810,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       if (gamma > 1d0) then
         if (chi_par /= chi .and.(.not.lagrangian)) then
           heat_xport = 
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmpe,bhat,2
+     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
      .                              ,"dutoit",vol=.false.,bcs=bc
      .                              ,advc_mthd=SMART)
         endif
