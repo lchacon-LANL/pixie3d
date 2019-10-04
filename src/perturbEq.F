@@ -876,6 +876,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr,nx,ny,nz
+     .          ,its
       real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1,rg(0:nxdp)
 
       real(8),allocatable,dimension(:) :: xx
@@ -1057,14 +1058,14 @@ c     Divergence clean B perturbation
 
       call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,w_pre_bcs=.true.
-     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+     .                   ,gm_it=its,rtol=0.1*rtol)
 c$$$      call B_div_clean(gv%gparams,ilevel,igx
-c$$$     .                ,db_cnv,"line",w_pre_bcs=.true.
-c$$$     .                ,gm_it=it_divcl,rtol=0.1*rtol)
+c$$$     .                ,db_cnv,"vlap",w_pre_bcs=.true.
+c$$$     .                ,gm_it=its,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
         write (*,'(a,i3,a)')
-     .       ' Divergence cleaning converged in',it_divcl,' its'
+     .       ' Divergence cleaning converged in',its,' its'
       endif
 
       varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
@@ -1108,7 +1109,7 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz
+      integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz,its
       real(8) :: x1,y1,z1,kk,mm,y00
 
       complex(8), allocatable,dimension(:,:,:)  :: fft_br
@@ -1298,17 +1299,17 @@ c     Divergence clean perturbation
         if (ilevel > 0) write (*,*)
       endif
 
-c$$$      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
-c$$$     .                   ,db_cnv,w_pre_bcs=.true.
-c$$$     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
-      call B_div_clean(gv%gparams,ilevel,igx
-     .                   ,db_cnv,"line",w_pre_bcs=.true.
-     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
+     .                   ,db_cnv,w_pre_bcs=.true.
+     .                   ,gm_it=its,rtol=0.1*rtol)
+c$$$      call B_div_clean(gv%gparams,ilevel,igx
+c$$$     .                   ,db_cnv,"line",w_pre_bcs=.true.
+c$$$     .                   ,gm_it=its,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
-        write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
+        write (*,*) 'Divergence cleaning converged in',its,' its'
       endif
-
+      
 c     Add equilibrium
 
       varr%array_var(IBX)%array = db_cnv(:,:,:,1)
