@@ -14,7 +14,7 @@ c####################################################################
 
         use equilibrium
 
-        use nlfunction_setup, ONLY: res,chi_perp,vis,ion_hall
+        use nlfunction_setup, ONLY: res,chi_perp,chi_para,vis,ion_hall
      .                             ,E_fld_res_A,E_fld_res_B,E_fld_ihall
      .                             ,E_fld_ehall,EOM_divPi,hres
      .                             ,nc_eom_v,nc_eom_jxb
