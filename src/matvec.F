@@ -585,7 +585,7 @@ c Local variables
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0
+      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0,tmp0
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
@@ -628,8 +628,9 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
+      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
  
-      dtmp = dprs/rho0
+      dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
 c Calculate matrix-vector product
 
@@ -645,7 +646,7 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            if (use_p_eom) then !Need this for strong stability
+            if (use_p_classic_eq) then !Need this for strong stability
               upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
      .                          ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
      .                          ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
@@ -668,23 +669,24 @@ c Calculate matrix-vector product
               dvol = 1d0
             endif
 
-            if (chi > 0d0) then
+            if (chi > 0d0.and.gamma > 1d0) then
               if (use_p_diff) then
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                         ,dprs(:,:,:,1))
+     .                    ,dprs(:,:,:,1))
               else
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                         ,dtmp(:,:,:,1))
+     .                    ,dtmp(:,:,:,1))  !See above for dtmp def
               endif
               slap = (gamma-1d0)*chi*slap
             else
               slap = 0d0
             endif
 
-            if (chi_par /= chi .and.(.not.lagrangian)) then
-              plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),bh0
-     .                       ,2,"symm",vol=.false.)
-              plap = (gamma-1d0)*(chi_par-chi)/a_p*plap !Factor of a_p because operator acts on Te
+            if (chi_par > chi .and.(.not.lagrangian).and.gamma>1d0) then
+              plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
+     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
+     .                       ,advc_mthd=UPWD)  !See above for dtmp def
+              plap = (gamma-1d0)*(chi_par-chi)*plap
             else
               plap = 0d0
             endif

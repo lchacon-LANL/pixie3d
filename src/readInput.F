@@ -35,12 +35,12 @@ c Call variables
 c Local variables
 
       integer       :: dim(1),loc(1),ioerr,mgcf
-      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptmp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,mg_coarse_solve
+      logical       :: nc_eom_f,mg_coarse_solve,refine_eq
 
       integer       :: mg_coarse_size
 
@@ -73,7 +73,7 @@ c Namelists
      .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
-     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
@@ -85,9 +85,10 @@ c Namelists
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
      .                   ,limit_dt_flow_cfl,ts_ramp_up_dt
      .                   ,ts_ramp_up_dt_fraction
-     .                   ,ts_ramp_up_dt_recovery
+     .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
+     .                   ,adiabatic_rho
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
@@ -110,14 +111,14 @@ c Namelists
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
+     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,irrot_br_pert
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
      .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
@@ -224,7 +225,7 @@ c Map perturbations
       pert(IAY) = pay
       pert(IAZ) = paz
 #endif
-      pert(IPRS)= a_p*ptemp  !Transform to total pressure
+      pert(IPRS)= a_p*ptmp  !Transform to total pressure
 
 c Init boundary conditions
 
@@ -425,6 +426,8 @@ c     #####################################################################
 
       limit_dt_flow_cfl=.true. ! Whether to limit Dt according to flow CFL
 
+      refine_eq = .false.      ! Whether we run PIXIE3D in equilibrium refinement mode
+
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
@@ -488,8 +491,6 @@ c     #####################################################################
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
-
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
       lagrangian = .false.     ! Whether we perform Lagrangian step for Te
@@ -504,6 +505,8 @@ c     #####################################################################
       implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
 
       !Nonlinear function parameters
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      adiabatic_rho = .false.  ! Whether we use adiabatic rho formula
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
@@ -595,7 +598,7 @@ c     #####################################################################
       pax      = 0d0           ! Ax perturbation
       pay      = 0d0           ! Ay perturbation
       paz      = 0d0           ! Az perturbation
-      ptemp    = 0d0           ! Temperature perturbation
+      ptmp     = 0d0           ! Temperature perturbation
       nh1      = 0             ! Starting harmonic number for perturbation in axis 1
       nh2      = 0             ! Starting harmonic number for perturbation in axis 2
       nh3      = 0             ! Starting harmonic number for perturbation in axis 3
@@ -706,6 +709,14 @@ c     #####################################################################
 
       if (tst_flg) test = .true.
 
+      if (refine_eq) then
+        dd  = 1d0        !To damp density
+        chi = 1d0        !To damp pressure profile
+        nu  = 1d0        !To damp flow
+        eta = 0d0        !To avoid resistive diffusion
+        source = .false. !To let equilibrium float
+      endif
+
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
@@ -779,15 +790,18 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
         nu_is_rhonu = .true.
         heta_is_rhoheta = .true.
         e_cons_vstar = .false.
-      endif
+      else
 #if defined(RFX)
-      nu_is_rhonu = .false.
+        nu_is_rhonu = .false.
 #endif
+      endif
 
       if (ion_hall) no_eom_divpe = .false.       !Include divpe in ion EOM
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
+      if (.not.adiabatic) adiabatic_rho = .false.
+      
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 
@@ -826,6 +840,7 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
      .        .and.equil(1:4) /= 'vela'
+     .        .and.equil(1:4) /= 'tbbr'
      .        .and.equil /= 'rfp83'
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
@@ -842,7 +857,8 @@ cc      post_smooth_B = .false.
      .                .or.  (pc_type == 'id')
      .                .or.  (nxd==1.and.nyd==1)
      .                .or.  (nxd==1.and.nzd==1)
-     .                .or.  (nyd==1.and.nzd==1))
+     .                .or.  (nyd==1.and.nzd==1)
+     .                .or.  (cnfactor == 1d0))
       post_divclean = post_divclean.or.post_smooth_B
 #else
       post_divclean = .false.
@@ -854,6 +870,7 @@ cc      post_smooth_B = .false.
      .                  .or.post_divclean
      .                  .or.post_smooth_B
      .                  .or.(br_pert_freq /= 0d0)
+     .                  .or.refine_eq
 
 #if defined(pit)
       postprocess = .true.

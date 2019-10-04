@@ -468,8 +468,11 @@ c Define graphics group #3: Cartesian variables
 
 c Define graphics group #4: Diagnostics
 
+#if defined(RFX)
+      graph(4)%cartesian=.false.
+#else
       graph(4)%cartesian=.true.
-cc      graph(4)%cartesian=.false.
+#endif
       graph(4)%descr='Diagnostics'
 
       graph(4)%array_graph(1)%array => nuu
@@ -499,8 +502,8 @@ cc      graph(4)%cartesian=.false.
       graph(4)%array_graph(9)%array => lambda
       graph(4)%array_graph(9)%descr = 'lambda'
 
-      graph(4)%array_graph(10)%array => p_tot
-      graph(4)%array_graph(10)%descr = 'Total pressure'
+      graph(4)%array_graph(10)%array => tmp
+      graph(4)%array_graph(10)%descr = 'Temperature'
 
       graph(4)%array_graph(11)%array => vpar
       graph(4)%array_graph(11)%descr = 'V||'

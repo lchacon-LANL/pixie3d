@@ -145,6 +145,7 @@ c ######################################################################
      .            ,slava      =.false.   !Whether to use Slava Lukin's Hall MHD implementation
      .            ,noise      =.false.   !Whether to add noise to EOM (to break symmetry)
      .            ,adiabatic  =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,adiabatic_rho  =.false.   !Whether to use adiabatic formula for rho
      .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
      .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
      .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
@@ -402,6 +403,8 @@ c ######################################################################
      .                                       ,cchi
      .                                       ,rho_advc
      .                                       ,prs_advc
+     .                                       ,heat_xport
+     .                                       ,heat_src
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -652,118 +655,6 @@ c     Setup variable dependencies in inner domain
 c     End program
 
       end subroutine defineAuxVariables
-
-c     fillLocalAuxVars
-c     ###################################################################
-      subroutine fillLocalAuxVars(igr,varray,vaux)
-
-      implicit none
-c     -------------------------------------------------------------------
-c     Fills local auxiliary variables (SAMRAI unaware)
-c     -------------------------------------------------------------------
-
-c     Call variables
-
-      integer :: igr
-
-      type(var_array),pointer :: varray
-
-      type(aux_array),pointer :: vaux
-
-c     Local variables
-
-      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3),bc(6)
-
-      real(8) :: bnorm
-
-      real(8),pointer,dimension(:,:,:) :: rho,tmp
-
-c     Begin program
-
-      nx = gv%gparams%nxv(igr)
-      ny = gv%gparams%nyv(igr)
-      nz = gv%gparams%nzv(igr)
-
-c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
-
-      if (.not.associated(pcnv)) then
-        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
-      endif
-
-      pcnv = 0d0
-      vscnv= 0d0
-      bhat = 0d0
-      prs  = 0d0
-      v_advc = 0d0
-      rho_advc = 0d0
-      prs_advc = 0d0
-
-      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
-      if (chi_par /= chi .and. (.not.lagrangian)) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
-     .                          ,.false.)
-              bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
-            enddo
-          enddo
-        enddo
-      endif
-
-      !Momentum
-      rho => vaux%var_list(IRHO_AUX)%array
-
-      pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
-      pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
-      pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
-
-      !Total pressure
-      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
-
-      !Temperature transport velocity, v_star = v - di*j/rho/a_p
-      if (.not.e_cons_vstar) then
-        vscnv = vcnv            !Also to recover old TM Hall performance results
-      else
-        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
-        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
-        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
-      endif
-
-#if !defined(flux_rhs)
-      !Advection operators
-      bcs = gv%aux%vec_list(IVCNV)%bconds
-      if (nc_eom_v) then
-        v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
-     .                             ,v_advect,.false.)
-      else
-        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
-      endif
-
-      bcs(:,1) = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bcs(:,1)
-     .                        )!,sp=bcSP())
-
-      bc = varray%array_var(IPRS)%bconds
-      if (use_p_classic_eq) then !Classic p evolution eq
-       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
-     .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
-      else
-       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
-     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
-     .                              ,rvrs=.true.) !Reverse: v -> -v
-      endif
-#endif
-
-c     End program
-
-      end subroutine fillLocalAuxVars
 
 c     defineAuxBCs
 c     ###################################################################
@@ -1799,7 +1690,7 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
-     .          ,stat=istat)
+     .          ,heat_xport,heat_src,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -4806,6 +4697,188 @@ cc
 ccc     End program
 cc
 cc      end function viscous_heat_src2
+
+c     fillLocalAuxVars
+c     ###################################################################
+      subroutine fillLocalAuxVars(igr,varray,vaux)
+
+      implicit none
+c     -------------------------------------------------------------------
+c     Fills local auxiliary variables (SAMRAI unaware)
+c     -------------------------------------------------------------------
+
+c     Call variables
+
+      integer :: igr
+
+      type(var_array),pointer :: varray
+
+      type(aux_array),pointer :: vaux
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3),bc(6)
+
+      real(8) :: bnorm
+
+      real(8),pointer,dimension(:,:,:) :: rho=>null(),tmp=>null()
+
+c     Begin program
+
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
+
+c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
+
+      if (.not.associated(pcnv)) then
+        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
+     .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
+      endif
+
+      pcnv = 0d0
+      vscnv= 0d0
+      bhat = 0d0
+      prs  = 0d0
+      v_advc = 0d0
+      rho_advc = 0d0
+      prs_advc = 0d0
+      heat_xport = 0d0
+      heat_src   = 0d0
+
+      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
+      if (chi_par /= chi .and. (.not.lagrangian)) then
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
+     .             ,.false.)
+              if (bnorm == 0d0) then
+                bhat(i,j,k,:) = 0d0
+              else
+                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+              endif
+            enddo
+          enddo
+        enddo
+      endif
+
+      !Momentum
+      rho => vaux%var_list(IRHO_AUX)%array
+
+      pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
+      pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
+      pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
+
+      !Total pressure
+      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
+
+      !Temperature transport velocity, v_star = v - di*j/rho/a_p
+      if (.not.e_cons_vstar) then
+        vscnv = vcnv            !Also to recover old TM Hall performance results
+      else
+        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
+        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
+        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
+      endif
+
+      !Advection operators
+#if !defined(flux_rhs)
+      bcs = gv%aux%vec_list(IVCNV)%bconds
+      if (nc_eom_v) then
+        v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
+     .                             ,v_advect,.false.)
+      else
+        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
+      endif
+
+      bc = varray%array_var(IRHO)%bconds
+      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
+
+      bc = varray%array_var(IPRS)%bconds
+      if (use_p_classic_eq) then !Classic p evolution eq
+       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
+      else
+       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
+     .                              ,rvrs=.true.) !Reverse: v -> -v
+      endif
+#endif
+
+      !Heat transport term
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+
+#if !defined(flux_rhs)
+      if (gamma > 1d0) then
+        if (chi /= 0d0) then
+          if (use_p_diff) then  !Total pressure
+            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
+          else                  !see above for temperature def
+            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
+          endif
+        endif
+
+        if (chi_par > chi .and.(.not.lagrangian)) then
+          heat_xport = heat_xport
+     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
+     .                              ,"dutoit",vol=.false.,bcs=bc
+     .                              ,advc_mthd=SMART)
+        endif
+      endif
+#else
+      if (gamma > 1d0) then
+        if (chi_par > chi .and.(.not.lagrangian)) then
+          heat_xport = 
+     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
+     .                              ,"dutoit",vol=.false.,bcs=bc
+     .                              ,advc_mthd=SMART)
+        endif
+      endif
+#endif
+
+      !Heat transport term
+      if ((.not.adiabatic).and.(gamma > 1d0)) then
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              !Joule heating
+              heat_src(i,j,k) = eeta(i,j,k)
+     .            *scalarProduct_ijk(gv%gparams,i,j,k,igr,jcnv(i,j,k,:)
+     .                                                   ,jcov(i,j,k,:))
+
+              !Ion viscosity
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .            +viscous_heat_src(gv%gparams,i,j,k,igr,nuu,vcnv,vcnv
+     .                             ,sym_st)
+
+              !Electron viscosity
+              !Comment out for old TM Hall MHD performance results
+              if (di > 0d0) then
+                heat_src(i,j,k) = heat_src(i,j,k)
+     .             +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta,vecnv
+     .                              ,vecnv,.false.)
+              endif
+
+              !External heat source
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .                        + ext_heat_src(gv%gparams,i,j,k,igr)
+            enddo
+          enddo
+        enddo
+      endif
+
+c     End program
+
+      end subroutine fillLocalAuxVars
 
 c     EOM_jxb
 c     ###################################################################
