@@ -4696,7 +4696,7 @@ c     Local variables
 
       real(8) :: bnorm
 
-      real(8),pointer,dimension(:,:,:) :: rho,tmp
+      real(8),pointer,dimension(:,:,:) :: rho=>null(),tmp=>null()
 
 c     Begin program
 
@@ -4789,17 +4789,20 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 #endif
 
       !Heat transport term
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+
 #if !defined(flux_rhs)
       if (gamma > 1d0) then
         if (chi /= 0d0) then
           if (use_p_diff) then  !Total pressure
             heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
-          else                  !Electron temperature
+          else                  !see above for temperature def
             heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
           endif
         endif
 
-        if (chi_par /= chi .and.(.not.lagrangian)) then
+        if (chi_par > chi .and.(.not.lagrangian)) then
           heat_xport = heat_xport
      .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
      .                              ,"dutoit",vol=.false.,bcs=bc
@@ -4808,7 +4811,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       endif
 #else
       if (gamma > 1d0) then
-        if (chi_par /= chi .and.(.not.lagrangian)) then
+        if (chi_par > chi .and.(.not.lagrangian)) then
           heat_xport = 
      .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
      .                              ,"dutoit",vol=.false.,bcs=bc
