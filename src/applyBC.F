@@ -333,14 +333,18 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe)
+
+        case(ICHIPAR)
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe)
 
         case(INU)
 
           if (nu_is_rhonu) then
             nuu = rho*vis(gv%gparams,igr,tmp)
           else
-            nuu = vis(gv%gparams,igr,tmp)
+            nuu =     vis(gv%gparams,igr,tmp)
           endif
 
         case(IETA_0)
@@ -948,6 +952,10 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
           cchi= chi_perp(gv%gparams,igr,tmpe)
 
+        case(ICHIPAR)
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe)
+
         case(IHETA)
 
 c       Find hyperresistivity (electron viscosity)
@@ -1456,9 +1464,15 @@ c       Resistivity (needed for BCs; may depend on T)
 
         case(ICHI)
 
-c       Heat diffusivity (may depend on T)
+c       Perpendicular heat diffusivity (may depend on T)
 
           cchi= chi_perp(gv%gparams,igr,tmpe)
+
+        case(ICHIPAR)
+
+c       Parallel heat diffusivity (may depend on T)
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe)
 
         case(IHETA)
 

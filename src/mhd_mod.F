@@ -271,28 +271,81 @@ c     End program
 
 c     chi_brag
 c     #############################################################
-      function chi_brag(te) result(chi)
+      function chi_brag(te) result(dfvty)
 c     -------------------------------------------------------------
-c     This function computes the Spitzer resistivity for ELECTRON
-c     temperature value te.
+c     This function computes the perpendicular heat transport
+c     diffusivity for ELECTRON temperature value te.
 c     -------------------------------------------------------------
 
       implicit none
 
 c     Call variables
 
-      real(8) :: chi,te
+      real(8) :: dfvty,te
 
 c     Local variables
 
 c     Begin program
 
-      STOP "chi(Te) not implemented yet"
-cc      chi = (abs(te))**(-1.5)
+      dfvty = 1d0
+cc      dfvty = (abs(te))**(-1.5)
+
+c     End program
+      
+      end function chi_brag
+
+c     chi_par_brag
+c     #############################################################
+      function chi_par_brag(te) result(dfvty)
+c     -------------------------------------------------------------
+c     This function computes the parallel heat transport diffusivity
+c     for ELECTRON temperature value te.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: dfvty,te
+
+c     Local variables
+
+c     Begin program
+
+      dfvty = 1d0
+cc      dfvty = (abs(te))**(-1.5)
 
 c     End program
 
-      end function chi_brag
+      end function chi_par_brag
+
+ ! Daniele, 02/07/2014
+c     chi_rfx
+c     #############################################################
+      function chi_rfx(rr) result(dfvty)
+c     -------------------------------------------------------------
+c     This function computes the heat diffusivity at a radius rr.
+c     (Daniele's RFX profile).
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: dfvty,rr
+
+c     Begin program
+
+      !Diffusivity profile 
+cc      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
+      !Daniele, 02/17/2014
+      dfvty = chi*(1.-(1.-aa_chi)
+     .     *sin(pi*bb_chi*abs(rr)**cc_chi)
+     .     *abs(rr)**dd_chi)
+
+c     End program
+
+      end function chi_rfx
 
       end module transport_params
 
@@ -381,6 +434,7 @@ c ######################################################################
      .                       ,ITMPE_0  =9
      .                       ,ITMPE_AUX=10
      .                       ,ICHI     =11
+     .                       ,ICHIPAR  =12
 
 #if defined(vec_pot)
         real(8),pointer,dimension(:,:,:,:) :: acov
@@ -401,6 +455,7 @@ c ######################################################################
      .                                       ,tmp
      .                                       ,tmpe
      .                                       ,cchi
+     .                                       ,cchi_par
      .                                       ,rho_advc
      .                                       ,prs_advc
      .                                       ,heat_xport
@@ -627,6 +682,9 @@ c     Setup pointers
 
         vaux%var_list(ICHI)%descr = 'chi'
         cchi => vaux%var_list(ICHI)%array
+
+        vaux%var_list(ICHIPAR)%descr = 'chi'
+        cchi_par => vaux%var_list(ICHIPAR)%array
 
 cc        vaux%vec_list(IVSCNV)%cnv   = .true.
 cc        vaux%vec_list(IVSCNV)%descr = 'Vstar cnv'
@@ -1032,6 +1090,11 @@ cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(ICHI)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(ICHI)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ICHI)%bc_dep_list(1,3) = 0 !trivial
+
+      !Chipar
+      vaux%var_list(ICHIPAR)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHIPAR)%bc_dep_list(1,2) = SCALAR
+      vaux%var_list(ICHIPAR)%bc_dep_list(1,3) = 0 !trivial
 
 #if defined(vec_pot)
       !A cov
@@ -1457,6 +1520,11 @@ c     Current variables
       vaux%var_list(ICHI)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ICHI)%dom_dep_list(1,3) = 0 !trivial
 
+      !Chi
+      vaux%var_list(ICHIPAR)%dom_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHIPAR)%dom_dep_list(1,2) = SCALAR
+      vaux%var_list(ICHIPAR)%dom_dep_list(1,3) = 0 !trivial
+
 #if defined(vec_pot)
       !A cov
       vaux%vec_list(IACOV)%dom_dep_list(1,1) = IAX
@@ -1731,6 +1799,7 @@ c     Begin program
      .       ,tmp
      .       ,tmpe
      .       ,cchi
+     .       ,cchi_par
 cc     .       ,vecnv_0
 cc     .       ,vscnv
 cc     .       ,pcnv
@@ -4398,6 +4467,10 @@ c ######################################################################
           module procedure chi_perp_mesh
         END INTERFACE
 
+        INTERFACE chi_para
+          module procedure chi_par_mesh
+        END INTERFACE
+
         INTERFACE vis
           module procedure vis_mesh,vis_ijk
         END INTERFACE
@@ -4814,7 +4887,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 #endif
 
       !Heat transport term
-      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T (modify tmp_mtvc accordingly)
 cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
 
 #if !defined(flux_rhs)
@@ -4827,20 +4900,22 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
           endif
         endif
 
-        if (chi_par > chi .and.(.not.lagrangian)) then
+        if (chi_par > chi.and.(.not.lagrangian)) then
           heat_xport = heat_xport
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
-     .                              ,"dutoit",vol=.false.,bcs=bc
-     .                              ,advc_mthd=SMART)
+     .       -(cchi_par(i,j,k)-cchi(i,j,k))
+     .               *par_diff(gv%gparams,igr,tmp,bhat,2
+     .                        ,"dutoit",vol=.false.,bcs=bc
+     .                        ,advc_mthd=SMART)
         endif
       endif
 #else
       if (gamma > 1d0) then
-        if (chi_par > chi .and.(.not.lagrangian)) then
+        if (chi_par > chi.and.(.not.lagrangian)) then
           heat_xport = 
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
-     .                              ,"dutoit",vol=.false.,bcs=bc
-     .                              ,advc_mthd=SMART)
+     .       -(cchi_par(i,j,k)-cchi(i,j,k))
+     .              *par_diff(gv%gparams,igr,tmp,bhat,2
+     .                       ,"dutoit",vol=.false.,bcs=bc
+     .                       ,advc_mthd=SMART)
         endif
       endif
 #endif
@@ -6709,7 +6784,7 @@ c     Local variables
 
 c     Begin program
 
-      if (spitzer) then
+      if (spitzer.or.fixed_spitzer.or.lagged_spitzer) then
         rsvty = eta*res_spitzer(field/te0_ref)
       else
         select case (equil)
@@ -7009,34 +7084,6 @@ c     End
 
       end function hres
 
- ! Daniele, 02/07/2014
-c     dfvty_rfx
-c     #############################################################
-      function dfvty_rfx(rr) result(dfvty)
-c     -------------------------------------------------------------
-c     This function computes the heat diffusivity at a radius rr.
-c     (Daniele's RFX profile).
-c     -------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-      real(8) :: dfvty,rr
-
-c     Begin program
-
-      !Diffusivity profile 
-cc      dfvty = chi*(1.-(1.-aa_chi)*sin(pi*rr/bb_chi))
-      !Daniele, 02/17/2014
-      dfvty = chi*(1.-(1.-aa_chi)
-     .     *sin(pi*bb_chi*abs(rr)**cc_chi)
-     .     *abs(rr)**dd_chi)
-
-c     End program
-
-      end function dfvty_rfx
-
 c     chi_perp_ijk
 c     #################################################################
       function chi_perp_ijk(g_def,i,j,k,igrid,field) result(dfvty)
@@ -7067,7 +7114,7 @@ c     Begin program
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
           call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
-          dfvty = dfvty_rfx(rr)
+          dfvty = chi_rfx(rr)
         case default
           dfvty = chi
         end select
@@ -7118,5 +7165,87 @@ c     Begin program
 c     End program
 
       end function chi_perp_mesh
+
+c     chi_par_ijk
+c     #################################################################
+      function chi_par_ijk(g_def,i,j,k,igrid,field) result(dfvty)
+c     -----------------------------------------------------------------
+c     This function computes the local value of the heat diffusivity on
+c     the node (i,j,k) of grid igrid according to field.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      integer :: i,j,k,igrid
+      real(8) :: field,dfvty
+      type(grid_mg_def),pointer :: g_def
+
+c     Local variables
+
+! Daniele, 02/07/2014
+      integer :: ig,jg,kg
+      real(8) :: rr,th,zz
+
+c     Begin program
+
+      if (spitzer) then
+        dfvty = chi_par*chi_par_brag(field/te0_ref)
+      else
+c$$$        select case (equil)
+c$$$        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+c$$$          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+c$$$          dfvty = chi_rfx(rr)
+c$$$        case default
+          dfvty = chi_par
+c$$$        end select
+      endif
+
+c     End program
+
+      end function chi_par_ijk
+
+c     chi_par_mesh
+c     #############################################################
+      function chi_par_mesh(g_def,igrid,field) result(dfvty)
+c     -------------------------------------------------------------
+c     This function computes the diffusivity on the grid level
+c     igrid.
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igrid
+      real(8) :: field(0:,0:,0:)
+      real(8) :: dfvty(0:size(field,1)-1
+     .                ,0:size(field,2)-1
+     .                ,0:size(field,3)-1)
+
+c     Local variables
+
+      integer :: nx,ny,nz,i,j,k
+
+c     Begin program
+
+      nx = size(field,1)-2
+      ny = size(field,2)-2
+      nz = size(field,3)-2
+
+      do k=0,nz+1
+        do j=0,ny+1
+          do i=0,nx+1
+            dfvty(i,j,k)=chi_par_ijk(g_def,i,j,k,igrid,field(i,j,k))
+          enddo
+        enddo
+      enddo
+
+c     End program
+
+      end function chi_par_mesh
 
       end module nlfunction_setup

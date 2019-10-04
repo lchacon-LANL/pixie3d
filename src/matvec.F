@@ -586,6 +586,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0,tmp0
+     .                                         ,chi0,chip0
 
       real(8),pointer    ,dimension(:,:,:) :: jac
 
@@ -629,6 +630,8 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chi0  ,gchi)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chip0 ,gchipar)
  
       dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
@@ -672,21 +675,21 @@ c Calculate matrix-vector product
             if (chi > 0d0.and.gamma > 1d0) then
               if (use_p_diff) then
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,dprs(:,:,:,1))
+     .                    ,dprs(:,:,:,1),dff=chi0(:,:,:,1))
               else
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,dtmp(:,:,:,1))  !See above for dtmp def
+     .                    ,dtmp(:,:,:,1),dff=chi0(:,:,:,1))  !See above for dtmp def
               endif
-              slap = (gamma-1d0)*chi*slap
+              slap = (gamma-1d0)*slap
             else
               slap = 0d0
             endif
 
-            if (chi_par > chi .and.(.not.lagrangian).and.gamma>1d0) then
+            if (chi_par > chi.and.(.not.lagrangian).and.gamma > 1d0)then
               plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
      .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
      .                       ,advc_mthd=UPWD)  !See above for dtmp def
-              plap = (gamma-1d0)*(chi_par-chi)*plap
+              plap = (gamma-1d0)*(chip0(i,j,k,1)-chi0(i,j,k,1))*plap
             else
               plap = 0d0
             endif
@@ -702,7 +705,7 @@ cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
 c End program
 
       deallocate(dtmp,dprs)
-      nullify(v0_cnv,rho0,bh0)
+      nullify(v0_cnv,rho0,bh0,tmp0,chi0,chip0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 

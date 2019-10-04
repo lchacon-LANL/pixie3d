@@ -136,7 +136,7 @@ c ######################################################################
         type(mg_array),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
      .                           ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                           ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
-     .                           ,g_advdiffV0
+     .                           ,g_advdiffV0,gchi,gchipar
 
       contains
 
@@ -195,6 +195,8 @@ c     Begin program
         call allocateMGArray(gv%gparams,1,gvis)
         call allocateMGArray(gv%gparams,1,geta)
         call allocateMGArray(gv%gparams,1,gheta)
+        call allocateMGArray(gv%gparams,1,gchi)
+        call allocateMGArray(gv%gparams,1,gchipar)
         call allocateMGArray(gv%gparams,3,gbhat)
         call allocateMGArray(gv%gparams,3,gdb_cov)
         call allocateMGArray(gv%gparams,3,g_advdiffV0)
@@ -247,6 +249,8 @@ c     Begin program
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
+        call deallocateMGArray(gchi)
+        call deallocateMGArray(gchipar)
         call deallocateMGArray(gbhat)
         call deallocateMGArray(gdb_cov)
         call deallocateMGArray(g_advdiffV0)
@@ -593,18 +597,28 @@ cc
 cc        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
 cc     .                      ,order,iscnv=.false.)
 
-c     Store viscosity
 
+c     Store transport coefficients
+
+        !Resistivity
+        geta%grid(igrid)%array(:,:,:,1) = eeta
+        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
+
+        !Viscosity
 cc        gvis%grid(igrid)%array(:,:,:,1) = nuu + h_eta
         gvis%grid(igrid)%array(:,:,:,1) = nuu
         call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order
      .                      ,order_bc=order_bc)
 
-c     Store resistivity
+        !Chi_perp
+        gchi%grid(igrid)%array(:,:,:,1) = cchi
+        call restrictMGArray(IRHO,1,gchi,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
 
-        geta%grid(igrid)%array(:,:,:,1) = eeta
-
-        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order
+        !Chi_par
+        gchipar%grid(igrid)%array(:,:,:,1) = cchi_par
+        call restrictMGArray(IRHO,1,gchipar,bc_sc,igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store Hall MHD auxiliary variables
