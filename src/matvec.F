@@ -630,7 +630,7 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
  
-      dtmp = dprs/rho0
+      dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
 c Calculate matrix-vector product
 
@@ -669,25 +669,24 @@ c Calculate matrix-vector product
               dvol = 1d0
             endif
 
-            if (chi > 0d0) then
+            if (chi > 0d0.and.gamma > 1d0) then
               if (use_p_diff) then
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                         ,dprs(:,:,:,1))
+     .                    ,dprs(:,:,:,1))
               else
                 slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .               ,dtmp(:,:,:,1)) !/a_p !Factor of a_p because operator acts on Tees
-                
+     .                    ,dtmp(:,:,:,1))  !See above for dtmp def
               endif
               slap = (gamma-1d0)*chi*slap
             else
               slap = 0d0
             endif
 
-            if (chi_par /= chi .and.(.not.lagrangian)) then
+            if (chi_par > chi .and.(.not.lagrangian).and.gamma>1d0) then
               plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
      .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
-     .                       ,advc_mthd=UPWD)
-              plap = (gamma-1d0)*(chi_par-chi)*plap !/a_p !Factor of a_p because operator acts on Te
+     .                       ,advc_mthd=UPWD)  !See above for dtmp def
+              plap = (gamma-1d0)*(chi_par-chi)*plap
             else
               plap = 0d0
             endif
