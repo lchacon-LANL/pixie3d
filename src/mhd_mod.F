@@ -4820,7 +4820,7 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
       endif
 #endif
 
-      !Heat transport term
+      !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
         do k=1,nz
           do j=1,ny
@@ -4829,7 +4829,7 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
               heat_src(i,j,k) = eeta(i,j,k)
      .            *scalarProduct_ijk(gv%gparams,i,j,k,igr,jcnv(i,j,k,:)
      .                                                   ,jcov(i,j,k,:))
-
+              
               !Ion viscosity
               heat_src(i,j,k) = heat_src(i,j,k)
      .            +viscous_heat_src(gv%gparams,i,j,k,igr,nuu,vcnv,vcnv
@@ -6696,20 +6696,6 @@ c     Begin program
         end select
       endif
 
-cc      select case (equil)
-cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
-cc
-cc        call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-cc        rr = g_def%xx(ig)
-cc
-cc        rsvty = res_def(rr)
-cc      
-cc      case default
-cc
-cc        rsvty = eta
-cc
-cc      end select
-
 c     End program
 
       end function res_ijk
@@ -7032,16 +7018,21 @@ c     Local variables
 
 ! Daniele, 02/07/2014
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr,th,zz
 
 c     Begin program
 
-!     dfvty = chi
-! Daniele, 02/07/2014
-      call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-      rr = g_def%xx(ig)
-
-      dfvty = dfvty_rfx(rr)
+      if (spitzer) then
+        dfvty = chi!*chi_spitzer(field/te0_ref)
+      else
+        select case (equil)
+        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          dfvty = chi*dfvty_rfx(rr)
+        case default
+          dfvty = chi
+        end select
+      endif
 
 c     End program
 
