@@ -1724,6 +1724,8 @@ c ######################################################################
 
         use variables
 
+        use auxiliaryVariables, ONLY: heat_src
+
 #if defined(vec_pot)
         real(8),target,allocatable,dimension(:,:,:) ::
      .          ax_car,ay_car,az_car
@@ -1744,7 +1746,6 @@ c ######################################################################
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
      .         ,vex,vey,vez
-
 
         type(var_array),pointer :: u_pert => null()
 
@@ -1809,7 +1810,8 @@ c     ##################################################################
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip))
+     .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,heat_src(ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
@@ -1836,7 +1838,7 @@ c     ##################################################################
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
-     .           ,jpar,jpsi,jperp)
+     .           ,jpar,jpsi,jperp,heat_src)
 
       deallocate (qfactor,lambda)
 
@@ -4673,6 +4675,55 @@ ccc     End program
 cc
 cc      end function viscous_heat_src2
 
+c     int_heat_src
+c     ###################################################################
+      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcnv,jcov,vcnv
+     .                     ,vecnv) result(ihs)
+
+c     -------------------------------------------------------------------
+c     Provides external momentum source for selected equilibria, in
+c     contravariant representation
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer :: i,j,k,igr
+        real(8) :: ihs
+     .            ,jcnv(0:,0:,0:,:)
+     .            ,jcov(0:,0:,0:,:)
+     .            ,vcnv(0:,0:,0:,:)
+     .            ,vecnv(0:,0:,0:,:)
+     .            ,heta(0:,0:,0:)
+     .            ,eta (0:,0:,0:)
+     .            ,nu  (0:,0:,0:)
+
+c     Local variables
+
+c     Begin program
+
+        !Joule heating
+        ihs =eta(i,j,k)*scalarProduct_ijk(g_def,i,j,k,igr,jcnv(i,j,k,:)
+     .                                                   ,jcov(i,j,k,:))
+        
+        !Ion viscosity
+        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
+
+        !Electron viscosity
+        !Comment out for old TM Hall MHD performance results
+        if (di > 0d0) then
+          ihs = ihs
+     .       +viscous_heat_src(g_def,i,j,k,igr,heta,vecnv
+     .                        ,vecnv,.false.)
+        endif
+
+c     End program
+
+      end function int_heat_src
+
 c     fillLocalAuxVars
 c     ###################################################################
       subroutine fillLocalAuxVars(igr,varray,vaux)
@@ -4825,23 +4876,10 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
         do k=1,nz
           do j=1,ny
             do i=1,nx
-              !Joule heating
-              heat_src(i,j,k) = eeta(i,j,k)
-     .            *scalarProduct_ijk(gv%gparams,i,j,k,igr,jcnv(i,j,k,:)
-     .                                                   ,jcov(i,j,k,:))
-              
-              !Ion viscosity
-              heat_src(i,j,k) = heat_src(i,j,k)
-     .            +viscous_heat_src(gv%gparams,i,j,k,igr,nuu,vcnv,vcnv
-     .                             ,sym_st)
-
-              !Electron viscosity
-              !Comment out for old TM Hall MHD performance results
-              if (di > 0d0) then
-                heat_src(i,j,k) = heat_src(i,j,k)
-     .             +viscous_heat_src(gv%gparams,i,j,k,igr,h_eta,vecnv
-     .                              ,vecnv,.false.)
-              endif
+              !Internal heat source
+              heat_src(i,j,k) =
+     .             int_heat_src(gv%gparams,i,j,k,igr,eeta,nuu,h_eta
+     .                         ,jcnv,jcov,vcnv,vecnv)
 
               !External heat source
               heat_src(i,j,k) = heat_src(i,j,k)
