@@ -45,8 +45,8 @@ sed  -i -e '/restart/{' \
         -e 'c\' \
         -e '    restart  = t' \
         -e '}' \
-        $code_ifile.in 
-#rm exit_code.txt 2> /dev/null  #Do not remove: leave to "restart" by default
+        pixie3d.in 
+rm exit_code.txt 2> /dev/null  #Do not remove: leave to "restart" by default
 JOB=$(sbatch $1 --dependency=after:$JOB | cut -d " " -f 4)
 echo 'New JOB='$JOB
 
@@ -75,8 +75,8 @@ date
 JOB="$2"
 
 if [ "$JOB" = "" ]; then
-#  rm exit_code.txt 2> /dev/null
-  echo "1" > exit_code.txt  #Set to restart by default, in case of system abort
+  rm exit_code.txt 2> /dev/null
+#  echo "1" > exit_code.txt  #Set to restart by default, in case of system abort
   JOB=$(sbatch $1 | cut -d " " -f 4)
   echo 'New JOB='$JOB
 fi
