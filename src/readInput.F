@@ -136,7 +136,8 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
-     .                   ,limit_dt_flow_cfl,restart
+     .                   ,limit_dt_flow_cfl,restart,ts_ramp_up_dt
+     .                   ,ts_ramp_up_dt_fraction,ts_ramp_up_dt_recovery
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp

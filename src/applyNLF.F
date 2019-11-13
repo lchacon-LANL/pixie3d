@@ -163,12 +163,20 @@ c     Advection
 
 c     Heat flux
 
-      heat_flx = heat_xport(i,j,k)
+      if (.not.source_eval) then
+        heat_flx = heat_xport(i,j,k)
+      else
+        heat_flx = 0d0
+      endif
 
 c     Sources
 
-      heat_srce = heat_src(i,j,k)
-      
+      if (.not.source_eval) then
+        heat_srce = heat_src(i,j,k)
+      else
+        heat_srce = 0d0
+      endif
+
 c     Add contributions
 
       ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_srce))*jac
@@ -217,7 +225,11 @@ c     Advection
 
 c     Sources
 
-      MS = ext_mom_src(gv%gparams,i,j,k,igx)
+      if (.not.source_eval) then
+        MS = ext_mom_src(gv%gparams,i,j,k,igx)
+      else
+        MS = 0d0
+      endif
 
       if (nc_eom_v) then
         ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
