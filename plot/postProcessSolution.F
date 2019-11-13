@@ -391,9 +391,30 @@ c Divergence diagnostics
       divrgB = div(gv%gparams,igx,bcnv)
       divrgV = div(gv%gparams,igx,vcnv)
 
-c Total pressure
+c Pressure diagnostics
 
+      !Total pressure
       p_tot = rho*tmp
+
+      !Internal heat source
+      if ((.not.adiabatic).and.(gamma > 1d0)) then
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              !Internal heat source
+              heat_src(i,j,k) =
+     .             int_heat_src(gv%gparams,i,j,k,igx,eeta,nuu,h_eta
+     .                         ,jcnv,jcov,vcnv,vecnv)
+
+              !External heat source
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .                        + ext_heat_src(gv%gparams,i,j,k,igx)
+            enddo
+          enddo
+        enddo
+      else
+        heat_src = 0d0
+      endif
 
 #if defined(RFX)
 c RFX dump
