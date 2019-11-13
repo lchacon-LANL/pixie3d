@@ -534,7 +534,10 @@ c Define graphics group #4: Diagnostics
         graph(4)%array_graph(16)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(17:ngraph)%descr = ''
+      graph(4)%array_graph(17)%array => heat_src
+      graph(4)%array_graph(17)%descr = 'Int. heat src'
+
+      graph(4)%array_graph(18:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
