@@ -917,10 +917,14 @@ c       Resistivity at initial time
 
         case(ITMPE_AUX) !Electron temperature
 
-          where (rho /= 0d0)
-            tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
-          end where
-
+          if (gamma == 1d0) then
+            tmpe = tmpe_0  !Isothermal
+          else
+            where (rho /= 0d0)
+              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
+            end where
+          endif
+          
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)

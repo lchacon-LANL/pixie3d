@@ -802,6 +802,8 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (.not.adiabatic) adiabatic_rho = .false.
+
+      if (adiabatic_rho) solve_rho = .false.
       
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC

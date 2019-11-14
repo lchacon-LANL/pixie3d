@@ -1390,7 +1390,7 @@ c$$$#endif
 c     Current variables
 
       !Rho
-      if ((.not.solve_rho).and.adiabatic) then
+      if (adiabatic_rho) then
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
@@ -4779,6 +4779,10 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       heat_xport = 0d0
       heat_src   = 0d0
 
+      rho => vaux%var_list(IRHO_AUX)%array
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
       if (chi_par /= chi .and. (.not.lagrangian)) then
         do k=0,nz+1
@@ -4797,8 +4801,6 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       endif
 
       !Momentum
-      rho => vaux%var_list(IRHO_AUX)%array
-
       pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
@@ -4840,9 +4842,6 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 #endif
 
       !Heat transport term
-      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
-cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
-
 #if !defined(flux_rhs)
       if (gamma > 1d0) then
         if (chi /= 0d0) then
