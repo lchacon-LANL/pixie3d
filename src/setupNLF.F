@@ -91,7 +91,7 @@ c Fill LOCAL auxiliary variables
 c Safeguards
 
       call chk_neg(rho,'density')
-      call chk_neg(tmp,'temperature')
+      call chk_neg(prs,'pressure')
       call chk_neg(heat_src,'heat source')
 
 c Setup fluxes
