@@ -350,12 +350,12 @@ c     Store velocity solution in array format --> dv_cnv
      .                ,arr_cov=dv_cov,is_vec=.true.
      .                ,is_cnv=.true.,arr0=dv0cnv,icomp=(/IVX/))
 
-c     Correct rx to find Deltax (correction for rho, B, T)
+c     Correct rx to find Deltax (correction for B, P)
 
-        !Find corrections to rho,B,tmp right hand sides (Udv --> udv)
-        if (solve_rho) then
-          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
-        endif
+c$$$        !Find corrections to rho,B,prs right hand sides (Udv --> udv)
+c$$$        if (solve_rho.or.adiabatic_rho) then
+c$$$          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
+c$$$        endif
 
 #if defined(vec_pot)
         call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IAX:IAZ))
@@ -363,7 +363,7 @@ c     Correct rx to find Deltax (correction for rho, B, T)
         call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IBX:IBZ))
 #endif
 
-        call U_Tv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
+        call U_Pv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
 
 c     End program
 
