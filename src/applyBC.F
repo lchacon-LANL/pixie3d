@@ -237,16 +237,18 @@ cc        endif
 
 c     Temperature BCs
 
-cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array/jac
-cc
-cc        call setBC(gv%gparams,IPRS,nnx,nny,nnz
-cc     .            ,varray%array_var(IPRS)%array
-cc     .            ,u_0   %array_var(IPRS)%array
-cc     .            ,varray%array_var(IPRS)%bconds
-cc     .            ,igr,igr,igr,iorder=order)
-cc
-cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array*jac
+        if (adiabatic_rho) then
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array/jac
 
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz
+     .              ,varray%array_var(IPRS)%array
+     .              ,u_0   %array_var(IPRS)%array
+     .              ,varray%array_var(IPRS)%bconds
+     .              ,igr,igr,igr,iorder=order)
+
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
+        endif
+        
       end select
 
 c End
@@ -919,6 +921,10 @@ c       Resistivity at initial time
 
           if (gamma == 1d0) then
             tmpe = tmpe_0  !Isothermal
+          elseif (adiabatic.and.solve_rho) then
+            tmpe = varray%array_var(IRHO)%array
+     .            /u_0   %array_var(IRHO)%array
+            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
           else
             where (rho /= 0d0)
               tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
@@ -1432,8 +1438,10 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)  !Recover total pressure
 
-          varray%array_var(IPRS)%array = rho*tmp*jac
-
+          if (.not.adiabatic_rho) then
+            varray%array_var(IPRS)%array = rho*tmp*jac
+          endif
+          
         case(ITMPE_AUX)
 
         case(INU)
