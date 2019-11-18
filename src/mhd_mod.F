@@ -4827,9 +4827,11 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
         v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
       endif
 
-      bc = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
-
+      if (solve_rho) then
+        bc = varray%array_var(IRHO)%bconds
+        rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc) !,sp=bcSP())
+      endif
+      
       bc = varray%array_var(IPRS)%bconds
       if (use_p_classic_eq) then !Classic p evolution eq
        prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
@@ -4842,8 +4844,8 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
 #endif
 
       !Heat transport term
-#if !defined(flux_rhs)
       if (gamma > 1d0) then
+#if !defined(flux_rhs)
         if (chi /= 0d0) then
           if (use_p_diff) then  !Total pressure
             heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
@@ -4851,6 +4853,7 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
             heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
           endif
         endif
+#endif
 
         if (chi_par > chi .and.(.not.lagrangian)) then
           heat_xport = heat_xport
@@ -4859,16 +4862,6 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
      .                              ,advc_mthd=SMART)
         endif
       endif
-#else
-      if (gamma > 1d0) then
-        if (chi_par > chi .and.(.not.lagrangian)) then
-          heat_xport = 
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
-     .                              ,"dutoit",vol=.false.,bcs=bc
-     .                              ,advc_mthd=SMART)
-        endif
-      endif
-#endif
 
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
