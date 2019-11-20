@@ -949,7 +949,7 @@ c     Find perturbations
 
         do k = klom,khip
           do j = jlom,jhip
-            do i = ilom,ihip
+            do i = ilo,ihi
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
 
@@ -999,7 +999,7 @@ c     Find perturbations
         
         do k = klom,khip
           do j = jlom,jhip
-            do i = ilom,ihip
+            do i = ilo,ihi
               call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
 

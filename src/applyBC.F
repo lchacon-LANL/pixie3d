@@ -404,41 +404,43 @@ c$$$          rho = rho + rho_0
 
 c       Temperature BCs
 
-c$$$          if (adiabatic) then
-c$$$          !Impose BCs on perturbation only
-c$$$            s0 = 0d0
-c$$$            tmp = tmp - tmp_0
-c$$$            bcsq = vaux%var_list(ITMP_AUX)%bconds
-c$$$            where (bcsq == EQU) bcsq = NEU
-c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
-c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
-c$$$            tmp = tmp + tmp_0
-c$$$          else
+          if (adiabatic.and.(.not.adiabatic_rho)) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmp = tmp - tmp_0
+            bcsq = vaux%var_list(ITMP_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmp = tmp + tmp_0
+          else
             call XferBCs(tmp_0,s0,.true.)
             call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
      .                ,vaux%var_list(ITMP_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-c$$$          endif
+          endif
           
+cc          tmp = tmpe*a_p
+
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-c$$$          if (adiabatic) then
-c$$$          !Impose BCs on perturbation only
-c$$$            s0 = 0d0
-c$$$            tmpe = tmpe - tmpe_0
-c$$$            bcsq = vaux%var_list(ITMPE_AUX)%bconds
-c$$$            where (bcsq == EQU) bcsq = NEU
-c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
-c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
-c$$$            tmpe = tmpe + tmpe_0
-c$$$          else
+          if (adiabatic.and.(.not.adiabatic_rho)) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmpe = tmpe - tmpe_0
+            bcsq = vaux%var_list(ITMPE_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmpe = tmpe + tmpe_0
+          else
             call XferBCs(tmpe_0,s0,.true.)
             call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
      .                ,vaux%var_list(ITMPE_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-c$$$          endif
+          endif
 
         case default
           call pstop('applyAuxVarBC'
