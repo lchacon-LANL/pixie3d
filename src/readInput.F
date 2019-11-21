@@ -93,7 +93,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
-     .                   ,regularize_A,use_p_classic_eq
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -130,7 +130,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
-     .                   ,regularize_A,use_p_classic_eq
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -874,6 +874,7 @@ cc      post_smooth_B = .false.
      .                  .or.post_smooth_B
      .                  .or.(br_pert_freq /= 0d0)
      .                  .or.refine_eq
+     .                  .or.post_filter_hel
 
 #if defined(pit)
       postprocess = .true.

@@ -4364,7 +4364,8 @@ c ######################################################################
      .            ,post_divclean    =.false. !Whether to perform divergence cleaning at postproc.
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
-        
+     .            ,post_filter_hel  =.false. !Whether to filter helical simulations
+
         logical,private :: symm_pi
 
         INTERFACE res
