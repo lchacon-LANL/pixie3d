@@ -222,7 +222,7 @@ c     ###############################################################
 
         implicit none
 
-        integer :: bcnd(6,3),ieq,i,j,k,jg,jlog
+        integer :: ieq,i,j,k,jg,jlog
         real(8) :: ac(nx),as(nx),lsum(nx,2),gsum(nx,2),mm
         real(8),allocatable,dimension(:,:,:,:) :: dv
 
@@ -237,22 +237,12 @@ c     Find dV=V^(n+1)-V^n
 
         allocate(dv(0:nx+1,0:ny+1,0:nz+1,3))
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              dv(i,j,k,1) = vnp%array_var(IVX)%array(i,j,k)
-     .                     -vn %array_var(IVX)%array(i,j,k)
-              dv(i,j,k,2) = vnp%array_var(IVY)%array(i,j,k)
-     .                     -vn %array_var(IVY)%array(i,j,k)
-              dv(i,j,k,3) = vnp%array_var(IVZ)%array(i,j,k)
-     .                     -vn %array_var(IVZ)%array(i,j,k)
-            enddo
-          enddo
-        enddo
-
-        do ieq=1,3
-          bcnd(:,ieq) = vnp%array_var(ieq)%bconds(:)
-        enddo
+        dv(:,:,:,1) = vnp%array_var(IVX)%array
+     .               -vn %array_var(IVX)%array
+        dv(:,:,:,2) = vnp%array_var(IVY)%array
+     .               -vn %array_var(IVY)%array
+        dv(:,:,:,3) = vnp%array_var(IVZ)%array
+     .               -vn %array_var(IVZ)%array
 
 c     Filter by Fourier transform
 
@@ -269,10 +259,8 @@ c     Filter by Fourier transform
           !Perform Fourier transform in theta
           do j = 1,ny
             jg = j + jlog - 1   !Global index
-            do i = 1,nx
-              ac(i) = ac(i) + dv(i,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
-              as(i) = as(i) + dv(i,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
-            enddo
+            ac = ac + dv(1:nx,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
+            as = as + dv(1:nx,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
           enddo
           
 #if defined(petsc)
@@ -287,11 +275,8 @@ c     Filter by Fourier transform
           !Inverse Fourier transform
           do j = 1,ny
             jg = j + jlog - 1   !Global index
-            do i = 1,nx
-              dv(i,j,k,ieq) =2*(ac(i)*cos(2*pi*mm*(jg-1)/nyd)      !Factor of 2 to
-     .                         -as(i)*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
-                                                                 
-            enddo
+            dv(1:nx,j,k,ieq) =2*(ac*cos(2*pi*mm*(jg-1)/nyd) !Factor of 2 to
+     .                          -as*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
           enddo
 
         enddo
@@ -333,18 +318,12 @@ c$$$        enddo
 c$$$        
 c$$$        stop
 
-        do k = 1,nz
-          do j = 1,ny
-            do i = 1,nx
-              vnp%array_var(IVX)%array(i,j,k) = dv(i,j,k,1)
-     .                 +vn%array_var(IVX)%array(i,j,k)
-              vnp%array_var(IVY)%array(i,j,k) = dv(i,j,k,2)
-     .                 +vn%array_var(IVY)%array(i,j,k)
-              vnp%array_var(IVZ)%array(i,j,k) = dv(i,j,k,3)
-     .                 +vn%array_var(IVZ)%array(i,j,k)
-            enddo
-          enddo
-        enddo
+        vnp%array_var(IVX)%array = dv(:,:,:,1)
+     .                            +vn%array_var(IVX)%array
+        vnp%array_var(IVY)%array = dv(:,:,:,2)
+     .                            +vn%array_var(IVY)%array
+        vnp%array_var(IVZ)%array = dv(:,:,:,3)
+     .                            +vn%array_var(IVZ)%array
 
         deallocate(dv)
         
