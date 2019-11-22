@@ -1325,7 +1325,7 @@ c     RFP equilibria (analytical)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
               bb(i,j,k,3)  = jac1*bz0
             enddo
           enddo
@@ -1441,9 +1441,11 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               !X-Y equilibrium
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = btheta + kk*x1/mm*bz0
-              bb(i,j,k,3)  = x1*bz0
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
+              bb(i,j,k,3)  = jac1*bz0
             enddo
           enddo
         enddo
@@ -1512,7 +1514,7 @@ c     Tokamak equilibria (analytical)
               iglobal = i + gv%gparams%ilo(igr) - 1
 
               bb(i,j,k,1)=0d0
-              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
               var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
@@ -1617,7 +1619,7 @@ c$$$        beta = 4d-5
                 iglobal = i + gv%gparams%ilo(igr) - 1
 
                 bb(i,j,k,1)=0d0
-                bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+                bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
                 var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
@@ -1711,11 +1713,13 @@ c     Equilibria (numerical)
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
 
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              bb(i,j,k,3) = x1*bzz0(iglobal)
+              bb(i,j,k,2) = jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
+              bb(i,j,k,3) = jac1*bzz0(iglobal)
 
               var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
@@ -1987,8 +1991,8 @@ c$$$        enddo
                 bz  = 0d0
               endif
               
-              bb(i,j,k,1)=x1*br
-              bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
+              bb(i,j,k,1)=x1/mm*br
+              bb(i,j,k,2)=jac1*(mm*bth/x1+kk*bz)
               bb(i,j,k,3)=jac1*bz
 
 c$$$              bb(i,j,k,:) = grad_ijk(gv%gparams,i,j,k,nx,ny,nz,igx,igx
@@ -2025,8 +2029,8 @@ c$$$                Ez  = Ez - kk/mm*Eth
 c$$$                write (*,*) i,j,Eth,Ez
               endif
 
-              var(i,j,k,IVX)=x1*vr
-              var(i,j,k,IVY)=jac1*(vth/x1+kk/mm*vz)
+              var(i,j,k,IVX)=x1/mm*vr
+              var(i,j,k,IVY)=jac1*(mm*vth/x1+kk*vz)
               var(i,j,k,IVZ)=jac1*vz
 cc              var(i,j,k,IVX:IVZ)=0d0
 
@@ -2172,11 +2176,11 @@ c$$$          endif
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1)=0d0
-              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IVX)=x1*vr0(iglobal)*eta/eta_in
-              var(i,j,k,IVY)=kk*jac1/mm*vz0(iglobal)
+              var(i,j,k,IVX)=x1/mm*vr0(iglobal)*eta/eta_in
+              var(i,j,k,IVY)=jac1*kk*vz0(iglobal)
               var(i,j,k,IVZ)=jac1*vz0(iglobal)
 
               if (solve_rho) then
@@ -2268,7 +2272,7 @@ c     Magnetic field
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) = jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2) = jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3) = jac1*bzz0(iglobal)
             enddo
           enddo

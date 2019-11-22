@@ -231,8 +231,8 @@ c     Initial message
 
       write (*,*)
       write (*,*) '****************************************************'
-      write (*,*) '******  PIXIE3D Extended MHD code, V. '// 
-     $                                       trim(release) //'   ******'
+      write (*,*) '******       PIXIE3D Extended MHD code        ******'
+      write (*,*) '******         V. '//release(1:28)//         '******'
       write (*,*) '******                                        ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
