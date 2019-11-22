@@ -548,6 +548,8 @@ c     #####################################################################
 
       regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
+      post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
+      
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -834,9 +836,11 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       !Miscellaneous
       if (ts_restart) dcon = .false.
 
-      if (coords == 'hel') then
+      if (coords == 'hel') then  !Special case for 2D helical geometry
         nh2 = nint(gparams(1))
-        nh1 = nh2               !Special case for 2D helical equilibria
+        nh1 = nh2                
+cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
+cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
       endif
       
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)

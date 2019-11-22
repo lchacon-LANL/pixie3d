@@ -962,8 +962,8 @@ c     Find perturbations
               pert=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
 
               !Transform velocity
-              pert(IVX) = x1*pert(IVX)
-              pert(IVY)=jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+              pert(IVX) = x1/mm*pert(IVX)
+              pert(IVY) = jac1*(mm*pert(IVY)/x1+kk*pert(IVZ))
               if (alt__eom()) pert(IVY) = jac1*pert(IVY)
               pert(IVZ) = jac1*pert(IVZ)
 
@@ -973,8 +973,8 @@ c     Find perturbations
               enddo
 
               !Transform magnetic field
-              pert(IBX) = x1*pert(IBX)
-              pert(IBY) = jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+              pert(IBX) = x1/mm*pert(IBX)
+              pert(IBY) = jac1*(mm*pert(IBY)/x1+kk*pert(IBZ))
               pert(IBZ) = jac1*pert(IBZ)
               
               db_cnv(i,j,k,:) = pert(IBX:IBZ)
@@ -1252,12 +1252,12 @@ c#c temperature field
                 pert(IPRS)= + rdum(iglobal,7) * cos(ff*y1)
      .                      - idum(iglobal,7) * sin(ff*y1)
 
-                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1
+                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1/mm
                 db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
      .                                            + kk/mm * pert(IBZ)*x1
-                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1
-                dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1
-
+                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1/mm
+                
+                dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1/mm
                 if (alt__eom()) then
                   dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
      .                 + (pert(IVY) + kk/mm*pert(IVZ)*x1)*x1
@@ -1265,8 +1265,7 @@ c#c temperature field
                   dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2) + pert(IVY)
      .                                              + kk/mm*pert(IVZ)*x1
                 endif
-
-                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1
+                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1/mm
 
                 dprs(i,j,k)     = dprs(i,j,k)     + pert(IPRS)*x1
               enddo
