@@ -2751,6 +2751,9 @@ c     Local variables
         real(8),parameter :: cm=-1d0/12d0       !Upwinded
      .                      ,c0=2d0/3d0 
      .                      ,cp=5d0/12d0
+     .                      ,b1= 855d0/1320d0  !@ SP
+     .                      ,b2=-123d0/1320d0
+     .                      ,b3= 17d0 /1320d0
 
 c     Begin program
 
@@ -2764,11 +2767,11 @@ c     Begin program
 
 c     Initialize mesh qtys
 
-        xg = gv%gparams%xg
+        xg = gv%gparams%xg   !Logical global mesh
         
         !Find half-mesh positions
         do i=0,nxd
-          rh(i) = 0.5*(rg(i+1)+rg(i))
+cc          rh(i) = 0.5*(rg(i+1)+rg(i))
           dr(i) =      rg(i+1)-rg(i)
           xh(i) = 0.5*(xg(i+1)+xg(i))
           dx(i) =      xg(i+1)-xg(i)
@@ -2777,13 +2780,10 @@ c     Initialize mesh qtys
 c     Initialize iteration
 
         !Average pressure and q-profiles to half mesh
-c$$$        do i=0,nxd
-c$$$          p0h(i) = 0.5*(p0(i)  +p0  (i+1)) !Average pressure  to half mesh
-c$$$          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average q-profile to half mesh
-c$$$        enddo
-        call IntDriver1d(nxd+2,xg,p0  ,nxd+1,xh(0:nxd),p0h,3,0)
-        call IntDriver1d(nxd+2,xg,Rxq0,nxd+1,xh(0:nxd),q0h,3,0)
-        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),jach,3,1)
+        call IntDriver1d(nxd+2,xg,p0  ,nxd+1,xh(0:nxd),p0h ,3,0)
+        call IntDriver1d(nxd+2,xg,Rxq0,nxd+1,xh(0:nxd),q0h ,3,0)
+        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),rh  ,3,0)
+        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),jach,3,1)  !1st derivative
 
         bz0 = bzz0(0)
 
@@ -2799,23 +2799,38 @@ cc     .                    ,nxd  ,rg(1:nxd),bth_f(1:nxd),3,0)
           do i=1,nxd
 cc            dummy(i) = dummy(i-1) + 2*bth_f(i)**2/rg(i)*jach(i)*dx(i)
 cc            dummy(i) = dummy(i-1) + 2*bth0(i-1)*bth0(i)/rg(i)*dr(i)
-            if (i == 1) then
-              dummy(i) = dummy(i-1)
-     .                 + 0d0
-     .                 + 2*c0*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
-     .                 + 2*cm*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
-            elseif (i == 2) then
-              dummy(i) = dummy(i-1)
-     .                 + 0d0
-     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
-     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            if (i == 1) then
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 0d0
+c$$$     .                 + 2*c0*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$     .                 + 2*cm*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
+c$$$            elseif (i == 2) then
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 0d0
+c$$$     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+c$$$     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            else
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 2*cm*bth0(i-2)**2/rh(i-2)*jach(i-2)*dx(i-2)
+c$$$     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+c$$$     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            endif
+            if (i==1) then
+              dummy(i) = 
+     .                 + 2*b1*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+     .                 + 2*b2*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
+     .                 + 2*b3*bth0(i+2)**2/rh(i+2)*jach(i+2)*dx(i+2)
+c$$$              dummy(i) = 
+c$$$     .                 + 2*14./24*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
             else
               dummy(i) = dummy(i-1)
      .                 + 2*cm*bth0(i-2)**2/rh(i-2)*jach(i-2)*dx(i-2)
      .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
      .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
-            endif
-          enddo
+
+            endif 
+           enddo
 
           !Safeguard for solvability
           where (dummy(0:nxd)>bz0**2+2*(p0h(0)-p0h))
