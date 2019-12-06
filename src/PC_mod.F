@@ -1766,11 +1766,11 @@ c     End program
 
       end subroutine L_rho_v
 
-c     U_Tv
+c     U_Pv
 c     ####################################################################
-      subroutine U_Tv(g_def,igr,dv_cnv,crhs)
+      subroutine U_Pv(g_def,igr,dv_cnv,crhs)
 c     --------------------------------------------------------------------
-c     This subroutine finds the U_Tv block using dv. Not weighed by
+c     This subroutine finds the U_Pv block using dv. Not weighed by
 c     volume or jacobian factor.
 c     --------------------------------------------------------------------
 
@@ -1786,7 +1786,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ii,nx,ny,nz
-      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0,p0
+      real(8),pointer,dimension(:,:,:,:) :: nu0,v0,rho0,p0
       real(8) :: heat_src
 
 c     Begin program
@@ -1795,7 +1795,7 @@ c     Begin program
       ny = g_def%nyv(igr)
       nz = g_def%nzv(igr)
 
-c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
+c     Evaluate rhs correction: gamma*div(dv*p0) - (gamma-1)*dv*grad(p0)
 
       call point_to_MG_array(nx,ny,nz,igr,p0,gp0)
 
@@ -1805,9 +1805,9 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             crhs(ii) = 
-     .        gamma    *flx_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .        gamma     *flx_advec   (g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),advect)
-     .      +(gamma-1.)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .      +(gamma-1d0)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),1,reverse=.true.)
           enddo
         enddo
@@ -1839,11 +1839,11 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
       crhs = alpha*crhs
 
-      nullify(tmp0,p0)
+      nullify(p0)
 
 c     End program
 
-      end subroutine U_Tv
+      end subroutine U_Pv
 
 c     L_T
 c     #####################################################################

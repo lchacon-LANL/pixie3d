@@ -112,7 +112,13 @@ c -------------------------------------------------------------------
 
 #if !defined(samrai)
 
-c Smooth magnetic field
+c Filter single mode in helical geometry (only on V for now)
+
+      if (coords == 'hel'.and.post_filter_hel) then
+        call post__filter_V
+      endif
+      
+c Smooth magnetic and velocity fields
 
       if (post_smooth_B) then
         call post__smooth_B
@@ -209,6 +215,119 @@ c End program
 #endif
 
       contains
+
+c     post__filter_V
+c     ###############################################################
+      subroutine post__filter_V
+
+        implicit none
+
+        integer :: ieq,i,j,k,jg,jlog
+        real(8) :: ac(nx),as(nx),lsum(nx,2),gsum(nx,2),mm
+        real(8),allocatable,dimension(:,:,:,:) :: dv
+
+c     Begin program
+
+        if (my_rank == 0) then
+          if (ilevel > 0) write (*,*)
+          write (*,*) 'Performing filtering of V in postproc...'
+        endif
+
+c     Find dV=V^(n+1)-V^n
+
+        allocate(dv(0:nx+1,0:ny+1,0:nz+1,3))
+
+        dv(:,:,:,1) = vnp%array_var(IVX)%array
+     .               -vn %array_var(IVX)%array
+        dv(:,:,:,2) = vnp%array_var(IVY)%array
+     .               -vn %array_var(IVY)%array
+        dv(:,:,:,3) = vnp%array_var(IVZ)%array
+     .               -vn %array_var(IVZ)%array
+
+c     Filter by Fourier transform
+
+        mm = gv%gparams%params(1)
+
+        jlog = gv%gparams%jlo(igy)
+
+        do ieq=1,3
+
+          k = 1
+
+          ac = 0d0 ; as = 0d0
+          
+          !Perform Fourier transform in theta
+          do j = 1,ny
+            jg = j + jlog - 1   !Global index
+            ac = ac + dv(1:nx,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
+            as = as + dv(1:nx,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
+          enddo
+          
+#if defined(petsc)
+          lsum(:,1) = ac
+          lsum(:,2) = as
+          call MPI_Allreduce(lsum,gsum,2*nx,MPI_DOUBLE_PRECISION
+     .                      ,MPI_SUM,gv%gparams%MPI_COMM_Y,mpierr)
+          ac = gsum(:,1)
+          as = gsum(:,2)
+#endif
+
+          !Inverse Fourier transform
+          do j = 1,ny
+            jg = j + jlog - 1   !Global index
+            dv(1:nx,j,k,ieq) =2*(ac*cos(2*pi*mm*(jg-1)/nyd) !Factor of 2 to
+     .                          -as*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
+          enddo
+
+        enddo
+
+c     Find new V^(n+1)
+
+c$$$        write (*,*) "1"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,1))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,1))**2))
+c$$$        write (*,*) "2"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,2))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,2))**2))
+c$$$        write (*,*) "3"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,3))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,3))**2))
+c$$$        k = 1
+c$$$        do j = 1,1 !ny
+c$$$          do i = 1,nx
+c$$$            write (*,*) "1"
+c$$$     .                 ,(vnp%array_var(IVX)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVX)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,1)
+c$$$            write (*,*) "2"
+c$$$     .                 ,(vnp%array_var(IVY)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVY)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,2)
+c$$$            write (*,*) "3"
+c$$$     .                 ,(vnp%array_var(IVZ)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVZ)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,3)
+c$$$          enddo
+c$$$        enddo
+c$$$        
+c$$$        stop
+
+        vnp%array_var(IVX)%array = dv(:,:,:,1)
+     .                            +vn%array_var(IVX)%array
+        vnp%array_var(IVY)%array = dv(:,:,:,2)
+     .                            +vn%array_var(IVY)%array
+        vnp%array_var(IVZ)%array = dv(:,:,:,3)
+     .                            +vn%array_var(IVZ)%array
+
+        deallocate(dv)
+        
+      end subroutine post__filter_V
 
 c     post__smooth_B
 c     ###############################################################

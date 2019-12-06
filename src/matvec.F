@@ -585,11 +585,11 @@ c Local variables
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0,tmp0
+      real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
 
-      real(8),pointer    ,dimension(:,:,:) :: jac
+      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc
 
-      real(8) :: upwind,nu2,dvol,slap,plap,gm,sgn
+      real(8) :: upwind,nu2,dvol,slap,plap
 
       logical :: fpointers
 
@@ -615,7 +615,9 @@ c Find limits for loops
 c Map vector x to array for processing
 
       allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq))
+     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs_advc(0:nnx+1,0:nny+1,0:nnz+1)
+     .        )
 
       dtmp = 0d0
       dprs = 0d0
@@ -625,17 +627,28 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gvs0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
-      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0 )
+      call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
+      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
  
       dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
-c Calculate matrix-vector product
+c Compute advective terms
 
-      gm = gamma
-      sgn =-1d0
+      if (use_p_classic_eq) then !Classic p evolution eq
+       dprs_advc=flx_advec_mesh(g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                         ,UPWD,bcnd,zip_vel=.false.)
+     .          +(gamma-1d0)*dprs(:,:,:,1)*div(g_def,igrid,vs0_cnv)
+      else
+       dprs_advc=
+     .  gamma     *flx_advec_mesh   (g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                              ,UPWD,bcnd,zip_vel=.false.)
+     .+(gamma-1d0)*flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                              ,UPWD,bcnd,rvrs=.true.) !Reverse: v -> -v
+      endif
+
+c Calculate matrix-vector product
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -646,22 +659,24 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            if (use_p_classic_eq) then !Need this for strong stability
-              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
-     .                          ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
-     .                          ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .               +(gm-1.)*dprs(i,j,k,1)
-     .                       *div(g_def,i,j,k,nnx,nny,nnz
-     .                           ,igrid,igrid,igrid,v0_cnv)
-            else
-              upwind = gm*flx_advec(g_def,i,j,k,nnx,nny,nnz
-     .                           ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
-     .                           ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .               +(gm-1.)
-     .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
-     .                              ,igrid,igrid,igrid,v0_cnv
-     .                              ,dprs(:,:,:,1),1,reverse=.true.)
-            endif
+            upwind = dprs_advc(i,j,k)
+c$$$            if (use_p_classic_eq) then !Need this for strong stability
+c$$$              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
+c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
+c$$$     .               +(gamma-1d0)*dprs(i,j,k,1)
+c$$$     .                       *div(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                           ,igrid,igrid,igrid,vs0_cnv)
+c$$$            else
+c$$$              upwind = gamma
+c$$$     .                *flx_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
+c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
+c$$$     .               +(gamma-1d0)
+c$$$     .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                              ,igrid,igrid,igrid,vs0_cnv
+c$$$     .                              ,dprs(:,:,:,1),UPWD,reverse=.true.)
+c$$$            endif
             
             if (MG_get_res_vol_wgt()) then
               dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
@@ -691,7 +706,6 @@ c Calculate matrix-vector product
               plap = 0d0
             endif
 
-cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
             y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
      $                  + alpha*(upwind - slap - plap) )*jac(i,j,k)
 
@@ -701,8 +715,8 @@ cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
 
 c End program
 
-      deallocate(dtmp,dprs)
-      nullify(v0_cnv,rho0,bh0)
+      deallocate(dtmp,dprs,dprs_advc)
+      nullify(vs0_cnv,rho0,bh0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
@@ -807,17 +821,17 @@ c Calculate matrix-vector product
 
             !Conservative advection (Do not use ZIP form because drho is not pos. def.)
             upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                        ,v0_cnv,drho(:,:,:,1),1,zip_vel=.false.)
+     .                       ,v0_cnv,drho(:,:,:,1),UPWD,zip_vel=.false.)
 
             ! Diffusion
             if (dd > 0d0) then
               slap = dd*lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,drho(:,:,:,1))
+     .                     ,drho(:,:,:,1))
             else
               slap = 0d0
             endif
 
-            y(ijk)=dvol*(cnp*drho(i,j,k,1)/dt + alpha*(upwind - slap))
+            y(ijk)=dvol*(cnp/dt*drho(i,j,k,1) + alpha*(upwind - slap))
      .                 *jac(i,j,k)
           enddo
         enddo

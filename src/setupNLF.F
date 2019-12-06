@@ -90,10 +90,12 @@ c Fill LOCAL auxiliary variables
 
 c Safeguards
 
-      call chk_neg(rho,'density')
-      call chk_neg(tmp,'temperature')
-      call chk_neg(heat_src,'heat source')
-
+      if (old_time_eval) then
+        call chk_neg(rho,'density')
+        call chk_neg(prs,'pressure')
+        call chk_neg(heat_src,'heat source')
+      endif
+      
 c Setup fluxes
 
 #if defined(flux_rhs)
