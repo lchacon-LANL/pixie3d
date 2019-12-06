@@ -1390,7 +1390,7 @@ c$$$#endif
 c     Current variables
 
       !Rho
-      if ((.not.solve_rho).and.adiabatic) then
+      if (adiabatic_rho) then
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
@@ -4364,7 +4364,8 @@ c ######################################################################
      .            ,post_divclean    =.false. !Whether to perform divergence cleaning at postproc.
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
-        
+     .            ,post_filter_hel  =.false. !Whether to filter helical simulations
+
         logical,private :: symm_pi
 
         INTERFACE res
@@ -4779,6 +4780,10 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       heat_xport = 0d0
       heat_src   = 0d0
 
+      rho => vaux%var_list(IRHO_AUX)%array
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+
       !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
       if (chi_par /= chi .and. (.not.lagrangian)) then
         do k=0,nz+1
@@ -4797,8 +4802,6 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       endif
 
       !Momentum
-      rho => vaux%var_list(IRHO_AUX)%array
-
       pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
       pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
@@ -4825,9 +4828,11 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
         v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
       endif
 
-      bc = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
-
+      if (solve_rho) then
+        bc = varray%array_var(IRHO)%bconds
+        rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc) !,sp=bcSP())
+      endif
+      
       bc = varray%array_var(IPRS)%bconds
       if (use_p_classic_eq) then !Classic p evolution eq
        prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
@@ -4840,11 +4845,8 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
 #endif
 
       !Heat transport term
-      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
-cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
-
-#if !defined(flux_rhs)
       if (gamma > 1d0) then
+#if !defined(flux_rhs)
         if (chi /= 0d0) then
           if (use_p_diff) then  !Total pressure
             heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
@@ -4852,6 +4854,7 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
             heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
           endif
         endif
+#endif
 
         if (chi_par > chi .and.(.not.lagrangian)) then
           heat_xport = heat_xport
@@ -4860,16 +4863,6 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
      .                              ,advc_mthd=SMART)
         endif
       endif
-#else
-      if (gamma > 1d0) then
-        if (chi_par > chi .and.(.not.lagrangian)) then
-          heat_xport = 
-     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
-     .                              ,"dutoit",vol=.false.,bcs=bc
-     .                              ,advc_mthd=SMART)
-        endif
-      endif
-#endif
 
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then

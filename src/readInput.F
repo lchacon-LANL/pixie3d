@@ -77,9 +77,9 @@ c Namelists
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
-     .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
-     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
-     .                   ,mg_coarse_size
+     .                   ,sm_zebra_relax,sm_zebra_it,sm_line_relax
+     .                   ,mg_ores,mg_oprol,mg_coarse_solve,mgcf
+     .                   ,pc_gm_driver,mg_coarse_size
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
@@ -93,7 +93,7 @@ c Namelists
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
-     .                   ,regularize_A,use_p_classic_eq
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -130,7 +130,7 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
-     .                   ,regularize_A,use_p_classic_eq
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -147,9 +147,9 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
-     .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
-     .                   ,mgcf,pc_gm_driver,mg_coarse_size
-     .                   ,pc_divclean,pc_B_solve
+     .                   ,sm_zebra_it,sm_line_relax,sm_type,sm_omega
+     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
+     .                   ,mg_coarse_size,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -548,6 +548,8 @@ c     #####################################################################
 
       regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
+      post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
+      
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -578,6 +580,7 @@ c     #####################################################################
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
       sm_iter  = 5             ! Number of MG smoothing passes
       sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+      sm_zebra_it    = 1       ! Number of ZEBRA relaxation passes
       sm_line_relax  = .false. ! Whether to perform line relaxation in MG
 
       !Initial condition
@@ -802,6 +805,8 @@ cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
       if (.not.adiabatic) adiabatic_rho = .false.
+
+      if (adiabatic_rho) solve_rho = .false.
       
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
@@ -832,9 +837,11 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       !Miscellaneous
       if (ts_restart) dcon = .false.
 
-      if (coords == 'hel') then
+      if (coords == 'hel') then  !Special case for 2D helical geometry
         nh2 = nint(gparams(1))
-        nh1 = nh2               !Special case for 2D helical equilibria
+        nh1 = nh2                
+cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
+cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
       endif
       
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
@@ -872,6 +879,7 @@ cc      post_smooth_B = .false.
      .                  .or.post_smooth_B
      .                  .or.(br_pert_freq /= 0d0)
      .                  .or.refine_eq
+     .                  .or.post_filter_hel
 
 #if defined(pit)
       postprocess = .true.

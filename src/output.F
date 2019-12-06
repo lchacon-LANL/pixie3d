@@ -195,21 +195,21 @@ c End program
      .        /,'  Scalar advection scheme...',a
      .        /,'  Velocity advection scheme.',a
      .        /,'  TS scheme.................',a)
- 100  format ('   itime    time     dt     #CFL   vx_max   vy_max',
+ 100  format ('    itime      time     dt     #CFL   vx_max   vy_max',
 #if defined(vec_pot)
      .        '   vz_max    GMRES Newton CN factor')
 #else
      .        '   vz_max    GMRES Newton CN factor  GMRES-DC')
 #endif
- 105  format ('   itime    time     dt     vx_max   vy_max   vz_max')
+ 105  format ('    itime      time     dt     vx_max   vy_max   vz_max')
 
 #if defined(vec_pot)
- 110  format (i7,f9.3,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3)
+ 110  format (i10,f10.2,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3)
 #else
- 110  format (i7,f9.3,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3,i9)
+ 110  format (i10,f10.2,1x,1p,2e8.1,3e9.1,0p,2i6,3x,f7.3,i9)
 #endif
 
- 115  format (i7,f9.3,1x,1p,e8.1,1x,3e9.1)
+ 115  format (i10,f10.2,1x,1p,e8.1,1x,3e9.1)
 
       contains
 
@@ -231,8 +231,8 @@ c     Initial message
 
       write (*,*)
       write (*,*) '****************************************************'
-      write (*,*) '******  PIXIE3D Extended MHD code, V. '// 
-     $                                       trim(release) //'   ******'
+      write (*,*) '******       PIXIE3D Extended MHD code        ******'
+      write (*,*) '******         V. '//release(1:28)//         '******'
       write (*,*) '******                                        ******'
       write (*,*) '******         Developer: L. Chacon           ******'
       write (*,*) '****** Los Alamos National Laboratory (12-)   ******'
@@ -267,12 +267,13 @@ c     Warnings
      .     write (*,*) 'Using non-solenoidal version'
       if (.not.solve_rho)
      .     write (*,*) 'Not solving for density'
+      if (adiabatic_rho) write (*,*) 'Using polytropic EOS for density'
       if (sym_st)
      .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
       if (ion_hall)
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
-      if (adiabatic) write (*,*) 'Using polytropic EOS'
+      if (adiabatic) write (*,*) 'Using adiabatic P update'
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'

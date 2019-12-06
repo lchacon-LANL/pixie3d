@@ -237,16 +237,18 @@ cc        endif
 
 c     Temperature BCs
 
-cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array/jac
-cc
-cc        call setBC(gv%gparams,IPRS,nnx,nny,nnz
-cc     .            ,varray%array_var(IPRS)%array
-cc     .            ,u_0   %array_var(IPRS)%array
-cc     .            ,varray%array_var(IPRS)%bconds
-cc     .            ,igr,igr,igr,iorder=order)
-cc
-cc        varray%array_var(IPRS)%array = varray%array_var(IPRS)%array*jac
+        if (adiabatic_rho) then
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array/jac
 
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz
+     .              ,varray%array_var(IPRS)%array
+     .              ,u_0   %array_var(IPRS)%array
+     .              ,varray%array_var(IPRS)%bconds
+     .              ,igr,igr,igr,iorder=order)
+
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
+        endif
+        
       end select
 
 c End
@@ -402,41 +404,43 @@ c$$$          rho = rho + rho_0
 
 c       Temperature BCs
 
-c$$$          if (adiabatic) then
-c$$$          !Impose BCs on perturbation only
-c$$$            s0 = 0d0
-c$$$            tmp = tmp - tmp_0
-c$$$            bcsq = vaux%var_list(ITMP_AUX)%bconds
-c$$$            where (bcsq == EQU) bcsq = NEU
-c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
-c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
-c$$$            tmp = tmp + tmp_0
-c$$$          else
+          if (adiabatic.and.(.not.adiabatic_rho)) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmp = tmp - tmp_0
+            bcsq = vaux%var_list(ITMP_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmp = tmp + tmp_0
+          else
             call XferBCs(tmp_0,s0,.true.)
             call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
      .                ,vaux%var_list(ITMP_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-c$$$          endif
+          endif
           
+cc          tmp = tmpe*a_p
+
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-c$$$          if (adiabatic) then
-c$$$          !Impose BCs on perturbation only
-c$$$            s0 = 0d0
-c$$$            tmpe = tmpe - tmpe_0
-c$$$            bcsq = vaux%var_list(ITMPE_AUX)%bconds
-c$$$            where (bcsq == EQU) bcsq = NEU
-c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
-c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
-c$$$            tmpe = tmpe + tmpe_0
-c$$$          else
+          if (adiabatic.and.(.not.adiabatic_rho)) then
+          !Impose BCs on perturbation only
+            s0 = 0d0
+            tmpe = tmpe - tmpe_0
+            bcsq = vaux%var_list(ITMPE_AUX)%bconds
+            where (bcsq == EQU) bcsq = NEU
+            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
+     .                ,bcsq,igr,igr,igr,iorder=order)
+            tmpe = tmpe + tmpe_0
+          else
             call XferBCs(tmpe_0,s0,.true.)
             call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
      .                ,vaux%var_list(ITMPE_AUX)%bconds
      .                ,igr,igr,igr,iorder=order)
-c$$$          endif
+          endif
 
         case default
           call pstop('applyAuxVarBC'
@@ -917,10 +921,18 @@ c       Resistivity at initial time
 
         case(ITMPE_AUX) !Electron temperature
 
-          where (rho /= 0d0)
-            tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
-          end where
-
+          if (gamma == 1d0) then
+            tmpe = tmpe_0  !Isothermal
+          elseif (adiabatic.and.solve_rho) then
+            tmpe = varray%array_var(IRHO)%array
+     .            /u_0   %array_var(IRHO)%array
+            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
+          else
+            where (rho /= 0d0)
+              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
+            end where
+          endif
+          
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
@@ -1428,8 +1440,10 @@ c       Resistivity at initial time
 
         case(ITMP_AUX)  !Recover total pressure
 
-          varray%array_var(IPRS)%array = rho*tmp*jac
-
+          if (.not.adiabatic_rho) then
+            varray%array_var(IPRS)%array = rho*tmp*jac
+          endif
+          
         case(ITMPE_AUX)
 
         case(INU)

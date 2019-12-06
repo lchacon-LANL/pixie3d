@@ -1325,7 +1325,7 @@ c     RFP equilibria (analytical)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
               bb(i,j,k,3)  = jac1*bz0
             enddo
           enddo
@@ -1441,9 +1441,11 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
               bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
 
               !X-Y equilibrium
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = btheta + kk*x1/mm*bz0
-              bb(i,j,k,3)  = x1*bz0
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
+              bb(i,j,k,3)  = jac1*bz0
             enddo
           enddo
         enddo
@@ -1512,7 +1514,7 @@ c     Tokamak equilibria (analytical)
               iglobal = i + gv%gparams%ilo(igr) - 1
 
               bb(i,j,k,1)=0d0
-              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
               var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
@@ -1617,7 +1619,7 @@ c$$$        beta = 4d-5
                 iglobal = i + gv%gparams%ilo(igr) - 1
 
                 bb(i,j,k,1)=0d0
-                bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+                bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
                 var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
@@ -1711,11 +1713,13 @@ c     Equilibria (numerical)
               call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
      .                              ,coords)
 
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) = bth0(iglobal) + kk*x1/mm*bzz0(iglobal)
-              bb(i,j,k,3) = x1*bzz0(iglobal)
+              bb(i,j,k,2) = jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
+              bb(i,j,k,3) = jac1*bzz0(iglobal)
 
               var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
@@ -1987,8 +1991,8 @@ c$$$        enddo
                 bz  = 0d0
               endif
               
-              bb(i,j,k,1)=x1*br
-              bb(i,j,k,2)=jac1*(bth/x1+kk/mm*bz)
+              bb(i,j,k,1)=x1/mm*br
+              bb(i,j,k,2)=jac1*(mm*bth/x1+kk*bz)
               bb(i,j,k,3)=jac1*bz
 
 c$$$              bb(i,j,k,:) = grad_ijk(gv%gparams,i,j,k,nx,ny,nz,igx,igx
@@ -2025,8 +2029,8 @@ c$$$                Ez  = Ez - kk/mm*Eth
 c$$$                write (*,*) i,j,Eth,Ez
               endif
 
-              var(i,j,k,IVX)=x1*vr
-              var(i,j,k,IVY)=jac1*(vth/x1+kk/mm*vz)
+              var(i,j,k,IVX)=x1/mm*vr
+              var(i,j,k,IVY)=jac1*(mm*vth/x1+kk*vz)
               var(i,j,k,IVZ)=jac1*vz
 cc              var(i,j,k,IVX:IVZ)=0d0
 
@@ -2172,11 +2176,11 @@ c$$$          endif
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1)=0d0
-              bb(i,j,k,2)=jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IVX)=x1*vr0(iglobal)*eta/eta_in
-              var(i,j,k,IVY)=kk*jac1/mm*vz0(iglobal)
+              var(i,j,k,IVX)=x1/mm*vr0(iglobal)*eta/eta_in
+              var(i,j,k,IVY)=jac1*kk*vz0(iglobal)
               var(i,j,k,IVZ)=jac1*vz0(iglobal)
 
               if (solve_rho) then
@@ -2268,7 +2272,7 @@ c     Magnetic field
               iglobal = i + gv%gparams%ilo(igx) - 1
 
               bb(i,j,k,1) = 0d0
-              bb(i,j,k,2) = jac1*(bth0(iglobal)/x1+kk/mm*bzz0(iglobal))
+              bb(i,j,k,2) = jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3) = jac1*bzz0(iglobal)
             enddo
           enddo
@@ -2747,6 +2751,9 @@ c     Local variables
         real(8),parameter :: cm=-1d0/12d0       !Upwinded
      .                      ,c0=2d0/3d0 
      .                      ,cp=5d0/12d0
+     .                      ,b1= 855d0/1320d0  !@ SP
+     .                      ,b2=-123d0/1320d0
+     .                      ,b3= 17d0 /1320d0
 
 c     Begin program
 
@@ -2760,11 +2767,11 @@ c     Begin program
 
 c     Initialize mesh qtys
 
-        xg = gv%gparams%xg
+        xg = gv%gparams%xg   !Logical global mesh
         
         !Find half-mesh positions
         do i=0,nxd
-          rh(i) = 0.5*(rg(i+1)+rg(i))
+cc          rh(i) = 0.5*(rg(i+1)+rg(i))
           dr(i) =      rg(i+1)-rg(i)
           xh(i) = 0.5*(xg(i+1)+xg(i))
           dx(i) =      xg(i+1)-xg(i)
@@ -2773,13 +2780,10 @@ c     Initialize mesh qtys
 c     Initialize iteration
 
         !Average pressure and q-profiles to half mesh
-c$$$        do i=0,nxd
-c$$$          p0h(i) = 0.5*(p0(i)  +p0  (i+1)) !Average pressure  to half mesh
-c$$$          q0h(i) = 0.5*(Rxq0(i)+Rxq0(i+1)) !Average q-profile to half mesh
-c$$$        enddo
-        call IntDriver1d(nxd+2,xg,p0  ,nxd+1,xh(0:nxd),p0h,3,0)
-        call IntDriver1d(nxd+2,xg,Rxq0,nxd+1,xh(0:nxd),q0h,3,0)
-        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),jach,3,1)
+        call IntDriver1d(nxd+2,xg,p0  ,nxd+1,xh(0:nxd),p0h ,3,0)
+        call IntDriver1d(nxd+2,xg,Rxq0,nxd+1,xh(0:nxd),q0h ,3,0)
+        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),rh  ,3,0)
+        call IntDriver1d(nxd+2,xg,rg  ,nxd+1,xh(0:nxd),jach,3,1)  !1st derivative
 
         bz0 = bzz0(0)
 
@@ -2795,23 +2799,38 @@ cc     .                    ,nxd  ,rg(1:nxd),bth_f(1:nxd),3,0)
           do i=1,nxd
 cc            dummy(i) = dummy(i-1) + 2*bth_f(i)**2/rg(i)*jach(i)*dx(i)
 cc            dummy(i) = dummy(i-1) + 2*bth0(i-1)*bth0(i)/rg(i)*dr(i)
-            if (i == 1) then
-              dummy(i) = dummy(i-1)
-     .                 + 0d0
-     .                 + 2*c0*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
-     .                 + 2*cm*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
-            elseif (i == 2) then
-              dummy(i) = dummy(i-1)
-     .                 + 0d0
-     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
-     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            if (i == 1) then
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 0d0
+c$$$     .                 + 2*c0*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$     .                 + 2*cm*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
+c$$$            elseif (i == 2) then
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 0d0
+c$$$     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+c$$$     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            else
+c$$$              dummy(i) = dummy(i-1)
+c$$$     .                 + 2*cm*bth0(i-2)**2/rh(i-2)*jach(i-2)*dx(i-2)
+c$$$     .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
+c$$$     .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$            endif
+            if (i==1) then
+              dummy(i) = 
+     .                 + 2*b1*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+     .                 + 2*b2*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
+     .                 + 2*b3*bth0(i+2)**2/rh(i+2)*jach(i+2)*dx(i+2)
+c$$$              dummy(i) = 
+c$$$     .                 + 2*14./24*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
+c$$$     .                 - 2    /24*bth0(i+1)**2/rh(i+1)*jach(i+1)*dx(i+1)
             else
               dummy(i) = dummy(i-1)
      .                 + 2*cm*bth0(i-2)**2/rh(i-2)*jach(i-2)*dx(i-2)
      .                 + 2*c0*bth0(i-1)**2/rh(i-1)*jach(i-1)*dx(i-1)
      .                 + 2*cp*bth0(i  )**2/rh(i  )*jach(i  )*dx(i  )
-            endif
-          enddo
+
+            endif 
+           enddo
 
           !Safeguard for solvability
           where (dummy(0:nxd)>bz0**2+2*(p0h(0)-p0h))
