@@ -419,6 +419,7 @@ c       Density
      .                ,sm_ncolors    = sm_ncolors
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
      .                )  
         endif
 
@@ -449,6 +450,7 @@ c       Temperature
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 c       Magnetic field/vector potential
@@ -516,6 +518,7 @@ c     Vector potential
      .                ,sm_ncolors    = sm_ncolors
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
      .                )
         endif
 
@@ -570,6 +573,7 @@ c     Magnetic field
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
           else
             call cSolver(gv%gparams,3,nn,y,x
@@ -589,6 +593,7 @@ cc     .            ,gm_driver     = pc_gm_driver
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
           endif
 cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
@@ -621,6 +626,7 @@ cc          pause
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
           x = xc(:,1:3)
@@ -830,6 +836,7 @@ c     Begin program
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax_si
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 cc          call pc_diag(3,nn,x,rhssi)
@@ -865,6 +872,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 cc          call pc_diag(6,nn,xc,rhsc)
@@ -918,6 +926,7 @@ c     Begin program
      .              ,sm_ncolors    = sm_ncolors
      .              ,sm_line_relax = sm_line_relax
      .              ,sm_zebra_relax= sm_zebra_relax
+     .              ,sm_zebra_it   = sm_zebra_it
      .              )
 
         !Post-process solution with M_star
@@ -1143,6 +1152,7 @@ cc     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            !Production
      .            ,tol           = pc_tol
      .            ,mg_smooth     = sm_type
@@ -1578,6 +1588,7 @@ c Solve for advection-diffusion part
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
       return

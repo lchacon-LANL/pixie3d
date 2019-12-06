@@ -77,9 +77,9 @@ c Namelists
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
-     .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
-     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
-     .                   ,mg_coarse_size
+     .                   ,sm_zebra_relax,sm_zebra_it,sm_line_relax
+     .                   ,mg_ores,mg_oprol,mg_coarse_solve,mgcf
+     .                   ,pc_gm_driver,mg_coarse_size
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
@@ -147,9 +147,9 @@ c Namelists
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
-     .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
-     .                   ,mgcf,pc_gm_driver,mg_coarse_size
-     .                   ,pc_divclean,pc_B_solve
+     .                   ,sm_zebra_it,sm_line_relax,sm_type,sm_omega
+     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
+     .                   ,mg_coarse_size,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -580,6 +580,7 @@ c     #####################################################################
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
       sm_iter  = 5             ! Number of MG smoothing passes
       sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+      sm_zebra_it    = 1       ! Number of ZEBRA relaxation passes
       sm_line_relax  = .false. ! Whether to perform line relaxation in MG
 
       !Initial condition
