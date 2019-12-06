@@ -15,7 +15,7 @@ where:
 	-h:            gives this message
 	-d:            turn on debugging
 	-qos queue:    indicates quality of service queue (default standard)
-        -A:            selects account (default w17_magreconn)
+        -A:            selects account (default w19_magreconn)
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
@@ -50,7 +50,7 @@ wtime=960
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account="w19_magfusion"
+account="w19_magreconn"
 qos="standard"
 np=""
 omp_tasks=1
