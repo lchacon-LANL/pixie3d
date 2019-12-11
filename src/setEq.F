@@ -2655,7 +2655,7 @@ c     ---------------------------------------------------------------
         do i=0,nxdp
           write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p
         enddo
-        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
+        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3) !RR,betap,qa
         close(123)
       endif
 
