@@ -62,7 +62,7 @@ c Local variables
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char,besselIp,besselI,br,bth,bz,kn,pv,pw
      .          ,Impv,Kmpv,Kmp,Imp,Km,Im,vr,vth,vz
-     .          ,Er,Eth,Ez,btho,bzo,bthi,bzi
+     .          ,Er,Eth,Ez,btho,bzo,bthi,bzi,p0max
 
       real(8) :: dh,bth0(0:nxdp)
       real(8) :: bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
@@ -1602,10 +1602,12 @@ c$$$        beta = 4d-5
 
         if (equil(1:4) == 'vela') then
           var(:,:,:,IRHO) = 1d0/(gamma-1d0)
-        else
+        elseif (.not.adiabatic) then
           var(:,:,:,IRHO) = 1d0
         endif
 
+        p0max = maxval(p00)
+        
         select case(coords)
         case('hel')
           do k = klom,khip
@@ -1622,6 +1624,8 @@ c$$$        beta = 4d-5
                 bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
+                if (adiabatic) var(i,j,k,IRHO)
+     .                               = (p00(iglobal)/p0max)**(1./gamma)
                 var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
               enddo

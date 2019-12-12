@@ -62,7 +62,7 @@ c Namelists
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert
+     .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
@@ -113,7 +113,7 @@ c Namelists
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params,lagrangian,irrot_br_pert
+     .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_spitzer,lagged_spitzer
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
@@ -622,6 +622,8 @@ c     #####################################################################
 
       irrot_br_pert = .false.  ! Whether to impose irrotational magnetic perturbation
 
+      eig_is_T = .true.        ! Whether eigenvalue pert gives T (instead of P)
+      
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
       gp1%xp   = 0d0

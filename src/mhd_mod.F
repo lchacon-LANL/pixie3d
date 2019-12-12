@@ -4326,6 +4326,7 @@ c ######################################################################
      .            ,br_pert_bc_old,br_pert_phase_old
 
         logical :: have_jparB=.false.,irrot_br_pert=.false.
+     .            ,eig_is_T=.true.
 
         real(8),dimension(20) :: pert
 
