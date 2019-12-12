@@ -163,12 +163,8 @@ c     Advection
 
 c     Heat flux
 
-      if (.not.source_eval) then
-        heat_flx = heat_xport(i,j,k)
-      else
-        heat_flx = 0d0
-      endif
-
+      heat_flx = heat_xport(i,j,k)
+      
 c     Sources
 
       if (.not.source_eval) then
