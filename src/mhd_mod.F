@@ -1422,6 +1422,10 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,3) = 0 !trivial
 
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,1) = ITMPE_0*AUX
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,3) = 0 !trivial
+
       !Eta
       vaux%var_list(IETA)%dom_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(IETA)%dom_dep_list(1,2) = SCALAR
