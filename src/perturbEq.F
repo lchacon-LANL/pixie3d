@@ -981,12 +981,18 @@ c     Find perturbations
               
               !Total pressure and density
               pert(IRHO) = perturb*pert(IRHO)
-              pert(IPRS) = perturb*pert(IPRS)*a_p   !Transform to pressure
-              varr%array_var(IPRS)%array(i,j,k)
-     .           = varr%array_var(IPRS)%array(i,j,k)*(1d0 
-     .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
-
+              pert(IPRS) = perturb*pert(IPRS)
+              if (eig_is_T) then
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)
+     .            +( jac1*pert(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                              /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+              else
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert(IPRS)
+              endif
+              
               if (solve_rho.or.adiabatic_rho)
      .             varr%array_var(IRHO)%array(i,j,k)
      .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
@@ -1031,11 +1037,17 @@ c     Find perturbations
               
               !Pressure and density
               pert(IRHO) = perturb*pert(IRHO)
-              pert(IPRS) = perturb*pert(IPRS)*a_p   !Transform to pressure
-              varr%array_var(IPRS)%array(i,j,k)
-     .           = varr%array_var(IPRS)%array(i,j,k)*(1d0 
-     .           + jac1*pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .           +      pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+              pert(IPRS) = perturb*pert(IPRS)
+              if (eig_is_T) then
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)
+     .            +( jac1*pert(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                              /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+              else
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert(IPRS)
+              endif
 
               if (solve_rho.or.adiabatic_rho)
      .             varr%array_var(IRHO)%array(i,j,k)
