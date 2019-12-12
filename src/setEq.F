@@ -1602,7 +1602,7 @@ c$$$        beta = 4d-5
 
         if (equil(1:4) == 'vela') then
           var(:,:,:,IRHO) = 1d0/(gamma-1d0)
-        elseif (.not.adiabatic) then
+        else  !if (.not.adiabatic) then
           var(:,:,:,IRHO) = 1d0
         endif
 
@@ -1624,8 +1624,8 @@ c$$$        beta = 4d-5
                 bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-                if (adiabatic) var(i,j,k,IRHO)
-     .                               = (p00(iglobal)/p0max)**(1./gamma)
+c$$$                if (adiabatic) var(i,j,k,IRHO)
+c$$$     .                               = (p00(iglobal)/p0max)**(1./gamma)
                 var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
               enddo
