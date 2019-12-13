@@ -163,11 +163,15 @@ c     Advection
 
 c     Heat flux
 
-      heat_flx = heat_xport(i,j,k)
+      if (source_eval.and.(.not.adiabatic)) then
+        heat_flx = 0d0
+      else
+        heat_flx = heat_xport(i,j,k)
+      endif
       
 c     Sources
 
-      if (.not.source_eval) then
+      if ((.not.source_eval).and.(.not.adiabatic)) then
         heat_srce = heat_src(i,j,k)
       else
         heat_srce = 0d0
