@@ -62,12 +62,12 @@ c Local variables
      .          ,phi,rho_norm,Rtor,sigma,gsub(3,3),bb0(3)
      .          ,hlx,y_char,besselIp,besselI,br,bth,bz,kn,pv,pw
      .          ,Impv,Kmpv,Kmp,Imp,Km,Im,vr,vth,vz
-     .          ,Er,Eth,Ez,btho,bzo,bthi,bzi
+     .          ,Er,Eth,Ez,btho,bzo,bthi,bzi,p0max
 
       real(8) :: dh,bth0(0:nxdp)
       real(8) :: bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
       real(8) :: eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
-      real(8) :: jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp)
+      real(8) :: jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp),n00(0:nxdp)
       real(8) :: bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
       real(8) :: q00(0:nxdp),dum (ilom:ihip,2)
       real(8) :: ldum(ilom:ihip,2)
@@ -1594,17 +1594,16 @@ c$$$        beta = 4d-5
         !Solve 1D Grad-Shafranov equation
         call GS_equil_1d(rg,q00,p00,bth0,bzz0)
 
+cc        p0max = maxval(p00)
+cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
+        n00 = 1d0
+        if (equil(1:4) == 'vela') n00 = 1d0/(gamma-1d0)
+        
         !Dump equilibrium for eigen code
         call dump_1d_eq
 
         !Build equilibrium
         var(:,:,:,IVX:IVZ)  = 0d0
-
-        if (equil(1:4) == 'vela') then
-          var(:,:,:,IRHO) = 1d0/(gamma-1d0)
-        else
-          var(:,:,:,IRHO) = 1d0
-        endif
 
         select case(coords)
         case('hel')
@@ -1622,8 +1621,9 @@ c$$$        beta = 4d-5
                 bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+                var(i,j,k,IRHO) = n00(iglobal)
 
+                var(i,j,k,IPRS) = p00(iglobal)/(n00(iglobal)*a_p)
               enddo
             enddo
           enddo
@@ -1657,7 +1657,9 @@ c$$$        beta = 4d-5
                 bb(i,j,k,2)=jac1*bth0(iglobal)/x1
                 bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+                var(i,j,k,IRHO) = n00(iglobal)
+
+                var(i,j,k,IPRS) = p00(iglobal)/(n00(iglobal)*a_p)
 
               enddo
             enddo
@@ -2653,9 +2655,9 @@ c     ---------------------------------------------------------------
         open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
         write (123,*) nxdp+1
         do i=0,nxdp
-          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p
+          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p,n00(i)
         enddo
-        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
+        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3) !RR,betap,qa
         close(123)
       endif
 
