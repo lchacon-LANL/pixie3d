@@ -112,6 +112,7 @@ c ######################################################################
      .                             ,v_advect
      .                             ,form_ve
      .                             ,vlap_etaj
+     .                             ,fillLocalAuxVars
 
         use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 
@@ -547,24 +548,26 @@ c$$$     .                      ,iscnv=.false.)
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
         if (chi_par /= chi .and. (.not.lagrangian)) then
-          STOP 'need to change this to be coarse-MG friendly'
           gbhat%grid(igrid)%array = bhat
+          call restrictMGArray(IBX,3,gbhat,bc_pc(:,IBX:IBZ),igrid,order
+     .                        ,order_bc=order_bc)
 
-          do igr=igrid+1,gv%gparams%ngrid
-
-            do k=0,gv%gparams%nzv(igr)+1
-              do j=0,gv%gparams%nyv(igr)+1
-                do i=0,gv%gparams%nxv(igr)+1
-                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
-     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
-
-                  gbhat%grid(igr)%array(i,j,k,:)
-     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
-                enddo
-              enddo
-            enddo
-
-          enddo
+c$$$          STOP 'need to change this to be coarse-MG friendly'
+c$$$          do igr=igrid+1,gv%gparams%ngrid
+c$$$
+c$$$            do k=0,gv%gparams%nzv(igr)+1
+c$$$              do j=0,gv%gparams%nyv(igr)+1
+c$$$                do i=0,gv%gparams%nxv(igr)+1
+c$$$                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
+c$$$     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
+c$$$
+c$$$                  gbhat%grid(igr)%array(i,j,k,:)
+c$$$     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+c$$$                enddo
+c$$$              enddo
+c$$$            enddo
+c$$$
+c$$$          enddo
 
         endif
 
@@ -1763,11 +1766,11 @@ c     End program
 
       end subroutine L_rho_v
 
-c     U_Tv
+c     U_Pv
 c     ####################################################################
-      subroutine U_Tv(g_def,igr,dv_cnv,crhs)
+      subroutine U_Pv(g_def,igr,dv_cnv,crhs)
 c     --------------------------------------------------------------------
-c     This subroutine finds the U_Tv block using dv. Not weighed by
+c     This subroutine finds the U_Pv block using dv. Not weighed by
 c     volume or jacobian factor.
 c     --------------------------------------------------------------------
 
@@ -1783,7 +1786,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ii,nx,ny,nz
-      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0,p0
+      real(8),pointer,dimension(:,:,:,:) :: nu0,v0,rho0,p0
       real(8) :: heat_src
 
 c     Begin program
@@ -1792,7 +1795,7 @@ c     Begin program
       ny = g_def%nyv(igr)
       nz = g_def%nzv(igr)
 
-c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
+c     Evaluate rhs correction: gamma*div(dv*p0) - (gamma-1)*dv*grad(p0)
 
       call point_to_MG_array(nx,ny,nz,igr,p0,gp0)
 
@@ -1802,9 +1805,9 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             crhs(ii) = 
-     .        gamma    *flx_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .        gamma     *flx_advec   (g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),advect)
-     .      +(gamma-1.)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .      +(gamma-1d0)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),1,reverse=.true.)
           enddo
         enddo
@@ -1836,11 +1839,11 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
       crhs = alpha*crhs
 
-      nullify(tmp0,p0)
+      nullify(p0)
 
 c     End program
 
-      end subroutine U_Tv
+      end subroutine U_Pv
 
 c     L_T
 c     #####################################################################

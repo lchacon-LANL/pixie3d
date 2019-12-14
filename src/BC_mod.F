@@ -215,7 +215,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
-      case ('ppnsl','p3nsl','ohtor')           !No slip BCs, pinch flow
+      case ('ppnsl','p3nsl','ohtor')        !No slip BCs, pinch flow
 
         pinch_flow = .true.
 
@@ -228,7 +228,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
-      case ('tbbr1','tbbr2') !No slip BCs, pinch flow
+      case ('tbbr1','tbbr2')                !No slip BCs, no pinch flow
 
         pinch_flow = .false.
 
@@ -370,7 +370,8 @@ c     Begin program
       varray%array_var(IRHO)%bc_dep_list(1,3) = 0 !trivial
 
       !Tmp
-      varray%array_var(IPRS)%bc_dep_list(1,1) = ITMP_AUX*AUX
+cc      varray%array_var(IPRS)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      varray%array_var(IPRS)%bc_dep_list(1,1) = IPRS
       varray%array_var(IPRS)%bc_dep_list(1,2) = SCALAR
       varray%array_var(IPRS)%bc_dep_list(1,3) = 0 !trivial
 

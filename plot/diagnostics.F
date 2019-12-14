@@ -246,7 +246,7 @@ c Define GENERIC diagnostics
       diag_desc(IAY)    = '||day||'        
       diag_desc(IAZ)    = '||daz||'        
 #endif
-      diag_desc(IPRS)   = '||dtmp||'       
+      diag_desc(IPRS)   = '||dprs||'       
       diag_desc(neqd+1) = 'Magnetic energy'
       diag_desc(neqd+2) = 'Kinetic energy' 
       diag_desc(neqd+3) = 'Thermal energy' 
