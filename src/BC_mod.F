@@ -370,7 +370,8 @@ c     Begin program
       varray%array_var(IRHO)%bc_dep_list(1,3) = 0 !trivial
 
       !Tmp
-      varray%array_var(IPRS)%bc_dep_list(1,1) = ITMP_AUX*AUX
+cc      varray%array_var(IPRS)%bc_dep_list(1,1) = ITMP_AUX*AUX
+      varray%array_var(IPRS)%bc_dep_list(1,1) = IPRS
       varray%array_var(IPRS)%bc_dep_list(1,2) = SCALAR
       varray%array_var(IPRS)%bc_dep_list(1,3) = 0 !trivial
 
