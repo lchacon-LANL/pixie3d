@@ -378,6 +378,8 @@ c ######################################################################
      .                                       ,cchi
      .                                       ,rho_advc
      .                                       ,prs_advc
+     .                                       ,heat_xport
+     .                                       ,heat_src
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
      .                                       ,bcnv_0
@@ -628,117 +630,6 @@ c     Setup variable dependencies in inner domain
 c     End program
 
       end subroutine defineAuxVariables
-
-c     fillLocalAuxVars
-c     ###################################################################
-      subroutine fillLocalAuxVars(igr,varray,vaux)
-
-      implicit none
-c     -------------------------------------------------------------------
-c     Fills local auxiliary variables (SAMRAI unaware)
-c     -------------------------------------------------------------------
-
-c     Call variables
-
-      integer :: igr
-
-      type(var_array),pointer :: varray
-
-      type(aux_array),pointer :: vaux
-
-c     Local variables
-
-      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3),bc(6)
-
-      real(8) :: bnorm
-
-      real(8),pointer,dimension(:,:,:) :: rho,tmp
-
-c     Begin program
-
-      nx = gv%gparams%nxv(igr)
-      ny = gv%gparams%nyv(igr)
-      nz = gv%gparams%nzv(igr)
-
-c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
-
-      if (.not.associated(pcnv)) then
-        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
-      endif
-
-      pcnv = 0d0
-      vscnv= 0d0
-      bhat = 0d0
-      prs  = 0d0
-      v_advc = 0d0
-      rho_advc = 0d0
-      prs_advc = 0d0
-
-      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
-      if (chi_par /= chi .and. (.not.lagrangian)) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
-     .                          ,.false.)
-              bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
-            enddo
-          enddo
-        enddo
-      endif
-
-      !Momentum
-      rho => vaux%var_list(IRHO_AUX)%array
-
-      pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
-      pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
-      pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
-
-      !Total pressure
-      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
-
-      !Temperature transport velocity, v_star = v - di*j/rho/a_p
-      if (.not.e_cons_vstar) then
-        vscnv = vcnv            !Also to recover old TM Hall performance results
-      else
-        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
-        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
-        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
-      endif
-
-#if !defined(flux_rhs)
-      !Advection operators
-      bcs = gv%aux%vec_list(IVCNV)%bconds
-      if (nc_eom_v) then
-        v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
-     .                             ,v_advect,.false.)
-      else
-        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
-      endif
-
-      bc = varray%array_var(IRHO)%bconds
-      rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc)!,sp=bcSP())
-
-      bc = varray%array_var(IPRS)%bconds
-      if (use_p_classic_eq) then !Classic p evolution eq
-       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
-     .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
-      else
-       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
-     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
-     .                              ,rvrs=.true.) !Reverse: v -> -v
-      endif
-#endif
-
-c     End program
-
-      end subroutine fillLocalAuxVars
 
 c     defineAuxBCs
 c     ###################################################################
@@ -1499,7 +1390,7 @@ c$$$#endif
 c     Current variables
 
       !Rho
-      if ((.not.solve_rho).and.adiabatic) then
+      if (adiabatic_rho) then
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,1) = IRHO_0*AUX
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,2) = SCALAR
         vaux%var_list(IRHO_AUX)%dom_dep_list(1,3) = 0 !trivial
@@ -1530,6 +1421,10 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,1) = IRHO_AUX*AUX
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,1) = ITMPE_0*AUX
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%dom_dep_list(3,3) = 0 !trivial
 
       !Eta
       vaux%var_list(IETA)%dom_dep_list(1,1) = ITMPE_AUX*AUX
@@ -1774,7 +1669,7 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
-     .          ,stat=istat)
+     .          ,heat_xport,heat_src,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -1833,6 +1728,8 @@ c ######################################################################
 
         use variables
 
+        use auxiliaryVariables, ONLY: heat_src
+
 #if defined(vec_pot)
         real(8),target,allocatable,dimension(:,:,:) ::
      .          ax_car,ay_car,az_car
@@ -1853,7 +1750,6 @@ c ######################################################################
      .         ,jx,jy,jz,jx_cov,jy_cov,jz_cov
      .         ,vx,vy,vz,vx_cov,vy_cov,vz_cov
      .         ,vex,vey,vez
-
 
         type(var_array),pointer :: u_pert => null()
 
@@ -1918,7 +1814,8 @@ c     ##################################################################
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
      .         ,Pflux (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip))
+     .         ,p_tot (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,heat_src(ilom:ihip,jlom:jhip,klom:khip))
 
       allocate (qfactor(ilom:ihip,jlom:jhip,klom:khip)
      .         ,lambda (ilom:ihip,jlom:jhip,klom:khip))
@@ -1945,7 +1842,7 @@ c     ##################################################################
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
-     .           ,jpar,jpsi,jperp)
+     .           ,jpar,jpsi,jperp,heat_src)
 
       deallocate (qfactor,lambda)
 
@@ -4433,6 +4330,7 @@ c ######################################################################
      .            ,br_pert_bc_old,br_pert_phase_old
 
         logical :: have_jparB=.false.,irrot_br_pert=.false.
+     .            ,eig_is_T=.true.
 
         real(8),dimension(20) :: pert
 
@@ -4471,7 +4369,8 @@ c ######################################################################
      .            ,post_divclean    =.false. !Whether to perform divergence cleaning at postproc.
      .            ,post_smooth_B    =.false. !Whether to smooth at postprocessing stage
      .            ,limit_dt_flow_cfl=.false. !Whether to limit Dt according to flow CFL
-        
+     .            ,post_filter_hel  =.false. !Whether to filter helical simulations
+
         logical,private :: symm_pi
 
         INTERFACE res
@@ -4781,6 +4680,216 @@ cc
 ccc     End program
 cc
 cc      end function viscous_heat_src2
+
+c     int_heat_src
+c     ###################################################################
+      function int_heat_src(g_def,i,j,k,igr,eta,nu,heta,jcnv,jcov,vcnv
+     .                     ,vecnv) result(ihs)
+
+c     -------------------------------------------------------------------
+c     Provides external momentum source for selected equilibria, in
+c     contravariant representation
+c     -------------------------------------------------------------------
+
+        implicit none
+
+c     Call variables
+
+        type(grid_mg_def),pointer :: g_def
+
+        integer :: i,j,k,igr
+        real(8) :: ihs
+     .            ,jcnv(0:,0:,0:,:)
+     .            ,jcov(0:,0:,0:,:)
+     .            ,vcnv(0:,0:,0:,:)
+     .            ,vecnv(0:,0:,0:,:)
+     .            ,heta(0:,0:,0:)
+     .            ,eta (0:,0:,0:)
+     .            ,nu  (0:,0:,0:)
+
+c     Local variables
+
+c     Begin program
+
+        !Joule heating
+        ihs =eta(i,j,k)*scalarProduct_ijk(g_def,i,j,k,igr,jcnv(i,j,k,:)
+     .                                                   ,jcov(i,j,k,:))
+        
+        !Ion viscosity
+        ihs =ihs + viscous_heat_src(g_def,i,j,k,igr,nu,vcnv,vcnv,sym_st)
+
+        !Electron viscosity
+        !Comment out for old TM Hall MHD performance results
+        if (di > 0d0) then
+          ihs = ihs
+     .       +viscous_heat_src(g_def,i,j,k,igr,heta,vecnv
+     .                        ,vecnv,.false.)
+        endif
+
+c     End program
+
+      end function int_heat_src
+
+c     fillLocalAuxVars
+c     ###################################################################
+      subroutine fillLocalAuxVars(igr,varray,vaux)
+
+      implicit none
+c     -------------------------------------------------------------------
+c     Fills local auxiliary variables (SAMRAI unaware)
+c     -------------------------------------------------------------------
+
+c     Call variables
+
+      integer :: igr
+
+      type(var_array),pointer :: varray
+
+      type(aux_array),pointer :: vaux
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,nx,ny,nz,bcs(6,3),bc(6)
+
+      real(8) :: bnorm
+
+      real(8),pointer,dimension(:,:,:) :: rho=>null(),tmp=>null()
+
+c     Begin program
+
+      nx = gv%gparams%nxv(igr)
+      ny = gv%gparams%nyv(igr)
+      nz = gv%gparams%nzv(igr)
+
+c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
+
+      if (.not.associated(pcnv)) then
+        allocate(pcnv    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,vscnv   (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,bhat    (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
+     .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
+     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
+      endif
+
+      pcnv = 0d0
+      vscnv= 0d0
+      bhat = 0d0
+      prs  = 0d0
+      v_advc = 0d0
+      rho_advc = 0d0
+      prs_advc = 0d0
+      heat_xport = 0d0
+      heat_src   = 0d0
+
+      rho => vaux%var_list(IRHO_AUX)%array
+      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
+cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+
+      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
+      if (chi_par /= chi .and. (.not.lagrangian)) then
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
+     .             ,.false.)
+              if (bnorm == 0d0) then
+                bhat(i,j,k,:) = 0d0
+              else
+                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+              endif
+            enddo
+          enddo
+        enddo
+      endif
+
+      !Momentum
+      pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
+      pcnv(:,:,:,2) = rho*vcnv(:,:,:,2)
+      pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
+
+      !Total pressure
+      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
+
+      !Temperature transport velocity, v_star = v - di*j/rho/a_p
+      if (.not.e_cons_vstar) then
+        vscnv = vcnv            !Also to recover old TM Hall performance results
+      else
+        vscnv(:,:,:,1) = vcnv(:,:,:,1)-(di/a_p)*jcnv(:,:,:,1)/rho
+        vscnv(:,:,:,2) = vcnv(:,:,:,2)-(di/a_p)*jcnv(:,:,:,2)/rho
+        vscnv(:,:,:,3) = vcnv(:,:,:,3)-(di/a_p)*jcnv(:,:,:,3)/rho
+      endif
+
+      !Advection operators
+#if !defined(flux_rhs)
+      bcs = gv%aux%vec_list(IVCNV)%bconds
+      if (nc_eom_v) then
+        v_advc= tensor_nc_advc_mesh(gv%gparams,igr,vcnv,vcnv,bcs
+     .                             ,v_advect,.false.)
+      else
+        v_advc= tensor_advc_mesh(gv%gparams,igr,vcnv,pcnv,bcs,v_advect)
+      endif
+
+      if (solve_rho) then
+        bc = varray%array_var(IRHO)%bconds
+        rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc) !,sp=bcSP())
+      endif
+      
+      bc = varray%array_var(IPRS)%bconds
+      if (use_p_classic_eq) then !Classic p evolution eq
+       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
+      else
+       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+     .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
+     .                              ,rvrs=.true.) !Reverse: v -> -v
+      endif
+#endif
+
+      !Heat transport term
+      if (gamma > 1d0) then
+#if !defined(flux_rhs)
+        if (chi /= 0d0) then
+          if (use_p_diff) then  !Total pressure
+            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
+          else                  !see above for temperature def
+            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
+          endif
+        endif
+#endif
+
+        if (chi_par > chi .and.(.not.lagrangian)) then
+          heat_xport = heat_xport
+     .       -(chi_par-chi)*par_diff(gv%gparams,igr,tmp,bhat,2
+     .                              ,"dutoit",vol=.false.,bcs=bc
+     .                              ,advc_mthd=SMART)
+        endif
+      endif
+
+      !Heat source term
+      if ((.not.adiabatic).and.(gamma > 1d0)) then
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              !Internal heat source
+              heat_src(i,j,k) =
+     .             int_heat_src(gv%gparams,i,j,k,igr,eeta,nuu,h_eta
+     .                         ,jcnv,jcov,vcnv,vecnv)
+
+              !External heat source
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .                        + ext_heat_src(gv%gparams,i,j,k,igr)
+            enddo
+          enddo
+        enddo
+      endif
+
+c     End program
+
+      end subroutine fillLocalAuxVars
 
 c     EOM_jxb
 c     ###################################################################
@@ -6612,7 +6721,7 @@ c     Local variables
 c     Begin program
 
       if (spitzer) then
-        rsvty = eta*res_spitzer(field/te0_ref)
+        rsvty = min(eta*res_spitzer(field/te0_ref),1d-1)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -6622,20 +6731,6 @@ c     Begin program
           rsvty = eta
         end select
       endif
-
-cc      select case (equil)
-cc      case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel')
-cc
-cc        call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-cc        rr = g_def%xx(ig)
-cc
-cc        rsvty = res_def(rr)
-cc      
-cc      case default
-cc
-cc        rsvty = eta
-cc
-cc      end select
 
 c     End program
 
@@ -6959,16 +7054,21 @@ c     Local variables
 
 ! Daniele, 02/07/2014
       integer :: ig,jg,kg
-      real(8) :: rr
+      real(8) :: rr,th,zz
 
 c     Begin program
 
-!     dfvty = chi
-! Daniele, 02/07/2014
-      call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-      rr = g_def%xx(ig)
-
-      dfvty = dfvty_rfx(rr)
+      if (spitzer) then
+        dfvty = chi!*chi_spitzer(field/te0_ref)
+      else
+        select case (equil)
+        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
+          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
+          dfvty = chi*dfvty_rfx(rr)
+        case default
+          dfvty = chi
+        end select
+      endif
 
 c     End program
 

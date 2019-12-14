@@ -6,7 +6,7 @@
     nyd      = 64 
     nzd      = 1
 
-    numerical_grid = f
+    numerical_grid = t
 
     xmax     = 6.4
     ymax     = 12.8
