@@ -997,6 +997,14 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ITMPE_AUX)%bc_dep_list(1,3) = 0 !trivial
 
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(2,1) = IRHO_AUX*AUX
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(2,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(2,3) = 0 !trivial
+
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(3,1) = IPRS
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(3,2) = SCALAR
+      vaux%var_list(ITMPE_AUX)%bc_dep_list(3,3) = 0 !trivial
+
       !Eta
 cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(IETA)%bc_dep_list(1,1) = IETA_0*AUX
