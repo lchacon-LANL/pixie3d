@@ -400,10 +400,10 @@ c$$$     .              ,igr,igr,igr,iorder=order)
 
 c       Temperature BCs
 
-c$$$          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe_0
-c$$$     .              ,u_0%array_var(IPRS)%array
-c$$$     .              ,vaux%var_list(ITMPE_0)%bconds
-c$$$     .              ,igr,igr,igr,iorder=order)
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(IPRS)%array
+     .              ,vaux%var_list(ITMPE_0)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
         case(IRHO_AUX)
 
@@ -1454,8 +1454,8 @@ c$$$          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
 
         case(ITMPE_0)
 
-          tmpe_0 = u_0%array_var(IPRS)%array
-     .           /(u_0%array_var(IRHO)%array*a_p)
+c$$$          tmpe_0 = u_0%array_var(IPRS)%array
+c$$$     .           /(u_0%array_var(IRHO)%array*a_p)
 
         case(IETA_0)
 
