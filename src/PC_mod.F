@@ -1167,6 +1167,8 @@ c     Local variables
 
 c     Begin program
 
+        jac0 = g_def%gmetric%grid(igx)%jac(i,j,k)
+
         if (PRESENT(he)) then
           half_elem = he
         else
@@ -1184,8 +1186,6 @@ c     Begin program
         kp = k+1
 
 c     Ideal MHD part
-
-        jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
 
         select case(half_elem)
         case(1)
