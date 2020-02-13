@@ -4990,7 +4990,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ig,jg,kg,ip,igr
-        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
@@ -5003,8 +5003,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
      .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
 
         if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
@@ -5035,15 +5035,15 @@ cc     .      .and. flag /= 0           ) then
 
         t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
      .               +vec1(i ,j,k,1)*vec2(ip,j,k,1) )*coeff
-     .         +gsuper(1,1)*pmag)
+     .         +gsuper(1)*pmag)
 
         t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
      .               +vec1(i ,j,k,1)*vec2(ip,j,k,2) )*coeff
-     .         +gsuper(1,2)*pmag)
+     .         +gsuper(2)*pmag)
 
         t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
      .               +vec1(i ,j,k,1)*vec2(ip,j,k,3) )*coeff
-     .         +gsuper(1,3)*pmag)
+     .         +gsuper(3)*pmag)
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5087,7 +5087,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ig,jg,kg,jp,igr
-        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
@@ -5100,8 +5100,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
      .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
           jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
@@ -5127,15 +5127,15 @@ c     Begin program
 
         t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
      .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
-     .         +gsuper(2,1)*pmag)
+     .         +gsuper(1)*pmag)
 
         t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
      .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
-     .         +gsuper(2,2)*pmag)
+     .         +gsuper(2)*pmag)
 
         t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
      .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
-     .         +gsuper(2,3)*pmag)
+     .         +gsuper(3)*pmag)
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5179,7 +5179,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ig,jg,kg,kp,igr
-        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3,3)
+        real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
      .               ,car0(3),carp(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
@@ -5192,8 +5192,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
      .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
           jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
@@ -5219,15 +5219,15 @@ c     Begin program
 
         t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
      .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
-     .         +gsuper(3,1)*pmag)
+     .         +gsuper(1)*pmag)
 
         t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
      .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
-     .         +gsuper(3,2)*pmag)
+     .         +gsuper(2)*pmag)
 
         t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
      .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
-     .         +gsuper(3,3)*pmag)
+     .         +gsuper(3)*pmag)
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5342,7 +5342,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3,3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5353,16 +5353,16 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
      .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
 
         if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
         ptot = 0.5*jac*(sc2(i,j,k)+sc2(ip,j,k))
 
-        t11 = gsuper(1,1)*ptot
-        t12 = gsuper(1,2)*ptot
-        t13 = gsuper(1,3)*ptot
+        t11 = gsuper(1)*ptot
+        t12 = gsuper(2)*ptot
+        t13 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5407,7 +5407,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+        real(8)    :: jac,ijac,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5418,14 +5418,14 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
      .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
 
         ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,jp,k))
 
-        t21 = gsuper(2,1)*ptot
-        t22 = gsuper(2,2)*ptot
-        t23 = gsuper(2,3)*ptot
+        t21 = gsuper(1)*ptot
+        t22 = gsuper(2)*ptot
+        t23 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5470,7 +5470,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,kp,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+        real(8)    :: jac,ijac,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5481,14 +5481,14 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
      .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
 
         ptot = 0.5*jac*(sc2(i,j,k)+sc2(i,j,kp))
 
-        t31 = gsuper(3,1)*ptot
-        t32 = gsuper(3,2)*ptot
-        t33 = gsuper(3,3)*ptot
+        t31 = gsuper(1)*ptot
+        t32 = gsuper(2)*ptot
+        t33 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5612,7 +5612,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3,3)
+        real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5623,17 +5623,17 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (ip,j,k)
      .               +g_def%gmetric%grid(igx)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
 
         if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
         ptot = 0.5*jac*(sc1(ip,j,k)*sc2(i ,j,k)
      .                 +sc1(i ,j,k)*sc2(ip,j,k))
 
-        t11 = gsuper(1,1)*ptot
-        t12 = gsuper(1,2)*ptot
-        t13 = gsuper(1,3)*ptot
+        t11 = gsuper(1)*ptot
+        t12 = gsuper(2)*ptot
+        t13 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5678,7 +5678,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+        real(8)    :: jac,ijac,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5689,15 +5689,15 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,jp,k)
      .               +g_def%gmetric%grid(igx)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j ,k,2,:))
 
         ptot = 0.5*jac*(sc1(i,jp,k)*sc2(i,j ,k)
      .                 +sc1(i,j ,k)*sc2(i,jp,k))
 
-        t21 = gsuper(2,1)*ptot
-        t22 = gsuper(2,2)*ptot
-        t23 = gsuper(2,3)*ptot
+        t21 = gsuper(1)*ptot
+        t22 = gsuper(2)*ptot
+        t23 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac
@@ -5742,7 +5742,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,kp,igr
         real(8)    :: x,y,z
-        real(8)    :: jac,ijac,ptot,gsuper(3,3)
+        real(8)    :: jac,ijac,ptot,gsuper(3)
 
 c     Begin program
 
@@ -5753,15 +5753,15 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
      .               +g_def%gmetric%grid(igx)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,:,:)
-     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igx)%gsup(i,j,k ,3,:))
 
         ptot = 0.5*jac*(sc1(i,j,kp)*sc2(i,j,k )
      .                 +sc1(i,j,k )*sc2(i,j,kp))
 
-        t31 = gsuper(3,1)*ptot
-        t32 = gsuper(3,2)*ptot
-        t33 = gsuper(3,3)*ptot
+        t31 = gsuper(1)*ptot
+        t32 = gsuper(2)*ptot
+        t33 = gsuper(3)*ptot
 
         if (flag /= 0) then
           ijac = 1d0/jac

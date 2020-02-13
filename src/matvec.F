@@ -2008,7 +2008,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ip,igrid
-        real(8)    :: jac,ijac,gsuper(3,3),vol
+        real(8)    :: jac,ijac,gsuper(3),vol
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
@@ -2020,8 +2020,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (ip,j,k)
      .               +g_def%gmetric%grid(igrid)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,1,:))
 
         if (isSP(g_def,i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
@@ -2052,15 +2052,15 @@ c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
 
         t11 =( acnv(1)*b0cnv(1)
      .        +acnv(1)*b0cnv(1)
-     .        -gsuper(1,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t12 =( acnv(1)*b0cnv(2)
      .        +acnv(2)*b0cnv(1)
-     .        -gsuper(1,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t13 =( acnv(1)*b0cnv(3)
      .        +acnv(3)*b0cnv(1)
-     .        -gsuper(1,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           if (isSP(g_def,i+1,j,k,igx,igy,igz)) then
@@ -2100,7 +2100,7 @@ c     Call variables
 c     Local variables
 
         integer    :: jp,igrid,iisig,iig,ijk
-        real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
+        real(8)    :: jac,ijac,gsuper(3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod,vol
 
 c     Begin program
@@ -2112,8 +2112,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (i,jp,k)
      .               +g_def%gmetric%grid(igrid)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,jp,k,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i,j ,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
@@ -2130,15 +2130,15 @@ c     Begin program
 
         t21 =( acnv(2)*b0cnv(1)
      .        +acnv(1)*b0cnv(2)
-     .        -gsuper(2,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t22 =( acnv(2)*b0cnv(2)
      .        +acnv(2)*b0cnv(2)
-     .        -gsuper(2,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t23 =( acnv(2)*b0cnv(3)
      .        +acnv(3)*b0cnv(2)
-     .        -gsuper(2,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
@@ -2172,7 +2172,7 @@ c     Call variables
 c     Local variables
 
         integer    :: kp,igrid,iisig,iig,ijk
-        real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
+        real(8)    :: jac,ijac,gsuper(3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod,vol
 
 c     Begin program
@@ -2184,8 +2184,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (i,j,kp)
      .               +g_def%gmetric%grid(igrid)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,j,kp,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i,j,k ,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
@@ -2202,15 +2202,15 @@ c     Begin program
 
         t31 =( acnv(3)*b0cnv(1)
      .        +acnv(1)*b0cnv(3)
-     .        -gsuper(3,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t32 =( acnv(3)*b0cnv(2)
      .        +acnv(2)*b0cnv(3)
-     .        -gsuper(3,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t33 =( acnv(3)*b0cnv(3)
      .        +acnv(3)*b0cnv(3)
-     .        -gsuper(3,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
