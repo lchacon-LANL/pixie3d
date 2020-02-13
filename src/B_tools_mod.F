@@ -1149,6 +1149,9 @@ c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
 c     field components. There are two methods:
 c       1) meth='line': performs line integrals
 c       2) meth='vlap': performs vector Laplacian inversion
+c     Other input variables include:
+c     * sp: whether we are dealing with SP geometry
+c     * lorder: order of line integrals
 c
 c     On input:
 c       * b_cnv -> cnv magnetic field
