@@ -1241,48 +1241,47 @@ c Map vector x to array for processing
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
 
-c$$$      allocate(da     (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq))
-c$$$
-c$$$      da = 0d0
-c$$$
-c$$$      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
-c$$$      call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
-c$$$     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-c$$$     .              ,result_is_curv=.true.,arr_cov=da)
-c$$$      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
-c$$$
-c$$$      !Currents
+      allocate(da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      da_cnv = XformToCnv(g_def,igrid,da)
+
+      !Currents
 c$$$      if (MG_get_find_diag().or.vlap_etaj) then
 c$$$c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
 c$$$        !!!!!
 c$$$c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
 c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
 c$$$        !!!!!!
-c$$$        dj_cnv =-veclap    (g_def,igrid,da_cnv)
-c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-c$$$        !!!!!!!
-c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,da_cnv)
+c$$$c$$$        dj_cnv =-veclap    (g_def,igrid,XformToCnv(g_def,igrid,da))
 c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
 c$$$        !!!!!!!
-c$$$c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,XformToCnv(g_def,igrid,da))
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!!
+c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
 c$$$      else
 c$$$        db_cnv = curl(g_def,igrid,da)
-c$$$        db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-c$$$c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
-c$$$c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
-c$$$c$$$     .              ,is_vec=.true.,result_is_curv=.true.
-c$$$c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
-c$$$
+c$$$c$$$        db_cov = XformToCov(g_def,igrid,db_cnv)
+c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
+c$$$     .              ,is_vec=.true.,result_is_curv=.true.
+c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
 c$$$        dj_cnv = curl(g_def,igrid,db_cov)
-c$$$        dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
+c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$     .         - gradDiv   (g_def,igrid,da_cnv)
+c$$$        !!!!!!!
+c$$$        dj_cov = curlcurl_cov(gv%gparams,igrid,da)
 c$$$      endif
 
-c Velocity field (including BCs)
+c$$$      dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
+      dj_cov = -veclap_cov(g_def,igrid,da)
+
+c  Velocity field (including BCs)
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
       call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
@@ -1311,12 +1310,8 @@ c Calculate matrix-vector product
             endif
 
             !Resistive part
-cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
-            vlap = eta0(i,j,k,1)
-     .            *veclap_cov(g_def,i,j,k,nxx,nyy,nzz
-     .                       ,igrid,igrid,igrid,da
-     .                       ,vol=.false.)
-     .            
+            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
+
             !Convective part
             cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
             
