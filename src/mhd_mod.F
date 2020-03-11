@@ -6417,14 +6417,21 @@ c     Resistive term
 
         !Ohmic current
         if (vlap_etaj) then
-c$$$          E_res = -veclap_cnv(g_def,igr,XformToCnv(g_def,igr,acov))
-c$$$          E_res = XformToCov(g_def,igr,E_res)
-c$$$          E_res =-veclap_cov(g_def,igr,acov)
+c$$$          E_res = -veclap_cnv(g_def,igr,acnv)
+c$$$          E_res = XformToCov(g_def,igr,E_res)  !As well as veclap_cov
+          E_res =-veclap_cov(g_def,igr,acov) !Ok, but issues at origin in rho, p
+c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !As well as veclap_cov
+c$$$          E_res = curlcurl(g_def,igr,acnv,acov,.false.)
+c$$$          E_res =-veclap2_cov_mesh(g_def,igr,acov) !As well as veclap2_cov
 c$$$          E_res =-veclap_vrtx(g_def,igr,acov,ret_cnv=.false.)
-          E_res =-veclap_vrtx(g_def,igr,acov,ret_cnv=.false.)
+c$$$          E_res = curlcurl_vrtx(g_def,igr,acov,ret_cnv=.false.)
+c$$$          E_res = curlcurl_vrtx(g_def,igr,acov-acov_0,ret_cnv=.false.)
+c$$$          E_res = jcov - gradDiv_vrtx(g_def,igr,acnv) !Ok (as jcov alone)
+c$$$          E_res = jcov - gradDiv(g_def,igr,acnv)
+c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !As well as veclap_cov
+c$$$          E_res(:,:,:,1) = jcov(:,:,:,1)          !Fixes all issues at origin
         else
           E_res = jcov
-c$$$          E_res = curlcurl_vrtx(gv%gparams,igr,acov)
         endif
 
         E_res(:,:,:,1) = eta2*E_res(:,:,:,1)

@@ -1369,7 +1369,7 @@ c     Begin program
 
 c$$$      b_cnv2 = curl(gv%gparams,igrid,a_cov,order=4)
 c$$$      b_cov2 = XformToCov(gv%gparams,igrid,b_cnv2)
-      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov)
+      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov,.false.)
       b_cov2 = XformToCov_vrtx(gv%gparams,igrid,b_cnv2)
 
       do i=0,nx
