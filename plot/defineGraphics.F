@@ -555,7 +555,7 @@ c Define graphics group #5: Perturbations
       do ieq = 1,neqd
         graph(5)%array_graph(ieq)%array => u_pert%array_var(ieq)%array
         graph(5)%array_graph(ieq)%descr =
-     $       trim(u_pert%array_var(ieq)%descr) // ' pert'
+     $       trim(u_pert%array_var(ieq)%descr) // '_pert'
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
