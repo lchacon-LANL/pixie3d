@@ -27,8 +27,10 @@
     vperflow = 0.5
 
     dt       = 1d-2
-    tmax     = 1d-1
-    dstep    = 1d-1
+    numtime  = 2
+    ndstep   = 1
+!    tmax     = 1d-1
+!    dstep    = 1d-1
 
     sm_flag  = 0
 
@@ -62,5 +64,7 @@
     dplot = 1d-2
     prof_conf = 1,'x',1,10,1
     cont_conf = 3,'x','y',1,1,1
-    hdf_plot  = f
+    hdf_plot  = t
+    adios_plot = t
+    xdraw_plot = t
  /
