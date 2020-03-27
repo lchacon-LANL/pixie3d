@@ -92,7 +92,7 @@ c Find perturbed quantities (u_pert = varray - u_ic)
 
       u_pert%array_var(IPRS)%array = u_pert%array_var(IPRS)%array
      $                              /gv%gparams%gmetric%grid(igrid)%jac
-      u_pert%array_var(IPRS)%descr = 'p=pi+pe'
+      u_pert%array_var(IPRS)%descr = 'Prs'
 
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
