@@ -4511,8 +4511,7 @@ c     Viscous src: obtain cnv tensor pi, and dot with mixed tensor nabla_v (T_l^
         if (visc(i,j,k) > 0d0) then
           pi_tnsr=EOM_Pi_ijk(g_def,i,j,k,nx,ny,nz,igr,vcnv1,visc,symm)
 
-          nabla_v = fnabla_v(g_def,i,j,k,nx,ny,nz,igr,igr,igr
-     .                      ,vcnv2,0,1,3)
+          nabla_v = fnabla_v(g_def,i,j,k,igr,vcnv2,0,1,3)
 
           !Make nabla_v covariant on both sides
           nabla_v = matmul(nabla_v
@@ -5843,20 +5842,16 @@ c     Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,1,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,3,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,cnv=.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,1,1,1,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,1,1,1,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,0,1,1,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,1,cnv=.true.)
           endif
         endif
 
@@ -5938,20 +5933,16 @@ c       Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,2,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,1,3,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                            ,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,1,3,cnv=.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,2,2,2,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,2,2,2,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,2,2,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igx,vec1,0,2,2,cnv=.true.)
           endif
         endif
 
@@ -6026,8 +6017,8 @@ c     Begin program
           return
         endif
 
-        jac = 0.5*(g_def%gmetric%grid(igx)%jac (i,j,kp)
-     .            +g_def%gmetric%grid(igx)%jac (i,j,k ))
+        jac = 0.5*(g_def%gmetric%grid(igr)%jac (i,j,kp)
+     .            +g_def%gmetric%grid(igr)%jac (i,j,k ))
 
         call getMGmap(g_def,i,j,k,igx,igy,igz,ig,jg,kg)
 
@@ -6035,20 +6026,16 @@ c       Diffusive part
 
         if (symm_pi) then
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,3,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,1,3,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,1,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,1,3,cnv=.true.)
           endif
           nabla_v_cnv = nabla_v_cnv + transpose(nabla_v_cnv)
         else
           if (flag /= 0) then
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,3,3,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,3,3,3,cnv=.true.)
           else
-            nabla_v_cnv = fnabla_v(g_def,i,j,k,nx,ny,nz,igx,igy,igz
-     .                          ,vec1,0,3,3,cnv=.true.)
+            nabla_v_cnv =fnabla_v(g_def,i,j,k,igr,vec1,0,3,3,cnv=.true.)
           endif
         endif
 
