@@ -6404,18 +6404,18 @@ c     Resistive term
 
         !Ohmic current
         if (vlap_etaj) then
+c$$$          E_res = -veclap(g_def,igr,acnv,alt_eom=.false.)
+c$$$          E_res = XformToCov(g_def,igr,E_res)  !Worse than veclap_cov
+c$$$          ============
 c$$$          E_res = -veclap_cnv(g_def,igr,acnv)
-c$$$          E_res = XformToCov(g_def,igr,E_res)  !As well as veclap_cov
-          E_res =-veclap_cov(g_def,igr,acov) !Ok, but issues at origin in rho, p
-c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !As well as veclap_cov
+c$$$          E_res = XformToCov(g_def,igr,E_res)  !Does not finish simulation
+c$$$          ============
+          E_res =-veclap_cov(g_def,igr,acov) !Finishes sim, but strong issues at origin in rho, p
+c$$$          ============
+c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !Finishes sim, but strong issues at origin in rho, p
+c$$$          ============
 c$$$          E_res = curlcurl(g_def,igr,acnv,acov,.false.)
-c$$$          E_res =-veclap2_cov_mesh(g_def,igr,acov) !As well as veclap2_cov
-c$$$          E_res =-veclap_vrtx(g_def,igr,acov,ret_cnv=.false.)
-c$$$          E_res = curlcurl_vrtx(g_def,igr,acov,ret_cnv=.false.)
-c$$$          E_res = curlcurl_vrtx(g_def,igr,acov-acov_0,ret_cnv=.false.)
-c$$$          E_res = jcov - gradDiv_vrtx(g_def,igr,acnv) !Ok (as jcov alone)
-c$$$          E_res = jcov - gradDiv(g_def,igr,acnv)
-c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !As well as veclap_cov
+c$$$          ============
 c$$$          E_res(:,:,:,1) = jcov(:,:,:,1)          !Fixes all issues at origin
         else
           E_res = jcov
