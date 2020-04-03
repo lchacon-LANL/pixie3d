@@ -512,7 +512,7 @@ c     Vector potential
      .                ,mg_order_prol = mg_oprol
      .                ,mg_gm_coarse_solve  = mg_gm_coarse
      .                ,mg_vcyc       = mg_vcyc
-     .                ,mg_smooth     = sm_type
+     .                ,mg_smooth     = "gm" !sm_type
      .                ,sm_it         = sm_iter
      .                ,sm_omega      = sm_omega
      .                ,sm_ncolors    = sm_ncolors
