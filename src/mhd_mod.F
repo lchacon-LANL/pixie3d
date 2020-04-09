@@ -783,7 +783,7 @@ cc        vaux%vec_list(IJCNV_0)%bconds = EXT  !Extrapolate contravariant compon
       vaux%vec_list(IACOV_0)%bconds = vaux%vec_list(IJCNV_0)%bconds
 
       select case(equil)
-      case('ohtor')
+      case('ohtor','gstor')
         where(abs(vaux%vec_list(IACOV_0)%bconds) == EXT)
           vaux%vec_list(IACOV_0)%bconds = DEF !Do nothing
         end where
@@ -7072,7 +7072,7 @@ c     Begin program
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
           call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
-          dfvty = chi*dfvty_rfx(rr)
+          dfvty = dfvty_rfx(rr)
         case default
           dfvty = chi
         end select
