@@ -102,8 +102,9 @@ c Calculate CFL
             cs2 = gamma*tmp(i,j,k)
 
             !Find CFL frequency
-            roots = icfl(cs2,ca2,k2,kb_par2,di)
-            w_cfl=max(maxval(roots)+kv_par,w_cfl)
+            !roots = icfl(cs2,ca2,k2,kb_par2,di)
+            !w_cfl=max(maxval(roots)+kv_par,w_cfl)
+            w_cfl = 0
 
           enddo
         enddo
@@ -445,8 +446,9 @@ c Calculate CFL
              cs2 = gamma*tmp(i,j,k)
 
              !Find CFL frequency
-             roots = icfl(cs2,ca2,k2,kb_par2,di)
-             w_cfl=max(maxval(roots)+kv_par,w_cfl)
+             !roots = icfl(cs2,ca2,k2,kb_par2,di)
+             !w_cfl=max(maxval(roots)+kv_par,w_cfl)
+             w_cfl = 0
 
            enddo
          enddo
