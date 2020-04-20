@@ -727,26 +727,50 @@ c     Begin program
           do ipw2=0,npw2-1
             do ipw3=0,npw3-1
 
-              mode = nh1+sign(ipw1,nh1)
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,jlo,klo
-     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
-              enddo
+              if (coords == 'hel' .or. coords == 'cyl') then
+                mode = nh1+sign(ipw1,nh1)
+                do i = ilom,ihip
+                  call find_polar_coords(gv%gparams,igx,i,jlo,klo
+     .                                  ,x1,y1,z1,coords)
+                  fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+                enddo
 
-              mode = nh2+sign(ipw2,nh2)
-              do j = jlom,jhip
-                call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
-     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
-              enddo
+                mode = nh2+sign(ipw2,nh2)
+                do j = jlom,jhip
+                  call find_polar_coords(gv%gparams,igx,ilo,j,klo
+     .                                  ,x1,y1,z1,coords)
+                  fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+                enddo
 
-              mode = nh3+sign(ipw3,nh3)
-              do k = klom,khip
-                call getCurvilinearCoordinates(gv%gparams,ilo,jlo,k
+                mode = nh3+sign(ipw3,nh3)
+                do k = klom,khip
+                  call find_polar_coords(gv%gparams,igx,ilo,jlo,k
+     .                                  ,x1,y1,z1,coords)
+                  fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+                enddo
+              else
+                mode = nh1+sign(ipw1,nh1)
+                do i = ilom,ihip
+                  call getCurvilinearCoordinates(gv%gparams,i,jlo,klo
      .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
-              enddo
+                  fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+                enddo
+
+                write (*,*) nh2,(ymax-ymin)/2/pi
+                mode = nh2+sign(ipw2,nh2)
+                do j = jlom,jhip
+                  call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+                  fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+                enddo
+
+                mode = nh3+sign(ipw3,nh3)
+                do k = klom,khip
+                  call getCurvilinearCoordinates(gv%gparams,ilo,jlo,k
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+                  fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+                enddo
+              endif
 
               do k = klom,khip
                 do j = jlom,jhip
@@ -943,7 +967,7 @@ c     Find perturbations
       nz = khi-klo+1
 
       allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
-
+      
       select case(coords)
       case('hel')
 
@@ -1122,7 +1146,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz,its
-      real(8) :: x1,y1,z1,kk,mm,y00
+      real(8) :: x1,y1,z1,kk,mm,y00,jac1
 
       complex(8), allocatable,dimension(:,:,:)  :: fft_br
      .                                            ,fft_bt
@@ -1247,7 +1271,11 @@ c#c temperature field
                 call getCurvilinearCoordinates(gv%gparams,i,j,k
      .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
+                y1 = mm*y1
+                
                 iglobal = i + gv%gparams%ilo(igx) - 1
+
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
                 pert(IBX) = + rdum(iglobal,1) * cos(ff*y1)
      .                      - idum(iglobal,1) * sin(ff*y1)
@@ -1265,21 +1293,21 @@ c#c temperature field
      .                      - idum(iglobal,7) * sin(ff*y1)
 
                 db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1/mm
-                db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
-     .                                            + kk/mm * pert(IBZ)*x1
-                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1/mm
+                db_cnv(i,j,k,2) = db_cnv(i,j,k,2)
+     .                          + jac1*(pert(IBY)/x1 + kk/mm*pert(IBZ))
+                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*jac1/mm
                 
                 dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1/mm
                 if (alt__eom()) then
                   dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
-     .                 + (pert(IVY) + kk/mm*pert(IVZ)*x1)*x1
+     .                 + (pert(IVY)/x1 + kk/mm*pert(IVZ))*jac1*jac1
                 else
-                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2) + pert(IVY)
-     .                                              + kk/mm*pert(IVZ)*x1
+                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
+     .                 + (pert(IVY)/x1 + kk/mm*pert(IVZ))*jac1
                 endif
-                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1/mm
+                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*jac1/mm
 
-                dprs(i,j,k)     = dprs(i,j,k)     + pert(IPRS)*x1
+                dprs(i,j,k)     = dprs(i,j,k)     + pert(IPRS)*jac1
               enddo
             enddo
           enddo
