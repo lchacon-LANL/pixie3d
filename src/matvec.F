@@ -1249,37 +1249,37 @@ c Map vector x to array for processing
       da_cnv = XformToCnv(g_def,igrid,da)
 
       !Currents
-      if (MG_get_find_diag().or.vlap_etaj) then
-c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
-        !!!!!
-c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
+c$$$      if (MG_get_find_diag().or.vlap_etaj) then
+c$$$c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
+c$$$        !!!!!
+c$$$c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!
+c$$$c$$$        dj_cnv =-veclap    (g_def,igrid,XformToCnv(g_def,igrid,da))
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,XformToCnv(g_def,igrid,da))
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!!
+c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
+c$$$      else
+c$$$        db_cnv = curl(g_def,igrid,da)
+c$$$c$$$        db_cov = XformToCov(g_def,igrid,db_cnv)
+c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
+c$$$     .              ,is_vec=.true.,result_is_curv=.true.
+c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
+c$$$        dj_cnv = curl(g_def,igrid,db_cov)
 c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!
-c$$$        dj_cnv =-veclap    (g_def,igrid,XformToCnv(g_def,igrid,da))
-c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!!
-c$$$        dj_cnv =-veclap_cnv(g_def,igrid,XformToCnv(g_def,igrid,da))
-c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-        !!!!!!!
-        dj_cov =-veclap_cov(g_def,igrid,da)
-        !!!!!!!
-c$$$        dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
-      else
-        db_cnv = curl(g_def,igrid,da)
-c$$$        db_cov = XformToCov(g_def,igrid,db_cnv)
-        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
-     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
-     .              ,is_vec=.true.,result_is_curv=.true.
-     .              ,iorder=order_bc,arr_cov=db_cov)
-        dj_cnv = curl(g_def,igrid,db_cov)
-        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-c$$$     .         - gradDiv   (g_def,igrid,da_cnv)
-        !!!!!!!
-c$$$        dj_cov = curlcurl_cov(gv%gparams,igrid,da)
-      endif
+c$$$c$$$     .         - gradDiv   (g_def,igrid,da_cnv)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov = curlcurl_cov(gv%gparams,igrid,da)
+c$$$      endif
 
-c$$$c$$$      dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
-c$$$      dj_cov = -veclap_cov(g_def,igrid,da)
+c$$$      dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
+      dj_cov = -veclap_cov(g_def,igrid,da)
 
 c  Velocity field (including BCs)
 
