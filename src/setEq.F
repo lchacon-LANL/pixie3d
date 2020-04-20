@@ -5949,13 +5949,7 @@ c     Defines COVARIANT vector potential for initialization of
 c     equilibrium.
 c--------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
-      use equilibrium
-
-      use imposeBCinterface
+      use local_BCS_variables
 
       implicit none
 
@@ -6127,7 +6121,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
       case ('bpnch')
 
-        cartsn = .false.
+        cartsn = .true.
         
         kk = gv%gparams%params(2) ! -n where n is the axial mode number.
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
@@ -6140,27 +6134,21 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
             do i = ilom,ihip
               call find_polar_coords(gv%gparams,igr,i,j,k,r1,y1,z1
      .                              ,coords)
-c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr
-c$$$     .                                    ,igr,ig,jg,kg,x1,y1,z1)
-c$$$              
-c$$$              r1 = sqrt(x1**2+y1**2)
-c$$$
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igr,igr
-c$$$     .                                      ,igr,ig,jg,kg,x1,y1,z1)
-c$$$
-c$$$              r1 = r1*sign(1d0,x1)
 
-c$$$              a(i,j,k,1) = -0.5*r1*sin(y1)
-c$$$              a(i,j,k,2) =  0.5*r1*cos(y1)
-c$$$              a(i,j,k,3) = -0.5*dlambda/Bz0*log(1+(r1/dlambda)**2)
               ath = 0.5*r1
               az  = -0.5*dlambda/Bz0*log(1+(r1/dlambda)**2)
 
-              jac1 = gv%gparams%gmetric%grid(igr)%jac(i,j,k)
-              a(i,j,k,1) = 0d0
-              a(i,j,k,2) = jac1*ath
-              a(i,j,k,3) = az - kk*a(i,j,k,2)
-
+              if (cartsn) then
+                a(i,j,k,1) = -ath*sin(y1)
+                a(i,j,k,2) =  ath*cos(y1)
+                a(i,j,k,3) =  az
+              else
+                jac1 = gv%gparams%gmetric%grid(igr)%jac(i,j,k)
+                a(i,j,k,1) = 0d0
+                a(i,j,k,2) = jac1*ath
+                a(i,j,k,3) = az - kk*a(i,j,k,2)
+              endif
+              
             enddo
           enddo
         enddo
@@ -6173,7 +6161,10 @@ c$$$              a(i,j,k,3) = -0.5*dlambda/Bz0*log(1+(r1/dlambda)**2)
 
 c Transform to Covariant
 
-      if (cartsn) call XformVector_mesh2(gv%gparams,igr,a,'car','cov')
+      if (cartsn) then
+        call XformVector_mesh2(gv%gparams,igr,a,'car','cov')
+        fill_A0_bc = .true.
+      endif
 
 c End program
 
