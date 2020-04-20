@@ -30,6 +30,7 @@ c####################################################################
         logical :: regularize_A = .false.  !Whether we regularize A @ SP
 
         logical :: no_eq_bc,save_tn,no_tn_bc,bc_vars_allcd
+     .            ,fill_A0_bc=.false.
 
         !Resistive wall vars
         logical :: res_wall_bc   =.true.
