@@ -1,21 +1,21 @@
 #!/bin/bash
 
-make -s allclean
+make -s allclean setup
 tput setaf 1; make -s src | sed '/^\s*$/d'
 tput setaf 4; echo "REBUILD SERIAL B tests..."
 tput setaf 0; make -s rebuild-tests
 
-make -s allclean
+make -s distclean
 tput setaf 1; make -s VECPOT=t src | sed '/^\s*$/d'
 tput setaf 4; echo "REBUILD SERIAL A tests..."
 tput setaf 0; make -s VECPOT=t rebuild-tests
 
-make -s allclean
+make -s BOPT=O allclean setup
 tput setaf 1; make -s BOPT=O src | sed '/^\s*$/d'
 tput setaf 4; echo "REBUILD PARALLEL B tests..."
 tput setaf 0; make -s BOPT=O rebuild-tests 
 
-make -s allclean
+make -s BOPT=O distclean setup
 tput setaf 1; make -s BOPT=O VECPOT=t src | sed '/^\s*$/d'
 tput setaf 4; echo "REBUILD PARALLEL A tests..."
 tput setaf 0; make -s BOPT=O VECPOT=t rebuild-tests
