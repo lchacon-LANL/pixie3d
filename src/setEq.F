@@ -2611,7 +2611,7 @@ c Transfer magnetic field/vector potential
 
 #if defined(vec_pot)
       if (find_a) then
-        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'    '
+        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap'
      .                          ,lorder=4)
       endif
       var(:,:,:,IAX:IAZ) = aa

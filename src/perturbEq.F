@@ -756,7 +756,6 @@ c     Begin program
                   fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
                 enddo
 
-                write (*,*) nh2,(ymax-ymin)/2/pi
                 mode = nh2+sign(ipw2,nh2)
                 do j = jlom,jhip
                   call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
