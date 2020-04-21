@@ -1293,7 +1293,7 @@ c     Check coordinates
 c     RFP equilibria (analytical)
 
         mm = gv%gparams%params(1)  !Poloidal perturbation
-        kk = gv%gparams%params(2)  !Axial perturbation (-n)
+        kk = gv%gparams%params(2)  !-n/RR, with n axial mode number
         RR = gv%gparams%params(3)  !Toroidal radius
         a1 = gv%gparams%params(4)  !a^2 in screw pinch eq.
 
@@ -1343,16 +1343,16 @@ c     Check coordinates
 c     RFP equilibria (analytical)
 
         mm = gv%gparams%params(1) ! Azimuthal mode number.
-        kk = gv%gparams%params(2) ! -n where n is the axial mode number.
+        kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
-        a1 = gv%gparams%params(4) ! Radius^2 of q=1 surface.
-
+        a1 = gv%gparams%params(4) ! Radius of q=1 surface.
+        
         if (coords == 'hel') then
            nh2 = mm             ! To set the right perturbation wavelength
            nh1 = nh2            ! For perturbations to be of the right order
         end if
 
-        bz0 = RR/(1d0 + a1)/dlambda
+        bz0 = RR/(1d0 + (a1/dlambda)**2)/dlambda
 
 c$$$        if (my_rank == 0) then
 c$$$          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,a1,dlambda,bz0
@@ -1363,16 +1363,18 @@ c$$$        endif
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        beta = 1d0
+        beta = 1d0/bz0**2
         var(:,:,:,IPRS) = 0.5*beta/a_p !Electron temperature required for force balance
 
         do k = klom,khip
           do j = jlom,jhip
              do i = ilom,ihip
-              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
-     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-              
-              r1 = sqrt(x1**2+y1**2)
+              call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
+     .                              ,coords)
+c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
+c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
+c$$$              
+c$$$              r1 = sqrt(x1**2+y1**2)
 
               var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
             enddo
@@ -1383,21 +1385,37 @@ c$$$        endif
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
 
-              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              ! Calculate in Cartesian, then call XformVector_mesh2
-              ! to calculate curvilinear and include the effects of packing.
-              bb(i,j,k,1) =-btheta*sin(y1)
-              bb(i,j,k,2) = btheta*cos(y1)
-              bb(i,j,k,3) = bz0
+              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0
+
+              bb(i,j,k,1)  = 0d0
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
+              bb(i,j,k,3)  = jac1
             enddo
           enddo
         enddo
-
-        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call find_polar_coords(gv%gparams,igr,i,j,k,r1,y1,z1
+c$$$     .                              ,coords)
+c$$$
+c$$$              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)/bz0
+c$$$
+c$$$              ! Calculate in Cartesian, then call XformVector_mesh2
+c$$$              ! to calculate curvilinear and include the effects of packing.
+c$$$              bb(i,j,k,1) =-btheta*sin(y1)
+c$$$              bb(i,j,k,2) = btheta*cos(y1)
+c$$$              bb(i,j,k,3) = 1d0
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
 #else
         find_a = fillVectorPotential(igx,aa)
 #endif
@@ -1406,10 +1424,10 @@ c$$$        endif
 
 c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
-        q0 = gv%gparams%params(4)
+        mm = gv%gparams%params(1) ! Azimuthal mode number.
+        kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
+        q0 = gv%gparams%params(4) ! q at r=0
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -1474,9 +1492,9 @@ cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
 
 c     Tokamak equilibria (analytical)
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
+        mm = gv%gparams%params(1) ! Azimuthal mode number.
+        kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
 
         nh2 = mm  !To set the right perturbation wavelength
 
@@ -2053,9 +2071,9 @@ c     --------------------------------------------------
 
       case ('ppnch','ppnsl','ppnst')
 
-        mm          = gv%gparams%params(1)
-        kk          = gv%gparams%params(2)
-        RR          = gv%gparams%params(3)
+        mm          = gv%gparams%params(1) ! Azimuthal mode number.
+        kk          = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR          = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         theta_ppnch = gv%gparams%params(4)
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
@@ -2201,9 +2219,9 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
       case ('2dhel')
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
+        mm          = gv%gparams%params(1) ! Azimuthal mode number.
+        kk          = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR          = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         theta_ppnch = gv%gparams%params(4)
         e0_over_eta = gv%gparams%params(5)
         beta = gv%gparams%params(6)
@@ -2282,9 +2300,9 @@ c     Magnetic field
 
       case ('ppn3d','p3nsl')
 
-        mm = gv%gparams%params(1)
-        kk = gv%gparams%params(2)
-        RR = gv%gparams%params(3)
+        mm          = gv%gparams%params(1) ! Azimuthal mode number.
+        kk          = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR          = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         theta_ppnch = gv%gparams%params(4)
         e0_over_eta = gv%gparams%params(5)
         beta        = gv%gparams%params(6)
@@ -2593,7 +2611,8 @@ c Transfer magnetic field/vector potential
 
 #if defined(vec_pot)
       if (find_a) then
-        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap')
+        call findVectorPotential(gv%gparams,ilevel,igx,bb,aa,'vlap'
+     .                          ,lorder=4)
       endif
       var(:,:,:,IAX:IAZ) = aa
 #else
@@ -5930,13 +5949,7 @@ c     Defines COVARIANT vector potential for initialization of
 c     equilibrium.
 c--------------------------------------------------------------------
 
-      use parameters
-
-      use grid
-
-      use equilibrium
-
-      use imposeBCinterface
+      use local_BCS_variables
 
       implicit none
 
@@ -5949,12 +5962,14 @@ c Call variables
 c Local variables
 
       integer :: ig,jg,kg,i,j,k,bcnd(6,3),nx,ny,nz
-      real(8) :: x1,y1,z1,r1,eps,car(3),hlx,RR,aa,bz0
+      real(8) :: x1,y1,z1,r1,eps,car(3),hlx,RR,aa,bz0,jac1,kk,ath,az
       real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
       logical :: cartsn
 
 c Begin program
 
+      cartsn = .true.
+      
       find_a = .false.
 
       nx = gv%gparams%nxv(igr)
@@ -6106,32 +6121,37 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
 
       case ('bpnch')
 
+        cartsn = .true.
+        
+        kk = gv%gparams%params(2) ! -n where n is the axial mode number.
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
-        aa = gv%gparams%params(4) ! Radius^2 of q=1 surface.
+        aa = gv%gparams%params(4) ! Radius of q=1 surface.
 
-        bz0 = RR/(1d0 + aa)/dlambda
+        Bz0 = RR/(1d0 + (aa/dlambda)**2)/dlambda
 
         do k = klom,khip
           do j = jlom,jhip
             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+              call find_polar_coords(gv%gparams,igr,i,j,k,r1,y1,z1
      .                              ,coords)
-c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igr,igr
-c$$$     .                                    ,igr,ig,jg,kg,x1,y1,z1)
-c$$$              
-c$$$              r1 = sqrt(x1**2+y1**2)
-c$$$
-c$$$              call getCurvilinearCoordinates(gv%gparams,i,j,k,igr,igr
-c$$$     .                                      ,igr,ig,jg,kg,x1,y1,z1)
-c$$$
-c$$$              r1 = r1*sign(1d0,x1)
 
-              a(i,j,k,1) = -0.5*Bz0*r1*sin(y1)
-              a(i,j,k,2) =  0.5*Bz0*r1*cos(y1)
-              a(i,j,k,3) = -0.5*dlambda*log(1+(r1/dlambda)**2)
+              ath = 0.5*r1
+              az  = -0.5*dlambda/Bz0*log(1+(r1/dlambda)**2)
+
+              if (cartsn) then
+                a(i,j,k,1) = -ath*sin(y1)
+                a(i,j,k,2) =  ath*cos(y1)
+                a(i,j,k,3) =  az
+              else
+                jac1 = gv%gparams%gmetric%grid(igr)%jac(i,j,k)
+                a(i,j,k,1) = 0d0
+                a(i,j,k,2) = jac1*ath
+                a(i,j,k,3) = az - kk*a(i,j,k,2)
+              endif
+              
+            enddo
           enddo
         enddo
-      enddo
 
       case default
 
@@ -6141,7 +6161,10 @@ c$$$              r1 = r1*sign(1d0,x1)
 
 c Transform to Covariant
 
-      call XformVector_mesh2(gv%gparams,igr,a,'car','cov')
+      if (cartsn) then
+        call XformVector_mesh2(gv%gparams,igr,a,'car','cov')
+        fill_A0_bc = .true.
+      endif
 
 c End program
 

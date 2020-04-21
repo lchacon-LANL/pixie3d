@@ -1149,6 +1149,9 @@ c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
 c     field components. There are two methods:
 c       1) meth='line': performs line integrals
 c       2) meth='vlap': performs vector Laplacian inversion
+c     Other input variables include:
+c     * sp: whether we are dealing with SP geometry
+c     * lorder: order of line integrals
 c
 c     On input:
 c       * b_cnv -> cnv magnetic field
@@ -1366,7 +1369,7 @@ c     Begin program
 
 c$$$      b_cnv2 = curl(gv%gparams,igrid,a_cov,order=4)
 c$$$      b_cov2 = XformToCov(gv%gparams,igrid,b_cnv2)
-      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov)
+      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov,.false.)
       b_cov2 = XformToCov_vrtx(gv%gparams,igrid,b_cnv2)
 
       do i=0,nx

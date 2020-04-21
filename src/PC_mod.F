@@ -967,17 +967,17 @@ c     Initialize solver
 
 c     Upper_level solver options
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%tol      = tol
         solverOptions%iter     = iter
         solverOptions%stp_test = 0         !Use rhs for convergence criteria
 
-        call assembleSolverHierarchy('gm')
+        call assembleSolverHierarchy('gm',solverOptions)
 
 c     Next level solver
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%vcyc     = 1
 cc        solverOptions%vcyc     = iter
@@ -989,28 +989,28 @@ cc        solverOptions%mg_coarse_grid_res  = 2  !Deprecated
         solverOptions%diag     => d_pois
         solverOptions%mg_coarse_solver_depth = 0
 
-        call assembleSolverHierarchy('mg')
+        call assembleSolverHierarchy('mg',solverOptions)
 
 c     Next level solver
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%omega = 0.8d0
         solverOptions%iter  = 3
         solverOptions%tol   = 1d-10
 
-        call assembleSolverHierarchy('jb')
+        call assembleSolverHierarchy('jb',solverOptions)
 
 cc        solverOptions%omega = 1d0
 cc        solverOptions%iter  = 3
 cc        solverOptions%tol   = 1d-10
 cc        solverOptions%ncolors = ncolors
 cc
-cc        call assembleSolverHierarchy('gs')
+cc        call assembleSolverHierarchy('gs',solverOptions)
 
 c       Coarsest grid solve for outer MG
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%tol             = 1d-5
         solverOptions%krylov_subspace = 1000
@@ -1019,10 +1019,10 @@ c       Coarsest grid solve for outer MG
         solverOptions%omega           = 1d0
 
 c diag ****
-cc        call assembleSolverHierarchy('jb')
+cc        call assembleSolverHierarchy('jb',solverOptions)
 c diag ****
-        call assembleSolverHierarchy('gm')
-        call assembleSolverHierarchy('id') !GMRES preconditioner
+        call assembleSolverHierarchy('gm',solverOptions)
+        call assembleSolverHierarchy('id',solverOptions) !GMRES preconditioner
 
 c     Invoke solver
 
@@ -1030,7 +1030,7 @@ c     Invoke solver
 
 c     Get output data
 
-        call getSolverOptions(1)
+        call getSolverOptions(1,solverOptions)
 
         iter = solverOptions%iter_out
 
@@ -1167,6 +1167,8 @@ c     Local variables
 
 c     Begin program
 
+        jac0 = g_def%gmetric%grid(igx)%jac(i,j,k)
+
         if (PRESENT(he)) then
           half_elem = he
         else
@@ -1184,8 +1186,6 @@ c     Begin program
         kp = k+1
 
 c     Ideal MHD part
-
-        jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
 
         select case(half_elem)
         case(1)

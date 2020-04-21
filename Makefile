@@ -26,6 +26,7 @@ PER_BC_SYNC=t
 VMEC=t
 COARSE_MG=t
 USER_DT=t
+RFX=f
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -109,7 +110,11 @@ endif
 
 ifeq ($(SAMR),t)
   TARGET = samrai
-  CPPFLAGS += -Dflux_rhs
+  CPPFLAGS += $(PREPROC)flux_rhs
+endif
+
+ifeq ($(RFX),t)
+  CPPFLAGS += $(PREPROC)RFX
 endif
 
 #Export required variables
