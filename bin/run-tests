@@ -2,7 +2,7 @@
 
 rm tests/*.txt tests/*.html
 
-make -s allclean setup
+make -s setup allclean
 tput setaf 4; echo "COMPILING SERIAL B tests..."
 tput setaf 1; make -s src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING SERIAL B tests..."
@@ -14,7 +14,7 @@ tput setaf 1; make -s VECPOT=t src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING SERIAL A tests..."
 tput setaf 0; make -s VECPOT=t tests > tests/tests-A.txt
 
-make -s BOPT=O allclean setup
+make -s BOPT=O setup allclean
 tput setaf 4; echo "COMPILING PARALLEL B tests..."
 tput setaf 1; make -s BOPT=O src | sed '/^\s*$/d'
 tput setaf 4; echo "RUNNING PARALLEL B tests..."
