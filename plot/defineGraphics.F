@@ -587,11 +587,8 @@ c     Call variables
 c     Local variables
 
       hdf5_fname   = 'pixie3d.h5'
-#if defined(adios)
+#if defined(adios) || defined(ADIOS2)
       adios_fname  = 'pixie3d.bp'
-#endif
-#if defined(ADIOS2)
-      adios2_fname  = 'pixie3d.bp'
 #endif
 
       if (np > 1) return
