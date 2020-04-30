@@ -588,7 +588,7 @@ cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
 
        !Find q-factor and lambda profile
        do i = iming,imaxg
-         qfactor(i,:,:) = b00(i,3)/RR/(b00(i,2)-kk/mm*b00(i,3))
+         qfactor(i,:,:) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
          lambda (i,:,:) = l00(i,1)
        enddo
        qfactor(iming,:,:)=qfactor(iming+1,:,:)
