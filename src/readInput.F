@@ -744,6 +744,10 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
         endif
       endif
 
+      if (coords == 'hel') then
+        zmax = 1d-3 ; zmin = 0d0
+      endif
+      
       !Do NOT regularize A @ SP when plotting
 #if defined(plotting)
       regularize_A = .false.
