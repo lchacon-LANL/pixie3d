@@ -732,7 +732,7 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
       if (nzd == 1) bcs(5:6) = 'per'
 
       !Adequate size for collapsed dimension
-      if (numerical_grid .and. coords /= 'car') then
+      if (coords /= 'car') then
         if (nxd == 1) then
           xmax = 1d-3 ; xmin = 0d0
         endif
@@ -744,10 +744,6 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
         endif
       endif
 
-      if (coords == 'hel') then
-        zmax = 1d-3 ; zmin = 0d0
-      endif
-      
       !Do NOT regularize A @ SP when plotting
 #if defined(plotting)
       regularize_A = .false.
