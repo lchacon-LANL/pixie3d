@@ -224,8 +224,6 @@
         endif
 
         close (neqdsk)
-
-        return
         
 !!$        call read_chk()
    
