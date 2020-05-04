@@ -499,15 +499,18 @@ c       Allocate auxiliary variables in local domain
 #if defined(vec_pot)
         case(IACOV_0)
 
+          if (fill_A0_bc) then
+            vdum = XformVector(gv%gparams,igr,acov_0,.true.)
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
+     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
+     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
+     .              ,iorder=2)
+          else
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          vdum = XformVector(gv%gparams,igr,acov_0,.true.)
-c$$$          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
-c$$$     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
-c$$$     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
-c$$$     .              ,iorder=2)
-
+          endif
+          
         case(IBCNV_0)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
@@ -580,12 +583,15 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
         case(IENI_0)
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
-
+          
+          if (subtract_E0) then
 c$$$#if defined(vec_pot)
 c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
 c$$$#else
-          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+            E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0
+     .                        ,eeta_0)
 c$$$#endif
+          endif
 
         case(IVECNV_0)
 
@@ -1086,12 +1092,15 @@ c$$$            jcnv_0 = 0d0
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
+          if (subtract_E0) then
 c$$$#if defined(vec_pot)
 c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
 c$$$#else
-          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+            E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0
+     .                        ,eeta_0)
 c$$$#endif
-
+          endif
+          
         case(IVECNV_0)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)

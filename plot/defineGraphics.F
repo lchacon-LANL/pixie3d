@@ -555,7 +555,7 @@ c Define graphics group #5: Perturbations
       do ieq = 1,neqd
         graph(5)%array_graph(ieq)%array => u_pert%array_var(ieq)%array
         graph(5)%array_graph(ieq)%descr =
-     $       trim(u_pert%array_var(ieq)%descr) // ' pert'
+     $       trim(u_pert%array_var(ieq)%descr) // '_pert'
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
@@ -587,7 +587,9 @@ c     Call variables
 c     Local variables
 
       hdf5_fname   = 'pixie3d.h5'
+#if defined(adios) || defined(ADIOS2)
       adios_fname  = 'pixie3d.bp'
+#endif
 
       if (np > 1) return
 

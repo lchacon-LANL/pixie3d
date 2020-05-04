@@ -85,8 +85,8 @@ c Begin programs
 
 c Find electric field
 
-      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3),
-     .       ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
+      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3)
+     .        ,ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
 
       do k = kming,kmaxg
         do j = jming,jmaxg
@@ -111,8 +111,9 @@ c Transform to cylindrical (from Cartesian)
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
      $                     +vy_car(i,j,k)*sin(y1)
@@ -142,8 +143,8 @@ c Transform to cylindrical (from Cartesian)
 
             ecyl(i,j,k,1) = ecar(i,j,k,1)*cos(y1)
      $                     +ecar(i,j,k,2)*sin(y1)
-            ecyl(i,j,k,2) = -ecar(i,j,k,1)*sin(y1)
-     $                      +ecar(i,j,k,2)*cos(y1)
+            ecyl(i,j,k,2) =-ecar(i,j,k,1)*sin(y1)
+     $                     +ecar(i,j,k,2)*cos(y1)
             ecyl(i,j,k,3) = ecar(i,j,k,3)
 
           enddo
@@ -159,8 +160,9 @@ c Transform to toroidal
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)*cos(-z1)
      $                     +vy_car(i,j,k)*cos(y1)*sin(-z1)
@@ -231,8 +233,9 @@ c diag: dump text data
       do i=0,nxd+1
         do j=1,nyd
           do k=1,nzd
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                   ,ig,jg,kg,x1,y1,z1)
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                   ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             write (1012) x1,y1,z1
      .              ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)

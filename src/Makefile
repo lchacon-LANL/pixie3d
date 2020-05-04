@@ -31,9 +31,9 @@ endif
 
 # Source files
 
-SRC ?= $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.f90 *.F90))
+SRC ?= $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.?90))
 
-MODS ?= $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.f90 *_mod.F90))
+MODS ?= $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.?90))
 
 prefix = .
 
