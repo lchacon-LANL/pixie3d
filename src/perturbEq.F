@@ -888,7 +888,7 @@ c     -----------------------------------------------------------------
 
       use var_setup
       
-      use B_tools, pert2 => pert
+      use B_tools
 
       implicit none
 
@@ -900,7 +900,7 @@ c     Local variables
 
       integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr,nx,ny,nz
      .          ,its
-      real(8) :: x1,y1,z1,kk,mm,pert(neqd),jac1,rg(0:nxdp)
+      real(8) :: x1,y1,z1,kk,mm,pert2(neqd),jac1,rg(0:nxdp)
 
       real(8),allocatable,dimension(:) :: xx
       real(8),allocatable,dimension(:,:) :: ii,rr,idum,rdum
@@ -982,43 +982,43 @@ c     Find perturbations
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              pert=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+              pert2=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
 
               !Transform velocity
-              pert(IVX) = x1/mm*pert(IVX)
-              pert(IVY) = jac1*(mm*pert(IVY)/x1+kk*pert(IVZ))
-              if (alt__eom()) pert(IVY) = jac1*pert(IVY)
-              pert(IVZ) = jac1*pert(IVZ)
+              pert2(IVX) = x1/mm*pert2(IVX)
+              pert2(IVY) = jac1*(mm*pert2(IVY)/x1+kk*pert2(IVZ))
+              if (alt__eom()) pert2(IVY) = jac1*pert2(IVY)
+              pert2(IVZ) = jac1*pert2(IVZ)
 
               do ieq=IVX,IVZ
                 varr%array_var(ieq)%array(i,j,k)
-     .            = varr%array_var(ieq)%array(i,j,k) + perturb*pert(ieq)
+     .           = varr%array_var(ieq)%array(i,j,k) + perturb*pert2(ieq)
               enddo
 
               !Transform magnetic field
-              pert(IBX) = x1/mm*pert(IBX)
-              pert(IBY) = jac1*(mm*pert(IBY)/x1+kk*pert(IBZ))
-              pert(IBZ) = jac1*pert(IBZ)
+              pert2(IBX) = x1/mm*pert2(IBX)
+              pert2(IBY) = jac1*(mm*pert2(IBY)/x1+kk*pert2(IBZ))
+              pert2(IBZ) = jac1*pert2(IBZ)
               
-              db_cnv(i,j,k,:) = pert(IBX:IBZ)
+              db_cnv(i,j,k,:) = pert2(IBX:IBZ)
               
               !Total pressure and density
-              pert(IRHO) = perturb*pert(IRHO)
-              pert(IPRS) = perturb*pert(IPRS)
+              pert2(IRHO) = perturb*pert2(IRHO)
+              pert2(IPRS) = perturb*pert2(IPRS)
               if (eig_is_T) then
                    varr%array_var(IPRS)%array(i,j,k)
      .           = varr%array_var(IPRS)%array(i,j,k)
-     .            +( jac1*pert(IRHO)*varr%array_var(IPRS)%array(i,j,k)
-     .                              /varr%array_var(IRHO)%array(i,j,k)
-     .               +a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+     .            +( jac1*pert2(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                               /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert2(IPRS)*varr%array_var(IRHO)%array(i,j,k))
               else
                    varr%array_var(IPRS)%array(i,j,k)
-     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert(IPRS)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert2(IPRS)
               endif
               
               if (solve_rho.or.adiabatic_rho)
      .             varr%array_var(IRHO)%array(i,j,k)
-     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert2(IRHO)
 
             enddo
           enddo
@@ -1038,43 +1038,43 @@ c     Find perturbations
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              pert=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+              pert2=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
 
               !Transform velocity
-              pert(IVX) = x1*pert(IVX)
-              pert(IVY)=jac1*pert(IVY)/x1
-              if (alt__eom()) pert(IVY) = jac1*pert(IVY)
-              pert(IVZ) = jac1*pert(IVZ)
+              pert2(IVX) = x1*pert2(IVX)
+              pert2(IVY)=jac1*pert2(IVY)/x1
+              if (alt__eom()) pert2(IVY) = jac1*pert2(IVY)
+              pert2(IVZ) = jac1*pert2(IVZ)
 
               do ieq=IVX,IVZ
                 varr%array_var(ieq)%array(i,j,k)
-     .            = varr%array_var(ieq)%array(i,j,k) + perturb*pert(ieq)
+     .           = varr%array_var(ieq)%array(i,j,k) + perturb*pert2(ieq)
               enddo
 
               !Transform magnetic field
-              pert(IBX) = x1*pert(IBX)
-              pert(IBY) = jac1*pert(IBY)/x1
-              pert(IBZ) = jac1*pert(IBZ)
+              pert2(IBX) = x1*pert2(IBX)
+              pert2(IBY) = jac1*pert2(IBY)/x1
+              pert2(IBZ) = jac1*pert2(IBZ)
               
-              db_cnv(i,j,k,:) = pert(IBX:IBZ)
+              db_cnv(i,j,k,:) = pert2(IBX:IBZ)
               
               !Pressure and density
-              pert(IRHO) = perturb*pert(IRHO)
-              pert(IPRS) = perturb*pert(IPRS)
+              pert2(IRHO) = perturb*pert2(IRHO)
+              pert2(IPRS) = perturb*pert2(IPRS)
               if (eig_is_T) then
                    varr%array_var(IPRS)%array(i,j,k)
      .           = varr%array_var(IPRS)%array(i,j,k)
-     .            +( jac1*pert(IRHO)*varr%array_var(IPRS)%array(i,j,k)
-     .                              /varr%array_var(IRHO)%array(i,j,k)
-     .               +a_p*pert(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+     .            +( jac1*pert2(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                               /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert2(IPRS)*varr%array_var(IRHO)%array(i,j,k))
               else
                    varr%array_var(IPRS)%array(i,j,k)
-     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert(IPRS)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert2(IPRS)
               endif
 
               if (solve_rho.or.adiabatic_rho)
      .             varr%array_var(IRHO)%array(i,j,k)
-     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert(IRHO)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert2(IRHO)
 
             enddo
           enddo
