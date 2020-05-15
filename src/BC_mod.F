@@ -229,7 +229,7 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
-      case ('tbbr1','tbbr2')                !No slip BCs, no pinch flow
+      case ('tbbr1','tbbr2','bpnch')        !No slip BCs, no pinch flow
 
         pinch_flow = .false.
 
@@ -239,7 +239,7 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
-        if (gamma > 1d0)
+        if (gamma > 1d0.and.(.not.adiabatic))
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
       case ('vmec','tor','stell')
