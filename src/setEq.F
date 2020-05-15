@@ -65,7 +65,7 @@ c Local variables
      .          ,Er,Eth,Ez,btho,bzo,bthi,bzi,p0max
 
       real(8) :: dh,bth0(0:nxdp)
-      real(8) :: bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
+      real(8) :: bzz0(0:nxdp),vr0(0:nxdp),vz0(0:nxdp)
       real(8) :: eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
       real(8) :: jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp),n00(0:nxdp)
       real(8) :: bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
@@ -1301,15 +1301,24 @@ c     RFP equilibria (analytical)
 
         nh1 = nh2 !For perturbations to be of the right order
 
+        call find_global_radial_mesh(rg)
+
+        b_0  = (dlambda**2+a1)/sqrt((dlambda**2+a1)**2-dlambda**4)
+        do i=0,nxdp
+          x1  = rg(i)/dlambda
+          bth0(i) = b_0*x1/(1+x1**2)
+          bzz0(i) = sqrt(1.-b_0**2*(1-1./(1+x1**2)**2))
+          p00(i)  = a_p*1d-5
+          n00(i)  = 1d0
+        enddo
+
+        call dump_1d_eq
+        
         !Build equilibrium
 
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,IPRS) = 1d-5
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1319,14 +1328,15 @@ c     RFP equilibria (analytical)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              b_0    = (dlambda**2+a1)
-     .                 /sqrt((dlambda**2+a1)**2-dlambda**4)
-              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
+              iglobal = i + gv%gparams%ilo(igr) - 1
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
-              bb(i,j,k,3)  = jac1*bz0
+              bb(i,j,k,1)=0d0
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
+              bb(i,j,k,3)=jac1*bzz0(iglobal)
+
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+
+              var(i,j,k,IRHO) = n00(iglobal)
             enddo
           enddo
         enddo
@@ -1509,6 +1519,7 @@ c     Tokamak equilibria (analytical)
           bth0(i) = b_0*x1/(1+(x1/dlambda)**2)
           bzz0(i) = RR
           p00(i)  = a_p*(1d0+1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2)
+          n00(i)  = 1d0
         enddo
 
         !Dump equilibrium for eigen code
@@ -1518,8 +1529,6 @@ c     Tokamak equilibria (analytical)
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1535,7 +1544,9 @@ c     Tokamak equilibria (analytical)
               bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+
+              var(:,:,:,IRHO) = n00(iglobal)
 
             enddo
           enddo
@@ -2104,10 +2115,10 @@ c     Equilibria (numerical)
           read(1000,'(a)')
           do i=0,nxdp
             read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
 cc            write (*,*)
 cc            write (*,*) dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
           enddo
 
           read(1000,'(a)')
@@ -2132,6 +2143,9 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
 
           call find_global_radial_mesh(rg)
 
+	  !Find density
+          n00 = 1d0
+
           !Find pressure profile
           do i=0,nxdp
             x1  = rg(i)
@@ -2150,6 +2164,8 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
+          call dump_1d_eq
+          
 	  !Find electric field
           E0(1:2) = 0d0
           E0(3)   = e0_over_eta*eta
@@ -2174,9 +2190,6 @@ c$$$          endif
           !Find momentum source (cylindrical)
           M0(1:2) = 0d0
           M0(3) = m0_over_nu*nu
-
-	  !Find density
-          rho0 = 1d0
 
         endif
 
@@ -2204,7 +2217,7 @@ c$$$          endif
               var(i,j,k,IVZ)=jac1*vz0(iglobal)
 
               if (solve_rho) then
-                var(i,j,k,IRHO) = rho0(iglobal)
+                var(i,j,k,IRHO) = n00(iglobal)
               else
                 var(i,j,k,IRHO) = 1d0
               endif
@@ -2345,7 +2358,7 @@ c     Equilibria (numerical)
           read(1000,'(a)')
           do i=0,nxdp
             read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
           enddo
 
           read(1000,'(a)')
@@ -2403,7 +2416,7 @@ c     Equilibria (numerical)
           M0(3) = m0_over_nu*nu
 
           !Find density
-          rho0 = 1d0
+          n00 = 1d0
 
         endif
 
@@ -2446,7 +2459,7 @@ cc        stop
               var(i,j,k,IVZ) = jac1*vz0(iglobal)
 
               if (solve_rho) then
-                var(i,j,k,IRHO) = rho0(iglobal)
+                var(i,j,k,IRHO) = n00(iglobal)
               else
                 var(i,j,k,IRHO) = 1d0
               endif
