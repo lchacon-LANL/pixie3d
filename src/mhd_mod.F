@@ -4345,7 +4345,47 @@ c ######################################################################
         type(mg_array),target :: gpsi0,gbz0
 
 cc        real(8),pointer,dimension(:,:,:) :: jpar_B => null()
- 
+
+      contains
+
+c     dump_1d_eq
+c     ###############################################################
+      subroutine dump_1d_eq(r,bth0,bz0,p0,n0,vr0,eta0)
+
+c     ---------------------------------------------------------------
+c     Dump 1d equilibrium for eigen analysis
+c     ---------------------------------------------------------------
+
+      implicit none
+
+      real(8),dimension(:) :: r,bth0,bz0,p0
+      real(8),optional,dimension(:) :: n0,vr0,eta0
+
+      integer :: nr
+      real(8) :: n_r=0d0,vr_r=0d0,eta_r=0d0
+
+      if(PRESENT(n0)  ) n_r   = 1d0
+      if(PRESENT(vr0) ) vr_r  = 1d0
+      if(PRESENT(eta0)) eta_r = 1d0
+
+      if (my_rank == 0) then
+        nr = size(r)
+        
+        open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
+        write (123,*) nr
+        write (123,*) eta_r,vr_r,n_r
+        write (123,*) r
+        write (123,*) bth0
+        write (123,*) bz0
+        write (123,*) p0
+        if(PRESENT(eta0)) write (123,*) eta0
+        if(PRESENT(vr0 )) write (123,*) vr0
+        if(PRESENT(n0  )) write (123,*) n0
+        close(123)
+      endif
+
+      end subroutine dump_1d_eq
+      
       end module equilibrium
 
 c module nlfunction_setup

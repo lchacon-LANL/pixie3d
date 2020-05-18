@@ -1312,8 +1312,9 @@ c     RFP equilibria (analytical)
           n00(i)  = 1d0
         enddo
 
-        call dump_1d_eq
-        
+        !Dump equilibrium for eigen code
+        call dump_1d_eq(rg,bth0,bzz0,p00)
+
         !Build equilibrium
 
         var(:,:,:,IVX)  = 0d0
@@ -1523,8 +1524,8 @@ c     Tokamak equilibria (analytical)
         enddo
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq
-        
+        call dump_1d_eq(rg,bth0,bzz0,p00,n0=n00)
+
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
@@ -1620,16 +1621,15 @@ c$$$        beta = 4d-5
         !Initialize toroidal field
         bzz0 = bz0  
 
+        !Initialize density
+        n00 = 1d0
+        if (equil(1:4) == 'vela') n00 = 1d0/(gamma-1d0)
+
         !Solve 1D Grad-Shafranov equation
         call GS_equil_1d(rg,q00,p00,bth0,bzz0)
 
 cc        p0max = maxval(p00)
 cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
-        n00 = 1d0
-        if (equil(1:4) == 'vela') n00 = 1d0/(gamma-1d0)
-        
-        !Dump equilibrium for eigen code
-        call dump_1d_eq
 
         !Build equilibrium
         var(:,:,:,IVX:IVZ)  = 0d0
@@ -2164,8 +2164,6 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
      .                              ,p00,bth0,bzz0,vr0,psi0)
           endif
 
-          call dump_1d_eq
-          
 	  !Find electric field
           E0(1:2) = 0d0
           E0(3)   = e0_over_eta*eta
@@ -2673,28 +2671,7 @@ c End program
 
       contains
 
-c     dump_1d_eq
-c     ###############################################################
-      subroutine dump_1d_eq
 
-c     ---------------------------------------------------------------
-c     Dump 1d equilibrium for eigen analysis
-c     ---------------------------------------------------------------
-
-      implicit none
-
-      if (my_rank == 0) then
-        open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
-        write (123,*) nxdp+1
-        do i=0,nxdp
-          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p,n00(i)
-        enddo
-        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3) !RR,betap,qa
-        close(123)
-      endif
-
-      end subroutine dump_1d_eq
-      
       end subroutine setEquilibrium
 
 c     find_global_radial_mesh
@@ -2955,6 +2932,9 @@ cc          write (*,*) dummy(1:nxd)
         !Extrapolate linearly in radius @ r=0
         bth0(0) =-bth0(1)
         bzz0(0) = bzz0(1)
+        
+        !Dump equilibrium for eigen code
+        call dump_1d_eq(rg,bth0,bzz0,p0)
 
       end subroutine GS_equil_1d
 
@@ -3061,7 +3041,7 @@ c       Find global-mesh radial positions and increments
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
-        !Resistivity profile
+        !Resistivity profile (integer mesh)
         do i=1,nxdp
           if (spitzer) then
             eta0(i) = res_spitzer(p0(i)/p0(1))
@@ -3274,25 +3254,9 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         !i=0
         vr0(0) = -vr0(1)
 
-        !Find pressure
-cc        do i=1,nxd
-cc          rh  = rg(i)
-cc          p0(i) = p00*pprof(rh,0)
-cc        enddo
-
         !Dump equilibrium for eigen code
-cc        if (my_rank == 0) then
-cc          open(unit=123,file='ntm2d.txt',status='unknown')
-cc          write (123,*) nxdp+1
-cc          write (123,*) rg(0:nxdp)
-cc          write (123,*) bth0
-cc          write (123,*) bzz0
-cc          write (123,*) 0.5*p0
-cc          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
-cc          close(123)
-cccc          stop
-cc        endif
-
+        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=eta0,vr0=vr0)
+          
 #if defined(RFX)
         if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
