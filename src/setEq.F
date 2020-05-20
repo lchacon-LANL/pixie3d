@@ -3255,7 +3255,7 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         vr0(0) = -vr0(1)
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=eta0,vr0=vr0)
+        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=eta0,vr0=vr0) !Note:eta0->eta0/eta, vr0->vr0/eta
           
 #if defined(RFX)
         if (my_rank == 0.and.(.not.test)) then
