@@ -566,38 +566,41 @@ c     Begin program
         stop
       endif
 
-      i = nx + 1
+      i = nx
 
+      !Compute value at face
       do k=0,nz+1
         do j=0,ny+1
-          jac = g_def%gmetric%grid(igrid)%jac(i,j,k)
+          jac = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
+     .              +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
 
-          bbcnv = bcnv(i,j,k,:)
-          bbcov = XformToCov_ijk(g_def,i,j,k,igrid,bbcnv)
+          bbcnv = 0.5*(bcnv(i,j,k,:)+bcnv(i+1,j,k,:))
+          bbcov = XformToCov_ijk_face(g_def,i,j,k,igrid,bbcnv,1)
 
-          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
+cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
+          b2 = sum(bbcnv*bbcov)/jac
 
           if (b2 > 0d0) then
             if (PRESENT(dbcov)) then  !Linearize ExB flow BC
-              dum = dbcov(i,j,k,:)
+              dum = 0.5*(dbcov(i,j,k,:)+dbcov(i+1,j,k,:))
               bbcov = dum - 2*dot_product(bbcnv,dum)/(jac*b2)*bbcov
             endif
 
-            grad_p = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
-            grad_p = XformToCnv_ijk(g_def,i,j,k,igrid,grad_p)
+            grad_p = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs
+     .                   ,hex=1)
+            grad_p = XformToCnv_ijk_face(g_def,i,j,k,igrid,grad_p,1)
 
-            etah = eta(i,j,k)
+            etah = 0.5*(eta(i,j,k)+eta(i+1,j,k))
 
             !ExB velocity
-            E00 = E_0(i,j,k,:) + E0
+            E00 = E_0(i+1,j,k,:) + E0  !E_0(nx+1) contains face value (from RW module)
             
-            v0(i,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
-     .                 -etah*grad_p(1))/b2
-            v0(i,j,k,2)=(E00(3)*bbcov(1)-E00(1)*bbcov(3)
-     .                 -etah*grad_p(2))/b2
-            v0(i,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
-     .                 -etah*grad_p(3))/b2
-
+            v0(i+1,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
+     .                   -etah*grad_p(1))/b2
+            v0(i+1,j,k,2)=(E00(3)*bbcov(1)-E00(1)*bbcov(3)
+     .                   -etah*grad_p(2))/b2
+            v0(i+1,j,k,3)=(E00(1)*bbcov(2)-E00(2)*bbcov(1)
+     .                   -etah*grad_p(3))/b2
           endif
         enddo
       enddo
