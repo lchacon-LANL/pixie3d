@@ -1433,19 +1433,15 @@ c Find rhs_v'
             if (part == 'lfz' .or. part == 'all') then
 
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cov,jcov0,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
-     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
+                cnv = crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,jcov0(i,j,k,:),db_cov(i,j,k,:),.false.)
+     .               +crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,dj_cov(i,j,k,:),bcov0(i,j,k,:),.false.)
               else
                 cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,db_cnv,bcnv0)
      .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,bcnv0,db_cnv)
               endif
 
               cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
