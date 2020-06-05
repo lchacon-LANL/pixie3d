@@ -5036,8 +5036,6 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
      .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
 
-!        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
-
         if (flag /= 0) then
           jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
           jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
@@ -5077,6 +5075,9 @@ c$$$  ===============================================
      .         +cnv0(3)*covp(3))*0.25
         
         !Assemble tensor
+c$$$  ===============================================                
+c$$$        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+c$$$
 c$$$        coeff = ijacp*ijac0*jac**2
 c$$$
 c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
@@ -5098,6 +5099,8 @@ c$$$          t11 = t11*ijac
 c$$$          if (.not.alt_eom) t12 = t12*ijac
 c$$$          t13 = t13*ijac
 c$$$        endif
+c$$$  ===============================================        
+
 c$$$  ===============================================        
 c$$$        coeff = ijacp*ijac0*jac
 c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
@@ -5227,6 +5230,7 @@ c$$$  ===============================================
      .         +cnv0(3)*covp(3))*0.25
 
         !Assemble tensor
+c$$$  ===============================================                
 c$$$        coeff = ijacp*ijac0*jac**2
 c$$$
 c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
@@ -5248,6 +5252,8 @@ c$$$          t21 = t21*ijac
 c$$$          if (.not.alt_eom) t22 = t22*ijac
 c$$$          t23 = t23*ijac
 c$$$        endif
+c$$$  ===============================================        
+
 c$$$  ===============================================        
 c$$$        coeff = ijacp*ijac0*jac
 c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
@@ -5280,6 +5286,8 @@ c$$$  ===============================================
         t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
      .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp )
      .         +gsuper(3)*pmag)
+
+c$$$  ===============================================                
 
         if (flag == 0) then
           t21 = t21*jac
@@ -5398,6 +5406,8 @@ c$$$          t31 = t31*ijac
 c$$$          if (.not.alt_eom) t32 = t32*ijac
 c$$$          t33 = t33*ijac
 c$$$        endif
+c$$$  ===============================================
+
 c$$$  ===============================================                
 c$$$        coeff = ijacp*ijac0*jac
 c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
