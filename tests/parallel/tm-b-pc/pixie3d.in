@@ -14,7 +14,7 @@
 
     bcs      = 'def','def','per','per','per','per'
 
-    eta      = 1d-3
+    eta      = 1d-2
     nu       = 1d-3
     dd       = 0d-1
     chi      = 0d-2
@@ -32,41 +32,44 @@
     dstep    = 1d1
 
     nh2      = 1
-    ptmp     = 1d-3
+    pvy      = 1d-3
     odd      = t,f,f
 
-    cnfactor = 0.5
+    cnfactor = 0.
+    sm_flag  = 2
 
     restart  = f
     timecorr = f
     predictor= f
 
-    source   = t
 
-    pc_type  = 's1'
-    pc_tol   = 1d-5
-    mg_vcyc  = 1
-    sm_iter  = 4
+    precon   = 's1'
+    mgtol    = 1d-5
+    maxvcyc  = 1
+    nsweep   = 4
     precpass = 1
-    mg_ores  = 2
-    mg_oprol = 2
+    ores     = 2
+    oprol    = 2
 
     iguess   = 0
 
     maxksp   = 20
     maxitgm  = 20
     tolgm    = 8d-1
-    rtol     = 1d-4
+    rtol     = 1d-3
     method   = 1
 
     solenoidal = t
-    nc_eom_f   = f
+    nc_eom_f   = t
     nc_eom_v   = f
     adiabatic  = t
     use_p_eom  = t
+    source     = t
 
-    debug    = f
-    debug_it = 1
+    advect     = 4
+
+    pc_debug   = f
+    pc_debug_it= 0
 
  /
  &graphdef

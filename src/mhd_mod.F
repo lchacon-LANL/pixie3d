@@ -4940,14 +4940,12 @@ c     End program
 
 c     EOM_jxb
 c     ###################################################################
-      function EOM_jxb(g_def,i,j,k,nx,ny,nz,igrid,bb,jj,vec_cnv
-     $                ,nc_eom_jxb,vol)
+      function EOM_jxb(g_def,i,j,k,nx,ny,nz,igrid,b1,b2,vol,proj_parcmp)
      .         result(cnv)
 
 c     -------------------------------------------------------------------
-c     Finds contravariant components (a1,a2,a3) of the EOM force term
-c     (jxb) at cell centers. Vectors are taken as
-c     contravariant if vec_cnv=.true., and covariant otherwise
+c     Finds contravariant components of the conservative EOM force term
+c     (jxb) at cell centers.
 c     -------------------------------------------------------------------
 
         implicit none
@@ -4958,41 +4956,34 @@ c     Call variables
 
         integer    :: i,j,k,nx,ny,nz,igrid
         real(8)    :: cnv(3)
-        real(8),target :: jj(0:nx+1,0:ny+1,0:nz+1,3)
-     $                   ,bb(0:nx+1,0:ny+1,0:nz+1,3)
-        logical    :: vec_cnv,nc_eom_jxb
-        logical,optional,intent(IN) :: vol
+        real(8),target :: b1(0:nx+1,0:ny+1,0:nz+1,3)
+     $                   ,b2(0:nx+1,0:ny+1,0:nz+1,3)
+        logical,optional,intent(IN) :: vol,proj_parcmp
 
 c     Local variables
 
-        logical    :: vol_wgt
+        logical    :: vol_wgt,project
+        real(8)    :: bbcov(3),mag
 
 c     Begin program
 
-        vol_wgt = .false.
-        if (PRESENT(vol)) vol_wgt = vol
+        project = .false.
+        if (PRESENT(proj_parcmp)) project = proj_parcmp
 
-        !Lorentz force
-        if (nc_eom_jxb) then
+        vec1 => b1
+        vec2 => b2
+        cnv =-div_tensor(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                  ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z
+     .                  ,vol=vol_wgt)
+        nullify(vec1,vec2)
 
-          cnv = crossProduct(g_def,i,j,k,igrid
-     .                      ,jj(i,j,k,:),bb(i,j,k,:),vec_cnv)
-
-          if (vec_cnv)
-     .       cnv = matmul(g_def%gmetric%grid(igrid)%gsup(i,j,k,:,:),cnv)
-
-          if (vol_wgt) cnv = cnv*g_def%gmetric%grid(igrid)%dvol(i,j,k)
-
-        else
-          if (.not.vec_cnv) call pstop('eom_jxb'
-     .                ,'Magnetic field should be contravariant')
-
-          vec1 => bb
-          vec2 => jj
-          cnv =-div_tensor(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                    ,alt__eom()
-     .                    ,eom_jxb_x,eom_jxb_y,eom_jxb_z,vol=vol_wgt)
-          nullify(vec1,vec2)
+        !Project out parallel force (destroys conservation)
+        if (project) then
+          bbcov = XformToCov_ijk(g_def,i,j,k,igrid,b1(i,j,k,:))
+          mag = dot_product(bbcov,b1(i,j,k,:))
+          if (mag > 0d0) then
+            cnv = cnv - b1(i,j,k,:)*dot_product(bbcov,cnv)/mag
+          endif
         endif
 
 c     End program
@@ -5030,7 +5021,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,ip,igr
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
-     .               ,car0(3),carp(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
@@ -5045,11 +5036,8 @@ c     Begin program
         gsuper = 0.5*(g_def%gmetric%grid(igx)%gsup(ip,j,k,1,:)
      .               +g_def%gmetric%grid(igx)%gsup(i ,j,k,1,:))
 
-        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
+!        if (isSP(g_def,ip,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
-cc        if ( i + gv%gparams%ilo(igx)-1 < gv%gparams%nxgl(igx)
-cc     .      .and. bcSP()
-cc     .      .and. flag /= 0           ) then
         if (flag /= 0) then
           jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
           jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
@@ -5061,35 +5049,93 @@ cc     .      .and. flag /= 0           ) then
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
-        coeff = ijacp*ijac0*jac**2
+        !Magnetic pressure
+c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i ,j,k,igx,vec1(i ,j,k,:),.false.)
+c$$$        carp = XformToCar(g_def,ip,j,k,igx,vec2(ip,j,k,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$  ===============================================        
+        cnv0 = vec1(i ,j,k,:)
+        cnvp = vec2(ip,j,k,:)
 
-        car0 = XformToCar(g_def,i ,j,k,igx,vec1(i ,j,k,:),.false.)
-        carp = XformToCar(g_def,ip,j,k,igx,vec2(ip,j,k,:),.false.)
-        pmag = (carp(1)*car0(1)
-     .         +car0(1)*carp(1)
-     .         +carp(2)*car0(2)
-     .         +car0(2)*carp(2)
-     .         +carp(3)*car0(3)
-     .         +car0(3)*carp(3))*0.25*jac
+        cov0 = XformToCov(g_def,i ,j,k,igx,cnv0)
+        covp = XformToCov(g_def,ip,j,k,igx,cnvp)
 
-        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1) )*coeff
+        cnv0 = cnv0*ijac0
+        cnvp = cnvp*ijacp
+
+        pmag = (cnvp(1)*cov0(1)
+     .         +cnv0(1)*covp(1)
+     .         +cnvp(2)*cov0(2)
+     .         +cnv0(2)*covp(2)
+     .         +cnvp(3)*cov0(3)
+     .         +cnv0(3)*covp(3))*0.25
+        
+        !Assemble tensor
+c$$$        coeff = ijacp*ijac0*jac**2
+c$$$
+c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
+c$$$     .         +gsuper(1)*pmag*jac)
+c$$$
+c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
+c$$$     .         +gsuper(2)*pmag*jac)
+c$$$
+c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
+c$$$     .         +gsuper(3)*pmag*jac)
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t11 = t11*ijac
+c$$$          if (.not.alt_eom) t12 = t12*ijac
+c$$$          t13 = t13*ijac
+c$$$        endif
+c$$$  ===============================================        
+c$$$        coeff = ijacp*ijac0*jac
+c$$$        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1))*coeff
+c$$$     .         +gsuper(1)*pmag)
+c$$$
+c$$$        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2))*coeff
+c$$$     .         +gsuper(2)*pmag)
+c$$$
+c$$$        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
+c$$$     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3))*coeff
+c$$$     .         +gsuper(3)*pmag)
+c$$$  ===============================================        
+c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(ip,j,k,:)*ijacp)
+c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(ip,j,k,:)*ijacp)
+c$$$        
+c$$$        t11 = (-vec1h(1)*vec2h(1)*jac+gsuper(1)*pmag)
+c$$$        t12 = (-vec1h(1)*vec2h(2)*jac+gsuper(2)*pmag)
+c$$$        t13 = (-vec1h(1)*vec2h(3)*jac+gsuper(3)*pmag)
+c$$$  ===============================================        
+        t11 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,1)*ijac0
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,1)*ijacp)
      .         +gsuper(1)*pmag)
 
-        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2) )*coeff
+        t12 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,2)*ijac0
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,2)*ijacp)
      .         +gsuper(2)*pmag)
 
-        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)
-     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3) )*coeff
+        t13 = (-0.5*( vec1(ip,j,k,1)*vec2(i ,j,k,3)*ijac0
+     .               +vec1(i ,j,k,1)*vec2(ip,j,k,3)*ijacp)
      .         +gsuper(3)*pmag)
+c$$$  ===============================================        
 
-        if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t11 = t11*ijac
-          if (.not.alt_eom) t12 = t12*ijac
-          t13 = t13*ijac
+        if (flag == 0) then
+          t11 = t11*jac
+          if (alt_eom) t12 = t12*jac
+          t13 = t13*jac
         endif
 
 c     End program
@@ -5127,7 +5173,7 @@ c     Local variables
 
         integer    :: ig,jg,kg,jp,igr
         real(8)    :: cnv0(3),cov0(3),cnvp(3),covp(3),gsuper(3)
-     .               ,car0(3),carp(3)
+     .               ,car0(3),carp(3),vec1h(3),vec2h(3)
         real(8)    :: jac,jac0,jacp,ijac,ijac0,ijacp,pmag,coeff
 
 c     Begin program
@@ -5153,35 +5199,92 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
-        coeff = ijacp*ijac0*jac**2
+        !Magnetic pressure
+c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i,j ,k,igx,vec1(i,j ,k,:),.false.)
+c$$$        carp = XformToCar(g_def,i,jp,k,igx,vec2(i,jp,k,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$  ===============================================        
+        cnv0 = vec1(i,j ,k,:)
+        cnvp = vec2(i,jp,k,:)
 
-        car0 = XformToCar(g_def,i,j ,k,igx,vec1(i,j ,k,:),.false.)
-        carp = XformToCar(g_def,i,jp,k,igx,vec2(i,jp,k,:),.false.)
-        pmag = (carp(1)*car0(1)
-     .         +car0(1)*carp(1)
-     .         +carp(2)*car0(2)
-     .         +car0(2)*carp(2)
-     .         +carp(3)*car0(3)
-     .         +car0(3)*carp(3))*0.25*jac
+        cov0 = XformToCov(g_def,i,j ,k,igx,cnv0)
+        covp = XformToCov(g_def,i,jp,k,igx,cnvp)
 
-        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
+        cnv0 = cnv0*ijac0
+        cnvp = cnvp*ijacp
+
+        pmag = (cnvp(1)*cov0(1)
+     .         +cnv0(1)*covp(1)
+     .         +cnvp(2)*cov0(2)
+     .         +cnv0(2)*covp(2)
+     .         +cnvp(3)*cov0(3)
+     .         +cnv0(3)*covp(3))*0.25
+
+        !Assemble tensor
+c$$$        coeff = ijacp*ijac0*jac**2
+c$$$
+c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
+c$$$     .         +gsuper(1)*pmag*jac)
+c$$$
+c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
+c$$$     .         +gsuper(2)*pmag*jac)
+c$$$
+c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
+c$$$     .         +gsuper(3)*pmag*jac)
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t21 = t21*ijac
+c$$$          if (.not.alt_eom) t22 = t22*ijac
+c$$$          t23 = t23*ijac
+c$$$        endif
+c$$$  ===============================================        
+c$$$        coeff = ijacp*ijac0*jac
+c$$$        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)      
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1) )*coeff
+c$$$     .         +gsuper(1)*pmag)
+c$$$
+c$$$        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
+c$$$     .         +gsuper(2)*pmag)
+c$$$
+c$$$        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
+c$$$     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
+c$$$     .         +gsuper(3)*pmag)
+c$$$  ===============================================        
+c$$$        vec1h = 0.5*(vec1(i,j,k,:)*ijac0+vec1(i,jp,k,:)*ijacp)
+c$$$        vec2h = 0.5*(vec2(i,j,k,:)*ijac0+vec2(i,jp,k,:)*ijacp)
+c$$$
+c$$$        t21 = (-vec1h(2)*vec2h(1)*jac+gsuper(1)*pmag)
+c$$$        t22 = (-vec1h(2)*vec2h(2)*jac+gsuper(2)*pmag)
+c$$$        t23 = (-vec1h(2)*vec2h(3)*jac+gsuper(3)*pmag)
+c$$$  ===============================================        
+        t21 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,1)*ijac0      
+     .               +vec1(i,j ,k,2)*vec2(i,jp,k,1)*ijacp )
      .         +gsuper(1)*pmag)
 
-        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)      
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2) )*coeff
+        t22 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,2)*ijac0  
+     .               +vec1(i,j ,k,2)*vec2(i,jp,k,2)*ijacp )
      .         +gsuper(2)*pmag)
 
-        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)
-     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3) )*coeff
+        t23 = (-0.5*( vec1(i,jp,k,2)*vec2(i,j ,k,3)*ijac0
+     .               +vec1(i,j ,k,2)*vec2(i,jp,k,3)*ijacp )
      .         +gsuper(3)*pmag)
 
-        if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t21 = t21*ijac
-          if (.not.alt_eom) t22 = t22*ijac
-          t23 = t23*ijac
+        if (flag == 0) then
+          t21 = t21*jac
+          if (alt_eom) t22 = t22*jac
+          t23 = t23*jac
         endif
 
 c     End program
@@ -5245,35 +5348,87 @@ c     Begin program
         ijac0 = 1d0/jac0
         ijacp = 1d0/jacp
 
-        coeff = ijacp*ijac0*jac**2
+        !Magnetic pressure
+c$$$  ===============================================        
+c$$$        car0 = XformToCar(g_def,i,j,k ,igx,vec1(i,j,k ,:),.false.)
+c$$$        carp = XformToCar(g_def,i,j,kp,igx,vec2(i,j,kp,:),.false.)
+c$$$        pmag = (carp(1)*car0(1)
+c$$$     .         +car0(1)*carp(1)
+c$$$     .         +carp(2)*car0(2)
+c$$$     .         +car0(2)*carp(2)
+c$$$     .         +carp(3)*car0(3)
+c$$$     .         +car0(3)*carp(3))*0.25
+c$$$  ===============================================        
+        cnv0 = vec1(i,j,k ,:)
+        cnvp = vec2(i,j,kp,:)
 
-        car0 = XformToCar(g_def,i,j,k ,igx,vec1(i,j,k ,:),.false.)
-        carp = XformToCar(g_def,i,j,kp,igx,vec2(i,j,kp,:),.false.)
-        pmag = (carp(1)*car0(1)
-     .         +car0(1)*carp(1)
-     .         +carp(2)*car0(2)
-     .         +car0(2)*carp(2)
-     .         +carp(3)*car0(3)
-     .         +car0(3)*carp(3))*0.25*jac
+        cov0 = XformToCov(g_def,i,j,k ,igx,cnv0)
+        covp = XformToCov(g_def,i,j,kp,igx,cnvp)
 
-        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
-     .         +gsuper(1)*pmag)
+        cnv0 = cnv0*ijac0
+        cnvp = cnvp*ijacp
 
-        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
-     .         +gsuper(2)*pmag)
+        pmag = (cnvp(1)*cov0(1)
+     .         +cnv0(1)*covp(1)
+     .         +cnvp(2)*cov0(2)
+     .         +cnv0(2)*covp(2)
+     .         +cnvp(3)*cov0(3)
+     .         +cnv0(3)*covp(3))*0.25
 
-        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
-     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
+        !Assemble tensor
+c$$$  ===============================================                
+c$$$        coeff = ijacp*ijac0*jac**2
+c$$$
+c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
+c$$$     .         +gsuper(1)*pmag*jac)
+c$$$
+c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
+c$$$     .         +gsuper(2)*pmag*jac)
+c$$$
+c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
+c$$$     .         +gsuper(3)*pmag*jac)
+c$$$
+c$$$        if (flag /= 0) then
+c$$$          ijac = 1d0/jac
+c$$$
+c$$$          t31 = t31*ijac
+c$$$          if (.not.alt_eom) t32 = t32*ijac
+c$$$          t33 = t33*ijac
+c$$$        endif
+c$$$  ===============================================                
+c$$$        coeff = ijacp*ijac0*jac
+c$$$        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1) )*coeff
+c$$$     .         +gsuper(1)*pmag)
+c$$$
+c$$$        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)      
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2) )*coeff
+c$$$     .         +gsuper(2)*pmag)
+c$$$
+c$$$        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)
+c$$$     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3) )*coeff
+c$$$     .         +gsuper(3)*pmag)
+c$$$  ===============================================                
+        t31 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,1)*ijac0
+     .               +vec1(i,j,k ,3)*vec2(i,j,kp,1)*ijacp )
+     .         +gsuper(1)*pmag)                          
+                                                         
+        t32 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,2)*ijac0  
+     .               +vec1(i,j,k ,3)*vec2(i,j,kp,2)*ijacp )
+     .         +gsuper(2)*pmag)                          
+                                                         
+        t33 = (-0.5*( vec1(i,j,kp,3)*vec2(i,j,k ,3)*ijac0
+     .               +vec1(i,j,k ,3)*vec2(i,j,kp,3)*ijacp )
      .         +gsuper(3)*pmag)
+c$$$  ===============================================                
 
-        if (flag /= 0) then
-          ijac = 1d0/jac
-
-          t31 = t31*ijac
-          if (.not.alt_eom) t32 = t32*ijac
-          t33 = t33*ijac
+        if (flag == 0) then
+          t31 = t31*jac
+          if (alt_eom) t32 = t32*jac
+          t33 = t33*jac
         endif
 
 c     End program
