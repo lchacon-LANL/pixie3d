@@ -41,10 +41,6 @@
     timecorr = f
     predictor= f
 
-    solve_rho= t
-    adiabatic= t
-    source   = t
-
     precon   = 'id'
     mgtol    = 1d-5
     maxvcyc  = 1
@@ -64,9 +60,10 @@
     nc_eom_v   = f
     adiabatic  = t
     use_p_eom  = t
+    source     = t
 
-    debug    = f
-    debug_it = 1
+    pc_debug   = f
+    pc_debug_it= 0
 
  /
  &graphdef
@@ -75,7 +72,6 @@
     dplot = 1d-2
     prof_conf = 1,'x',1,10,1
     cont_conf = 3,'x','y',1,1,1
-    clean = f
  /
 
 

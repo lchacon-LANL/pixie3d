@@ -186,12 +186,10 @@ c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 c     JxB volume force
 
       if (nc_eom_jxb) then
-        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-cc     .               ,bcnv,jcnv,.true.,nc_eom_jxb)
-     .               ,bcov,jcov,.false.,nc_eom_jxb)
+        cnv = crossProduct(gv%gparams,i,j,k,igx
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
       else
-        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-     .               ,bcnv,bcnv,.true.,nc_eom_jxb)
+        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx,bcnv,bcnv)
       endif
 
       ff(IVX:IVZ) = -cnv
@@ -830,14 +828,11 @@ c Begin program
             if (nc_eom_v) then
               !JxB force
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-cc             .               ,bcnv,jcnv,.true.
-     .                       ,bcov,jcov,.false.
-     .                       ,nc_eom_jxb)
+                cnv = crossProduct(gv%gparams,i,j,k,igr
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
               else
                 cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                       ,bcnv,bcnv,.true.
-     .                       ,nc_eom_jxb)
+     .                       ,bcnv,bcnv,proj_parcmp=.true.)
               endif
 
               src(i,j,k,IVX:IVZ) = -cnv
@@ -880,10 +875,8 @@ cc             .               ,bcnv,jcnv,.true.
             else
               !JxB
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-cc     .                       ,bcnv,jcnv,.true.
-     .                       ,bcov,jcov,.false.,nc_eom_jxb)
-
+                cnv = crossProduct(gv%gparams,i,j,k,igr
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 vec1 => bcnv

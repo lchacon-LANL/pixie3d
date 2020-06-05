@@ -65,7 +65,7 @@ c Local variables
      .          ,Er,Eth,Ez,btho,bzo,bthi,bzi,p0max
 
       real(8) :: dh,bth0(0:nxdp)
-      real(8) :: bzz0(0:nxdp),vr0(0:nxdp),rho0(0:nxdp),vz0(0:nxdp)
+      real(8) :: bzz0(0:nxdp),vr0(0:nxdp),vz0(0:nxdp)
       real(8) :: eth0(0:nxdp),ez0(0:nxdp),jth0(0:nxdp)
       real(8) :: jz0 (0:nxdp),bth0_old(0:nxdp),p00(0:nxdp),n00(0:nxdp)
       real(8) :: bzz0_old(0:nxdp),dummy(0:nxdp),bmag2(0:nxdp)
@@ -1301,15 +1301,25 @@ c     RFP equilibria (analytical)
 
         nh1 = nh2 !For perturbations to be of the right order
 
+        call find_global_radial_mesh(rg)
+
+        b_0  = (dlambda**2+a1)/sqrt((dlambda**2+a1)**2-dlambda**4)
+        do i=0,nxdp
+          x1  = rg(i)/dlambda
+          bth0(i) = b_0*x1/(1+x1**2)
+          bzz0(i) = sqrt(1.-b_0**2*(1-1./(1+x1**2)**2))
+          p00(i)  = a_p*1d-5
+          n00(i)  = 1d0
+        enddo
+
+        !Dump equilibrium for eigen code
+        call dump_1d_eq(rg,bth0,bzz0,p00)
+
         !Build equilibrium
 
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
-
-        var(:,:,:,IPRS) = 1d-5
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1319,14 +1329,15 @@ c     RFP equilibria (analytical)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              b_0    = (dlambda**2+a1)
-     .                 /sqrt((dlambda**2+a1)**2-dlambda**4)
-              btheta = b_0*(x1/dlambda)/(1+(x1/dlambda)**2)
-              bz0    = sqrt(1.-b_0**2*(1-1./(1+(x1/dlambda)**2)**2))
+              iglobal = i + gv%gparams%ilo(igr) - 1
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk*bz0)
-              bb(i,j,k,3)  = jac1*bz0
+              bb(i,j,k,1)=0d0
+              bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
+              bb(i,j,k,3)=jac1*bzz0(iglobal)
+
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+
+              var(i,j,k,IRHO) = n00(iglobal)
             enddo
           enddo
         enddo
@@ -1509,17 +1520,16 @@ c     Tokamak equilibria (analytical)
           bth0(i) = b_0*x1/(1+(x1/dlambda)**2)
           bzz0(i) = RR
           p00(i)  = a_p*(1d0+1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2)
+          n00(i)  = 1d0
         enddo
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq
+        call dump_1d_eq(rg,bth0,bzz0,p00,n0=n00)
 
         !Build equilibrium
         var(:,:,:,IVX)  = 0d0
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1535,7 +1545,9 @@ c     Tokamak equilibria (analytical)
               bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+
+              var(:,:,:,IRHO) = n00(iglobal)
 
             enddo
           enddo
@@ -1609,16 +1621,15 @@ c$$$        beta = 4d-5
         !Initialize toroidal field
         bzz0 = bz0
 
+        !Initialize density
+        n00 = 1d0
+        if (equil(1:4) == 'vela') n00 = 1d0/(gamma-1d0)
+
         !Solve 1D Grad-Shafranov equation
         call GS_equil_1d(rg,q00,p00,bth0,bzz0)
 
 cc        p0max = maxval(p00)
 cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
-        n00 = 1d0
-        if (equil(1:4) == 'vela') n00 = 1d0/(gamma-1d0)
-
-        !Dump equilibrium for eigen code
-        call dump_1d_eq
 
         !Build equilibrium
         var(:,:,:,IVX:IVZ)  = 0d0
@@ -2104,10 +2115,10 @@ c     Equilibria (numerical)
           read(1000,'(a)')
           do i=0,nxdp
             read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
 cc            write (*,*)
 cc            write (*,*) dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+cc     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
           enddo
 
           read(1000,'(a)')
@@ -2131,6 +2142,9 @@ cc     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
           bz0 = 1d0
 
           call find_global_radial_mesh(rg)
+
+	  !Find density
+          n00 = 1d0
 
           !Find pressure profile
           do i=0,nxdp
@@ -2175,9 +2189,6 @@ c$$$          endif
           M0(1:2) = 0d0
           M0(3) = m0_over_nu*nu
 
-	  !Find density
-          rho0 = 1d0
-
         endif
 
         !Convert electric field to covariant at r=1d0
@@ -2204,7 +2215,7 @@ c$$$          endif
               var(i,j,k,IVZ)=jac1*vz0(iglobal)
 
               if (solve_rho) then
-                var(i,j,k,IRHO) = rho0(iglobal)
+                var(i,j,k,IRHO) = n00(iglobal)
               else
                 var(i,j,k,IRHO) = 1d0
               endif
@@ -2345,7 +2356,7 @@ c     Equilibria (numerical)
           read(1000,'(a)')
           do i=0,nxdp
             read(1000,'(9f12.8)') dummy1,bth0(i),bzz0(i),jth0(i),jz0(i)
-     .                  ,vr0(i),ez0(i),eth0(i),rho0(i)
+     .                  ,vr0(i),ez0(i),eth0(i),n00(i)
           enddo
 
           read(1000,'(a)')
@@ -2403,7 +2414,7 @@ c     Equilibria (numerical)
           M0(3) = m0_over_nu*nu
 
           !Find density
-          rho0 = 1d0
+          n00 = 1d0
 
         endif
 
@@ -2446,7 +2457,7 @@ cc        stop
               var(i,j,k,IVZ) = jac1*vz0(iglobal)
 
               if (solve_rho) then
-                var(i,j,k,IRHO) = rho0(iglobal)
+                var(i,j,k,IRHO) = n00(iglobal)
               else
                 var(i,j,k,IRHO) = 1d0
               endif
@@ -2730,27 +2741,6 @@ c End program
 
       contains
 
-c     dump_1d_eq
-c     ###############################################################
-      subroutine dump_1d_eq
-
-c     ---------------------------------------------------------------
-c     Dump 1d equilibrium for eigen analysis
-c     ---------------------------------------------------------------
-
-      implicit none
-
-      if (my_rank == 0) then
-        open(unit=123,file=trim(equil)//'-eq.txt',status='unknown')
-        write (123,*) nxdp+1
-        do i=0,nxdp
-          write (123,*) rg(i),bth0(i),bzz0(i),p00(i)/a_p,n00(i)
-        enddo
-        write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3) !RR,betap,qa
-        close(123)
-      endif
-
-      end subroutine dump_1d_eq
 
       end subroutine setEquilibrium
 
@@ -3012,6 +3002,9 @@ cc          write (*,*) dummy(1:nxd)
         !Extrapolate linearly in radius @ r=0
         bth0(0) =-bth0(1)
         bzz0(0) = bzz0(1)
+        
+        !Dump equilibrium for eigen code
+        call dump_1d_eq(rg,bth0,bzz0,p0)
 
       end subroutine GS_equil_1d
 
@@ -3118,7 +3111,7 @@ c       Find global-mesh radial positions and increments
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
-        !Resistivity profile
+        !Resistivity profile (integer mesh)
         do i=1,nxdp
           if (spitzer) then
             eta0(i) = res_spitzer(p0(i)/p0(1))
@@ -3331,25 +3324,9 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
         !i=0
         vr0(0) = -vr0(1)
 
-        !Find pressure
-cc        do i=1,nxd
-cc          rh  = rg(i)
-cc          p0(i) = p00*pprof(rh,0)
-cc        enddo
-
         !Dump equilibrium for eigen code
-cc        if (my_rank == 0) then
-cc          open(unit=123,file='ntm2d.txt',status='unknown')
-cc          write (123,*) nxdp+1
-cc          write (123,*) rg(0:nxdp)
-cc          write (123,*) bth0
-cc          write (123,*) bzz0
-cc          write (123,*) 0.5*p0
-cc          write (123,*) gv%gparams%params(3),eq_params(2),eq_params(3)
-cc          close(123)
-cccc          stop
-cc        endif
-
+        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=eta0,vr0=vr0) !Note:eta0->eta0/eta, vr0->vr0/eta
+          
 #if defined(RFX)
         if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
