@@ -4326,7 +4326,7 @@ c ######################################################################
         character(3) :: efit_coords='tor'
         
         !Flux-surface averages
-        real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax
+        real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax,iR2_avg
 
         logical :: closed_orb
 

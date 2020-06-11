@@ -5215,7 +5215,7 @@ c     Local variables
 
         integer :: ierr
         real(8) :: xh,yh,zh,bb,b2,bx,by,bz
-     .            ,xs,ys,zs,ts,ds,eta,jac
+     .            ,xs,ys,zs,ts,ds,iR2l,jac
 
 c     Begin program
 
@@ -5250,13 +5250,13 @@ c     Find magnetic field Cartesian components
 
         bb = sqrt(bx**2+by**2+bz**2)
 
-        eta = evalFld(xh,yh,zh,ierr)
+        iR2l = evalFld(xh,yh,zh,ierr)
 
 c     Perform flux averages
 
         ds = (ts-so)  !Arc length                                                                                                                                                                  
-        bzz_avg   = bzz_avg    + bz*ds/bb
-        etab2_avg = etab2_avg  + eta*bb*ds
+        iR2_avg   = iR2_avg    + iR2l*ds/bb
+cc        etab2_avg = etab2_avg  + eta*bb*ds
         ssmax     = ssmax      + ds/bb
 cc        b2_avg  = b2_avg  + bb*ds
 cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
@@ -5554,8 +5554,7 @@ cc     .              ,mg_gm_coarse_solve=.true.
           delta0 = 0.5
 c$$$          ipsi0 = 1d0/psi_min
           ipsi0 = 1d0/((1-delta0)/ipsi0 + delta0*psi_min)
-          
-          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
+c$$$          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
 
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
@@ -5622,23 +5621,15 @@ c$$$        call default_B_BCs(bcnd)
      $              ,iorder=order_bc)
 
 c diag ****
-c$$$        ff = gs_flux_average(bb)
-c$$$
-        ff = div(gv%gparams,igrid,bb)
-        ff(nx,:,:) = 0d0
+        ff = gs_flux_average(bb)
+c$$$        ff = div(gv%gparams,igrid,bb)
         open(unit=110,file='gs.bin',form='unformatted',status='replace')
         call contour(psi(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
      .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(bb(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bb(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bb(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
         call contour(ff(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
      .              ,0d0,xmax,0d0,ymax,1,110)
         close(110)
-cc        stop
+        stop
 c diag ****
     
 c       Calculate GS convergence properties
@@ -5763,13 +5754,17 @@ c     Call variables
 c     Local variables
 
         integer :: ig,jg,kg,ierr,bcnd(6)
-        real(8) :: rh,th,x1,y1,z1
-        real(8),allocatable,dimension(:,:,:)   :: etag,jac,b2,RR
+        real(8) :: rh,th,x1,y1,z1,bl(0:nx+1,0:ny+1,0:nz+1,3)
+        real(8),allocatable,dimension(:,:,:)   :: jac,b2,iR2
         real(8),allocatable,dimension(:,:,:,:) :: xmap,bbg,bcar
-        real(8),allocatable,dimension(:,:,:)   :: RRl
+        real(8),allocatable,dimension(:,:,:)   :: iR2l
         real(8),allocatable,dimension(:,:,:,:) :: bcarl
 
 c     Begin program
+
+        bl = bb
+        
+        bl(:,:,:,3) = 0d0       !Enforce strictly 2D integrals
 
 c     Initialize orbit integrator work space
 
@@ -5777,22 +5772,19 @@ c     Initialize orbit integrator work space
      .          ,bcar (0:nxdp,0:nydp,0:nzdp,3)
      .          ,jac  (0:nxdp,0:nydp,0:nzdp)
      .          ,xmap (0:nxdp,0:nydp,0:nzdp,3)
-     .          ,etag (0:nxdp,0:nydp,0:nzdp)
-     .          ,RR   (0:nxdp,0:nydp,0:nzdp))
+     .          ,iR2  (0:nxdp,0:nydp,0:nzdp))
 
         allocate(bcarl(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,RRl  (0:nx+1,0:ny+1,0:nz+1))
+     .          ,iR2l (0:nx+1,0:ny+1,0:nz+1))
 
 c     Get GLOBAL contravariant magnetic field components
 
-        call find_global(bb,bbg)
-
-        bbg(:,:,:,3) = 0d0      !Enforce strictly 2D integrals
+        call find_global(bl,bbg)
         
 c     Orbit integrator setup: cnv components (with BCs)
  
          !Form local arrays
-         bcarl = XformToCar(gv%gparams,igrid,bb,.false.)
+         bcarl = XformToCar(gv%gparams,igrid,bl,.false.)
          
          do k=0,nz+1
            do j=0,ny+1
@@ -5800,13 +5792,13 @@ c     Orbit integrator setup: cnv components (with BCs)
                !Call get cartesian
                call getCartesianCoordinates(gv%gparams,i,j,k
      .                        ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
-               RRl(i,j,k) = sqrt(x1**2+y1**2)
+               iR2l(i,j,k) = 1d0/(x1**2+y1**2)
              end do
            end do
          end do
       
          !LC 5/5/20: find_global routines above already synchronize BCs
-         call find_global(RRl  ,RR  ,no_bc=.true.)
+         call find_global(iR2l ,iR2 ,no_bc=.true.)
          call find_global(bcarl,bcar,no_bc=.true.)
          call find_global(gv%gparams%gmetric%grid(igrid)%jac,jac
      .                   ,no_bc=.true.)
@@ -5841,15 +5833,14 @@ c diag ****
         
 c     Orbit setup (input Az directly)
 
-        write (*,*) "Setting up orbit..."
+        if (my_rank == 0) write (*,*) "Setting up orbit..."
         
         call orbit_setup(gv%gparams
      .                  ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
      .                  ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
      .                  ,jac,xmap,bcond
-     .                  ,dtime=1d0
-     .                  ,solen=.false.
-cc     $                  ,lsode_dt_lim=.true.
+cc     .         ,dtime=1d-2,solen=.true.  !Default rtol (1d-8)
+     .         ,dtime=1d-2,solen=.false.,rtol=1d-12,lsode_dt_lim=.false. !LSODE options
      .                  ,r_min=1d-3)
 
         !Orbit average (at cell centers)
@@ -5857,13 +5848,9 @@ cc     $                  ,lsode_dt_lim=.true.
           write (*,FMT="(a)",ADVANCE="NO") 'Orbit averaging: '
         endif
 
-c     Spline GLOBAL resistivity (normalized to nominal resistivity)
+c     Spline GLOBAL inverse toroidal radius
 
-        do i=0,nxd+1
-          etag(i,:,:) = res_rfx(gv%gparams%xg(i))
-        enddo
-
-        call splineFld(etag)
+        call splineFld(iR2)
 
 c     Orbit integration (local processor)
 
@@ -5879,14 +5866,10 @@ c     Orbit integration (local processor)
               y0 = gv%gparams%yy(jg)
               z0 = gv%gparams%zz(kg)
 
-
-!     ADAM: Add select case
-              bzz_avg   = 0d0
-              etab2_avg = 0d0
+              iR2_avg   = 0d0
               ssmax     = 0d0
 
-cc              call orbit_find(ilevel-3,x0,y0,z0,.true.
-              call orbit_find(1,x0,y0,z0,.true.
+              call orbit_find(ilevel-3,x0,y0,z0,.true.
      .                       ,line_int=gs_flux_avg,ierror=ierr)
 
               select case(ierr)
@@ -5894,7 +5877,7 @@ cc              call orbit_find(ilevel-3,x0,y0,z0,.true.
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
-                ff(i,j,k) = bzz_avg!Eoeta*bzz_avg/etab2_avg
+                ff(i,j,k) = iR2_avg/(2*pi)
               case(ORB_OUT_DOM)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
@@ -5914,8 +5897,6 @@ cc              call orbit_find(ilevel-3,x0,y0,z0,.true.
      $                     //int2char(i)//','//int2char(j))
               end select
 
-! Adam end select case.
-
             enddo
           enddo
         enddo
@@ -5926,7 +5907,6 @@ c     Impose BCs
         where (bcnd == DEF) bcnd = EXT
         call setBC(gv%gparams,IRHO,nx,ny,nz,ff,zeros,bcnd
      .            ,igrid,igrid,igrid,iorder=order_bc)
-cc     .            ,iorder=2)
 
 c     Free up orbit integral work space
 
@@ -5934,7 +5914,7 @@ c     Free up orbit integral work space
 
         call orbit_destroy
 
-        deallocate(bbg,bcar,jac,xmap,RR,bcarl,RRl)
+        deallocate(bbg,bcar,jac,xmap,iR2,bcarl,iR2l)
 
       end function gs_flux_average
 
