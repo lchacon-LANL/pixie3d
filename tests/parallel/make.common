@@ -31,6 +31,7 @@ endif
 .PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup clean
 
 setup: ;
+	-@ln -s -f ../../../bin/adios_config.xml
 	-@ln -s -f ../../../bin/$(EXEC)
 	-@ln -s -f ../../../bin/$(PLOT)
 
