@@ -2510,7 +2510,7 @@ c     Ideal GS equilibrium
         endif
 
         !Build equilibrium
-        call GS_equil_2d(beta,nx,ny,nz,bb,var(:,:,:,IPRS))
+        call GS_equil_2d(beta,nx,ny,nz,bb,var(:,:,:,IPRS),.true.)
 
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
@@ -5214,7 +5214,7 @@ c     Call variables
 c     Local variables
 
         integer :: ierr
-        real(8) :: xh,yh,zh,bb,b2,bx,by,bz
+        real(8) :: xh,yh,zh,bb,b1,b2,b3,bx,by,bz
      .            ,xs,ys,zs,ts,ds,iR2l,jac
 
 c     Begin program
@@ -5225,7 +5225,8 @@ c     Begin program
 
 c     Check whether orbit should terminate
 
-        call per_orbit_chk(so,ss,xo,x,yo,y,zo,z,ts,xs,ys,zs) !--> Returns ts <> 0 if intersects                                                                                                    
+        call per_orbit_chk(so,ss,xo,x,yo,y,zo,z,ts,xs,ys,zs) !--> Returns ts <> 0 if intersects
+
         exloop = (ts /= 0d0)
 
 c     Update current position
@@ -5244,28 +5245,31 @@ c     Find middle points
 
 c     Find magnetic field Cartesian components
 
-        call getB(xh,yh,zh,bx,by,bz,.false.,.true.,ierr)
+        call getB(xh,yh,zh,bx,by,bz,.false.,.true. ,ierr)  !Cartesian comp
+        call getB(xh,yh,zh,b1,b2,b3,.false.,.false.,ierr)  !Contravariant comp
 
         if (ierr /= ORB_OK) return
 
-        bb = sqrt(bx**2+by**2+bz**2)
+        bb = sqrt(bx*bx+by*by+bz*bz)   !B magnitude
 
-        iR2l = evalFld(xh,yh,zh,ierr)
+        iR2l = evalFld(xh,yh,zh,ierr)  !Inverse R^2
+
+        jac  = evalJ(xh,yh,zh,ierr)
 
 c     Perform flux averages
 
-        ds = (ts-so)  !Arc length                                                                                                                                                                  
-        iR2_avg   = iR2_avg    + iR2l*ds/bb
-cc        etab2_avg = etab2_avg  + eta*bb*ds
-        ssmax     = ssmax      + ds/bb
-cc        b2_avg  = b2_avg  + bb*ds
-cc        ssmax   = ssmax   + ds/bb*b2  !Projected poloidal arc length
+        ds = (ts-so)/bb       !Orbit averaging differential arc length
+
+cc        write (*,*) xh,bx,by,bz,b1,b2,b3,b2*ibb*sqrt(iR2l)
+
+        iR2_avg   = iR2_avg + iR2l*ds
+        ssmax     = ssmax   + ds*abs(b2)/jac
 
       end function gs_flux_avg
 
 c     GS_equil_2d
 c     ###############################################################
-      subroutine GS_equil_2d(b_tor,nx,ny,nz,bb,pp)
+      subroutine GS_equil_2d(b_tor,nx,ny,nz,bb,pp,I_from_q)
 
 c     ---------------------------------------------------------------
 c     Solves 2D ideal Grad-Shafranov equilibrium equations to find
@@ -5313,47 +5317,34 @@ c     Call variables
         real(8) :: bb(0:nx+1,0:ny+1,0:nz+1,3)
      .            ,pp(0:nx+1,0:ny+1,0:nz+1)
      .            ,b_tor
-
+        logical :: I_from_q
+        
 c     Local variables
 
-        integer :: i,j,k,ig,jg,kg,ii,it,bcnd(6,3),igrid,guess
-     .            ,iglobal,jglobal,pos(2),nn,jj,kk
-     .            ,np_RAD,my_rank_RAD,np_Z,my_rank_Z
+        integer :: i,j,k,ig,jg,kg,it,igrid,nn
+        
+        real(8) :: gserr,rh,th,zz,ipsi0,lpsi0,p00,psi0,x1,y1,z1,IIh
 
-        real(8) :: bz_avg,bth_avg,gserr,oherr,oherr_n,I0,bnorm2
-     .            ,psir,psith,x1,y1,z1,IIh,spsi,ipsi0,psi_min,delta0
-     .            ,cc,p00,etah,lpsi0,dsdpsi,dpdpsi,spsip,spsim,cnv(3)
-     .            ,dpdr,dpdth,f_1,f_2,f_3,j1,j2,j3,jac,e1,e2,e3,II2
-     .            ,psip,psim,q0,qa,tor_flx,bz2_avg,p_avg,b_pol,gpsi(3)
-     .            ,cov(3),e4,e5,e6,bcnv(3),gp(3),gp_cnv(3),dp_dpsi,gpsi2
-     .            ,bcov(3),th,zz,dh,dt,rh
+c$$$        real(8) :: xh(0:nxd),drh(0:nxd),dr(0:nxd)
 
-        real(8) :: dIdpsi,gI(3),gI_cnv(3),dI_dpsi
+        real(8) :: iR2 (0:nx+1,0:ny+1,0:nz+1)
+     .            ,III (0:nx+1,0:ny+1,0:nz+1)
+     .            ,RR  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,psi (0:nx+1,0:ny+1,0:nz+1,1)
+     .            ,psin(0:nx+1,0:ny+1,0:nz+1,1)
+     .            ,ff  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,ss  (0:nx+1,0:ny+1,0:nz+1)
 
-        real(8) :: xh(0:nxd),drh(0:nxd),dr(0:nxd)
+        real(8) :: zeros(0:nx+1,0:ny+1,0:nz+1)
 
-        real(8) :: iR2  (0:nx+1,0:ny+1,0:nz+1)
-     .            ,zeros(0:nx+1,0:ny+1,0:nz+1)
-     .            ,qprof(0:nx+1,0:ny+1)
-     .            ,dummy(0:nx+1,0:ny+1)
-     .            ,III  (0:nx+1,0:ny+1)
-     .            ,RR   (0:nx+1,0:ny+1)
-     .            ,psi(0:nx+1,0:ny+1,0:nz+1,1)
-     .            ,ff(0:nx+1,0:ny+1,0:nz+1)
+        real(8),allocatable,dimension(:) :: psi_rhs,psiv
 
-        real(8),allocatable,dimension(:) :: psi_rhs,psiv,errv
-     .                                     ,mpivec,mpivec_in
-
-        real(8) :: pprof,iprof
-        external del_star,pprof,iprof
+        real(8) :: pprof,iprof,qprof
+        external del_star,pprof,iprof,qprof
 
 c     Begin program
 
         igrid = 1
-
-        allocate(psi_rhs(nx*ny*nz),psiv(nx*ny*nz),errv(nx*ny*nz))
-
-        psi_rhs = 0d0 ; psiv = 0d0 ; errv = 0d0
 
         if (my_rank == 0) then
           write (*,*)
@@ -5363,44 +5354,25 @@ c     Begin program
           write (*,*)
         endif
 
-        zeros = 0d0 ; iR2 = 0d0 ; ! dummy = 0d0
-        qprof = 0d0 ; !III = 0d0 !; psig = 0d0
-
-c       Initialize iteration
-
-        !Find half-mesh positions and spacings
-        xh (0) = 0.5*gv%gparams%xg(1)
-        drh(0) =     gv%gparams%xg(1)
-        do i=1,nxd
-          xh (i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
-          drh(i) =      gv%gparams%xg(i+1)-gv%gparams%xg(i)
-        enddo
-
-        !Integer mesh spacings
-        do i=1,nxd
-          dr(i) = xh(i)-xh(i-1)
-        enddo
-        dr(0) = dr(1)
+        zeros = 0d0
+        
+        !Maximum pressure
+        p00 = 0.5*b_tor
 
         !Initalize toroidal radius R and 1/R^2
         do j=0,ny+1
           do i=0,nx+1
             call getCartesianCoordinates(gv%gparams,i,j,1
      .           ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
-            RR(i,j) = sqrt(x1**2+y1**2)
+            RR(i,j,:) = sqrt(x1**2+y1**2)
           enddo
         enddo
 
-        do k=0,nz+1
-          iR2(:,:,k) = 1d0/(RR*RR)
-        enddo
+        iR2 = 1d0/(RR*RR)
 
-        !Maximum pressure
-        p00 = 0.5*b_tor
+c       Initialize iteration
 
-        !Initial guess for psi (by convention, Psi(wall) = 0, Psi(mag_axis) < 0)
-        psi = 0d0
-
+        !Normalized psi (by convention, Psi(wall) = 0, Psi(mag_axis) = -1.0)
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
@@ -5411,161 +5383,49 @@ c       Initialize iteration
           enddo
         enddo
         
-        psi_min = minval(psi)
-#if defined (petsc)
-        lpsi0 = psi_min
-        call MPI_Allreduce(lpsi0,psi_min,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#endif
-        psi = psi/psi_min
+        psi0 = -1d0
+        
+        psin = psi/psi0
 
-        ipsi0 = 1d0/psi_min
+        ipsi0 = 1d0/psi0
 
+        !Initialize III (assume initial Bphi = 1.0)
+        III = RR
+        
 c       Perform iteration
+
+        allocate(psi_rhs(nx*ny*nz),psiv(nx*ny*nz))
+
+        psi_rhs = 0d0 ; psiv = 0d0
 
         do it=1,100
 
+          !Find p(Psi)
+          pp  = compute_p(psin(:,:,:,1))
+          
+          !Find III(psi)
+          call compute_I(psi0,psin(:,:,:,1),III,I_from_q)
+          
           !Find GS equation RHS (at cell centers)
-          do k=1,nz
-            do j=1,ny
-              do i=1,nx
-              ii  = i + nx*(j-1) + nx*ny*(k-1)
-
-              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-              call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
-     .                              ,coords)
-
-              dh = gv%gparams%dxh(ig)
-              dt = gv%gparams%dyh(jg)
-
-              jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-
-              !Compute I=R*B_phi
-              spsi = sqrt(1d0-psi(i,j,k,1))
-              IIh = iprof(spsi,0)
-              
-              !Compute grad(psi) and |grad(psi)|
-              gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                   ,psi(:,:,:,1))
-              gpsi(3) = 0d0
-
-              gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
-
-              !Compute grad(p) (by *definition* s=sqrt(1-psi/psi_0))
-              spsip = sqrt(1d0-psi(i+1,j,k,1))
-              spsim = sqrt(1d0-psi(i-1,j,k,1))
-              gp(1) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dh
-
-              spsip = sqrt(1d0-psi(i,j+1,k,1))
-              spsim = sqrt(1d0-psi(i,j-1,k,1))
-              gp(2) = 0.5*p00*(pprof(spsip,0)-pprof(spsim,0))/dt
-
-              gp(3) = 0d0
-
-              !Compute dp/dpsi=grad_psi.grad_p/|grad_psi|^2
-              gp_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gp)
-
-              dp_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
-     .                                   ,gpsi,gp_cnv)
-              if (gpsi2 > 0d0) then
-                 dp_dpsi = dp_dpsi/gpsi2
-              else
-                 dp_dpsi = 0d0
-              endif
-
-              !Compute grad(I)
-              spsip = sqrt(1d0-psi(i+1,j,k,1))
-              spsim = sqrt(1d0-psi(i-1,j,k,1))
-              gI(1) = 0.5*(iprof(spsip,0)-iprof(spsim,0))/dh
-
-              spsip = sqrt(1d0-psi(i,j+1,k,1))
-              spsim = sqrt(1d0-psi(i,j-1,k,1))
-              gI(2) = 0.5*(iprof(spsip,0)-iprof(spsim,0))/dt
-
-              gI(3) = 0d0
-
-              !Compute dI/dpsi=grad_psi.grad_I/|grad_psi|^2
-              gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gI)
-
-              dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
-     .                                   ,gpsi,gI_cnv)
-
-              if (gpsi2 > 0d0) then
-                 dI_dpsi = dI_dpsi/gpsi2
-              else
-                 dI_dpsi = 0d0
-              endif
-
-              !Compute GS RHS
-              psi_rhs(ii)=-(IIh*dI_dpsi*iR2(i,j,k) + dp_dpsi)*ipsi0
-
-              !Multiply by R to ensure proper limit R->inf
-              errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                      ,psi(:,:,:,1),dff=iR2,vol=.false.)/ipsi0
-     .                  -psi_rhs(ii))*RR(i,j)
-
-              if (vol_wgt) psi_rhs(ii)=psi_rhs(ii)
-     .                       *gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
-
-              enddo
-            enddo
-          enddo
-
-          !Calculate L2 norm of error
-          gserr = rms(errv)
-
-          !Solve GS Poisson eq (find psi at cell centers)
-          !Define BCs
-          bcnd(:,1) = bcond
-          where (bcnd == DEF) bcnd = DIR
-
-          guess = 1             !To reuse previous iteration (stored in psiv)
-
-          call cSolver(gv%gparams,1,nx*ny*nz,psi_rhs,psiv,bcnd(:,1:1)
-     .              ,1,ilevel,guess,del_star,vol_wgt
-     .              ,tol           = 1d-1
-     .              ,gm_driver     =.true.
-     .              ,ks_it         = 10
-     .              ,mg_order_res  = 0
-     .              ,mg_order_prol = 1
-     .              ,mg_gm_coarse_solve=.false.
-cc     .              ,mg_gm_coarse_solve=.true.
-     .              ,mg_vcyc       = 1
-     .              ,mg_smooth     = 'jb'
-     .              ,sm_ncolors    = 2  !Star stencil
-     .              ,sm_it         = 5
-     .              )
-
-          !Fill array (w BCs)
-          call fillArray(gv%gparams,igrid,1,psiv,psi,bcnd(:,1:1)
-     .                ,iorder=order_bc,icomp=(/IRHO/))
-        
-          !Find psi_min
-          psi_min = minval(psi)
-#if defined (petsc)
-          lpsi0 = psi_min
-          call MPI_Allreduce(lpsi0,psi_min,1,MPI_DOUBLE_PRECISION
-     .                      ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#endif
-          psi = psi/psi_min
-
-          !Update psi0 (damped)
-          delta0 = 0.5
-c$$$          ipsi0 = 1d0/psi_min
-          ipsi0 = 1d0/((1-delta0)/ipsi0 + delta0*psi_min)
-c$$$          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
+          psi_rhs = find_GS_rhs(III,pp,psin(:,:,:,1),ipsi0,gserr)
+          
+          !Solve GS Poisson eq (find normalized psi at cell centers)
+          psin = solve_GS(psi_rhs,psi0)
+          
+          !Update reciprocal of psi0 (damped; CRITICAL)
+c$$$          ipsi0 = 1d0/psi0
+          ipsi0 = 2d0/(1d0/ipsi0 + psi0)
+          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
 
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,'(a,i3,a,1pe10.2,a,e10.2)')
      .                  '2D Ohmic equilibrium iter =',it
-     .                   ,' ; GS error=',gserr!,' Ohm error=',oherr
+     .                   ,' ; GS error=',gserr
             if (ilevel > 1) write (*,*)
           endif
 
-          dh = xmax/nxd
-          if (gserr<.01*dh**2) exit
+          if (gserr<.01*(xmax/nxd)**2) exit
 
         enddo
 
@@ -5574,42 +5434,317 @@ c$$$          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
      .          ' 2D equilibrium converged in '
      .          ,it,' iterations with error =',gserr
         endif
+
+        deallocate(psi_rhs,psiv)
+
+c       Find equilibrium fields
+
+        pp  = compute_p(psin(:,:,:,1))
+        
+        call compute_I(psi0,psin(:,:,:,1),III,I_from_q)
+
+        psi = psin*psi0  !Unnormalize psi
+
+        call find_B_field(psi(:,:,:,1),III,bb)
     
-c       Find vectors and scalars
+c       Calculate GS convergence properties
+
+        call GS_errors(psi(:,:,:,1),III,bb,pp)
+
+      contains
+
+c     compute_I
+c     ##############################################################
+      subroutine compute_I(psi0,psin,III,use_q_profile)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Finds flux function I(psi), with psi normalized.
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi0,psin(0:,0:,0:),III(0:,0:,0:)
+        logical :: use_q_profile
         
-        ipsi0 = 1d0/psi_min
+c     Local variables
+
+        integer :: i,j,k
+        real(8) :: spsi
+     .            ,bp(0:nx+1,0:ny+1,0:nz+1,3)
+
+c     Begin program
+
+        if (use_q_profile) then
+
+          call find_B_field(psi0*psin,zeros,bp)  !Find poloidal magnetic field
+
+          !Compute flux average of 1/R^2
+          ff = gs_flux_average(bp)
+
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+                !Compute I=R*B_phi
+                spsi = sqrt(1d0-psin(i,j,k))
+                III(i,j,k) = 0.5*(2*pi*qprof(spsi)*ff(i,j,k)+III(i,j,k))
+              enddo
+            enddo
+          enddo
+c diag ****
+        open(unit=110,file='gs.bin',form='unformatted',status='replace')
+        call contour(psi0*psin(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,0,110)
+        call contour(ff (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(III(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(ss (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(bp(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(bp(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        close(110)
+        pause
+c diag ****
+
+        else
         
-        psi = psi*psi_min  !Unnormalize psi
+          do k=0,nz+1
+            do j=0,ny+1
+              do i=0,nx+1
+                !Compute I=R*B_phi
+                spsi = sqrt(1d0-psin(i,j,k))
+                III(i,j,k) = iprof(spsi,0)
+              enddo
+            enddo
+          enddo
 
-        k = 1
-        do j=0,ny+1
-          do i=0,nx+1
-            call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+        endif
+        
+      end subroutine compute_I
 
-            call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
-     .                            ,coords)
+c     compute_p
+c     ##############################################################
+      function compute_p(psin) result(pp)
 
-            dh = gv%gparams%dxh(ig)
-            dt = gv%gparams%dyh(jg)
+        implicit none
 
-            jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+c     --------------------------------------------------------------
+c     Finds flux function p(psi), with psi normalized.
+c     --------------------------------------------------------------
 
-            !Find contravariant magnetic field components in integer mesh
-            spsi = sqrt(abs(1d0-psi(i,j,k,1)*ipsi0))
+c     Call variables
 
-            gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                 ,psi(:,:,:,1))
-            gpsi(3) = 0d0
+        real(8) :: psin(0:,0:,0:),pp(0:nx+1,0:ny+1,0:nz+1)
+        
+c     Local variables
 
-            bb(i,j,:,1) =-gpsi(2)
-            bb(i,j,:,2) = gpsi(1)
-            bb(i,j,:,3) = jac*Iprof(spsi,0)*iR2(i,j,k)
+        integer :: i,j,k
+        real(8) :: spsi
 
-            !Find pressure
-            pp(i,j,:) = p00*pprof(spsi,0)
+c     Begin program
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              !Compute I=R*B_phi
+              spsi = sqrt(1d0-psin(i,j,k))
+              pp(i,j,k) = p00*pprof(spsi,0)
+            enddo
+          enddo
+        enddo
+        
+      end function compute_p
+      
+c     find_GS_rhs
+c     ##############################################################
+      function find_GS_rhs(III,pp,psin,ipsi0,gserr) result(rhs)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Finds rhs of GS equation
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8),INTENT(IN)  :: ipsi0,III(0:,0:,0:),psin(0:,0:,0:)
+     .                        ,pp(0:,0:,0:)
+        real(8),INTENT(OUT) :: gserr
+        real(8) :: rhs(nx*ny*nz)
+        
+c     Local variables
+
+        integer :: i,j,k,ii,igr
+        real(8) :: errv(nx*ny*nz)
+        real(8) :: spsi,spsip,spsim,gpsi(3),gpsi2
+     .            ,gp(3),gp_cnv(3),gI(3),gI_cnv(3),dp_dpsi,dI_dpsi
+        
+c     Begin program
+
+        igr = 1
+        errv = 0d0
+        
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              !Compute grad(psi) and |grad(psi)|
+              gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,psin)
+              gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igr,gpsi,.true.)
+
+              !Compute grad(p) (by *definition* s=sqrt(1-psi/psi_0))
+              gp = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,pp)
+
+              !Compute dp/dpsi=grad_psi.grad_p/|grad_psi|^2
+              gp_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igr,gp)
+
+              dp_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igr
+     .                                   ,gpsi,gp_cnv)
+              if (gpsi2 > 0d0) then
+                dp_dpsi = dp_dpsi/gpsi2
+              else
+                dp_dpsi = 0d0
+              endif
+
+              !Compute grad(I)
+              gI = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,III)
+
+              !Compute dI/dpsi=grad_psi.grad_I/|grad_psi|^2
+              gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igr,gI)
+
+              dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igr
+     .                                   ,gpsi,gI_cnv)
+
+              if (gpsi2 > 0d0) then
+                dI_dpsi = dI_dpsi/gpsi2
+              else
+                dI_dpsi = 0d0
+              endif
+
+              !Compute GS RHS
+              rhs(ii)=-(III(i,j,k)*dI_dpsi*iR2(i,j,k) + dp_dpsi)*ipsi0
+
+              !Multiply by R to ensure proper limit R->inf
+              errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
+     .                      ,psin,dff=iR2,vol=.false.)/ipsi0
+     .                  -rhs(ii))*RR(i,j,k)
+
+              if (vol_wgt) rhs(ii)=rhs(ii)
+     .                       *gv%gparams%gmetric%grid(igr)%dvol(i,j,k)
+
+            enddo
           enddo
         enddo
 
+        !Calculate L2 norm of error
+        gserr = rms(errv)
+
+      end function find_GS_rhs
+
+c     solve_GS
+c     ##############################################################
+      function solve_GS(rhs,psi0) result(psi)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Solves GS equation to find normalized psi (psi/psi0)
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi0
+        real(8) :: rhs(size(psiv)),psi(0:nx+1,0:ny+1,0:nz+1,1)
+        
+c     Local variables
+
+        real(8) :: ipsi0
+        integer :: guess,bcnd(6,1),nn
+        
+c     Begin program
+
+        nn = size(psiv)
+        
+        !Define BCs
+        bcnd(:,1) = bcond
+        where (bcnd == DEF) bcnd = DIR
+
+        guess = 1             !To reuse previous iteration (stored in psiv)
+
+        call cSolver(gv%gparams,1,nn,rhs,psiv,bcnd
+     .            ,1,ilevel,guess,del_star,vol_wgt
+     .            ,tol           = 1d-1
+     .            ,gm_driver     =.true.
+     .            ,ks_it         = 10
+     .            ,mg_order_res  = 0
+     .            ,mg_order_prol = 1
+     .            ,mg_gm_coarse_solve=.false.
+cc     .            ,mg_gm_coarse_solve=.true.
+     .            ,mg_vcyc       = 1
+     .            ,mg_smooth     = 'jb'
+     .            ,sm_ncolors    = 2  !Star stencil
+     .            ,sm_it         = 5
+     .            )
+
+        !Fill array (w BCs)
+        call fillArray(gv%gparams,igrid,1,psiv,psi,bcnd
+     .               ,iorder=order_bc,icomp=(/IRHO/))
+
+        !Normalized psi
+        psi0 = minval(psi)
+#if defined (petsc)
+        lpsi0 = psi0
+        call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
+#endif
+        ipsi0 = 1d0/psi0
+        
+        psi = psi*ipsi0
+
+      end function solve_GS
+      
+c     find_B_field
+c     ##############################################################
+      subroutine find_B_field(psi,III,bb)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Find cnv B-field components from psi, I(psi)
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi(0:,0:,0:),bb(0:,0:,0:,:),III(0:,0:,0:)
+        
+c     Local variables
+
+        integer :: i,j,k,ig,jg,kg,bcnd(6,3)
+        real(8) :: jac,gpsi(3)
+
+c     Begin program
+
+        do k=0,nz+1
+          do j=0,ny+1
+            do i=0,nx+1
+              jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
+
+              !Find contravariant magnetic field components in integer mesh
+              gpsi=grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,psi)
+              gpsi(3) = 0d0
+
+              bb(i,j,k,1) =-gpsi(2)
+              bb(i,j,k,2) = gpsi(1)
+              bb(i,j,k,3) = jac*III(i,j,k)*iR2(i,j,k)
+            enddo
+          enddo
+        enddo
+        
         !Impose topological BCs
         bcnd(:,1) = bcond
         bcnd(:,2) = bcond
@@ -5618,117 +5753,83 @@ c       Find vectors and scalars
 c$$$        call default_B_BCs(bcnd)
         call setMGBC(gv%gparams,0,3,nx,ny,nz,igrid,bb,bcnd
      .              ,icomp=(/IBX/),is_cnv=.true.,is_vec=.true.
-     $              ,iorder=order_bc)
+     .              ,iorder=order_bc)
 
-c diag ****
-        ff = gs_flux_average(bb)
-c$$$        ff = div(gv%gparams,igrid,bb)
-        open(unit=110,file='gs.bin',form='unformatted',status='replace')
-        call contour(psi(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(ff(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-     .              ,0d0,xmax,0d0,ymax,1,110)
-        close(110)
-        stop
-c diag ****
-    
-c       Calculate GS convergence properties
+      end subroutine find_B_field
 
-        e1 = 0d0
-        e2 = 0d0
-        e3 = 0d0
+c     GS_errors
+c     ##############################################################
+      subroutine GS_errors(psi,III,bb,pp)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Solves GS equation to find normalized psi (psi/psi0)
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: psi(0:,0:,0:),bb(0:,0:,0:,:),pp(0:,0:,0:)
+     .            ,III(0:,0:,0:)
+        
+c     Local variables
+
+        integer :: i,j,k
+        real(8) :: gI(3),gpsi(3),gp(3),jac
+     .            ,e(3),le(3),jcnv(3),fcov(3)
+
+c     Begin program
+
+        e = 0d0
         
         k = 1
         do j=2,ny-1
           do i=2,nx-1
 cc        do j=1,ny
 cc          do i=1,nx
-            call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-
-            call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
-     .                            ,coords)
-
-            dh = gv%gparams%dxh(ig)
-            dt = gv%gparams%dyh(jg)
-
             jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
 
             !Find pressure derivatives
-            spsip = sqrt(abs(1d0-psi(i+1,j,k,1)*ipsi0))
-            spsim = sqrt(abs(1d0-psi(i-1,j,k,1)*ipsi0))
-            dpdr  = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dh
-
-            spsip = sqrt(abs(1d0-psi(i,j+1,k,1)*ipsi0))
-            spsim = sqrt(abs(1d0-psi(i,j-1,k,1)*ipsi0))
-            dpdth = p00*(pprof(spsip,0)-pprof(spsim,0))/2./dt
-
-c$$$            gp = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,pp)
-c$$$            dpdr = gp(1)
-c$$$            dpdth = gp(2)
+            gp = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,pp)
 
             !Find contravariant current components
-            spsip = sqrt(abs(1d0-psi(i+1,j,k,1)*ipsi0))
-            spsim = sqrt(abs(1d0-psi(i-1,j,k,1)*ipsi0))
-            gI(1) = 0.5*(iprof(spsip,0)-iprof(spsim,0))/dh
+            gI = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,III)
 
-            spsip = sqrt(abs(1d0-psi(i,j+1,k,1)*ipsi0))
-            spsim = sqrt(abs(1d0-psi(i,j-1,k,1)*ipsi0))
-            gI(2) = 0.5*(iprof(spsip,0)-iprof(spsim,0))/dt
-
-            j1 = gI(2)
-            j2 = -gI(1)
-
-            j3 = jac*lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
-     .                  ,psi(:,:,:,1),dff=iR2,vol=.false.)
+            jcnv(1) =  gI(2)
+            jcnv(2) = -gI(1)
+            jcnv(3) = jac
+     .               *lap(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+     .                  ,psi,dff=iR2,vol=.false.)
             
             !Find covariant EOM force components
-
-            f_1 = (j2*bb(i,j,k,3)-j3*bb(i,j,k,2))/jac - dpdr
-            f_2 = (j3*bb(i,j,k,1)-j1*bb(i,j,k,3))/jac - dpdth
-            f_3 = (j1*bb(i,j,k,2)-j2*bb(i,j,k,1))/jac
+            fcov = cross_product(jcnv,bb(i,j,k,:))/jac - gp
 
             !Accumulate errors
-
-            e1 = e1 + f_1**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
-            e2 = e2 + f_2**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
-            e3 = e3 + f_3**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
+            e = e + fcov**2*gv%gparams%gmetric%grid(igrid)%dvol(i,j,k)
           enddo
         enddo
 
 #if defined (petsc)
-        lpsi0 = e1
-        call MPI_Allreduce(lpsi0,e1,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
-
-        lpsi0 = e2
-        call MPI_Allreduce(lpsi0,e2,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
-
-        lpsi0 = e3
-        call MPI_Allreduce(lpsi0,e3,1,MPI_DOUBLE_PRECISION
+        le = e
+        call MPI_Allreduce(le,e,3,MPI_DOUBLE_PRECISION
      .                    ,MPI_SUM,gv%gparams%MPI_COMM_XY,mpierr)
 #endif
 
-        gserr = e1 + e2 + e3
-        gserr = sqrt(gserr/pi/xmax**2)
+        e = sqrt(e/pi/xmax**2)
 
-        e1 = sqrt(e1/pi/xmax**2)
-        e2 = sqrt(e2/pi/xmax**2)
-        e3 = sqrt(e3/pi/xmax**2)
+        gserr = sqrt(sum(e*e))
 
         if (my_rank == 0) then
           write (*,*)
-          write (*,*) 'EOM force residual comp 1=',e1
-          write (*,*) 'EOM force residual comp 2=',e2
-          write (*,*) 'EOM force residual comp 3=',e3
+          write (*,*) 'EOM force residual comp 1=',e(1)
+          write (*,*) 'EOM force residual comp 2=',e(2)
+          write (*,*) 'EOM force residual comp 3=',e(3)
           write (*,*) 'EOM force residual total =',gserr
           write (*,*)
         endif
 
-        deallocate(psi_rhs,psiv,errv)
-
-      contains
-
+      end subroutine GS_errors
+      
 c     gs_flux_average
 c     ##############################################################
       function gs_flux_average(bb) result(ff)
@@ -5754,56 +5855,33 @@ c     Call variables
 c     Local variables
 
         integer :: ig,jg,kg,ierr,bcnd(6)
-        real(8) :: rh,th,x1,y1,z1,bl(0:nx+1,0:ny+1,0:nz+1,3)
-        real(8),allocatable,dimension(:,:,:)   :: jac,b2,iR2
+        real(8) :: rh,th,x1,y1,z1
+        real(8),allocatable,dimension(:,:,:)   :: jac,b2,iR2g
         real(8),allocatable,dimension(:,:,:,:) :: xmap,bbg,bcar
-        real(8),allocatable,dimension(:,:,:)   :: iR2l
         real(8),allocatable,dimension(:,:,:,:) :: bcarl
 
 c     Begin program
 
-        bl = bb
-        
-        bl(:,:,:,3) = 0d0       !Enforce strictly 2D integrals
+        allocate(bcarl(0:nx+1,0:ny+1,0:nz+1,3))
 
-c     Initialize orbit integrator work space
+        bcarl = XformToCar(gv%gparams,igrid,bb,.false.)
+
+c     Get GLOBAL arrays
 
         allocate(bbg  (0:nxdp,0:nydp,0:nzdp,3)
      .          ,bcar (0:nxdp,0:nydp,0:nzdp,3)
      .          ,jac  (0:nxdp,0:nydp,0:nzdp)
      .          ,xmap (0:nxdp,0:nydp,0:nzdp,3)
-     .          ,iR2  (0:nxdp,0:nydp,0:nzdp))
+     .          ,iR2g (0:nxdp,0:nydp,0:nzdp))
 
-        allocate(bcarl(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,iR2l (0:nx+1,0:ny+1,0:nz+1))
-
-c     Get GLOBAL contravariant magnetic field components
-
-        call find_global(bl,bbg)
-        
-c     Orbit integrator setup: cnv components (with BCs)
- 
-         !Form local arrays
-         bcarl = XformToCar(gv%gparams,igrid,bl,.false.)
+        call find_global(bb,bbg)
          
-         do k=0,nz+1
-           do j=0,ny+1
-             do i=0,nx+1
-               !Call get cartesian
-               call getCartesianCoordinates(gv%gparams,i,j,k
-     .                        ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
-               iR2l(i,j,k) = 1d0/(x1**2+y1**2)
-             end do
-           end do
-         end do
-      
-         !LC 5/5/20: find_global routines above already synchronize BCs
-         call find_global(iR2l ,iR2 ,no_bc=.true.)
-         call find_global(bcarl,bcar,no_bc=.true.)
-         call find_global(gv%gparams%gmetric%grid(igrid)%jac,jac
-     .                   ,no_bc=.true.)
-         call find_global(gv%gparams%gmetric%grid(igrid)%car,xmap
-     .                   ,no_bc=.true.)
+        call find_global(iR2  ,iR2g,no_bc=.true.)
+        call find_global(bcarl,bcar,no_bc=.true.)
+        call find_global(gv%gparams%gmetric%grid(igrid)%jac,jac
+     .                  ,no_bc=.true.)
+        call find_global(gv%gparams%gmetric%grid(igrid)%car,xmap
+     .                  ,no_bc=.true.)
 
 c diag ****
 c$$$        open(unit=110,file='gs.bin',form='unformatted',status='replace')
@@ -5833,15 +5911,16 @@ c diag ****
         
 c     Orbit setup (input Az directly)
 
-        if (my_rank == 0) write (*,*) "Setting up orbit..."
+        if (my_rank == 0) write (*,*) "Setting up orbits..."
         
         call orbit_setup(gv%gparams
-     .                  ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
-     .                  ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
-     .                  ,jac,xmap,bcond
-cc     .         ,dtime=1d-2,solen=.true.  !Default rtol (1d-8)
-     .         ,dtime=1d-2,solen=.false.,rtol=1d-12,lsode_dt_lim=.false. !LSODE options
-     .                  ,r_min=1d-3)
+     .         ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
+     .         ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
+     .         ,jac,xmap,bcond
+cc     .         ,dtime=1d-2,solen=.true.  !VP solver options (default rtol=1d-8)
+cc     .         ,dtime=1d-2,solen=.false.,rtol=1d-12,lsode_dt_lim=.false. !LSODE options
+     .         ,dtime=1d-2,solen=.false.,rtol=1d-12,lsode_dt_lim=.true. !LSODE options
+     .         ,r_min=1d-3)
 
         !Orbit average (at cell centers)
         if (my_rank == 0.and.(ilevel > 1)) then
@@ -5850,11 +5929,11 @@ cc     .         ,dtime=1d-2,solen=.true.  !Default rtol (1d-8)
 
 c     Spline GLOBAL inverse toroidal radius
 
-        call splineFld(iR2)
+        call splineFld(iR2g)
 
 c     Orbit integration (local processor)
 
-        write (*,*) "Integrating orbit..."
+        if (my_rank == 0) write (*,*) "Integrating orbits..."
 
         ff = 0d0
 
@@ -5869,15 +5948,22 @@ c     Orbit integration (local processor)
               iR2_avg   = 0d0
               ssmax     = 0d0
 
-              call orbit_find(ilevel-3,x0,y0,z0,.true.
+c$$$              if (i == 1 .and. j == 9 .and. k == 1) then
+c$$$                call orbit_find(1,x0,y0,z0,.true.
+c$$$     .                       ,line_int=gs_flux_avg,ierror=ierr)
+c$$$              else
+                call orbit_find(ilevel-3,x0,y0,z0,.true.
      .                       ,line_int=gs_flux_avg,ierror=ierr)
+c$$$              endif
+c$$$              write (*,*) i,j,k,1d0/iR2_avg,ssmax,ssmax/iR2_avg
 
               select case(ierr)
               case(ORB_OK)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
-                ff(i,j,k) = iR2_avg/(2*pi)
+                ss(i,j,k) = ssmax/2/pi
+                ff(i,j,k) = min(1d0/iR2_avg,1d1)
               case(ORB_OUT_DOM)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
@@ -5914,7 +6000,7 @@ c     Free up orbit integral work space
 
         call orbit_destroy
 
-        deallocate(bbg,bcar,jac,xmap,iR2,bcarl,iR2l)
+        deallocate(bbg,bcar,jac,xmap,iR2g,bcarl)
 
       end function gs_flux_average
 
@@ -6820,6 +6906,18 @@ c     Begin program
           p    = gv%gparams%params(9)
 
           qa = r**2/(0.5*jz1*r**2+aa**2*(1-0.5*jz1))
+
+          qprof = q0*(1d0+qa**p)**(1./p)
+
+        case ('gstor')
+
+          RR   = gv%gparams%params(1)
+
+          q0   = 0.8
+          aa   = 1.0
+          p    = 1.0
+
+          qa = (r/aa)**2
 
           qprof = q0*(1d0+qa**p)**(1./p)
 
