@@ -5216,9 +5216,12 @@ c     Local variables
         integer :: ierr
         real(8) :: xh,yh,zh,bb,b1,b2,b3,bx,by,bz
      .            ,xs,ys,zs,ts,ds,iR2l,jac
-
+        logical :: solen
+        
 c     Begin program
 
+        solen = orbit_conf%ode_conf%solen
+        
         ierr = ORB_OK
 
         if (orb_init) call per_orbit_init(xo,x,yo,y,zo,z,order=1)
@@ -5245,8 +5248,8 @@ c     Find middle points
 
 c     Find magnetic field Cartesian components
 
-        call getB(xh,yh,zh,bx,by,bz,.false.,.true. ,ierr)  !Cartesian comp
-        call getB(xh,yh,zh,b1,b2,b3,.false.,.false.,ierr)  !Contravariant comp
+        call getB(xh,yh,zh,bx,by,bz,solen,.true. ,ierr)  !Cartesian comp
+        call getB(xh,yh,zh,b1,b2,b3,solen,.false.,ierr)  !Contravariant comp
 
         if (ierr /= ORB_OK) return
 
@@ -5263,7 +5266,7 @@ c     Perform flux averages
 cc        write (*,*) xh,bx,by,bz,b1,b2,b3,b2*ibb*sqrt(iR2l)
 
         iR2_avg   = iR2_avg + iR2l*ds
-        ssmax     = ssmax   + ds*abs(b2)/jac
+        ssmax     = ssmax   + ds*b2/jac
 
       end function gs_flux_avg
 
@@ -5325,14 +5328,12 @@ c     Local variables
         
         real(8) :: gserr,rh,th,zz,ipsi0,lpsi0,p00,psi0,x1,y1,z1,IIh
 
-c$$$        real(8) :: xh(0:nxd),drh(0:nxd),dr(0:nxd)
-
         real(8) :: iR2 (0:nx+1,0:ny+1,0:nz+1)
      .            ,III (0:nx+1,0:ny+1,0:nz+1)
+     .            ,IIIn(0:nx+1,0:ny+1,0:nz+1)
      .            ,RR  (0:nx+1,0:ny+1,0:nz+1)
      .            ,psi (0:nx+1,0:ny+1,0:nz+1,1)
      .            ,psin(0:nx+1,0:ny+1,0:nz+1,1)
-     .            ,ff  (0:nx+1,0:ny+1,0:nz+1)
      .            ,ss  (0:nx+1,0:ny+1,0:nz+1)
 
         real(8) :: zeros(0:nx+1,0:ny+1,0:nz+1)
@@ -5372,25 +5373,23 @@ c     Begin program
 
 c       Initialize iteration
 
-        !Normalized psi (by convention, Psi(wall) = 0, Psi(mag_axis) = -1.0)
+        !Normalized psi (by convention, Psi(wall) = 0, Psi(mag_axis) = 1.0)
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
               call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
      .                              ,coords)
-              psi(i,j,k,1) =-(1-rh**2)
+              psin(i,j,k,1) = (1-rh**2)
             enddo
           enddo
         enddo
         
-        psi0 = -1d0
+        psi0  =-1d0  !So that psi=A_3
         
-        psin = psi/psi0
-
         ipsi0 = 1d0/psi0
 
-        !Initialize III (assume initial Bphi = 1.0)
-        III = RR
+        !Initialize III (normalized to psi0; assume initial Bphi = 1.0)
+        IIIn = RR*ipsi0
         
 c       Perform iteration
 
@@ -5403,20 +5402,17 @@ c       Perform iteration
           !Find p(Psi)
           pp  = compute_p(psin(:,:,:,1))
           
-          !Find III(psi)
-          call compute_I(psi0,psin(:,:,:,1),III,I_from_q)
+          !Find III(psi)/psi0
+          call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
           
           !Find GS equation RHS (at cell centers)
-          psi_rhs = find_GS_rhs(III,pp,psin(:,:,:,1),ipsi0,gserr)
+          psi_rhs = find_GS_rhs(IIIn,pp,psin(:,:,:,1),psi0,gserr)
           
-          !Solve GS Poisson eq (find normalized psi at cell centers)
+          !Solve GS Poisson eq (find normalized psi at cell centers; recomputes psi0)
           psin = solve_GS(psi_rhs,psi0)
-          
-          !Update reciprocal of psi0 (damped; CRITICAL)
-c$$$          ipsi0 = 1d0/psi0
-          ipsi0 = 2d0/(1d0/ipsi0 + psi0)
-          if (my_rank == 0) write (*,*) "New Psi0=",1d0/ipsi0
 
+          write (*,*) "Maximum psin=",maxval(psin)
+          
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,'(a,i3,a,1pe10.2,a,e10.2)')
@@ -5437,11 +5433,12 @@ c$$$          ipsi0 = 1d0/psi0
 
         deallocate(psi_rhs,psiv)
 
-c       Find equilibrium fields
+c       Find unormalized equilibrium fields
 
         pp  = compute_p(psin(:,:,:,1))
-        
-        call compute_I(psi0,psin(:,:,:,1),III,I_from_q)
+
+        III = IIIn*psi0   !Unormalize I
+cc        call compute_Ihat(ipsi0,psin(:,:,:,1),III,I_from_q)
 
         psi = psin*psi0  !Unnormalize psi
 
@@ -5453,9 +5450,9 @@ c       Calculate GS convergence properties
 
       contains
 
-c     compute_I
+c     compute_Ihat
 c     ##############################################################
-      subroutine compute_I(psi0,psin,III,use_q_profile)
+      subroutine compute_Ihat(psi0,psin,Ihat,use_q_profile)
 
         implicit none
 
@@ -5465,66 +5462,88 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: psi0,psin(0:,0:,0:),III(0:,0:,0:)
+        real(8) :: psi0,psin(0:,0:,0:),Ihat(0:,0:,0:)
         logical :: use_q_profile
         
 c     Local variables
 
         integer :: i,j,k
-        real(8) :: spsi
+        real(8) :: spsi,ipsi0
      .            ,bp(0:nx+1,0:ny+1,0:nz+1,3)
+     .            ,ff(0:nx+1,0:ny+1,0:nz+1)
+     .            ,qprf(0:nx+1,0:ny+1,0:nz+1)
 
 c     Begin program
 
         if (use_q_profile) then
 
-          call find_B_field(psi0*psin,zeros,bp)  !Find poloidal magnetic field
-
-          !Compute flux average of 1/R^2
+          write (*,*) "Maximum psin in compute_ihat=",maxval(psin)
+          write (*,*) "Minimum psin in compute_ihat=",minval(psin)
+          
+          call find_B_field(psin,zeros,bp)  !Find normalized poloidal magnetic field
+c diag ****
+        open(unit=110,file='psi.bin',form='unformatted'
+     .      ,status='replace')
+        call contour(psin(1:nxd,1:nyd,1),nxd,nyd
+     .              ,0d0,xmax,0d0,ymax,0,110)
+        close(110)
+c diag ****
+ 
+          !Compute reciprocal of flux average of 1/R^2
           ff = gs_flux_average(bp)
 
           do k=0,nz+1
             do j=0,ny+1
               do i=0,nx+1
-                !Compute I=R*B_phi
+                !Compute Ihat=R*B_phi/psi0
                 spsi = sqrt(1d0-psin(i,j,k))
-                III(i,j,k) = 0.5*(2*pi*qprof(spsi)*ff(i,j,k)+III(i,j,k))
+                Ihat(i,j,k) = qprof(spsi)*ff(i,j,k)!+Ihat(i,j,k))
+                qprf(i,j,k) = qprof(spsi)
               enddo
             enddo
           enddo
 c diag ****
         open(unit=110,file='gs.bin',form='unformatted',status='replace')
-        call contour(psi0*psin(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+        call contour(psin(1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,0,110)
-        call contour(ff (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+        call contour(ff (1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(III(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+        call contour(Ihat(1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(ss (0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
+        call contour(qprf(1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bp(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
+        call contour(ss (1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
-        call contour(bp(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
+        call contour(bp(1:nxd,1:nyd,1,1),nxd,nyd
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(bp(1:nxd,1:nyd,1,2),nxd,nyd
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        bp(:,:,:,3) = sqrt(vectorNorm(gv%gparams,1,bp,.false.))
+        call contour(bp(1:nxd,1:nyd,1,3),nxd,nyd
+     .              ,0d0,xmax,0d0,ymax,1,110)
+        call contour(IR2(1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
         close(110)
         pause
 c diag ****
 
         else
-        
+
+          ipsi0 = 1d0/psi0
+          
           do k=0,nz+1
             do j=0,ny+1
               do i=0,nx+1
                 !Compute I=R*B_phi
                 spsi = sqrt(1d0-psin(i,j,k))
-                III(i,j,k) = iprof(spsi,0)
+                Ihat(i,j,k) = iprof(spsi,0)*ipsi0
               enddo
             enddo
           enddo
 
         endif
         
-      end subroutine compute_I
+      end subroutine compute_Ihat
 
 c     compute_p
 c     ##############################################################
@@ -5550,7 +5569,7 @@ c     Begin program
         do k=0,nz+1
           do j=0,ny+1
             do i=0,nx+1
-              !Compute I=R*B_phi
+              !Compute pressure
               spsi = sqrt(1d0-psin(i,j,k))
               pp(i,j,k) = p00*pprof(spsi,0)
             enddo
@@ -5561,7 +5580,7 @@ c     Begin program
       
 c     find_GS_rhs
 c     ##############################################################
-      function find_GS_rhs(III,pp,psin,ipsi0,gserr) result(rhs)
+      function find_GS_rhs(IIIn,pp,psin,psi0,gserr) result(rhs)
 
         implicit none
 
@@ -5571,7 +5590,7 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8),INTENT(IN)  :: ipsi0,III(0:,0:,0:),psin(0:,0:,0:)
+        real(8),INTENT(IN)  :: psi0,IIIn(0:,0:,0:),psin(0:,0:,0:)
      .                        ,pp(0:,0:,0:)
         real(8),INTENT(OUT) :: gserr
         real(8) :: rhs(nx*ny*nz)
@@ -5580,11 +5599,12 @@ c     Local variables
 
         integer :: i,j,k,ii,igr
         real(8) :: errv(nx*ny*nz)
-        real(8) :: spsi,spsip,spsim,gpsi(3),gpsi2
+        real(8) :: spsi,spsip,spsim,gpsi(3),gpsi2,ipsi0
      .            ,gp(3),gp_cnv(3),gI(3),gI_cnv(3),dp_dpsi,dI_dpsi
         
 c     Begin program
 
+        ipsi0 = 1d0/psi0
         igr = 1
         errv = 0d0
         
@@ -5597,7 +5617,7 @@ c     Begin program
               gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,psin)
               gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igr,gpsi,.true.)
 
-              !Compute grad(p) (by *definition* s=sqrt(1-psi/psi_0))
+              !Compute grad(p)
               gp = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,pp)
 
               !Compute dp/dpsi=grad_psi.grad_p/|grad_psi|^2
@@ -5612,7 +5632,7 @@ c     Begin program
               endif
 
               !Compute grad(I)
-              gI = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,III)
+              gI = grad(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr,IIIn)
 
               !Compute dI/dpsi=grad_psi.grad_I/|grad_psi|^2
               gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igr,gI)
@@ -5627,11 +5647,12 @@ c     Begin program
               endif
 
               !Compute GS RHS
-              rhs(ii)=-(III(i,j,k)*dI_dpsi*iR2(i,j,k) + dp_dpsi)*ipsi0
+              rhs(ii)=-IIIn(i,j,k)*dI_dpsi*iR2(i,j,k)
+     .                -dp_dpsi*ipsi0*ipsi0
 
               !Multiply by R to ensure proper limit R->inf
               errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
-     .                      ,psin,dff=iR2,vol=.false.)/ipsi0
+     .                      ,psin,dff=iR2,vol=.false.)
      .                  -rhs(ii))*RR(i,j,k)
 
               if (vol_wgt) rhs(ii)=rhs(ii)
@@ -5663,7 +5684,7 @@ c     Call variables
         
 c     Local variables
 
-        real(8) :: ipsi0
+        real(8) :: ipsi0,fpsi0,psi0max,psi0min,tolgm
         integer :: guess,bcnd(6,1),nn
         
 c     Begin program
@@ -5695,16 +5716,30 @@ cc     .            ,mg_gm_coarse_solve=.true.
         call fillArray(gv%gparams,igrid,1,psiv,psi,bcnd
      .               ,iorder=order_bc,icomp=(/IRHO/))
 
-        !Normalized psi
-        psi0 = minval(psi)
+        !Renormalized psi between 0 and 1 (0 at boundary)
+        psi0max = maxval(psi)
+        psi0min = minval(psi)
 #if defined (petsc)
-        lpsi0 = psi0
-        call MPI_Allreduce(lpsi0,psi0,1,MPI_DOUBLE_PRECISION
+        lpsi0 = psi0max
+        call MPI_Allreduce(lpsi0,psi0max,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
+        lpsi0 = psi0min
+        call MPI_Allreduce(lpsi0,psi0min,1,MPI_DOUBLE_PRECISION
      .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
 #endif
-        ipsi0 = 1d0/psi0
-        
+        fpsi0 = psi0max-psi0min
+        ipsi0 = sign(1d0,abs(psi0max)-abs(psi0min))/fpsi0
         psi = psi*ipsi0
+
+        if (my_rank == 0) write (*,*) "New psi0 from solve=",1./ipsi0
+        
+        !Limit and damp psi0 update
+cc        fpsi0 = 0.5*(1d0+max(min(2d0,fpsi0),0.5))
+        fpsi0 = 0.5*(1d0+max(min(10d0,fpsi0),0.1))
+        
+        psi0 = psi0*fpsi0
+
+        if (my_rank == 0) write (*,*) "New psi0 after damping=",psi0
 
       end function solve_GS
       
@@ -5883,32 +5918,6 @@ c     Get GLOBAL arrays
         call find_global(gv%gparams%gmetric%grid(igrid)%car,xmap
      .                  ,no_bc=.true.)
 
-c diag ****
-c$$$        open(unit=110,file='gs.bin',form='unformatted',status='replace')
-c$$$        call contour(bbg(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,0,110)
-c$$$        call contour(bbg(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(bbg(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(bcar(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(bcar(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(bcar(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(xmap(0:nxd+1,0:nyd+1,1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(xmap(0:nxd+1,0:nyd+1,1,2),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(xmap(0:nxd+1,0:nyd+1,1,3),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        call contour(jac(0:nxd+1,0:nyd+1,1),nxd+2,nyd+2
-c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
-c$$$        close(110)
-c$$$        stop
-c diag ****
-        
 c     Orbit setup (input Az directly)
 
         if (my_rank == 0) write (*,*) "Setting up orbits..."
@@ -5962,8 +5971,8 @@ c$$$              write (*,*) i,j,k,1d0/iR2_avg,ssmax,ssmax/iR2_avg
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
-                ss(i,j,k) = ssmax/2/pi
-                ff(i,j,k) = min(1d0/iR2_avg,1d1)
+                ss(i,j,k) = abs(ssmax)/2/pi
+                ff(i,j,k) = 2*pi/iR2_avg
               case(ORB_OUT_DOM)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
