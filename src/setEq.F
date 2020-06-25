@@ -6038,9 +6038,10 @@ c     Orbit setup (input Az directly)
      .         ,bbg (:,:,:,1),bbg (:,:,:,2),bbg (:,:,:,3)
      .         ,bcar(:,:,:,1),bcar(:,:,:,2),bcar(:,:,:,3)
      .         ,jac,xmap,bcond
-     .         ,dtime=1d-2,solen=.true.  !VP solver options (default rtol=1d-8)
-cc     .         ,dtime=1d-2,solen=.false.
-     .         ,rtol=1d-12,lsode_dt_lim=.true. !LSODE options
+     .         ,dtime=1d-2
+     .         ,solen=.false.  !LSODE
+cc     .         ,solen=.true.  !VP
+     .         ,rtol=1d-12,lsode_dt_lim=.true.
      .         ,r_min=1d-3
      .         ,B_input_is_A=B_input_is_A
      .         ,spline_order = 2
@@ -6074,8 +6075,8 @@ c     Orbit integration (local processor)
               ssmax     = 0d0
 
 c$$$              write (*,*) "Orbit at",i,j,k,"Iteration=",it
-c$$$              if (i == 1 .and. j == 13 .and. k == 1 .and. it == 3) then
-c$$$                call orbit_find(1,x0,y0,z0,.true.
+c$$$              if (i == 52 .and. j == 1 .and. k == 1 .and. it == 1) then
+c$$$                call orbit_find(2,x0,y0,z0,.true.
 c$$$     .                         ,line_int=gs_flux_avg,ierror=ierr)
 c$$$                pause
 c$$$              else
