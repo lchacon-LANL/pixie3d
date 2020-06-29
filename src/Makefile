@@ -153,7 +153,7 @@ $(SUBDIRS):
 	$(MAKE) --no-print-directory -e -C $@ target
 
 clean:
-	-@rm -f *.o *.mod
+	-@rm -rf *.o *.mod *.dSYM
 
 distclean: clean
 	-@for subdir in $(SUBDIRS) ; do \
