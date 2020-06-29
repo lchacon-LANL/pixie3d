@@ -1,0 +1,383 @@
+#!/bin/bash
+
+# Help message
+
+help()
+{
+cat <<HELP
+Usage: 
+
+pixie3d [-h] [-d] [-x executable] [-r tmax] [-np procs] [-ntar] [-equ file] [-eig file]
+        [-project project] [-walltime walltime] [-depend] -- inputfile [options]
+
+where:
+	-h:            gives this message
+	-d:            turn on debugging
+	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-r tmax:       indicates that the job should be restarted up to time tmax 
+                         (if tmax=0, final time is not changed)
+	-np procs:     indicates the number of processors to run the job  
+		         in parallel
+	-ntar:         runs in current directory
+                         (default: runs in separate directory)
+	-equ:          equilibrium file
+	-eig:          eigenmode file
+        -project:      project
+	-queue:        queue (defuault is xfuaprod, consider xfuadebug)
+        -walltime:     walltime (with format days-hh:mm:ss, default is 24:00:00)
+	-depend:       dependent job (default is false)
+	-vecpot:       use vector potential formulation (default is false)
+	-noadios:      don't use ADIOS (default is false)
+	-fc:           fortran compiler (default is openmpi_ifort)
+	inputfile:     is the input file with or without the extension .in
+	options:       options passed directly to the executable
+HELP
+exit 0
+}
+
+# Defaults
+
+restart=f
+copyrestart=
+parallel=f
+tar=t
+equf=f
+debug=f
+code_ifile=pixie3d
+adiosfile=adios_config.xml
+walltime=24:00:00
+walltime_post_proc=2:00:00
+depend=f
+dependency=
+ppn=32 # sarebbero 36 ma non uso tutto il nodo!
+nodes=1
+project=FUA11_PIXIE3D
+queue=xfuaprod
+vecpot=f
+adios=t
+fc=openmpi_ifort
+
+module="module load autoload lapack blas"
+plotmodule=$module
+
+# Parse command line options
+
+if [ "$#" = 0 ]; then
+  help
+  exit 1
+fi
+
+while [ -n "$1" ]; do
+case $1 in
+	-h) help;shift 1;;
+	-d) debug=t;shift 1;;
+	-x) executable=$2;shift 2;;
+	-r) restart=t;tmax=$2;shift 2;;
+	-np)parallel=t;np=$2;shift 2;;
+	-ntar)tar=f;shift 1;;
+	-equ)equf=t;equfile=$2;shift 2;;
+	-eig)eigf=t;eigfile=$2;shift 2;;
+        -project)project=$2;shift 2;;
+        -queue)queue=$2;shift 2;;
+        -walltime)walltime=$2;shift 2;;
+        -depend)depend=t;shift 1;;
+        -vecpot)vecpot=t;shift 1;;
+        -noadios)adios=f;shift 1;;
+        -fc)fc=$2;shift 2;;
+	--) shift;break;;
+	-*) echo "error: no such option $1. -h for help";exit 1;;
+	*)  break;;
+esac
+done
+
+inputfile=`echo "$1" | sed "s/\.in//"`
+shift
+
+options=$*
+
+if [ "$queue" = "xfuadebug" ]; then
+  walltime=30:00
+  walltime_post_proc=30:00
+fi
+
+# Select working directory
+
+path=$PWD
+
+if [ "$tar" = "t" ]
+then
+  i=0
+  dir=$inputfile.`printf %02d $i`
+  lastdir=.
+  while [ -d "$dir" ]; do
+    lastdir=$inputfile.`printf %02d $i`
+    dependjob=`cat $path/$dir/jobid_pixie3d`
+    let i=i+1
+    dir=$inputfile.`printf %02d $i`
+  done
+  mkdir $dir
+else
+  dir=.
+  lastdir=.
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Working directory is $path/$dir"
+fi
+
+if [ "$parallel" = "t" ]; then
+    nodes=`echo "$np/$ppn" | bc`
+    if [ "$nodes" = "0" ]; then
+	nodes=1
+    fi
+
+    if [ "$fc" = "openmpi_gnu" ]; then
+	module="module load autoload openmpi"
+	library_path="LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$WORK/mxml-2.10/linux64_openmpi_gnu/lib"
+	mpirun="mpirun --oversubscribe -np $np"
+    elif [ "$fc" = "intelmpi" ]; then
+	module="module load autoload mkl intelmpi"
+	library_path="LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$WORK/mxml-2.10/linux64_intelmpi/lib"
+	mpirun="mpirun -np $np"
+    elif [ "$fc" = "openmpi_ifort" ]; then
+	module="module load profile/advanced autoload openmpi/1-10.3--intel--pe-xe-2017--binary mkl"
+	library_path="LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$WORK/mxml-2.10/linux64_openmpi_ifort/lib"
+	mpirun="mpirun --oversubscribe -np $np"
+    else
+	echo "No such fortran compiler option $fc. Aborting"
+	exit 1
+    fi
+fi
+
+# Select executable
+
+if [ "$vecpot" = "t" ]
+then
+  code_suffix=_a
+else
+  code_suffix=
+fi
+
+if [ "$executable" = "" ]
+then
+  if [ "$parallel" = "t" ]
+  then
+    cp `which $code_ifile$code_suffix.petsc.x 2>/dev/null` $path 2>/dev/null
+    executable=`ls $code_ifile$code_suffix.petsc.x 2>/dev/null`
+  else
+    cp `which $code_ifile$code_suffix.x 2>/dev/null` $path 2>/dev/null
+    executable=`ls $code_ifile$code_suffix.x 2>/dev/null`
+  fi
+else
+  executable=`ls $executable 2>/dev/null`
+fi
+
+if [ "$executable" = "" ]
+then
+  echo "No executable found. Aborting"
+  exit 1
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Program to run is $executable"
+fi
+
+if [ "$parallel" = "t" ]
+then
+  if [ "$adios" = "t" ]
+  then
+      cp `which pixplot$code_suffix.petsc.x 2>/dev/null` $path 2>/dev/null
+      plotexec=`ls pixplot$code_suffix.petsc.x 2>/dev/null`
+      plotmodule=$module
+      plotlibrary_path=$library_path
+      plotmpirun="mpirun -np 1"
+  else
+      cp `which pixplot$code_suffix.x 2>/dev/null` $path 2>/dev/null
+      plotexec=`ls pixplot$code_suffix.x 2>/dev/null`
+  fi
+else
+  cp `which pixplot$code_suffix.x 2>/dev/null` $path 2>/dev/null
+  plotexec=`ls pixplot$code_suffix.x 2>/dev/null`
+fi
+
+if [ "$debug" = "t" ]; then
+  echo "==> Postprocess program is $plotexec"
+fi
+
+# Copy necessary files to working directory
+
+if [ -f $inputfile.in ]; then
+  cp $inputfile.in $dir 2>/dev/null
+elif [ -f infiles/$inputfile.in ]; then
+  cp infiles/$inputfile.in $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No input file $inputfile.in found. Aborting"
+  exit 1
+fi
+
+if [ -f $adiosfile ]; then
+  cp $adiosfile $dir 2>/dev/null
+elif [ -f infiles/$adiosfile ]; then
+  cp infiles/$adiosfile $dir 2>/dev/null
+elif [ "$restart" != "t" ]; then
+  echo "No ADIOS file $adiosfile found. Aborting"
+  exit 1
+fi
+
+if [ "$equf" = "t" ]; then
+ if [ -f "$equfile" ]; then
+  cp $equfile $dir 2>/dev/null
+ elif [ -f infiles/$equfile ]; then
+  cp infiles/$equfile $dir 2>/dev/null
+ else
+  echo "No equilibrium file found. Aborting"
+  exit 1
+ fi
+fi
+
+if [ "$eigf" = "t" ]; then
+ if [ -f "$eigfile" ]; then
+  cp $eigfile $dir 2>/dev/null
+ elif [ -f infiles/$eigfile ]; then
+  cp infiles/$eigfile $dir 2>/dev/null
+ else
+  echo "No eigenvalue file found. Aborting"
+  exit 1
+ fi
+fi
+
+cp $executable $dir 2>/dev/null
+cp $plotexec $dir 2>/dev/null
+
+cd $dir
+
+# Execution preparations
+
+# rm $code_ifile.in 2>/dev/null
+cp $inputfile.in $code_ifile.in 2>/dev/null
+cp $equfile $code_ifile.equ 2>/dev/null
+cp $eigfile $code_ifile.eig 2>/dev/null
+
+if [ "$restart" = "t" ]
+then
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = t' \
+        -e '}' \
+        $code_ifile.in 
+
+   if [ "$depend" = "t" ]; then
+       dependency="#PBS -W depend=afterany:$dependjob"
+       copyrestart="cp $path/$lastdir/record.* . 2>/dev/null"
+   else
+       cp $path/$lastdir/record.* . 2>/dev/null
+   fi
+
+else
+   sed  -i -e '/restart/{' \
+        -e 'c\' \
+        -e '    restart  = f' \
+        -e '}' \
+        $code_ifile.in
+fi
+
+if [ "$tmax" != "" -a "$tmax" != "0" ]
+then
+    sed -i -e '/tmax/{' \
+        -e 'c\' \
+        -e "    tmax     = $tmax" \
+        -e '}' \
+        $code_ifile.in
+fi
+
+# Execute
+
+cat >> $path/$dir/$inputfile.bat <<EOF
+#!/bin/bash
+#PBS -N $dir
+#PBS -A $project
+#PBS -l walltime=$walltime
+#PBS -l select=$nodes
+#PBS -q $queue
+#PBS -o $path/$dir/$inputfile.out
+#PBS -e $path/$dir/$inputfile.err
+#PBS -m abe
+#PBS -M daniele.bonfiglio@igi.cnr.it
+$dependency
+cd $path/$dir
+LD_LIBRARY_PATH=
+module purge
+$module
+$library_path
+export LD_LIBRARY_PATH
+$copyrestart
+$mpirun uname -n
+$mpirun ./$executable $options > $path/$dir/$inputfile.log < /dev/null
+EOF
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting pixie3d batch script"
+fi
+
+chmod 770 $path/$dir/$inputfile.bat
+qsub $path/$dir/$inputfile.bat | awk 'match($0,/[0-9]+/){print substr($0, RSTART, RLENGTH)}' > $path/$dir/jobid_pixie3d
+
+cat >> $path/$dir/pixplot.bat <<EOF
+#!/bin/bash
+#PBS -N $dir.pixplot
+#PBS -A $project
+#PBS -l walltime=$walltime_post_proc
+#PBS -l select=1
+#PBS -q $queue
+#PBS -o $path/$dir/pixplot.out
+#PBS -e $path/$dir/pixplot.err
+#PBS -m abe
+#PBS -M daniele.bonfiglio@igi.cnr.it
+#PBS -W depend=afterany:`cat $path/$dir/jobid_pixie3d`
+cd $path/$dir
+LD_LIBRARY_PATH=
+module purge
+$plotmodule
+$plotlibrary_path
+export LD_LIBRARY_PATH
+sed -i -e 's/    npx/!    npx/' -e 's/    npy/!    npy/' -e 's/    npz/!    npz/' $code_ifile.in
+$plotmpirun uname -n
+$plotmpirun ./$plotexec > $path/$dir/pixplot.log < /dev/null
+EOF
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting pixplot batch script"
+fi
+
+chmod 770 $path/$dir/pixplot.bat
+qsub $path/$dir/pixplot.bat | awk 'match($0,/[0-9]+/){print substr($0, RSTART, RLENGTH)}' > $path/$dir/jobid_pixplot
+
+cat >> $path/$dir/idl.bat <<EOF
+#!/bin/bash
+#PBS -N $dir.idl
+#PBS -A $project
+#PBS -l walltime=$walltime_post_proc
+#PBS -l select=1
+#PBS -q $queue
+#PBS -o $path/$dir/idl.out
+#PBS -e $path/$dir/idl.err
+#PBS -m abe
+#PBS -M daniele.bonfiglio@igi.cnr.it
+#PBS -W depend=afterany:`cat $path/$dir/jobid_pixplot`
+LD_LIBRARY_PATH=$HOME/lib
+module purge
+module load profile/astro
+module load idl
+export LD_LIBRARY_PATH
+IDL_STARTUP=idl_startup.pro
+export IDL_STARTUP
+cd $WORK/pro
+idl -arg $path/$dir > $path/$dir/idl.log
+EOF
+
+if [ "$debug" = "t" ]; then
+    echo "==> Submitting idl batch script"
+fi
+
+chmod 770 $path/$dir/idl.bat
+qsub $path/$dir/idl.bat | awk 'match($0,/[0-9]+/){print substr($0, RSTART, RLENGTH)}' > $path/$dir/jobid_idl
