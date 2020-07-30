@@ -7,15 +7,15 @@ help()
 cat <<HELP
 Usage: 
 
-run [-h] [-d] [-n nodes] [-np procs] [-wc hh:mm:ss] [-x executable] [-r tmax] [-rtgz file] [-ntar]
-        [-equ file] [-eig file] -- inputfile [options]
+run [-h] [-d] [-np procs] [-wc hh:mm:ss] [-x executable] [-r tmax] [-rtgz file] [-ntar]
+        [-omp_tasks tasks] [-equ file] [-eig file] -- inputfile [options]
 
 where:
 	-h:            gives this message
 	-d:            turn on debugging
-	-n nodes:      indicates the number of nodes
-	-np procs:     indicates the number of processors per node
-	-wc time:      indicates wall-clock time (in format hr:min:sec)
+	-np procs:     indicates the number of processors
+        -omp_tasks:    number of OMP tasks per MPI task (default 1)
+	-wc time:      indicates wall-clock time (in format hr:min:sec; default: 10 days)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
@@ -34,16 +34,18 @@ exit 0
 
 # Defaults
 
+cores_per_node=48
+
 restart=f
 parallel=f
 tar=t
 equf=f
 debug=f
-machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
-wtime=""
+wtime="240:00:00"
 adiosfile="adios_config.xml"
+omp_tasks=1
 
 # Parse command line options
 
@@ -56,8 +58,8 @@ while [ -n "$1" ]; do
 case $1 in
 	-h) help;shift 1;;
 	-d) debug=t;shift 1;;
-	-n) nodes=$2;shift 2;;
 	-wc) wtime=$2;shift 2;;
+	-omp_tasks) omp_tasks=$2;shift 2;;
 	-x) executable=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
@@ -94,11 +96,11 @@ fi
 
 # Check parameters
 
-if [ "x$wtime" = "x" ]
-then
-  echo "No execution time specified. Aborting"
-  exit 1
-fi
+#if [ "x$wtime" = "x" ]
+#then
+#  echo "No execution time specified. Aborting"
+#  exit 1
+#fi
 
 # Select working directory
 
@@ -207,7 +209,7 @@ then
      if [ "$debug" = "t" ]; then
        echo "==> Restarting using $restartfile.tar.gz"
      fi
-     tar xzf $rpath/$restartfile.tar.gz --exclude $restartfile.in --exclude $machinefile --exclude $executable
+     tar xzf $rpath/$restartfile.tar.gz --exclude $restartfile.in --exclude $executable
      mv $restartfile.log $inputfile.log
 
      if [ "$debug" = "t" ]; then
@@ -270,16 +272,22 @@ cat > go.pbs <<QSUB
 #PBS -j oe 
 #PBS -N $inputfile
 #PBS -q default
-#PBS -l nodes=$nodes:ppn=$np
+#PBS -l nodes=$((np/cores_per_node)):ppn=$cores_per_node
 #PBS -l walltime=$wtime
 #PBS -o $inputfile.pbs.log
 #PBS -V
 
 bash
 
+echo "Number of threads=$omp_tasks"
+echo "Number of procs= \$PBS_NP"
+#echo "Nodefile \$PBS_NODEFILE"
+echo "Nodes:"
+cat \$PBS_NODEFILE | uniq
+
 cd \$PBS_O_WORKDIR
 
-mpirun --mca btl_openib_verbose 1 --mca btl ^tcp -machinefile \$PBS_NODEFILE -np  $(( nodes*np )) $executable $options > $inputfile.log 2>&1
+mpirun --map-by node --mca btl_openib_verbose 1 -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options > $inputfile.log 2>&1
 
 # Store tarball in proper place
 
@@ -311,3 +319,5 @@ if [ "$debug" = "t" ]; then
 fi
 
 qsub go.pbs
+
+exit 0
