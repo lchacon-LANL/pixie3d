@@ -70,7 +70,7 @@ endif
 
 # PIXIE3D setup
 
-REL1=$(shell hg log -r "." --template "{latesttag}-{node|short}\n")
+REL1=$(shell git describe --tags `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
 
 CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
 
