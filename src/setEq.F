@@ -1382,10 +1382,6 @@ c$$$        endif
              do i = ilom,ihip
               call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
      .                              ,coords)
-c$$$              call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy
-c$$$     .                                      ,igz,ig,jg,kg,x1,y1,z1)
-c$$$              
-c$$$              r1 = sqrt(x1**2+y1**2)
 
               var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
             enddo
@@ -1401,7 +1397,7 @@ c$$$              r1 = sqrt(x1**2+y1**2)
 
               jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0
+              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0  !Normalize to Bz0=1d0
 
               bb(i,j,k,1)  = 0d0
               bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
