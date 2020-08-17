@@ -345,8 +345,10 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(3)%array_graph(IPRS)%array=>gv%aux%var_list(ITMP_AUX)%array
-      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
+c$$$      graph(3)%array_graph(IPRS)%array=>gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
+      graph(3)%array_graph(IPRS)%array=> p_tot
+      graph(3)%array_graph(IPRS)%descr=  'Prs'
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -397,8 +399,10 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=> gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr=  gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
-      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
+c$$$      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
+      graph(3)%array_graph(IPRS)%array=> p_tot
+      graph(3)%array_graph(IPRS)%descr=  'Prs'
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -534,7 +538,10 @@ c Define graphics group #4: Diagnostics
         graph(4)%array_graph(16)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(17:ngraph)%descr = ''
+      graph(4)%array_graph(17)%array => heat_src
+      graph(4)%array_graph(17)%descr = 'Int. heat src'
+
+      graph(4)%array_graph(18:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
@@ -552,7 +559,7 @@ c Define graphics group #5: Perturbations
       do ieq = 1,neqd
         graph(5)%array_graph(ieq)%array => u_pert%array_var(ieq)%array
         graph(5)%array_graph(ieq)%descr =
-     $       trim(u_pert%array_var(ieq)%descr) // ' pert'
+     $       trim(u_pert%array_var(ieq)%descr) // '_pert'
       enddo
 
       graph(5)%array_graph(neqd+1:ngraph)%descr = ''
@@ -584,7 +591,9 @@ c     Call variables
 c     Local variables
 
       hdf5_fname   = 'pixie3d.h5'
+#if defined(adios) || defined(ADIOS2)
       adios_fname  = 'pixie3d.bp'
+#endif
 
       if (np > 1) return
 

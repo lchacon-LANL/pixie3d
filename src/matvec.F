@@ -585,12 +585,12 @@ c Local variables
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
-      real(8),pointer    ,dimension(:,:,:,:) :: v0_cnv,rho0,bh0,tmp0
+      real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
      .                                         ,chi0,chip0
 
-      real(8),pointer    ,dimension(:,:,:) :: jac
+      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc
 
-      real(8) :: upwind,nu2,dvol,slap,plap,gm,sgn
+      real(8) :: upwind,nu2,dvol,slap,plap
 
       logical :: fpointers
 
@@ -616,7 +616,9 @@ c Find limits for loops
 c Map vector x to array for processing
 
       allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq))
+     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs_advc(0:nnx+1,0:nny+1,0:nnz+1)
+     .        )
 
       dtmp = 0d0
       dprs = 0d0
@@ -626,19 +628,30 @@ c Map vector x to array for processing
 
 c Map velocity components
 
-      call point_to_MG_array(nnx,nny,nnz,igrid,v0_cnv,gvs0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,rho0  ,grho0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,bh0   ,gbhat)
-      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0  ,gtmp0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,chi0  ,gchi)
-      call point_to_MG_array(nnx,nny,nnz,igrid,chip0 ,gchipar)
+      call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
+      call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chip0  ,gchipar)
  
       dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
-c Calculate matrix-vector product
+c Compute advective terms
 
-      gm = gamma
-      sgn =-1d0
+      if (use_p_classic_eq) then !Classic p evolution eq
+       dprs_advc=flx_advec_mesh(g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                         ,UPWD,bcnd,zip_vel=.false.)
+     .          +(gamma-1d0)*dprs(:,:,:,1)*div(g_def,igrid,vs0_cnv)
+      else
+       dprs_advc=
+     .  gamma     *flx_advec_mesh   (g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                              ,UPWD,bcnd,zip_vel=.false.)
+     .+(gamma-1d0)*flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dprs(:,:,:,1)
+     .                              ,UPWD,bcnd,rvrs=.true.) !Reverse: v -> -v
+      endif
+
+c Calculate matrix-vector product
 
       do k = kmin,kmax
         do j = jmin,jmax
@@ -649,22 +662,24 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            if (use_p_classic_eq) then !Need this for strong stability
-              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
-     .                          ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
-     .                          ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .               +(gm-1.)*dprs(i,j,k,1)
-     .                       *div(g_def,i,j,k,nnx,nny,nnz
-     .                           ,igrid,igrid,igrid,v0_cnv)
-            else
-              upwind = gm*flx_advec(g_def,i,j,k,nnx,nny,nnz
-     .                           ,igrid,igrid,igrid,v0_cnv,dprs(:,:,:,1)
-     .                           ,1,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-     .               +(gm-1.)
-     .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
-     .                              ,igrid,igrid,igrid,v0_cnv
-     .                              ,dprs(:,:,:,1),1,reverse=.true.)
-            endif
+            upwind = dprs_advc(i,j,k)
+c$$$            if (use_p_classic_eq) then !Need this for strong stability
+c$$$              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
+c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
+c$$$     .               +(gamma-1d0)*dprs(i,j,k,1)
+c$$$     .                       *div(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                           ,igrid,igrid,igrid,vs0_cnv)
+c$$$            else
+c$$$              upwind = gamma
+c$$$     .                *flx_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
+c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
+c$$$     .               +(gamma-1d0)
+c$$$     .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
+c$$$     .                              ,igrid,igrid,igrid,vs0_cnv
+c$$$     .                              ,dprs(:,:,:,1),UPWD,reverse=.true.)
+c$$$            endif
             
             if (MG_get_res_vol_wgt()) then
               dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
@@ -694,7 +709,6 @@ c Calculate matrix-vector product
               plap = 0d0
             endif
 
-cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
             y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
      $                  + alpha*(upwind - slap - plap) )*jac(i,j,k)
 
@@ -704,8 +718,8 @@ cc            y(ijk)=dvol*( cnp/dt*dtmp(i,j,k,1) + alpha*(upwind - slap) )
 
 c End program
 
-      deallocate(dtmp,dprs)
-      nullify(v0_cnv,rho0,bh0,tmp0,chi0,chip0)
+      deallocate(dtmp,dprs,dprs_advc)
+      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
@@ -810,17 +824,17 @@ c Calculate matrix-vector product
 
             !Conservative advection (Do not use ZIP form because drho is not pos. def.)
             upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                        ,v0_cnv,drho(:,:,:,1),1,zip_vel=.false.)
+     .                       ,v0_cnv,drho(:,:,:,1),UPWD,zip_vel=.false.)
 
             ! Diffusion
             if (dd > 0d0) then
               slap = dd*lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                          ,drho(:,:,:,1))
+     .                     ,drho(:,:,:,1))
             else
               slap = 0d0
             endif
 
-            y(ijk)=dvol*(cnp*drho(i,j,k,1)/dt + alpha*(upwind - slap))
+            y(ijk)=dvol*(cnp/dt*drho(i,j,k,1) + alpha*(upwind - slap))
      .                 *jac(i,j,k)
           enddo
         enddo
@@ -923,7 +937,7 @@ c Velocity field (including BCs)
 
 c Eta*J term
 
-      if (.not.MG_get_find_diag()) then
+      if (.not.MG_get_find_diag().and.(.not.spitzer)) then
         curl_eta_dj = curl(g_def,igrid,db_cov)                    !dj_cnv
 
         curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1) !eta*dj_cnv
@@ -933,10 +947,10 @@ c Eta*J term
         curl_eta_dj = XformToCov(g_def,igrid,curl_eta_dj)         !eta*dj_cov
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
-        curl_eta_dj =-veclap(g_def,igrid,db)
-        curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
-        curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
-        curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)
+        curl_eta_dj =-veclap(g_def,igrid,db,diff=eta0(:,:,:,1))
+c$$$        curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
+c$$$        curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
+c$$$        curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)
       endif
 
 c Calculate matrix-vector product
@@ -1230,48 +1244,47 @@ c Map vector x to array for processing
      .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
      .              ,result_is_curv=.true.)
 
-c$$$      allocate(da     (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
-c$$$     .        ,dj_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq))
-c$$$
-c$$$      da = 0d0
-c$$$
-c$$$      call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
-c$$$      call fillArray(g_def,igrid,neq,x,da_cnv,bcnd,order_bc,gpos=gpos
-c$$$     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-c$$$     .              ,result_is_curv=.true.,arr_cov=da)
-c$$$      call set_force_corners(.false.) !Force corners owing to div(A)=0 BC
-c$$$
-c$$$      !Currents
+      allocate(da_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,db_cov (0:nxx+1,0:nyy+1,0:nzz+1,neq)
+     .        ,dj_cnv (0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+      da_cnv = XformToCnv(g_def,igrid,da)
+
+      !Currents
 c$$$      if (MG_get_find_diag().or.vlap_etaj) then
 c$$$c$$$        dj_cov =-veclap_vrtx(g_def,igrid,da,ret_cnv=.false.)
 c$$$        !!!!!
 c$$$c$$$        dj_cnv = curlcurl_vrtx(g_def,igrid,da)
 c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
 c$$$        !!!!!!
-c$$$        dj_cnv =-veclap    (g_def,igrid,da_cnv)
-c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
-c$$$        !!!!!!!
-c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,da_cnv)
+c$$$c$$$        dj_cnv =-veclap    (g_def,igrid,XformToCnv(g_def,igrid,da))
 c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
 c$$$        !!!!!!!
-c$$$c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$c$$$        dj_cnv =-veclap_cnv(g_def,igrid,XformToCnv(g_def,igrid,da))
+c$$$c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$        !!!!!!!
+c$$$        dj_cov =-veclap_cov(g_def,igrid,da)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
 c$$$      else
 c$$$        db_cnv = curl(g_def,igrid,da)
-c$$$        db_cov = XformVector(g_def,igrid,db_cnv,.false.)
-c$$$c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
-c$$$c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
-c$$$c$$$     .              ,is_vec=.true.,result_is_curv=.true.
-c$$$c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
-c$$$
+c$$$c$$$        db_cov = XformToCov(g_def,igrid,db_cnv)
+c$$$        call setMGBC(g_def,max(0,gpos),3,nxx,nyy,nzz,igrid,db_cnv
+c$$$     .              ,bcs(:,IBX:IBZ),icomp=(/IBX/),is_cnv=.true.
+c$$$     .              ,is_vec=.true.,result_is_curv=.true.
+c$$$     .              ,iorder=order_bc,arr_cov=db_cov)
 c$$$        dj_cnv = curl(g_def,igrid,db_cov)
-c$$$        dj_cov = XformVector(g_def,igrid,dj_cnv,.false.)
+c$$$        dj_cov = XformToCov(g_def,igrid,dj_cnv)
+c$$$c$$$     .         - gradDiv   (g_def,igrid,da_cnv)
+c$$$        !!!!!!!
+c$$$c$$$        dj_cov = curlcurl_cov(gv%gparams,igrid,da)
 c$$$      endif
 
-c Velocity field (including BCs)
+c$$$      dj_cov = -veclap2_cov_mesh(g_def,igrid,da)
+      dj_cov = -veclap_cov(g_def,igrid,da)
+
+c  Velocity field (including BCs)
 
       call point_to_MG_array(nxx,nyy,nzz,igrid,v0_cnv,gv0)
       call point_to_MG_array(nxx,nyy,nzz,igrid,eta0,geta)
@@ -1300,12 +1313,8 @@ c Calculate matrix-vector product
             endif
 
             !Resistive part
-cc            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
-            vlap = eta0(i,j,k,1)
-     .            *veclap_cov(g_def,i,j,k,nxx,nyy,nzz
-     .                       ,igrid,igrid,igrid,da
-     .                       ,vol=.false.)
-     .            
+            vlap = -eta0(i,j,k,1)*dj_cov(i,j,k,:)
+
             !Convective part
             cov = curla_x_v_upwd(g_def,i,j,k,igrid,v0_cnv(i,j,k,:),da)
             
@@ -1997,7 +2006,7 @@ c     Call variables
 c     Local variables
 
         integer    :: ip,igrid
-        real(8)    :: jac,ijac,gsuper(3,3),vol
+        real(8)    :: jac,ijac,gsuper(3),vol
      .               ,acnv(3),acnvp(3),b0cov(3),b0cnv(3),scalar_prod
 
 c     Begin program
@@ -2009,8 +2018,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (ip,j,k)
      .               +g_def%gmetric%grid(igrid)%jac (i ,j,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(ip,j,k,1,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i ,j,k,1,:))
 
         if (isSP(g_def,i+1,j,k,igx,igy,igz).and.flag /= 0) jac = SP_flsv
 
@@ -2041,15 +2050,15 @@ c$$$        b0cov = 0.5*(b0_cov(ip,j,k,:)+b0_cov(i,j,k,:))
 
         t11 =( acnv(1)*b0cnv(1)
      .        +acnv(1)*b0cnv(1)
-     .        -gsuper(1,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t12 =( acnv(1)*b0cnv(2)
      .        +acnv(2)*b0cnv(1)
-     .        -gsuper(1,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t13 =( acnv(1)*b0cnv(3)
      .        +acnv(3)*b0cnv(1)
-     .        -gsuper(1,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           if (isSP(g_def,i+1,j,k,igx,igy,igz)) then
@@ -2089,7 +2098,7 @@ c     Call variables
 c     Local variables
 
         integer    :: jp,igrid,iisig,iig,ijk
-        real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
+        real(8)    :: jac,ijac,gsuper(3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod,vol
 
 c     Begin program
@@ -2101,8 +2110,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (i,jp,k)
      .               +g_def%gmetric%grid(igrid)%jac (i,j ,k))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,jp,k,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i,j ,k,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,jp,k,2,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i,j ,k,2,:))
 
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
@@ -2119,15 +2128,15 @@ c     Begin program
 
         t21 =( acnv(2)*b0cnv(1)
      .        +acnv(1)*b0cnv(2)
-     .        -gsuper(2,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t22 =( acnv(2)*b0cnv(2)
      .        +acnv(2)*b0cnv(2)
-     .        -gsuper(2,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t23 =( acnv(2)*b0cnv(3)
      .        +acnv(3)*b0cnv(2)
-     .        -gsuper(2,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           ijac  = 1d0/jac
@@ -2161,7 +2170,7 @@ c     Call variables
 c     Local variables
 
         integer    :: kp,igrid,iisig,iig,ijk
-        real(8)    :: jac,ijac,gsuper(3,3),acnv(3),b0cov(3),b0cnv(3)
+        real(8)    :: jac,ijac,gsuper(3),acnv(3),b0cov(3),b0cnv(3)
      .               ,scalar_prod,vol
 
 c     Begin program
@@ -2173,8 +2182,8 @@ c     Begin program
 
         jac    = 0.5*(g_def%gmetric%grid(igrid)%jac (i,j,kp)
      .               +g_def%gmetric%grid(igrid)%jac (i,j,k ))
-        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,j,kp,:,:)
-     .               +g_def%gmetric%grid(igrid)%gsup(i,j,k ,:,:))
+        gsuper = 0.5*(g_def%gmetric%grid(igrid)%gsup(i,j,kp,3,:)
+     .               +g_def%gmetric%grid(igrid)%gsup(i,j,k ,3,:))
 
         if (flag /= 0) then
           acnv = U_Bv_ijk(g_def,i,j,k,nxx,nyy,nzz,igx,igy,igz,dv
@@ -2191,15 +2200,15 @@ c     Begin program
 
         t31 =( acnv(3)*b0cnv(1)
      .        +acnv(1)*b0cnv(3)
-     .        -gsuper(3,1)*scalar_prod )
+     .        -gsuper(1)*scalar_prod )
 
         t32 =( acnv(3)*b0cnv(2)
      .        +acnv(2)*b0cnv(3)
-     .        -gsuper(3,2)*scalar_prod )
+     .        -gsuper(2)*scalar_prod )
 
         t33 =( acnv(3)*b0cnv(3)
      .        +acnv(3)*b0cnv(3)
-     .        -gsuper(3,3)*scalar_prod )
+     .        -gsuper(3)*scalar_prod )
 
         if (flag /= 0) then
           ijac  = 1d0/jac

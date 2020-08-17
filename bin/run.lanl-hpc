@@ -7,8 +7,9 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] [-x executable] 
-  [-t tmax] [-r tmax] [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
+$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] 
+[-x executable] [-t tmax] [-r tmax] [-rtgz file] [-ntar] 
+[-equ file] [-eig file]  [-recursive] -- inputfile [options]
 
 where:
 	-np procs:     indicates the number of cores (required)
@@ -323,10 +324,10 @@ cat > go.sub <<QSUB
 #SBATCH --export=ALL 
 
 date
-module purge
-module load intel/17.0.1 
-module load openmpi/1.10.5
-module load hdf5-parallel
+#module purge
+#module load intel/17.0.1 
+#module load openmpi/1.10.5
+#module load hdf5-parallel
 
 mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) >> $inputfile.out
 

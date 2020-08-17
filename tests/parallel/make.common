@@ -31,6 +31,7 @@ endif
 .PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup clean
 
 setup: ;
+	-@ln -s -f ../../../bin/adios_config.xml
 	-@ln -s -f ../../../bin/$(EXEC)
 	-@ln -s -f ../../../bin/$(PLOT)
 
@@ -52,4 +53,4 @@ run: ;
 	@$(PAREXEC)
 
 clean: ;
-	-@rm -f draw*.in *.bin pixie3d.tst* pixie3d.err* *.vlog 2>/dev/null
+	-@rm -r -f draw*.in *.bin* pixie3d.tst* pixie3d.err* *.vlog *.bp *.ps *.orig *diag* draw*txt grid*txt *log* *dSYM 2>/dev/null

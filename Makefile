@@ -26,6 +26,7 @@ PER_BC_SYNC=t
 VMEC=t
 COARSE_MG=t
 USER_DT=t
+RFX=f
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -69,7 +70,7 @@ endif
 
 # PIXIE3D setup
 
-REL1=$(shell hg log -r "." --template "{latesttag}\n")-$(shell hg branch)
+REL1=$(shell git describe --tags `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
 
 CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
 
@@ -92,6 +93,8 @@ ifeq ($(VMEC),t)
   endif
 endif
 
+export VMEC
+
 ifeq ($(VECPOT),t)
   CPPFLAGS += $(PREPROC)vec_pot
   ifdef BOPT
@@ -107,19 +110,20 @@ else
   endif
 endif
 
+export VECPOT
+
 ifeq ($(SAMR),t)
   TARGET = samrai
-  CPPFLAGS += -Dflux_rhs
+  CPPFLAGS += $(PREPROC)flux_rhs
+endif
+
+ifeq ($(RFX),t)
+  CPPFLAGS += $(PREPROC)RFX
 endif
 
 #Export required variables
 
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
-       BINDIR CONTRIBLIBS FLINKER PETSC_SNES_LIB CPPFLAGS_EXTRA \
-       CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA SAMR SAMRAI LIBSAMRAI3D LIBSAMRAI \
-       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST PIT PREPROC REL1 LABEL ADIOS_VER \
-       MACHINE OPT
+export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
 
 #Define targets
 

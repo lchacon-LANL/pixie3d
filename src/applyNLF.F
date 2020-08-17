@@ -163,12 +163,20 @@ c     Advection
 
 c     Heat flux
 
-      heat_flx = heat_xport(i,j,k)
-
+      if (source_eval.and.(.not.adiabatic)) then
+        heat_flx = 0d0
+      else
+        heat_flx = heat_xport(i,j,k)
+      endif
+      
 c     Sources
 
-      heat_srce = heat_src(i,j,k)
-      
+      if ((.not.source_eval).and.(.not.adiabatic)) then
+        heat_srce = heat_src(i,j,k)
+      else
+        heat_srce = 0d0
+      endif
+
 c     Add contributions
 
       ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_srce))*jac
@@ -178,12 +186,10 @@ c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 c     JxB volume force
 
       if (nc_eom_jxb) then
-        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-cc     .               ,bcnv,jcnv,.true.,nc_eom_jxb)
-     .               ,bcov,jcov,.false.,nc_eom_jxb)
+        cnv = crossProduct(gv%gparams,i,j,k,igx
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
       else
-        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx
-     .               ,bcnv,bcnv,.true.,nc_eom_jxb)
+        cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igx,bcnv,bcnv)
       endif
 
       ff(IVX:IVZ) = -cnv
@@ -217,7 +223,11 @@ c     Advection
 
 c     Sources
 
-      MS = ext_mom_src(gv%gparams,i,j,k,igx)
+      if (.not.source_eval) then
+        MS = ext_mom_src(gv%gparams,i,j,k,igx)
+      else
+        MS = 0d0
+      endif
 
       if (nc_eom_v) then
         ff(IVX:IVZ) = ff(IVX:IVZ) - MS/rho(i,j,k)
@@ -818,14 +828,11 @@ c Begin program
             if (nc_eom_v) then
               !JxB force
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-cc             .               ,bcnv,jcnv,.true.
-     .                       ,bcov,jcov,.false.
-     .                       ,nc_eom_jxb)
+                cnv = crossProduct(gv%gparams,i,j,k,igr
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
               else
                 cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                       ,bcnv,bcnv,.true.
-     .                       ,nc_eom_jxb)
+     .                       ,bcnv,bcnv,proj_parcmp=.true.)
               endif
 
               src(i,j,k,IVX:IVZ) = -cnv
@@ -868,10 +875,8 @@ cc             .               ,bcnv,jcnv,.true.
             else
               !JxB
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-cc     .                       ,bcnv,jcnv,.true.
-     .                       ,bcov,jcov,.false.,nc_eom_jxb)
-
+                cnv = crossProduct(gv%gparams,i,j,k,igr
+     .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
                 if (alt__eom()) cnv(2) = cnv(2)*jac
               else
                 vec1 => bcnv
