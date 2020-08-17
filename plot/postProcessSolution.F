@@ -71,13 +71,13 @@ c (finds all covariant and contravariant components of interest)
 
 cc      write (*,*) 'Dumping perturbations of all quantities'
 cc      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_graph)
-cc      varray = u_graph
-cc      varray%array_var(1)%array = u_0%array_var(1)%array
-
+cc      call equateDerivedType(varray,u_graph)
+cc      varray%array_var(IRHO)%array = u_0%array_var(IRHO)%array
+cc
 cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
-
+cc
 cc      call applyBCplot(igx,varray,gv%aux,it=itime,bc_order=order_bc)
       call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
 
@@ -92,7 +92,7 @@ c Find perturbed quantities (u_pert = varray - u_ic)
 
       u_pert%array_var(IPRS)%array = u_pert%array_var(IPRS)%array
      $                              /gv%gparams%gmetric%grid(igrid)%jac
-      u_pert%array_var(IPRS)%descr = 'p=pi+pe'
+      u_pert%array_var(IPRS)%descr = 'Prs'
 
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
@@ -101,14 +101,43 @@ c Find perturbed quantities (u_pert = varray - u_ic)
       endif
 
 c Assignments
+      
+      vx = vcnv(:,:,:,1)
+      vy = vcnv(:,:,:,2)
+      vz = vcnv(:,:,:,3)
+
+      vx_cov = vcov(:,:,:,1)
+      vy_cov = vcov(:,:,:,2)
+      vz_cov = vcov(:,:,:,3)
+
+#if defined(vec_pot)
+      ax_cnv = acnv(:,:,:,1)
+      ay_cnv = acnv(:,:,:,2)
+      az_cnv = acnv(:,:,:,3)
+#endif
+
+c Deltas
+c$$$      jx = jcnv(:,:,:,1)-jcnv_0(:,:,:,1)
+c$$$      jy = jcnv(:,:,:,2)-jcnv_0(:,:,:,2)
+c$$$      jz = jcnv(:,:,:,3)-jcnv_0(:,:,:,3)
+c$$$
+c$$$      bx_cov = bcov(:,:,:,1)-bcov_0(:,:,:,1)
+c$$$      by_cov = bcov(:,:,:,2)-bcov_0(:,:,:,2)
+c$$$      bz_cov = bcov(:,:,:,3)-bcov_0(:,:,:,3)
+c$$$
+c$$$      jx_cov = jcov(:,:,:,1)-jcov_0(:,:,:,1)
+c$$$      jy_cov = jcov(:,:,:,2)-jcov_0(:,:,:,2)
+c$$$      jz_cov = jcov(:,:,:,3)-jcov_0(:,:,:,3)
+c$$$
+c$$$#if defined(vec_pot)
+c$$$      bx = bcnv(:,:,:,1)-bcnv_0(:,:,:,1)
+c$$$      by = bcnv(:,:,:,2)-bcnv_0(:,:,:,2)
+c$$$      bz = bcnv(:,:,:,3)-bcnv_0(:,:,:,3)
+c$$$#endif
 
       jx = jcnv(:,:,:,1)
       jy = jcnv(:,:,:,2)
       jz = jcnv(:,:,:,3)
-
-      vx = vcnv(:,:,:,1)
-      vy = vcnv(:,:,:,2)
-      vz = vcnv(:,:,:,3)
 
       bx_cov = bcov(:,:,:,1)
       by_cov = bcov(:,:,:,2)
@@ -117,10 +146,6 @@ c Assignments
       jx_cov = jcov(:,:,:,1)
       jy_cov = jcov(:,:,:,2)
       jz_cov = jcov(:,:,:,3)
-
-      vx_cov = vcov(:,:,:,1)
-      vy_cov = vcov(:,:,:,2)
-      vz_cov = vcov(:,:,:,3)
 
 #if defined(vec_pot)
       ax_cnv = acnv(:,:,:,1)
@@ -391,9 +416,30 @@ c Divergence diagnostics
       divrgB = div(gv%gparams,igx,bcnv)
       divrgV = div(gv%gparams,igx,vcnv)
 
-c Total pressure
+c Pressure diagnostics
 
+      !Total pressure
       p_tot = rho*tmp
+
+      !Internal heat source
+      if ((.not.adiabatic).and.(gamma > 1d0)) then
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              !Internal heat source
+              heat_src(i,j,k) =
+     .             int_heat_src(gv%gparams,i,j,k,igx,eeta,nuu,h_eta
+     .                         ,jcnv,jcov,vcnv,vecnv)
+
+              !External heat source
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .                        + ext_heat_src(gv%gparams,i,j,k,igx)
+            enddo
+          enddo
+        enddo
+      else
+        heat_src = 0d0
+      endif
 
 #if defined(RFX)
 c RFX dump
@@ -542,7 +588,7 @@ cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
 
        !Find q-factor and lambda profile
        do i = iming,imaxg
-         qfactor(i,:,:) = b00(i,3)/RR/(b00(i,2)-kk/mm*b00(i,3))
+         qfactor(i,:,:) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
          lambda (i,:,:) = l00(i,1)
        enddo
        qfactor(iming,:,:)=qfactor(iming+1,:,:)

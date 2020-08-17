@@ -31,9 +31,9 @@ endif
 
 # Source files
 
-SRC ?= $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.f90 *.F90))
+SRC ?= $(filter-out $(EXCLUDE),$(wildcard *.[F,c,f] *.?90))
 
-MODS ?= $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.f90 *_mod.F90))
+MODS ?= $(filter-out $(EXCLUDE),$(wildcard *_mod.[F,f] *_mod.?90))
 
 prefix = .
 
@@ -153,7 +153,7 @@ $(SUBDIRS):
 	$(MAKE) --no-print-directory -e -C $@ target
 
 clean:
-	-@rm -f *.o *.mod
+	-@rm -rf *.o *.mod *.dSYM
 
 distclean: clean
 	-@for subdir in $(SUBDIRS) ; do \

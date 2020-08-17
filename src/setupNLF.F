@@ -90,10 +90,12 @@ c Fill LOCAL auxiliary variables
 
 c Safeguards
 
-      call chk_neg(rho,'density')
-      call chk_neg(tmp,'temperature')
-      call chk_neg(heat_src,'heat source')
-
+      if (old_time_eval) then
+        call chk_neg(rho,'density')
+        call chk_neg(prs,'pressure')
+        call chk_neg(heat_src,'heat source')
+      endif
+      
 c Setup fluxes
 
 #if defined(flux_rhs)
@@ -133,9 +135,9 @@ c     Begin program
 
       minvg = pmin(minv)  !Parallel min
       
-      if (minvg < 0d0) then
+      if (minvg < -1d-14) then
 
-        if (minv < 0d0) then
+        if (minv < -1d-14) then
           index = globalIndex(gv%gparams,igx
      .                       ,minloc(array(1:nx,1:ny,1:nz)))
           write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv

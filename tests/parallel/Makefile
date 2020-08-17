@@ -10,8 +10,6 @@ DIRS_B = $(shell ls -d */ | grep -v CVS | grep -v "\-a")
 
 setup: ;
 	-@for subdir in $(DIRS); do \
-		rm $$subdir/adios_config.xml 2> /dev/null ; \
-		ln -s ../../../bin/adios_config.xml $$subdir 2> /dev/null ; \
 		ln -s -f ../make.common $$subdir/makefile 2> /dev/null ; \
 		$(MAKE) --no-print-directory -e -C $$subdir $@; done
 

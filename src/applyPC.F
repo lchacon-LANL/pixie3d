@@ -350,12 +350,12 @@ c     Store velocity solution in array format --> dv_cnv
      .                ,arr_cov=dv_cov,is_vec=.true.
      .                ,is_cnv=.true.,arr0=dv0cnv,icomp=(/IVX/))
 
-c     Correct rx to find Deltax (correction for rho, B, T)
+c     Correct rx to find Deltax (correction for B, P)
 
-        !Find corrections to rho,B,tmp right hand sides (Udv --> udv)
-        if (solve_rho) then
-          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
-        endif
+c$$$        !Find corrections to rho,B,prs right hand sides (Udv --> udv)
+c$$$        if (solve_rho.or.adiabatic_rho) then
+c$$$          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
+c$$$        endif
 
 #if defined(vec_pot)
         call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IAX:IAZ))
@@ -363,7 +363,7 @@ c     Correct rx to find Deltax (correction for rho, B, T)
         call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IBX:IBZ))
 #endif
 
-        call U_Tv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
+        call U_Pv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
 
 c     End program
 
@@ -419,6 +419,7 @@ c       Density
      .                ,sm_ncolors    = sm_ncolors
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
      .                )  
         endif
 
@@ -449,6 +450,7 @@ c       Temperature
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 c       Magnetic field/vector potential
@@ -516,6 +518,7 @@ c     Vector potential
      .                ,sm_ncolors    = sm_ncolors
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
      .                )
         endif
 
@@ -552,7 +555,28 @@ c     Magnetic field
         endif
 
         if (.not.pc_e_hall) then
-          call cSolver(gv%gparams,3,nn,y,x
+          if (spitzer) then
+            call cSolver(gv%gparams,3,nn,y,x
+     .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = b_diag
+     .            ,gm_driver     = spitzer !pc_gm_driver
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = 5 !mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
+     .            )
+          else
+            call cSolver(gv%gparams,3,nn,y,x
      .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = b_diag
@@ -569,8 +593,9 @@ cc     .            ,gm_driver     = pc_gm_driver
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
-
+          endif
 cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
 cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
 
@@ -601,6 +626,7 @@ cc          pause
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
           x = xc(:,1:3)
@@ -810,6 +836,7 @@ c     Begin program
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax_si
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 cc          call pc_diag(3,nn,x,rhssi)
@@ -845,6 +872,7 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 cc          call pc_diag(6,nn,xc,rhsc)
@@ -898,6 +926,7 @@ c     Begin program
      .              ,sm_ncolors    = sm_ncolors
      .              ,sm_line_relax = sm_line_relax
      .              ,sm_zebra_relax= sm_zebra_relax
+     .              ,sm_zebra_it   = sm_zebra_it
      .              )
 
         !Post-process solution with M_star
@@ -1123,6 +1152,7 @@ cc     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            !Production
      .            ,tol           = pc_tol
      .            ,mg_smooth     = sm_type
@@ -1403,19 +1433,15 @@ c Find rhs_v'
             if (part == 'lfz' .or. part == 'all') then
 
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cov,jcov0,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
-     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
+                cnv = crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,jcov0(i,j,k,:),db_cov(i,j,k,:),.false.)
+     .               +crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,dj_cov(i,j,k,:),bcov0(i,j,k,:),.false.)
               else
                 cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,db_cnv,bcnv0)
      .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,bcnv0,db_cnv)
               endif
 
               cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
@@ -1558,6 +1584,7 @@ c Solve for advection-diffusion part
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
       return
