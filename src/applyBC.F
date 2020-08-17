@@ -990,7 +990,7 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe)
 
         case(ICHIPAR)
 
