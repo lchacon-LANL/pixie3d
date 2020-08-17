@@ -345,8 +345,10 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(3)%array_graph(IPRS)%array=>gv%aux%var_list(ITMP_AUX)%array
-      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
+c$$$      graph(3)%array_graph(IPRS)%array=>gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
+      graph(3)%array_graph(IPRS)%array=> p_tot
+      graph(3)%array_graph(IPRS)%descr=  'Prs'
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -397,8 +399,10 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=> gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr=  gv%aux%var_list(IRHO_AUX)%descr
 
-      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
-      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
+c$$$      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
+c$$$      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
+      graph(3)%array_graph(IPRS)%array=> p_tot
+      graph(3)%array_graph(IPRS)%descr=  'Prs'
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
