@@ -8,6 +8,7 @@ c ######################################################################
         use ts_setup
 
         use nlfunction_setup, ONLY: ion_hall,electron_hall,sym_st
+     .                             ,find_diff_tnsr
 
         !SI solver parameters
         integer :: mg_ores_si
@@ -136,7 +137,7 @@ c ######################################################################
         type(mg_array),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
      .                           ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                           ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
-     .                           ,g_advdiffV0,gchi,gchipar
+     .                           ,g_advdiffV0,gchi,gchipar,gchitnsr
 
       contains
 
@@ -197,6 +198,7 @@ c     Begin program
         call allocateMGArray(gv%gparams,1,gheta)
         call allocateMGArray(gv%gparams,1,gchi)
         call allocateMGArray(gv%gparams,1,gchipar)
+        call allocateMGArray(gv%gparams,6,gchitnsr)
         call allocateMGArray(gv%gparams,3,gbhat)
         call allocateMGArray(gv%gparams,3,gdb_cov)
         call allocateMGArray(gv%gparams,3,g_advdiffV0)
@@ -251,6 +253,7 @@ c     Begin program
         call deallocateMGArray(gheta)
         call deallocateMGArray(gchi)
         call deallocateMGArray(gchipar)
+        call deallocateMGArray(gchitnsr)
         call deallocateMGArray(gbhat)
         call deallocateMGArray(gdb_cov)
         call deallocateMGArray(g_advdiffV0)
@@ -551,29 +554,29 @@ c$$$     .                      ,iscnv=.false.)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
-        if (chi_par /= chi .and. (.not.lagrangian)) then
-          gbhat%grid(igrid)%array = bhat
-          call restrictMGArray(IBX,3,gbhat,bc_pc(:,IBX:IBZ),igrid,order
-     .                        ,order_bc=order_bc)
-
-c$$$          STOP 'need to change this to be coarse-MG friendly'
-c$$$          do igr=igrid+1,gv%gparams%ngrid
+c$$$        if (chi_par /= chi .and. (.not.lagrangian)) then
+c$$$          gbhat%grid(igrid)%array = bhat
+c$$$          call restrictMGArray(IBX,3,gbhat,bc_pc(:,IBX:IBZ),igrid,order
+c$$$     .                        ,order_bc=order_bc)
 c$$$
-c$$$            do k=0,gv%gparams%nzv(igr)+1
-c$$$              do j=0,gv%gparams%nyv(igr)+1
-c$$$                do i=0,gv%gparams%nxv(igr)+1
-c$$$                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
-c$$$     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
+c$$$c$$$          STOP 'need to change this to be coarse-MG friendly'
+c$$$c$$$          do igr=igrid+1,gv%gparams%ngrid
+c$$$c$$$
+c$$$c$$$            do k=0,gv%gparams%nzv(igr)+1
+c$$$c$$$              do j=0,gv%gparams%nyv(igr)+1
+c$$$c$$$                do i=0,gv%gparams%nxv(igr)+1
+c$$$c$$$                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
+c$$$c$$$     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
+c$$$c$$$
+c$$$c$$$                  gbhat%grid(igr)%array(i,j,k,:)
+c$$$c$$$     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+c$$$c$$$                enddo
+c$$$c$$$              enddo
+c$$$c$$$            enddo
+c$$$c$$$
+c$$$c$$$          enddo
 c$$$
-c$$$                  gbhat%grid(igr)%array(i,j,k,:)
-c$$$     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
-c$$$                enddo
-c$$$              enddo
-c$$$            enddo
-c$$$
-c$$$          enddo
-
-        endif
+c$$$        endif
 
 c     Store ion velocity components in all grids (w/ BCs)
 
@@ -620,6 +623,10 @@ cc        gvis%grid(igrid)%array(:,:,:,1) = nuu + h_eta
         gchipar%grid(igrid)%array(:,:,:,1) = cchi_par
         call restrictMGArray(IRHO,1,gchipar,bc_sc,igrid,order
      .                      ,order_bc=order_bc)
+
+        !Form diffusivity tensor
+        if (gamma > 1d0)
+     .    call op_on_MGArray(find_diff_tnsr,gb0,gchipar,gchi,gchitnsr)
 
 c     Store Hall MHD auxiliary variables
 
