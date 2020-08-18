@@ -586,11 +586,11 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
-     .                                         ,chi0,chip0
+     .                                         ,chi0,chip0,tnsr0
 
-      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc
+      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc,dtmp_diff
 
-      real(8) :: upwind,nu2,dvol,slap,plap
+      real(8) :: upwind,nu2,dvol,tlap
 
       logical :: fpointers
 
@@ -618,6 +618,7 @@ c Map vector x to array for processing
       allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq)
      .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq)
      .        ,dprs_advc(0:nnx+1,0:nny+1,0:nnz+1)
+     .        ,dtmp_diff(0:nnx+1,0:nny+1,0:nnz+1)
      .        )
 
       dtmp = 0d0
@@ -630,15 +631,18 @@ c Map velocity components
 
       call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
-      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
-      call point_to_MG_array(nnx,nny,nnz,igrid,chip0  ,gchipar)
- 
+c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
+c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
+c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chip0  ,gchipar)
+      if (gamma > 1d0)
+     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0  ,gchitnsr)
+
       dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
 
-c Compute advective terms
+c Auxiliary computations
 
+      !Advective term
       if (use_p_classic_eq) then !Classic p evolution eq
        dprs_advc=flx_advec_mesh(g_def,igrid,vs0_cnv,dprs(:,:,:,1)
      .                         ,UPWD,bcnd,zip_vel=.false.)
@@ -651,6 +655,12 @@ c Compute advective terms
      .                              ,UPWD,bcnd,rvrs=.true.) !Reverse: v -> -v
       endif
 
+      !Anisotropic transport term
+      if (gamma > 1d0)
+     .   dtmp_diff = tnsr_diff(g_def,igrid,dprs(:,:,:,1),bcnd(:,1),tnsr0
+cc     .                ,2,limited,limit_mthd=UPWD
+     .                     ,2,.true.,limit_mthd=UPWD,arr0=tmp0(:,:,:,1))
+
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -662,55 +672,35 @@ c Calculate matrix-vector product
             ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
             ijkg   = ijk + isig - 1
 
-            upwind = dprs_advc(i,j,k)
-c$$$            if (use_p_classic_eq) then !Need this for strong stability
-c$$$              upwind = flx_advec(g_def,i,j,k,nnx,nny,nnz
-c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
-c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-c$$$     .               +(gamma-1d0)*dprs(i,j,k,1)
-c$$$     .                       *div(g_def,i,j,k,nnx,nny,nnz
-c$$$     .                           ,igrid,igrid,igrid,vs0_cnv)
-c$$$            else
-c$$$              upwind = gamma
-c$$$     .                *flx_advec(g_def,i,j,k,nnx,nny,nnz
-c$$$     .                          ,igrid,igrid,igrid,vs0_cnv,dprs(:,:,:,1)
-c$$$     .                          ,UPWD,zip_vel=.false.) !Do not use ZIP, since dT is not pos.def.
-c$$$     .               +(gamma-1d0)
-c$$$     .                 *flx_nc_advec(g_def,i,j,k,nnx,nny,nnz
-c$$$     .                              ,igrid,igrid,igrid,vs0_cnv
-c$$$     .                              ,dprs(:,:,:,1),UPWD,reverse=.true.)
-c$$$            endif
-            
             if (MG_get_res_vol_wgt()) then
               dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
             else
               dvol = 1d0
             endif
 
-            if (chi > 0d0.and.gamma > 1d0) then
-              if (use_p_diff) then
-                slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,dprs(:,:,:,1),dff=chi0(:,:,:,1))
-              else
-                slap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-     .                    ,dtmp(:,:,:,1),dff=chi0(:,:,:,1))  !See above for dtmp def
-              endif
-              slap = (gamma-1d0)*slap
-            else
-              slap = 0d0
-            endif
-
-            if (chi_par > chi.and.(.not.lagrangian).and.gamma > 1d0)then
-              plap = par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
-     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
-     .                       ,advc_mthd=UPWD)  !See above for dtmp def
-              plap = (gamma-1d0)*(chip0(i,j,k,1)-chi0(i,j,k,1))*plap
-            else
-              plap = 0d0
-            endif
-
+            upwind = dprs_advc(i,j,k)
+            
+            tlap = 0d0
+c$$$            if (chi > 0d0.and.gamma > 1d0) then
+c$$$              if (use_p_diff) then
+c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+c$$$     .                    ,dprs(:,:,:,1),dff=chi0(:,:,:,1))
+c$$$              else
+c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
+c$$$     .                    ,dtmp(:,:,:,1),dff=chi0(:,:,:,1))  !See above for dtmp def
+c$$$              endif
+c$$$            endif
+c$$$
+c$$$            if (chi_par > chi.and.(.not.lagrangian).and.gamma > 1d0)then
+c$$$              tlap = tlap + (chip0(i,j,k,1)-chi0(i,j,k,1))
+c$$$     .                *par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
+c$$$     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
+c$$$     .                       ,advc_mthd=UPWD)  !See above for dtmp def
+c$$$            endif
+            if (gamma > 1d0) tlap = (gamma-1d0)*dtmp_diff(i,j,k)
+            
             y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
-     $                  + alpha*(upwind - slap - plap) )*jac(i,j,k)
+     $                  + alpha*(upwind - tlap) )*jac(i,j,k)
 
           enddo
         enddo
@@ -718,8 +708,8 @@ c$$$            endif
 
 c End program
 
-      deallocate(dtmp,dprs,dprs_advc)
-      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0)
+      deallocate(dtmp,dprs,dprs_advc,dtmp_diff)
+      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
@@ -947,7 +937,9 @@ c Eta*J term
         curl_eta_dj = XformToCov(g_def,igrid,curl_eta_dj)         !eta*dj_cov
         curl_eta_dj = curl(g_def,igrid,curl_eta_dj)               !curl(eta*dj)
       else
-        curl_eta_dj =-veclap(g_def,igrid,db,diff=eta0(:,:,:,1))
+        if (eta > 0d0) then
+          curl_eta_dj =-veclap(g_def,igrid,db,diff=eta0(:,:,:,1))
+        endif
 c$$$        curl_eta_dj(:,:,:,1) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,1)
 c$$$        curl_eta_dj(:,:,:,2) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,2)
 c$$$        curl_eta_dj(:,:,:,3) = eta0(:,:,:,1)*curl_eta_dj(:,:,:,3)

@@ -466,6 +466,7 @@ c ######################################################################
      .                                       ,bcov
      .                                       ,bcov_0
      .                                       ,bcov_n
+     .                                       ,chi_tnsr
 
         real(8),pointer,dimension(:,:,:,:) :: vcnv
      .                                       ,vcnv_0
@@ -1770,7 +1771,7 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
-     .          ,heat_xport,heat_src,stat=istat)
+     .          ,heat_xport,heat_src,chi_tnsr,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -4899,6 +4900,7 @@ c     Local variables
       real(8) :: bnorm
 
       real(8),pointer,dimension(:,:,:) :: rho=>null(),tmp=>null()
+      real(8),pointer,dimension(:,:,:,:) :: dum1,dum2
 
 c     Begin program
 
@@ -4917,7 +4919,8 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
-     .          ,prs     (0:nx+1,0:ny+1,0:nz+1))
+     .          ,prs     (0:nx+1,0:ny+1,0:nz+1)
+     .          ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6))
       endif
 
       pcnv = 0d0
@@ -4929,27 +4932,28 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       prs_advc = 0d0
       heat_xport = 0d0
       heat_src   = 0d0
-
+      chi_tnsr   = 0d0
+      
       rho => vaux%var_list(IRHO_AUX)%array
       tmp => vaux%var_list(ITMP_AUX)%array  !Total T
 cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
 
-      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
-      if (chi_par /= chi .and. (.not.lagrangian)) then
-        do k=0,nz+1
-          do j=0,ny+1
-            do i=0,nx+1
-              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
-     .             ,.false.)
-              if (bnorm == 0d0) then
-                bhat(i,j,k,:) = 0d0
-              else
-                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
-              endif
-            enddo
-          enddo
-        enddo
-      endif
+c$$$      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
+c$$$      if (chi_par /= chi .and. (.not.lagrangian)) then
+c$$$        do k=0,nz+1
+c$$$          do j=0,ny+1
+c$$$            do i=0,nx+1
+c$$$              bnorm = vectorNorm(gv%gparams,i,j,k,igr,bcnv(i,j,k,:)
+c$$$     .             ,.false.)
+c$$$              if (bnorm == 0d0) then
+c$$$                bhat(i,j,k,:) = 0d0
+c$$$              else
+c$$$                bhat(i,j,k,:) = bcnv(i,j,k,:)/sqrt(bnorm)
+c$$$              endif
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$      endif
 
       !Momentum
       pcnv(:,:,:,1) = rho*vcnv(:,:,:,1)
@@ -4996,23 +5000,33 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
 
       !Heat transport term
       if (gamma > 1d0) then
-#if !defined(flux_rhs)
-        if (chi /= 0d0) then
-          if (use_p_diff) then  !Total pressure
-            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
-          else                  !see above for temperature def
-            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
-          endif
-        endif
-#endif
+c$$$#if !defined(flux_rhs)
+c$$$        if (chi /= 0d0) then
+c$$$          if (use_p_diff) then  !Total pressure
+c$$$            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
+c$$$          else                  !see above for temperature def
+c$$$            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
+c$$$          endif
+c$$$        endif
+c$$$#endif
+c$$$
+c$$$        if (chi_par > chi.and.(.not.lagrangian)) then
+c$$$          heat_xport = heat_xport
+c$$$     .       -(cchi_par(i,j,k)-cchi(i,j,k))
+c$$$     .               *par_diff(gv%gparams,igr,tmp,bhat,2
+c$$$     .                        ,"dutoit",vol=.false.,bcs=bc
+c$$$     .                        ,advc_mthd=SMART)
+c$$$        endif
 
-        if (chi_par > chi.and.(.not.lagrangian)) then
-          heat_xport = heat_xport
-     .       -(cchi_par(i,j,k)-cchi(i,j,k))
-     .               *par_diff(gv%gparams,igr,tmp,bhat,2
-     .                        ,"dutoit",vol=.false.,bcs=bc
-     .                        ,advc_mthd=SMART)
-        endif
+        allocate(dum1(0:nx+1,0:ny+1,0:nz+1,1)
+     .          ,dum2(0:nx+1,0:ny+1,0:nz+1,1))
+        dum1(:,:,:,1) = cchi_par
+        dum2(:,:,:,1) = cchi
+        chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
+        heat_xport =-tnsr_diff(gv%gparams,igr,tmp
+     .                    ,varray%array_var(IPRS)%bconds,chi_tnsr
+     .                    ,2,.true.,limit_mthd=SMART)
+        deallocate(dum1,dum2)
       endif
 
       !Heat source term
@@ -5036,6 +5050,144 @@ cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
 c     End program
 
       end subroutine fillLocalAuxVars
+
+c     find_diff_tnsr
+c     ########################################################################
+      function find_diff_tnsr(g_def,igr,bb,chipar,chiper,neq)
+     .         result(tnsr)
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr,neq
+      real(8) :: bb(0:,0:,0:,:)
+      real(8) :: chipar(0:,0:,0:,:)
+      real(8) :: chiper(0:,0:,0:,:)
+      real(8) :: tnsr(0:size(bb,1)-1
+     .               ,0:size(bb,2)-1
+     .               ,0:size(bb,3)-1,neq)
+
+c     Local variables
+
+      integer :: i,j,k,ig,jg,kg,nx,ny,nz,i1,j1,ieq
+      real(8) :: x1,y1,z1,bnorm
+      real(8) :: bhat  (0:size(bb,1)-1
+     .                 ,0:size(bb,2)-1
+     .                 ,0:size(bb,3)-1,3)
+
+c     Begin program
+
+      if (neq /= 6) then
+        call pstop("find_diff_tnsr","Wrong dimension")
+      endif
+
+      nx = g_def%nxv(igr)
+      ny = g_def%nyv(igr)
+      nz = g_def%nzv(igr)
+
+      bhat = find_bhat(g_def,igr,bb,3)
+
+c     Diffusion tensors
+
+      if (.not.lagrangian) then
+        !Find diffusion tensor
+        do i1 = 1,3
+          do j1 = i1,3
+            if (i1 == 1) then
+              ieq = j1
+            else
+              ieq = i1+j1
+            endif
+            tnsr(:,:,:,ieq)=
+     .        (chipar(:,:,:,1)-chiper(:,:,:,1))
+     .                        *bhat(:,:,:,i1)
+     .                        *bhat(:,:,:,j1)
+     .                        /g_def%gmetric%grid(igr)%jac
+     .        +chiper(:,:,:,1)*g_def%gmetric%grid(igr)%gsup(:,:,:,j1,i1)
+          enddo
+        enddo
+      else
+c$$$        !Find perpendicular diffusion tensor
+c$$$        if (isotropic) then
+c$$$          do i1 = 1,3
+c$$$            do j1 = i1,3
+c$$$              if (i1 == 1) then
+c$$$                ieq = j1
+c$$$              else
+c$$$                ieq = i1+j1
+c$$$              endif
+c$$$              tnsr(:,:,:,ieq)= 
+c$$$     .         chiper(:,:,:,1)*g_def%gmetric%grid(igr)%gsup(:,:,:,j1,i1)
+c$$$            enddo
+c$$$          enddo
+c$$$        else
+          do i1 = 1,3
+            do j1 = i1,3
+              if (i1 == 1) then
+                ieq = j1
+              else
+                ieq = i1+j1
+              endif
+              tnsr(:,:,:,ieq)= 
+     .            chiper(:,:,:,1)
+     .                     *(g_def%gmetric%grid(igr)%gsup(:,:,:,j1,i1)
+     .                     -bhat(:,:,:,i1)*bhat(:,:,:,j1)
+     .                     /g_def%gmetric%grid(igr)%jac )
+            enddo
+          enddo
+c$$$        endif
+      endif
+
+c     End program
+
+      end function find_diff_tnsr
+
+c     find_bhat
+c     ########################################################################
+      function find_bhat(g_def,igr,bb,neq) result(bhat)
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: igr,neq
+      real(8) :: bb(0:,0:,0:,:)
+      real(8) :: bhat(0:size(bb,1)-1
+     .               ,0:size(bb,2)-1
+     .               ,0:size(bb,3)-1,neq)
+
+c     Local variables
+
+      real(8) :: ibnorm(0:size(bb,1)-1
+     .                 ,0:size(bb,2)-1
+     .                 ,0:size(bb,3)-1)
+
+c     Begin program
+
+      if (neq /= 3) then
+        call pstop("find_hat","Wrong dimension")
+      endif
+
+      ibnorm = sqrt(vectorNorm(g_def,igr,bb,.false.))
+      where (ibnorm > 0d0)
+        ibnorm = 1d0/ibnorm
+        bhat(:,:,:,1) = bb(:,:,:,1)*ibnorm
+        bhat(:,:,:,2) = bb(:,:,:,2)*ibnorm
+        bhat(:,:,:,3) = bb(:,:,:,3)*ibnorm
+      elsewhere
+        bhat(:,:,:,1) = 0d0
+        bhat(:,:,:,2) = 0d0
+        bhat(:,:,:,3) = 0d0
+      end where
+
+c     End program
+
+      end function find_bhat
 
 c     EOM_jxb
 c     ###################################################################
