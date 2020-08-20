@@ -458,6 +458,10 @@ c     Begin program
       varray%array_var(IPRS)%dom_dep_list(3,2) = SCALAR
       varray%array_var(IPRS)%dom_dep_list(3,3) = 1 !non-trivial
 
+      varray%array_var(IPRS)%dom_dep_list(4,1) = ICHIPAR*AUX
+      varray%array_var(IPRS)%dom_dep_list(4,2) = SCALAR
+      varray%array_var(IPRS)%dom_dep_list(4,3) = 1 !non-trivial
+
       !V
       do ieq=IVX,IVZ
         varray%array_var(ieq)%dom_dep_list(1,1) = IRHO_AUX*AUX

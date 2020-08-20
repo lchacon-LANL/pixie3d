@@ -1,0 +1,9 @@
+tests
+*.o
+*.mod
+*.smod
+*.x
+eq/*
+common/*
+.hg*
+.DS_Store

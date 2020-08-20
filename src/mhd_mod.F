@@ -167,7 +167,7 @@ c ######################################################################
         use problem_def
 
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
-     .            ,heta=0d0,c_hyper,beta=1d-3
+     .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref
 
         real(8) :: aa_eta,bb_eta,cc_eta
      .            ,aa_nu ,bb_nu ,cc_nu
@@ -175,9 +175,10 @@ c ######################################################################
      .            ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
         logical :: lagrangian=.false.     !Whether we perform Lagrangian step for Te
-     .            ,spitzer=.false.        !Whether we are using Spitzer resistivity
-     .            ,fixed_spitzer=.false.  !Whether we are fixing the T to T_0
-     .            ,lagged_spitzer=.false. !Whether we are lagging T to T_n
+     .            ,spitzer   =.false.     !Whether we are using Spitzer resistivity
+     .            ,fixed_Te  =.false.     !Whether we are fixing the T to T_0
+     .            ,lagged_Te =.false.     !Whether we are lagging T to T_n
+     .            ,chi_bgnskii =.false.   !Whether we are using Braginskii conductivities
 
       contains
 
@@ -218,7 +219,7 @@ c     End program
 
 c     res_spitzer
 c     #############################################################
-      function res_spitzer(te) result(res)
+      function res_spitzer(te,te0) result(res)
 c     -------------------------------------------------------------
 c     This function computes the Spitzer resistivity for ELECTRON
 c     temperature value te.
@@ -228,7 +229,7 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: eta0,res,te
+      real(8) :: eta0,res,te,te0
 
 c     Local variables
 
@@ -237,7 +238,7 @@ cc      real(8) :: f0=0d0 ! Daniele, 02/07/2014
 c     Begin program
 
 cc      res = eta*((1+f0)/(abs(te)+f0*beta))**(1.5)
-      res = (abs(te))**(-1.5)
+      res = (abs(te/te0))**(-1.5)
 
 c     End program
 
@@ -269,9 +270,9 @@ c     End program
 
       end function vis_def
 
-c     chi_brag
+c     chi_perp_brag
 c     #############################################################
-      function chi_brag(te) result(dfvty)
+      function chi_perp_brag(te,rho,b2,te0) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the perpendicular heat transport
 c     diffusivity for ELECTRON temperature value te.
@@ -281,22 +282,21 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: dfvty,te
+      real(8) :: dfvty,te,rho,b2,te0
 
 c     Local variables
 
 c     Begin program
 
-      dfvty = 1d0
-cc      dfvty = (abs(te))**(-1.5)
+      dfvty = sqrt(abs(te0/te))*rho*rho/b2
 
 c     End program
       
-      end function chi_brag
+      end function chi_perp_brag
 
 c     chi_par_brag
 c     #############################################################
-      function chi_par_brag(te) result(dfvty)
+      function chi_par_brag(te,te0) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the parallel heat transport diffusivity
 c     for ELECTRON temperature value te.
@@ -306,14 +306,13 @@ c     -------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: dfvty,te
+      real(8) :: dfvty,te,te0
 
 c     Local variables
 
 c     Begin program
 
-      dfvty = 1d0
-cc      dfvty = (abs(te))**(-1.5)
+      dfvty = (abs(te/te0))**(2.5)
 
 c     End program
 
@@ -681,10 +680,10 @@ c     Setup pointers
         vaux%var_list(INU )%descr = 'nu'
         nuu  => vaux%var_list(INU )%array
 
-        vaux%var_list(ICHI)%descr = 'chi'
+        vaux%var_list(ICHI)%descr = 'chi perp'
         cchi => vaux%var_list(ICHI)%array
 
-        vaux%var_list(ICHIPAR)%descr = 'chi'
+        vaux%var_list(ICHIPAR)%descr = 'chi par'
         cchi_par => vaux%var_list(ICHIPAR)%array
 
 cc        vaux%vec_list(IVSCNV)%cnv   = .true.
@@ -1090,20 +1089,39 @@ c     Current variables
       vaux%var_list(ITMPE_AUX)%bc_dep_list(3,3) = 0 !trivial
 
       !Eta
-cc      vaux%var_list(IETA)%bc_dep_list(1,1) = ITMPE_AUX*AUX
       vaux%var_list(IETA)%bc_dep_list(1,1) = IETA_0*AUX
       vaux%var_list(IETA)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(IETA)%bc_dep_list(1,3) = 0 !trivial
 
+      vaux%var_list(IETA)%bc_dep_list(2,1) = ITMPE_AUX*AUX
+      vaux%var_list(IETA)%bc_dep_list(2,2) = SCALAR
+      vaux%var_list(IETA)%bc_dep_list(2,3) = 0 !trivial
+
       !Chi
-      vaux%var_list(ICHI)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%bc_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(ICHI)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ICHI)%bc_dep_list(1,3) = 0 !trivial
 
+      vaux%var_list(ICHI)%bc_dep_list(2,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%bc_dep_list(2,2) = SCALAR
+      vaux%var_list(ICHI)%bc_dep_list(2,3) = 0 !trivial
+
+      vaux%var_list(ICHI)%bc_dep_list(3,1) = IRHO_AUX*AUX
+      vaux%var_list(ICHI)%bc_dep_list(3,2) = SCALAR
+      vaux%var_list(ICHI)%bc_dep_list(3,3) = 0 !trivial
+
+      vaux%var_list(ICHI)%bc_dep_list(4,1) = IBCNV*AUX
+      vaux%var_list(ICHI)%bc_dep_list(4,2) = VECTOR
+      vaux%var_list(ICHI)%bc_dep_list(4,3) = 0 !trivial
+
       !Chipar
-      vaux%var_list(ICHIPAR)%bc_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHIPAR)%bc_dep_list(1,1) = ICHI*AUX
       vaux%var_list(ICHIPAR)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ICHIPAR)%bc_dep_list(1,3) = 0 !trivial
+
+c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,1) = ITMPE_AUX*AUX
+c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,2) = SCALAR
+c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,3) = 0 !trivial
 
 #if defined(vec_pot)
       !A cov
@@ -1529,12 +1547,24 @@ c     Current variables
       vaux%var_list(IETA)%dom_dep_list(1,3) = 0 !trivial
 
       !Chi
-      vaux%var_list(ICHI)%dom_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%dom_dep_list(1,1) = ITMPE_0*AUX
       vaux%var_list(ICHI)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ICHI)%dom_dep_list(1,3) = 0 !trivial
 
+      vaux%var_list(ICHI)%dom_dep_list(2,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHI)%dom_dep_list(2,2) = SCALAR
+      vaux%var_list(ICHI)%dom_dep_list(2,3) = 0 !trivial
+
+      vaux%var_list(ICHI)%dom_dep_list(3,1) = IRHO_AUX*AUX
+      vaux%var_list(ICHI)%dom_dep_list(3,2) = SCALAR
+      vaux%var_list(ICHI)%dom_dep_list(3,3) = 0 !trivial
+
+      vaux%var_list(ICHI)%dom_dep_list(4,1) = IBCNV*AUX
+      vaux%var_list(ICHI)%dom_dep_list(4,2) = VECTOR
+      vaux%var_list(ICHI)%dom_dep_list(4,3) = 0 !trivial
+
       !Chi
-      vaux%var_list(ICHIPAR)%dom_dep_list(1,1) = ITMPE_AUX*AUX
+      vaux%var_list(ICHIPAR)%dom_dep_list(1,1) = ICHI*AUX
       vaux%var_list(ICHIPAR)%dom_dep_list(1,2) = SCALAR
       vaux%var_list(ICHIPAR)%dom_dep_list(1,3) = 0 !trivial
 
@@ -4416,7 +4446,7 @@ c ######################################################################
 
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
-        real(8) :: eq_params(6),te0_ref
+        real(8) :: eq_params(6)
 
         character(3) :: efit_coords='tor'
         
@@ -7178,8 +7208,8 @@ c     Local variables
 
 c     Begin program
 
-      if (spitzer.or.fixed_spitzer.or.lagged_spitzer) then
-        rsvty = min(eta*res_spitzer(field/te0_ref),1d-1)
+      if (spitzer) then
+        rsvty = min(eta*res_spitzer(field,te0_ref),1d-1)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -7466,7 +7496,7 @@ c     End
 
 c     chi_perp_ijk
 c     #################################################################
-      function chi_perp_ijk(g_def,i,j,k,igrid,field) result(dfvty)
+      function chi_perp_ijk(g_def,i,j,k,igrid,te,rho,bcnv) result(dfvty)
 c     -----------------------------------------------------------------
 c     This function computes the local value of the heat diffusivity on
 c     the node (i,j,k) of grid igrid according to field.
@@ -7477,19 +7507,21 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer :: i,j,k,igrid
-      real(8) :: field,dfvty
+      real(8) :: te,rho,bcnv(3),dfvty
       type(grid_mg_def),pointer :: g_def
 
 c     Local variables
 
+      real(8) :: b2
 ! Daniele, 02/07/2014
       integer :: ig,jg,kg
       real(8) :: rr,th,zz
 
 c     Begin program
 
-      if (spitzer) then
-        dfvty = chi*chi_brag(field/te0_ref)
+      if (chi_bgnskii) then
+        b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
+        dfvty = chi*chi_perp_brag(te,rho,b2,te0_ref)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -7506,7 +7538,7 @@ c     End program
 
 c     chi_perp_mesh
 c     #############################################################
-      function chi_perp_mesh(g_def,igrid,field) result(dfvty)
+      function chi_perp_mesh(g_def,igrid,te,rho,bcnv) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the diffusivity on the grid level
 c     igrid.
@@ -7519,10 +7551,10 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igrid
-      real(8) :: field(0:,0:,0:)
-      real(8) :: dfvty(0:size(field,1)-1
-     .                ,0:size(field,2)-1
-     .                ,0:size(field,3)-1)
+      real(8) :: te(0:,0:,0:),rho(0:,0:,0:),bcnv(0:,0:,0:,:)
+      real(8) :: dfvty(0:size(te,1)-1
+     .                ,0:size(te,2)-1
+     .                ,0:size(te,3)-1)
 
 c     Local variables
 
@@ -7530,14 +7562,15 @@ c     Local variables
 
 c     Begin program
 
-      nx = size(field,1)-2
-      ny = size(field,2)-2
-      nz = size(field,3)-2
+      nx = size(te,1)-2
+      ny = size(te,2)-2
+      nz = size(te,3)-2
 
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
-            dfvty(i,j,k)=chi_perp_ijk(g_def,i,j,k,igrid,field(i,j,k))
+            dfvty(i,j,k)=chi_perp_ijk(g_def,i,j,k,igrid,te(i,j,k)
+     .                               ,rho(i,j,k),bcnv(i,j,k,:))
           enddo
         enddo
       enddo
@@ -7548,7 +7581,7 @@ c     End program
 
 c     chi_par_ijk
 c     #################################################################
-      function chi_par_ijk(g_def,i,j,k,igrid,field) result(dfvty)
+      function chi_par_ijk(g_def,i,j,k,igrid,te,chi_per) result(dfvty)
 c     -----------------------------------------------------------------
 c     This function computes the local value of the heat diffusivity on
 c     the node (i,j,k) of grid igrid according to field.
@@ -7559,19 +7592,15 @@ c     -----------------------------------------------------------------
 c     Call variables
 
       integer :: i,j,k,igrid
-      real(8) :: field,dfvty
+      real(8) :: te,dfvty,chi_per
       type(grid_mg_def),pointer :: g_def
 
 c     Local variables
 
-! Daniele, 02/07/2014
-      integer :: ig,jg,kg
-      real(8) :: rr,th,zz
-
 c     Begin program
 
-      if (spitzer) then
-        dfvty = chi_par*chi_par_brag(field/te0_ref)
+      if (chi_bgnskii) then
+        dfvty = max(chi_par*chi_par_brag(te,te0_ref),chi_per)
       else
 c$$$        select case (equil)
 c$$$        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -7588,7 +7617,7 @@ c     End program
 
 c     chi_par_mesh
 c     #############################################################
-      function chi_par_mesh(g_def,igrid,field) result(dfvty)
+      function chi_par_mesh(g_def,igrid,te,chi) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the diffusivity on the grid level
 c     igrid.
@@ -7601,10 +7630,10 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igrid
-      real(8) :: field(0:,0:,0:)
-      real(8) :: dfvty(0:size(field,1)-1
-     .                ,0:size(field,2)-1
-     .                ,0:size(field,3)-1)
+      real(8) :: te(0:,0:,0:),chi(0:,0:,0:)
+      real(8) :: dfvty(0:size(te,1)-1
+     .                ,0:size(te,2)-1
+     .                ,0:size(te,3)-1)
 
 c     Local variables
 
@@ -7612,14 +7641,15 @@ c     Local variables
 
 c     Begin program
 
-      nx = size(field,1)-2
-      ny = size(field,2)-2
-      nz = size(field,3)-2
+      nx = size(te,1)-2
+      ny = size(te,2)-2
+      nz = size(te,3)-2
 
       do k=0,nz+1
         do j=0,ny+1
           do i=0,nx+1
-            dfvty(i,j,k)=chi_par_ijk(g_def,i,j,k,igrid,field(i,j,k))
+            dfvty(i,j,k)=chi_par_ijk(g_def,i,j,k,igrid,te(i,j,k)
+     .                              ,chi(i,j,k))
           enddo
         enddo
       enddo

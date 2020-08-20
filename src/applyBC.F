@@ -359,11 +359,11 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi    = chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHIPAR)
 
-          cchi_par= chi_para(gv%gparams,igr,tmpe)
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(INU)
 
@@ -920,8 +920,8 @@ c Select variable
             tmpe_0 = 0d0
           end where
 
-          !Reference temperature for Spitzer resistivity
-          if (spitzer) then
+          !Reference temperature for transport parameters
+          if (spitzer.or.chi_bgnskii) then
             te0_ref = maxval(tmpe_0)
 
 #if defined(petsc)
@@ -980,9 +980,9 @@ c       Viscosity (needed for BCs; may depend on T)
 c       Resistivity (needed for BCs; may depend on T)
  
 cc          eeta= res(gv%gparams,igr,tmpe)
-          if (fixed_spitzer) then
+          if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_spitzer) then
+          elseif (lagged_Te) then
             eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
           else
             eeta= res(gv%gparams,igr,tmpe)
@@ -990,11 +990,11 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(ICHI)
 
-          cchi    = chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHIPAR)
 
-          cchi_par= chi_para(gv%gparams,igr,tmpe)
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(IHETA)
 
@@ -1518,9 +1518,9 @@ c       Viscosity (needed for BCs; may depend on T)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-          if (fixed_spitzer) then
+          if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
-          elseif (lagged_spitzer) then
+          elseif (lagged_Te) then
             eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac/a_p)
           else
             eeta= res(gv%gparams,igr,tmpe)
@@ -1530,13 +1530,13 @@ c       Resistivity (needed for BCs; may depend on T)
 
 c       Perpendicular heat diffusivity (may depend on T)
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi= chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHIPAR)
 
 c       Parallel heat diffusivity (may depend on T)
 
-          cchi_par= chi_para(gv%gparams,igr,tmpe)
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(IHETA)
 
