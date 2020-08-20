@@ -63,7 +63,7 @@ c Namelists
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_spitzer,lagged_spitzer
+     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
@@ -114,7 +114,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
-     .                   ,spitzer,fixed_spitzer,lagged_spitzer
+     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
@@ -487,8 +487,8 @@ c     #####################################################################
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
-      fixed_spitzer =.false.   ! Whether we are fixing the T to T_0
-      lagged_spitzer=.false.   ! Whether we are lagging T to T_n
+      fixed_Te = .false.       ! Whether we are fixing the T to T_0
+      lagged_Te= .false.       ! Whether we are lagging T to T_n
 
       gamma    = 5./3.         ! Polytropic constant of plasma
 

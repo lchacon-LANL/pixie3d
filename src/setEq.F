@@ -3080,7 +3080,7 @@ c       Find global-mesh radial positions and increments
         !Resistivity profile (integer mesh)
         do i=1,nxdp
           if (spitzer) then
-            eta0(i) = res_spitzer(p0(i)/p0(1))
+            eta0(i) = res_spitzer(p0(i),p0(1))
           else
             eta0(i) = res_rfx(rg(i))
           endif
@@ -3429,8 +3429,7 @@ c       Iteration
           !Luis, 11/15/2013, find resistivity profile
           if (spitzer) then
             do i=1,nxdp
-c$$$              etah(i) = res_spitzer(p0(i)/a_p)
-              etah(i) = res_spitzer(p0(i)/p0(1))
+              etah(i) = res_spitzer(p0(i),p0(1))
             enddo
 c$$$            etah0 = etah(1)
 c$$$            etah  = etah/etah0
@@ -3626,8 +3625,7 @@ c$$$     $         *(1.5*p0(nxdp)-2.*p0(nxd)+0.5*p0(nxd-1))/dr(nxd))
         !Recompute resistivity (Luis, 11/15/2013)
         if (spitzer) then
           do i=1,nxd
-c$$$            etah(i) = res_spitzer(p0(i)/a_p)
-            etah(i) = res_spitzer(p0(i)/p0(1))
+            etah(i) = res_spitzer(p0(i),p0(1))
           enddo
 c$$$          etah0 = etah(1)
 c$$$          etah  = etah/etah0
