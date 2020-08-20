@@ -349,13 +349,23 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-          call XferBCs(eeta_0,s0,.true.)
+c$$$          call XferBCs(eeta_0,s0,.true.)
+c$$$
+c$$$          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
+c$$$     .              ,vaux%var_list(IETA)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
-          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-     .              ,vaux%var_list(IETA)%bconds
-     .              ,igr,igr,igr,iorder=order)
+          if (fixed_Te) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_Te) then
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
 
-cc          eeta= res(gv%gparams,igr,tmpe)
+        case(IDFF)
+
+          dff     = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
@@ -367,20 +377,16 @@ cc          eeta= res(gv%gparams,igr,tmpe)
 
         case(INU)
 
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu =     vis(gv%gparams,igr,tmp)
-          endif
+          nuu     = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA_0)
 
-          eeta_0=res(gv%gparams,igr,tmpe_0)
+          eeta_0  = res(gv%gparams,igr,tmpe_0)
 
         case(IHETA)
 
 cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
-          h_eta=hres(gv%gparams,igr,bcnv_0,rho)
+          h_eta   = hres(gv%gparams,igr,bcnv_0,rho)
 
         case(IRHO_0)
 
@@ -969,17 +975,12 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
 
 c       Viscosity (needed for BCs; may depend on T)
  
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu = vis(gv%gparams,igr,tmp)
-          endif
+          nuu = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-cc          eeta= res(gv%gparams,igr,tmpe)
           if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_Te) then
@@ -987,6 +988,10 @@ cc          eeta= res(gv%gparams,igr,tmpe)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
+
+        case(IDFF)
+
+          dff     = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
@@ -1508,11 +1513,7 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
 
 c       Viscosity (needed for BCs; may depend on T)
  
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu = vis(gv%gparams,igr,tmp)
-          endif
+          nuu = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA)
 
@@ -1525,16 +1526,22 @@ c       Resistivity (needed for BCs; may depend on T)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
+          
+        case(IDFF)
+
+c       Particle diffusivity
+
+          dff = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
-c       Perpendicular heat diffusivity (may depend on T)
+c       Perpendicular heat diffusivity
 
           cchi= chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHIPAR)
 
-c       Parallel heat diffusivity (may depend on T)
+c       Parallel heat diffusivity
 
           cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 

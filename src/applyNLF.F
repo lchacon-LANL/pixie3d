@@ -131,7 +131,7 @@ c Rho <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         advc = rho_advc(i,j,k)
 
         if ((.not.source_eval).and.(dd /= 0d0)) then
-          diffus = dd*lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,rho)
+          diffus =lap(gv%gparams,i,j,k,nx,ny,nz,igx,igy,igz,rho,dff=dff)
         else
           diffus = 0d0
         endif
