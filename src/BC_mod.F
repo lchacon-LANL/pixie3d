@@ -16,10 +16,10 @@ c####################################################################
 
         use nlfunction_setup, ONLY: res,chi_perp,chi_para,vis,ion_hall
      .                             ,E_fld_res_A,E_fld_res_B,E_fld_ihall
-     .                             ,E_fld_ehall,EOM_divPi,hres
+     .                             ,E_fld_ehall,EOM_divPi,hres,diff_mesh
      .                             ,nc_eom_v,nc_eom_jxb
      .                             ,pinch_flow,sym_st,subtract_E0
-     .                             ,res_ijk,vis_ijk,form_ve,solenoidal
+     .                             ,form_ve,solenoidal
 
         use xdraw_io
 

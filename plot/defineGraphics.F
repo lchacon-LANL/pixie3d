@@ -479,72 +479,75 @@ c Define graphics group #4: Diagnostics
 #endif
       graph(4)%descr='Diagnostics'
 
-      graph(4)%array_graph(1)%array => nuu
-      graph(4)%array_graph(1)%descr = 'nu'
+      graph(4)%array_graph(1)%array => dff
+      graph(4)%array_graph(1)%descr = 'diff'
 
-      graph(4)%array_graph(2)%array => eeta
-      graph(4)%array_graph(2)%descr = 'eta'
+      graph(4)%array_graph(2)%array => nuu
+      graph(4)%array_graph(2)%descr = 'nu'
 
-      graph(4)%array_graph(3)%array => cchi
-      graph(4)%array_graph(3)%descr = 'chi perp'
+      graph(4)%array_graph(3)%array => eeta
+      graph(4)%array_graph(3)%descr = 'eta'
 
-      graph(4)%array_graph(4)%array => cchi_par
-      graph(4)%array_graph(4)%descr = 'chi par'
+      graph(4)%array_graph(4)%array => cchi
+      graph(4)%array_graph(4)%descr = 'chi perp'
 
-      graph(4)%array_graph(5)%array => divrgB
-      graph(4)%array_graph(5)%descr = 'local div(B)'
+      graph(4)%array_graph(5)%array => cchi_par
+      graph(4)%array_graph(5)%descr = 'chi par'
 
-      graph(4)%array_graph(6)%array => divrgV
-      graph(4)%array_graph(6)%descr = 'local div(V)'
+      graph(4)%array_graph(6)%array => divrgB
+      graph(4)%array_graph(6)%descr = 'local div(B)'
 
-      graph(4)%array_graph(7)%array => divrgJ
-      graph(4)%array_graph(7)%descr = 'local div(J)'
+      graph(4)%array_graph(7)%array => divrgV
+      graph(4)%array_graph(7)%descr = 'local div(V)'
 
-      graph(4)%array_graph(8)%array => Pflux
-      graph(4)%array_graph(8)%descr = 'Poloidal flux'
+      graph(4)%array_graph(8)%array => divrgJ
+      graph(4)%array_graph(8)%descr = 'local div(J)'
 
-      graph(4)%array_graph(9)%array => qfactor
-      graph(4)%array_graph(9)%descr = 'q factor'
+      graph(4)%array_graph(9)%array => Pflux
+      graph(4)%array_graph(9)%descr = 'Poloidal flux'
 
-      graph(4)%array_graph(10)%array => lambda
-      graph(4)%array_graph(10)%descr = 'lambda'
+      graph(4)%array_graph(10)%array => qfactor
+      graph(4)%array_graph(10)%descr = 'q factor'
 
-      graph(4)%array_graph(11)%array => tmp
-      graph(4)%array_graph(11)%descr = 'Temperature'
+      graph(4)%array_graph(11)%array => lambda
+      graph(4)%array_graph(11)%descr = 'lambda'
 
-      graph(4)%array_graph(12)%array => vpar
-      graph(4)%array_graph(12)%descr = 'V||'
+      graph(4)%array_graph(12)%array => tmp
+      graph(4)%array_graph(12)%descr = 'Temperature'
 
-      graph(4)%array_graph(13)%array => vpsi
-      graph(4)%array_graph(13)%descr = 'V.grad(psi)'
+      graph(4)%array_graph(13)%array => vpar
+      graph(4)%array_graph(13)%descr = 'V||'
 
-      graph(4)%array_graph(14)%array => vperp
-      graph(4)%array_graph(14)%descr = 'V.(b x grad(psi))'
+      graph(4)%array_graph(14)%array => vpsi
+      graph(4)%array_graph(14)%descr = 'V.grad(psi)'
+
+      graph(4)%array_graph(15)%array => vperp
+      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
-        graph(4)%array_graph(15)%array => jpar
-        graph(4)%array_graph(15)%descr = 'Eh_1'
+        graph(4)%array_graph(16)%array => jpar
+        graph(4)%array_graph(16)%descr = 'Eh_1'
 
-        graph(4)%array_graph(16)%array => jpsi
-        graph(4)%array_graph(16)%descr = 'Eh_2'
+        graph(4)%array_graph(17)%array => jpsi
+        graph(4)%array_graph(17)%descr = 'Eh_2'
 
-        graph(4)%array_graph(17)%array => jperp
-        graph(4)%array_graph(17)%descr = 'Eh_3'
+        graph(4)%array_graph(18)%array => jperp
+        graph(4)%array_graph(18)%descr = 'Eh_3'
       else
-        graph(4)%array_graph(15)%array => jpar
-        graph(4)%array_graph(15)%descr = 'E_1'
+        graph(4)%array_graph(16)%array => jpar
+        graph(4)%array_graph(16)%descr = 'E_1'
 
-        graph(4)%array_graph(16)%array => jpsi
-        graph(4)%array_graph(16)%descr = 'E_2'
+        graph(4)%array_graph(17)%array => jpsi
+        graph(4)%array_graph(17)%descr = 'E_2'
 
-        graph(4)%array_graph(17)%array => jperp
-        graph(4)%array_graph(17)%descr = 'E_3'
+        graph(4)%array_graph(18)%array => jperp
+        graph(4)%array_graph(18)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(18)%array => heat_src
-      graph(4)%array_graph(18)%descr = 'Int. heat src'
+      graph(4)%array_graph(19)%array => heat_src
+      graph(4)%array_graph(19)%descr = 'Int. heat src'
 
-      graph(4)%array_graph(19:ngraph)%descr = ''
+      graph(4)%array_graph(20:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
