@@ -314,7 +314,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acnv_n
 
-      real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
+      real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1,jac
 
       logical :: pinch_bc
       
@@ -331,6 +331,8 @@ c Local grid sizes
       nnx = gv%gparams%nxv(igr) 
       nny = gv%gparams%nyv(igr)
       nnz = gv%gparams%nzv(igr)
+
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c Select variable
 
