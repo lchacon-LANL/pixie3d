@@ -351,7 +351,7 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if ((chi /= 0d0).and.(gamma > 1d0)) then
+            if ((chi /= 0d0).and.(gamma > 1d0).and.(chi_par==0d0)) then
               if (use_p_diff) then
                 heat_flx = -lap_flx_x_ijk(gv%gparams,i,j,k,igr,prs
      .                                   ,diff=cchi)
@@ -505,7 +505,7 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if ((chi /= 0d0).and.(gamma > 1d0)) then
+            if ((chi /= 0d0).and.(gamma > 1d0).and.(chi_par==0d0)) then
               if (use_p_diff) then
                 heat_flx = -lap_flx_y_ijk(gv%gparams,i,j,k,igr,prs
      .                                   ,diff=cchi)
@@ -657,7 +657,7 @@ c Begin program
 #endif
 
             !Temperature <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-            if ((chi /= 0d0).and.(gamma > 1d0)) then
+            if ((chi /= 0d0).and.(gamma > 1d0).and.(chi_par==0d0)) then
               if (use_p_diff) then
                 heat_flx = -lap_flx_z_ijk(gv%gparams,i,j,k,igr,prs
      .                                   ,diff=cchi)

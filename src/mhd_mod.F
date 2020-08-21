@@ -5094,16 +5094,17 @@ c$$$      endif
 
       !Heat transport term
       if (gamma > 1d0) then
-c$$$#if !defined(flux_rhs)
-c$$$        if (chi /= 0d0) then
-c$$$          if (use_p_diff) then  !Total pressure
-c$$$            heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
-c$$$          else                  !see above for temperature def
-c$$$            heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
-c$$$          endif
-c$$$        endif
-c$$$#endif
-c$$$
+        if (chi_par == 0d0) then
+#if !defined(flux_rhs)
+          if (chi /= 0d0) then
+            if (use_p_diff) then !Total pressure
+              heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
+            else                 !see above for temperature def
+              heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
+            endif
+          endif
+#endif
+        else
 c$$$        if (chi_par > chi.and.(.not.lagrangian)) then
 c$$$          heat_xport = heat_xport
 c$$$     .       -(cchi_par(i,j,k)-cchi(i,j,k))
@@ -5112,17 +5113,18 @@ c$$$     .                        ,"dutoit",vol=.false.,bcs=bc
 c$$$     .                        ,advc_mthd=SMART)
 c$$$        endif
 
-        allocate(dum1(0:nx+1,0:ny+1,0:nz+1,1)
-     .          ,dum2(0:nx+1,0:ny+1,0:nz+1,1))
-        dum1(:,:,:,1) = cchi_par
-        dum2(:,:,:,1) = cchi
-        chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
-        heat_xport =-tnsr_diff(gv%gparams,igr,tmp
+          allocate(dum1(0:nx+1,0:ny+1,0:nz+1,1)
+     .            ,dum2(0:nx+1,0:ny+1,0:nz+1,1))
+          dum1(:,:,:,1) = cchi_par
+          dum2(:,:,:,1) = cchi
+          chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
+          heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
      .                    ,varray%array_var(IPRS)%bconds,chi_tnsr
      .                    ,2,.true.,limit_mthd=SMART)
-        deallocate(dum1,dum2)
+          deallocate(dum1,dum2)
+        endif
       endif
-
+      
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
         do k=1,nz

@@ -3,8 +3,13 @@ EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
 EXECA        = $(BASE)_a-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
 CODE         = $(EXEC).x
 A_CODE       = $(EXECA).x
-PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
-PETSC_A_CODE = $(EXECA)-adios-$(ADIOS_VER).petsc.x
+ifdef ADIOS_VER
+  PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
+  PETSC_A_CODE = $(EXECA)-adios-$(ADIOS_VER).petsc.x
+else
+  PETSCCODE    = $(EXEC)-posix.petsc.x
+  PETSC_A_CODE = $(EXECA)-posix.petsc.x
+endif
 SAMRAICODE   = $(EXEC).samrai.x
 
 MODS := mhd_mod.F BC_mod.F PC_mod.F B_tools_mod.F
