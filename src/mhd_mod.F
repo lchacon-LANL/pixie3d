@@ -1166,10 +1166,6 @@ c     Current variables
       vaux%var_list(ICHIPAR)%bc_dep_list(1,2) = SCALAR
       vaux%var_list(ICHIPAR)%bc_dep_list(1,3) = 0 !trivial
 
-c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,1) = ITMPE_AUX*AUX
-c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,2) = SCALAR
-c$$$      vaux%var_list(ICHIPAR)%bc_dep_list(2,3) = 0 !trivial
-
 #if defined(vec_pot)
       !A cov
       vaux%vec_list(IACOV)%bc_dep_list(1,1) = IBCOV_0*AUX
