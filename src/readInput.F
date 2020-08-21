@@ -81,6 +81,7 @@ c Namelists
      .                   ,mg_ores,mg_oprol,mg_coarse_solve,mgcf
      .                   ,pc_gm_driver,mg_coarse_size
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
+     .                   ,trestart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
      .                   ,limit_dt_flow_cfl,ts_ramp_up_dt
@@ -136,7 +137,8 @@ c Namelists
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
-     .                   ,limit_dt_flow_cfl,restart,ts_ramp_up_dt
+     .                   ,restart,trestart,limit_dt_flow_cfl
+     .                   ,ts_ramp_up_dt
      .                   ,ts_ramp_up_dt_fraction,ts_ramp_up_dt_recovery
 
       !Newton-Krylov
