@@ -445,6 +445,10 @@ c     Begin program
       varray%array_var(IRHO)%dom_dep_list(2,2) = VECTOR
       varray%array_var(IRHO)%dom_dep_list(2,3) = 1 !non-trivial
 
+      varray%array_var(IRHO)%dom_dep_list(3,1) = IDFF*AUX
+      varray%array_var(IRHO)%dom_dep_list(3,2) = SCALAR
+      varray%array_var(IRHO)%dom_dep_list(3,3) = 1 !non-trivial
+
       !Tmp
       varray%array_var(IPRS)%dom_dep_list(1,1) = ITMP_AUX*AUX
       varray%array_var(IPRS)%dom_dep_list(1,2) = SCALAR

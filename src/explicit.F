@@ -29,8 +29,8 @@ c Local variables
       real(8) :: dxx,dyy,dzz,diffmax,eta2,nu2,bnorm,norm,vnorm
       real(8) :: k2,k2max,kv_par,kb_par2,kbp2max,w_cfl,w_cour
      .          ,cs2,ca2,tmp_max,roots(3)
-      real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,lmaxv(8),maxv(8)
-     .          ,etamax,numax,chimax,hetamax,chiparmax
+      real(8) :: x1,x2,x3,idx,idy,idz,vxx,vyy,vzz,lmaxv(9),maxv(9)
+     .          ,etamax,numax,chimax,hetamax,chiparmax,ddmax
 
       character(7) :: exp_cfl_type
 
@@ -102,10 +102,9 @@ c Calculate CFL
             cs2 = gamma*tmp(i,j,k)
 
             !Find CFL frequency
-            !roots = icfl(cs2,ca2,k2,kb_par2,di)
-            !w_cfl=max(maxval(roots)+kv_par,w_cfl)
-            w_cfl = 0
-
+            roots = icfl(cs2,ca2,k2,kb_par2,di)
+            w_cfl=max(maxval(roots)+kv_par,w_cfl)
+            !w_cfl = 0
           enddo
         enddo
       enddo
@@ -116,6 +115,8 @@ c Maximum value of transport coeffs
       numax   = maxval(nuu)
       hetamax = maxval(h_eta)
       chimax  = maxval(cchi)
+      chiparmax = maxval(cchi_par)
+      ddmax   = maxval(dff)
       
 c Synchronize w_cfl among all processors
 
@@ -126,8 +127,10 @@ c Synchronize w_cfl among all processors
       lmaxv(4) = etamax
       lmaxv(5) = numax
       lmaxv(6) = hetamax
-      lmaxv(7) = chimax 
-      call MPI_Allreduce(lmaxv,maxv,8,MPI_DOUBLE_PRECISION
+      lmaxv(7) = chimax
+      lmaxv(8) = chiparmax
+      lmaxv(9) = ddmax
+      call MPI_Allreduce(lmaxv,maxv,9,MPI_DOUBLE_PRECISION
      .                  ,MPI_MAX,MPI_COMM_WORLD,mpierr)
       w_cfl  = maxv(1)
       kbp2max= maxv(2)
@@ -136,16 +139,18 @@ c Synchronize w_cfl among all processors
       numax  = maxv(5)
       hetamax= maxv(6)
       chimax = maxv(7)
+      chiparmax = maxv(8)
+      ddmax  = maxv(9)
 #endif
 
 c Calculate courant number
 
       if (.not.lagrangian) then
-        w_cour = max(etamax*k2max,numax*k2max,dd*k2max
+        w_cour = max(etamax*k2max,numax*k2max,ddmax*k2max
      .          ,chimax*k2max,di**2*k2max**2*hetamax
-     .          ,chi_par*kbp2max)
+     .          ,chiparmax*kbp2max)
       else
-        w_cour = max(etamax*k2max,numax*k2max,dd*k2max
+        w_cour = max(etamax*k2max,numax*k2max,ddmax*k2max
      .          ,chimax*k2max,di**2*k2max**2*hetamax)
       endif
 
