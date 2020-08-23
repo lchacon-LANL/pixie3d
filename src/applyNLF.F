@@ -831,8 +831,7 @@ c Begin program
                 cnv = crossProduct(gv%gparams,i,j,k,igr
      .                    ,jcov(i,j,k,:),bcov(i,j,k,:),.false.)
               else
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr
-     .                       ,bcnv,bcnv,proj_parcmp=.true.)
+                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igr,bcnv,bcnv)
               endif
 
               src(i,j,k,IVX:IVZ) = -cnv
