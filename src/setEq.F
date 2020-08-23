@@ -2990,7 +2990,7 @@ c       * p0: input presure profile
 c     On output:
 c       * bth0,bzz0 (output): magnetic field components (bzz0 contains
 c                    initial guess, and bzz0(0) contains value at axis)
-c       * vr0  (output): radial pinch flow
+c       * vr0  (output): radial pinch flow (normalized to resistivity)
 c       * psi0 (output): helical poloidal flux
 c     ---------------------------------------------------------------
 
@@ -3021,7 +3021,7 @@ c     Local variables
 
         real(8) :: dummy(0:nxdp),bth0_old(0:nxdp)
      .            ,bzz0_old(0:nxdp),xh(0:nxd),dr(0:nxd),rg(0:nxdp)
-     .            ,rl(nxl),drh(0:nxd),eta0(0:nxdp)
+     .            ,rl(nxl),drh(0:nxd),etap(0:nxdp)
 
         real(8) :: pprof
         external   pprof
@@ -3077,12 +3077,12 @@ c       Find global-mesh radial positions and increments
           bth0(i) = 0.5*xh(i)*Eoeta
         enddo
 
-        !Resistivity profile (integer mesh)
+        !Resistivity profile (eta/eta0, integer mesh)
         do i=1,nxdp
           if (spitzer) then
-            eta0(i) = res_spitzer(p0(i),p0(1))
+            etap(i) = res_spitzer(p0(i),p0(1))
           else
-            eta0(i) = res_rfx(rg(i))
+            etap(i) = res_rfx(rg(i))
           endif
         enddo
 
@@ -3114,7 +3114,7 @@ c       Iteration
             !Accumulate integral on half mesh
             dvol = 0.5*(xh(i)**2-xh(i-1)**2)
             dummy(i)=dummy(i-1)
-     .              +(Eoeta/eta0(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
+     .              +(Eoeta/etap(i)*bzh**2-bth*gp)/(bzh**2+bth**2)*dvol
 
             !Transform to Bth on half-mesh
             bth0(i) = dummy(i)/xh(i)
@@ -3139,7 +3139,7 @@ c       Iteration
 
             !Accumulate integral
             dummy(i) = dummy(i-1)
-     .               +(Eoeta/eta0(i)*bth+gp)/(bzh**2+bth**2)*dr(i)
+     .               +(Eoeta/etap(i)*bth+gp)/(bzh**2+bth**2)*dr(i)
           enddo
 
           !Transform to Bz
@@ -3211,7 +3211,7 @@ c       Iteration
           bth = 0.5*(bth0(i)+bth0(i-1))
           rh  = rg(i)
 
-          dummy(i) = Eoeta*bzh/eta0(i)
+          dummy(i) = Eoeta*bzh/etap(i)
      $              -bzh/rh*(bth0(i)*xh(i)-bth0(i-1)*xh(i-1))/dr(i)
      $              +bth*(bzz0(i)-bzz0(i-1))/dr(i)
         enddo
@@ -3284,15 +3284,15 @@ cc        eq_params(3) = q0h(nxd)/gv%gparams%params(3)  !q(r=a)
             gp = (p0(i)-p0(i-1))/dx1
           endif
 
-          vr0(i) = -(Eoeta*bth0(i)+eta0(i)*gp)/(bzz0(i)**2+bth0(i)**2)
+          vr0(i) = -(Eoeta*bth0(i)+etap(i)*gp)/(bzz0(i)**2+bth0(i)**2)
         enddo
 
         !i=0
         vr0(0) = -vr0(1)
 
         !Dump equilibrium for eigen code
-        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=eta0,vr0=vr0) !Note:eta0->eta0/eta, vr0->vr0/eta
-          
+        call dump_1d_eq(rg,bth0,bzz0,p0,eta0=etap,vr0=vr0) !Note:etap->eta/eta0, vr0->vr0/eta0
+
 #if defined(RFX)
         if (my_rank == 0.and.(.not.test)) then
           write (*,*) 'r,bth0,bzz0,q0,vr0,p0'
@@ -3333,7 +3333,7 @@ c     ---------------------------------------------------------------
 
         use equilibrium
 
-        use nlfunction_setup, ONLY: res_rfx,eta,gamma,chi_rfx
+        use nlfunction_setup, ONLY: res_rfx,eta,chi,gamma,chi_rfx
      .                             ,res_spitzer,spitzer,a_p
 ! Daniele, 12 Nov. 2014
      .                             ,ext_heat_src_prof

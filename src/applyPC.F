@@ -1265,22 +1265,22 @@ c Local variables
       integer    :: i,j,k,ii,isig,iig,ivar,ip,im,nx,ny,nz
       real(8)    :: cov(3),cnv(3),idx,idy,idz,dvol,nabla_v(3,3)
      .             ,nabla_vv0(3,3),mul,vlap(3),advc(3),jac
-      real(8),allocatable,dimension(:,:,:,:),target :: dj_cnv
-     .                                                ,dj_cov
-     .                                                ,db_cnv
-     .                                                ,db_cov
-     .                                                ,dv_cnv
-     .                                                ,v0
-     .                                                ,E_0
-     .                                                ,dp_cnv
-     .                                                ,dve_cnv
-     .                                                ,dve_cov
-     .                                                ,dvef_cnv
-     .                                                ,dE_cnv
-     .                                                ,drho  
-     .                                                ,dprs  
+      real(8),pointer,dimension(:,:,:,:) :: dj_cnv
+     .                                     ,dj_cov
+     .                                     ,db_cnv
+     .                                     ,db_cov
+     .                                     ,dv_cnv
+     .                                     ,v0
+     .                                     ,E_0
+     .                                     ,dp_cnv
+     .                                     ,dve_cnv
+     .                                     ,dve_cov
+     .                                     ,dvef_cnv
+     .                                     ,dE_cnv
+     .                                     ,drho  
+     .                                     ,dprs  
 #if defined(vec_pot)
-     .                                                ,da_cov                           
+     .                                     ,da_cov                           
 #endif
 
       real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
