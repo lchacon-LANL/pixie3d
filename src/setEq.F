@@ -3403,10 +3403,10 @@ c       Initialize iteration
           xh(i) = 0.5*(gv%gparams%xg(i+1)+gv%gparams%xg(i))
 ! Daniele, 02/07/2014
 c$$$!          chih(i)=chi*(1.-(1.-1d-2)*sin(pi*xh(i)/1.75))
-c$$$          chih(i)=chi_rfx(xh(i))
+c$$$          chih(i)=chi*chi_rfx(xh(i))
 ! Luis 04/15/2014, to mimic what is done in PIXIE3D
-          chih(i)=0.5*(chi_rfx(gv%gparams%xg(i+1))
-     $                +chi_rfx(gv%gparams%xg(i  )))
+          chih(i)=0.5*chi*(chi_rfx(gv%gparams%xg(i+1))
+     $                    +chi_rfx(gv%gparams%xg(i  )))
         enddo
 
         !Initial guess for B_theta (defined in half mesh)
@@ -3677,9 +3677,9 @@ c$$$          etah  = etah/etah0
           rhp = gv%gparams%xg(i+1)
 
 ! Daniele, 02/07/2014
-          chirh =chi_rfx(rh)
-          chirhm=chi_rfx(rhm)
-          chirhp=chi_rfx(rhp)
+          chirh =chi*chi_rfx(rh)
+          chirhm=chi*chi_rfx(rhm)
+          chirhp=chi*chi_rfx(rhp)
 
 ! Daniele, 11/10/2013
           dummy(i) =

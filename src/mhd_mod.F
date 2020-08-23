@@ -5299,13 +5299,12 @@ c     Call variables
 
         integer    :: i,j,k,nx,ny,nz,igrid
         real(8)    :: cnv(3)
-        real(8),target :: b1(0:nx+1,0:ny+1,0:nz+1,3)
-     $                   ,b2(0:nx+1,0:ny+1,0:nz+1,3)
+        real(8),pointer,dimension(:,:,:,:) :: b1,b2
         logical,optional,intent(IN) :: vol,proj_parcmp
 
 c     Local variables
 
-        logical    :: vol_wgt,project
+        logical    :: project
         real(8)    :: bbcov(3),mag
 
 c     Begin program
@@ -5317,7 +5316,7 @@ c     Begin program
         vec2 => b2
         cnv =-div_tensor(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid
      .                  ,alt__eom(),eom_jxb_x,eom_jxb_y,eom_jxb_z
-     .                  ,vol=vol_wgt)
+     .                  ,vol=vol)
         nullify(vec1,vec2)
 
         !Project out parallel force (destroys conservation)
@@ -7672,7 +7671,7 @@ c     Begin program
 c$$$        select case (equil)
 c$$$        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
 c$$$          call find_polar_coords(g_def,igrid,i,j,k,rr,th,zz,coords)
-c$$$          dfvty = chi_rfx(rr)
+c$$$          dfvty = chi_par*chi_rfx(rr)
 c$$$        case default
           dfvty = chi_par
 c$$$        end select
