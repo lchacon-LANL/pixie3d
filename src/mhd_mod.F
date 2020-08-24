@@ -4502,8 +4502,6 @@ c ######################################################################
 
         use mg_solver
 
-        use par_int, ONLY: find_polar_coords
-
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
         real(8) :: eq_params(6)
@@ -7250,8 +7248,6 @@ c     -----------------------------------------------------------------
 c     This function computes the local value of the resistivity on the
 c     node (i,j,k) of grid igrid according to field.
 c     -----------------------------------------------------------------
-
-        use par_int, ONLY: find_polar_coords
 
       implicit none
 
