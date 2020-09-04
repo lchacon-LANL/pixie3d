@@ -2506,7 +2506,7 @@ c     Ideal GS equilibrium
         endif
 
         !Build equilibrium
-        call GS_equil_2d(beta,nx,ny,nz,bb,var(:,:,:,IPRS),.true.)
+        call GS_equil_2d(beta,nx,ny,nz,bb,var(:,:,:,IPRS),.false.)
 
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
@@ -5405,7 +5405,7 @@ c       Perform iteration
           psin = solve_GS(psin_o,psi0,gserr)
 
           !Dump plots
-          call dumpPlots
+cc          call dumpPlots ; pause
           
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
@@ -5430,6 +5430,9 @@ c       Perform iteration
      .          ' 2D equilibrium converged in '
      .          ,it,' iterations with error =',gserr
         endif
+
+        !Dump plots
+        call dumpPlots
 
 c       Find unormalized equilibrium fields
 
@@ -5533,8 +5536,6 @@ c$$$     .              ,0d0,xmax,0d0,ymax,1,110)
 
       if (my_rank == 0) close(110)
 
-      pause
-      
       end subroutine dumpPlots
 
 c     compute_Ihat
@@ -5758,7 +5759,11 @@ c     Begin program
         bcnd(:,1) = bcond
         where (bcnd == DEF) bcnd = DIR
 
-        guess = 0             !To reuse previous iteration (stored in psiv)
+        if (I_from_q) then
+          guess = 0
+        else
+          guess = 1 !To reuse previous iteration (stored in psiv)
+        endif
 
 c$$$        do k=1,nz
 c$$$          do j=1,ny
@@ -5769,7 +5774,7 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
         
-        if (I_from_q.or.guess == 0) then
+        if (I_from_q) then
           tolgm = 1d-8
         else
           tolgm = 1d-1
@@ -5875,7 +5880,7 @@ c     Begin program
             enddo
           enddo
         enddo
-        
+
         !Impose topological BCs
         bcnd(:,1) = bcond
         bcnd(:,2) = bcond
