@@ -1245,19 +1245,21 @@ c     Local variables
         
 c     Begin program
 
-c     Read external file
-
-      if (my_rank == 0) then
-        write (*,*)
-        write (*,*) 'Reading external perturbation file '
-     .             ,trim(prt_file)
-      endif
+c     Read external file (check if correct format; else go to label 1000)
 
       open(unit=u_prtf,file=trim(prt_file),form='unformatted')
 
       read(u_prtf,err=1000,end=1000) nr
       read(u_prtf,err=1000,end=1000) nh2
       read(u_prtf,err=1000,end=1000) nh3
+
+c     Correct format: continue reading
+
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Reading external perturbation file '
+     .             ,trim(prt_file)
+      endif
 
       if (my_rank == 0) write(*,*) 'Perturbation mesh=',nr,nh2,nh3
 
@@ -1450,7 +1452,7 @@ c     Add equilibrium
 
       return
 
-      !Failsafe for other perturbation formats
+c     Failsafe for other perturbation formats
       
  1000 close(u_prtf)
 
