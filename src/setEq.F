@@ -5920,14 +5920,6 @@ c     Begin program
           enddo
         enddo
 
-c$$$        do i=1,nx
-c$$$          call find_polar_coords(gv%gparams,igrid,i,1,1,rh,th,zz
-c$$$     .                              ,coords)
-c$$$          call getMGmap(gv%gparams,i,1,1,igrid,igrid,igrid,ig,jg,kg)
-c$$$          write (*,*) "III_diag",rh,(III(i+1,1,1)-III(i-1,1,1))
-c$$$     .         /2./gv%gparams%dxh(ig)
-c$$$        enddo
-c$$$        stop
         !Impose topological BCs
         bcnd(:,1) = bcond
         bcnd(:,2) = bcond
