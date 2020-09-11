@@ -5341,7 +5341,7 @@ c     Local variables
         real(8) :: pprof,iprof,qprof
         external del_star,pprof,iprof,qprof
 
-        logical :: exit_it
+        logical :: exit_it=.false.
         
 c     Begin program
 
@@ -5425,6 +5425,8 @@ cc          call dumpPlots ; pause
 
         enddo
 
+        exit_it = .true.
+        
         if (ilevel == 0 .and. my_rank == 0) then
           write (*,'(a,i3,a,1pe10.2)')
      .          ' 2D equilibrium converged in '
@@ -5438,8 +5440,8 @@ c       Find unormalized equilibrium fields
 
         pp  = compute_p(psin(:,:,:,1))
 
+cc        call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
         III = IIIn*psi0   !Unormalize I
-cc        call compute_Ihat(psi0,psin(:,:,:,1),III,I_from_q)
 
         psi = psin*psi0  !Unnormalize psi
 
@@ -5472,7 +5474,7 @@ c     Begin program
 
       call createDrawInCfile(6,'gs.bin','2D GS Eq.','t','x','y'
      $      ,(/'psi norm','B_3 norm','FF integ','ss integ'
-     .        ,'GS rhs  ','Lg GSerr'/)
+     .        ,'GS rhs  ','LogGSerr'/)
      $      ,'-c -X0 -L57','drawgs.in')
 
       if (my_rank == 0) then
@@ -5545,7 +5547,7 @@ c     ##############################################################
         implicit none
 
 c     --------------------------------------------------------------
-c     Finds flux function I(psi), with psi normalized.
+c     Finds normalized flux function Ihat(psin), with psin normalized.
 c     --------------------------------------------------------------
 
 c     Call variables
@@ -5558,6 +5560,11 @@ c     Local variables
         integer :: i,j,k
         real(8) :: spsi,ipsi0
      .            ,qprf(0:nx+1,0:ny+1,0:nz+1)
+c diag ****
+c$$$        integer :: ijk
+c$$$        real(8) :: spsip,spsim,gpsi(3),gpsi2
+c$$$     .            ,gp(3),gp_cnv(3),gI(3),gI_cnv(3),dp_dpsi,dI_dpsi
+c diag ****
 
 c     Begin program
 
@@ -5594,6 +5601,42 @@ c     Begin program
             enddo
           enddo
 
+c diag ****
+c$$$          if (exit_it) then
+c$$$            j = 1 ; k = 1
+c$$$            do i=1,nx
+c$$$              call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
+c$$$     .                              ,coords)
+c$$$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+c$$$
+c$$$              !Compute grad(psi) and |grad(psi)|
+c$$$             gpsi=grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,psin)
+c$$$             gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
+c$$$             gI = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,Ihat)
+c$$$             gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gI)
+c$$$             dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
+c$$$     .                                  ,gpsi,gI_cnv)/gpsi2
+c$$$
+c$$$              ijk    = i + nx*(j-1) + nx*ny*(k-1)
+c$$$
+c$$$              spsi = sqrt(1d0-psin(i,j,k))
+c$$$              write (*,*) "III_diag"
+c$$$     .                   ,rh                               !2: r
+c$$$     .                   ,spsi                             !3: spsi
+c$$$     .                   ,(Ihat(i+1,j,k)-Ihat(i-1,j,k))
+c$$$     .                           /2./gv%gparams%dxh(ig)    !4: dI/dr
+c$$$     .                   ,dI_dpsi                          !5: dI/dpsi
+c$$$     .                   ,iprof(spsi,1)*ipsi0*(-0.5/spsi)  !6: dI/dpsi
+c$$$     .                   ,(psin(i+1,j,k)-psin(i-1,j,k))
+c$$$     .                           /2./gv%gparams%dxh(ig)    !7: dPsi/dr
+c$$$     .                   ,gpsi(1)                          !8: dPsi/dr
+c$$$     .                   ,psi_rhs(ijk)                     !9
+c$$$     .                   ,errv(ijk)                        !10
+c$$$            enddo
+c$$$            stop
+c$$$          endif
+c diag ****
+          
         endif
         
       end subroutine compute_Ihat
@@ -5761,8 +5804,10 @@ c     Begin program
 
         if (I_from_q) then
           guess = 0
+          tolgm = 1d-8
         else
           guess = 1 !To reuse previous iteration (stored in psiv)
+          tolgm = 1d-3
         endif
 
 c$$$        do k=1,nz
@@ -5773,12 +5818,6 @@ c$$$              psiv(ii) = fpsi0*psio(i,j,k,1)
 c$$$            enddo
 c$$$          enddo
 c$$$        enddo
-        
-        if (I_from_q) then
-          tolgm = 1d-8
-        else
-          tolgm = 1d-1
-        endif
         
         call cSolver(gv%gparams,1,nn,psi_rhs,psiv,bcnd
      .            ,1,ilevel,guess,del_star,vol_wgt
@@ -5881,6 +5920,14 @@ c     Begin program
           enddo
         enddo
 
+c$$$        do i=1,nx
+c$$$          call find_polar_coords(gv%gparams,igrid,i,1,1,rh,th,zz
+c$$$     .                              ,coords)
+c$$$          call getMGmap(gv%gparams,i,1,1,igrid,igrid,igrid,ig,jg,kg)
+c$$$          write (*,*) "III_diag",rh,(III(i+1,1,1)-III(i-1,1,1))
+c$$$     .         /2./gv%gparams%dxh(ig)
+c$$$        enddo
+c$$$        stop
         !Impose topological BCs
         bcnd(:,1) = bcond
         bcnd(:,2) = bcond
@@ -7174,13 +7221,17 @@ c     Begin program
 
         case('gstor')
 
-          if (der == 0) then
-c$$$            iprof = 1d0 !B_t = 1/R -> Iprof=1.
-            iprof = 1d0*(2.0d0-0.9d0*s*s+0.3*s**4) !B_t = 1/R -> Iprof=1. !(1-s**2)**2
-          else
-            iprof = 0d0
-c$$$            iprof = -0.2d0*s!-4*s*(1-s**2)
-          endif
+          select case(der)
+          case(0)
+cc            iprof = 1d0 !B_t = 1/R -> Iprof=1.
+cc            iprof = (1-s**2)**2
+            iprof = 1d0*(2.0d0-0.9d0*s*s+0.3*s**4) 
+          case(1)
+cc            iprof = 0d0
+cc            iprof = -4*s*(1-s**2)
+            iprof = s*(-1.8d0+1.2*s*s)
+          case default
+          end select
 
         case default
 
