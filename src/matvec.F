@@ -394,7 +394,7 @@ c Calculate matrix-vector product
             call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
      .                                  ,ig,jg,kg,x1,y1,z1)
 
-            iRR(i,j,k) = 1d0/(x1**2+y1**2)
+            iRR(i,j,k) = 1d0/(x1*x1+y1*y1)
           enddo
         enddo
       enddo
