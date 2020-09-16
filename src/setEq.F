@@ -5307,10 +5307,6 @@ c     ---------------------------------------------------------------
 
         use orbit
 
-!        use transport_params
-
-!        use nlfunction_setup, ONLY: res_rfx,eta
-
         use local_BCS_variables, ONLY: order_bc, default_b_bcs
 
         implicit none
@@ -5460,19 +5456,21 @@ cc        call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
 
         psi = psin*psi0  !Unnormalize psi
 
-c       Find final fields
+c       Find B fields
 
-#if defined(vec_pot)
-        call find_GS_A_field(igrid,nx,ny,nz,psi(:,:,:,1),III(:,:,1)
-     .                      ,RR,bb,.false.)
-#else
         call find_GS_B_field(igrid,nx,ny,nz,psi(:,:,:,1),III(:,:,1)
-     .                      ,RR,bb,.false.)
-#endif
+     .                      ,RR,bb)
 
 c       Calculate GS convergence properties
 
         call GS_errors(psi(:,:,:,1),III,bb,pp)
+
+c       Compute A field if appropriate (and put into bb array)
+        
+#if defined(vec_pot)
+        call find_GS_A_field(igrid,nx,ny,nz,psi(:,:,:,1),III(:,:,1)
+     .                      ,RR,bb,.false.)
+#endif
 
       contains
 
