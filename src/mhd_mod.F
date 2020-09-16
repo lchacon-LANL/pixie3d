@@ -4511,7 +4511,7 @@ c ######################################################################
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax,iR2_avg
 
-        logical :: closed_orb
+        logical :: have_jparB=.false.,gstor_I_drive=.true.,closed_orb
 
         !Perturbations
         integer :: nh1,nh2,nh3,npw1=1,npw2=1,npw3=1
@@ -4520,7 +4520,7 @@ c ######################################################################
         real(8) :: br_pert_bc,br_pert_phase,br_pert_freq
      .            ,br_pert_bc_old,br_pert_phase_old
 
-        logical :: have_jparB=.false.,irrot_br_pert=.false.
+        logical :: irrot_br_pert=.false.
      .            ,eig_is_T=.true.
 
         real(8),dimension(20) :: pert
