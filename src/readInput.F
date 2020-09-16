@@ -58,7 +58,7 @@ c Namelists
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
-     .                   ,efit_coords
+     .                   ,efit_coords,gstor_I_drive
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
@@ -120,7 +120,7 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
-     .                   ,equil
+     .                   ,equil,gstor_I_drive
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
