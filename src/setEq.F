@@ -7083,6 +7083,7 @@ c     Local variables
 
 c     Begin program
 
+        k = 1
         do j=0,ny+1
           do i=0,nx+1
             jac = gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
