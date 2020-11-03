@@ -235,13 +235,15 @@ c     Exceptions for specific equilibria
 
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
-        !Dirichlet boundary conditions for tangential components
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+        !Dirichlet boundary conditions for tangential components in resistive MHD
+        if (di == 0d0) then
+          where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+          where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
-        if (gamma > 1d0.and.(.not.adiabatic))
+          if (gamma > 1d0.and.(.not.adiabatic))
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
-
+        endif
+        
       case ('vmec','tor','stell','gstor')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing

@@ -921,7 +921,18 @@ cc      call set_vec_symm_bc(vaux%vec_list(IDIVPI)%bconds,-1)  !Same as velocity
 cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
 
       !Electric field (Hall piece)
-      vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
+c$$$      if (ion_hall) then
+c$$$        vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
+c$$$      else
+        vaux%vec_list(IEH)%bconds(:,1) = bcond
+        vaux%vec_list(IEH)%bconds(:,2) = bcond
+        vaux%vec_list(IEH)%bconds(:,3) = bcond
+        where (vaux%vec_list(IEH)%bconds == DEF)
+          vaux%vec_list(IEH)%bconds = EXT
+        end where
+
+        call set_vec_symm_bc(vaux%vec_list(IEH)%bconds,-1) !Same as velocity
+c$$$      endif
 
 cc      !Equilibrium electric field (non-ideal piece)
 cc      vaux%vec_list(IENI_0)%bconds = vaux%vec_list(IEH)%bconds
