@@ -14,7 +14,7 @@ c----------------------------------------------------------------------
 
       use equilibrium
 
-      use local_BCS_variables, ONLY: allocBCVariables
+      use local_BCS_variables, ONLY: allocBCVariables,defineAuxVariables
 
       implicit none
 
