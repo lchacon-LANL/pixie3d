@@ -239,7 +239,8 @@ cc        endif
 
 c     Temperature BCs
 
-c$$$        if (adiabatic.and.(.not.adiabatic_rho)) then
+c$$$cc        if (adiabatic.and.(.not.adiabatic_rho)) then
+c$$$        if (di>0d0) then
 c$$$          !Impose BCs on perturbation only
 c$$$          allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
 c$$$          s0 = 0d0
@@ -257,7 +258,7 @@ c$$$
 c$$$          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
 c$$$     .                                 +u_0   %array_var(IPRS)%array
 c$$$          deallocate(s0)
-c$$$        else!if (adiabatic_rho) then
+c$$$        else
           varray%array_var(IPRS)%array =varray%array_var(IPRS)%array/jac
 
           allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
@@ -806,6 +807,9 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 c       Hall electric field BC
 
           if (di > 0d0) then
+            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
+            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
+
             bcnd = vaux%vec_list(IEH)%bconds
             vdum = XformVector(gv%gparams,igr,E_h,.true.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
