@@ -236,12 +236,11 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components in resistive MHD
-        if (di == 0d0) then
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
-          if (gamma > 1d0.and.(.not.adiabatic))
-     .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
+        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
+          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
         endif
         
       case ('vmec','tor','stell','gstor')
@@ -754,17 +753,17 @@ cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
 
       !Electric field (Hall piece)
 c$$$      call default_A_BCs(vaux%vec_list(IEH)%bconds)
-c$$$      if (ion_hall) then
-        vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
+c$$$  if (ion_hall) then
+c$$$        vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
 c$$$      else
-c$$$        vaux%vec_list(IEH)%bconds(:,1) = bcond
-c$$$        vaux%vec_list(IEH)%bconds(:,2) = bcond
-c$$$        vaux%vec_list(IEH)%bconds(:,3) = bcond
-c$$$        where (vaux%vec_list(IEH)%bconds == DEF)
-c$$$          vaux%vec_list(IEH)%bconds = -NEU  !On covariant components
-c$$$        end where
-c$$$
-c$$$        call set_vec_symm_bc(vaux%vec_list(IEH)%bconds,-1) !Same as velocity
+        vaux%vec_list(IEH)%bconds(:,1) = bcond
+        vaux%vec_list(IEH)%bconds(:,2) = bcond
+        vaux%vec_list(IEH)%bconds(:,3) = bcond
+        where (vaux%vec_list(IEH)%bconds == DEF)
+          vaux%vec_list(IEH)%bconds = -NEU  !On covariant components
+        end where
+
+        call set_vec_symm_bc(vaux%vec_list(IEH)%bconds,-1) !Same as velocity
 c$$$      endif
 
 cc      !Equilibrium electric field (non-ideal piece)
