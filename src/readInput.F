@@ -594,6 +594,8 @@ c     #####################################################################
       vperflow = 0.            ! Maximum perpendicular fluid flow
       chk_src  = .false.       ! Whether to check source (e.g., to check equilibria)
 
+      gstor_I_drive = .true.   ! Whether we drive GS toroidal solver with I=Bphi*R or q-profile
+      
       prho     = 0d0           ! Density perturbation
       pvx      = 0d0           ! Vx perturbation
       pvy      = 0d0           ! Vy perturbation
