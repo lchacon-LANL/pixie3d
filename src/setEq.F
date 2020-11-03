@@ -5614,6 +5614,36 @@ c     Begin program
             enddo
           enddo
 
+c$$$          !Compute solvability conditions
+c$$$          do k=0,nz+1
+c$$$            do j=0,ny+1
+c$$$              do i=0,nx+1
+c$$$                !Compute grad(psi) and |grad(psi)|
+c$$$                gpsi = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .                     ,psin)
+c$$$                gpsi2=vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
+c$$$
+c$$$                !Compute grad(ff)
+c$$$                gI = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid
+c$$$     .                   ,Ihat)
+c$$$
+c$$$                !Compute dI/dpsi=grad_psi.grad_I/|grad_psi|^2
+c$$$                gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gI)
+c$$$
+c$$$                dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
+c$$$     .                                     ,gpsi,gI_cnv)
+c$$$                if (gpsi2 > 0d0) then
+c$$$                  dI_dpsi = dI_dpsi/gpsi2
+c$$$                else
+c$$$                  dI_dpsi = 0d0
+c$$$                endif
+c$$$
+c$$$                write (*,*) "Solvability (>0)",dI_dpsi
+c$$$
+c$$$              enddo
+c$$$            enddo
+c$$$          enddo
+
         else
 
           ipsi0 = 1d0/psi0
@@ -5810,7 +5840,8 @@ c     Local variables
 
         real(8) :: tolgm
      .            ,Inew(0:nx+1,0:ny+1,0:nz+1)
-        integer :: guess,bcnd(6,1),nn,i,j,k,ii
+        integer :: guess,bcnd(6,1),nn,i,j,k,ii,smooth_it
+        logical :: smooth_only
 
 c     Begin program
 
@@ -5839,11 +5870,15 @@ c$$$        endif
         where (bcnd == DEF) bcnd = DIR
 
         if (I_from_q) then
-          guess = 0
-          tolgm = 1d-8
+          guess = 1
+          tolgm = 5d-1 !1d-8
+          smooth_only = .false. !.true.
+          smooth_it = 3
         else
           guess = 1 !To reuse previous iteration (stored in psiv)
           tolgm = 1d-3
+          smooth_only = .false.
+          smooth_it = 5
         endif
 
 c$$$        do k=1,nz
@@ -5858,16 +5893,17 @@ c$$$        enddo
         call cSolver(gv%gparams,1,nn,psi_rhs,psiv,bcnd
      .            ,1,ilevel,guess,del_star,vol_wgt
      .            ,tol           = tolgm
-     .            ,gm_driver     =.true.
+     .            ,gm_driver     =.not.smooth_only
      .            ,ks_it         = 100
      .            ,mg_order_res  = 0
      .            ,mg_order_prol = 1
      .            ,mg_gm_coarse_solve=.false.
+     .            ,mg_smooth_only = smooth_only
 cc     .            ,mg_gm_coarse_solve=.true.
      .            ,mg_vcyc       = 1
      .            ,mg_smooth     = 'jb'
      .            ,sm_ncolors    = 2  !Star stencil
-     .            ,sm_it         = 5
+     .            ,sm_it         = smooth_it
      .            )
 
         !Fill array (w BCs)
@@ -6065,12 +6101,13 @@ c     Orbit setup (input Az directly)
      .         ,jac,xmap,bcond
      .         ,dtime=1d-2
      .         ,solen=.false.  !LSODE
-cc     .         ,solen=.true.  !VP
-     .         ,rtol=1d-12,lsode_dt_lim=.true.
+cc     .         ,solen=.true.,gauge=1  !VP
+     .         ,rtol=1d-12
+     .         ,lsode_dt_lim=.true.
      .         ,r_min=1d-3
      .         ,B_input_is_A=B_input_is_A
      .         ,spline_order = 2
-     .         ,tmax=100d0         !For termination failsafe
+cc     .         ,tmax=100d0         !For termination failsafe
      .         )
 
         !Orbit average (at cell centers)
@@ -6099,16 +6136,16 @@ c     Orbit integration (local processor)
               iR2_avg   = 0d0
               ssmax     = 0d0
 
+c$$$              if (i == nx .and. k == 1 .and. it == 1) then
 c$$$              write (*,*) "Orbit at",i,j,k,"Iteration=",it
-c$$$              if (i == 52 .and. j == 1 .and. k == 1 .and. it == 1) then
 c$$$                call orbit_find(2,x0,y0,z0,.true.
 c$$$     .                         ,line_int=gs_flux_avg,ierror=ierr)
-c$$$                pause
+c$$$                write (*,*)
+c$$$                write (*,*)
 c$$$              else
                 call orbit_find(ilevel-3,x0,y0,z0,.true.
      .                       ,line_int=gs_flux_avg,ierror=ierr)
 c$$$              endif
-c$$$              write (*,*) 1d0/iR2_avg,ssmax,ssmax/iR2_avg
 
               select case(ierr)
               case(ORB_OK)
@@ -6139,6 +6176,24 @@ c$$$              write (*,*) 1d0/iR2_avg,ssmax,ssmax/iR2_avg
             enddo
           enddo
         enddo
+c diag *****
+c$$$      open(unit=110,file='debug.bin',form='unformatted'
+c$$$     .    ,status='replace')
+c$$$      call contour(psi(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
+c$$$cc      call contour(psi_rhs,nx,ny,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(ff (:,:,1)  ,nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(ss (:,:,1)  ,nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(bbg(:,:,1,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(bbg(:,:,1,2),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(bbg(:,:,1,3),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$      call contour(iR2g(:,:,1 ),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+c$$$cc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+c$$$cc      call contour(b3 (1:nx,1:ny,1)  ,nx,ny,0d0,1d0,0d0,1d0,0,110)
+c$$$cc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+c$$$cc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+c$$$      close (110)
+c$$$      stop
+c diag *****
 
 c     Impose BCs
 
