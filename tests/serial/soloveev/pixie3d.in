@@ -25,6 +25,7 @@
     gamma    = 1.6667
 
     adiabatic  = t
+    adiabatic_rho = t
 
     pvx      = 1d-4
     odd      = f
@@ -46,7 +47,6 @@
     nc_eom_f   = t
     nc_eom_v   = f
 
-    solve_rho  = f
     use_p_eom  = t
     use_p_diff = t
  /
@@ -74,7 +74,6 @@
     rtol     = 1d-4
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
     iguess   = 0
  /
@@ -93,7 +92,7 @@
     check_grid = f
     chk_src  = f
     test     = t
-    equ_file = 'soloveev_k=1'
+    equ_file = 'wout_soloveev_k=1.txt'
  /
 
  &graphics

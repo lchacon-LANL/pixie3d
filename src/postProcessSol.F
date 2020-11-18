@@ -21,6 +21,8 @@ c--------------------------------------------------------------------
 
       use PC_setup, only: pc_as_solver
 
+      use local_BCS_variables, ONLY: res_wall_bc
+
       implicit none
 
 c Call variables
@@ -62,6 +64,16 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
+c Postprocessing density
+
+c$$$      if (adiabatic .and. (.not.solve_rho)) then
+c$$$        if (my_rank == 0) write (*,*) 'Postprocessing density'
+c$$$        vnp%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
+c$$$     .       u_0%array_var(IRHO)%array(1:nx,1:ny,1:nz)
+c$$$     .     *(vnp%array_var(IPRS)%array(1:nx,1:ny,1:nz)
+c$$$     .      /u_0%array_var(IPRS)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
+c$$$      endif
+
 c Add random noise in EOM (to break symmetry)
 
       if (noise) then
@@ -100,9 +112,18 @@ c -------------------------------------------------------------------
 
 #if !defined(samrai)
 
-c Smooth magnetic field
+c Filter single mode in helical geometry (only on V for now)
 
-      if (post_smooth_B) call post__smooth_B
+      if (coords == 'hel'.and.post_filter_hel) then
+        call post__filter_V
+      endif
+      
+c Smooth magnetic and velocity fields
+
+      if (post_smooth_B) then
+        call post__smooth_B
+        call post__smooth_V
+      endif
 
 c Divergence-clean magnetic field when PC is on
 
@@ -195,6 +216,119 @@ c End program
 
       contains
 
+c     post__filter_V
+c     ###############################################################
+      subroutine post__filter_V
+
+        implicit none
+
+        integer :: ieq,i,j,k,jg,jlog
+        real(8) :: ac(nx),as(nx),lsum(nx,2),gsum(nx,2),mm
+        real(8),allocatable,dimension(:,:,:,:) :: dv
+
+c     Begin program
+
+        if (my_rank == 0) then
+          if (ilevel > 0) write (*,*)
+          write (*,*) 'Performing filtering of V in postproc...'
+        endif
+
+c     Find dV=V^(n+1)-V^n
+
+        allocate(dv(0:nx+1,0:ny+1,0:nz+1,3))
+
+        dv(:,:,:,1) = vnp%array_var(IVX)%array
+     .               -vn %array_var(IVX)%array
+        dv(:,:,:,2) = vnp%array_var(IVY)%array
+     .               -vn %array_var(IVY)%array
+        dv(:,:,:,3) = vnp%array_var(IVZ)%array
+     .               -vn %array_var(IVZ)%array
+
+c     Filter by Fourier transform
+
+        mm = gv%gparams%params(1)
+
+        jlog = gv%gparams%jlo(igy)
+
+        do ieq=1,3
+
+          k = 1
+
+          ac = 0d0 ; as = 0d0
+          
+          !Perform Fourier transform in theta
+          do j = 1,ny
+            jg = j + jlog - 1   !Global index
+            ac = ac + dv(1:nx,j,k,ieq)*cos(-2*pi*mm*(jg-1)/nyd)
+            as = as + dv(1:nx,j,k,ieq)*sin(-2*pi*mm*(jg-1)/nyd)
+          enddo
+          
+#if defined(petsc)
+          lsum(:,1) = ac
+          lsum(:,2) = as
+          call MPI_Allreduce(lsum,gsum,2*nx,MPI_DOUBLE_PRECISION
+     .                      ,MPI_SUM,gv%gparams%MPI_COMM_Y,mpierr)
+          ac = gsum(:,1)
+          as = gsum(:,2)
+#endif
+
+          !Inverse Fourier transform
+          do j = 1,ny
+            jg = j + jlog - 1   !Global index
+            dv(1:nx,j,k,ieq) =2*(ac*cos(2*pi*mm*(jg-1)/nyd) !Factor of 2 to
+     .                          -as*sin(2*pi*mm*(jg-1)/nyd))/nyd !account for (N-m) contrib
+          enddo
+
+        enddo
+
+c     Find new V^(n+1)
+
+c$$$        write (*,*) "1"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVX)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,1))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,1))**2))
+c$$$        write (*,*) "2"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVY)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,2))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,2))**2))
+c$$$        write (*,*) "3"
+c$$$     .              ,sqrt(sum((vnp%array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$     .                        -vn %array_var(IVZ)%array(1:nx,1:ny,1:nz)
+c$$$     .                       -dv(1:nx,1:ny,1:nz,3))**2))
+c$$$     .              /sqrt(sum((dv(1:nx,1:ny,1:nz,3))**2))
+c$$$        k = 1
+c$$$        do j = 1,1 !ny
+c$$$          do i = 1,nx
+c$$$            write (*,*) "1"
+c$$$     .                 ,(vnp%array_var(IVX)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVX)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,1)
+c$$$            write (*,*) "2"
+c$$$     .                 ,(vnp%array_var(IVY)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVY)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,2)
+c$$$            write (*,*) "3"
+c$$$     .                 ,(vnp%array_var(IVZ)%array(i,j,k)
+c$$$     .                  -vn %array_var(IVZ)%array(i,j,k))
+c$$$     .                 /dv(i,j,k,3)
+c$$$          enddo
+c$$$        enddo
+c$$$        
+c$$$        stop
+
+        vnp%array_var(IVX)%array = dv(:,:,:,1)
+     .                            +vn%array_var(IVX)%array
+        vnp%array_var(IVY)%array = dv(:,:,:,2)
+     .                            +vn%array_var(IVY)%array
+        vnp%array_var(IVZ)%array = dv(:,:,:,3)
+     .                            +vn%array_var(IVZ)%array
+
+        deallocate(dv)
+        
+      end subroutine post__filter_V
+
 c     post__smooth_B
 c     ###############################################################
       subroutine post__smooth_B
@@ -205,7 +339,7 @@ c     ###############################################################
         real(8) :: opt_om,dvol
         real(8),allocatable,dimension(:,:) :: xrhs,x
 
-        external  sm_mtvc
+        external  sm_mtvc_B
 
 c     Begin program
         
@@ -213,7 +347,11 @@ c     Begin program
 
         if (my_rank == 0) then
           if (ilevel > 0) write (*,*)
-          write (*,*) 'Performing smoothing in postproc...'
+#if defined(vec_pot)
+          write (*,*) 'Performing A smoothing in postproc...'
+#else
+          write (*,*) 'Performing B smoothing in postproc...'
+#endif
         endif
 
 c     Find db=B^(n+1)-B^n
@@ -289,7 +427,7 @@ c     Smooth A or B
         guess = 1
 
         call cSolver(gv%gparams,3,nn,xrhs,x,bcnd
-     .              ,igx,iout,guess,sm_mtvc,.true.
+     .              ,igx,iout,guess,sm_mtvc_B,.true.
      .              ,mg_smooth     = 'jb'
      .              ,sm_it         = filter_it
      .              ,sm_omega      = opt_om
@@ -332,6 +470,101 @@ c     Find new A^(n+1) or B^(n+1)
       
       end subroutine post__smooth_B
 
+c     post__smooth_V
+c     ###############################################################
+      subroutine post__smooth_V
+
+        implicit none
+
+        integer :: nn,bcnd(6,3),filter_it,ig,jg,kg,ii,guess,iout
+        real(8) :: opt_om,dvol
+        real(8),allocatable,dimension(:,:) :: xrhs,x
+
+        external  sm_mtvc_V
+
+c     Begin program
+        
+        nn = nx*ny*nz
+
+        if (my_rank == 0) then
+          if (ilevel > 0) write (*,*)
+          write (*,*) 'Performing V smoothing in postproc...'
+        endif
+
+c     Find db=B^(n+1)-B^n
+
+        allocate(x(nn,3),xrhs(nn,3))
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+
+              dvol = gv%gparams%gmetric%grid(igx)%dlvol(i,j,k)
+
+              x   (ii,1) = vnp%array_var(IVX)%array(i,j,k)
+     .                    -vn %array_var(IVX)%array(i,j,k)
+              x   (ii,2) = vnp%array_var(IVY)%array(i,j,k)
+     .                    -vn %array_var(IVY)%array(i,j,k)
+              x   (ii,3) = vnp%array_var(IVZ)%array(i,j,k)
+     .                    -vn %array_var(IVZ)%array(i,j,k)
+
+              xrhs(ii,:) = x(ii,:)*dvol
+            enddo
+          enddo
+        enddo
+
+        do ieq=IVX,IVZ
+          bcnd(:,ieq-IVX+1) = vnp%array_var(ieq)%bconds(:)
+        enddo
+
+c     Smooth A or B
+
+        filter_it = 4
+
+        dvol = 1d0
+        if (nxd > 1) dvol = dvol*(xmax-xmin)/nxd
+        if (nyd > 1) dvol = dvol*(ymax-ymin)/nyd
+        if (nzd > 1) dvol = dvol*(zmax-zmin)/nzd
+
+        opt_om = dt*di/dvol
+
+        opt_om = (1.+2.*opt_om)/(1.+4.*opt_om)
+
+        iout = ilevel - 1
+        guess = 1
+
+        call cSolver(gv%gparams,3,nn,xrhs,x,bcnd
+     .              ,igx,iout,guess,sm_mtvc_V,.true.
+     .              ,mg_smooth     = 'jb'
+     .              ,sm_it         = filter_it
+     .              ,sm_omega      = opt_om
+     .              ,sm_ncolors    = 2
+     .              ,mg_smooth_only= .true.
+     .              )
+
+c     Find new A^(n+1) or B^(n+1)
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              vnp%array_var(IVX)%array(i,j,k) = x(ii,1)
+     .                 +vn%array_var(IVX)%array(i,j,k)
+              vnp%array_var(IVY)%array(i,j,k) = x(ii,2)
+     .                 +vn%array_var(IVY)%array(i,j,k)
+              vnp%array_var(IVZ)%array(i,j,k) = x(ii,3)
+     .                 +vn%array_var(IVZ)%array(i,j,k)
+            enddo
+          enddo
+        enddo
+
+        deallocate(x,xrhs)
+      
+      end subroutine post__smooth_V
+
 c     post__divclean
 c     ###############################################################
       subroutine post__divclean
@@ -339,7 +572,7 @@ c     ###############################################################
         implicit none
 
         real(8) :: tol_divcl
-        real(8),allocatable,dimension(:,:,:,:) :: db_cnv,da_cov
+        real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
         if (ilevel > 0 .and. my_rank == 0) then
           write (*,*)
@@ -348,8 +581,7 @@ c     ###############################################################
 
 c       Find db=B^(n+1)-B^n
 
-        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,da_cov(0:nx+1,0:ny+1,0:nz+1,3))
+        allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
         db_cnv(:,:,:,1) = vnp%array_var(IBX)%array
      .                   -vn %array_var(IBX)%array
@@ -361,10 +593,15 @@ c       Find db=B^(n+1)-B^n
 c       Clean db
 
         tol_divcl = rtol
-        call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
-     .                   ,igx,igy,igz,db_cnv,dacov=da_cov
-     .                   ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
-
+        if (res_wall_bc) then
+          call B_div_clean(gv%gparams,ilevel,igrid,db_cnv,"vlap"
+     .                    ,gm_it=it_divcl,rtol=tol_divcl)
+        else
+          call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz
+     .                       ,igx,igy,igz,db_cnv
+     .                       ,gm_it=it_divcl,rtol=tol_divcl)   !,w_bcs=.true.,diag_plots=.true.)
+        endif
+        
 c       Find new B^(n+1)
 
         vnp%array_var(IBX)%array = db_cnv(:,:,:,1)
@@ -380,7 +617,7 @@ c       Update helical flux and magnetic field
         bcnv(:,:,:,2) = vnp%array_var(IBY)%array
         bcnv(:,:,:,3) = vnp%array_var(IBZ)%array
 
-        deallocate(db_cnv,da_cov)
+        deallocate(db_cnv)
 
       end subroutine post__divclean
 
@@ -424,28 +661,28 @@ c     ###############################################################
      .               ,G_tol,sp_order,B_weight,do_3d)
 
         !Find temp from pressure (automatically takes care of jacobian factor)
-        tmp_nm = vnm%array_var(ITMP)%array
+        tmp_nm = vnm%array_var(IPRS)%array
      $          /vnm%array_var(IRHO)%array
-        tmp_n  = vn %array_var(ITMP)%array
+        tmp_n  = vn %array_var(IPRS)%array
      $          /vn %array_var(IRHO)%array
-        tmp_np = vnp%array_var(ITMP)%array
+        tmp_np = vnp%array_var(IPRS)%array
      $          /vnp%array_var(IRHO)%array
 
-        call lag_update_bdf2(gv%gparams,igrid,ITMP
-     .                      ,vnp%array_var(ITMP)%bconds
+        call lag_update_bdf2(gv%gparams,igrid,IPRS
+     .                      ,vnp%array_var(IPRS)%bconds
      $                      ,tmp_nm,tmp_n,tmp_np,chipar,ilevel)
 c$$$        lag_init = .true.
 c$$$        E_diag   = .true.
 c$$$        call lagr_update(igrid,bcnv
-c$$$     .                  ,u_nm %array_var(ITMP)%array
-c$$$     .                  ,vn  %array_var(ITMP)%array
-c$$$     .                  ,vnp%array_var(ITMP)%array
+c$$$     .                  ,u_nm %array_var(IPRS)%array
+c$$$     .                  ,vn  %array_var(IPRS)%array
+c$$$     .                  ,vnp%array_var(IPRS)%array
 c$$$     .                  ,chi_par,chi,lag_init,E_diag,ilevel-3)
 
         call lag_destroy
 
         !Return pressure (with jacobian)
-        vnp%array_var(ITMP)%array = tmp_np*vnp%array_var(IRHO)%array
+        vnp%array_var(IPRS)%array = tmp_np*vnp%array_var(IRHO)%array
 
         deallocate(tmp_nm,tmp_n,tmp_np,chipar)
         
@@ -509,7 +746,7 @@ c Local variables
         use parameters
         use var_setup
         integer :: igr
-        real(8) :: fi(:)
+        real(8) :: fi(ntotd)
         type(var_array),pointer :: varray
         end subroutine evaluate_NLF
       END INTERFACE

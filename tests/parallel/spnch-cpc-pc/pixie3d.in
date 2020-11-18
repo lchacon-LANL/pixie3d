@@ -24,7 +24,7 @@
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2d0,10d0,2d0,0d0
+    gparams  = 1d0,-2d0,1d0,2d0,0d0
 
     gamma    = 1d0
 
@@ -50,7 +50,7 @@
     mg_vcyc  = 1
     sm_iter  = 3
     sm_zebra_relax=f
-
+    mf_eps   = 1d-4
 !    mg_coarse_size = 2
 !    mgcf     = 8
 !    mg_coarse_solve = f
@@ -63,7 +63,6 @@
     rtol     = 1d-3
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
 
     solenoidal = t

@@ -5,25 +5,24 @@
     ilevel   = 0
     test     = t
 
-    nxd      = 128
+    nxd      = 32
     nyd      = 32 
     nzd      = 1
 
     xmax     = 1.
     ymax     = 0.
-    zmax     = 1.
+    zmax     = 1d-3
 
-    numerical_grid = f
+    gp1      = .true.,0.25,1d-2
 
     bcs      = 'spt','def','per','per','per','per'
 
     eta      = 1d-3
     nu       = 1d-3
-    dd       = 2d-3
+    dd       = 0d-3
     chi      = 0d-2
     
     equil    = 'ppnch'
-
     coords   = 'hel'
 
     dlambda  = 0.5
@@ -31,14 +30,14 @@
 
     gamma    = 1d0
 
-    dt       = 5d-3
-    tmax     = 5d-2
-    dstep    = 5d-2
+    dt       = 1d-2
+    tmax     = 1d-1
+    dstep    = 1d-1
 
     pvx      = 1d-4
+    nh2      = 1
     odd      = f,f,f
     random   = f
-    nh2      = 1
 
     iguess   = 0
 
@@ -47,7 +46,7 @@
     restart  = f
     timecorr = f
 
-    source   = t
+    source   = f
 
     precon   = 'id'
 
@@ -57,20 +56,20 @@
     rtol     = 1d-4
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
 
     nc_eom_f = t
-    nc_eom_v = f
+    nc_eom_v = t
     solve_rho= f
 
+    advect   = 4
  /
 
  &graphdef
     sel_diag  = 2,12,15,17,18,19,20,22,23
     sel_graph = 1,2,3,5,6,7,9,10,11
-    dplot = 1d-3
-    prof_conf = 1,'r',1,10,1
+    dplot = 1d-2
+    prof_conf = 1,'r',1,20,1
     cont_conf = 3,'x','y',1,1,1
     hdf_plot = f
     clean    = f

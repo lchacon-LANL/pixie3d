@@ -1,12 +1,12 @@
 #Define variables
 
-DIRS   = $(shell ls | grep -v ake | grep -v CVS)
-DIRS_A = $(shell ls | grep -v ake | grep -v CVS | grep    "\-a")
-DIRS_B = $(shell ls | grep -v ake | grep -v CVS | grep -v "\-a")
+DIRS   = $(shell ls -d */ | grep -v CVS)
+DIRS_A = $(shell ls -d */ | grep -v CVS | grep    "\-a")
+DIRS_B = $(shell ls -d */ | grep -v CVS | grep -v "\-a")
 
 #Define targets
 
-.PHONY: test-a test-b rebuild-a rebuild-b setup
+.PHONY: test-a test-b rebuild-a rebuild-b setup clean
 
 setup: ;
 	-@for subdir in $(DIRS); do \
@@ -21,3 +21,8 @@ test-a rebuild-a: ;
 test-b rebuild-b: ;
 	-@for subdir in $(DIRS_B) ; do \
 		$(MAKE) --no-print-directory -C $$subdir $@;  done
+
+clean: ;
+	-@for subdir in $(DIRS); do \
+		$(MAKE) --no-print-directory -C $$subdir $@; done
+

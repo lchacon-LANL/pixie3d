@@ -7,8 +7,9 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] [-x executable] 
-  [-r tmax] [-rtgz file] [-ntar] [-equ file] [-eig file] [-recursive] -- inputfile [options]
+$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] 
+[-x executable] [-t tmax] [-r tmax] [-rtgz file] [-ntar] 
+[-equ file] [-eig file]  [-recursive] -- inputfile [options]
 
 where:
 	-np procs:     indicates the number of cores (required)
@@ -19,6 +20,7 @@ where:
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
 	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-t tmax:       indicates final simulation time
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
 	-rtgz file:    indicates tarball file to use to restart (default is 
@@ -49,7 +51,7 @@ wtime=960
 adiosfile="adios_config.xml"
 recursive=f
 create_dir=t
-account="w17_magreconn"
+account="w19_magreconn"
 qos="standard"
 np=""
 omp_tasks=1
@@ -70,6 +72,7 @@ case $1 in
 	-qos) qos=$2;shift 2;;
 	-omp_tasks) omp_tasks=$2;shift 2;;
 	-x) executable=$2;shift 2;;
+	-t) restart=f;tmax=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
 	-rtgz) restart=t;restartfile=$2;shift 2;;
 	-np)parallel=t;np=$2;shift 2;;
@@ -225,8 +228,6 @@ if [ "$recursive" = "t" ]; then
   cp scriptmanage $dir
 fi
 
-cd $dir
-
 # Check for restart
 
 if [ "$restart" = "t" -a "$tar" = "t" ]
@@ -267,6 +268,8 @@ fi
 
 # Execution preparations
 
+cd $dir
+
 rm $code_ifile.in  2>/dev/null
 cp $inputfile.in $code_ifile.in  2>/dev/null
 cp $equfile $code_ifile.equ  2>/dev/null
@@ -305,7 +308,7 @@ cat > go.sub <<QSUB
 #SBATCH -t $wtime
 #  request resources (qos, number of MPI tasks)
 #SBATCH --qos=$qos
-#SBATCH --nodes=$((np/cores_per_node))
+#SBATCH --nodes=$((np/cores_per_node+1))
 #SBATCH --ntasks-per-node=$((cores_per_node/omp_tasks))
 #  specify the pathname for output
 #SBATCH -o $inputfile.log
@@ -321,13 +324,16 @@ cat > go.sub <<QSUB
 #SBATCH --export=ALL 
 
 date
-module purge
-module load gcc/5.3.0
-module load openmpi/1.10.5
+#module purge
+#module load intel/17.0.1 
+#module load openmpi/1.10.5
+#module load hdf5-parallel
 
-mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55))
+mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) >> $inputfile.out
 
 RETURN_VALUE=\$?  #Exit code from last job
+
+echo "\$RETURN_VALUE" > exit_code.txt
 
 date
 
@@ -339,7 +345,9 @@ then
      echo "==> Storing tarball..."
   fi
 
-  tar zcf $inputfile.tar.gz $inputfile* record* $code_ifile.in $executable go.sub *.log
+  cd ..
+
+  tar zcf $inputfile.tar.gz $dir/$inputfile* $dir/record* $dir/$code_ifile.in $dir/$code_ifile.eig $dir/$executable $dir/go.sub $dir/*.log $dir/*.out $dir/adios_config.xml
 
   if [ -d "$path/tarfiles" ]; then
     mv $inputfile.tar.gz $path/tarfiles
@@ -350,8 +358,6 @@ then
   rm -r $dir
 
 fi
-
-echo "\$RETURN_VALUE" > exit_code.txt
 
 exit
 
@@ -369,4 +375,4 @@ else
   sbatch go.sub
 fi
 
-
+exit

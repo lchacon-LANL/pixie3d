@@ -20,19 +20,21 @@ setup: ;
 
 rebuild-a rebuild-b rebuild: ;
 	@echo "Rebuilding test in $(LOCALDIR)"
-	-@rm pixie3d.out pixie3d.tst record.* 2> /dev/null
+	-@rm pixie3d.out pixie3d.tst record.* 2> /dev/null || true
 	@$(SEREXEC) > pixie3d.out
 
 test-a test-b test: ;
 	@echo
 	@echo "Running test in $(LOCALDIR)"
-	-@mv record.bin_proc0 record.bak 2> /dev/null
+	-@mv record.bin_proc0 record.bak 2> /dev/null  || true
 	@$(SEREXEC) > pixie3d.tst
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB pixie3d.out pixie3d.tst)
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak pixie3d.tst 2> /dev/null)
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")  || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB pixie3d.out pixie3d.tst) || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)") || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak pixie3d.tst 2> /dev/null) || true
 
 run: ;
 	@$(SEREXEC)
 
+clean: ;
+	-@rm -r -f draw*.in *.bin* pixie3d.tst* pixie3d.err* *.vlog *.bp *.ps *.orig *diag* draw*txt grid*txt *log* *dSYM 2>/dev/null

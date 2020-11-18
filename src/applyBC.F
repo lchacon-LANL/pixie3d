@@ -90,8 +90,10 @@ c Call variables
 
 c Local variables
 
-      integer :: nnx,nny,nnz
+      integer :: nnx,nny,nnz,bcsq(6)
       real(8),pointer,dimension(:,:,:) :: jac
+
+      real(8),pointer,dimension(:,:,:) :: s0
 
 c Begin program
 
@@ -110,27 +112,16 @@ c Select variable
 
 c     Density BCs
 
+cc        varray%array_var(IRHO)%array = varray%array_var(IRHO)%array/jac
+cc
 cc        call setBC(gv%gparams,IRHO,nnx,nny,nnz
 cc     .            ,varray%array_var(IRHO)%array
 cc     .            ,u_0   %array_var(IRHO)%array
 cc     .            ,varray%array_var(IRHO)%bconds
 cc     .            ,igr,igr,igr,iorder=order)
-
-cc        call XferBCs(rho*jac,varray%array_var(IRHO)%array,.false.)
 cc
-cc        varray%array_var(IRHO)%array(0    ,:,:) = jac(0    ,:,:)
-cc     .                                           *rho(0    ,:,:)
-cc        varray%array_var(IRHO)%array(nnx+1,:,:) = jac(nnx+1,:,:)
-cc     .                                           *rho(nnx+1,:,:)
-cc        varray%array_var(IRHO)%array(:,0    ,:) = jac(:,0    ,:)
-cc     .                                           *rho(:,0    ,:)
-cc        varray%array_var(IRHO)%array(:,nny+1,:) = jac(:,nny+1,:)
-cc     .                                           *rho(:,nny+1,:)
-cc        varray%array_var(IRHO)%array(:,:,0    ) = jac(:,:,0    )
-cc     .                                           *rho(:,:,0    )
-cc        varray%array_var(IRHO)%array(:,:,nnz+1) = jac(:,:,nnz+1)
-cc     .                                           *rho(:,:,nnz+1)
-
+cc        varray%array_var(IRHO)%array = varray%array_var(IRHO)%array*jac
+        
 #if defined(vec_pot)
       case(IAX)
 
@@ -244,37 +235,50 @@ cc     .                ,.false.)
 cc
 cc        endif
 
-      case(ITMP)
+      case(IPRS)
 
 c     Temperature BCs
 
-cc        call setBC(gv%gparams,ITMP,nnx,nny,nnz
-cc     .            ,varray%array_var(ITMP)%array
-cc     .            ,u_0   %array_var(ITMP)%array
-cc     .            ,varray%array_var(ITMP)%bconds
-cc     .            ,igr,igr,igr,iorder=order)
+c$$$cc        if (adiabatic.and.(.not.adiabatic_rho)) then
+c$$$        if (di>0d0) then
+c$$$          !Impose BCs on perturbation only
+c$$$          allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
+c$$$          s0 = 0d0
+c$$$
+c$$$          varray%array_var(IPRS)%array=(varray%array_var(IPRS)%array
+c$$$     .                                 -u_0  %array_var(IPRS)%array)/jac
+c$$$
+c$$$          bcsq = varray%array_var(IPRS)%bconds
+c$$$          where (bcsq == EQU) bcsq = NEU
+c$$$
+c$$$          call setBC(gv%gparams,IPRS,nnx,nny,nnz
+c$$$     .              ,varray%array_var(IPRS)%array
+c$$$     .              ,s0,bcsq,igr,igr,igr,iorder=order)
+c$$$
+c$$$          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
+c$$$     .                                 +u_0   %array_var(IPRS)%array
+c$$$          deallocate(s0)
+c$$$        else
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array/jac
 
-cc        call XferBCs(rho*tmp*jac,varray%array_var(ITMP)%array,.false.)
+          allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
+          call XferBCs(u_0%array_var(IPRS)%array/jac,s0,.true.)
 
-cc        varray%array_var(ITMP)%array(0    ,:,:) = jac (0    ,:,:)
-cc     .                                           *tmpe(0    ,:,:)*a_p
-cc        varray%array_var(ITMP)%array(nnx+1,:,:) = jac (nnx+1,:,:)
-cc     .                                           *tmpe(nnx+1,:,:)*a_p
-cc        varray%array_var(ITMP)%array(:,0    ,:) = jac (:,0    ,:)
-cc     .                                           *tmpe(:,0    ,:)*a_p
-cc        varray%array_var(ITMP)%array(:,nny+1,:) = jac (:,nny+1,:)
-cc     .                                           *tmpe(:,nny+1,:)*a_p
-cc        varray%array_var(ITMP)%array(:,:,0    ) = jac (:,:,0    )
-cc     .                                           *tmpe(:,:,0    )*a_p
-cc        varray%array_var(ITMP)%array(:,:,nnz+1) = jac (:,:,nnz+1)
-cc     .                                           *tmpe(:,:,nnz+1)*a_p
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz
+     .              ,varray%array_var(IPRS)%array
+     .              ,s0
+     .              ,varray%array_var(IPRS)%bconds
+     .              ,igr,igr,igr,iorder=order)
 
+          varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
+          deallocate(s0)
+c$$$        endif
+        
       end select
 
 c End
 
       end subroutine applyDepVarBC
-
 
 c applyAuxVarBC
 c####################################################################
@@ -290,10 +294,6 @@ c--------------------------------------------------------------------
       use auxiliaryVariables
 
       use var_setup
-
-c diag ****
-      use app_iosetup
-c diag ****
 
       implicit none
 
@@ -311,21 +311,29 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
-      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum
+      real(8),allocatable,dimension(:,:,:,:) :: v0,vdum,acnv_n
 
-      real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1
+      real(8),pointer,dimension(:,:,:) :: s0,prs0,prs1,jac
 
+      logical :: pinch_bc
+      
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
       nny = gv%gparams%nyv(igr)
       nnz = gv%gparams%nzv(igr)
+
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c Select variable
 
@@ -344,39 +352,49 @@ c Select variable
         select case(abs(bc_inf(1)))
         case(IETA)
 
-          call XferBCs(eeta_0,s0,.true.)
+c$$$          call XferBCs(eeta_0,s0,.true.)
+c$$$
+c$$$          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
+c$$$     .              ,vaux%var_list(IETA)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
-          call setBC(gv%gparams,IETA,nnx,nny,nnz,eeta,s0
-     .              ,vaux%var_list(IETA)%bconds
-     .              ,igr,igr,igr,iorder=order)
+          if (fixed_Te) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_Te) then
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
 
-cc          eeta= res(gv%gparams,igr,tmpe)
+        case(IDFF)
+
+          dff     = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
+
+        case(ICHIPAR)
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(INU)
 
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu = vis(gv%gparams,igr,tmp)
-          endif
+          nuu     = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA_0)
 
-          eeta_0=res(gv%gparams,igr,tmpe_0)
+          eeta_0  = res(gv%gparams,igr,tmpe_0)
 
         case(IHETA)
 
 cc          h_eta=hres(gv%gparams,igr,bcnv_0,rho_0)
-          h_eta=hres(gv%gparams,igr,bcnv_0,rho)
+          h_eta   = hres(gv%gparams,igr,bcnv_0,rho)
 
         case(IRHO_0)
 
 c       Density BCs
-
+          
           call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho_0
      .              ,u_0%array_var(IRHO)%array
      .              ,vaux%var_list(IRHO_0)%bconds
@@ -385,18 +403,18 @@ c       Density BCs
         case(ITMP_0)
 
 c       Temperature BCs
-
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp_0
-     .              ,u_0%array_var(ITMP)%array
-     .              ,vaux%var_list(ITMP_0)%bconds
-     .              ,igr,igr,igr,iorder=order)
+          
+c$$$          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp_0
+c$$$     .              ,u_0%array_var(IPRS)%array
+c$$$     .              ,vaux%var_list(ITMP_0)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
 
         case(ITMPE_0)
 
 c       Temperature BCs
 
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe_0
-     .              ,u_0%array_var(ITMP)%array
+          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(IPRS)%array
      .              ,vaux%var_list(ITMPE_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -410,25 +428,56 @@ c       Density BCs
      .              ,vaux%var_list(IRHO_AUX)%bconds
      .              ,igr,igr,igr,iorder=order)
 
+c$$$          s0 = 0d0
+c$$$          rho = rho - rho_0
+c$$$          
+c$$$          call setBC(gv%gparams,IRHO,nnx,nny,nnz,rho,s0
+c$$$     .              ,vaux%var_list(IRHO_AUX)%bconds
+c$$$     .              ,igr,igr,igr,iorder=order)
+c$$$
+c$$$          rho = rho + rho_0
+
         case(ITMP_AUX)
 
-c       Temperature BCs
-
-          call XferBCs(tmp_0,s0,.true.)
-
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmp,s0
-     .              ,vaux%var_list(ITMP_AUX)%bconds
-     .              ,igr,igr,igr,iorder=order)
+c$$$c       Temperature BCs
+c$$$
+c$$$          if (adiabatic.and.(.not.adiabatic_rho)) then
+c$$$          !Impose BCs on perturbation only
+c$$$            s0 = 0d0
+c$$$            tmp = tmp - tmp_0
+c$$$            bcsq = vaux%var_list(ITMP_AUX)%bconds
+c$$$            where (bcsq == EQU) bcsq = NEU
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
+c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
+c$$$            tmp = tmp + tmp_0
+c$$$          else
+c$$$            call XferBCs(tmp_0,s0,.true.)
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
+c$$$     .                ,vaux%var_list(ITMP_AUX)%bconds
+c$$$     .                ,igr,igr,igr,iorder=order)
+c$$$          endif
+          
+cc          tmp = tmpe*a_p
 
         case(ITMPE_AUX)
 
 c       Temperature BCs
 
-          call XferBCs(tmpe_0,s0,.true.)
-
-          call setBC(gv%gparams,ITMP,nnx,nny,nnz,tmpe,s0
-     .              ,vaux%var_list(ITMPE_AUX)%bconds
-     .              ,igr,igr,igr,iorder=order)
+c$$$          if (adiabatic.and.(.not.adiabatic_rho)) then
+c$$$          !Impose BCs on perturbation only
+c$$$            s0 = 0d0
+c$$$            tmpe = tmpe - tmpe_0
+c$$$            bcsq = vaux%var_list(ITMPE_AUX)%bconds
+c$$$            where (bcsq == EQU) bcsq = NEU
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
+c$$$     .                ,bcsq,igr,igr,igr,iorder=order)
+c$$$            tmpe = tmpe + tmpe_0
+c$$$          else
+c$$$            call XferBCs(tmpe_0,s0,.true.)
+c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe,s0
+c$$$     .                ,vaux%var_list(ITMPE_AUX)%bconds
+c$$$     .                ,igr,igr,igr,iorder=order)
+c$$$          endif
 
         case default
           call pstop('applyAuxVarBC'
@@ -446,10 +495,10 @@ c       Temperature BCs
         if ((no_eq_bc.or.no_tn_bc).and.(.not.ts_restart)) return
 #endif
 
+c       Allocate auxiliary variables in local domain
+
         allocate(prs0(0:nnx+1,0:nny+1,0:nnz+1)
      .          ,prs1(0:nnx+1,0:nny+1,0:nnz+1))
-
-c       Allocate auxiliary variables in local domain
 
         allocate(v0  (0:nnx+1,0:nny+1,0:nnz+1,3)
      .          ,vdum(0:nnx+1,0:nny+1,0:nnz+1,3))
@@ -457,21 +506,34 @@ c       Allocate auxiliary variables in local domain
         v0   = 0d0
         vdum = 0d0
 
+        pinch_bc = pinch_flow.or.res_wall_bc
+
         select case(abs(bc_inf(1)))
 #if defined(vec_pot)
         case(IACOV_0)
 
+          if (fill_A0_bc) then
+            vdum = XformVector(gv%gparams,igr,acov_0,.true.)
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
+     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
+     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
+     .              ,iorder=2)
+          else
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          vdum = XformVector(gv%gparams,igr,acov_0,.true.)
-c$$$          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,vdum,acov_0,v0
-c$$$     .              ,vaux%vec_list(IACOV_0)%bconds,igr,igr,igr
-c$$$     .              ,is_cnv=vaux%vec_list(IACOV_0)%cnv
-c$$$     .              ,iorder=2)
-
+          endif
+          
         case(IBCNV_0)
 
+          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+            prs0 = rho_0*tmp_0
+#if !defined(vec_pot)
+            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
+#endif
+            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+          endif
+          
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
      .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
      .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
@@ -480,13 +542,21 @@ c$$$     .              ,iorder=2)
         case(IBCOV_0)   !Done with bcnv_0
 #else
         case(IBCNV_0)
+
+          if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
+            prs0 = rho_0*tmp_0
+            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
+            call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
+
+            call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
+     .                ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
+     .                ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
+     .                ,iorder=1)
+          else
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           !Provide these in equilibrium routine!
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-c$$$          call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
-c$$$     .              ,vaux%vec_list(IBCNV_0)%bconds,igr,igr,igr
-c$$$     .              ,is_cnv=vaux%vec_list(IBCNV_0)%cnv
-c$$$     .              ,iorder=1)
+          endif
 
         case(IBCOV_0)
 
@@ -497,9 +567,9 @@ c$$$     .              ,iorder=1)
 
 c       Velocity BC
 
-          if (pinch_flow) then
+          if (pinch_bc) then
             prs0 = rho_0*tmp_0
-            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
 
           !Fill ghost nodes
@@ -525,12 +595,15 @@ cc          call XformVector_BC(gv%gparams,igr,jcnv_0,jcov_0,.false.)
         case(IENI_0)
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
-
+          
+          if (subtract_E0) then
 c$$$#if defined(vec_pot)
 c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
 c$$$#else
-          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+            E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0
+     .                        ,eeta_0)
 c$$$#endif
+          endif
 
         case(IVECNV_0)
 
@@ -552,9 +625,9 @@ c$$$          call XferBCs(vcnv,vcnv_n,.false.)
 
 c       Velocity BC
 
-          if (pinch_flow) then
+          if (pinch_bc) then
             prs1 = rho*tmp
-            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call ExB_flow_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(vcnv_0,v0,.true.)
           endif
@@ -573,47 +646,116 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
 c       Vector Pot. BC
 
-          call XferBCs(acov_0,v0,.true.)
+          if (regularize_A) then
+            allocate(acnv_n(0:nnx+1,0:nny+1,0:nnz+1,3))
 
-cc          call set_force_corners(.true.) !Force corners owing to div(A)=0 BC
-          call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
-     .              ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
-     .              ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
-cc          call set_force_corners(.false.)
+            !Subtract previous time step (to regularize delta only)
+c$$$            acov_n(:,:,:,1) = u_n%array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) = u_n%array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) = u_n%array_var(IAZ)%array
+            acnv_n = XformVector(gv%gparams,igr,acov_n,.true.)
+
+            acov = acov-acov_n
+            acnv = acnv-acnv_n
+
+c$$$            acnv_n = XformVector(gv%gparams,igr,acov_0,.true.)
+c$$$
+c$$$            acov = acov-acov_0
+c$$$            acnv = acnv-acnv_n
+
+            !Impose BC
+            v0 = 0d0
+
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv
+     .                ,sp_reg=.true.)
+
+            !Add previous time step
+            acov = acov + acov_n
+cc            acov = acov + acov_0
+            acnv = acnv + acnv_n
+
+            deallocate(acnv_n)
+          else
+            if (res_wall_bc) then
+              
+              if (implicit_rw_bc.and.(.not.save_tn)) then
+                !Extrapolate Vec-Pot and new-time B to boundary
+                bcnd = vaux%vec_list(IACOV)%bconds
+                where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+c$$$                !Predictor step (not working)
+c$$$                call XferBCs(acov_n,v0,.true.)
+c$$$                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
+                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                    ,bcnd,igr,igr,igr,iorder=2
+     .                    ,is_cnv=vaux%vec_list(IACOV)%cnv)
+                bcov = curl(gv%gparams,igr,acov)
+                bcov = XformToCov(gv%gparams,igr,bcov)
+                !Corrector step
+                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+              elseif (save_tn) then
+                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+              endif
+
+              call XferBCs(acov_n,v0,.true.)
+              v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
+              
+            else
+
+              call XferBCs(acov_0,v0,.true.)
+              
+            endif
+            
+            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+          endif
 
         case(IACNV)  !Done when computing acov
 
 cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
 
+        case(IACOV_N)
 #endif
         case(IBCNV)
 
 c       Magnetic field BC
 
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
+#if !defined(vec_pot)
+            if (res_wall_bc) then
+              if (implicit_rw_bc.and.(.not.save_tn)) then
+                call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+              elseif (save_tn) then
+                call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+              endif
+            endif
+#endif
             prs1 = rho*tmp
-            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
 
-cc          call set_force_corners(.true.) !Force corners owing to div(B)=0 BC
           call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv,bcov,v0
      .              ,vaux%vec_list(IBCNV)%bconds,igr,igr,igr
      .              ,iorder=order,is_cnv=vaux%vec_list(IBCNV)%cnv)
-cc          call set_force_corners(.false.)
 
         case(IBCOV) !Done when computing bcnv
 
 cc          call XformVector_BC(gv%gparams,igr,bcnv,bcov,.false.)
 
+        case(IBCOV_N)
+
         case(IJCNV)
 
 c       Current BC
 
-          if (pinch_flow) then  !Jt = alpha*Bt in cnv representation
+          if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
             prs1 = rho*tmp
-            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,v0)
+            call J_pinch_bc(gv%gparams,igr,bcnv,prs1,eeta,E_bc,v0)
           else
             call XferBCs(jcnv_0,v0,.true.)
           endif
@@ -665,6 +807,9 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 c       Hall electric field BC
 
           if (di > 0d0) then
+            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
+            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
+
             bcnd = vaux%vec_list(IEH)%bconds
             vdum = XformVector(gv%gparams,igr,E_h,.true.)
             call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
@@ -718,10 +863,6 @@ c--------------------------------------------------------------------
 
       use var_setup
 
-c diag ****
-      use app_iosetup
-c diag ****
-
       implicit none
 
 c Call variables
@@ -738,7 +879,7 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
      $          ,lref
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
@@ -747,8 +888,12 @@ c Local variables
 
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -781,14 +926,14 @@ c Select variable
         case(ITMPE_0)
 
           where (u_0%array_var(IRHO)%array /= 0d0)
-            tmpe_0 = u_0%array_var(ITMP)%array
-     .              /u_0%array_var(IRHO)%array/a_p
+            tmpe_0 = u_0%array_var(IPRS)%array
+     .             /(u_0%array_var(IRHO)%array*a_p)
           elsewhere
             tmpe_0 = 0d0
           end where
 
-          !Reference temperature for Spitzer resistivity
-          if (spitzer) then
+          !Reference temperature for transport parameters
+          if (spitzer.or.chi_bgnskii) then
             te0_ref = maxval(tmpe_0)
 
 #if defined(petsc)
@@ -806,42 +951,61 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
-            rho = varray%array_var(ITMP)%array/(tmp_0*jac)
+          if (adiabatic_rho) then
+            rho = varray%array_var(IPRS)%array
+     .           /u_0   %array_var(IPRS)%array
+            rho = rho_0*(abs(rho))**(1d0/gamma)
           else
             rho = varray%array_var(IRHO)%array/jac
           endif
 
-        case(ITMP_AUX)
+        case(ITMP_AUX)  !Total temperature
 
           tmp = tmpe*a_p
 
-        case(ITMPE_AUX)
+        case(ITMPE_AUX) !Electron temperature
 
-          where (varray%array_var(IRHO)%array /= 0d0)
-            tmpe = varray%array_var(ITMP)%array
-     .            /varray%array_var(IRHO)%array/a_p
-          end where
-
+          if (gamma == 1d0) then
+            tmpe = tmpe_0  !Isothermal
+c$$$          elseif((adiabatic.and.solve_rho).and.(.not.adiabatic_rho))then
+c$$$            tmpe = varray%array_var(IRHO)%array
+c$$$     .            /u_0   %array_var(IRHO)%array
+c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
+          else
+            where (rho /= 0d0)
+              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
+            end where
+          endif
+          
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
  
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu = vis(gv%gparams,igr,tmp)
-          endif
+          nuu = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
  
-          eeta= res(gv%gparams,igr,tmpe)
+          if (fixed_Te) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_Te) then
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
+
+        case(IDFF)
+
+          dff     = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi    = chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
+
+        case(ICHIPAR)
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(IHETA)
 
@@ -930,20 +1094,10 @@ c diag ****
 
             jcnv_0 = 0d0
 
-          elseif (sum(E0) /= 0d0) then
 c diag ****
-cc          if (sum(E0) /= 0d0) then
-
-            !Enforce imposed E field
-            do k=0,nnz+1
-              do j=0,nny+1
-                do i=0,nnx+1
-                  jcnv_0(i,j,k,:) =
-     .               matmul(gv%gparams%gmetric%grid(igr)%gsup(i,j,k,:,:)
-     .                     ,E0)/eeta_0(i,j,k)
-                enddo
-              enddo
-            enddo
+c$$$          elseif (equil=='efit') then
+c$$$
+c$$$            jcnv_0 = 0d0
 
           else
 
@@ -955,12 +1109,15 @@ cc          if (sum(E0) /= 0d0) then
 
 c       Electric field (time=0, initial EOM equ => only ideal+resistive contributions)
 
+          if (subtract_E0) then
 c$$$#if defined(vec_pot)
 c$$$          E_ni_0=E_fld_res_A(gv%gparams,igr,vcnv_0,acov_0,jcov_0,eeta_0)
 c$$$#else
-          E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0,eeta_0)
+            E_ni_0=E_fld_res_B(gv%gparams,igr,vcnv_0,bcnv_0,jcov_0
+     .                        ,eeta_0)
 c$$$#endif
-
+          endif
+          
         case(IVECNV_0)
 
 c       Electron velocity ve=v-di*j/rho with j=curl(B)
@@ -971,26 +1128,12 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
 #if defined(plotting)
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
-              vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-              vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-              vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
-     .                         /u_n%array_var(ITMP)%array*jac*tmp_0
-            else
               vcnv_n(:,:,:,1) = u_n%array_var(IVX )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,2) = u_n%array_var(IVY )%array
      .                         /u_n%array_var(IRHO)%array*jac
               vcnv_n(:,:,:,3) = u_n%array_var(IVZ )%array
      .                         /u_n%array_var(IRHO)%array*jac
-c$$$            where (rho /= 0d0)
-c$$$              vcnv_n(:,:,:,1) = vcnv_n(:,:,:,1)/rho
-c$$$              vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/rho
-c$$$              vcnv_n(:,:,:,3) = vcnv_n(:,:,:,3)/rho
-c$$$            end where
-            endif
           else
             vcnv_n(:,:,:,1) = u_n%array_var(IVX)%array
             vcnv_n(:,:,:,2) = u_n%array_var(IVY)%array
@@ -1000,23 +1143,6 @@ c$$$            end where
           if (alt__eom()) vcnv_n(:,:,:,2) = vcnv_n(:,:,:,2)/jac
 #else
           if (.not.nc_eom_v) then
-            if ((.not.solve_rho).and.adiabatic.and.gamma == 1) then
-              vcnv_n(:,:,:,1) =(-cn/cnp*u_n %array_var(IVX )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVX )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-              vcnv_n(:,:,:,2) =(-cn/cnp*u_n %array_var(IVY )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVY )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-              vcnv_n(:,:,:,3) =(-cn/cnp*u_n %array_var(IVZ )%array
-     .                                 /u_n %array_var(ITMP)%array
-     .                         -cnm/cnp*u_nm%array_var(IVZ )%array
-     .                                 /u_nm%array_var(ITMP)%array)
-     .                         *jac*tmp_0
-            else
               if (cnm == 0d0) then
                 vcnv_n(:,:,:,1) =(u_n %array_var(IVX )%array
      .                           /u_n %array_var(IRHO)%array)*jac
@@ -1041,7 +1167,6 @@ c$$$            end where
      .                                   /u_nm%array_var(IRHO)%array)
      .                           *jac
              endif
-            endif
           else
             vcnv_n(:,:,:,1) = -cn/cnp*u_n %array_var(IVX)%array
      .                       -cnm/cnp*u_nm%array_var(IVX)%array
@@ -1060,10 +1185,58 @@ c$$$          vcnv_n = vcnv  !Initializes for BDF2 as well
 
           if (electron_hall) vecov_n = vecov     !Does NOT work for BDF2
  
-cc        case(IBCNV_N)
-cc
-cc          bcnv_n = bcnv !Save previous time step
+        case(IBCOV_N)
 
+#if defined(plotting)
+          if (itime==0) then
+#else
+          if (source_eval) then
+#endif
+            bcov_n = bcov_0     !Set it to initial cond.
+          else
+#if defined(vec_pot)
+            do k = 0,nnz+1
+              do j = 0,nny+1
+                do i = 0,nnx+1
+                  bcov_n(i,j,k,:) =
+     .                 XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
+     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,acov_n)
+                enddo
+              enddo
+            enddo
+            bcov_n = XformToCov(gv%gparams,igr,bcov_n)         
+c diag ****
+c$$$        call createDrawInCfile(6,"debug.bin",'Solution','t','x','y'
+c$$$     .           ,(/'DB1','DB2','DB3','DB4','DB5','DB6'/),'-c -X0 -L57'
+c$$$     .           ,'drawdebug.in')
+c$$$
+c$$$        open(unit=110,file="debug.bin",form='unformatted'
+c$$$     .       ,status='unknown')
+c$$$        write (*,*) "acov_n @ ibcov_n",acov_n(:,1,1,2)
+c$$$        v0 = acov_n
+c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,0,110)
+c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        v0 = bcov_n
+c$$$        call contour(v0(:,:,1,1),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,2),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        call contour(v0(:,:,1,3),nnx+2,nny+2,xmin,xmax,ymin,ymax,1,110)
+c$$$        close(110)
+c$$$
+c$$$        pause
+c diag ****
+#else
+            bcov_n = bcov       !Save previous time step
+c$$$            bcov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IBX)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBX)%array
+c$$$            bcov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IBY)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBY)%array
+c$$$            bcov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IBZ)%array
+c$$$     .                       -cnm/cnp*u_nm%array_var(IBZ)%array
+c$$$            bcov_n = XformToCov(gv%gparams,igr,bcov_n)
+#endif
+          endif
+          
         case(IVCOV)
 
           vcov = XformVector(gv%gparams,igr,vcnv,.false.)
@@ -1085,6 +1258,31 @@ cc          bcnv_n = bcnv !Save previous time step
           if (alt__eom()) vcnv(:,:,:,2) = vcnv(:,:,:,2)/jac
 
 #if defined(vec_pot)
+        case(IACOV_N)
+
+#if defined(plotting)
+          if (itime==0) then
+            acov_n = acov_0     !Set it to initial cond.
+          else
+            acov_n = acov       !Save previous time step
+          endif
+#else
+          if (source_eval) then
+            acov_n = acov_0     !Set it to initial cond.
+          else  !This determines bcov_n also
+c$$$        acov_n = acov       !Save previous time step
+            !BDF2 interpolation is critical for accuracy in RW!!
+            acov_n(:,:,:,1) = -cn/cnp*u_n %array_var(IAX)%array
+     .                       -cnm/cnp*u_nm%array_var(IAX)%array
+            acov_n(:,:,:,2) = -cn/cnp*u_n %array_var(IAY)%array
+     .                       -cnm/cnp*u_nm%array_var(IAY)%array
+            acov_n(:,:,:,3) = -cn/cnp*u_n %array_var(IAZ)%array
+     .                       -cnm/cnp*u_nm%array_var(IAZ)%array
+c$$$            acov_n(:,:,:,1) =u_n %array_var(IAX)%array
+c$$$            acov_n(:,:,:,2) =u_n %array_var(IAY)%array
+c$$$            acov_n(:,:,:,3) =u_n %array_var(IAZ)%array
+          endif
+#endif
 
         case(IACOV)
 
@@ -1237,14 +1435,18 @@ c Local variables
       integer :: i,j,k,icomp,bcnd(6,3),bcsq(6),nnx,nny,nnz
      .          ,ig,jg,kg
 
-      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),grad_p(3),etal
+      real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
       real(8),pointer,dimension(:,:,:) :: jac
 
 c Begin program
 
+#if defined(plotting)
+      save_tn = .true.
+#else
       save_tn = old_time_eval .or. source_eval
-
+#endif
+      
 c Local grid sizes
 
       nnx = gv%gparams%nxv(igr) 
@@ -1272,9 +1474,14 @@ c Select variable
 
         case(ITMP_0)
 
-          u_0%array_var(ITMP)%array = rho_0*tmp_0*jac
+          tmp_0 = tmpe_0*a_p
+
+c$$$          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
 
         case(ITMPE_0)
+
+c$$$          tmpe_0 = u_0%array_var(IPRS)%array
+c$$$     .           /(u_0%array_var(IRHO)%array*a_p)
 
         case(IETA_0)
 
@@ -1284,51 +1491,65 @@ c       Resistivity at initial time
 
         case(IRHO_AUX)
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma > 1d0) then
-            where (tmp_0 /= 0d0)
-              rho = rho_0*(tmp/tmp_0)**(1./(gamma-1d0))
-            end where
-          endif
-
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)
+        case(ITMP_AUX)  !Recover total pressure
 
-          if ((.not.solve_rho).and.adiabatic.and.gamma == 1d0) then
-            varray%array_var(ITMP)%array = rho*tmp_0*jac
-          else
-            varray%array_var(ITMP)%array = rho*tmp*jac
-          endif
+c$$$          if (.not.adiabatic_rho) then
+c$$$            varray%array_var(IPRS)%array = rho*tmp*jac
+c$$$          endif
+          
+          tmp = tmpe*a_p
 
         case(ITMPE_AUX)
+
+          if (gamma == 1d0) then
+            tmpe = tmpe_0  !Isothermal
+c$$$          elseif((adiabatic.and.solve_rho).and.(.not.adiabatic_rho))then
+c$$$            tmpe = varray%array_var(IRHO)%array
+c$$$     .            /u_0   %array_var(IRHO)%array
+c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
+          else
+            where (rho /= 0d0)
+              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
+            end where
+          endif
 
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
  
-          if (nu_is_rhonu) then
-            nuu = rho*vis(gv%gparams,igr,tmp)
-          else
-            nuu = vis(gv%gparams,igr,tmp)
-          endif
+          nuu = vis(gv%gparams,igr,tmp,rho)
 
         case(IETA)
 
 c       Resistivity (needed for BCs; may depend on T)
 
-c$$$          if (fixed_spitzer) then
-c$$$            eeta= res(gv%gparams,igr,tmpe_0)
-c$$$          elseif (lagged_spitzer) then
-c$$$            eeta= res(gv%gparams,igr,u_n%array_var(ITMP)%array/jac)
-c$$$          else
-c$$$            eeta= res(gv%gparams,igr,tmpe)
-c$$$          endif
+          if (fixed_Te) then
+            eeta= res(gv%gparams,igr,tmpe_0)
+          elseif (lagged_Te) then
+            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac/a_p)
+          else
+            eeta= res(gv%gparams,igr,tmpe)
+          endif
+          
+        case(IDFF)
+
+c       Particle diffusivity
+
+          dff = diff_mesh(gv%gparams,igr,tmpe,rho,bcnv)
 
         case(ICHI)
 
-c       Heat diffusivity (may depend on T)
+c       Perpendicular heat diffusivity
 
-          cchi= chi_perp(gv%gparams,igr,tmpe)
+          cchi= chi_perp(gv%gparams,igr,tmpe,rho,bcnv)
+
+        case(ICHIPAR)
+
+c       Parallel heat diffusivity
+
+          cchi_par= chi_para(gv%gparams,igr,tmpe,cchi)
 
         case(IHETA)
 
@@ -1407,6 +1628,8 @@ c       Electron velocity ve=v-di*j/rho with j=curl(B)
 
           vecnv_0 = form_ve(vcnv_0,jcnv_0,rho_0)
 
+        case(IBCOV_N)
+
         case(IVCNV_N)
 
 cc          vcnv_n  = vcnv  !Initializes for BDF2 as well
@@ -1435,6 +1658,8 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
      .                    varray%array_var(IVY)%array*jac
 
 #if defined(vec_pot)
+        case(IACOV_N)
+
         case(IACOV)
 
           varray%array_var(IAX)%array = acov(:,:,:,1)
@@ -1443,7 +1668,7 @@ cc          call XformVector_BC(gv%gparams,igr,vcnv,vcov,.false.)
 
         case(IACNV)
 
-cc          call XformVector_BC(gv%gparams,igr,acov,acnv,.true.)
+cc          acnv = XformVector(gv%gparams,igr,acov,.true.)
 
         case(IBCNV)
 
@@ -1613,7 +1838,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
 
       case (IAX,IAY,IAZ)
 
-        if (ivar /= dim .or. bcond(ibc) == FSYM ) then
+        if (ivar/=dim.or.bcond(ibc)==FSYM.or.res_wall_bc) then
 
           call extrapolateBC(g_def,array (:,:,:,ivar)
      .                      ,array0(:,:,:,ivar)
@@ -1624,7 +1849,7 @@ cc     .                    ,dim,loc,1)  !Required for mass conservation
           call solen_bc(g_def,array,dim,loc,.true.,.false.)
 
         endif
-
+        
       case default
 
         messg = 'Variable '//int2char(ieq)//' does not exist'
@@ -1787,7 +2012,7 @@ cc            enddo
 cc          enddo
 cc        enddo
 cc
-cc      case (ITMP)
+cc      case (IPRS)
 cc
 cc        do i=imin,imax
 cc          do j=jmin,jmax
@@ -1995,6 +2220,14 @@ c     Local variables
           logical :: face,safe
           real(8) :: array(0:,0:,0:,:)
         end subroutine solen_bc
+
+        subroutine curl_BC(g_def,array,array0,ivar,dim,loc,face,safe)
+          use grid_def_st
+          type(grid_mg_def),pointer :: g_def
+          integer :: dim,loc,ivar
+          logical :: face,safe
+          real(8) :: array(0:,0:,0:,:),array0(0:,0:,0:,:)
+        end subroutine curl_BC
       END INTERFACE
 
 c     Begin program
@@ -2213,9 +2446,9 @@ c     Begin program
 
         else  !Imposes divergence-free constraint on J
 
-          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
 
           call solen_BC(g_def,array,dim,loc,.false.,safe)
 
@@ -2250,210 +2483,17 @@ c     Begin program
 
         if (ivar /= dim) then
 
-          call findBCLoopLimits(g_def,dim,loc
-     .                         ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
-     .                         ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
-
-          do k=kmin,kmax
-            do j=jmin,jmax
-              do i=imin,imax
-
-                call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc
-     .                       ,ig,jg,kg)
-
-                gsuper= g_def%gmetric%grid(igxbc)%gsup(i  ,j,k,:,:)
-                gsupip= g_def%gmetric%grid(igxbc)%gsup(i+1,j,k,:,:)
-                gsupim= g_def%gmetric%grid(igxbc)%gsup(i-1,j,k,:,:)
-                gsupjp= g_def%gmetric%grid(igxbc)%gsup(i,j+1,k,:,:)
-                gsupjm= g_def%gmetric%grid(igxbc)%gsup(i,j-1,k,:,:)
-                gsupkp= g_def%gmetric%grid(igxbc)%gsup(i,j,k+1,:,:)
-                gsupkm= g_def%gmetric%grid(igxbc)%gsup(i,j,k-1,:,:)
-
-                ip = i+1
-                im = i-1
-                dh(1) = 2.*g_def%dxh(ig)
-cc                if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) then  !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,i,igxbc,1)) then
-                  dh(1) = g_def%dx(ig)
-                  im = i
-                endif
-cc                if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(2))) then  !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,i,igxbc,2)) then
-                  dh(1) = g_def%dx(ig-1)
-                  ip = i
-                endif
-
-                jp = j+1
-                jm = j-1
-                dh(2) = 2.*g_def%dyh(jg)
-cc                if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(3))) then !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,j,igybc,3)) then
-                  dh(2) = g_def%dy(jg)
-                  jm = j
-                endif
-cc                if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(4))) then !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,j,igybc,4)) then
-                  dh(2) = g_def%dy(jg-1)
-                  jp = j
-                endif
-
-                kp = k+1
-                km = k-1
-                dh(3) = 2.*g_def%dzh(kg)
-cc                if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(5))) then  !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,k,igzbc,5)) then
-                  dh(3) = g_def%dz(kg)
-                  km = k
-                endif
-cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(6))) then  !Gives bdry noise in Soloveev case
-                if(isBdry(g_def,k,igzbc,6)) then
-                  dh(3) = g_def%dz(kg-1)
-                  kp = k
-                endif
-
-                if (dim == 1) then
-
-                  if (ibc == 1) then
-                    gsupavg = 0.5*(gsuper+gsupim)
-                  elseif (ibc == 2) then
-                    gsupavg = 0.5*(gsuper+gsupip)
-                  endif
-
-                  jn = (array(i,jp,k,3)-array(i,jm,k,3))/dh(2)
-     .                -(array(i,j,kp,2)-array(i,j,km,2))/dh(3)
-
-                  if (ivar == 2) then
-                    icomp = 3
-                    isgn  = 1
-
-                    rhs(j,k) = 
-     .                  (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  elseif (ivar == 3) then
-                    icomp = 2
-                    isgn  =-1
-
-                    rhs(j,k) =
-     .                  (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  endif
-
-                  if (ibc == 1) then
-                    ee = array0(i-1,j,k,icomp)
-                  elseif (ibc == 2) then
-                    ee = array0(i+1,j,k,icomp)
-                  endif
-
-                  rhs(j,k)=dh(dim)*(rhs(j,k) + isgn*ee)
-
-                elseif (dim == 2) then
-
-                  if (ibc == 3) then
-                    gsupavg = 0.5*(gsuper+gsupjm)
-                  elseif (ibc == 4) then
-                    gsupavg = 0.5*(gsuper+gsupjp)
-                  endif
-
-                  jn = (array(i,j,kp,1)-array(i,j,km,1))/dh(3)
-     .                -(array(ip,j,k,3)-array(im,j,k,3))/dh(1)
-
-                  if (ivar == 3) then
-                    icomp = 1
-                    isgn  = 1
-
-                    rhs(i,k) =
-     .                   (array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
-     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  elseif (ivar == 1) then
-                    icomp = 3
-                    isgn  =-1
-
-                    rhs(i,k) = 
-     .                  (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                    +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  endif
-
-                  if (ibc == 3) then
-                    ee = array0(i,j-1,k,icomp)
-                  elseif (ibc == 4) then
-                    ee = array0(i,j+1,k,icomp)
-                  endif
- 
-                  rhs(i,k) = dh(dim)*(rhs(i,k) + isgn*ee)
-
-                elseif (dim == 3) then
-
-                  if (ibc == 5) then
-                    gsupavg = 0.5*(gsuper+gsupkm)
-                  elseif (ibc == 6) then
-                    gsupavg = 0.5*(gsuper+gsupkp)
-                  endif
-
-                  jn = (array(ip,j,k,2)-array(im,j,k,2))/dh(1)
-     .                -(array(i,jp,k,1)-array(i,jm,k,1))/dh(2)
-
-                  if (ivar == 1) then
-                    icomp = 2
-                    isgn  = 1
-
-                    rhs(i,j) =
-     .                   (array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
-     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  elseif (ivar == 2) then
-                    icomp = 1
-                    isgn  =-1
-
-                    rhs(i,j) = 
-     .                   (array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
-     .                     +isgn*gsupavg(dim,icomp)*jn/gsupavg(dim,dim)
-                  endif
-
-                  if (ibc == 5) then
-                    ee = array0(i,j,k-1,icomp)
-                  elseif (ibc == 6) then
-                    ee = array0(i,j,k+1,icomp)
-                  endif
-
-                  rhs(i,j) = dh(dim)*(rhs(i,j) + isgn*ee)
-
-                endif
-
-              enddo
-            enddo
-          enddo
-
-          select case (ibc)
-          case (1)
-            array(0     ,jmin:jmax,kmin:kmax,ivar)
-     $                     = array(1+offset,jmin:jmax,kmin:kmax,ivar)
-     $                     - rhs(jmin:jmax,kmin:kmax)
-          case (2)
-            array(nxbc+1,jmin:jmax,kmin:kmax,ivar)
-     $                     = array(nxbc-offset,jmin:jmax,kmin:kmax,ivar)
-     $                     + rhs(jmin:jmax,kmin:kmax)
-          case (3)
-            array(imin:imax,0     ,kmin:kmax,ivar)
-     $                     = array(imin:imax,1+offset,kmin:kmax,ivar)
-     $                     - rhs(imin:imax,kmin:kmax)
-          case (4)
-            array(imin:imax,nybc+1,kmin:kmax,ivar)
-     $                     = array(imin:imax,nybc-offset,kmin:kmax,ivar)
-     $                     + rhs(imin:imax,kmin:kmax)
-          case (5)
-            array(imin:imax,jmin:jmax,0     ,ivar)
-     $                     = array(imin:imax,jmin:jmax,1+offset,ivar)
-     $                     - rhs(imin:imax,jmin:jmax)
-          case (6)
-            array(imin:imax,jmin:jmax,nzbc+1,ivar)
-     $                     = array(imin:imax,jmin:jmax,nzbc-offset,ivar)
-     $                     + rhs(imin:imax,jmin:jmax)
-          end select
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
+          
+          call curl_BC(g_def,array,array0,ivar,dim,loc,.true.,safe)
 
         else  !Imposes divergence-free constraint on B
 
-          safe = (dim == 1 .and. bcChk(2,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 2 .and. bcChk(1,FSYM) .and. bcChk(3,FSYM))
-     .       .or.(dim == 3 .and. bcChk(1,FSYM) .and. bcChk(2,FSYM))
+          safe = (dim == 1 .and. bcFSYM(2) .and. bcFSYM(3))
+     .       .or.(dim == 2 .and. bcFSYM(1) .and. bcFSYM(3))
+     .       .or.(dim == 3 .and. bcFSYM(1) .and. bcFSYM(2))
 
           call solen_BC(g_def,array,dim,loc,.false.,safe)
 
@@ -2461,8 +2501,20 @@ cc                if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(6))) then  !Gives b
 
       case default
 
-        write (*,*) 'Variable=',ieq
-        call pstop('vectorNeumanBC','Variable not implemented')
+        select case (ibc)
+        case (1)
+          array(0     ,:,:,ivar) = array(1   +offset,:,:,ivar)
+        case (2)                                             
+          array(nxbc+1,:,:,ivar) = array(nxbc-offset,:,:,ivar)
+        case (3)                                             
+          array(:,0     ,:,ivar) = array(:,1   +offset,:,ivar)
+        case (4)                                             
+          array(:,nybc+1,:,ivar) = array(:,nybc-offset,:,ivar)
+        case (5)                                             
+          array(:,:,0     ,ivar) = array(:,:,1   +offset,ivar)
+        case (6)                                             
+          array(:,:,nzbc+1,ivar) = array(:,:,nzbc-offset,ivar)
+        end select
 
       end select
 
@@ -2517,7 +2569,8 @@ c     Begin program
       endif
 
       call findBCLoopLimits(g_def,dim,loc
-     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
      .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
 
       hex = 0 ; hey = 0 ; hez = 0
@@ -2766,4 +2819,241 @@ cc              if(isBdry(k,igzbc,6)) hez =-1
       end select
 
       end subroutine solen_BC
+
+c curl_BC
+c #####################################################################
+      subroutine curl_BC(g_def,array,array0,ivar,dim,loc,face,safe)
+c ---------------------------------------------------------------------
+c     Imposes curl BC. On input:
+c        * array,array0 -> contain vectors
+c        * ivar  -> defines component to apply BC on
+c        * dim   -> dimension we are imposing BC on (X,Y,Z) (1,2,3)
+c        * loc   -> boundary location (0 -> left, 1->right)
+c        * face  -> whether we are approximating normal derivative at
+c                   boundary face or at inner boundary cell center.
+c ---------------------------------------------------------------------
+        
+      use local_BCS_variables
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: dim,loc,ivar
+      real(8) :: array(0:,0:,0:,:),array0(0:,0:,0:,:)
+      logical :: face,safe
+
+c     Local variables
+
+      integer :: imax,imin,jmax,jmin,kmax,kmin,offset
+     .          ,im,jm,km,ip,jp,kp
+      integer :: i,j,k,ig,jg,kg,ibc,hex,hey,hez,icomp,isgn
+      real(8) :: dh(3),coeff,crl(3)
+      real(8) :: gsuper(3,3),gspavg(3,3)
+     .          ,gsupip(3,3),gsupim(3,3)
+     .          ,gsupjp(3,3),gsupjm(3,3)
+     .          ,gsupkp(3,3),gsupkm(3,3)
+
+c     Begin program
+
+      ibc = (1+loc)+2*(dim-1)
+
+      if (face) then
+        offset= 0
+        coeff = 1d0
+      else
+        offset= 1
+        coeff = 2d0
+      endif
+
+cc      call findBCLoopLimits(g_def,dim,loc
+cc     .                     ,iimnm,iimxp,jjmnm,jjmxp,kkmnm,kkmxp
+cc     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax )
+      call findBCLoopLimits(g_def,dim,loc
+     .                     ,iimin,iimax,jjmin,jjmax,kkmin,kkmax
+     .                     ,imin ,imax ,jmin ,jmax ,kmin ,kmax)
+
+      hex = 0 ; hey = 0 ; hez = 0
+
+      do k=kmin,kmax
+        do j=jmin,jmax
+          do i=imin,imax
+
+            ip = i+1
+            im = i-1
+            jp = j+1
+            jm = j-1
+            kp = k+1
+            km = k-1
+
+            if (safe) then
+              hex = 0
+              if(isBdry(g_def,i,igxbc,1).and.(.not.bcPER(1))) then
+                hex = 1 ; im = i
+              endif
+              if(isBdry(g_def,i,igxbc,2).and.(.not.bcPER(1))) then
+                hex =-1 ; ip = i
+              endif
+
+              hey = 0
+              if(isBdry(g_def,j,igybc,3).and.(.not.bcPER(2))) then
+                hey = 1 ; jm = j
+              endif
+              if(isBdry(g_def,j,igybc,4).and.(.not.bcPER(2))) then
+                hey =-1 ; jp = j
+              endif
+
+              hez = 0
+              if(isBdry(g_def,k,igzbc,5).and.(.not.bcPER(3))) then
+                hez = 1 ; km = k
+              endif
+              if(isBdry(g_def,k,igzbc,6).and.(.not.bcPER(3))) then
+                hez =-1 ; kp = k
+              endif
+            endif
+
+            call getMGmap(g_def,i,j,k,igxbc,igybc,igzbc,ig,jg,kg)
+
+            gsuper= g_def%gmetric%grid(igxbc)%gsup(i ,j,k,:,:)
+            gsupip= g_def%gmetric%grid(igxbc)%gsup(ip,j,k,:,:)
+            gsupim= g_def%gmetric%grid(igxbc)%gsup(im,j,k,:,:)
+            gsupjp= g_def%gmetric%grid(igxbc)%gsup(i,jp,k,:,:)
+            gsupjm= g_def%gmetric%grid(igxbc)%gsup(i,jm,k,:,:)
+            gsupkp= g_def%gmetric%grid(igxbc)%gsup(i,j,kp,:,:)
+            gsupkm= g_def%gmetric%grid(igxbc)%gsup(i,j,km,:,:)
+
+            crl=curl(g_def,i,j,k,nxbc,nybc,nzbc,igxbc,igybc,igzbc
+     .              ,array,hex=hex,hey=hey,hez=hez)
+
+            dh(1) = (ip-im)*g_def%dxh(ig)
+            dh(2) = (jp-jm)*g_def%dyh(jg)
+            dh(3) = (kp-km)*g_def%dzh(kg)
+
+            select case (dim)
+            case (1)
+
+              dh(1) = coeff*g_def%dxh(ig)
+
+              if (face) then
+                if (ibc == 1) then
+                  gspavg = 0.5*(gsuper+gsupim)
+                elseif (ibc == 2) then
+                  gspavg = 0.5*(gsuper+gsupip)
+                endif
+              else
+                gspavg = gsuper
+              endif
+                
+              if (ivar == 2) then
+                icomp = 3
+                isgn  = 1
+
+                crl(dim) =(array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              elseif (ivar == 3) then
+                icomp = 2
+                isgn  =-1
+
+                crl(dim) =(array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              endif
+
+            case(2)
+
+              dh(2) = coeff*g_def%dyh(jg)
+
+              if (face) then
+                if (ibc == 3) then
+                  gspavg = 0.5*(gsuper+gsupjm)
+                elseif (ibc == 4) then
+                  gspavg = 0.5*(gsuper+gsupjp)
+                endif
+              else
+                gspavg = gsuper
+              endif
+              
+              if (ivar == 3) then
+                icomp = 1
+                isgn  = 1
+
+                crl(dim) =(array(i,j,kp,dim)-array(i,j,km,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              elseif (ivar == 1) then
+                icomp = 3
+                isgn  =-1
+
+                crl(dim) =(array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              endif
+
+            case(3)
+
+              dh(3) = coeff*g_def%dzh(kg)
+
+              if (face) then
+                if (ibc == 5) then
+                  gspavg = 0.5*(gsuper+gsupkm)
+                elseif (ibc == 6) then
+                  gspavg = 0.5*(gsuper+gsupkp)
+                endif
+              else
+                gspavg = gsuper
+              endif
+
+              if (ivar == 1) then
+                icomp = 2
+                isgn  = 1
+
+                crl(dim) =(array(ip,j,k,dim)-array(im,j,k,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              elseif (ivar == 2) then
+                icomp = 1
+                isgn  =-1
+
+                crl(dim) =(array(i,jp,k,dim)-array(i,jm,k,dim))/dh(ivar)
+     .                  +isgn*gspavg(dim,icomp)*crl(dim)/gspavg(dim,dim)
+              endif
+
+            end select
+
+            select case (ibc)
+            case (1)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i-1,j,k,icomp))
+
+              array(0     ,j,k,ivar) = array(1+offset,j,k,ivar)
+     .                               - crl(dim)
+            case (2)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i+1,j,k,icomp))
+
+              array(nxbc+1,j,k,ivar) = array(nxbc-offset,j,k,ivar)
+     $                               + crl(dim)
+            case (3)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i,j-1,k,icomp))
+
+              array(i,0     ,k,ivar) = array(i,1+offset,k,ivar)
+     $                               - crl(dim)
+            case (4)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i,j+1,k,icomp))
+
+              array(i,nybc+1,k,ivar) = array(i,nybc-offset,k,ivar)
+     $                               + crl(dim)
+            case (5)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i,j,k-1,icomp))
+
+              array(i,j,0     ,ivar) = array(i,j,1+offset,ivar)
+     $                               - crl(dim)
+            case (6)
+              crl(dim) = dh(dim)*(crl(dim) + isgn*array0(i,j,k+1,icomp))
+
+              array(i,j,nzbc+1,ivar) = array(i,j,nzbc-offset,ivar)
+     $                               + crl(dim)
+            end select
+
+          enddo
+        enddo
+      enddo
+
+      end subroutine curl_BC
 

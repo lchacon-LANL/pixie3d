@@ -246,7 +246,7 @@ c Define GENERIC diagnostics
       diag_desc(IAY)    = '||day||'        
       diag_desc(IAZ)    = '||daz||'        
 #endif
-      diag_desc(ITMP)   = '||dtmp||'       
+      diag_desc(IPRS)   = '||dprs||'       
       diag_desc(neqd+1) = 'Magnetic energy'
       diag_desc(neqd+2) = 'Kinetic energy' 
       diag_desc(neqd+3) = 'Thermal energy' 
@@ -275,13 +275,22 @@ c Define GENERIC diagnostics
 
       diag_desc(neqd+24)= 'max(Bx) along y'
       diag_desc(neqd+25)= 'max(By) along x'
+      diag_desc(neqd+26)= 'Max Br @ r=1'
 
-      diag_desc(neqd+26)= 'Max Vex'
-      diag_desc(neqd+27)= 'Max Vey'
-      diag_desc(neqd+28)= 'Max Vez'
+      diag_desc(neqd+27)= 'Max Vex'
+      diag_desc(neqd+28)= 'Max Vey'
+      diag_desc(neqd+29)= 'Max Vez'
 
-      diag_desc(neqd+29:ngraph) = ''
+#if defined(vec_pot)
+      diag_desc(neqd+30)= '||dbx||'
+      diag_desc(neqd+31)= '||dby||'
+      diag_desc(neqd+32)= '||dbz||'
 
+      diag_desc(neqd+33:ngraph) = ''
+#else
+      diag_desc(neqd+30:ngraph) = ''
+#endif
+      
 c Define corresponding independent variables
 
       diag_ivar(:) = 0  !This means that the independent variable is time
@@ -329,8 +338,9 @@ c Local variables
       real(8) :: energy,Vflux,Bflux,diverB,x1,y1,z1,dpert(neqd)
      .          ,ez,lrflux,rflux,rfluxn,rmsj,vmax(3),vemax(3)
      .          ,lvmax(3),ystar,lapjzm,lapjzp,dvm,dvp
-     .          ,dl,ww=0d0,Bup=0d0,Bup0=1d0,Bdown=0d0
+     .          ,dl,ww=0d0,Bup=0d0,Bup0=1d0,Bdown=0d0,br_w
      .          ,x_xpt,y_xpt,z_xpt,x,y,z,xm,ym,zm,vi_out,ve_out
+     .          ,send_buf(1),recv_buf(1),bnorm(3)
 
       logical :: cartsn
 
@@ -409,7 +419,7 @@ c Energy diagnostics
       array = rho*tmp
 
       if (gamma /= 1d0) then
-        Et = 1d0/(gamma-1)
+        Et = 1d0/(gamma-1d0)
      .      *integral(gv%gparams,igx,array,average=.false.)
       else
         Et = 0d0
@@ -462,8 +472,27 @@ cc       if (Ipz0  /= 0d0) Ipz   = Ipz  /Ipz0
        if (Iz0   /= 0d0) Iz    = Iz   /Iz0   
        if (Tflux0/= 0d0) Tflux = Tflux/Tflux0
 
-       energy = energy/(Ek0 + Em0 + Et0)
+       if (Ek0 + Em0 + Et0 > 0d0) then
+         energy = energy/(Ek0 + Em0 + Et0)
+       else
+         energy = 0d0
+       endif
 
+c Magnetic field diagnostics
+
+#if defined(vec_pot)
+      array = (bcnv(:,:,:,1)-bcnv_0(:,:,:,1))**2
+      bnorm(1) = integral(gv%gparams,igx,array,average=.false.)
+
+      array = (bcnv(:,:,:,2)-bcnv_0(:,:,:,2))**2
+      bnorm(2) = integral(gv%gparams,igx,array,average=.false.)
+
+      array = (bcnv(:,:,:,3)-bcnv_0(:,:,:,3))**2
+      bnorm(3) = integral(gv%gparams,igx,array,average=.false.)
+
+      bnorm = sqrt(bnorm)
+#endif
+      
 c Velocity divergence diagnostics
 
       !Total flow divergence (conservation of flow)
@@ -504,7 +533,6 @@ c Maximum ELECTRON velocity diagnostics
       call MPI_Reduce(lvmax,vemax,3,MPI_DOUBLE_PRECISION
      .               ,MPI_MAX,0,MPI_COMM_WORLD,mpierr)
 #endif
-
 
 c Problem specific diagnostics  <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -706,6 +734,19 @@ c       Adjust for X-pt position
         dl = dl - y_xpt
         ww = ww - x_xpt
 
+      case('ppnsl')
+
+        if (gv%gparams%jhi(1) == nyd) then
+          br_w = maxval(abs(0.5*(bcnv(nx,:,:,1)+bcnv(nx+1,:,:,1))))
+        endif
+        
+#if defined(petsc)
+        send_buf = br_w
+        call MPI_Allreduce(send_buf,recv_buf,1,MPI_DOUBLE_PRECISION
+     .                    ,MPI_MAX,gv%gparams%MPI_COMM_YZ,mpierr)
+        br_w = recv_buf(1)
+#endif
+        
       case default
 
         dl = 0d0
@@ -715,7 +756,8 @@ c       Adjust for X-pt position
         Bup0 = 1d0
         vi_out = 0d0
         ve_out = 0d0
-
+        br_w   = 0d0
+        
       end select
 
 c Diagnostic assignment
@@ -741,13 +783,19 @@ c Diagnostic assignment
 
       diagnostics(neqd+20)= Ez/Bup0**2
       diagnostics(neqd+21)= rflux
-      diagnostics(neqd+22) = dl
-      diagnostics(neqd+23) = ww
+      diagnostics(neqd+22)= dl
+      diagnostics(neqd+23)= ww
 
-      diagnostics(neqd+24) = Bup/Bup0
-      diagnostics(neqd+25) = Bdown/Bup0
-      diagnostics(neqd+26:neqd+28) = vemax
+      diagnostics(neqd+24)= Bup/Bup0
+      diagnostics(neqd+25)= Bdown/Bup0
+      diagnostics(neqd+26)= br_w
+      
+      diagnostics(neqd+27:neqd+29)= vemax
 
+#if defined(vec_pot)
+      diagnostics(neqd+30:neqd+32)= bnorm
+#endif
+      
       !Compensate for symmetry BCs
       if (bcond(1) == FSYM .or. bcond(2) == FSYM) then
         diagnostics(neqd+1:neqd+3) = 2*diagnostics(neqd+1:neqd+3) !To compensate for symmetry

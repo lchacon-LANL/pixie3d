@@ -47,7 +47,7 @@
     restart  = f
     timecorr = f
 
-    source   = t
+    source   = f
 
     precon   = 'id'
 
@@ -57,11 +57,10 @@
     rtol     = 1d-4
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
 
     nc_eom_f = t
-    nc_eom_v = f
+    nc_eom_v = t
     solve_rho= f
 
  /

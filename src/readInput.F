@@ -26,6 +26,8 @@ c----------------------------------------------------------------------
 
       use graphics_io
 
+      use local_BCS_variables
+
       implicit none
 
 c Call variables
@@ -33,12 +35,12 @@ c Call variables
 c Local variables
 
       integer       :: dim(1),loc(1),ioerr,mgcf
-      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptemp
+      real(8)       :: prho,pvx,pvy,pvz,pbx,pby,pbz,pax,pay,paz,ptmp
       real(8)       :: prndtl,hrtmn
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,mg_coarse_solve
+      logical       :: nc_eom_f,mg_coarse_solve,refine_eq
 
       integer       :: mg_coarse_size
 
@@ -56,35 +58,43 @@ c Namelists
       namelist /datin/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,check_grid,equil
+     .                   ,efit_coords
      .                ,ilevel,debug,test
      .                ,nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,spitzer,irrot_br_pert
+     .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
+     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
-     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp,fpa
+     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
+     .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
-     .                   ,pc_as_solver
+     .                   ,pc_as_solver,fpa,fpa_it
      .                ,dlambda,rshear,vparflow,vperflow,source
      .                   ,chk_src,eq_params
      .                ,nh1,nh2,nh3,npw1,npw2,npw3
-     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp
+     .                   ,odd,random,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp
      .                   ,pax,pay,paz
      .                ,pc_type,pc_tol,pc_iter,pc_asm,pc_debug,pc_B_solve
      .                   ,pc_divclean,mg_vcyc,sm_iter,sm_type,sm_omega
-     .                   ,sm_zebra_relax,sm_line_relax,mg_ores,mg_oprol
-     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
-     .                   ,mg_coarse_size
+     .                   ,sm_zebra_relax,sm_zebra_it,sm_line_relax
+     .                   ,mg_ores,mg_oprol,mg_coarse_solve,mgcf
+     .                   ,pc_gm_driver,mg_coarse_size
      .                ,dt,cnfactor,tmax,dstep,numtime,ts_restart
+     .                   ,trestart
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,eigen,eig_dt,perturb_rstrt,ts_adapt_dt
-     .                   ,limit_dt_flow_cfl
+     .                   ,limit_dt_flow_cfl,ts_ramp_up_dt
+     .                   ,ts_ramp_up_dt_fraction
+     .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
+     .                   ,adiabatic_rho
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                ,prt_file,equ_file,map_file,dcon
      .           !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
@@ -97,21 +107,23 @@ c Namelists
       !Problem setup
       namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
-     .                   ,npx,npy,npz,gp1,gp2,gp3
+     .                   ,npx,npy,npz,gp1,gp2,gp3,efit_coords
 
       !Physics setup
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
-     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic
+     .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
      .                   ,dlambda,rshear,vparflow,vperflow
-     .                   ,eq_params,lagrangian,spitzer,irrot_br_pert
+     .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
+     .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
-     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptemp,pax,pay,paz
-     .                   ,pc_divclean,pc_B_solve,equil
+     .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
+     .                   ,equil
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
+     .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
 
       !Spatial discretization
       namelist /fv/    nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
@@ -119,23 +131,27 @@ c Namelists
      .                   ,ion_hall,slava,noise,noise_lev,post_smooth_B
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
+     .                   ,regularize_A,use_p_classic_eq,post_filter_hel
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
      .                   ,ndstep,sm_flag,sm_pass,predictor,postprocess
      .                   ,source,eigen,eig_dt,perturb_rstrt,ts_restart
-     .                   ,limit_dt_flow_cfl
+     .                   ,restart,trestart,limit_dt_flow_cfl
+     .                   ,ts_ramp_up_dt
+     .                   ,ts_ramp_up_dt_fraction,ts_ramp_up_dt_recovery
 
       !Newton-Krylov
       namelist /nks/   rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
-     .                   ,maxitgm,global,method,damp,dt0,vol_wgt,fpa
-     .                   ,iguess,pc_as_solver
+     .                   ,maxitgm,global,method,damp,dt0,vol_wgt
+     .                   ,iguess,pc_as_solver,fpa,fpa_it
 
       !Preconditioner
       namelist /pc/    pc_type,pc_tol,pc_iter,pc_debug,pc_asm,mg_vcyc
      .                   ,mg_ores,mg_oprol,sm_iter,sm_zebra_relax
-     .                   ,sm_line_relax,sm_type,sm_omega,mg_coarse_solve
-     .                   ,mgcf,pc_gm_driver,mg_coarse_size
+     .                   ,sm_zebra_it,sm_line_relax,sm_type,sm_omega
+     .                   ,mg_coarse_solve,mgcf,pc_gm_driver
+     .                   ,mg_coarse_size,pc_divclean,pc_B_solve
 
       !I/O
       namelist /i_o/   ilevel,check_grid,equ_file,map_file
@@ -156,9 +172,9 @@ c Set fundamental problem parameters (number of dep. variables, aux. variables)
       call setDepVarDims(2,2)   !2 scalars, 2 vectors (vectors not operational yet)
 
 #if !defined(vec_pot)
-      call setAuxVarDims(11,21)  !11 scalars, 21 vectors
+      call setAuxVarDims(13,22)  !13 scalars, 22 vectors
 #else
-      call setAuxVarDims(11,24)  !11 scalars, 24 vectors
+      call setAuxVarDims(13,26)  !13 scalars, 26 vectors
 #endif
 
 c Set defaults
@@ -212,7 +228,7 @@ c Map perturbations
       pert(IAY) = pay
       pert(IAZ) = paz
 #endif
-      pert(ITMP)= a_p*ptemp  !Transform to total pressure
+      pert(IPRS)= a_p*ptmp  !Transform to total pressure
 
 c Init boundary conditions
 
@@ -413,6 +429,8 @@ c     #####################################################################
 
       limit_dt_flow_cfl=.true. ! Whether to limit Dt according to flow CFL
 
+      refine_eq = .false.      ! Whether we run PIXIE3D in equilibrium refinement mode
+
       !NK parameters
       fpa      = .false.       ! Whether to use Carlson's Fixed-Point-Accelerator instead of JFNK
       tolgm    = 8d-1          ! Inexact Newton parameter
@@ -471,10 +489,10 @@ c     #####################################################################
       heta     = 0d0           ! Coefficient for hyper-resistivity (if negative, it is determined by mesh)
 
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
+      fixed_Te = .false.       ! Whether we are fixing the T to T_0
+      lagged_Te= .false.       ! Whether we are lagging T to T_n
 
       gamma    = 5./3.         ! Polytropic constant of plasma
-
-      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
 
@@ -484,7 +502,14 @@ c     #####################################################################
       B0       = 0d0           ! Boundary magnetic field (cnv)
       M0       = 0d0           ! Momentum source
 
+      res_wall_bc= .false.     ! Whether we are using resistive wall BCs
+      tau_w    = 1d2           ! Resistive wall thin-shell time
+      r_v      = 1.5           ! Radius of outer conducting shell
+      implicit_rw_bc = .false. ! Whether RW BC is treated implicitly or not
+
       !Nonlinear function parameters
+      adiabatic  = .false.     ! Whether we use adiabatic EoS or not
+      adiabatic_rho = .false.  ! Whether we use adiabatic rho formula
       nc_eom_jxb = .false.     ! Whether we use non-conservative form of jxB in EOM
       nc_eom_gp  = .false.     ! Whether we use non-conservative form of grad(p) in EOM
       nc_eom_f   = .false.     ! Implies both jxb and grad(p) in EOM
@@ -494,6 +519,7 @@ c     #####################################################################
       solve_rho  = .true.      ! Whether we solve continuity equation or not
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
+      use_p_classic_eq = .false. !Whether we use classic form of pressure eq (p.div(v))
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
@@ -522,6 +548,10 @@ c     #####################################################################
 
       post_smooth_B = .false.  ! Whether to smooth B at postprocessing stage
 
+      regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
+
+      post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
+      
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -544,14 +574,15 @@ c     #####################################################################
 
       mg_coarse_solve = .true. ! Whether to perform MG solve beyond proc mesh
       mgcf = 0                 ! Default processor coarsening ratio per dimension in MG 
-                               !   (if zero, leave default framework value (4) unchanged)
+                               !   (if zero, leave default framework value unchanged)
 
-      mg_coarse_size = 2       ! MG coarse size (integer exponent of coarsening ratio)
+      mg_coarse_size = 2       ! MG minimum mesh coarse size (integer exponent of coarsening ratio)
 
       sm_type  = 'jb'          ! Type of smoother ('jg','gs','gm')
       sm_omega = 7d-1          ! Damping for MG smoother (only when 'jb' is chosen)
       sm_iter  = 5             ! Number of MG smoothing passes
       sm_zebra_relax = .false. ! Whether to use ZEBRA relaxation
+      sm_zebra_it    = 1       ! Number of ZEBRA relaxation passes
       sm_line_relax  = .false. ! Whether to perform line relaxation in MG
 
       !Initial condition
@@ -573,7 +604,7 @@ c     #####################################################################
       pax      = 0d0           ! Ax perturbation
       pay      = 0d0           ! Ay perturbation
       paz      = 0d0           ! Az perturbation
-      ptemp    = 0d0           ! Temperature perturbation
+      ptmp     = 0d0           ! Temperature perturbation
       nh1      = 0             ! Starting harmonic number for perturbation in axis 1
       nh2      = 0             ! Starting harmonic number for perturbation in axis 2
       nh3      = 0             ! Starting harmonic number for perturbation in axis 3
@@ -593,6 +624,8 @@ c     #####################################################################
 
       irrot_br_pert = .false.  ! Whether to impose irrotational magnetic perturbation
 
+      eig_is_T = .true.        ! Whether eigenvalue pert gives T (instead of P)
+      
       !Logical grid configuration
       gp1%pack = .false.       ! Do not pack in X-direction
       gp1%xp   = 0d0
@@ -682,13 +715,41 @@ c     #####################################################################
       !Time stepping
       if (sm_flag == 2) cnfactor = 0d0  !Force BDF2
 
+      if (tst_flg) test = .true.
+
+      if (refine_eq) then
+        dd  = 1d0        !To damp density
+        chi = 1d0        !To damp pressure profile
+        nu  = 1d0        !To damp flow
+        eta = 0d0        !To avoid resistive diffusion
+        source = .false. !To let equilibrium float
+      endif
+
       !NK
-      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
+cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
+
+      !Adequate size for collapsed dimension
+      if (coords /= 'car') then
+        if (nxd == 1) then
+          xmax = 1d-3 ; xmin = 0d0
+        endif
+        if (nyd == 1) then
+          ymax = 1d-3 ; ymin = 0d0
+        endif
+        if (nzd == 1) then
+          zmax = 1d-3 ; zmin = 0d0
+        endif
+      endif
+
+      !Do NOT regularize A @ SP when plotting
+#if defined(plotting)
+      regularize_A = .false.
+#endif
 
       !Non-conservative EOM
 cc      if (coords /= 'car') nc_eom_f = .true.
@@ -731,29 +792,38 @@ c$$$      endif
 
       electron_hall = (di > 0d0).and.(.not.ion_hall)
 
-      if (bcs(1) == 'spt') vlap_etaj = .false.
+cc      if (bcs(1) == 'spt') vlap_etaj = .false.
 
       if (slava) then
         nu_is_rhonu = .true.
         heta_is_rhoheta = .true.
         e_cons_vstar = .false.
-      endif
+      else
 #if defined(RFX)
-      nu_is_rhonu = .false.
+        nu_is_rhonu = .false.
 #endif
+      endif
 
       if (ion_hall) no_eom_divpe = .false.       !Include divpe in ion EOM
 
 cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
 
+      if (.not.adiabatic) adiabatic_rho = .false.
+
+      if (adiabatic_rho) solve_rho = .false.
+      
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 
 cc      if (bcs(1) == 'spt') mg_oprol = 1
 
-      if (electron_hall.and.pc_type /='id') pc_type = 's4' !Exception for tests
+      if (test.and.
+     .    electron_hall.and.pc_type /='id'
+     .                 .and.pc_type /='s1'
+     .                 .and.pc_type /='s4') pc_type = 's4'!Exception for tests
 
-      if (ion_hall.and.pc_type /='id'
+      if (test.and.
+     .    ion_hall.and.pc_type /='id'
      .            .and.pc_type /='s1'
      .            .and.pc_type /='s2') pc_type = 's1'     !Exception for tests
 
@@ -769,15 +839,21 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       endif
 
       !Miscellaneous
-      if (tst_flg) test = .true.
-
       if (ts_restart) dcon = .false.
 
-      if (coords == 'hel') nh1 = nh2   !Special case for 2D helical equilibria
-
+      if (coords == 'hel') then  !Special case for 2D helical geometry
+        nh2 = nint(gparams(1))
+        nh1 = nh2                
+cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
+cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
+      endif
+      
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
+     .        .and.equil(1:4) /= 'vela'
+     .        .and.equil(1:4) /= 'tbbr'
+     .        .and.equil /= 'rfp83'
      .        .and.equil /= 'adv1'
      .        .and.equil /= 'adv2')
      .        .and.equil /= 'sod' ) then
@@ -793,7 +869,8 @@ cc      post_smooth_B = .false.
      .                .or.  (pc_type == 'id')
      .                .or.  (nxd==1.and.nyd==1)
      .                .or.  (nxd==1.and.nzd==1)
-     .                .or.  (nyd==1.and.nzd==1))
+     .                .or.  (nyd==1.and.nzd==1)
+     .                .or.  (cnfactor == 1d0))
       post_divclean = post_divclean.or.post_smooth_B
 #else
       post_divclean = .false.
@@ -805,6 +882,8 @@ cc      post_smooth_B = .false.
      .                  .or.post_divclean
      .                  .or.post_smooth_B
      .                  .or.(br_pert_freq /= 0d0)
+     .                  .or.refine_eq
+     .                  .or.post_filter_hel
 
 #if defined(pit)
       postprocess = .true.
@@ -824,6 +903,7 @@ cc         maxitnwt = 10
       !Magnetic perturbation
       if (br_pert_freq /= 0d0) irrot_br_pert = .true.
 
+      !Parallelization
 #if defined(petsc)
       if (npx*npy*npz > np) then
          call pstop("readInput","Too many procs specified")
@@ -831,7 +911,7 @@ cc         maxitnwt = 10
 #else
       npx = 1 ; npy = 1 ; npz = 1
 #endif
-         
+
       end subroutine consistency_chk
 
       end subroutine readInput
