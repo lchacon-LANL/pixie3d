@@ -8,6 +8,7 @@ c ######################################################################
         use ts_setup
 
         use nlfunction_setup, ONLY: ion_hall,electron_hall,sym_st
+     .                             ,find_diff_tnsr
 
         !SI solver parameters
         integer :: mg_ores_si
@@ -27,7 +28,6 @@ c ######################################################################
 
         !Hardwired setup
         logical :: pc_v_solve=.false.          !Whether to perform final v corrector step
-     .            ,pc_split_EMHD_after=.false. !Whether to perform ???
 
         !Internal variables
         logical :: pc_ion_hall
@@ -102,21 +102,24 @@ c ######################################################################
 #endif
         use mg_solver
 
+        use problem_def, ONLY: use_p_eom
+
         use nlfunction_setup, ONLY: EOM_divPi_ijk
      .                             ,viscous_heat_src
      .                             ,nc_eom_v
      .                             ,nc_eom_jxb
      .                             ,nc_eom_gp
-     .                             ,use_p_eom
      .                             ,advect
      .                             ,v_advect
      .                             ,form_ve
      .                             ,vlap_etaj
+     .                             ,fillLocalAuxVars
 
         use local_BCS_variables, ONLY: order_bc,set_vec_symm_bc
 
         integer :: ntotd2p,nwt_iter
         logical :: cartsn,covariant,to_cartsn,to_cnv
+     $            ,pc_vars_allcd=.false.
 
         !PC storage
         real(8), allocatable, dimension(:,:) :: rho_diag,tmp_diag
@@ -125,7 +128,7 @@ c ######################################################################
      .                                         ,b_diag,b_diag_hyp
      .                                         ,a_diag,a_diag_hyp
 
-        real(8), allocatable, dimension(:,:) :: lap_diag,vlap_diag
+        real(8), allocatable, dimension(:,:) :: lap_diag!,vlap_diag
 
         real(8), allocatable, dimension(:,:),target :: d_pois
 
@@ -134,7 +137,7 @@ c ######################################################################
         type(mg_array),target  :: gp0,gb0,gv0,ga0,grho0,gb0_cov
      .                           ,gdb_cov,gvis,geta,gheta,gve0,gbs0,gj0
      .                           ,gj0_cov,gtmp0,gEh0_cov,gvs0,gbhat
-     .                           ,g_advdiffV0
+     .                           ,g_advdiffV0,gchi,gchipar,gchitnsr
 
       contains
 
@@ -183,20 +186,24 @@ c     Begin program
         call allocateMGArray(gv%gparams,3,gv0)
         call allocateMGArray(gv%gparams,3,gve0)  !v_e = v_i - di*j/rho
         call allocateMGArray(gv%gparams,3,gvs0)  !v_s = v_i - di*j/rho/a_p
-        call allocateMGArray(gv%gparams,3,gv0)
         call allocateMGArray(gv%gparams,3,gb0)
         call allocateMGArray(gv%gparams,3,gb0_cov)
-        call allocateMGArray(gv%gparams,3,gj0)
-        call allocateMGArray(gv%gparams,3,gj0_cov)
         call allocateMGArray(gv%gparams,3,ga0)   !B + di curl(v)
         call allocateMGArray(gv%gparams,3,gbs0)  !B - de^2/di curl(v_e)
+        call allocateMGArray(gv%gparams,3,gj0)
+        call allocateMGArray(gv%gparams,3,gj0_cov)
         call allocateMGArray(gv%gparams,3,gEh0_cov)  !Hall electric field
         call allocateMGArray(gv%gparams,1,gvis)
         call allocateMGArray(gv%gparams,1,geta)
         call allocateMGArray(gv%gparams,1,gheta)
+        call allocateMGArray(gv%gparams,1,gchi)
+        call allocateMGArray(gv%gparams,1,gchipar)
+        call allocateMGArray(gv%gparams,6,gchitnsr)
         call allocateMGArray(gv%gparams,3,gbhat)
         call allocateMGArray(gv%gparams,3,gdb_cov)
         call allocateMGArray(gv%gparams,3,g_advdiffV0)
+
+        pc_vars_allcd = .true.
 
 c     End program
 
@@ -231,22 +238,27 @@ c     Begin program
         call deallocateMGArray(gp0)
         call deallocateMGArray(grho0)
         call deallocateMGArray(gtmp0)
-        call deallocateMGArray(gb0)
-        call deallocateMGArray(gb0_cov)
-        call deallocateMGArray(gj0)
-        call deallocateMGArray(gj0_cov)
+        call deallocateMGArray(gv0)
         call deallocateMGArray(gve0)
         call deallocateMGArray(gvs0)
-        call deallocateMGArray(gv0)
+        call deallocateMGArray(gb0)
+        call deallocateMGArray(gb0_cov)
         call deallocateMGArray(ga0)
         call deallocateMGArray(gbs0)
+        call deallocateMGArray(gj0)
+        call deallocateMGArray(gj0_cov)
         call deallocateMGArray(gEh0_cov)
-        call deallocateMGArray(gdb_cov)
         call deallocateMGArray(gvis)
         call deallocateMGArray(geta)
         call deallocateMGArray(gheta)
+        call deallocateMGArray(gchi)
+        call deallocateMGArray(gchipar)
+        call deallocateMGArray(gchitnsr)
         call deallocateMGArray(gbhat)
+        call deallocateMGArray(gdb_cov)
         call deallocateMGArray(g_advdiffV0)
+
+        pc_vars_allcd = .false.
 
 c     End program
 
@@ -442,8 +454,8 @@ c     Begin program
         ny = gv%gparams%nyv(igy)
         nz = gv%gparams%nzv(igz)
 
-        order = order_bc
-cc        order = 0
+cc        order = order_bc
+        order = 0
 
 c     Fill LOCAL auxiliary variables
 
@@ -514,7 +526,7 @@ c     Store total temperature (w/ BCs)
 
         gtmp0%grid(igrid)%array(:,:,:,1) = tmp
 
-        call restrictMGArray(ITMP,1,gtmp0,bc_pc(:,ITMP),igrid,order
+        call restrictMGArray(IPRS,1,gtmp0,bc_pc(:,IPRS),igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store pressure (w/ BCs)
@@ -522,7 +534,7 @@ c     Store pressure (w/ BCs)
         !total pressure (w/ BCs)
         gp0%grid(igrid)%array(:,:,:,1) = rho*tmp
 
-        call restrictMGArray(ITMP,1,gp0,bc_pc(:,ITMP),igrid,order
+        call restrictMGArray(IPRS,1,gp0,bc_pc(:,IPRS),igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
@@ -542,27 +554,29 @@ c$$$     .                      ,iscnv=.false.)
 
 c     Store magnetic field cnv components in all grids (w/ BCs)
 
-        if (chi_par /= chi .and. (.not.lagrangian)) then
-          STOP 'need to change this to be coarse-MG friendly'
-          gbhat%grid(igrid)%array = bhat
-
-          do igr=igrid+1,gv%gparams%ngrid
-
-            do k=0,gv%gparams%nzv(igr)+1
-              do j=0,gv%gparams%nyv(igr)+1
-                do i=0,gv%gparams%nxv(igr)+1
-                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
-     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
-
-                  gbhat%grid(igr)%array(i,j,k,:)
-     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
-                enddo
-              enddo
-            enddo
-
-          enddo
-
-        endif
+c$$$        if (chi_par /= chi .and. (.not.lagrangian)) then
+c$$$          gbhat%grid(igrid)%array = bhat
+c$$$          call restrictMGArray(IBX,3,gbhat,bc_pc(:,IBX:IBZ),igrid,order
+c$$$     .                        ,order_bc=order_bc)
+c$$$
+c$$$c$$$          STOP 'need to change this to be coarse-MG friendly'
+c$$$c$$$          do igr=igrid+1,gv%gparams%ngrid
+c$$$c$$$
+c$$$c$$$            do k=0,gv%gparams%nzv(igr)+1
+c$$$c$$$              do j=0,gv%gparams%nyv(igr)+1
+c$$$c$$$                do i=0,gv%gparams%nxv(igr)+1
+c$$$c$$$                  bnorm = vectorNorm(gv%gparams,i,j,k,igr
+c$$$c$$$     $                     ,gb0%grid(igr)%array(i,j,k,:),.false.)
+c$$$c$$$
+c$$$c$$$                  gbhat%grid(igr)%array(i,j,k,:)
+c$$$c$$$     $                 = gb0%grid(igr)%array(i,j,k,:)/sqrt(bnorm)
+c$$$c$$$                enddo
+c$$$c$$$              enddo
+c$$$c$$$            enddo
+c$$$c$$$
+c$$$c$$$          enddo
+c$$$
+c$$$        endif
 
 c     Store ion velocity components in all grids (w/ BCs)
 
@@ -586,19 +600,33 @@ cc
 cc        call restrictMGArray(IJX,3,gj0_cov,bc_pc(:,IJX:IJZ),igrid
 cc     .                      ,order,iscnv=.false.)
 
-c     Store viscosity
 
+c     Store transport coefficients
+
+        !Resistivity
+        geta%grid(igrid)%array(:,:,:,1) = eeta
+        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
+
+        !Viscosity
 cc        gvis%grid(igrid)%array(:,:,:,1) = nuu + h_eta
         gvis%grid(igrid)%array(:,:,:,1) = nuu
         call restrictMGArray(IRHO,1,gvis,bc_sc,igrid,order
      .                      ,order_bc=order_bc)
 
-c     Store resistivity
-
-        geta%grid(igrid)%array(:,:,:,1) = eeta
-
-        call restrictMGArray(IRHO,1,geta,bc_sc,igrid,order
+        !Chi_perp
+        gchi%grid(igrid)%array(:,:,:,1) = cchi
+        call restrictMGArray(IRHO,1,gchi,bc_sc,igrid,order
      .                      ,order_bc=order_bc)
+
+        !Chi_par
+        gchipar%grid(igrid)%array(:,:,:,1) = cchi_par
+        call restrictMGArray(IRHO,1,gchipar,bc_sc,igrid,order
+     .                      ,order_bc=order_bc)
+
+        !Form diffusivity tensor
+        if (gamma > 1d0)
+     .    call op_on_MGArray(find_diff_tnsr,gb0,gchipar,gchi,gchitnsr)
 
 c     Store Hall MHD auxiliary variables
 
@@ -960,17 +988,17 @@ c     Initialize solver
 
 c     Upper_level solver options
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%tol      = tol
         solverOptions%iter     = iter
         solverOptions%stp_test = 0         !Use rhs for convergence criteria
 
-        call assembleSolverHierarchy('gm')
+        call assembleSolverHierarchy('gm',solverOptions)
 
 c     Next level solver
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%vcyc     = 1
 cc        solverOptions%vcyc     = iter
@@ -982,28 +1010,28 @@ cc        solverOptions%mg_coarse_grid_res  = 2  !Deprecated
         solverOptions%diag     => d_pois
         solverOptions%mg_coarse_solver_depth = 0
 
-        call assembleSolverHierarchy('mg')
+        call assembleSolverHierarchy('mg',solverOptions)
 
 c     Next level solver
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%omega = 0.8d0
         solverOptions%iter  = 3
         solverOptions%tol   = 1d-10
 
-        call assembleSolverHierarchy('jb')
+        call assembleSolverHierarchy('jb',solverOptions)
 
 cc        solverOptions%omega = 1d0
 cc        solverOptions%iter  = 3
 cc        solverOptions%tol   = 1d-10
 cc        solverOptions%ncolors = ncolors
 cc
-cc        call assembleSolverHierarchy('gs')
+cc        call assembleSolverHierarchy('gs',solverOptions)
 
 c       Coarsest grid solve for outer MG
 
-        call solverOptionsInit
+        call solverOptionsInit(solverOptions)
 
         solverOptions%tol             = 1d-5
         solverOptions%krylov_subspace = 1000
@@ -1012,10 +1040,10 @@ c       Coarsest grid solve for outer MG
         solverOptions%omega           = 1d0
 
 c diag ****
-cc        call assembleSolverHierarchy('jb')
+cc        call assembleSolverHierarchy('jb',solverOptions)
 c diag ****
-        call assembleSolverHierarchy('gm')
-        call assembleSolverHierarchy('id') !GMRES preconditioner
+        call assembleSolverHierarchy('gm',solverOptions)
+        call assembleSolverHierarchy('id',solverOptions) !GMRES preconditioner
 
 c     Invoke solver
 
@@ -1023,7 +1051,7 @@ c     Invoke solver
 
 c     Get output data
 
-        call getSolverOptions(1)
+        call getSolverOptions(1,solverOptions)
 
         iter = solverOptions%iter_out
 
@@ -1153,29 +1181,20 @@ c     Local variables
         integer    :: ig,jg,kg,half_elem,ip,jp,kp,hx,hy,hz
         real(8)    :: vxx,vyy,vzz,minv,idx,idy,idz,cnv(3),cov(3)
      .               ,veh(3),curlv(3),half=0.5d0,ijacip
-     .               ,jac0,jacp,ijac0,ijacp
+     .               ,jac0,jacp,ijac0,ijacp,ijac
         logical    :: str
 
         real(8),dimension(:,:,:,:),pointer :: rho0,nu0
 
 c     Begin program
 
+        jac0 = g_def%gmetric%grid(igx)%jac(i,j,k)
+
         if (PRESENT(he)) then
           half_elem = he
         else
           half_elem = 0
         endif
-
-        hx = 0 ; hy = 0 ; hz = 0
-
-        select case(half_elem)
-        case(1)
-          hx = 1
-        case(2)
-          hy = 1
-        case(3)
-          hz = 1
-        end select
 
         if (PRESENT(stress)) then
           str = stress
@@ -1192,9 +1211,9 @@ c     Ideal MHD part
         select case(half_elem)
         case(1)
 
-          if (isSP2(g_def,ip,igx,dim=1)) then
-            jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
-            jac0 = g_def%gmetric%grid(igx)%jac(i ,j,k)
+          jacp = g_def%gmetric%grid(igx)%jac(ip,j,k)
+
+          if (isSP2(g_def,ip,igx)) then
             ijac0 = 1d0/jac0
             ijacp = 1d0/jacp
 
@@ -1210,87 +1229,114 @@ c     Ideal MHD part
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,1)*ijac0+b0(ip,j,k,1)*ijacp)
 
-            cov = 0.25*cov
+            uav = -0.25*cov
           else
-            cov(1) = (vv(i,j,k,2)+vv(ip,j,k,2))
+            ijac = 2d0/(jacp+jac0)
+
+            uav(1) =-0.25*ijac
+     $             *((vv(i,j,k,2)+vv(ip,j,k,2))
      .              *(b0(i,j,k,3)+b0(ip,j,k,3))
      .              -(vv(i,j,k,3)+vv(ip,j,k,3))
-     .              *(b0(i,j,k,2)+b0(ip,j,k,2))
+     .              *(b0(i,j,k,2)+b0(ip,j,k,2)))
 
-            cov(2) = (vv(i,j,k,3)+vv(ip,j,k,3))
+            uav(2) =-0.25*ijac
+     $             *((vv(i,j,k,3)+vv(ip,j,k,3))
      .              *(b0(i,j,k,1)+b0(ip,j,k,1))
      .              -(vv(i,j,k,1)+vv(ip,j,k,1))
-     .              *(b0(i,j,k,3)+b0(ip,j,k,3))
+     .              *(b0(i,j,k,3)+b0(ip,j,k,3)))
 
-            cov(3) = (vv(i,j,k,1)+vv(ip,j,k,1))
+            uav(3) =-0.25*ijac
+     $             *((vv(i,j,k,1)+vv(ip,j,k,1))
      .              *(b0(i,j,k,2)+b0(ip,j,k,2))
      .              -(vv(i,j,k,2)+vv(ip,j,k,2))
-     .              *(b0(i,j,k,1)+b0(ip,j,k,1))
+     .              *(b0(i,j,k,1)+b0(ip,j,k,1)))
 
-            cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i ,j,k)
-     .                    +g_def%gmetric%grid(igx)%jac(ip,j,k))
+cc            uav = -0.5*cov/(jacp+jac0)
           endif
 
         case(2)
 
-          cov(1) = (vv(i,j,k,2)+vv(i,jp,k,2))
+          jacp = g_def%gmetric%grid(igx)%jac(i,jp,k)
+
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,jp,k,2))
      .            *(b0(i,j,k,3)+b0(i,jp,k,3))
      .            -(vv(i,j,k,3)+vv(i,jp,k,3))
-     .            *(b0(i,j,k,2)+b0(i,jp,k,2))
+     .            *(b0(i,j,k,2)+b0(i,jp,k,2)))
                                        
-          cov(2) = (vv(i,j,k,3)+vv(i,jp,k,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,jp,k,3))
      .            *(b0(i,j,k,1)+b0(i,jp,k,1))
      .            -(vv(i,j,k,1)+vv(i,jp,k,1))
-     .            *(b0(i,j,k,3)+b0(i,jp,k,3))
+     .            *(b0(i,j,k,3)+b0(i,jp,k,3)))
                                        
-          cov(3) = (vv(i,j,k,1)+vv(i,jp,k,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,jp,k,1))
      .            *(b0(i,j,k,2)+b0(i,jp,k,2))
      .            -(vv(i,j,k,2)+vv(i,jp,k,2))
-     .            *(b0(i,j,k,1)+b0(i,jp,k,1))
+     .            *(b0(i,j,k,1)+b0(i,jp,k,1)))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j ,k)
-     .                  +g_def%gmetric%grid(igx)%jac(i,jp,k))
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case(3)
 
-          cov(1) = (vv(i,j,k,2)+vv(i,j,kp,2))
+          jacp = g_def%gmetric%grid(igx)%jac(i,j,kp)
+
+          ijac = 2d0/(jacp+jac0)
+
+          uav(1) =-0.25*ijac
+     $           *((vv(i,j,k,2)+vv(i,j,kp,2))
      .            *(b0(i,j,k,3)+b0(i,j,kp,3))
      .            -(vv(i,j,k,3)+vv(i,j,kp,3))
-     .            *(b0(i,j,k,2)+b0(i,j,kp,2))
+     .            *(b0(i,j,k,2)+b0(i,j,kp,2)))
                                          
-          cov(2) = (vv(i,j,k,3)+vv(i,j,kp,3))
+          uav(2) =-0.25*ijac
+     $           *((vv(i,j,k,3)+vv(i,j,kp,3))
      .            *(b0(i,j,k,1)+b0(i,j,kp,1))
      .            -(vv(i,j,k,1)+vv(i,j,kp,1))
-     .            *(b0(i,j,k,3)+b0(i,j,kp,3))
+     .            *(b0(i,j,k,3)+b0(i,j,kp,3)))
                                          
-          cov(3) = (vv(i,j,k,1)+vv(i,j,kp,1))
+          uav(3) =-0.25*ijac
+     $           *((vv(i,j,k,1)+vv(i,j,kp,1))
      .            *(b0(i,j,k,2)+b0(i,j,kp,2))
      .            -(vv(i,j,k,2)+vv(i,j,kp,2))
-     .            *(b0(i,j,k,1)+b0(i,j,kp,1))
+     .            *(b0(i,j,k,1)+b0(i,j,kp,1)))
 
-          cov = 0.5*cov/(g_def%gmetric%grid(igx)%jac(i,j,k )
-     .                  +g_def%gmetric%grid(igx)%jac(i,j,kp))
+cc          uav = -0.5*cov/(jacp+jac0)
 
         case default
-          cov(1) = vv(i,j,k,2)*b0(i,j,k,3)
-     .           - vv(i,j,k,3)*b0(i,j,k,2)
+          ijac0 = 1d0/jac0
 
-          cov(2) = vv(i,j,k,3)*b0(i,j,k,1)
-     .           - vv(i,j,k,1)*b0(i,j,k,3)
+          uav(1) =-(vv(i,j,k,2)*b0(i,j,k,3)
+     .             -vv(i,j,k,3)*b0(i,j,k,2))*ijac0
 
-          cov(3) = vv(i,j,k,1)*b0(i,j,k,2)
-     .           - vv(i,j,k,2)*b0(i,j,k,1)
+          uav(2) =-(vv(i,j,k,3)*b0(i,j,k,1)
+     .             -vv(i,j,k,1)*b0(i,j,k,3))*ijac0
 
-          cov = cov/g_def%gmetric%grid(igx)%jac(i,j,k)
+          uav(3) =-(vv(i,j,k,1)*b0(i,j,k,2)
+     .             -vv(i,j,k,2)*b0(i,j,k,1))*ijac0
         end select
 
-        uav = -cov !-dv x B0 part
+cc        uav = -cov !-dv x B0
 
 c     Hall MHD part
 
         if (di > 0d0) then
 
-          minv = cnp/(dt*alpha)
+          hx = 0 ; hy = 0 ; hz = 0
+
+          select case(half_elem)
+          case(1)
+             hx = 1
+          case(2)
+             hy = 1
+          case(3)
+             hz = 1
+          end select
+
+          minv = cnp/dt/alpha
 
           if (pc_ion_hall) then  !Ion hall
 
@@ -1445,7 +1491,10 @@ cc          endif
 
         endif
 
-        uav = alpha*uav
+cc        uav = alpha*uav
+        uav(1) = alpha*uav(1)
+        uav(2) = alpha*uav(2)
+        uav(3) = alpha*uav(3)
 
 c     End program
 
@@ -1568,7 +1617,7 @@ c     Begin program
           
           akp = U_Av_ijk(g_def,i,j,kp,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
      .                  ,he=he,stress=strs)
-          akm = U_Av_ijk(g_def,i,j,k ,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
+          akm = U_Av_ijk(g_def,i,j,km,nx,ny,nz,igx,igy,igz,vv,vv_cov,bb
      .                  ,he=he,stress=strs)
         end select
 
@@ -1740,11 +1789,11 @@ c     End program
 
       end subroutine L_rho_v
 
-c     U_Tv
+c     U_Pv
 c     ####################################################################
-      subroutine U_Tv(g_def,igr,dv_cnv,crhs)
+      subroutine U_Pv(g_def,igr,dv_cnv,crhs)
 c     --------------------------------------------------------------------
-c     This subroutine finds the U_Tv block using dv. Not weighed by
+c     This subroutine finds the U_Pv block using dv. Not weighed by
 c     volume or jacobian factor.
 c     --------------------------------------------------------------------
 
@@ -1760,7 +1809,7 @@ c     Call variables
 c     Local variables
 
       integer :: i,j,k,ii,nx,ny,nz
-      real(8),pointer,dimension(:,:,:,:) :: tmp0,nu0,v0,rho0,p0
+      real(8),pointer,dimension(:,:,:,:) :: nu0,v0,rho0,p0
       real(8) :: heat_src
 
 c     Begin program
@@ -1769,7 +1818,7 @@ c     Begin program
       ny = g_def%nyv(igr)
       nz = g_def%nzv(igr)
 
-c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
+c     Evaluate rhs correction: gamma*div(dv*p0) - (gamma-1)*dv*grad(p0)
 
       call point_to_MG_array(nx,ny,nz,igr,p0,gp0)
 
@@ -1779,9 +1828,9 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
             ii  = i + nx*(j-1) + nx*ny*(k-1)
 
             crhs(ii) = 
-     .        gamma    *flx_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .        gamma     *flx_advec   (g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),advect)
-     .      +(gamma-1.)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
+     .      +(gamma-1d0)*flx_nc_advec(g_def,i,j,k,nx,ny,nz,igr,igr,igr
      .                            ,dv_cnv,p0(:,:,:,1),1,reverse=.true.)
           enddo
         enddo
@@ -1813,11 +1862,11 @@ c     Evaluate rhs correction: gamma*div(dv*T0) - (gamma-1)*dv*grad(dT)
 
       crhs = alpha*crhs
 
-      nullify(tmp0,p0)
+      nullify(p0)
 
 c     End program
 
-      end subroutine U_Tv
+      end subroutine U_Pv
 
 c     L_T
 c     #####################################################################
@@ -2014,9 +2063,9 @@ c     End program
 
       end subroutine L_T
 
-c     rhs_A_hall
+c     L_A
 c     #########################################################################
-      subroutine rhs_A_hall(nn,xxx,rhs_a,igrid)
+      subroutine L_A(nn,xxx,rhs_a,igrid)
 c     --------------------------------------------------------------------------
 c     This subroutine corrects the rhs for the std Hall vector potential Eq.
 c     including density and temperature/pressure corrections.
@@ -2061,8 +2110,8 @@ cc      vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 
-      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dpe
-     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
+      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dpe
+     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
       dpe  = dpe/a_p
 
@@ -2092,7 +2141,7 @@ c     Free memory
 
 c     End program
 
-      end subroutine rhs_A_hall
+      end subroutine L_A
 
 c     U_Bv
 c     ###################################################################

@@ -19,7 +19,7 @@ c--------------------------------------------------------------------
 
       use auxPlotVariables
 
-      use ts_setup
+      use ts_io
 
       use operators
 
@@ -30,6 +30,8 @@ c--------------------------------------------------------------------
       use local_BCS_variables
 
       use app_iosetup
+
+      use poincare_io
 
 #if defined(RFX)
       use rfx
@@ -48,7 +50,7 @@ c Local variables
       integer :: i,j,k,ig,jg,kg,ieq,bcs(6),igx,igy,igz,nx,ny,nz,ierr
       real(8) :: x1,y1,z1,ee(3),vr,vth,norm,lnorm
      .          ,cov(3),cnv(3)
-      logical :: cartsn,covariant,to_cartsn,to_cnv
+      logical :: cartsn,covariant,to_cartsn,to_cnv,tor
 
 c Begin program
 
@@ -69,13 +71,13 @@ c (finds all covariant and contravariant components of interest)
 
 cc      write (*,*) 'Dumping perturbations of all quantities'
 cc      call AXPYDerivedType(1d0,varray,-1d0,u_0,u_graph)
-cc      varray = u_graph
-cc      varray%array_var(1)%array = u_0%array_var(1)%array
-
+cc      call equateDerivedType(varray,u_graph)
+cc      varray%array_var(IRHO)%array = u_0%array_var(IRHO)%array
+cc
 cc      if (chk_src) then
 cc        varray%array_var(IRHO)%array = 1d0
 cc      endif
-
+cc
 cc      call applyBCplot(igx,varray,gv%aux,it=itime,bc_order=order_bc)
       call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
 
@@ -88,9 +90,9 @@ c Find perturbed quantities (u_pert = varray - u_ic)
      $                              /gv%gparams%gmetric%grid(igrid)%jac
       u_pert%array_var(IRHO)%descr = 'Rho'
 
-      u_pert%array_var(ITMP)%array = u_pert%array_var(ITMP)%array
+      u_pert%array_var(IPRS)%array = u_pert%array_var(IPRS)%array
      $                              /gv%gparams%gmetric%grid(igrid)%jac
-      u_pert%array_var(ITMP)%descr = 'p=pi+pe'
+      u_pert%array_var(IPRS)%descr = 'Prs'
 
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
@@ -99,14 +101,43 @@ c Find perturbed quantities (u_pert = varray - u_ic)
       endif
 
 c Assignments
+      
+      vx = vcnv(:,:,:,1)
+      vy = vcnv(:,:,:,2)
+      vz = vcnv(:,:,:,3)
+
+      vx_cov = vcov(:,:,:,1)
+      vy_cov = vcov(:,:,:,2)
+      vz_cov = vcov(:,:,:,3)
+
+#if defined(vec_pot)
+      ax_cnv = acnv(:,:,:,1)
+      ay_cnv = acnv(:,:,:,2)
+      az_cnv = acnv(:,:,:,3)
+#endif
+
+c Deltas
+c$$$      jx = jcnv(:,:,:,1)-jcnv_0(:,:,:,1)
+c$$$      jy = jcnv(:,:,:,2)-jcnv_0(:,:,:,2)
+c$$$      jz = jcnv(:,:,:,3)-jcnv_0(:,:,:,3)
+c$$$
+c$$$      bx_cov = bcov(:,:,:,1)-bcov_0(:,:,:,1)
+c$$$      by_cov = bcov(:,:,:,2)-bcov_0(:,:,:,2)
+c$$$      bz_cov = bcov(:,:,:,3)-bcov_0(:,:,:,3)
+c$$$
+c$$$      jx_cov = jcov(:,:,:,1)-jcov_0(:,:,:,1)
+c$$$      jy_cov = jcov(:,:,:,2)-jcov_0(:,:,:,2)
+c$$$      jz_cov = jcov(:,:,:,3)-jcov_0(:,:,:,3)
+c$$$
+c$$$#if defined(vec_pot)
+c$$$      bx = bcnv(:,:,:,1)-bcnv_0(:,:,:,1)
+c$$$      by = bcnv(:,:,:,2)-bcnv_0(:,:,:,2)
+c$$$      bz = bcnv(:,:,:,3)-bcnv_0(:,:,:,3)
+c$$$#endif
 
       jx = jcnv(:,:,:,1)
       jy = jcnv(:,:,:,2)
       jz = jcnv(:,:,:,3)
-
-      vx = vcnv(:,:,:,1)
-      vy = vcnv(:,:,:,2)
-      vz = vcnv(:,:,:,3)
 
       bx_cov = bcov(:,:,:,1)
       by_cov = bcov(:,:,:,2)
@@ -115,10 +146,6 @@ c Assignments
       jx_cov = jcov(:,:,:,1)
       jy_cov = jcov(:,:,:,2)
       jz_cov = jcov(:,:,:,3)
-
-      vx_cov = vcov(:,:,:,1)
-      vy_cov = vcov(:,:,:,2)
-      vz_cov = vcov(:,:,:,3)
 
 #if defined(vec_pot)
       ax_cnv = acnv(:,:,:,1)
@@ -151,9 +178,9 @@ c Find Cartesian components of ALL vectors
 #endif
 
       !Cartesian B components
-      bx_car = bcnv(:,:,:,1)
-      by_car = bcnv(:,:,:,2)
-      bz_car = bcnv(:,:,:,3)
+      bx_car = bcnv(:,:,:,1)!-bcnv_0(:,:,:,1)
+      by_car = bcnv(:,:,:,2)!-bcnv_0(:,:,:,2)
+      bz_car = bcnv(:,:,:,3)!-bcnv_0(:,:,:,3)
       call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
      .                    ,bx_car,by_car,bz_car,'cnv','car')
 
@@ -214,6 +241,13 @@ c Poloidal velocity diagnostic
         if (my_rank == 0) write (*,*) 'Maximum poloidal velocity=',norm
       endif
 
+c Resistive wall diagnostics
+
+      if (res_wall_bc) then
+        if (my_rank == 0) write (*,*) '||Bn||',time,
+     .   sqrt(integral(gv%gparams,igx,bcov(:,:,:,1)**2,average=.false.))
+      endif
+      
 c Velocity and current intrinsic components (wrt B)
 
       do k = kming,kmaxg
@@ -357,7 +391,7 @@ c Toroidal diagnostics (quasi-linear q-profile, lambda profile)
 
 c Fourier output
 
-      if (np == 1 .and. fourier) then
+      if (np == 1 .and. fourier.and.TS_chk_plot_dump(.false.)) then
         call fourier_dump
       elseif (np > 1 .and. fourier .and. my_rank == 0) then
         write (*,*) 'Fourier dump not available in parallel'
@@ -365,7 +399,16 @@ c Fourier output
 
 c Poincare output (field tracer)
 
-      if (poincare) call poincare_plot_dump
+      tor = (equil  == 'vmec'
+     $  .or. coords == 'tor'
+     $  .or. coords == 'sha'
+     $  .or. coords == 'sh2'
+     $  .or. coords == 'sh3'
+     $  .or. coords == 'stl')
+
+      if (poincare.and.TS_chk_plot_dump(.false.))
+     . call poincare_plot_dump(gv%gparams,time,bcnv,bx_car,by_car,bz_car
+     .                        ,tor)
 
 c Divergence diagnostics
 
@@ -373,9 +416,30 @@ c Divergence diagnostics
       divrgB = div(gv%gparams,igx,bcnv)
       divrgV = div(gv%gparams,igx,vcnv)
 
-c Pressure
+c Pressure diagnostics
 
+      !Total pressure
       p_tot = rho*tmp
+
+      !Internal heat source
+      if ((.not.adiabatic).and.(gamma > 1d0)) then
+        do k=1,nz
+          do j=1,ny
+            do i=1,nx
+              !Internal heat source
+              heat_src(i,j,k) =
+     .             int_heat_src(gv%gparams,i,j,k,igx,eeta,nuu,h_eta
+     .                         ,jcnv,jcov,vcnv,vecnv)
+
+              !External heat source
+              heat_src(i,j,k) = heat_src(i,j,k)
+     .                        + ext_heat_src(gv%gparams,i,j,k,igx)
+            enddo
+          enddo
+        enddo
+      else
+        heat_src = 0d0
+      endif
 
 #if defined(RFX)
 c RFX dump
@@ -443,7 +507,7 @@ c     Begin program
          RR = 1d0
        endif
 
-          !Find mean fields
+       !Find mean fields
        do i = iming,imaxg
          b00    (i,:) = 0d0
          j00_cov(i,:) = 0d0
@@ -524,7 +588,7 @@ cc     .                   /(bcnv(i,j,k,2)-kk/mm*bcnv(i,j,k,3))*dv
 
        !Find q-factor and lambda profile
        do i = iming,imaxg
-         qfactor(i,:,:) = b00(i,3)/RR/(b00(i,2)-kk/mm*b00(i,3))
+         qfactor(i,:,:) = mm*b00(i,3)/RR/(b00(i,2)-kk*b00(i,3))
          lambda (i,:,:) = l00(i,1)
        enddo
        qfactor(iming,:,:)=qfactor(iming+1,:,:)
@@ -558,80 +622,6 @@ cc          close(1000)
        deallocate(b00,j00_cov,v00,q00,l00)
 
       end subroutine tor_diag
-
-c     poincare_plot_dump
-c     ################################################################
-      subroutine poincare_plot_dump
-
-c     ---------------------------------------------------------------
-c     Integrates array(i,j,k) on periodic dimensions of domain
-c     (nx)x(ny)x(nz) to find quasi-linear profiles.
-c     ---------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      character(30) :: ft_file,ft_file_old=''
-      integer :: uft=2345
-      logical :: tor
-
-      save :: ft_file_old
-
-c     Begin program
-
-c     Open file
-
-      write (ft_file,'(f9.3)') time
-
-      if (trim(ft_file) == trim(ft_file_old)) then
-        return
-      else
-        ft_file_old = ft_file
-      endif
-
-      ft_file = 'poinc_t='//trim(adjustl(ft_file))//'.bin'
-
-      if (np > 1) then
-        ft_file = trim(ft_file)//'_proc'//trim(int2char(my_rank))
-      endif
-
-      open(unit=uft,file=trim(ft_file)
-     .    ,status='unknown',form='unformatted')
-
-c     Dump arrays
-
-      write (*,*) 'Dumping Poincare file ',ft_file
-
-      tor = (equil == 'vmec' .or. coords == 'tor')
-
-      write (uft) nxd,nyd,nzd,bcond,tor
-      write (uft) gv%gparams%xg  !Dump global position array
-      write (uft) gv%gparams%yg  !"
-      write (uft) gv%gparams%zg  !"
-
-      if (np > 1) then
-        write (uft) ilomg,ihipg,jlomg,jhipg,klomg,khipg
-      endif
-
-      write (uft) bcnv(:,:,:,1)
-      write (uft) bcnv(:,:,:,2)
-      write (uft) bcnv(:,:,:,3)
-      write (uft) bx_car
-      write (uft) by_car
-      write (uft) bz_car
-      write (uft) gv%gparams%gmetric%grid(1)%jac
-      write (uft) gv%gparams%gmetric%grid(1)%car
-
-c     Close file
-
-      close(uft)
-
-c     End program
-
-      end subroutine poincare_plot_dump
 
 c     fourier_dump
 c     ################################################################

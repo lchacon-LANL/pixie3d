@@ -6,7 +6,9 @@ c ####################################################################
 
         use PC_var
 
-        use local_BCS_variables, ONLY: order_bc
+        use local_BCS_variables, ONLY:order_bc
+     .                               ,default_A_BCs
+     .                               ,default_B_BCs
 
         use app_iosetup
 
@@ -14,23 +16,18 @@ c ####################################################################
 
         integer,private :: bc_order_a
 
-        logical,private :: is_a_cnv=.true.
-
       contains
 
 c     curl_inv
 c     ###############################################################
-      subroutine curl_inv(g_def,igrid,b,a,global,w_bcs)
+      subroutine curl_inv(g_def,igrid,b,a,global,w_bcs,order,sp)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
 c     field components "b". Employs gauge A_1 = 0d0. In SP systems,
 c     it integrates at faces in r, and then averages to nodes.
 c     
-c     Integrals done by Numerical Recipes p. 128, 4.1.12 -- actually
-c     one bit better -- extrapolates quadratically to f(-1) and uses
-c     the internal formula, rather than using midpoint for the first
-c     point. Thus even the first point has third order accuracy.
+c     Integrals done by high-order collocated integration formulas.
 c     ---------------------------------------------------------------
 
       implicit none
@@ -42,13 +39,14 @@ c     Call variables
       integer    :: igrid
       real(8)    :: a(0:,0:,0:,:)
      .             ,b(0:,0:,0:,:)
-      logical,optional :: global,w_bcs
+      logical,optional :: global,w_bcs,sp
+      integer,optional :: order
 
 c     Local variables
 
-      integer    :: nx,ny,nz,igx,igy,igz
+      integer    :: nx,ny,nz,igx,igy,igz,lorder
       integer    :: i,j,k,ii,bcnd(6,3),ig,jg,kg,ivar
-      real(8)    :: cm,c0,cp,dxx,dyy,dvol,cov(3)
+      real(8)    :: dxx,dyy,dvol,cov(3)
 
       logical    :: spoint,glbl,do_bc
 
@@ -72,7 +70,17 @@ c     Begin program
         do_bc = (.not.glbl).or.(np == 1)
       endif
 
-      spoint = bcSP()
+      if (PRESENT(sp)) then
+        spoint = sp
+      else
+        spoint = bcSP()
+      endif
+
+      if (PRESENT(order)) then
+        lorder = order
+      else
+        lorder = 3
+      endif
 
 c     Consistency check
 
@@ -89,38 +97,38 @@ c     Quadrant-based code (SP ready, parallel-ready)
       if (spoint) then  !Separate quadrants only in theta
 
         if (ny == 1) then
-          call line_int(1,nx,1,ny,b,a)
+          call line_int(1,nx,1,ny,b,a,lorder)
         else
           !Lower-right quadrant
           call line_int(1,nx,ny/2-1,1
      .               ,b(0:nx+1,0:ny/2,0:nz+1,1:3)
-     .               ,a(0:nx+1,0:ny/2,0:nz+1,1:3))
+     .               ,a(0:nx+1,0:ny/2,0:nz+1,1:3),lorder)
 
           !Upper-right quadrant
           call line_int(1,nx,ny/2+1,ny
      .               ,b(0:nx+1,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(0:nx+1,ny/2:ny+1,0:nz+1,1:3))
+     .               ,a(0:nx+1,ny/2:ny+1,0:nz+1,1:3),lorder)
         endif
       else
         !Lower-left quadrant
         call line_int(nx/2-1,1,ny/2-1,1
      .               ,b(0:nx/2,0:ny/2,0:nz+1,1:3)
-     .               ,a(0:nx/2,0:ny/2,0:nz+1,1:3))
+     .               ,a(0:nx/2,0:ny/2,0:nz+1,1:3),lorder)
 
         !Lower-right quadrant
         call line_int(nx/2+1,nx,ny/2-1,1
      .               ,b(nx/2:nx+1,0:ny/2,0:nz+1,1:3)
-     .               ,a(nx/2:nx+1,0:ny/2,0:nz+1,1:3))
+     .               ,a(nx/2:nx+1,0:ny/2,0:nz+1,1:3),lorder)
 
         !Upper-left quadrant
         call line_int(nx/2-1,1,ny/2+1,ny
      .               ,b(0:nx/2,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(0:nx/2,ny/2:ny+1,0:nz+1,1:3))
+     .               ,a(0:nx/2,ny/2:ny+1,0:nz+1,1:3),lorder)
 
         !Upper-right quadrant
         call line_int(nx/2+1,nx,ny/2+1,ny
      .               ,b(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3)
-     .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3))
+     .               ,a(nx/2:nx+1,ny/2:ny+1,0:nz+1,1:3),lorder)
       endif
 
       !Boundary conditions: topological constraints (SP, PER)
@@ -130,282 +138,8 @@ c     Quadrant-based code (SP ready, parallel-ready)
         bcnd(:,3) = bcond
 
         call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
-     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
+     .              ,is_vec=.true.,is_cnv=.false.,iorder=min(lorder,2))
       endif
-
-      return
-
-c     New code (SP ready, parallel-ready, version I)
-
-      call line_int(1,nx,1,ny,b,a)
-
-      !Boundary conditions: topological constraints (SP, PER)
-      if (do_bc) then
-        bcnd(:,1) = bcond
-        bcnd(:,2) = bcond
-        bcnd(:,3) = bcond
-
-        call setMGBC(g_def,0,3,nx,ny,nz,igrid,a,bcnd,icomp=(/IAX/)
-     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-      endif
-
-cc      a(0,0,:,3)=0d0
-cc
-cc      i = 0
-cc
-cccc      spoint = isSP(1,1,1,igx,igy,igz)  !Check whether current domain contains SP
-cc      spoint = .false.
-cc
-cc      do j=1,ny+1
-cc        if (.not.glbl) then
-cc          call getMGmap(i,j,1,igx,igy,igz,ig,jg,kg)
-cc          dyy = g_def%dy(jg-1)
-cc        else
-cc          dyy = g_def%yg(j)-g_def%yg(j-1)
-cc        endif
-cc
-cc        if (spoint) then  !r=0 face
-cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*2.5d-1*(b(i  ,j-1,:,1)
-cc     .                                         +b(i  ,j  ,:,1)
-cc     .                                         +b(i+1,j-1,:,1)
-cc     .                                         +b(i+1,j  ,:,1))
-cc        else
-cc          a(i,j,:,3)=a(i,j-1,:,3) + dyy*  5d-1*(b(i,j-1,:,1)
-cc     .                                         +b(i,j  ,:,1))
-cc        endif
-cc      enddo
-cc
-cc      a(0,:,:,2)=0d0
-cc
-cc      do i=1,nx+1
-cc        if (.not.glbl) call getMGmap(i,1,1,igx,igy,igz,ig,jg,kg)
-cc
-cc        if (spoint) then
-cc          if (.not.glbl) then
-cc            dxx = g_def%dxh(ig-1)
-cc          else
-cccc            dxx = 0.5*(g_def%xg(i+1)-g_def%xg(i-1))
-cc            dxx = g_def%xg(i)-g_def%xg(i-1)
-cc          endif
-cc
-cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*b(i,:,:,2)
-cc
-cc          if (isSP(i,1,1,igx,igy,igz)) then
-cc            a(i,:,:,2) = a(i-1,:,:,2) + 5d-1*dxx*b(i,:,:,3)  !Factor of 1/2 due to geometry
-cc          else
-cc            a(i,:,:,2) = a(i-1,:,:,2) +      dxx*b(i,:,:,3)
-cc          endif
-cc
-cc        else
-cc
-cc          if (.not.glbl) then
-cc            dxx = g_def%dx(ig-1)
-cc          else
-cc            dxx = g_def%xg(i)-g_def%xg(i-1)
-cc          endif
-cc
-cc          a(i,:,:,3) = a(i-1,:,:,3) - dxx*5d-1*(b(i-1,:,:,2)
-cc     .                                         +b(i  ,:,:,2))
-cc          a(i,:,:,2) = a(i-1,:,:,2) + dxx*5d-1*(b(i-1,:,:,3)
-cc     .                                         +b(i  ,:,:,3))
-cc
-cc        endif
-cc      enddo
-cc
-cc      !Average from radial faces to nodes in SP coordinate systems
-cc      if (spoint) a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)
-cc     .                                    +a(0:nx  ,:,:,2:3))
-cc
-
-cc#if !defined(petsc)
-cc      if (spoint) then
-cc        !Impose BCs
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        where (bcnd /= SP) bcnd = DEF
-cccc        where (bcnd == DEF) bcnd = EXT
-cc
-cc        call setMGBC(0,3,nx,ny,nz,igrid,da_cov,bcnd,icomp=IBX
-cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cccc        call setBC(IBX,3,nx,ny,nz,da_cov,da_cnv,vzeros,bcnd,igrid,igrid,igrid
-cccc     .            ,is_cnv=.false.,iorder=2)
-cc
-cc      endif
-cc
-cc      !Boundary conditions: topological constraints (SP, PER)
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cc
-cc      call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
-cc     .          ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cc
-cc#endif
-
-      return
-
-ccc     New code (SP-ready, NOT parallel-ready, version II)
-cc
-cc      a(:,:,:,1)=0d0  !Gauge
-cc
-cc      if (bcSP()) then
-cc
-cc        a(0,0,:,3)=0d0
-cc
-cc        i = 0
-cc
-cc        do k=0,nz+1
-cc          do j=1,ny+1
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc            dyy = g_def%dy(jg-1)
-cc
-cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.25*(b(i  ,j-1,k,1)
-cc     .                                         +b(i  ,j  ,k,1)
-cc     .                                         +b(i+1,j-1,k,1)
-cc     .                                         +b(i+1,j  ,k,1))
-cc          enddo
-cc        enddo
-cc
-cc        a(0,:,:,2)=0d0
-cc
-cc        do k=0,nz+1
-cc          do j=0,ny+1
-cc            do i=1,nx+1
-cc
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              dxx = g_def%dxh(ig-1)
-cc
-cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*b(i,j,k,2)
-cc
-cc              if (isSP(i,j,k,igx,igy,igz)) then
-cc                a(i,j,k,2)=a(i-1,j,k,2) +0.5*dxx*b(i,j,k,3) !Factor of 1/2 due to geometry
-cc              else
-cc                a(i,j,k,2)=a(i-1,j,k,2) +    dxx*b(i,j,k,3)
-cc              endif
-cc
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        !Average from radial faces to centers
-cc        a(1:nx+1,:,:,2:3) = 0.5*(a(1:nx+1,:,:,2:3)+a(0:nx,:,:,2:3))
-cc
-cc        !Boundary conditions: topological constraints (SP, PER)
-cc
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc
-cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
-cc     .            ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cc
-cc      else
-cc
-cc        a(0,0,:,3)=0d0
-cc
-cc        i = 0
-cc
-cc        do k=0,nz+1
-cc          do j=1,ny+1
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc            dyy = g_def%dy(jg-1)
-cc
-cc            a(i,j,k,3)=a(i,j-1,k,3) + dyy*0.5*(b(i,j-1,k,1)
-cc     .                                        +b(i,j  ,k,1))
-cc
-cc          enddo
-cc        enddo
-cc
-cc        a(0,:,:,2)=0d0
-cc
-cc        do k=0,nz+1
-cc          do j=0,ny+1
-cc            do i=1,nx+1
-cc
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              dxx = g_def%dx(ig-1)
-cc
-cc              a(i,j,k,3)=a(i-1,j,k,3) -dxx*0.5*(b(i-1,j,k,2)
-cc     .                                         +b(i  ,j,k,2))
-cc              a(i,j,k,2)=a(i-1,j,k,2) +dxx*0.5*(b(i-1,j,k,3)
-cc     .                                         +b(i  ,j,k,3))
-cc
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        
-cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
-cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cc
-ccc     JOHN FINN's code (assumes uniform mesh)
-cc
-cc        cm=-0.0833333333333
-cc        c0= 0.6666666666667
-cc        cp= 0.4166666666667
-cc
-cc        a(1,1,:,3) = 0d0
-cc
-cc        do k=1,nz
-cc          do j=2,ny
-cc            call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc            dyy = g_def%dyh(jg)
-cc
-cccc            if(j.eq.2) then
-cccc              a(1,j,k,3)=a(1,j-1,k,3)
-cccc     $          +dyy*(cp*b(1,j-1,k,1)+c0*b(1,j  ,k,1)+cm*b(1,j+1,k,1))
-cccc            else
-cc              a(1,j,k,3)=a(1,j-1,k,3)
-cc     .          +dyy*(cm*b(1,j-2,k,1)+c0*b(1,j-1,k,1)+cp*b(1,j  ,k,1))
-cccc            endif
-cc          enddo
-cc        enddo
-cc
-cc        a(1,:,:,2) = 0d0
-cc
-cc        do k=1,nz
-cc          do j=1,ny
-cc            do i=2,nx
-cc
-cc              call getMGmap(i,j,k,igx,igy,igz,ig,jg,kg)
-cc
-cc              dxx = g_def%dxh(ig)
-cc
-cccc              if(i.eq.2) then
-cccc                a(i,j,k,3)=a(i-1,j,k,3)
-cccc     .            -dxx*(cp*b(i-1,j,k,2)+c0*b(i,j,k,2)+cm*b(i+1,j,k,2))
-cccc                a(i,j,k,2)=a(i-1,j,k,2)
-cccc     .            +dxx*(cp*b(i-1,j,k,3)+c0*b(i,j,k,3)+cm*b(i+1,j,k,3))
-cccc              else
-cc                a(i,j,k,3)=a(i-1,j,k,3)
-cc     .            -dxx*(cm*b(i-2,j,k,2)+c0*b(i-1,j,k,2)+cp*b(i,j,k,2))
-cc                a(i,j,k,2)=a(i-1,j,k,2)
-cc     .            +dxx*(cm*b(i-2,j,k,3)+c0*b(i-1,j,k,3)+cp*b(i,j,k,3))
-cccc              endif
-cc            enddo
-cc          enddo
-cc        enddo
-cc
-ccc     Boundary conditions: topological constraints (PER) and extrapolation
-cc
-cc        bcnd(:,1) = bcond
-cc        bcnd(:,2) = bcond
-cc        bcnd(:,3) = bcond
-cc        where (bcnd == DEF) bcnd = EXT
-cc        
-cc        call setMGBC(0,3,nx,ny,nz,igrid,a,bcnd,icomp=IBX
-cc     .              ,is_vec=.true.,is_cnv=.false.,iorder=2)
-cc
-cc      endif
 
 c     End program
 
@@ -413,7 +147,7 @@ c     End program
 
 c     line_int
 c     #############################################################
-      subroutine line_int(ilo,ihi,jlo,jhi,bb,aa)
+      subroutine line_int(ilo,ihi,jlo,jhi,bb,aa,lorder)
 
 c     -------------------------------------------------------------
 c     Performs line integral to find vector potential from magnetic
@@ -429,11 +163,34 @@ c     Call variables
      .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
         real(8) :: aa(min(ilo,ihi)-1:max(ilo,ihi)+1
      .               ,min(jlo,jhi)-1:max(jlo,jhi)+1,0:nz+1,1:3)
-
+        integer :: lorder
+        
 c     Local variables
 
-        integer :: i,im,ip,imin,imax,istep
-     .            ,j,jm,jp,jmin,jmax,jstep
+        real(8) :: r1,r2,r3,jac
+        integer :: i,im,ip,ipp,imm,im3,ip3,imin,imax,istep
+     .            ,j,jm,jp,jpp,jmm,jm3,jp3,jmin,jmax,jstep
+
+        !3rd order
+        real(8),parameter :: cm=-1d0/12d0       !Upwinded
+     .                      ,c0=2d0/3d0 
+     .                      ,cp=5d0/12d0
+     .                      ,b1=6250d0/23040d0  !@ SP
+     .                      ,b2=185d0 /23040d0
+     .                      ,b3=13d0  /23040d0
+
+        !4th order
+        real(8),parameter :: ccm=-1d0/24d0  !Centered
+     .                      ,cc0=13d0/24d0
+     .                      ,smm= 9d0/24d0  !One-sided
+     .                      ,sm =19d0/24d0
+     .                      ,sp =-5d0/24d0
+     .                      ,spp= 1d0/24d0
+     .                      ,a1=512667246d0/1.8579456d9 !@ SP
+     .                      ,a2=20337324d0 /1.8579456d9
+     .                      ,a3=3062796d0  /1.8579456d9
+     .                      ,a4=388149d0   /1.8579456d9
+     .                      ,a5=26021d0    /1.8579456d9
 
 c     Begin program
 
@@ -451,8 +208,12 @@ c     Begin program
         jmax = jhi+max(jstep,0)
 
         do j=jmin,jmax,jstep
-          jm = j-max(jstep,0)
-          jp = j+min(jstep,0)
+          jp  = j  + min (0,jstep)
+          jm  = j  - max (0,jstep)
+          jpp = jp + sign(1,jstep)
+          jp3 = jp + sign(2,jstep)
+          jmm = jm - sign(1,jstep)
+          jm3 = jm - sign(2,jstep)
 
           if (.not.glbl) then
             call getMGmap(g_def,i,jm,1,igx,igy,igz,ig,jg,kg)
@@ -462,15 +223,44 @@ c     Begin program
      .           -g_def%yg(jm)
           endif
 
-cc          if (spoint) then  !r=0 face
-cc            aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*2.5d-1*(bb(i  ,jm,:,1)
-cc     .                                             +bb(i  ,jp,:,1)
-cc     .                                             +bb(i+1,jm,:,1)
-cc     .                                             +bb(i+1,jp,:,1))
-cc          else
+          select case(lorder)
+          case(2)
             aa(i,jp,:,3)=aa(i,jm,:,3) + dyy*5d-1*(bb(i,jm,:,1)
      .                                           +bb(i,jp,:,1))
-cc          endif
+          case(3)
+            if(j == jmin) then
+              aa(:,jp,:,3)=aa(:,jm,:,3)
+     .                      +dyy*(cp*bb(:,jm ,:,1)
+     .                           +c0*bb(:,jp ,:,1)
+     .                           +cm*bb(:,jpp,:,1))
+            else                              
+              aa(:,jp,:,3)=aa(:,jm,:,3)       
+     .                      +dyy*(cm*bb(:,jmm,:,1)
+     .                           +c0*bb(:,jm ,:,1)
+     .                           +cp*bb(:,jp ,:,1))
+            endif
+          case(4)
+            if(j == jmin) then
+              aa(:,jp,:,3)=aa(:,jm,:,3)
+     .                      +dyy*(smm*bb(:,jm ,:,1)
+     .                           +sm *bb(:,jp ,:,1)
+     .                           +sp *bb(:,jpp,:,1)
+     .                           +spp*bb(:,jp3,:,1))
+            elseif(j == jmax) then
+              aa(:,jp,:,3)=aa(:,jm,:,3)
+     .                      +dyy*(spp*bb(:,jm3,:,1)
+     .                           +sp *bb(:,jmm,:,1)
+     .                           +sm *bb(:,jm ,:,1)
+     .                           +smm*bb(:,jp ,:,1))
+            else                              
+              aa(:,jp,:,3)=aa(:,jm,:,3)       
+     .                      +dyy*(ccm*(bb(:,jmm,:,1)
+     .                                +bb(:,jpp,:,1))
+     .                           +cc0*(bb(:,jm ,:,1)
+     .                                +bb(:,jp ,:,1)))
+            endif
+          end select
+          
         enddo
 
         aa(ilo-istep,:,:,2)=0d0
@@ -480,8 +270,12 @@ cc          endif
 
         do i=imin,imax,istep
 
-          im = i-max(istep,0)
-          ip = i+min(istep,0)
+          ip  = i  + min (0,istep)
+          im  = i  - max (0,istep)
+          ipp = ip + sign(1,istep)
+          imm = im - sign(1,istep)
+          ip3 = ip + sign(2,istep)
+          im3 = im - sign(2,istep)
 
           if (spoint.and.i==1) then
             if (.not.glbl) then
@@ -492,13 +286,38 @@ cc          endif
      .             -g_def%xg(im)
             endif
 
-cc            write (*,*) i,im,ip,dxx,bb(ip,1,1,2)
-cc            aa(ip,:,:,3) = aa(im,:,:,3) - 0.5*dxx*bb(ip,:,:,2)
-cc
-cc            aa(ip,:,:,2) = aa(im,:,:,2) + 0.5*dxx*bb(ip,:,:,3)
-            aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
-     .                                             +bb(ip,:,:,2))
-            aa(ip,:,:,2) =  + 0.25*dxx*bb(ip,:,:,3) !A_2=0 @ r=0
+            select case(lorder)
+            case(1)
+              aa(ip,:,:,3) =  - 0.25*dxx*bb(ip,:,:,2) !A_3=0 @ r=0
+              aa(ip,:,:,2) =  + 0.25*dxx*bb(ip,:,:,3) !A_2=0 @ r=0
+            case(2)
+              !A_3=0 @ r=0
+              aa(ip,:,:,3) =-dxx*(51*bb(ip  ,:,:,2)
+     .                              -bb(ip+1,:,:,2))/192d0
+              !A_2=0 @ r=0
+              aa(ip,:,:,2) = dxx*(51*bb(ip  ,:,:,3)
+     .                              -bb(ip+1,:,:,3))/192d0
+            case(3)
+              !A_3=0 @ r=0
+              aa(ip,:,:,3) =-dxx*(b1*bb(ip  ,:,:,2)
+     .                           -b2*bb(ip+1,:,:,2)
+     .                           +b3*bb(ip+2,:,:,2))
+              !A_2=0 @ r=0
+              aa(ip,:,:,2) = dxx*(b1*bb(ip  ,:,:,3)
+     .                           -b2*bb(ip+1,:,:,3)
+     .                           +b3*bb(ip+2,:,:,3))
+            case(4)
+              aa(ip,:,:,3) =-dxx*(a1*bb(ip  ,:,:,2)
+     .                           -a2*bb(ip+1,:,:,2)
+     .                           +a3*bb(ip+2,:,:,2)
+     .                           -a4*bb(ip+3,:,:,2)
+     .                           +a5*bb(ip+4,:,:,2))
+              aa(ip,:,:,2) = dxx*(a1*bb(ip  ,:,:,3)
+     .                           -a2*bb(ip+1,:,:,3)
+     .                           +a3*bb(ip+2,:,:,3)
+     .                           -a4*bb(ip+3,:,:,3)
+     .                           +a5*bb(ip+4,:,:,3))
+            end select
 
           else
 
@@ -510,30 +329,81 @@ cc            aa(ip,:,:,2) = aa(im,:,:,2) + 0.5*dxx*bb(ip,:,:,3)
      .             -g_def%xg(im)
             endif
 
-            aa(ip,:,:,3) = aa(im,:,:,3) - dxx*5d-1*(bb(im,:,:,2)
-     .                                             +bb(ip,:,:,2))
-            aa(ip,:,:,2) = aa(im,:,:,2) + dxx*5d-1*(bb(im,:,:,3)
-     .                                             +bb(ip,:,:,3))
-
+            select case(lorder)
+            case(2)
+              aa(ip,:,:,3) = aa(im,:,:,3)
+     .                     - dxx*5d-1*(bb(im,:,:,2)
+     .                                +bb(ip,:,:,2))
+              aa(ip,:,:,2) = aa(im,:,:,2)
+     .                     + dxx*5d-1*(bb(im,:,:,3)
+     .                                +bb(ip,:,:,3))
+            case(3)
+              if(i == imin) then
+                aa(ip,:,:,3)=aa(im,:,:,3)
+     .                      -dxx*(cp*bb(im ,:,:,2)
+     .                           +c0*bb(ip ,:,:,2)
+     .                           +cm*bb(ipp,:,:,2))
+                aa(ip,:,:,2)=aa(im,:,:,2)
+     .                      +dxx*(cp*bb(im ,:,:,3)
+     .                           +c0*bb(ip ,:,:,3)
+     .                           +cm*bb(ipp,:,:,3))
+              else
+                aa(ip,:,:,3)=aa(im,:,:,3)
+     .                      -dxx*(cm*bb(imm,:,:,2)
+     .                           +c0*bb(im ,:,:,2)
+     .                           +cp*bb(ip ,:,:,2))
+                aa(ip,:,:,2)=aa(im,:,:,2)
+     .                      +dxx*(cm*bb(imm,:,:,3)
+     .                           +c0*bb(im ,:,:,3)
+     .                           +cp*bb(ip ,:,:,3))
+              endif
+            case(4)
+              if(i == imin) then
+                aa(ip,:,:,3)=aa(im,:,:,3)
+     .                      -dxx*(smm*bb(im ,:,:,2)
+     .                           +sm *bb(ip ,:,:,2)
+     .                           +sp *bb(ipp,:,:,2)
+     .                           +spp*bb(ip3,:,:,2))
+                aa(ip,:,:,2)=aa(im,:,:,2)
+     .                      +dxx*(smm*bb(im ,:,:,3)
+     .                           +sm *bb(ip ,:,:,3)
+     .                           +sp *bb(ipp,:,:,3)
+     .                           +spp*bb(ip3,:,:,3))
+              elseif(i == imax) then
+                aa(ip,:,:,3)=aa(im,:,:,3)
+     .                      -dxx*(spp*bb(im3,:,:,2)
+     .                           +sp *bb(imm,:,:,2)
+     .                           +sm *bb(im ,:,:,2)
+     .                           +smm*bb(ip ,:,:,2))
+                aa(ip,:,:,2)=aa(im,:,:,2)
+     .                      +dxx*(spp*bb(im3,:,:,3)
+     .                           +sp *bb(imm,:,:,3)
+     .                           +sm *bb(im ,:,:,3)
+     .                           +smm*bb(ip ,:,:,3))
+              else
+                aa(ip,:,:,3)=aa(im,:,:,3)
+     .                      -dxx*(ccm*(bb(imm,:,:,2)
+     .                                +bb(ipp,:,:,2))
+     .                           +cc0*(bb(im ,:,:,2)
+     .                                +bb(ip ,:,:,2)))
+                aa(ip,:,:,2)=aa(im,:,:,2)
+     .                      +dxx*(ccm*(bb(imm,:,:,3)
+     .                                +bb(ipp,:,:,3))
+     .                           +cc0*(bb(im ,:,:,3)
+     .                                +bb(ip ,:,:,3)))
+              endif
+            end select
+            
           endif
         enddo
 
-        !Average from radial faces to nodes in SP coordinate systems
-cc        if (spoint) then
-cc          write (*,*) min(ilo,ihi),max(ilo,ihi)+1
-cc          aa(min(ilo,ihi):max(ilo,ihi)+1,:,:,2:3) =
-cc     .         0.5*(aa(min(ilo,ihi)  :max(ilo,ihi)+1,:,:,2:3)
-cc     .             +aa(min(ilo,ihi)-1:max(ilo,ihi)  ,:,:,2:3))
-cc          aa(min(ilo,ihi)-1,:,:,2:3) = -aa(min(ilo,ihi),:,:,2:3)
-cc        endif
-        
       end subroutine line_int
 
       end subroutine curl_inv
 
 c     curl_div_clean
 c     #################################################################
-      subroutine curl_div_clean(g_def,igx,db,diag_plots,global)
+      subroutine curl_div_clean(g_def,igx,db,diag_plots,global,order)
 
 c     -----------------------------------------------------------------
 c     Finds B^(n+1)=B^n + curl(dA), with dA=inv_curl(dB)
@@ -550,6 +420,7 @@ c     Call variables
 
       logical :: diag_plots
       logical,optional :: global
+      integer,optional :: order
 
 c     Local variables
 
@@ -560,7 +431,7 @@ c     Local variables
 
 c     Find dA from dB (w/ ghost cells)
 
-      call curl_inv(g_def,igx,db,da_cov,global=global)
+      call curl_inv(g_def,igx,db,da_cov,global=global,order=order)
 
 c     Diagnostics (call before db = curl(A))
 
@@ -574,8 +445,8 @@ c     Find dB
 
 c     vlap_curl_inv
 c     ###############################################################
-      subroutine vlap_curl_inv(g_def,igrid,db,da_cov,bcsb,bcsa,iout
-     .                        ,dbcov,w_pre_bcs,gm_it,rtol)
+      subroutine vlap_curl_inv(g_def,igrid,db_cnv,da_cov,bcsb,bcsa
+     .                        ,iout,dbcov,da0cov,w_pre_bcs,gm_it,rtol)
 
 c     ---------------------------------------------------------------
 c     Finds COVARIANT vector potential "a" from CONTRAVARIANT vector
@@ -590,31 +461,39 @@ c     Call variables
       type(grid_mg_def),pointer :: g_def
 
       integer :: igrid,iout,bcsb(6,3),bcsa(6,3)
-      real(8) :: db(0:,0:,0:,:)
+      real(8) :: db_cnv(0:,0:,0:,:)
       real(8) :: da_cov(0:,0:,0:,:)
 
       integer,optional :: gm_it
       real(8),optional :: rtol
-      real(8),optional,INTENT(IN) :: dbcov(0:size(db,1)-1
-     .                                    ,0:size(db,2)-1
-     .                                    ,0:size(db,3)-1,size(db,4))
+      real(8),optional,INTENT(IN) :: dbcov(0:size(db_cnv,1)-1
+     .                                    ,0:size(db_cnv,2)-1
+     .                                    ,0:size(db_cnv,3)-1
+     .                                    ,  size(db_cnv,4))
+      real(8),optional,INTENT(IN) :: da0cov(0:size(db_cnv,1)-1
+     .                                     ,0:size(db_cnv,2)-1
+     .                                     ,0:size(db_cnv,3)-1
+     .                                     ,  size(db_cnv,4))
 
       logical,optional :: w_pre_bcs
 
 c     Local variables
 
       integer :: nx,ny,nz,igx,igy,igz,i,j,k,ii,icomp,order_res
-     .          ,order_prol,gmits
+     .          ,order_prol,gmits,bcsga(6,3)
 
-      real(8) :: da_cnv (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
-     .          ,db_cov (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
-     .          ,db_cnv (0:size(db,1)-1
-     .                  ,0:size(db,2)-1
-     .                  ,0:size(db,3)-1,size(db,4))
+      real(8) :: da_cnv (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,dlapa0 (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,db_cov (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
+     .          ,dj_cnv (0:size(db_cnv,1)-1
+     .                  ,0:size(db_cnv,2)-1
+     .                  ,0:size(db_cnv,3)-1,size(db_cnv,4))
      .          ,rhs(ntotdp,3),x(ntotdp,3),dvol,etol
      $          ,lxmin,lxmax,lymin,lymax,lzmin,lzmax
 
@@ -628,9 +507,9 @@ c     Begin program
       igy = igrid
       igz = igrid
 
-      nx = size(db,1)-2
-      ny = size(db,2)-2
-      nz = size(db,3)-2
+      nx = size(db_cnv,1)-2
+      ny = size(db_cnv,2)-2
+      nz = size(db_cnv,3)-2
 
       if (PRESENT(w_pre_bcs)) then
         w_prebcs = w_pre_bcs
@@ -641,23 +520,33 @@ c     Begin program
       if (PRESENT(rtol)) then
         etol = rtol
       else
-        etol = 1d-4
+        etol = 1d-7
       endif
 
-c     Find rhs of vec_lap solve: rhs=vol*dJ (with dJ=curl(dB); dB already has BCs)
+c     Find Lap(A0)
+
+      if (PRESENT(da0cov)) then
+        dlapa0 = XformToCnv(g_def,igrid,da0cov)
+        dlapa0 = veclap    (g_def,igrid,dlapa0)
+      else
+        dlapa0 = 0d0
+      endif
+
+c     Find rhs of vec_lap solve: rhs=-vol*dJ (with dJ=curl(dB); dB already has BCs)
 
       if (w_prebcs) then
-        call setMGBC(g_def,0,3,nx,ny,nz,igx,db,bcsb,arr_cov=db_cov
-     .              ,icomp=(/IBX/),is_vec=.true.
+        call setMGBC(g_def,0,3,nx,ny,nz,igx,db_cnv,bcsb
+     .              ,arr_cov=db_cov,icomp=(/IBX/),is_vec=.true.
      .              ,is_cnv=.true.,iorder=order_bc)
-cc        return
       else
         if (PRESENT(dbcov)) then
           db_cov = dbcov
         else
-          db_cov = XformVector(g_def,igx,db,.false.)
+          db_cov = XformVector(g_def,igx,db_cnv,.false.)
         endif
       endif
+
+      dj_cnv = curl(g_def,igrid,db_cov) + dlapa0
 
       do k = 1,nz
         do j = 1,ny
@@ -670,11 +559,7 @@ cc        return
               dvol = 1d0
             endif
 
-            rhs(ii,:)=-dvol
-     .                *curl(g_def,i,j,k,nx,ny,nz,igx,igy,igz,db_cov)
-            if (.not.is_a_cnv)
-     .        rhs(ii,:)=matmul(g_def%gmetric%grid(igx)%gsub(i,j,k,:,:)
-     .                        ,rhs(ii,:))
+            rhs(ii,:) = -dvol*dj_cnv(i,j,k,:)
           enddo
         enddo
       enddo
@@ -691,18 +576,9 @@ c     Setup solver parameters
         order_prol = 1
       endif
 
-      bc_order_a = 1
-
-c     Allocate diagonal matrix
-
-      if (.not.allocated(vlap_diag)) then
-        allocate(vlap_diag(3,3*ntotd2p))
-
-        call find_mf_diag(g_def,3,1,3*ntotdp,avlap_mtvc,igx,bcsa
-     .                   ,vlap_diag,sm_ncolors,vwgt,.false.)
-      endif
-
-c     Invert vector laplacian to find dA=-vlap^-1(dJ)
+      bc_order_a = 2
+      
+c     Invert vector laplacian to find dA=vlap^-1(dJ)
 
       x = 0d0
 
@@ -710,10 +586,9 @@ c     Invert vector laplacian to find dA=-vlap^-1(dJ)
      .            ,iout,1,avlap_mtvc,vwgt
      .            ,tol           = etol
      .            ,iters         = gmits
-     .            ,dg            = vlap_diag
      .            ,gm_driver     = .true.
      .            ,sing_matrix   = sing_mat
-     .            ,ks_it         = 30
+     .            ,ks_it         = 50
      .            ,mg_vcyc       = 1
      .            ,mg_order_res  = order_res
      .            ,mg_order_prol = order_prol
@@ -739,15 +614,11 @@ cc     .            ,sm_it         = sm_iter_si
 cc     .            ,sm_zebra_relax= mg_zebra_relax_si
      .            )
 
-      if (is_a_cnv) then
-        call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=is_a_cnv
-     .                ,arr_cov=da_cov,icomp=(/IAX/))
-      else
-        call fillArray(g_def,igx,3,x,da_cov,bcsa,bc_order_a
-     .                ,is_vec=.true.,is_cnv=is_a_cnv
-     .                ,icomp=(/IAX/))
-      endif
+      call fillArray(g_def,igx,3,x,da_cnv,bcsa,bc_order_a
+     .              ,is_vec=.true.,is_cnv=.true. ,icomp=(/IAX/)
+     .              ,arr_cov=da_cov)
+
+      if (PRESENT(da0cov)) da_cov = da_cov + da0cov
       
       if (PRESENT(gm_it)) gm_it = gmits
 
@@ -823,23 +694,29 @@ c     Define BCs
       bcsb(:,2) = u_0%array_var(IBY)%bconds
       bcsb(:,3) = u_0%array_var(IBZ)%bconds
 
-      bcsa = bcsb
-      where (bcond == FSYM)
-        bcsa(:,1) = FSYM !Recover symmetry BCs
-        bcsa(:,2) = FSYM !Recover symmetry BCs
-        bcsa(:,3) = FSYM !Recover symmetry BCs
-      end where
-      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
-                                        !Normal component BCs same as B (div = 0)
+      call default_A_BCs(bcsa)
 
-      call set_vec_symm_bc(bcsa,-1)
+c$$$      bcsa = bcsb
+c$$$      where (bcond == FSYM)
+c$$$        bcsa(:,1) = FSYM !Recover symmetry BCs
+c$$$        bcsa(:,2) = FSYM !Recover symmetry BCs
+c$$$        bcsa(:,3) = FSYM !Recover symmetry BCs
+c$$$      end where
+c$$$      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
+c$$$                                        !Normal component BCs same as B (div = 0)
+c$$$
+c$$$      call set_vec_symm_bc(bcsa,-1)
 
 c     Find dA
 
       call vlap_curl_inv(g_def,igx,db,da_cov,bcsb,bcsa,iout
      .                  ,w_pre_bcs=w_pre_bcs
      .                  ,gm_it=gm_it,rtol=rtol)
-      
+
+c     Diagnostics
+
+      if (dplots) call B_dump(g_def,igx,da_cov,db)
+
 c     Find new dB (with BCs)
 
       db = curl(g_def,igx,da_cov)
@@ -854,11 +731,112 @@ c     Store vector potential
 
       if (PRESENT(dacov)) dacov = da_cov
 
+      end subroutine vlap_div_clean
+
+c     B_div_clean
+c     #################################################################
+      subroutine B_div_clean(g_def,iout,igrid,db,meth,dacov
+     .                      ,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+
+c     -----------------------------------------------------------------
+c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
+c     On input:
+c       * iout: level of output info
+c       * igrid: grid level size
+c       * db: input cnv magnetic field 
+c       * dacov (optional): cov A (output)
+c       * meth: divergence cleaning method ("vlap","line")
+c       * w_bcs (optional): whether output has BCs
+c       * w_pre_bcs (optional): whether input requires BCs
+c       * diag_plots (optional): whether we want plots of answer
+c       * gm_it,rtol (optional): number of GMRES iterations and conv. tol.
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: iout,igrid
+      real(8) :: db(0:,0:,0:,:)
+
+      character(4) :: meth
+
+      integer,optional :: gm_it
+      real(8),optional :: rtol
+      real(8),optional,INTENT(OUT):: dacov(0:,0:,0:,:)
+
+      logical,optional :: w_bcs,w_pre_bcs,diag_plots
+
+c     Local variables
+
+      integer :: bcsb(6,3),nx,ny,nz,its
+
+      real(8) :: da_cov (0:size(db,1)-1
+     .                  ,0:size(db,2)-1
+     .                  ,0:size(db,3)-1,3)
+      logical :: dplots,wbcs
+
+c     Begin program
+
+      if (my_rank == 0.and.iout > 0) then
+        write (*,*)
+        write (*,*) 'Div-cleaning B-field...'
+        write (*,*)
+      endif
+
+      if (PRESENT(diag_plots)) then
+        dplots = diag_plots
+      else
+        dplots = .false.
+      endif
+
+      if (PRESENT(w_bcs)) then
+        wbcs = w_bcs
+      else
+        wbcs = dplots
+      endif
+
+c     Find vector potential
+
+      its = 0
+
+      call findVectorPotential(g_def,iout,igrid,db,da_cov,meth
+     .                        ,its=its,rtol=rtol)
+
+      if (my_rank == 0.and.iout > 0.and.(.not.PRESENT(gm_it))) then
+        write (*,'(a,i3,a)') meth//' divergence cleaning converged in'
+     .                      ,its,' its'
+      endif
+
+      if (PRESENT(gm_it)) gm_it = its
+
 c     Diagnostics
 
-      if (dplots) call B_dump(g_def,igx,da_cov,db)
+      if (dplots) call B_dump(g_def,igrid,da_cov,db)
 
-      end subroutine vlap_div_clean
+c     Find new dB (with BCs)
+
+      db = curl(g_def,igrid,da_cov)
+
+      if (wbcs) then
+        call default_B_BCs(bcsb)
+
+        nx = g_def%nxv(igrid)
+        ny = g_def%nyv(igrid)
+        nz = g_def%nzv(igrid)
+
+        call setMGBC(g_def,0,3,nx,ny,nz,igrid,db,bcsb
+     .              ,icomp=(/IBX/),is_vec=.true.
+     .              ,is_cnv=.true.,iorder=order_bc)
+      endif
+
+c     Store vector potential
+
+      if (PRESENT(dacov)) dacov = da_cov
+
+      end subroutine B_div_clean
 
 c     avlap_mtvc
 c     ###############################################################
@@ -904,15 +882,13 @@ c     Local variables
      .             ,vlap(3),cnv(3),cov(3),car(3)
       real(8)    :: upwind,etal
 
-      real(8),allocatable,dimension(:,:,:,:) :: vv,v0
+      real(8),pointer,dimension(:,:,:,:) :: vv
 
-      logical    :: fpointers,is_cnv
+      logical    :: fpointers
 
       type(mg_ctx),pointer :: mg_ctx_l => null()
 
 c     Begin program
-
-      is_cnv = is_a_cnv
 
       call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
 
@@ -940,56 +916,27 @@ c     Map vector x to array for processing
       !For GS, gpos < 0 so that the whole vector x is mapped and BCs are filled
       !For finding the diagonal, gpos > 0
       call fillArray(g_def,igrid,neq,x,vv,bcnd,bc_order_a,gpos=gpos
-     .              ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
+     .              ,icomp=(/IAX/),is_cnv=.true.,is_vec=.true.
      .              ,result_is_curv=.true.)
-
-cc      call mapMGVectorToArray(mg_ctx_temp,max(0,gpos),x,vv,igrid
-cc     .                       ,.false.)
-cc
-cc      call setMGBC(max(0,gpos),neq,nxx,nyy,nzz,igrid,vv,bcnd
-cc     .            ,icomp=(/IAX/),is_cnv=is_cnv,is_vec=.true.
-cc     .            ,result_is_curv=.true.,iorder=bc_order_a)
 
 c     Calculate matrix-vector product
 
-      if (is_a_cnv) then
-        do k = kmin,kmax
-          do j = jmin,jmax
-            do i = imin,imax
-              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+       do k = kmin,kmax
+         do j = jmin,jmax
+           do i = imin,imax
+             ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
 
-              vlap = veclap(g_def,i,j,k,nxx,nyy,nzz
-     .                     ,igrid,igrid,igrid,vv
-     .                     ,vol=MG_get_res_vol_wgt())
-cc              vlap =-curlcurl(i,j,k,nxx,nyy,nzz
-cc       .                           ,igrid,igrid,igrid,vv
-cc       .                           ,vol=MG_get_res_vol_wgt())
+             vlap = veclap    (g_def,i,j,k,nxx,nyy,nzz
+cc             vlap = veclap_cnv(g_def,i,j,k,nxx,nyy,nzz
+     .                        ,igrid,igrid,igrid,vv
+     .                        ,vol=MG_get_res_vol_wgt())
 
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = vlap(ieq)
-              enddo
-
-            enddo
-          enddo
-        enddo
-      else
-        do k = kmin,kmax
-          do j = jmin,jmax
-            do i = imin,imax
-              ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
-
-              vlap = veclap_cov(g_def,i,j,k,nxx,nyy,nzz
-     .                         ,igrid,igrid,igrid,vv
-     .                         ,vol=MG_get_res_vol_wgt())
-
-              do ieq=1,3
-                y(neq*(ijk-1)+ieq) = vlap(ieq)
-              enddo
-
-            enddo
-          enddo
-        enddo
-      endif
+             do ieq=1,3
+               y(neq*(ijk-1)+ieq) = vlap(ieq)
+             enddo
+           enddo
+         enddo
+       enddo
 
 c     End program
 
@@ -1137,7 +1084,7 @@ c     Begin program
       call createDrawInCfile(9,trim(dcf),'Solution','t','x','y'
      .        ,(/'Bx_in ','By_in ','Bz_in '
      $          ,'Ax_out','Ay_out','Az_out'
-     $          ,'Bx_out','By_out','Bz_out'/)
+     $          ,'Bx_dff','By_dff','Bz_dff'/)
      .        ,'-c -X0 -L57','drawdc_p'//trim(int2char(my_rank))//'.in')
 
       open(unit=110,file=trim(dcf),form='unformatted'
@@ -1169,7 +1116,7 @@ c     Begin program
      .            ,g_def%gymin,g_def%gymax
      .            ,1,110)
 
-      ddb = curl(g_def,igx,da_cov)
+      ddb = curl(g_def,igx,da_cov)!-db
 
       call contour(ddb    (:,:,1,1),nx+2,ny+2
      .            ,g_def%gxmin,g_def%gxmax
@@ -1185,11 +1132,300 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-      call pstop('vlap_div_clean','Dumped graphics')
+      write (*,*) "Dumped graphics in B_dump"
+cc      call pstop('B_dump','Dumped graphics')
 
 c     End program
 
       end subroutine B_dump
+
+c     findVectorPotential
+c     #############################################################
+      subroutine findVectorPotential(g_def,iout,igrid,b_cnv,a_cov,meth
+     .                              ,its,rtol,sp,lorder)
+
+c     -------------------------------------------------------------
+c     Finds COVARIANT vector potential from CONTRAVARIANT magnetic
+c     field components. There are two methods:
+c       1) meth='line': performs line integrals
+c       2) meth='vlap': performs vector Laplacian inversion
+c     Other input variables include:
+c     * sp: whether we are dealing with SP geometry
+c     * lorder: order of line integrals
+c
+c     On input:
+c       * b_cnv -> cnv magnetic field
+c     On output:
+c       * a_cov -> cov vector potential
+c     -------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      type(grid_mg_def),pointer :: g_def
+
+      integer :: iout,igrid
+      real(8) :: a_cov(0:,0:,0:,:)
+     .          ,b_cnv(0:,0:,0:,:)
+      character(4) :: meth
+
+      integer,optional,INTENT(OUT) :: its
+      real(8),optional,INTENT(IN)  :: rtol
+      logical,optional :: sp
+      integer,optional :: lorder
+
+c     Local variables
+
+      integer :: nxg,nyg,nzg,gm_its
+      integer :: i,j,k,ii,nx,ny,nz,ig,jg,kg
+     .          ,bcnd(6,3),bcs_b(6,3),bcs_a(6,3),bcsq(6)
+      real(8) :: a0_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,a_cnv (ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,db_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+     .          ,vzeros(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: bx0,bxl,by0,byl,bz0,bzl,x1,y1,z1,r_tol
+      logical :: spoint
+
+      real(8),pointer,dimension(:,:,:,:) :: ag,bg
+      
+c     Begin program
+
+      nx = size(a_cov,1)-2
+      ny = size(a_cov,2)-2
+      nz = size(a_cov,3)-2
+
+c     Gather global magnetic field
+
+      nxg = g_def%nxgl(igrid)  !Only communicate along X for line integral
+      nyg = ny
+      nzg = nz
+
+      allocate(ag(0:nxg+1,0:nyg+1,0:nzg+1,3)
+     .        ,bg(0:nxg+1,0:nyg+1,0:nzg+1,3))
+
+      call find_global(b_cnv,bg
+#if defined(petsc)
+     .                ,mpi_comm=g_def%MPI_COMM_X
+#endif
+     .                )
+
+      if (my_rank == 0.and.iout > 0) then
+        write (*,*)
+        write (*,*) 'Solving for vector potential...'
+        write (*,*)
+      endif
+
+c     Find A BCs (fluxes) via line integrals
+
+      call curl_inv(g_def,igrid,bg,ag,global=.true.,order=lorder,sp=sp)
+
+      !Restrict solution to current domain (when appropriate)
+      call XferGlobalArray(ag,a_cov)
+
+      deallocate(ag,bg)
+
+      !Set topological BCs
+      bcnd(:,1) = bcond
+      bcnd(:,2) = bcond
+      bcnd(:,3) = bcond
+
+      vzeros = 0d0
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
+      call setBC(gv%gparams,IAX,3,nx,ny,nz,a_cnv,a_cov,vzeros,bcnd
+     .          ,igrid,igrid,igrid,is_cnv=.false.,iorder=order_bc)
+
+c diag ****
+c$$$      if (test) then
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call checkCurl  (a_cov,db_cnv)
+c$$$      endif
+c diag ****
+
+c$$$      !Diagnostics
+c$$$      call XferGlobalArray(b,db_cnv)
+c$$$      call B_dump(gv%gparams,igrid,a_cov,db_cnv)
+
+c     Correct A covariant
+
+      if (meth == 'vlap') then
+
+        a0_cov = a_cov
+
+        !BC defs (not yet defined in application)
+        call default_A_BCs(bcs_a)
+        call default_B_BCs(bcs_b)
+
+        !Find B and substract BCs
+        db_cnv = b_cnv - curl_mesh(gv%gparams,igrid,a0_cov)
+
+        !Find covariant vector potential update with div(A)=0
+        call vlap_curl_inv(gv%gparams,igrid,db_cnv,a_cov
+     .                    ,bcs_b,bcs_a,iout,gm_it=gm_its
+     .                    ,rtol=rtol,w_pre_bcs=.true.)
+
+        if (.not.PRESENT(its)) then
+          if(my_rank==0) write (*,'(a,i3)') ' A-solve GMRES its=',gm_its
+        else
+          its = gm_its
+        endif
+
+        !Add BCs
+        a_cov = a_cov + a0_cov
+
+c$$$        !Diagnostics
+c$$$        call XferGlobalArray(b,db_cnv)
+c$$$        call B_dump(gv%gparams,igrid,a_cov,db_cnv)
+
+      endif
+
+c     End program
+
+      contains
+
+c     XferGlobalArray
+c     ####################################################################
+      subroutine XferGlobalArray(ag,al)
+
+        implicit none
+      
+        real(8),dimension(0:,0:,0:,:) :: ag,al
+
+        integer :: igm,igp,jgm,jgp,kgm,kgp
+
+        if (nxg == nxd) then
+          igm = ilomg ; igp = ihipg
+        else
+          igm = ilom  ; igp = ihip
+        endif
+
+        if (nyg == nyd) then
+          jgm = jlomg ; jgp = jhipg
+        else
+          jgm = jlom  ; jgp = jhip
+        endif
+
+        if (nzg == nzd) then
+          kgm = klomg ; kgp = khipg
+        else
+          kgm = klom  ; kgp = khip
+        endif
+
+        al(ilom:ihip,jlom:jhip,klom:khip,:)
+     .     = ag(igm:igp,jgm:jgp,kgm:kgp,:)
+
+      end subroutine XferGlobalArray
+
+c     checkCurl
+c     ####################################################################
+      subroutine checkCurl(a_cov,b_cnv)
+
+      implicit none
+
+      integer :: order
+
+      real(8) :: a_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      real(8) :: b_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: b_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: diva (ilom:ihip,jlom:jhip,klom:khip)
+      real(8) :: a_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv3(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv4(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cnv5(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov (ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov2(ilom:ihip,jlom:jhip,klom:khip,3)
+      real(8) :: j_cov3(ilom:ihip,jlom:jhip,klom:khip,3)
+
+      integer :: j=2,k=1
+      
+c     Begin program
+
+      a_cnv = XformToCnv(gv%gparams,igrid,a_cov)
+
+      do i=0,nx
+        write(*,*) "Acnvdiag",gv%gparams%xx(i+1)
+     .                    ,a_cnv (i,j,k,2)  !Benchmark
+     .                    ,a_cnv (i,j,k,3)  !Benchmark
+        write(*,*) "Acovdiag",gv%gparams%xx(i+1)
+     .                    ,a_cov (i,j,k,2)  !Benchmark
+     .                    ,a_cov (i,j,k,3)  !curl(A)
+      enddo
+
+      !Div(A) diagnostic
+      diva = div(gv%gparams,igrid,a_cnv)
+      write (*,*) "divA=",sqrt(sum(diva**2))
+
+      !Curl benchmark
+      b_cov = XformToCov(gv%gparams,igrid,b_cnv)
+      j_cnv = curl(gv%gparams,igrid,b_cov)
+
+      !Curl-veclap diagnostic
+      order = 2
+
+c$$$      b_cnv2 = curl(gv%gparams,igrid,a_cov,order=4)
+c$$$      b_cov2 = XformToCov(gv%gparams,igrid,b_cnv2)
+      b_cnv2 = curl_cell2vrtx_mesh(gv%gparams,igrid,a_cov,.false.)
+      b_cov2 = XformToCov_vrtx(gv%gparams,igrid,b_cnv2)
+
+      do i=0,nx
+        write(*,*) "Bcnvdiag",gv%gparams%xx(i+1)
+     .                    ,b_cnv (i,j,k,2)  !Benchmark
+     .                    ,b_cnv2(i,j,k,2)  !curl(A)
+     .                    ,b_cnv (i,j,k,3)  !Benchmark
+     .                    ,b_cnv2(i,j,k,3)  !curl(A)
+        write(*,*) "Bcovdiag",gv%gparams%xx(i+1)
+     .                    ,b_cov (i,j,k,2)  !Benchmark
+     .                    ,b_cov2(i,j,k,2)  !curl(A)
+     .                    ,b_cov (i,j,k,3)  !Benchmark
+     .                    ,b_cov2(i,j,k,3)  !curl(A)
+      enddo
+
+      !Currents
+cc      j_cnv2= curl_vrtx2cell_mesh(gv%gparams,igrid,b_cov2)
+cc      j_cnv2= curl  (gv%gparams,igrid,b_cov2,order=order)
+      j_cnv2=-veclap    (gv%gparams,igrid,a_cnv)
+      j_cnv3=-veclap_cnv(gv%gparams,igrid,a_cnv)
+      j_cnv4=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cnv4= XformToCnv(gv%gparams,igrid,j_cnv4)
+      j_cnv5= curlcurl_vrtx(gv%gparams,igrid,a_cov)
+
+      do i=1,nx
+        write(*,*) "Jcnvdiag",gv%gparams%xx(i+1)
+     .                    ,j_cnv (i,j,k,2)  !Benchmark
+     .                    ,j_cnv2(i,j,k,2)  
+     .                    ,j_cnv3(i,j,k,2)  
+     .                    ,j_cnv4(i,j,k,2)  
+     .                    ,j_cnv5(i,j,k,2)  
+     .                    ,j_cnv (i,j,k,3)  !Benchmark
+     .                    ,j_cnv2(i,j,k,3)  
+     .                    ,j_cnv3(i,j,k,3)  
+     .                    ,j_cnv4(i,j,k,3)  
+     .                    ,j_cnv5(i,j,k,3)  
+      enddo
+
+      j_cov = XformToCov(gv%gparams,igrid,j_cnv)
+      j_cov2=-veclap_cov(gv%gparams,igrid,a_cov)
+      j_cov3= XformToCov(gv%gparams,igrid,j_cnv3)
+      do i=1,nx
+        write(*,*) "Jcovdiag",gv%gparams%xx(i+1)
+     .                    ,j_cov (i,j,k,2)  !Benchmark
+     .                    ,j_cov2(i,j,k,2)  !veclap_cov
+     .                    ,j_cov3(i,j,k,2)  !veclap_cnv
+     .                    ,j_cov (i,j,k,3)  !Benchmark
+     .                    ,j_cov2(i,j,k,3)  !veclap_cov
+     .                    ,j_cov3(i,j,k,3)  !veclap_cnv
+      enddo
+
+      stop
+
+      end subroutine checkCurl
+
+      end subroutine findVectorPotential
 
       end module B_tools
 

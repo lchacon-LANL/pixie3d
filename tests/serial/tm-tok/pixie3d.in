@@ -51,7 +51,6 @@
     iguess   = 0
 
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
     nc_eom_f   = t
@@ -63,6 +62,8 @@
     debug_it = 1
 
     check_grid = f
+
+    prt_file = "pixie3d-eigen.eig"
  /
 
  &graphdef

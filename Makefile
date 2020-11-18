@@ -26,6 +26,7 @@ PER_BC_SYNC=t
 VMEC=t
 COARSE_MG=t
 USER_DT=t
+RFX=f
 
 COMMONDIR =$(PWD)/common
 CONTRIBDIR=$(PWD)/contrib
@@ -69,11 +70,11 @@ endif
 
 # PIXIE3D setup
 
-REL1=$(shell hg log -r "." --template "{latesttag}\n")
-
-SUBDIRS = eq src plot
+REL1=$(shell git describe --tags `git rev-list --tags --max-count=1`)-$(shell git rev-parse --short HEAD)
 
 CPPFLAGS += $(PREPROC)REL1=\"$(REL1)\"
+
+SUBDIRS = eq src plot
 
 ifeq ($(FLUX),t)
   CPPFLAGS += -Dflux_rhs
@@ -92,6 +93,8 @@ ifeq ($(VMEC),t)
   endif
 endif
 
+export VMEC
+
 ifeq ($(VECPOT),t)
   CPPFLAGS += $(PREPROC)vec_pot
   ifdef BOPT
@@ -107,24 +110,25 @@ else
   endif
 endif
 
+export VECPOT
+
 ifeq ($(SAMR),t)
   TARGET = samrai
-  CPPFLAGS += -Dflux_rhs
+  CPPFLAGS += $(PREPROC)flux_rhs
+endif
+
+ifeq ($(RFX),t)
+  CPPFLAGS += $(PREPROC)RFX
 endif
 
 #Export required variables
 
-export FC FFLAGS CPPFLAGS MODFLAG ADDMODFLAG MODPATH LIBS LDFLAGS \
-       H5LIBS MPI_HOME BOPT PETSC_DIR PETSC_ARCH VECPOT VMEC ARPACK SNES_OPT \
-       BINDIR CONTRIBLIBS MPIEXEC FLINKER PETSC_SNES_LIB CPPFLAGS_EXTRA \
-       CXXFLAGS_EXTRA LDFLAGS_EXTRA LDLIBS_EXTRA SAMR SAMRAI LIBSAMRAI3D LIBSAMRAI \
-       AMRUTILITIES_HOME SAMRSOLVERS_HOME HOST PIT PREPROC REL1 LABEL ADIOS_VER \
-       MACHINE OPT
+export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
 
 #Define targets
 
-.PHONY: pixie3d pixplot distclean petsc all contrib contrib_clean \
-        vmec vmec_clean setup tests rebuild-tests $(SUBDIRS)
+.PHONY: pixie3d pixplot srcclean allclean distclean petsc all contrib contrib_clean \
+        vmec vmec_clean setup tests rebuild-tests testclean $(SUBDIRS)
 
 all: $(SUBDIRS)
 
@@ -213,10 +217,19 @@ contrib_pack: ;
 
 # CLEAN ALL
 
+srcclean:
+	$(MAKE) --no-print-directory -C src clean
+	$(MAKE) --no-print-directory -C plot clean
+
 allclean: contrib_clean distclean
 
 distclean:
 	-@for subdir in $(SUBDIRS) ; do \
 		$(MAKE) -C $$subdir distclean;  done
+
+testclean:
+	-@for subdir in tests/serial tests/parallel ; do \
+		$(MAKE) -C $$subdir clean;  done
+
 
 

@@ -54,18 +54,16 @@
     tolgm    = 8d-1
     rtol     = 1d-4
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
-    nc_eom_f = f
-    nc_eom_v = f
-    adiabatic= t
-    solve_rho= t
-    use_p_eom= t
-    source   = t
+    nc_eom_f   = f
+    nc_eom_v   = f
+    adiabatic  = t
+    use_p_eom  = t
+    source     = t
 
-    debug    = f
-    debug_it = 1
+    pc_debug   = f
+    pc_debug_it= 0
 
  /
  &graphdef
@@ -74,7 +72,6 @@
     dplot = 1d-2
     prof_conf = 1,'x',1,10,1
     cont_conf = 3,'x','y',1,1,1
-    clean = f
  /
 
 

@@ -1,0 +1,52 @@
+#!/bin/bash
+
+rm tests/*.txt tests/*.html
+
+make -s setup allclean
+tput setaf 4; echo "COMPILING SERIAL B tests..."
+tput setaf 1; make -s src | sed '/^\s*$/d'
+tput setaf 4; echo "RUNNING SERIAL B tests..."
+tput setaf 0; make -s tests > tests/tests-B.txt
+
+make -s distclean
+tput setaf 4; echo "COMPILING SERIAL A tests..."
+tput setaf 1; make -s VECPOT=t src | sed '/^\s*$/d'
+tput setaf 4; echo "RUNNING SERIAL A tests..."
+tput setaf 0; make -s VECPOT=t tests > tests/tests-A.txt
+
+make -s BOPT=O setup allclean
+tput setaf 4; echo "COMPILING PARALLEL B tests..."
+tput setaf 1; make -s BOPT=O src | sed '/^\s*$/d'
+tput setaf 4; echo "RUNNING PARALLEL B tests..."
+tput setaf 0; make -s BOPT=O tests > tests/tests-parallel-B.txt
+
+make -s BOPT=O distclean
+tput setaf 4; echo "COMPILING PARALLEL A tests..."
+tput setaf 1; make -s BOPT=O VECPOT=t src | sed '/^\s*$/d'
+tput setaf 4; echo "RUNNING PARALLEL A tests..."
+tput setaf 0; make -s BOPT=O VECPOT=t tests > tests/tests-parallel-A.txt
+
+tput setaf 7; tput setab 4; echo "Assembling HTML file..."
+
+tput sgr0
+
+cd tests
+
+enscript -E --color --language=html --toc -ptests.html tests*.txt
+
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+  firefox -new-window tests.html
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  open tests.html
+#elif [[ "$OSTYPE" == "cygwin" ]]; then
+#        # POSIX compatibility layer and Linux environment emulation for Windows
+#elif [[ "$OSTYPE" == "msys" ]]; then
+#        # Lightweight shell and GNU utilities compiled for Windows (part of MinGW)
+#elif [[ "$OSTYPE" == "win32" ]]; then
+#        # I'm not sure this can happen.
+#elif [[ "$OSTYPE" == "freebsd"* ]]; then
+#        # ...
+#else
+#        # Unknown.
+fi
+

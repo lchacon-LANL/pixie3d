@@ -55,7 +55,7 @@
     advect    = 4
     v_advect  = 4
     solve_rho = t
-    use_p_eom = t 
+    use_p_eom = f 
     adiabatic = t
     nc_eom_gp = f
     nc_eom_v  = f
@@ -67,7 +67,6 @@
     atol     = 0d0
     method   = 1
     global   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
  /
 

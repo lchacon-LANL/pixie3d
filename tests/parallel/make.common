@@ -1,6 +1,6 @@
 #Define variables
 
-MPIEXEC=mpiexec
+MPIEXEC=mpiexec --oversubscribe
 NP=2
 EXEC=$(wildcard pixie3d*petsc.x)
 
@@ -28,27 +28,29 @@ endif
 
 #Define targets
 
-.PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup
+.PHONY: test test-a test-b rebuild rebuild-a rebuild-b setup clean
 
 setup: ;
+	-@ln -s -f ../../../bin/adios_config.xml
 	-@ln -s -f ../../../bin/$(EXEC)
 	-@ln -s -f ../../../bin/$(PLOT)
 
 rebuild rebuild-a rebuild-b: ;
 	@echo "Rebuilding parallel test in $(LOCALDIR)"
-	-@rm pixie3d.out* pixie3d.tst* pixie3d.err* record.* 2> /dev/null
+	-@rm -f pixie3d.out* pixie3d.tst* pixie3d.err* record.* 2> /dev/null || true
 	@$(PAREXEC) > pixie3d.out
 
 test test-a test-b: ;
 	@echo
 	@echo "Running parallel test in $(LOCALDIR)"
-#	-@rename "bin" "bak" record.bin* 2> /dev/null
-	@$(PAREXEC) > pixie3d.tst 2> pixie3d.err
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==")
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.out pixie3d.tst)
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)")
-#	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm record.bak* pixie3d.tst 2> /dev/null)
-	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm pixie3d.tst 2> /dev/null)
+	@$(PAREXEC) > pixie3d.tst 2> pixie3d.err || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || echo "==> Differences found in $(LOCALDIR) <==") || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] || diff -bB  pixie3d.out pixie3d.tst) || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && echo "No differences found in $(LOCALDIR)") || true
+	-@([ -z "`diff -bwB pixie3d.out pixie3d.tst`" ] && rm pixie3d.tst 2> /dev/null) || true
 
 run: ;
 	@$(PAREXEC)
+
+clean: ;
+	-@rm -r -f draw*.in *.bin* pixie3d.tst* pixie3d.err* *.vlog *.bp *.ps *.orig *diag* draw*txt grid*txt *log* *dSYM 2>/dev/null

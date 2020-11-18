@@ -20,6 +20,8 @@ c ######################################################################
 
       use imposeBCinterface
 
+      use par_int, ONLY: find_polar_coords
+
       implicit none
 
       contains
@@ -83,8 +85,8 @@ c Begin programs
 
 c Find electric field
 
-      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3),
-     .       ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
+      allocate(ecar(iming:imaxg,jming:jmaxg,kming:kmaxg,3)
+     .        ,ecyl(iming:imaxg,jming:jmaxg,kming:kmaxg,3))
 
       do k = kming,kmaxg
         do j = jming,jmaxg
@@ -104,14 +106,14 @@ c Find electric field
 
       if (coords == 'cyl' .or. coords == 'hel') then
 
-c Transform to cylindrical
+c Transform to cylindrical (from Cartesian)
 
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)
      $                     +vy_car(i,j,k)*sin(y1)
@@ -141,8 +143,8 @@ c Transform to cylindrical
 
             ecyl(i,j,k,1) = ecar(i,j,k,1)*cos(y1)
      $                     +ecar(i,j,k,2)*sin(y1)
-            ecyl(i,j,k,2) = -ecar(i,j,k,1)*sin(y1)
-     $                      +ecar(i,j,k,2)*cos(y1)
+            ecyl(i,j,k,2) =-ecar(i,j,k,1)*sin(y1)
+     $                     +ecar(i,j,k,2)*cos(y1)
             ecyl(i,j,k,3) = ecar(i,j,k,3)
 
           enddo
@@ -158,10 +160,9 @@ c Transform to toroidal
       do k = kming,kmaxg
         do j = jming,jmaxg
           do i = iming,imaxg
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
-
-!                    write (*,999) i,j,k,x1,y1,z1
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                    ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
             vx_cov(i,j,k) = vx_car(i,j,k)*cos(y1)*cos(-z1)
      $                     +vy_car(i,j,k)*cos(y1)*sin(-z1)
@@ -217,37 +218,39 @@ c Transform to toroidal
       endif
 
 c diag: dump text data
-        if (time == 0d0) then
-          open(unit=1012,file='fields.bin',status='unknown'
-     .	    ,form='unformatted')
-	  write (1012) nxd,nyd,nzd
-        else
-          open(unit=1012,file='fields.bin',status='unknown'
-     .      ,position='append',form='unformatted')
-        endif
+      if (time == 0d0) then
+        open(unit=1012,file='fields.bin',status='unknown'
+     .    ,form='unformatted')
+        write (1012) nxd,nyd,nzd
+      else
+        open(unit=1012,file='fields.bin',status='unknown'
+     .    ,position='append',form='unformatted')
+      endif
 
-        write (*,*) 'Dumping fields.bin'
-        write (1012) time	
-!        do i=1,nxd
-        do i=0,nxd+1
-          do j=1,nyd
-            do k=1,nzd
+      write (*,*) 'Dumping fields.bin'
+      write (1012) time	
+!      do i=1,nxd
+      do i=0,nxd+1
+        do j=1,nyd
+          do k=1,nzd
+cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+cc     .                                   ,ig,jg,kg,x1,y1,z1)
+            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
 
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
-            write (1012) bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
-     .                ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
-     .                ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
-     .                ,ecyl(i,j,k,1),ecyl(i,j,k,2),ecyl(i,j,k,3)
+            write (1012) x1,y1,z1
+     .              ,bx_cov(i,j,k),by_cov(i,j,k),bz_cov(i,j,k)
+     .              ,jx_cov(i,j,k),jy_cov(i,j,k),jz_cov(i,j,k)
+     .              ,vx_cov(i,j,k),vy_cov(i,j,k),vz_cov(i,j,k)
+     .              ,ecyl(i,j,k,1),ecyl(i,j,k,2),ecyl(i,j,k,3)
 ! Daniele, 24/10/2013
-     .                ,tmp(i,j,k),Pflux(i,j,k)
-            enddo
+     .              ,tmp(i,j,k),Pflux(i,j,k)
           enddo
         enddo
-        close(1012)
+      enddo
+      close(1012)
 c diag: dump text data
 
-        deallocate(ecar,ecyl)
+      deallocate(ecar,ecyl)
 
       end subroutine rfx_dump_fields
 

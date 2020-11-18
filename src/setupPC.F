@@ -40,6 +40,10 @@ c Configure PC parameters
 
       call PC_config
 
+c Allocate PC variables
+
+      if (.not.pc_vars_allcd) call allocPCVariables
+
 c Impose BCs
 
 #if !defined(samrai)
@@ -129,7 +133,7 @@ c     Density
 
 c     Temperature
 
-        call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMP)
+        call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,IPRS)
      .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
 
         if (sm_type == 'gm') return
@@ -292,4 +296,6 @@ c     Deallocate LOCAL auxiliary variables
 
       call destroyAppBCs
 
+cc      if (pc_vars_allcd) call deallocPCVariables
+      
       end subroutine kill_app_PC

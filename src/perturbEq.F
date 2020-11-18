@@ -34,6 +34,7 @@ c     Local variables
      .          ,bxx,byy,bzz,ibxx,ibyy,ibzz,axx,ayy,azz
      .          ,w_fast,w_slow,w_shr,freq,roots(3),X,iX
       real(8) :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+      real(8),allocatable,dimension(:,:,:,:) :: daa,dbb
 
       integer :: ip,im,jp,jm,kp,km
       real(8) :: dxx,dyy,dzz,RR
@@ -77,20 +78,17 @@ c     Begin program
       igz = 1
 
       select case(equil)
-      case ('2dkai','3dkai')
-
-        command = 'test -f '//trim(prt_file)
-        ierr = shellcmd(trim(command))
-
-        if (ierr == 0) then
-          call perturbEquilibrium_kaitm
-        else
-          do ieq=1,varr%nvar
-            call perturbEquilibrium_def(varr%array_var(ieq)%array
-     .                                 ,varr%array_var(ieq)%bconds
-     .                                 ,pert(ieq),.false.)
-          enddo
-        endif
+c$$$      case ('2dkai','3dkai')
+c$$$
+c$$$        if (is_file(trim(prt_file))) then
+c$$$          call perturbEquilibrium_kaitm
+c$$$        else
+c$$$          do ieq=1,varr%nvar
+c$$$            call perturbEquilibrium_def(varr%array_var(ieq)%array
+c$$$     .                                 ,varr%array_var(ieq)%bconds
+c$$$     .                                 ,pert(ieq),.false.)
+c$$$          enddo
+c$$$        endif
 
       case ('ppnch','ppn3d','ppnsl','ppnst','p3nsl','2dhel')
 
@@ -130,7 +128,7 @@ cc            write(*,*) 'calling ppnch_br'
         endif
 
 ! Daniele, 03/02/2012. case 'ohtor' has been written from scratch
-      case ('ohtor')
+      case ('ohtor','gstor')
 
         do ieq=1,varr%nvar
           call perturbEquilibrium_def(varr%array_var(ieq)%array
@@ -141,6 +139,12 @@ cc            write(*,*) 'calling ppnch_br'
         !Perturb normal B-field component ensuring div(B)=0 numerically
         if (br_pert_bc /= 0d0) then
 
+#if !defined(vec_pot) 
+           allocate(daa(ilom:ihip,jlom:jhip,klom:khip,3)
+     .             ,dbb(ilom:ihip,jlom:jhip,klom:khip,3))
+#endif
+
+
           RR = gv%gparams%params(1)
 cc          mm = gv%gparams%params(4)
 cc          nn = gv%gparams%params(5)
@@ -149,174 +153,290 @@ cc          nn = gv%gparams%params(5)
 
 ! Daniele, 04 May 2015
 ! to allow for multiple perturbed harmonics in the ohtor case
-           if (is_file(prt_file)) then
+          if (is_file(prt_file)) then
 
-              if (my_rank == 0) then
-                 write (*,*)
-                 write (*,*) 'Reading external perturbation file '
+            if (my_rank == 0) then
+              write (*,*)
+              write (*,*) 'Reading external perturbation file '
      .                ,trim(prt_file)
-              endif
+            endif
 
-              open(unit=u_prtf,file=trim(prt_file),form='formatted')
+            open(unit=u_prtf,file=trim(prt_file),form='formatted')
 
-              read(u_prtf,*) npw
+            read(u_prtf,*) npw
 
-              if (my_rank == 0) write(*,*) 'Perturbed harmonics=',npw
+            if (my_rank == 0) write(*,*) 'Perturbed harmonics=',npw
 
-              allocate(mm_arr(npw)
-     .                ,nn_arr(npw)
-     .                ,br_pert_bc_arr(npw)
-     .                ,br_pert_phase_arr(npw))
+            allocate(mm_arr(npw)
+     .              ,nn_arr(npw)
+     .              ,br_pert_bc_arr(npw)
+     .              ,br_pert_phase_arr(npw))
 
-              read(u_prtf,*) mm_arr
-              read(u_prtf,*) nn_arr
-              read(u_prtf,*) br_pert_bc_arr
-              read(u_prtf,*) br_pert_phase_arr
+            read(u_prtf,*) mm_arr
+            read(u_prtf,*) nn_arr
+            read(u_prtf,*) br_pert_bc_arr
+            read(u_prtf,*) br_pert_phase_arr
 
-              if (my_rank == 0) then
-                 write(*,*) 'mm array=',mm_arr
-                 write(*,*) 'nn array=',nn_arr
-                 write(*,*) 'br_pert_bc array=',br_pert_bc_arr
-                 write(*,*) 'br_pert_phase array=',br_pert_phase_arr
-              endif
+            if (my_rank == 0) then
+              write(*,*) 'mm array=',mm_arr
+              write(*,*) 'nn array=',nn_arr
+              write(*,*) 'br_pert_bc array=',br_pert_bc_arr
+              write(*,*) 'br_pert_phase array=',br_pert_phase_arr
+            endif
 
-              close(u_prtf)
+            close(u_prtf)
 
-           else
+          else
 
-              npw = 1
+            npw = 1
 
-              allocate(mm_arr(npw)
-     .                ,nn_arr(npw)
-     .                ,br_pert_bc_arr(npw)
-     .                ,br_pert_phase_arr(npw))
+            allocate(mm_arr(npw)
+     .              ,nn_arr(npw)
+     .              ,br_pert_bc_arr(npw)
+     .              ,br_pert_phase_arr(npw))
 
-              mm_arr(1) = nh2
-              nn_arr(1) =-nh3
-              br_pert_bc_arr(1) = br_pert_bc
-              br_pert_phase_arr(1) = br_pert_phase
+            mm_arr(1) = nh2
+            nn_arr(1) =-nh3
+            br_pert_bc_arr(1) = br_pert_bc
+            br_pert_phase_arr(1) = br_pert_phase
 
-           endif
+          endif
 
-           do ipw = 1,npw
+          do ipw = 1,npw
 
-              mm = mm_arr(ipw)
-              nn = nn_arr(ipw)
-              br_pert_bc = br_pert_bc_arr(ipw)
-              br_pert_phase = br_pert_phase_arr(ipw)
+#if !defined(vec_pot)
+             daa=0d0
+             dbb=0d0
+#endif
 
-          do k = klom,khip
-            do j = jlom,jhip
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,j,k
-     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+            mm = mm_arr(ipw)
+            nn = nn_arr(ipw)
+            br_pert_bc = br_pert_bc_arr(ipw)
+            br_pert_phase = br_pert_phase_arr(ipw)
 
-                ip = ig+1
-                im = ig-1
-                jp = jg+1
-                jm = jg-1
-                kp = kg+1
-                km = kg-1
+#if defined(vec_pot)
 
-                dxx = 2*gv%gparams%dxh(ig)
-                dyy = 2*gv%gparams%dyh(jg)
-                dzz = 2*gv%gparams%dzh(kg)
+            do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
 
-! Daniele, 19 Dec. 2014
-! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
-! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
-! to be extended to generic br_pert_phase (now only particular case br_pert_phase=0.)
-! to be possibly extended to generic n
-! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
-                if (nn == 0) then
+                  call getCartesianCoordinates(gv%gparams,i,j,k
+     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-                   varr%array_var(IBX)%array(i,j,k) =
-     .                  varr%array_var(IBX)%array(i,j,k)
-     .                  +x1**mm*br_pert_bc*RR
-     .                  *(cos(mm*gv%gparams%yy(jp))
-     .                  -cos(mm*gv%gparams%yy(jm)))
-     .                  /dyy/mm !Derivative done numerically to preserve div(B)=0
+                  xi = sqrt((sqrt(x1**2+y1**2)-RR)**2 + z1**2)
 
-                   varr%array_var(IBY)%array(i,j,k) =
-     .                  varr%array_var(IBY)%array(i,j,k)
-     .                  -br_pert_bc*RR
-     .                  *(gv%gparams%xx(ip)**mm
-     .                  -gv%gparams%xx(im)**mm)
-     .                  /dxx !Derivative done numerically to preserve div(B)=0
-     .                  *cos(mm*y1)/mm
+                  call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-                   if (mm /= -1) then
+                  varr%array_var(IAZ)%array(i,j,k) =
+     .                  varr%array_var(IAZ)%array(i,j,k)
+     .                  +xi**mm*br_pert_bc*RR
+     .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
 
-                      varr%array_var(IBX)%array(i,j,k) =
-     .                     varr%array_var(IBX)%array(i,j,k)
-     .                     +0.5*x1**(mm+1)*br_pert_bc
-     .                     *(cos((mm+1)*gv%gparams%yy(jp))
-     .                     -cos((mm+1)*gv%gparams%yy(jm)))
-     .                     /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
+                  if (mm /= -1) then
 
-                      varr%array_var(IBY)%array(i,j,k) =
-     .                     varr%array_var(IBY)%array(i,j,k)
-     .                     -0.5*br_pert_bc
-     .                     *(gv%gparams%xx(ip)**(mm+1)
-     .                     -gv%gparams%xx(im)**(mm+1))
-     .                     /dxx !Derivative done numerically to preserve div(B)=0
-     .                     *cos((mm+1)*y1)/(mm+1)
+                    varr%array_var(IAZ)%array(i,j,k) =
+     .                     varr%array_var(IAZ)%array(i,j,k)
+     .                     +0.5*xi**(mm+1)*br_pert_bc
+     .                    *cos((mm+1)*y1+nn*z1+br_pert_phase)/(mm+1)
 
-                   endif
+                  endif
 
-                   if (mm /= 1) then
-                      varr%array_var(IBX)%array(i,j,k) =
-     .                     varr%array_var(IBX)%array(i,j,k)
-     .                     +0.5*x1**(mm+1)*br_pert_bc
-     .                     *(cos((mm-1)*gv%gparams%yy(jp))
-     .                     -cos((mm-1)*gv%gparams%yy(jm)))
-     .                     /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
+                  if (mm /= 1) then
 
-                      varr%array_var(IBY)%array(i,j,k) =
-     .                     varr%array_var(IBY)%array(i,j,k)
-     .                     -0.5*br_pert_bc
-     .                     *(gv%gparams%xx(ip)**(mm+1)
-     .                     -gv%gparams%xx(im)**(mm+1))
-     .                     /dxx !Derivative done numerically to preserve div(B)=0
-     .                     *cos((mm-1)*y1)/(mm-1)
+                    varr%array_var(IAZ)%array(i,j,k) =
+     .                     varr%array_var(IAZ)%array(i,j,k)
+     .                     +0.5*xi**(mm+1)*br_pert_bc
+     .                    *cos((mm-1)*y1+nn*z1+br_pert_phase)/(mm-1)
 
-                   endif
+                  endif
 
-                else
-
-! Daniele, 19 Dec. 2014
-! divergence-free perturbation with b^3=0 (fails in the n=0 case)
-                varr%array_var(IBX)%array(i,j,k) =
-     .               varr%array_var(IBX)%array(i,j,k)
-!     .               +x1**(mm+10)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-!     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
-     .                 *(cos(mm*y1+nn*gv%gparams%zz(kp)+br_pert_phase)
-     .                  -cos(mm*y1+nn*gv%gparams%zz(km)+br_pert_phase))
-     .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
-                varr%array_var(IBZ)%array(i,j,k) =
-     .               varr%array_var(IBZ)%array(i,j,k)
-     .               -br_pert_bc*
-!     .               (gv%gparams%xx(ip)**(mm+10)
-     .               (gv%gparams%xx(ip)**(mm+2)
-!     .               (gv%gparams%xx(ip)**mm
-     .                *(RR+gv%gparams%xx(ip)*cos(y1))
-!     .               -gv%gparams%xx(im)**(mm+10)
-     .               -gv%gparams%xx(im)**(mm+2)
-!     .               -gv%gparams%xx(im)**mm
-     .                *(RR+gv%gparams%xx(im)*cos(y1)))
-     .                 /dxx !Derivative done numerically to preserve div(B)=0
-     .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
-
-                endif
-
+                enddo
               enddo
             enddo
+
+            !Redefine equilibrium to force correct BCs on perturbed A
+            u_0%array_var(IAX)%array=varr%array_var(IAX)%array
+            u_0%array_var(IAY)%array=varr%array_var(IAY)%array
+            u_0%array_var(IAZ)%array=varr%array_var(IAZ)%array
+
+#else
+            do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
+
+
+                  call getCartesianCoordinates(gv%gparams,i,j,k
+     .                              ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+
+                  xi = sqrt((sqrt(x1**2+y1**2)-RR)**2 + z1**2)
+
+                  call getCurvilinearCoordinates(gv%gparams,i,j,k
+     .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+
+
+                  daa(i,j,k,3) =
+     .                  daa(i,j,k,3)
+     .                  +xi**mm*br_pert_bc*RR
+     .                  *cos(mm*y1+nn*z1+br_pert_phase)/mm
+
+                  if (mm /= -1) then
+
+                    daa(i,j,k,3) =
+     .                     daa(i,j,k,3)
+     .                     +0.5*xi**(mm+1)*br_pert_bc
+     .                    *cos((mm+1)*y1+nn*z1+br_pert_phase)/(mm+1)
+
+                  endif
+
+                  if (mm /= 1) then
+
+                    daa(i,j,k,3) =
+     .                     daa(i,j,k,3)
+     .                     +0.5*xi**(mm+1)*br_pert_bc
+     .                    *cos((mm-1)*y1+nn*z1+br_pert_phase)/(mm-1)
+
+                  endif
+
+                enddo
+              enddo
+            enddo
+
+            dbb = curl(gv%gparams,igx,daa)
+
+           do k = klom,khip
+              do j = jlom,jhip
+                do i = ilom,ihip
+
+                   varr%array_var(IBX)%array(i,j,k) =
+     .             varr%array_var(IBX)%array(i,j,k) + dbb(i,j,k,1)
+
+                   varr%array_var(IBY)%array(i,j,k) =
+     .             varr%array_var(IBY)%array(i,j,k) + dbb(i,j,k,2)
+
+                   varr%array_var(IBZ)%array(i,j,k) =
+     .             varr%array_var(IBZ)%array(i,j,k) + dbb(i,j,k,3)
+
+                enddo
+             enddo
           enddo
 
-          enddo
+#endif 
 
-       endif
+      enddo
+#if !defined(vec_pot) 
+       deallocate(daa,dbb)
+#endif
+      endif
+
+
+!                  ip = ig+1
+!                  im = ig-1
+!                  jp = jg+1
+!                  jm = jg-1
+!                  kp = kg+1
+!                  km = kg-1
+!
+!                  dxx = 2*gv%gparams%dxh(ig)
+!                  dyy = 2*gv%gparams%dyh(jg)
+!                  dzz = 2*gv%gparams%dzh(kg)
+!
+!                  ! Daniele, 19 Dec. 2014
+!                  ! divergence-free perturbation with b^3=0 (and limited to the n=0 case)
+!                  ! used for the n=0 case when the divergence-free perturbation with b^2=0 fails
+!                  ! to be extended to generic br_pert_phase (now only particular case br_pert_phase=0.)
+!                  ! to be possibly extended to generic n
+!                  ! b^1=r^m instead of r^(m+2) similar to the helical/cylindrical case
+!                  if (nn == 0) then
+!
+!                    varr%array_var(IBX)%array(i,j,k) =
+!     .                  varr%array_var(IBX)%array(i,j,k)
+!     .                  +x1**mm*br_pert_bc*RR
+!     .                  *(cos(mm*gv%gparams%yy(jp))
+!     .                  -cos(mm*gv%gparams%yy(jm)))
+!     .                  /dyy/mm !Derivative done numerically to preserve div(B)=0
+!
+!                    varr%array_var(IBY)%array(i,j,k) =
+!     .                  varr%array_var(IBY)%array(i,j,k)
+!     .                  -br_pert_bc*RR
+!     .                  *(gv%gparams%xx(ip)**mm
+!     .                  -gv%gparams%xx(im)**mm)
+!     .                  /dxx !Derivative done numerically to preserve div(B)=0
+!     .                  *cos(mm*y1)/mm
+!
+!                    if (mm /= -1) then
+!
+!                      varr%array_var(IBX)%array(i,j,k) =
+!     .                     varr%array_var(IBX)%array(i,j,k)
+!     .                     +0.5*x1**(mm+1)*br_pert_bc
+!     .                     *(cos((mm+1)*gv%gparams%yy(jp))
+!     .                     -cos((mm+1)*gv%gparams%yy(jm)))
+!     .                     /dyy/(mm+1) !Derivative done numerically to preserve div(B)=0
+!
+!                      varr%array_var(IBY)%array(i,j,k) =
+!     .                     varr%array_var(IBY)%array(i,j,k)
+!     .                     -0.5*br_pert_bc
+!     .                     *(gv%gparams%xx(ip)**(mm+1)
+!     .                     -gv%gparams%xx(im)**(mm+1))
+!     .                     /dxx !Derivative done numerically to preserve div(B)=0
+!     .                     *cos((mm+1)*y1)/(mm+1)
+!    
+!                    endif
+!
+!                    if (mm /= 1) then
+!                      varr%array_var(IBX)%array(i,j,k) =
+!     .                     varr%array_var(IBX)%array(i,j,k)
+!     .                     +0.5*x1**(mm+1)*br_pert_bc
+!     .                     *(cos((mm-1)*gv%gparams%yy(jp))
+!     .                     -cos((mm-1)*gv%gparams%yy(jm)))
+!     .                     /dyy/(mm-1) !Derivative done numerically to preserve div(B)=0
+!
+!                      varr%array_var(IBY)%array(i,j,k) =
+!     .                     varr%array_var(IBY)%array(i,j,k)
+!     .                     -0.5*br_pert_bc
+!     .                     *(gv%gparams%xx(ip)**(mm+1)
+!     .                     -gv%gparams%xx(im)**(mm+1))
+!     .                     /dxx !Derivative done numerically to preserve div(B)=0
+!     .                     *cos((mm-1)*y1)/(mm-1)
+!
+!                    endif
+!
+!                  else
+!
+!                    !Daniele, 19 Dec. 2014
+!                    !divergence-free perturbation with b^3=0 (fails in the n=0 case)
+!                    varr%array_var(IBX)%array(i,j,k) =
+!     .                varr%array_var(IBX)%array(i,j,k)
+!!     .               +x1**(mm+10)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!     .               +x1**(mm+2)*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!!     .               +x1**mm*br_pert_bc*(RR+x1*cos(y1)) ! only even powers work!
+!     .                 *(cos(mm*y1+nn*gv%gparams%zz(kp)+br_pert_phase)
+!     .                  -cos(mm*y1+nn*gv%gparams%zz(km)+br_pert_phase))
+!     .                 /dzz/nn !Derivative done numerically to preserve div(B)=0
+!    
+!                    varr%array_var(IBZ)%array(i,j,k) =
+!     .                varr%array_var(IBZ)%array(i,j,k)
+!     .               -br_pert_bc*
+!!     .               (gv%gparams%xx(ip)**(mm+10)
+!     .               (gv%gparams%xx(ip)**(mm+2)
+!!     .               (gv%gparams%xx(ip)**mm
+!     .                *(RR+gv%gparams%xx(ip)*cos(y1))
+!!     .               -gv%gparams%xx(im)**(mm+10)
+!     .               -gv%gparams%xx(im)**(mm+2)
+!!     .               -gv%gparams%xx(im)**mm
+!     .                *(RR+gv%gparams%xx(im)*cos(y1)))
+!     .                 /dxx !Derivative done numerically to preserve div(B)=0
+!     .               *cos(mm*y1+nn*z1+br_pert_phase)/nn
+!                      
+!                  endif
+!
+!                enddo
+!              enddo
+!            enddo
+!#endif
+!          enddo
+!
+!        endif
 
       case ('msw')
 
@@ -335,8 +455,8 @@ cc          nn = gv%gparams%params(5)
      .                     varr%array_var(IRHO)%array(i,j,k)
      .                     +jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 
-              varr%array_var(ITMP)%array(i,j,k) =
-     .                     varr%array_var(ITMP)%array(i,j,k)
+              varr%array_var(IPRS)%array(i,j,k) =
+     .                     varr%array_var(IPRS)%array(i,j,k)
      .                     +a_p*jac*1d-3*cos(kx*(x1-xmin)+ky*(y1-ymin))
 
 #if defined(vec_pot)
@@ -472,8 +592,8 @@ cc          nn = gv%gparams%params(5)
               varr%array_var(IRHO)%array(i,j,k) =
      .               varr%array_var(IRHO)%array(i,j,k) - xi/freq
 
-              varr%array_var(ITMP)%array(i,j,k) =
-     .               varr%array_var(ITMP)%array(i,j,k)
+              varr%array_var(IPRS)%array(i,j,k) =
+     .               varr%array_var(IPRS)%array(i,j,k)
      .             - cs2*xi/freq !For total pressure
 
 #if !defined(vec_pot)
@@ -601,12 +721,16 @@ c$$$       enddo
 
       case default
 
-        do ieq=1,varr%nvar
-          call perturbEquilibrium_def(varr%array_var(ieq)%array
-     .                               ,varr%array_var(ieq)%bconds
-     .                               ,pert(ieq),.false.)
-        enddo
-
+        if(is_file(trim(prt_file))) then
+          call perturbEquilibrium_eig(maxval(pert))
+        else
+          do ieq=1,varr%nvar
+            call perturbEquilibrium_def(varr%array_var(ieq)%array
+     .                                 ,varr%array_var(ieq)%bconds
+     .                                 ,pert(ieq),.false.)
+          enddo
+        endif
+        
       end select
 
 c     End program
@@ -684,26 +808,49 @@ c     Begin program
           do ipw2=0,npw2-1
             do ipw3=0,npw3-1
 
-              mode = nh1+sign(ipw1,nh1)
-              do i = ilom,ihip
-                call getCurvilinearCoordinates(gv%gparams,i,jlo,klo
-     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
-              enddo
+              if (coords == 'hel' .or. coords == 'cyl') then
+                mode = nh1+sign(ipw1,nh1)
+                do i = ilom,ihip
+                  call find_polar_coords(gv%gparams,igx,i,jlo,klo
+     .                                  ,x1,y1,z1,coords)
+                  fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+                enddo
 
-              mode = nh2+sign(ipw2,nh2)
-              do j = jlom,jhip
-                call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
-     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
-              enddo
+                mode = nh2+sign(ipw2,nh2)
+                do j = jlom,jhip
+                  call find_polar_coords(gv%gparams,igx,ilo,j,klo
+     .                                  ,x1,y1,z1,coords)
+                  fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+                enddo
 
-              mode = nh3+sign(ipw3,nh3)
-              do k = klom,khip
-                call getCurvilinearCoordinates(gv%gparams,ilo,jlo,k
+                mode = nh3+sign(ipw3,nh3)
+                do k = klom,khip
+                  call find_polar_coords(gv%gparams,igx,ilo,jlo,k
+     .                                  ,x1,y1,z1,coords)
+                  fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+                enddo
+              else
+                mode = nh1+sign(ipw1,nh1)
+                do i = ilom,ihip
+                  call getCurvilinearCoordinates(gv%gparams,i,jlo,klo
      .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
-                fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
-              enddo
+                  fx(i) = factor(xmin,xmax,x1,bcs(1:2),mode,odd(1))
+                enddo
+
+                mode = nh2+sign(ipw2,nh2)
+                do j = jlom,jhip
+                  call getCurvilinearCoordinates(gv%gparams,ilo,j,klo
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+                  fy(j) = factor(ymin,ymax,y1,bcs(3:4),mode,odd(2))
+                enddo
+
+                mode = nh3+sign(ipw3,nh3)
+                do k = klom,khip
+                  call getCurvilinearCoordinates(gv%gparams,ilo,jlo,k
+     .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
+                  fz(k) = factor(zmin,zmax,z1,bcs(5:6),mode,odd(3))
+                enddo
+              endif
 
               do k = klom,khip
                 do j = jlom,jhip
@@ -723,110 +870,123 @@ c     End program
 
       end subroutine perturbEquilibrium_def
 
-c     perturbEquilibrium_kaitm
+c$$$c     perturbEquilibrium_kaitm
+c$$$c     #################################################################
+c$$$      subroutine perturbEquilibrium_kaitm
+c$$$
+c$$$c     -----------------------------------------------------------------
+c$$$c     Perturbs equilibrium quantities according to eigenmodes computed
+c$$$c     by Kai Germaschewski (note: eigenvectors are not correct, and
+c$$$c     result in evolution by PIXIE3D to correct them).
+c$$$c     -----------------------------------------------------------------
+c$$$
+c$$$      implicit none
+c$$$
+c$$$c     Call variables
+c$$$
+c$$$c     Local variables
+c$$$
+c$$$      integer    :: i,j,k,ig,jg,kg,iglobal
+c$$$      real(8)    :: x1,y1,z1,kk,mm,jac1
+c$$$      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+c$$$
+c$$$      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
+c$$$
+c$$$c     Begin program
+c$$$
+c$$$      mm = gv%gparams%params(1)
+c$$$      kk = gv%gparams%params(2)
+c$$$
+c$$$      if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
+c$$$
+c$$$      open(unit=u_prtf,file=trim(prt_file),status='old')
+c$$$
+c$$$      do i=1,nxd
+c$$$        read(u_prtf,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
+c$$$     .                 ,ii(i,1),ii(i,8),ii(i,2:7)
+c$$$cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
+c$$$      enddo
+c$$$
+c$$$      do k = klom,khip
+c$$$        do j = jlom,jhip
+c$$$          do i = ilo,ihi
+c$$$cc            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
+c$$$cc     .                                    ,ig,jg,kg,x1,y1,z1)
+c$$$            call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1,coords)
+c$$$
+c$$$            iglobal = i + gv%gparams%ilo(igx) - 1
+c$$$
+c$$$            jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+c$$$
+c$$$            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
+c$$$
+c$$$            pert(IVX) = jac1*pert(IVX)
+c$$$            if (coords=='hel')
+c$$$     .           pert(IVY)= jac1*(pert(IVY)/x1+kk/mm*pert(IVZ))
+c$$$            if (alt__eom()) pert(IVY) = jac1*pert(IVY)
+c$$$            pert(IVZ) = jac1*pert(IVZ)
+c$$$
+c$$$            pert(IBX) = jac1*pert(IBX)
+c$$$            if (coords=='hel')
+c$$$     .           pert(IBY)= jac1*(pert(IBY)/x1+kk/mm*pert(IBZ))
+c$$$            pert(IBZ) = jac1*pert(IBZ)
+c$$$
+c$$$            do ieq=IVX,IBZ
+c$$$              varr%array_var(ieq)%array(i,j,k) =
+c$$$     .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
+c$$$            enddo
+c$$$
+c$$$            !Pressure and density
+c$$$            pert(IRHO) = jac1*pert(IRHO)
+c$$$            pert(IPRS) = pert(IPRS)*a_p  !Transform to total temperature
+c$$$
+c$$$            varr%array_var(IPRS)%array(i,j,k) =
+c$$$     .               varr%array_var(IPRS)%array(i,j,k)*(1d0 
+c$$$     .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
+c$$$     .               + pert(IPRS)*varr%array_var(IRHO)%array(i,j,k)
+c$$$
+c$$$            varr%array_var(IRHO)%array(i,j,k)
+c$$$     .         = varr%array_var(IRHO)%array(i,j,k) + pert(IRHO)
+c$$$
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+c$$$
+c$$$      close (u_prtf)
+c$$$
+c$$$c     End program
+c$$$
+c$$$      end subroutine perturbEquilibrium_kaitm
+
+c     perturbEquilibrium_eig
 c     #################################################################
-      subroutine perturbEquilibrium_kaitm
-
-c     -----------------------------------------------------------------
-c     Perturbs equilibrium quantities according to eigenmodes computed
-c     by Kai Germaschewski (note: eigenvectors are not correct, and
-c     result in evolution by PIXIE3D to correct them).
-c     -----------------------------------------------------------------
-
-      implicit none
-
-c     Call variables
-
-c     Local variables
-
-      integer    :: i,j,k,ig,jg,kg,iglobal
-      real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
-
-      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
-
-c     Begin program
-
-      mm = gv%gparams%params(1)
-      kk = gv%gparams%params(2)
-
-      if (my_rank == 0) write (*,*) 'Reading KAI TM perturbations'
-
-      open(unit=u_prtf,file=trim(prt_file),status='old')
-
-      do i=1,nxd
-        read(u_prtf,*) dum,rr(i,1),rr(i,8),rr(i,2:7)
-     .                 ,ii(i,1),ii(i,8),ii(i,2:7)
-cc        write(*,*) dum,rr(1),rr(8),rr(2:7),ii(1),ii(8),ii(2:7)
-      enddo
-
-      do k = klom,khip
-        do j = jlom,jhip
-          do i = ilo,ihi
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
-
-            iglobal = i + gv%gparams%ilo(igx) - 1
-
-            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
-
-            pert(IRHO) = x1*pert(IRHO)
-
-            pert(IVX) = x1*pert(IVX)
-            if (equil == '2dkai') pert(IVY)=pert(IVY)+kk*x1/mm*pert(IVZ)
-            if (alt__eom()) pert(IVY) = x1*pert(IVY)
-            pert(IVZ) = x1*pert(IVZ)
-
-            pert(IBX) = x1*pert(IBX)
-            if (equil == '2dkai') pert(IBY)=pert(IBY)+kk*x1/mm*pert(IBZ)
-            pert(IBZ) = x1*pert(IBZ)
-
-            do ieq=1,varr%nvar-1
-              varr%array_var(ieq)%array(i,j,k) =
-     .               varr%array_var(ieq)%array(i,j,k) + pert(ieq)
-            enddo
-
-            pert(ITMP) = pert(ITMP)*a_p  !Transform to total temperature
-
-            varr%array_var(ITMP)%array(i,j,k) =
-     .               varr%array_var(ITMP)%array(i,j,k)*(1d0 
-     .               + pert(IRHO)/varr%array_var(IRHO)%array(i,j,k))
-     .               + pert(ITMP)*varr%array_var(IRHO)%array(i,j,k)
-
-          enddo
-        enddo
-      enddo
-
-      close (u_prtf)
-
-c     End program
-
-      end subroutine perturbEquilibrium_kaitm
-
-c     perturbEquilibrium_ppnch_eig
-c     #################################################################
-      subroutine perturbEquilibrium_ppnch_eig(array,bcs,perturb,ieq)
+      subroutine perturbEquilibrium_eig(perturb)
 
 c     -----------------------------------------------------------------
 c     Perturbs equilibrium quantity in array0 with a sinusoidal
 c     perturbation of magnitude perturb, and introduces it in array.
 c     -----------------------------------------------------------------
 
+      use var_setup
+      
+      use B_tools
+
       implicit none
 
 c     Call variables
 
-      integer    :: bcs(6),ieq
-      real(8)    :: perturb
-      real(8)    :: array (ilom:ihip,jlom:jhip,klom:khip)
-
+      real(8) :: perturb
+      
 c     Local variables
 
-      integer    :: i,j,k,ig,jg,kg,iglobal,nxx
-      real(8)    :: x1,y1,z1,kk,mm
-      real(8)    :: fx(ilom:ihip),fy(jlom:jhip),fz(klom:khip) 
+      integer :: i,j,k,ig,jg,kg,iglobal,nxx,neq,ieq,ierr,nx,ny,nz
+     .          ,its
+      real(8) :: x1,y1,z1,kk,mm,pert2(neqd),jac1,rg(0:nxdp)
 
-      real(8) :: dum,rr(nxd,neqd),ii(nxd,neqd),pert(neqd)
+      real(8),allocatable,dimension(:) :: xx
+      real(8),allocatable,dimension(:,:) :: ii,rr,idum,rdum
+
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
 c     Begin program
 
@@ -835,54 +995,207 @@ c     Begin program
 
 c     Read perturbation file
 
-      if (my_rank == 0) write (*,*) 'Reading PPNCH eigenmodes...'
-
-      open(unit=u_prtf,file=trim(prt_file),status='old')
-
-      read(u_prtf,*) nxx
-
-      if (nxx /= nxd) then
-        call pstop('perturbEquilibrium_ppnch','Grid sizes do not agree')
+      if (my_rank == 0) then
+        write (*,*)
+        write (*,*) 'Reading EXTERNAL eigenmodes from '
+     .       //trim(prt_file)//'...'
       endif
 
-      do i=1,nxd
-        read(u_prtf,*) dum,rr(i,1:8),ii(i,1:8)
+      if (is_file(trim(prt_file))) then
+        open(unit=u_prtf,file=trim(prt_file),status='old')
+
+        read(u_prtf,*) nxx,neq
+
+        if (neq /= neqd) then
+          call pstop("perturbEquilibrium_eig"
+     .            ,"Incorrect number of equations in input eig file")
+        endif
+      else
+        call pstop("perturbEquilibrium_eig"
+     .            ,"Eig file doest not exist")
+      endif
+        
+      allocate(xx(nxx),rdum(nxx,neq),idum(nxx,neq))
+
+      do i=1,nxx
+        read(u_prtf,*) xx(i),rdum(i,:),idum(i,:)
       enddo
 
       close (u_prtf)
 
-      ii = -ii
+#if defined(petsc)
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
 
+c     Interpolate to local mesh (does NOT work with packing yet)
+
+      call find_global_radial_mesh(rg)
+      
+      allocate(rr(nxd,neqd),ii(nxd,neqd))
+      
+      do ieq=1,neq
+        call IntDriver1d(nxx,xx,rdum(:,ieq),nxd,rg(1:nxd),rr(:,ieq),3,0) !Cubic splines
+        call IntDriver1d(nxx,xx,idum(:,ieq),nxd,rg(1:nxd),ii(:,ieq),3,0) !Cubic splines
+      enddo
+      
+      deallocate(xx,rdum,idum)
+      
 c     Find perturbations
 
-      do i = ilo,ihi
+      nx = ihi-ilo+1
+      ny = jhi-jlo+1
+      nz = khi-klo+1
+
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
+      
+      select case(coords)
+      case('hel')
+
         do k = klom,khip
           do j = jlom,jhip
-            call getCurvilinearCoordinates(gv%gparams,i,j,k,igx,igy,igz
-     .                                    ,ig,jg,kg,x1,y1,z1)
+            do i = ilo,ihi
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
 
-            iglobal = i + gv%gparams%ilo(igx) - 1
+              y1 = mm*y1
+              
+              iglobal = i + gv%gparams%ilo(igx) - 1
 
-            pert = rr(iglobal,:)*cos(y1)+ii(iglobal,:)*sin(y1)
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-            pert(2) = x1*pert(2)
-            if (coords == 'hel') pert(3) = pert(3)+kk*x1/mm*pert(4)
-            pert(4) = x1*pert(4)
+              pert2=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
 
-            pert(5) = x1*pert(5)
-            if (coords == 'hel') pert(6) = pert(6)+kk*x1/mm*pert(7)
-            pert(7) = x1*pert(7)
+              !Transform velocity
+              pert2(IVX) = x1/mm*pert2(IVX)
+              pert2(IVY) = jac1*(mm*pert2(IVY)/x1+kk*pert2(IVZ))
+              if (alt__eom()) pert2(IVY) = jac1*pert2(IVY)
+              pert2(IVZ) = jac1*pert2(IVZ)
 
-cc            array(i,j,k) = array(i,j,k) + pert(ieq)
-cc            array(i,j,k) = array(i,j,k) + perturb*pert(ieq)
-            array(i,j,k) = array(i,j,k) + 1d-3*pert(ieq)
+              do ieq=IVX,IVZ
+                varr%array_var(ieq)%array(i,j,k)
+     .           = varr%array_var(ieq)%array(i,j,k) + perturb*pert2(ieq)
+              enddo
+
+              !Transform magnetic field
+              pert2(IBX) = x1/mm*pert2(IBX)
+              pert2(IBY) = jac1*(mm*pert2(IBY)/x1+kk*pert2(IBZ))
+              pert2(IBZ) = jac1*pert2(IBZ)
+              
+              db_cnv(i,j,k,:) = pert2(IBX:IBZ)
+              
+              !Total pressure and density
+              pert2(IRHO) = perturb*pert2(IRHO)
+              pert2(IPRS) = perturb*pert2(IPRS)
+              if (eig_is_T) then
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)
+     .            +( jac1*pert2(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                               /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert2(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+              else
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert2(IPRS)
+              endif
+              
+              if (solve_rho.or.adiabatic_rho)
+     .             varr%array_var(IRHO)%array(i,j,k)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert2(IRHO)
+
+            enddo
           enddo
         enddo
-      enddo
 
+      case('cyl')
+        
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilo,ihi
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+
+              y1 = mm*y1 + kk*z1
+              
+              iglobal = i + gv%gparams%ilo(igx) - 1
+
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+              pert2=(rr(iglobal,:)*cos(y1)-ii(iglobal,:)*sin(y1))
+
+              !Transform velocity
+              pert2(IVX) = x1*pert2(IVX)
+              pert2(IVY)=jac1*pert2(IVY)/x1
+              if (alt__eom()) pert2(IVY) = jac1*pert2(IVY)
+              pert2(IVZ) = jac1*pert2(IVZ)
+
+              do ieq=IVX,IVZ
+                varr%array_var(ieq)%array(i,j,k)
+     .           = varr%array_var(ieq)%array(i,j,k) + perturb*pert2(ieq)
+              enddo
+
+              !Transform magnetic field
+              pert2(IBX) = x1*pert2(IBX)
+              pert2(IBY) = jac1*pert2(IBY)/x1
+              pert2(IBZ) = jac1*pert2(IBZ)
+              
+              db_cnv(i,j,k,:) = pert2(IBX:IBZ)
+              
+              !Pressure and density
+              pert2(IRHO) = perturb*pert2(IRHO)
+              pert2(IPRS) = perturb*pert2(IPRS)
+              if (eig_is_T) then
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k)
+     .            +( jac1*pert2(IRHO)*varr%array_var(IPRS)%array(i,j,k)
+     .                               /varr%array_var(IRHO)%array(i,j,k)
+     .               +a_p*pert2(IPRS)*varr%array_var(IRHO)%array(i,j,k))
+              else
+                   varr%array_var(IPRS)%array(i,j,k)
+     .           = varr%array_var(IPRS)%array(i,j,k) + jac1*pert2(IPRS)
+              endif
+
+              if (solve_rho.or.adiabatic_rho)
+     .             varr%array_var(IRHO)%array(i,j,k)
+     .           = varr%array_var(IRHO)%array(i,j,k) + jac1*pert2(IRHO)
+
+            enddo
+          enddo
+        enddo
+
+      case default
+
+        call pstop('perturbEquilibrium_ppnch'
+     .            ,'Coordinate not implemented')
+        
+      end select
+      
+      deallocate(rr,ii)
+
+c     Divergence clean B perturbation
+
+      call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
+     .                   ,db_cnv,w_pre_bcs=.true.
+     .                   ,gm_it=its,rtol=0.1*rtol)
+c$$$      call B_div_clean(gv%gparams,ilevel,igx
+c$$$     .                ,db_cnv,"vlap",w_pre_bcs=.true.
+c$$$     .                ,gm_it=its,rtol=0.1*rtol)
+
+      if (my_rank == 0.and.ilevel == 0) then
+        write (*,'(a,i3,a)')
+     .       ' Divergence cleaning converged in',its,' its'
+      endif
+
+      varr%array_var(IBX)%array = perturb*db_cnv(:,:,:,1)
+     .                 +varr%array_var(IBX)%array
+      varr%array_var(IBY)%array = perturb*db_cnv(:,:,:,2)
+     .                 +varr%array_var(IBY)%array
+      varr%array_var(IBZ)%array = perturb*db_cnv(:,:,:,3)
+     .                 +varr%array_var(IBZ)%array
+
+      deallocate(db_cnv)
+      
 c     End program
 
-      end subroutine perturbEquilibrium_ppnch_eig
+      end subroutine perturbEquilibrium_eig
 
 c     perturbEquilibrium_ppnch_ext
 c     #################################################################
@@ -912,8 +1225,8 @@ c     Call variables
 
 c     Local variables
 
-      integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz
-      real(8) :: x1,y1,z1,kk,mm,y00
+      integer :: i,j,k,ig,jg,kg,iglobal,nr,ff,nx,ny,nz,its
+      real(8) :: x1,y1,z1,kk,mm,y00,jac1
 
       complex(8), allocatable,dimension(:,:,:)  :: fft_br
      .                                            ,fft_bt
@@ -932,19 +1245,21 @@ c     Local variables
         
 c     Begin program
 
-c     Read external file
+c     Read external file (check if correct format; else go to label 1000)
+
+      open(unit=u_prtf,file=trim(prt_file),form='unformatted')
+
+      read(u_prtf,err=1000,end=1000) nr
+      read(u_prtf,err=1000,end=1000) nh2
+      read(u_prtf,err=1000,end=1000) nh3
+
+c     Correct format: continue reading
 
       if (my_rank == 0) then
         write (*,*)
         write (*,*) 'Reading external perturbation file '
      .             ,trim(prt_file)
       endif
-
-      open(unit=u_prtf,file=trim(prt_file),form='unformatted')
-
-      read(u_prtf) nr
-      read(u_prtf) nh2
-      read(u_prtf) nh3
 
       if (my_rank == 0) write(*,*) 'Perturbation mesh=',nr,nh2,nh3
 
@@ -1038,7 +1353,11 @@ c#c temperature field
                 call getCurvilinearCoordinates(gv%gparams,i,j,k
      .                                  ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
+                y1 = mm*y1
+                
                 iglobal = i + gv%gparams%ilo(igx) - 1
+
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
                 pert(IBX) = + rdum(iglobal,1) * cos(ff*y1)
      .                      - idum(iglobal,1) * sin(ff*y1)
@@ -1052,26 +1371,25 @@ c#c temperature field
      .                      - idum(iglobal,5) * sin(ff*y1)
                 pert(IVZ) = + rdum(iglobal,6) * cos(ff*y1)
      .                      - idum(iglobal,6) * sin(ff*y1)
-                pert(ITMP)= + rdum(iglobal,7) * cos(ff*y1)
+                pert(IPRS)= + rdum(iglobal,7) * cos(ff*y1)
      .                      - idum(iglobal,7) * sin(ff*y1)
 
-                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1
-                db_cnv(i,j,k,2) = db_cnv(i,j,k,2) + pert(IBY)
-     .                                            + kk/mm * pert(IBZ)*x1
-                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*x1
-                dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1
-
+                db_cnv(i,j,k,1) = db_cnv(i,j,k,1) + pert(IBX)*x1/mm
+                db_cnv(i,j,k,2) = db_cnv(i,j,k,2)
+     .                          + jac1*(pert(IBY)/x1 + kk/mm*pert(IBZ))
+                db_cnv(i,j,k,3) = db_cnv(i,j,k,3) + pert(IBZ)*jac1/mm
+                
+                dv_cnv(i,j,k,1) = dv_cnv(i,j,k,1) + pert(IVX)*x1/mm
                 if (alt__eom()) then
                   dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
-     .                 + (pert(IVY) + kk/mm*pert(IVZ)*x1)*x1
+     .                 + (pert(IVY)/x1 + kk/mm*pert(IVZ))*jac1*jac1
                 else
-                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2) + pert(IVY)
-     .                                              + kk/mm*pert(IVZ)*x1
+                  dv_cnv(i,j,k,2) = dv_cnv(i,j,k,2)
+     .                 + (pert(IVY)/x1 + kk/mm*pert(IVZ))*jac1
                 endif
+                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*jac1/mm
 
-                dv_cnv(i,j,k,3) = dv_cnv(i,j,k,3) + pert(IVZ)*x1
-
-                dprs(i,j,k)     = dprs(i,j,k)     + pert(ITMP)*x1
+                dprs(i,j,k)     = dprs(i,j,k)     + pert(IPRS)*jac1
               enddo
             enddo
           enddo
@@ -1104,12 +1422,15 @@ c     Divergence clean perturbation
 
       call vlap_div_clean(gv%gparams,ilevel,nx,ny,nz,igx,igy,igz
      .                   ,db_cnv,w_pre_bcs=.true.
-     .                   ,gm_it=it_divcl,rtol=0.1*rtol)
+     .                   ,gm_it=its,rtol=0.1*rtol)
+c$$$      call B_div_clean(gv%gparams,ilevel,igx
+c$$$     .                   ,db_cnv,"line",w_pre_bcs=.true.
+c$$$     .                   ,gm_it=its,rtol=0.1*rtol)
 
       if (my_rank == 0.and.ilevel == 0) then
-        write (*,*) 'Divergence cleaning converged in',it_divcl,' its'
+        write (*,*) 'Divergence cleaning converged in',its,' its'
       endif
-
+      
 c     Add equilibrium
 
       varr%array_var(IBX)%array = db_cnv(:,:,:,1)
@@ -1124,11 +1445,19 @@ c     Add equilibrium
      .                 +varr%array_var(IVY)%array
       varr%array_var(IVZ)%array = dv_cnv(:,:,:,3)
      .                 +varr%array_var(IVZ)%array
-      varr%array_var(ITMP)%array = dprs
-     .                 +varr%array_var(ITMP)%array
+      varr%array_var(IPRS)%array = dprs
+     .                 +varr%array_var(IPRS)%array
 
       deallocate(db_cnv,dv_cnv,dprs)
 
+      return
+
+c     Failsafe for other perturbation formats
+      
+ 1000 close(u_prtf)
+
+      call perturbEquilibrium_eig(maxval(pert))
+      
 c     End program
 
       end subroutine perturbEquilibrium_ppnch_ext

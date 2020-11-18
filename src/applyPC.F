@@ -21,7 +21,7 @@ c-------------------------------------------------------------------
 
       use imposeBCinterface
 
-      use local_BCS_variables, ONLY: ExB_flow_bc
+      use local_BCS_variables, ONLY: ExB_flow_bc,default_A_BCs
 
       implicit none
 
@@ -42,7 +42,7 @@ c Externals
 
       external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
      .          ,v_mtvc_af,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
-     .          ,v_mtvc_hyp
+     .          ,v_mtvc_hyp,a_mtvc2
 
 c Begin program
 
@@ -76,12 +76,12 @@ c *******************************************************************
 
 c     Split PC
 
-        call split_PC
+        call si_PC(yyy,xxx,0)
 
 c     Postprocessing of velocity -> momentum
 
         if (pc_v_solve)
-     .       call correctVfld(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
+     .       call correct_V(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
 
         if (.not.nc_eom_v) call get_dP
 
@@ -132,53 +132,24 @@ c *******************************************************************
 
 c     Commuted Schur complement PC
 
-        call star_PC
+        call si_PC(yyy,xxx,3)
 
 c     Postprocessing of velocity -> momentum
 
         if (.not.nc_eom_v) call get_dP
 
 c *******************************************************************
-c     EMHD split preconditioner
+c     Semi-implicit preconditioner version IV (solving M^1 in corrector)
 c *******************************************************************
 
       case('s4')
 
-#if !defined(vec_pot)
-        call pstop('applyPC','s4 PC not implemented for B')
-#endif
-
-        !MHD step
-        rrr = yyy
-
-        call invert_M(rrr,xxx,0)
-     
-        call invert_P_si(rrr,xxx)
-
-        call find_dx(rrr,xxx,3)
-
-        !EMHD step
-#if defined(vec_pot)
-        if (pc_B_solve.and.pc_e_hall.and.pc_split_EMHD_after) then
-
-          if (iout > 0.and.my_rank ==0) then
-            write (*,*) '  --> Solving EMHD step for A...'
-          endif
-
-          call rhs_A_hall(nn,xxx,rrr(:,IAX:IAZ),igrid)
-          rrr(:,IAX:IAZ) = cnp/dt*xxx(:,IAX:IAZ) - rrr(:,IAZ:IAZ)
-
-          if (vol_wgt)
-     .         call scaleVec(gv%gparams,igrid,3,rrr(:,IAX:IAZ),'mul')
-
-          call EMHD_step(rrr(:,IAX:IAZ),xxx(:,IAX:IAZ))
-        endif
-#endif
+        call si_PC(yyy,xxx,4)
 
 c     Postprocessing of velocity -> momentum
 
         if (pc_v_solve)
-     .       call correctVfld(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
+     .       call correct_V(nn,xxx,yyy(:,IVX:IVZ),igrid,iout)
 
         if (.not.nc_eom_v) call get_dP
 
@@ -196,7 +167,7 @@ c     Apply geometric factors to PC solution to match nonlinear function
             ii  = i + nx*(j-1) + nx*ny*(k-1)
             xxx(ii,IRHO) = xxx(ii,IRHO)
      .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-            xxx(ii,ITMP) = xxx(ii,ITMP)
+            xxx(ii,IPRS) = xxx(ii,IPRS)
      .                    *gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
             if (alt__eom()) then
               xxx(ii,IVY) = xxx(ii,IVY)
@@ -212,13 +183,13 @@ c End program
 
       contains
 
-c     find_dx
+c     correct_dx
 c     ##############################################################
-      subroutine find_dx(rr,x,flag)
+      subroutine correct_dx(rr,x,flag)
 
 c     --------------------------------------------------------------
 c     Finds update dx=(drho,dB,dT), for:
-c       * flag = 0: M^-1 ~ dt update (no inv required)
+c       * flag = 0: small-flow update (no inv required)
 c       * flag = 1: diagonal splitting (requires inv(D_M))
 c       * flag = 2: Approximation of U to [M (D_M)^-1 U] (requires inv(D_M))
 c       * flag = 3: standard Schur complement (requires inv(M))
@@ -246,8 +217,12 @@ c     Begin program
         select case(flag)
         case(0)
 
-          x = x - dt/cnp*udv
-
+#if !defined(vec_pot)
+c$$$          if (pc_divclean)
+c$$$     .        call correct_B(nn,igrid,rr(:,IBX:IBZ),x(:,IBX:IBZ),iout)
+#endif
+          x = x - (dt/cnp)*udv
+          
         case(1)
 
           call correct_dx_rhs(rr,udv)
@@ -264,12 +239,6 @@ c     Begin program
 
         case(3)
 
-          call correct_dx_rhs(rr,udv)
-
-          call invert_M(udv,x,1)
-
-        case(4)
-
           dum = 0d0
           call correct_dx_rhs(dum,udv)
 
@@ -277,16 +246,22 @@ c     Begin program
 
           x = x + dx
 
+        case(4)
+
+          call correct_dx_rhs(rr,udv)
+
+          call invert_M(udv,x,1)
+
         case default
 
-          call pstop('find_dx'
+          call pstop('correct_dx'
      .              ,'Stationary iteration type not implemented')
 
         end select
 
 c     End program
 
-      end subroutine find_dx
+      end subroutine correct_dx
 
 c     correct_dx_rhs
 c     ##############################################################
@@ -332,7 +307,7 @@ c     Begin program
 #else
               y(ii,IBX:IBZ)=r(ii,IBX:IBZ)-dvol*y(ii,IBX:IBZ)
 #endif
-              y(ii,ITMP   )=r(ii,ITMP   )-dvol*y(ii,ITMP   )*jac
+              y(ii,IPRS   )=r(ii,IPRS   )-dvol*y(ii,IPRS   )*jac
 
             enddo
           enddo
@@ -344,7 +319,7 @@ c     End program
 
 c     find_Udv
 c     ##############################################################
-      subroutine find_Udv(x,rhs)
+      subroutine find_Udv(x,udv)
 
 c     --------------------------------------------------------------
 c     Finds the operator U(dv)
@@ -354,7 +329,7 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: x(nn,neq),rhs(nn,neq)
+        real(8) :: x(nn,neq),udv(nn,neq)
 
 c     Local variables
 
@@ -364,7 +339,7 @@ c     Local variables
 
 c     Begin program
 
-        rhs = 0d0
+        udv = 0d0
 
 c     Store velocity solution in array format --> dv_cnv
 
@@ -375,20 +350,20 @@ c     Store velocity solution in array format --> dv_cnv
      .                ,arr_cov=dv_cov,is_vec=.true.
      .                ,is_cnv=.true.,arr0=dv0cnv,icomp=(/IVX/))
 
-c     Correct rx to find Deltax (correction for rho, B, T)
+c     Correct rx to find Deltax (correction for B, P)
 
-        !Find corrections to rho,B,tmp right hand sides (Udv --> rhs)
-        if (solve_rho) then
-          call U_rho_v(gv%gparams,igrid,dv_cnv,rhs(:,IRHO))
-        endif
+c$$$        !Find corrections to rho,B,prs right hand sides (Udv --> udv)
+c$$$        if (solve_rho.or.adiabatic_rho) then
+c$$$          call U_rho_v(gv%gparams,igrid,dv_cnv,udv(:,IRHO))
+c$$$        endif
 
 #if defined(vec_pot)
-        call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IAX:IAZ))
+        call U_Av(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IAX:IAZ))
 #else
-        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,rhs(:,IBX:IBZ))
+        call U_Bv(gv%gparams,igrid,dv_cnv,dv_cov,udv(:,IBX:IBZ))
 #endif
 
-        call U_Tv(gv%gparams,igrid,dv_cnv       ,rhs(:,ITMP))
+        call U_Pv(gv%gparams,igrid,dv_cnv       ,udv(:,IPRS))
 
 c     End program
 
@@ -436,7 +411,6 @@ c       Density
      .                ,mg_galerkin   = mg_glrkin
      .                ,mg_order_res  = mg_ores
      .                ,mg_order_prol = mg_oprol
-cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                ,mg_gm_coarse_solve  = mg_gm_coarse
      .                ,mg_vcyc       = mg_vcyc
      .                ,mg_smooth     = sm_type
@@ -445,16 +419,9 @@ cc     .                ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .                ,sm_ncolors    = sm_ncolors
      .                ,sm_line_relax = sm_line_relax
      .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
      .                )  
         endif
-
-c       Magnetic field/vector potential
-
-#if defined(vec_pot)
-        call invert_A(x           ,rhs(:,IAX:IAZ))
-#else
-        call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ))
-#endif
 
 c       Temperature
 
@@ -465,9 +432,9 @@ c       Temperature
         !Correct for electron velocity/source contribution
         call L_T(gv%gparams,igrid,x,dum)
         if (vol_wgt) call scaleVec(gv%gparams,igrid,1,dum,'mul')
-        dum = rhs(:,ITMP) - dum
+        dum = rhs(:,IPRS) - dum
 
-        call cSolver(gv%gparams,1,nn,dum,x(:,ITMP),bcs(:,ITMP)
+        call cSolver(gv%gparams,1,nn,dum,x(:,IPRS),bcs(:,IPRS)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -475,7 +442,6 @@ c       Temperature
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -484,23 +450,31 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
+
+c       Magnetic field/vector potential
+
+#if defined(vec_pot)
+        call invert_A(x,rhs(:,IAX:IAZ),bcs(:,IAX:IAZ),guess)
+#else
+        call invert_B(x(:,IBX:IBZ),rhs(:,IBX:IBZ),guess)
+#endif
 
 c     End program
 
       end subroutine invert_M
 
-#if defined(vec_pot)
-
 c     invert_A
 c     ##############################################################
-      subroutine invert_A(x,y)
+      subroutine invert_A(x,y,bcs,guess)
 
       implicit none
 
 c     Call variables
 
-      real(8) :: x(:,:),y(:,:)
+      integer :: bcs(6,3),guess
+      real(8) :: x(nn,neq),y(nn,3)
 
 c     Local variables
 
@@ -508,47 +482,45 @@ c     Local variables
 
 c     Vector potential
 
-      if (pc_B_solve.and.pc_e_hall
-     .    .and.(.not.pc_split_EMHD_after)) then
+      if (pc_B_solve) then
 
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving EMHD step for A...'
+        if (pc_e_hall) then  !Electron Hall
+
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving EMHD step for A...'
+          endif
+
+          call L_A(nn,x,yc,igrid)
+          if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
+          yc = y - yc
+
+          call EMHD_step(yc,x(:,IAX:IAZ),guess)
+          
+        else                 !Ion Hall
+
+          if (iout > 0.and.my_rank ==0) then
+            write (*,*) '  --> Solving for A...'
+          endif
+
+          call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ),bcs,igrid
+     .                ,iout,guess,a_mtvc,vol_wgt
+     .                ,tol           = pc_tol
+     .                ,dg            = a_diag
+     .                ,mg_debug      = mg_debug
+     .                ,mg_galerkin   = mg_glrkin
+     .                ,mg_order_res  = mg_ores
+     .                ,mg_order_prol = mg_oprol
+     .                ,mg_gm_coarse_solve  = mg_gm_coarse
+     .                ,mg_vcyc       = mg_vcyc
+     .                ,mg_smooth     = sm_type
+     .                ,sm_it         = sm_iter
+     .                ,sm_omega      = sm_omega
+     .                ,sm_ncolors    = sm_ncolors
+     .                ,sm_line_relax = sm_line_relax
+     .                ,sm_zebra_relax= sm_zebra_relax
+     .                ,sm_zebra_it   = sm_zebra_it
+     .                )
         endif
-
-        call rhs_A_hall(nn,x,yc,igrid)
-        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,yc,'mul')
-        yc = y - yc
-
-        call EMHD_step(yc,x(:,IAX:IAZ))
-c diag****
-cc          x(:,IAX:IAZ) = dt*yc
-cc          if (vol_wgt) call scaleVec(igrid,3,x(:,IAX:IAZ),'div')
-c diag****
-
-      elseif (pc_B_solve.and.(.not.pc_e_hall)) then
-
-        if (iout > 0.and.my_rank ==0) then
-          write (*,*) '  --> Solving for A...'
-        endif
-
-        call cSolver(gv%gparams,3,nn,y,x(:,IAX:IAZ)
-     .         ,bcs(:,IAX:IAZ),igrid,iout,guess,a_mtvc,vol_wgt
-     .         ,tol           = pc_tol
-     .         ,dg            = a_diag
-     .         ,mg_debug      = mg_debug
-     .         ,mg_galerkin   = mg_glrkin
-     .         ,mg_order_res  = mg_ores
-     .         ,mg_order_prol = mg_oprol
-cc     .         ,mg_coarse_grid_size = mg_coarse_size !Deprecated
-     .         ,mg_gm_coarse_solve  = mg_gm_coarse
-     .         ,mg_vcyc       = mg_vcyc
-     .         ,mg_smooth     = sm_type
-     .         ,sm_it         = sm_iter
-     .         ,sm_omega      = sm_omega
-     .         ,sm_ncolors    = sm_ncolors
-     .         ,sm_line_relax = sm_line_relax
-     .         ,sm_zebra_relax= sm_zebra_relax
-     .         )
 
       else
 
@@ -560,17 +532,16 @@ cc     .         ,mg_coarse_grid_size = mg_coarse_size !Deprecated
 
       end subroutine invert_A
 
-#else
-
 c     invert_B
 c     ##############################################################
-      subroutine invert_B(x,y)
+      subroutine invert_B(x,y,guess)
 
       implicit none
 
 c     Call variables
 
-      real(8) :: x(:,:),y(:,:)
+      integer :: guess
+      real(8) :: x(nn,3),y(nn,3)
 
 c     Local variables
 
@@ -584,15 +555,36 @@ c     Magnetic field
         endif
 
         if (.not.pc_e_hall) then
-          call cSolver(gv%gparams,3,nn,y,x
+          if (spitzer) then
+            call cSolver(gv%gparams,3,nn,y,x
      .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = b_diag
+     .            ,gm_driver     = spitzer !pc_gm_driver
      .            ,mg_debug      = mg_debug
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = 5 !mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
+     .            )
+          else
+            call cSolver(gv%gparams,3,nn,y,x
+     .            ,bcs(:,IBX:IBZ),igrid,iout,guess,b_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = b_diag
+cc     .            ,gm_driver     = pc_gm_driver
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -601,7 +593,13 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
+          endif
+cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout)
+cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
+
+cc          pause
         else
           xc(:,1:3) = x
           xc(:,4:6) = 0d0
@@ -620,7 +618,6 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_vcyc       = mg_vcyc
      .            ,mg_smooth     = sm_type
@@ -629,15 +626,14 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
           x = xc(:,1:3)
-        endif
 
-        if (pc_divclean) call divClean(iout,nn,x,igrid)
-cc        if (pc_divclean) then
-cc          call correctBfld(nn,igrid,y,x,iout)
-cc        endif
+cc          if (pc_divclean) call correct_B(nn,igrid,y,x,iout) !Need to add Hall MHD terms
+cc          if (pc_divclean) call divClean(nn,igrid,x,iout)
+        endif
 
       else
 
@@ -647,7 +643,108 @@ cc        endif
       endif
 
       end subroutine invert_B
-#endif
+
+c     invert_B_from_A
+c     ##############################################################
+      subroutine invert_B_from_A(x,y)
+
+      use B_tools
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: x(nn,neq),y(nn,3)
+
+c     Local variables
+
+      integer :: bcsa(6,3),nx,ny,nz,ieq
+      real(8) :: rhsa(nn,3),xplot(nn*3)
+      real(8),allocatable,dimension(:,:,:,:) :: da,db
+
+c     Magnetic field
+
+cc      vlap_etaj = .true.
+      
+      if (pc_B_solve) then
+        if (iout > 0.and.my_rank ==0) then
+          write (*,*) '  --> Solving for B from A...'
+        endif
+
+        nx = gv%gparams%nxv(igrid)
+        ny = gv%gparams%nyv(igrid)
+        nz = gv%gparams%nzv(igrid)
+
+        allocate(da(0:nx+1,0:ny+1,0:nz+1,3)
+     .          ,db(0:nx+1,0:ny+1,0:nz+1,3))
+
+        !Invert curl on rhs
+        call fillArray(gv%gparams,igrid,3,y,db,bcs(:,IBX:IBZ)
+     .                ,order_bc,is_vec=.true.,is_cnv=.true.
+     .                ,icomp=(/IBX/))
+
+        call findVectorPotential(gv%gparams,iout-1,igrid,db,da,"line")
+
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              rhsa(ii,:)=da(i,j,k,:)
+            enddo
+          enddo
+        enddo
+
+c diag ****
+c$$$        call gatherVector(xplot,rhsa)
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"A_rhs","A RHS")
+c$$$        
+c$$$        call gatherVector(xplot,y)
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_orhs","B RHS old")
+c$$$        
+c$$$        db = curl(gv%gparams,igrid,da)
+c$$$        do k = 1,nz
+c$$$          do j = 1,ny
+c$$$            do i = 1,nx
+c$$$              ii  = i + nx*(j-1) + nx*ny*(k-1)
+c$$$              do ieq=1,3
+c$$$                xplot(3*(ii-1)+ieq)=db(i,j,k,ieq) !- xplot(3*(ii-1)+ieq)
+c$$$              enddo
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$        call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_nrhs","B RHS new")
+c diag ****
+
+        !Invert A
+        call default_A_BCs(bcsa)
+        call invert_A(x,rhsa,bcsa,0)
+        
+        !Take curl
+        call fillArray(gv%gparams,igrid,3,x(:,IBX:IBZ),da,bcsa
+     .                ,order_bc,is_vec=.true.,is_cnv=.true.
+     .                ,icomp=(/IAX/))
+        db = curl(gv%gparams,igrid,da)
+        
+        !Return vector
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+              x(ii,IBX:IBZ)=db(i,j,k,:)
+            enddo
+          enddo
+        enddo
+        
+        deallocate(da,db)
+        
+      else
+
+        x = dt*y/cnp
+        if (vol_wgt) call scaleVec(gv%gparams,igrid,3,x,'div')
+
+      endif
+
+      end subroutine invert_B_from_A
 
 c     invert_D_M
 c     ##############################################################
@@ -675,8 +772,8 @@ c     Begin program
 
         call diagonalScaling(gv%gparams,igrid,rho_diag,rhs(:,IRHO:IRHO)
      .                      ,x(:,IRHO:IRHO))
-        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,ITMP:ITMP)
-     .                      ,x(:,ITMP:ITMP))
+        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,IPRS:IPRS)
+     .                      ,x(:,IPRS:IPRS))
 #if defined(vec_pot)
         call diagonalScaling(gv%gparams,igrid,a_diag  ,rhs(:,IAX:IAZ)
      .                      ,x(:,IAX:IAZ))
@@ -731,7 +828,6 @@ c     Begin program
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -740,6 +836,7 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax_si
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
 cc          call pc_diag(3,nn,x,rhssi)
@@ -767,7 +864,6 @@ cc          bcs_hnew(:,4:6) = bcs(:,IJX:IJZ)
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores_si
      .            ,mg_order_prol = mg_oprol_si
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type_si
      .            ,mg_vcyc       = mg_vcyc
@@ -785,20 +881,6 @@ cc          call pc_diag(6,nn,xc,rhsc)
 
           x(:,IVX:IVZ) = xc(:,1:3)
         endif
-
-        !Transform velocity field for consistency with NLF
-cc        if (alt__eom()) then
-cc
-cc          do k = 1,nz
-cc            do j = 1,ny
-cc              do i = 1,nx
-cc                ii  = i + nx*(j-1) + nx*ny*(k-1)
-cc                x(ii,IVY) = x(ii,IVY)*gv%gparams%gmetric%grid(igx)%jac(i,j,k)
-cc              enddo
-cc            enddo
-cc          enddo
-cc
-cc        endif
 
 c     End program
 
@@ -838,7 +920,6 @@ c     Begin program
      .              ,mg_galerkin   = mg_glrkin
      .              ,mg_order_res  = mg_ores
      .              ,mg_order_prol = mg_oprol
-cc     .              ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .              ,mg_gm_coarse_solve  = mg_gm_coarse
      .              ,mg_smooth     = sm_type_si
      .              ,mg_vcyc       = mg_vcyc
@@ -847,6 +928,7 @@ cc     .              ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .              ,sm_ncolors    = sm_ncolors
      .              ,sm_line_relax = sm_line_relax
      .              ,sm_zebra_relax= sm_zebra_relax
+     .              ,sm_zebra_it   = sm_zebra_it
      .              )
 
         !Post-process solution with M_star
@@ -897,46 +979,6 @@ c     End program
 
       end subroutine get_dP
 
-c     split_PC
-c     ##############################################################
-      subroutine split_PC
-
-c     --------------------------------------------------------------
-c     Gets momentum update
-c     --------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-c     Local variables
-
-        integer    :: ii,iii,i,j,k
-        real(8)    :: dum(nn,neq)
-
-c     Begin program
-
-c     Predictor step
-
-        call invert_M(yyy,xxx,0)
-
-c     SI step: Deltav --> xxx(:,IVX:IVZ)
-
-        call invert_P_si(yyy,xxx)
-
-c     Corrector step
-
-cc        if (di == 0.or.pc_ion_hall) then
-          dum = 0d0
-          call find_dx(dum,xxx,0)
-cc        else
-cc          call find_dx(yyy,xxx,4)
-cc        endif
-
-c     End program
-
-      end subroutine split_PC
-
 c     pc_diag
 c     ##############################################################
       subroutine pc_diag(neq,nn,x,y)
@@ -950,10 +992,10 @@ c     ##############################################################
 c     Diagnostics
 
         call gatherVector(xplot,x)
-        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_sol"
+        call vec_plot_gl(gv%gparams,neq,xplot,igrid,"pc_sol"
      .                 ,"PC solution")
         call gatherVector(xplot,y)
-        call vec_plot_gl(gv%gparams,neq,xplot,1,"pc_res"
+        call vec_plot_gl(gv%gparams,neq,xplot,igrid,"pc_res"
      .                 ,"PC residual")
 
       end subroutine pc_diag
@@ -966,11 +1008,12 @@ c     --------------------------------------------------------------
 c     Gets momentum update using a stationary iteration to avoid
 c     the M^-1 factor in the Schur complement. The parameter
 c     version controls the flavor of stationary iteration:
+c        - version = 0 --> Split PC
 c        - version = 1 --> Simple diagonal split of M
 c        - version = 2 --> Approximation of U to [M (D_M)^-1 U]
-c        - version = 3 --> Approximation of L to [L (D_M)^-1 M]
-c        - version = 4 --> Experimental, solving both inv(M) steps
+c        - version = 3 --> Experimental, solving both inv(M) steps
 c                          but using inv(D_M) in Schur complement
+c        - version = 4 --> Approximation of L to [L (D_M)^-1 M]
 c     --------------------------------------------------------------
 
         implicit none
@@ -986,59 +1029,24 @@ c     Begin program
 
 c     Form (D_m^-1)rx vector ---> dx
 
-        if (version == 2.or.version == 4) then
-          call invert_M(y,dx,0)
-        else
+        select case(version)
+        case(1)
           call invert_D_M(y,dx)
-        endif
+        case default
+          call invert_M(y,dx,0)
+        end select
 
 c     SI step: Deltav --> dx(:,IVX:IVZ)
 
         call invert_P_si(y,dx)
 
-c     Solve for dx
+c     Correct dx
 
-        call find_dx(y,dx,version)
+        call correct_dx(y,dx,version)
 
 c     End program
 
       end subroutine si_PC
-
-c     star_PC
-c     ##############################################################
-      subroutine star_PC
-
-c     --------------------------------------------------------------
-c     Gets momentum update
-c     --------------------------------------------------------------
-
-        implicit none
-
-c     Call variables
-
-c     Local variables
-
-        integer :: ii,iii,i,j,k
-        real(8) :: dum(nn,neq)
-
-c     Begin program
-
-c     Predictor step
-
-        call invert_M(yyy,xxx,1)
-
-c     SI step: Deltav --> xxx(:,IVX:IVZ)
-
-        call invert_P_star_si(yyy,xxx)
-
-c     Solve for dx
-
-        dum = 0d0
-        call find_dx(dum,xxx,4)
-
-c     End program
-
-      end subroutine star_PC
 
 c     norm_test
 c     ##############################################################
@@ -1095,10 +1103,9 @@ c     Begin program
 
       end subroutine norm_test
 
-#if defined(vec_pot)
 c     EMHD_step
 c     ###################################################################
-      subroutine EMHD_step(b,x)
+      subroutine EMHD_step(b,x,guess)
 c     --------------------------------------------------------------------
 c     This subroutine performs EMHD step for vector potential, and
 c     returns updated RHS to feed into MHD step.
@@ -1110,6 +1117,7 @@ c     --------------------------------------------------------------------
 
 c     Call variables
 
+      integer :: guess
       real(8) :: x(nn,3),b(nn,3)
 
 c     Local variables
@@ -1128,9 +1136,8 @@ c     Transfer initial guess and residual
 
 c     Solve EMHD system
 
-      guess = 1
-
-      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
+      call default_A_BCs(bcs_hyp(:,1:3))
+cc      bcs_hyp(:,1:3) = bcs(:,IAX:IAZ)
       bcs_hyp(:,4:6) = bcs(:,IJX:IJZ)
 
       call cSolver(gv%gparams,6,nn,rhsc,xc,bcs_hyp
@@ -1147,9 +1154,9 @@ cc     .            ,mg_vcyc       = 10
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            !Production
      .            ,tol           = pc_tol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_smooth     = sm_type
      .            ,sm_omega      = sm_omega
      .            ,sm_it         = sm_iter
@@ -1183,7 +1190,6 @@ c diag ****
 c     End program
 
       end subroutine EMHD_step
-#endif
 
       end subroutine apply_app_PC
 
@@ -1219,8 +1225,12 @@ c Find density lower block (because we are solving for dv instead of dp)
 
 c Find linearized EOM rhs [-jxB+grad(p)] correction
 
-      call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
-
+      if (pinch_flow) then
+        call L_y_star(nn,xxx,eom_rhs,igrid,'all',vol_wgt)
+      else
+        call L_y_star(nn,xxx,eom_rhs,igrid,'lfz',vol_wgt)
+      endif
+      
       rhs_si = rhs_si - eom_rhs
 
 c End program
@@ -1239,6 +1249,8 @@ c--------------------------------------------------------------------
 
       use nlfunction_setup, ONLY: EOM_jxb,EOM_gp,no_eom_divpe
 
+      use local_BCS_variables, ONLY: ExB_flow_bc,J_pinch_bc
+
       use imposeBCinterface
 
       implicit none
@@ -1255,26 +1267,27 @@ c Local variables
       integer    :: i,j,k,ii,isig,iig,ivar,ip,im,nx,ny,nz
       real(8)    :: cov(3),cnv(3),idx,idy,idz,dvol,nabla_v(3,3)
      .             ,nabla_vv0(3,3),mul,vlap(3),advc(3),jac
-      real(8),allocatable,dimension(:,:,:,:),target :: dj_cnv
-     .                                                ,dj_cov
-     .                                                ,db_cnv
-     .                                                ,db_cov
-     .                                                ,dv_cnv
-     .                                                ,vzeros
-     .                                                ,dp_cnv
-     .                                                ,dve_cnv
-     .                                                ,dve_cov
-     .                                                ,dvef_cnv
-     .                                                ,dE_cnv
-     .                                                ,drho  
-     .                                                ,dprs  
+      real(8),pointer,dimension(:,:,:,:) :: dj_cnv
+     .                                     ,dj_cov
+     .                                     ,db_cnv
+     .                                     ,db_cov
+     .                                     ,dv_cnv
+     .                                     ,v0
+     .                                     ,E_0
+     .                                     ,dp_cnv
+     .                                     ,dve_cnv
+     .                                     ,dve_cov
+     .                                     ,dvef_cnv
+     .                                     ,dE_cnv
+     .                                     ,drho  
+     .                                     ,dprs  
 #if defined(vec_pot)
-     .                                                ,da_cov                           
+     .                                     ,da_cov                           
 #endif
 
       real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
      .                                       ,jcnv0,jcov0,vcnv0
-     .                                       ,heta0
+     .                                       ,heta0,eta0
 
 c Begin program
 
@@ -1297,6 +1310,7 @@ c Begin program
       bcov0 => gb0_cov%grid(igrid)%array
       jcnv0 => gj0    %grid(igrid)%array
       jcov0 => gj0_cov%grid(igrid)%array
+      eta0  => geta   %grid(igrid)%array
       heta0 => gheta  %grid(igrid)%array
 
 c Allocate variables
@@ -1306,7 +1320,8 @@ c Allocate variables
      .        ,db_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,db_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dv_cnv(0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,vzeros(0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,v0    (0:nx+1,0:ny+1,0:nz+1,3)
+     .        ,E_0   (0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dp_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .        ,dve_cov(0:nx+1,0:ny+1,0:nz+1,3)
@@ -1318,13 +1333,20 @@ c Allocate variables
 #endif
      .        )
 
-      vzeros = 0d0
+      v0 = 0d0 ; E_0 = 0d0
+
+c Find drho, dprs arrays with BCs
+
+      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
+     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
       call fillArray(gv%gparams,igrid,3,xxx(:,IBX:IBZ),db_cnv
-     .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov
+     .           ,bcs(:,IBX:IBZ),order_bc,arr_cov=db_cov,arr0=v0
      .           ,is_vec=.true.,is_cnv=.true.,icomp=(/IBX/))
 
 #else
@@ -1339,16 +1361,15 @@ c Find dB* from dA*
       db_cnv = curl(gv%gparams,igrid,da_cov)
       db_cov = XformVector(gv%gparams,igrid,db_cnv,.false.)
 
+      if (pinch_flow) then      !Jt = alpha*Bt in cnv representation
+        call J_pinch_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+     .                 ,eta0(:,:,:,1),E_0,v0,dbcnv=db_cnv)
+      endif
+
       !Find covariant components of dj with BCs
-      call setBC(gv%gparams,IBX,3,nx,ny,nz,db_cnv,db_cov,vzeros
+      call setBC(gv%gparams,IBX,3,nx,ny,nz,db_cnv,db_cov,v0
      .          ,bcs(:,IBX:IBZ),igrid,igrid,igrid,iorder=order_bc)
 #endif
-
-c Find dv (w/ Bcs)
-
-      call fillArray(gv%gparams,igrid,3,xxx(:,IVX:IVZ),dv_cnv
-     .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
-     .              ,arr0=vzeros,icomp=(/IVX/))
 
 c Find dj* from dB*
 
@@ -1357,15 +1378,21 @@ c Find dj* from dB*
       dj_cov = XformVector(gv%gparams,igrid,dj_cnv,.false.)
 
       !Find covariant components of dj with BCs
-      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
+      call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,v0
      .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
 
-c Find drho, dprs arrays with BCs
+c Find dv (w/ Bcs)
 
-      call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
-      call fillArray(gv%gparams,igrid,1,xxx(:,ITMP:ITMP),dprs
-     .              ,bcs(:,ITMP:ITMP),order_bc,icomp=(/ITMP/))
+      if (pinch_flow) then
+        v0(nx+1,:,:,:) = 0d0
+        call ExB_flow_bc(gv%gparams,igrid,bcnv0,dprs(:,:,:,1)
+     .                  ,eta0(:,:,:,1),E_0,v0,dbcov=db_cov)
+        v0(nx+1,:,:,:) = 0.5*v0(nx+1,:,:,:)
+      endif
+
+      call fillArray(gv%gparams,igrid,3,xxx(:,IVX:IVZ),dv_cnv
+     .              ,bcs(:,IVX:IVZ),order_bc,is_vec=.true.,is_cnv=.true.
+     .              ,arr0=v0,icomp=(/IVX/))
 
 c Find dp_cnv
 
@@ -1408,25 +1435,19 @@ c Find rhs_v'
             if (part == 'lfz' .or. part == 'all') then
 
               if (nc_eom_jxb) then
-                cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cov,jcov0,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
-     .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcov0,dj_cov,.false.,nc_eom_jxb
-     .                     ,vol=.false.)
+                cnv = crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,jcov0(i,j,k,:),db_cov(i,j,k,:),.false.)
+     .               +crossProduct(gv%gparams,i,j,k,igrid
+     .                    ,dj_cov(i,j,k,:),bcov0(i,j,k,:),.false.)
               else
                 cnv = EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,db_cnv,bcnv0,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,db_cnv,bcnv0)
      .               +EOM_jxb(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,bcnv0,db_cnv,.true.,nc_eom_jxb
-     .                     ,vol=.false.)
+     .                       ,bcnv0,db_cnv)
               endif
 
-              cnv = cnv
-     .               -EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
-     .                     ,rho0(:,:,:,1),dprs(:,:,:,1),nc_eom_gp
-     .                     ,vol=.false.)
+              cnv = cnv - EOM_gp(gv%gparams,i,j,k,nx,ny,nz,igrid
+     .                          ,dprs(:,:,:,1),nc_eom_gp,vol=.false.)
 
               !Substract div_pe piece corresponding to (-di*j/rho)
               if (part == 'lfz'.and.(.not.no_eom_divpe)) then
@@ -1491,7 +1512,7 @@ c Free memory
      .          ,db_cnv
      .          ,db_cov
      .          ,dv_cnv
-     .          ,vzeros
+     .          ,v0
      .          ,dp_cnv
      .          ,dve_cnv
      .          ,dve_cov
@@ -1507,9 +1528,9 @@ c End program
 
       end subroutine L_y_star
 
-c correctVfld
+c correct_V
 c #########################################################################
-      subroutine correctVfld(nn,x,crhs,igrid,iout)
+      subroutine correct_V(nn,x,crhs,igrid,iout)
 c--------------------------------------------------------------------
 c     This subroutine corrects the flow field with all-new data.
 c--------------------------------------------------------------------
@@ -1557,7 +1578,6 @@ c Solve for advection-diffusion part
      .            ,mg_galerkin   = mg_glrkin
      .            ,mg_order_res  = mg_ores
      .            ,mg_order_prol = mg_oprol
-cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,mg_gm_coarse_solve  = mg_gm_coarse
      .            ,mg_smooth     = sm_type
      .            ,mg_vcyc       = mg_vcyc
@@ -1566,6 +1586,7 @@ cc     .            ,mg_coarse_grid_size = mg_coarse_size !Deprecated
      .            ,sm_ncolors    = sm_ncolors
      .            ,sm_line_relax = sm_line_relax
      .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
      .            )
 
       return
@@ -1592,11 +1613,11 @@ c Correction w/o solve
 
 c End program
 
-      end subroutine correctVfld
+      end subroutine correct_V
 
-c correctBfld
+c correct_B
 c #########################################################################
-      subroutine correctBfld(nn,igrid,crhs,x,iout)
+      subroutine correct_B(nn,igrid,rhs,x,iout)
 c--------------------------------------------------------------------
 c     This subroutine corrects the B-field update with all-new info,
 c     in a divergence-free manner.
@@ -1612,26 +1633,35 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer    :: nn,igrid,iout
-      real(8)    :: x(nn,neqd),crhs(nn,3)
+      integer :: nn,igrid,iout
+      real(8) :: x(nn,3),rhs(nn,3)
 
 c Local variables
 
-      integer    :: i,j,k,ii,isig,ivar,nx,ny,nz,bcnd(6,3)
-      real(8)    :: dvol,cov(3),cnv(3)
+      integer :: i,j,k,ii,isig,ivar,nx,ny,nz,bcnd(6,3)
+      real(8) :: dvol,cov(3),cnv(3)
 
       real(8),allocatable,dimension(:,:,:,:) ::  db_cnv
      .                                          ,db_cov
      .                                          ,dj_cnv
      .                                          ,dj_cov
      .                                          ,de_cov
-     .                                          ,de_cnv
      .                                          ,vzeros
 
-      real(8),pointer,dimension(:,:,:,:) :: v0cnv
+      real(8),pointer,dimension(:,:,:,:) :: v0_cnv,eta0
+
+      real(8) :: dx(nn,3),rr(nn,3),xplot(nn*3)
 
 c Begin program
 
+c diag ****
+c$$$      dx = cnp*x/dt
+c$$$      rr = rhs
+c$$$      if (vol_wgt) call scaleVec(gv%gparams,igrid,3,rr,'div')
+c$$$
+c$$$      dx = rr - dx
+c diag ****
+      
       if (my_rank == 0 .and. iout > 0)
      .     write (*,*) 'Correcting B-field...'
 
@@ -1646,82 +1676,57 @@ c Begin program
      .          ,dj_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,dj_cov(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,de_cov(0:nx+1,0:ny+1,0:nz+1,3)
-     .          ,de_cnv(0:nx+1,0:ny+1,0:nz+1,3)
      .          ,vzeros(0:nx+1,0:ny+1,0:nz+1,3))
+
+      vzeros = 0d0
 
 c Find dB
 
-      call fillArray(gv%gparams,igrid,3,x(:,IBX:IBZ),db_cnv
-     .              ,bcs(:,IBX:IBZ)
+      call fillArray(gv%gparams,igrid,3,x,db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,arr_cov=db_cov,is_vec=.true.
-     .              ,is_cnv=.true.,icomp=(/IBX/))
+     .              ,is_cnv=.true.,icomp=(/IBX/))!,sp_reg=.true.)
 
 c Find dj* from dB*
 
       dj_cnv = curl(gv%gparams,igrid,db_cov)
-      dj_cov = XformVector(gv%gparams,igrid,dj_cnv,.false.)
+      dj_cov = XformToCov(gv%gparams,igrid,dj_cnv)
 
+c$$$      bcnd(:,1) = bcond
+c$$$      bcnd(:,2) = bcond
+c$$$      bcnd(:,3) = bcond
       !Find covariant components of dj with BCs
       call setBC(gv%gparams,IJX,3,nx,ny,nz,dj_cnv,dj_cov,vzeros
-     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc)
+     .          ,bcs(:,IJX:IJZ),igrid,igrid,igrid,iorder=order_bc
+     .          ,sp_reg=.true.)
+cc     .          ,bcnd,igrid,igrid,igrid,iorder=order_bc)
 
 c Find dE* (electric field update)
 
-      v0cnv => gv0%grid(igrid)%array
+      v0_cnv => gv0 %grid(igrid)%array
+      eta0   => geta%grid(igrid)%array
 
-      de_cov =-crossProduct(gv%gparams,igrid,v0cnv,db_cnv,.true.)
+      de_cov = crossProduct(gv%gparams,igrid,db_cnv,v0_cnv,.true.)
+      de_cov(:,:,:,1) = de_cov(:,:,:,1) + eta0(:,:,:,1)*dj_cov(:,:,:,1)
+      de_cov(:,:,:,2) = de_cov(:,:,:,2) + eta0(:,:,:,1)*dj_cov(:,:,:,2)
+      de_cov(:,:,:,3) = de_cov(:,:,:,3) + eta0(:,:,:,1)*dj_cov(:,:,:,3)
 
-      de_cov(:,:,:,1) = de_cov(:,:,:,1)
-     .     + geta%grid(igrid)%array(:,:,:,1)*dj_cov(:,:,:,1)
-      de_cov(:,:,:,2) = de_cov(:,:,:,2)
-     .     + geta%grid(igrid)%array(:,:,:,1)*dj_cov(:,:,:,2)
-      de_cov(:,:,:,3) = de_cov(:,:,:,3)
-     .     + geta%grid(igrid)%array(:,:,:,1)*dj_cov(:,:,:,3)
+      de_cov = curl(gv%gparams,igrid,de_cov)
 
-cc      do k = 0,nz+1
-cc        do j = 0,ny+1
-cc          do i = 0,nx+1
-cc            cov(1) = (v0cnv(i,j,k,2)*db_cnv(i,j,k,3)
-cc     .               -v0cnv(i,j,k,3)*db_cnv(i,j,k,2))
-cc            cov(2) = (v0cnv(i,j,k,3)*db_cnv(i,j,k,1)
-cc     .               -v0cnv(i,j,k,1)*db_cnv(i,j,k,3))
-cc            cov(3) = (v0cnv(i,j,k,1)*db_cnv(i,j,k,2)
-cc     .               -v0cnv(i,j,k,2)*db_cnv(i,j,k,1))
-cc
-cc            de_cov(i,j,k,:)= -cov/gv%gparams%gmetric%grid(igrid)%jac(i,j,k)
-cc     .                       +geta%grid(igrid)%array(i,j,k,1)
-cc     .                       *dj_cov(i,j,k,:)
-cccc            de_cnv(i,j,k,:) = matmul(gv%gparams%gmetric%grid(igrid)%gsub(i,j,k,:,:)
-cccc     .                              ,de_cov(i,j,k,:))
-cc          enddo
-cc        enddo
-cc      enddo
-
-cc      write (*,*) 'DIAG -- correctBfld'
-cc      open(unit=110,file='divclean.bin',form='unformatted'
-cc     .    ,status='replace')
-cc      call contour(de_cov(:,:,1,1),nx+2,ny+2
-cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-cc     .                ,gv%gparams%gymin,gv%gparams%gymax
-cc     .                ,0,110)
-cc      call contour(de_cov(:,:,1,2),nx+2,ny+2
-cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-cc     .                ,gv%gparams%gymin,gv%gparams%gymax
-cc     .                ,1,110)
-cc      call contour(de_cov(:,:,1,3),nx+2,ny+2
-cc     .                ,gv%gparams%gxmin,gv%gparams%gxmax
-cc     .                ,gv%gparams%gymin,gv%gparams%gymax
-cc     .                ,1,110)
-cc      close(110)
-
-cc      !Impose topological BCs
-cc      bcnd(:,1) = bcond
-cc      bcnd(:,2) = bcond
-cc      bcnd(:,3) = bcond
-cc
-cc      call setBC(IJX,3,nx,ny,nz,de_cnv,de_cov,vzeros,bcnd
-cc     .          ,igrid,igrid,igrid,iorder=order_bc
-cc     .          ,is_cnv=.false.)
+c diag ****
+c$$$      do k = 1,nz
+c$$$        do j = 1,ny
+c$$$          do i = 1,nx
+c$$$            ii  = i + nx*(j-1) + nx*ny*(k-1)
+c$$$            dx(ii,:) = dx(ii,:) - alpha*de_cov(i,j,k,:)
+c$$$cc            if (i <= 2) dx(ii,:) = 0d0
+c$$$          enddo
+c$$$        enddo
+c$$$      enddo
+c$$$
+c$$$      call gatherVector(xplot,dx)
+c$$$      call vec_plot_gl(gv%gparams,3,xplot,igrid,"B_updt"
+c$$$     .                 ,"B update")
+c diag ****
 
 c Find correction
 
@@ -1734,9 +1739,7 @@ c Find correction
             else
               dvol = 1d0
             endif
-            x(ii,IBX:IBZ) = dt/cnp*(crhs(ii,:)/dvol
-     .             -alpha*curl(gv%gparams,i,j,k,nx,ny,nz
-     .                        ,igrid,igrid,igrid,de_cov))
+            x(ii,:) = dt/cnp*(rhs(ii,:)/dvol-alpha*de_cov(i,j,k,:))
           enddo
         enddo
       enddo
@@ -1748,10 +1751,54 @@ c End program
      .          ,dj_cnv
      .          ,dj_cov
      .          ,de_cov
-     .          ,de_cnv
      .          ,vzeros)
 
-      end subroutine correctBfld
+      end subroutine correct_B
+
+c correct_B2
+c #########################################################################
+      subroutine correct_B2(nn,igrid,rhs,x,iout)
+c--------------------------------------------------------------------
+c     This subroutine corrects the B-field update with all-new info,
+c     in a divergence-free manner.
+c--------------------------------------------------------------------
+
+      use PC_var
+
+      implicit none
+
+c Call variables
+
+      integer :: nn,igrid,iout
+      real(8) :: x(nn,3),rhs(nn,3)
+
+c Local variables
+
+      real(8) :: dx(nn,3),rr(nn,3)
+
+c Begin program
+
+      if (my_rank == 0 .and. iout > 0)
+     .     write (*,*) 'Correcting B-field...'
+
+c Subtract RHS
+
+      rr = (dt/cnp)*rhs
+      if (vol_wgt) call scaleVec(gv%gparams,igrid,3,rr,'div')
+
+      dx = x - rr
+
+c Divergence clean
+
+      call divClean(nn,igrid,dx,iout)
+
+c Add RHS
+
+      x = dx + rr
+
+c End program
+
+      end subroutine correct_B2
 
 c preprocessBflRHS
 c ###################################################################
@@ -1891,7 +1938,7 @@ c End program
 
 c divClean
 c ###################################################################
-      subroutine divClean(iout,nn,xb,igrid)
+      subroutine divClean(nn,igrid,xb,iout)
 c--------------------------------------------------------------------
 c     This subroutine divergence-cleans B by integrating a vector
 c     potential and the differentiating it. It takes B in cartesian
@@ -1910,7 +1957,7 @@ c Call variables
 c Local variables
 
       integer :: i,j,k,ii,igx,igy,igz,nx,ny,nz,its
-      real(8),allocatable,dimension(:,:,:,:) :: db_cnv,db_cov
+      real(8),allocatable,dimension(:,:,:,:) :: db_cnv
 
 c Begin program
 
@@ -1925,24 +1972,20 @@ c Begin program
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
 
-      allocate(db_cnv (0:nx+1,0:ny+1,0:nz+1,3)
-     .        ,db_cov (0:nx+1,0:ny+1,0:nz+1,3))
+      allocate(db_cnv(0:nx+1,0:ny+1,0:nz+1,3))
 
 c Find dB (w/ BCs)
 
       call fillArray(gv%gparams,igrid,3,xb,db_cnv,bcs(:,IBX:IBZ)
      .              ,order_bc,is_vec=.true.,is_cnv=.true.
-     .              ,arr_cov=db_cov,icomp=(/IBX/))
+     .              ,icomp=(/IBX/))
 
 c Solve dB*=-curl(lap^(-1)(curl(dB)))
 
       its = 0
 
-c$$$      call curl_div_clean(igx,db_cnv,pc_debug)
-
-      call vlap_div_clean(gv%gparams,iout,nx,ny,nz,igx,igy,igz
-     .                   ,db_cnv,dbcov=db_cov
-     .                   ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
+      call B_div_clean(gv%gparams,iout-1,igrid,db_cnv,"line"
+     .                ,diag_plots=pc_debug,rtol=1d-1,gm_it=its)
 
       it_divcl = it_divcl + its
 
@@ -1957,7 +2000,7 @@ c Map array to vector
         enddo
       enddo
 
-      deallocate(db_cnv,db_cov)
+      deallocate(db_cnv)
 
 c End program
 
@@ -1989,6 +2032,15 @@ c Local variables
       integer    :: ieq,ii,ntot
       real(8)    :: xi(nn*neq),bi(nn*neq)
 
+      INTERFACE
+        subroutine mstar_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+          use grid
+          type(grid_mg_def),pointer :: g_def
+          integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+          real(8) :: x(ntot),y(ntot)
+        end subroutine mstar_mtvc
+      END INTERFACE
+
 c Begin program
 
       ntot = nn*neq
@@ -2003,7 +2055,7 @@ c Gather variables
 
 c Perform matvec with M_star
 
-      call mstar_mtvc(0,3,nn*neq,xi,bi,igrid,bcnd)
+      call mstar_mtvc(gv%gparams,0,3,nn*neq,xi,bi,igrid,bcnd)
 
 c Scatter solution
 

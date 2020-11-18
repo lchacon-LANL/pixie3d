@@ -6,7 +6,7 @@
     nyd      = 32 
     nzd      = 1
 
-    numerical_grid = f
+    numerical_grid = t
 
     xmax     = 6.4
     ymax     = 12.8
@@ -67,7 +67,6 @@
     tolgm    = 8d-1
     rtol     = 1d-4
     method   = 1
-    mf_eps   = 1d-6
 
     solenoidal = t
     nc_eom_f   = f

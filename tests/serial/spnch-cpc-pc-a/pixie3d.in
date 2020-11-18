@@ -24,7 +24,7 @@
     coords   = 'hel'
 
     dlambda  = 0.5
-    gparams  = 1d0,-2d0,10d0,2d0,0d0
+    gparams  = 1d0,-2d0,1d0,2d0,0d0
 
     gamma    = 1d0
 
@@ -60,7 +60,6 @@
     rtol     = 1d-3
     atol     = 0d0
     method   = 1
-    mf_eps   = 1d-6
     vol_wgt  = t
 
     solenoidal = t
