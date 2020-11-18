@@ -1342,7 +1342,7 @@ c     Hall MHD part
 
             select case(half_elem)
             case(1)
-              if (isSP2(g_def,ip,igx,dim=1)) then
+              if (isSP2(g_def,ip,igx)) then
                 cov = minv*vv_cov(i,j,k,:)
                 cov(2) = 0d0
               else

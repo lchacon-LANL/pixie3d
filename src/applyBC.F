@@ -702,15 +702,21 @@ c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
               call XferBCs(acov_n,v0,.true.)
               v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:)
               
-            else
-
-              call XferBCs(acov_0,v0,.true.)
-              
-            endif
-            
-            call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+            else
+
+c$$$              acov(nnx+1,:,:,:) = acov_n(nnx+1,:,:,:)
+c$$$     .                          - dt/cnp*E_ni(nnx+1,:,:,:)
+              
+              call XferBCs(acov_0,v0,.true.)
+              
+              call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+     .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
+     .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
+            endif
+            
           endif
 
         case(IACNV)  !Done when computing acov
@@ -807,14 +813,14 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 c       Hall electric field BC
 
           if (di > 0d0) then
-            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
-            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
-
-            bcnd = vaux%vec_list(IEH)%bconds
-            vdum = XformVector(gv%gparams,igr,E_h,.true.)
-            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
-     .                ,igr,igr,igr,iorder=order
-     .                ,is_cnv=vaux%vec_list(IEH)%cnv)
+c$$$            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
+c$$$            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
+c$$$
+c$$$            bcnd = vaux%vec_list(IEH)%bconds
+c$$$            vdum = XformVector(gv%gparams,igr,E_h,.true.)
+c$$$            call setBC(gv%gparams,IVX,3,nnx,nny,nnz,vdum,E_h,v0,bcnd
+c$$$     .                ,igr,igr,igr,iorder=order
+c$$$     .                ,is_cnv=vaux%vec_list(IEH)%cnv)
           endif
 
         case(IENI)
@@ -1368,7 +1374,7 @@ c       Divergence of electron stress tensor
 c       Hall electric field
 
           if (electron_hall) then
-            E_h  = E_fld_eHall(gv%gparams,igr,rho,tmpe,bcnv
+            E_h  = E_fld_eHall(gv%gparams,igr,rho,tmpe,bcnv,jcnv
      .                        ,div_pe,vecov,vecov_n)
           elseif(ion_hall) then
             E_h  = E_fld_iHall(gv%gparams,igr,rho,tmpe
