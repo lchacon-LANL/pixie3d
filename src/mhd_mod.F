@@ -6006,7 +6006,8 @@ c$$$      end function E_fld_Hall
 
 c     E_fld_eHall
 c     #####################################################################
-      function E_fld_eHall(g_def,igr,rho,tmpe,bcnv,div_pe,vecov,vecov_n)
+      function E_fld_eHall(g_def,igr,rho,tmpe,bcnv,jcnv,div_pe,vecov
+     .                    ,vecov_n)
      .         result(E_h)
 
 c     ---------------------------------------------------------------------
@@ -6022,6 +6023,7 @@ c     Call variables
 
       integer :: igr
       real(8) :: rho(0:,0:,0:),tmpe(0:,0:,0:),div_pe(0:,0:,0:,:)
+     .          ,jcnv(0:,0:,0:,:)
      .          ,bcnv(0:,0:,0:,:),vecov(0:,0:,0:,:),vecov_n(0:,0:,0:,:)
       real(8) :: E_h(0:size(rho,1)-1
      .              ,0:size(rho,2)-1
@@ -6037,12 +6039,16 @@ c     Local variables
      .          ,bcnv_star(0:size(rho,1)-1
      .                    ,0:size(rho,2)-1
      .                    ,0:size(rho,3)-1,3)
+     .          ,dum1     (0:size(rho,1)-1
+     .                    ,0:size(rho,2)-1
+     .                    ,0:size(rho,3)-1,3)
+     .          ,dum2     (0:size(rho,1)-1
+     .                    ,0:size(rho,2)-1
+     .                    ,0:size(rho,3)-1,3)
 
       real(8),pointer,dimension(:,:,:) :: jac
 
 c     Begin program
-
-      pe = rho*tmpe            !Electron pressure 
 
       if (de > 0d0) then
         bcnv_star = bcnv -de**2/di*curl(g_def,igr,vecov)
@@ -6051,9 +6057,22 @@ c     Begin program
       endif
 
       E_h = crossProduct(g_def,igr,jcnv,bcnv_star,.true.)
-     .     -grad        (g_def,igr,pe)
      .     -XformVector (g_def,igr,div_pe,.false.)
 
+      if (use_p_eom) then
+        pe = rho*tmpe           !Electron pressure 
+        E_h = E_h - grad(g_def,igr,pe)
+      else
+        dum1 = grad(g_def,igr,tmpe)
+        dum2 = grad(g_def,igr,rho)
+        E_h(:,:,:,1) = E_h(:,:,:,1) - rho *dum1(:,:,:,1)
+     .                              - tmpe*dum2(:,:,:,1)
+        E_h(:,:,:,2) = E_h(:,:,:,2) - rho *dum1(:,:,:,2)
+     .                              - tmpe*dum2(:,:,:,2)
+        E_h(:,:,:,3) = E_h(:,:,:,3) - rho *dum1(:,:,:,3)
+     .                              - tmpe*dum2(:,:,:,3)
+      endif
+      
       E_h(:,:,:,1) = E_h(:,:,:,1)/rho
       E_h(:,:,:,2) = E_h(:,:,:,2)/rho
       E_h(:,:,:,3) = E_h(:,:,:,3)/rho

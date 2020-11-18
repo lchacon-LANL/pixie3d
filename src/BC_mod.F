@@ -236,13 +236,24 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components in resistive MHD
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = -EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = -EQU
 
         if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
         endif
         
+c$$$      case('bpnch')
+c$$$
+c$$$c$$$        !Dirichlet boundary conditions for tangential velocity components
+c$$$c$$$        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
+c$$$c$$$        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
+c$$$
+c$$$        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues in A-form
+c$$$          where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
+c$$$          where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
+c$$$        endif
+
       case ('vmec','tor','stell','gstor')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
@@ -330,17 +341,6 @@ c$$$          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 c$$$          where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
         endif
 #endif
-
-      case('bpnch')
-
-c$$$        !Dirichlet boundary conditions for tangential velocity components
-c$$$        where (abs(bbcs(:,IVY )) == NEU) bbcs(:,IVY ) = DIR
-c$$$        where (abs(bbcs(:,IVZ )) == NEU) bbcs(:,IVZ ) = DIR
-
-        if (di > 0d0) then !Force D_t(v x n) = 0 to prevent boundary issues in A-form
-          where (abs(bbcs(:,IVY)) == NEU) bbcs(:,IVY) =-EQU
-          where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) =-EQU
-        endif
 
       end select
 
@@ -536,11 +536,11 @@ c     Begin program
       do ieq=IAX,IAZ
         varray%array_var(ieq)%dom_dep_list(1,1) = IENI*AUX
         varray%array_var(ieq)%dom_dep_list(1,2) = VECTOR
-        varray%array_var(ieq)%dom_dep_list(1,3) = 1 !non-trivial
+        varray%array_var(ieq)%dom_dep_list(1,3) = 0 !non-trivial
 
         varray%array_var(ieq)%dom_dep_list(2,1) = IENI_0*AUX
         varray%array_var(ieq)%dom_dep_list(2,2) = VECTOR
-        varray%array_var(ieq)%dom_dep_list(2,3) = 1 !non-trivial
+        varray%array_var(ieq)%dom_dep_list(2,3) = 0 !non-trivial
       enddo
 #endif
 
@@ -765,16 +765,16 @@ cc      vaux%vec_list(IENI)%bconds = vaux%vec_list(IACOV)%bconds
       !Electric field (Hall piece)
 c$$$      call default_A_BCs(vaux%vec_list(IEH)%bconds)
 c$$$  if (ion_hall) then
-c$$$        vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
+        vaux%vec_list(IEH )%bconds = vaux%vec_list(IVCOV)%bconds
 c$$$      else
-        vaux%vec_list(IEH)%bconds(:,1) = bcond
-        vaux%vec_list(IEH)%bconds(:,2) = bcond
-        vaux%vec_list(IEH)%bconds(:,3) = bcond
-        where (vaux%vec_list(IEH)%bconds == DEF)
-          vaux%vec_list(IEH)%bconds = -NEU  !On covariant components
-        end where
-
-        call set_vec_symm_bc(vaux%vec_list(IEH)%bconds,-1) !Same as velocity
+c$$$        vaux%vec_list(IEH)%bconds(:,1) = bcond
+c$$$        vaux%vec_list(IEH)%bconds(:,2) = bcond
+c$$$        vaux%vec_list(IEH)%bconds(:,3) = bcond
+c$$$        where (vaux%vec_list(IEH)%bconds == DEF)
+c$$$          vaux%vec_list(IEH)%bconds = -NEU  !On covariant components
+c$$$        end where
+c$$$
+c$$$        call set_vec_symm_bc(vaux%vec_list(IEH)%bconds,-1) !Same as velocity
 c$$$      endif
 
 cc      !Equilibrium electric field (non-ideal piece)
@@ -1034,10 +1034,14 @@ c     Current variables
       vaux%vec_list(IACOV)%bc_dep_list(3,2) = VECTOR
       vaux%vec_list(IACOV)%bc_dep_list(3,3) = 0 !trivial
 
+cc      vaux%vec_list(IACOV)%bc_dep_list(4,1) = IENI*AUX
+cc      vaux%vec_list(IACOV)%bc_dep_list(4,2) = VECTOR
+cc      vaux%vec_list(IACOV)%bc_dep_list(4,3) = 0 !trivial
+
       !A cnv
       vaux%vec_list(IACNV)%bc_dep_list(1,1) = IACOV*AUX
       vaux%vec_list(IACNV)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivial
+      vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivials
 
       !A_n cov
       vaux%vec_list(IACOV_N)%bc_dep_list(1,1) = IACOV_N*AUX
@@ -1651,24 +1655,24 @@ c     Current variables
 
           vaux%vec_list(IEH)%dom_dep_list(3,1) = IBCOV*AUX
           vaux%vec_list(IEH)%dom_dep_list(3,2) = VECTOR
-          vaux%vec_list(IEH)%dom_dep_list(3,3) = 0 !trivial
+          vaux%vec_list(IEH)%dom_dep_list(3,3) = 1 !non-trivial
 
           vaux%vec_list(IEH)%dom_dep_list(4,1) = IJCOV*AUX
           vaux%vec_list(IEH)%dom_dep_list(4,2) = VECTOR
-          vaux%vec_list(IEH)%dom_dep_list(4,3) = 0 !trivial
+          vaux%vec_list(IEH)%dom_dep_list(4,3) = 1 !non-trivial
 
           vaux%vec_list(IEH)%dom_dep_list(5,1) = IDIVPE*AUX
           vaux%vec_list(IEH)%dom_dep_list(5,2) = VECTOR
-          vaux%vec_list(IEH)%dom_dep_list(5,3) = 0 !trivial
+          vaux%vec_list(IEH)%dom_dep_list(5,3) = 1 !non-trivial
 
           if (de > 0d0) then
             vaux%vec_list(IEH)%dom_dep_list(6,1) = IVECOV*AUX
             vaux%vec_list(IEH)%dom_dep_list(6,2) = VECTOR
-            vaux%vec_list(IEH)%dom_dep_list(6,3) = 0 !trivial
+            vaux%vec_list(IEH)%dom_dep_list(6,3) = 1 !non-trivial
 
             vaux%vec_list(IEH)%dom_dep_list(7,1) = IVECOV_N*AUX
             vaux%vec_list(IEH)%dom_dep_list(7,2) = VECTOR
-            vaux%vec_list(IEH)%dom_dep_list(7,3) = 0 !trivial
+            vaux%vec_list(IEH)%dom_dep_list(7,3) = 1 !non-trivial
           endif
         endif
       endif
