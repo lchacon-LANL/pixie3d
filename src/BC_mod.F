@@ -236,8 +236,8 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
 
         !Dirichlet boundary conditions for tangential components in resistive MHD
-        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = -EQU
-        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = -EQU
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
         if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
           where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
@@ -1041,7 +1041,7 @@ cc      vaux%vec_list(IACOV)%bc_dep_list(4,3) = 0 !trivial
       !A cnv
       vaux%vec_list(IACNV)%bc_dep_list(1,1) = IACOV*AUX
       vaux%vec_list(IACNV)%bc_dep_list(1,2) = VECTOR
-      vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivials
+      vaux%vec_list(IACNV)%bc_dep_list(1,3) = 0 !trivial
 
       !A_n cov
       vaux%vec_list(IACOV_N)%bc_dep_list(1,1) = IACOV_N*AUX
