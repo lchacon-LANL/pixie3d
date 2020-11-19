@@ -149,7 +149,7 @@ setup: contrib_setup
 # TESTS
 
 tests: ;
-ifdef VECPOT
+ifeq ($(VECPOT),t)
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai test-a
 else
@@ -172,7 +172,7 @@ endif
 endif
 
 rebuild-tests: ;
-ifdef VECPOT
+ifeq ($(VECPOT),t)
 ifdef SAMR
 	$(MAKE) --no-print-directory -e -C tests/samrai rebuild-a
 else
