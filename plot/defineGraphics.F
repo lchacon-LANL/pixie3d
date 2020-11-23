@@ -515,39 +515,39 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(12)%array => tmp
       graph(4)%array_graph(12)%descr = 'Temperature'
 
-      graph(4)%array_graph(13)%array => vpar
-      graph(4)%array_graph(13)%descr = 'V||'
-
-      graph(4)%array_graph(14)%array => vpsi
-      graph(4)%array_graph(14)%descr = 'V.grad(psi)'
-
-      graph(4)%array_graph(15)%array => vperp
-      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
+c$$$      graph(4)%array_graph(13)%array => vpar
+c$$$      graph(4)%array_graph(13)%descr = 'V||'
+c$$$
+c$$$      graph(4)%array_graph(14)%array => vpsi
+c$$$      graph(4)%array_graph(14)%descr = 'V.grad(psi)'
+c$$$
+c$$$      graph(4)%array_graph(15)%array => vperp
+c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
-        graph(4)%array_graph(16)%array => jpar
-        graph(4)%array_graph(16)%descr = 'Eh_1'
+        graph(4)%array_graph(13)%array => jpar
+        graph(4)%array_graph(13)%descr = 'Eh_1'
 
-        graph(4)%array_graph(17)%array => jpsi
-        graph(4)%array_graph(17)%descr = 'Eh_2'
+        graph(4)%array_graph(14)%array => jpsi
+        graph(4)%array_graph(14)%descr = 'Eh_2'
 
-        graph(4)%array_graph(18)%array => jperp
-        graph(4)%array_graph(18)%descr = 'Eh_3'
+        graph(4)%array_graph(15)%array => jperp
+        graph(4)%array_graph(15)%descr = 'Eh_3'
       else
-        graph(4)%array_graph(16)%array => jpar
-        graph(4)%array_graph(16)%descr = 'E_1'
+        graph(4)%array_graph(13)%array => jpar
+        graph(4)%array_graph(13)%descr = 'E_1'
 
-        graph(4)%array_graph(17)%array => jpsi
-        graph(4)%array_graph(17)%descr = 'E_2'
+        graph(4)%array_graph(14)%array => jpsi
+        graph(4)%array_graph(14)%descr = 'E_2'
 
-        graph(4)%array_graph(18)%array => jperp
-        graph(4)%array_graph(18)%descr = 'E_3'
+        graph(4)%array_graph(15)%array => jperp
+        graph(4)%array_graph(15)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(19)%array => heat_src
-      graph(4)%array_graph(19)%descr = 'Int. heat src'
+      graph(4)%array_graph(16)%array => heat_src
+      graph(4)%array_graph(16)%descr = 'Int. heat src'
 
-      graph(4)%array_graph(20:ngraph)%descr = ''
+      graph(4)%array_graph(17:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)
