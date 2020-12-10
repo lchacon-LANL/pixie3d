@@ -4,6 +4,7 @@
 contrib/*/*
 bin
 eq/*
+common
 record*
 tests*
 

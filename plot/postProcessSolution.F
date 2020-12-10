@@ -41,7 +41,7 @@ c--------------------------------------------------------------------
 
 c Call variables
 
-      integer :: igrid
+      integer :: igrid,nn,my_rank_rad,np_rad
 
       type(var_array),pointer :: varray
 
@@ -206,26 +206,9 @@ c Electron velocity
 c Poloidal flux diagnostics
 
 #if !defined(vec_pot)
-      k = 1
-      do i = 0,nx+1
-        j = 0
-        call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
-        if (i == 0) then
-          Pflux(i,j,:) = 0d0
-        else
-          Pflux(i,j,:) = Pflux(i-1,j,:)
-     .                 - 0.5*(bcnv(i-1,j,:,2)
-     .                       +bcnv(i  ,j,:,2))*gv%gparams%dx(ig-1)
-        endif
-        do j = 1,ny+1
-          call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
-          Pflux(i,j,:) = Pflux(i,j-1,:)
-     .                 + 0.5*(bcnv(i,j-1,:,1)
-     .                       +bcnv(i,j  ,:,1))*gv%gparams%dy(jg-1)
-        enddo
-      enddo
+      call pol_flux(Pflux)
 #else
-      Pflux = acov(:,:,:,3)
+      Pflux(:,:,:) = acov(:,:,:,3)
 #endif
 
 c Poloidal velocity diagnostic
@@ -469,6 +452,152 @@ cc      endif
 c End program
 
       contains
+
+c     pol_flux
+c     ################################################################
+      subroutine pol_flux(pflux)
+
+c     ---------------------------------------------------------------
+c     Calculates toroidal diagnostics q-profile and lambda.
+c     ---------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8) :: pflux(0:,0:,0:)
+
+c     Local variables
+
+      real(8),allocatable,dimension(:,:,:) :: bcnvavg
+#if defined(petsc)
+      real(8),allocatable,dimension(:) :: mpivec
+#endif
+
+      integer :: np_mpi,my_rank_mpi
+      
+c     Begin program
+      
+!Average fields toroidally
+      allocate(bcnvavg(0:nx+1,0:ny+1,3))
+      
+      bcnvavg = sum(bcnv(:,:,1:nz,:),3)
+#if defined(petsc)
+      nn = (nx+2)*(ny+2)*3
+      allocate(mpivec(nn))
+      mpivec = reshape(bcnvavg,shape(mpivec))
+      call MPI_Allreduce(mpivec,bcnvavg,nn
+     .                  ,MPI_DOUBLE_PRECISION,MPI_SUM
+     .                  ,gv%gparams%MPI_COMM_Z,mpierr)
+      deallocate(mpivec)
+#endif
+      bcnvavg = bcnvavg/nzd
+      
+c$$$      k = 1
+c$$$      do i = 0,nx+1
+c$$$        j = 0
+c$$$        call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+c$$$        if (i == 0) then
+c$$$          Pflux(i,j,:) = 0d0
+c$$$        else
+c$$$          Pflux(i,j,:) = Pflux(i-1,j,:)
+c$$$     .                 - 0.5*(bcnv(i-1,j,:,2)
+c$$$     .                       +bcnv(i  ,j,:,2))*gv%gparams%dx(ig-1)
+c$$$        endif
+c$$$        do j = 1,ny+1
+c$$$          call getMGmap(gv%gparams,i,j,k,igx,igy,igz,ig,jg,kg)
+c$$$          Pflux(i,j,:) = Pflux(i,j-1,:)
+c$$$     .                 + 0.5*(bcnv(i,j-1,:,1)
+c$$$     .                       +bcnv(i,j  ,:,1))*gv%gparams%dy(jg-1)
+c$$$        enddo
+c$$$      enddo
+
+      !Integrate poloidal flux
+      Pflux(0,0,0) = 0d0   !Set value at origin
+
+      do i = 1,nx+1
+        call getMGmap(gv%gparams,i,1,1,igx,igy,igz,ig,jg,kg)
+        Pflux(i,0,0) = Pflux(i-1,0,0)
+     .                 - 0.5*(bcnvavg(i-1,0,2)
+     .                       +bcnvavg(i  ,0,2))*gv%gparams%dx(ig-1)
+      enddo
+
+#if defined(petsc)
+      !Communicate radial integration constants
+      if (npx > 1) then
+        nn = 1
+        allocate(mpivec(npx*nn))
+        call MPI_Allgather(Pflux(nx,0,0)
+     .                          ,nn,MPI_DOUBLE_PRECISION
+     .                   ,mpivec,nn,MPI_DOUBLE_PRECISION
+     .                   ,gv%gparams%MPI_COMM_X,mpierr)
+
+        !Sum integration constants
+        do j=2,npx
+          mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
+     .                             +mpivec(1+nn*(j-2):nn*(j-1))
+        enddo
+
+        !Add integration constants
+        call initMPI(gv%gparams%MPI_COMM_X,np_mpi,my_rank_mpi)
+
+        j = my_rank_mpi
+        if (j > 0) then
+          do i=0,nx+1
+            Pflux(i,0:0,0) = Pflux(i,0:0,0) + mpivec(1+nn*(j-1):nn*j)
+          enddo
+        endif
+
+        deallocate(mpivec)
+      endif
+#endif
+
+      do j = 1,ny+1
+        call getMGmap(gv%gparams,1,j,1,igx,igy,igz,ig,jg,kg)
+        Pflux(:,j,0) = Pflux(:,j-1,0)
+     .               + 0.5*(bcnvavg(:,j-1,1)
+     .                     +bcnvavg(:,j  ,1))*gv%gparams%dy(jg-1)
+      enddo
+ 
+#if defined(petsc)
+      !Communicate radial integration constants
+      if (npy > 1.and.(.not.bcSP())) then
+        nn = nx+2
+        allocate(mpivec(npy*nn))
+        call MPI_Allgather(Pflux(0:nx+1,ny,0)
+     .                           ,nn,MPI_DOUBLE_PRECISION
+     .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
+     .                    ,gv%gparams%MPI_COMM_Y,mpierr)
+
+        !Add integration constants
+        call initMPI(gv%gparams%MPI_COMM_Y,np_mpi,my_rank_mpi)
+
+        !Sum integration constants
+        do j=2,npy
+          mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
+     .                             +mpivec(1+nn*(j-2):nn*(j-1))
+        enddo
+
+        i = my_rank_mpi 
+        if (i > 0) then
+          do j=0,ny+1
+            Pflux(:,j,0) = Pflux(:,j,0) + mpivec(1+nn*(i-1):nn*i)
+          enddo
+        endif
+
+        deallocate(mpivec)
+      endif
+#endif
+
+      do k=1,nz+1
+        Pflux(:,:,k) = Pflux(:,:,0)
+      enddo
+        
+      deallocate(bcnvavg)
+      
+c     Local variables
+
+      end subroutine pol_flux
 
 c     tor_diag
 c     ################################################################
