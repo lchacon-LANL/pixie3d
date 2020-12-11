@@ -3996,8 +3996,9 @@ c$$$        endif
           dum2(:,:,:,1) = cchi
           chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
           heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
-     .                    ,varray%array_var(IPRS)%bconds,chi_tnsr
-     .                    ,2,.true.,limit_mthd=SMART)
+     .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
+     .                          ,4,.true.,limit_mthd=SMART)
+cc     .                          ,2,.true.,limit_mthd=SMART)
           deallocate(dum1,dum2)
         endif
       endif
