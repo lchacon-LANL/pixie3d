@@ -239,9 +239,9 @@ c     Exceptions for specific equilibria
         where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
         where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
 
-        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
-          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
-        endif
+c$$$        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
+c$$$          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
+c$$$        endif
         
       case ('vmec','tor','stell','gstor')
 
