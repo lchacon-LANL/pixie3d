@@ -89,7 +89,7 @@ c Namelists
      .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
-     .                   ,adiabatic_rho
+     .                   ,adiabatic_rho,solve_prs
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
@@ -132,6 +132,7 @@ c Namelists
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,solve_prs
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -192,7 +193,7 @@ c Obtain eta, nu from Prandtl, Hartmann
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
 
-c Find alpha_p=p_t/p_e; p_t=p_i+p_e
+c Find alpha_p=T_t/T_e; T_t=T_i+T_e
 
       a_p = 1d0+temp_ratio
 
@@ -517,6 +518,7 @@ c     #####################################################################
       no_eom_divpe = .true.    ! Whether we include div(Pe) in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solve continuity equation or not
+      solve_prs  = .true.      ! Whether we solve for pressure or temperature
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
       use_p_classic_eq = .false. !Whether we use classic form of pressure eq (p.div(v))
@@ -811,7 +813,9 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
       if (.not.adiabatic) adiabatic_rho = .false.
 
       if (adiabatic_rho) solve_rho = .false.
-      
+
+      if (.not.solve_prs) use_p_diff = .false.
+
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 
