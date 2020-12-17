@@ -65,7 +65,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
-     .                   ,br_pert_bc_old,br_pert_phase_old
+     .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -113,7 +113,7 @@ c Namelists
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
-     .                   ,dlambda,rshear,vparflow,vperflow
+     .                   ,dlambda,rshear,vparflow,vperflow,xport_order
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
@@ -521,7 +521,7 @@ c     #####################################################################
       solve_prs  = .true.      ! Whether we solve for pressure or temperature
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
-      use_p_classic_eq = .false. !Whether we use classic form of pressure eq (p.div(v))
+      use_p_classic_eq=.false. ! Whether we use classic form of prs/tmp eq (p.div(v), T.div(v))
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
@@ -539,8 +539,7 @@ c     #####################################################################
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
 
-      v_advect   = 0           ! Type of advective scheme for vectors
-                               !   (if zero, determine from advect below)
+      v_advect   = 0           ! Type of advective scheme for vectors (if zero, set to advect)
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
 
@@ -553,7 +552,13 @@ c     #####################################################################
       regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
       post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
-      
+
+      xport_order   = 2        ! Order of anisotropic transport operator
+                               ! Available options:
+                               !    2 -> second order,
+                               !    4 -> 4th order, 7-pt stencil,
+                               !   -4 -> 4th order, 5-pt stencil
+
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)

@@ -169,6 +169,8 @@ c ######################################################################
 
         use problem_def
 
+        integer :: xport_order=2
+        
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
      .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref
 
@@ -3982,8 +3984,15 @@ c$$$      endif
      .                              ,rvrs=.true.) !Reverse: v -> -v
         endif
       else
-        tmp_advc =flx_nc_advec_mesh(gv%gparams,igr,vscnv,tmpe,advect,bc)
+        if (use_p_classic_eq) then !Classic T evolution eq
+          tmp_advc =
+     .            flx_nc_advec_mesh(gv%gparams,igr,vscnv,tmpe,advect,bc)
      .           +(gamma-1d0)*tmpe*div(gv%gparams,igr,vscnv)
+        else
+          tmp_advc =
+     . (gamma-1.)*flx_advec_mesh   (gv%gparams,igr,vscnv,tmpe,advect,bc)
+     .+(2.-gamma)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,tmpe,advect,bc)
+        endif
       endif
 #endif
 
@@ -4008,7 +4017,7 @@ c$$$      endif
           chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
           heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
      .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
-     .                          ,4,.true.,limit_mthd=SMART)
+     .                          ,xport_order,.true.,limit_mthd=SMART)
 cc     .                          ,2,.true.,limit_mthd=SMART)
           deallocate(dum1,dum2)
         endif

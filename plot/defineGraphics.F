@@ -345,11 +345,16 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=>gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr= gv%aux%var_list(IRHO_AUX)%descr
 
-c$$$      graph(3)%array_graph(IPRS)%array=>gv%aux%var_list(ITMP_AUX)%array
-c$$$      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
-      graph(3)%array_graph(IPRS)%array=> p_tot
-      graph(3)%array_graph(IPRS)%descr=  'Prs'
-
+      if (solve_prs) then
+        graph(3)%array_graph(IPRS)%array=> p_tot
+        graph(3)%array_graph(IPRS)%descr=  'Prs'
+      else
+        graph(3)%array_graph(IPRS)%array
+     .       =>gv%aux%var_list(ITMPE_AUX)%array
+        graph(3)%array_graph(IPRS)%descr
+     .       = gv%aux%var_list(ITMPE_AUX)%descr
+      endif
+      
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
 
@@ -402,7 +407,7 @@ c$$$      graph(3)%array_graph(IPRS)%descr= gv%aux%var_list(ITMP_AUX)%descr
 c$$$      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
 c$$$      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
       graph(3)%array_graph(IPRS)%array=> p_tot
-      graph(3)%array_graph(IPRS)%descr=  'Prs'
+      graph(3)%array_graph(IPRS)%descr=  'pi+pi'
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -512,9 +517,13 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(11)%array => lambda
       graph(4)%array_graph(11)%descr = 'lambda'
 
-      graph(4)%array_graph(12)%array => tmp
-      graph(4)%array_graph(12)%descr = 'Temperature'
-
+      if (solve_prs) then
+        graph(4)%array_graph(12)%array => tmp
+        graph(4)%array_graph(12)%descr = 'Ti+Te'
+      else
+        graph(4)%array_graph(12)%array => p_tot
+        graph(4)%array_graph(12)%descr = 'pi+pe'
+      endif
 c$$$      graph(4)%array_graph(13)%array => vpar
 c$$$      graph(4)%array_graph(13)%descr = 'V||'
 c$$$
