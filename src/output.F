@@ -277,6 +277,11 @@ c     Warnings
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'
+      if (solve_prs) then
+        write (*,*) 'Solving for P=Pi+Pe'
+      else
+        write (*,*) 'Solving for Te'
+      endif
       if (use_p_eom)
      .     write (*,*) 'Using grad(p) instead of grad(nT) in EOM'
       if (use_p_diff)
