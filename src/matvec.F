@@ -546,9 +546,9 @@ c End program
 
       end subroutine test_mtvc
 
-c tmp_mtvc
+c prs_mtvc
 c####################################################################
-      subroutine tmp_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+      subroutine prs_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
 c--------------------------------------------------------------------
 c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
 c     for the energy equation.
@@ -710,6 +710,144 @@ c End program
 
       deallocate(dtmp,dprs,dprs_advc,dtmp_diff)
       nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0,tnsr0)
+
+      call deallocMGPointers(fpointers,mg_ctx_l)
+
+      end subroutine prs_mtvc
+
+c tmp_mtvc
+c####################################################################
+      subroutine tmp_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine calculates, for given x, y = A(psi)x  matrix-free
+c     for the energy equation.
+c     In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
+      type(grid_mg_def),pointer :: g_def
+
+c Local variables
+
+      integer :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+
+      real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
+      real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmpe0
+     .                                         ,chi0,chip0,tnsr0
+
+      real(8),pointer    ,dimension(:,:,:) :: jac,dtmpe_advc,dtmpe_diff
+
+      real(8) :: upwind,nu2,dvol,tlap
+
+      logical :: fpointers
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
+c Begin program
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig = g_def%istartp(igrid)
+
+      nnx = g_def%nxv(igrid)
+      nny = g_def%nyv(igrid)
+      nnz = g_def%nzv(igrid)
+
+      jac => g_def%gmetric%grid(igrid)%jac
+
+c Find limits for loops
+
+      call limits(mg_ctx_l,abs(gpos),igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(dtmpe(0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dtmpe_advc(0:nnx+1,0:nny+1,0:nnz+1)
+     .        ,dtmpe_diff(0:nnx+1,0:nny+1,0:nnz+1)
+     .        )
+
+      dtmpe = 0d0
+ 
+      call fillArray(g_def,igrid,neq,x,dtmpe,bcnd,order_bc,gpos=gpos
+     .              ,icomp=(/IPRS/))
+
+c Map velocity components
+
+      call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,tmpe0  ,gtmp0)
+      if (gamma > 1d0)
+     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0,gchitnsr)
+
+c Auxiliary computations
+
+      !Advective term
+      dtmpe_advc =
+     .   flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dtmpe(:,:,:,1),UPWD,bcnd)
+     .  +(gamma-1d0)*dtmpe(:,:,:,1)*div(g_def,igrid,vs0_cnv)
+
+      !Anisotropic transport term
+      if (gamma > 1d0)
+     .   dtmpe_diff=tnsr_diff(g_def,igrid,dtmpe(:,:,:,1),bcnd(:,1),tnsr0
+cc     .                ,2,limited,limit_mthd=UPWD
+     .                    ,2,.true.,limit_mthd=UPWD,arr0=tmpe0(:,:,:,1))
+
+c Calculate matrix-vector product
+
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+
+            ijk    = i + nnx*(j-1) + nnx*nny*(k-1)
+            ijkg   = ijk + isig - 1
+
+            if (MG_get_res_vol_wgt()) then
+              dvol = g_def%gmetric%grid(igrid)%dlvol(i,j,k)
+            else
+              dvol = 1d0
+            endif
+
+            upwind = dtmpe_advc(i,j,k)
+            
+            tlap = 0d0
+            if (gamma > 1d0) tlap = (gamma-1d0)*dtmpe_diff(i,j,k)
+            
+            y(ijk)=dvol*( cnp/dt*dtmpe(i,j,k,1)
+     $                  + alpha*(upwind - tlap) )*jac(i,j,k)
+
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(dtmpe,dtmpe_advc,dtmpe_diff)
+      nullify(vs0_cnv,rho0,bh0,tmpe0,chi0,chip0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
