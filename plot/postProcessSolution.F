@@ -559,35 +559,35 @@ c$$$      enddo
      .                     +bcnvavg(:,j  ,1))*gv%gparams%dy(jg-1)
       enddo
  
-#if defined(petsc)
-      !Communicate radial integration constants
-      if (npy > 1.and.(.not.bcSP())) then
-        nn = nx+2
-        allocate(mpivec(npy*nn))
-        call MPI_Allgather(Pflux(0:nx+1,ny,0)
-     .                           ,nn,MPI_DOUBLE_PRECISION
-     .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
-     .                    ,gv%gparams%MPI_COMM_Y,mpierr)
-
-        !Add integration constants
-        call initMPI(gv%gparams%MPI_COMM_Y,np_mpi,my_rank_mpi)
-
-        !Sum integration constants
-        do j=2,npy
-          mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
-     .                             +mpivec(1+nn*(j-2):nn*(j-1))
-        enddo
-
-        i = my_rank_mpi 
-        if (i > 0) then
-          do j=0,ny+1
-            Pflux(:,j,0) = Pflux(:,j,0) + mpivec(1+nn*(i-1):nn*i)
-          enddo
-        endif
-
-        deallocate(mpivec)
-      endif
-#endif
+c$$$#if defined(petsc)
+c$$$      !Communicate poloidal integration constants (not needed because all start at SP)
+c$$$      if (npy > 1.and.(.not.bcSP())) then
+c$$$        nn = nx+2
+c$$$        allocate(mpivec(npy*nn))
+c$$$        call MPI_Allgather(Pflux(0:nx+1,ny,0)
+c$$$     .                           ,nn,MPI_DOUBLE_PRECISION
+c$$$     .                    ,mpivec,nn,MPI_DOUBLE_PRECISION
+c$$$     .                    ,gv%gparams%MPI_COMM_Y,mpierr)
+c$$$
+c$$$        !Add integration constants
+c$$$        call initMPI(gv%gparams%MPI_COMM_Y,np_mpi,my_rank_mpi)
+c$$$
+c$$$        !Sum integration constants
+c$$$        do j=2,npy
+c$$$          mpivec(1+nn*(j-1):nn*j) = mpivec(1+nn*(j-1):nn* j   )
+c$$$     .                             +mpivec(1+nn*(j-2):nn*(j-1))
+c$$$        enddo
+c$$$
+c$$$        i = my_rank_mpi 
+c$$$        if (i > 0) then
+c$$$          do j=0,ny+1
+c$$$            Pflux(:,j,0) = Pflux(:,j,0) + mpivec(1+nn*(i-1):nn*i)
+c$$$          enddo
+c$$$        endif
+c$$$
+c$$$        deallocate(mpivec)
+c$$$      endif
+c$$$#endif
 
       do k=1,nz+1
         Pflux(:,:,k) = Pflux(:,:,0)
