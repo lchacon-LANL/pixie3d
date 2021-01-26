@@ -131,28 +131,31 @@ c ######################################################################
 
 #if !defined(vec_pot)
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IBX=5,IBY=6,IBZ=7
-     .                 ,IPRS=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13,IAZ=14
+     .                 ,IPRS=8,ITMPE=8,IJX=9,IJY=10,IJZ=11,IAX=12,IAY=13
+     .                 ,IAZ=14
 #else
         integer, parameter :: IRHO=1,IVX=2,IVY=3,IVZ=4,IAX=5,IAY=6,IAZ=7
-     .                 ,IPRS=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13,IJZ=14
+     .                 ,IPRS=8,ITMPE=8,IBX=9,IBY=10,IBZ=11,IJX=12,IJY=13
+     .                 ,IJZ=14
 #endif
 
         character(5)  :: equil
 
-        logical :: ion_hall   =.false.   !Whether to use ion EOM for Hall E
-     .            ,electron_hall=.false. !Whether to use e   EOM for Hall E
-     .            ,pinch_flow =.false.   !Whether equilibrium has pinch flow
-     .            ,slava      =.false.   !Whether to use Slava Lukin's Hall MHD implementation
-     .            ,noise      =.false.   !Whether to add noise to EOM (to break symmetry)
-     .            ,adiabatic  =.false.   !Whether to use adiabatic EOS (no heat sources)
-     .            ,adiabatic_rho  =.false.   !Whether to use adiabatic formula for rho
-     .            ,solve_rho  =.true.    !Whether we solve for rho or use rho=1
-     .            ,use_p_eom  =.false.   !Whether we use pressure or n*T to drive EOM
-     .            ,use_p_diff =.false.   !Whether we use pressure in diffusion term in pressure eq.
-     .            ,use_p_classic_eq =.false.   !Whether we use classic (p.div(v)) pressure evolution eq.
-     .            ,nu_is_rhonu=.false.   !Whether to use rho*nu in electron viscous term
-     .            ,heta_is_rhoheta=.true.!Whether to use rho*heta in ion viscoust term
-     .            ,e_cons_vstar=.true.   !Whether we use energy conserving velocity in T eq.
+        logical :: ion_hall     =.false.   !Whether to use ion EOM for Hall E
+     .            ,electron_hall=.false.   !Whether to use e   EOM for Hall E
+     .            ,pinch_flow   =.false.   !Whether equilibrium has pinch flow
+     .            ,slava        =.false.   !Whether to use Slava Lukin's Hall MHD implementation
+     .            ,noise        =.false.   !Whether to add noise to EOM (to break symmetry)
+     .            ,adiabatic    =.false.   !Whether to use adiabatic EOS (no heat sources)
+     .            ,adiabatic_rho=.false.   !Whether to use adiabatic formula for rho
+     .            ,solve_rho    =.true.    !Whether we solve for rho or use rho=1
+     .            ,solve_prs    =.true.    !Whether we solve for total prs or e tmp
+     .            ,use_p_eom    =.false.   !Whether we use pressure or n*T to drive EOM
+     .            ,use_p_diff   =.false.   !Whether we use pressure in diffusion term in pressure eq.
+     .            ,use_p_classic_eq =.false.!Whether we use classic (p.div(v)) pressure evolution eq.
+     .            ,nu_is_rhonu  =.false.   !Whether to use rho*nu in electron viscous term
+     .            ,heta_is_rhoheta=.true.  !Whether to use rho*heta in ion viscoust term
+     .            ,e_cons_vstar =.true.    !Whether we use energy conserving velocity in T eq.
 
         real(8) :: noise_lev
 
@@ -166,6 +169,8 @@ c ######################################################################
 
         use problem_def
 
+        integer :: xport_order=2
+        
         real(8) :: nu,eta,dd,chi,chi_par,gamma,di,de,a_p,temp_ratio
      .            ,heta=0d0,c_hyper,beta=1d-3,te0_ref
 
@@ -324,7 +329,7 @@ c     End program
       
 c     chi_perp_brag
 c     #############################################################
-      function chi_perp_brag(te,rho,b2,te0) result(dfvty)
+      function chi_perp_brag(te,te0,rho,b2) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the perpendicular heat transport
 c     diffusivity for ELECTRON temperature value te.
@@ -484,6 +489,7 @@ c ######################################################################
      .                                       ,cchi_par
      .                                       ,rho_advc
      .                                       ,prs_advc
+     .                                       ,tmp_advc
      .                                       ,heat_xport
      .                                       ,heat_src
 
@@ -743,7 +749,7 @@ c     -------------------------------------------------------------------
 
 c     Begin program
 
-      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc!,E_bc
+      deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,tmp_advc
      .          ,heat_xport,heat_src,chi_tnsr,stat=istat)
 
       nullify(bcnv
@@ -3871,6 +3877,7 @@ c     Local variables
       real(8) :: bnorm
 
       real(8),pointer,dimension(:,:,:) :: rho=>null(),tmp=>null()
+     .                                   ,jac=>null(),tmpe=>null()
       real(8),pointer,dimension(:,:,:,:) :: dum1,dum2
 
 c     Begin program
@@ -3888,6 +3895,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .          ,v_advc  (0:nx+1,0:ny+1,0:nz+1,3)
      .          ,rho_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
+     .          ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs     (0:nx+1,0:ny+1,0:nz+1)
@@ -3901,13 +3909,15 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       v_advc = 0d0
       rho_advc = 0d0
       prs_advc = 0d0
+      tmp_advc = 0d0
       heat_xport = 0d0
       heat_src   = 0d0
       chi_tnsr   = 0d0
       
-      rho => vaux%var_list(IRHO_AUX)%array
-      tmp => vaux%var_list(ITMP_AUX)%array  !Total T
-cc      tmp => vaux%var_list(ITMPE_AUX)%array  !Te
+      rho => vaux%var_list(IRHO_AUX )%array
+      tmp => vaux%var_list(ITMP_AUX )%array
+      tmpe=> vaux%var_list(ITMPE_AUX)%array
+      jac => gv%gparams%gmetric%grid(igr)%jac
 
 c$$$      !Store B/|B| unit vector (for parallel heat conduction and/or boostrap current)
 c$$$      if (chi_par /= chi .and. (.not.lagrangian)) then
@@ -3932,7 +3942,11 @@ c$$$      endif
       pcnv(:,:,:,3) = rho*vcnv(:,:,:,3)
 
       !Total pressure
-      prs=varray%array_var(IPRS)%array/gv%gparams%gmetric%grid(igr)%jac
+      if (solve_prs) then
+        prs = varray%array_var(IPRS)%array/jac
+      else
+        prs = rho*tmp
+      endif
 
       !Temperature transport velocity, v_star = v - di*j/rho/a_p
       if (.not.e_cons_vstar) then
@@ -3957,39 +3971,45 @@ c$$$      endif
         bc = varray%array_var(IRHO)%bconds
         rho_advc =flx_advec_mesh(gv%gparams,igr,vcnv,rho,advect,bc) !,sp=bcSP())
       endif
-      
+
       bc = varray%array_var(IPRS)%bconds
-      if (use_p_classic_eq) then !Classic p evolution eq
-       prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+      if (solve_prs) then
+        if (use_p_classic_eq) then !Classic p evolution eq
+          prs_advc = flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
      .           +(gamma-1d0)*prs*div(gv%gparams,igr,vscnv)
-      else
-       prs_advc=gamma*flx_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc)
+        else
+          prs_advc=
+     .  gamma     *flx_advec_mesh   (gv%gparams,igr,vscnv,prs,advect,bc)
      .+(gamma-1d0)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,prs,advect,bc
      .                              ,rvrs=.true.) !Reverse: v -> -v
+        endif
+      else
+        if (use_p_classic_eq) then !Classic T evolution eq
+          tmp_advc =
+     .            flx_nc_advec_mesh(gv%gparams,igr,vscnv,tmpe,advect,bc)
+     .           +(gamma-1d0)*tmpe*div(gv%gparams,igr,vscnv)
+        else
+          tmp_advc =
+     . (gamma-1.)*flx_advec_mesh   (gv%gparams,igr,vscnv,tmpe,advect,bc)
+     .+(2.-gamma)*flx_nc_advec_mesh(gv%gparams,igr,vscnv,tmpe,advect,bc)
+        endif
       endif
 #endif
 
       !Heat transport term
       if (gamma > 1d0) then
-        if (chi_par == 0d0) then
 #if !defined(flux_rhs)
+        if (chi_par == 0d0) then
           if (chi /= 0d0) then
             if (use_p_diff) then !Total pressure
               heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
-            else                 !see above for temperature def
+            elseif (solve_prs) then
               heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
+            else
+              heat_xport = -lap(gv%gparams,igr,tmpe,dff=cchi)
             endif
           endif
-#endif
         else
-c$$$        if (chi_par > chi.and.(.not.lagrangian)) then
-c$$$          heat_xport = heat_xport
-c$$$     .       -(cchi_par(i,j,k)-cchi(i,j,k))
-c$$$     .               *par_diff(gv%gparams,igr,tmp,bhat,2
-c$$$     .                        ,"dutoit",vol=.false.,bcs=bc
-c$$$     .                        ,advc_mthd=SMART)
-c$$$        endif
-
           allocate(dum1(0:nx+1,0:ny+1,0:nz+1,1)
      .            ,dum2(0:nx+1,0:ny+1,0:nz+1,1))
           dum1(:,:,:,1) = cchi_par
@@ -3997,11 +4017,12 @@ c$$$        endif
           chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
           heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
      .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
-     .                          ,4,.true.,limit_mthd=SMART)
+     .                          ,xport_order,.true.,limit_mthd=SMART)
 cc     .                          ,2,.true.,limit_mthd=SMART)
           deallocate(dum1,dum2)
         endif
       endif
+#endif
       
       !Heat source term
       if ((.not.adiabatic).and.(gamma > 1d0)) then
@@ -6467,7 +6488,7 @@ c     Begin program
 
       if (chi_bgnskii) then
         b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
-        dfvty = chi*chi_perp_brag(te,rho,b2,te0_ref)
+        dfvty = chi*chi_perp_brag(te,te0_ref,rho,b2)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')

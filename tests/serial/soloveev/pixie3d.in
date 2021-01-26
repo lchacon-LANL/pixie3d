@@ -49,6 +49,7 @@
 
     use_p_eom  = t
     use_p_diff = t
+    solve_prs  = t
  /
 
  &ts

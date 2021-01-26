@@ -65,7 +65,7 @@ c Namelists
      .                   ,aa_nu,bb_nu,cc_nu,heta,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
-     .                   ,br_pert_bc_old,br_pert_phase_old
+     .                   ,br_pert_bc_old,br_pert_phase_old,xport_order
      .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
      .                ,rtol,atol,stol,mf_eps,maxitnwt,tolgm,maxksp
      .                   ,iguess,maxitgm,global,method,damp,dt0,vol_wgt
@@ -89,7 +89,7 @@ c Namelists
      .                   ,ts_ramp_up_dt_recovery,refine_eq
      .                ,nc_eom_f,nc_eom_jxb,nc_eom_gp,nc_eom_v,solenoidal
      .                   ,solve_rho,advect,v_advect,sym_st,adiabatic
-     .                   ,adiabatic_rho
+     .                   ,adiabatic_rho,solve_prs
      .                   ,use_p_eom,use_p_diff,ion_hall,fake_ve,slava
      .                   ,noise,noise_lev,lagrangian,no_eom_divpe
      .                   ,vlap_etaj,nu_is_rhonu,heta_is_rhoheta
@@ -113,7 +113,7 @@ c Namelists
       namelist /phys/  nu,eta,dd,chi,chi_par,gamma,prndtl,hrtmn,di,de
      .                   ,temp_ratio,aa_eta,bb_eta,cc_eta,E0,B0,M0
      .                   ,aa_nu,bb_nu,cc_nu,heta,adiabatic,adiabatic_rho
-     .                   ,dlambda,rshear,vparflow,vperflow
+     .                   ,dlambda,rshear,vparflow,vperflow,xport_order
      .                   ,eq_params,lagrangian,irrot_br_pert,eig_is_T
      .                   ,spitzer,fixed_Te,lagged_Te,chi_bgnskii
      .                   ,br_pert_bc,br_pert_phase,br_pert_freq
@@ -132,6 +132,7 @@ c Namelists
      .                   ,v_advect,no_eom_divpe,vlap_etaj,nu_is_rhonu
      .                   ,heta_is_rhoheta,subtract_E0,e_cons_vstar
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
+     .                   ,solve_prs
 
       !Temporal discretization
       namelist /ts/    dt,cnfactor,tmax,dstep,ts_adapt_dt,numtime
@@ -192,7 +193,7 @@ c Obtain eta, nu from Prandtl, Hartmann
         eta = 1d0/hrtmn/sqrt(prndtl)
       endif
 
-c Find alpha_p=p_t/p_e; p_t=p_i+p_e
+c Find alpha_p=T_t/T_e; T_t=T_i+T_e
 
       a_p = 1d0+temp_ratio
 
@@ -491,7 +492,8 @@ c     #####################################################################
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
       fixed_Te = .false.       ! Whether we are fixing the T to T_0
       lagged_Te= .false.       ! Whether we are lagging T to T_n
-
+      chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
+      
       gamma    = 5./3.         ! Polytropic constant of plasma
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te
@@ -517,9 +519,10 @@ c     #####################################################################
       no_eom_divpe = .true.    ! Whether we include div(Pe) in EOM
       solenoidal = .true.      ! Whether we use solenoidal discret. of Faraday's law
       solve_rho  = .true.      ! Whether we solve continuity equation or not
+      solve_prs  = .true.      ! Whether we solve for pressure or temperature
       use_p_eom  = .false.     ! Whether we drive EOM with pressure or n*T
       use_p_diff = .false.     ! Whether we use pressure in diffusion term in pressure eq.
-      use_p_classic_eq = .false. !Whether we use classic form of pressure eq (p.div(v))
+      use_p_classic_eq=.false. ! Whether we use classic form of prs/tmp eq (p.div(v), T.div(v))
       sym_st     = .false.     ! Whether we use the symmetric form of the viscous stress
                                !   tensor or not
       vlap_etaj  = .false.     ! Whether to use eta*lap(A) instead of eta*j in resistive term
@@ -537,8 +540,7 @@ c     #####################################################################
                                !    5 -> smooth SMART,
                                !    6 -> centered 4th order
 
-      v_advect   = 0           ! Type of advective scheme for vectors
-                               !   (if zero, determine from advect below)
+      v_advect   = 0           ! Type of advective scheme for vectors (if zero, set to advect)
 
       ion_hall   = .false.     ! Whether to use new Hall formulation or not
 
@@ -551,7 +553,13 @@ c     #####################################################################
       regularize_A  = .false.  ! Whether we regularize A at SP geometries or not
 
       post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
-      
+
+      xport_order   = 2        ! Order of anisotropic transport operator
+                               ! Available options:
+                               !    2 -> second order,
+                               !    4 -> 4th order, 7-pt stencil,
+                               !   -4 -> 4th order, 5-pt stencil
+
       !Preconditioner parameters
       pc_type    = 'id'        ! Type of preconditioner. Currently:
                                !   - 'id': identity (default)
@@ -811,7 +819,9 @@ cc      if (.not.solenoidal) nc_eom_jxb = .true. !To avoid parallel forces
       if (.not.adiabatic) adiabatic_rho = .false.
 
       if (adiabatic_rho) solve_rho = .false.
-      
+
+      if (.not.solve_prs) use_p_diff = .false.
+
       !PC
       if (pc_type == 's3') pc_B_solve = .true.   !Invert B for large-flow PC
 

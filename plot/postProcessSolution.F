@@ -90,10 +90,16 @@ c Find perturbed quantities (u_pert = varray - u_ic)
      $                              /gv%gparams%gmetric%grid(igrid)%jac
       u_pert%array_var(IRHO)%descr = 'Rho'
 
-      u_pert%array_var(IPRS)%array = u_pert%array_var(IPRS)%array
-     $                              /gv%gparams%gmetric%grid(igrid)%jac
-      u_pert%array_var(IPRS)%descr = 'Prs'
-
+      if (solve_prs) then
+        u_pert%array_var(IPRS)%array = u_pert%array_var(IPRS)%array
+     $                               /gv%gparams%gmetric%grid(igrid)%jac
+        u_pert%array_var(IPRS)%descr = 'Prs'
+      else
+        u_pert%array_var(ITMPE)%array = u_pert%array_var(ITMPE)%array
+     $                               /gv%gparams%gmetric%grid(igrid)%jac
+        u_pert%array_var(ITMPE)%descr = 'Te'
+      endif
+      
       if (alt__eom()) then
         u_pert%array_var(IVY)%array = u_pert%array_var(IVY)%array
      $                               /gv%gparams%gmetric%grid(igrid)%jac
@@ -427,14 +433,11 @@ c Pressure diagnostics
 #if defined(RFX)
 c RFX dump
 ! Daniele, 24/10/2013
-cc      p_tot = rho*tmp
       if (np == 1) then
         call rfx_dump_fields
       elseif (np > 1 .and. my_rank == 0) then
         write (*,*) 'RFX fields dump not available in parallel'
       endif
-cc#else
-cc      p_tot = rho*tmp + 0.5*(bx_car**2+by_car**2+bz_car**2)
 #endif
 
 c Fields dump
