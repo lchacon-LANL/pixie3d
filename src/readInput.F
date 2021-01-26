@@ -492,7 +492,8 @@ c     #####################################################################
       spitzer  = .false.       ! Whether we are using Spitzer resistivity
       fixed_Te = .false.       ! Whether we are fixing the T to T_0
       lagged_Te= .false.       ! Whether we are lagging T to T_n
-
+      chi_bgnskii = .false.    ! Whether to use Braginskii conductivities
+      
       gamma    = 5./3.         ! Polytropic constant of plasma
 
       temp_ratio = 1d0         ! Ion-electron temperature ratio, Ti/Te

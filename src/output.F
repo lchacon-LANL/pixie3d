@@ -277,6 +277,7 @@ c     Warnings
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'
+      if (chi_bgnskii) write (*,*) 'Using Braginskii transport coeffs'
       if (solve_prs) then
         write (*,*) 'Solving for P=Pi+Pe'
       else
