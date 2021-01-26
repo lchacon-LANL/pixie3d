@@ -329,7 +329,7 @@ c     End program
       
 c     chi_perp_brag
 c     #############################################################
-      function chi_perp_brag(te,rho,b2,te0) result(dfvty)
+      function chi_perp_brag(te,te0,rho,b2) result(dfvty)
 c     -------------------------------------------------------------
 c     This function computes the perpendicular heat transport
 c     diffusivity for ELECTRON temperature value te.
@@ -6488,7 +6488,7 @@ c     Begin program
 
       if (chi_bgnskii) then
         b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
-        dfvty = chi*chi_perp_brag(te,rho,b2,te0_ref)
+        dfvty = chi*chi_perp_brag(te,te0_ref,rho,b2)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
