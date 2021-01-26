@@ -277,14 +277,28 @@ c     Warnings
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'
+      if (chi_bgnskii) write (*,*) 'Using Braginskii transport coeffs'
+      if (solve_prs) then
+        write (*,*) 'Solving for P=Pi+Pe'
+      else
+        write (*,*) 'Solving for Te'
+      endif
       if (use_p_eom)
      .     write (*,*) 'Using grad(p) instead of grad(nT) in EOM'
       if (use_p_diff)
      .     write (*,*) 'Using lap(p) instead of lap(T) in pressure eq.'
       if (use_p_classic_eq) then
-        write (*,*) 'Using p.div(v) form of pressure eq.'
+        if (solve_prs) then
+          write (*,*) 'Using p.div(v) form of pressure eq.'
+        else
+          write (*,*) 'Using (gamma-1)*Te.div(v) form of Te eq.'
+        endif
       else
-        write (*,*) 'Using -v.grad(p) form of pressure eq.'
+        if (solve_prs) then
+          write (*,*) 'Using -v.grad(p) form of pressure eq.'
+        else
+          write (*,*) 'Using (2-gamma)*v.grad(Te) form of Te eq.'
+        endif
       endif
 #if !defined(vec_pot)
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'

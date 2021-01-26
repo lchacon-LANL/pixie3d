@@ -157,10 +157,6 @@ c Faraday's law <<<<<<<<<<<<<<<<<<<<<<
 
 c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-c     Advection
-
-      advc = prs_advc(i,j,k)
-
 c     Heat flux
 
       if (source_eval.and.(.not.adiabatic)) then
@@ -179,7 +175,13 @@ c     Sources
 
 c     Add contributions
 
-      ff(IPRS) = (advc + (gamma-1d0)*(heat_flx-heat_srce))*jac
+      if (solve_prs) then
+        ff(IPRS)  = (prs_advc(i,j,k)
+     .          + (gamma-1d0)*(heat_flx-heat_srce))*jac
+      else
+        ff(ITMPE) = (tmp_advc(i,j,k)
+     .          + (gamma-1d0)*(heat_flx-heat_srce)/(rho(i,j,k)*a_p))*jac
+      endif
 
 c EOM <<<<<<<<<<<<<<<<<<<<<<<<<<<
 
