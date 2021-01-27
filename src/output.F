@@ -189,7 +189,7 @@ c End program
      .        /,'  Number of grid levels:....',i5,',',i5,',',i5
 #endif
      .        /,'  Preconditioning method:...',a,
-     .        /,'  Time correction...........',l4,
+     .        /,'  Timestep adaption.........',l4,
      .        /,'  External source...........',l4,
      .        /,'  Numerical grid............',l4
      .        /,'  Scalar advection scheme...',a

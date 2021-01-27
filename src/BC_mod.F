@@ -229,7 +229,21 @@ c     Exceptions for specific equilibria
         if (gamma > 1d0)
      .       where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 
-      case ('tbbr1','tbbr2','bpnch')        !No slip BCs, no pinch flow
+      case ('tbbr1','tbbr2')        !No slip BCs, no pinch flow
+
+        pinch_flow = .false.
+
+        where (bbcs(:,IVX) == DIR) bbcs(:,IVX) = EQU
+
+        !Dirichlet boundary conditions for tangential components in resistive MHD
+        where (bbcs(:,IVY) == NEU) bbcs(:,IVY) = EQU
+        where (bbcs(:,IVZ) == NEU) bbcs(:,IVZ) = EQU
+
+        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
+          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
+        endif
+
+      case ('bpnch','bpchT')        !No slip BCs, no pinch flow
 
         pinch_flow = .false.
 
@@ -242,7 +256,7 @@ c     Exceptions for specific equilibria
 c$$$        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
 c$$$          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 c$$$        endif
-        
+
       case ('vmec','tor','stell','gstor')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing

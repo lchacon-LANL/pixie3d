@@ -306,8 +306,8 @@ c     diff_def
 c     #############################################################
       function diff_def(te,rho,b2,te0) result(dfvty)
 c     -------------------------------------------------------------
-c     This function computes the perpendicular heat transport
-c     diffusivity for ELECTRON temperature value te.
+c     This function computes the particle diffusivity as a 
+c     function of Te, rho, B^2.
 c     -------------------------------------------------------------
 
       implicit none
@@ -6488,7 +6488,7 @@ c     Begin program
 
       if (chi_bgnskii) then
         b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
-        dfvty = chi*chi_perp_brag(te,te0_ref,rho,b2)
+        dfvty = min(chi*chi_perp_brag(te,te0_ref,rho,b2),1d-1)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -6629,8 +6629,8 @@ c     diff_ijk
 c     #################################################################
       function diff_ijk(g_def,i,j,k,igrid,te,rho,bcnv) result(dfvty)
 c     -----------------------------------------------------------------
-c     This function computes the local value of the heat diffusivity on
-c     the node (i,j,k) of grid igrid according to field.
+c     This function computes the local value of the particle diffusivity
+c     on the node (i,j,k) of grid igrid according to fields te, rho.
 c     -----------------------------------------------------------------
 
       implicit none
@@ -6662,8 +6662,8 @@ c     diff_mesh
 c     #############################################################
       function diff_mesh(g_def,igrid,te,rho,bcnv) result(dfvty)
 c     -------------------------------------------------------------
-c     This function computes the diffusivity on the grid level
-c     igrid.
+c     This function computes the particle diffusivity on the grid 
+c     level igrid.
 c     -------------------------------------------------------------
 
       implicit none
