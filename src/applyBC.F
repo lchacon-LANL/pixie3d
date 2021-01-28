@@ -237,7 +237,7 @@ cc        endif
 
       case(IPRS)
 
-c     Temperature BCs
+c     Temperature/pressure BCs
 
 c$$$cc        if (adiabatic.and.(.not.adiabatic_rho)) then
 c$$$        if (di>0d0) then
@@ -273,7 +273,7 @@ c$$$        else
           varray%array_var(IPRS)%array =varray%array_var(IPRS)%array*jac
           deallocate(s0)
 c$$$        endif
-        
+
       end select
 
 c End
@@ -361,7 +361,13 @@ c$$$     .              ,igr,igr,igr,iorder=order)
           if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_Te) then
-            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
+            if (solve_prs) then
+              s0 = u_n%array_var(IPRS)%array
+     .            /u_n%array_var(IRHO)%array/a_p
+            else
+              s0 = u_n%array_var(ITMPE)%array/jac
+            endif
+            eeta= res(gv%gparams,igr,s0)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
@@ -413,8 +419,8 @@ c$$$     .              ,igr,igr,igr,iorder=order)
 
 c       Temperature BCs
 
-          call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmpe_0
-     .              ,u_0%array_var(IPRS)%array
+          call setBC(gv%gparams,ITMPE,nnx,nny,nnz,tmpe_0
+     .              ,u_0%array_var(ITMPE)%array
      .              ,vaux%var_list(ITMPE_0)%bconds
      .              ,igr,igr,igr,iorder=order)
 
@@ -456,8 +462,8 @@ c$$$            call setBC(gv%gparams,IPRS,nnx,nny,nnz,tmp,s0
 c$$$     .                ,vaux%var_list(ITMP_AUX)%bconds
 c$$$     .                ,igr,igr,igr,iorder=order)
 c$$$          endif
-          
-cc          tmp = tmpe*a_p
+c$$$          
+c$$$          tmp = tmpe*a_p
 
         case(ITMPE_AUX)
 
@@ -813,6 +819,7 @@ cc          call XformVector_BC(gv%gparams,igr,vecnv,vecov,.false.)
 c       Hall electric field BC
 
           if (di > 0d0) then
+c$$$cc            prs1 = rho*tmpe*temp_ratio  !Ion pressure
 c$$$            prs1 = varray%array_var(IPRS)%array/jac*(a_p-1)  !Ion temperature
 c$$$            call XferBCs(grad(gv%gparams,igr,prs1),v0,.true.)
 c$$$
@@ -890,7 +897,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: v0
 
-      real(8),pointer,dimension(:,:,:) :: jac
+      real(8),pointer,dimension(:,:,:) :: jac,s0
 
 c Begin program
 
@@ -931,13 +938,21 @@ c Select variable
 
         case(ITMPE_0)
 
-          where (u_0%array_var(IRHO)%array /= 0d0)
-            tmpe_0 = u_0%array_var(IPRS)%array
-     .             /(u_0%array_var(IRHO)%array*a_p)
-          elsewhere
-            tmpe_0 = 0d0
-          end where
-
+          if (solve_prs) then
+            where (u_0%array_var(IRHO)%array /= 0d0)
+              tmpe_0 = u_0%array_var(IPRS)%array
+     .               /(u_0%array_var(IRHO)%array*a_p)
+            elsewhere
+              tmpe_0 = 0d0
+            end where
+          else
+            where (u_0%array_var(IRHO)%array /= 0d0)
+              tmpe_0 = u_0%array_var(ITMPE)%array/jac
+            elsewhere
+              tmpe_0 = 0d0
+            end where
+          endif
+        
           !Reference temperature for transport parameters
           if (spitzer.or.chi_bgnskii) then
             te0_ref = maxval(tmpe_0)
@@ -958,9 +973,15 @@ c       Resistivity at initial time
         case(IRHO_AUX)
 
           if (adiabatic_rho) then
-            rho = varray%array_var(IPRS)%array
-     .           /u_0   %array_var(IPRS)%array
-            rho = rho_0*(abs(rho))**(1d0/gamma)
+            if (solve_prs) then
+              rho = varray%array_var(IPRS)%array
+     .             /u_0   %array_var(IPRS)%array
+              rho = rho_0*(abs(rho))**(1d0/gamma)
+            else
+              rho = varray%array_var(ITMPE)%array
+     .             /u_0   %array_var(ITMPE)%array
+              rho = rho_0*(abs(rho))**(1d0/(gamma-1d0))
+            endif
           else
             rho = varray%array_var(IRHO)%array/jac
           endif
@@ -978,11 +999,17 @@ c$$$            tmpe = varray%array_var(IRHO)%array
 c$$$     .            /u_0   %array_var(IRHO)%array
 c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
           else
-            where (rho /= 0d0)
-              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
-            end where
+            if (solve_prs) then
+              where (rho /= 0d0)
+                tmpe = varray%array_var(IPRS )%array/(rho*jac*a_p)
+              end where
+            else
+              where (rho /= 0d0)
+                tmpe = varray%array_var(ITMPE)%array/jac
+              end where
+            endif
           endif
-          
+
         case(INU)
 
 c       Viscosity (needed for BCs; may depend on T)
@@ -996,7 +1023,15 @@ c       Resistivity (needed for BCs; may depend on T)
           if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_Te) then
-            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac)
+            allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
+            if (solve_prs) then
+              s0 = u_n%array_var(IPRS)%array
+     .            /u_n%array_var(IRHO)%array/a_p
+            else
+              s0 = u_n%array_var(ITMPE)%array/jac
+            endif
+            eeta= res(gv%gparams,igr,s0)
+            deallocate(s0)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif
@@ -1443,7 +1478,7 @@ c Local variables
 
       real(8) :: bbcov(3),bbcnv(3),b2,J0(3),E00(3),etal
 
-      real(8),pointer,dimension(:,:,:) :: jac
+      real(8),pointer,dimension(:,:,:) :: jac,s0
 
 c Begin program
 
@@ -1486,8 +1521,12 @@ c$$$          u_0%array_var(IPRS)%array = rho_0*tmp_0*jac
 
         case(ITMPE_0)
 
-c$$$          tmpe_0 = u_0%array_var(IPRS)%array
-c$$$     .           /(u_0%array_var(IRHO)%array*a_p)
+c$$$          if (solve_prs) then
+c$$$            tmpe_0 = u_0%array_var(IPRS)%array
+c$$$     .             /(u_0%array_var(IRHO)%array*a_p)
+c$$$          else
+c$$$            tmpe_0 = u_0%array_var(ITMPE)%array
+c$$$          endif
 
         case(IETA_0)
 
@@ -1499,7 +1538,7 @@ c       Resistivity at initial time
 
           varray%array_var(IRHO)%array = rho*jac
 
-        case(ITMP_AUX)  !Recover total pressure
+        case(ITMP_AUX)  !Recover total temperature
 
 c$$$          if (.not.adiabatic_rho) then
 c$$$            varray%array_var(IPRS)%array = rho*tmp*jac
@@ -1516,9 +1555,15 @@ c$$$            tmpe = varray%array_var(IRHO)%array
 c$$$     .            /u_0   %array_var(IRHO)%array
 c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
           else
-            where (rho /= 0d0)
-              tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
-            end where
+            if (solve_prs) then
+              where (rho /= 0d0)
+                tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
+              end where
+            else
+              where (rho /= 0d0)
+                tmpe = varray%array_var(ITMPE)%array/jac
+              end where
+            endif
           endif
 
         case(INU)
@@ -1534,7 +1579,15 @@ c       Resistivity (needed for BCs; may depend on T)
           if (fixed_Te) then
             eeta= res(gv%gparams,igr,tmpe_0)
           elseif (lagged_Te) then
-            eeta= res(gv%gparams,igr,u_n%array_var(IPRS)%array/jac/a_p)
+            allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
+            if (solve_prs) then
+              s0 = u_n%array_var(IPRS)%array
+     .            /u_n%array_var(IRHO)%array/a_p
+            else
+              s0 = u_n%array_var(ITMPE)%array/jac
+            endif
+            eeta= res(gv%gparams,igr,s0)
+            deallocate(s0)
           else
             eeta= res(gv%gparams,igr,tmpe)
           endif

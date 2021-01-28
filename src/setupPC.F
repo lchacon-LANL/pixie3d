@@ -122,7 +122,7 @@ c     Externals
 
         external   v_mtvc,v_mtvc2,v_mtvc_af,b_mtvc,rho_mtvc,tmp_mtvc
      .            ,mstar_mtvc,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
-     .            ,v_mtvc_hyp
+     .            ,v_mtvc_hyp,prs_mtvc
 
 c     Begin program
 
@@ -133,9 +133,14 @@ c     Density
 
 c     Temperature
 
-        call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,IPRS)
-     .                   ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
-
+        if (solve_prs) then
+         call find_mf_diag(gv%gparams,1,1,ntotdp,prs_mtvc,1,bcs(:,IPRS)
+     .                    ,prs_diag,sm_ncolors,vol_wgt,mg_glrkin)
+        else
+         call find_mf_diag(gv%gparams,1,1,ntotdp,tmp_mtvc,1,bcs(:,ITMPE)
+     .                    ,tmp_diag,sm_ncolors,vol_wgt,mg_glrkin)
+        endif
+        
         if (sm_type == 'gm') return
 
 c      Magnetic field

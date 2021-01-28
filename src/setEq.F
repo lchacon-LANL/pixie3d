@@ -141,7 +141,11 @@ c Label variables
         label(IVY)  = 'P^2'
       endif
       label(IVZ)  = 'P^3'
-      label(IPRS) = 'J.(pi+pe)'
+      if (solve_prs) then
+        label(IPRS) = 'J.(pi+pe)'
+      else
+        label(ITMPE) = 'J Te'
+      endif
 
 c Define boundary conditions for dependent variables
 
@@ -172,7 +176,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
 #if !defined(vec_pot)
         bb(:,:,:,1)  = 0d0
@@ -225,7 +229,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 0.5*beta/a_p  !Electron temperature
+        var(:,:,:,ITMPE) = 0.5*beta/a_p  !Electron temperature
 
         B0(1) = cos(phi)
         B0(2) = sin(phi)
@@ -254,7 +258,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IVX:IVZ) = 0d0
         var(:,:,:,IRHO) = 1d0
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
         do k = klom,khip
           do j = jlom,jhip
@@ -293,7 +297,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
 #if !defined(vec_pot)
         bb(:,:,:,1)  = 1d0
@@ -341,7 +345,7 @@ c     Uniform medium with constant magnetic field in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 0.5*beta/a_p
+        var(:,:,:,ITMPE) = 0.5*beta/a_p
 
 #if !defined(vec_pot)
         bb(:,:,:,1)  = 1d0
@@ -385,9 +389,9 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
      .             ,ig,jg,kg,x1,y1,z1)
 
 c$$$              var(i,j,k,IRHO) = 1d0 + eps*exp(-0.5*(x1-0.75)**2/sigma**2)
-c$$$              var(i,j,k,IPRS) = 1d0 - eps*exp(-0.5*(x1-0.75)**2/sigma**2)
+c$$$              var(i,j,k,ITMPE) = 1d0 - eps*exp(-0.5*(x1-0.75)**2/sigma**2)
               var(i,j,k,IRHO) = 1d0 +eps*exp(-0.5*(x1-x00)**2/sigma**2)
-              var(i,j,k,IPRS) = 1d0 -eps*exp(-0.5*(x1-x00)**2/sigma**2)
+              var(i,j,k,ITMPE) = 1d0 -eps*exp(-0.5*(x1-x00)**2/sigma**2)
 
             enddo
           enddo
@@ -427,7 +431,7 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
 
               y_char = 1./6.+0.5/0.866*x1
               var(i,j,k,IRHO) = 1d0+eps*0.5*(1d0+sign(1d0,y1-y_char))
-              var(i,j,k,IPRS) = 1d0-eps*0.5*(1d0+sign(1d0,y1-y_char))
+              var(i,j,k,ITMPE) = 1d0-eps*0.5*(1d0+sign(1d0,y1-y_char))
 
             enddo
           enddo
@@ -467,7 +471,7 @@ c     Opposite Gaussian perturbations in rho, T, uniform V, no B
           enddo
         enddo
 
-        var(:,:,:,IPRS) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p !Temperature
+        var(:,:,:,ITMPE) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p !Temperature
 
 #if !defined(vec_pot)
         bb = 0d0
@@ -498,7 +502,7 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
         do k = klom,khip
           do j = jlom,jhip
@@ -545,7 +549,7 @@ c     3D KHI w/ differential rotation (Knoll and Brackbill, PoP (2002))
 
         beta = 1d0
 
-        var(:,:,:,IPRS) = 0.5*beta/a_p  !Electron temperature
+        var(:,:,:,ITMPE) = 0.5*beta/a_p  !Electron temperature
 
 #if !defined(vec_pot)
         bb = curl(gv%gparams,igx,aa)
@@ -593,7 +597,7 @@ c     Kelvin-Helmholtz with constant magnetic field and pressure in cartesian co
         var(:,:,:,IRHO) = 1d0
 
         beta = 0.3d0
-        var(:,:,:,IPRS) = 0.5*beta/a_p
+        var(:,:,:,ITMPE) = 0.5*beta/a_p
 
         do k = klom,khip
           do j = jlom,jhip
@@ -642,7 +646,7 @@ c     in cartesian coordinates
         var(:,:,:,IRHO) = 1d0
 
         beta = 0.3d0
-        var(:,:,:,IPRS) = 0.5*beta/a_p
+        var(:,:,:,ITMPE) = 0.5*beta/a_p
 
         do k = klom,khip
           do j = jlom,jhip
@@ -710,7 +714,7 @@ c     Tearing mode in cartesian coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
         bz0 = 1d0
 
@@ -740,7 +744,7 @@ c     Tearing mode in sinusoidal coordinates
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d0
+        var(:,:,:,ITMPE) = 1d0
 
         bz0 = 1d0
 
@@ -804,7 +808,7 @@ c     GEM challenge
 
         beta = 1d0
 
-        var(:,:,:,IPRS) = 0.5*beta/a_p !Electron temperature required for force balance
+        var(:,:,:,ITMPE) = 0.5*beta/a_p !Electron temperature required for force balance
 
         if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
           hlx = xmax
@@ -852,7 +856,7 @@ c     Kai TM test
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,IPRS) = 1d0 !Electron pressure
+        var(:,:,:,ITMPE) = 1d0 !Electron pressure
 
         do k = klom,khip
           do j = jlom,jhip
@@ -898,7 +902,7 @@ c     Tearing mode in cartesian coordinates
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,IPRS) = 0.5d0  !Electron temperature
+        var(:,:,:,ITMPE) = 0.5d0  !Electron temperature
 
         do k = klom,khip
           do j = jlom,jhip
@@ -935,7 +939,7 @@ c     Check coordinates
          var(:,:,:,IVZ)  = 0d0
 
          beta=1.0d0 ! For force balance in Hesse equilibrium
-         var(:,:,:,IPRS) = 1.0*beta/a_p !Electron temperature required for force balance
+         var(:,:,:,ITMPE) = 1.0*beta/a_p !Electron temperature required for force balance
 
          if (bcond(1) /= FSYM .and. bcond(2) == FSYM) then
            hlx = xmax
@@ -945,7 +949,7 @@ c     Check coordinates
            hlx = 0.5d0*(xmax+xmin)
          endif
 
-         var(:,:,:,IPRS) = beta/a_p !Electron temperature required for force balance
+         var(:,:,:,ITMPE) = beta/a_p !Electron temperature required for force balance
 
          do k = klom,khip
            do j = jlom,jhip
@@ -1017,7 +1021,7 @@ c     Island coalescence in cartesian coordinates
               call getCartesianCoordinates(gv%gparams,i,j,k,igx,igy,igz
      .             ,ig,jg,kg,x1,y1,z1)
 
-             var(i,j,k,IPRS)=(p0 + 0.5*(1-eps**2)
+             var(i,j,k,ITMPE)=(p0 + 0.5*(1-eps**2)
      $                       /(    cosh(x1/dlambda)
      $                        +eps*cos (y1/dlambda))**2)
      $                       /a_p/var(i,j,k,IRHO)
@@ -1054,7 +1058,7 @@ c     Island coalescence in cartesian coordinates
         var(:,:,:,IVY)  = 0d0
         var(:,:,:,IVZ)  = 0d0
 
-        var(:,:,:,IPRS) = 0.5*beta/a_p
+        var(:,:,:,ITMPE) = 0.5*beta/a_p
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1141,7 +1145,7 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
               bb(i,j,k,2)  = btheta
               bb(i,j,k,3)  = x1*bz0
 
-              var(i,j,k,IPRS) = 1d-5
+              var(i,j,k,ITMPE) = 1d-5
      .                     + 1/16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
 
             enddo
@@ -1189,7 +1193,7 @@ cc        var(:,:,:,IVZ)  = 0d0
 cc
 cc        var(:,:,:,IRHO) = 1d0
 cc
-cc        var(:,:,:,IPRS) = 1d-5
+cc        var(:,:,:,ITMPE) = 1d-5
 cc
 cc        do k = klom,khip
 cc          do j = jlom,jhip
@@ -1257,7 +1261,7 @@ cc        nh3 = kk*RR    !To set the right perturbation wavelength
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d-5
+        var(:,:,:,ITMPE) = 1d-5
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1335,7 +1339,7 @@ c     RFP equilibria (analytical)
               bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+              var(i,j,k,ITMPE) = p00(iglobal)/a_p/n00(iglobal)
 
               var(i,j,k,IRHO) = n00(iglobal)
             enddo
@@ -1375,7 +1379,7 @@ c$$$        endif
         var(:,:,:,IVZ)  = 0d0
 
         beta = 1d0/bz0**2
-        var(:,:,:,IPRS) = 0.5*beta/a_p !Electron temperature required for force balance
+        var(:,:,:,ITMPE) = 0.5*beta/a_p !Electron temperature required for force balance
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1427,6 +1431,91 @@ c$$$        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
         find_a = fillVectorPotential(igx,aa)
 #endif
 
+      case ('bpchT')  !BENNET SCREW PINCH BALANCED BY TEMPERATURE
+
+c     Check coordinates
+
+        if (coords /= 'hel' .and. coords /= 'cyl' ) then
+          messg = 'Wrong coordinates for equilibrium '//equil
+          call pstop('setEquilibrium',messg)
+        endif
+
+c     RFP equilibria (analytical)
+
+        mm = gv%gparams%params(1) ! Azimuthal mode number.
+        kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
+        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
+        a1 = gv%gparams%params(4) ! Radius of q=1 surface.
+        
+        if (coords == 'hel') then
+           nh2 = mm             ! To set the right perturbation wavelength
+           nh1 = nh2            ! For perturbations to be of the right order
+        end if
+
+        bz0 = RR/(1d0 + (a1/dlambda)**2)/dlambda
+
+c$$$        if (my_rank == 0) then
+c$$$          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,a1,dlambda,bz0
+c$$$        endif
+
+        !Build equilibrium
+        var(:,:,:,IVX)  = 0d0
+        var(:,:,:,IVY)  = 0d0
+        var(:,:,:,IVZ)  = 0d0
+
+        var(:,:,:,IRHO) = 1d0 !Electron temperature required for force balance
+
+        beta = 1d0/bz0**2
+        do k = klom,khip
+          do j = jlom,jhip
+             do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
+     .                              ,coords)
+
+              var(i,j,k,ITMPE) = 0.5*beta/a_p/(1d0+(r1/dlambda)**2)**2
+            enddo
+          enddo
+        enddo
+
+#if !defined(vec_pot)
+        do k = klom,khip
+          do j = jlom,jhip
+            do i = ilom,ihip
+              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+     .                              ,coords)
+
+              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0  !Normalize to Bz0=1d0
+
+              bb(i,j,k,1)  = 0d0
+              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
+              bb(i,j,k,3)  = jac1
+            enddo
+          enddo
+        enddo
+c$$$        do k = klom,khip
+c$$$          do j = jlom,jhip
+c$$$            do i = ilom,ihip
+c$$$              call find_polar_coords(gv%gparams,igr,i,j,k,r1,y1,z1
+c$$$     .                              ,coords)
+c$$$
+c$$$              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)/bz0
+c$$$
+c$$$              ! Calculate in Cartesian, then call XformVector_mesh2
+c$$$              ! to calculate curvilinear and include the effects of packing.
+c$$$              bb(i,j,k,1) =-btheta*sin(y1)
+c$$$              bb(i,j,k,2) = btheta*cos(y1)
+c$$$              bb(i,j,k,3) = 1d0
+c$$$            enddo
+c$$$          enddo
+c$$$        enddo
+c$$$
+c$$$        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
+#else
+        find_a = fillVectorPotential(igx,aa)
+#endif
+        
       case ('2dtok')
 
 c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
@@ -1454,7 +1543,7 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
 
         var(:,:,:,IRHO) = 1d0
 
-        var(:,:,:,IPRS) = 1d-3
+        var(:,:,:,ITMPE) = 1d-3
 
         do k = klom,khip
           do j = jlom,jhip
@@ -1541,7 +1630,7 @@ c     Tokamak equilibria (analytical)
               bb(i,j,k,2)=jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3)=jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/n00(iglobal)
+              var(i,j,k,ITMPE) = p00(iglobal)/a_p/n00(iglobal)
 
               var(:,:,:,IRHO) = n00(iglobal)
 
@@ -1564,7 +1653,7 @@ c$$$              bb(i,j,k,1)  = 0d0
 c$$$              bb(i,j,k,2)  = jac1*(btheta/x1 + kk/mm*bz0)
 c$$$              bb(i,j,k,3)  = jac1*bz0
 c$$$
-c$$$              var(i,j,k,IPRS) = 1d0
+c$$$              var(i,j,k,ITMPE) = 1d0
 c$$$     .                    + 1./16.*(Iz*dlambda/(1+(x1/dlambda)**2))**2
 c$$$            enddo
 c$$$          enddo
@@ -1648,7 +1737,7 @@ cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
 
                 var(i,j,k,IRHO) = n00(iglobal)
 
-                var(i,j,k,IPRS) = p00(iglobal)/(n00(iglobal)*a_p)
+                var(i,j,k,ITMPE) = p00(iglobal)/(n00(iglobal)*a_p)
               enddo
             enddo
           enddo
@@ -1684,7 +1773,7 @@ cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
 
                 var(i,j,k,IRHO) = n00(iglobal)
 
-                var(i,j,k,IPRS) = p00(iglobal)/(n00(iglobal)*a_p)
+                var(i,j,k,ITMPE) = p00(iglobal)/(n00(iglobal)*a_p)
 
               enddo
             enddo
@@ -1748,7 +1837,7 @@ c     Equilibria (numerical)
               bb(i,j,k,2) = jac1*(mm*bth0(iglobal)/x1+kk*bzz0(iglobal))
               bb(i,j,k,3) = jac1*bzz0(iglobal)
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+              var(i,j,k,ITMPE) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
             enddo
           enddo
@@ -1796,7 +1885,7 @@ cc        var(:,:,:,IVZ)  = 0d0
 cc
 cc        var(:,:,:,IRHO) = 1d0
 cc
-cc        var(:,:,:,IPRS) = 1d-3
+cc        var(:,:,:,ITMPE) = 1d-3
 cc
 cc        do k = klom,khip
 cc          do j = jlom,jhip
@@ -1873,9 +1962,9 @@ c     Other equilibrium quantities
 
         !Transform to e temperature
         where (var(:,:,:,IRHO) /= 0d0)
-          var(:,:,:,IPRS) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
+          var(:,:,:,ITMPE) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
         elsewhere
-          var(:,:,:,IPRS) = 0d0
+          var(:,:,:,ITMPE) = 0d0
         end where
 #endif
 
@@ -1928,9 +2017,9 @@ c     Other equilibrium quantities
 
         !Transform to e temperature
         where (var(:,:,:,IRHO) /= 0d0)
-          var(:,:,:,IPRS) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
+          var(:,:,:,ITMPE) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
         elsewhere
-          var(:,:,:,IPRS) = 0d0
+          var(:,:,:,ITMPE) = 0d0
         end where
 
 c     ------------------------------------------
@@ -2063,11 +2152,14 @@ cc              var(i,j,k,IVX:IVZ)=0d0
 
               var(i,j,k,IRHO) = 1d0
 
-              var(i,j,k,IPRS) = prsw
+              var(i,j,k,ITMPE) = prsw/a_p
             enddo
           enddo
         enddo
 
+        write (*,*) "Check prsw definition and assignment above"
+        stop
+        
 #if !defined(vec_pot)
         call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
 #endif
@@ -2216,7 +2308,7 @@ c$$$          endif
                 var(i,j,k,IRHO) = 1d0
               endif
 
-              var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+              var(i,j,k,ITMPE) = p00(iglobal)/a_p/var(i,j,k,IRHO)
 
 cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
@@ -2284,7 +2376,7 @@ c     Helical equilibria
 c     Density and temperature
 
         var(:,:,:,IRHO) = 1d0
-        var(:,:,:,IPRS) = 1d-5
+        var(:,:,:,ITMPE) = 1d-5
 
 c     Magnetic field
 
@@ -2459,9 +2551,9 @@ cc        stop
               endif
 
               if (equil == 'ppn3d') then
-                var(i,j,k,IPRS) = 1d-5
+                var(i,j,k,ITMPE) = 1d-5
               else
-                var(i,j,k,IPRS) = p00(iglobal)/a_p/var(i,j,k,IRHO)
+                var(i,j,k,ITMPE) = p00(iglobal)/a_p/var(i,j,k,IRHO)
               endif
 
 cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
@@ -2511,7 +2603,7 @@ c     Ideal GS equilibrium
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
         var(:,:,:,IPRS) = var(:,:,:,IPRS) + prsw
-        var(:,:,:,IPRS) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
+        var(:,:,:,ITMPE) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
 
       case ('ohtor')
 
@@ -2581,7 +2673,7 @@ c     Ohmic GS equilibrium
         !Fill other arrays
         var(:,:,:,IRHO) = 1d0
         var(:,:,:,IPRS) = var(:,:,:,IPRS) + prsw
-        var(:,:,:,IPRS) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
+        var(:,:,:,ITMPE) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
 
       case ('stell')
 
@@ -2641,10 +2733,10 @@ c$$$
 c$$$        !Fill other arrays
 c$$$        var(:,:,:,IRHO) = 1d0
 c$$$        var(:,:,:,IPRS) = var(:,:,:,IPRS) + prsw
-c$$$        var(:,:,:,IPRS) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
+c$$$        var(:,:,:,ITMPE) = var(:,:,:,IPRS)/a_p/var(:,:,:,IRHO)
 
         var(:,:,:,IRHO) = 1d0
-        var(:,:,:,IPRS) = 0d0
+        var(:,:,:,ITMPE) = 0d0
         bb = 0d0
         var(:,:,:,IVX) = 0d0
         var(:,:,:,IVY) = 0d0
@@ -2671,7 +2763,9 @@ c Transfer magnetic field/vector potential
 
 c Find total pressure
 
-      var(:,:,:,IPRS) = a_p*var(:,:,:,IPRS)*var(:,:,:,IRHO)
+      if (solve_prs) then
+        var(:,:,:,IPRS) = a_p*var(:,:,:,ITMPE)*var(:,:,:,IRHO)
+      endif
 
 c Find momentum components
 
@@ -7371,7 +7465,7 @@ cc              a(i,j,k,3) = 0d0  !<<<DIAG
           enddo
         enddo
 
-      case ('bpnch')
+      case ('bpnch','bpchT')
 
         cartsn = .true.
         

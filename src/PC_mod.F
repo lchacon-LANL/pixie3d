@@ -124,7 +124,7 @@ c ######################################################################
         !PC storage
         real(8), allocatable, dimension(:,:) :: rho_diag,tmp_diag
      .                                         ,v_diag,v_diag_hyp
-     .                                         ,v_diag2
+     .                                         ,v_diag2,prs_diag
      .                                         ,b_diag,b_diag_hyp
      .                                         ,a_diag,a_diag_hyp
 
@@ -167,8 +167,13 @@ c     Begin program
         allocate (bcs(6,neqd+6),bcs_hyp(6,6))
 #endif
 
+        if (solve_prs) then
+          allocate (prs_diag(1,  ntotd2p))
+        else
+          allocate (tmp_diag(1,  ntotd2p))
+        endif
+        
         allocate (rho_diag(1,  ntotd2p)
-     .           ,tmp_diag(1,  ntotd2p)
 #if !defined(vec_pot)
      .           ,b_diag    (3,3*ntotd2p)
      .           ,b_diag_hyp(6,6*ntotd2p)
@@ -227,7 +232,13 @@ c     Begin program
 
         deallocate (bcs,bcs_hyp)
 
-        deallocate (rho_diag,tmp_diag  
+        if (solve_prs) then
+          deallocate(prs_diag)
+        else
+          deallocate(tmp_diag)
+        endif
+        
+        deallocate (rho_diag
 #if !defined(vec_pot)
      .             ,b_diag,b_diag_hyp
 #else
@@ -522,11 +533,11 @@ c     Store density in all grids (w/o BCs)
         call restrictMGArray(IRHO,1,grho0,bc_pc(:,IRHO),igrid,order
      .                      ,order_bc=order_bc)
 
-c     Store total temperature (w/ BCs)
+c     Store electron temperature (w/ BCs)
 
-        gtmp0%grid(igrid)%array(:,:,:,1) = tmp
+        gtmp0%grid(igrid)%array(:,:,:,1) = tmpe
 
-        call restrictMGArray(IPRS,1,gtmp0,bc_pc(:,IPRS),igrid,order
+        call restrictMGArray(ITMPE,1,gtmp0,bc_pc(:,ITMPE),igrid,order
      .                      ,order_bc=order_bc)
 
 c     Store pressure (w/ BCs)
@@ -2049,6 +2060,19 @@ cc        endif
 
       crhs = alpha*crhs
 
+      if (.not.solve_prs) then
+        do k = 1,nz
+          do j = 1,ny
+            do i = 1,nx
+
+              ii  = i + nx*(j-1) + nx*ny*(k-1)
+
+              crhs(ii) = crhs(ii)/(rho0(i,j,k,1)*a_p)
+            enddo
+          enddo
+        enddo
+      endif
+      
 c     End program
 
       nullify(tmp0,rho0,j0,eta0,ve0,p0)
@@ -2084,7 +2108,7 @@ c     Local variables
       real(8) :: cov(3),cnv(3),idx,idy,idz,eom_rhs(nn,3)
 
       real(8),allocatable,dimension(:,:,:,:),target :: dpe,drho,vdum
-      real(8),pointer    ,dimension(:,:,:,:) :: j0,rho0,tmp0,Eh0
+      real(8),pointer    ,dimension(:,:,:,:) :: j0,rho0,tmpe0,Eh0
 
 c     Begin program
 
@@ -2100,7 +2124,7 @@ c     Auxiliary variables
 
       call point_to_MG_array(nx,ny,nz,igrid,rho0 ,grho0)
       call point_to_MG_array(nx,ny,nz,igrid,j0   ,gj0)
-      call point_to_MG_array(nx,ny,nz,igrid,tmp0 ,gtmp0)
+      call point_to_MG_array(nx,ny,nz,igrid,tmpe0,gtmp0)
       call point_to_MG_array(nx,ny,nz,igrid,Eh0  ,gEh0_cov)
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
@@ -2110,10 +2134,15 @@ cc      vdum(:,:,:,1) = di*j0(:,:,:,1)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,2) = di*j0(:,:,:,2)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 cc      vdum(:,:,:,3) = di*j0(:,:,:,3)/rho0(:,:,:,1)**2*drho(:,:,:,1)
 
-      call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dpe
-     .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
-
-      dpe  = dpe/a_p
+      if (solve_prs) then
+        call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dpe
+     .                ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
+        dpe  = dpe/a_p
+      else
+        call fillArray(gv%gparams,igrid,1,xxx(:,ITMPE:ITMPE),dpe
+     .                ,bcs(:,ITMPE:ITMPE),order_bc,icomp=(/ITMPE/))
+        dpe = rho0*dpe
+      endif
 
 c     Find rhs_a
 

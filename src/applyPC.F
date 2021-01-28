@@ -32,17 +32,16 @@ c Call variables
 
 c Local variables
 
-      integer :: i,j,k,ieq,ii,iii,guess
-     .          ,igx,igy,igz,nx,ny,nz
+      integer :: i,j,k,ieq,ii,iii,guess,igx,igy,igz,nx,ny,nz
 
       real(8) :: dvol,car(3),cnv(3),omg
      .          ,r(nn*neq),x(nn*neq),rrr(nn,neq),dxxx(nn,neq)
 
 c Externals
 
-      external   tmp_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
+      external   prs_mtvc,rho_mtvc,b_mtvc,v_mtvc,v_mtvc2,test_mtvc
      .          ,v_mtvc_af,hall_mtvc,a_mtvc,b_mtvc_hyp,a_mtvc_hyp
-     .          ,v_mtvc_hyp,a_mtvc2
+     .          ,v_mtvc_hyp,a_mtvc2,tmp_mtvc
 
 c Begin program
 
@@ -434,7 +433,27 @@ c       Temperature
         if (vol_wgt) call scaleVec(gv%gparams,igrid,1,dum,'mul')
         dum = rhs(:,IPRS) - dum
 
-        call cSolver(gv%gparams,1,nn,dum,x(:,IPRS),bcs(:,IPRS)
+        if (solve_prs) then
+          call cSolver(gv%gparams,1,nn,dum,x(:,IPRS),bcs(:,IPRS)
+     .            ,igrid,iout,guess,prs_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = prs_diag
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
+     .            )
+        else
+          call cSolver(gv%gparams,1,nn,dum,x(:,ITMPE),bcs(:,ITMPE)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -452,7 +471,8 @@ c       Temperature
      .            ,sm_zebra_relax= sm_zebra_relax
      .            ,sm_zebra_it   = sm_zebra_it
      .            )
-
+        endif
+        
 c       Magnetic field/vector potential
 
 #if defined(vec_pot)
@@ -772,8 +792,13 @@ c     Begin program
 
         call diagonalScaling(gv%gparams,igrid,rho_diag,rhs(:,IRHO:IRHO)
      .                      ,x(:,IRHO:IRHO))
-        call diagonalScaling(gv%gparams,igrid,tmp_diag,rhs(:,IPRS:IPRS)
-     .                      ,x(:,IPRS:IPRS))
+        if (solve_prs) then
+          call diagonalScaling(gv%gparams,igrid,prs_diag
+     .                        ,rhs(:,IPRS:IPRS),x(:,IPRS:IPRS))
+        else
+          call diagonalScaling(gv%gparams,igrid,tmp_diag
+     .                        ,rhs(:,ITMPE:ITMPE),x(:,ITMPE:ITMPE))
+        endif
 #if defined(vec_pot)
         call diagonalScaling(gv%gparams,igrid,a_diag  ,rhs(:,IAX:IAZ)
      .                      ,x(:,IAX:IAZ))
@@ -1285,9 +1310,9 @@ c Local variables
      .                                     ,da_cov                           
 #endif
 
-      real(8),pointer,dimension(:,:,:,:)   :: rho0,tmp0,bcov0,bcnv0
+      real(8),pointer,dimension(:,:,:,:)   :: rho0,bcov0,bcnv0
      .                                       ,jcnv0,jcov0,vcnv0
-     .                                       ,heta0,eta0
+     .                                       ,heta0,eta0,tmpe0
 
 c Begin program
 
@@ -1304,7 +1329,7 @@ c Begin program
       endif
 
       rho0  => grho0  %grid(igrid)%array
-      tmp0  => gtmp0  %grid(igrid)%array
+      tmpe0 => gtmp0  %grid(igrid)%array
       vcnv0 => gv0    %grid(igrid)%array
       bcnv0 => gb0    %grid(igrid)%array
       bcov0 => gb0_cov%grid(igrid)%array
@@ -1338,10 +1363,13 @@ c Allocate variables
 c Find drho, dprs arrays with BCs
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
-     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+     .             ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+
       call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
      .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
 
+      if (.not.solve_prs) dprs = a_p*(tmpe0*drho + dprs*rho0)
+      
 #if !defined(vec_pot)
 c Find dB* (w/ BCs)
 
@@ -1505,7 +1533,7 @@ c Find rhs_v'
 
 c Free memory
 
-      nullify(rho0,tmp0,bcov0,bcnv0,jcnv0,jcov0,vcnv0)
+      nullify(rho0,bcov0,bcnv0,jcnv0,jcov0,vcnv0)
 
       deallocate(dj_cnv
      .          ,dj_cov
