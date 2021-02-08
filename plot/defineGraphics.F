@@ -347,7 +347,7 @@ c Define graphics group #3: Cartesian variables
 
       if (solve_prs) then
         graph(3)%array_graph(IPRS)%array=> p_tot
-        graph(3)%array_graph(IPRS)%descr=  'Prs'
+        graph(3)%array_graph(IPRS)%descr=  'pi+pe'
       else
         graph(3)%array_graph(IPRS)%array
      .       =>gv%aux%var_list(ITMPE_AUX)%array
@@ -404,10 +404,15 @@ c Define graphics group #3: Cartesian variables
       graph(3)%array_graph(IRHO)%array=> gv%aux%var_list(IRHO_AUX)%array
       graph(3)%array_graph(IRHO)%descr=  gv%aux%var_list(IRHO_AUX)%descr
 
-c$$$      graph(3)%array_graph(IPRS)%array=> gv%aux%var_list(ITMP_AUX)%array
-c$$$      graph(3)%array_graph(IPRS)%descr=  gv%aux%var_list(ITMP_AUX)%descr
-      graph(3)%array_graph(IPRS)%array=> p_tot
-      graph(3)%array_graph(IPRS)%descr=  'pi+pi'
+      if (solve_prs) then
+        graph(3)%array_graph(IPRS)%array=> p_tot
+        graph(3)%array_graph(IPRS)%descr=  'pi+pe'
+      else
+        graph(3)%array_graph(IPRS)%array
+     .       =>gv%aux%var_list(ITMPE_AUX)%array
+        graph(3)%array_graph(IPRS)%descr
+     .       = gv%aux%var_list(ITMPE_AUX)%descr
+      endif
 
       graph(3)%array_graph(IVX)%array => vx_car
       graph(3)%array_graph(IVX)%descr = 'Vx'
@@ -499,30 +504,33 @@ c Define graphics group #4: Diagnostics
       graph(4)%array_graph(5)%array => cchi_par
       graph(4)%array_graph(5)%descr = 'chi par'
 
-      graph(4)%array_graph(6)%array => divrgB
-      graph(4)%array_graph(6)%descr = 'local div(B)'
+      graph(4)%array_graph(6)%array => h_eta
+      graph(4)%array_graph(6)%descr = 'h_eta'
+                            
+      graph(4)%array_graph(7)%array => divrgB
+      graph(4)%array_graph(7)%descr = 'local div(B)'
+                            
+      graph(4)%array_graph(8)%array => divrgV
+      graph(4)%array_graph(8)%descr = 'local div(V)'
+                            
+      graph(4)%array_graph(9)%array => divrgJ
+      graph(4)%array_graph(9)%descr = 'local div(J)'
 
-      graph(4)%array_graph(7)%array => divrgV
-      graph(4)%array_graph(7)%descr = 'local div(V)'
+      graph(4)%array_graph(10)%array => Pflux
+      graph(4)%array_graph(10)%descr = 'Poloidal flux'
 
-      graph(4)%array_graph(8)%array => divrgJ
-      graph(4)%array_graph(8)%descr = 'local div(J)'
+      graph(4)%array_graph(11)%array => qfactor
+      graph(4)%array_graph(11)%descr = 'q factor'
 
-      graph(4)%array_graph(9)%array => Pflux
-      graph(4)%array_graph(9)%descr = 'Poloidal flux'
-
-      graph(4)%array_graph(10)%array => qfactor
-      graph(4)%array_graph(10)%descr = 'q factor'
-
-      graph(4)%array_graph(11)%array => lambda
-      graph(4)%array_graph(11)%descr = 'lambda'
+      graph(4)%array_graph(12)%array => lambda
+      graph(4)%array_graph(12)%descr = 'lambda'
 
       if (solve_prs) then
-        graph(4)%array_graph(12)%array => tmp
-        graph(4)%array_graph(12)%descr = 'Ti+Te'
+        graph(4)%array_graph(13)%array => tmp
+        graph(4)%array_graph(13)%descr = 'Ti+Te'
       else
-        graph(4)%array_graph(12)%array => p_tot
-        graph(4)%array_graph(12)%descr = 'pi+pe'
+        graph(4)%array_graph(13)%array => p_tot
+        graph(4)%array_graph(13)%descr = 'pi+pe'
       endif
 c$$$      graph(4)%array_graph(13)%array => vpar
 c$$$      graph(4)%array_graph(13)%descr = 'V||'
@@ -534,29 +542,29 @@ c$$$      graph(4)%array_graph(15)%array => vperp
 c$$$      graph(4)%array_graph(15)%descr = 'V.(b x grad(psi))'
 
       if (di > 0d0) then
-        graph(4)%array_graph(13)%array => jpar
-        graph(4)%array_graph(13)%descr = 'Eh_1'
+        graph(4)%array_graph(14)%array => dumx
+        graph(4)%array_graph(14)%descr = 'Eh_1'
 
-        graph(4)%array_graph(14)%array => jpsi
-        graph(4)%array_graph(14)%descr = 'Eh_2'
+        graph(4)%array_graph(15)%array => dumy
+        graph(4)%array_graph(15)%descr = 'Eh_2'
 
-        graph(4)%array_graph(15)%array => jperp
-        graph(4)%array_graph(15)%descr = 'Eh_3'
+        graph(4)%array_graph(16)%array => dumz
+        graph(4)%array_graph(16)%descr = 'Eh_3'
       else
-        graph(4)%array_graph(13)%array => jpar
-        graph(4)%array_graph(13)%descr = 'E_1'
+        graph(4)%array_graph(14)%array => dumx
+        graph(4)%array_graph(14)%descr = 'E_1'
 
-        graph(4)%array_graph(14)%array => jpsi
-        graph(4)%array_graph(14)%descr = 'E_2'
+        graph(4)%array_graph(15)%array => dumy
+        graph(4)%array_graph(15)%descr = 'E_2'
 
-        graph(4)%array_graph(15)%array => jperp
-        graph(4)%array_graph(15)%descr = 'E_3'
+        graph(4)%array_graph(16)%array => dumz
+        graph(4)%array_graph(16)%descr = 'E_3'
       endif
 
-      graph(4)%array_graph(16)%array => heat_src
-      graph(4)%array_graph(16)%descr = 'Int. heat src'
+      graph(4)%array_graph(17)%array => heat_src
+      graph(4)%array_graph(17)%descr = 'Int. heat src'
 
-      graph(4)%array_graph(17:ngraph)%descr = ''
+      graph(4)%array_graph(18:ngraph)%descr = ''
 
 cc      sel_gr(4,:) = (/ (i,i=6,14) /)
 cc      sel_gr(4,:) = (/ (i,i=1,9) /)

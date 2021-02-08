@@ -1925,7 +1925,11 @@ c     Begin program
         endif
 
         if (bcs(1) == PER) then
-          ff = cos(nh*2*pi*(x-xmin)/(xmax-xmin))
+          if (odd) then
+            ff = sin(nh*2*pi*(x-xmin)/(xmax-xmin))
+          else
+            ff = cos(nh*2*pi*(x-xmin)/(xmax-xmin))
+          endif
         elseif (random) then
           call random_number(ff)
         elseif (neumann(1) .and. neumann(2)) then
