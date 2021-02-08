@@ -327,15 +327,18 @@ cc            endif
 c Hall electric field components (covariant)
 
       if (di > 0d0) then
-        jpar  = di*E_h(:,:,:,1)
-        jpsi  = di*E_h(:,:,:,2)
-        jperp = di*E_h(:,:,:,3)
+        dumx  = di*E_h(:,:,:,1)
+        dumy  = di*E_h(:,:,:,2)
+        dumz  = di*E_h(:,:,:,3)
       else
-        jpar  = E_ni(:,:,:,1)
-        jpsi  = E_ni(:,:,:,2)
-        jperp = E_ni(:,:,:,3)
+        dumx  = E_ni(:,:,:,1)
+        dumy  = E_ni(:,:,:,2)
+        dumz  = E_ni(:,:,:,3)
       endif
 
+      call transformVector(gv%gparams,igx,igy,igz,0,nx+1,0,ny+1,0,nz+1
+     .                    ,dumx,dumy,dumz,'cov','car')
+      
 c Ohm's law diagnostic
 
 cc      write (*,*) 'Current',J0

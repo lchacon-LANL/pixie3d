@@ -825,7 +825,7 @@ c ######################################################################
      .         ,vx_car,vy_car,vz_car
      .         ,divrgB,divrgJ,divrgV,Pflux
      .         ,qfactor,lambda,p_tot
-     .         ,vpar,vpsi,vperp,jpar,jpsi,jperp
+     .         ,vpar,vpsi,vperp,dumx,dumy,dumz
 
         real(8),target,allocatable,dimension(:,:,:) ::
      .          bx_cov,by_cov,bz_cov
@@ -889,9 +889,9 @@ c     ##################################################################
      .         ,vpar  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vpsi  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,vperp (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,jpar  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,jpsi  (ilom:ihip,jlom:jhip,klom:khip)
-     .         ,jperp (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,dumx  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,dumy  (ilom:ihip,jlom:jhip,klom:khip)
+     .         ,dumz  (ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgB(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgJ(ilom:ihip,jlom:jhip,klom:khip)
      .         ,divrgV(ilom:ihip,jlom:jhip,klom:khip)
@@ -924,7 +924,7 @@ c     ##################################################################
       deallocate (bx_car,by_car,bz_car,jx_car,jy_car,jz_car
      .           ,vx_car,vy_car,vz_car,vpar,vpsi,vperp 
      .           ,divrgB,divrgJ,divrgV,Pflux,p_tot
-     .           ,jpar,jpsi,jperp,heat_src)
+     .           ,dumx,dumy,dumz,heat_src)
 
       deallocate (qfactor,lambda)
 
@@ -6458,7 +6458,7 @@ c$$$        endif
      .                           ,bcnv(i,j,k,:))
 
               !h_res = C*rho*v_a*k||/k^3/di (This will be multiplied by di^2 through ve and di*Ehall)
-              h_res(i,j,k) = 5d0*sqrt(rho(i,j,k))*abs(bk_par)/kk**3/di
+              h_res(i,j,k)=5d0*sqrt(rho(i,j,k))*abs(bk_par)*kk**(-3)/di
             enddo
           enddo
         enddo
