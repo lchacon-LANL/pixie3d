@@ -5854,19 +5854,7 @@ c     Resistive term
 
         !Ohmic current
         if (vlap_etaj) then
-c$$$          E_res = -veclap(g_def,igr,acnv,alt_eom=.false.)
-c$$$          E_res = XformToCov(g_def,igr,E_res)  !Worse than veclap_cov
-c$$$          ============
-c$$$          E_res = -veclap_cnv(g_def,igr,acnv)
-c$$$          E_res = XformToCov(g_def,igr,E_res)  !Does not finish simulation
-c$$$          ============
-          E_res =-veclap_cov(g_def,igr,acov) !Finishes sim, but strong issues at origin in rho, p
-c$$$          ============
-c$$$          E_res = curlcurl_cov(g_def,igr,acov)  !Finishes sim, but strong issues at origin in rho, p
-c$$$          ============
-c$$$          E_res = curlcurl(g_def,igr,acnv,acov,.false.)
-c$$$          ============
-c$$$          E_res(:,:,:,1) = jcov(:,:,:,1)          !Fixes all issues at origin
+          E_res =-veclap_cov(g_def,igr,acov)!,clean=.true.) !Finishes sim, but issues at origin in rho, p
         else
           E_res = jcov
         endif
