@@ -165,7 +165,7 @@ c     --------------------------------------------
         call vlapchk(gv%gparams,iigx,1)
         call vlapchk(gv%gparams,iigx,2)
         
-        stop
+        stop "Finished vlpck test"
 
 c     --------------------------------------------
 c     ---------------  WAVE TESTS ----------------
