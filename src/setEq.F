@@ -1659,7 +1659,7 @@ c$$$            enddo
 c$$$          enddo
 c$$$        enddo
 
-      case ('rfp83','vela1','vela2','tbbr1','tbbr2')
+      case ('rfp83','vela1','vela2','tbbr1','tbbr2','liu20')
 
 c     Check coordinates
 
@@ -1667,6 +1667,11 @@ c     Check coordinates
           messg = 'Wrong coordinates for equilibrium '//equil
           call pstop('setEquilibrium',messg)
         endif
+
+c$$$     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
+
+c$$$        bz0  = 1d0
+c$$$        beta = 4d-5
 
         mm   = gv%gparams%params(1) !Poloidal mode number
         kk   = gv%gparams%params(2) !Helical paramter (-nn/RR, nn-> toroidal mode number)
@@ -1690,17 +1695,12 @@ cc     .          //'Check adiab,Ti/Te,solve_rho,use_p_eom=T,1.0,T,F'
           call pstop('setEquilibrium',messg)
         endif
 
-c$$$     RFP EQUILIBRIA (Caramana et al, PoP, 1983)
-
-c$$$        bz0  = 1d0
-c$$$        beta = 4d-5
-
         call find_global_radial_mesh(rg)
 
         do i=0,nxdp
           x1  = rg(i)
           p00(i) = 0.5*beta*bz0**2*pprof(x1,0)/pprof(0d0,0)
-          q00(i) = RR*qprof(x1)
+          q00(i) = RR*qprof(x1)  !q00 = q*RR
         enddo
 
         !Initialize toroidal field
@@ -7132,8 +7132,6 @@ c     Begin program
 
         case ('gstor')
 
-          RR   = gv%gparams%params(1)
-
           q0   = 0.8
           aa   = 1.0
           p    = 1.0
@@ -7141,6 +7139,15 @@ c     Begin program
           qa = (r/aa)**2
 
           qprof = q0*(1d0+qa**p)**(1./p)
+
+        case ('liu20')
+
+          q0   = gv%gparams%params(6)
+          aa   = 1.0
+
+          qa = (r/aa)**2
+
+          qprof = q0*(1d0+0.5*qa**2)
 
         case default
 
