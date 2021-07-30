@@ -4,8 +4,10 @@
 contrib/*/*
 bin
 eq/*
+common
 record*
 tests*
+*dSYM
 
 # Prerequisites
 *.d
