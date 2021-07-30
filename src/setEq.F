@@ -7147,7 +7147,7 @@ c     Begin program
 
           qa = (r/aa)**2
 
-          qprof = q0*(1d0+0.5*qa**2)
+          qprof = q0*(1d0+0.5*qa)
 
         case default
 
@@ -7208,7 +7208,7 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
-        case('rfp83','tbbr1')
+        case('rfp83','tbbr1','liu20')
 
           if (der == 0) then
             pprof = 1d0

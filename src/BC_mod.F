@@ -257,7 +257,7 @@ c$$$        if (gamma > 1d0.and.(.not.adiabatic).and.(di == 0d0)) then
 c$$$          where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU !Do not change EQU
 c$$$        endif
 
-      case ('vmec','tor','stell','gstor')
+      case ('vmec','tor','stell','gstor','liu20')
 
 cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
 
