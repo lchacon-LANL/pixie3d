@@ -5417,8 +5417,8 @@ c     Local variables
 
         integer :: i,j,k,ig,jg,kg,it,igrid,nn
         
-        real(8) :: gserr,rh,th,zz,p00,psi0,x1,y1,z1,IIh,fpsi0,psi0_o
-     .            ,dampf
+        real(8) :: gserr,rh,th,zz,p00,psi0,x1,y1,z1,IIh,fpsi0
+     .            ,psi0_o,psi0_oo,dampf,damp_psi
 
         real(8) :: iR2 (0:nx+1,0:ny+1,0:nz+1)
      .            ,III (0:nx+1,0:ny+1,0:nz+1)
@@ -5427,6 +5427,7 @@ c     Local variables
      .            ,psi (0:nx+1,0:ny+1,0:nz+1,1)
      .            ,psin(0:nx+1,0:ny+1,0:nz+1,1)
      .            ,psin_o(0:nx+1,0:ny+1,0:nz+1,1)
+     .            ,psin_oo(0:nx+1,0:ny+1,0:nz+1,1)
      .            ,ss  (0:nx+1,0:ny+1,0:nz+1)
      .            ,ff  (0:nx+1,0:ny+1,0:nz+1)
      .            ,qprf(0:nx+1,0:ny+1,0:nz+1)
@@ -5478,40 +5479,59 @@ c       Initialize iteration
             do i=0,nx+1
               call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
      .                              ,coords)
-              psin(i,j,k,1) = (1-rh*rh)**2
+              psin(i,j,k,1) = (1d0-rh*rh)**2
             enddo
           enddo
         enddo
         
         psi0 = -1d0  !So that psi=A_3
         
-        !Initialize III (normalized to psi0; assume initial Bphi = 1.0/RR)
-        IIIn = 1d0
-        
 c       Perform iteration
 
         psiv = 0d0
 
-        dampf = 0.5
+        dampf = 0.7
+        damp_psi = dampf
         
         do it=1,100
 
           !Store previous iterates
+          psin_oo = psin_o
           psin_o = psin
+          
+          psi0_oo = psi0_o
           psi0_o = psi0
 
-          !Solve GS Poisson eq (find normalized psi at cell centers; recomputes psi0)
+          !Solve GS Poisson eq. (returns normalized Psi, updates psi0)
           psin = solve_GS(psin_o,IIIn,psi0,gserr)
 
+          if (it>1) then
+            call compute_aitken_damping(
+     $         reshape(psin_oo(1:nx,1:ny,1:nz,1),(/nx*ny*nz/))
+     $        ,reshape(psin_o (1:nx,1:ny,1:nz,1),(/nx*ny*nz/))
+     $        ,reshape(psin   (1:nx,1:ny,1:nz,1),(/nx*ny*nz/)),damp_psi)
+
+            write (*,*) "Aitken damping psi=",damp_psi
+            write (*,*)
+
+            !Scalar Aiken on log of multiplying factor
+            call compute_aitken_damping((/log(abs(psi0_oo))/)
+     $                                 ,(/log(abs(psi0_o ))/)
+     $                                 ,(/log(abs(psi0   ))/),dampf)
+
+            write (*,*) "Aitken damping psi0",dampf
+            write (*,*)
+          endif
+          
           !Limit and damp psi0 update
-cc          psin = psin_o + dampf*(psin-psin_o)
 cc          psi0 = psi0_o + dampf*(psi0-psi0_o)
+          psin = psin_o + damp_psi*(psin-psin_o)
           psi0 = psi0_o*(abs(psi0/psi0_o))**dampf
 
           if (my_rank == 0) write (*,*) "New psi0 after damping=",psi0
 
           !Dump plots
-cc          call dumpPlots ; pause
+          call dumpPlots! ; pause
           
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
@@ -5526,7 +5546,7 @@ cc          call dumpPlots ; pause
           !Determine damping to prevent variation of psi0 by more than 10%
 cc          write (*,*) psi0_o,psi0
 cc          dampf = min(0.1*abs(psi0_o/(psi0-psi0_o)),1d0)
-          if (my_rank == 0) write (*,*) "New damping parameter=",dampf
+          if (my_rank==0) write (*,*) "New damping parameter=",damp_psi
 
         enddo
 
@@ -5745,7 +5765,7 @@ c$$$          enddo
           do k=0,nz+1
             do j=0,ny+1
               do i=0,nx+1
-                !Compute I=R*B_phi
+                !Compute I=R*B_phi/psi0
                 spsi = sqrt(1d0-psin(i,j,k))
                 Ihat(i,j,k) = iprof(spsi,0)*ipsi0
               enddo
@@ -6305,6 +6325,61 @@ c     Free up orbit integral work space
         deallocate(bbg,bcar,jac,xmap,iR2g,bcarl)
 
       end function gs_flux_average
+
+c     compute_aitken_damping
+c     ##############################################################
+      subroutine compute_aitken_damping(vnm,vn,v,alpha)
+
+        implicit none
+
+c     --------------------------------------------------------------
+c     Compute updated normalization factor, alpha, based on Aitken
+c     recipe. On input, alpha is old damping parameter.
+c     --------------------------------------------------------------
+
+c     Call variables
+
+        real(8) :: vnm(:),vn(:),v(:),alpha
+        
+c     Local variables
+
+        integer :: ntot
+        real(8) :: dotdq,normdq,lb
+        real(8),allocatable,dimension(:) :: dql,dqlp
+
+c     Begin program
+
+c     Compute old lambda
+        
+        lb = 1d0 - alpha
+
+c     Update lambda
+        
+        ntot = size(v)
+
+        allocate(dqlp(ntot),dql(ntot))
+        
+        dql  = vnm-vn
+        dqlp = vn -v 
+
+        dotdq  = dot2(dql-dqlp,    dqlp)
+        normdq = dot2(dql-dqlp,dql-dqlp)
+        write (*,*) "Aitken lambda before=",lb,dotdq,normdq
+
+        !Only change lb if updates are trustworthy
+        if (abs(dotdq) > 1d-8 .and. normdq > 1d-8) then
+          lb = lb + (lb-1)*dotdq/normdq
+          write (*,*) "Aitken lambda=",lb
+          lb = max(min(0.9d0,lb),0d0)
+        endif
+        
+        deallocate(dqlp,dql)
+
+c     Compute new alpha
+        
+        alpha = 1d0 - lb
+      
+      end subroutine compute_aitken_damping
 
       end subroutine GS_equil_2d
 
