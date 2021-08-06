@@ -422,6 +422,116 @@ c End program
 
       end subroutine del_star
 
+c del_star2
+c####################################################################
+      subroutine del_star2(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
+c--------------------------------------------------------------------
+c     This subroutine is a matvec for the toroidal Grad-Shafranov
+c     operator, del^*. In call:
+c      * gpos: vector index of position on the numerical grid
+c            + If gpos = i + nx*(j-1) + ny*nx*(k-1), then only 
+c              surrounding stencil is filled (9-pt stencil in 2D
+c              , 27-pt stencil in 3D).
+c            + If gpos = 0, all the grid is considered.
+c            + If gpos < 0, all grid is mapped, but operations are 
+c              restricted to stencil of abs(gpos) (useful for
+c              matrix-light GS)
+c      * neq: number of coupled equations
+c      * ntot: total number of unknowns: neq*nx*ny*nz
+c      * x(ntot): input vector
+c      * y(ntot): output vector
+c      * igrid: grid level
+c      * bcnf: boundary conditions on x vector.
+c--------------------------------------------------------------------
+
+      use matvec
+
+      implicit none
+
+c Call variables
+
+      integer :: neq,ntot,igrid,gpos,bcnd(6,neq)
+      real(8) :: x(ntot),y(ntot)
+      type(grid_mg_def),pointer :: g_def
+
+c Local variables
+
+      real(8) :: x1,y1,z1
+      integer :: ip,im,jp,jm,kp,km,isig,ijk,ijkg,nxx,nyy,nzz
+      integer :: imin,imax,jmin,jmax,kmin,kmax,i,j,k,ig,jg,kg
+
+      real(8),allocatable,dimension(:,:,:,:) :: xarr
+cc      real(8),pointer    ,dimension(:,:,:)   :: ljac
+      real(8),allocatable,dimension(:,:,:)   :: iRR
+
+      logical    :: fpointers
+
+      type(mg_ctx),pointer :: mg_ctx_l => null()
+
+c Begin program
+
+      call allocMGPointers(neq,g_def,mg_ctx_l,fpointers)
+
+      isig = g_def%istartp(igrid)
+
+      nxx = g_def%nxv(igrid)
+      nyy = g_def%nyv(igrid)
+      nzz = g_def%nzv(igrid)
+
+c Find limits for loops
+
+      call limits(mg_ctx_l,abs(gpos),igrid
+     .           ,imin,imax,jmin,jmax,kmin,kmax)
+
+c Map vector x to array for processing
+
+      allocate(xarr(0:nxx+1,0:nyy+1,0:nzz+1,neq))
+
+cc      xarr = 0d0
+      call fillArray(g_def,igrid,neq,x,xarr,bcnd,order_bc,gpos=gpos)
+
+c Calculate matrix-vector product
+
+      !Initalize toroidal radius (R=R0+r*cos(theta)=(x^2+y^2))
+      allocate(iRR(0:nxx+1,0:nyy+1,0:nzz+1))
+
+      do k = kmin-1,kmax+1
+        do j = jmin-1,jmax+1
+          do i = imin-1,imax+1
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+
+            iRR(i,j,k) = 1d0/(x1*x1+y1*y1)
+          enddo
+        enddo
+      enddo
+
+      !Main loop
+      do k = kmin,kmax
+        do j = jmin,jmax
+          do i = imin,imax
+
+cc            call getMGmap(g_def,i,j,k,igrid,igrid,igrid,ig,jg,kg)
+            call getCartesianCoordinates(g_def,i,j,k,igrid,igrid,igrid
+     .                                  ,ig,jg,kg,x1,y1,z1)
+
+            ijk    = i + nxx*(j-1) + nxx*nyy*(k-1)
+
+            y(ijk) = (x1*x1+y1*y1)
+     $              *lap(g_def,i,j,k,nxx,nyy,nzz,igrid,igrid,igrid
+     .                  ,xarr(:,:,:,1),dff=iRR,vol=MG_get_res_vol_wgt())
+          enddo
+        enddo
+      enddo
+
+c End program
+
+      deallocate(xarr,iRR)
+
+      call deallocMGPointers(fpointers,mg_ctx_l)
+
+      end subroutine del_star2
+
 c test_mtvc
 c####################################################################
       subroutine test_mtvc(g_def,gpos,neq,ntot,x,y,igrid,bcnd)
