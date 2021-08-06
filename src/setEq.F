@@ -2566,7 +2566,7 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
 
 c     Ideal GS equilibrium
 
-         !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
+        !Parameters 2 and 3 define elliptical shape; used in grid_anal_map
         RR  = gv%gparams%params(1)            !Major radius
         a1  = gv%gparams%params(2)            !Horizontal elliptical radius
         b1  = gv%gparams%params(3)            !Vertical   elliptical radius
@@ -5358,10 +5358,12 @@ c     Perform flux averages
 
         ds = (ts-so)/bb       !Orbit averaging differential arc length
 
-cc        write (*,*) xh,bx,by,bz,b1,b2,b3,b2*ibb*sqrt(iR2l)
+cc        write (*,*) xh,bx,by,bz,b1,b2,b3,bb/sqrt(iR2l)
 
-        iR2_avg   = iR2_avg + iR2l*ds
-        ssmax     = ssmax   + ds*b2/jac
+        iR2_avg   = iR2_avg + ds*iR2l
+        ssmax     = ssmax   + ds
+        bp2_avg   = bp2_avg + ds*bb*bb
+        b2j_avg   = b2j_avg + ds*b2/jac
 
       end function gs_flux_avg
 
@@ -5418,11 +5420,13 @@ c     Local variables
         integer :: i,j,k,ig,jg,kg,it,igrid,nn
         
         real(8) :: gserr,rh,th,zz,p00,psi0,x1,y1,z1,IIh,fpsi0
-     .            ,psi0_o,psi0_oo,dampf,damp_psi
+     .            ,psi0_o,psi0_oo,dampf,damp_psi,damp_I
 
         real(8) :: iR2 (0:nx+1,0:ny+1,0:nz+1)
      .            ,III (0:nx+1,0:ny+1,0:nz+1)
      .            ,IIIn(0:nx+1,0:ny+1,0:nz+1)
+     .            ,IIIn_o(0:nx+1,0:ny+1,0:nz+1)
+     .            ,IIIn_oo(0:nx+1,0:ny+1,0:nz+1)
      .            ,RR  (0:nx+1,0:ny+1)
      .            ,psi (0:nx+1,0:ny+1,0:nz+1,1)
      .            ,psin(0:nx+1,0:ny+1,0:nz+1,1)
@@ -5430,14 +5434,17 @@ c     Local variables
      .            ,psin_oo(0:nx+1,0:ny+1,0:nz+1,1)
      .            ,ss  (0:nx+1,0:ny+1,0:nz+1)
      .            ,ff  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,ll  (0:nx+1,0:ny+1,0:nz+1)
+     .            ,bp2 (0:nx+1,0:ny+1,0:nz+1)
      .            ,qprf(0:nx+1,0:ny+1,0:nz+1)
         
         real(8) :: zeros(0:nx+1,0:ny+1,0:nz+1)
 
-        real(8) :: errv(nx*ny*nz),psiv(nx*ny*nz),psi_rhs(nx*ny*nz)
+        real(8) :: errv(nx*ny*nz),psi_rhs(nx*ny*nz)
+     $            ,iii_rhs(nx*ny*nz),psiv(nx*ny*nz),psiI(nx*ny*nz)
  
         real(8) :: pprof,iprof,qprof
-        external del_star,pprof,iprof,qprof
+        external del_star,pprof,iprof,qprof,iii_mtvc
 
         logical :: exit_it=.false.
         
@@ -5484,51 +5491,63 @@ c       Initialize iteration
           enddo
         enddo
         
-        psi0 = -1d0  !So that psi=A_3
+        psi0 = -1d0
+
+        !Initialize III (normalized to psi0)
+        call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
         
 c       Perform iteration
 
         psiv = 0d0
+        psiI = 0d0
 
         dampf = 0.7
         damp_psi = dampf
+        damp_I = dampf
         
         do it=1,100
 
+          write (*,*)
+          write (*,*) "***************************"
+          write (*,*) "GS Picard iteration=",it
+          write (*,*) "***************************"
+          write (*,*)
+          
           !Store previous iterates
           psin_oo = psin_o
-          psin_o = psin
-          
+          psin_o  = psin
+
+          IIIn_oo = IIIn_o
+          IIIn_o  = IIIn
+         
           psi0_oo = psi0_o
-          psi0_o = psi0
+          psi0_o  = psi0
 
           !Solve GS Poisson eq. (returns normalized Psi, updates psi0)
           psin = solve_GS(psin_o,IIIn,psi0,gserr)
-
+          
           if (it>1) then
             call compute_aitken_damping(
      $         reshape(psin_oo(1:nx,1:ny,1:nz,1),(/nx*ny*nz/))
      $        ,reshape(psin_o (1:nx,1:ny,1:nz,1),(/nx*ny*nz/))
      $        ,reshape(psin   (1:nx,1:ny,1:nz,1),(/nx*ny*nz/)),damp_psi)
 
-            write (*,*) "Aitken damping psi=",damp_psi
-            write (*,*)
+c$$$              call compute_aitken_damping(
+c$$$     $         reshape(IIIn_oo(1:nx,1:ny,1:nz),(/nx*ny*nz/))
+c$$$     $        ,reshape(IIIn_o (1:nx,1:ny,1:nz),(/nx*ny*nz/))
+c$$$     $        ,reshape(IIIn   (1:nx,1:ny,1:nz),(/nx*ny*nz/)),damp_I)
+c$$$
+c$$$              write (*,*) "Aitken damping III=",damp_I
+c$$$              write (*,*)
 
-            !Scalar Aiken on log of multiplying factor
+              !Scalar Aiken on log of multiplying factor
             call compute_aitken_damping((/log(abs(psi0_oo))/)
      $                                 ,(/log(abs(psi0_o ))/)
      $                                 ,(/log(abs(psi0   ))/),dampf)
-
-            write (*,*) "Aitken damping psi0",dampf
-            write (*,*)
           endif
-          
-          !Limit and damp psi0 update
-cc          psi0 = psi0_o + dampf*(psi0-psi0_o)
+
           psin = psin_o + damp_psi*(psin-psin_o)
           psi0 = psi0_o*(abs(psi0/psi0_o))**dampf
-
-          if (my_rank == 0) write (*,*) "New psi0 after damping=",psi0
 
           !Dump plots
           call dumpPlots! ; pause
@@ -5536,17 +5555,33 @@ cc          psi0 = psi0_o + dampf*(psi0-psi0_o)
           !Check convergence
           if (ilevel > 0 .and. my_rank == 0) then
             write (*,'(a,i3,a,1pe10.2,a,e10.2)')
-     .                  '2D Ohmic equilibrium iter =',it
+     .                  ' 2D GS equilibrium iter =',it
      .                   ,' ; GS error=',gserr
             if (ilevel > 1) write (*,*)
           endif
 
           if (gserr < .01*(xmax/nxd)**2) exit
 
+          !Find III(psi)
+          call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
+
+c$$$          if (it>1) then
+c$$$            call compute_aitken_damping(
+c$$$     $         reshape(IIIn_oo(1:nx,1:ny,1:nz),(/nx*ny*nz/))
+c$$$     $        ,reshape(IIIn_o (1:nx,1:ny,1:nz),(/nx*ny*nz/))
+c$$$     $        ,reshape(IIIn   (1:nx,1:ny,1:nz),(/nx*ny*nz/)),damp_I)
+c$$$
+c$$$            write (*,*) "Aitken damping III=",damp_I
+c$$$            write (*,*)
+c$$$          endif
+c$$$            
+c$$$          IIIn = IIIn_o + damp_I  *(IIIn-IIIn_o)
+
           !Determine damping to prevent variation of psi0 by more than 10%
-cc          write (*,*) psi0_o,psi0
-cc          dampf = min(0.1*abs(psi0_o/(psi0-psi0_o)),1d0)
-          if (my_rank==0) write (*,*) "New damping parameter=",damp_psi
+          if (my_rank==0) write (*,*) "New psi  damping=",damp_psi
+          if (my_rank==0) write (*,*) "New psi0 damping=",dampf
+          
+          if (my_rank == 0) write (*,*) "New psi0 after damping=",psi0
 
         enddo
 
@@ -5559,14 +5594,13 @@ cc          dampf = min(0.1*abs(psi0_o/(psi0-psi0_o)),1d0)
         endif
 
         !Dump plots
-        call dumpPlots
+cc        call dumpPlots
 
 c       Find unormalized equilibrium fields
 
         pp  = compute_p(psin(:,:,:,1))
 
-cc        call compute_Ihat(psi0,psin(:,:,:,1),IIIn,I_from_q)
-        III = IIIn*psi0   !Unormalize I
+        III = IIIn*psi0         !Unormalize I
 
         psi = psin*psi0  !Unnormalize psi
 
@@ -5635,7 +5669,7 @@ c     Begin program
      $  call contour(dummy(1:nxd,1:nyd,1),nxd,nyd
      .              ,0d0,xmax,0d0,ymax,1,110)
 
-      !1/(2pi)*bint(1/R^2)
+      !(2pi)/bint(1/R^2)
       call find_global(ff,dummy)
       if (my_rank == 0)
      $  call contour(dummy(1:nxd,1:nyd,1),nxd,nyd
@@ -5711,11 +5745,13 @@ c     Begin program
 
         if (use_q_profile) then
 
-          write (*,*) "Maximum psin in compute_ihat=",maxval(psin)
-          write (*,*) "Minimum psin in compute_ihat=",minval(psin)
+          write (*,*) "Maximum psin in compute_ihat=",pmax(maxval(psin))
+          write (*,*) "Minimum psin in compute_ihat=",pmin(minval(psin))
           
           !Compute reciprocal of flux average of 1/R^2
-          ff = gs_flux_average(psin)
+          call gs_flux_average(psin,ff,ss,ll,bp2)
+
+          ipsi0 = 1d0/psi0
 
           do k=0,nz+1
             do j=0,ny+1
@@ -5728,6 +5764,7 @@ c     Begin program
             enddo
           enddo
 
+c diag ****
 c$$$          !Compute solvability conditions
 c$$$          do k=0,nz+1
 c$$$            do j=0,ny+1
@@ -5747,7 +5784,7 @@ c$$$
 c$$$                dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
 c$$$     .                                     ,gpsi,gI_cnv)
 c$$$                if (gpsi2 > 0d0) then
-c$$$                  dI_dpsi = dI_dpsi/gpsi2
+c$$$                  dI_dpsi = Ihat(i,j,k)*dI_dpsi/gpsi2
 c$$$                else
 c$$$                  dI_dpsi = 0d0
 c$$$                endif
@@ -5757,6 +5794,29 @@ c$$$
 c$$$              enddo
 c$$$            enddo
 c$$$          enddo
+      open(unit=110,file='debug.bin',form='unformatted'
+     .    ,status='replace')
+      call contour(psin(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
+      call contour(Ihat(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+      call contour(ff  (:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+      call contour(ss  (:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(bbg(:,:,1,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(bbg(:,:,1,2),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(bbg(:,:,1,3),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+      call contour(iR2 (:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(b3 (1:nx,1:ny,1)  ,nx,ny,0d0,1d0,0d0,1d0,0,110)
+cc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+cc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
+      close (110)
+
+      open(unit=110,file='debug.txt',status='replace')
+      do i=0,nx+1
+        write (110,*) i,psin(i,1,1),ff(i,1,1)
+      enddo
+      close (110)
+      write (*,*) Ihat(:,1,1)
+c diag ****
 
         else
 
@@ -5771,45 +5831,9 @@ c$$$          enddo
               enddo
             enddo
           enddo
-
-c diag ****
-c$$$          if (exit_it) then
-c$$$            j = 1 ; k = 1
-c$$$            do i=1,nx
-c$$$              call find_polar_coords(gv%gparams,igrid,i,j,k,rh,th,zz
-c$$$     .                              ,coords)
-c$$$              call getMGmap(gv%gparams,i,j,k,igrid,igrid,igrid,ig,jg,kg)
-c$$$
-c$$$              !Compute grad(psi) and |grad(psi)|
-c$$$             gpsi=grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,psin)
-c$$$             gpsi2 = vectorNorm_ijk(gv%gparams,i,j,k,igrid,gpsi,.true.)
-c$$$             gI = grad(gv%gparams,i,j,k,nx,ny,nz,igrid,igrid,igrid,Ihat)
-c$$$             gI_cnv = XformToCnv_ijk(gv%gparams,i,j,k,igrid,gI)
-c$$$             dI_dpsi = scalarProduct_ijk(gv%gparams,i,j,k,igrid
-c$$$     .                                  ,gpsi,gI_cnv)/gpsi2
-c$$$
-c$$$              ijk    = i + nx*(j-1) + nx*ny*(k-1)
-c$$$
-c$$$              spsi = sqrt(1d0-psin(i,j,k))
-c$$$              write (*,*) "III_diag"
-c$$$     .                   ,rh                               !2: r
-c$$$     .                   ,spsi                             !3: spsi
-c$$$     .                   ,(Ihat(i+1,j,k)-Ihat(i-1,j,k))
-c$$$     .                           /2./gv%gparams%dxh(ig)    !4: dI/dr
-c$$$     .                   ,dI_dpsi                          !5: dI/dpsi
-c$$$     .                   ,iprof(spsi,1)*ipsi0*(-0.5/spsi)  !6: dI/dpsi
-c$$$     .                   ,(psin(i+1,j,k)-psin(i-1,j,k))
-c$$$     .                           /2./gv%gparams%dxh(ig)    !7: dPsi/dr
-c$$$     .                   ,gpsi(1)                          !8: dPsi/dr
-c$$$     .                   ,psi_rhs(ijk)                     !9
-c$$$     .                   ,errv(ijk)                        !10
-c$$$            enddo
-c$$$            stop
-c$$$          endif
-c diag ****
           
         endif
-        
+
       end subroutine compute_Ihat
 
 c     compute_p
@@ -5916,7 +5940,10 @@ c     Begin program
               rhs(ii)=-IIIn(i,j,k)*dI_dpsi*iR2(i,j,k)
      .                -dp_dpsi*ipsi0*ipsi0
 
-              !Multiply by R to ensure proper limit R->inf
+              !Divide by R to ensure proper limit R->inf
+c$$$              write (*,*) lap(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
+c$$$     .                      ,psin,dff=iR2,vol=.false.)*RR(i,j)*RR(i,j)
+c$$$     $                   ,rhs(ii)
               errv(ii) =(lap(gv%gparams,i,j,k,nx,ny,nz,igr,igr,igr
      .                      ,psin,dff=iR2,vol=.false.)
      .                  -rhs(ii))*RR(i,j)
@@ -5945,18 +5972,20 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
-        real(8) :: psi0,gserr
+        real(8) :: psi0
+        real(8),INTENT(OUT):: gserr
         real(8) :: psio(0:nx+1,0:ny+1,0:nz+1,1)
      .            ,psi (0:nx+1,0:ny+1,0:nz+1,1)
      .            ,III (0:nx+1,0:ny+1,0:nz+1)
 
 c     Local variables
 
-        real(8) :: tolgm
-     .            ,Inew(0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: Inew(0:nx+1,0:ny+1,0:nz+1)
         integer :: guess,bcnd(6,1),nn,i,j,k,ii,smooth_it
         logical :: smooth_only
 
+        real(8) :: tolgm=0.5
+        
 c     Begin program
 
         nn = size(psiv)
@@ -5967,47 +5996,24 @@ c     Begin program
         pp  = compute_p(psio(:,:,:,1))
         
         !Find III(psi)/psi0
-        call compute_Ihat(psi0,psio(:,:,:,1),III,I_from_q)
+c$$$        call compute_Ihat(psi0,psio(:,:,:,1),III,I_from_q)
 
-c$$$        call compute_Ihat(psi0,psio(:,:,:,1),Inew,I_from_q)
-c$$$        if (I_from_q) then
-c$$$          III = III + dampf*(Inew-III)
-c$$$        else
-c$$$          III = Inew
-c$$$        endif
-        
         !Find GS equation RHS (at cell centers)
         psi_rhs = find_GS_rhs(III,pp,psio(:,:,:,1),psi0,gserr)
-        
+
         !Define BCs
         bcnd(:,1) = bcond
         where (bcnd == DEF) bcnd = DIR
 
-        if (I_from_q) then
-          guess = 1
-          tolgm = 5d-1 !1d-8
-          smooth_only = .false. !.true.
-          smooth_it = 3
-        else
-          guess = 1 !To reuse previous iteration (stored in psiv)
-          tolgm = 1d-3
-          smooth_only = .false.
-          smooth_it = 5
-        endif
-
-c$$$        do k=1,nz
-c$$$          do j=1,ny
-c$$$            do i=1,nx
-c$$$              ii = i + ny*(j-1) + ny*nz*(k-1)
-c$$$              psiv(ii) = fpsi0*psio(i,j,k,1)
-c$$$            enddo
-c$$$          enddo
-c$$$        enddo
+        guess = 1               !To reuse previous iteration (stored in psiv)
+        tolgm = 1d-3
+        smooth_only = .false.
+        smooth_it = 5
         
         call cSolver(gv%gparams,1,nn,psi_rhs,psiv,bcnd
      .            ,1,ilevel,guess,del_star,vol_wgt
      .            ,tol           = tolgm
-     .            ,gm_driver     =.not.smooth_only
+     .            ,gm_driver     = .not.smooth_only
      .            ,ks_it         = 100
      .            ,mg_order_res  = 0
      .            ,mg_order_prol = 1
@@ -6051,19 +6057,14 @@ c     Local variables
 c     Begin program
 
         !Renormalized psi between 0 and 1 (0 at boundary)
-        psi0max = maxval(psi)
-        psi0min = minval(psi)
-#if defined (petsc)
-        lpsi0 = psi0max
-        call MPI_Allreduce(lpsi0,psi0max,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_MAX,MPI_COMM_WORLD,mpierr)
-        lpsi0 = psi0min
-        call MPI_Allreduce(lpsi0,psi0min,1,MPI_DOUBLE_PRECISION
-     .                    ,MPI_MIN,MPI_COMM_WORLD,mpierr)
-#endif
-        fpsi0 = psi0max-psi0min
-        ipsi0 = sign(1d0,abs(psi0max)-abs(psi0min))/fpsi0
+        psi0max = pmax(maxval(psi))
+        psi0min = pmin(minval(psi))
+
+        ipsi0 = sign(1d0,abs(psi0max)-abs(psi0min))/(psi0max-psi0min)
         psi = psi*ipsi0
+
+        fpsi0 = psi0max-psi0min
+cc        if (abs(fpsi0) > 10) fpsi0 = sign(0.5d0,fpsi0)
         
         if (my_rank == 0) write (*,*) "New renorm factor=",1./ipsi0
         
@@ -6141,10 +6142,10 @@ cc          do i=1,nx
         endif
 
       end subroutine GS_errors
-      
+
 c     gs_flux_average
 c     ##############################################################
-      function gs_flux_average(psi) result(ff)
+      subroutine gs_flux_average(psi,ff,ss,ll,bp2)
 
         implicit none
 
@@ -6154,8 +6155,11 @@ c     --------------------------------------------------------------
 
 c     Call variables
 
+        real(8) :: psi(0:nx+1,0:ny+1,0:nz+1)
         real(8) :: ff (0:nx+1,0:ny+1,0:nz+1)
-     .            ,psi(0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: ss (0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: ll (0:nx+1,0:ny+1,0:nz+1)
+        real(8) :: bp2(0:nx+1,0:ny+1,0:nz+1)
 
         INTERFACE
           function gs_flux_avg(fwd,xo,x,yo,y,zo,z,so,ss)
@@ -6249,6 +6253,8 @@ c     Orbit integration (local processor)
 
               iR2_avg   = 0d0
               ssmax     = 0d0
+              bp2_avg   = 0d0
+              b2j_avg   = 0d0
 
 c$$$              if (i == nx .and. k == 1 .and. it == 1) then
 c$$$              write (*,*) "Orbit at",i,j,k,"Iteration=",it
@@ -6266,8 +6272,10 @@ c$$$              endif
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") '+'
 
-                ss(i,j,:) = 0.5*abs(ssmax)/pi
+                ss(i,j,:) = 0.5*abs(b2j_avg)/pi !should be 1.0; for debugging
                 ff(i,j,:) = 2*pi/iR2_avg
+                ll(i,j,:) = abs(ssmax)
+                bp2(i,j,:)= abs(bp2_avg)
               case(ORB_OUT_DOM)
                 if ((my_rank == 0).and.(ilevel > 1))
      .            write (*,FMT="(a)",ADVANCE="NO") 'X'
@@ -6281,6 +6289,24 @@ c$$$              endif
      .                              ,ff(i-2,j,1)
      .                              ,ff(i-1,j,1)
      .                              ,x0,2)
+                bp2(i,j,:) = quad_int(gv%gparams%xx(ig-4)
+     .                              ,gv%gparams%xx(ig-3)
+     .                              ,gv%gparams%xx(ig-2)
+     .                              ,gv%gparams%xx(ig-1)
+     .                              ,bp2(i-4,j,1)
+     .                              ,bp2(i-3,j,1)
+     .                              ,bp2(i-2,j,1)
+     .                              ,bp2(i-1,j,1)
+     .                              ,x0,2)
+                ll(i,j,:) = quad_int(gv%gparams%xx(ig-4)
+     .                              ,gv%gparams%xx(ig-3)
+     .                              ,gv%gparams%xx(ig-2)
+     .                              ,gv%gparams%xx(ig-1)
+     .                              ,ll(i-4,j,1)
+     .                              ,ll(i-3,j,1)
+     .                              ,ll(i-2,j,1)
+     .                              ,ll(i-1,j,1)
+     .                              ,x0,2)
               case default
                 call pstop('flux_average'
      $                    ,'Orbit error '//int2char(ierr)//' at '
@@ -6290,24 +6316,6 @@ c$$$              endif
             enddo
           enddo
         enddo
-c diag *****
-c$$$      open(unit=110,file='debug.bin',form='unformatted'
-c$$$     .    ,status='replace')
-c$$$      call contour(psi(:,:,1),nx+2,ny+2,0d0,1d0,0d0,1d0,0,110)
-c$$$cc      call contour(psi_rhs,nx,ny,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(ff (:,:,1)  ,nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(ss (:,:,1)  ,nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(bbg(:,:,1,1),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(bbg(:,:,1,2),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(bbg(:,:,1,3),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$      call contour(iR2g(:,:,1 ),nx+2,ny+2,0d0,1d0,0d0,1d0,1,110)
-c$$$cc      call contour(b2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
-c$$$cc      call contour(b3 (1:nx,1:ny,1)  ,nx,ny,0d0,1d0,0d0,1d0,0,110)
-c$$$cc      call contour(v1 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
-c$$$cc      call contour(v2 (1:nx,1:ny)  ,nx,ny,0d0,1d0,0d0,1d0,1,110)
-c$$$      close (110)
-c$$$      stop
-c diag *****
 
 c     Impose BCs
 
@@ -6324,7 +6332,7 @@ c     Free up orbit integral work space
 
         deallocate(bbg,bcar,jac,xmap,iR2g,bcarl)
 
-      end function gs_flux_average
+      end subroutine gs_flux_average
 
 c     compute_aitken_damping
 c     ##############################################################
@@ -6364,12 +6372,12 @@ c     Update lambda
 
         dotdq  = dot2(dql-dqlp,    dqlp)
         normdq = dot2(dql-dqlp,dql-dqlp)
-        write (*,*) "Aitken lambda before=",lb,dotdq,normdq
+cc        write (*,*) "Aitken lambda before=",lb,dotdq,normdq
 
         !Only change lb if updates are trustworthy
         if (abs(dotdq) > 1d-8 .and. normdq > 1d-8) then
           lb = lb + (lb-1)*dotdq/normdq
-          write (*,*) "Aitken lambda=",lb
+cc          write (*,*) "Aitken lambda=",lb
           lb = max(min(0.9d0,lb),0d0)
         endif
         
@@ -7470,6 +7478,8 @@ c     Begin program
             pprof =-4*s*(1-s**2)
           endif
 
+cc          pprof = 0d0
+          
         case('p3nsl')
 
           if (der == 0) then

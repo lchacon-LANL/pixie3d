@@ -3399,6 +3399,7 @@ c ######################################################################
         
         !Flux-surface averages
         real(8) :: bzz_avg,etab2_avg,ssmax,x0,y0,z0,thmax,iR2_avg
+     $            ,bp2_avg,b2j_avg
 
         logical :: have_jparB=.false.,gstor_I_drive=.true.,closed_orb
 
