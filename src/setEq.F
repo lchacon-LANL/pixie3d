@@ -1346,7 +1346,7 @@ c     RFP equilibria (analytical)
           enddo
         enddo
 
-      case ('bpnch')  !BENNET SCREW PINCH BALANCED BY DENSITY
+      case ('bpnch','bpchT')  !BENNET SCREW PINCH
 
 c     Check coordinates
 
@@ -1362,138 +1362,99 @@ c     RFP equilibria (analytical)
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         a1 = gv%gparams%params(4) ! Radius of q=1 surface.
         
-        if (coords == 'hel') then
-           nh2 = mm             ! To set the right perturbation wavelength
-           nh1 = nh2            ! For perturbations to be of the right order
-        end if
+        nh2 = nint(mm)            ! To set the right perturbation wavelength
+        nh1 = nh2                 ! For perturbations to be of the right order
 
-        bz0 = RR/(1d0 + (a1/dlambda)**2)/dlambda
-
-c$$$        if (my_rank == 0) then
-c$$$          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,a1,dlambda,bz0
-c$$$        endif
-
-        !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        beta = 1d0/bz0**2
-        var(:,:,:,ITMPE) = 0.5*beta/a_p !Electron temperature required for force balance
-
-        do k = klom,khip
-          do j = jlom,jhip
-             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
-     .                              ,coords)
-
-              var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
-            enddo
-          enddo
-        enddo
-
-#if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
-     .                              ,coords)
-
-              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
-
-              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0  !Normalize to Bz0=1d0
-
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
-              bb(i,j,k,3)  = jac1
-            enddo
-          enddo
-        enddo
-c$$$        do k = klom,khip
-c$$$          do j = jlom,jhip
-c$$$            do i = ilom,ihip
-c$$$              call find_polar_coords(gv%gparams,igr,i,j,k,r1,y1,z1
-c$$$     .                              ,coords)
-c$$$
-c$$$              btheta = (r1/dlambda)/(1+(r1/dlambda)**2)/bz0
-c$$$
-c$$$              ! Calculate in Cartesian, then call XformVector_mesh2
-c$$$              ! to calculate curvilinear and include the effects of packing.
-c$$$              bb(i,j,k,1) =-btheta*sin(y1)
-c$$$              bb(i,j,k,2) = btheta*cos(y1)
-c$$$              bb(i,j,k,3) = 1d0
-c$$$            enddo
-c$$$          enddo
-c$$$        enddo
-c$$$
-c$$$        call XformVector_mesh2(gv%gparams,igx,bb,'car','cnv')
-#else
-        find_a = fillVectorPotential(igx,aa)
-#endif
-
-      case ('bpchT')  !BENNET SCREW PINCH BALANCED BY TEMPERATURE
-
-c     Check coordinates
-
-        if (coords /= 'hel' .and. coords /= 'cyl' ) then
-          messg = 'Wrong coordinates for equilibrium '//equil
-          call pstop('setEquilibrium',messg)
+        if (coords == 'cyl') then
+          nh3 = nint(kk*RR)       !To set the right perturbation wavelength
         endif
 
-c     RFP equilibria (analytical)
-
-        mm = gv%gparams%params(1) ! Azimuthal mode number.
-        kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
-        RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
-        a1 = gv%gparams%params(4) ! Radius of q=1 surface.
-        
-        if (coords == 'hel') then
-           nh2 = mm             ! To set the right perturbation wavelength
-           nh1 = nh2            ! For perturbations to be of the right order
-        end if
-
+        !Reference toroidal field
         bz0 = RR/(1d0 + (a1/dlambda)**2)/dlambda
 
-c$$$        if (my_rank == 0) then
-c$$$          write (*,*) 'm,k,R0,rc,lam,bz0:',mm,kk,RR,a1,dlambda,bz0
-c$$$        endif
-
         !Build equilibrium
-        var(:,:,:,IVX)  = 0d0
-        var(:,:,:,IVY)  = 0d0
-        var(:,:,:,IVZ)  = 0d0
-
-        var(:,:,:,IRHO) = 1d0 !Electron temperature required for force balance
+        var(:,:,:,IVX:IVZ) = 0d0
 
         beta = 1d0/bz0**2
-        do k = klom,khip
-          do j = jlom,jhip
-             do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
+        select case(equil)
+        case('bpnch')   !BENNET SCREW PINCH BALANCED BY DENSITY
+          var(:,:,:,ITMPE) = 0.5*beta/a_p !Electron temperature required for force balance
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
      .                              ,coords)
 
-              var(i,j,k,ITMPE) = 0.5*beta/a_p/(1d0+(r1/dlambda)**2)**2
+                var(i,j,k,IRHO) = 1d0/(1d0+(r1/dlambda)**2)**2
+              enddo
             enddo
           enddo
-        enddo
+        case('bpchT')  !BENNET SCREW PINCH BALANCED BY TEMPERATURE
+          var(:,:,:,IRHO   ) = 1d0 !Electron temperature required for force balance
 
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igx,i,j,k,r1,y1,z1
+     .                              ,coords)
+
+                var(i,j,k,ITMPE) = 0.5*beta/a_p/(1d0+(r1/dlambda)**2)**2
+              enddo
+            enddo
+          enddo
+        end select
+        
 #if !defined(vec_pot)
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-              call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
+        select case(coords)
+        case('hel')
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igx,i,j,k,x1,y1,z1
      .                              ,coords)
 
-              jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
 
-              btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0  !Normalize to Bz0=1d0
+                btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0 !Normalize to Bz0=1d0
 
-              bb(i,j,k,1)  = 0d0
-              bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
-              bb(i,j,k,3)  = jac1
+                bb(i,j,k,1)  = 0d0
+                bb(i,j,k,2)  = jac1*(mm*btheta/x1 + kk)
+                bb(i,j,k,3)  = jac1
+              enddo
             enddo
           enddo
-        enddo
+        case('cyl')
+          if (nh2 == 0 .and. nh3 == 0) then
+            messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
+     .          //' equilibrium not set'
+            call pstop('setEquilibrium',messg)
+          else
+            messg=' Perturbation harmonics nh1, nh2, nh3 for '
+     .          //trim(equil)//' equilibrium are'
+            if (my_rank==0) then
+              write (*,*)
+              write (*,'(a,3i3)') trim(messg),nh1,nh2,nh3
+            endif
+          endif
+
+          do k = klom,khip
+            do j = jlom,jhip
+              do i = ilom,ihip
+                call find_polar_coords(gv%gparams,igr,i,j,k,x1,y1,z1
+     .                                ,coords)
+
+                jac1 = gv%gparams%gmetric%grid(igx)%jac(i,j,k)
+
+                btheta = (x1/dlambda)/(1+(x1/dlambda)**2)/bz0 !Normalize to Bz0
+
+                bb(i,j,k,1)  = 0d0
+                bb(i,j,k,2)  = jac1*btheta/x1
+                bb(i,j,k,3)  = jac1
+              enddo
+            enddo
+          enddo
+        end select
 c$$$        do k = klom,khip
 c$$$          do j = jlom,jhip
 c$$$            do i = ilom,ihip
