@@ -1391,7 +1391,7 @@ c     RFP equilibria (analytical)
             enddo
           enddo
         case('bpchT')  !BENNET SCREW PINCH BALANCED BY TEMPERATURE
-          var(:,:,:,IRHO   ) = 1d0 !Electron temperature required for force balance
+          var(:,:,:,IRHO) = 1d0 !Electron temperature required for force balance
 
           do k = klom,khip
             do j = jlom,jhip
