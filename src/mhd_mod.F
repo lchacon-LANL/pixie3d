@@ -4000,7 +4000,7 @@ c$$$      endif
       !Heat transport term
       if (gamma > 1d0) then
 #if !defined(flux_rhs)
-        if (chi_par == 0d0) then
+        if (chi_par == chi) then
           if (chi /= 0d0) then
             if (use_p_diff) then !Total pressure
               heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
