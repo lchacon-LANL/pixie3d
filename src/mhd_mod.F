@@ -345,7 +345,11 @@ c     Local variables
 
 c     Begin program
 
-      dfvty = sqrt(abs(te0/te))*rho*rho/b2
+      if (b2 > 0d0.and.te/=0d0) then
+         dfvty = sqrt(abs(te0/te))*rho*rho/b2
+      else
+         dfvty = 0d0
+      endif
 
 c     End program
       
