@@ -998,9 +998,7 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
                 tmpe = varray%array_var(IPRS )%array/(rho*jac*a_p)
               end where
             else
-              where (rho /= 0d0)
-                tmpe = varray%array_var(ITMPE)%array/jac
-              end where
+              tmpe = varray%array_var(ITMPE)%array/jac
             endif
           endif
 
@@ -1020,7 +1018,7 @@ c       Resistivity (needed for BCs; may depend on T)
             allocate(s0(0:nnx+1,0:nny+1,0:nnz+1))
             if (solve_prs) then
               s0 = u_n%array_var(IPRS)%array
-     .            /u_n%array_var(IRHO)%array/a_p
+     .           /(u_n%array_var(IRHO)%array*a_p)
             else
               s0 = u_n%array_var(ITMPE)%array/jac
             endif
@@ -1554,9 +1552,7 @@ c$$$            tmpe = tmpe_0*(abs(tmpe))**(gamma-1d0)
                 tmpe = varray%array_var(IPRS)%array/(rho*jac*a_p)
               end where
             else
-              where (rho /= 0d0)
-                tmpe = varray%array_var(ITMPE)%array/jac
-              end where
+              tmpe = varray%array_var(ITMPE)%array/jac
             endif
           endif
 
@@ -1576,7 +1572,7 @@ c       Resistivity (needed for BCs; may depend on T)
             allocate(s0(1:nnx+1,1:nny+1,1:nnz+1))
             if (solve_prs) then
               s0 = u_n%array_var(IPRS)%array
-     .            /u_n%array_var(IRHO)%array/a_p
+     .           /(u_n%array_var(IRHO)%array*a_p)
             else
               s0 = u_n%array_var(ITMPE)%array/jac
             endif

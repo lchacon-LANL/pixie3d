@@ -1978,7 +1978,7 @@ c     Other equilibrium quantities
 
         !Transform to e temperature
         where (var(:,:,:,IRHO) /= 0d0)
-          var(:,:,:,ITMPE) = var(:,:,:,IPRS)/var(:,:,:,IRHO)/a_p
+          var(:,:,:,ITMPE) = var(:,:,:,IPRS)/(var(:,:,:,IRHO)*a_p)
         elsewhere
           var(:,:,:,ITMPE) = 0d0
         end where

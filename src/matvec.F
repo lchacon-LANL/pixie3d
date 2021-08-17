@@ -694,11 +694,11 @@ c Local variables
       integer :: isig,ijk,ijkg,nnx,nny,nnz,i,j,k,ig,jg,kg
       integer :: imin,imax,jmin,jmax,kmin,kmax
 
-      real(8),allocatable,dimension(:,:,:,:) :: dtmp,dprs
+      real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
-     .                                         ,chi0,chip0,tnsr0
+     .                                         ,tnsr0
 
-      real(8),pointer    ,dimension(:,:,:) :: jac,dprs_advc,dtmp_diff
+      real(8),pointer    ,dimension(:,:,:)   :: jac,dprs_advc,dtmpe_diff
 
       real(8) :: upwind,nu2,dvol,tlap
 
@@ -725,14 +725,14 @@ c Find limits for loops
 
 c Map vector x to array for processing
 
-      allocate(dtmp(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs(0:nnx+1,0:nny+1,0:nnz+1,neq)
-     .        ,dprs_advc(0:nnx+1,0:nny+1,0:nnz+1)
-     .        ,dtmp_diff(0:nnx+1,0:nny+1,0:nnz+1)
+      allocate(dtmpe(0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs (0:nnx+1,0:nny+1,0:nnz+1,neq)
+     .        ,dprs_advc (0:nnx+1,0:nny+1,0:nnz+1)
+     .        ,dtmpe_diff(0:nnx+1,0:nny+1,0:nnz+1)
      .        )
 
-      dtmp = 0d0
-      dprs = 0d0
+      dtmpe = 0d0
+      dprs  = 0d0
  
       call fillArray(g_def,igrid,neq,x,dprs,bcnd,order_bc,gpos=gpos
      .              ,icomp=(/IPRS/))
@@ -742,13 +742,11 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,bh0    ,gbhat)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
-c$$$      call point_to_MG_array(nnx,nny,nnz,igrid,chip0  ,gchipar)
-      if (gamma > 1d0)
-     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0  ,gchitnsr)
 
-      dtmp = dprs/rho0!/a_p !See def in fillLocalAuxVars
+      if (gamma > 1d0)
+     .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0,gchitnsr)
+
+      dtmpe = dprs/(rho0*a_p)
 
 c Auxiliary computations
 
@@ -766,11 +764,15 @@ c Auxiliary computations
       endif
 
       !Anisotropic transport term
-      if (gamma > 1d0)
-     .   dtmp_diff = tnsr_diff(g_def,igrid,dprs(:,:,:,1),bcnd(:,1),tnsr0
-cc     .                ,2,limited,limit_mthd=UPWD
+      if (gamma > 1d0) then
+        if (use_p_diff) then
+         dtmpe_diff=lap(g_def,igrid,dprs(:,:,:,1),dff=chi0(:,:,:,1))
+        else
+         dtmpe_diff=tnsr_diff(g_def,igrid,dtmpe(:,:,:,1),bcnd(:,1),tnsr0
      .                     ,2,.true.,limit_mthd=UPWD,arr0=tmp0(:,:,:,1))
-
+        endif
+      endif
+      
 c Calculate matrix-vector product
 
       do k = kmin,kmax
@@ -791,23 +793,7 @@ c Calculate matrix-vector product
             upwind = dprs_advc(i,j,k)
             
             tlap = 0d0
-c$$$            if (chi > 0d0.and.gamma > 1d0) then
-c$$$              if (use_p_diff) then
-c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-c$$$     .                    ,dprs(:,:,:,1),dff=chi0(:,:,:,1))
-c$$$              else
-c$$$                tlap = lap(g_def,i,j,k,nnx,nny,nnz,igrid,igrid,igrid
-c$$$     .                    ,dtmp(:,:,:,1),dff=chi0(:,:,:,1))  !See above for dtmp def
-c$$$              endif
-c$$$            endif
-c$$$
-c$$$            if (chi_par > chi.and.(.not.lagrangian).and.gamma > 1d0)then
-c$$$              tlap = tlap + (chip0(i,j,k,1)-chi0(i,j,k,1))
-c$$$     .                *par_diff(g_def,i,j,k,igrid,dtmp(:,:,:,1),dtmp,bh0
-c$$$     .                       ,2,"dutoit",vol=.false.,tmp0=tmp0(:,:,:,1)
-c$$$     .                       ,advc_mthd=UPWD)  !See above for dtmp def
-c$$$            endif
-            if (gamma > 1d0) tlap = (gamma-1d0)*dtmp_diff(i,j,k)
+            if (gamma > 1d0) tlap = (gamma-1d0)*dtmpe_diff(i,j,k)
             
             y(ijk)=dvol*( cnp/dt*dprs(i,j,k,1)
      $                  + alpha*(upwind - tlap) )*jac(i,j,k)
@@ -818,7 +804,7 @@ c$$$            endif
 
 c End program
 
-      deallocate(dtmp,dprs,dprs_advc,dtmp_diff)
+      deallocate(dtmpe,dprs,dprs_advc,dtmpe_diff)
       nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
@@ -915,14 +901,21 @@ c Map velocity components
 c Auxiliary computations
 
       !Advective term
-      dtmpe_advc =
+      if (use_p_classic_eq) then !Classic Te evolution eq
+        dtmpe_advc =
      .   flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dtmpe(:,:,:,1),UPWD,bcnd)
      .  +(gamma-1d0)*dtmpe(:,:,:,1)*div(g_def,igrid,vs0_cnv)
+      else
+        dtmpe_advc=
+     .  (gamma-1d0)*flx_advec_mesh   (g_def,igrid,vs0_cnv,dtmpe(:,:,:,1)
+     .                               ,UPWD,bcnd,zip_vel=.false.)
+     . +(2d0-gamma)*flx_nc_advec_mesh(g_def,igrid,vs0_cnv,dtmpe(:,:,:,1)
+     .                               ,UPWD,bcnd)
+      endif
 
       !Anisotropic transport term
       if (gamma > 1d0)
      .   dtmpe_diff=tnsr_diff(g_def,igrid,dtmpe(:,:,:,1),bcnd(:,1),tnsr0
-cc     .                ,2,limited,limit_mthd=UPWD
      .                    ,2,.true.,limit_mthd=UPWD,arr0=tmpe0(:,:,:,1))
 
 c Calculate matrix-vector product
@@ -946,6 +939,7 @@ c Calculate matrix-vector product
             
             tlap = 0d0
             if (gamma > 1d0) tlap = (gamma-1d0)*dtmpe_diff(i,j,k)
+     $                                         /(rho0(i,j,k,1)*a_p)
             
             y(ijk)=dvol*( cnp/dt*dtmpe(i,j,k,1)
      $                  + alpha*(upwind - tlap) )*jac(i,j,k)
