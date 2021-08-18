@@ -7,19 +7,20 @@ help()
 cat <<HELP
 Usage: 
 
-$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-omp_tasks tasks] 
-[-x executable] [-t tmax] [-r tmax] [-rtgz file] [-ntar] 
+$0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-email email] 
+[-omp_tasks tasks] [-x executable] [-t tmax] [-r tmax] [-rtgz file] [-ntar] 
 [-equ file] [-eig file]  [-recursive] -- inputfile [options]
 
 where:
-	-np procs:     indicates the number of cores (required)
+	-np procs:     indicates the total (MPI+OMP) number of cores (required)
 	-h:            gives this message
 	-d:            turn on debugging
 	-qos queue:    indicates quality of service queue (default standard)
-        -A:            selects account (default w17_magreconn)
+        -A:            selects account (default w21_magfusion)
+        -email:        specifies notification email (default chacon@lanl.gov) 
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
-	-x executable: indicates the executable file (default is 'pixie3d.x')
+	-x executable: indicates the executable file (default is 'iRFP.x')
 	-t tmax:       indicates final simulation time
 	-r tmax:       indicates that the job should be restarted up to time tmax 
                          (if tmax=0, final time is not changed)
@@ -47,6 +48,7 @@ debug=f
 machinefile="machines.LINUX"
 restartfile=""
 code_ifile=pixie3d
+code_efile=pixie3d
 wtime=960
 adiosfile="adios_config.xml"
 recursive=f
@@ -55,6 +57,7 @@ account="w21_magfusion"
 qos="standard"
 np=""
 omp_tasks=1
+email="chacon@lanl.gov"
 
 # Parse command line options
 
@@ -158,9 +161,9 @@ if [ "$executable" = "" ]
 then
   if [ "$parallel" = "t" ]
   then
-    executable=`ls $code_ifile.petsc.x 2>/dev/null`
+    executable=`ls $code_efile.petsc.x 2>/dev/null`
   else
-    executable=`ls $code_ifile.x 2>/dev/null`
+    executable=`ls $code_efile.x 2>/dev/null`
   fi
 else
   executable=`ls $executable 2>/dev/null`
@@ -308,7 +311,7 @@ cat > go.sub <<QSUB
 #SBATCH -t $wtime
 #  request resources (qos, number of MPI tasks)
 #SBATCH --qos=$qos
-#SBATCH --nodes=$((np/cores_per_node+1))
+#SBATCH --nodes=$(((np+cores_per_node-1)/cores_per_node))
 #SBATCH --ntasks-per-node=$((cores_per_node/omp_tasks))
 #  specify the pathname for output
 #SBATCH -o $inputfile.log
@@ -319,17 +322,14 @@ cat > go.sub <<QSUB
 #SBATCH -A $account
 #  send email at beginning, end, and abort
 #SBATCH --mail-type=FAIL,BEGIN,END
-#SBATCH --mail-user=chacon@lanl.gov
+#SBATCH --mail-user=$email
 #  forward current environment variables to the job
 #SBATCH --export=ALL 
 
 date
-#module purge
-#module load intel/17.0.1 
-#module load openmpi/1.10.5
-#module load hdf5-parallel
+#source ~/bin/load_intel-19.0.4_badger
 
-mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) >> $inputfile.out
+mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) -log_summary >> $inputfile.out
 
 RETURN_VALUE=\$?  #Exit code from last job
 
@@ -370,7 +370,7 @@ if [ "$debug" = "t" ]; then
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.sub > scriptmanage.log
+  ./scriptmanage go.sub $inputfile.in > scriptmanage.log
 else
   sbatch go.sub
 fi
