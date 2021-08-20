@@ -453,7 +453,29 @@ c       Temperature
      .            ,sm_zebra_it   = sm_zebra_it
      .            )
         else
-          call cSolver(gv%gparams,1,nn,dum,x(:,ITMPE),bcs(:,ITMPE)
+
+          if(chi_par > chi) then
+            call cSolver(gv%gparams,1,nn,dum,x(:,ITMPE),bcs(:,ITMPE)
+     .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
+     .            ,tol           = pc_tol
+     .            ,dg            = tmp_diag
+     .            ,gm_driver     = .true.
+     .            ,mg_debug      = mg_debug
+     .            ,mg_galerkin   = mg_glrkin
+     .            ,mg_order_res  = mg_ores
+     .            ,mg_order_prol = mg_oprol
+     .            ,mg_gm_coarse_solve  = mg_gm_coarse
+     .            ,mg_vcyc       = 5 !mg_vcyc
+     .            ,mg_smooth     = sm_type
+     .            ,sm_it         = sm_iter
+     .            ,sm_omega      = sm_omega
+     .            ,sm_ncolors    = sm_ncolors
+     .            ,sm_line_relax = sm_line_relax
+     .            ,sm_zebra_relax= sm_zebra_relax
+     .            ,sm_zebra_it   = sm_zebra_it
+     .           )
+          else
+            call cSolver(gv%gparams,1,nn,dum,x(:,ITMPE),bcs(:,ITMPE)
      .            ,igrid,iout,guess,tmp_mtvc,vol_wgt
      .            ,tol           = pc_tol
      .            ,dg            = tmp_diag
@@ -471,6 +493,7 @@ c       Temperature
      .            ,sm_zebra_relax= sm_zebra_relax
      .            ,sm_zebra_it   = sm_zebra_it
      .            )
+            endif
         endif
         
 c       Magnetic field/vector potential
