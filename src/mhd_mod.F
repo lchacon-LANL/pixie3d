@@ -4008,8 +4008,6 @@ c$$$      endif
           if (chi /= 0d0) then
             if (use_p_diff) then !Total pressure
               heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
-            elseif (solve_prs) then
-              heat_xport = -lap(gv%gparams,igr,tmp,dff=cchi)
             else
               heat_xport = -lap(gv%gparams,igr,tmpe,dff=cchi)
             endif
@@ -4023,7 +4021,6 @@ c$$$      endif
           heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
      .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
      .                          ,xport_order,.true.,limit_mthd=SMART)
-cc     .                          ,2,.true.,limit_mthd=SMART)
           deallocate(dum1,dum2)
         endif
       endif
