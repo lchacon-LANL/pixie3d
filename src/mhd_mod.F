@@ -291,12 +291,9 @@ c     Call variables
 
 c     Local variables
 
-cc      real(8) :: f0=0d0 ! Daniele, 02/07/2014
-
 c     Begin program
 
-cc      res = ((1+f0)/(abs(te)+f0*beta))**(1.5)
-      res = (abs(te/te0))**(-1.5)
+      res = (abs(te0/(te+1d-2*te0)))**(1.5)
 
 c     End program
 
@@ -345,8 +342,8 @@ c     Local variables
 
 c     Begin program
 
-      if (b2 > 0d0.and.te/=0d0) then
-         dfvty = sqrt(abs(te0/te))*rho*rho/b2
+      if (b2 > 0d0) then
+         dfvty = sqrt(abs(te0/(te+1d-4*te0)))*rho*rho/b2
       else
          dfvty = 0d0
       endif
@@ -6173,7 +6170,8 @@ c     Local variables
 c     Begin program
 
       if (spitzer) then
-        rsvty = min(eta*res_spitzer(field,te0_ref),1d-1)
+cc        rsvty = min(eta*res_spitzer(field,te0_ref),1d-1)
+        rsvty = eta*res_spitzer(field,te0_ref)
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
@@ -6211,7 +6209,7 @@ c     Call variables
 c     Local variables
 
       integer :: nx,ny,nz,i,j,k
-      real(8) :: fmax,fmaxg
+      real(8) :: fld
 
 c     Begin program
 
