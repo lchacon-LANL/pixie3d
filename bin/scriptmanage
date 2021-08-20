@@ -57,7 +57,7 @@ new_job()
 {
 sed  -i -e '/restart/{' \
         -e 'c\' \
-        -e '    restart  = t' \
+        -e '    ts_restart  = t' \
         -e '}' \
         $inputfile
 

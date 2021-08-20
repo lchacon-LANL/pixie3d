@@ -8,8 +8,8 @@ cat <<HELP
 Usage: 
 
 $0 -np procs [-h] [-d] [-wc mm] [-qos queue] [-A account] [-email email] 
-[-omp_tasks tasks] [-x executable] [-t tmax] [-r tmax] [-rtgz file] [-ntar] 
-[-equ file] [-eig file]  [-recursive] -- inputfile [options]
+[-env environment] [-omp_tasks tasks] [-x executable] [-t tmax] [-r tmax] [-rtgz file]
+[-ntar] [-equ file] [-eig file]  [-recursive] -- inputfile [options]
 
 where:
 	-np procs:     indicates the total (MPI+OMP) number of cores (required)
@@ -18,6 +18,7 @@ where:
 	-qos queue:    indicates quality of service queue (default standard)
         -A:            selects account (default w21_magfusion)
         -email:        specifies notification email (default chacon@lanl.gov) 
+        -env:          specifies environment [intel, gcc (default)] 
 	-wc time:      indicates wall-clock time (in minutes; default 16 hours)
         -omp_tasks:    number of OMP tasks per MPI task (default 1)
 	-x executable: indicates the executable file (default is 'iRFP.x')
@@ -58,6 +59,7 @@ qos="standard"
 np=""
 omp_tasks=1
 email="chacon@lanl.gov"
+env="gcc"
 
 # Parse command line options
 
@@ -74,6 +76,8 @@ case $1 in
 	-wc) wtime=$2;shift 2;;
 	-qos) qos=$2;shift 2;;
 	-omp_tasks) omp_tasks=$2;shift 2;;
+	-email) email=$2;shift 2;;
+	-env) environment=$2;shift 2;;
 	-x) executable=$2;shift 2;;
 	-t) restart=f;tmax=$2;shift 2;;
 	-r) restart=t;tmax=$2;shift 2;;
@@ -177,6 +181,15 @@ fi
 
 if [ "$debug" = "t" ]; then
   echo "==> Program to run is $executable"
+fi
+
+# Select environment
+
+if [ "$environment" = "gcc" ]
+then
+  load_mod="source ~/bin/load_gcc-9.3.0_badger"
+else
+  load_mod="source ~/bin/load_intel-19.0.4_badger"
 fi
 
 # Copy necessary files to working directory
@@ -327,7 +340,8 @@ cat > go.sub <<QSUB
 #SBATCH --export=ALL 
 
 date
-#source ~/bin/load_intel-19.0.4_badger
+
+$load_mod
 
 mpiexec -np $((np/omp_tasks)) -x OMP_NUM_THREADS=$omp_tasks $executable $options -cpu_quota $((wtime*55)) -log_summary >> $inputfile.out
 
@@ -370,7 +384,7 @@ if [ "$debug" = "t" ]; then
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.sub $inputfile.in > scriptmanage.log
+  ./scriptmanage go.sub $code_ifile.in > scriptmanage.log
 else
   sbatch go.sub
 fi
