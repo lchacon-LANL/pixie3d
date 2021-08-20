@@ -96,7 +96,7 @@ c Namelists
      .                   ,subtract_E0,e_cons_vstar,post_smooth_B
      .                   ,regularize_A,use_p_classic_eq,post_filter_hel
      .                ,prt_file,equ_file,map_file,dcon
-     .           !Legacy parameters
+     .                !Legacy parameters
      .                ,precon,mgtol,maxvcyc,precpass,nsweep,hall_new
      .                   ,zebra_relax,ores,oprol,debug,debug_it
      .                   ,lag_pinch_bc,recordfile,pc_debug_it

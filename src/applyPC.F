@@ -1361,7 +1361,7 @@ c Allocate variables
 c Find drho, dprs arrays with BCs
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IRHO:IRHO),drho
-     .             ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
+     .              ,bcs(:,IRHO:IRHO),order_bc,icomp=(/IRHO/))
 
       call fillArray(gv%gparams,igrid,1,xxx(:,IPRS:IPRS),dprs
      .              ,bcs(:,IPRS:IPRS),order_bc,icomp=(/IPRS/))
