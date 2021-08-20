@@ -708,7 +708,7 @@
         
 !     Normalized pressure
 
-        prs = prs*ip0 + 1d-5 !Add pressure floor
+        prs = prs*ip0 + 1d-4 !Add pressure floor
 
 !     Find magnetic field components
 

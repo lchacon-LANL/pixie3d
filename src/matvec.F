@@ -696,7 +696,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmp0
-     .                                         ,tnsr0
+     .                                         ,tnsr0,chi0
 
       real(8),pointer    ,dimension(:,:,:)   :: jac,dprs_advc,dtmpe_diff
 
@@ -742,6 +742,7 @@ c Map velocity components
       call point_to_MG_array(nnx,nny,nnz,igrid,vs0_cnv,gvs0)
       call point_to_MG_array(nnx,nny,nnz,igrid,rho0   ,grho0)
       call point_to_MG_array(nnx,nny,nnz,igrid,tmp0   ,gtmp0)
+      call point_to_MG_array(nnx,nny,nnz,igrid,chi0   ,gchi)
 
       if (gamma > 1d0)
      .   call point_to_MG_array(nnx,nny,nnz,igrid,tnsr0,gchitnsr)
@@ -805,7 +806,7 @@ c Calculate matrix-vector product
 c End program
 
       deallocate(dtmpe,dprs,dprs_advc,dtmpe_diff)
-      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,chip0,tnsr0)
+      nullify(vs0_cnv,rho0,bh0,tmp0,chi0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
@@ -851,7 +852,7 @@ c Local variables
 
       real(8),allocatable,dimension(:,:,:,:) :: dtmpe,dprs
       real(8),pointer    ,dimension(:,:,:,:) :: vs0_cnv,rho0,bh0,tmpe0
-     .                                         ,chi0,chip0,tnsr0
+     .                                         ,tnsr0
 
       real(8),pointer    ,dimension(:,:,:) :: jac,dtmpe_advc,dtmpe_diff
 
@@ -951,7 +952,7 @@ c Calculate matrix-vector product
 c End program
 
       deallocate(dtmpe,dtmpe_advc,dtmpe_diff)
-      nullify(vs0_cnv,rho0,bh0,tmpe0,chi0,chip0,tnsr0)
+      nullify(vs0_cnv,rho0,bh0,tmpe0,tnsr0)
 
       call deallocMGPointers(fpointers,mg_ctx_l)
 
