@@ -949,13 +949,7 @@ c Select variable
         
           !Reference temperature for transport parameters
           if (spitzer.or.chi_bgnskii) then
-            te0_ref = maxval(tmpe_0)
-
-#if defined(petsc)
-            lref = te0_ref
-            call MPI_Allreduce(lref,te0_ref,1,MPI_DOUBLE_PRECISION
-     .                        ,MPI_MAX,MPI_COMM_WORLD,mpierr)
-#endif 
+            te0_ref = pmax(maxval(tmpe_0))
           endif
 
         case(IETA_0)
