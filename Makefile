@@ -170,6 +170,11 @@ else
 endif
 endif
 endif
+ifdef BOPT
+	$(MAKE) --no-print-directory -e -C eq/test_parallel test
+else
+	$(MAKE) --no-print-directory -e -C eq/test_serial test
+endif
 
 rebuild-tests: ;
 ifdef VECPOT
@@ -192,6 +197,11 @@ else
 	$(MAKE) --no-print-directory -e -C tests/serial rebuild-b
 endif
 endif
+endif
+ifdef BOPT
+	$(MAKE) --no-print-directory -e -C eq/test_parallel rebuild
+else
+	$(MAKE) --no-print-directory -e -C eq/test_serial rebuild
 endif
 
 # COMMON CONTRIBUTED LIBRARIES
