@@ -1,0 +1,8 @@
+#!/bin/zsh
+ln -sf pix3d_ref.in pixie3d.in
+./pixie3d.x
+mv record.bin_proc0 record_in.bin_proc0
+./pixeq_xfer.x
+mv record_out.bin_proc0 record.bin_proc0
+ln -sf pix3d_out.in pixie3d.in
+./pixie3d.x

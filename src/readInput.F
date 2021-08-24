@@ -105,7 +105,7 @@ c Namelists
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
 
       !Problem setup
-      namelist /setup/  nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
+      namelist /setup/ nxd,nyd,nzd,coords,bcs,xmax,ymax,zmax
      .                   ,xmin,ymin,zmin,gparams,mg_ratio,numerical_grid
      .                   ,npx,npy,npz,gp1,gp2,gp3,efit_coords
 

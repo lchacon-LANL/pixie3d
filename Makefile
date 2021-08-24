@@ -132,9 +132,9 @@ export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
 
 all: $(SUBDIRS)
 
-pixie3d: contrib src 
+pixie3d: src 
 
-pixplot: contrib plot
+pixplot: plot
 
 $(SUBDIRS): contrib
 	$(MAKE) --no-print-directory -e -C $@ $(TARGET)
@@ -218,8 +218,8 @@ contrib_pack: ;
 # CLEAN ALL
 
 srcclean:
-	$(MAKE) --no-print-directory -C src clean
-	$(MAKE) --no-print-directory -C plot clean
+	-@for subdir in $(SUBDIRS) ; do \
+		$(MAKE) -C $$subdir clean;  done
 
 allclean: contrib_clean distclean
 
