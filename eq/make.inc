@@ -1,3 +1,13 @@
+BASE         = pixeq_xfer
+EXEC         = $(BASE)-$(MACHINE)-$(REL1)-$(LABEL)_$(OPT)
+CODE         = $(EXEC)_xfer.x
+ifdef ADIOS_VER
+  PETSCCODE    = $(EXEC)-adios-$(ADIOS_VER).petsc.x
+else
+  PETSCCODE    = $(EXEC)-posix.petsc.x
+endif
+SAMRAICODE   = $(EXEC).samrai.x
+
 #Define message
 
 MESSAGE = "Compiling EQUILIBRIUM  modules"

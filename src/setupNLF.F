@@ -91,8 +91,12 @@ c Fill LOCAL auxiliary variables
 c Safeguards
 
       if (old_time_eval) then
-        call chk_neg(rho,'density')
-        call chk_neg(prs,'pressure')
+        call chk_neg(rho,'rho')
+        if (solve_prs) then
+          call chk_neg(prs,'prs')
+        else
+          call chk_neg(tmpe,'Te')
+        endif
         call chk_neg(heat_src,'heat source')
       endif
       
