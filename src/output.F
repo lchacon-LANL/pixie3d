@@ -28,9 +28,9 @@ c Local variables
 
       integer       :: ngrd(3),nx,ny,nz
 
-      character(10) :: advective,vadvective,tsmeth
+      character(10) :: advective,vadvective,tsmeth,pxo
       character(40) :: pc
-
+      
       real(8)       :: vmax(3),lvmax(3),dt__exp,ncfl
 
 c Begin program
@@ -106,13 +106,13 @@ cc            vadvective = '   TVD'
 
           if (cnfactor <= 5d-1) then
             if     (sm_flag.eq.0 .and. cnfactor > 0d0) then
-              tsmeth = ' Theta'
+              tsmeth = '  Theta'
             elseif (sm_flag.eq.0 .and. cnfactor == 0d0) then
-              tsmeth = ' BDF1 (BE)'
+              tsmeth = '  BDF1(BE)'
             elseif (sm_flag.eq.1) then
               tsmeth = ' Rannacher'
             elseif (sm_flag.eq.2) then
-              tsmeth = ' BDF2'
+              tsmeth = '  BDF2'
             endif
           elseif (cnfactor <= 1d0) then
             tsmeth = ' Explicit'
@@ -135,12 +135,21 @@ cc            vadvective = '   TVD'
             pc = ' Undefined!'
           end select
 
+          select case(xport_order)
+          case(2)
+            pxo = '  2nd     '
+          case(4)
+            pxo = '  4th-7pt '
+          case(-4)
+            pxo = '  4th-5pt '
+          end select
+          
 #if defined(petsc) && defined(coarse_MG)
           write (*,10)nxd,nyd,nzd,npx,npy,npz,trim(pc),ts_adapt_dt
-     .               ,source,numerical_grid,advective,vadvective,tsmeth
+     .           ,source,numerical_grid,advective,vadvective,pxo,tsmeth
 #else
           write (*,10)nxd,nyd,nzd,ngrd,trim(pc),ts_adapt_dt
-     .               ,source,numerical_grid,advective,vadvective,tsmeth
+     .           ,source,numerical_grid,advective,vadvective,pxo,tsmeth
 #endif
           write (*,*) 
           if (cnfactor > 5d-1) then
@@ -194,6 +203,7 @@ c End program
      .        /,'  Numerical grid............',l4
      .        /,'  Scalar advection scheme...',a
      .        /,'  Velocity advection scheme.',a
+     .        /,'  Anisotropic transport sch.',a
      .        /,'  TS scheme.................',a)
  100  format ('    itime      time     dt     #CFL   vx_max   vy_max',
 #if defined(vec_pot)
@@ -303,6 +313,7 @@ cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
 #if !defined(vec_pot)
       if (.not.pc_divclean) write (*,*) 'Div-cleaning postprocessed'
 #endif
+      if (refine_eq) write (*,*) 'Running Equilibrium-checking mode'
       write (*,*) '****************** NOTICES ******************'
 
 

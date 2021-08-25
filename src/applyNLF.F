@@ -167,10 +167,10 @@ c     Heat flux
       
 c     Sources
 
-      if ((.not.source_eval).and.(.not.adiabatic)) then
-        heat_srce = heat_src(i,j,k)
-      else
+      if (source_eval.or.adiabatic.or.refine_eq) then
         heat_srce = 0d0
+      else
+        heat_srce = heat_src(i,j,k)
       endif
 
 c     Add contributions

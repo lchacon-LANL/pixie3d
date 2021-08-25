@@ -40,7 +40,7 @@ c Local variables
       character*(3) :: bcs(6)
       type(grid_pack):: gp1,gp2,gp3
 
-      logical       :: nc_eom_f,mg_coarse_solve,refine_eq
+      logical       :: nc_eom_f,mg_coarse_solve
 
       integer       :: mg_coarse_size
 
@@ -120,7 +120,7 @@ c Namelists
      .                   ,br_pert_bc_old,br_pert_phase_old
      .                   ,nh1,nh2,nh3,npw1,npw2,npw3,random,odd
      .                   ,prho,pvx,pvy,pvz,pbx,pby,pbz,ptmp,pax,pay,paz
-     .                   ,equil,gstor_I_drive
+     .                   ,equil,gstor_I_drive,refine_eq
      .                   ,aa_chi,bb_chi ! Daniele, 02/07/2014
      .                   ,cc_chi,dd_chi ! Daniele, 02/17/2014
      .                   ,res_wall_bc,r_v,tau_w,implicit_rw_bc,rw_hel_v1
@@ -728,8 +728,8 @@ c     #####################################################################
       if (tst_flg) test = .true.
 
       if (refine_eq) then
-        dd  = 1d0        !To damp density
-        chi = 1d0        !To damp pressure profile
+        dd  = 0d0        !To avoid dens decay
+        chi = 0d0        !To avoid temp decay due to perpendicular xport
         nu  = 1d0        !To damp flow
         eta = 0d0        !To avoid resistive diffusion
         source = .false. !To let equilibrium float
@@ -746,13 +746,13 @@ cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then
-          xmax = 1d-3 ; xmin = 0d0
+          xmax = LMIN_NEQONE ; xmin = 0d0
         endif
         if (nyd == 1) then
-          ymax = 1d-3 ; ymin = 0d0
+          ymax = LMIN_NEQONE ; ymin = 0d0
         endif
         if (nzd == 1) then
-          zmax = 1d-3 ; zmin = 0d0
+          zmax = LMIN_NEQONE ; zmin = 0d0
         endif
       endif
 

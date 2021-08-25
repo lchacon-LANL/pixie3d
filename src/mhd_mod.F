@@ -3392,10 +3392,13 @@ c ######################################################################
 
         use mg_solver
 
+        !Input parameters
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
         real(8) :: eq_params(6)
 
+        logical :: refine_eq
+        
         character(3) :: efit_coords='tor'
         
         !Flux-surface averages
