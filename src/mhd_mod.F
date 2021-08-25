@@ -492,6 +492,7 @@ c ######################################################################
      .                                       ,prs_advc
      .                                       ,tmp_advc
      .                                       ,heat_xport
+     .                                       ,heat_xport0
      .                                       ,heat_src
 
         real(8),pointer,dimension(:,:,:,:) :: bcnv
@@ -751,7 +752,7 @@ c     -------------------------------------------------------------------
 c     Begin program
 
       deallocate(pcnv,vscnv,prs,bhat,v_advc,rho_advc,prs_advc,tmp_advc
-     .          ,heat_xport,heat_src,chi_tnsr,stat=istat)
+     .          ,heat_xport,heat_xport0,heat_src,chi_tnsr,stat=istat)
 
       nullify(bcnv
      .       ,bcnv_0
@@ -2987,6 +2988,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
      .          ,prs_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,tmp_advc(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_xport(0:nx+1,0:ny+1,0:nz+1)
+     .          ,heat_xport0(0:nx+1,0:ny+1,0:nz+1)
      .          ,heat_src(0:nx+1,0:ny+1,0:nz+1)
      .          ,prs     (0:nx+1,0:ny+1,0:nz+1)
      .          ,chi_tnsr(0:nx+1,0:ny+1,0:nz+1,6))
@@ -3001,6 +3003,7 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       prs_advc = 0d0
       tmp_advc = 0d0
       heat_xport = 0d0
+      heat_xport0= 0d0
       heat_src   = 0d0
       chi_tnsr   = 0d0
       
@@ -3092,7 +3095,7 @@ c$$$      endif
         if (chi_par == chi) then
           if (chi /= 0d0) then
             if (use_p_diff) then !Total pressure
-              heat_xport = -lap(gv%gparams,igr,prs,dff=cchi)
+              heat_xport = -lap(gv%gparams,igr,prs ,dff=cchi)
             else
               heat_xport = -lap(gv%gparams,igr,tmpe,dff=cchi)
             endif
@@ -3106,6 +3109,14 @@ c$$$      endif
           heat_xport =-tnsr_diff(gv%gparams,igr,tmpe
      .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
      .                          ,xport_order,.true.,limit_mthd=SMART)
+          !Storeinitial parallel heat flux to balance EQU (prevent numerical diff)
+          if (source_eval.and.(.not.adiabatic)) then
+            dum2(:,:,:,1) = 0d0 !Zero out chi_perp
+            chi_tnsr = find_diff_tnsr(gv%gparams,igr,bcnv,dum1,dum2,6)
+            heat_xport0 =-tnsr_diff(gv%gparams,igr,tmpe
+     .                          ,varray%array_var(IPRS)%bconds,chi_tnsr
+     .                          ,xport_order,.true.,limit_mthd=SMART)
+          endif
           deallocate(dum1,dum2)
         endif
       endif

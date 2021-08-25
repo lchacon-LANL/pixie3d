@@ -210,10 +210,6 @@ c Initialize MG parameters
 
       call MG_set_coarse_size(mg_coarse_size)
 
-c Consistency check
-
-      call consistency_chk
-
 c Map perturbations
 
       pert(IRHO)= prho
@@ -230,6 +226,10 @@ c Map perturbations
       pert(IAZ) = paz
 #endif
       pert(IPRS)= a_p*ptmp  !Transform to total pressure
+
+c Consistency check
+
+      call consistency_chk
 
 c Init boundary conditions
 
@@ -733,6 +733,7 @@ c     #####################################################################
         nu  = 1d0        !To damp flow
         eta = 0d0        !To avoid resistive diffusion
         source = .false. !To let equilibrium float
+        pert = 0d0       !Zero out perturbations
       endif
 
       !NK
