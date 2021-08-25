@@ -554,7 +554,7 @@ c     #####################################################################
 
       post_filter_hel = .false.! Whether to Fourier filter helical geometry sim
 
-      xport_order   = 2        ! Order of anisotropic transport operator
+      xport_order   = 4        ! Order of anisotropic transport operator
                                ! Available options:
                                !    2 -> second order,
                                !    4 -> 4th order, 7-pt stencil,
