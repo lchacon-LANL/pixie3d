@@ -57,7 +57,7 @@ c Graphics defaults
       !Contour slice configuration (XDRAW)
       cont_conf%plane  = 3          ! Normal to cut plane (1 -> x, 2 -> y, 3 -> z)
       cont_conf%label  = (/'x','y'/)! Contour plot axes labels
-      cont_conf%coords =(/1,1,1/)   ! Plane coordinates along normal
+      cont_conf%coords = (/1,1,1/)  ! Plane coordinates along normal
 
       sel_diag = 0   !Array of size "xdraw_cont_lim" (currently set to 16)
                      !  indicating time histories to be dumped (see

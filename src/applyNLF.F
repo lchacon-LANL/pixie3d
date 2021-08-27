@@ -159,8 +159,7 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Heat flux
 
-      !Do not zero out heat flux when adiabatic, since there is no heat 
-      !source in that case, and a numerical source is needed for balance.
+      !Only keep ||-xport term in source when not adiabatic; otherwise, keep all terms in source
       if (source_eval.and.(.not.adiabatic)) then
         heat_flx = heat_xport0(i,j,k)  !Contains only chi_par term of EQU Te
       else
