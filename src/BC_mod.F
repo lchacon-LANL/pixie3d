@@ -277,7 +277,7 @@ cc        where (abs(bbcs(:,IBX:IBZ)) == NEU) bbcs(:,IBX:IBZ) = DEF !for testing
         where (abs(bbcs(:,IVZ)) == NEU) bbcs(:,IVZ) = DIR
 
 cc        where (abs(bbcs(:,IRHO)) == NEU) bbcs(:,IRHO) = EQU
-cc        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = DIR
+        where (abs(bbcs(:,IPRS)) == NEU) bbcs(:,IPRS) = EQU
 
 cc      case ('ntm2d')                   !No slip BCs
 cc
