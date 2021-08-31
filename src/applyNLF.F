@@ -159,11 +159,19 @@ c Total kinetic pressure equation <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 c     Heat flux
 
-      !Only keep ||-xport term in source when not adiabatic; otherwise, keep all terms in source
-      if (source_eval.and.(.not.adiabatic)) then
-        heat_flx = heat_xport0(i,j,k)  !Contains only chi_par term of EQU Te
+      if (source_eval) then
+        if (.not.adiabatic) then
+          heat_flx = heat_xport0(i,j,k) !Only keep ||-xport term in source when not adiabatic
+        else
+          heat_flx = heat_xport(i,j,k)  !Otherwise, keep all terms in source (there is a heat src)
+        endif
       else
-        heat_flx = heat_xport(i,j,k)
+c$$$        if (refine_eq) then  !Implies source=f, so need to apply correction explicitly
+c$$$          heat_flx = heat_xport(i,j,k) - heat_xport0(i,j,k)
+c$$$          write (*,*) heat_flx,heat_xport0(i,j,k)
+c$$$        else
+          heat_flx = heat_xport(i,j,k)
+c$$$        endif
       endif
       
 c     Sources

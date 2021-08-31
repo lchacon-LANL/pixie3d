@@ -283,7 +283,7 @@ c     Warnings
       if (ion_hall)
      .     write (*,*) 'Solving ion-based Hall MHD formulation'
       if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
-      if (adiabatic) write (*,*) 'Using adiabatic P update'
+      if (adiabatic) write (*,*) 'Using adiabatic P,T update'
 cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
       if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
       if (spitzer) write (*,*) 'Using Spitzer resistivity'
