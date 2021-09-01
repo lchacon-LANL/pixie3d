@@ -5587,8 +5587,12 @@ c     Local variables
 c     Begin program
 
       if (chi_bgnskii) then
-        b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
-        dfvty = min(chi*chi_perp_brag(te,te0_ref,rho,b2),1d-1)
+        if (adiabatic) then
+          dfvty = chi
+        else
+          b2 = vectorNorm(g_def,i,j,k,igrid,bcnv,.false.)
+          dfvty = min(chi*chi_perp_brag(te,te0_ref,rho,b2),1d-1)
+        endif
       else
         select case (equil)
         case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
