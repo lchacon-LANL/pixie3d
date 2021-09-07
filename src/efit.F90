@@ -225,7 +225,7 @@
 
         close (neqdsk)
         
-!!$        call read_chk()
+        if (my_rank == 0) call read_chk(0)
    
 2000    format (6a8,3i4)
 2020    format (5e16.9)
@@ -236,8 +236,10 @@
 
 !       read_chk
 !       #########################################################################
-        subroutine read_chk
+        subroutine read_chk(flag)
 
+          integer :: flag
+          
           !Plot Psi(R,Z)
           call createDrawInCfile(1,"efit_psi.bin",'Solution','t','x','y' &
                               ,(/'Psi'/),'-c -X0 -L57','drawpsi.in')
@@ -265,10 +267,12 @@
           !Plot q profile (gnuplot)
           open(unit=110,file="efit_q.txt",status='unknown')
           do i=1,nw
-             write(110,*) i,qpsi(i)
+             write(110,*) 1d0*i/nw,abs(qpsi(i))
           enddo
           close(110)
 
+          if (flag == 0) return
+          
           write(*,2000) case,idum,nw,nh
 
           write(*,2020) rdim,zdim,rcentr,rleft,zmid
