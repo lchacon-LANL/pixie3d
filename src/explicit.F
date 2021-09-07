@@ -301,13 +301,13 @@ c Calculate flow-based CFL
             if (nz == 1) ih(3) = 0d0
 
             !k.v
-            v(1) = u_np%array_var(IVX)%array(i,j,k)
-            v(2) = u_np%array_var(IVY)%array(i,j,k)
-            v(3) = u_np%array_var(IVZ)%array(i,j,k)
+            v(1) = abs(u_np%array_var(IVX)%array(i,j,k))
+            v(2) = abs(u_np%array_var(IVY)%array(i,j,k))
+            v(3) = abs(u_np%array_var(IVZ)%array(i,j,k))
             kv_par = scalarProduct(gv%gparams,i,j,k,igx,ih,v)
 
             !Find flow CFL
-            w_cfl=max(abs(kv_par),w_cfl)
+            w_cfl=max(kv_par,w_cfl)
 
           enddo
         enddo
