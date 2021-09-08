@@ -295,13 +295,13 @@ if [ "$restart" = "t" ]
 then
    sed  -i -e '/restart/{' \
         -e 'c\' \
-        -e '    restart  = t' \
+        -e '    ts_restart = t' \
         -e '}' \
         $code_ifile.in 
 else
    sed  -i -e '/restart/{' \
         -e 'c\' \
-        -e '    restart  = f' \
+        -e '    ts_restart = f' \
         -e '}' \
         $code_ifile.in
 fi
@@ -384,7 +384,7 @@ if [ "$debug" = "t" ]; then
 fi
 
 if [ "$recursive" = "t" ]; then
-  ./scriptmanage go.sub $code_ifile.in > scriptmanage.log
+  ./scriptmanage go.sub $code_ifile.in > scriptmanage.log &
 else
   sbatch go.sub
 fi
