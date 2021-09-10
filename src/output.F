@@ -267,6 +267,8 @@ c     Warnings
       write (*,*) 'Using MAGNETIC FIELD formulation'
 #endif
 
+      if (limit_dt_flow_cfl)
+     .     write (*,*) 'Limiting timestep to flow CFL'
       if (nc_eom_jxb)
      .     write (*,*) 'Using non-conservative JxB     part of EOM'
       if (nc_eom_gp)
@@ -277,22 +279,23 @@ c     Warnings
      .     write (*,*) 'Using non-solenoidal version'
       if (.not.solve_rho)
      .     write (*,*) 'Not solving for density'
-      if (adiabatic_rho) write (*,*) 'Using polytropic EOS for density'
-      if (sym_st)
-     .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
-      if (ion_hall)
-     .     write (*,*) 'Solving ion-based Hall MHD formulation'
-      if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
-      if (adiabatic) write (*,*) 'Using adiabatic P,T update'
-cc      if (use_p_eom) write (*,*) 'Solving for pressure instead of temp'
-      if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
-      if (spitzer) write (*,*) 'Using Spitzer resistivity'
-      if (chi_bgnskii) write (*,*) 'Using Braginskii transport coeffs'
       if (solve_prs) then
         write (*,*) 'Solving for P=Pi+Pe'
       else
         write (*,*) 'Solving for Te'
       endif
+
+      if (adiabatic_rho) write (*,*) 'Using polytropic EOS for density'
+      if (adiabatic) write (*,*) 'Using adiabatic P,T update'
+      if (sym_st)
+     .     write (*,*) 'Using symmetric viscous stress tensor in EOM'
+      if (ion_hall)
+     .     write (*,*) 'Solving ion-based Hall MHD formulation'
+      if (slava) write (*,*) 'Using Slava Lukins Hall MHD formulation'
+      if (gamma == 1d0) write (*,*) 'Using isothermal EOS (gamma = 1)'
+      if (spitzer) write (*,*) 'Using Spitzer resistivity'
+      if (chi_bgnskii) write (*,*) 'Using Braginskii transport coeffs'
+
       if (use_p_eom)
      .     write (*,*) 'Using grad(p) instead of grad(nT) in EOM'
       if (use_p_diff)

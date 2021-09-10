@@ -37,7 +37,7 @@
       real(8),dimension(:,:),allocatable :: psi_coef
 
       !Module variables
-      real(8) :: r_max,r_min,z_max,LL,iLL,psisgn=1d0,e_bp=0d0
+      real(8) :: r_max,r_min,z_max,z_min,LL,iLL,psisgn=1d0,e_bp=0d0
 
       logical :: short_efit_file=.true.,efit_dbg=.false.,efit_rho_adiab=.false.
       
@@ -354,6 +354,7 @@
 
         !Limiter box
         z_max = maxval(zlim)
+        z_min = minval(zlim)
         r_max = maxval(rlim)
         r_min = minval(rlim)
 
@@ -366,11 +367,13 @@
           write (*,*) "Limiter R_max (m)=",r_max
           write (*,*) "Limiter R_min (m)=",r_min
           write (*,*) "Limiter Z_max (m)=",z_max
+          write (*,*) "Limiter Z_min (m)=",z_min
         endif
         
         r_max = r_max*iLL
         r_min = r_min*iLL
         z_max = z_max*iLL
+        z_min = z_min*iLL
 
         rdim  = rdim *iLL
         rleft = rleft*iLL
@@ -551,25 +554,41 @@
 
         coords = coord
 
-        if (gparams(1) == 0d0) then
-          gparams(1) = 0.5*(r_max+r_min) !Major radius (biased)
-        else
-          gparams(1) = gparams(1)*iLL    !Magnetic axis R-coord
+        !Origin R-coord
+        if (gparams(1) /= 0d0) then
+          gparams(7) = -(gparams(1)-rmaxis)*iLL  !R-coordinate bdry shift
         endif
+        gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
+
+        !Origin Z-coord
         if (gparams(2) /= 0d0) then
-          gparams(2) = gparams(2)*iLL    !Magnetic axis Z-coord
+          gparams(8) = -(gparams(2)-zmaxis)*iLL  !Z-coordinate bdry shift
         endif
-        !gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
-        !gparams(2) = 0d0         !Magnetic axis Z-coord
+        gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
+
+!          gparams(2) = gparams(2)*iLL    !Origin Z-coord
+
+        !Minor radius
         if (gparams(3) == 0d0) then
-          gparams(3) = 1d0    !Minor radius
+          gparams(3) = 1d0
         else
-          gparams(3) = gparams(3)*iLL    !Minor radius
+          gparams(3) = gparams(3)*iLL
         endif
-        if (gparams(4) == 0d0) gparams(4) = 2*z_max/(r_max-r_min)   !Elongation
+
+        !Elongation
+        if (gparams(4) == 0d0) then
+          gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
+          gparams(9) = 0d0
+       else
+          !gparams(9) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
+          gparams(9) = zdim/rdim
+        endif
+
         ! gparams(5),delta, provided in input deck
         ! gparams(6), zeta, provided in input deck
 
+!!$        write (*,*)  (z_max-z_min)/(r_max-r_min),zdim/rdim,(maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs)),gparams(4)
+!!$        stop
       case('tsq')
 
         coords = coord
