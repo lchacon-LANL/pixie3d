@@ -554,41 +554,52 @@
 
         coords = coord
 
-        !Origin R-coord
-        if (gparams(1) /= 0d0) then
-          gparams(7) = -(gparams(1)-rmaxis)*iLL  !R-coordinate bdry shift
+        !Origin R-coord (set to magnetic axis if not provided)
+        if (gparams(1) == 0d0) then
+           gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
+        else
+           if (gparams(7) == 0d0) then
+              gparams(1) = gparams(1)*iLL  !Specified axis R-coord; backward compatibility
+           else
+              gparams(7) = -(gparams(1)-rmaxis)*iLL  !R-coordinate bdry shift
+              gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
+           endif
         endif
-        gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
 
-        !Origin Z-coord
-        if (gparams(2) /= 0d0) then
-          gparams(8) = -(gparams(2)-zmaxis)*iLL  !Z-coordinate bdry shift
+        !Origin Z-coord (set to magnetic axis if not provided)
+        if (gparams(2) == 0d0) then
+           gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
+        else
+           if (gparams(8) == 0d0) then
+              gparams(2) = gparams(2)*iLL  !Specified axis Z-coord; backward compatibility
+           else
+              gparams(8) = -(gparams(2)-zmaxis)*iLL  !Z-coordinate bdry shift
+              gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
+           endif
         endif
-        gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
 
-!          gparams(2) = gparams(2)*iLL    !Origin Z-coord
-
-        !Minor radius
+        !Minor radius (set if not provided)
         if (gparams(3) == 0d0) then
           gparams(3) = 1d0
         else
           gparams(3) = gparams(3)*iLL
         endif
 
-        !Elongation
+        !Elongation of bdry (estimate if not provided)
         if (gparams(4) == 0d0) then
-          gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
-          gparams(9) = 0d0
-       else
-          !gparams(9) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
-          gparams(9) = zdim/rdim
+           gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
+        endif
+
+        !Elongation at SP (estimate if needed)
+        if (gparams(7)==0d0.or.gparams(8)==0d0) then !Origin NOT at magnetic axis
+           gparams(9) = gparams(4)
+        else
+           gparams(9) = zdim/rdim
         endif
 
         ! gparams(5),delta, provided in input deck
         ! gparams(6), zeta, provided in input deck
 
-!!$        write (*,*)  (z_max-z_min)/(r_max-r_min),zdim/rdim,(maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs)),gparams(4)
-!!$        stop
       case('tsq')
 
         coords = coord
