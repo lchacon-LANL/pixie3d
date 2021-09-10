@@ -165,13 +165,9 @@ c     Heat flux
         else
           heat_flx = heat_xport(i,j,k)  !Otherwise, keep all terms in source (there is a heat src)
         endif
+        heat_flx = 0d0
       else
-c$$$        if (refine_eq) then  !Implies source=f, so need to apply correction explicitly
-c$$$          heat_flx = heat_xport(i,j,k) - heat_xport0(i,j,k)
-c$$$          write (*,*) heat_flx,heat_xport0(i,j,k)
-c$$$        else
-          heat_flx = heat_xport(i,j,k)
-c$$$        endif
+        heat_flx = heat_xport(i,j,k)
       endif
       
 c     Sources
