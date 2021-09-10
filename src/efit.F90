@@ -556,25 +556,25 @@
 
         !Origin R-coord (set to magnetic axis if not provided)
         if (gparams(1) == 0d0) then
-           gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
+           gparams(1) = rmaxis*iLL         !Magnetic axis R-coord
         else
-           if (gparams(7) == 0d0) then
+           if (gparams(7) == 0d0) then     !Do NOT shift to magnetic axis
               gparams(1) = gparams(1)*iLL  !Specified axis R-coord; backward compatibility
            else
               gparams(7) = -(gparams(1)-rmaxis)*iLL  !R-coordinate bdry shift
-              gparams(1) = rmaxis*iLL  !Magnetic axis R-coord
+              gparams(1) = rmaxis*iLL      !Magnetic axis R-coord
            endif
         endif
 
         !Origin Z-coord (set to magnetic axis if not provided)
         if (gparams(2) == 0d0) then
-           gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
+           gparams(2) = zmaxis*iLL         !Magnetic axis Z-coord
         else
-           if (gparams(8) == 0d0) then
+           if (gparams(8) == 0d0) then     !Do NOT shift to magnetic axis
               gparams(2) = gparams(2)*iLL  !Specified axis Z-coord; backward compatibility
            else
               gparams(8) = -(gparams(2)-zmaxis)*iLL  !Z-coordinate bdry shift
-              gparams(2) = zmaxis*iLL  !Magnetic axis Z-coord
+              gparams(2) = zmaxis*iLL      !Magnetic axis Z-coord
            endif
         endif
 
@@ -590,11 +590,11 @@
            gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
         endif
 
-        !Elongation at SP (estimate if needed)
-        if (gparams(7)==0d0.or.gparams(8)==0d0) then !Origin NOT at magnetic axis
-           gparams(9) = gparams(4)
+        !Elongation at SP 
+        if (gparams(7)==0d0.or.gparams(8)==0d0) then
+           gparams(9) = gparams(4)  !Origin NOT at magnetic axis: use bdry elongation
         else
-           gparams(9) = zdim/rdim
+           gparams(9) = zdim/rdim   !Estimate elongation (crudely)
         endif
 
         ! gparams(5),delta, provided in input deck
