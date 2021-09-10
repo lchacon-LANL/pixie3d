@@ -734,6 +734,7 @@ c     #####################################################################
         eta = 0d0        !To avoid resistive diffusion
         source = .false. !To let equilibrium float
         pert = 0d0       !Zero out perturbations
+        chk_src = .true.
       endif
 
       !NK
