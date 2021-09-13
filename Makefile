@@ -123,7 +123,13 @@ endif
 
 #Export required variables
 
-export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 #MPI_HOME
+ifdef NOCOMMON
+  COMMON = 
+else
+  COMMON = common
+endif
+
+export CPPFLAGS MODPATH CONTRIBLIBS BINDIR PIT REL1 COMMON #MPI_HOME
 
 #Define targets
 
