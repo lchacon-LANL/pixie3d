@@ -561,7 +561,7 @@
            if (gparams(1) > 0d0) then      !Do NOT shift to magnetic axis
               gparams(1) = gparams(1)*iLL  !Specified axis R-coord; backward compatibility
            else
-              gparams(7) = -(abs(gparams(1))-rmaxis)*iLL  !R-coordinate bdry shift
+              gparams(8) = -(abs(gparams(1))-rmaxis)*iLL  !R-coordinate bdry shift
               gparams(1) = rmaxis*iLL      !Magnetic axis R-coord
            endif
         endif
@@ -573,7 +573,7 @@
            if (gparams(2) > 0d0) then      !Do NOT shift to magnetic axis
               gparams(2) = gparams(2)*iLL  !Specified axis Z-coord; backward compatibility
            else
-              gparams(8) = -(abs(gparams(2))-zmaxis)*iLL  !Z-coordinate bdry shift
+              gparams(9) = -(abs(gparams(2))-zmaxis)*iLL  !Z-coordinate bdry shift
               gparams(2) = zmaxis*iLL      !Magnetic axis Z-coord
            endif
         endif
@@ -587,18 +587,20 @@
 
         !Elongation of bdry (estimate if not provided)
         if (gparams(4) == 0d0) then
-           gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
+          gparams(4) = (maxval(zbbbs)-minval(zbbbs))/(maxval(rbbbs)-minval(rbbbs))
         endif
-
-        !Elongation at SP 
-        if (gparams(7)==0d0.or.gparams(8)==0d0) then
-           gparams(9) = gparams(4)  !Origin NOT at magnetic axis: use bdry elongation
-        else
-           gparams(9) = zdim/rdim   !Estimate elongation of flux surfaces near mag-axis (crudely)
-        endif
-
+        
         ! gparams(5),delta, provided in input deck
         ! gparams(6), zeta, provided in input deck
+
+        !Elongation at SP (estimate if not provided)
+        if (gparams(7) == 0d0) then
+          if (gparams(8)==0d0.or.gparams(9)==0d0) then
+            gparams(7) = gparams(4)  !Origin NOT at magnetic axis: use bdry elongation
+          else
+            gparams(7) = zdim/rdim   !Estimate elongation of flux surfaces near mag-axis (crudely)
+          endif
+        endif
 
       case('tsq')
 
