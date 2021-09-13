@@ -523,11 +523,10 @@
         rz(1) = R/iLL
         rz(2) = Z/iLL
 
-        !Compute closest and furthest points along bdry
         npt = size(rbbbs)
 
         !Order N algorithm based on angular integration
-        !(approximates shape by a coarser polygon for efficiency)
+        !(approximates shape by a polygon)
         !Works for arbitrary curve shape
         theta = 0d0
         b = rz-(/rbbbs(1),zbbbs(1)/)
