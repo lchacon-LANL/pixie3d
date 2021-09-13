@@ -498,6 +498,51 @@
 
       END SUBROUTINE efit_cleanup
 
+!     inside_sptrx
+!     #################################################################
+      function inside_sptrx(R,Z) result(inside)
+
+!     -----------------------------------------------------------------
+!     Determines whether a point is inside separatrix.
+!     -----------------------------------------------------------------
+
+        implicit none
+
+!     Call variables
+
+        real(8) :: R,Z
+        logical :: inside
+        
+!     Local variables
+
+        integer :: npt,ipt
+        real(8) :: rz(2),dth,theta,a(2),b(2)
+
+!     Begin program
+        
+        rz(1) = R/iLL
+        rz(2) = Z/iLL
+
+        !Compute closest and furthest points along bdry
+        npt = size(rbbbs)
+
+        !Order N algorithm based on angular integration
+        !(approximates shape by a coarser polygon for efficiency)
+        !Works for arbitrary curve shape
+        theta = 0d0
+        b = rz-(/rbbbs(1),zbbbs(1)/)
+        do ipt=2,npt
+           a = b
+           b = rz-(/rbbbs(ipt),zbbbs(ipt)/)
+           dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+           theta = theta + dth
+        enddo
+
+!!$        write (*,*) theta/(2*pi)
+        inside = (abs(theta) > 0.98*2*pi)
+
+      end function inside_sptrx
+      
       END MODULE efit
 
 !     efit_map
@@ -701,12 +746,12 @@
                                  ,kx,kz,psi_coef,work)
 
               !Interpolate pressure
-              if (psi(i,j,k) > sibry) then
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
-                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
-              else
-                prs(i,j,k)   = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+              if (inside_sptrx(RR,ZZ)) then
+                prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
+              else
+                prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,sibry,inbv,work)
+                bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
               endif
 
               if (prs(i,j,k) < 0d0) prs(i,j,k) = abs(prs(i,j,k))
@@ -936,7 +981,7 @@
         DEALLOCATE(vv,jj,mag1,mag2,mag3,mag1g,mag2g,mag3g,stat=istat)
  
       end subroutine GS_chk
- 
+
 !!$!     dcon_dump
 !!$!     #################################################################
 !!$      subroutine dcon_dump
