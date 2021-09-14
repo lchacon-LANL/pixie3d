@@ -746,33 +746,8 @@ c     Tearing mode in sinusoidal coordinates
 
         var(:,:,:,ITMPE) = 1d0
 
-        bz0 = 1d0
-
 #if !defined(vec_pot)
         bb = curl(gv%gparams,igx,aa)
-
-        do k = klom,khip
-          do j = jlom,jhip
-            do i = ilom,ihip
-
-             !X-Y equilibrium
-             gsub = gv%gparams%gmetric%grid(igx)%gsub(i,j,k,:,:)
-             jac1 = gv%gparams%gmetric%grid(igx)%jac (i,j,k)
-
-             bnorm =vectorNorm(gv%gparams,i,j,k,igx,bb(i,j,k,:),.false.)
-
-             ccc = jac1*(bz0**2 - bnorm)
-             bbb = gsub(3,2)*bb(i,j,k,2) + gsub(3,1)*bb(i,j,k,1)
-             aaa = gsub(3,3)
-
-             bb(i,j,k,3)  = (-bbb+sqrt(bbb**2+4*aaa*ccc))/2./aaa
-
-             if (bbb**2+4*aaa*ccc < 0d0) then
-               write (*,*) bb(i,j,k,3),bnorm,aaa,bbb**2+4*aaa*ccc
-             endif
-            enddo
-          enddo
-        enddo
 #endif
 
       case ('gem')
