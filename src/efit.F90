@@ -242,7 +242,7 @@
           
           !Plot Psi(R,Z)
           call createDrawInCfile(1,"efit_psi.bin",'Solution','t','x','y' &
-                              ,(/'Psi'/),'-c -X0 -L57','drawpsi.in')
+                              ,(/'Psi'/),'-c -X0 -L57','drawefit_psi.in')
 
           open(unit=110,file="efit_psi.bin",form='unformatted',status='unknown')
 
