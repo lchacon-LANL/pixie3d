@@ -2997,13 +2997,14 @@ c     Allocate LOCAL auxiliary variables (not SAMRAI-aware)
       pcnv = 0d0
       vscnv= 0d0
       bhat = 0d0
-      prs  = 0d0
       v_advc = 0d0
       rho_advc = 0d0
       prs_advc = 0d0
       tmp_advc = 0d0
       heat_xport = 0d0
+      heat_xport0= 0d0
       heat_src   = 0d0
+      prs        = 0d0
       chi_tnsr   = 0d0
       
       rho => vaux%var_list(IRHO_AUX )%array
