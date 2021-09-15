@@ -2,11 +2,12 @@
   Grid mesh:................   32x   32x    1
   Number of grid levels:....    4,    4,    1
   Preconditioning method:... EMHD split PC
-  Time correction...........   F
+  Timestep adaption.........   F
   External source...........   F
   Numerical grid............   T
   Scalar advection scheme...    ZIP   
   Velocity advection scheme.    ZIP   
+  Anisotropic transport sch.  4th-7pt 
   TS scheme................. Rannacher
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
