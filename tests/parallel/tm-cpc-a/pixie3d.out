@@ -2,12 +2,13 @@
   Grid mesh:................   32x   32x    1
   Number of processors:.....    2,    1,    1
   Preconditioning method:... Identity
-  Time correction...........   F
+  Timestep adaption.........   F
   External source...........   T
   Numerical grid............   F
   Scalar advection scheme...    ZIP   
   Velocity advection scheme.    ZIP   
-  TS scheme................. Theta    
+  Anisotropic transport sch.  4th-7pt 
+  TS scheme.................  Theta   
 
     itime      time     dt     #CFL   vx_max   vy_max   vz_max    GMRES Newton CN factor
          1      0.01  1.0E-02 1.5E+00  1.8E-06  9.9E-04  4.0E-08     4     4     0.500
