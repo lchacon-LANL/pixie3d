@@ -2092,9 +2092,6 @@ cc              var(i,j,k,IVX:IVZ)=0d0
             enddo
           enddo
         enddo
-
-        write (*,*) "Check prsw definition and assignment above"
-        stop
         
 #if !defined(vec_pot)
         call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
