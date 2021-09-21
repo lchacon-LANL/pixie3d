@@ -2526,7 +2526,7 @@ c ######################################################################
         !Input parameters
         real(8) :: dlambda,rshear,vparflow,vperflow,E0(3),B0(3),M0(3)
 
-        real(8) :: eq_params(6)
+        real(8) :: eq_params(6),min_te=0d0,min_prs=0d0
 
         logical :: refine_eq
         

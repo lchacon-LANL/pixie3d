@@ -1938,14 +1938,14 @@ c     Read EFIT equilibrium
         find_a = .false.
 
         !Divergence clean field if not Tokamak
-#if !defined(vec_pot)
-        if (div_clean) then
-#endif
+c$$$#if !defined(vec_pot)
+c$$$        if (div_clean) then
+c$$$#endif
 c$$$          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
 c$$$     &                    ,rtol=1d-7,dacov=aa)
-#if !defined(vec_pot)
-        endif
-#endif
+c$$$#if !defined(vec_pot)
+c$$$        endif
+c$$$#endif
 
 c     Other equilibrium quantities
 

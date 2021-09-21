@@ -15,10 +15,10 @@ program pixeq_xfer
   character(Len=1024) :: ifile,ofile,irecfile,orecfile
   integer :: n_args,ntimelevels,itlevel,order,u_rec_in
   integer :: ierr,perr
-  logical :: debug=.true.,extrude_dir(3)
+  logical :: debug=.true.,extrude_dir(3),is_equ=.false.
 
   !namelist
-  namelist /xfer/ ifile,ofile,irecfile,orecfile,order
+  namelist /xfer/ ifile,ofile,irecfile,orecfile,order,is_equ
 
   !State variables
   type(var_array),pointer :: vref=>null(),vout=>null(),vref_0=>null()
@@ -256,24 +256,29 @@ program pixeq_xfer
   !Reset time counters
 !!  itm = 0 ; tt = 0d0
 
-  !!!!!!!!!!!!!!!!!!!!!!
-  !Dump new equilibrium!
-  !!!!!!!!!!!!!!!!!!!!!!
-
-  call xfer_varray(vref_0,vout)
-!!  call applyBC(igx,vout,gv%aux)
-
   call init_IO
 
-  call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
+  if (is_equ) then  !New initial condition only
+     call xfer_varray(vref,vout)
+     
+     call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
+  else              !New restart file
+     !!!!!!!!!!!!!!!!!!!!!!
+     !Dump new equilibrium!
+     !!!!!!!!!!!!!!!!!!!!!!
+     call xfer_varray(vref_0,vout)
+!!     call applyBC(igx,vout,gv%aux)
 
-  !!!!!!!!!!!!!!!!!!
-  !Dump final state!
-  !!!!!!!!!!!!!!!!!!
-  call xfer_varray(vref,vout)
+     call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
 
-  call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
+     !!!!!!!!!!!!!!!!!!
+     !Dump final state!
+     !!!!!!!!!!!!!!!!!!
+     call xfer_varray(vref,vout)
 
+     call writeRecordFile(orecfile,itm,tt,dt,gammat,vout,init=.false.)
+  endif
+  
   call finalize_IO
 
 !!  call writeDerivedType(vout,6,.true.)
