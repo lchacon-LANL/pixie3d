@@ -1777,9 +1777,10 @@ cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
 
             etah = 0.5*(eta(i,j,k)+eta(i+1,j,k))
 
-            !ExB velocity
-            E00 = E_0(i+1,j,k,:) + E0  !E_0(nx+1) contains face value (from RW module)
+            !Tangential eta*j at wall
+            E00 = E0 + etah*tau_w*E_0(i+1,j,k,:) !E_0(nx+1) contains face value (from RW module)
             
+            !ExB velocity
             v0(i+1,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
      .                   -etah*grad_p(1))/b2
             v0(i+1,j,k,2)=(E00(3)*bbcov(1)-E00(1)*bbcov(3)
@@ -1820,8 +1821,6 @@ c     Local variables
       real(8) :: Jb2,b2,bbcnv(3),bbcov(3),grad_p(3),alpha
      .          ,gsub(3,3),ietah,jach,E00(3)
 
-c$$$      real(8) :: x(5),vec(4),xt(1)
-
 c     Begin program
 
       nx = size(bcnv,1)-2
@@ -1837,27 +1836,8 @@ c     Begin program
 
       call getMGmap(g_def,i,1,1,igrid,igrid,igrid,ig,jg,kg)
 
-c$$$      ord = 3
-
-c$$$      x = (/g_def%xx(ig-3)
-c$$$     $     ,g_def%xx(ig-2)
-c$$$     $     ,g_def%xx(ig-1)
-c$$$     $     ,g_def%xx(ig  )
-c$$$     $     ,g_def%xx(ig+1)/)
-c$$$
-c$$$      xt = 0.5*(g_def%xx(ig+1)
-c$$$     $         +g_def%xx(ig  ))
-
       do k=1,nz
         do j=1,ny
-c ====================
-cc          !Zeroth-order extrapolation of B to boundary
-cc          bbcnv = bcnv(i  ,j,k,:)
-c ====================
-cc          !First-order extrapolation of B to boundary, uniform mesh (critical)
-cc          bbcnv = 1.5*bcnv(i  ,j,k,:)
-cc     $           -0.5*bcnv(i-1,j,k,:)
-c ====================
           !First-order extrapolation of B to boundary, arbitrary mesh (critical)
           bbcnv = bcnv(i-1,j,k,:) + (bcnv(i,j,k,:)-bcnv(i-1,j,k,:))
      $                             /(g_def%xx(ig) -g_def%xx(ig-1))
@@ -1868,41 +1848,6 @@ c ====================
           gsub = 0.5*(g_def%gmetric%grid(igrid)%gsub(i  ,j,k,:,:)
      .               +g_def%gmetric%grid(igrid)%gsub(i+1,j,k,:,:))
           bbcov = matmul(gsub,bbcnv)
-c ====================
-cc          !High-order extrapolation of B to boundary, arbitrary mesh (critical)
-cc          vec = (/ bcnv(i-3,j,k,1)
-cc     $            ,bcnv(i-2,j,k,1)
-cc     $            ,bcnv(i-1,j,k,1)
-cc     $            ,bcnv(i  ,j,k,1) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(1:1),ord)
-cc          vec = (/ bcnv(i-3,j,k,2)
-cc     $            ,bcnv(i-2,j,k,2)
-cc     $            ,bcnv(i-1,j,k,2)
-cc     $            ,bcnv(i  ,j,k,2) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(2:2),ord)
-cc          vec = (/ bcnv(i-3,j,k,3)
-cc     $            ,bcnv(i-2,j,k,3)
-cc     $            ,bcnv(i-1,j,k,3)
-cc     $            ,bcnv(i  ,j,k,3) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcnv(3:3),ord)
-cc
-cc          !High-order extrapolation of B to boundary, arbitrary mesh (critical)
-cc          vec = (/ bcov(i-3,j,k,1)
-cc     $            ,bcov(i-2,j,k,1)
-cc     $            ,bcov(i-1,j,k,1)
-cc     $            ,bcov(i  ,j,k,1) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(1:1),ord)
-cc          vec = (/ bcov(i-3,j,k,2)
-cc     $            ,bcov(i-2,j,k,2)
-cc     $            ,bcov(i-1,j,k,2)
-cc     $            ,bcov(i  ,j,k,2) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(2:2),ord)
-cc          vec = (/ bcov(i-3,j,k,3)
-cc     $            ,bcov(i-2,j,k,3)
-cc     $            ,bcov(i-1,j,k,3)
-cc     $            ,bcov(i  ,j,k,3) /)
-cc          call IntDriver1d (4,x(1:4),vec,1,xt,bbcov(3:3),ord)
-c ====================
 
           jach = 0.5*(g_def%gmetric%grid(igrid)%jac(i  ,j,k)
      .               +g_def%gmetric%grid(igrid)%jac(i+1,j,k))
@@ -1914,25 +1859,11 @@ c ====================
 cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             ietah =0.5*(1d0/eta(i+1,j,k)+1d0/eta(i,j,k))
 
-c =================
             grad_p
      .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
-c =================
-cc            grad_p = 0.5*(eta (i  ,j,k)
-cc     .                   *grad(i  ,j,k,nx,ny,nz,igrid,igrid,igrid,prs)
-cc     $                   +eta (i+1,j,k)
-cc     .                   *grad(i+1,j,k,nx,ny,nz,igrid,igrid,igrid,prs))
-cc     .              *ietah
-c =================
-c$$$            vec = (/ prs(i-2,j,k)
-c$$$     $              ,prs(i-1,j,k)
-c$$$     $              ,prs(i  ,j,k)
-c$$$     $              ,prs(i+1,j,k) /)
-c$$$            call IntDriver1d (4,x(2:5),vec,1,xt,grad_p(1:1),ord,deriv=1)
-c =================
 
-            E00 = E_0(i+1,j,k,:)+E0
-            alpha = dot_product(E00,bbcnv)*ietah/Jb2
+            E00 = E0*ietah + tau_w*E_0(i+1,j,k,:) !Tangential current at wall
+            alpha = dot_product(E00,bbcnv)Jb2
 
             if (PRESENT(dbcnv)) then
               bbcnv = dbcnv(i,j,k,:)
@@ -1946,7 +1877,80 @@ c =================
 c     End program
 
       end subroutine J_pinch_bc
-      
+
+c     apply_rw_bc
+c     ###############################################################
+      subroutine apply_rw_bc(a_covn,a_cov)
+
+        implicit none
+        
+        real(8) :: a_cov(0:,0:,0:,:),a_covn(0:,0:,0:,:)
+
+c     Local variables
+
+        integer :: igr,nnx,nny,nnz,i,j,k
+        
+        real(8),pointer,dimension(:,:,:,:) :: v0,a_cnv,b_covn
+        
+c     Begin program
+
+        if (my_rank == 0) write (*,*) "Apply RW BC..."
+        
+        igr = 1
+        
+        nnx = gv%gparams%nxv(igr) 
+        nny = gv%gparams%nyv(igr)
+        nnz = gv%gparams%nzv(igr)
+
+        allocate(v0    (0:nnx+1,0:nny+1,0:nnz+1,3)
+     $          ,a_cnv (0:nnx+1,0:nny+1,0:nnz+1,3)
+     $          ,b_covn(0:nnx+1,0:nny+1,0:nnz+1,3))
+
+        v0 = 0d0
+
+c     Find Bcov
+        
+        do k = 0,nnz+1
+          do j = 0,nny+1
+            do i = 0,nnx+1
+              b_covn(i,j,k,:) =
+     .                 XformToCurv_ijk(gv%gparams,i,j,k,igr,B0,.true.)
+     .           + curl(gv%gparams,i,j,k,nnx,nny,nnz,igr,igr,igr,a_covn)
+            enddo
+          enddo
+        enddo
+        b_covn = XformToCov(gv%gparams,igr,b_covn)
+            
+c     Find electric field @ wall (store in (nx+1) ghost cell)
+
+c$$$        if (implicit_rw_bc.and.(.not.save_tn)) then
+c$$$                !Extrapolate Vec-Pot and new-time B to boundary
+c$$$                bcnd = vaux%vec_list(IACOV)%bconds
+c$$$                where (vaux%vec_list(IACOV)%bconds==-EQU) bcnd =-EXT
+c$$$c$$$                !Predictor step (not working)
+c$$$c$$$                v0(nnx+1,:,:,:) = v0(nnx+1,:,:,:)
+c$$$c$$$     .                           -dt/cnp*E_bc(nnx+1,:,:,:)
+c$$$                call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
+c$$$     .                    ,bcnd,igr,igr,igr,iorder=2
+c$$$     .                    ,is_cnv=vaux%vec_list(IACOV)%cnv)
+c$$$                bcov = curl(gv%gparams,igr,acov)
+c$$$                bcov = XformToCov(gv%gparams,igr,bcov)
+c$$$                !Corrector step
+c$$$          call rw_bc(gv%gparams,bcov_n,bcov  ,E_bc)
+c$$$        elseif (save_tn) then
+        if (save_tn) call rw_bc(gv%gparams,b_covn,b_covn,E_bc)
+c$$$        endif
+
+c     Update old-time vector potential
+
+        call XferBCs(a_covn,v0,.true.)
+
+        a_cov(nnx+1,:,:,:) = v0(nnx+1,:,:,:)-dt/cnp*E_bc(nnx+1,:,:,:) !Works for BDF2
+
+        deallocate(v0,a_cnv,b_covn)
+        
+      end subroutine apply_rw_bc
+
 c     rw_bc
 c     #################################################################
       subroutine rw_bc(g_def,bcov_n,bcov,E_0)
@@ -1962,7 +1966,8 @@ c     Call variables
 
       type(grid_mg_def),pointer :: g_def
 
-      real(8),dimension(0:,0:,0:,:) :: bcov_n,bcov,E_0
+      real(8),dimension(0:,0:,0:,:),INTENT(IN) :: bcov_n,bcov
+      real(8),dimension(0:,0:,0:,:),INTENT(OUT):: E_0
 
 c     Local variables
 
@@ -1973,7 +1978,7 @@ c     Local variables
      .          ,bcovext(0:size(bcov,2)-1
      .                  ,0:size(bcov,3)-1,2:3)
      .          ,bcovint(0:size(bcov,2)-1
-     .                  ,0:size(bcov,3)-1,2:3)
+     .                  ,0:size(bcov,3)-1,3)
 
       real(8) :: dum,dh,bcov_avg(2:3),send_buf(2),rec_buf(2)
       
@@ -1998,14 +2003,24 @@ c     Begin program
 cc      debug_io = old_time_eval.and.rw_dbg.and.my_local_rank==0
       debug_io = rw_dbg.and.my_local_rank==0
 
+c     Compute INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode
+
+      !Extrapolate to face from interior
+      bcovint(:,:,:) = 1.5*bcov(i_bc-1,:,:,:)
+     .                -0.5*bcov(i_bc-2,:,:,:)
+
 c     Compute EXTERNAL tangential magnetic field components
 
       select case(coords)
       case('hel')
         if (rw_hel_v1) then
-          call rw_hel           !Bn only updated in time for B
+cc#if defined(vec_pot)
+          call rw_hel_A(bcovint(:,:,1),bcovext) !Bn only updated in time for B
+cc#else
+cc          call rw_hel_B(bcovint(:,:,1),bcovext) !Bn only updated in time for B
+cc#endif
         else
-          call rw_hel2          !Bn updated in time for B and A
+          call rw_hel2(bcovext)     !Bn updated in time for B and A
         endif
 cc      case('cyl')
 cc      case('tor')
@@ -2015,10 +2030,6 @@ cc      case('tor')
       end select
 
 c     Find INTERNAL tangential magnetic field components, EXCLUDING m=n=0 mode
-
-      !Extrapolate to face
-      bcovint(:,:,2:3) = 1.5*bcov(i_bc-1,:,:,2:3)
-     .                  -0.5*bcov(i_bc-2,:,:,2:3)
 
       !Perform angular average
       bcov_avg(2) = sum(bcovint(1:ny,1:nz,2))
@@ -2083,17 +2094,19 @@ c     End program
 
       contains
 
-c     rw_hel
+c     rw_hel_B
 c     ####################################################################
-      subroutine rw_hel
+      subroutine rw_hel_B(bcovext)
       
 c     -----------------------------------------------------------------
-c     Performs RW BC updated Bn in time for both B but not A
+c     Performs RW BC updated Bn in time for B
 c     -----------------------------------------------------------------
 
       implicit none
 
 c     Call variables
+
+      real(8) :: bcovext(0:,0:,2:)
 
 c     Local variables
       
@@ -2117,22 +2130,6 @@ c     Global angular mesh
 
 c     Process Bnormal (old time)
 
-#if defined(vec_pot)
-c$$$      Bnl(1,:,1) = 1.5*bcov  (i_bc-1,1:ny,1,1)
-c$$$     .            -0.5*bcov  (i_bc-2,1:ny,1,1)
-      Bnl(1,:,1) = 0.5*bcov(i_bc  ,1:ny,1,1)
-     .            +0.5*bcov(i_bc-1,1:ny,1,1)
-
-      !Gather Bnormal in parallel along boundary
-#if defined(petsc)
-      call find_global_nobc(Bnl ,Bn,mpi_comm=g_def%MPI_COMM_Y)
-#else
-      call find_global_nobc(Bnl ,Bn)
-#endif
-
-        !Perform FFT
-      call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
-#else
       if (save_tn) then
         Bnl(1,:,1) = 0.5*bcov_n(i_bc  ,1:ny,1,1)
      .              +0.5*bcov_n(i_bc-1,1:ny,1,1)
@@ -2147,11 +2144,9 @@ c$$$     .            -0.5*bcov  (i_bc-2,1:ny,1,1)
         !Perform FFT
         call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
       endif
-#endif
       
 c     Process gradient of Bnormal (new time)
       
-#if !defined(vec_pot)            
       !Compute half-time gradient of Bn
       dh = g_def%xg(nxd)-g_def%xg(nxd-1)
       gBnl(1,:,1) =(bcov_n(i_bc  ,1:ny,1,1)
@@ -2171,7 +2166,6 @@ c     Process gradient of Bnormal (new time)
 
       !Perform FFT
       call fft(nyd,gBn(1,:,1),theta,nyd,gBr_m,gBi_m,mm,0,0)
-#endif
       
       !Find potential solution Phi outside of resistive wall
       kk = g_def%params(2)
@@ -2185,7 +2179,6 @@ c     Process gradient of Bnormal (new time)
             rm = r_v**(2*mm(m))
             
             !Evolve normal B component
-#if !defined(vec_pot)            
             if (.not.source_eval) then
               gamma = 1 + mm(m)*(rm+1d0)/(rm-1d0)
               efac  = exp(-gamma*dt/tau_w)
@@ -2205,10 +2198,7 @@ c     Process gradient of Bnormal (new time)
               Br_m(m) = Brn_m(m)
               Bi_m(m) = Bin_m(m)
             endif
-#else
-            Br_m(m) = Brn_m(m)
-            Bi_m(m) = Bin_m(m)
-#endif
+
             !Find phi_nm
             dum = (rm+1d0)/((1d0-rm)*mm(m))
             phir_m(m) = Br_m(m)*dum
@@ -2238,7 +2228,6 @@ c     Process gradient of Bnormal (new time)
           dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
 
           !Evolve normal B component
-#if !defined(vec_pot)            
           if (.not.source_eval) then
             gamma =-pw*(dImv*d2Km-dKmv*d2Im)/(dImv*dKm -dKmv*dIm)
             efac  = exp(-gamma*dt/tau_w)
@@ -2257,10 +2246,6 @@ c     Process gradient of Bnormal (new time)
             Br_m(m) = Brn_m(m)
             Bi_m(m) = Bin_m(m)
           endif
-#else
-          Br_m(m) = Brn_m(m)
-          Bi_m(m) = Bin_m(m)
-#endif
 
           !Find phi_nm
           dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
@@ -2274,24 +2259,147 @@ c     Process gradient of Bnormal (new time)
       Bi_m =-mm*phir_m
       call ifft(nyd,Bth,theta,nyd,Br_m,Bi_m,mm,0)
 
-      !Get LOCAL helical (cov) magnetic field components @ r=1 (store in (nx+1))
+      !Get LOCAL helical (cov) magnetic field components @ r=1
       rbc = 1d0
 
-      do k = klom,khip
-        do j = jlom,jhip
-          jglobal = j + gv%gparams%jlo(1) - 1
-          if (jglobal > nyd) jglobal = jglobal - nyd
-          if (jglobal < 1  ) jglobal = nyd + jglobal
-          bcovext(j,k,2) = rbc*Bth(jglobal)
-          bcovext(j,k,3) = 0d0
-        enddo
+      do j = jlom,jhip
+        jglobal = j + gv%gparams%jlo(1) - 1
+        if (jglobal > nyd) jglobal = jglobal - nyd
+        if (jglobal < 1  ) jglobal = nyd + jglobal
+        bcovext(j,:,2) = rbc*Bth(jglobal)
+        bcovext(j,:,3) = 0d0
       enddo
     
-      end subroutine rw_hel
+      end subroutine rw_hel_B
+
+c     rw_hel_A
+c     ####################################################################
+      subroutine rw_hel_A(bcovn_int,bcovt_ext)
+      
+c     -----------------------------------------------------------------
+c     Performs RW BC for A (without time update). Inputs normal internal
+c     B-component, outputs tangential external B-components
+c     -----------------------------------------------------------------
+
+      implicit none
+
+c     Call variables
+
+      real(8),dimension(0:,0:) :: bcovn_int
+      real(8) :: bcovt_ext(0:,0:,2:)
+
+c     Local variables
+      
+      integer :: m,n,jglobal,i,j,m1,mm2,mm1
+      real(8) :: theta(nyd)
+     .          ,Bn(1,nyd,1),gBn(1,nyd,1)
+     .          ,Bnl(1,ny,1),gBnl(1,ny,1)
+     .          ,Br_m(nyd),Bi_m(nyd)
+     .          ,gBr_m(nyd),gBi_m(nyd),mm(nyd)
+     .          ,phir_m(nyd),phii_m(nyd)
+     .          ,d2phir_m(nyd),d2phii_m(nyd)
+     .          ,dBr(nyd),Bth(nyd),Bz(nyd)
+      real(8) :: dImv,dIm,Im,d2Im,dKmv,dKm,Km,d2Km,pv,pw,RR,kk,rm,rbc
+     .          ,efac,gamma,dum
+
+c     Begin program
+      
+c     Global angular mesh
+      
+      theta = g_def%yg(1:nyd)
+
+c     Process Bnormal at plasma wall (old time) to determine potential BC
+
+      Bnl(1,:,1) = bcovn_int(1:ny,1)
+
+      !Gather Bnormal in parallel along boundary
+#if defined(petsc)
+      call find_global_nobc(Bnl ,Bn,mpi_comm=g_def%MPI_COMM_Y)
+#else
+      call find_global_nobc(Bnl ,Bn)
+#endif
+
+      !Perform FFT
+      call fft(nyd,Bn (1,:,1),theta,nyd,Brn_m ,Bin_m ,mm,0,0)
+      
+c     Find VACUUM potential solution Phi outside of resistive wall
+
+      kk = g_def%params(2)
+
+      if (kk == 0d0) then
+        do m=1,nyd
+          m1   = abs(nint(mm(m)))
+          if (m1 == 0) then
+            phir_m(m) = 0d0 ; phii_m(m) = 0d0
+          else
+            rm = r_v**(2*mm(m))
+            
+            !Compute normal B component
+            Br_m(m) = Brn_m(m)
+            Bi_m(m) = Bin_m(m)
+
+            !Find phi_nm
+            dum = (rm+1d0)/((1d0-rm)*mm(m))
+            phir_m(m) = Br_m(m)*dum
+            phii_m(m) = Bi_m(m)*dum
+          endif
+        enddo
+      else
+        pw = abs(kk)
+        pv = abs(kk)*r_v
+        do m=1,nyd
+          m1   = abs(nint(mm(m)))
+          mm1  = abs(m1-1)
+          mm2  = abs(m1-2)
+
+          !Bessel function evals
+          Km   = BESSK(m1 ,pw)                   
+          dKm  =-BESSK(mm1,pw) - m1/pw*BESSK(m1,pw)
+          d2Km =                   BESSK(mm2,pw)
+     .         +  (2*m1-1)/ pw    *BESSK(mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSK(m1 ,pw)
+          dKmv =-BESSK(mm1,pv) - m1/pv*BESSK(m1,pv)
+          Im   = BESSI(m1 ,pw)
+          dIm  = BESSI(mm1,pw) - m1/pw*BESSI(m1,pw)
+          d2Im =                   BESSI(mm2,pw)
+     .         -  (2*m1-1)/ pw    *BESSI(mm1,pw)
+     .         + m1*(m1+1)/(pw*pw)*BESSI(m1 ,pw)
+          dImv = BESSI(mm1,pv) - m1/pv*BESSI(m1,pv)
+
+          !Compute normal B component
+          Br_m(m) = Brn_m(m)
+          Bi_m(m) = Bin_m(m)
+
+          !Find phi_nm
+          dum = (dImv*Km-dKmv*Im)/((dImv*dKm-dKmv*dIm)*pw)
+          phir_m(m)=Br_m(m)*dum
+          phii_m(m)=Bi_m(m)*dum
+        enddo
+      endif
+
+c     Find EXTERNAL tangential magnetic field components outside RW
+      
+      !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
+      Br_m = mm*phii_m
+      Bi_m =-mm*phir_m
+      call ifft(nyd,Bth,theta,nyd,Br_m,Bi_m,mm,0)
+
+      !Get LOCAL helical (cov) magnetic field components @ r=1 
+      rbc = 1d0
+
+      do j = jlom,jhip
+        jglobal = j + gv%gparams%jlo(1) - 1
+        if (jglobal > nyd) jglobal = jglobal - nyd
+        if (jglobal < 1  ) jglobal = nyd + jglobal
+        bcovt_ext(j,:,2) = rbc*Bth(jglobal)
+        bcovt_ext(j,:,3) = 0d0
+      enddo
+    
+      end subroutine rw_hel_A
 
 c     rw_hel2
 c     ####################################################################
-      subroutine rw_hel2
+      subroutine rw_hel2(bcovext)
 
 c     -----------------------------------------------------------------
 c     Performs RW BC update for Bn in time for both B and A versions
@@ -2300,6 +2408,8 @@ c     -----------------------------------------------------------------
       implicit none
       
 c     Call variables
+
+      real(8) :: bcovext(0:,0:,2:)
 
 c     Local variables
       

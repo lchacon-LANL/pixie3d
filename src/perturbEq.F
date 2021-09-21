@@ -115,7 +115,6 @@ cc          enddo
             call perturbEquilibrium_ppnch_bc(varr,br_pert_bc
      .                                      ,br_pert_phase)
           else
-cc            write(*,*) 'calling ppnch_br'
             call perturbEquilibrium_ppnch_bc(varr,br_pert_bc
      .                                      ,br_pert_phase)
           endif
@@ -2087,10 +2086,10 @@ c     Begin program
           RR = gv%gparams%params(3)
           mm = nh2
           kk = nh3*1d0/RR
-! Daniele, 19 Dec. 2014
-! if k=0 the vacuum solution is b^1=r^m
-! see Fitzpatrick PoP 1999
-! implemented in the irrot_br_pert=.false. case
+          ! Daniele, 19 Dec. 2014
+          ! if k=0 the vacuum solution is b^1=r^m
+          ! see Fitzpatrick PoP 1999
+          ! implemented in the irrot_br_pert=.false. case
           if (kk == 0d0) irrot_br_pert=.false.
         end select
 
@@ -2100,8 +2099,8 @@ c     Begin program
           kbesel = -mm*gv%gparams%params(2)
           dbeseli = 0.5*(BESSI(mm+1,kbesel)
      .                 + BESSI(mm-1,kbesel))
-!          br_pert_l = 2.d0 * br_pert / (dbeseli)
-! Daniele, 19 Dec. 2014
+          !br_pert_l = 2.d0 * br_pert / (dbeseli)
+          ! Daniele, 19 Dec. 2014
           br_pert_l = br_pert/(mm*dbeseli)
 
 #if defined(vec_pot)
@@ -2112,7 +2111,6 @@ c     Begin program
                 call getCurvilinearCoordinates(gv%gparams,i,j,k
      .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-cc                kbesel = -mm*gv%gparams%params(2)
                 beseli = BESSI(mm,kbesel*x1)
                 dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
      .                       + BESSI(mm-1,kbesel*x1))
@@ -2128,12 +2126,10 @@ cc                kbesel = -mm*gv%gparams%params(2)
      .             *cos(mm*y1+kk*z1+br_phase)
 
                 if (coords.eq.'hel') then
-
-                varr%array_var(IAZ)%array(i,j,k) =
+                  varr%array_var(IAZ)%array(i,j,k) =
      .               varr%array_var(IAZ)%array(i,j,k)
      .               -br_pert_l*x1*dbeseli
      .             *cos(mm*y1+kk*z1+br_phase)
-                
                 endif
 
               enddo
@@ -2155,7 +2151,6 @@ cc                kbesel = -mm*gv%gparams%params(2)
                 call getCurvilinearCoordinates(gv%gparams,i,j,k
      .                                   ,igx,igy,igz,ig,jg,kg,x1,y1,z1)
 
-cc                kbesel = -mm*gv%gparams%params(2)
                 beseli = BESSI(mm,kbesel*x1)
                 dbeseli = 0.5*(BESSI(mm+1,kbesel*x1)
      .                       + BESSI(mm-1,kbesel*x1))
@@ -2202,7 +2197,9 @@ cc                kbesel = -mm*gv%gparams%params(2)
 
 #endif
 
-        else   !Standard magnetic perturbation from psi=r^(m+2)*cos(m*th + kk*z)
+        else   !Standard magnetic perturbation from psi=r^m*cos(m*th + kk*z)
+               !(r^m to be consistent with the vacuum solution in the kk=0 case, 
+               ! see Fitzpatrick PoP 1999)
 
           do k = klo,khi
             do j = jlo,jhi
@@ -2221,14 +2218,8 @@ cc                kbesel = -mm*gv%gparams%params(2)
                 dyy = 2*gv%gparams%dyh(jg)
                 dzz = 2*gv%gparams%dzh(kg)
 
-! Daniele, 19 Dec. 2014
-! b^1=r^m instead of r^(m+2)
-! to be consistent with the vacuum solution in the kk=0 case, 
-! see Fitzpatrick PoP 1999
-
                 varr%array_var(IBX)%array(i,j,k) =
      .               varr%array_var(IBX)%array(i,j,k)
-!     .               +x1**(mm+2.)*br_pert
      .               +x1**mm*br_pert
      .             *(cos(mm*gv%gparams%yy(jp)+kk*z1+br_phase)
      .              -cos(mm*gv%gparams%yy(jm)+kk*z1+br_phase))
@@ -2237,8 +2228,6 @@ cc                kbesel = -mm*gv%gparams%params(2)
                 varr%array_var(IBY)%array(i,j,k) =
      .               varr%array_var(IBY)%array(i,j,k)
      .               -br_pert*
-!     .               (gv%gparams%xx(ip)**(mm+2.)
-!     .               -gv%gparams%xx(im)**(mm+2.))
      .               (gv%gparams%xx(ip)**mm
      .               -gv%gparams%xx(im)**mm)
      .               /dxx !Derivative done numerically to preserve div(B)=0
