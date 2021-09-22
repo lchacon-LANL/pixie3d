@@ -1060,8 +1060,6 @@ c     ------------------------------------------------
 
       case ('3dkai')
 
-cc        mm = gv%gparams%params(1)
-cc        kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
 
 c     Check coordinates
@@ -1086,12 +1084,6 @@ c     Tokamak equilibria (analytical)
 
         Iz  = 2.22
         b_0 = 0.5*Iz
-
-cc        nh2 = mm       !To set the right perturbation wavelength
-cc        nh3 = kk*RR    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For perturbations to be of the right order
-                        !(nh2,nh3 set by input file)
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -1197,8 +1189,6 @@ cc        enddo
 
       case ('3drfp')
 
-cc        mm = gv%gparams%params(1)
-cc        kk = gv%gparams%params(2)
         RR = gv%gparams%params(3)
         a1 = gv%gparams%params(4)
 
@@ -1215,12 +1205,6 @@ c     Check coordinates
         endif
 
 c     RFP equilibria (analytical)
-
-cc        nh2 = mm       !To set the right perturbation wavelength
-cc        nh3 = kk*RR    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For radial perturbations to be of the right order
-                       !(nh2,nh3 set by input file)
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -1275,10 +1259,6 @@ c     RFP equilibria (analytical)
         kk = gv%gparams%params(2)  !-n/RR, with n axial mode number
         RR = gv%gparams%params(3)  !Toroidal radius
         a1 = gv%gparams%params(4)  !a^2 in screw pinch eq.
-
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
 
         call find_global_radial_mesh(rg)
 
@@ -1337,13 +1317,6 @@ c     RFP equilibria (analytical)
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         a1 = gv%gparams%params(4) ! Radius of q=1 surface.
         
-        nh2 = nint(mm)            ! To set the right perturbation wavelength
-        nh1 = nh2                 ! For perturbations to be of the right order
-
-        if (coords == 'cyl') then
-          nh3 = nint(kk*RR)       !To set the right perturbation wavelength
-        endif
-
         !Reference toroidal field
         bz0 = RR/(1d0 + (a1/dlambda)**2)/dlambda
 
@@ -1461,10 +1434,6 @@ c     Cylindrical Tokamak analytical equilibrium (Furth et al., 1973)
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
         q0 = gv%gparams%params(4) ! q at r=0
 
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
-
         b_0 = dlambda/RR/q0
 
         if (coords /= 'hel') then
@@ -1527,10 +1496,6 @@ c     Tokamak equilibria (analytical)
         mm = gv%gparams%params(1) ! Azimuthal mode number.
         kk = gv%gparams%params(2) ! -n/RR, where n is the axial mode number.
         RR = gv%gparams%params(3) ! Major radius R=Lz/2pi.
-
-        nh2 = mm  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
 
         call find_global_radial_mesh(rg)
 
@@ -1614,9 +1579,6 @@ c$$$        beta = 4d-5
         RR   = gv%gparams%params(3) !Major radius (determines aspect ratio)
         bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
         beta = gv%gparams%params(5) !Beta toroidal
-
-        if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
-        nh1 = nh2 !For perturbations to be of the right order
 
         if (test
      .     .and.(    (a_p /= 2d0)
@@ -1725,9 +1687,6 @@ cc        if (adiabatic) n00 = (p00/p0max)**(1./gamma)
         RR   = gv%gparams%params(3) !Major radius (determines aspect ratio)
         bz0  = gv%gparams%params(4) !Toroidal field at magnetic axis
         beta = gv%gparams%params(5) !Beta toroidal
-
-        nh2 = mm  !To set the right perturbation wavelength
-        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -1852,9 +1811,6 @@ c     --------------------------------------------------
 
       case ('vmec')
 
-        nh1 = nh2       !For perturbations to be of the right order in radius
-                        !(nh2,nh3 set by input file)
-
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
@@ -1910,9 +1866,6 @@ c     --------------------------------------------------
 
       case ('efit')
 
-        nh1 = nh2       !For perturbations to be of the right order in radius
-                        !(nh2,nh3 set by input file)
-
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
      .          //' equilibrium not set'
@@ -1920,7 +1873,8 @@ c     --------------------------------------------------
         endif
 
         if (coords/='tor'.and.coords/='tsq'.and.coords/='sh3') then
-          messg = 'Need tor or tsq coordinates for EFIT equilibrium '
+          messg=
+     $         'Need tor, tsq, or sh3 coordinates for EFIT equilibrium '
      .            //equil
           call pstop('setEquilibrium',messg)
         endif
@@ -1938,14 +1892,14 @@ c     Read EFIT equilibrium
         find_a = .false.
 
         !Divergence clean field if not Tokamak
-#if !defined(vec_pot)
-        if (div_clean) then
-#endif
+c$$$#if !defined(vec_pot)
+c$$$        if (div_clean) then
+c$$$#endif
 c$$$          call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap"
 c$$$     &                    ,rtol=1d-7,dacov=aa)
-#if !defined(vec_pot)
-        endif
-#endif
+c$$$#if !defined(vec_pot)
+c$$$        endif
+c$$$#endif
 
 c     Other equilibrium quantities
 
@@ -1969,10 +1923,6 @@ c     ------------------------------------------
         RR   = gv%gparams%params(3)
         beta = gv%gparams%params(4)
         prsw = gv%gparams%params(5)
-
-        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -2111,10 +2061,6 @@ c     --------------------------------------------------
         beta        = gv%gparams%params(6)
         m0_over_nu  = gv%gparams%params(7)
         prsw        = gv%gparams%params(8)
-
-        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
 
 c     Check coordinates
 
@@ -2258,10 +2204,6 @@ cc              psi(i,j,k) = psi0(iglobal)  !Store flux function
         e0_over_eta = gv%gparams%params(5)
         beta = gv%gparams%params(6)
 
-        if (nh2 == 0) nh2 = nint(mm)  !To set the right perturbation wavelength
-
-        nh1 = nh2 !For perturbations to be of the right order
-
 c     Check coordinates
 
         if (coords /= 'hel') then
@@ -2340,11 +2282,6 @@ c     Magnetic field
         beta        = gv%gparams%params(6)
         m0_over_nu  = gv%gparams%params(7)
         prsw = gv%gparams%params(8)
-
-        if (nh2 == 0) nh2 = nint(mm)       !To set the right perturbation wavelength
-        if (nh3 == 0) nh3 = nint(kk*RR)    !To set the right perturbation wavelength
-
-        nh1 = nh2      !For perturbations to be of the right order
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -2508,12 +2445,7 @@ c     Ideal GS equilibrium
         e0_over_eta = gv%gparams%params(6)*RR !Covariant component is constant, needs RR factor
         beta= gv%gparams%params(7)            !Toroidal beta
         prsw= gv%gparams%params(8)            !Pressure at wall
-        kk = 0d0   !To avoid affecting q-profile                                                                                                                                       
-        !Now these must be initialized directly in input file.
-        if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
-        if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
-
-        nh1 = nh2       !For perturbations to be of the right order
+        kk = 0d0                              !To avoid affecting q-profile
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -2558,12 +2490,6 @@ c     Ideal GS equilibrium
         prsw= gv%gparams%params(8)            !Pressure at wall
 
         kk = 0d0   !To avoid affecting q-profile
-
-        !Now these must be initialized directly in input file.
-        if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
-        if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
-
-        nh1 = nh2       !For perturbations to be of the right order
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)
@@ -2627,12 +2553,6 @@ cc        bb  = gv%gparams%params(3)            !Vertical   elliptical radius
         prsw= gv%gparams%params(8)            !Pressure at wall
 
         kk = 0d0   !To avoid affecting q-profile
-
-        !Now these must be initalized directly in input file.
-        if (nh2 == 0) nh2 =  nint(mm)       !To set the right perturbation wavelength
-        if (nh3 == 0) nh3 = -nint(nn)       !To set the right perturbation wavelength
-
-        nh1 = nh2       !For perturbations to be of the right order
 
         if (nh2 == 0 .and. nh3 == 0) then
           messg='Perturbation harmonics nh2, nh3 for '//trim(equil)

@@ -90,16 +90,29 @@ c Fill LOCAL auxiliary variables
 
 c Safeguards
 
-      if (old_time_eval) then
-        call chk_neg(rho,'rho')
-        if (solve_prs) then
-          call chk_neg(prs,'prs')
-        else
-          call chk_neg(tmpe,'Te')
+      if (source_eval) then
+        if (trim(equil)=='efit') then
+          if (solve_prs) then
+            min_prs = minval(prs(1:nx,1:ny,1:nz))
+            min_prs = pmin(min_prs)
+          else
+            min_te  = minval(tmpe(1:nx,1:ny,1:nz))
+            min_te  = pmin(min_te)
+          endif
+cc          write (*,*) min_te,min_prs
         endif
-        call chk_neg(heat_src,'heat source')
       endif
       
+      if (old_time_eval) then
+        call chk_neg(rho,'rho',0d0)
+        if (solve_prs) then
+          call chk_neg(prs,'prs',min_prs)
+        else
+          call chk_neg(tmpe,'Te',min_te)
+        endif
+        call chk_neg(heat_src,'heat source',0d0)
+      endif
+
 c Setup fluxes
 
 #if defined(flux_rhs)
@@ -115,7 +128,7 @@ c End program
 
 c     chk_neg
 c     ###############################################################
-      subroutine chk_neg(array,desc)
+      subroutine chk_neg(array,desc,failsafe)
 
       implicit none
 c     ---------------------------------------------------------------
@@ -125,7 +138,7 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: array(0:nx+1,0:ny+1,0:nz+1)
+      real(8) :: array(0:nx+1,0:ny+1,0:nz+1),failsafe
       character(*) :: desc
 
 c     Local variables
@@ -135,24 +148,31 @@ c     Local variables
 
 c     Begin program
 
-      minv = minval(array(1:nx,1:ny,1:nz))
+        minv = minval(array(1:nx,1:ny,1:nz))
 
-      minvg = pmin(minv)  !Parallel min
+        minvg = pmin(minv)      !Parallel min
       
-      if (minvg < -1d-14) then
-
-        if (minv < -1d-14) then
-          index = globalIndex(gv%gparams,igx
+        if (minvg < -1d-14) then
+          if (minv < -1d-14) then
+            index = globalIndex(gv%gparams,igx
      .                       ,minloc(array(1:nx,1:ny,1:nz)))
-          write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
+            write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
      .              ,' global pos=',index
+          endif
+
+          if (failsafe > 0d0) then
+            where(array(1:nx,1:ny,1:nz) < failsafe)
+     $           array(1:nx,1:ny,1:nz) = failsafe
+
+            if (my_rank == 0) write(*,*) "WARNING: neg ",trim(desc)
+     $           ," detected; failsafe applied"
+          else
+            call pstop('setupNonlinearFunction',
+     $           'Negative values for '//trim(desc)/
+     $           /' detected')
+          endif
         endif
-
-        call pstop('setupNonlinearFunction',
-     .   'Warning: negative values for '//trim(desc)//' are occurring')
-
-      endif
-
+      
       end subroutine chk_neg
 
       end subroutine setupNonlinearFunction
