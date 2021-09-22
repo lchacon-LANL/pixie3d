@@ -1778,7 +1778,7 @@ cc          b2 = vectorNorm_ijk(g_def,i,j,k,igrid,bbcnv,.false.)
             etah = 0.5*(eta(i,j,k)+eta(i+1,j,k))
 
             !Tangential eta*j at wall
-            E00 = E0 + etah*tau_w*E_0(i+1,j,k,:) !E_0(nx+1) contains face value (from RW module)
+            E00 = E0 + E_0(i+1,j,k,:) !E_0(nx+1) contains face value (from RW module)
             
             !ExB velocity
             v0(i+1,j,k,1)=(E00(2)*bbcov(3)-E00(3)*bbcov(2)
@@ -1862,12 +1862,10 @@ cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             grad_p
      .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-            E00 = E0*ietah + tau_w*E_0(i+1,j,k,:) !Tangential current at wall
-            alpha = dot_product(E00,bbcnv)Jb2
+            E00 = E0 + E_0(i+1,j,k,:) !Tangential current at wall
+            alpha = dot_product(E00,bbcnv)*ietah/Jb2
 
-            if (PRESENT(dbcnv)) then
-              bbcnv = dbcnv(i,j,k,:)
-            endif
+            if (PRESENT(dbcnv)) bbcnv = dbcnv(i,j,k,:)
 
             j0(i+1,j,k,:)=alpha*bbcnv + cross_product(bbcov,grad_p)/b2
           endif
@@ -1894,7 +1892,7 @@ c     Local variables
         
 c     Begin program
 
-        if (my_rank == 0) write (*,*) "Apply RW BC..."
+        if (my_rank == 0.and.ilevel > 0) write (*,*) "Apply RW BC..."
         
         igr = 1
         
