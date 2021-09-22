@@ -856,12 +856,37 @@ cc     .                     pc_B_solve = .false.   !Do not invert B (or A) when
       if (ts_restart) dcon = .false.
 
       if (coords == 'hel') then  !Special case for 2D helical geometry
-        nh2 = nint(gparams(1))
+        if (nh2 == 0) nh2 = nint(gparams(1))
         nh1 = nh2                
 cc        ymax = 2*acos(-1d0)/nh2  !Collapse angular dimension
 cc        numerical_grid = (nh2 > 1)  !Analytical grid metrics are wrong for nh2 > 1
       endif
+
+      if (   coords == 'cyl'
+     $   .or.coords == 'tor'
+     $   .or.trim(equil) == '3dkai'
+     $   .or.trim(equil) == 'ppn3d'
+     $   .or.trim(equil) == 'p3nsl'
+     $   .or.trim(equil) == '3drfp') then               !Special case for cyl-tor geometries
+        if (nh2 == 0) nh2 = nint(gparams(1))
+        if (nh3 == 0) nh3 = nint(gparams(2)*gparams(3))
+        nh1 = nh2                
+      endif
+
+      if (   trim(equil) == 'gstor'
+     $   .or.trim(equil) == 'ohtor'
+     $   .or.trim(equil) == 'stell') then
+        if (nh2 == 0) nh2 =  nint(gparams(4))
+        if (nh3 == 0) nh3 = -nint(gparams(5))
+        nh1 = nh2
+      endif
       
+      if (   trim(equil) == 'vmec'
+     $   .or.trim(equil) == 'efit'
+     $   .or.trim(equil) == '3drfp') then
+        nh1 = nh2
+      endif
+
       if ((nh1 == 0 .and. nh2 == 0 .and. nh3 == 0)
      .   .and.(    equil /= 'ppn3d'
      .        .and.equil /= 'p3nsl'
