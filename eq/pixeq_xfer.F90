@@ -9,16 +9,18 @@ program pixeq_xfer
   use grid
 
   use app_iosetup
+
+  use problem_def
   
   implicit none
 
   character(Len=1024) :: ifile,ofile,irecfile,orecfile
   integer :: n_args,ntimelevels,itlevel,order,u_rec_in
   integer :: ierr,perr
-  logical :: debug=.true.,extrude_dir(3),is_equ=.false.
+  logical :: debug=.true.,extrude_dir(3),is_equ=.false.,zero_flow=.false.
 
   !namelist
-  namelist /xfer/ ifile,ofile,irecfile,orecfile,order,is_equ
+  namelist /xfer/ ifile,ofile,irecfile,orecfile,order,is_equ,zero_flow
 
   !State variables
   type(var_array),pointer :: vref=>null(),vout=>null(),vref_0=>null()
@@ -260,6 +262,12 @@ program pixeq_xfer
 
   if (is_equ) then  !New initial condition only
      call xfer_varray(vref,vout)
+
+     if (zero_flow) then
+        vout%array_var(IVX)%array=0d0
+        vout%array_var(IVY)%array=0d0
+        vout%array_var(IVZ)%array=0d0
+     endif
      
      call writeRecordFile(orecfile,0,0d0,dt,gammat,vout,init=.true.)
   else              !New restart file
