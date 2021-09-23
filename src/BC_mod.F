@@ -1862,7 +1862,7 @@ cc            ietah = 2./(eta(i+1,j,k)+eta(i,j,k))
             grad_p
      .         = grad(g_def,i,j,k,nx,ny,nz,igrid,igrid,igrid,prs,hex=1)
 
-            E00 = E0 !+ E_0(i+1,j,k,:) !Tangential current at wall
+            E00 = E0 + E_0(i+1,j,k,:) !Tangential current at wall
             alpha = dot_product(E00,bbcnv)*ietah/Jb2
 
             if (PRESENT(dbcnv)) bbcnv = dbcnv(i,j,k,:)
@@ -1878,13 +1878,17 @@ c     End program
 
 c     apply_rw_bc_A
 c     ###############################################################
-      subroutine apply_rw_bc_A(g_def,a_covn,a_cov)
+      subroutine apply_rw_bc_A(g_def,a_covn,a_cov,E_bc)
 
         implicit none
+
+c     Call variables
         
         type(grid_mg_def),pointer :: g_def
 
-        real(8) :: a_cov(0:,0:,0:,:),a_covn(0:,0:,0:,:)
+        real(8) :: a_cov (0:,0:,0:,:)
+     $            ,a_covn(0:,0:,0:,:)
+     $            ,E_bc  (0:,0:,0:,:)
 
 c     Local variables
 
@@ -2481,7 +2485,7 @@ c     Find VACUUM potential solution Phi outside of resistive wall
       endif
 
 c     Find old-time EXTERNAL tangential magnetic field components outside RW
-      
+
       !Bth [multiply by -sqrt(-1)*m; minus sign from convention of iFFT]
       Br_m = mm*phii_m
       Bi_m =-mm*phir_m
