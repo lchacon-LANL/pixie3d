@@ -533,8 +533,7 @@ c       Allocate auxiliary variables in local domain
         case(IBCNV_0)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0
-            if (res_wall_bc) call rw_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
+            prs0 = rho_0*tmp_0 ; E_bc = 0d0
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -548,8 +547,7 @@ c       Allocate auxiliary variables in local domain
         case(IBCNV_0)
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
-            prs0 = rho_0*tmp_0
-            if (res_wall_bc) call rw_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
+            prs0 = rho_0*tmp_0 ; E_bc = 0d0
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -683,7 +681,7 @@ cc            acov = acov + acov_0
             deallocate(acnv_n)
           else
             if (res_wall_bc) then
-              call apply_rw_bc_A(gv%gparams,acov_n,v0)
+              call apply_rw_bc_A(gv%gparams,acov_n,v0,E_bc)
             else
               call XferBCs(acov_0,v0,.true.)
             endif
