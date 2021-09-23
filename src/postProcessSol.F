@@ -21,7 +21,7 @@ c--------------------------------------------------------------------
 
       use PC_setup, only: pc_as_solver
 
-      use local_BCS_variables, ONLY: res_wall_bc,order_bc,rw_bc,B_0=>B0
+      use local_BCS_variables, ONLY: res_wall_bc,order_bc
 
       implicit none
 
@@ -63,16 +63,6 @@ c Begin program
       nx = gv%gparams%nxv(igx)
       ny = gv%gparams%nyv(igy)
       nz = gv%gparams%nzv(igz)
-
-c Postprocessing density
-
-c$$$      if (adiabatic .and. (.not.solve_rho)) then
-c$$$        if (my_rank == 0) write (*,*) 'Postprocessing density'
-c$$$        vnp%array_var(IRHO)%array(1:nx,1:ny,1:nz) =
-c$$$     .       u_0%array_var(IRHO)%array(1:nx,1:ny,1:nz)
-c$$$     .     *(vnp%array_var(IPRS)%array(1:nx,1:ny,1:nz)
-c$$$     .      /u_0%array_var(IPRS)%array(1:nx,1:ny,1:nz))**(1d0/gamma)
-c$$$      endif
 
 c Add random noise in EOM (to break symmetry)
 
@@ -124,20 +114,12 @@ c Smooth magnetic and velocity fields
         call post__smooth_B
         call post__smooth_V
       endif
-
-c$$$c Resistive wall BC
-c$$$
-c$$$      if (res_wall_bc) then
-c$$$        call apply_rw_bc(acov_n,acov,B_0)
-c$$$        acov_n = acov
-c$$$        vnp%array_var(IAX)%array = acov(:,:,:,1)
-c$$$        vnp%array_var(IAY)%array = acov(:,:,:,2)
-c$$$        vnp%array_var(IAZ)%array = acov(:,:,:,3)
-c$$$      endif
       
 c Divergence-clean magnetic field when PC is on
 
-      if (post_divclean) call post__divclean
+#if !defined(vec_pot)
+      if (post_divclean.or.res_wall_bc) call post__divclean
+#endif
 
 c Perform Lagrangian temperature step
 
@@ -145,6 +127,7 @@ c Perform Lagrangian temperature step
 
 c Add rotating magnetic perturbation
 
+#if !defined(vec_pot)
       if (br_pert_freq /= 0d0) then
 
         !Substract old one
@@ -157,6 +140,7 @@ c Add rotating magnetic perturbation
         call perturbEquilibrium_ppnch_bc(vnp, br_pert_bc
      .                                  ,br_pert_phase)
       endif
+#endif
 
 c Update BCs
 

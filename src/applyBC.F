@@ -534,7 +534,7 @@ c       Allocate auxiliary variables in local domain
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
+            if (res_wall_bc) call rw_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
           endif
           
@@ -549,7 +549,7 @@ c       Allocate auxiliary variables in local domain
 
           if (pinch_bc) then    !Jt = alpha*Bt in cnv representation
             prs0 = rho_0*tmp_0
-            if (res_wall_bc) call rw_bc(gv%gparams,bcov_0,bcov_0,E_bc)
+            if (res_wall_bc) call rw_Ebc(gv%gparams,bcov_0,bcov_0,E_bc)
             call J_pinch_bc(gv%gparams,igr,bcnv_0,prs0,eeta_0,E_bc,v0)
 
             call setBC(gv%gparams,IBX,3,nnx,nny,nnz,bcnv_0,bcov_0,v0
@@ -683,7 +683,7 @@ cc            acov = acov + acov_0
             deallocate(acnv_n)
           else
             if (res_wall_bc) then
-              call apply_rw_bc(acov_n,v0)
+              call apply_rw_bc_A(gv%gparams,acov_n,v0)
             else
               call XferBCs(acov_0,v0,.true.)
             endif
@@ -707,7 +707,7 @@ c       Magnetic field BC
           if (pinch_bc) then  !Jt = alpha*Bt in cnv representation
 #if !defined(vec_pot)
             if (res_wall_bc.and.save_tn) then
-              call rw_bc(gv%gparams,bcov_n,bcov_n,E_bc)
+              call rw_Ebc(gv%gparams,bcov_n,bcov_n,E_bc)
             endif
 #endif
             prs1 = rho*tmp

@@ -629,7 +629,7 @@ c     End program
 c     vlap_div_clean
 c     #################################################################
       subroutine vlap_div_clean(g_def,iout,nx,ny,nz,igx,igy,igz,db,dacov
-     .                     ,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
+     .              ,da0cov,dbcov,w_bcs,w_pre_bcs,diag_plots,gm_it,rtol)
 
 c     -----------------------------------------------------------------
 c     Finds curl(dA)=B^(n+1)-B^n, with dA=inv_lap(dJ). 
@@ -638,7 +638,7 @@ c       * iout: level of output info
 c       * nx,ny,nz: mesh size
 c       * igx,igy,igz: grid level size
 c       * db: input cnv magnetic field 
-c       * dacov,dbcov (optional): cov B (input) and A (output)
+c       * dacov,da0cov,dbcov (optional): cov A0 and B (input) and A (output)
 c       * w_bcs (optional): whether output has BCs
 c       * w_pre_bcs (optional): whether input requires BCs
 c       * diag_plots (optional): whether we want plots of answer
@@ -656,8 +656,9 @@ c     Call variables
 
       integer,optional :: gm_it
       real(8),optional :: rtol
-      real(8),optional,INTENT(IN) :: dbcov(0:nx+1,0:ny+1,0:nz+1,3)
-      real(8),optional,INTENT(OUT):: dacov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(IN) :: dbcov (0:nx+1,0:ny+1,0:nz+1,3)
+     $                              ,da0cov(0:nx+1,0:ny+1,0:nz+1,3)
+      real(8),optional,INTENT(OUT):: dacov (0:nx+1,0:ny+1,0:nz+1,3)
 
       logical,optional :: w_bcs,w_pre_bcs,diag_plots
 
@@ -696,21 +697,10 @@ c     Define BCs
 
       call default_A_BCs(bcsa)
 
-c$$$      bcsa = bcsb
-c$$$      where (bcond == FSYM)
-c$$$        bcsa(:,1) = FSYM !Recover symmetry BCs
-c$$$        bcsa(:,2) = FSYM !Recover symmetry BCs
-c$$$        bcsa(:,3) = FSYM !Recover symmetry BCs
-c$$$      end where
-c$$$      where (bcsa == -NEU) bcsa = -EQU  !Use covariant components for tangential BCs
-c$$$                                        !Normal component BCs same as B (div = 0)
-c$$$
-c$$$      call set_vec_symm_bc(bcsa,-1)
-
 c     Find dA
 
       call vlap_curl_inv(g_def,igx,db,da_cov,bcsb,bcsa,iout
-     .                  ,w_pre_bcs=w_pre_bcs
+     .                  ,w_pre_bcs=w_pre_bcs,da0cov=da0cov
      .                  ,gm_it=gm_it,rtol=rtol)
 
 c     Diagnostics
@@ -1132,8 +1122,8 @@ c     Begin program
      .            ,1,110)
       close (110)
 
-      write (*,*) "Dumped graphics in B_dump"
-cc      call pstop('B_dump','Dumped graphics')
+cc      write (*,*) "Dumped graphics in B_dump"
+      call pstop('B_dump','Dumped graphics')
 
 c     End program
 
