@@ -104,13 +104,12 @@ cc          write (*,*) min_te,min_prs
       endif
       
       if (old_time_eval) then
-        call chk_neg(rho,'rho',0d0)
+        call chk_neg(IRHO,'rho',0d0)
         if (solve_prs) then
-          call chk_neg(prs,'prs',min_prs)
+          call chk_neg(IPRS,'prs',min_prs)
         else
-          call chk_neg(tmpe,'Te',min_te)
+          call chk_neg(ITMPE,'Te',min_te)
         endif
-        call chk_neg(heat_src,'heat source',0d0)
       endif
 
 c Setup fluxes
@@ -128,7 +127,7 @@ c End program
 
 c     chk_neg
 c     ###############################################################
-      subroutine chk_neg(array,desc,failsafe)
+      subroutine chk_neg(ivar,desc,failsafe)
 
       implicit none
 c     ---------------------------------------------------------------
@@ -138,40 +137,48 @@ c     ---------------------------------------------------------------
 
 c     Call variables
 
-      real(8) :: array(0:nx+1,0:ny+1,0:nz+1),failsafe
+      integer :: ivar
+      real(8) :: failsafe
       character(*) :: desc
 
 c     Local variables
 
       integer :: index(3)
       real(8) :: minv,ltmin,minvg
+      real(8) :: array(1:nx,1:ny,1:nz)
 
 c     Begin program
 
-        minv = minval(array(1:nx,1:ny,1:nz))
-
-        minvg = pmin(minv)      !Parallel min
+      array = varray%array_var(ivar)%array
+     $       /gv%gparams%gmetric%grid(igx)%jac
       
-        if (minvg < -1d-14) then
-          if (minv < -1d-14) then
-            index = globalIndex(gv%gparams,igx
+      minv = minval(array(1:nx,1:ny,1:nz))
+
+      minvg = pmin(minv)        !Parallel min
+      
+      if (minvg < -1d-14) then
+        if (minv < -1d-14) then
+          index = globalIndex(gv%gparams,igx
      .                       ,minloc(array(1:nx,1:ny,1:nz)))
-            write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
+          write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
      .              ,' global pos=',index
-          endif
+        endif
 
-          if (failsafe > 0d0) then
-            where(array(1:nx,1:ny,1:nz) < failsafe)
-     $           array(1:nx,1:ny,1:nz) = failsafe
+        if (failsafe > 0d0) then
+          where(array(1:nx,1:ny,1:nz) < failsafe)
+     $          array(1:nx,1:ny,1:nz) = failsafe
 
-            if (my_rank == 0) write(*,*) "WARNING: neg ",trim(desc)
+          varray%array_var(ivar)%array =
+     $           array*gv%gparams%gmetric%grid(igx)%jac
+
+          if (my_rank == 0) write(*,*) "WARNING: neg ",trim(desc)
      $           ," detected; failsafe applied"
-          else
-            call pstop('setupNonlinearFunction',
+        else
+          call pstop('setupNonlinearFunction',
      $           'Negative values for '//trim(desc)/
      $           /' detected')
-          endif
         endif
+      endif
       
       end subroutine chk_neg
 
