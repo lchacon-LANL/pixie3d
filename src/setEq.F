@@ -1826,10 +1826,6 @@ c     --------------------------------------------------
           call pstop('setEq','VMEC EQU file not found')
         endif
 
-c     Read VMEC coordinates and fill grid hierarchy
-
-cc        call vmec_map(equ_file,gv%gparams) !Moved to createNLF
-
 c     Read VMEC equilibrium
 
         call vmec_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
@@ -1885,10 +1881,16 @@ c     --------------------------------------------------
 
 c     Read EFIT equilibrium
 
-        call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
-     .                                      ,var(:,:,:,IRHO)
-     .               ,gamma,equ_file)
-
+        if (solve_rho) then  !Adiabatic rho for now
+          call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                        ,var(:,:,:,IRHO)
+     .                 ,gamma,equ_file)
+        else                 !Constant rho
+          call efit_equ(ilevel,igx,nx,ny,nz,bb,var(:,:,:,IPRS)
+     .                                        ,var(:,:,:,IRHO)
+     .                 ,0d0,equ_file)
+        endif
+        
         find_a = .false.
 
         !Divergence clean field if not Tokamak
@@ -2044,7 +2046,7 @@ cc              var(i,j,k,IVX:IVZ)=0d0
         enddo
         
 #if !defined(vec_pot)
-        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
+cc        call B_div_clean(gv%gparams,ilevel,igx,bb,"vlap")
 #endif
 
 c     --------------------------------------------------

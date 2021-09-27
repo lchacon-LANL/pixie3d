@@ -39,7 +39,7 @@
       !Module variables
       real(8) :: r_max,r_min,z_max,z_min,LL,iLL,psisgn=1d0,e_bp=0d0
 
-      logical :: short_efit_file=.true.,efit_dbg=.false.,efit_rho_adiab=.false.
+      logical :: short_efit_file=.true.,efit_dbg=.false.
       
       CONTAINS
 
@@ -63,7 +63,7 @@
         !Begin program
         
         call getCartesianCoordinates(g_def,i,j,k      &
-     &            ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
+                 ,igrid,igrid,igrid,ig,jg,kg,x1,y1,z1)
 
         RR = sqrt(x1**2+y1**2)
         ZZ = z1 !+ zmaxis*iLL
@@ -185,6 +185,8 @@
           return
         endif
 
+        call clean_sptrx(nbbbs,rbbbs,zbbbs)
+        
         if (.not.short_efit_file) then
           read (neqdsk,2024,IOSTAT=istat) kvtor,rvtor,nmass
           if (istat /= 0) then
@@ -523,7 +525,7 @@
         rz(1) = R/iLL
         rz(2) = Z/iLL
 
-        npt = size(rbbbs)
+        npt = nbbbs
 
         !Order N algorithm based on angular integration
         !(approximates shape by a polygon)
@@ -536,11 +538,130 @@
            dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
            theta = theta + dth
         enddo
+        a = b
+        b = rz-(/rbbbs(1),zbbbs(1)/)
+        dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+        theta = theta + dth
+        
+!!        write (*,*) npt,theta/(2*pi)
+        inside = (abs(theta) > 0.98*2*pi)
+!!        if (.not.inside) write (*,*) "diag",rz
+        
+      end function inside_sptrx
 
-!!$        write (*,*) theta/(2*pi)
+!     inside_lmtr
+!     #################################################################
+      function inside_lmtr(R,Z) result(inside)
+
+!     -----------------------------------------------------------------
+!     Determines whether a point is inside limiter.
+!     -----------------------------------------------------------------
+
+        implicit none
+
+!     Call variables
+
+        real(8) :: R,Z
+        logical :: inside
+        
+!     Local variables
+
+        integer :: npt,ipt
+        real(8) :: rz(2),dth,theta,a(2),b(2)
+
+!     Begin program
+        
+        rz(1) = R!/iLL
+        rz(2) = Z!/iLL
+
+        npt = size(rlim)
+
+        !Order N algorithm based on angular integration
+        !(approximates shape by a polygon)
+        !Works for arbitrary curve shape
+        theta = 0d0
+        b = rz-(/rlim(1),zlim(1)/)
+        do ipt=2,npt
+           a = b
+           b = rz-(/rlim(ipt),zlim(ipt)/)
+           dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+           theta = theta + dth
+        enddo
+        a = b
+        b = rz-(/rlim(1),zlim(1)/)
+        dth = atan2((a(1)*b(2)-a(2)*b(1)),dot_product(a,b))
+        theta = theta + dth
+
+!!$        write (*,*) npt,theta/(2*pi)
         inside = (abs(theta) > 0.98*2*pi)
 
-      end function inside_sptrx
+      end function inside_lmtr
+
+!     clean_sptrx
+!     #################################################################
+      subroutine clean_sptrx(npt,rb,zb)
+
+!     -----------------------------------------------------------------
+!     Cleans up separatrix to ensure points are inside limiter.
+!     -----------------------------------------------------------------
+        
+        implicit none
+
+        integer :: npt
+        real(8) :: rb(:),zb(:)
+
+!       Local variables
+
+        integer :: np,i
+        real(8) :: mag,iLL
+        real(8), allocatable,dimension(:) :: rl,zl
+
+!       Begin program
+
+        allocate(rl(npt),zl(npt))
+        
+        !First pass (select inside limiter)
+        np = 0
+        do i=1,npt
+           if (inside_lmtr(rb(i),zb(i))) then
+              np = np + 1
+              zl(np) = zb(i)
+              rl(np) = rb(i)
+           endif
+        enddo
+
+        npt = np
+        rb(1:np) = rl(1:np)
+        zb(1:np) = zl(1:np)
+
+        !Second pass (detect jumps in curve)
+        iLL = 1d0/(maxval(rlim)-minval(rlim))
+        mag = 0d0
+        np = 0
+        do i=1,npt-1
+           np = np + 1
+           mag = sqrt((rb(i+1)-rb(i))**2+(zb(i+1)-zb(i))**2)
+           if (mag*iLL > 0.3.and.np < npt/2) then 
+              np = 0 !large jump across points; line too short: cut out
+           else
+              zl(np) = zb(i)
+              rl(np) = rb(i)
+           endif
+        enddo
+
+        !Store new separatrix
+        npt = np
+        rb(1:np) = rl(1:np)
+        zb(1:np) = zl(1:np)
+
+        if (np < npt) then
+           rb(np+1:)=0d0
+           zb(np+1:)=0d0
+        endif
+        
+        deallocate(rl,zl)
+        
+      end subroutine clean_sptrx
       
       END MODULE efit
 
@@ -650,11 +771,13 @@
 
         coords = coord
 
-        gparams(1) = 0.5*(r_max+r_min)   !Major radius
-        gparams(2) = 2*gparams(2)        !Horizontal dimension
-        gparams(3) = z_max*gparams(3)    !Vertical   dimension
+        !Find box dimensions based on limiter
+        if (gparams(1) == 0d0) gparams(1) = 0.5*(r_max+r_min)  !Domain center R-coord
+        if (gparams(2) == 0d0) gparams(2) = 0.5*(z_max+z_min)  !Domain center Z-coord
+        if (gparams(3) == 0d0) gparams(3) = r_max-r_min        !Horizontal dimension
+        if (gparams(4) == 0d0) gparams(4) = z_max-z_min        !Vertical   dimension
 
-      case default
+     case default
 
         call pstop("efit_map","Coordinates unknown")
 
@@ -704,14 +827,14 @@
 !     Local variables
 
         integer :: i,j,k,ig,jg,kg,istat,inbv,bcs(6,3),nxg,nyg,nzg
-        real(8) :: max_prs,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1
+        real(8) :: max_prs,RR,ZZ,BB0,iB0,ip0,ipsi0,x1,y1,z1,mu_0,n_0,kb,mi
 
         real(8),allocatable, dimension(:,:,:) :: bsub3,psi
         real(8),allocatable, dimension(:,:,:,:) :: aa
 
         real(8)  :: db2val,dbvalu
         external :: db2val,dbvalu
-
+        
 !     Begin program
 
         if (my_rank == 0) then
@@ -745,7 +868,11 @@
                                  ,kx,kz,psi_coef,work)
 
               !Interpolate pressure
+!!$              if (psi(i,j,k) < sibry) then
               if (inside_sptrx(RR,ZZ)) then
+                if (psi(i,j,k) > sibry) then
+                  call pstop("efit_equ","Error in separatrix boundary")
+                endif
                 prs  (i,j,k) = dbvalu(tps,pres_coef,nxs,kx,0,psi(i,j,k),inbv,work)
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,psi(i,j,k),inbv,work)
               else
@@ -753,7 +880,7 @@
                 bsub3(i,j,k) = dbvalu(tps,fpol_coef,nxs,kx,0,sibry,inbv,work)
               endif
 
-              if (prs(i,j,k) < 0d0) prs(i,j,k) = abs(prs(i,j,k))
+              prs(i,j,k) = abs(prs(i,j,k))
 
             enddo
           enddo
@@ -772,19 +899,18 @@
 
 !     Normalization constants for magnetic field (toroidal at magnetic axis) and pressure
 
+        n_0 = 1d20          !m^-3
+        mu_0 = (4*pi)*1d-7  !Magnetic permeability (SI units)
+        kb  = 1.6d-19       !J/eV
+        mi  = 1.6726d-27    !kg
+        
         BB0 = abs(dbvalu(tps,fpol_coef,nxs,kx,0,simag,inbv,work))/rmaxis
 
         iB0 = 1d0/BB0
-        ip0 = (4*pi)*1d-7*iB0*iB0  !(B0^2/mu_0)^(-1)
+        ip0 = mu_0*iB0*iB0  !(B0^2/mu_0)^(-1)
 
         ipsi0 = iB0*iLL*(2*pi)**(-e_bp)
 !!        ipsi0 = iB0*iLL*(2*pi)**(-1d0)
-
-        if (my_rank == 0) then
-          write (*,*)
-          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
-          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
-        endif
         
 !     Normalized pressure
 
@@ -823,10 +949,26 @@
         max_prs = maxval(prs)
         max_prs = pmax(max_prs)
         
-        if (max_prs == 0d0.or.(.not.efit_rho_adiab)) then
+        if (max_prs == 0d0.or.(gam==0d0)) then
           rho = 1d0
         else
           rho = (abs(prs/max_prs)**(1d0/gam))  !Forces positive density
+        endif
+
+!     Find normalization constants
+        
+        if (my_rank == 0) then
+          write (*,'(a)') " Normalization constants:"
+          write (*,*)
+          write (*,'(a,1pe14.7,a)') " L_0 = ",1d0/iLL," m"
+          write (*,'(a,1pe14.7,a)') " n_0 = ",1d20," 1/m^3"
+          write (*,'(a,1pe14.7,a)') " B_0 = ",BB0," T"
+          write (*,'(a,1pe14.7,a)') " p_0 = ",1d0/ip0," N/m^2"
+          write (*,'(a,1pe14.7,a)') " v_A = ",BB0/sqrt(mi*1d20*mu_0)," m/s"
+          write (*,'(a,1pe14.7,a)') " t_A = ",1d0/iLL/BB0*sqrt(mi*1d20*mu_0)," s"
+          write (*,'(a,1pe14.7  )') " beta= ",max_prs
+          write (*,'(a,1pe14.7,a)') " Tmax= ",max_prs*1d-3/(kb*ip0*n_0)," keV "
+          write (*,*)
         endif
 
 !     Check EFIT qtys
