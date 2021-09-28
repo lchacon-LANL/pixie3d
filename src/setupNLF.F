@@ -145,34 +145,37 @@ c     Local variables
 
       integer :: index(3)
       real(8) :: minv,ltmin,minvg
-      real(8) :: array(1:nx,1:ny,1:nz)
+      real(8) :: array(0:nx+1,0:ny+1,0:nz+1)
+      logical :: apply_failsafe
 
 c     Begin program
 
-      array = varray%array_var(ivar)%array
-     $       /gv%gparams%gmetric%grid(igx)%jac
-      
-      minv = minval(array(1:nx,1:ny,1:nz))
+      minv = minval(varray%array_var(ivar)%array(1:nx,1:ny,1:nz))
 
       minvg = pmin(minv)        !Parallel min
       
-      if (minvg < -1d-14) then
+      apply_failsafe = (failsafe>0d0).and.(minvg<failsafe)
+      
+      if (minvg < -1d-14.or.apply_failsafe) then
+      
         if (minv < -1d-14) then
           index = globalIndex(gv%gparams,igx
-     .                       ,minloc(array(1:nx,1:ny,1:nz)))
+     .           ,minloc(varray%array_var(ivar)%array(1:nx,1:ny,1:nz)))
           write(*,*) 'proc=',my_rank,' ',trim(desc),'=',minv
      .              ,' global pos=',index
         endif
 
-        if (failsafe > 0d0) then
-          where(array(1:nx,1:ny,1:nz) < failsafe)
-     $          array(1:nx,1:ny,1:nz) = failsafe
+        if (apply_failsafe) then
+          array = varray%array_var(ivar)%array
+     $           /gv%gparams%gmetric%grid(igx)%jac
+
+          where(array < failsafe) array = failsafe
 
           varray%array_var(ivar)%array =
      $           array*gv%gparams%gmetric%grid(igx)%jac
 
-          if (my_rank == 0) write(*,*) "WARNING: neg ",trim(desc)
-     $           ," detected; failsafe applied"
+          if (my_rank == 0) write(*,*) "WARNING: ",trim(desc)
+     $           ," is below threshold; failsafe applied"
         else
           call pstop('setupNonlinearFunction',
      $           'Negative values for '//trim(desc)/
