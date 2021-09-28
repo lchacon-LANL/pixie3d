@@ -145,7 +145,7 @@ c     Local variables
 
       integer :: index(3)
       real(8) :: minv,ltmin,minvg
-      real(8) :: array(1:nx,1:ny,1:nz)
+      real(8) :: array(0:nx+1,0:ny+1,0:nz+1)
 
 c     Begin program
 
@@ -165,8 +165,7 @@ c     Begin program
         endif
 
         if (failsafe > 0d0) then
-          where(array(1:nx,1:ny,1:nz) < failsafe)
-     $          array(1:nx,1:ny,1:nz) = failsafe
+          where(array < failsafe) array = failsafe
 
           varray%array_var(ivar)%array =
      $           array*gv%gparams%gmetric%grid(igx)%jac
