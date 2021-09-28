@@ -174,8 +174,8 @@ c     Begin program
           varray%array_var(ivar)%array =
      $           array*gv%gparams%gmetric%grid(igx)%jac
 
-          if (my_rank == 0) write(*,*) "WARNING: neg ",trim(desc)
-     $           ," detected; failsafe applied"
+          if (my_rank == 0) write(*,*) "WARNING: ",trim(desc)
+     $           ," is below threshold; failsafe applied"
         else
           call pstop('setupNonlinearFunction',
      $           'Negative values for '//trim(desc)/
