@@ -293,7 +293,7 @@ c     Local variables
 
 c     Begin program
 
-      res = (abs(te0/(te+1d-2*te0)))**(1.5)
+      res = (te0/(abs(te)+1d-2*te0))**(1.5)
 
 c     End program
 
