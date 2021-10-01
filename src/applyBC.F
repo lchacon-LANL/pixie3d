@@ -680,12 +680,12 @@ cc            acov = acov + acov_0
 
             deallocate(acnv_n)
           else
-            if (res_wall_bc) then
+            if (res_wall_bc.and.(.not.source_eval)) then
               call apply_rw_bc_A(gv%gparams,acov_n,v0,E_bc)
             else
               call XferBCs(acov_0,v0,.true.)
             endif
-          
+
             call setBC(gv%gparams,IAX,3,nnx,nny,nnz,acnv,acov,v0
      .                ,vaux%vec_list(IACOV)%bconds,igr,igr,igr
      .                ,iorder=order,is_cnv=vaux%vec_list(IACOV)%cnv)
