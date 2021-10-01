@@ -526,8 +526,6 @@ c ######################################################################
      .                                       ,vecnv_0
      .                                       ,vscnv
 
-        real(8),pointer,dimension(:,:,:,:) :: E_bc
-        
       contains
 
 c     createAuxVariables
