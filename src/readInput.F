@@ -697,6 +697,8 @@ c     #####################################################################
 
       implicit none
 
+      integer :: i
+      
       !Check legacy parameters
       if (hall_new     )  ion_hall = .true.
 
@@ -713,8 +715,6 @@ c     #####################################################################
       if (nsweep /= 0  )  sm_iter = nsweep
 
       if (pc_max_iter>0)  pc_iter = pc_max_iter
-
-      where (bcs == 'sym') bcs = 'fsm' !Face symmetric
 
       if (.not.timecorr) ts_adapt_dt = timecorr
 
@@ -738,11 +738,25 @@ c     #####################################################################
       !NK
 cc      if (atol < 0d0) atol = rtol*(xmax-xmin)/nxd*(ymax-ymin)/nyd
 
+      !Face symmetric if "sym"
+      where (bcs == 'sym') bcs = 'fsm'
+
       !Adequate BCs for collapsed dimension
       if (nxd == 1) bcs(1:2) = 'per'
       if (nyd == 1) bcs(3:4) = 'per'
       if (nzd == 1) bcs(5:6) = 'per'
 
+      !Setup resistive wall logic
+      where (bcs == 'rsw')
+        rw_bcs = .true.
+        bcs = 'def'
+      end where
+
+      res_wall_bc = .false.
+      do i=1,size(rw_bcs)
+        res_wall_bc = res_wall_bc.or.rw_bcs(i)
+      enddo
+      
       !Adequate size for collapsed dimension
       if (coords /= 'car') then
         if (nxd == 1) then

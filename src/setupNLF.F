@@ -79,7 +79,7 @@ c Begin program
 c Impose boundary conditions and find auxiliary quantities
 
 #if !defined (samrai)
-      call applyBC(igx,varray,gv%aux,it=itime,bc_order=order_bc)
+      call applyBC(igx,varray,gv%aux,bc_order=order_bc)
 #else
       call defineAuxVariables(gv%aux)  !Set pointers
 #endif
