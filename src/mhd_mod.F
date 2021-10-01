@@ -5672,7 +5672,7 @@ c     Local variables
 c     Begin program
 
       if (chi_bgnskii) then
-        dfvty = max(chi_par*chi_par_brag(te,te0_ref),chi_per)
+        dfvty = min(max(chi_par*chi_par_brag(te,te0_ref),chi_per),1d3)
       else
 c$$$        select case (equil)
 c$$$        case ('ppnch','ppnsl','ppnst','ppn3d','p3nsl','2dhel','ohtor')
